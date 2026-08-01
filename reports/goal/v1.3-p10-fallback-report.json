@@ -1,0 +1,12 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "noMatch": "cognitive_runtime",
+  "featureOff": "existing cognitive runtime",
+  "adapterFailure": "bounded cognitive fallback",
+  "denyFallsBack": false,
+  "confirmationFallsBack": false,
+  "fallbackSuccessCountsAsFastSuccess": false,
+  "fallbackBulkheadIndependent": true,
+  "evidence": ["packages/application/src/compiler/fast-gateway.ts", "packages/application/test/fast-gateway-p10.unit.test.ts"]
+}

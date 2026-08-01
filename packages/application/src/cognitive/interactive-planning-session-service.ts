@@ -14,6 +14,7 @@ import {
   type PlanningPreferenceCategory,
   type UserGoalPlan,
   type UserGoalPlanCandidateSnapshot,
+  type UserGoalCompletionContract,
 } from '../../../domain/src/index.js';
 import {
   userGoalCompletionContractFor,
@@ -25,6 +26,7 @@ import type {
   ExperienceUsageRepository,
   InteractivePlanningMutationResult,
   InteractivePlanningRepository,
+  PlanningCommitFence,
 } from './ports.js';
 import type {
   ExperienceEnrichedUserGoalPlanningService,
@@ -49,6 +51,29 @@ export interface InteractivePlanningSessionView {
   readonly outcome: 'started' | InteractivePlanningMutationResult['outcome'];
   readonly session: InteractivePlanningSessionSnapshot;
   readonly candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>;
+}
+
+/**
+ * Admits a deterministic, already-materialized plan candidate.  This is the
+ * narrow P08 seam: it deliberately reuses this session's validation,
+ * confirmation policy, CAS persistence and ConfirmedPlanHandoff rather than
+ * introducing another plan authority.
+ */
+export interface MaterializedPlanningCandidateInput {
+  readonly taskId: string;
+  readonly userId: string;
+  readonly goalSessionId: string;
+  readonly confirmedContractCandidateId: string;
+  readonly goal: Goal;
+  readonly contract: UserGoalCompletionContract;
+  readonly plan: UserGoalPlan;
+  readonly sourceRefs: readonly CognitiveSourceRef[];
+  readonly experienceHints?: readonly string[];
+  readonly confirmationPolicy?: PlanConfirmationPolicy;
+  /** A fact supplied by P08; the existing session retains confirmation authority. */
+  readonly requiresManualConfirmation: boolean;
+  readonly planningMetadata?: UserGoalPlanCandidateSnapshot<UserGoalPlan>['planningMetadata'];
+  readonly commitFence?: PlanningCommitFence;
 }
 
 export class InteractivePlanningSessionService {
@@ -211,6 +236,83 @@ export class InteractivePlanningSessionService {
     );
   }
 
+  async startWithMaterializedCandidate(
+    input: MaterializedPlanningCandidateInput,
+  ): Promise<InteractivePlanningSessionView> {
+    if (
+      input.goal.goalId !== input.contract.goalId ||
+      input.goal.version !== input.contract.goalVersion
+    ) {
+      throw new Error('INTERACTIVE_PLANNING_GOAL_BINDING_INVALID');
+    }
+    const existing = await this.#repository.findByTask(input.taskId);
+    if (existing !== undefined) {
+      if (existing.goalId !== input.goal.goalId || existing.goalVersion !== input.goal.version)
+        throw new Error('INTERACTIVE_PLANNING_GOAL_BINDING_INVALID');
+      const current = await this.#currentCandidate(existing);
+      if (current.plan.contentHash !== input.plan.contentHash)
+        throw new Error('INTERACTIVE_PLANNING_IDEMPOTENCY_CONFLICT');
+      return this.#viewAndEnsureHandoff('duplicate', existing, input.contract);
+    }
+
+    const timestamp = this.#clock.now();
+    const sessionId = this.#ids.nextSessionId();
+    const candidateId = this.#ids.nextCandidateId();
+    const confirmationPolicy = input.requiresManualConfirmation
+      ? 'manual_all'
+      : (input.confirmationPolicy ?? this.#defaultConfirmationPolicy);
+    const validation = this.#validator.validate(input.contract, input.plan, confirmationPolicy);
+    if (!validation.valid) throw new Error(validation.errorCodes.join(','));
+    const riskLevel = this.#validator.riskLevel(input.plan);
+    const autoConfirm = shouldAutoConfirm(confirmationPolicy, riskLevel);
+    const candidate = createUserGoalPlanCandidateSnapshot({
+      schemaVersion: COGNITIVE_SCHEMA_VERSION,
+      candidateId,
+      sessionId,
+      revision: 1,
+      status: autoConfirm ? 'confirmed' : 'candidate',
+      plan: input.plan,
+      planHash: input.plan.contentHash,
+      validation,
+      diff: {
+        changedFields: ['skillGoals', 'dependencies', 'confirmationPolicy'],
+        addedSkillGoalIds: input.plan.skillGoals.map((goal) => goal.skillGoalId).sort(),
+        removedSkillGoalIds: [],
+      },
+      experienceHints: [...(input.experienceHints ?? [])],
+      confirmationPolicy,
+      riskLevel,
+      planningMetadata: input.planningMetadata ?? { priorities: {}, parallelGroups: {} },
+      sourceRefs: input.sourceRefs,
+      createdAt: timestamp,
+    });
+    const session = createInteractivePlanningSessionSnapshot({
+      schemaVersion: COGNITIVE_SCHEMA_VERSION,
+      sessionId,
+      taskId: input.taskId,
+      goalSessionId: input.goalSessionId,
+      confirmedContractCandidateId: input.confirmedContractCandidateId,
+      goalId: input.goal.goalId,
+      goalVersion: input.goal.version,
+      state: autoConfirm ? 'confirmed' : 'plan_review',
+      version: 1,
+      currentCandidateId: candidate.candidateId,
+      currentCandidateRevision: candidate.revision,
+      revisionCount: 1,
+      maxRevisions: this.#maxRevisions,
+      maxElapsedMs: this.#maxElapsedMs,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    assertPlanningCommitAllowed(input.commitFence);
+    const persisted = await this.#repository.start(session, candidate, input.commitFence);
+    return this.#viewAndEnsureHandoff(
+      persisted.sessionId === session.sessionId ? 'started' : 'duplicate',
+      persisted,
+      input.contract,
+    );
+  }
+
   async getByTask(taskId: string): Promise<InteractivePlanningSessionView | undefined> {
     const session = await this.#repository.findByTask(taskId);
     return session === undefined ? undefined : this.#viewAndEnsureHandoff('duplicate', session);
@@ -343,12 +445,13 @@ export class InteractivePlanningSessionService {
   async #viewAndEnsureHandoff(
     outcome: InteractivePlanningSessionView['outcome'],
     session: InteractivePlanningSessionSnapshot,
+    contract?: UserGoalCompletionContract,
   ): Promise<InteractivePlanningSessionView> {
     const candidate = await this.#currentCandidate(session);
     if (session.state === 'confirmed') {
       const goal = await this.#goals.get(session.goalId);
       if (goal.version !== session.goalVersion) throw new Error('INTERACTIVE_PLANNING_GOAL_STALE');
-      await this.#handoff.commit(candidate, userGoalCompletionContractFor(goal));
+      await this.#handoff.commit(candidate, contract ?? userGoalCompletionContractFor(goal));
     }
     return this.#view(outcome, session, candidate);
   }
@@ -375,6 +478,11 @@ export class InteractivePlanningSessionService {
   ): InteractivePlanningSessionView {
     return { outcome, session, candidate };
   }
+}
+
+function assertPlanningCommitAllowed(commitFence: PlanningCommitFence | undefined): void {
+  if (commitFence?.mayCommit() === false)
+    throw new Error('INTERACTIVE_PLANNING_COMMIT_FENCE_EXPIRED');
 }
 
 function knowledgeSourceRefs(

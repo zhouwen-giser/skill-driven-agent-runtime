@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P14-OPTIONAL",
+  "status": "planned_blocked",
+  "classification": "plan-only; no production monitoring access",
+  "dashboardAuthority": "projection_only",
+  "productionAccess": false,
+  "ownersAssigned": false,
+  "requiredDimensions": [
+    "environment",
+    "tenantId_redacted_or_authorized",
+    "routeType",
+    "artifactType",
+    "artifactRef",
+    "providerId",
+    "modelProfileId",
+    "severity"
+  ],
+  "monitors": [
+    {
+      "id": "runtime-requests",
+      "category": "runtime",
+      "signals": ["request_count", "terminal_state", "error_code", "latency_ms", "deadline_miss", "cancellation"],
+      "authoritativeSources": ["formal task repository", "runtime structured events"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "gateway-routing",
+      "category": "gateway",
+      "signals": ["fast_selected", "fast_committed", "cognitive_fallback", "confirm", "deny", "route_latency_ms"],
+      "authoritativeSources": ["fast_gateway_decision", "fast_gateway_feedback", "formal outcome reference"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "artifact-lifecycle",
+      "category": "artifact",
+      "signals": ["candidate", "validating", "revalidating", "active", "deprecated", "kill_switch", "active_pointer_lock_version"],
+      "authoritativeSources": ["compiled_artifact", "artifact_active_pointer", "artifact governance Outbox"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "artifact-quality",
+      "category": "artifact",
+      "signals": ["match_rate", "eligible_rate", "commit_rate", "fallback_rate", "correction_rate", "outcome_regression", "drift_trigger"],
+      "authoritativeSources": ["artifact_match_log", "artifact_execution", "artifact_feedback", "formal outcome"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "compiled-types",
+      "category": "rule_template_case_model",
+      "signals": ["rule_decision", "template_materialization", "case_adaptation", "model_route_selection", "validator_rejection", "ood_fallback"],
+      "authoritativeSources": ["artifact execution evidence", "formal planner handoff", "model route decision"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "queue-workers",
+      "category": "workers",
+      "signals": ["queue_depth", "oldest_available_at", "claim_lag_ms", "lease_expiry", "retry", "dead_letter", "stale_job"],
+      "authoritativeSources": ["PostgreSQL durable run tables", "BullMQ wake telemetry"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "outbox-feedback",
+      "category": "outbox",
+      "signals": ["unpublished_age_ms", "consumer_lag", "duplicate_event", "feedback_lag", "missing_formal_ref"],
+      "authoritativeSources": ["cognitive_runtime_outbox", "consumer cursor", "artifact feedback"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "postgresql",
+      "category": "infrastructure",
+      "signals": ["availability", "connection_pool", "query_latency", "lock_wait", "disk", "replication_if_configured", "migration_ledger"],
+      "authoritativeSources": ["PostgreSQL system views", "schema_migration"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "redis",
+      "category": "infrastructure",
+      "signals": ["availability", "memory", "eviction", "persistence_error", "bullmq_connection"],
+      "authoritativeSources": ["Redis INFO", "BullMQ telemetry"],
+      "authorityNote": "ephemeral; loss must not imply formal fact loss",
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "server-sse",
+      "category": "transport",
+      "signals": ["process_readiness", "event_loop_delay", "memory", "http_error", "sse_clients", "sse_reconnect", "replay_overflow"],
+      "authoritativeSources": ["server metrics", "structured logs", "Outbox sequence"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "provider-model",
+      "category": "provider_model",
+      "signals": ["readiness", "error", "timeout", "circuit_state", "cascade_depth", "input_tokens", "output_tokens", "cost_units", "budget_denial"],
+      "authoritativeSources": ["Provider Registry", "model invocation usage", "formal route decision"],
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_OPERATIONS_OWNER",
+      "connectionStatus": "not_connected"
+    },
+    {
+      "id": "security-tenant",
+      "category": "security",
+      "signals": ["auth_failure", "actor_spoof_rejection", "cross_tenant_attempt", "role_escalation", "credential_error", "unusual_export", "sse_abuse"],
+      "authoritativeSources": ["management audit", "authorization denial events", "security platform"],
+      "redactionRequired": true,
+      "freshnessTarget": "TBD_BY_OWNER",
+      "owner": "PENDING_NAMED_SECURITY_OWNER",
+      "connectionStatus": "not_connected"
+    }
+  ],
+  "blockers": ["P14-BLK-004", "P14-BLK-005", "P14-BLK-006"]
+}

@@ -616,6 +616,24 @@ paths:
       operationId: listTaskRuntimeEvents
       responses:
         '200': { description: Ordered displayable Task lifecycle events }
+  /api/v1/tasks/{taskId}/gateway-evidence:
+    parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getTaskGatewayEvidence
+      description: Returns the bounded, read-only P10 Gateway route, stage, reason, formal handoff, fallback, and Outbox correlation projection. It does not expose request text, credentials, private reasoning, or a second Task/Goal/Plan authority.
+      responses:
+        '200': { description: PostgreSQL-authoritative Gateway decision evidence }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts/runtime-evidence/{requestRef}:
+    parameters: [{ name: requestRef, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getArtifactRuntimeEvidence
+      description: Returns bounded, read-only P11 Case match/adaptation and Model Route/Cascade evidence. Credentials, secrets, complete sensitive prompts, and private reasoning are never projected.
+      responses:
+        '200': { description: PostgreSQL-authoritative P11 runtime evidence }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}/skill-executions:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:
@@ -1708,6 +1726,225 @@ paths:
                     }
                 qualityTrend: []
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts:
+    get:
+      operationId: listManagedArtifacts
+      security: [{ CognitiveBearer: [] }]
+      description: Tenant- and role-scoped Artifact registry projection with cursor pagination.
+      parameters:
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: taskType, in: query, schema: { type: string } }
+        - { name: risk, in: query, schema: { type: string } }
+        - { name: createdFrom, in: query, schema: { type: string, format: date-time } }
+        - { name: createdTo, in: query, schema: { type: string, format: date-time } }
+        - { name: driftSeverity, in: query, schema: { type: string } }
+        - { name: active, in: query, schema: { type: boolean } }
+        - {
+            name: sort,
+            in: query,
+            schema: { type: string, enum: [created_desc, created_asc, key_asc] },
+          }
+      responses:
+        '200':
+          description: Redacted Artifact registry projection
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { type: object, additionalProperties: true } }
+                  nextCursor: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts/{artifactId}:
+    parameters: [{ name: artifactId, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getManagedArtifact
+      security: [{ CognitiveBearer: [] }]
+      responses:
+        '200':
+          description: Versioned and redacted Artifact detail
+          headers: { ETag: { schema: { type: string } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts/{artifactId}/{view}:
+    parameters:
+      - { name: artifactId, in: path, required: true, schema: { type: string } }
+      - {
+          name: view,
+          in: path,
+          required: true,
+          schema:
+            {
+              type: string,
+              enum:
+                [
+                  versions,
+                  diff,
+                  lineage,
+                  validation,
+                  shadow,
+                  promotion,
+                  approvals,
+                  activations,
+                  usage,
+                  outcomes,
+                  drift,
+                  audit,
+                ],
+            },
+        }
+    get:
+      operationId: getManagedArtifactEvidenceView
+      security: [{ CognitiveBearer: [] }]
+      responses:
+        '200': { description: Permission-trimmed Artifact evidence view }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/runtime/{view}:
+    parameters:
+      - {
+          name: view,
+          in: path,
+          required: true,
+          schema: { type: string, enum: [decisions, model-usage, case-usage] },
+        }
+      - { name: cursor, in: query, schema: { type: string } }
+      - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+    get:
+      operationId: getArtifactRuntimeManagementView
+      security: [{ CognitiveBearer: [] }]
+      responses:
+        '200': { description: Tenant-scoped Gateway, Case or Model runtime evidence }
+  /api/v1/runtime/{view}/{id}:
+    parameters:
+      - {
+          name: view,
+          in: path,
+          required: true,
+          schema: { type: string, enum: [decisions, model-usage, case-usage] },
+        }
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getArtifactRuntimeManagementDetail
+      security: [{ CognitiveBearer: [] }]
+      responses:
+        '200': { description: Tenant-scoped Gateway, Case or Model runtime evidence detail }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/artifacts/{artifactId}/commands/{operation}:
+    parameters:
+      - { name: artifactId, in: path, required: true, schema: { type: string } }
+      - {
+          name: operation,
+          in: path,
+          required: true,
+          schema:
+            {
+              type: string,
+              enum:
+                [
+                  validate,
+                  shadow,
+                  build-promotion-package,
+                  approve,
+                  reject,
+                  activate,
+                  revalidate,
+                  deprecate,
+                  rollback,
+                  kill-switch-enable,
+                  kill-switch-disable,
+                ],
+            },
+        }
+    post:
+      operationId: executeArtifactGovernanceCommand
+      security: [{ CognitiveBearer: [] }]
+      description: Delegates a version-bound and audited command to ArtifactGovernancePort.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, expectedVersion, idempotencyKey, reason]
+              properties:
+                version: { type: integer, minimum: 1 }
+                expectedVersion: { type: integer, minimum: 0 }
+                expectedLockVersion: { type: integer, minimum: 0 }
+                idempotencyKey: { type: string, minLength: 1, maxLength: 256 }
+                reason: { type: string, minLength: 1, maxLength: 4096 }
+                artifactKey: { type: string }
+                validationRunId: { type: string }
+                validationType:
+                  { type: string, enum: [static, replay, simulation, shadow, revalidation] }
+                datasetRef: { type: string }
+                approvalId: { type: string }
+                validationSummaryHash: { type: string }
+                targetArtifactId: { type: string }
+                targetVersion: { type: integer, minimum: 1 }
+                promotionPackage:
+                  type: object
+                  description: Evidence hashes consumed by the formal P06 promotion-package command.
+                  additionalProperties: false
+                  required:
+                    - promotionPackageId
+                    - artifactRef
+                    - artifactHash
+                    - validationSummaryRef
+                    - validationSummaryHash
+                    - shadowSummaryRef
+                    - shadowSummaryHash
+                    - counterexampleSummaryRef
+                    - counterexampleSummaryHash
+                    - riskReviewRef
+                    - riskReviewHash
+                    - dependencySnapshotRef
+                    - dependencySnapshotHash
+                  properties:
+                    promotionPackageId: { type: string, minLength: 1 }
+                    artifactRef: { type: string, minLength: 1 }
+                    artifactHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                    validationSummaryRef: { type: string, minLength: 1 }
+                    validationSummaryHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                    shadowSummaryRef: { type: string, minLength: 1 }
+                    shadowSummaryHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                    counterexampleSummaryRef: { type: string, minLength: 1 }
+                    counterexampleSummaryHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                    riskReviewRef: { type: string, minLength: 1 }
+                    riskReviewHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                    dependencySnapshotRef: { type: string, minLength: 1 }
+                    dependencySnapshotHash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+                scope:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    artifactKey: { type: string }
+                    domain: { type: string }
+      responses:
+        '202': { description: Governance command accepted by the formal application port }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/v1/artifact-events:
+    get:
+      operationId: streamArtifactEvents
+      security: [{ CognitiveBearer: [] }]
+      description: Resumable, tenant-filtered, redacted projection of formal PostgreSQL Outbox facts.
+      parameters:
+        - { name: Last-Event-ID, in: header, schema: { type: string } }
+        - { name: after, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500 } }
+      responses:
+        '200':
+          description: Server-sent events; disconnect never mutates formal state
+          content: { text/event-stream: { schema: { type: string } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
     CognitiveBearer:

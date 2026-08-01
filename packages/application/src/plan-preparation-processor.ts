@@ -7,9 +7,11 @@ import {
   COGNITIVE_SCHEMA_VERSION,
   createCognitiveSourceRef,
   createGoalExecutionContract,
+  failTask,
   transitionTask,
   type AgentTask,
   type GoalExecutionContract,
+  type RuntimeExecutionDecision,
   type TaskPhase,
   type SkillAttempt,
   type SkillGoal,
@@ -169,6 +171,21 @@ export interface PlanPreparationProcessorDependencies {
     'start' | 'getByTask' | 'applyAction'
   >;
   readonly interactiveActions?: Pick<InteractiveActionRouter, 'route'>;
+  /**
+   * P10 request-path seam. It is absent when the feature is off. The adapter
+   * owns trusted RuntimeRequestContext construction and may report handled
+   * only after the existing formal authority committed the handoff.
+   */
+  readonly fastGateway?: Readonly<{
+    evaluate(input: Readonly<{ task: AgentTask; requestText: string }>): Promise<
+      Readonly<{
+        decision: RuntimeExecutionDecision;
+        formalHandoffCommitted: boolean;
+        formalPlanRef?: string;
+        interactionQuestion?: string;
+      }>
+    >;
+  }>;
 }
 
 /** EP-01 lifecycle increment: advances a queued task to the mandatory confirmation boundary. */
@@ -222,12 +239,27 @@ export class PlanPreparationProcessor {
         errorCode(error),
       );
       const latest = (await this.#dependencies.tasks.findById(task.taskId)) ?? task;
-      if (!['failed', 'canceled', 'completed'].includes(latest.phase))
-        await this.#transition(
-          latest,
-          'failed',
-          `Task preparation failed with ${errorCode(error)}: ${errorMessage(error)}`,
-        );
+      if (!['failed', 'canceled', 'completed'].includes(latest.phase)) {
+        const message = `Task preparation failed with ${errorCode(error)}: ${errorMessage(error)}`;
+        if (error instanceof TaskApplicationError) {
+          const timestamp = this.#dependencies.clock.now();
+          const failed = {
+            ...failTask(latest, error.code, timestamp),
+            phaseMessage: message,
+          };
+          await this.#dependencies.tasks.save(failed);
+          await this.#dependencies.events.publish({
+            eventId: this.#dependencies.ids.nextId('event'),
+            taskId: failed.taskId,
+            contextId: failed.contextId,
+            eventType: 'task.phase_changed',
+            timestamp,
+            summary: message,
+          });
+        } else {
+          await this.#transition(latest, 'failed', message);
+        }
+      }
       throw error;
     }
   }
@@ -285,6 +317,45 @@ export class PlanPreparationProcessor {
     let task = initialTask;
     task = await this.#transition(task, 'context_loading', 'Context loaded.');
     let requestText = task.requestText;
+    const gateway = await this.#dependencies.fastGateway?.evaluate({ task, requestText });
+    if (gateway !== undefined) {
+      if (gateway.decision.path === 'denied') {
+        throw new TaskApplicationError(
+          'GATEWAY_DENIED',
+          `Fast Gateway denied the request: ${gateway.decision.reasonCodes.join(',')}.`,
+        );
+      }
+      if (gateway.decision.path === 'human_input') {
+        task = await this.#transition(
+          task,
+          'goal_deliberation',
+          `Fast Gateway requires confirmation: ${gateway.decision.reasonCodes.join(',')}.`,
+        );
+        await this.#dependencies.requestTaskInput(
+          task.taskId,
+          gateway.interactionQuestion ?? 'Fast Gateway requires formal user confirmation.',
+          { source: 'goal_deliberation' },
+        );
+        return;
+      }
+      if (gateway.decision.path === 'compiled_fast' || gateway.decision.path === 'template_adapt') {
+        if (!gateway.formalHandoffCommitted || gateway.formalPlanRef === undefined) {
+          throw new TaskApplicationError(
+            'GATEWAY_FORMAL_HANDOFF_INCOMPLETE',
+            'Fast Gateway selected a formal route without a committed formal handoff.',
+          );
+        }
+        task = await this.#transition(
+          task,
+          'goal_deliberation',
+          `Fast Gateway committed formal plan ${gateway.formalPlanRef}.`,
+        );
+        await this.continueConfirmedPlanningSession(task.taskId, gateway.formalPlanRef);
+        return;
+      }
+      // Cognitive fallback and unsupported future routes continue through the
+      // unchanged authoritative preparation path.
+    }
     if (this.#dependencies.taskUnderstanding?.route({ requestText }).kind === 'generic_task') {
       const understanding = await this.#dependencies.taskUnderstanding.understand({
         taskId: task.taskId,

@@ -1,0 +1,41 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "evaluatorVersion": "p09-evaluator.1",
+  "acceptedArtifact": {
+    "type": "decision_rule",
+    "status": "active",
+    "checks": [
+      "artifact hash and version",
+      "active pointer version",
+      "tenant",
+      "Goal and Plan versions",
+      "policy and authorization references",
+      "capability catalog and readiness",
+      "kill switch",
+      "immutable runtime snapshot hash"
+    ]
+  },
+  "threeValuedSemantics": {
+    "requiredUnknown": "no_match/fallback/confirmation per validated policy; never true",
+    "forbiddenTrue": "deny",
+    "forbiddenUnknown": "require_confirmation",
+    "confirmationTrueOrUnknown": "require_confirmation",
+    "advisory": "non-authoritative"
+  },
+  "determinism": {
+    "sameInputsSameResultHash": true,
+    "hashIncludes": ["ruleHash", "runtimeSnapshotHash", "evaluatorVersion", "conditionResults", "proposedAction"],
+    "createdAtExcludedFromResultHash": true
+  },
+  "focusedTests": {
+    "unitAndApplication": 52,
+    "contract": 4,
+    "status": "passed"
+  },
+  "evidence": [
+    "packages/domain/test/decision-rule-runtime-p09.unit.test.ts",
+    "packages/application/test/decision-rule-runtime-p09.unit.test.ts",
+    "reports/verification/summary.json"
+  ]
+}

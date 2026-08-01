@@ -1,0 +1,16 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "formalAuthority": "P08 FormalPlanHandoffPort",
+  "checks": [
+    "Case, Goal, policy decision and runtime snapshot are rechecked before handoff",
+    "failure-boundary matches fall back or require confirmation",
+    "Case output is converted only to UserGoalPlanCandidate",
+    "P11 does not create Goal, Plan, Attempt, Workflow or confirmation authority",
+    "P11 does not call Skill or MCP"
+  ],
+  "evidence": [
+    "packages/application/src/compiler/case-model-runtime.ts",
+    "packages/application/test/case-model-runtime-p11.contract.test.ts"
+  ]
+}

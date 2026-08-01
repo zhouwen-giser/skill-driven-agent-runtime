@@ -1,9 +1,12 @@
 import process from 'node:process';
 
+import { ConfiguredOperatorIdentityPort } from '../../../packages/application/src/index.js';
+import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
 import { startServerRuntime } from './runtime.js';
 
 const environment = loadServerEnvironment();
+const artifactManagementIdentity = createArtifactManagementIdentity();
 const runtime = await startServerRuntime({
   postgresUrl: environment.SDAR_POSTGRES_URL,
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
@@ -16,6 +19,15 @@ const runtime = await startServerRuntime({
   ...(environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN === undefined
     ? {}
     : { cognitiveManagementBearerToken: environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN }),
+  ...(artifactManagementIdentity === undefined
+    ? {}
+    : {
+        artifactOperatorIdentity: new ConfiguredOperatorIdentityPort({
+          environment: 'production',
+          provider: artifactManagementIdentity.externalOperatorIdentityProvider,
+        }),
+        artifactManagementPrincipalResolver: artifactManagementIdentity.managementPrincipalResolver,
+      }),
   ...(environment.BUSINESS_EVENTS_ENABLED === 'true'
     ? {
         frozenMcpTasks: { isolationAcknowledged: true as const },
@@ -43,3 +55,23 @@ async function close(): Promise<void> {
 
 process.once('SIGINT', () => void close());
 process.once('SIGTERM', () => void close());
+
+function createArtifactManagementIdentity():
+  ConfiguredBearerArtifactManagementIdentity | undefined {
+  const token = environment.SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN;
+  if (token === undefined) return undefined;
+  const actorId = environment.SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID;
+  const roles = environment.SDAR_ARTIFACT_MANAGEMENT_ROLES;
+  if (actorId === undefined || roles === undefined) {
+    throw new Error('ARTIFACT_MANAGEMENT_IDENTITY_CONFIG_INVALID');
+  }
+  return new ConfiguredBearerArtifactManagementIdentity({
+    token,
+    actorId,
+    ...(environment.SDAR_ARTIFACT_MANAGEMENT_TENANT_ID === undefined
+      ? {}
+      : { tenantId: environment.SDAR_ARTIFACT_MANAGEMENT_TENANT_ID }),
+    kind: environment.SDAR_ARTIFACT_MANAGEMENT_KIND,
+    roles,
+  });
+}

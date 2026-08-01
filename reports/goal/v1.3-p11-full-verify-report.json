@@ -1,0 +1,13 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "commit": "dc636e66b5b5dbbadd99bfaebe2f5cc183d394be",
+  "dirtyAtStart": false,
+  "durationMs": 275223,
+  "unitAndContract": {"files":160,"tests":1097,"passed":1097},
+  "integration": {"files":18,"tests":122,"passed":122,"infrastructure":"real PostgreSQL/Redis"},
+  "e2e": {"files":4,"tests":64,"passed":64,"infrastructure":"real PostgreSQL/Redis"},
+  "migrations": {"count":26,"latest":"0133_v13_case_model_runtime","fresh":true,"idempotent":true,"rollbackReapply":true},
+  "otherGates": ["format", "lint", "typecheck", "architecture", "OpenAPI 157 operations", "A2A TCK", "protocol", "licenses", "build", "infrastructure smoke", "server/console smoke"],
+  "source": "reports/verification/summary.json"
+}

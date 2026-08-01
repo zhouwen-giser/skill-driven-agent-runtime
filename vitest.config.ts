@@ -32,6 +32,7 @@ export default defineConfig({
         test: {
           name: 'e2e',
           include: ['packages/**/*.e2e.test.ts', 'apps/**/*.e2e.test.ts'],
+          fileParallelism: false,
           hookTimeout: 30_000,
           testTimeout: 30_000,
         },

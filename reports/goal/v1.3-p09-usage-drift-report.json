@@ -1,0 +1,42 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "authority": {
+    "execution": "P02 artifact_execution",
+    "feedback": "P02 artifact_feedback",
+    "outbox": "P02 cognitive_runtime_outbox",
+    "outcome": "reference only; no copied Outcome authority",
+    "revalidation": "P06 signal only"
+  },
+  "idempotency": {
+    "exactEvaluationReplay": "accepted even when observation timestamp changes",
+    "differentPayloadSameId": "RULE_USAGE_IDEMPOTENCY_CONFLICT",
+    "differentTerminalResult": "RULE_USAGE_CAS_CONFLICT",
+    "differentFeedbackSameId": "RULE_FEEDBACK_IDEMPOTENCY_CONFLICT"
+  },
+  "driftKinds": [
+    "false_positive",
+    "false_negative",
+    "unsafe_allow",
+    "missed_confirmation",
+    "user_correction",
+    "plan_patch_rejection",
+    "fallback",
+    "outcome_regression",
+    "environment_novelty",
+    "policy_change",
+    "readiness_change"
+  ],
+  "realIntegration": {
+    "status": "passed",
+    "suiteTests": 114,
+    "executionRows": 1,
+    "feedbackRows": 1,
+    "outboxRows": 3
+  },
+  "migration": "none; canonical P02 tables reused",
+  "evidence": [
+    "packages/persistence-postgres/test/decision-rule-runtime-p09.integration.test.ts",
+    "reports/verification/summary.json"
+  ]
+}

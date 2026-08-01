@@ -60,4 +60,67 @@ describe('server environment', () => {
       SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: 'true',
     });
   });
+
+  it('parses a complete Artifact management bearer identity', () => {
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+        SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: 'a'.repeat(32),
+        SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'operator-1',
+        SDAR_ARTIFACT_MANAGEMENT_TENANT_ID: 'tenant-1',
+        SDAR_ARTIFACT_MANAGEMENT_KIND: 'service',
+        SDAR_ARTIFACT_MANAGEMENT_ROLES: 'viewer,operator',
+      }),
+    ).toMatchObject({
+      SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'operator-1',
+      SDAR_ARTIFACT_MANAGEMENT_TENANT_ID: 'tenant-1',
+      SDAR_ARTIFACT_MANAGEMENT_KIND: 'service',
+      SDAR_ARTIFACT_MANAGEMENT_ROLES: ['viewer', 'operator'],
+    });
+  });
+
+  it('requires actor and roles whenever Artifact management bearer authentication is enabled', () => {
+    const base = {
+      SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+      SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: 'a'.repeat(32),
+    };
+
+    expect(() => parseServerEnvironment(base)).toThrow(
+      'Artifact management bearer authentication requires an actor ID.',
+    );
+    expect(() =>
+      parseServerEnvironment({
+        ...base,
+        SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'operator-1',
+      }),
+    ).toThrow('Artifact management bearer authentication requires at least one role.');
+  });
+
+  it('rejects malformed or incomplete Artifact management identity configuration', () => {
+    const masterKey = randomBytes(32).toString('base64');
+
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: `${'a'.repeat(32)} `,
+        SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'operator-1',
+        SDAR_ARTIFACT_MANAGEMENT_ROLES: 'operator',
+      }),
+    ).toThrow('must not contain whitespace');
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'operator-1',
+        SDAR_ARTIFACT_MANAGEMENT_ROLES: 'administrator',
+      }),
+    ).toThrow('requires a bearer token');
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: 'a'.repeat(32),
+        SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'operator-1',
+        SDAR_ARTIFACT_MANAGEMENT_ROLES: 'root',
+      }),
+    ).toThrow();
+  });
 });

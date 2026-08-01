@@ -52,14 +52,23 @@ export type ArtifactMode = 'off' | 'shadow' | 'advisory' | 'active';
 
 export interface ArtifactFeatureFlags {
   readonly artifactMode: ArtifactMode;
+  readonly compilerEnabled: boolean;
+  readonly registryEnabled: boolean;
+  readonly shadowEnabled: boolean;
+  readonly promotionEnabled: boolean;
+  readonly retrievalEnabled: boolean;
+  readonly modelRouteEnabled: boolean;
   readonly templateEnabled: boolean;
   readonly ruleEnabled: boolean;
   readonly fastGatewayEnabled: boolean;
   readonly caseEnabled: boolean;
   readonly modelCascadeEnabled: boolean;
   readonly tenantAllowlist: ReadonlySet<string>;
+  /** Exact, versioned Artifact refs (`artifactId:version`). Empty denies all retrieval. */
+  readonly artifactAllowlist: ReadonlySet<string>;
 }
 
+/** P02/P07 frozen flag names. Additive release controls live in the P13 list below. */
 export const ARTIFACT_FEATURE_FLAG_NAMES = Object.freeze([
   'SDAR_V13_ARTIFACT_MODE',
   'SDAR_V13_TEMPLATE_ENABLED',
@@ -68,6 +77,16 @@ export const ARTIFACT_FEATURE_FLAG_NAMES = Object.freeze([
   'SDAR_V13_CASE_ENABLED',
   'SDAR_V13_MODEL_CASCADE_ENABLED',
   'SDAR_V13_TENANT_ALLOWLIST',
+] as const);
+
+export const ARTIFACT_OPERATIONAL_FLAG_NAMES = Object.freeze([
+  'SDAR_V13_COMPILER_ENABLED',
+  'SDAR_V13_REGISTRY_ENABLED',
+  'SDAR_V13_SHADOW_ENABLED',
+  'SDAR_V13_PROMOTION_ENABLED',
+  'SDAR_V13_RETRIEVAL_ENABLED',
+  'SDAR_V13_MODEL_ROUTE_ENABLED',
+  'SDAR_V13_ARTIFACT_ALLOWLIST',
 ] as const);
 
 export function parseArtifactFeatureFlags(
@@ -79,6 +98,12 @@ export function parseArtifactFeatureFlags(
   }
   return Object.freeze({
     artifactMode: artifactMode as ArtifactMode,
+    compilerEnabled: parseBoolean(environment['SDAR_V13_COMPILER_ENABLED']),
+    registryEnabled: parseBoolean(environment['SDAR_V13_REGISTRY_ENABLED']),
+    shadowEnabled: parseBoolean(environment['SDAR_V13_SHADOW_ENABLED']),
+    promotionEnabled: parseBoolean(environment['SDAR_V13_PROMOTION_ENABLED']),
+    retrievalEnabled: parseBoolean(environment['SDAR_V13_RETRIEVAL_ENABLED']),
+    modelRouteEnabled: parseBoolean(environment['SDAR_V13_MODEL_ROUTE_ENABLED']),
     templateEnabled: parseBoolean(environment['SDAR_V13_TEMPLATE_ENABLED']),
     ruleEnabled: parseBoolean(environment['SDAR_V13_RULE_ENABLED']),
     fastGatewayEnabled: parseBoolean(environment['SDAR_V13_FAST_GATEWAY_ENABLED']),
@@ -90,6 +115,7 @@ export function parseArtifactFeatureFlags(
         .map((value) => value.trim())
         .filter((value) => value.length > 0),
     ),
+    artifactAllowlist: parseArtifactAllowlist(environment['SDAR_V13_ARTIFACT_ALLOWLIST']),
   });
 }
 
@@ -263,6 +289,22 @@ function parseBoolean(value: string | undefined): boolean {
   if (value === undefined || value === 'false') return false;
   if (value === 'true') return true;
   throw new ArtifactRegistryError('ARTIFACT_FEATURE_FLAG_INVALID');
+}
+
+function parseArtifactAllowlist(value: string | undefined): ReadonlySet<string> {
+  if (value === undefined || value.trim().length === 0) return immutableReadonlySet([]);
+  const refs = value.split(',').map((entry) => entry.trim());
+  if (refs.some((ref) => !isVersionedArtifactRef(ref)) || new Set(refs).size !== refs.length) {
+    throw new ArtifactRegistryError('ARTIFACT_FEATURE_FLAG_INVALID');
+  }
+  return immutableReadonlySet(refs);
+}
+
+function isVersionedArtifactRef(value: string): boolean {
+  const separator = value.lastIndexOf(':');
+  if (separator <= 0 || /\s/u.test(value)) return false;
+  const version = value.slice(separator + 1);
+  return /^[1-9]\d*$/u.test(version);
 }
 
 function dependencyContains(value: unknown, dependencyRef: string): boolean {

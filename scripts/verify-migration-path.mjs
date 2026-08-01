@@ -1,37 +1,84 @@
+import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
-import { readdir, readFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { URL } from 'node:url';
 
 import pg from 'pg';
 
-import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+import { buildInfrastructureImages } from './lib/infrastructure.mjs';
 
 const { Pool } = pg;
 const root = process.cwd();
+const sourceDatabase = 'sdar_v123_frozen_source';
 const databases = [
   'sdar_v122_verify_empty',
   'sdar_v122_verify_existing',
   'sdar_v122_verify_rogue_ledger',
+  'sdar_v13_verify_upgrade',
+  'sdar_v13_verify_interrupted',
 ];
+const baselineFile = resolve(
+  root,
+  'infra',
+  'postgres',
+  'baseline',
+  '0001_sdar_v1_2_2_baseline.sql',
+);
+const seedFile = resolve(root, 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_minimal_seed.sql');
 const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
 const postBaselineMigrationFiles = (await readdir(migrationDirectory))
   .filter((file) => /^01[0-9]{2}_v(?:123|13)_[a-z0-9_]+\.up\.sql$/u.test(file))
   .sort();
+const v123MigrationFiles = postBaselineMigrationFiles.filter(
+  (file) => file.startsWith('01') && file.slice(0, 4) <= '0124',
+);
+const v13MigrationFiles = postBaselineMigrationFiles.filter(
+  (file) => file.startsWith('01') && file.slice(0, 4) >= '0125',
+);
 const expectedVersions = [
   'v1.2.2_clean_slate_baseline',
   ...postBaselineMigrationFiles.map((file) => file.slice(0, -'.up.sql'.length)),
 ];
-const adminUrl =
-  process.env.SDAR_POSTGRES_ADMIN_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+const expectedV123Versions = [
+  'v1.2.2_clean_slate_baseline',
+  ...v123MigrationFiles.map((file) => file.slice(0, -'.up.sql'.length)),
+];
+const checksumSources = [
+  {
+    version: 'v1.2.2_clean_slate_baseline',
+    filePath: baselineFile,
+  },
+  ...postBaselineMigrationFiles.map((file) => ({
+    version: file.slice(0, -'.up.sql'.length),
+    filePath: resolve(migrationDirectory, file),
+  })),
+];
+const v123FrozenComposeImage =
+  'pgvector/pgvector@sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f';
+const v13AlpineImage = 'sdar/postgres-pgvector:17.10-0.8.5-alpine3.23';
+const postgresUser = 'sdar';
+const postgresPassword = 'sdar_local_only';
+const startedAt = new Date();
+const writeP13Evidence = process.argv.includes('--report');
+let adminUrl;
+let sourceAdminUrl;
+let isolatedInfrastructure;
+let migrationInfrastructureEvidence;
 
 try {
-  startInfrastructure(root);
+  isolatedInfrastructure = await startIsolatedMigrationInfrastructure();
+  adminUrl = isolatedInfrastructure.targetAdminUrl;
+  sourceAdminUrl = isolatedInfrastructure.sourceAdminUrl;
+  migrationInfrastructureEvidence = isolatedInfrastructure.evidence;
   const { applyRuntimeMigrations } = await import(
     `../dist/apps/server/src/runtime.js?baseline-check=${String(Date.now())}`
   );
   await recreateDatabases();
+  await recreateSourceDatabase();
 
   const emptyPool = databasePool(databases[0]);
   try {
@@ -95,12 +142,464 @@ try {
     await roguePool.end();
   }
 
+  const upgradePool = databasePool(databases[3]);
+  try {
+    const logicalUpgrade = await restoreFrozenV123LogicalBackup(upgradePool);
+    migrationInfrastructureEvidence.logicalUpgrade = logicalUpgrade;
+    await applyRuntimeMigrations(upgradePool);
+    await verifyBaseline(upgradePool);
+    await verifyRepresentativeDataPreserved(upgradePool, logicalUpgrade.representativeSnapshot);
+    await verifyMigrationChecksumLedger(upgradePool);
+    await expectChecksumDriftRejection(upgradePool, v13MigrationFiles[0]);
+  } finally {
+    await upgradePool.end();
+  }
+
+  const interruptedPool = databasePool(databases[4]);
+  try {
+    await applyV122BaselineAndSeed(interruptedPool);
+    await applyMigrationFiles(interruptedPool, v123MigrationFiles);
+    await verifyMigrationPrefix(interruptedPool, expectedV123Versions);
+    await verifyMigrationChecksumLedger(interruptedPool);
+    await simulateInterruptedMigration(interruptedPool, v13MigrationFiles[0]);
+    await verifyInterruptedMigrationRolledBack(interruptedPool, v13MigrationFiles[0]);
+    await applyRuntimeMigrations(interruptedPool);
+    await verifyBaseline(interruptedPool);
+    await verifyMigrationChecksumLedger(interruptedPool);
+  } finally {
+    await interruptedPool.end();
+  }
+
+  await dropDatabases();
+  await stopIsolatedMigrationInfrastructure(isolatedInfrastructure);
+  isolatedInfrastructure = undefined;
+  migrationInfrastructureEvidence.isolation.cleanupCompleted = true;
+  if (writeP13Evidence)
+    await writeMigrationReport({
+      status: 'passed',
+      startedAt,
+      finishedAt: new Date(),
+    });
   process.stdout.write(
-    `SDAR migration path verified: v1.2.2 clean baseline, ${String(postBaselineMigrationFiles.length)} additive migrations through ${expectedVersions.at(-1)}, idempotency, rollback/reapply, guarded reset, and rogue-ledger rejection.\n`,
+    `SDAR migration path verified: exact frozen v1.2.3 Compose image logical backup/restore into hardened Alpine, ${String(postBaselineMigrationFiles.length)} additive migrations through ${expectedVersions.at(-1)}, idempotency, rollback/reapply, guarded reset, rogue-ledger rejection, representative data preservation, transactional interruption recovery, and incremental SHA-256 checksum drift rejection.\n`,
   );
+} catch (error) {
+  if (writeP13Evidence)
+    await writeMigrationReport({
+      status: 'failed',
+      startedAt,
+      finishedAt: new Date(),
+      failure: error instanceof Error ? error.message : String(error),
+    });
+  throw error;
 } finally {
   await dropDatabases().catch(() => undefined);
-  stopInfrastructure(root);
+  if (isolatedInfrastructure !== undefined)
+    await stopIsolatedMigrationInfrastructure(isolatedInfrastructure).catch(() => undefined);
+}
+
+async function writeMigrationReport({ status, startedAt, finishedAt, failure }) {
+  const report = {
+    schemaVersion: '1.0',
+    packageId: 'SDAR-V1.3-P13',
+    status,
+    classification: 'real isolated local Docker PostgreSQL migration and upgrade evidence',
+    command: 'pnpm evidence:v13-migration',
+    environment: {
+      node: process.version,
+      platform: process.platform,
+      architecture: process.arch,
+      databaseNames: databases,
+      isolatedDocker: migrationInfrastructureEvidence ?? null,
+    },
+    startedAt: startedAt.toISOString(),
+    finishedAt: finishedAt.toISOString(),
+    durationMs: finishedAt.getTime() - startedAt.getTime(),
+    baseline: {
+      release: 'v1.2.3-final',
+      commit: '856f909d22c33e6e20d7e0a1cffc2f54c03b4477',
+      migrationHead: expectedV123Versions.at(-1),
+      migrationCount: v123MigrationFiles.length,
+    },
+    candidate: {
+      migrationHead: expectedVersions.at(-1),
+      additiveMigrationCount: postBaselineMigrationFiles.length,
+      v13MigrationCount: v13MigrationFiles.length,
+    },
+    scenarios: {
+      freshInstall: status,
+      idempotentReapply: status,
+      rollbackAndReapply: status,
+      guardedDevelopmentReset: status,
+      existingDatabaseRejection: status,
+      rogueLedgerRejection: status,
+      v123RepresentativeUpgrade: status,
+      frozenV123ImageToAlpineLogicalBackupRestore: status,
+      representativeFacts: [
+        'Goal',
+        'Plan',
+        'Skill Attempt',
+        'Outcome',
+        'Experience',
+        'Tenant/User',
+        'Provider',
+        'A2A Task',
+      ],
+      noRepresentativeDataLoss: status === 'passed',
+      transactionalInterruptionRollback: status,
+      migrationChecksumDriftRejection: status,
+      postgresqlRestart:
+        'covered independently by reports/goal/v1.3-final-chaos-recovery-report.json',
+    },
+    authority: {
+      releasedMigrationSqlModifiedByVerifier: false,
+      physicalPgdataReuseAttempted: false,
+      existingComposeVolumeMounted: false,
+      existingComposeContainerModified: false,
+      sourceVolumePreservedUntilTargetVerification: true,
+      checksumLedger:
+        'verifier-only sidecar populated from SHA-256 of the released baseline and additive SQL',
+      productionResetAttempted: false,
+      productionDataUsed: false,
+    },
+    retainedFirstFailures: [
+      {
+        command: 'pnpm verify:migrations',
+        cause: 'the managed Windows sandbox initially denied access to the Docker named pipe',
+        repair:
+          'reran the same repository command with the user-authorized Docker execution permission',
+        result: 'passed without changing migration semantics',
+      },
+      {
+        command: 'node scripts/verify-migration-path.mjs --report',
+        cause:
+          'the hardened musl/Alpine container reused the existing Debian-initialized compose PGDATA; CREATE DATABASE failed with "template database template1 has a collation version, but no actual collation version could be determined"',
+        repair:
+          'the verifier now uses uniquely named isolated source/target volumes and transfers the exact v1.2.3 schema and representative facts with pg_dump/pg_restore instead of mounting the old physical PGDATA',
+        result:
+          status === 'passed'
+            ? 'passed; the existing compose volume and container were not mounted, deleted, reset, or overwritten'
+            : 'failed; existing compose resources still were not modified',
+      },
+    ],
+    ...(failure === undefined ? {} : { failure }),
+  };
+  const reportDirectory = resolve(root, 'reports', 'goal');
+  await mkdir(reportDirectory, { recursive: true });
+  await writeFile(
+    resolve(reportDirectory, 'v1.3-final-migration-report.json'),
+    `${JSON.stringify(report, null, 2)}\n`,
+  );
+}
+
+async function startIsolatedMigrationInfrastructure() {
+  const runId = `${String(process.pid)}-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  const resources = {
+    sourceContainer: `sdar-p13-migration-source-${runId}`,
+    sourceVolume: `sdar-p13-migration-source-data-${runId}`,
+    targetContainer: `sdar-p13-migration-target-${runId}`,
+    targetVolume: `sdar-p13-migration-target-data-${runId}`,
+  };
+  try {
+    buildInfrastructureImages(root);
+    ensureDockerImage(v123FrozenComposeImage, true);
+    ensureDockerImage(v13AlpineImage, false);
+    for (const volume of [resources.sourceVolume, resources.targetVolume]) {
+      runDocker([
+        'volume',
+        'create',
+        '--label',
+        'io.sdar.scope=p13-migration-verifier',
+        '--label',
+        `io.sdar.run=${runId}`,
+        volume,
+      ]);
+    }
+    runPostgresContainer({
+      container: resources.sourceContainer,
+      volume: resources.sourceVolume,
+      image: v123FrozenComposeImage,
+      runId,
+    });
+    runPostgresContainer({
+      container: resources.targetContainer,
+      volume: resources.targetVolume,
+      image: v13AlpineImage,
+      runId,
+    });
+    await Promise.all([
+      waitForPostgres(resources.sourceContainer),
+      waitForPostgres(resources.targetContainer),
+    ]);
+    const sourcePort = publishedPostgresPort(resources.sourceContainer);
+    const targetPort = publishedPostgresPort(resources.targetContainer);
+    const sourceImage = inspectDockerImage(v123FrozenComposeImage);
+    const targetImage = inspectDockerImage(v13AlpineImage);
+    const registryManifests = writeP13Evidence
+      ? {
+          frozenV123ComposePin: inspectRemoteOciIndex(v123FrozenComposeImage),
+        }
+      : {
+          verification:
+            'deferred to evidence mode; normal migration verification remains runnable from pinned local images',
+        };
+    if (
+      !sourceImage.repoDigests.includes(v123FrozenComposeImage) ||
+      ('frozenV123ComposePin' in registryManifests &&
+        registryManifests.frozenV123ComposePin.requestedReference !== v123FrozenComposeImage)
+    )
+      throw new Error('V13_FROZEN_V123_SOURCE_IMAGE_DRIFT');
+    const sourceContainerImageId = containerImageId(resources.sourceContainer);
+    const targetContainerImageId = containerImageId(resources.targetContainer);
+    if (sourceContainerImageId !== sourceImage.imageId)
+      throw new Error('V13_SOURCE_CONTAINER_IMAGE_DRIFT');
+    if (targetContainerImageId !== targetImage.imageId)
+      throw new Error('V13_TARGET_CONTAINER_IMAGE_DRIFT');
+    return {
+      ...resources,
+      sourceAdminUrl: postgresUrl(sourcePort, 'postgres'),
+      targetAdminUrl: postgresUrl(targetPort, 'postgres'),
+      evidence: {
+        runId,
+        isolation: {
+          uniqueContainers: true,
+          uniqueVolumes: true,
+          sharedComposeNetworkUsed: false,
+          existingComposeResourcesTouched: false,
+          cleanupCompleted: false,
+        },
+        baselineComposeImageAtExactV123Commit: v123FrozenComposeImage,
+        registryManifests,
+        source: {
+          container: resources.sourceContainer,
+          volume: resources.sourceVolume,
+          hostPort: sourcePort,
+          requestedImage: v123FrozenComposeImage,
+          imageId: sourceImage.imageId,
+          repoDigests: sourceImage.repoDigests,
+          postgresVersionEnvironment: sourceImage.postgresVersionEnvironment,
+          os: readContainerOsRelease(resources.sourceContainer),
+        },
+        target: {
+          container: resources.targetContainer,
+          volume: resources.targetVolume,
+          hostPort: targetPort,
+          requestedImage: v13AlpineImage,
+          imageId: targetImage.imageId,
+          repoDigests: targetImage.repoDigests,
+          postgresVersionEnvironment: targetImage.postgresVersionEnvironment,
+          os: readContainerOsRelease(resources.targetContainer),
+        },
+      },
+    };
+  } catch (error) {
+    await stopIsolatedMigrationInfrastructure(resources).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function stopIsolatedMigrationInfrastructure(resources) {
+  const failures = [];
+  for (const container of [resources.sourceContainer, resources.targetContainer]) {
+    const result = tryDocker(['rm', '--force', container], { timeout: 60_000 });
+    if (result.status !== 0 && !dockerResourceWasAbsent(result)) {
+      failures.push(`container:${container}`);
+    }
+  }
+  for (const volume of [resources.sourceVolume, resources.targetVolume]) {
+    const result = tryDocker(['volume', 'rm', volume], { timeout: 60_000 });
+    if (result.status !== 0 && !dockerResourceWasAbsent(result)) {
+      failures.push(`volume:${volume}`);
+    }
+  }
+  if (failures.length > 0)
+    throw new Error(`V13_ISOLATED_DOCKER_CLEANUP_FAILED:${failures.join(',')}`);
+}
+
+function runPostgresContainer({ container, volume, image, runId }) {
+  runDocker(
+    [
+      'run',
+      '--detach',
+      '--pull=never',
+      '--platform',
+      'linux/amd64',
+      '--name',
+      container,
+      '--label',
+      'io.sdar.scope=p13-migration-verifier',
+      '--label',
+      `io.sdar.run=${runId}`,
+      '--env',
+      `POSTGRES_USER=${postgresUser}`,
+      '--env',
+      `POSTGRES_PASSWORD=${postgresPassword}`,
+      '--env',
+      'POSTGRES_DB=postgres',
+      '--publish',
+      '127.0.0.1::5432',
+      '--mount',
+      `type=volume,source=${volume},target=/var/lib/postgresql/data`,
+      image,
+    ],
+    { timeout: 120_000 },
+  );
+}
+
+async function waitForPostgres(container) {
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    const result = tryDocker([
+      'exec',
+      container,
+      'pg_isready',
+      '--username',
+      postgresUser,
+      '--dbname',
+      'postgres',
+    ]);
+    if (result.status === 0) return;
+    await delay(500);
+  }
+  const logs = tryDocker(['logs', '--tail', '80', container], { timeout: 30_000 });
+  throw new Error(
+    `V13_ISOLATED_POSTGRES_NOT_READY:${container}:${redactDockerOutput(logs.stderr ?? logs.stdout)}`,
+  );
+}
+
+function publishedPostgresPort(container) {
+  const output = runDocker(['port', container, '5432/tcp']);
+  const match = /127\.0\.0\.1:(?<port>[0-9]+)/u.exec(String(output));
+  if (match?.groups?.port === undefined)
+    throw new Error(`V13_ISOLATED_POSTGRES_PORT_MISSING:${container}`);
+  return Number.parseInt(match.groups.port, 10);
+}
+
+function postgresUrl(port, database) {
+  const url = new URL('postgresql://127.0.0.1');
+  url.username = postgresUser;
+  url.password = postgresPassword;
+  url.port = String(port);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
+function ensureDockerImage(image, pullIfMissing) {
+  const inspected = tryDocker(['image', 'inspect', image], { timeout: 30_000 });
+  if (inspected.status === 0) return;
+  if (pullIfMissing) {
+    runDocker(['pull', image], { timeout: 300_000 });
+    return;
+  }
+  throw new Error(
+    `V13_TARGET_IMAGE_MISSING:${image}:build the repository-owned hardened image before migration verification`,
+  );
+}
+
+function inspectDockerImage(image) {
+  const records = JSON.parse(String(runDocker(['image', 'inspect', image])));
+  const record = records[0];
+  if (record === undefined || typeof record.Id !== 'string')
+    throw new Error(`V13_DOCKER_IMAGE_INSPECT_INVALID:${image}`);
+  const environment = Array.isArray(record.Config?.Env) ? record.Config.Env : [];
+  return {
+    imageId: record.Id,
+    repoDigests: Array.isArray(record.RepoDigests) ? record.RepoDigests : [],
+    postgresVersionEnvironment:
+      environment.find((value) => value.startsWith('PG_VERSION='))?.slice('PG_VERSION='.length) ??
+      null,
+  };
+}
+
+function inspectRemoteOciIndex(image) {
+  const index = JSON.parse(
+    String(
+      runDocker(['buildx', 'imagetools', 'inspect', image, '--raw'], {
+        timeout: 120_000,
+      }),
+    ),
+  );
+  const requestedDigest = image.split('@').at(-1);
+  const linuxAmd64 = index.manifests?.find(
+    (manifest) =>
+      manifest.platform?.os === 'linux' && manifest.platform?.architecture === 'amd64',
+  );
+  if (
+    index.mediaType !== 'application/vnd.oci.image.index.v1+json' ||
+    typeof requestedDigest !== 'string' ||
+    !/^sha256:[0-9a-f]{64}$/u.test(requestedDigest) ||
+    typeof linuxAmd64?.digest !== 'string'
+  ) {
+    throw new Error(`V13_OCI_INDEX_EVIDENCE_INVALID:${image}`);
+  }
+  return {
+    requestedReference: image,
+    mediaType: index.mediaType,
+    indexDigest: requestedDigest,
+    linuxAmd64ManifestDigest: linuxAmd64.digest,
+    manifestCount: index.manifests.length,
+  };
+}
+
+function containerImageId(container) {
+  const records = JSON.parse(String(runDocker(['container', 'inspect', container])));
+  const imageId = records[0]?.Image;
+  if (typeof imageId !== 'string')
+    throw new Error(`V13_DOCKER_CONTAINER_INSPECT_INVALID:${container}`);
+  return imageId;
+}
+
+function readContainerOsRelease(container) {
+  const output = String(runDocker(['exec', container, 'cat', '/etc/os-release']));
+  return Object.fromEntries(
+    output
+      .split(/\r?\n/u)
+      .filter((line) => /^(?:ID|VERSION_ID|VERSION_CODENAME)=/u.test(line))
+      .map((line) => {
+        const separator = line.indexOf('=');
+        return [
+          line.slice(0, separator),
+          line
+            .slice(separator + 1)
+            .replace(/^"/u, '')
+            .replace(/"$/u, ''),
+        ];
+      }),
+  );
+}
+
+function runDocker(args, options = {}) {
+  const result = tryDocker(args, options);
+  if (result.error !== undefined) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(
+      `V13_DOCKER_COMMAND_FAILED:${args.slice(0, 2).join(':')}:${redactDockerOutput(result.stderr)}`,
+    );
+  }
+  return result.stdout;
+}
+
+function tryDocker(args, { binary = false, input, timeout = 60_000 } = {}) {
+  return spawnSync('docker', args, {
+    cwd: root,
+    encoding: binary ? null : 'utf8',
+    input,
+    maxBuffer: 128 * 1024 * 1024,
+    timeout,
+  });
+}
+
+function redactDockerOutput(output) {
+  return String(output ?? '')
+    .replaceAll(postgresPassword, '[redacted]')
+    .trim()
+    .slice(-2_000);
+}
+
+function dockerResourceWasAbsent(result) {
+  return /No such (?:container|volume)|no such (?:container|volume)/u.test(
+    String(result.stderr ?? ''),
+  );
 }
 
 function databasePool(database) {
@@ -108,12 +607,21 @@ function databasePool(database) {
 }
 
 function databaseUrl(database) {
+  if (adminUrl === undefined) throw new Error('V13_TARGET_ADMIN_URL_MISSING');
   const url = new URL(adminUrl);
   url.pathname = `/${database}`;
   return url.toString();
 }
 
+function sourceDatabaseUrl(database) {
+  if (sourceAdminUrl === undefined) throw new Error('V13_SOURCE_ADMIN_URL_MISSING');
+  const url = new URL(sourceAdminUrl);
+  url.pathname = `/${database}`;
+  return url.toString();
+}
+
 async function recreateDatabases() {
+  if (adminUrl === undefined) throw new Error('V13_TARGET_ADMIN_URL_MISSING');
   const admin = new Pool({ connectionString: adminUrl });
   try {
     for (const database of databases) {
@@ -129,7 +637,23 @@ async function recreateDatabases() {
   }
 }
 
+async function recreateSourceDatabase() {
+  if (sourceAdminUrl === undefined) throw new Error('V13_SOURCE_ADMIN_URL_MISSING');
+  const admin = new Pool({ connectionString: sourceAdminUrl });
+  try {
+    await admin.query(
+      'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()',
+      [sourceDatabase],
+    );
+    await admin.query(`DROP DATABASE IF EXISTS ${sourceDatabase}`);
+    await admin.query(`CREATE DATABASE ${sourceDatabase}`);
+  } finally {
+    await admin.end();
+  }
+}
+
 async function dropDatabases() {
+  if (adminUrl === undefined) return;
   const admin = new Pool({ connectionString: adminUrl });
   try {
     for (const database of databases) {
@@ -374,6 +898,479 @@ async function verifyPostBaselineMigrationsRolledBack(pool) {
   );
   if (interactiveGoalColumns.rows[0]?.present !== 0)
     throw new Error('V123_INTERACTIVE_GOAL_ROLLBACK_INCOMPLETE');
+}
+
+async function restoreFrozenV123LogicalBackup(targetPool) {
+  if (isolatedInfrastructure === undefined)
+    throw new Error('V13_ISOLATED_DOCKER_INFRASTRUCTURE_MISSING');
+  const sourcePool = new Pool({ connectionString: sourceDatabaseUrl(sourceDatabase) });
+  let representativeSnapshot;
+  let sourceIdentity;
+  try {
+    await applyV122BaselineAndSeed(sourcePool);
+    await applyMigrationFiles(sourcePool, v123MigrationFiles);
+    await verifyMigrationPrefix(sourcePool, expectedV123Versions);
+    await verifyMigrationChecksumLedger(sourcePool);
+    representativeSnapshot = await insertRepresentativeV123Data(sourcePool);
+    await verifyRepresentativeDataPreserved(sourcePool, representativeSnapshot);
+    sourceIdentity = await captureDatabaseIdentity(sourcePool);
+  } finally {
+    await sourcePool.end();
+  }
+
+  const archive = runDocker(
+    [
+      'exec',
+      isolatedInfrastructure.sourceContainer,
+      'pg_dump',
+      '--format=custom',
+      '--no-owner',
+      '--no-privileges',
+      '--username',
+      postgresUser,
+      '--dbname',
+      sourceDatabase,
+    ],
+    { binary: true, timeout: 180_000 },
+  );
+  if (!Buffer.isBuffer(archive) || archive.length === 0)
+    throw new Error('V13_V123_LOGICAL_BACKUP_EMPTY');
+  runDocker(
+    [
+      'exec',
+      '--interactive',
+      isolatedInfrastructure.targetContainer,
+      'pg_restore',
+      '--exit-on-error',
+      '--single-transaction',
+      '--no-owner',
+      '--no-privileges',
+      '--username',
+      postgresUser,
+      '--dbname',
+      databases[3],
+    ],
+    { binary: true, input: archive, timeout: 180_000 },
+  );
+
+  await verifyMigrationPrefix(targetPool, expectedV123Versions);
+  await verifyMigrationChecksumLedger(targetPool);
+  await verifyRepresentativeDataPreserved(targetPool, representativeSnapshot);
+  const targetIdentity = await captureDatabaseIdentity(targetPool);
+  return {
+    status: 'passed',
+    method: 'pg_dump custom archive -> pg_restore single transaction',
+    archiveBytes: archive.length,
+    archiveSha256: createHash('sha256').update(archive).digest('hex'),
+    sourceDatabase,
+    targetDatabase: databases[3],
+    sourceIdentity,
+    targetIdentity,
+    physicalPgdataReused: false,
+    existingComposeVolumeTouched: false,
+    sourceVolumeHeldUntilTargetVerification: true,
+    representativeSnapshot,
+  };
+}
+
+async function captureDatabaseIdentity(pool) {
+  const result = await pool.query(
+    `SELECT
+       current_database() AS database_name,
+       current_setting('server_version') AS server_version,
+       datcollate AS database_collation,
+       datctype AS database_character_classification,
+       datlocprovider::text AS locale_provider,
+       datcollversion AS recorded_collation_version,
+       (
+         SELECT extversion
+         FROM pg_extension
+         WHERE extname='vector'
+       ) AS vector_extension_version
+     FROM pg_database
+     WHERE datname=current_database()`,
+  );
+  const identity = result.rows[0];
+  if (identity === undefined) throw new Error('V13_DATABASE_IDENTITY_MISSING');
+  return identity;
+}
+
+async function applyV122BaselineAndSeed(pool) {
+  await pool.query(await readFile(baselineFile, 'utf8'));
+  await pool.query(await readFile(seedFile, 'utf8'));
+}
+
+async function applyMigrationFiles(pool, files) {
+  for (const file of files) {
+    await pool.query(await readFile(resolve(migrationDirectory, file), 'utf8'));
+  }
+}
+
+async function verifyMigrationPrefix(pool, versions) {
+  const marker = await pool.query(
+    `SELECT array_agg(
+       version ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version
+     ) AS versions
+     FROM public.schema_migration`,
+  );
+  if (JSON.stringify(marker.rows[0]?.versions) !== JSON.stringify(versions))
+    throw new Error('V123_MIGRATION_PREFIX_INVALID');
+}
+
+async function verifyMigrationChecksumLedger(pool, contentOverrides = new Map()) {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS public.schema_migration_checksum (
+       version text PRIMARY KEY
+         REFERENCES public.schema_migration(version) ON DELETE CASCADE,
+       sha256 text NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+       verified_at timestamptz NOT NULL DEFAULT clock_timestamp()
+     )`,
+  );
+  const applied = await pool.query(
+    `SELECT version
+     FROM public.schema_migration
+     ORDER BY CASE WHEN version='v1.2.2_clean_slate_baseline' THEN 0 ELSE 1 END, version`,
+  );
+  const sourceByVersion = new Map(checksumSources.map((source) => [source.version, source]));
+  for (const row of applied.rows) {
+    const source = sourceByVersion.get(row.version);
+    if (source === undefined)
+      throw new Error(`V13_MIGRATION_CHECKSUM_SOURCE_MISSING:${row.version}`);
+    const content = contentOverrides.get(row.version) ?? (await readFile(source.filePath));
+    const checksum = createHash('sha256').update(content).digest('hex');
+    const recorded = await pool.query(
+      'SELECT sha256 FROM public.schema_migration_checksum WHERE version=$1',
+      [row.version],
+    );
+    if (recorded.rowCount === 0) {
+      await pool.query(
+        `INSERT INTO public.schema_migration_checksum(version,sha256)
+         VALUES ($1,$2)`,
+        [row.version, checksum],
+      );
+      continue;
+    }
+    if (recorded.rows[0]?.sha256 !== checksum)
+      throw new Error(`V13_MIGRATION_CHECKSUM_DRIFT:${row.version}`);
+  }
+}
+
+async function expectChecksumDriftRejection(pool, migrationFile) {
+  if (migrationFile === undefined) throw new Error('V13_MIGRATION_CHECKSUM_DRIFT_FIXTURE_MISSING');
+  const version = migrationFile.slice(0, -'.up.sql'.length);
+  const original = await readFile(resolve(migrationDirectory, migrationFile));
+  const drifted = Buffer.concat([
+    original,
+    Buffer.from('\n-- verifier-only simulated file drift\n', 'utf8'),
+  ]);
+  try {
+    await verifyMigrationChecksumLedger(pool, new Map([[version, drifted]]));
+  } catch (error) {
+    if (error instanceof Error && error.message === `V13_MIGRATION_CHECKSUM_DRIFT:${version}`)
+      return;
+    throw error;
+  }
+  throw new Error(`V13_MIGRATION_CHECKSUM_DRIFT_ACCEPTED:${version}`);
+}
+
+async function insertRepresentativeV123Data(pool) {
+  const hash = (digit) => `sha256:${digit.repeat(64)}`;
+  const recordedAt = '2026-07-30T00:00:00.000Z';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO public.conversation_context(
+         context_id,user_id,created_at,updated_at
+       ) VALUES ($1,$2,$3,$3)`,
+      ['p13-upgrade-context', 'p13-upgrade-user', recordedAt],
+    );
+    await client.query(
+      `INSERT INTO public.goal(
+         goal_id,context_id,version,title,description,constraints_json,
+         success_criteria_json,status,created_at,updated_at
+       ) VALUES ($1,$2,1,$3,$4,'[]'::jsonb,'[]'::jsonb,'achieved',$5,$5)`,
+      [
+        'p13-upgrade-goal',
+        'p13-upgrade-context',
+        'P13 migration preservation goal',
+        'Representative v1.2.3 goal retained through the v1.3 migration chain.',
+        recordedAt,
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.agent_task(
+         task_id,context_id,user_id,phase,phase_message,goal_id,goal_version,
+         output_text,created_at,updated_at,request_text,request_metadata
+       ) VALUES ($1,$2,$3,'completed',$4,$5,1,$6,$7,$7,$8,$9::jsonb)`,
+      [
+        'p13-upgrade-a2a-task',
+        'p13-upgrade-context',
+        'p13-upgrade-user',
+        'Representative A2A task completed before v1.3.',
+        'p13-upgrade-goal',
+        'preserved',
+        recordedAt,
+        'Verify the migration path.',
+        '{"protocol":"A2A","revision":"v1.2.3-final"}',
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.workflow_plan(
+         plan_id,goal_id,goal_version,definition_json,confirmation_status,
+         attempt_count,created_at,revision_kind,goal_contract_json
+       ) VALUES ($1,$2,1,'{}'::jsonb,'confirmed',1,$3,'admin_dsl',$4::jsonb)`,
+      [
+        'p13-upgrade-workflow-plan',
+        'p13-upgrade-goal',
+        recordedAt,
+        '{"goalId":"p13-upgrade-goal","version":1}',
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.workflow_control(
+         control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,
+         input_json,skill_ids_json,planning_instruction,round_count,replan_count,
+         created_at,updated_at
+       ) VALUES ($1,$2,$3,1,$4,'canceled',$5,'{}'::jsonb,'[]'::jsonb,$6,0,0,$7,$7)`,
+      [
+        'p13-upgrade-control',
+        'p13-upgrade-context',
+        'p13-upgrade-goal',
+        'p13-upgrade-a2a-task',
+        'p13-upgrade-workflow-plan',
+        'Representative migration verification control.',
+        recordedAt,
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.runtime_terminal_outcome(
+         outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,
+         control_status,summary,committed_at
+       ) VALUES ($1,'canceled',$2,$3,1,$4,'canceled',$5,$6)`,
+      [
+        'p13-upgrade-terminal-outcome',
+        'p13-upgrade-a2a-task',
+        'p13-upgrade-goal',
+        'p13-upgrade-control',
+        'Representative terminal outcome retained through v1.3.',
+        recordedAt,
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.user_goal_contract(
+         goal_id,goal_version,schema_version,contract_hash,contract_json,created_at
+       ) VALUES ($1,1,'1.0',$2,'{}'::jsonb,$3)`,
+      ['p13-upgrade-goal', hash('1'), recordedAt],
+    );
+    await client.query(
+      `INSERT INTO public.user_goal_plan(
+         plan_id,goal_id,goal_version,revision,revision_kind,status,contract_hash,
+         content_hash,plan_json,created_at,updated_at
+       ) VALUES ($1,$2,1,1,'initial','completed',$3,$4,'{}'::jsonb,$5,$5)`,
+      ['p13-upgrade-user-goal-plan', 'p13-upgrade-goal', hash('2'), hash('3'), recordedAt],
+    );
+    await client.query(
+      `INSERT INTO public.skill_goal(
+         skill_goal_id,plan_id,ordinal,status,contract_json,created_at,updated_at
+       ) VALUES ($1,$2,1,'achieved','{}'::jsonb,$3,$3)`,
+      ['p13-upgrade-skill-goal', 'p13-upgrade-user-goal-plan', recordedAt],
+    );
+    await client.query(
+      `INSERT INTO public.skill_attempt(
+         attempt_id,plan_id,skill_goal_id,ordinal,status,strategy_fingerprint,
+         attempt_json,created_at,updated_at
+       ) VALUES ($1,$2,$3,1,'achieved',$4,'{}'::jsonb,$5,$5)`,
+      [
+        'p13-upgrade-attempt',
+        'p13-upgrade-user-goal-plan',
+        'p13-upgrade-skill-goal',
+        hash('4'),
+        recordedAt,
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.outcome_decision(
+         outcome_decision_id,level,subject_id,plan_id,status,confidence,
+         decision_json,created_at
+       ) VALUES ($1,'skill_goal',$2,$3,'achieved','high','{}'::jsonb,$4)`,
+      [
+        'p13-upgrade-outcome-decision',
+        'p13-upgrade-skill-goal',
+        'p13-upgrade-user-goal-plan',
+        recordedAt,
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.goal_experience_episode(
+         episode_id,goal_id,goal_version,revision,episode_hash,completeness,
+         data_classification,redaction_codes,snapshot,created_at,task_id,
+         context_id,episode_type,terminal_outcome_ref,source_hash,status,
+         tenant_id,user_scope_id
+       ) VALUES (
+         $1,$2,1,1,$3,1,'internal','[]'::jsonb,'{}'::jsonb,$4,$5,$6,
+         'terminal',$7,$8,'complete',$9,$10
+       )`,
+      [
+        'p13-upgrade-experience',
+        'p13-upgrade-goal',
+        hash('5'),
+        recordedAt,
+        'p13-upgrade-a2a-task',
+        'p13-upgrade-context',
+        'p13-upgrade-terminal-outcome',
+        hash('6'),
+        'p13-upgrade-tenant',
+        'p13-upgrade-user',
+      ],
+    );
+    await client.query(
+      `INSERT INTO public.model_provider(
+         provider_id,name,kind,base_url,model,enabled,timeout_ms,
+         encrypted_credential,created_at,updated_at
+       ) VALUES ($1,$2,'local',$3,$4,true,1000,$5,$6,$6)`,
+      [
+        'p13-upgrade-provider',
+        'P13 migration provider',
+        'http://127.0.0.1:1',
+        'p13-verifier',
+        'verifier-only-encrypted-envelope',
+        recordedAt,
+      ],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+  return captureRepresentativeData(pool);
+}
+
+async function captureRepresentativeData(pool) {
+  const snapshot = await pool.query(
+    `SELECT jsonb_build_object(
+       'goal',(
+         SELECT jsonb_build_object(
+           'goalId',goal_id,'contextId',context_id,'version',version,'title',title,'status',status
+         )
+         FROM public.goal WHERE goal_id='p13-upgrade-goal'
+       ),
+       'plan',(
+         SELECT jsonb_build_object(
+           'planId',plan_id,'goalId',goal_id,'revision',revision,'status',status,
+           'contentHash',content_hash
+         )
+         FROM public.user_goal_plan WHERE plan_id='p13-upgrade-user-goal-plan'
+       ),
+       'attempt',(
+         SELECT jsonb_build_object(
+           'attemptId',attempt_id,'planId',plan_id,'skillGoalId',skill_goal_id,
+           'ordinal',ordinal,'status',status,'strategyFingerprint',strategy_fingerprint
+         )
+         FROM public.skill_attempt WHERE attempt_id='p13-upgrade-attempt'
+       ),
+       'outcome',(
+         SELECT jsonb_build_object(
+           'outcomeDecisionId',outcome_decision_id,'level',level,'subjectId',subject_id,
+           'planId',plan_id,'status',status,'confidence',confidence
+         )
+         FROM public.outcome_decision WHERE outcome_decision_id='p13-upgrade-outcome-decision'
+       ),
+       'experience',(
+         SELECT jsonb_build_object(
+           'episodeId',episode_id,'goalId',goal_id,'goalVersion',goal_version,
+           'episodeHash',episode_hash,'status',status,'terminalOutcomeRef',terminal_outcome_ref
+         )
+         FROM public.goal_experience_episode WHERE episode_id='p13-upgrade-experience'
+       ),
+       'tenant',(
+         SELECT jsonb_build_object('tenantId',tenant_id,'userScopeId',user_scope_id)
+         FROM public.goal_experience_episode WHERE episode_id='p13-upgrade-experience'
+       ),
+       'provider',(
+         SELECT jsonb_build_object(
+           'providerId',provider_id,'kind',kind,'model',model,'enabled',enabled
+         )
+         FROM public.model_provider WHERE provider_id='p13-upgrade-provider'
+       ),
+       'a2a',(
+         SELECT jsonb_build_object(
+           'taskId',task_id,'contextId',context_id,'userId',user_id,
+           'phase',phase,'goalId',goal_id,'goalVersion',goal_version
+         )
+         FROM public.agent_task WHERE task_id='p13-upgrade-a2a-task'
+       )
+     ) AS snapshot`,
+  );
+  return snapshot.rows[0]?.snapshot;
+}
+
+async function verifyRepresentativeDataPreserved(pool, before) {
+  const after = await captureRepresentativeData(pool);
+  if (JSON.stringify(after) !== JSON.stringify(before))
+    throw new Error('V13_REPRESENTATIVE_DATA_NOT_PRESERVED');
+  if (
+    before === null ||
+    typeof before !== 'object' ||
+    Object.values(before).some((value) => value === null)
+  ) {
+    throw new Error('V123_REPRESENTATIVE_DATA_INCOMPLETE');
+  }
+}
+
+async function simulateInterruptedMigration(pool, migrationFile) {
+  if (migrationFile === undefined) throw new Error('V13_INTERRUPTION_FIXTURE_MISSING');
+  const sql = await readFile(resolve(migrationDirectory, migrationFile), 'utf8');
+  const body = sql
+    .replace(/^\uFEFF?BEGIN;[ \t]*\r?\n/u, '')
+    .replace(/\r?\nCOMMIT;[ \t]*\r?\n?$/u, '');
+  if (body === sql) throw new Error(`V13_MIGRATION_TRANSACTION_WRAPPER_MISSING:${migrationFile}`);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(body);
+    throw new Error('V13_SIMULATED_MIGRATION_INTERRUPTION');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (error instanceof Error && error.message === 'V13_SIMULATED_MIGRATION_INTERRUPTION') return;
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function verifyInterruptedMigrationRolledBack(pool, migrationFile) {
+  if (migrationFile === undefined) throw new Error('V13_INTERRUPTION_FIXTURE_MISSING');
+  const version = migrationFile.slice(0, -'.up.sql'.length);
+  const state = await pool.query(
+    `SELECT
+       NOT EXISTS(
+         SELECT 1 FROM public.schema_migration WHERE version=$1
+       ) AS marker_absent,
+       to_regclass('public.compiled_artifact') IS NULL AS artifact_table_absent,
+       NOT EXISTS(
+         SELECT 1
+         FROM information_schema.columns
+         WHERE table_schema='public'
+           AND table_name='cognitive_runtime_outbox'
+           AND column_name='outbox_sequence'
+       ) AS outbox_column_absent,
+       NOT EXISTS(
+         SELECT 1 FROM public.schema_migration_checksum WHERE version=$1
+       ) AS checksum_absent`,
+    [version],
+  );
+  if (
+    state.rows[0]?.marker_absent !== true ||
+    state.rows[0]?.artifact_table_absent !== true ||
+    state.rows[0]?.outbox_column_absent !== true ||
+    state.rows[0]?.checksum_absent !== true
+  ) {
+    throw new Error(`V13_INTERRUPTED_MIGRATION_PARTIAL_STATE:${version}`);
+  }
+  await verifyMigrationPrefix(pool, expectedV123Versions);
 }
 
 async function expectLedgerRejection(applyRuntimeMigrations, pool) {

@@ -1,0 +1,1 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","environment":"local Docker PostgreSQL; acceptance baseline, not production SLO","artifactListMs":{"1000":2.81,"10000":1.176,"100000":1.081},"concurrentOperators":32,"concurrentOperatorsMs":46.191,"a2aProjectionIterations":10000,"a2aTenThousandMs":37.328,"command":"pnpm verify at 5cef3a04b7237ac126f7e9d0548347b0d5c25baa"}

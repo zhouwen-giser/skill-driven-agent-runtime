@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
+
+FROM postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4
+
+ARG SOURCE_DATE_EPOCH=0
+ARG PGVECTOR_VERSION=0.8.5
+ARG PGVECTOR_SOURCE_SHA256=6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44
+ARG BUILD_BASE_VERSION=0.5-r3
+ARG SU_EXEC_VERSION=0.3-r0
+
+ADD --checksum=sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44 \
+  https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz \
+  /tmp/pgvector.tar.gz
+
+ADD --checksum=sha256:a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 --chmod=0644 \
+  https://raw.githubusercontent.com/ncopa/su-exec/89c016e6e08749d583efdeda04b9f73e1218e253/LICENSE \
+  /usr/share/doc/su-exec/LICENSE
+
+RUN set -eux; \
+    test "$SOURCE_DATE_EPOCH" = "0"; \
+    test "$PGVECTOR_VERSION" = "0.8.5"; \
+    test "$PGVECTOR_SOURCE_SHA256" = "6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44"; \
+    test "$BUILD_BASE_VERSION" = "0.5-r3"; \
+    test "$SU_EXEC_VERSION" = "0.3-r0"; \
+    apk add --no-cache --virtual .pgvector-build-deps "build-base=$BUILD_BASE_VERSION"; \
+    mkdir /tmp/pgvector; \
+    tar -xzf /tmp/pgvector.tar.gz --strip-components=1 -C /tmp/pgvector; \
+    make -C /tmp/pgvector clean; \
+    make -C /tmp/pgvector OPTFLAGS="" with_llvm=no; \
+    make -C /tmp/pgvector install with_llvm=no; \
+    mkdir -p /usr/share/doc/pgvector; \
+    cp /tmp/pgvector/LICENSE /tmp/pgvector/README.md /usr/share/doc/pgvector/; \
+    rm -rf /tmp/pgvector /tmp/pgvector.tar.gz; \
+    apk del .pgvector-build-deps; \
+    apk add --no-cache "su-exec=$SU_EXEC_VERSION"; \
+    sed -i 's/exec gosu postgres/exec su-exec postgres/' /usr/local/bin/docker-entrypoint.sh; \
+    rm /usr/local/bin/gosu
+
+LABEL org.opencontainers.image.title="SDAR PostgreSQL 17 with pgvector" \
+      org.opencontainers.image.version="17.10-pgvector-0.8.5-alpine3.23" \
+      org.opencontainers.image.source="https://github.com/zhouwen-giser/skill-driven-agent-runtime" \
+      org.opencontainers.image.licenses="PostgreSQL AND MIT" \
+      io.sdar.pgvector.source="https://github.com/pgvector/pgvector/tree/v0.8.5" \
+      io.sdar.su-exec.source="https://github.com/ncopa/su-exec/tree/89c016e6e08749d583efdeda04b9f73e1218e253"

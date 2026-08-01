@@ -7,6 +7,7 @@ import type {
   InteractivePlanningMutation,
   InteractivePlanningMutationResult,
   InteractivePlanningRepository,
+  PlanningCommitFence,
 } from '../../../application/src/cognitive/index.js';
 import {
   createCognitiveSourceRef,
@@ -264,8 +265,9 @@ export class PostgresInteractivePlanningRepository implements InteractivePlannin
   async start(
     session: InteractivePlanningSessionSnapshot,
     candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+    commitFence?: PlanningCommitFence,
   ): Promise<InteractivePlanningSessionSnapshot> {
-    return this.#start(session, candidate, []);
+    return this.#start(session, candidate, [], commitFence);
   }
 
   async saveWithPlanCandidate(
@@ -280,11 +282,13 @@ export class PostgresInteractivePlanningRepository implements InteractivePlannin
     session: InteractivePlanningSessionSnapshot,
     candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
     usageRecords: readonly ExperienceUsageRecord[],
+    commitFence?: PlanningCommitFence,
   ): Promise<InteractivePlanningSessionSnapshot> {
     const snapshot = createInteractivePlanningSessionSnapshot(session);
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      await applyPlanningCommitFence(client, commitFence);
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtext('sdar:v123:planning-session:' || $1))",
         [snapshot.taskId],
@@ -314,6 +318,7 @@ export class PostgresInteractivePlanningRepository implements InteractivePlannin
           candidateId: candidate.candidateId,
           planHash: candidate.planHash,
         });
+      await assertPlanningCommitFence(client, commitFence);
       await client.query('COMMIT');
       return snapshot;
     } catch (error: unknown) {
@@ -410,6 +415,34 @@ export class PostgresInteractivePlanningRepository implements InteractivePlannin
     const row = await findSessionRow(this.#pool, where, parameters);
     return row === undefined ? undefined : mapSession(row);
   }
+}
+
+async function applyPlanningCommitFence(
+  client: PoolClient,
+  commitFence: PlanningCommitFence | undefined,
+): Promise<void> {
+  if (commitFence === undefined) return;
+  const deadlineMs = Date.parse(commitFence.deadlineAt);
+  const remainingMs = Math.ceil(deadlineMs - Date.now());
+  if (!Number.isFinite(deadlineMs) || remainingMs <= 0 || !commitFence.mayCommit())
+    throw new Error('INTERACTIVE_PLANNING_COMMIT_FENCE_EXPIRED');
+  await client.query("SELECT set_config('statement_timeout',$1,true)", [
+    `${String(Math.max(1, remainingMs))}ms`,
+  ]);
+}
+
+async function assertPlanningCommitFence(
+  client: PoolClient,
+  commitFence: PlanningCommitFence | undefined,
+): Promise<void> {
+  if (commitFence === undefined) return;
+  if (!commitFence.mayCommit()) throw new Error('INTERACTIVE_PLANNING_COMMIT_FENCE_EXPIRED');
+  const result = await client.query<{ within_deadline: boolean }>(
+    'SELECT clock_timestamp() < $1::timestamptz AS within_deadline',
+    [commitFence.deadlineAt],
+  );
+  if (result.rows[0]?.within_deadline !== true)
+    throw new Error('INTERACTIVE_PLANNING_COMMIT_FENCE_EXPIRED');
 }
 
 async function insertSession(client: PoolClient, session: InteractivePlanningSessionSnapshot) {

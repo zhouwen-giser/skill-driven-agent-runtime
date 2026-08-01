@@ -17,6 +17,7 @@ import {
   TaskEvidenceNavigation,
   TaskPanel,
   TaskRelatedNavigation,
+  taskEvidenceLinks,
   UserGoalPlanPanel,
 } from './TaskPanel.js';
 import { BusinessEventsPanel } from './BusinessEventsPanel.js';
@@ -34,8 +35,17 @@ import {
 import { TaskReferenceLinks } from './RelatedLinks.js';
 import { CapabilityCardDetails } from './CapabilitiesPanel.js';
 import { CognitiveGovernancePanel } from './CognitiveGovernancePanel.js';
+import { ArtifactPanel } from './ArtifactPanel.js';
 
 describe('operational console static accessibility contract', () => {
+  it('renders a real API-backed Artifact registry with semantic status and no fixture data', () => {
+    const markup = renderToStaticMarkup(<ArtifactPanel />);
+    expect(markup).toContain('Artifact Registry');
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain('Loading Artifact registry.');
+    expect(markup).not.toContain('artifact-fixture');
+    expect(markup).not.toContain('credential');
+  });
   it('renders governed Experience and Task Type controls without direct authority mutations', () => {
     const markup = renderToStaticMarkup(<CognitiveGovernancePanel />);
     expect(markup).toContain('EXPERIENCE GOVERNANCE');
@@ -295,6 +305,21 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Goal ID');
     expect(markup).not.toContain('task-1');
     expect(markup).not.toContain('goal-1');
+  });
+
+  it('links the Task explorer to the read-only P10 Gateway evidence projection', () => {
+    expect(
+      taskEvidenceLinks({
+        taskId: 'task.test',
+        contextId: 'context.test',
+        phase: 'completed',
+        phaseMessage: 'done',
+      }),
+    ).toContainEqual({
+      key: 'gateway-evidence',
+      label: 'Fast Gateway Decision Evidence',
+      endpoint: '/api/v1/tasks/task.test/gateway-evidence',
+    });
   });
 
   it('renders Provider-authoritative remote lifecycle evidence and constrained operations', () => {

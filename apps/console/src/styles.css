@@ -1008,3 +1008,38 @@ h2 {
     flex-direction: column;
   }
 }
+.artifact-workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.artifact-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1rem 0;
+}
+
+.artifact-tabs [aria-selected='true'] {
+  outline: 2px solid currentColor;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: 0.65rem;
+  border-bottom: 1px solid rgb(255 255 255 / 12%);
+  text-align: left;
+}
+
+.sr-status {
+  min-height: 1.4rem;
+}

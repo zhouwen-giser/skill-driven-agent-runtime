@@ -1,0 +1,9 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "usageAuthority": "existing model_invocation plus immutable P11 child evidence",
+  "outboxEvents": ["model_route.selected", "model_cascade.escalated"],
+  "driftSemantics": "signals revalidation only; never approves, activates, changes pointer or overwrites Formal Outcome",
+  "retainedReferences": ["Artifact ref/hash/version", "decision hash", "profile ref/version", "output ref", "formal authority refs"],
+  "forbiddenPayloads": ["credential", "secret", "full sensitive prompt", "private reasoning"]
+}

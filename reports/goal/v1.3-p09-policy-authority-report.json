@@ -1,0 +1,22 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "policyAuthority": "existing RulePolicyAuthorityPort",
+  "authorizationAuthority": "existing RuleAuthorizationPort",
+  "precedence": "policy and current authorization override every Rule result",
+  "failClosed": [
+    "missing authorization",
+    "stale authorization",
+    "cross tenant",
+    "policy reference/hash change",
+    "kill switch",
+    "catalog/readiness/runtime snapshot drift"
+  ],
+  "actorSpoofing": "request actor fields are not accepted as authority inputs",
+  "rechecks": ["before evaluation", "after evaluation", "immediately before formal handoff"],
+  "secondPolicyEngineCreated": false,
+  "evidence": [
+    "packages/application/src/compiler/decision-rule-runtime.ts",
+    "packages/application/test/decision-rule-runtime-p09.unit.test.ts"
+  ]
+}

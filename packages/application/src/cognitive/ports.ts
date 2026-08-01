@@ -170,6 +170,16 @@ export type InteractivePlanningMutationResult =
       session: InteractivePlanningSessionSnapshot;
     }>;
 
+/**
+ * A caller-owned deadline fence for an atomic planning-session commit. The
+ * repository must enforce it inside the authority transaction, not only
+ * before the asynchronous handoff begins.
+ */
+export interface PlanningCommitFence {
+  readonly deadlineAt: string;
+  mayCommit(): boolean;
+}
+
 export interface InteractivePlanningRepository {
   findByTask(taskId: string): Promise<InteractivePlanningSessionSnapshot | undefined>;
   find(sessionId: string): Promise<InteractivePlanningSessionSnapshot | undefined>;
@@ -184,6 +194,7 @@ export interface InteractivePlanningRepository {
   start(
     session: InteractivePlanningSessionSnapshot,
     candidate: UserGoalPlanCandidateSnapshot<UserGoalPlan>,
+    commitFence?: PlanningCommitFence,
   ): Promise<InteractivePlanningSessionSnapshot>;
   apply(mutation: InteractivePlanningMutation): Promise<InteractivePlanningMutationResult>;
 }

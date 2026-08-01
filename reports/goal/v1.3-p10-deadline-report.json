@@ -1,0 +1,20 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "absoluteDeadline": true,
+  "fallbackReserveMs": 250,
+  "defaultStageTimeoutMs": {"retrieval": 500, "rule": 300, "template": 800},
+  "defaultFallbackStartTimeoutMs": 1000,
+  "cancellationPropagated": true,
+  "lateResultsDiscarded": true,
+  "formalCommitGuarded": true,
+  "firstFailures": [
+    {
+      "command": "pnpm test:e2e",
+      "cause": "Gateway denial errorCode was not projected through the existing Task failure operation",
+      "fix": "PlanPreparationProcessor now uses the authoritative failTask path for TaskApplicationError",
+      "rerun": "63/63 passed"
+    }
+  ],
+  "evidence": ["packages/application/test/fast-gateway-p10.unit.test.ts", "packages/application/test/fast-gateway-adapters-p10.unit.test.ts"]
+}

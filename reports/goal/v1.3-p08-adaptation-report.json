@@ -1,0 +1,10 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "policy": "bounded",
+  "allowed": ["P07-bound parameter rendering", "P07 requires_adaptation evidence", "candidate binding requiring confirmation"],
+  "rejected": ["parameter source change", "trust promotion", "model default for required parameter", "goal or criterion mutation", "scope expansion", "new capability or exact operation binding"],
+  "evidence": [
+    "template-runtime-p08.unit.test.ts authoritative rendering",
+    "template-runtime-p08.unit.test.ts forbidden source regression"
+  ]
+}

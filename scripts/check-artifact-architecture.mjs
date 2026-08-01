@@ -60,16 +60,29 @@ for (const file of productFiles) {
     normalized.startsWith('packages/application/src/compiler/') ||
     normalized === 'packages/application/src/index.ts' ||
     normalized.startsWith('packages/application/test/experience-') ||
+    normalized.startsWith('packages/application/test/case-model-runtime-p11.') ||
+    normalized === 'packages/application/test/artifact-management-p12.unit.test.ts' ||
     normalized === 'packages/application/test/process-miner.unit.test.ts' ||
     normalized === 'packages/application/test/candidate-generation.unit.test.ts' ||
     normalized === 'packages/persistence-postgres/test/candidate-generation.integration.test.ts' ||
+    normalized ===
+      'packages/persistence-postgres/test/case-model-runtime-p11.integration.test.ts' ||
+    normalized === 'packages/persistence-postgres/test/case-model-runtime-p11.e2e.test.ts' ||
+    normalized.startsWith('packages/persistence-postgres/test/artifact-management-p12') ||
     normalized.startsWith('packages/persistence-postgres/src/compiler/') ||
     normalized === 'packages/persistence-postgres/src/index.ts' ||
     normalized === 'packages/persistence-postgres/test/experience-p03.contract.test.ts' ||
     normalized.startsWith('packages/runtime-redis/src/compiler/') ||
     normalized === 'packages/runtime-redis/src/index.ts' ||
     normalized === 'packages/domain/test/experience-compilation.unit.test.ts' ||
-    normalized === 'apps/server/src/runtime.ts'
+    normalized === 'packages/domain/test/case-model-runtime-p11.unit.test.ts' ||
+    normalized === 'packages/domain/test/artifact-management-p12.contract.test.ts' ||
+    normalized.startsWith('packages/management-api/') ||
+    normalized.startsWith('packages/a2a-adapter/') ||
+    normalized === 'apps/console/src/ArtifactPanel.tsx' ||
+    normalized === 'apps/console/src/api.ts' ||
+    normalized === 'apps/server/src/runtime.ts' ||
+    normalized === 'apps/server/test/artifact-management-p12.e2e.test.ts'
   ) {
     continue;
   }
@@ -80,7 +93,7 @@ for (const file of productFiles) {
 }
 
 process.stdout.write(
-  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, P02-P03 compiler/PostgreSQL/wake-only boundaries, and the single authorized Server composition root.\n`,
+  `Artifact architecture verified: ${String(compilerFiles.length)} Domain files, ${String(schemaFiles.length)} schema files, compiler/PostgreSQL projections, explicit P12 transport consumers, and the single authorized Server composition root.\n`,
 );
 
 async function collectFiles(root) {

@@ -3,7 +3,7 @@
   "packageId": "SDAR-V1.3-P01",
   "packageVersion": "1.1",
   "sequence": 1,
-  "status": "READY_FULL",
+  "status": "COMPLETED",
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
   "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
   "branch": "feature/v1.3-sequential-implementation",

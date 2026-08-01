@@ -1,0 +1,30 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "guards": {
+    "dynamicEval": "forbidden by parser, contract test and architecture gate",
+    "forgedP07Result": "hash/version/pointer/runtime snapshot mismatch rejected",
+    "crossTenant": "context, artifact, authorization and operand tenant checked",
+    "policyBypass": "policy applied before and after evaluation and before handoff",
+    "authorizationInjection": "trusted authorization port only; empty/stale facts denied",
+    "killSwitchBypass": "current state checked at every authority boundary",
+    "patternDos": "restricted safe pattern and 128-character bound",
+    "payloadDos": "recursive depth/string/collection bounds",
+    "promptInjection": "LLM output and arbitrary code are not executable",
+    "sensitiveOperandExposure": "no public/API/Console/A2A route was added"
+  },
+  "directOperations": {
+    "skill": false,
+    "mcp": false,
+    "provider": false,
+    "workflow": false,
+    "formalOutcomeWrite": false,
+    "activePointerWrite": false,
+    "authorizationGrant": false
+  },
+  "evidence": [
+    "packages/application/test/decision-rule-runtime-p09.contract.test.ts",
+    "packages/application/test/decision-rule-runtime-p09.unit.test.ts",
+    "reports/verification/summary.json"
+  ]
+}

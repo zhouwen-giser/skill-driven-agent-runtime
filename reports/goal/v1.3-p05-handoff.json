@@ -125,7 +125,7 @@
     "reports/verification/summary.json",
     "execplans/EP-SDAR-V1.3-P05.md",
     "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
-    "adr/ADR-121-p05-artifact-replay-validation-boundary.md"
+    "adr/ADR-121-artifact-replay-validation-authority.md"
   ],
   "acceptanceSummary": {
     "passed": 43,

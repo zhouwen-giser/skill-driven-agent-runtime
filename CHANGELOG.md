@@ -2,6 +2,150 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## PR #13 Merge Review Remediation
+
+- Made durable Model Route decision evidence references include tenant and
+  request identity while preserving the semantic decision hash.
+- Scoped Artifact read-audit SQL projections to the requesting tenant, with
+  explicit elevated access to global rows and no cross-tenant disclosure.
+- Propagated Template failure-evidence persistence faults as `AggregateError`
+  with both the original classified failure and the persistence failure.
+- Continued auto-confirmed Gateway plans through the existing Task scheduler
+  and normal confirmed-planning path.
+- Passed the Gateway stage deadline into PostgreSQL planning persistence, with
+  a transaction-local statement timeout and pre-commit database-clock fence.
+- Replaced route-only Model Usage pagination with an opaque route-and-Cascade
+  cursor so page boundaries cannot skip sibling Cascade runs.
+- Added focused Unit and real PostgreSQL regressions and verified the repaired
+  paths through the full Integration, Contract and isolated E2E suites.
+
+## SDAR v1.3 P14 Optional Post-release Operations
+
+- Added a non-formal X01 plan-only operations evidence set covering baseline,
+  monitoring, SLO/error budget, alerts, incidents, rollback, recovery, drift,
+  feedback, cost/capacity, governance cadence and next-version routing.
+- Added a deterministic static validator that preserves the fourteen formal
+  packages, rejects READY/production-action overclaims and requires all seven
+  missing production prerequisites to remain explicit blockers.
+- Closed the independent Operations Review at 0 Blocking / 0 Major / 0 Minor
+  and emitted a machine-readable `POST_RELEASE_OPERATIONS_BLOCKED` Handoff.
+- Performed no production mutation, automatic rollback, tag, release, deploy
+  or P00-P13 status write-back.
+
+## SDAR v1.3 P13 Hardening, Release and Final Consistency Audit
+
+- Added deployment-owned Bearer identity, exact-version Artifact canary
+  allowlisting and independently default-off compiler, registry, shadow,
+  promotion, retrieval and Model Route controls.
+- Closed management-route promotion and validation-type alias bypasses before
+  governance writes while preserving rollback and kill-switch safety controls.
+- Added an exact frozen-v1.2.3 logical PostgreSQL upgrade verifier, real
+  recovery drills, stable hardened PostgreSQL/pgvector image construction and
+  final pinned PostgreSQL/Redis vulnerability evidence.
+- Hardened Docker Desktop test readiness with final PostgreSQL initialization,
+  host PostgreSQL/Redis probes and disposable-container recreation without
+  deleting named volumes.
+- Added dependency, secret, capacity/SLO, reproducibility, rollout/rollback,
+  release evidence and 75-item acceptance tooling for the final P13 decision.
+
+## SDAR v1.3 P12 Management API, Console and A2A Integration
+
+- Added optional authenticated RBAC/tenant Artifact registry, evidence, runtime and governance APIs
+  over P02-P11 authority ports, with IDOR concealment and append-only read audit.
+- Added the real Console Artifact workspace, runtime timeline, evidence views, confirmation and
+  stale-version guidance, plus complete OpenAPI descriptions.
+- Added feature-gated safe A2A evidence and bounded resumable SSE from the PostgreSQL Outbox,
+  including event mapping, authoritative tenant derivation, ordered sequence and redaction.
+- Extended the existing cognitive management ledger for promotion-package commands and added real
+  PostgreSQL/Server/A2A/performance evidence.
+
+## SDAR v1.3 P11 Case Template and Model Route Runtime
+
+- Added ten frozen V1.1 Case/Model Route contracts with exact registry hashes,
+  immutable values, stable reason codes and deterministic decision/profile
+  snapshot hashes.
+- Added a type-keyed Fast Gateway adapter registry without changing P10
+  authority ordering. Case retrieval/adaptation preserves tenant, failure,
+  scope, sensitive-data and current-state gates and submits candidates only
+  through the existing P08 formal handoff port.
+- Added Provider Registry/readiness-owned secret-free Model Profiles, hard
+  capability/classification/residency/schema/capacity gates and a bounded
+  serial Cascade with stale, cancellation, deadline, token, cost and output
+  validation checks.
+- Reused the existing encrypted credential authority, provider transport and
+  model invocation audit. Migration 0133 persists immutable Case, Route and
+  Cascade evidence with transactional `model_route.selected` and
+  `model_cascade.escalated` Outbox facts; P02 Artifact rows remain unchanged.
+- Added bounded Management API/OpenAPI/Console-client evidence projection with
+  no credentials or sensitive prompt content, plus Unit/Contract, real
+  PostgreSQL Integration and Gateway-to-provider E2E coverage.
+- Closed review findings by actively aborting per-step Provider timeouts and
+  recursively rejecting PII, credential and historical instance fields across
+  snake_case and camelCase with one depth-bounded scan.
+- Final clean verification passes 1,097 Unit/Contract, 122 Integration, 64 E2E
+  and 26 migrations; independent review closes at 0 Blocking / 0 Major /
+  0 Minor and all 51 acceptance criteria pass.
+
+## SDAR v1.3 P10 Fast Gateway and Artifact Runtime Feedback
+
+- Added frozen V1.1 request, Gateway, decision-record and feedback contracts
+  with canonical hashes, bounded immutable data and stable reason codes.
+- Added a feature-gated Task preparation orchestrator with strict Auth, Tenant,
+  Authorization, Policy and Kill Switch ordering before P07 retrieval, P09
+  Rule evaluation, P08 Template/formal handoff or existing Cognitive Fallback.
+- Added absolute deadline/cancellation propagation, fallback reserve, late
+  discard, formal commit guards, independent adapter/fallback bulkheads,
+  tenant/adapter/failure circuits and authority-preserving load shedding.
+- Added migration 0132, PostgreSQL idempotency/decision/feedback/Outbox
+  authority, P02 Artifact feedback correlation, P06-only drift signals and
+  actor deletion propagation through Gateway-owned Outbox evidence.
+- Added bounded Management API/OpenAPI/Console Gateway evidence without request
+  text, credentials or private reasoning; A2A and SSE Task semantics remain
+  unchanged.
+- Added Unit/Contract, real PostgreSQL/Redis Integration, A2A E2E, concurrency,
+  resilience, security and local performance evidence. Final verification
+  passes 1,069 Unit/Contract, 119 Integration, 63 E2E and 25 migrations.
+
+## SDAR v1.3 P09 Decision Rule and Policy Runtime
+
+- Added frozen V1.1 P09 decision context, condition result, decision result,
+  conflict resolution, bounded plan patch and runtime contracts with a strict
+  portable Rule DSL, typed operator catalog, three-valued logic and pure stable
+  hashing.
+- Added fail-closed active Rule evaluation with Rule/pointer/tenant/Goal/Plan,
+  policy, authorization, catalog, readiness and kill-switch double rechecks;
+  policy and authorization always override Rule advice.
+- Added deterministic deny/confirmation/specificity/priority/version/stable-ID
+  conflict handling, low-risk confirmation-bound parameter suggestions and
+  conservative plan patches admitted only through the existing validator and
+  P08 interactive planning authority.
+- Reused P02 `artifact_execution`, `artifact_feedback` and Outbox authority
+  through an exact-replay/idempotency adapter; formal Outcome remains
+  reference-only and drift only signals P06 revalidation.
+- Added focused Unit/Contract and real PostgreSQL integration coverage for
+  bounds, injection, stale state, cross-tenant/auth failures, concurrency,
+  replay conflicts, formal handoff and 1k-rule deterministic resolution. P09
+  adds no public route, Fast Gateway or direct Skill/MCP/Workflow execution.
+
+## SDAR v1.3 P08 Plan Template Runtime and Formal Planner Handoff
+
+- Added frozen V1.1 P08 Domain contracts for template instantiation, immutable
+  Goal context, materialized candidate graph, result and formal handoff facts.
+- Added a fail-closed P07-to-P08 materializer with active pointer/hash/version,
+  Goal/policy/catalog/readiness/kill-switch double rechecks; parameter source,
+  trust and schema checks; DAG, criteria, parallel, conditional and recovery
+  preservation; and bounded adaptation evidence.
+- Reused the existing validator, interactive planning session, confirmation,
+  Goal lock and UserGoalPlan handoff through a narrow materialized-candidate
+  session seam. P08 never creates a second plan authority or executes a Skill,
+  Provider, MCP operation or Workflow.
+- Recorded P08 usage/handoff correlation through P02 Artifact execution and
+  feedback authority. Added focused regressions for success, stale discard,
+  forbidden parameter source and formal-session confirmation.
+- Made infrastructure/server smoke checks create and drop an isolated database
+  so complete verification does not depend on or reset an operator's historical
+  local database.
+
 ## SDAR v1.3 P07 Active Artifact Retrieval and Applicability
 
 - Added nine frozen V1.1 P07 contracts for active-index entries, matches,

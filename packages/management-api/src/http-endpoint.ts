@@ -1,4 +1,5 @@
 import { once } from 'node:events';
+import { randomUUID } from 'node:crypto';
 import { createServer, type Server as HttpServer } from 'node:http';
 import path from 'node:path';
 
@@ -8,6 +9,7 @@ import {
   CognitiveManagementController,
   type CognitiveManagementAuthorizer,
 } from './cognitive/cognitive-management-controller.js';
+import { ArtifactManagementError } from '../../application/src/index.js';
 
 import type {
   McpRegistryService,
@@ -66,6 +68,11 @@ import type {
   CognitiveManagementActionGate,
   CognitiveManagementActionRepository,
   ArtifactPromotionGovernanceService,
+  ArtifactManagementCommandService,
+  ArtifactManagementQueryService,
+  ArtifactManagementCommandOperation,
+  ManagementPrincipal,
+  ManagementPrincipalResolver,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -597,6 +604,97 @@ const ArtifactRevalidationSchema = z
     context: ArtifactOperatorContextSchema,
   })
   .strict();
+const ArtifactManagementListSchema = z
+  .object({
+    cursor: z.string().min(1).max(2048).optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+    status: z.string().min(1).max(64).optional(),
+    type: z.string().min(1).max(64).optional(),
+    taskType: z.string().min(1).max(256).optional(),
+    risk: z.string().min(1).max(64).optional(),
+    createdFrom: z.iso.datetime({ offset: true }).optional(),
+    createdTo: z.iso.datetime({ offset: true }).optional(),
+    driftSeverity: z.string().min(1).max(64).optional(),
+    active: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+    sort: z.enum(['created_desc', 'created_asc', 'key_asc']).default('created_desc'),
+  })
+  .strict();
+const ArtifactManagementViewSchema = z.enum([
+  'versions',
+  'diff',
+  'lineage',
+  'validation',
+  'shadow',
+  'promotion',
+  'approvals',
+  'activations',
+  'usage',
+  'outcomes',
+  'drift',
+  'audit',
+]);
+const RuntimeManagementViewSchema = z.enum(['decisions', 'model-usage', 'case-usage']);
+const ArtifactManagementCommandOperationSchema = z.enum([
+  'validate',
+  'shadow',
+  'build-promotion-package',
+  'approve',
+  'reject',
+  'activate',
+  'revalidate',
+  'deprecate',
+  'rollback',
+  'kill-switch-enable',
+  'kill-switch-disable',
+]);
+const ArtifactPromotionPackageCommandSchema = z
+  .object({
+    promotionPackageId: z.string().trim().min(1).max(512),
+    artifactRef: z.string().trim().min(3).max(1024),
+    artifactHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    validationSummaryRef: z.string().trim().min(1).max(512),
+    validationSummaryHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    shadowSummaryRef: z.string().trim().min(1).max(512),
+    shadowSummaryHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    counterexampleSummaryRef: z.string().trim().min(1).max(512),
+    counterexampleSummaryHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    riskReviewRef: z.string().trim().min(1).max(512),
+    riskReviewHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+    dependencySnapshotRef: z.string().trim().min(1).max(512),
+    dependencySnapshotHash: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
+  })
+  .strict();
+const ArtifactManagementCommandSchema = z
+  .object({
+    version: z.number().int().positive(),
+    expectedVersion: z.number().int().nonnegative(),
+    expectedLockVersion: z.number().int().nonnegative().optional(),
+    idempotencyKey: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(4096),
+    artifactKey: z.string().trim().min(1).max(512).optional(),
+    validationRunId: z.string().trim().min(1).max(512).optional(),
+    validationType: z.enum(['static', 'replay', 'simulation', 'shadow', 'revalidation']).optional(),
+    datasetRef: z.string().trim().min(1).max(512).optional(),
+    approvalId: z.string().trim().min(1).max(512).optional(),
+    validationSummaryHash: z
+      .string()
+      .regex(/^sha256:[0-9a-f]{64}$/u)
+      .optional(),
+    targetArtifactId: z.string().trim().min(1).max(512).optional(),
+    targetVersion: z.number().int().positive().optional(),
+    promotionPackage: ArtifactPromotionPackageCommandSchema.optional(),
+    scope: z
+      .object({
+        artifactKey: z.string().trim().min(1).max(512).optional(),
+        domain: z.string().trim().min(1).max(256).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
 export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
@@ -736,6 +834,14 @@ export interface ManagementOperations {
   >;
   readonly workflowRevisions: Pick<WorkflowRevisionService, 'get' | 'reviseAdmin'>;
   readonly taskAvailability?: Pick<TaskAvailabilityEvidenceRepository, 'listByPlan'>;
+  /** Optional P10 read-only projection. PostgreSQL remains the evidence authority. */
+  readonly gatewayEvidence?: Readonly<{
+    findByTaskId(taskId: string): Promise<unknown>;
+  }>;
+  /** Optional P11 secret-free Case/Model Route runtime evidence. */
+  readonly caseModelRuntimeEvidence?: Readonly<{
+    findRuntimeEvidenceByRequest(requestRef: string): Promise<unknown>;
+  }>;
   readonly remoteTaskLifecycle?: RemoteTaskLifecycleQuery;
   readonly remoteTaskPolling?: Pick<RemoteTaskPollingService, 'process'>;
   readonly remoteTaskCancellation?: Pick<RemoteTaskCancellationService, 'request'>;
@@ -770,6 +876,11 @@ export async function startManagementHttpEndpoint(
     port?: number;
     cognitiveManagementAuthorizer?: CognitiveManagementAuthorizer;
     cognitiveManagementActions?: Pick<CognitiveManagementActionGate, 'execute'>;
+    artifactManagement?: Readonly<{
+      queries: ArtifactManagementQueryService;
+      commands: ArtifactManagementCommandService;
+      principalResolver: ManagementPrincipalResolver;
+    }>;
   }>,
 ): Promise<ManagementHttpEndpointHandle> {
   const app = express();
@@ -815,6 +926,7 @@ export async function startManagementHttpEndpoint(
   app.post(
     '/api/v1/artifacts/promotion/approvals',
     asyncRoute(async (request, response) => {
+      rejectLegacyArtifactCommandWhenP12Enabled(options.artifactManagement);
       const service = options.operations.artifactPromotion;
       if (service === undefined)
         throw new HttpInputError(
@@ -841,6 +953,7 @@ export async function startManagementHttpEndpoint(
   app.post(
     '/api/v1/artifacts/promotions/activate',
     asyncRoute(async (request, response) => {
+      rejectLegacyArtifactCommandWhenP12Enabled(options.artifactManagement);
       const service = options.operations.artifactPromotion;
       if (service === undefined)
         throw new HttpInputError(
@@ -865,6 +978,7 @@ export async function startManagementHttpEndpoint(
   app.post(
     '/api/v1/artifacts/revalidations',
     asyncRoute(async (request, response) => {
+      rejectLegacyArtifactCommandWhenP12Enabled(options.artifactManagement);
       const service = options.operations.artifactPromotion;
       if (service === undefined)
         throw new HttpInputError(
@@ -1298,6 +1412,217 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.runtimeEvents.listByTask(pathValue(request, 'taskId')),
       });
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/gateway-evidence',
+    asyncRoute(async (request, response) => {
+      if (options.operations.gatewayEvidence === undefined) {
+        response.status(503).json({ code: 'GATEWAY_EVIDENCE_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const evidence = await options.operations.gatewayEvidence.findByTaskId(
+        pathValue(request, 'taskId'),
+      );
+      if (evidence === undefined) {
+        response.status(404).json({ code: 'GATEWAY_EVIDENCE_NOT_FOUND' });
+        return;
+      }
+      response.json(evidence);
+    }),
+  );
+  app.get(
+    '/api/v1/artifacts/runtime-evidence/:requestRef',
+    asyncRoute(async (request, response) => {
+      if (options.operations.caseModelRuntimeEvidence === undefined) {
+        response.status(503).json({ code: 'ARTIFACT_RUNTIME_EVIDENCE_QUERY_UNAVAILABLE' });
+        return;
+      }
+      const evidence =
+        await options.operations.caseModelRuntimeEvidence.findRuntimeEvidenceByRequest(
+          pathValue(request, 'requestRef'),
+        );
+      if (evidence === undefined) {
+        response.status(404).json({ code: 'ARTIFACT_RUNTIME_EVIDENCE_NOT_FOUND' });
+        return;
+      }
+      response.json(evidence);
+    }),
+  );
+  app.get(
+    '/api/v1/artifacts',
+    asyncRoute(async (request, response) => {
+      const management = requireArtifactManagement(options.artifactManagement);
+      const principal = await resolveManagementPrincipal(management.principalResolver, request);
+      const query = ArtifactManagementListSchema.parse(request.query);
+      response.json(
+        await management.queries.list(principal, {
+          limit: query.limit,
+          sort: query.sort,
+          ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+          ...(query.status === undefined ? {} : { status: query.status }),
+          ...(query.type === undefined ? {} : { artifactType: query.type }),
+          ...(query.taskType === undefined ? {} : { taskTypeId: query.taskType }),
+          ...(query.risk === undefined ? {} : { riskLevel: query.risk }),
+          ...(query.createdFrom === undefined ? {} : { createdFrom: query.createdFrom }),
+          ...(query.createdTo === undefined ? {} : { createdTo: query.createdTo }),
+          ...(query.driftSeverity === undefined ? {} : { driftSeverity: query.driftSeverity }),
+          ...(query.active === undefined ? {} : { active: query.active }),
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/artifacts/:artifactId',
+    asyncRoute(async (request, response) => {
+      const management = requireArtifactManagement(options.artifactManagement);
+      const principal = await resolveManagementPrincipal(management.principalResolver, request);
+      const artifactId = pathValue(request, 'artifactId');
+      const item = await management.queries.detail(principal, artifactId);
+      if (item === undefined) {
+        response.status(404).json({ code: 'ARTIFACT_MANAGEMENT_NOT_FOUND' });
+        return;
+      }
+      response.setHeader('ETag', `"${artifactEtag(item)}"`);
+      response.json(item);
+    }),
+  );
+  app.get(
+    '/api/v1/artifacts/:artifactId/:view',
+    asyncRoute(async (request, response) => {
+      const management = requireArtifactManagement(options.artifactManagement);
+      const principal = await resolveManagementPrincipal(management.principalResolver, request);
+      const result = await management.queries.view(
+        principal,
+        pathValue(request, 'artifactId'),
+        ArtifactManagementViewSchema.parse(pathValue(request, 'view')),
+      );
+      if (result === undefined) {
+        response.status(404).json({ code: 'ARTIFACT_MANAGEMENT_NOT_FOUND' });
+        return;
+      }
+      response.json(result);
+    }),
+  );
+  app.get(
+    '/api/v1/runtime/:view',
+    asyncRoute(async (request, response) => {
+      const management = requireArtifactManagement(options.artifactManagement);
+      const principal = await resolveManagementPrincipal(management.principalResolver, request);
+      const limit = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .default(50)
+        .parse(request.query['limit']);
+      const cursor =
+        typeof request.query['cursor'] === 'string' ? request.query['cursor'] : undefined;
+      response.json(
+        await management.queries.runtime(
+          principal,
+          RuntimeManagementViewSchema.parse(pathValue(request, 'view')),
+          { limit, ...(cursor === undefined ? {} : { cursor }) },
+        ),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/runtime/:view/:id',
+    asyncRoute(async (request, response) => {
+      const management = requireArtifactManagement(options.artifactManagement);
+      const principal = await resolveManagementPrincipal(management.principalResolver, request);
+      const item = await management.queries.runtimeDetail(
+        principal,
+        RuntimeManagementViewSchema.parse(pathValue(request, 'view')),
+        pathValue(request, 'id'),
+      );
+      if (item === undefined) {
+        response.status(404).json({ code: 'ARTIFACT_RUNTIME_EVIDENCE_NOT_FOUND' });
+        return;
+      }
+      response.json(item);
+    }),
+  );
+  app.post(
+    '/api/v1/artifacts/:artifactId/commands/:operation',
+    asyncRoute(async (request, response) => {
+      const management = requireArtifactManagement(options.artifactManagement);
+      const principal = await resolveManagementPrincipal(management.principalResolver, request);
+      const operation: ArtifactManagementCommandOperation =
+        ArtifactManagementCommandOperationSchema.parse(pathValue(request, 'operation'));
+      const input = ArtifactManagementCommandSchema.parse(request.body);
+      const result = await management.commands.execute(principal, operation, {
+        artifactId: pathValue(request, 'artifactId'),
+        version: input.version,
+        expectedVersion: input.expectedVersion,
+        idempotencyKey: input.idempotencyKey,
+        reason: input.reason,
+        ...(input.expectedLockVersion === undefined
+          ? {}
+          : { expectedLockVersion: input.expectedLockVersion }),
+        ...(input.artifactKey === undefined ? {} : { artifactKey: input.artifactKey }),
+        ...(input.validationRunId === undefined ? {} : { validationRunId: input.validationRunId }),
+        ...(input.validationType === undefined ? {} : { validationType: input.validationType }),
+        ...(input.datasetRef === undefined ? {} : { datasetRef: input.datasetRef }),
+        ...(input.approvalId === undefined ? {} : { approvalId: input.approvalId }),
+        ...(input.validationSummaryHash === undefined
+          ? {}
+          : { validationSummaryHash: input.validationSummaryHash }),
+        ...(input.targetArtifactId === undefined
+          ? {}
+          : { targetArtifactId: input.targetArtifactId }),
+        ...(input.targetVersion === undefined ? {} : { targetVersion: input.targetVersion }),
+        ...(input.promotionPackage === undefined
+          ? {}
+          : { promotionPackage: input.promotionPackage }),
+        ...(input.scope === undefined ? {} : { scope: compactManagementScope(input.scope) }),
+      });
+      response.status(202).json(result);
+    }),
+  );
+  app.get(
+    '/api/v1/artifact-events',
+    asyncRoute(async (request, response) => {
+      const management = requireArtifactManagement(options.artifactManagement);
+      const principal = await resolveManagementPrincipal(management.principalResolver, request);
+      const headerCursor = request.header('last-event-id');
+      const queryCursor =
+        typeof request.query['after'] === 'string' ? request.query['after'] : undefined;
+      const afterSequence = z.coerce
+        .number()
+        .int()
+        .nonnegative()
+        .default(0)
+        .parse(headerCursor ?? queryCursor);
+      const limit = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(500)
+        .default(100)
+        .parse(request.query['limit']);
+      const projected = await management.queries.events(principal, {
+        afterSequence,
+        limit: limit + 1,
+      });
+      const overflow = projected.length > limit;
+      const events = projected.slice(0, limit);
+      response.status(200);
+      response.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      response.setHeader('Cache-Control', 'no-cache, no-transform');
+      response.setHeader('X-Accel-Buffering', 'no');
+      for (const event of events) {
+        response.write(`id: ${event.eventId}\n`);
+        response.write(`event: ${event.eventType}\n`);
+        response.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+      if (overflow) {
+        response.write(
+          `event: overflow\ndata: ${JSON.stringify({ code: 'SSE_EVENT_OVERFLOW', resumable: true, lastEventId: events.at(-1)?.eventId ?? String(afterSequence) })}\n\n`,
+        );
+      }
+      response.end();
     }),
   );
   app.get(
@@ -3181,6 +3506,59 @@ function artifactOperatorContext(value: z.infer<typeof ArtifactOperatorContextSc
   };
 }
 
+function rejectLegacyArtifactCommandWhenP12Enabled(value: unknown): void {
+  if (value !== undefined)
+    throw new HttpInputError(
+      'ARTIFACT_LEGACY_COMMAND_DISABLED',
+      'Use the authenticated P12 Artifact command endpoint.',
+    );
+}
+
+function requireArtifactManagement<T>(value: T | undefined): T {
+  if (value === undefined)
+    throw new HttpInputError(
+      'ARTIFACT_MANAGEMENT_UNAVAILABLE',
+      'P12 Artifact management is unavailable.',
+    );
+  return value;
+}
+
+async function resolveManagementPrincipal(
+  resolver: ManagementPrincipalResolver,
+  request: Request,
+): Promise<ManagementPrincipal> {
+  const suppliedRequestId = request.header('x-request-id')?.trim();
+  const requestId =
+    suppliedRequestId === undefined || suppliedRequestId === '' ? randomUUID() : suppliedRequestId;
+  const authorization = request.header('authorization');
+  return resolver.resolve({
+    ...(authorization === undefined ? {} : { authorization }),
+    requestId,
+    ...(request.ip === undefined ? {} : { sourceIp: request.ip }),
+  });
+}
+
+function compactManagementScope(
+  scope: Readonly<{
+    artifactKey?: string | undefined;
+    domain?: string | undefined;
+  }>,
+) {
+  return {
+    ...(scope.artifactKey === undefined ? {} : { artifactKey: scope.artifactKey }),
+    ...(scope.domain === undefined ? {} : { domain: scope.domain }),
+  };
+}
+
+function artifactEtag(value: unknown): string {
+  if (typeof value !== 'object' || value === null) return 'artifact';
+  const record = value as Readonly<Record<string, unknown>>;
+  const candidate = record['content_hash'] ?? record['contentHash'] ?? record['version'];
+  return typeof candidate === 'string' || typeof candidate === 'number'
+    ? String(candidate)
+    : 'artifact';
+}
+
 function pathValue(request: Request, name: string): string {
   const value = request.params[name];
   if (typeof value !== 'string' || value.trim() === '')
@@ -3192,6 +3570,12 @@ function normalizeHttpError(error: unknown): Readonly<{
   status: number;
   body: Readonly<{ code: string; message: string; details?: unknown }>;
 }> {
+  if (error instanceof ArtifactManagementError) {
+    return {
+      status: error.status,
+      body: { code: error.code, message: 'Artifact management request was rejected.' },
+    };
+  }
   if (error instanceof z.ZodError) {
     return {
       status: 400,
@@ -3215,15 +3599,40 @@ function normalizeHttpError(error: unknown): Readonly<{
   }
   if (code.endsWith('_NOT_FOUND')) return { status: 404, body: { code, message } };
   if (
+    code.endsWith('_PERMISSION_DENIED') ||
+    code.endsWith('_TENANT_SCOPE_DENIED') ||
+    code.endsWith('_AUTHORIZATION_DENIED')
+  ) {
+    return {
+      status: 403,
+      body: { code, message: 'The authenticated principal is not authorized.' },
+    };
+  }
+  if (
     code.endsWith('_ALREADY_EXISTS') ||
+    (code.startsWith('ARTIFACT_') &&
+      (code.endsWith('_CAS_CONFLICT') ||
+        code.endsWith('_VERSION_CONFLICT') ||
+        code.endsWith('_IDEMPOTENCY_CONFLICT'))) ||
     code === 'CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT' ||
     code === 'CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT' ||
     code === 'EXPERIENCE_DEAD_LETTER_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT'
   ) {
-    return { status: 409, body: { code, message } };
+    return {
+      status: 409,
+      body: {
+        code,
+        message: code.startsWith('ARTIFACT_') ? 'Artifact version or command conflict.' : message,
+      },
+    };
   }
+  if (code.startsWith('ARTIFACT_') && code.includes('EVIDENCE'))
+    return { status: 412, body: { code, message: 'Artifact evidence is stale or invalid.' } };
+  if (code === 'ARTIFACT_LEGACY_COMMAND_DISABLED') return { status: 400, body: { code, message } };
+  if (code.startsWith('ARTIFACT_'))
+    return { status: 422, body: { code, message: 'Artifact governance validation failed.' } };
   return { status: 400, body: { code, message } };
 }
 

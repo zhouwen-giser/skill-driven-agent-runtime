@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/schemas/v1.3/fast-gateway.schema.json",
+  "title": "SDAR v1.3 P10 Fast Gateway V1.1",
+  "x-sdar-schema-hashes": {
+    "RuntimeRequestContext": "6ada60cdd637cd3a2467347c8ef858ce2932c5e56d891c7aaaf1dfaabc41595e",
+    "FastGateway": "be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe",
+    "GatewayDecisionRecord": "1beecf8ae5527d5b8db7bcf89c36b4e73d35e083d6818f9ad18874f13e31d3ab",
+    "GatewayFeedbackEnvelope": "22faac79bc9ea9d8bcac5bc42e626bba79b5ed04579e371ba5dfadbc611aaf6b"
+  },
+  "$defs": {
+    "RuntimeRequestContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "taskId",
+        "contextId",
+        "rawText",
+        "normalizedText",
+        "actor",
+        "extractedFeatures",
+        "worldStateRef",
+        "capabilitySummaryRef",
+        "policySnapshotRef",
+        "deadlineAt",
+        "cancellationRef",
+        "idempotencyKey",
+        "createdAt"
+      ],
+      "properties": {
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "taskId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "contextId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "rawText": { "type": "string", "minLength": 1, "maxLength": 64000 },
+        "normalizedText": { "type": "string", "minLength": 1, "maxLength": 64000 },
+        "actor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["actorId", "tenantId", "authenticationRef", "authorizationRefs"],
+          "properties": {
+            "actorId": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "tenantId": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "authenticationRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "authorizationRefs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+            }
+          }
+        },
+        "extractedFeatures": { "type": "object", "maxProperties": 256 },
+        "worldStateRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "capabilitySummaryRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "policySnapshotRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "deadlineAt": { "type": "string", "format": "date-time" },
+        "cancellationRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GatewayDecisionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gatewayDecisionId",
+        "requestId",
+        "runtimeDecisionRef",
+        "stageResults",
+        "reasonCodes",
+        "runtimeSnapshotHash",
+        "decisionHash",
+        "createdAt"
+      ],
+      "properties": {
+        "gatewayDecisionId": { "type": "string", "minLength": 1 },
+        "requestId": { "type": "string", "minLength": 1 },
+        "runtimeDecisionRef": { "type": "string", "minLength": 1 },
+        "stageResults": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/GatewayStageResult" }
+        },
+        "formalHandoffRef": { "type": "string", "minLength": 1 },
+        "fallbackRef": { "type": "string", "minLength": 1 },
+        "reasonCodes": { "$ref": "#/$defs/ReasonCodes" },
+        "runtimeSnapshotHash": { "$ref": "#/$defs/Hash" },
+        "decisionHash": { "$ref": "#/$defs/Hash" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GatewayStageResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "status", "reasonCodes"],
+      "properties": {
+        "stage": {
+          "enum": ["precheck", "retrieval", "rule", "template", "fallback", "formal_handoff"]
+        },
+        "status": {
+          "enum": [
+            "not_run",
+            "succeeded",
+            "failed",
+            "timed_out",
+            "cancelled",
+            "discarded_stale",
+            "skipped"
+          ]
+        },
+        "disposition": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "resultRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "reasonCodes": { "$ref": "#/$defs/ReasonCodes" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GatewayFeedbackEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feedbackId",
+        "requestId",
+        "gatewayDecisionRef",
+        "selectedArtifactRefs",
+        "feedbackType",
+        "payload",
+        "sourceRefs",
+        "createdAt"
+      ],
+      "properties": {
+        "feedbackId": { "type": "string", "minLength": 1 },
+        "requestId": { "type": "string", "minLength": 1 },
+        "gatewayDecisionRef": { "type": "string", "minLength": 1 },
+        "selectedArtifactRefs": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "formalGoalRef": { "type": "string", "minLength": 1 },
+        "formalPlanRef": { "type": "string", "minLength": 1 },
+        "formalOutcomeRef": { "type": "string", "minLength": 1 },
+        "feedbackType": {
+          "enum": [
+            "route_selected",
+            "fallback",
+            "confirmation",
+            "denial",
+            "formal_handoff",
+            "outcome",
+            "correction",
+            "recovery",
+            "performance",
+            "drift"
+          ]
+        },
+        "payload": true,
+        "sourceRefs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ReasonCodes": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^GATEWAY_[A-Z0-9_]+$" }
+    },
+    "Hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

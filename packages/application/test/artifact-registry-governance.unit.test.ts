@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  ARTIFACT_OPERATIONAL_FLAG_NAMES,
   ArtifactOutboxConsumer,
   ArtifactRegistryProjectionEventHandler,
   ArtifactRegistryService,
@@ -128,6 +129,68 @@ describe('ArtifactRegistryService', () => {
     expect(() => parseArtifactFeatureFlags({ SDAR_V13_RULE_ENABLED: '1' })).toThrow(
       expect.objectContaining({ code: 'ARTIFACT_FEATURE_FLAG_INVALID' }),
     );
+  });
+
+  it('adds fail-closed P13 operational controls without changing the frozen flag list', () => {
+    const defaults = parseArtifactFeatureFlags({});
+    expect(defaults).toMatchObject({
+      artifactMode: 'off',
+      compilerEnabled: false,
+      registryEnabled: false,
+      shadowEnabled: false,
+      promotionEnabled: false,
+      retrievalEnabled: false,
+      modelRouteEnabled: false,
+      templateEnabled: false,
+      ruleEnabled: false,
+      fastGatewayEnabled: false,
+      caseEnabled: false,
+      modelCascadeEnabled: false,
+    });
+    expect([...defaults.artifactAllowlist]).toEqual([]);
+    expect(ARTIFACT_OPERATIONAL_FLAG_NAMES).toEqual([
+      'SDAR_V13_COMPILER_ENABLED',
+      'SDAR_V13_REGISTRY_ENABLED',
+      'SDAR_V13_SHADOW_ENABLED',
+      'SDAR_V13_PROMOTION_ENABLED',
+      'SDAR_V13_RETRIEVAL_ENABLED',
+      'SDAR_V13_MODEL_ROUTE_ENABLED',
+      'SDAR_V13_ARTIFACT_ALLOWLIST',
+    ]);
+
+    const enabled = parseArtifactFeatureFlags({
+      SDAR_V13_COMPILER_ENABLED: 'true',
+      SDAR_V13_REGISTRY_ENABLED: 'true',
+      SDAR_V13_SHADOW_ENABLED: 'true',
+      SDAR_V13_PROMOTION_ENABLED: 'true',
+      SDAR_V13_RETRIEVAL_ENABLED: 'true',
+      SDAR_V13_MODEL_ROUTE_ENABLED: 'true',
+      SDAR_V13_ARTIFACT_ALLOWLIST: 'artifact.plan.inspect.1:1, artifact.rule.confirm.1:2',
+    });
+    expect(enabled).toMatchObject({
+      compilerEnabled: true,
+      registryEnabled: true,
+      shadowEnabled: true,
+      promotionEnabled: true,
+      retrievalEnabled: true,
+      modelRouteEnabled: true,
+    });
+    expect([...enabled.artifactAllowlist]).toEqual([
+      'artifact.plan.inspect.1:1',
+      'artifact.rule.confirm.1:2',
+    ]);
+
+    expect(() => parseArtifactFeatureFlags({ SDAR_V13_RETRIEVAL_ENABLED: 'TRUE' })).toThrow(
+      expect.objectContaining({ code: 'ARTIFACT_FEATURE_FLAG_INVALID' }),
+    );
+    expect(() => parseArtifactFeatureFlags({ SDAR_V13_ARTIFACT_ALLOWLIST: 'artifact-a' })).toThrow(
+      expect.objectContaining({ code: 'ARTIFACT_FEATURE_FLAG_INVALID' }),
+    );
+    expect(() =>
+      parseArtifactFeatureFlags({
+        SDAR_V13_ARTIFACT_ALLOWLIST: 'artifact-a:1,artifact-a:1',
+      }),
+    ).toThrow(expect.objectContaining({ code: 'ARTIFACT_FEATURE_FLAG_INVALID' }));
   });
 });
 

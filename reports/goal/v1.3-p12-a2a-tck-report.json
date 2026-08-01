@@ -1,0 +1,1 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","command":"pnpm test:a2a-tck","applicableHttpJsonMust":{"passed":74,"failed":0},"skipped":161,"deselected":30,"evidence":"reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/junitreport.xml"}

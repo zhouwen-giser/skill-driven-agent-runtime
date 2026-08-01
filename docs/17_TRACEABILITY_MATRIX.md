@@ -671,6 +671,70 @@ The authoritative criterion-by-criterion result is
 The 25-sample local PostgreSQL acceptance measurement is p50 9.0485 ms and
 p95 10.6000 ms; it is not a production SLO.
 
+## SDAR v1.3 P08 Plan Template Runtime and Formal Planner Handoff Addendum
+
+| P08 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P08-001-008 authority and recheck | verified | active P02 template/pointer/hash/version plus Goal/policy/catalog/readiness/kill-switch are checked before materialization and again before session admission | `template-runtime-p08.unit.test.ts`; `v1.3-p08-{runtime-schema,security}.json` |
+| AC-P08-009-012 parameters | verified | only P07 bindings are rendered; template source/trust/schema rules reject promotion, forbidden source and missing required values | P08 focused unit regression; `v1.3-p08-adaptation-report.json` |
+| AC-P08-013-023 graph/completion/adaptation | verified | candidate preserves node facts, conditional edges, parallel groups and recovery; Goal required criteria/evidence/artifacts are never weakened | `v1.3-p08-materialized-plan-schema.json`; P01/P04 contracts and P08 focused tests |
+| AC-P08-024-035 formal handoff/no execution | verified | existing Validator, Interactive Planning Session, ConfirmedPlanHandoff and Goal lock remain authority; no public or execution path exists | `interactive-planning.unit.test.ts`; architecture gate; P08 review |
+| AC-P08-036-042 usage/security/boundaries | verified | P02 ArtifactExecution/Feedback stores correlation only; internal Server composition requires a state reader and has no HTTP/A2A/Gateway route | `v1.3-p08-{usage-outcome,security}.json`; Server composition review |
+| AC-P08-043-048 closure | verified | 48/48 acceptance, code-freeze review 0/0/0, standard P09 handoff and unmerged Draft PR branch | `v1.3-p08-{acceptance,completion,review,handoff}.json/.md`; `reports/verification/summary.json` |
+
+The authoritative P08 result is `reports/goal/v1.3-p08-acceptance.json`: 48
+passed, 0 failed and 0 blocked. The final isolated `pnpm verify` completed in
+254,312 ms and is not a production latency SLO.
+
+## SDAR v1.3 P09 Decision Rule and Policy Runtime Addendum
+
+| P09 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P09-001-005 authority/context | verified | P00-P08 Handoffs/ancestry and frozen hashes checked; immutable context pins Rule/pointer/tenant/Goal/Plan and all current fact references | P09 ExecPlan; contract test; `v1.3-p09-rule-dsl-schema.json` |
+| AC-P09-006-013 DSL/evaluation | verified | strict typed DSL, recursive bounds, 18 operators, explicit three-valued logic and stable pure Domain hashes; forbidden true denies | 41 Domain focused tests; `v1.3-p09-{operator-catalog,evaluation-report}.json` |
+| AC-P09-014-022 policy/conflicts | verified | missing/stale auth denies; policy/kill switch override; deterministic deny/confirmation/specificity/priority/version/ID order; bounded combination and ambiguity fallback | Application/Domain tests; `v1.3-p09-{policy-authority,conflict-resolution-report}.json` |
+| AC-P09-023-034 plan safety/idempotency | verified | low-risk confirmation-bound suggestions; only constraint/confirmation patches; existing Validator/P08 planning authority and Goal/Plan/Rule rechecks; exact replay/CAS | P09 focused tests; `v1.3-p09-plan-patch-report.json` |
+| AC-P09-035-044 execution/usage scope | verified | no Attempt/Workflow/Skill/MCP/Outcome/pointer/public route; P02 execution/feedback/Outbox authority; reference-only Outcome and P06-only drift signal | architecture/contract gates; real PostgreSQL test; `v1.3-p09-{usage-drift,security-report}.json` |
+| AC-P09-045-050 closure | verified | clean exact-commit seven-stage full verify; 50/50 acceptance; final read-only review 0/0/0; Draft PR #13 unmerged; standard P10 Handoff complete | `reports/verification/summary.json`; `v1.3-p09-{full-verify-report,acceptance,review,handoff}.json/.md` |
+
+The authoritative P09 result is `reports/goal/v1.3-p09-acceptance.json`: 50
+passed, 0 failed and 0 blocked. Clean `pnpm verify` on `3244647` completed in
+272,326 ms with 1014 Unit/Contract, 114 Integration and 62 E2E tests. Local
+conflict-resolution performance is acceptance-only and not a production SLO.
+
+## SDAR v1.3 P10 Fast Gateway and Artifact Runtime Feedback Addendum
+
+| P10 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P10-001-006 baseline/authority order | verified | frozen P00-P09 Handoffs; Auth -> Tenant -> Authorization -> Policy/Kill Switch before any Artifact or load-shed path | P10 ExecPlan; ordered-precheck and overload-deny Unit regressions |
+| AC-P10-007-012 immutable context/deadline | verified | canonical immutable request facts, absolute stage/fallback budgets, cancellation, late discard and commit guards | Domain/Application tests; `v1.3-p10-deadline-report.json` |
+| AC-P10-013-023 thin orchestration | verified | P07/P09/P08 adapters delegate without recomputation; no second Planner/Policy/Goal/Workflow/Skill/MCP authority | adapter/contract tests; architecture gate; orchestration report |
+| AC-P10-024-034 idempotency/resilience/audit | verified | exact durable retry, concurrent coalescing, independent bulkheads, tenant/adapter/failure circuits, authority-preserving load shedding and immutable stage evidence | Unit concurrency/chaos tests; PostgreSQL integration; resilience report |
+| AC-P10-035-041 feedback/drift/deletion | verified | selected/committed/fallback/formal Outcome separation; P02 feedback authority; P06 signal only; transactional Outbox and actor deletion propagation | feedback analyzer tests; real PostgreSQL feedback/deletion integration |
+| AC-P10-042-046 protocol/scope | verified | unchanged A2A/SSE Task semantics; bounded Management API/OpenAPI/Console evidence; no Case/Model Runtime or Artifact mutation | 63 E2E; 156-route OpenAPI gate; protocol/security reports |
+| AC-P10-047-052 closure | verified | clean seven-stage full verify, G17/G18 evidence, 52/52 acceptance, final review 0 Blocking/0 Major, Draft PR open and standard P11 Handoff | `v1.3-p10-{full-verify-report,acceptance,review,handoff}.json/.md` |
+
+The authoritative P10 result is `reports/goal/v1.3-p10-acceptance.json`: 52
+passed, 0 failed and 0 blocked. Clean `pnpm verify` on `3361ff8` completed in
+263,433 ms with 1,069 Unit/Contract, 119 Integration, 63 E2E and 25 migrations.
+Local latency/concurrency evidence is explicitly not a production capacity SLO.
+
+## SDAR v1.3 P11 Case Template and Model Route Runtime Addendum
+
+| P11 acceptance | Status | Implementation | Tests / evidence |
+| --- | --- | --- | --- |
+| AC-P11-001-005 baseline/registry/current state | verified | frozen predecessor Handoffs; type-keyed registry seam; P10 precheck/retrieval/deadline order unchanged; Case/Route active and current-state readers | Domain/adapter contracts; Gateway ordering regression; P11 ExecPlan |
+| AC-P11-006-018 Case safety/formal authority | verified | tenant/task similarity ranks only after hard gates; known failure/OOD falls back or confirms; trusted parameter-only adaptation rejects credential/history/PII including camelCase; candidate is rechecked and submitted through P08 | Case Unit/Contract; real immutable Case PostgreSQL integration; adaptation/handoff/security reports |
+| AC-P11-019-028 Profile/route hard gates | verified | existing Provider Registry plus live readiness produce secret-free profiles; unknown/disabled/capacity/classification/residency/capability/schema gates precede deterministic selection | Profile/route Unit; exact hash Contract; real Gateway/provider E2E; profile/route reports |
+| AC-P11-029-041 bounded Cascade/usage | verified | serial bounded profiles, one attempt per step, max invocations/tokens/cost/deadline, active timeout/cancellation, late/stale discard, external validator and existing credential/provider/model-invocation authority | Cascade Unit/Contract; 0133 Integration; real encrypted-credential E2E; cascade/budget reports |
+| AC-P11-042-045 authority/privacy | verified | immutable type child evidence and Outbox only; no approval/activation/Outcome/Skill/MCP/Workflow authority; bounded Management/OpenAPI/Console projection omits secrets/prompts | architecture, security review, Management Contract and 157-operation OpenAPI gate |
+| AC-P11-046-051 closure | verified | clean exact-commit full verify, 51/51 acceptance, final read-only review 0 Blocking/0 Major/0 Minor and standard P12 Handoff | `v1.3-p11-{full-verify-report,acceptance,review,completion,handoff}.json/.md`; verification summary |
+
+The authoritative P11 result is `reports/goal/v1.3-p11-acceptance.json`: 51
+passed, 0 failed and 0 blocked. Clean `pnpm verify` on `dc636e6` completed in
+275,223 ms with 1,097 Unit/Contract, 122 Integration, 64 E2E and 26 migrations.
+Local performance evidence is acceptance-only and not a production SLO.
+
 ## SDAR v1.3 P06 Shadow, Promotion and Governance Addendum
 
 | P06 acceptance | Status | Implementation | Tests / evidence |
@@ -681,3 +745,52 @@ p95 10.6000 ms; it is not a production SLO.
 | AC-P06-009–011 Revalidation | verified | trigger-bound P02 run, wake-only Redis, critical pointer removal, missing-source dead-letter and no automatic reactivation | integration safety-trigger and worker contract tests |
 | AC-P06-012 P07 exclusion | verified | no Fast Gateway, retrieval, online selection or Artifact execution | architecture gate and Server composition review |
 | AC-P06-013 full closure | verified | independent review has 0 Blocking/Major/Minor; P07 handoff emitted | `reports/goal/v1.3-p06-completion.md`, `reports/goal/v1.3-p06-review.md`, `reports/verification/summary.json` |
+
+## SDAR v1.3 P12 Management API, Console and A2A Addendum
+
+| P12 acceptance | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| AC-P12-001-006 authority/identity | verified | optional P12 composition; resolver-owned principal; query/command ports only | ADR-122; architecture; Unit/Contract |
+| AC-P12-007-013 RBAC/tenant/governance | verified | centralized roles, SQL tenant scope, 404 IDOR, CAS/idempotency/reason and existing command ledger | Unit; PostgreSQL Integration; Server E2E |
+| AC-P12-014-024 API/evidence | verified | list/detail/12 evidence views/3 runtime views, exact JSONB task filter, cursor binding, OpenAPI 164 operations | Management Contract; OpenAPI report |
+| AC-P12-025-031 Console | verified | real API registry/detail/evidence/runtime/commands and explicit loading/empty/error/permission/stale states | Console and accessibility reports |
+| AC-P12-032-038 A2A | verified | feature-gated allowlist extension; formal Task/input-required unchanged | A2A Contract; applicable MUST TCK 74/74 |
+| AC-P12-039-045 SSE/security | verified | formal Outbox sequence, event mapping, tenant joins, resume/overflow/redaction and feature-off compatibility | Integration/E2E; SSE/security reports |
+| AC-P12-046-054 closure | verified | no predecessor reimplementation or auto-promotion; full verify, review, 54/54 and P13 handoff | completion/review/acceptance/handoff |
+
+The authoritative P12 result is `reports/goal/v1.3-p12-acceptance.json`: 54 passed, 0 failed and 0 blocked.
+
+## SDAR v1.3 P14 Optional Post-release Operations Addendum
+
+| P14 acceptance | Status | Implementation / boundary | Tests / evidence |
+|---|---|---|---|
+| AC-P14-001-003 package boundary | verified | non-formal X01; `formalPackageCount=14`; no G23 | package manifest/self-check; P14 Completion and Handoff |
+| AC-P14-004-013 release/production observability | blocked | P13 Handoff, release/deployment authority, frozen production baseline, connected monitoring, approved SLO/error budget and named alert owners are absent | `P14-BLK-001` through `P14-BLK-006`; baseline, monitoring, SLO and alert reports |
+| AC-P14-014-015 incident/rollback plans | verified plan-only | human-authorized incident, rollback and Kill Switch procedures are complete; none was executed | incident and rollback runbooks; independent Operations Review |
+| AC-P14-016-020 drill/outcome/cost evidence | blocked | no authorized environment or production RTO/RPO, drift, feedback, cost or capacity dataset exists | `P14-BLK-007`; recovery, drift, feedback and cost reports |
+| AC-P14-021-022 review cadence | verified plan-only | weekly operations and monthly governance templates cover authority, reliability, security, cost and evidence-linked decisions | weekly/monthly templates |
+| AC-P14-023 named backlog owners | blocked | backlog items remain `PENDING_*`; placeholders are not named accountable owners | improvement backlog; `P14-BLK-005` |
+| AC-P14-024-031 safety/review | verified | no silent v1.3 mutation or automatic production action; projection-only dashboards; independent review 0 Blocking / 0 Major / 0 Minor; blockers remain explicit | static validator; Operations Review; Completion |
+| AC-P14-032-034 publication/terminal state | verified | PR #13 observed OPEN, Draft, unmerged and targeting `main`; no auto tag/deploy; allowed terminal state is BLOCKED | connected GitHub observation; Handoff |
+
+The authoritative P14 result is
+`reports/operations/v1.3-p14-completion.md`: 18 passed, 16 blocked, 0 pending.
+Its Handoff is `POST_RELEASE_OPERATIONS_BLOCKED`, not production READY. The
+seven safe-resume inputs are enumerated in
+`reports/operations/v1.3-p14-handoff.json`; no P00-P13 authority or status is
+changed.
+
+## PR #13 Merge Review Remediation Addendum
+
+| Review requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Request-unique P11 Model Route evidence | verified | semantic `decisionHash` remains stable; durable reference hashes tenant, request and decision identity | `case-model-runtime-p11.unit.test.ts`; 19 focused Unit tests |
+| P12 read-audit tenant isolation | verified | PostgreSQL query applies tenant/global scope before returning actor, role, request or network metadata | `artifact-management-p12.integration.test.ts`; 7 focused and 130 full real Integration tests |
+| P08 Template failure durability | verified | secondary evidence-write failure raises `AggregateError` containing both caught errors, with the current persistence error as `cause`; Gateway commit deadline is propagated to the PostgreSQL handoff transaction | `template-runtime-p08.unit.test.ts`; real PostgreSQL deadline-fence regression; lint caught and enforced the error-cause rule |
+| P10-to-Task committed handoff | verified | committed fast plans transition through Goal deliberation and the existing confirmed planning continuation before Skill Goal scheduling | `plan-preparation-processor.unit.test.ts`; full Unit and E2E suites |
+| P12 Model Usage pagination | verified | opaque composite cursor orders by Route decision and Cascade run, preserving every sibling run at page boundaries | real PostgreSQL two-Cascade pagination regression |
+| Cross-module safety | verified | no authority relocation, SDK leakage, migration or public contract change | format, lint, typecheck, architecture, build and Server smoke; 214 Contract and 72 isolated E2E tests |
+
+This addendum closes only PR #13's six actionable review findings. It does
+not change the P13 or P14 terminal evidence, authorize merge, or claim a full
+release verification run.

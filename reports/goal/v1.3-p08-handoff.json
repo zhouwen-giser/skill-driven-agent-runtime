@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P08",
+  "packageVersion": "1.1",
+  "sequence": 8,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "fe41d60c3c6acc6557ba5a0d702dcb82f767a599",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "templateRuntime": "3883786"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {"name":"RuntimeExecutionDecision","version":"1.1","schemaHash":"4ad37edc562bf39d27982f23f70d27ee8af1a3dfe3486dfc34725eec62b5b4de"},
+    {"name":"PlanTemplateArtifactDefinition","version":"1.1","schemaHash":"b089d44944f3db3c5fcfff016a5b56f5d3482d89088448697b5cd4f20d425d04"},
+    {"name":"ParameterBindingResult","version":"1.1","schemaHash":"13eaeb0cad67bd18fc3b83d9bf2315d6c72213602260c5f5898c419b4c9891a5"}
+  ],
+  "producedContracts": [
+    {"name":"TemplateInstantiationInput","version":"1.1","schemaHash":"b1305ecee05292e77d0694bed39b1ea1bcaf5679c26a17bf21360fe523c1fb7a"},
+    {"name":"GoalContextSnapshot","version":"1.1","schemaHash":"8b7c4d0307be2e7786ddcd4187eff7f428f89788564415196c8d9d98a60a809d"},
+    {"name":"UserGoalPlanCandidate","version":"1.1","schemaHash":"0703bdf935e746d6e3ec5b27a72d334baa39d50e8daa4ca144ef67a41f00d396"},
+    {"name":"TemplateInstantiationResult","version":"1.1","schemaHash":"4d10a971c8fb2d79355f6364de04d45fea36143d0ebcd0a9b9faca785264de96"},
+    {"name":"FormalPlanHandoffResult","version":"1.1","schemaHash":"7cd74f217530c34f78a6d5793f2e190675dee96e6e9cb3dd39cf69dec05fe883"},
+    {"name":"TemplateRuntime","version":"1.1","schemaHash":"fe1a817f0a5633b648d018742e0fcb2278e0ef887d9a9adf1922d55a755e553a"},
+    {"name":"FormalPlanHandoffPort","version":"1.1","schemaHash":"84f9be4c6bcd7ed775c1f56779f671709efe541edc498b6bb71047a1e55d9336"}
+  ],
+  "migrations": [],
+  "repositoryPorts": ["ArtifactRepository", "ArtifactExecutionRepository", "InteractivePlanningRepository"],
+  "applicationPorts": ["TemplateRuntimeService", "TemplateRuntimeStateReader", "InteractivePlanningSessionService", "ConfirmedPlanHandoff", "UserGoalPlanCandidateValidator"],
+  "runtimePorts": ["ServerRuntimeOptions.templateRuntimeStateReader", "ServerRuntimeHandle.templateRuntime"],
+  "events": ["artifact.execution_started", "artifact.execution_completed", "artifact.feedback_recorded"],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "template-runtime/1.1",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p08-completion.md",
+    "reports/goal/v1.3-p08-review.md",
+    "reports/goal/v1.3-p08-acceptance.json",
+    "reports/goal/v1.3-p08-runtime-schema.json",
+    "reports/goal/v1.3-p08-goal-context-schema.json",
+    "reports/goal/v1.3-p08-materialized-plan-schema.json",
+    "reports/goal/v1.3-p08-handoff-transaction-report.json",
+    "reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P08.md"
+  ],
+  "acceptanceSummary": {"passed":48,"failed":0,"blocked":0},
+  "knownLimitations": [
+    "P08 is an internal post-selection adapter; it exposes no public request, A2A or Fast Gateway endpoint.",
+    "P08 does not choose or execute Skills, Providers, MCP operations, Workflows or Outcomes.",
+    "P09 is not implemented; this handoff publishes P08 contracts and evidence only."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P09",
+  "packageOutputs": {
+    "TemplateInstantiationInput":{"contractVersion":"1.1","schemaHash":"b1305ecee05292e77d0694bed39b1ea1bcaf5679c26a17bf21360fe523c1fb7a","refs":["packages/domain/src/compiler/template-runtime.ts"]},
+    "GoalContextSnapshot":{"contractVersion":"1.1","schemaHash":"8b7c4d0307be2e7786ddcd4187eff7f428f89788564415196c8d9d98a60a809d","refs":["packages/domain/src/compiler/template-runtime.ts","packages/application/src/compiler/template-runtime.ts"]},
+    "UserGoalPlanCandidate":{"contractVersion":"1.1","schemaHash":"0703bdf935e746d6e3ec5b27a72d334baa39d50e8daa4ca144ef67a41f00d396","refs":["packages/domain/src/compiler/template-runtime.ts","packages/application/src/compiler/template-runtime.ts"]},
+    "TemplateInstantiationResult":{"contractVersion":"1.1","schemaHash":"4d10a971c8fb2d79355f6364de04d45fea36143d0ebcd0a9b9faca785264de96","refs":["packages/domain/src/compiler/template-runtime.ts","packages/application/src/compiler/template-runtime.ts"]},
+    "FormalPlanHandoffResult":{"contractVersion":"1.1","schemaHash":"7cd74f217530c34f78a6d5793f2e190675dee96e6e9cb3dd39cf69dec05fe883","refs":["packages/domain/src/compiler/template-runtime.ts","packages/application/src/compiler/template-runtime.ts","packages/application/src/cognitive/confirmed-plan-handoff.ts"]},
+    "TemplateRuntime":{"contractVersion":"1.1","schemaHash":"fe1a817f0a5633b648d018742e0fcb2278e0ef887d9a9adf1922d55a755e553a","refs":["packages/domain/src/compiler/template-runtime.ts","packages/application/src/compiler/template-runtime.ts","apps/server/src/runtime.ts"]},
+    "FormalPlanHandoffPort":{"contractVersion":"1.1","schemaHash":"84f9be4c6bcd7ed775c1f56779f671709efe541edc498b6bb71047a1e55d9336","refs":["packages/domain/src/compiler/template-runtime.ts","packages/application/src/cognitive/interactive-planning-session-service.ts","packages/application/src/cognitive/confirmed-plan-handoff.ts"]}
+  }
+}

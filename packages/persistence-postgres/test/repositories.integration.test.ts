@@ -4167,16 +4167,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
     if (episodeJob === undefined) throw new Error('P03_SERVER_EPISODE_JOB_MISSING');
     await episodeService.process(episodeJob, 'episode-worker.p03-server');
 
-    const runtime = await startServerRuntime({
-      postgresUrl: connectionString,
-      redis: { host: '127.0.0.1', port: 56379 },
-      masterKeyBase64: randomBytes(32).toString('base64'),
-      queueName: `p03-server-composition-${randomUUID()}`,
-      applyMigrations: false,
-      a2aPort: 0,
-      managementPort: 0,
-    });
+    const previousCompilerFlag = process.env['SDAR_V13_COMPILER_ENABLED'];
+    process.env['SDAR_V13_COMPILER_ENABLED'] = 'true';
+    let runtime: Awaited<ReturnType<typeof startServerRuntime>> | undefined;
     try {
+      runtime = await startServerRuntime({
+        postgresUrl: connectionString,
+        redis: { host: '127.0.0.1', port: 56379 },
+        masterKeyBase64: randomBytes(32).toString('base64'),
+        queueName: `p03-server-composition-${randomUUID()}`,
+        applyMigrations: false,
+        a2aPort: 0,
+        managementPort: 0,
+      });
       let evidence:
         | Readonly<{
             traces: number;
@@ -4237,7 +4240,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
         taskTypeId: expect.stringMatching(/^request-fingerprint-/u),
       });
     } finally {
-      await runtime.close();
+      await runtime?.close();
+      if (previousCompilerFlag === undefined) {
+        Reflect.deleteProperty(process.env, 'SDAR_V13_COMPILER_ENABLED');
+      } else {
+        process.env['SDAR_V13_COMPILER_ENABLED'] = previousCompilerFlag;
+      }
     }
   }, 30_000);
 
@@ -5941,6 +5949,38 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: candidate.createdAt,
       updatedAt: candidate.createdAt,
     });
+    const fencedCandidate = createUserGoalPlanCandidateSnapshot({
+      ...candidate,
+      candidateId: 'plan-candidate.pg.fenced',
+      sessionId: 'planning-session.pg.fenced',
+    });
+    const fencedSession = createInteractivePlanningSessionSnapshot({
+      ...session,
+      sessionId: fencedCandidate.sessionId,
+      taskId: 'task.interactive-planning.pg.fenced',
+      currentCandidateId: fencedCandidate.candidateId,
+    });
+    const blocker = await pool.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('LOCK TABLE interactive_planning_session IN ACCESS EXCLUSIVE MODE');
+      const fencedOutcome = repository
+        .start(fencedSession, fencedCandidate, {
+          deadlineAt: new Date(Date.now() + 75).toISOString(),
+          mayCommit: () => true,
+        })
+        .then(
+          () => 'committed' as const,
+          (error: unknown) => error,
+        );
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await blocker.query('ROLLBACK');
+      expect(await fencedOutcome).toBeInstanceOf(Error);
+    } finally {
+      await blocker.query('ROLLBACK').catch(() => undefined);
+      blocker.release();
+    }
+    await expect(repository.findByTask(fencedSession.taskId)).resolves.toBeUndefined();
     const usage = createExperienceUsageRecord({
       schemaVersion: '1.0',
       usageId: 'usage.planning.pg.1',

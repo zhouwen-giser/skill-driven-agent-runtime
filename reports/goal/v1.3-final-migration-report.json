@@ -1,0 +1,219 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P13",
+  "status": "passed",
+  "classification": "real isolated local Docker PostgreSQL migration and upgrade evidence",
+  "command": "pnpm evidence:v13-migration",
+  "environment": {
+    "node": "v22.14.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "databaseNames": [
+      "sdar_v122_verify_empty",
+      "sdar_v122_verify_existing",
+      "sdar_v122_verify_rogue_ledger",
+      "sdar_v13_verify_upgrade",
+      "sdar_v13_verify_interrupted"
+    ],
+    "isolatedDocker": {
+      "runId": "2924-1a29cce2cf6c",
+      "isolation": {
+        "uniqueContainers": true,
+        "uniqueVolumes": true,
+        "sharedComposeNetworkUsed": false,
+        "existingComposeResourcesTouched": false,
+        "cleanupCompleted": true
+      },
+      "baselineComposeImageAtExactV123Commit": "pgvector/pgvector@sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f",
+      "registryManifests": {
+        "frozenV123ComposePin": {
+          "requestedReference": "pgvector/pgvector@sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f",
+          "mediaType": "application/vnd.oci.image.index.v1+json",
+          "indexDigest": "sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f",
+          "linuxAmd64ManifestDigest": "sha256:a8f48e6d5f8123be40e51dc85c5e993b1f88de083a93640079cea25b650e7fed",
+          "manifestCount": 4
+        }
+      },
+      "source": {
+        "container": "sdar-p13-migration-source-2924-1a29cce2cf6c",
+        "volume": "sdar-p13-migration-source-data-2924-1a29cce2cf6c",
+        "hostPort": 44971,
+        "requestedImage": "pgvector/pgvector@sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f",
+        "imageId": "sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f",
+        "repoDigests": [
+          "pgvector/pgvector@sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f"
+        ],
+        "postgresVersionEnvironment": "17.10-1.pgdg13+1",
+        "os": {
+          "VERSION_ID": "13",
+          "VERSION_CODENAME": "trixie",
+          "ID": "debian"
+        }
+      },
+      "target": {
+        "container": "sdar-p13-migration-target-2924-1a29cce2cf6c",
+        "volume": "sdar-p13-migration-target-data-2924-1a29cce2cf6c",
+        "hostPort": 44631,
+        "requestedImage": "sdar/postgres-pgvector:17.10-0.8.5-alpine3.23",
+        "imageId": "sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762",
+        "repoDigests": [
+          "sdar/postgres-pgvector@sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762"
+        ],
+        "postgresVersionEnvironment": "17.10",
+        "os": {
+          "ID": "alpine",
+          "VERSION_ID": "3.23.5"
+        }
+      },
+      "logicalUpgrade": {
+        "status": "passed",
+        "method": "pg_dump custom archive -> pg_restore single transaction",
+        "archiveBytes": 518501,
+        "archiveSha256": "decbab34e5eb63fc98956b72527403f118a992a0f7e15d4d28b47420f8cd6da6",
+        "sourceDatabase": "sdar_v123_frozen_source",
+        "targetDatabase": "sdar_v13_verify_upgrade",
+        "sourceIdentity": {
+          "database_name": "sdar_v123_frozen_source",
+          "server_version": "17.10 (Debian 17.10-1.pgdg13+1)",
+          "database_collation": "en_US.utf8",
+          "database_character_classification": "en_US.utf8",
+          "locale_provider": "c",
+          "recorded_collation_version": "2.41",
+          "vector_extension_version": "0.8.5"
+        },
+        "targetIdentity": {
+          "database_name": "sdar_v13_verify_upgrade",
+          "server_version": "17.10",
+          "database_collation": "en_US.utf8",
+          "database_character_classification": "en_US.utf8",
+          "locale_provider": "c",
+          "recorded_collation_version": null,
+          "vector_extension_version": "0.8.5"
+        },
+        "physicalPgdataReused": false,
+        "existingComposeVolumeTouched": false,
+        "sourceVolumeHeldUntilTargetVerification": true,
+        "representativeSnapshot": {
+          "a2a": {
+            "phase": "completed",
+            "goalId": "p13-upgrade-goal",
+            "taskId": "p13-upgrade-a2a-task",
+            "userId": "p13-upgrade-user",
+            "contextId": "p13-upgrade-context",
+            "goalVersion": 1
+          },
+          "goal": {
+            "title": "P13 migration preservation goal",
+            "goalId": "p13-upgrade-goal",
+            "status": "achieved",
+            "version": 1,
+            "contextId": "p13-upgrade-context"
+          },
+          "plan": {
+            "goalId": "p13-upgrade-goal",
+            "planId": "p13-upgrade-user-goal-plan",
+            "status": "completed",
+            "revision": 1,
+            "contentHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "tenant": {
+            "tenantId": "p13-upgrade-tenant",
+            "userScopeId": "p13-upgrade-user"
+          },
+          "attempt": {
+            "planId": "p13-upgrade-user-goal-plan",
+            "status": "achieved",
+            "ordinal": 1,
+            "attemptId": "p13-upgrade-attempt",
+            "skillGoalId": "p13-upgrade-skill-goal",
+            "strategyFingerprint": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "outcome": {
+            "level": "skill_goal",
+            "planId": "p13-upgrade-user-goal-plan",
+            "status": "achieved",
+            "subjectId": "p13-upgrade-skill-goal",
+            "confidence": "high",
+            "outcomeDecisionId": "p13-upgrade-outcome-decision"
+          },
+          "provider": {
+            "kind": "local",
+            "model": "p13-verifier",
+            "enabled": true,
+            "providerId": "p13-upgrade-provider"
+          },
+          "experience": {
+            "goalId": "p13-upgrade-goal",
+            "status": "complete",
+            "episodeId": "p13-upgrade-experience",
+            "episodeHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+            "goalVersion": 1,
+            "terminalOutcomeRef": "p13-upgrade-terminal-outcome"
+          }
+        }
+      }
+    }
+  },
+  "startedAt": "2026-07-30T14:05:59.318Z",
+  "finishedAt": "2026-07-30T14:06:25.279Z",
+  "durationMs": 25961,
+  "baseline": {
+    "release": "v1.2.3-final",
+    "commit": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+    "migrationHead": "0124_v123_replay_shadow_evidence",
+    "migrationCount": 17
+  },
+  "candidate": {
+    "migrationHead": "0134_v13_artifact_management_projection",
+    "additiveMigrationCount": 27,
+    "v13MigrationCount": 10
+  },
+  "scenarios": {
+    "freshInstall": "passed",
+    "idempotentReapply": "passed",
+    "rollbackAndReapply": "passed",
+    "guardedDevelopmentReset": "passed",
+    "existingDatabaseRejection": "passed",
+    "rogueLedgerRejection": "passed",
+    "v123RepresentativeUpgrade": "passed",
+    "frozenV123ImageToAlpineLogicalBackupRestore": "passed",
+    "representativeFacts": [
+      "Goal",
+      "Plan",
+      "Skill Attempt",
+      "Outcome",
+      "Experience",
+      "Tenant/User",
+      "Provider",
+      "A2A Task"
+    ],
+    "noRepresentativeDataLoss": true,
+    "transactionalInterruptionRollback": "passed",
+    "migrationChecksumDriftRejection": "passed",
+    "postgresqlRestart": "covered independently by reports/goal/v1.3-final-chaos-recovery-report.json"
+  },
+  "authority": {
+    "releasedMigrationSqlModifiedByVerifier": false,
+    "physicalPgdataReuseAttempted": false,
+    "existingComposeVolumeMounted": false,
+    "existingComposeContainerModified": false,
+    "sourceVolumePreservedUntilTargetVerification": true,
+    "checksumLedger": "verifier-only sidecar populated from SHA-256 of the released baseline and additive SQL",
+    "productionResetAttempted": false,
+    "productionDataUsed": false
+  },
+  "retainedFirstFailures": [
+    {
+      "command": "pnpm verify:migrations",
+      "cause": "the managed Windows sandbox initially denied access to the Docker named pipe",
+      "repair": "reran the same repository command with the user-authorized Docker execution permission",
+      "result": "passed without changing migration semantics"
+    },
+    {
+      "command": "node scripts/verify-migration-path.mjs --report",
+      "cause": "the hardened musl/Alpine container reused the existing Debian-initialized compose PGDATA; CREATE DATABASE failed with \"template database template1 has a collation version, but no actual collation version could be determined\"",
+      "repair": "the verifier now uses uniquely named isolated source/target volumes and transfers the exact v1.2.3 schema and representative facts with pg_dump/pg_restore instead of mounting the old physical PGDATA",
+      "result": "passed; the existing compose volume and container were not mounted, deleted, reset, or overwritten"
+    }
+  ]
+}

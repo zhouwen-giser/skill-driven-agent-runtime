@@ -1,0 +1,351 @@
+{
+  "schemaVersion": "1.0",
+  "reportId": "SDAR-V1.3-P13-FOURTEEN-PACKAGE-CONSISTENCY",
+  "mode": "preflight",
+  "generatedAt": "2026-07-30T12:20:16+08:00",
+  "candidateSha": "e3d7c8662de78d6a99289183d5345d89adad96cb",
+  "expectedCounts": {
+    "formalProductPackages": 14,
+    "mandatoryRemediationPackages": 1,
+    "optionalPostReleasePackages": 1
+  },
+  "actualCounts": {
+    "formalProductPackages": 14,
+    "mandatoryRemediationPackages": 1,
+    "optionalPostReleasePackages": 1
+  },
+  "registry": {
+    "base": {
+      "version": "1.1",
+      "declaredSha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "actualSha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "valid": true
+    },
+    "overlay": {
+      "version": "1.2",
+      "declaredSha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+      "actualSha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+      "valid": true,
+      "kind": "immutable_delta",
+      "baseRegistry": "SDAR_v1.3_Frozen_Interface_Registry_V1.1.json",
+      "baseRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb"
+    }
+  },
+  "sequence": {
+    "p04Next": "P04R",
+    "p04r": {
+      "formal": false,
+      "mandatoryRemediation": true,
+      "goals": [],
+      "next": "P05"
+    },
+    "p05DependsOnP04r": true,
+    "p05RequiredP04rStatus": "COMPLETED"
+  },
+  "goals": {
+    "expected": [
+      "G00",
+      "G01",
+      "G02",
+      "G03",
+      "G04",
+      "G05",
+      "G06",
+      "G07",
+      "G08",
+      "G09",
+      "G10",
+      "G11",
+      "G12",
+      "G13",
+      "G14",
+      "G15",
+      "G16",
+      "G17",
+      "G18",
+      "G19",
+      "G20",
+      "G21",
+      "G22"
+    ],
+    "actual": [
+      "G00",
+      "G01",
+      "G02",
+      "G03",
+      "G04",
+      "G05",
+      "G06",
+      "G07",
+      "G08",
+      "G09",
+      "G10",
+      "G11",
+      "G12",
+      "G13",
+      "G14",
+      "G15",
+      "G16",
+      "G17",
+      "G18",
+      "G19",
+      "G20",
+      "G21",
+      "G22"
+    ],
+    "g23Present": false
+  },
+  "selfChecks": [
+    {
+      "packageId": "SDAR-V1.3-P00",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P00_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P00\",\n  \"goals\": [\n    \"G00\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 17\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P01",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P01_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P01\",\n  \"goals\": [\n    \"G01\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 21\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P02",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P02_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P02\",\n  \"goals\": [\n    \"G02\",\n    \"G03\",\n    \"G04\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 20\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P03",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P03_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P03\",\n  \"goals\": [\n    \"G05\",\n    \"G06\"\n  ],\n  \"registry\": \"8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee\",\n  \"filesChecked\": 21\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P04",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P04_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P04\",\n  \"goals\": [\n    \"G07\",\n    \"G08\"\n  ],\n  \"registry\": \"8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee\",\n  \"filesChecked\": 21\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P04R",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P04R_P03_P04_Semantic_Alignment_Remediation_Codex_Goal_Package_V1.0/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P04R\",\n  \"packageClass\": \"mandatory_remediation\",\n  \"position\": \"P04 -> P04R -> P05\",\n  \"formalPackage\": false,\n  \"mandatoryReleaseGate\": true,\n  \"newAtomicGoal\": false,\n  \"remediatesGoals\": [\n    \"G05\",\n    \"G06\",\n    \"G07\",\n    \"G08\"\n  ],\n  \"targetRegistryVersion\": \"1.2\",\n  \"schemaContracts\": [\n    {\n      \"name\": \"ExperienceActivityRef\",\n      \"version\": \"1.2\",\n      \"schemaHash\": \"c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0\"\n    },\n    {\n      \"name\": \"ExperienceTraceEvent\",\n      \"version\": \"1.2\",\n      \"schemaHash\": \"4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425\"\n    },\n    {\n      \"name\": \"ProcessVariant\",\n      \"version\": \"1.2\",\n      \"schemaHash\": \"eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17\"\n    },\n    {\n      \"name\": \"WorkflowPattern\",\n      \"version\": \"1.2\",\n      \"schemaHash\": \"a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11\"\n    },\n    {\n      \"name\": \"FusedPattern\",\n      \"version\": \"1.2\",\n      \"schemaHash\": \"1b7ff0b11f3dfea8d54c6eab9850d98983f096cc70c3cf6fe42a731990c5ec11\"\n    },\n    {\n      \"name\": \"GeneralizedPattern\",\n      \"version\": \"1.2\",\n      \"schemaHash\": \"f8fef3280ed65cbd34a836ee1c0785dd1ddd747ef7cd1bd7cb93dc1a1523790a\"\n    },\n    {\n      \"name\": \"CandidateStaticValidationResult\",\n      \"version\": \"1.2\",\n      \"schemaHash\": \"1dfc155aafc2490dfb33e20efaaea8389f926923a627a6a20e7f2c482cef7edd\"\n    }\n  ],\n  \"nextPackage\": \"P05\",\n  \"filesChecked\": 35\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P05",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P05_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P05\",\n  \"goals\": [\n    \"G09\",\n    \"G10\"\n  ],\n  \"registry\": \"8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee\",\n  \"filesChecked\": 25\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P06",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P06_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P06\",\n  \"goals\": [\n    \"G11\",\n    \"G12\"\n  ],\n  \"registry\": \"8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee\",\n  \"filesChecked\": 25\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P07",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P07_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P07\",\n  \"goals\": [\n    \"G13\",\n    \"G14\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 27\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P08",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P08_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P08\",\n  \"goals\": [\n    \"G15\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 28\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P09",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P09_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P09\",\n  \"goals\": [\n    \"G16\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 29\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P10",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P10_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P10\",\n  \"goals\": [\n    \"G17\",\n    \"G18\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 29\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P11",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P11_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P11\",\n  \"goals\": [\n    \"G19\",\n    \"G20\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 30\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P12",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P12_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P12\",\n  \"goals\": [\n    \"G21\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 29\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P13",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P13_Codex_Goal_Package_V1.1/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P13\",\n  \"goals\": [\n    \"G22\"\n  ],\n  \"registry\": \"d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb\",\n  \"filesChecked\": 32\n}"
+    },
+    {
+      "packageId": "SDAR-V1.3-P14-OPTIONAL",
+      "command": "node docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P14_Optional_Post_Release_Operations_Codex_Goal_Package_V1.0/scripts/self-check.mjs",
+      "passed": true,
+      "exitCode": 0,
+      "output": "{\n  \"ok\": true,\n  \"packageId\": \"SDAR-V1.3-P14-OPTIONAL\",\n  \"sequenceLabel\": \"P14\",\n  \"formalPackage\": false,\n  \"formalPackageCount\": 14,\n  \"extensionGoal\": \"X01\",\n  \"filesChecked\": 24,\n  \"model\": {\n    \"name\": \"GPT-5.6 Sol\",\n    \"reasoning\": \"medium\",\n    \"implementationAgents\": 1,\n    \"readOnlyReviewAgents\": [\n      \"operations\"\n    ]\n  },\n  \"allowedDecisions\": [\n    \"POST_RELEASE_OPERATIONS_READY\",\n    \"POST_RELEASE_OPERATIONS_BLOCKED\"\n  ]\n}"
+    }
+  ],
+  "packages": [
+    {
+      "package": "P00",
+      "goals": [
+        "G00"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "READY_FULL"
+    },
+    {
+      "package": "P01",
+      "goals": [
+        "G01"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P02",
+      "goals": [
+        "G02",
+        "G03",
+        "G04"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P03",
+      "goals": [
+        "G05",
+        "G06"
+      ],
+      "registryVersion": "1.2",
+      "registrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P04",
+      "goals": [
+        "G07",
+        "G08"
+      ],
+      "registryVersion": "1.2",
+      "registrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P05",
+      "goals": [
+        "G09",
+        "G10"
+      ],
+      "registryVersion": "1.2",
+      "registrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P06",
+      "goals": [
+        "G11",
+        "G12"
+      ],
+      "registryVersion": "1.2",
+      "registrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P07",
+      "goals": [
+        "G13",
+        "G14"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P08",
+      "goals": [
+        "G15"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P09",
+      "goals": [
+        "G16"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P10",
+      "goals": [
+        "G17",
+        "G18"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P11",
+      "goals": [
+        "G19",
+        "G20"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P12",
+      "goals": [
+        "G21"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "COMPLETED"
+    },
+    {
+      "package": "P13",
+      "goals": [
+        "G22"
+      ],
+      "registryVersion": "1.1",
+      "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+      "status": "pending_preflight"
+    }
+  ],
+  "findings": [],
+  "status": "aligned_preflight"
+}

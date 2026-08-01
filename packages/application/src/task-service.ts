@@ -789,6 +789,8 @@ export class TaskService {
 }
 
 export type TaskApplicationErrorCode =
+  | 'GATEWAY_DENIED'
+  | 'GATEWAY_FORMAL_HANDOFF_INCOMPLETE'
   | 'TASK_CAPABILITY_GAP_EVIDENCE_INVALID'
   | 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN'
   | 'TASK_NOT_FOUND'

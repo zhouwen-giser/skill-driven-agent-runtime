@@ -1,0 +1,25 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "status": "passed",
+  "summary": { "passed": 48, "failed": 0, "blocked": 0 },
+  "criteria": {
+    "AC-P08-001": "passed", "AC-P08-002": "passed", "AC-P08-003": "passed", "AC-P08-004": "passed",
+    "AC-P08-005": "passed", "AC-P08-006": "passed", "AC-P08-007": "passed", "AC-P08-008": "passed",
+    "AC-P08-009": "passed", "AC-P08-010": "passed", "AC-P08-011": "passed", "AC-P08-012": "passed",
+    "AC-P08-013": "passed", "AC-P08-014": "passed", "AC-P08-015": "passed", "AC-P08-016": "passed",
+    "AC-P08-017": "passed", "AC-P08-018": "passed", "AC-P08-019": "passed", "AC-P08-020": "passed",
+    "AC-P08-021": "passed", "AC-P08-022": "passed", "AC-P08-023": "passed", "AC-P08-024": "passed",
+    "AC-P08-025": "passed", "AC-P08-026": "passed", "AC-P08-027": "passed", "AC-P08-028": "passed",
+    "AC-P08-029": "passed", "AC-P08-030": "passed", "AC-P08-031": "passed", "AC-P08-032": "passed",
+    "AC-P08-033": "passed", "AC-P08-034": "passed", "AC-P08-035": "passed", "AC-P08-036": "passed",
+    "AC-P08-037": "passed", "AC-P08-038": "passed", "AC-P08-039": "passed", "AC-P08-040": "passed",
+    "AC-P08-041": "passed", "AC-P08-042": "passed", "AC-P08-043": "passed", "AC-P08-044": "passed",
+    "AC-P08-045": "passed", "AC-P08-046": "passed", "AC-P08-047": "passed", "AC-P08-048": "passed"
+  },
+  "evidence": [
+    "reports/goal/v1.3-p08-completion.md",
+    "reports/goal/v1.3-p08-review.md",
+    "reports/verification/summary.json",
+    "packages/application/test/template-runtime-p08.unit.test.ts"
+  ]
+}

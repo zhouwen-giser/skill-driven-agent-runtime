@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
@@ -7,11 +8,14 @@ import { reuseExistingInfrastructure } from './lib/infrastructure.mjs';
 
 const root = process.cwd();
 const reportDirectory = resolve(root, 'reports', 'verification');
+const rawLogDirectory = resolve(reportDirectory, 'raw');
 const startedAt = new Date();
 const pnpmCli = process.env['npm_execpath'];
 if (pnpmCli === undefined || pnpmCli === '') {
   throw new Error('PNPM_EXECUTABLE_UNAVAILABLE: run this gate through pnpm verify');
 }
+const childEnvironment = { ...process.env, NO_COLOR: '1' };
+Reflect.deleteProperty(childEnvironment, 'FORCE_COLOR');
 const steps = [
   ['static-unit-contract-build', 'verify:bootstrap', 180_000],
   ['cognitive-replay-no-physical-provider', 'verify:cognitive-replay', 60_000],
@@ -24,14 +28,23 @@ const steps = [
 const results = [];
 let failed = false;
 
+await mkdir(rawLogDirectory, { recursive: true });
 for (const [name, script, timeout] of steps) {
   const stepStartedAt = new Date();
   const result = spawnSync(process.execPath, [pnpmCli, script], {
     cwd: root,
-    env: process.env,
-    stdio: 'inherit',
+    env: childEnvironment,
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
     timeout,
   });
+  const stdout = result.stdout ?? '';
+  const stderr = result.stderr ?? '';
+  process.stdout.write(stdout);
+  process.stderr.write(stderr);
+  const combinedOutput = `${stdout}${stderr}`;
+  const relativeLogPath = `reports/verification/raw/${name}.log`;
+  await writeFile(resolve(root, relativeLogPath), combinedOutput);
   const stepFinishedAt = new Date();
   const passed = result.status === 0 && result.error === undefined;
   results.push({
@@ -41,6 +54,9 @@ for (const [name, script, timeout] of steps) {
     startedAt: stepStartedAt.toISOString(),
     finishedAt: stepFinishedAt.toISOString(),
     durationMs: stepFinishedAt.getTime() - stepStartedAt.getTime(),
+    logPath: relativeLogPath,
+    outputSha256: createHash('sha256').update(combinedOutput).digest('hex'),
+    metrics: parseMetrics(combinedOutput),
     ...(result.status === null ? {} : { exitCode: result.status }),
     ...(result.signal === null ? {} : { signal: result.signal }),
     ...(result.error === undefined ? {} : { error: result.error.message }),
@@ -84,6 +100,28 @@ if (failed) {
 function capture(command, args) {
   const result = spawnSync(command, args, { cwd: root, encoding: 'utf8' });
   return result.status === 0 ? result.stdout : 'unavailable';
+}
+
+function parseMetrics(value) {
+  const testFiles = lastNumber(value, /Test Files\s+(\d+)\s+passed/gu);
+  const tests = lastNumber(value, /Tests\s+(\d+)\s+passed/gu);
+  const openapiOperations = lastNumber(value, /Verified\s+(\d+)\s+management API operations/gu);
+  const migrationCount = lastNumber(
+    value,
+    /SDAR migration path verified:[\s\S]*?,\s+(\d+)\s+additive migrations/gu,
+  );
+  return {
+    ...(testFiles === undefined ? {} : { testFiles }),
+    ...(tests === undefined ? {} : { tests }),
+    ...(openapiOperations === undefined ? {} : { openapiOperations }),
+    ...(migrationCount === undefined ? {} : { migrationCount }),
+  };
+}
+
+function lastNumber(value, pattern) {
+  const matches = [...value.matchAll(pattern)];
+  const matched = matches.at(-1)?.[1];
+  return matched === undefined ? undefined : Number(matched);
 }
 
 function renderMarkdown(summaryValue) {

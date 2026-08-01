@@ -117,3 +117,25 @@ Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 repor
       transition. No Codex Merge call or tag occurred. The timeline does not prove native auto-merge,
       and the required unmerged protected-review state cannot be claimed; on 2026-07-26 the repository
       owner explicitly accepted this external-merge deviation as the v1.2.3 release disposition.
+
+## v1.3 P14 Optional Post-release Operations addendum
+
+- [x] P14 remains the non-formal X01 extension; the formal package count stays
+      14 and no G23 is created.
+- [x] All sixteen required operations reports, the machine-readable Handoff and
+      an independent read-only Operations Review exist and pass the P14 static
+      evidence validator.
+- [x] Runbooks and governance templates require explicit human authorization;
+      no automatic Feature Flag, Kill Switch, Artifact, rollback, restart,
+      scale, tag, release or deployment action is permitted or claimed.
+- [x] The terminal Handoff is truthfully
+      `POST_RELEASE_OPERATIONS_BLOCKED`, with 18 acceptance items passed and
+      16 production-dependent items blocked.
+- [ ] P13 terminal release evidence, release authorization/tag and an actual
+      deployment manifest are available.
+- [ ] Production monitoring access, named owners, approved SLO/alert policy
+      and a bounded post-release observation/recovery-drill dataset are
+      available.
+
+P14 therefore satisfies the Definition of Done for a plan-only BLOCKED
+handoff, not for `POST_RELEASE_OPERATIONS_READY` or a production release.

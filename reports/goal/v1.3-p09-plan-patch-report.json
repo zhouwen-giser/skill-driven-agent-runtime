@@ -1,0 +1,31 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "allowedOperations": ["add_constraint", "require_confirmation"],
+  "maximumOperations": 16,
+  "required": [
+    "current Goal and Plan versions",
+    "source Rule references",
+    "explicit required confirmation",
+    "existing Skill Goal target",
+    "existing UserGoalPlanCandidateValidator",
+    "existing InteractivePlanningSessionService"
+  ],
+  "forbidden": [
+    "Goal change",
+    "required criterion change",
+    "scope expansion",
+    "new side effect",
+    "human gate deletion",
+    "authorization grant",
+    "direct formal plan commit"
+  ],
+  "handoffIdempotency": "existing planning repository findByTask plus exact plan content hash",
+  "formalAuthorityReused": true,
+  "secondPlannerCreated": false,
+  "evidence": [
+    "packages/domain/test/decision-rule-runtime-p09.unit.test.ts",
+    "packages/application/test/decision-rule-runtime-p09.unit.test.ts",
+    "packages/application/src/cognitive/interactive-planning-session-service.ts"
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdar.local/schemas/v1.3/decision-rule-runtime.schema.json",
+  "title": "SDAR V1.3 P09 Decision Rule Runtime",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["context", "dsl"],
+  "properties": {
+    "context": { "$ref": "#/$defs/RuleDecisionContext" },
+    "dsl": { "$ref": "#/$defs/RuleRuntimeDsl" }
+  },
+  "x-sdar-contract-version": "1.1",
+  "x-sdar-schema-hashes": {
+    "RuleDecisionContext": "151c3f7fafb1c7a8d3d6361feabdf924c5e96b8988ebfff887c8660b7efee77e",
+    "RuleConditionResult": "627bf8a47de6632abcfa0fe5abd5f197d1c37826636bf878f2b22da454442d82",
+    "RuleDecisionResult": "44c06ea58232e4713b695dc3d7082cd189a5e7b00fe94374c76c0af09e7a4f47",
+    "RuleConflictResolution": "03f47932366feffc992f3ffc991a51db71a71db5ea6eb3aeb79de9a13b223358",
+    "RulePlanPatchCandidate": "a406785ef94494b4aabaead4556d0652e8929f3c5b8d44923cb45e49d74d3163",
+    "RuleRuntime": "77b30dc4384fbf082345b90280d01f15609b5aa1a166ab827825d5dee14efaca"
+  },
+  "$defs": {
+    "Hash": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "NonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "RuleDecisionContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestRef",
+        "artifactRef",
+        "artifactVersion",
+        "artifactHash",
+        "activePointerVersion",
+        "tenantId",
+        "authorizationRefs",
+        "requestSnapshotRef",
+        "businessEventRefs",
+        "parameterBindingRef",
+        "capabilityReadinessRef",
+        "policyDecisionRef",
+        "dependencyValidationRef",
+        "runtimeSnapshotHash"
+      ],
+      "properties": {
+        "requestRef": { "$ref": "#/$defs/NonEmptyString" },
+        "goalContractRef": { "$ref": "#/$defs/NonEmptyString" },
+        "goalVersion": { "type": "integer", "minimum": 1 },
+        "planRef": { "$ref": "#/$defs/NonEmptyString" },
+        "planVersion": { "type": "integer", "minimum": 1 },
+        "artifactRef": { "$ref": "#/$defs/NonEmptyString" },
+        "artifactVersion": { "type": "integer", "minimum": 1 },
+        "artifactHash": { "$ref": "#/$defs/Hash" },
+        "activePointerVersion": { "type": "integer", "minimum": 0 },
+        "tenantId": { "$ref": "#/$defs/NonEmptyString" },
+        "authorizationRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/NonEmptyString" }
+        },
+        "requestSnapshotRef": { "$ref": "#/$defs/NonEmptyString" },
+        "worldStateSnapshotRef": { "$ref": "#/$defs/NonEmptyString" },
+        "businessEventRefs": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/NonEmptyString" }
+        },
+        "parameterBindingRef": { "$ref": "#/$defs/NonEmptyString" },
+        "capabilityReadinessRef": { "$ref": "#/$defs/NonEmptyString" },
+        "policyDecisionRef": { "$ref": "#/$defs/NonEmptyString" },
+        "dependencyValidationRef": { "$ref": "#/$defs/NonEmptyString" },
+        "runtimeSnapshotHash": { "$ref": "#/$defs/Hash" }
+      }
+    },
+    "RuleRuntimeDsl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "required",
+        "forbidden",
+        "confirmation",
+        "advisory",
+        "unknownPolicy",
+        "action"
+      ],
+      "properties": {
+        "version": { "const": "1.1" },
+        "required": { "$ref": "#/$defs/ExpressionList" },
+        "forbidden": { "$ref": "#/$defs/ExpressionList" },
+        "confirmation": { "$ref": "#/$defs/ExpressionList" },
+        "advisory": { "$ref": "#/$defs/ExpressionList" },
+        "unknownPolicy": {
+          "enum": ["no_match", "fallback", "require_confirmation"]
+        },
+        "action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "enum": [
+                "advise",
+                "require_confirmation",
+                "deny",
+                "fallback",
+                "suggest_parameter",
+                "propose_plan_patch"
+              ]
+            },
+            "payload": true
+          }
+        }
+      }
+    },
+    "ExpressionList": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/RuleExpression" }
+    },
+    "RuleExpression": {
+      "oneOf": [
+        { "$ref": "#/$defs/RuleAtomicCondition" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "children"],
+          "properties": {
+            "type": { "enum": ["all", "any"] },
+            "children": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 128,
+              "items": { "$ref": "#/$defs/RuleExpression" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "child"],
+          "properties": {
+            "type": { "const": "not" },
+            "child": { "$ref": "#/$defs/RuleExpression" }
+          }
+        }
+      ]
+    },
+    "RuleAtomicCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "conditionId", "operandRef", "source", "operator"],
+      "properties": {
+        "type": { "const": "condition" },
+        "conditionId": { "$ref": "#/$defs/NonEmptyString" },
+        "operandRef": { "$ref": "#/$defs/NonEmptyString" },
+        "source": {
+          "enum": [
+            "request",
+            "confirmed_goal",
+            "current_plan",
+            "trusted_world_state",
+            "business_event",
+            "parameter_binding",
+            "capability_status",
+            "skill_availability",
+            "provider_readiness",
+            "policy_result",
+            "authorization_claim",
+            "time_bucket",
+            "environment_class",
+            "device_class"
+          ]
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "neq",
+            "in",
+            "not_in",
+            "exists",
+            "not_exists",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "contains",
+            "starts_with",
+            "matches_safe_pattern",
+            "within_range",
+            "intersects",
+            "is_ready",
+            "is_authorized",
+            "changed_since"
+          ]
+        },
+        "expected": true
+      }
+    }
+  }
+}

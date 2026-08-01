@@ -419,3 +419,23 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
   documented under P02. P03 does not overwrite it. Final P03 clean-gate evidence must therefore use a
   dedicated freshly migrated database; failure of the default infrastructure smoke is retained as
   an environment failure rather than hidden.
+
+## v1.3 P14 plan-only operations boundary (2026-08-01)
+
+- P14 is optional non-formal extension X01. It cannot create G23, change the
+  fourteen-formal-package count or write back a release decision to P00-P13.
+- The local P13 candidate commit is engineering input only. P13 terminal
+  Handoff/release-candidate evidence, immutable release authorization/tag and
+  an actual deployment manifest are absent, so no production baseline exists.
+- No production metrics/log/trace access or named operations, rollback,
+  security, on-call and cost owners were supplied. `PENDING_*` values are
+  unresolved placeholders, not assignments.
+- Production SLO/error-budget targets, alert thresholds and automated actions
+  are not inferred from local P13 measurements. Dashboards and alerts remain
+  projection-only and unconnected.
+- No post-release outcome, incident, drift, cost/capacity or authorized
+  recovery-drill dataset exists. The allowed conclusion is collect more data,
+  not production success.
+- These inputs are preserved as `P14-BLK-001` through `P14-BLK-007`. Until all
+  are supplied and independently reverified, the only truthful terminal state
+  is `POST_RELEASE_OPERATIONS_BLOCKED`.

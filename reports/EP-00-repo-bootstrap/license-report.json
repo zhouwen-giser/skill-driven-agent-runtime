@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-11T17:42:00+08:00",
+  "generated_at": "2026-07-30T21:16:20+08:00",
   "package_count": 286,
   "unknown_license_count": 0,
   "packages": [
@@ -1151,10 +1151,10 @@
     },
     {
       "name": "fast-uri",
-      "version": "3.1.3",
+      "version": "3.1.4",
       "license": "BSD-3-Clause",
       "licenseFiles": [
-        "fast-uri@3.1.3/LICENSE"
+        "fast-uri@3.1.4/LICENSE"
       ],
       "repository": "git+https://github.com/fastify/fast-uri.git"
     },
@@ -2558,14 +2558,55 @@
   ],
   "external_services": [
     {
-      "name": "pgvector/pgvector",
-      "version": "0.8.4-pg17-bookworm",
-      "license": "PostgreSQL"
+      "name": "sdar/postgres-pgvector",
+      "version": "17.10-0.8.5-alpine3.23",
+      "image_id": "sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762",
+      "use": "modified_local_standalone_container",
+      "license": "PostgreSQL License (PostgreSQL and pgvector); MIT (su-exec)",
+      "base": "postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4",
+      "pgvector": "v0.8.5@159b79aaad5983fb7459c1e3df2897fbb2d11788#sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44",
+      "build_base": "0.5-r3",
+      "su_exec": "0.3-r0@89c016e6e08749d583efdeda04b9f73e1218e253",
+      "su_exec_license_sha256": "a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14"
     },
     {
       "name": "redis",
-      "version": "8.2.7-alpine3.22",
-      "license": "AGPL-3.0-only"
+      "version": "8.8.1-alpine3.23",
+      "image_digest": "sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+      "use": "unmodified_external_standalone_container",
+      "license": "AGPL-3.0-or-later",
+      "obligations": "redistribution of modified or unmodified image requires AGPL notice and Corresponding Source; modified network service also requires section 13 compliance"
+    }
+  ],
+  "build_tools": [
+    {
+      "name": "docker/dockerfile frontend",
+      "version": "1.24.0",
+      "image_digest": "sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89",
+      "linux_amd64_manifest": "sha256:e82bbc85c3cb06cf2a5a27b058208b43984448acbcd6a832cd1491933d4376dd",
+      "revision": "dd2170e156c9633da1b2d1a58a6188e3f7d36fa4",
+      "license": "Apache-2.0",
+      "license_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "root_notice": "absent",
+      "use": "container_build_tool",
+      "bundled": false,
+      "runtime_dependency": false
+    }
+  ],
+  "release_tools": [
+    {
+      "name": "aquasecurity/trivy",
+      "version": "0.70.0",
+      "commit": "8a3177aedf7ee0864920eb1852eef031cd3742b8",
+      "artifact": "trivy_0.70.0_windows-64bit.zip",
+      "sha256": "eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825",
+      "checksums_sha256": "c45281240bb9211ea9e830fc0bf5cf8acf7c0ca830feb64ac8a0aa932c5c92d9",
+      "license": "Apache-2.0",
+      "notice_blob": "3fe97bf7d4b08dfdc5c8f3feab223403d651fec9",
+      "use": "temporary_release_evidence_tool",
+      "bundled": false,
+      "runtime_dependency": false,
+      "supply_chain_review": "GHSA-69fq-xp46-6x23"
     }
   ],
   "adapted_sources": [

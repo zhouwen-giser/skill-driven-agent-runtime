@@ -194,12 +194,32 @@ import {
   ReplayValidationRunReconciler,
   ReplayValidationTriggerDispatcher,
   ArtifactShadowApplicationService,
+  ArtifactPromotionApplicationService,
   ArtifactRevalidationApplicationService,
   parseArtifactFeatureFlags,
   ArtifactPromotionGovernanceService,
+  DefaultArtifactGovernanceService,
+  ArtifactManagementQueryService,
+  ArtifactManagementCommandService,
+  type ArtifactManagementCommandOperation,
+  A2AArtifactProjectionService,
+  FastGatewayService,
+  P02GatewayArtifactFeedbackAdapter,
+  TemplateRuntimeService,
+  type FastGatewayOptions,
+  type GatewayCancellationPort,
+  type GatewayDriftSignalPort,
+  type GatewayFallbackPort,
+  type GatewayPrecheckPort,
+  type GatewayRetrievalPort,
+  type GatewayRulePort,
+  type GatewayTemplatePort,
+  type GatewayArtifactAdapterRegistry,
   type OperatorIdentityPort,
+  type ManagementPrincipalResolver,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
+  type TemplateRuntimeStateReader,
 } from '../../../packages/application/src/index.js';
 import {
   COGNITIVE_SCHEMA_VERSION,
@@ -212,6 +232,7 @@ import {
   type CognitiveInjectionMode,
   type GoalExecutionContract,
   type McpInvocationOutcome,
+  type RuntimeRequestContext,
   type SkillUsageSelectionContext,
   type SkillVersion,
   type WorkflowBudgetLimits,
@@ -317,6 +338,12 @@ import {
   PostgresCandidateGenerationCatalog,
   PostgresArtifactReplayValidationRepository,
   PostgresArtifactShadowGovernanceRepository,
+  PostgresArtifactExecutionRepository,
+  PostgresFastGatewayRepository,
+  PostgresCaseModelRuntimeRepository,
+  PostgresRuleUsageRepository,
+  PostgresArtifactGovernanceStore,
+  PostgresArtifactManagementQueryRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
   BullMqContextTaskQueue,
@@ -361,8 +388,37 @@ export interface ServerRuntimeOptions {
   readonly cognitiveManagementBearerToken?: string;
   /** Required for P06 human approval/activation; production deployments must supply a provider-backed port. */
   readonly artifactOperatorIdentity?: OperatorIdentityPort;
+  /** Required to expose P12 management endpoints; identity is never read from request JSON. */
+  readonly artifactManagementPrincipalResolver?: ManagementPrincipalResolver;
   /** Required to execute P06 shadow work; missing current facts fail closed as stale. */
   readonly artifactShadowStateReader?: ArtifactShadowCurrentStateReader;
+  /**
+   * Deployment-owned P08 current-fact reader. The template runtime has no
+   * public endpoint and remains unavailable until this reader is supplied.
+   */
+  readonly templateRuntimeStateReader?: TemplateRuntimeStateReader;
+  /**
+   * Deployment-owned P10 adapters. PostgreSQL Gateway persistence and
+   * idempotency are composed here; trusted auth/policy/current-state facts and
+   * the existing P07/P09/P08 adapters remain explicit ports.
+   */
+  readonly fastGateway?: Readonly<{
+    contexts: Readonly<{
+      create(
+        input: Readonly<{ task: AgentTask; requestText: string }>,
+      ): Promise<RuntimeRequestContext>;
+    }>;
+    precheck: GatewayPrecheckPort;
+    retrieval: GatewayRetrievalPort;
+    rule: GatewayRulePort;
+    template: GatewayTemplatePort;
+    fallback: GatewayFallbackPort;
+    cancellation: GatewayCancellationPort;
+    drift: GatewayDriftSignalPort;
+    /** P11 type-keyed adapters; ignored unless their feature flags are enabled. */
+    adapters?: GatewayArtifactAdapterRegistry;
+    options?: Partial<FastGatewayOptions>;
+  }>;
   readonly skillAuthoringModel?: StructuredModelProvider;
   readonly skillSelection?: Readonly<{
     embeddings: TextEmbeddingProvider;
@@ -428,6 +484,11 @@ export interface ServerRuntimeHandle {
   readonly planningKnowledge: PlanningKnowledgeRetriever;
   /** Present once the P02 migration is installed; rebuilt from PostgreSQL during startup. */
   readonly artifactRegistry?: ArtifactRegistryService;
+  /** Internal P08 composition root; it accepts only already selected P07 facts. */
+  readonly templateRuntime?: TemplateRuntimeService;
+  /** Present only when P10 is explicitly enabled and all deployment ports exist. */
+  readonly fastGateway?: FastGatewayService;
+  gatewayEvidence(taskId: string): ReturnType<PostgresFastGatewayRepository['findByTaskId']>;
   /** Explicit formal-runtime sidecar hook; it never selects/retrieves an Artifact. */
   enrollArtifactShadow(
     input: ArtifactShadowEnrollment,
@@ -474,11 +535,24 @@ export interface ServerRuntimeHandle {
   close(): Promise<void>;
 }
 
+const PROMOTION_CONTROLLED_ARTIFACT_MANAGEMENT_OPERATIONS =
+  new Set<ArtifactManagementCommandOperation>([
+    'build-promotion-package',
+    'approve',
+    'reject',
+    'activate',
+  ]);
+const SHADOW_CONTROLLED_ARTIFACT_MANAGEMENT_OPERATIONS =
+  new Set<ArtifactManagementCommandOperation>(['shadow', 'revalidate']);
+
 export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
   if (options.businessEvents !== undefined && options.frozenMcpTasks === undefined)
     throw new Error('BUSINESS_EVENTS_REQUIRES_FROZEN_MCP_TASKS_RUNTIME');
+  // Deployment controls are parsed before opening infrastructure connections so
+  // malformed values fail closed without partially starting the runtime.
+  const artifactFlags = parseArtifactFeatureFlags(process.env);
   const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
   const taskStateNotifier = new InMemoryTaskStateNotifier();
   const publishTaskState = (task: AgentTask) => {
@@ -514,9 +588,14 @@ export async function startServerRuntime(
        SELECT 1 FROM schema_migration WHERE version='0130_v13_artifact_shadow_governance'
      ) AS installed`,
   );
+  const artifactManagementReady = await pool.query<{ installed: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM schema_migration WHERE version='0134_v13_artifact_management_projection'
+     ) AS installed`,
+  );
   let artifactRegistry: ArtifactRegistryService | undefined;
   let artifactOutboxConsumer: ArtifactOutboxConsumer | undefined;
-  if (artifactAuthorityReady.rows[0]?.installed === true) {
+  if (artifactAuthorityReady.rows[0]?.installed === true && artifactFlags.registryEnabled) {
     artifactRegistry = new ArtifactRegistryService({
       repository: new PostgresArtifactRepository(pool),
       projection: new InMemoryArtifactActiveIndexProjection(),
@@ -966,7 +1045,7 @@ export async function startServerRuntime(
     `reflection-worker-${randomUUID()}`,
   );
   const experienceCompilation =
-    experienceCompilationReady.rows[0]?.installed === true
+    experienceCompilationReady.rows[0]?.installed === true && artifactFlags.compilerEnabled
       ? (() => {
           const repository = new PostgresExperienceCompilationRepository(pool);
           const runs = new PostgresCompilationRunRepository(pool);
@@ -1099,20 +1178,25 @@ export async function startServerRuntime(
       : undefined;
   // P06 is a low-priority formal-runtime sidecar. The returned handle accepts only an
   // exact formal correlation; it never selects/retrieves candidates or exposes P07.
+  const artifactShadowRepository =
+    artifactShadowGovernanceReady.rows[0]?.installed === true &&
+    (artifactFlags.shadowEnabled || artifactFlags.promotionEnabled)
+      ? new PostgresArtifactShadowGovernanceRepository(pool)
+      : undefined;
   const artifactShadowRuntime =
-    artifactShadowGovernanceReady.rows[0]?.installed === true
+    artifactShadowRepository !== undefined &&
+    artifactFlags.shadowEnabled &&
+    artifactFlags.artifactMode !== 'off'
       ? (() => {
-          const repository = new PostgresArtifactShadowGovernanceRepository(pool);
           const queue = new BullMqArtifactShadowQueue(options.redis);
           const revalidationQueue = new BullMqArtifactRevalidationQueue(options.redis);
-          const flags = parseArtifactFeatureFlags(process.env);
           const service = new ArtifactShadowApplicationService(
-            repository,
+            artifactShadowRepository,
             queue,
             clock,
             {
-              artifactMode: flags.artifactMode,
-              tenantAllowlist: flags.tenantAllowlist,
+              artifactMode: artifactFlags.artifactMode,
+              tenantAllowlist: artifactFlags.tenantAllowlist,
               degraded: false,
               maximumQueueDepth: 1_000,
               samplingRate: 1,
@@ -1124,11 +1208,11 @@ export async function startServerRuntime(
             experienceCompilation?.replayValidationQueue === undefined
               ? undefined
               : new ArtifactRevalidationApplicationService(
-                  repository,
+                  artifactShadowRepository,
                   experienceCompilation.replayValidationQueue,
                 );
           return {
-            repository,
+            repository: artifactShadowRepository,
             service,
             queue,
             revalidationQueue,
@@ -1150,19 +1234,64 @@ export async function startServerRuntime(
         })()
       : undefined;
   const artifactPromotionGovernance =
-    artifactShadowGovernanceReady.rows[0]?.installed === true &&
+    artifactShadowRepository !== undefined &&
+    artifactFlags.promotionEnabled &&
     options.artifactOperatorIdentity !== undefined
       ? (() => {
           return new ArtifactPromotionGovernanceService({
             identity: options.artifactOperatorIdentity,
             audit: cognitiveManagementActions,
-            store: new PostgresArtifactShadowGovernanceRepository(pool),
+            store: artifactShadowRepository,
             ...(artifactShadowRuntime?.revalidationQueue === undefined
               ? {}
               : { revalidationWake: artifactShadowRuntime.revalidationQueue }),
           });
         })()
       : undefined;
+  const artifactManagement =
+    artifactManagementReady.rows[0]?.installed === true &&
+    options.artifactOperatorIdentity !== undefined &&
+    options.artifactManagementPrincipalResolver !== undefined
+      ? (() => {
+          const repository = new PostgresArtifactManagementQueryRepository(pool);
+          const governance = new DefaultArtifactGovernanceService({
+            identity: options.artifactOperatorIdentity,
+            repository: new PostgresArtifactRepository(pool),
+            store: new PostgresArtifactGovernanceStore(pool),
+            audit: cognitiveManagementActions,
+          });
+          return {
+            queries: new ArtifactManagementQueryService({ repository, clock }),
+            commands: new ArtifactManagementCommandService({
+              governance,
+              audit: cognitiveManagementActions,
+              authorizationQueries: repository,
+              operationPolicy: {
+                isEnabled: (operation) =>
+                  isArtifactManagementOperationEnabled(operation, artifactFlags),
+              },
+              ...(!artifactFlags.promotionEnabled || artifactShadowRepository === undefined
+                ? {}
+                : {
+                    promotionPackages: new ArtifactPromotionApplicationService(
+                      artifactShadowRepository,
+                      {
+                        version: 'promotion-policy/1.2',
+                        minimumIndependentGoals: 2,
+                        minimumHoldoutCases: 1,
+                        minimumShadowRuns: 2,
+                        minimumEnvironmentClasses: 2,
+                        minimumDeviceClasses: 2,
+                      },
+                    ),
+                  }),
+              clock,
+            }),
+            principalResolver: options.artifactManagementPrincipalResolver,
+          };
+        })()
+      : undefined;
+  const a2aArtifactProjection = new A2AArtifactProjectionService();
   const requeueArtifactRevalidations = async (limit = 100): Promise<number> => {
     if (artifactShadowRuntime?.revalidation === undefined) return 0;
     const triggerIds =
@@ -1378,12 +1507,18 @@ export async function startServerRuntime(
     nextCorrectionId: () => `planning-correction-${randomUUID()}`,
   });
   planningCorrectionRef.current = planningCorrections;
+  const fastGatewayRepository = new PostgresFastGatewayRepository(pool);
+  const caseModelRuntimeRepository = new PostgresCaseModelRuntimeRepository(pool);
   const deletionPropagation = new DeletionPropagationService({
     targets: [
       {
         name: 'planning_preferences',
         deleteUserScope: (userId, actorId) =>
           planningCorrections.deleteUserScopedProjection(userId, actorId),
+      },
+      {
+        name: 'fast_gateway_evidence',
+        deleteUserScope: (userId) => fastGatewayRepository.deleteActorScope(userId),
       },
     ],
   });
@@ -2396,6 +2531,71 @@ export async function startServerRuntime(
           goalSessions: interactiveGoalSessions,
           planningSessions: interactivePlanningSessions,
         });
+  const templateRuntime =
+    artifactAuthorityReady.rows[0]?.installed === true &&
+    artifactFlags.retrievalEnabled &&
+    artifactFlags.templateEnabled &&
+    interactivePlanningSessions !== undefined &&
+    options.templateRuntimeStateReader !== undefined
+      ? new TemplateRuntimeService({
+          artifacts: new PostgresArtifactRepository(pool),
+          executions: new PostgresArtifactExecutionRepository(pool),
+          states: options.templateRuntimeStateReader,
+          planning: interactivePlanningSessions,
+          clock,
+        })
+      : undefined;
+  const fastGatewayAdapters: GatewayArtifactAdapterRegistry | undefined =
+    options.fastGateway?.adapters !== undefined &&
+    (artifactFlags.caseEnabled ||
+      (artifactFlags.modelCascadeEnabled && artifactFlags.modelRouteEnabled))
+      ? {
+          find(artifactType) {
+            if (artifactType === 'case_template' && !artifactFlags.caseEnabled) {
+              return undefined;
+            }
+            if (
+              artifactType === 'model_route' &&
+              (!artifactFlags.modelCascadeEnabled || !artifactFlags.modelRouteEnabled)
+            ) {
+              return undefined;
+            }
+            return options.fastGateway?.adapters?.find(artifactType);
+          },
+        }
+      : undefined;
+  const fastGateway =
+    artifactAuthorityReady.rows[0]?.installed === true &&
+    artifactFlags.artifactMode === 'active' &&
+    artifactFlags.retrievalEnabled &&
+    artifactFlags.fastGatewayEnabled &&
+    options.fastGateway !== undefined
+      ? new FastGatewayService({
+          precheck: options.fastGateway.precheck,
+          retrieval: options.fastGateway.retrieval,
+          rule: options.fastGateway.rule,
+          template: options.fastGateway.template,
+          fallback: options.fastGateway.fallback,
+          cancellation: options.fastGateway.cancellation,
+          persistence: fastGatewayRepository,
+          drift: options.fastGateway.drift,
+          artifactFeedback: new P02GatewayArtifactFeedbackAdapter(
+            new PostgresRuleUsageRepository(pool),
+          ),
+          ...(fastGatewayAdapters === undefined ? {} : { adapters: fastGatewayAdapters }),
+          clock: {
+            now: () => clock.now(),
+            nowMs: () => Date.parse(clock.now()),
+          },
+          ids: {
+            nextGatewayDecisionId: () => `gateway-decision-${randomUUID()}`,
+          },
+          ...(options.fastGateway.options === undefined
+            ? {}
+            : { options: options.fastGateway.options }),
+        })
+      : undefined;
+  const fastGatewayContexts = options.fastGateway?.contexts;
   const userGoalRecovery = new UserGoalRecoveryService({
     repository: userGoalRuntimeRepository,
     ids: {
@@ -3320,6 +3520,31 @@ export async function startServerRuntime(
       ? {}
       : { planningSessions: interactivePlanningSessions }),
     ...(interactiveActions === undefined ? {} : { interactiveActions }),
+    ...(fastGateway === undefined || fastGatewayContexts === undefined
+      ? {}
+      : {
+          fastGateway: {
+            async evaluate(input: Readonly<{ task: AgentTask; requestText: string }>) {
+              const gatewayContext = await fastGatewayContexts.create(input);
+              const result = await fastGateway.evaluateDetailed(gatewayContext);
+              return {
+                decision: result.decision,
+                formalHandoffCommitted:
+                  result.record.formalHandoffRef !== undefined &&
+                  (result.decision.path === 'compiled_fast' ||
+                    result.decision.path === 'template_adapt'),
+                ...(result.formalPlanRef === undefined
+                  ? {}
+                  : { formalPlanRef: result.formalPlanRef }),
+                ...(result.formalInteractionRef === undefined
+                  ? {}
+                  : {
+                      interactionQuestion: `Continue formal interaction ${result.formalInteractionRef}.`,
+                    }),
+              };
+            },
+          },
+        }),
     requestTaskInput: (taskId, question, origin) => service.requestInput(taskId, question, origin),
     workflowContinuation: {
       continueAfterInput(input) {
@@ -4040,6 +4265,8 @@ export async function startServerRuntime(
         evaluationInfluences,
         evaluationAnalytics,
         runtimeEvents: events,
+        gatewayEvidence: fastGatewayRepository,
+        caseModelRuntimeEvidence: caseModelRuntimeRepository,
         skillExecutions: skillExecutionRepository,
         runtimeTerminalOutcomes,
         memories,
@@ -4176,6 +4403,7 @@ export async function startServerRuntime(
               options.cognitiveManagementBearerToken,
             ),
           }),
+      ...(artifactManagement === undefined ? {} : { artifactManagement }),
     });
     management = startedManagement;
     const taskExecutor = new TaskServiceAgentExecutor({
@@ -4209,6 +4437,30 @@ export async function startServerRuntime(
           }));
         },
       },
+      ...(artifactManagement === undefined
+        ? {}
+        : {
+            artifactProjectionProvider: {
+              projectPublic: () =>
+                Promise.resolve(
+                  a2aArtifactProjection.project({
+                    capabilities: [
+                      'experience-informed-planning',
+                      'validated-planning-templates',
+                      'policy-governed-fast-paths',
+                      'interactive-confirmation',
+                    ],
+                    inputRequired: true,
+                    confirmation: true,
+                    formalTaskState: 'unchanged',
+                    evidence: {
+                      artifactEnhancement: true,
+                      formalAuthority: 'existing-runtime',
+                    },
+                  }),
+                ),
+            },
+          }),
       capabilityCardProvider: capabilityCards,
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
@@ -4218,6 +4470,11 @@ export async function startServerRuntime(
       management: startedManagement,
       planningKnowledge,
       ...(artifactRegistry === undefined ? {} : { artifactRegistry }),
+      ...(templateRuntime === undefined ? {} : { templateRuntime }),
+      ...(fastGateway === undefined ? {} : { fastGateway }),
+      gatewayEvidence(taskId: string) {
+        return fastGatewayRepository.findByTaskId(taskId);
+      },
       enrollArtifactShadow(input: ArtifactShadowEnrollment) {
         // The formal runtime must provide an exact already-selected artifact and
         // formal fact correlation. P06 does not perform retrieval or selection.
@@ -4507,6 +4764,22 @@ export async function applyRuntimeMigrations(pool: Pool): Promise<void> {
       .catch(() => undefined);
     client.release();
   }
+}
+
+function isArtifactManagementOperationEnabled(
+  operation: ArtifactManagementCommandOperation,
+  flags: ReturnType<typeof parseArtifactFeatureFlags>,
+): boolean {
+  if (PROMOTION_CONTROLLED_ARTIFACT_MANAGEMENT_OPERATIONS.has(operation)) {
+    return flags.promotionEnabled;
+  }
+  if (SHADOW_CONTROLLED_ARTIFACT_MANAGEMENT_OPERATIONS.has(operation)) {
+    return flags.shadowEnabled;
+  }
+  // Validation remains an explicit operator action. Deprecation, rollback and
+  // kill-switch commands are safety controls and must remain available while
+  // promotion and shadow paths are stopped.
+  return true;
 }
 
 async function applyPostV122Migrations(

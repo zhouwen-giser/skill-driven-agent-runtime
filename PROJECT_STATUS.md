@@ -1,5 +1,101 @@
 # Project Status
 
+PR #13 merge remediation is locally implemented and verified (2026-08-01) on
+`feature/v1.3-sequential-implementation`. `git merge-tree` found no textual
+conflict with current `origin/main`; the actual blockers were three unresolved
+review threads, followed by three additional threads posted after the first
+repair push. The six fixes make Model Route evidence request-scoped, enforce
+SQL-side tenant isolation for Artifact read-audit projections, preserve
+Template failure-evidence errors, resume Task scheduling after committed fast
+handoffs, fence P08 authority commits by the Gateway stage deadline and use a
+Cascade-aware Model Usage cursor. Regression evidence passes 27 focused Unit,
+7 focused real PostgreSQL Integration, 908 full Unit, 130 full Integration,
+214 full Contract and 72 E2E tests, plus format, lint, typecheck, architecture,
+production build and isolated Server smoke gates. The second repair commit,
+push, thread resolution and live merge-state recheck remain; no automatic
+merge, tag, release or deployment is authorized.
+
+SDAR v1.3 P14/X01 Optional Post-release Operations is terminal
+`POST_RELEASE_OPERATIONS_BLOCKED` (2026-08-01) on
+`feature/v1.3-sequential-implementation`. The non-formal extension preserves
+`formalPackageCount=14`, creates no G23 and performs no production action. Its
+sixteen required operations reports, machine-readable Handoff and independent
+read-only review are complete; the review verdict is 0 Blocking / 0 Major /
+0 Minor for the truthful plan-only delivery. Eighteen acceptance items pass and
+sixteen remain blocked by seven external prerequisites: P13 terminal release
+evidence, release authorization/tag, deployment manifest, monitoring access,
+named owners, approved SLO/alerts and post-release observation/drill data.
+Existing Draft PR #13 remains the only main-targeted publication path; no
+merge, tag, release or deployment is authorized by P14.
+
+SDAR v1.3 P13/G22 Hardening, Release and Final Consistency Audit is
+`IN_PROGRESS` (2026-07-30) on `feature/v1.3-sequential-implementation`.
+The exact v1.2.3 logical migration, real PostgreSQL/Redis recovery drills,
+stable hardened PostgreSQL image, final container scans, dependency override,
+default-off operational controls and deployment-owned Bearer identity are
+implemented. Independent Architecture/Authority review is closed at
+0 Blocking / 0 Major / 0 Minor after promotion and validation-type alias
+repairs. Current focused/full evidence includes 905 Unit, 214 Contract,
+129 Integration and 72 E2E tests, with typecheck, lint, architecture, build,
+OpenAPI and secret scan passing. Exact-candidate reproducibility,
+Security/Privacy and Operations/Release re-review, 75-item acceptance,
+completion and Handoff remain pending. Per user instruction, no push occurs
+until the optional P14 extension is closed. P14 is now terminal BLOCKED and
+does not promote or otherwise change this P13 status.
+
+SDAR v1.3 P11/G19-G20 Case Template and Model Route Runtime is `COMPLETED`
+(2026-07-30) on `feature/v1.3-sequential-implementation`. Commits `b116a6c`,
+`c62334a` and `dc636e6` add the ten frozen V1.1 contracts, type-keyed Gateway
+adapters, safe Case-to-P08 candidate handoff, Provider Registry/readiness-owned
+Profiles, bounded serial Cascade, migration 0133 evidence/Outbox and bounded
+Management API/OpenAPI/Console projections. Three read-only review rounds
+closed inactive timeout enforcement, PII coverage and camelCase privacy
+bypasses; final verdict is 0 Blocking / 0 Major / 0 Minor. Clean exact-commit
+`pnpm verify` passed in 275,223 ms with 1,097 Unit/Contract, 122 Integration,
+64 E2E, 26 migrations, architecture/OpenAPI/TCK/build and both smokes. All 51
+acceptance items pass and the P12 Handoff is `COMPLETED`. P12 has not started.
+
+SDAR v1.3 P10/G17-G18 Fast Gateway and Artifact Runtime Feedback is
+`COMPLETED` (2026-07-30) on `feature/v1.3-sequential-implementation`.
+Implementation commits `a27e49c`, `211b88b`, `3d7c722` and `13d4b54` add the
+frozen V1.1 Gateway contracts, ordered authority prechecks, P07/P09/P08/fallback
+orchestration, deadline/cancellation/late-result guards, isolated bulkheads and
+circuits, PostgreSQL request/decision/feedback/Outbox authority, P02 usage
+projection, drift analysis and bounded Management API/Console evidence.
+Independent read-only review closed at 0 Blocking / 0 Major / 1 local-SLO
+Minor. Clean `pnpm verify` passed on `3361ff8` in 263,433 ms with 1,069
+Unit/Contract, 119 Integration, 63 E2E, 25 migrations, architecture/OpenAPI/TCK,
+build and both smokes. All 52 acceptance items pass and the P11 Handoff is
+`COMPLETED`. P11 subsequently completed under its own package evidence above.
+
+SDAR v1.3 P09/G16 Decision Rule and Policy Runtime is `COMPLETED`
+(2026-07-30) on `feature/v1.3-sequential-implementation`. Implementation commit
+`3244647` adds the frozen V1.1 strict Rule DSL, typed three-valued evaluator,
+stable conflict resolver, policy/authorization/current-state rechecks,
+confirmation-bound parameter suggestions and conservative patches through the
+existing Validator/P08 planning authority. P02 core execution, feedback and
+Outbox rows remain usage authority; drift only signals P06. The final
+read-only review has 0 Blocking / 0 Major / 0 Minor. Clean exact-commit
+`pnpm verify` passed in 272,326 ms with 1014 Unit/Contract, 114 real
+Integration, 62 E2E, 24 migrations, architecture/build and both smoke stages.
+Draft PR #13 is open and unmerged. `v1.3-p09-handoff.json` is `COMPLETED`;
+P10 has not started.
+
+SDAR v1.3 P08/G15 Plan Template Runtime and Formal Planner Handoff is
+`COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
+Implementation commit `3883786` adds frozen V1.1 P08 contract values,
+materialization from a P07-selected active template, source/trust/schema
+parameter guards, lossless candidate graph/recovery data, double current-state
+rechecks and stable idempotency. It reuses the existing Validator, interactive
+planning session, confirmation, Goal lock and UserGoalPlan authority; P02
+execution/feedback stores usage correlation only. Server composition requires a
+deployment-owned state reader and exposes no route, Fast Gateway or direct
+Skill/MCP/Provider call. The final read-only review has 0 Blocking / 0 Major /
+0 Minor. `pnpm verify` passed in 254,312 ms with 958 unit/contract, real
+integration, 62 E2E, migration, architecture/protocol/build and isolated
+infrastructure/server smoke stages. `v1.3-p08-handoff.json` is `COMPLETED`;
+P09 has not started.
+
 SDAR v1.3 P07/G13-G14 Active Artifact Retrieval and Applicability is
 `COMPLETED` (2026-07-29) on `feature/v1.3-sequential-implementation`.
 Implementation commits `a53798b`, `d2a37fd` and `26b60c2` add the frozen V1.1
@@ -26,7 +122,6 @@ read-only review closed at 0 Blocking / 0 Major / 0 Minor. The final isolated
 `pnpm verify` passes 941 unit/contract, 110 integration, 62 E2E, 23 migrations,
 architecture/protocol/build and both smokes; its seven-stage report is in
 `reports/verification/summary.json`. `v1.3-p06-handoff.json` is `COMPLETED`.
-
 
 SDAR v1.3 P05/G09-G10 Replay Dataset and Artifact Validation Engine is `COMPLETED` (2026-07-29) on
 `feature/v1.3-sequential-implementation` from P04R closure `b28b183`. The strict six-contract
@@ -675,3 +770,12 @@ layer is free of `node:crypto` (hash computation moved to application layer per 
 integration, 62 E2E, 20 migrations through 0127, architecture, build, and smoke. Review 1 self-audit
 concludes 0 Blocking / 0 Major / 0 Minor; the final ACCEPTED verdict is
 `PENDING_USER_CONFIRMATION`. P05 Handoff is emitted. Draft PR #12 remains OPEN and unmerged.
+
+## SDAR v1.3 P12 Management API, Console and A2A Integration (2026-07-30)
+
+P12/G21 is complete on `feature/v1.3-sequential-implementation`. Optional authenticated Management
+composition exposes tenant-scoped Artifact/evidence/runtime queries and audited governance commands
+without changing P02-P11 authorities. The Console uses the real API; A2A adds only a feature-gated
+safe extension; SSE is a bounded resumable PostgreSQL Outbox projection. Independent review
+findings covering runtime SQL, event aliases/tenant derivation, IDOR, filters, feature-off,
+promotion audit and redaction were repaired and regression tested.

@@ -1,0 +1,4086 @@
+{
+  "schemaVersion": "1.0",
+  "reportId": "SDAR-V1.3-P13-AUTHORITY-AUDIT",
+  "mode": "preflight",
+  "generatedAt": "2026-07-30T12:20:16+08:00",
+  "candidateSha": "e3d7c8662de78d6a99289183d5345d89adad96cb",
+  "authorities": [
+    {
+      "owner": "GoalService and PostgresRuntimeRepository",
+      "authority": "formal_goal",
+      "writePorts": [
+        "GoalRepository",
+        "GoalContractRepository"
+      ],
+      "readProjections": [
+        "GoalReadRepository",
+        "A2A task projection",
+        "Management query projection"
+      ],
+      "databaseTables": [
+        "goal",
+        "user_goal_contract"
+      ],
+      "events": [
+        "goal.created",
+        "goal.patched",
+        "goal.canceled"
+      ],
+      "tests": [
+        "packages/application/test/user-goal-planning.unit.test.ts",
+        "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "Console",
+        "A2A adapter",
+        "Compiler",
+        "Redis worker"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/repositories.ts",
+          "port": "GoalRepository and runtime transaction boundary"
+        },
+        {
+          "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+          "port": "GoalContractRepository transaction boundary"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "UserGoalPlanController",
+      "authority": "formal_plan",
+      "writePorts": [
+        "UserGoalRuntimeRepository",
+        "ConfirmedPlanHandoff"
+      ],
+      "readProjections": [
+        "UserGoalPlanReadRepository",
+        "Template candidate projection"
+      ],
+      "databaseTables": [
+        "user_goal_plan",
+        "skill_goal"
+      ],
+      "events": [
+        "plan.created",
+        "plan.revised",
+        "plan.completed"
+      ],
+      "tests": [
+        "packages/application/test/user-goal-plan-controller.unit.test.ts",
+        "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "Template runtime",
+        "Decision rule runtime",
+        "Case runtime",
+        "Model route"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+          "port": "UserGoalRuntimeRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/repositories.ts",
+          "port": "ConfirmedPlanHandoff and runtime repository transaction"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "Skill Goal and Attempt Authority",
+      "authority": "skill_attempt",
+      "writePorts": [
+        "UserGoalRuntimeRepository",
+        "SkillAttemptRepository"
+      ],
+      "readProjections": [
+        "Attempt read model",
+        "Artifact execution evidence link"
+      ],
+      "databaseTables": [
+        "skill_attempt"
+      ],
+      "events": [
+        "skill_attempt.started",
+        "skill_attempt.completed"
+      ],
+      "tests": [
+        "packages/domain/test/user-goal-runtime.unit.test.ts",
+        "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "Template runtime",
+        "Rule runtime",
+        "Worker wake payload"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+          "port": "UserGoalRuntimeRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/repositories.ts",
+          "port": "SkillAttemptRepository transaction boundary"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "LangGraph Formal Workflow Runtime",
+      "authority": "formal_workflow",
+      "writePorts": [
+        "WorkflowRepository",
+        "WorkflowContinuationRepository"
+      ],
+      "readProjections": [
+        "Workflow management projection",
+        "A2A task projection"
+      ],
+      "databaseTables": [
+        "workflow_plan",
+        "workflow_instance",
+        "workflow_control",
+        "workflow_control_round"
+      ],
+      "events": [
+        "workflow.started",
+        "workflow.waiting_external",
+        "workflow.completed"
+      ],
+      "tests": [
+        "packages/application/test/workflow-controller.unit.test.ts",
+        "packages/persistence-postgres/test/workflow-continuation.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "Compiler artifacts",
+        "Console",
+        "A2A projection store",
+        "Redis queue"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/repositories.ts",
+          "port": "WorkflowRepository and WorkflowControlRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+          "port": "WorkflowContinuationRepository"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "Outcome, Recovery and Terminal Authority",
+      "authority": "outcome_recovery",
+      "writePorts": [
+        "OutcomeRepository",
+        "RecoveryRepository",
+        "UserGoalRuntimeRepository"
+      ],
+      "readProjections": [
+        "Outcome evidence projection",
+        "Artifact feedback link"
+      ],
+      "databaseTables": [
+        "outcome_decision",
+        "runtime_terminal_outcome",
+        "recovery_decision",
+        "completed_effect"
+      ],
+      "events": [
+        "outcome.committed",
+        "recovery.decided"
+      ],
+      "tests": [
+        "packages/application/test/user-goal-plan-controller.unit.test.ts",
+        "packages/persistence-postgres/test/user-goal-runtime.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "A2A adapter",
+        "Rule runtime",
+        "Template runtime",
+        "Redis worker"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/repositories.ts",
+          "port": "OutcomeRepository and terminal transaction authority"
+        },
+        {
+          "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+          "port": "UserGoalRuntimeRepository recovery transaction"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "P02 PostgreSQL ArtifactRepository",
+      "authority": "artifact_definition",
+      "writePorts": [
+        "ArtifactRepository",
+        "ReplayValidationRepository",
+        "ArtifactShadowGovernanceRepository"
+      ],
+      "readProjections": [
+        "ArtifactRegistry",
+        "ArtifactManagementQueryRepository"
+      ],
+      "databaseTables": [
+        "compiled_artifact",
+        "artifact_lineage",
+        "artifact_validation_run",
+        "experience_trace",
+        "pattern_candidate",
+        "candidate_generation_run"
+      ],
+      "events": [
+        "compiler.artifact_candidate_created",
+        "artifact.validation_completed",
+        "artifact.shadow_completed"
+      ],
+      "tests": [
+        "packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+        "packages/persistence-postgres/test/artifact-shadow-p06.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "Compiler domain service",
+        "Management API",
+        "Console",
+        "Redis worker"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "port": "ArtifactRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+          "port": "ArtifactGovernanceStore state transition port"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+          "port": "ReplayValidationRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+          "port": "ArtifactShadowGovernanceRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+          "port": "ExperienceCompilationRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+          "port": "CandidateGenerationRepository"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "P06 Approval, Activation and Active Pointer Authority",
+      "authority": "artifact_active",
+      "writePorts": [
+        "ArtifactGovernancePort",
+        "ArtifactGovernanceStore"
+      ],
+      "readProjections": [
+        "ArtifactActiveProjection",
+        "ArtifactRegistry"
+      ],
+      "databaseTables": [
+        "artifact_approval",
+        "artifact_active_pointer"
+      ],
+      "events": [
+        "artifact.approval_recorded",
+        "artifact.activated",
+        "artifact.deprecated"
+      ],
+      "tests": [
+        "packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+        "packages/persistence-postgres/test/artifact-shadow-p06.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "Management HTTP handler",
+        "Console",
+        "Worker",
+        "Redis cache"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+          "port": "ArtifactGovernanceStore"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "port": "ArtifactRepository activation compatibility port"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+          "port": "ArtifactShadowGovernanceRepository governed transition"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "Artifact execution evidence repositories",
+      "authority": "artifact_runtime_evidence",
+      "writePorts": [
+        "ArtifactExecutionRepository",
+        "ArtifactFeedbackRepository"
+      ],
+      "readProjections": [
+        "P07 active retrieval",
+        "P12 management runtime projection"
+      ],
+      "databaseTables": [
+        "artifact_execution",
+        "artifact_feedback",
+        "artifact_match_log"
+      ],
+      "events": [
+        "artifact.match_evaluated",
+        "artifact.execution_completed",
+        "artifact.feedback_recorded"
+      ],
+      "tests": [
+        "packages/application/test/artifact-retrieval.contract.test.ts",
+        "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"
+      ],
+      "forbiddenWriters": [
+        "Console",
+        "A2A adapter",
+        "Redis cache"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "port": "ArtifactExecutionRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/artifact-retrieval-repository.ts",
+          "port": "ArtifactRetrievalEvidenceRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+          "port": "FastGateway evidence repository"
+        }
+      ],
+      "status": "aligned"
+    },
+    {
+      "owner": "Formal task runtime with A2A projection adapter",
+      "authority": "a2a_task_projection",
+      "writePorts": [
+        "AgentTaskRepository",
+        "ExternalTaskProjectionRepository"
+      ],
+      "readProjections": [
+        "A2AProjectionTaskStore"
+      ],
+      "databaseTables": [
+        "agent_task",
+        "external_task_projection"
+      ],
+      "events": [
+        "task.updated",
+        "a2a.projection_saved"
+      ],
+      "tests": [
+        "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+        "packages/a2a-adapter/test/http-endpoint.contract.test.ts"
+      ],
+      "forbiddenWriters": [
+        "A2A HTTP endpoint",
+        "Console",
+        "Redis queue"
+      ],
+      "allowedSqlWriters": [
+        {
+          "path": "packages/persistence-postgres/src/repositories.ts",
+          "port": "AgentTaskRepository and ExternalTaskProjectionRepository"
+        },
+        {
+          "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+          "port": "RemoteTaskInputRepository formal wait transition"
+        }
+      ],
+      "status": "aligned"
+    }
+  ],
+  "directWriterScan": {
+    "protectedTables": [
+      "goal",
+      "user_goal_contract",
+      "user_goal_plan",
+      "skill_goal",
+      "skill_attempt",
+      "workflow_plan",
+      "workflow_instance",
+      "workflow_control",
+      "workflow_control_round",
+      "outcome_decision",
+      "runtime_terminal_outcome",
+      "recovery_decision",
+      "completed_effect",
+      "compiled_artifact",
+      "artifact_lineage",
+      "artifact_validation_run",
+      "experience_trace",
+      "pattern_candidate",
+      "candidate_generation_run",
+      "artifact_approval",
+      "artifact_active_pointer",
+      "artifact_execution",
+      "artifact_feedback",
+      "artifact_match_log",
+      "agent_task",
+      "external_task_projection"
+    ],
+    "sqlWrites": [
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-card-repository.ts",
+        "line": 157,
+        "verb": "INSERT INTO",
+        "table": "public_capability_card_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-card-repository.ts",
+        "line": 177,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-card-repository.ts",
+        "line": 231,
+        "verb": "UPDATE",
+        "table": "public_capability_card_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-card-repository.ts",
+        "line": 236,
+        "verb": "UPDATE",
+        "table": "public_capability_card_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 250,
+        "verb": "INSERT INTO",
+        "table": "capability_pattern_definition",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 270,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 322,
+        "verb": "INSERT INTO",
+        "table": "capability_gap_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 338,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 393,
+        "verb": "UPDATE",
+        "table": "capability_pattern_definition",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 411,
+        "verb": "INSERT INTO",
+        "table": "knowledge_status_transition",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 426,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 554,
+        "verb": "INSERT INTO",
+        "table": "capability_pattern_evidence",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-pattern-repository.ts",
+        "line": 566,
+        "verb": "INSERT INTO",
+        "table": "capability_experience_evidence",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-summary-repository.ts",
+        "line": 161,
+        "verb": "INSERT INTO",
+        "table": "runtime_capability_summary",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-summary-repository.ts",
+        "line": 177,
+        "verb": "INSERT INTO",
+        "table": "runtime_capability_summary_item",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-summary-repository.ts",
+        "line": 184,
+        "verb": "INSERT INTO",
+        "table": "runtime_capability_limitation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-summary-repository.ts",
+        "line": 200,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-summary-repository.ts",
+        "line": 280,
+        "verb": "UPDATE",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-summary-repository.ts",
+        "line": 295,
+        "verb": "UPDATE",
+        "table": "runtime_capability_summary",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/capability-summary-repository.ts",
+        "line": 300,
+        "verb": "UPDATE",
+        "table": "runtime_capability_summary",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/cognitive-management-action-repository.ts",
+        "line": 46,
+        "verb": "INSERT INTO",
+        "table": "cognitive_management_action",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/cognitive-management-action-repository.ts",
+        "line": 98,
+        "verb": "UPDATE",
+        "table": "cognitive_management_action",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/cognitive-management-action-repository.ts",
+        "line": 108,
+        "verb": "UPDATE",
+        "table": "cognitive_management_action",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 113,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 158,
+        "verb": "INSERT INTO",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 188,
+        "verb": "UPDATE",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 193,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_consumer_cursor",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 223,
+        "verb": "INSERT INTO",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 276,
+        "verb": "UPDATE",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 321,
+        "verb": "UPDATE",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 350,
+        "verb": "UPDATE",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 366,
+        "verb": "INSERT INTO",
+        "table": "experience_dead_letter",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 426,
+        "verb": "UPDATE",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 433,
+        "verb": "UPDATE",
+        "table": "experience_dead_letter",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 511,
+        "verb": "INSERT INTO",
+        "table": "goal_experience_episode",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 539,
+        "verb": "INSERT INTO",
+        "table": "goal_experience_episode_source",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 558,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/experience-repository.ts",
+        "line": 581,
+        "verb": "INSERT INTO",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-goal-repository.ts",
+        "line": 239,
+        "verb": "UPDATE",
+        "table": "interactive_goal_session",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-goal-repository.ts",
+        "line": 283,
+        "verb": "INSERT INTO",
+        "table": "interactive_goal_session",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-goal-repository.ts",
+        "line": 310,
+        "verb": "INSERT INTO",
+        "table": "interactive_goal_turn",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-goal-repository.ts",
+        "line": 336,
+        "verb": "UPDATE",
+        "table": "goal_contract_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-goal-repository.ts",
+        "line": 344,
+        "verb": "UPDATE",
+        "table": "goal_contract_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-goal-repository.ts",
+        "line": 349,
+        "verb": "INSERT INTO",
+        "table": "goal_contract_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-goal-repository.ts",
+        "line": 454,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 357,
+        "verb": "UPDATE",
+        "table": "interactive_planning_session",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 374,
+        "verb": "UPDATE",
+        "table": "experience_usage_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 417,
+        "verb": "INSERT INTO",
+        "table": "interactive_planning_session",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 445,
+        "verb": "INSERT INTO",
+        "table": "interactive_planning_turn",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 477,
+        "verb": "UPDATE",
+        "table": "user_goal_plan_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 484,
+        "verb": "UPDATE",
+        "table": "user_goal_plan_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 488,
+        "verb": "INSERT INTO",
+        "table": "user_goal_plan_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 520,
+        "verb": "INSERT INTO",
+        "table": "experience_usage_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 548,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/interactive-planning-repository.ts",
+        "line": 587,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/knowledge-search-repository.ts",
+        "line": 339,
+        "verb": "INSERT INTO",
+        "table": "experience_usage_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/knowledge-search-repository.ts",
+        "line": 369,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/observation-repository.ts",
+        "line": 174,
+        "verb": "INSERT INTO",
+        "table": "experience_observation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/observation-repository.ts",
+        "line": 194,
+        "verb": "INSERT INTO",
+        "table": "experience_observation_fact",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/observation-repository.ts",
+        "line": 209,
+        "verb": "INSERT INTO",
+        "table": "experience_extraction",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/observation-repository.ts",
+        "line": 234,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/observation-repository.ts",
+        "line": 253,
+        "verb": "INSERT INTO",
+        "table": "experience_job",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/planning-correction-repository.ts",
+        "line": 144,
+        "verb": "INSERT INTO",
+        "table": "planning_correction_fact",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/planning-correction-repository.ts",
+        "line": 183,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/planning-correction-repository.ts",
+        "line": 264,
+        "verb": "INSERT INTO",
+        "table": "planning_interaction_episode",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/planning-replay-repository.ts",
+        "line": 108,
+        "verb": "INSERT INTO",
+        "table": "promotion_provenance_report",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/promotion-repository.ts",
+        "line": 509,
+        "verb": "INSERT INTO",
+        "table": "knowledge_promotion_evaluation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/promotion-repository.ts",
+        "line": 583,
+        "verb": "INSERT INTO",
+        "table": "knowledge_status_transition",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/promotion-repository.ts",
+        "line": 612,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/reflection-repository.ts",
+        "line": 222,
+        "verb": "INSERT INTO",
+        "table": "experience_reflection",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/reflection-repository.ts",
+        "line": 272,
+        "verb": "INSERT INTO",
+        "table": "knowledge_delta_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/reflection-repository.ts",
+        "line": 354,
+        "verb": "INSERT INTO",
+        "table": "knowledge_candidate_lineage",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/reflection-repository.ts",
+        "line": 484,
+        "verb": "INSERT INTO",
+        "table": "knowledge_relation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/reflection-repository.ts",
+        "line": 520,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/task-type-repository.ts",
+        "line": 197,
+        "verb": "INSERT INTO",
+        "table": "task_type_definition",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/task-type-repository.ts",
+        "line": 214,
+        "verb": "INSERT INTO",
+        "table": "task_type_evidence",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/task-type-repository.ts",
+        "line": 227,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/task-understanding-repository.ts",
+        "line": 223,
+        "verb": "INSERT INTO",
+        "table": "generic_task_understanding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/task-understanding-repository.ts",
+        "line": 243,
+        "verb": "INSERT INTO",
+        "table": "generic_task_understanding_dimension",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/cognitive/task-understanding-repository.ts",
+        "line": 259,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 87,
+        "verb": "INSERT INTO",
+        "table": "artifact_approval",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 110,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore state transition port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 228,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore state transition port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 233,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore state transition port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 239,
+        "verb": "UPDATE",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 303,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore state transition port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 308,
+        "verb": "UPDATE",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 339,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore state transition port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 345,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactGovernanceStore state transition port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "line": 463,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-management-query-repository.ts",
+        "line": 323,
+        "verb": "INSERT INTO",
+        "table": "artifact_management_read_audit",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-outbox-consumer-repository.ts",
+        "line": 119,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_consumer_cursor",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-outbox-consumer-repository.ts",
+        "line": 126,
+        "verb": "UPDATE",
+        "table": "cognitive_runtime_consumer_cursor",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 345,
+        "verb": "INSERT INTO",
+        "table": "artifact_replay_case",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 380,
+        "verb": "INSERT INTO",
+        "table": "replay_dataset_manifest",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 409,
+        "verb": "INSERT INTO",
+        "table": "replay_dataset_case",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 417,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 484,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 619,
+        "verb": "INSERT INTO",
+        "table": "artifact_replay_case_result",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 635,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_failure",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 651,
+        "verb": "INSERT INTO",
+        "table": "artifact_counterexample",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 671,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 732,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 775,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 803,
+        "verb": "INSERT INTO",
+        "table": "artifact_replay_tenant_deletion",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 818,
+        "verb": "DELETE FROM",
+        "table": "artifact_replay_case",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 850,
+        "verb": "DELETE FROM",
+        "table": "artifact_replay_case",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 942,
+        "verb": "INSERT INTO",
+        "table": "replay_dataset_manifest",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 961,
+        "verb": "INSERT INTO",
+        "table": "replay_dataset_case",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 967,
+        "verb": "UPDATE",
+        "table": "replay_dataset_manifest",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 974,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 1442,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 1460,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ReplayValidationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+        "line": 1489,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 246,
+        "verb": "INSERT INTO",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 285,
+        "verb": "INSERT INTO",
+        "table": "artifact_lineage",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 389,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 395,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 401,
+        "verb": "INSERT INTO",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository activation compatibility port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 460,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 468,
+        "verb": "UPDATE",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository activation compatibility port"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 499,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 526,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 547,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 628,
+        "verb": "INSERT INTO",
+        "table": "artifact_execution",
+        "authority": "artifact_runtime_evidence",
+        "status": "allowed",
+        "allowedPort": "ArtifactExecutionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 673,
+        "verb": "UPDATE",
+        "table": "artifact_execution",
+        "authority": "artifact_runtime_evidence",
+        "status": "allowed",
+        "allowedPort": "ArtifactExecutionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 730,
+        "verb": "INSERT INTO",
+        "table": "artifact_feedback",
+        "authority": "artifact_runtime_evidence",
+        "status": "allowed",
+        "allowedPort": "ArtifactExecutionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 820,
+        "verb": "INSERT INTO",
+        "table": "cognitive_management_action",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 868,
+        "verb": "UPDATE",
+        "table": "cognitive_management_action",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+        "line": 926,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-retrieval-repository.ts",
+        "line": 33,
+        "verb": "INSERT INTO",
+        "table": "artifact_match_log",
+        "authority": "artifact_runtime_evidence",
+        "status": "allowed",
+        "allowedPort": "ArtifactRetrievalEvidenceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-retrieval-repository.ts",
+        "line": 78,
+        "verb": "INSERT INTO",
+        "table": "runtime_candidate_decision",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 163,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 201,
+        "verb": "INSERT INTO",
+        "table": "artifact_shadow_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 289,
+        "verb": "UPDATE",
+        "table": "artifact_shadow_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 295,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 307,
+        "verb": "UPDATE",
+        "table": "artifact_shadow_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 316,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 374,
+        "verb": "UPDATE",
+        "table": "artifact_shadow_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 389,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 406,
+        "verb": "INSERT INTO",
+        "table": "artifact_shadow_result",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 459,
+        "verb": "UPDATE",
+        "table": "artifact_shadow_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 466,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 486,
+        "verb": "UPDATE",
+        "table": "artifact_shadow_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 505,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 617,
+        "verb": "INSERT INTO",
+        "table": "artifact_promotion_policy",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 636,
+        "verb": "INSERT INTO",
+        "table": "artifact_promotion_package",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 678,
+        "verb": "INSERT INTO",
+        "table": "artifact_promotion_assessment",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 702,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 856,
+        "verb": "UPDATE",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 872,
+        "verb": "INSERT INTO",
+        "table": "artifact_revalidation_trigger",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 917,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 925,
+        "verb": "DELETE FROM",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository governed transition"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 931,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1022,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1028,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1082,
+        "verb": "INSERT INTO",
+        "table": "artifact_revalidation_trigger",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1102,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1107,
+        "verb": "DELETE FROM",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository governed transition"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1306,
+        "verb": "INSERT INTO",
+        "table": "artifact_approval",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository governed transition"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1330,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1457,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1463,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1468,
+        "verb": "INSERT INTO",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository governed transition"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1499,
+        "verb": "INSERT INTO",
+        "table": "artifact_activation_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1595,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1614,
+        "verb": "INSERT INTO",
+        "table": "artifact_validation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1638,
+        "verb": "INSERT INTO",
+        "table": "artifact_revalidation_trigger",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1655,
+        "verb": "UPDATE",
+        "table": "compiled_artifact",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 1660,
+        "verb": "DELETE FROM",
+        "table": "artifact_active_pointer",
+        "authority": "artifact_active",
+        "status": "allowed",
+        "allowedPort": "ArtifactShadowGovernanceRepository governed transition"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+        "line": 2005,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 134,
+        "verb": "INSERT INTO",
+        "table": "candidate_generation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "CandidateGenerationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 182,
+        "verb": "UPDATE",
+        "table": "candidate_generation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "CandidateGenerationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 331,
+        "verb": "INSERT INTO",
+        "table": "fused_pattern",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 358,
+        "verb": "INSERT INTO",
+        "table": "generalized_pattern",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 388,
+        "verb": "INSERT INTO",
+        "table": "candidate_fingerprint",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 403,
+        "verb": "INSERT INTO",
+        "table": "candidate_static_validation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 439,
+        "verb": "UPDATE",
+        "table": "candidate_generation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "CandidateGenerationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 468,
+        "verb": "UPDATE",
+        "table": "candidate_generation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "CandidateGenerationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+        "line": 586,
+        "verb": "UPDATE",
+        "table": "candidate_generation_run",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "CandidateGenerationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts",
+        "line": 30,
+        "verb": "INSERT INTO",
+        "table": "case_runtime_match",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts",
+        "line": 59,
+        "verb": "INSERT INTO",
+        "table": "case_runtime_adaptation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts",
+        "line": 95,
+        "verb": "INSERT INTO",
+        "table": "model_route_decision",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts",
+        "line": 162,
+        "verb": "INSERT INTO",
+        "table": "model_cascade_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts",
+        "line": 201,
+        "verb": "INSERT INTO",
+        "table": "model_cascade_step",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts",
+        "line": 365,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 347,
+        "verb": "INSERT INTO",
+        "table": "experience_trace",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ExperienceCompilationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 364,
+        "verb": "INSERT INTO",
+        "table": "experience_trace_source",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 485,
+        "verb": "INSERT INTO",
+        "table": "pattern_candidate",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ExperienceCompilationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 609,
+        "verb": "DELETE FROM",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 612,
+        "verb": "DELETE FROM",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 619,
+        "verb": "DELETE FROM",
+        "table": "pattern_candidate",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ExperienceCompilationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 624,
+        "verb": "DELETE FROM",
+        "table": "experience_trace",
+        "authority": "artifact_definition",
+        "status": "allowed",
+        "allowedPort": "ExperienceCompilationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 779,
+        "verb": "INSERT INTO",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 842,
+        "verb": "INSERT INTO",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 899,
+        "verb": "UPDATE",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 931,
+        "verb": "UPDATE",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 950,
+        "verb": "UPDATE",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 995,
+        "verb": "UPDATE",
+        "table": "compilation_run",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 1124,
+        "verb": "INSERT INTO",
+        "table": "pattern_candidate_support",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+        "line": 1229,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+        "line": 104,
+        "verb": "INSERT INTO",
+        "table": "fast_gateway_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+        "line": 133,
+        "verb": "INSERT INTO",
+        "table": "fast_gateway_decision",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+        "line": 178,
+        "verb": "INSERT INTO",
+        "table": "fast_gateway_feedback",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+        "line": 245,
+        "verb": "DELETE FROM",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+        "line": 254,
+        "verb": "DELETE FROM",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+        "line": 263,
+        "verb": "DELETE FROM",
+        "table": "fast_gateway_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+        "line": 365,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+        "line": 97,
+        "verb": "INSERT INTO",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+        "line": 113,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+        "line": 159,
+        "verb": "UPDATE",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+        "line": 194,
+        "verb": "UPDATE",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+        "line": 225,
+        "verb": "UPDATE",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+        "line": 249,
+        "verb": "UPDATE",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+        "line": 311,
+        "verb": "INSERT INTO",
+        "table": "remote_task_cancel_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+        "line": 91,
+        "verb": "UPDATE",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "RemoteTaskInputRepository formal wait transition"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+        "line": 98,
+        "verb": "INSERT INTO",
+        "table": "task_input_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+        "line": 111,
+        "verb": "INSERT INTO",
+        "table": "remote_task_input_link",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+        "line": 131,
+        "verb": "UPDATE",
+        "table": "remote_task_control_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+        "line": 163,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+        "line": 173,
+        "verb": "UPDATE",
+        "table": "remote_task_input_link",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+        "line": 194,
+        "verb": "INSERT INTO",
+        "table": "remote_task_input_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 217,
+        "verb": "INSERT INTO",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 351,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 434,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 491,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 634,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 713,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 765,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 893,
+        "verb": "UPDATE",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 934,
+        "verb": "INSERT INTO",
+        "table": "remote_task_observation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 1000,
+        "verb": "INSERT INTO",
+        "table": "remote_task_control_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+        "line": 1025,
+        "verb": "INSERT INTO",
+        "table": "remote_task_protocol_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 909,
+        "verb": "INSERT INTO",
+        "table": "conversation_context",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 938,
+        "verb": "UPDATE",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 968,
+        "verb": "UPDATE",
+        "table": "workflow_instance",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 977,
+        "verb": "UPDATE",
+        "table": "task_execution_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1087,
+        "verb": "INSERT INTO",
+        "table": "goal",
+        "authority": "formal_goal",
+        "status": "allowed",
+        "allowedPort": "GoalRepository and runtime transaction boundary"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1113,
+        "verb": "INSERT INTO",
+        "table": "goal_transition",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1199,
+        "verb": "UPDATE",
+        "table": "goal",
+        "authority": "formal_goal",
+        "status": "allowed",
+        "allowedPort": "GoalRepository and runtime transaction boundary"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1213,
+        "verb": "UPDATE",
+        "table": "workflow_plan",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1219,
+        "verb": "UPDATE",
+        "table": "workflow_instance",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1229,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1238,
+        "verb": "UPDATE",
+        "table": "workflow_continuation_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1245,
+        "verb": "UPDATE",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1268,
+        "verb": "INSERT INTO",
+        "table": "goal_patch",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1365,
+        "verb": "UPDATE",
+        "table": "goal",
+        "authority": "formal_goal",
+        "status": "allowed",
+        "allowedPort": "GoalRepository and runtime transaction boundary"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1370,
+        "verb": "UPDATE",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1382,
+        "verb": "UPDATE",
+        "table": "task_input_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1391,
+        "verb": "INSERT INTO",
+        "table": "runtime_terminal_outcome",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "OutcomeRepository and terminal transaction authority"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1409,
+        "verb": "UPDATE",
+        "table": "workflow_control",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1418,
+        "verb": "INSERT INTO",
+        "table": "runtime_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1431,
+        "verb": "UPDATE",
+        "table": "workflow_plan",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1437,
+        "verb": "UPDATE",
+        "table": "workflow_instance",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1447,
+        "verb": "INSERT INTO",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1461,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1472,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1481,
+        "verb": "UPDATE",
+        "table": "workflow_continuation_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1499,
+        "verb": "INSERT INTO",
+        "table": "goal_cancellation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1587,
+        "verb": "INSERT INTO",
+        "table": "processed_result",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1648,
+        "verb": "INSERT INTO",
+        "table": "skill_input_resolution",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 1811,
+        "verb": "UPDATE",
+        "table": "runtime_terminal_outcome",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "OutcomeRepository and terminal transaction authority"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2019,
+        "verb": "INSERT INTO",
+        "table": "runtime_terminal_outcome",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "OutcomeRepository and terminal transaction authority"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2044,
+        "verb": "UPDATE",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2075,
+        "verb": "UPDATE",
+        "table": "user_goal_plan",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "ConfirmedPlanHandoff and runtime repository transaction"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2084,
+        "verb": "UPDATE",
+        "table": "goal",
+        "authority": "formal_goal",
+        "status": "allowed",
+        "allowedPort": "GoalRepository and runtime transaction boundary"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2090,
+        "verb": "UPDATE",
+        "table": "workflow_control",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2113,
+        "verb": "INSERT INTO",
+        "table": "remote_task_cancel_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2127,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2141,
+        "verb": "UPDATE",
+        "table": "task_input_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2146,
+        "verb": "INSERT INTO",
+        "table": "runtime_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2158,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2186,
+        "verb": "UPDATE",
+        "table": "experience_usage_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2256,
+        "verb": "INSERT INTO",
+        "table": "task_goal_contract",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2275,
+        "verb": "INSERT INTO",
+        "table": "outcome_decision",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "OutcomeRepository and terminal transaction authority"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2308,
+        "verb": "INSERT INTO",
+        "table": "completed_effect",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "OutcomeRepository and terminal transaction authority"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2331,
+        "verb": "UPDATE",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "SkillAttemptRepository transaction boundary"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2344,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "ConfirmedPlanHandoff and runtime repository transaction"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2358,
+        "verb": "INSERT INTO",
+        "table": "processed_result",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2384,
+        "verb": "INSERT INTO",
+        "table": "workflow_control_round",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2528,
+        "verb": "INSERT INTO",
+        "table": "task_quality_report",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2592,
+        "verb": "INSERT INTO",
+        "table": "evaluation_influence",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2827,
+        "verb": "INSERT INTO",
+        "table": "memory_item",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2898,
+        "verb": "INSERT INTO",
+        "table": "memory_item",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2925,
+        "verb": "UPDATE",
+        "table": "memory_item",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2946,
+        "verb": "UPDATE",
+        "table": "memory_item",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 2995,
+        "verb": "UPDATE",
+        "table": "memory_retention_policy",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3105,
+        "verb": "INSERT INTO",
+        "table": "goal_input_inference",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3174,
+        "verb": "INSERT INTO",
+        "table": "memory_status_transition",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3352,
+        "verb": "INSERT INTO",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3424,
+        "verb": "INSERT INTO",
+        "table": "task_input_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3462,
+        "verb": "UPDATE",
+        "table": "task_input_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3515,
+        "verb": "UPDATE",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3528,
+        "verb": "UPDATE",
+        "table": "task_input_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3534,
+        "verb": "UPDATE",
+        "table": "remote_task_input_link",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3545,
+        "verb": "INSERT INTO",
+        "table": "task_input_response",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3620,
+        "verb": "UPDATE",
+        "table": "task_execution_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3640,
+        "verb": "INSERT INTO",
+        "table": "task_execution_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3728,
+        "verb": "INSERT INTO",
+        "table": "implicit_feedback",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3782,
+        "verb": "INSERT INTO",
+        "table": "task_wait_policy",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3791,
+        "verb": "UPDATE",
+        "table": "agent_task",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3796,
+        "verb": "UPDATE",
+        "table": "task_input_request",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3799,
+        "verb": "INSERT INTO",
+        "table": "runtime_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3833,
+        "verb": "INSERT INTO",
+        "table": "evolution_policy",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3842,
+        "verb": "INSERT INTO",
+        "table": "evolution_trigger",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3890,
+        "verb": "INSERT INTO",
+        "table": "runtime_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 3950,
+        "verb": "INSERT INTO",
+        "table": "external_task_projection",
+        "authority": "a2a_task_projection",
+        "status": "allowed",
+        "allowedPort": "AgentTaskRepository and ExternalTaskProjectionRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4078,
+        "verb": "INSERT INTO",
+        "table": "skill",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4083,
+        "verb": "INSERT INTO",
+        "table": "skill_version",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4114,
+        "verb": "INSERT INTO",
+        "table": "skill_outcome_specification",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4128,
+        "verb": "INSERT INTO",
+        "table": "skill_package_import_audit",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4144,
+        "verb": "UPDATE",
+        "table": "skill",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4149,
+        "verb": "INSERT INTO",
+        "table": "cognitive_runtime_outbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4225,
+        "verb": "INSERT INTO",
+        "table": "skill_relation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4240,
+        "verb": "DELETE FROM",
+        "table": "skill_relation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4252,
+        "verb": "INSERT INTO",
+        "table": "skill_quality_observation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4299,
+        "verb": "INSERT INTO",
+        "table": "skill_quality_warning",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4364,
+        "verb": "INSERT INTO",
+        "table": "skill_performance_metrics",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4388,
+        "verb": "INSERT INTO",
+        "table": "skill_selection_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4418,
+        "verb": "INSERT INTO",
+        "table": "skill_replacement_plan",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4525,
+        "verb": "INSERT INTO",
+        "table": "model_provider",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4550,
+        "verb": "INSERT INTO",
+        "table": "stage_model_route",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4558,
+        "verb": "INSERT INTO",
+        "table": "model_invocation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4647,
+        "verb": "INSERT INTO",
+        "table": "prompt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4652,
+        "verb": "INSERT INTO",
+        "table": "prompt_version",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4667,
+        "verb": "UPDATE",
+        "table": "prompt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4804,
+        "verb": "INSERT INTO",
+        "table": "workflow_template_occurrence",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4841,
+        "verb": "INSERT INTO",
+        "table": "workflow_template",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4864,
+        "verb": "INSERT INTO",
+        "table": "workflow_template_use",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4898,
+        "verb": "UPDATE",
+        "table": "workflow_template",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4909,
+        "verb": "UPDATE",
+        "table": "workflow_template_use",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 4998,
+        "verb": "UPDATE",
+        "table": "workflow_plan",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5006,
+        "verb": "INSERT INTO",
+        "table": "workflow_plan_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5032,
+        "verb": "INSERT INTO",
+        "table": "workflow_plan",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5063,
+        "verb": "UPDATE",
+        "table": "workflow_plan",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5069,
+        "verb": "INSERT INTO",
+        "table": "workflow_plan",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5199,
+        "verb": "INSERT INTO",
+        "table": "skill_call_workflow",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5371,
+        "verb": "INSERT INTO",
+        "table": "workflow_instance",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5417,
+        "verb": "INSERT INTO",
+        "table": "workflow_node_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5507,
+        "verb": "INSERT INTO",
+        "table": "workflow_control",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5552,
+        "verb": "INSERT INTO",
+        "table": "workflow_control_round",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowRepository and WorkflowControlRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5623,
+        "verb": "INSERT INTO",
+        "table": "evolution_experience",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5839,
+        "verb": "INSERT INTO",
+        "table": "skill_embedding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5903,
+        "verb": "INSERT INTO",
+        "table": "temporary_skill",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5920,
+        "verb": "UPDATE",
+        "table": "temporary_skill",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5926,
+        "verb": "INSERT INTO",
+        "table": "temporary_skill_experience",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 5996,
+        "verb": "INSERT INTO",
+        "table": "skill_formalization_candidate",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6034,
+        "verb": "INSERT INTO",
+        "table": "skill_evolution_correction_experience",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6141,
+        "verb": "INSERT INTO",
+        "table": "mcp_protocol_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6162,
+        "verb": "UPDATE",
+        "table": "mcp_server",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6258,
+        "verb": "INSERT INTO",
+        "table": "mcp_server",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6283,
+        "verb": "DELETE FROM",
+        "table": "mcp_tool",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6286,
+        "verb": "INSERT INTO",
+        "table": "mcp_tool",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6316,
+        "verb": "INSERT INTO",
+        "table": "mcp_dependency_warning",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6370,
+        "verb": "INSERT INTO",
+        "table": "mcp_server",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6392,
+        "verb": "DELETE FROM",
+        "table": "mcp_tool",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6395,
+        "verb": "INSERT INTO",
+        "table": "mcp_tool",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6415,
+        "verb": "INSERT INTO",
+        "table": "mcp_protocol_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6435,
+        "verb": "UPDATE",
+        "table": "mcp_server",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6441,
+        "verb": "INSERT INTO",
+        "table": "mcp_dependency_warning",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6477,
+        "verb": "UPDATE",
+        "table": "mcp_server",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6480,
+        "verb": "DELETE FROM",
+        "table": "mcp_protocol_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6481,
+        "verb": "DELETE FROM",
+        "table": "mcp_server",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6493,
+        "verb": "INSERT INTO",
+        "table": "mcp_invocation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6540,
+        "verb": "INSERT INTO",
+        "table": "mcp_management_operation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6581,
+        "verb": "UPDATE",
+        "table": "mcp_tool",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6598,
+        "verb": "UPDATE",
+        "table": "mcp_tool",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6609,
+        "verb": "INSERT INTO",
+        "table": "mcp_management_operation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6675,
+        "verb": "INSERT INTO",
+        "table": "skill_draft",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "line": 6705,
+        "verb": "UPDATE",
+        "table": "skill_draft",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/skill-execution-repository.ts",
+        "line": 91,
+        "verb": "INSERT INTO",
+        "table": "skill_execution_record",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/skill-execution-repository.ts",
+        "line": 238,
+        "verb": "INSERT INTO",
+        "table": "skill_execution_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/skill-execution-repository.ts",
+        "line": 258,
+        "verb": "INSERT INTO",
+        "table": "skill_execution_reference",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/task-availability-repository.ts",
+        "line": 140,
+        "verb": "INSERT INTO",
+        "table": "task_execution_readiness",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/task-availability-repository.ts",
+        "line": 164,
+        "verb": "INSERT INTO",
+        "table": "task_availability_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 103,
+        "verb": "INSERT INTO",
+        "table": "user_goal_contract",
+        "authority": "formal_goal",
+        "status": "allowed",
+        "allowedPort": "GoalContractRepository transaction boundary"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 131,
+        "verb": "UPDATE",
+        "table": "user_goal_plan",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 211,
+        "verb": "UPDATE",
+        "table": "user_goal_plan",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 231,
+        "verb": "INSERT INTO",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 269,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 316,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 329,
+        "verb": "UPDATE",
+        "table": "user_goal_plan",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 336,
+        "verb": "INSERT INTO",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 363,
+        "verb": "UPDATE",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 369,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 380,
+        "verb": "UPDATE",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 386,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 401,
+        "verb": "INSERT INTO",
+        "table": "skill_execution_contract",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 417,
+        "verb": "UPDATE",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 429,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 470,
+        "verb": "UPDATE",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 477,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 528,
+        "verb": "INSERT INTO",
+        "table": "task_goal_contract",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 550,
+        "verb": "INSERT INTO",
+        "table": "outcome_decision",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository recovery transaction"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 591,
+        "verb": "UPDATE",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 598,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 624,
+        "verb": "INSERT INTO",
+        "table": "task_goal_contract",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 642,
+        "verb": "INSERT INTO",
+        "table": "outcome_decision",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository recovery transaction"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 663,
+        "verb": "UPDATE",
+        "table": "skill_attempt",
+        "authority": "skill_attempt",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 676,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 689,
+        "verb": "UPDATE",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 715,
+        "verb": "INSERT INTO",
+        "table": "progress_observation",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 732,
+        "verb": "INSERT INTO",
+        "table": "recovery_decision",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository recovery transaction"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 815,
+        "verb": "INSERT INTO",
+        "table": "completed_effect",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository recovery transaction"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 849,
+        "verb": "INSERT INTO",
+        "table": "business_event_subscription",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 940,
+        "verb": "INSERT INTO",
+        "table": "business_event_continuity",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 961,
+        "verb": "UPDATE",
+        "table": "business_event_subscription",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 979,
+        "verb": "UPDATE",
+        "table": "business_event_subscription",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1022,
+        "verb": "INSERT INTO",
+        "table": "business_event_inbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1045,
+        "verb": "UPDATE",
+        "table": "business_event_subscription",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1058,
+        "verb": "UPDATE",
+        "table": "business_event_inbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1071,
+        "verb": "UPDATE",
+        "table": "business_event_subscription",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1089,
+        "verb": "UPDATE",
+        "table": "business_event_inbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1106,
+        "verb": "UPDATE",
+        "table": "business_event_inbox",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1145,
+        "verb": "INSERT INTO",
+        "table": "event_relation_projection",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1162,
+        "verb": "INSERT INTO",
+        "table": "event_impact_assessment",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1184,
+        "verb": "INSERT INTO",
+        "table": "event_incident",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1217,
+        "verb": "UPDATE",
+        "table": "event_incident",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1259,
+        "verb": "INSERT INTO",
+        "table": "user_goal_plan",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1278,
+        "verb": "INSERT INTO",
+        "table": "skill_goal",
+        "authority": "formal_plan",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1284,
+        "verb": "INSERT INTO",
+        "table": "skill_goal_dependency",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+        "line": 1368,
+        "verb": "INSERT INTO",
+        "table": "completed_effect",
+        "authority": "outcome_recovery",
+        "status": "allowed",
+        "allowedPort": "UserGoalRuntimeRepository recovery transaction"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 191,
+        "verb": "UPDATE",
+        "table": "workflow_continuation_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 203,
+        "verb": "UPDATE",
+        "table": "workflow_instance",
+        "authority": "formal_workflow",
+        "status": "allowed",
+        "allowedPort": "WorkflowContinuationRepository"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 240,
+        "verb": "UPDATE",
+        "table": "workflow_continuation_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 339,
+        "verb": "UPDATE",
+        "table": "remote_task_control_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 369,
+        "verb": "UPDATE",
+        "table": "remote_task_control_event",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 383,
+        "verb": "UPDATE",
+        "table": "remote_task_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 401,
+        "verb": "INSERT INTO",
+        "table": "workflow_continuation_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 423,
+        "verb": "UPDATE",
+        "table": "workflow_continuation_attempt",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 466,
+        "verb": "INSERT INTO",
+        "table": "workflow_continuation_snapshot",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      },
+      {
+        "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+        "line": 498,
+        "verb": "INSERT INTO",
+        "table": "workflow_continuation_wait_binding",
+        "authority": "unclassified",
+        "status": "persistence_unclassified"
+      }
+    ],
+    "boundaryChecks": [
+      {
+        "name": "console_projection_only",
+        "explanation": "Console may issue versioned Management API commands, but may not import persistence/queue clients or write SQL.",
+        "hits": [],
+        "status": "aligned"
+      },
+      {
+        "name": "a2a_projection_only",
+        "explanation": "A2AProjectionTaskStore uses AgentTaskRepository and ExternalTaskProjectionRepository ports; it cannot write Formal Goal, Plan, Workflow or Outcome state directly.",
+        "hits": [],
+        "status": "aligned"
+      },
+      {
+        "name": "worker_wake_only",
+        "explanation": "BullMQ workers may wake application services; they cannot own PostgreSQL records or approve/activate Artifacts.",
+        "hits": [],
+        "status": "aligned"
+      },
+      {
+        "name": "management_authenticated_principal",
+        "explanation": "P12 Artifact commands resolve deployment-owned identity from Authorization/request context. Existing cognitive actorId fields are allowlisted audit labels under the trusted-intranet baseline and are not accepted by the P12 Artifact command schema.",
+        "usesResolvedPrincipal": true,
+        "artifactCommandBodyIdentityAbsent": true,
+        "legacyArtifactCommandsDisabled": true,
+        "allowlistedCognitiveAuditLabelOccurrences": 9,
+        "status": "aligned"
+      },
+      {
+        "name": "artifact_operational_command_controls",
+        "explanation": "P13 promotion/shadow stop controls gate management writes before governance, while deprecation, rollback and kill-switch safety commands remain available.",
+        "applicationPolicyEnforced": true,
+        "validationTypeAliasesControlled": true,
+        "runtimePolicyInjected": true,
+        "promotionOperationsCovered": true,
+        "shadowOperationsCovered": true,
+        "safetyOperationsPreserved": true,
+        "bearerServerE2e": true,
+        "status": "aligned"
+      },
+      {
+        "name": "compiled_runtime_formal_handoff_only",
+        "explanation": "Template, Rule, Case and Model runtime modules may produce decisions/candidates only; Formal Plan/Attempt/Outcome writes remain behind ConfirmedPlanHandoff and formal runtime ports.",
+        "inspectedFiles": [
+          "packages/application/src/compiler/template-runtime.ts",
+          "packages/application/src/compiler/decision-rule-runtime.ts",
+          "packages/application/src/compiler/case-model-runtime.ts"
+        ],
+        "hits": [],
+        "status": "aligned"
+      }
+    ]
+  },
+  "findings": [],
+  "status": "aligned"
+}

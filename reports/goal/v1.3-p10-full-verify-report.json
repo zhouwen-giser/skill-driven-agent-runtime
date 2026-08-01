@@ -1,0 +1,22 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "commit": "3361ff84de6310a48543a0b72475e64fc547f668",
+  "dirty": false,
+  "durationMs": 263433,
+  "counts": {"unitAndContract": 1069, "integration": 119, "e2e": 63, "migrations": 25},
+  "steps": {
+    "staticUnitContractBuild": "passed",
+    "cognitiveReplay": "passed",
+    "migrationFreshIdempotentRollbackReapply": "passed",
+    "postgresRedisIntegration": "passed",
+    "postgresRedisModelMcpE2e": "passed",
+    "infrastructureSmoke": "passed",
+    "serverConsoleSmoke": "passed"
+  },
+  "failedAttempts": [
+    {"commit": "f3b259a56a2f839eecd0751c143017763cd15909", "cause": "Array<T> lint violation", "fixedBy": "d2ebba7"},
+    {"commit": "d2ebba70169aa964dd34d55af76aeaf0564a1727", "cause": "management OpenAPI route drift", "fixedBy": "3361ff8"}
+  ],
+  "source": "reports/verification/summary.json"
+}

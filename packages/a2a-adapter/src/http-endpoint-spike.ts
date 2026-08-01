@@ -19,6 +19,9 @@ export interface A2aHttpSpikeHandle {
 
 export interface A2aHttpSpikeOptions {
   readonly completionDelayMs?: number;
+  readonly artifactProjectionProvider?: Parameters<
+    typeof startA2AHttpEndpoint
+  >[0]['artifactProjectionProvider'];
 }
 
 export async function startA2aHttpSpike(
@@ -91,6 +94,9 @@ export async function startA2aHttpSpike(
         tags: ['test', 'read-only'],
       },
     ],
+    ...(options.artifactProjectionProvider === undefined
+      ? {}
+      : { artifactProjectionProvider: options.artifactProjectionProvider }),
   });
 }
 

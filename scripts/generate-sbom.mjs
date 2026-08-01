@@ -208,29 +208,129 @@ components.push(
   },
   {
     type: 'container',
-    'bom-ref': 'pkg:docker/pgvector/pgvector@0.8.4-pg17-bookworm',
-    name: 'pgvector/pgvector',
-    version: '0.8.4-pg17-bookworm',
+    'bom-ref': 'pkg:docker/sdar/postgres-pgvector@17.10-0.8.5-alpine3.23',
+    name: 'sdar/postgres-pgvector',
+    version: '17.10-0.8.5-alpine3.23',
     hashes: [
       {
         alg: 'SHA-256',
-        content: 'da864cc9983d6a346c39c55c8c5250d752a9b573bbac06b1c3ad5d72f20f5be6',
+        content: '856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762',
       },
     ],
-    licenses: [{ license: { name: 'PostgreSQL License' } }],
+    licenses: [{ license: { name: 'PostgreSQL License' } }, { license: { id: 'MIT' } }],
+    properties: [
+      { name: 'sdar:use', value: 'modified_local_standalone_container' },
+      {
+        name: 'sdar:dockerfile',
+        value: 'infra/postgres/Dockerfile.pgvector-hardened',
+      },
+      {
+        name: 'sdar:base',
+        value:
+          'postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4',
+      },
+      {
+        name: 'sdar:dockerfileFrontend',
+        value:
+          'docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89',
+      },
+      { name: 'sdar:buildBase', value: 'pkg:apk/alpine/build-base@0.5-r3' },
+      {
+        name: 'sdar:pgvector',
+        value:
+          'v0.8.5@159b79aaad5983fb7459c1e3df2897fbb2d11788#sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44',
+      },
+      {
+        name: 'sdar:privilegeHelper',
+        value: 'pkg:apk/alpine/su-exec@0.3-r0#89c016e6e08749d583efdeda04b9f73e1218e253',
+      },
+      { name: 'sdar:distribution', value: 'local-build-only' },
+    ],
+    purl: 'pkg:docker/sdar/postgres-pgvector@17.10-0.8.5-alpine3.23',
   },
   {
     type: 'container',
-    'bom-ref': 'pkg:docker/redis@8.2.7-alpine3.22',
+    'bom-ref': 'pkg:docker/redis@8.8.1-alpine3.23',
     name: 'redis',
-    version: '8.2.7-alpine3.22',
+    version: '8.8.1-alpine3.23',
     hashes: [
       {
         alg: 'SHA-256',
-        content: 'e762b8716f68d0de494b9fecc5a598db03e24206d3266725dd5521ca2c8b18a3',
+        content: '8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb',
       },
     ],
-    licenses: [{ license: { id: 'AGPL-3.0-only' } }],
+    licenses: [{ license: { id: 'AGPL-3.0-or-later' } }],
+    properties: [
+      { name: 'sdar:use', value: 'unmodified_external_standalone_container' },
+      { name: 'sdar:redisSourceCommit', value: '77b6c308396c9700672390a210143a8496fb4b10' },
+    ],
+    purl: 'pkg:docker/redis@8.8.1-alpine3.23',
+  },
+  {
+    type: 'application',
+    'bom-ref': 'pkg:docker/docker/dockerfile@1.24.0',
+    name: 'docker/dockerfile frontend',
+    version: '1.24.0',
+    scope: 'excluded',
+    hashes: [
+      {
+        alg: 'SHA-256',
+        content: '87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89',
+      },
+    ],
+    licenses: [{ license: { id: 'Apache-2.0' } }],
+    externalReferences: [{ type: 'vcs', url: 'https://github.com/moby/buildkit' }],
+    properties: [
+      { name: 'sdar:use', value: 'container_build_tool' },
+      { name: 'sdar:runtimeDependency', value: 'false' },
+      { name: 'sdar:bundled', value: 'false' },
+      {
+        name: 'sdar:linuxAmd64Manifest',
+        value: 'sha256:e82bbc85c3cb06cf2a5a27b058208b43984448acbcd6a832cd1491933d4376dd',
+      },
+      {
+        name: 'sdar:sourceRevision',
+        value: 'dd2170e156c9633da1b2d1a58a6188e3f7d36fa4',
+      },
+      {
+        name: 'sdar:licenseBlob',
+        value: '261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64',
+      },
+      { name: 'sdar:rootNotice', value: 'absent' },
+    ],
+    purl: 'pkg:docker/docker/dockerfile@1.24.0',
+  },
+  {
+    type: 'application',
+    'bom-ref': 'pkg:github/aquasecurity/trivy@8a3177aedf7ee0864920eb1852eef031cd3742b8',
+    name: 'aquasecurity/trivy',
+    version: '0.70.0',
+    scope: 'excluded',
+    hashes: [
+      {
+        alg: 'SHA-256',
+        content: 'eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825',
+      },
+    ],
+    licenses: [{ license: { id: 'Apache-2.0' } }],
+    externalReferences: [
+      { type: 'vcs', url: 'https://github.com/aquasecurity/trivy' },
+      {
+        type: 'distribution',
+        url: 'https://github.com/aquasecurity/trivy/releases/tag/v0.70.0',
+      },
+    ],
+    properties: [
+      { name: 'sdar:use', value: 'temporary_release_evidence_tool' },
+      { name: 'sdar:runtimeDependency', value: 'false' },
+      { name: 'sdar:committedBinary', value: 'false' },
+      {
+        name: 'sdar:officialChecksumsSha256',
+        value: 'c45281240bb9211ea9e830fc0bf5cf8acf7c0ca830feb64ac8a0aa932c5c92d9',
+      },
+      { name: 'sdar:supplyChainReview', value: 'GHSA-69fq-xp46-6x23' },
+    ],
+    purl: 'pkg:github/aquasecurity/trivy@8a3177aedf7ee0864920eb1852eef031cd3742b8',
   },
 );
 components.push(
@@ -259,7 +359,7 @@ const sbom = `${JSON.stringify(
     serialNumber: 'urn:uuid:019f5072-d2fb-7c01-b6bd-2779678541e1',
     version: 1,
     metadata: {
-      timestamp: '2026-07-11T09:42:00.000Z',
+      timestamp: '2026-07-30T13:16:20.000Z',
       component: {
         type: 'application',
         name: 'skill-driven-agent-runtime',
@@ -276,13 +376,65 @@ const sbom = `${JSON.stringify(
 const licenseJson = `${JSON.stringify(
   {
     schema_version: 1,
-    generated_at: '2026-07-11T17:42:00+08:00',
+    generated_at: '2026-07-30T21:16:20+08:00',
     package_count: packageList.length,
     unknown_license_count: unknown.length,
     packages: packageList,
     external_services: [
-      { name: 'pgvector/pgvector', version: '0.8.4-pg17-bookworm', license: 'PostgreSQL' },
-      { name: 'redis', version: '8.2.7-alpine3.22', license: 'AGPL-3.0-only' },
+      {
+        name: 'sdar/postgres-pgvector',
+        version: '17.10-0.8.5-alpine3.23',
+        image_id: 'sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762',
+        use: 'modified_local_standalone_container',
+        license: 'PostgreSQL License (PostgreSQL and pgvector); MIT (su-exec)',
+        base: 'postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4',
+        pgvector:
+          'v0.8.5@159b79aaad5983fb7459c1e3df2897fbb2d11788#sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44',
+        build_base: '0.5-r3',
+        su_exec: '0.3-r0@89c016e6e08749d583efdeda04b9f73e1218e253',
+        su_exec_license_sha256: 'a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14',
+      },
+      {
+        name: 'redis',
+        version: '8.8.1-alpine3.23',
+        image_digest: 'sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb',
+        use: 'unmodified_external_standalone_container',
+        license: 'AGPL-3.0-or-later',
+        obligations:
+          'redistribution of modified or unmodified image requires AGPL notice and Corresponding Source; modified network service also requires section 13 compliance',
+      },
+    ],
+    build_tools: [
+      {
+        name: 'docker/dockerfile frontend',
+        version: '1.24.0',
+        image_digest: 'sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89',
+        linux_amd64_manifest:
+          'sha256:e82bbc85c3cb06cf2a5a27b058208b43984448acbcd6a832cd1491933d4376dd',
+        revision: 'dd2170e156c9633da1b2d1a58a6188e3f7d36fa4',
+        license: 'Apache-2.0',
+        license_blob: '261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64',
+        root_notice: 'absent',
+        use: 'container_build_tool',
+        bundled: false,
+        runtime_dependency: false,
+      },
+    ],
+    release_tools: [
+      {
+        name: 'aquasecurity/trivy',
+        version: '0.70.0',
+        commit: '8a3177aedf7ee0864920eb1852eef031cd3742b8',
+        artifact: 'trivy_0.70.0_windows-64bit.zip',
+        sha256: 'eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825',
+        checksums_sha256: 'c45281240bb9211ea9e830fc0bf5cf8acf7c0ca830feb64ac8a0aa932c5c92d9',
+        license: 'Apache-2.0',
+        notice_blob: '3fe97bf7d4b08dfdc5c8f3feab223403d651fec9',
+        use: 'temporary_release_evidence_tool',
+        bundled: false,
+        runtime_dependency: false,
+        supply_chain_review: 'GHSA-69fq-xp46-6x23',
+      },
     ],
     adapted_sources: [
       {
@@ -340,8 +492,16 @@ ${v123DesignReferences
 
 ## External services
 
-- pgvector/pgvector 0.8.4-pg17-bookworm — PostgreSQL License; unmodified standalone container.
-- Redis 8.2.7-alpine3.22 — AGPL-3.0-only option selected; unmodified standalone container. Redis trademark rules remain applicable.
+- sdar/postgres-pgvector 17.10-0.8.5-alpine3.23 — modified local standalone container built from digest-pinned PostgreSQL 17.10 Alpine and checksum-pinned pgvector v0.8.5. PostgreSQL and pgvector use the PostgreSQL License; su-exec 0.3-r0 is MIT and its license text is retained in the image. The P13 observed reproducible local image ID is sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762.
+- Redis 8.8.1-alpine3.23 — AGPL-3.0-or-later option selected; unmodified standalone container pinned to sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb. Redis trademark rules remain applicable. Redistribution of either a modified or unmodified image requires the AGPL notice and Corresponding Source; a modified network service must also satisfy section 13.
+
+## Container build tool
+
+- docker/dockerfile frontend 1.24.0 — Apache-2.0, LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64 and no root NOTICE; immutable index sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89 (BuildKit revision dd2170e156c9633da1b2d1a58a6188e3f7d36fa4). It is used only to parse the hardened Dockerfile and is neither bundled nor an SDAR runtime/development dependency.
+
+## Release evidence tool
+
+- aquasecurity/trivy v0.70.0 commit 8a3177aedf7ee0864920eb1852eef031cd3742b8 — Apache-2.0 with NOTICE blob 3fe97bf7d4b08dfdc5c8f3feab223403d651fec9. The temporary Windows scanner asset was verified against the official release checksum as sha256:eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825 after review of the March 2026 GHSA-69fq-xp46-6x23 supply-chain incident. It is not bundled and is not an SDAR runtime or development dependency.
 
 ## npm packages (${String(packageList.length)})
 
@@ -365,7 +525,7 @@ await emit('sbom.cdx.json', sbom);
 await emit('license-report.json', licenseJson);
 await emit(path.join('..', '..', 'THIRD_PARTY_NOTICES.md'), notices);
 process.stdout.write(
-  `${checkOnly ? 'Verified' : 'Generated'} SBOM and licenses for ${String(packageList.length)} npm packages and 2 external services.\n`,
+  `${checkOnly ? 'Verified' : 'Generated'} SBOM and licenses for ${String(packageList.length)} npm packages, 2 external services, 1 excluded build tool, and 1 excluded release tool.\n`,
 );
 
 async function emit(relativePath, content) {

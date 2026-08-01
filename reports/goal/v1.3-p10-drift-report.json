@@ -1,0 +1,11 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "thresholdsVersion": "gateway-drift/1.1",
+  "severities": ["normal", "urgent", "critical"],
+  "minimumSampleBound": true,
+  "unsafeEvidenceImmediateCritical": true,
+  "p06SignalOnly": true,
+  "artifactStatusMutation": false,
+  "evidence": ["packages/application/src/compiler/gateway-feedback-analysis.ts", "packages/application/test/gateway-feedback-analysis-p10.unit.test.ts"]
+}

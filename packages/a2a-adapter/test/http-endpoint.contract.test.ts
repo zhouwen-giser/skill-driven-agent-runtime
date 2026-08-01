@@ -29,6 +29,31 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     expect(queried.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
   });
 
+  it('projects only the frozen safe P12 Artifact extension without changing formal Task states', async () => {
+    handle = await startA2aHttpSpike({
+      artifactProjectionProvider: {
+        projectPublic: () =>
+          Promise.resolve({
+            publicCapabilitySummary: ['validated-planning-templates'],
+            inputRequired: true,
+            confirmation: true,
+            formalTaskState: 'unchanged',
+            safeEvidence: { artifactEnhancement: true },
+            redactionPolicyVersion: 'artifact-exposure/1.1',
+          }),
+      },
+    });
+    const response = await fetch(`${handle.baseUrl}/.well-known/agent-card.json`);
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('urn:sdar:artifact-evidence:v1.1');
+    expect(text).toContain('validated-planning-templates');
+    expect(text).not.toMatch(/credential|model_route|candidate/iu);
+
+    const result = await handle.client.sendMessage(createProbeRequest());
+    expect(result).toHaveProperty('status.state', TaskState.TASK_STATE_COMPLETED);
+  });
+
   it('preserves the A2A 1.0.1 media type when the client requests it', async () => {
     handle = await startA2aHttpSpike();
     const response = await fetch(`${handle.baseUrl}/a2a/v1/message:send`, {

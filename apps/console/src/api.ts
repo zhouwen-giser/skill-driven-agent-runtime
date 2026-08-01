@@ -23,6 +23,73 @@ export async function managementRequest<T>(path: string, init?: RequestInit): Pr
   return payload as T;
 }
 
+export interface ArtifactRuntimeEvidence {
+  readonly requestRef: string;
+  readonly case?: unknown;
+  readonly modelRoute?: unknown;
+}
+
+export function getArtifactRuntimeEvidence(requestRef: string): Promise<ArtifactRuntimeEvidence> {
+  return managementRequest(`/api/v1/artifacts/runtime-evidence/${encodeURIComponent(requestRef)}`);
+}
+
+export interface ArtifactManagementItem {
+  readonly artifact_id: string;
+  readonly artifact_key: string;
+  readonly version: number;
+  readonly artifact_type: string;
+  readonly status: string;
+  readonly risk_level: string;
+  readonly validation_status?: string;
+  readonly active_pointer_version?: number;
+}
+
+export function listArtifacts(query: {
+  readonly limit: number;
+  readonly sort: 'created_desc' | 'created_asc' | 'key_asc';
+  readonly cursor?: string;
+  readonly status?: string;
+  readonly type?: string;
+  readonly risk?: string;
+}): Promise<{ readonly items: readonly ArtifactManagementItem[]; readonly nextCursor?: string }> {
+  const parameters = new URLSearchParams({
+    limit: String(query.limit),
+    sort: query.sort,
+  });
+  if (query.cursor !== undefined) parameters.set('cursor', query.cursor);
+  if (query.status !== undefined && query.status !== '') parameters.set('status', query.status);
+  if (query.type !== undefined && query.type !== '') parameters.set('type', query.type);
+  if (query.risk !== undefined && query.risk !== '') parameters.set('risk', query.risk);
+  return managementRequest(`/api/v1/artifacts?${parameters.toString()}`);
+}
+
+export function getArtifact(artifactId: string): Promise<unknown> {
+  return managementRequest(`/api/v1/artifacts/${encodeURIComponent(artifactId)}`);
+}
+
+export function getArtifactView(artifactId: string, view: string): Promise<unknown> {
+  return managementRequest(
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/${encodeURIComponent(view)}`,
+  );
+}
+
+export function getArtifactRuntimeView(
+  view: 'decisions' | 'model-usage' | 'case-usage',
+): Promise<Readonly<{ items: readonly unknown[]; nextCursor?: string }>> {
+  return managementRequest(`/api/v1/runtime/${encodeURIComponent(view)}?limit=50`);
+}
+
+export function artifactCommand(
+  artifactId: string,
+  operation: string,
+  input: Readonly<Record<string, unknown>>,
+): Promise<unknown> {
+  return managementRequest(
+    `/api/v1/artifacts/${encodeURIComponent(artifactId)}/commands/${encodeURIComponent(operation)}`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
 export function setManagementBearerToken(token: string): void {
   const storage = browserSessionStorage();
   if (storage === undefined) return;
