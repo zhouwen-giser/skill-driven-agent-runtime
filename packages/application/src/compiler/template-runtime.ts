@@ -67,7 +67,10 @@ export interface TemplateRuntimeRequest {
   readonly confirmedContractCandidateId: string;
   readonly sourceRefs: readonly CognitiveSourceRef[];
   /** Optional P10 guard; P08 never owns the deadline or cancellation authority. */
-  readonly commitGuard?: Readonly<{ mayCommitFormalAuthority(): boolean }>;
+  readonly commitGuard?: Readonly<{
+    commitDeadlineAt: string;
+    mayCommitFormalAuthority(): boolean;
+  }>;
 }
 
 export interface TemplateRuntimeOutcome {
@@ -191,6 +194,14 @@ export class TemplateRuntimeService {
           priorities: {},
           parallelGroups: materialized.candidate.skillGoalGraph.parallelGroups,
         },
+        ...(request.commitGuard === undefined
+          ? {}
+          : {
+              commitFence: {
+                deadlineAt: request.commitGuard.commitDeadlineAt,
+                mayCommit: () => request.commitGuard?.mayCommitFormalAuthority() === true,
+              },
+            }),
       });
       const committed = session.session.state === 'confirmed';
       await this.#recordUsageFeedback(execution.artifactExecutionId, active.artifact, 'handoff', {

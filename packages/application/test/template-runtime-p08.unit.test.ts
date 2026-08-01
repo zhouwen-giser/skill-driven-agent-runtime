@@ -164,6 +164,28 @@ describe('P08 TemplateRuntimeService', () => {
     expect(executions.started).toHaveLength(1);
     expect(executions.completed).toHaveLength(0);
   });
+
+  it('propagates the live Gateway stage fence into the atomic planning handoff', async () => {
+    const readiness = capabilityReadiness();
+    const state = currentState(readiness);
+    const planning = new PlanningRecorder('confirmed');
+    const service = runtime(state, readiness, new ExecutionRecorder(), planning);
+    let commitAllowed = true;
+    const commitDeadlineAt = '2099-07-29T00:00:00.500Z';
+
+    await service.instantiate({
+      ...request(readiness),
+      commitGuard: {
+        commitDeadlineAt,
+        mayCommitFormalAuthority: () => commitAllowed,
+      },
+    });
+
+    expect(planning.input?.commitFence?.deadlineAt).toBe(commitDeadlineAt);
+    expect(planning.input?.commitFence?.mayCommit()).toBe(true);
+    commitAllowed = false;
+    expect(planning.input?.commitFence?.mayCommit()).toBe(false);
+  });
 });
 
 function runtime(

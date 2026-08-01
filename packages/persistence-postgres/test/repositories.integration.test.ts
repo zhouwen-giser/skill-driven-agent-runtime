@@ -5949,6 +5949,38 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: candidate.createdAt,
       updatedAt: candidate.createdAt,
     });
+    const fencedCandidate = createUserGoalPlanCandidateSnapshot({
+      ...candidate,
+      candidateId: 'plan-candidate.pg.fenced',
+      sessionId: 'planning-session.pg.fenced',
+    });
+    const fencedSession = createInteractivePlanningSessionSnapshot({
+      ...session,
+      sessionId: fencedCandidate.sessionId,
+      taskId: 'task.interactive-planning.pg.fenced',
+      currentCandidateId: fencedCandidate.candidateId,
+    });
+    const blocker = await pool.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('LOCK TABLE interactive_planning_session IN ACCESS EXCLUSIVE MODE');
+      const fencedOutcome = repository
+        .start(fencedSession, fencedCandidate, {
+          deadlineAt: new Date(Date.now() + 75).toISOString(),
+          mayCommit: () => true,
+        })
+        .then(
+          () => 'committed' as const,
+          (error: unknown) => error,
+        );
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await blocker.query('ROLLBACK');
+      expect(await fencedOutcome).toBeInstanceOf(Error);
+    } finally {
+      await blocker.query('ROLLBACK').catch(() => undefined);
+      blocker.release();
+    }
+    await expect(repository.findByTask(fencedSession.taskId)).resolves.toBeUndefined();
     const usage = createExperienceUsageRecord({
       schemaVersion: '1.0',
       usageId: 'usage.planning.pg.1',

@@ -141,6 +141,7 @@ function execution(mayCommit = true): GatewayStageExecution {
   return {
     signal: new AbortController().signal,
     deadlineAt: '2099-07-30T00:01:00.000Z',
+    commitDeadlineAt: '2099-07-30T00:00:00.500Z',
     budgetMs: 500,
     mayCommitFormalAuthority: () => mayCommit,
   };

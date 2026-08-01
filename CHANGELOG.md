@@ -10,6 +10,12 @@ All notable changes to this project are documented here. The format follows Keep
   explicit elevated access to global rows and no cross-tenant disclosure.
 - Propagated Template failure-evidence persistence faults as `AggregateError`
   with both the original classified failure and the persistence failure.
+- Continued auto-confirmed Gateway plans through the existing Task scheduler
+  and normal confirmed-planning path.
+- Passed the Gateway stage deadline into PostgreSQL planning persistence, with
+  a transaction-local statement timeout and pre-commit database-clock fence.
+- Replaced route-only Model Usage pagination with an opaque route-and-Cascade
+  cursor so page boundaries cannot skip sibling Cascade runs.
 - Added focused Unit and real PostgreSQL regressions and verified the repaired
   paths through the full Integration, Contract and isolated E2E suites.
 

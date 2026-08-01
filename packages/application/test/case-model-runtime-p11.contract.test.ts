@@ -317,6 +317,7 @@ function activeExecution() {
   return {
     signal: new AbortController().signal,
     deadlineAt: DEADLINE,
+    commitDeadlineAt: DEADLINE,
     budgetMs: 1_000,
     mayCommitFormalAuthority: () => true,
   };

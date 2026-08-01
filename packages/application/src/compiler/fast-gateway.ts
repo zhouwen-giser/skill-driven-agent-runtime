@@ -186,6 +186,7 @@ export interface GatewayArtifactFeedbackPort {
 export interface GatewayStageExecution {
   readonly signal: AbortSignal;
   readonly deadlineAt: string;
+  readonly commitDeadlineAt: string;
   readonly budgetMs: number;
   mayCommitFormalAuthority(): boolean;
 }
@@ -767,9 +768,13 @@ export class FastGatewayService implements FastGateway {
       return failedStage(stage, 'failed', 'GATEWAY_LOAD_SHED', startedAt, this.#clock.now());
     }
     const controller = new AbortController();
+    const commitDeadlineAt = new Date(
+      Math.min(Date.parse(context.deadlineAt), this.#clock.nowMs() + budgetMs),
+    ).toISOString();
     const execution: GatewayStageExecution = Object.freeze({
       signal: controller.signal,
       deadlineAt: context.deadlineAt,
+      commitDeadlineAt,
       budgetMs,
       mayCommitFormalAuthority: () =>
         !controller.signal.aborted && this.#clock.nowMs() < Date.parse(context.deadlineAt),
@@ -971,9 +976,13 @@ export class FastGatewayService implements FastGateway {
     }
     const fallbackBudgetMs = Math.min(remainingMs, this.#options.fallbackStartTimeoutMs);
     const controller = new AbortController();
+    const commitDeadlineAt = new Date(
+      Math.min(Date.parse(context.deadlineAt), this.#clock.nowMs() + fallbackBudgetMs),
+    ).toISOString();
     const execution: GatewayStageExecution = Object.freeze({
       signal: controller.signal,
       deadlineAt: context.deadlineAt,
+      commitDeadlineAt,
       budgetMs: fallbackBudgetMs,
       mayCommitFormalAuthority: () =>
         !controller.signal.aborted && this.#clock.nowMs() < Date.parse(context.deadlineAt),

@@ -786,9 +786,11 @@ changed.
 |---|---|---|---|
 | Request-unique P11 Model Route evidence | verified | semantic `decisionHash` remains stable; durable reference hashes tenant, request and decision identity | `case-model-runtime-p11.unit.test.ts`; 19 focused Unit tests |
 | P12 read-audit tenant isolation | verified | PostgreSQL query applies tenant/global scope before returning actor, role, request or network metadata | `artifact-management-p12.integration.test.ts`; 7 focused and 130 full real Integration tests |
-| P08 Template failure durability | verified | secondary evidence-write failure raises `AggregateError` containing both caught errors, with the current persistence error as `cause` | `template-runtime-p08.unit.test.ts`; lint caught and enforced the error-cause rule |
+| P08 Template failure durability | verified | secondary evidence-write failure raises `AggregateError` containing both caught errors, with the current persistence error as `cause`; Gateway commit deadline is propagated to the PostgreSQL handoff transaction | `template-runtime-p08.unit.test.ts`; real PostgreSQL deadline-fence regression; lint caught and enforced the error-cause rule |
+| P10-to-Task committed handoff | verified | committed fast plans transition through Goal deliberation and the existing confirmed planning continuation before Skill Goal scheduling | `plan-preparation-processor.unit.test.ts`; full Unit and E2E suites |
+| P12 Model Usage pagination | verified | opaque composite cursor orders by Route decision and Cascade run, preserving every sibling run at page boundaries | real PostgreSQL two-Cascade pagination regression |
 | Cross-module safety | verified | no authority relocation, SDK leakage, migration or public contract change | format, lint, typecheck, architecture, build and Server smoke; 214 Contract and 72 isolated E2E tests |
 
-This addendum closes only PR #13's three actionable review findings. It does
+This addendum closes only PR #13's six actionable review findings. It does
 not change the P13 or P14 terminal evidence, authorize merge, or claim a full
 release verification run.

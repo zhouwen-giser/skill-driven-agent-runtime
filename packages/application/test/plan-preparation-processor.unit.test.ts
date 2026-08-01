@@ -77,18 +77,27 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     expect(tasks.goalFormulations).toBe(0);
   });
 
-  it('returns only after a selected fast path reports a formal commit', async () => {
+  it('schedules a committed fast-path plan through the normal Task continuation', async () => {
     const tasks = new MemoryTasks();
-    tasks.value = task();
+    tasks.value = {
+      ...task(),
+      goalId: 'goal-1',
+      goalVersion: 1,
+    };
     await processorWith(tasks, false, 'none', undefined, undefined, {
       evaluate: () =>
         Promise.resolve({
           decision: gatewayDecision('template_adapt'),
           formalHandoffCommitted: true,
+          formalPlanRef: 'formal-plan-1',
         }),
     }).process(initialJob);
     expect(tasks.goalFormulations).toBe(0);
-    expect(tasks.value).toMatchObject({ phase: 'context_loading' });
+    expect(tasks.userGoalRuntimeCalls).toContain('skill_goal_scheduling');
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      userGoalPlanId: 'formal-plan-1',
+    });
   });
 
   it('fails closed when a fast path lacks a formal handoff commit', async () => {

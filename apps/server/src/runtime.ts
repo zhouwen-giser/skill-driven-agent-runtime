@@ -3533,6 +3533,9 @@ export async function startServerRuntime(
                   result.record.formalHandoffRef !== undefined &&
                   (result.decision.path === 'compiled_fast' ||
                     result.decision.path === 'template_adapt'),
+                ...(result.formalPlanRef === undefined
+                  ? {}
+                  : { formalPlanRef: result.formalPlanRef }),
                 ...(result.formalInteractionRef === undefined
                   ? {}
                   : {

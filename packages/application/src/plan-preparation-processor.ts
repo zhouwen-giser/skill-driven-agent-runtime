@@ -181,6 +181,7 @@ export interface PlanPreparationProcessorDependencies {
       Readonly<{
         decision: RuntimeExecutionDecision;
         formalHandoffCommitted: boolean;
+        formalPlanRef?: string;
         interactionQuestion?: string;
       }>
     >;
@@ -338,12 +339,18 @@ export class PlanPreparationProcessor {
         return;
       }
       if (gateway.decision.path === 'compiled_fast' || gateway.decision.path === 'template_adapt') {
-        if (!gateway.formalHandoffCommitted) {
+        if (!gateway.formalHandoffCommitted || gateway.formalPlanRef === undefined) {
           throw new TaskApplicationError(
             'GATEWAY_FORMAL_HANDOFF_INCOMPLETE',
             'Fast Gateway selected a formal route without a committed formal handoff.',
           );
         }
+        task = await this.#transition(
+          task,
+          'goal_deliberation',
+          `Fast Gateway committed formal plan ${gateway.formalPlanRef}.`,
+        );
+        await this.continueConfirmedPlanningSession(task.taskId, gateway.formalPlanRef);
         return;
       }
       // Cognitive fallback and unsupported future routes continue through the

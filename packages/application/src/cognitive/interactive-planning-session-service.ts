@@ -26,6 +26,7 @@ import type {
   ExperienceUsageRepository,
   InteractivePlanningMutationResult,
   InteractivePlanningRepository,
+  PlanningCommitFence,
 } from './ports.js';
 import type {
   ExperienceEnrichedUserGoalPlanningService,
@@ -72,6 +73,7 @@ export interface MaterializedPlanningCandidateInput {
   /** A fact supplied by P08; the existing session retains confirmation authority. */
   readonly requiresManualConfirmation: boolean;
   readonly planningMetadata?: UserGoalPlanCandidateSnapshot<UserGoalPlan>['planningMetadata'];
+  readonly commitFence?: PlanningCommitFence;
 }
 
 export class InteractivePlanningSessionService {
@@ -302,7 +304,8 @@ export class InteractivePlanningSessionService {
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-    const persisted = await this.#repository.start(session, candidate);
+    assertPlanningCommitAllowed(input.commitFence);
+    const persisted = await this.#repository.start(session, candidate, input.commitFence);
     return this.#viewAndEnsureHandoff(
       persisted.sessionId === session.sessionId ? 'started' : 'duplicate',
       persisted,
@@ -475,6 +478,11 @@ export class InteractivePlanningSessionService {
   ): InteractivePlanningSessionView {
     return { outcome, session, candidate };
   }
+}
+
+function assertPlanningCommitAllowed(commitFence: PlanningCommitFence | undefined): void {
+  if (commitFence?.mayCommit() === false)
+    throw new Error('INTERACTIVE_PLANNING_COMMIT_FENCE_EXPIRED');
 }
 
 function knowledgeSourceRefs(

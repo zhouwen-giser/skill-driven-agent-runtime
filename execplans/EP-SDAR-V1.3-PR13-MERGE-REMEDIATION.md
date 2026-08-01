@@ -22,6 +22,9 @@ that P13/P14 release prerequisites are complete.
 | `PRRT_kwDOTXmUNs6Vo1HT` | P1 | include request identity in Model Route evidence references |
 | `PRRT_kwDOTXmUNs6Vo1HW` | P1 | tenant-scope Artifact Read Audit projection |
 | `PRRT_kwDOTXmUNs6Vo1HY` | P2 | preserve secondary failure when Template error evidence persistence fails |
+| `PRRT_kwDOTXmUNs6Vo6ol` | P1 | schedule a Task after an auto-confirmed formal Gateway handoff |
+| `PRRT_kwDOTXmUNs6Vo6om` | P1 | enforce the Gateway stage deadline inside the P08 handoff transaction |
+| `PRRT_kwDOTXmUNs6Vo6op` | P2 | use a route-and-Cascade cursor for Model Usage pages |
 
 ## Authority Decisions
 
@@ -32,6 +35,13 @@ that P13/P14 release prerequisites are complete.
 - Template Runtime still returns classified outcomes when it can persist the
   failure evidence. If that evidence write fails, the caller receives both the
   original and persistence errors and cannot mistake the operation for handled.
+- A committed Fast Gateway plan re-enters the existing confirmed planning
+  continuation and Task scheduler; the Gateway remains a thin orchestrator.
+- The stage-owned deadline is passed through P08 to the existing interactive
+  planning repository. PostgreSQL enforces a bounded statement timeout and a
+  database-clock check before the authority transaction commits.
+- Model Usage pagination keeps PostgreSQL as projection authority and uses an
+  opaque composite cursor without changing Cascade evidence ownership.
 - No new migration or ADR is required because these changes enforce existing
   P08/P11/P12 contracts and ADR-122 rather than changing them.
 
@@ -39,11 +49,13 @@ that P13/P14 release prerequisites are complete.
 
 - [x] 2026-08-01 Fetched current `main`, checked merge-tree, PR metadata,
       workflow/status state and complete review threads.
-- [x] 2026-08-01 Implemented all three review closures with regression tests.
+- [x] 2026-08-01 Implemented the initial three review closures with regression tests.
+- [x] 2026-08-01 Re-read GitHub after the first push and implemented three newly
+      posted review closures with regression tests.
 - [x] 2026-08-01 Ran focused Unit and real PostgreSQL Integration tests.
 - [x] 2026-08-01 Ran format, lint, typecheck, architecture and isolated E2E gates.
 - [x] 2026-08-01 Updated traceability, status and changelog.
-- [ ] Commit, push, resolve the three threads and re-check merge state.
+- [ ] Commit, push, resolve all six threads and re-check merge state.
 
 ## Validation
 
@@ -55,8 +67,14 @@ node node_modules/vitest/vitest.mjs run --project unit \
   packages/application/test/case-model-runtime-p11.unit.test.ts
   PASS: 2 files, 19 tests
 
+node node_modules/vitest/vitest.mjs run --project unit \
+  packages/application/test/plan-preparation-processor.unit.test.ts \
+  packages/application/test/template-runtime-p08.unit.test.ts \
+  packages/application/test/fast-gateway-adapters-p10.unit.test.ts
+  PASS: 3 files, 27 tests
+
 pnpm test:unit
-  PASS: 133 files, 907 tests
+  PASS: 133 files, 908 tests
 
 node node_modules/vitest/vitest.mjs run --project integration \
   packages/persistence-postgres/test/artifact-management-p12.integration.test.ts
@@ -93,6 +111,13 @@ incompatible. No user volume was removed or rewritten. Disposable PostgreSQL
 and Redis containers were used instead. The first focused SQL regression also
 caught a PostgreSQL placeholder-type error in the new tenant query; the query
 was corrected to a dedicated `$1/$2/$3` parameter set before the passing runs.
+
+The first deadline-fence implementation used PostgreSQL `transaction_timeout`.
+All 130 assertions passed, but Vitest correctly reported an unhandled pool
+connection termination. It was replaced with transaction-local
+`statement_timeout` plus a database-clock check immediately before commit; the
+clean full Integration rerun passed 20 files / 130 tests without unhandled
+errors.
 
 The final E2E run reused operator-managed disposable containers. The package's
 recorded Redis digest was no longer resolvable from the registry, so the run

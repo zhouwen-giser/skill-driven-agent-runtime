@@ -158,6 +158,7 @@ export class PostgresArtifactManagementQueryRepository implements ArtifactManage
     view: RuntimeManagementView,
     input: Readonly<{ tenantId?: string; limit: number; cursor?: string }>,
   ): Promise<Readonly<{ items: readonly unknown[]; nextCursor?: string }>> {
+    if (view === 'model-usage') return this.#getModelUsageRuntimeView(input);
     const after = input.cursor ?? '';
     const parameters: unknown[] = [after, input.limit + 1];
     const tenant = input.tenantId;
@@ -168,31 +169,50 @@ export class PostgresArtifactManagementQueryRepository implements ArtifactManage
            WHERE decision.gateway_decision_id>$1
              AND ($3::text IS NULL OR request.tenant_id=$3)
            ORDER BY decision.gateway_decision_id LIMIT $2`
-        : view === 'model-usage'
-          ? `SELECT route.*,run.run_snapshot,run.status AS cascade_status
-             FROM model_route_decision route
-             LEFT JOIN model_cascade_run run USING(route_decision_ref)
-             WHERE route.route_decision_ref>$1
-               AND ($3::text IS NULL OR route.tenant_id=$3)
-             ORDER BY route.route_decision_ref LIMIT $2`
-          : `SELECT match.* FROM case_runtime_match match
-             WHERE match.runtime_request_ref>$1
-               AND ($3::text IS NULL OR match.tenant_id=$3)
-             ORDER BY match.runtime_request_ref LIMIT $2`;
+        : `SELECT match.* FROM case_runtime_match match
+           WHERE match.runtime_request_ref>$1
+             AND ($3::text IS NULL OR match.tenant_id=$3)
+           ORDER BY match.runtime_request_ref LIMIT $2`;
     parameters.push(tenant ?? null);
     const result = await this.#pool.query<Record<string, unknown>>(sql, parameters);
     const hasMore = result.rows.length > input.limit;
     const items = result.rows.slice(0, input.limit);
     const last = items.at(-1);
-    const key =
-      view === 'decisions'
-        ? 'gateway_decision_id'
-        : view === 'model-usage'
-          ? 'route_decision_ref'
-          : 'runtime_request_ref';
+    const key = view === 'decisions' ? 'gateway_decision_id' : 'runtime_request_ref';
     return Object.freeze({
       items: Object.freeze(items),
       ...(hasMore && last !== undefined ? { nextCursor: String(last[key]) } : {}),
+    });
+  }
+
+  async #getModelUsageRuntimeView(
+    input: Readonly<{ tenantId?: string; limit: number; cursor?: string }>,
+  ): Promise<Readonly<{ items: readonly unknown[]; nextCursor?: string }>> {
+    const after = decodeModelUsageCursor(input.cursor);
+    const result = await this.#pool.query<Record<string, unknown>>(
+      `SELECT route.*,run.cascade_run_id,run.run_snapshot,run.status AS cascade_status
+       FROM model_route_decision route
+       LEFT JOIN model_cascade_run run USING(route_decision_ref)
+       WHERE (route.route_decision_ref>$1
+              OR (route.route_decision_ref=$1
+                  AND COALESCE(run.cascade_run_id,'')>$2))
+         AND ($4::text IS NULL OR route.tenant_id=$4)
+       ORDER BY route.route_decision_ref,COALESCE(run.cascade_run_id,'') LIMIT $3`,
+      [after.routeDecisionRef, after.cascadeRunId, input.limit + 1, input.tenantId ?? null],
+    );
+    const hasMore = result.rows.length > input.limit;
+    const items = result.rows.slice(0, input.limit);
+    const last = items.at(-1);
+    return Object.freeze({
+      items: Object.freeze(items),
+      ...(hasMore && last !== undefined
+        ? {
+            nextCursor: encodeModelUsageCursor({
+              routeDecisionRef: runtimeCursorString(last, 'route_decision_ref'),
+              cascadeRunId: runtimeCursorString(last, 'cascade_run_id', true),
+            }),
+          }
+        : {}),
     });
   }
 
@@ -418,6 +438,49 @@ interface ArtifactCursor {
   readonly artifactId: string;
   readonly artifactKey: string;
   readonly version: number;
+}
+
+interface ModelUsageCursor {
+  readonly routeDecisionRef: string;
+  readonly cascadeRunId: string;
+}
+
+const MODEL_USAGE_CURSOR_PREFIX = 'model-usage:';
+
+function runtimeCursorString(
+  row: Readonly<Record<string, unknown>>,
+  key: string,
+  nullable = false,
+): string {
+  const value = row[key];
+  if (nullable && (value === null || value === undefined)) return '';
+  if (typeof value !== 'string')
+    throw new ArtifactManagementError('ARTIFACT_MANAGEMENT_CURSOR_SOURCE_INVALID', 500);
+  return value;
+}
+
+function encodeModelUsageCursor(value: ModelUsageCursor): string {
+  return `${MODEL_USAGE_CURSOR_PREFIX}${Buffer.from(JSON.stringify(value), 'utf8').toString('base64url')}`;
+}
+
+function decodeModelUsageCursor(cursor: string | undefined): ModelUsageCursor {
+  if (cursor === undefined) return Object.freeze({ routeDecisionRef: '', cascadeRunId: '' });
+  if (!cursor.startsWith(MODEL_USAGE_CURSOR_PREFIX)) {
+    return Object.freeze({ routeDecisionRef: cursor, cascadeRunId: '\uffff' });
+  }
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(cursor.slice(MODEL_USAGE_CURSOR_PREFIX.length), 'base64url').toString('utf8'),
+    ) as { routeDecisionRef?: unknown; cascadeRunId?: unknown };
+    if (typeof parsed.routeDecisionRef !== 'string' || typeof parsed.cascadeRunId !== 'string')
+      throw new Error('invalid cursor');
+    return Object.freeze({
+      routeDecisionRef: parsed.routeDecisionRef,
+      cascadeRunId: parsed.cascadeRunId,
+    });
+  } catch {
+    throw new ArtifactManagementError('ARTIFACT_MANAGEMENT_CURSOR_INVALID', 400);
+  }
 }
 
 function encodeCursor(value: ArtifactCursor): string {

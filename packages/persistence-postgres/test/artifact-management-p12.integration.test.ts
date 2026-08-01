@@ -290,6 +290,40 @@ describe('P12 PostgreSQL management projection', () => {
     ).resolves.toMatchObject({
       items: [expect.objectContaining({ gateway_decision_id: 'runtime-decision' })],
     });
+
+    await pool.query(
+      `INSERT INTO model_route_decision(
+         route_decision_ref,tenant_id,request_ref,artifact_ref,artifact_hash,
+         active_pointer_version,route_context,route_decision,decision_hash,created_at)
+       VALUES('route-1','tenant-a','runtime-request','artifact-a',$1,1,'{}','{}',$1,$2)`,
+      [HASH, NOW],
+    );
+    await pool.query(
+      `INSERT INTO model_cascade_run(
+         cascade_run_id,route_decision_ref,decision_hash,run_snapshot,status,completed_at)
+       VALUES
+         ('cascade-a','route-1',$1,'{}','completed',$2),
+         ('cascade-b','route-1',$1,'{}','completed',$2)`,
+      [HASH, NOW],
+    );
+    const firstModelPage = await repository.getRuntimeView('model-usage', {
+      tenantId: 'tenant-a',
+      limit: 1,
+    });
+    expect(firstModelPage).toMatchObject({
+      items: [expect.objectContaining({ cascade_run_id: 'cascade-a' })],
+      nextCursor: expect.stringMatching(/^model-usage:/u),
+    });
+    if (firstModelPage.nextCursor === undefined) throw new Error('expected model usage cursor');
+    const secondModelPage = await repository.getRuntimeView('model-usage', {
+      tenantId: 'tenant-a',
+      limit: 1,
+      cursor: firstModelPage.nextCursor,
+    });
+    expect(secondModelPage).toMatchObject({
+      items: [expect.objectContaining({ cascade_run_id: 'cascade-b' })],
+    });
+    expect(secondModelPage.nextCursor).toBeUndefined();
   });
 });
 
