@@ -1,6 +1,6 @@
 requirement,phase,status,implementation,test,evidence
 latest main baseline,P00,verified,execplans/EP-SDAR-V1.4-NODE-CONTROL-BACKEND.md,pnpm verify,reports/v1.4-node-control/phases/p00-completion.json
-independent node control backend,P01,implemented,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; apps/node-control-api; apps/node-control-worker","pnpm test:node-control; pnpm test:integration; pnpm verify:architecture; pnpm verify:node-control-contract; pnpm build; pnpm smoke:node-control",reports/v1.4-node-control/phases/p01-completion.json
+independent node control backend,P01,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; apps/node-control-api; apps/node-control-worker","pnpm test:node-control; pnpm test:integration; pnpm verify:architecture; pnpm verify:node-control-contract; pnpm build; pnpm smoke:node-control; pnpm verify",reports/v1.4-node-control/phases/p01-completion.json
 revision apply ack lkg,P02,pending,,,
 llm provider model route,P03,pending,,,
 smpp federation,P04,pending,,,

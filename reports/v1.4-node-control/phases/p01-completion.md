@@ -13,7 +13,8 @@ HTTP slice. Do not start P02 configuration apply/ack/LKG behavior.
 - phaseBaseSha: `f272285eae50ef46d841a2b1267c4f7764883306`
 - implementationSha: `bf564896fe373cb0d608a592eb02652a696b97b6`
 - implementationRemoteSha: `bf564896fe373cb0d608a592eb02652a696b97b6`
-- evidenceSha: pending this evidence commit
+- evidenceSha: `ef93c264c21d69b48fc71e0c459594856ce233ca`
+- remoteSha: `ef93c264c21d69b48fc71e0c459594856ce233ca`, verified after the evidence push
 - latestObservedMainSha: `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8` from the successful P01-start fetch; a later refresh was not claimed because the approval service timed out
 
 ## Implementation
@@ -90,5 +91,5 @@ OIDC integration, configuration, eventing and recovery work is not claimed.
 
 ## Handoff
 
-Status is `COMPLETED_PENDING_EVIDENCE_PUBLICATION`. P02 may start only after this report, its JSON
-form and handoff are committed, pushed and reconciled to the remote SHA.
+Status is `COMPLETED`. The implementation and evidence commits are present on the remote branch.
+P02 may start after a new fetch/main comparison while preserving the P01 authority boundary.

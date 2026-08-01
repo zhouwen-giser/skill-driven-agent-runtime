@@ -809,8 +809,8 @@ release verification run.
 
 | Requirement | Status | Implementation | Tests / evidence |
 |---|---|---|---|
-| Independent Control authority | implemented | `packages/node-control-{domain,application,persistence-postgres}` and `infra/postgres-control/migrations/0001_*`; separate `sdar_control.control_schema_migration` | Domain/Application Unit; real PostgreSQL Integration including ledger isolation and reversible migration |
-| API and Worker processes | implemented | `apps/node-control-api`, `apps/node-control-worker`, `compose.node-control.yaml`, `.env.example` | HTTP Contract, production build, `pnpm smoke:node-control` |
-| Frozen P01 HTTP slice | implemented | public discovery/liveness/readiness and bearer-protected Node/health/Management Operation/Audit projections; exact frozen bundle under `protocol/node-control/v1` | 76-file validator: 28 schemas, 111 operations, 20 events and 7 fixtures; HTTP schema validation |
-| Runtime/Control isolation | implemented | separate database URLs, migration roots and processes; architecture gate rejects cross-persistence writes and Control-side LangGraph | architecture gate over 567 TypeScript sources; smoke stops Control then starts and probes Runtime |
+| Independent Control authority | verified | `packages/node-control-{domain,application,persistence-postgres}` and `infra/postgres-control/migrations/0001_*`; separate `sdar_control.control_schema_migration` | Domain/Application Unit; real PostgreSQL Integration including ledger isolation and reversible migration |
+| API and Worker processes | verified | `apps/node-control-api`, `apps/node-control-worker`, `compose.node-control.yaml`, `.env.example` | HTTP Contract, production build, `pnpm smoke:node-control` |
+| Frozen P01 HTTP slice | verified | public discovery/liveness/readiness and bearer-protected Node/health/Management Operation/Audit projections; exact frozen bundle under `protocol/node-control/v1` | 76-file validator: 28 schemas, 111 operations, 20 events and 7 fixtures; HTTP schema validation |
+| Runtime/Control isolation | verified | separate database URLs, migration roots and processes; architecture gate rejects cross-persistence writes and Control-side LangGraph | architecture gate over 567 TypeScript sources; smoke stops Control then starts and probes Runtime |
 | P02 exclusion | verified | health truthfully reports Runtime Control disabled; no configuration apply/ack/LKG command path exists | focused Unit/Contract review and source-boundary inspection |

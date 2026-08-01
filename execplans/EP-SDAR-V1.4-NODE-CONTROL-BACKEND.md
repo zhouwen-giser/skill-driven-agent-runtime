@@ -45,8 +45,8 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - [x] 2026-08-02 01:03 +08:00 validated the task package and both extracted frozen packages.
 - [x] 2026-08-02 01:13 +08:00 P00: published baseline, source maps, Goal State, completion evidence,
   and handoff at remote evidence commit `c5ffbda`.
-- [ ] 2026-08-02 02:06 +08:00 P01: implementation, focused tests, real integration and independent
-  process smoke pass; full verification, implementation/evidence commits and remote proof pending.
+- [x] 2026-08-02 02:25 +08:00 P01: implementation `bf56489`, Evidence `ef93c26`, full verification,
+  read-only review and remote reconciliation complete; P02 remains pending.
 - [ ] P02: configuration revision, apply/ack, and LKG.
 - [ ] P03: LLM provider and model-route governance.
 - [ ] P04: SMPP Registry federation.
@@ -131,7 +131,6 @@ active/LKG snapshots.
 
 ## Outcomes and Retrospective
 
-P00 is complete and remotely evidenced. P01 now implements the bounded independent foundation and
-passes its focused real-database and process-isolation gates. It remains in progress until the full
-phase verifier, implementation/evidence publication and remote SHA reconciliation complete. P02 and
-later behavior are not claimed.
+P00 and P01 are complete and remotely evidenced. P01 implements the bounded independent foundation,
+passes the full and focused real-database/process-isolation gates, and closes read-only review at 0
+Blocking / 0 Major / 0 Minor. P02 and later behavior are not claimed.
