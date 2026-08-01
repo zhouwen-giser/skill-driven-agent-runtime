@@ -10,6 +10,7 @@ const EnvironmentSchema = z.object({
   SDAR_CONTROL_API_HOST: z.string().min(1).default('127.0.0.1'),
   SDAR_CONTROL_API_PORT: z.coerce.number().int().positive().max(65_535).default(10_080),
   SDAR_CONTROL_API_TOKEN: z.string().min(32).regex(/^\S+$/u),
+  SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u),
   SDAR_CONTROL_NODE_ID: z.string().trim().min(1).max(128),
   SDAR_CONTROL_NODE_TYPE: z.string().trim().min(1).max(128).default('sdar-runtime'),
   SDAR_CONTROL_NODE_DISPLAY_NAME: z.string().trim().min(1).max(256),

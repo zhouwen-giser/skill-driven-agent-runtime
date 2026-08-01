@@ -29,6 +29,7 @@ try {
     SDAR_CONTROL_API_HOST: '127.0.0.1',
     SDAR_CONTROL_API_PORT: String(apiPort),
     SDAR_CONTROL_API_TOKEN: token,
+    SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: `${token}-runtime`,
     SDAR_CONTROL_NODE_ID: 'node-control-smoke',
     SDAR_CONTROL_NODE_TYPE: 'sdar-runtime',
     SDAR_CONTROL_NODE_DISPLAY_NAME: 'Node Control Smoke',
@@ -75,11 +76,13 @@ try {
 
   const npmExecPath = process.env['npm_execpath'];
   if (npmExecPath === undefined) throw new Error('NPM_EXECPATH_REQUIRED');
+  const runtimeDatabaseUrl = `postgresql://sdar:sdar_local_only@127.0.0.1:${String(runtimePostgresPort)}/sdar`;
   const runtimeEnvironment = {
     ...process.env,
     COMPOSE_PROJECT_NAME: runtimeComposeProject,
     SDAR_POSTGRES_PORT: String(runtimePostgresPort),
-    SDAR_POSTGRES_URL: `postgresql://sdar:sdar_local_only@127.0.0.1:${String(runtimePostgresPort)}/sdar`,
+    SDAR_POSTGRES_URL: runtimeDatabaseUrl,
+    SDAR_TEST_POSTGRES_URL: runtimeDatabaseUrl,
     SDAR_REDIS_PORT: String(runtimeRedisPort),
   };
   const runtimeSmoke = spawnSync(process.execPath, [npmExecPath, 'smoke:server'], {

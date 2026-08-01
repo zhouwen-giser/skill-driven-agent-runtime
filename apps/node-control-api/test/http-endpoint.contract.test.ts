@@ -5,10 +5,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   NodeControlFoundationService,
+  NodeControlConfigurationService,
+  type ConfigurationReference,
+  type NodeControlConfigurationRepository,
   type NodeControlFoundationRepository,
 } from '../../../packages/node-control-application/src/index.js';
 import type {
   ControlAuditEvent,
+  ConfigurationRevision,
   ManagementOperation,
   NodeProfile,
 } from '../../../packages/node-control-domain/src/index.js';
@@ -38,8 +42,15 @@ describe('Node Control HTTP frozen contract', () => {
       environment: 'test',
       runtimeEndpointRef: 'http://127.0.0.1:9998',
     });
-    const app = createNodeControlHttpApp(service, {
+    const configurationService = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-01T17:00:00.000Z' },
+      ids: { next: () => 'operation-p01' },
+    });
+    const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: token,
+      runtimeServiceToken: `${token}-runtime`,
       nodeControlApiUrl: 'http://127.0.0.1:10080',
       nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
       a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
@@ -107,6 +118,40 @@ class MemoryRepository implements NodeControlFoundationRepository {
   }
   listAuditEvents(): Promise<readonly ControlAuditEvent[]> {
     return Promise.resolve(this.audits);
+  }
+}
+
+class MemoryConfigurationRepository implements NodeControlConfigurationRepository {
+  createDraft(): Promise<ConfigurationRevision> {
+    return Promise.reject(new Error('NOT_USED'));
+  }
+  find(): Promise<ConfigurationRevision | undefined> {
+    return Promise.resolve(undefined);
+  }
+  list(): Promise<readonly ConfigurationRevision[]> {
+    return Promise.resolve([]);
+  }
+  validate(): Promise<ConfigurationRevision> {
+    return Promise.reject(new Error('NOT_USED'));
+  }
+  publish(): Promise<
+    Readonly<{ revision: ConfigurationRevision; operation: ManagementOperation }>
+  > {
+    return Promise.reject(new Error('NOT_USED'));
+  }
+  rollback(): Promise<
+    Readonly<{ revision: ConfigurationRevision; operation: ManagementOperation }>
+  > {
+    return Promise.reject(new Error('NOT_USED'));
+  }
+  latestPublished(): Promise<ConfigurationRevision | undefined> {
+    return Promise.resolve(undefined);
+  }
+  acknowledge(): Promise<ConfigurationRevision> {
+    return Promise.reject(new Error('NOT_USED'));
+  }
+  activeConfigurationRefs(): Promise<readonly ConfigurationReference[]> {
+    return Promise.resolve([]);
   }
 }
 

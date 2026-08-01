@@ -11,6 +11,7 @@ describe('Node Control API environment', () => {
     expect(
       parseNodeControlApiEnvironment({
         SDAR_CONTROL_API_TOKEN: 'a'.repeat(32),
+        SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: 'b'.repeat(32),
         SDAR_CONTROL_NODE_ID: 'node-p01',
         SDAR_CONTROL_NODE_DISPLAY_NAME: 'P01 Node',
       }),

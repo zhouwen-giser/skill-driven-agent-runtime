@@ -67,6 +67,13 @@ export function validateComposeWithDocker(root = process.cwd()) {
 
 function waitForStablePostgres(root) {
   const deadline = Date.now() + 60_000;
+  let lastDiagnostics = {
+    initializationMarker: false,
+    finalReady: false,
+    containerProbe: false,
+    hostPostgres: false,
+    hostRedis: false,
+  };
   while (Date.now() < deadline) {
     const logs = runDockerCaptured(
       ['compose', '-f', 'compose.yaml', 'logs', '--no-color', 'postgres'],
@@ -102,17 +109,29 @@ function waitForStablePostgres(root) {
           timeout: 30_000,
         },
       );
+      lastDiagnostics = {
+        initializationMarker: true,
+        finalReady: true,
+        containerProbe: probe.status === 0 && probe.stdout.trim() === '1',
+        hostPostgres: hostPostgresIsReady(root),
+        hostRedis: hostRedisIsReady(root),
+      };
       if (
-        probe.status === 0 &&
-        probe.stdout.trim() === '1' &&
-        hostPostgresIsReady(root) &&
-        hostRedisIsReady(root)
+        lastDiagnostics.containerProbe &&
+        lastDiagnostics.hostPostgres &&
+        lastDiagnostics.hostRedis
       )
         return;
+    } else {
+      lastDiagnostics = {
+        ...lastDiagnostics,
+        initializationMarker: initializationMarker >= 0,
+        finalReady: finalReady > initializationMarker,
+      };
     }
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
   }
-  throw new Error('INFRASTRUCTURE_POSTGRES_NOT_STABLY_READY');
+  throw new Error(`INFRASTRUCTURE_POSTGRES_NOT_STABLY_READY:${JSON.stringify(lastDiagnostics)}`);
 }
 
 function hostPostgresIsReady(root) {

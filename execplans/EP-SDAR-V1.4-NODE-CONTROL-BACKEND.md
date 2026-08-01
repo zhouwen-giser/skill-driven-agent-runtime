@@ -47,7 +47,8 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   and handoff at remote evidence commit `c5ffbda`.
 - [x] 2026-08-02 02:25 +08:00 P01: implementation `bf56489`, Evidence `ef93c26`, full verification,
   read-only review and remote reconciliation complete; P02 remains pending.
-- [ ] P02: configuration revision, apply/ack, and LKG.
+- [ ] 2026-08-02 02:28 +08:00 P02 active: latest main unchanged; implementing Control-owned
+  immutable Configuration Revisions/Application observations and Runtime-owned Active/LKG snapshots.
 - [ ] P03: LLM provider and model-route governance.
 - [ ] P04: SMPP Registry federation.
 - [ ] P05: MCP provider-binding governance.
@@ -91,6 +92,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   `protocol/node-control/v1`; implementations consume it but do not modify frozen contract content.
 - 2026-08-02: P01 implements only read projections and foundation bootstrap. Runtime configuration
   apply/ack/LKG semantics remain explicitly deferred to P02.
+- 2026-08-02: P02 keeps Desired/Observed and application acknowledgements in Control PostgreSQL,
+  while Active/LKG and immutable task pins live in Runtime PostgreSQL. The bridge is the frozen
+  internal HTTP contract; neither side writes the other database.
 
 ## Implementation Steps
 

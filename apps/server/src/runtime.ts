@@ -4788,7 +4788,7 @@ async function applyPostV122Migrations(
 ): Promise<void> {
   const migrationDirectory = resolve(process.cwd(), 'infra', 'postgres', 'migrations');
   const migrationFiles = (await readdir(migrationDirectory))
-    .filter((file) => /^01[0-9]{2}_v(?:123|13)_[a-z0-9_]+\.up\.sql$/u.test(file))
+    .filter((file) => /^01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+\.up\.sql$/u.test(file))
     .sort();
   const expectedVersions = [
     'v1.2.2_clean_slate_baseline',

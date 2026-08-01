@@ -22,7 +22,13 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pool.query(
-    'TRUNCATE sdar_control.control_audit_event, sdar_control.management_operation, sdar_control.node_profile',
+    `TRUNCATE sdar_control.configuration_application,
+              sdar_control.configuration_command_receipt,
+              sdar_control.configuration_target_state,
+              sdar_control.configuration_revision,
+              sdar_control.control_audit_event,
+              sdar_control.management_operation,
+              sdar_control.node_profile`,
   );
 });
 
@@ -36,7 +42,10 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     const ledger = await pool.query<{ version: string }>(
       'SELECT version FROM sdar_control.control_schema_migration ORDER BY version',
     );
-    expect(ledger.rows).toEqual([{ version: '0001_node_control_foundation' }]);
+    expect(ledger.rows).toEqual([
+      { version: '0001_node_control_foundation' },
+      { version: '0002_configuration_revision_apply_lkg' },
+    ]);
     const runtimeLedger = await pool.query<{ exists: boolean }>(
       `SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists`,
     );
@@ -75,14 +84,15 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     ).rejects.toMatchObject({ code: '55000' });
   });
 
-  it('rolls back and reapplies only the disposable Control migration', async () => {
+  it('rolls back and reapplies only the latest disposable Control migration', async () => {
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
-      '0001_node_control_foundation',
+      '0002_configuration_revision_apply_lkg',
     );
     const removed = await pool.query<{ value: string | null }>(
-      `SELECT to_regclass('sdar_control.node_profile')::text AS value`,
+      `SELECT to_regclass('sdar_control.configuration_revision')::text AS value`,
     );
     expect(removed.rows[0]?.value).toBeNull();
+    await expect(repository.probe()).resolves.toBe(true);
     await applyControlMigrations(pool);
     await expect(repository.probe()).resolves.toBe(true);
   });

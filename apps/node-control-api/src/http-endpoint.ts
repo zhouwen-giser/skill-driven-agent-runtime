@@ -1,15 +1,20 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import { z, ZodError } from 'zod';
 
 import {
   NodeControlApplicationError,
+  NodeControlConfigurationError,
+  type NodeControlConfigurationService,
   type NodeControlFoundationService,
 } from '../../../packages/node-control-application/src/index.js';
 import { NodeControlDomainError } from '../../../packages/node-control-domain/src/index.js';
+import { RevisionHintBroker } from './revision-hint-broker.js';
 
 export interface NodeControlHttpConfiguration {
   readonly bearerToken: string;
+  readonly runtimeServiceToken: string;
   readonly nodeControlApiUrl: string;
   readonly nodeEventsUrl: string;
   readonly a2aAgentCardUrl: string;
@@ -17,9 +22,11 @@ export interface NodeControlHttpConfiguration {
 
 export function createNodeControlHttpApp(
   service: NodeControlFoundationService,
+  configurations: NodeControlConfigurationService,
   configuration: NodeControlHttpConfiguration,
 ): Express {
   const app = express();
+  const hints = new RevisionHintBroker();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '64kb', strict: true }));
 
@@ -79,6 +86,120 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get('/api/v1/configuration-revisions', async (request, response, next) => {
+    try {
+      const items = await configurations.list({
+        ...(typeof request.query['targetType'] === 'string'
+          ? { targetType: request.query['targetType'] }
+          : {}),
+        ...(typeof request.query['targetId'] === 'string'
+          ? { targetId: request.query['targetId'] }
+          : {}),
+        limit: parseLimit(request.query['pageSize']),
+      });
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/configuration-revisions', async (request, response, next) => {
+    try {
+      const input = ConfigurationDraftSchema.parse(request.body);
+      const revision = await configurations.createDraft(
+        {
+          configurationId: input.configurationId,
+          targetType: input.targetType,
+          targetId: input.targetId,
+          requestedRevision: input.revision,
+          applyMode: input.applyMode,
+          content: input.content,
+          requestedChecksum: input.checksum,
+          createdBy: input.createdBy,
+          createdAt: input.createdAt,
+        },
+        requiredHeader(request, 'idempotency-key'),
+      );
+      response.status(201).set('etag', etag(revision)).json(revision);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get(
+    '/api/v1/configuration-revisions/:configurationId/:revision',
+    async (request, response, next) => {
+      try {
+        const revision = await configurations.get(
+          request.params.configurationId,
+          positiveRevision(request.params.revision),
+        );
+        response.status(200).set('etag', etag(revision)).json(revision);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/configuration-revisions/:configurationId/:revision/validate',
+    async (request, response, next) => {
+      try {
+        const revisionNumber = positiveRevision(request.params.revision);
+        const revision = await configurations.validate(
+          request.params.configurationId,
+          revisionNumber,
+          requiredHeader(request, 'if-match'),
+          requiredHeader(request, 'idempotency-key'),
+          parseCommand(request.body),
+        );
+        response.status(200).set('etag', etag(revision)).json(revision);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/configuration-revisions/:configurationId/:revision/publish',
+    async (request, response, next) => {
+      try {
+        const revisionNumber = positiveRevision(request.params.revision);
+        const operation = await configurations.publish(
+          request.params.configurationId,
+          revisionNumber,
+          requiredHeader(request, 'if-match'),
+          requiredHeader(request, 'idempotency-key'),
+          parseCommand(request.body),
+        );
+        hints.publish(await configurations.get(request.params.configurationId, revisionNumber));
+        response.status(202).json(operation);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/configuration-revisions/:configurationId/:revision/rollback',
+    async (request, response, next) => {
+      try {
+        const operation = await configurations.rollback(
+          request.params.configurationId,
+          positiveRevision(request.params.revision),
+          requiredHeader(request, 'if-match'),
+          requiredHeader(request, 'idempotency-key'),
+          parseCommand(request.body),
+        );
+        response.status(202).json(operation);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   app.get('/api/v1/management-operations', async (request, response, next) => {
     try {
       const items = await service.listManagementOperations(parseLimit(request.query['pageSize']));
@@ -104,6 +225,56 @@ export function createNodeControlHttpApp(
       response
         .status(200)
         .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.use('/internal/v1', bearerAuthentication(configuration.runtimeServiceToken));
+
+  app.get('/internal/v1/bootstrap', async (_request, response, next) => {
+    try {
+      response.status(200).json(await configurations.bootstrap());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/internal/v1/revisions/latest', async (request, response, next) => {
+    try {
+      const query = LatestRevisionQuerySchema.parse(request.query);
+      const revision = await configurations.latest(
+        query.targetType,
+        query.targetId,
+        query.currentRevision,
+      );
+      if (revision === undefined) {
+        response.status(query.currentRevision === undefined ? 404 : 304).end();
+        return;
+      }
+      response.status(200).set('etag', etag(revision)).json(revision);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/internal/v1/revisions/watch', (request, response) => {
+    response.status(200);
+    response.set({
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+    });
+    response.flushHeaders();
+    response.write(': revision hints only; recover through latest\n\n');
+    const unsubscribe = hints.subscribe(response);
+    request.once('close', unsubscribe);
+  });
+
+  app.post('/internal/v1/acks', async (request, response, next) => {
+    try {
+      await configurations.acknowledge(parseRuntimeAck(request.body));
+      response.status(202).end();
     } catch (error) {
       next(error);
     }
@@ -147,6 +318,48 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    if (error instanceof NodeControlConfigurationError) {
+      const status =
+        error.code === 'CONFIGURATION_NOT_FOUND'
+          ? 404
+          : error.code === 'PRECONDITION_FAILED'
+            ? 412
+            : 409;
+      sendProblem(response, {
+        status,
+        code: error.code,
+        title: 'Configuration command rejected',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
+    if (error instanceof ZodError) {
+      sendProblem(response, {
+        status: 400,
+        code: 'REQUEST_INVALID',
+        title: 'Request is invalid',
+        detail: error.issues.map((issue) => issue.message).join('; '),
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
+    if (error instanceof NodeControlDomainError) {
+      sendProblem(response, {
+        status: 422,
+        code: error.code,
+        title: 'Configuration is invalid',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
     sendProblem(response, {
       status: 500,
       code: 'NODE_CONTROL_INTERNAL_ERROR',
@@ -158,6 +371,114 @@ export function createNodeControlHttpApp(
     });
   });
   return app;
+}
+
+const TargetTypeSchema = z.enum([
+  'node',
+  'llm_provider',
+  'model_route',
+  'smpp_source',
+  'mcp_provider_binding',
+  'telemetry_link',
+  'runtime_policy',
+]);
+const ConfigurationDraftSchema = z
+  .object({
+    configurationId: z.string().trim().min(1).max(256),
+    targetType: TargetTypeSchema,
+    targetId: z.string().trim().min(1).max(256),
+    revision: z.number().int().positive(),
+    status: z.literal('draft'),
+    applyMode: z.enum([
+      'hot_reload',
+      'new_task_only',
+      'reconnect_required',
+      'restart_required',
+      'immutable',
+    ]),
+    content: z.json(),
+    checksum: z.string().regex(/^[a-f0-9]{64}$/u),
+    createdBy: z.string().trim().min(1).max(256),
+    createdAt: z.iso.datetime({ offset: true }),
+  })
+  .strict();
+const CommandSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(1024),
+    payload: z.json().optional(),
+    expectedRevision: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+const LatestRevisionQuerySchema = z.object({
+  targetType: TargetTypeSchema,
+  targetId: z.string().trim().min(1).max(256),
+  currentRevision: z.coerce.number().int().nonnegative().optional(),
+});
+const RuntimeAckSchema = z
+  .object({
+    runtimeInstanceId: z.string().trim().min(1).max(256),
+    targetType: TargetTypeSchema,
+    targetId: z.string().trim().min(1).max(256),
+    revision: z.number().int().positive(),
+    status: z.enum([
+      'applied',
+      'partially_applied',
+      'rejected',
+      'restart_required',
+      'stale',
+      'unavailable',
+    ]),
+    observedRuntimeVersion: z.string().trim().min(1).max(128),
+    activeChecksum: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional(),
+    reasonCode: z.string().trim().min(1).max(256).optional(),
+    detail: z.record(z.string(), z.json()).optional(),
+    acknowledgedAt: z.iso.datetime({ offset: true }),
+  })
+  .strict();
+
+function positiveRevision(value: string): number {
+  return z.coerce.number().int().positive().parse(value);
+}
+
+function requiredHeader(request: Request, name: string): string {
+  return request.header(name) ?? '';
+}
+
+function parseCommand(value: unknown) {
+  const parsed = CommandSchema.parse(value);
+  return Object.freeze({
+    reason: parsed.reason,
+    ...(parsed.payload === undefined ? {} : { payload: parsed.payload }),
+    ...(parsed.expectedRevision === undefined ? {} : { expectedRevision: parsed.expectedRevision }),
+  });
+}
+
+function parseRuntimeAck(value: unknown) {
+  const parsed = RuntimeAckSchema.parse(value);
+  return Object.freeze({
+    runtimeInstanceId: parsed.runtimeInstanceId,
+    targetType: parsed.targetType,
+    targetId: parsed.targetId,
+    revision: parsed.revision,
+    status: parsed.status,
+    observedRuntimeVersion: parsed.observedRuntimeVersion,
+    ...(parsed.activeChecksum === undefined ? {} : { activeChecksum: parsed.activeChecksum }),
+    ...(parsed.reasonCode === undefined ? {} : { reasonCode: parsed.reasonCode }),
+    ...(parsed.detail === undefined ? {} : { detail: parsed.detail }),
+    acknowledgedAt: parsed.acknowledgedAt,
+  });
+}
+
+function etag(revision: {
+  readonly configurationId: string;
+  readonly revision: number;
+  readonly status: string;
+  readonly checksum: string;
+}): string {
+  return `"configuration:${revision.configurationId}:${String(revision.revision)}:${revision.status}:${revision.checksum}"`;
 }
 
 function bearerAuthentication(expectedToken: string) {

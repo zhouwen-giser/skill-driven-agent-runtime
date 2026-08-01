@@ -3,8 +3,14 @@ import type { Server } from 'node:http';
 
 import { Pool } from 'pg';
 
-import { NodeControlFoundationService } from '../../../packages/node-control-application/src/index.js';
-import { PostgresNodeControlFoundationRepository } from '../../../packages/node-control-persistence-postgres/src/index.js';
+import {
+  NodeControlConfigurationService,
+  NodeControlFoundationService,
+} from '../../../packages/node-control-application/src/index.js';
+import {
+  PostgresNodeControlConfigurationRepository,
+  PostgresNodeControlFoundationRepository,
+} from '../../../packages/node-control-persistence-postgres/src/index.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
 
@@ -18,8 +24,15 @@ export async function startNodeControlApi(
 ): Promise<NodeControlApiRuntime> {
   const pool = new Pool({ connectionString: environment.SDAR_CONTROL_DATABASE_URL, max: 10 });
   const repository = new PostgresNodeControlFoundationRepository(pool);
+  const configurations = new PostgresNodeControlConfigurationRepository(pool);
   const service = new NodeControlFoundationService({
     repository,
+    clock: { now: () => new Date().toISOString() },
+    ids: { next: randomUUID },
+  });
+  const configurationService = new NodeControlConfigurationService({
+    configurations,
+    foundation: repository,
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
@@ -32,8 +45,9 @@ export async function startNodeControlApi(
       environment: environment.SDAR_CONTROL_ENVIRONMENT,
       runtimeEndpointRef: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
     });
-    const app = createNodeControlHttpApp(service, {
+    const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: environment.SDAR_CONTROL_API_TOKEN,
+      runtimeServiceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
       nodeControlApiUrl: environment.SDAR_CONTROL_PUBLIC_URL,
       nodeEventsUrl: environment.SDAR_CONTROL_NODE_EVENTS_URL,
       a2aAgentCardUrl: environment.SDAR_CONTROL_A2A_AGENT_CARD_URL,
