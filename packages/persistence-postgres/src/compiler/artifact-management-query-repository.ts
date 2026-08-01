@@ -142,11 +142,15 @@ export class PostgresArtifactManagementQueryRepository implements ArtifactManage
     const artifact = await this.getArtifact(artifactId, scope);
     if (artifact === undefined) return undefined;
     const query = viewQuery(view);
-    const result = await this.#pool.query<Record<string, unknown>>(query.sql, [
-      artifactId,
-      String((artifact as Record<string, unknown>)['artifact_key']),
-      (artifact as Record<string, unknown>)['tenant_id'] ?? null,
-    ]);
+    const parameters =
+      view === 'audit'
+        ? [artifactId, scope.tenantId ?? null, scope.includeGlobal]
+        : [
+            artifactId,
+            String((artifact as Record<string, unknown>)['artifact_key']),
+            (artifact as Record<string, unknown>)['tenant_id'] ?? null,
+          ];
+    const result = await this.#pool.query<Record<string, unknown>>(query.sql, parameters);
     return Object.freeze({ items: Object.freeze(result.rows) });
   }
 
@@ -382,6 +386,9 @@ function viewQuery(view: ArtifactManagementView): Readonly<{ sql: string }> {
                      read_audit.occurred_at AS event_at
               FROM artifact_management_read_audit read_audit
               WHERE read_audit.target=$1
+                AND ($2::text IS NULL
+                  OR read_audit.tenant_id=$2
+                  OR ($3::boolean AND read_audit.tenant_id IS NULL))
             ) audit_records
             ORDER BY event_at DESC`,
   };

@@ -238,8 +238,8 @@ export class TemplateRuntimeService {
     } catch (error) {
       const classified = classifyError(error);
       if (executionId !== undefined) {
-        await this.#executions
-          .appendFeedback({
+        try {
+          await this.#executions.appendFeedback({
             feedbackId: `p08-feedback-${instantiationId}`,
             artifactExecutionId: executionId,
             artifactId: request.input.artifactRef,
@@ -248,8 +248,14 @@ export class TemplateRuntimeService {
             summary: 'Template instantiation did not reach formal planning handoff.',
             impact: { disposition: classified.disposition },
             createdAt: this.#clock.now(),
-          })
-          .catch(() => undefined);
+          });
+        } catch (feedbackError) {
+          throw new AggregateError(
+            [error, feedbackError],
+            `TEMPLATE_FAILURE_EVIDENCE_PERSISTENCE_FAILED:${classified.code}`,
+            { cause: feedbackError },
+          );
+        }
       }
       return {
         result: {

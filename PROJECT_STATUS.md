@@ -1,5 +1,17 @@
 # Project Status
 
+PR #13 merge remediation is locally implemented and verified (2026-08-01) on
+`feature/v1.3-sequential-implementation`. `git merge-tree` found no textual
+conflict with current `origin/main`; the actual blockers were three unresolved
+review threads. The fixes make Model Route evidence request-scoped, enforce
+SQL-side tenant isolation for Artifact read-audit projections and propagate
+Template failure-evidence persistence errors. Regression evidence passes 19
+focused Unit, 7 focused real PostgreSQL Integration, 907 full Unit, 130 full
+Integration, 214 full Contract and 72 E2E tests, plus format, lint, typecheck
+architecture, production build and isolated Server smoke gates. Commit, push,
+thread resolution and live merge-state recheck remain the only steps in this
+remediation; no automatic merge, tag, release or deployment is authorized.
+
 SDAR v1.3 P14/X01 Optional Post-release Operations is terminal
 `POST_RELEASE_OPERATIONS_BLOCKED` (2026-08-01) on
 `feature/v1.3-sequential-implementation`. The non-formal extension preserves

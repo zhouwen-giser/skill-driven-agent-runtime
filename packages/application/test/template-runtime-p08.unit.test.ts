@@ -144,6 +144,26 @@ describe('P08 TemplateRuntimeService', () => {
       reasonCodes: ['TEMPLATE_PARAMETER_SOURCE_FORBIDDEN'],
     });
   });
+
+  it('preserves the original error when failure evidence persistence also fails', async () => {
+    const readiness = capabilityReadiness();
+    const state = currentState(readiness);
+    const completionError = new Error('execution completion failed');
+    const feedbackError = new Error('feedback persistence failed');
+    const executions = new ExecutionRecorder({ completionError, feedbackError });
+    const service = runtime(state, readiness, executions, new PlanningRecorder('confirmed'));
+
+    const failure = await service.instantiate(request(readiness)).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect(failure).toMatchObject({
+      message: 'TEMPLATE_FAILURE_EVIDENCE_PERSISTENCE_FAILED:TEMPLATE_RUNTIME_FAILED',
+    });
+    expect((failure as AggregateError).errors).toEqual([completionError, feedbackError]);
+    expect((failure as AggregateError & { cause?: unknown }).cause).toBe(feedbackError);
+    expect(executions.started).toHaveLength(1);
+    expect(executions.completed).toHaveLength(0);
+  });
 });
 
 function runtime(
@@ -325,6 +345,13 @@ class ExecutionRecorder {
   readonly started: ArtifactExecutionStart[] = [];
   readonly completed: readonly { artifactExecutionId: string }[] = [];
   readonly feedback: readonly { reasonCode: string }[] = [];
+  readonly #completionError: Error | undefined;
+  readonly #feedbackError: Error | undefined;
+
+  constructor(failures: Readonly<{ completionError?: Error; feedbackError?: Error }> = {}) {
+    this.#completionError = failures.completionError;
+    this.#feedbackError = failures.feedbackError;
+  }
 
   start(input: ArtifactExecutionStart): Promise<ArtifactExecutionRecord> {
     this.started.push(input);
@@ -332,11 +359,13 @@ class ExecutionRecorder {
   }
 
   complete(input: { artifactExecutionId: string }): Promise<void> {
+    if (this.#completionError !== undefined) return Promise.reject(this.#completionError);
     (this.completed as { artifactExecutionId: string }[]).push(input);
     return Promise.resolve();
   }
 
   appendFeedback(input: { reasonCode: string }): Promise<void> {
+    if (this.#feedbackError !== undefined) return Promise.reject(this.#feedbackError);
     (this.feedback as { reasonCode: string }[]).push(input);
     return Promise.resolve();
   }

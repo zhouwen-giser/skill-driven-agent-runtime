@@ -115,6 +115,62 @@ describe('P12 PostgreSQL management projection', () => {
     },
   );
 
+  it('restricts read-audit projections to the authorized tenant scope', async () => {
+    const repository = new PostgresArtifactManagementQueryRepository(pool);
+    await repository.recordReadAudit({
+      auditId: 'audit-tenant-a',
+      actorId: 'operator-a',
+      roles: ['reviewer'],
+      tenantId: 'tenant-a',
+      operation: 'artifact.audit',
+      target: 'artifact-a',
+      requestId: 'request-tenant-a',
+      result: 'allowed',
+      occurredAt: NOW,
+    });
+    await repository.recordReadAudit({
+      auditId: 'audit-tenant-b',
+      actorId: 'operator-b',
+      roles: ['reviewer'],
+      tenantId: 'tenant-b',
+      operation: 'artifact.detail',
+      target: 'artifact-a',
+      requestId: 'request-tenant-b',
+      result: 'not_found',
+      sourceIp: '192.0.2.10',
+      occurredAt: NOW,
+    });
+    await repository.recordReadAudit({
+      auditId: 'audit-global',
+      actorId: 'operator-global',
+      roles: ['security_operator'],
+      operation: 'artifact.audit',
+      target: 'artifact-a',
+      requestId: 'request-global',
+      result: 'allowed',
+      occurredAt: NOW,
+    });
+
+    const tenantView = (await repository.getArtifactView('artifact-a', 'audit', {
+      tenantId: 'tenant-a',
+      includeGlobal: false,
+    })) as { items: readonly { record_type: string; record: Record<string, unknown> }[] };
+    const tenantReadActors = tenantView.items
+      .filter((item) => item.record_type === 'read')
+      .map((item) => item.record['actor_id']);
+    expect(tenantReadActors).toEqual(['operator-a']);
+
+    const elevatedView = (await repository.getArtifactView('artifact-a', 'audit', {
+      tenantId: 'tenant-a',
+      includeGlobal: true,
+    })) as { items: readonly { record_type: string; record: Record<string, unknown> }[] };
+    const elevatedReadActors = elevatedView.items
+      .filter((item) => item.record_type === 'read')
+      .map((item) => item.record['actor_id']);
+    expect(elevatedReadActors).toEqual(expect.arrayContaining(['operator-a', 'operator-global']));
+    expect(elevatedReadActors).not.toContain('operator-b');
+  });
+
   it('resumes ordered tenant-filtered SSE facts from the formal Outbox', async () => {
     await pool.query(
       `INSERT INTO fast_gateway_request(

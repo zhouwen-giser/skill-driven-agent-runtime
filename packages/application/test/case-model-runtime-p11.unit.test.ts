@@ -168,6 +168,33 @@ describe('P11 Model Route and Cascade', () => {
     ).rejects.toThrow(/MODEL_ROUTE_PROFILE_STALE/u);
   });
 
+  it('scopes equal route decisions to the request and tenant evidence identity', async () => {
+    const profiles = [profile('ready-a', 'ready', 1, 1)];
+    const evidence = routeEvidence();
+    const service = new ModelRouteRuntimeService({
+      artifacts: artifactReader(),
+      profiles: { listCurrent: () => Promise.resolve(profiles) },
+      evidence,
+      clock: clock(),
+    });
+    const first = await service.evaluate(routeContext(profiles));
+    const second = await service.evaluate({
+      ...routeContext(profiles),
+      requestRef: 'request-2',
+    });
+
+    expect(first.decisionHash).toBe(second.decisionHash);
+    const references = evidence.decisions.map(
+      (item) => (item as { routeDecisionRef: string }).routeDecisionRef,
+    );
+    expect(references).toHaveLength(2);
+    expect(new Set(references).size).toBe(2);
+    expect(references).toEqual([
+      expect.stringMatching(/^model-route-decision:[0-9a-f]{24}$/u),
+      expect.stringMatching(/^model-route-decision:[0-9a-f]{24}$/u),
+    ]);
+  });
+
   it('serially escalates only after validation failure and accepts the next bounded output', async () => {
     const profiles = [profile('small', 'ready', 1, 1), profile('medium', 'ready', 2, 2)];
     const evidence = routeEvidence();

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   caseSimilarity,
   createCaseAdaptationInput,
@@ -807,7 +809,7 @@ export class ModelRouteRuntimeService implements ModelRouteRuntime {
         .slice(0, input.budget.maxInvocations)
         .map((profile) => profile.profileId),
     });
-    const routeDecisionRef = `model-route-decision:${decision.decisionHash.slice(-24)}`;
+    const routeDecisionRef = routeDecisionReference(input, decision.decisionHash);
     await this.#evidence.saveDecision({
       routeDecisionRef,
       context: input,
@@ -981,7 +983,7 @@ export class ModelCascadeService {
     }
     const run = createModelCascadeRun({
       cascadeRunId,
-      routeDecisionRef: `model-route-decision:${input.decision.decisionHash.slice(-24)}`,
+      routeDecisionRef: routeDecisionReference(context, input.decision.decisionHash),
       status,
       stepRefs: steps.map((candidate) => candidate.stepRef),
       ...(selectedOutputRef === undefined ? {} : { selectedOutputRef }),
@@ -1150,6 +1152,20 @@ function stableSuffix(value: unknown): string {
     hash = Math.imul(hash, 16_777_619);
   }
   return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function routeDecisionReference(context: ModelRouteContext, decisionHash: string): string {
+  const identityHash = createHash('sha256')
+    .update(
+      JSON.stringify({
+        tenantId: context.tenantId,
+        requestRef: context.requestRef,
+        decisionHash,
+      }),
+    )
+    .digest('hex')
+    .slice(0, 24);
+  return `model-route-decision:${identityHash}`;
 }
 
 function isJsonRecord(value: JsonValue): value is Readonly<Record<string, JsonValue>> {

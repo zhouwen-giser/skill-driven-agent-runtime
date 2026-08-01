@@ -779,3 +779,16 @@ Its Handoff is `POST_RELEASE_OPERATIONS_BLOCKED`, not production READY. The
 seven safe-resume inputs are enumerated in
 `reports/operations/v1.3-p14-handoff.json`; no P00-P13 authority or status is
 changed.
+
+## PR #13 Merge Review Remediation Addendum
+
+| Review requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Request-unique P11 Model Route evidence | verified | semantic `decisionHash` remains stable; durable reference hashes tenant, request and decision identity | `case-model-runtime-p11.unit.test.ts`; 19 focused Unit tests |
+| P12 read-audit tenant isolation | verified | PostgreSQL query applies tenant/global scope before returning actor, role, request or network metadata | `artifact-management-p12.integration.test.ts`; 7 focused and 130 full real Integration tests |
+| P08 Template failure durability | verified | secondary evidence-write failure raises `AggregateError` containing both caught errors, with the current persistence error as `cause` | `template-runtime-p08.unit.test.ts`; lint caught and enforced the error-cause rule |
+| Cross-module safety | verified | no authority relocation, SDK leakage, migration or public contract change | format, lint, typecheck, architecture, build and Server smoke; 214 Contract and 72 isolated E2E tests |
+
+This addendum closes only PR #13's three actionable review findings. It does
+not change the P13 or P14 terminal evidence, authorize merge, or claim a full
+release verification run.

@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## PR #13 Merge Review Remediation
+
+- Made durable Model Route decision evidence references include tenant and
+  request identity while preserving the semantic decision hash.
+- Scoped Artifact read-audit SQL projections to the requesting tenant, with
+  explicit elevated access to global rows and no cross-tenant disclosure.
+- Propagated Template failure-evidence persistence faults as `AggregateError`
+  with both the original classified failure and the persistence failure.
+- Added focused Unit and real PostgreSQL regressions and verified the repaired
+  paths through the full Integration, Contract and isolated E2E suites.
+
 ## SDAR v1.3 P14 Optional Post-release Operations
 
 - Added a non-formal X01 plan-only operations evidence set covering baseline,
