@@ -791,6 +791,17 @@ changed.
 | Idempotency and secret safety | verified | exact active apply replay under advisory lock; safe apply/transport code allowlists; generic persisted error messages | secret-bearing Unit regressions; replay Integration; zero-finding full-history scan |
 | P03 closure | verified | full verify passed; independent read-only review 0 Blocking/0 Major/0 Minor; P04 not started | `p03-review.md`, verification summary, P03 completion and handoff |
 
+## SDAR v1.4 P04 SMPP Registry Federation Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Multi-source identity and lineage | verified | exact Source/Provider/Server composite identity; Registry revision/checksum/ETag/expiry and Catalog revision retained | Domain Unit; real two-Source API/PostgreSQL integration |
+| Atomic Snapshot and LKG | verified | immutable Snapshot/candidates, one active Source revision, local/external expiry bound, failed newer draft preserves active LKG | migration 0004; revision-2 failure/activation integration |
+| Drift and conditional refresh | verified | checksum, expiry, rollback and same-revision drift rejection; ETag/304; scheduled poll/watch always re-fetches Latest | real HTTP adapter and PostgreSQL integration |
+| Outage and authority isolation | verified | allow-unexpired versus fail-closed policies; running Runtime Task unchanged; Registry contains no Tool Schema or Availability truth | two-Control-policy plus Runtime-Task integration; architecture review |
+| Idempotency and secret safety | verified | receipt recheck under Source advisory lock; opaque SecretRef resolution; generic safe failure codes | replay regression; 4,188-file/history secret scan with zero findings |
+| P04 closure | verified | full verify passed; repeated independent read-only review 0 Blocking/0 Major/0 Minor after lineage repair; P05 not started | `p04-review.md`, verification summary; Completion/Handoff follows remote reconciliation |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |

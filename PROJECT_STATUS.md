@@ -1,17 +1,16 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P03 is `COMPLETED` locally (2026-08-02) on
+SDAR v1.4 Node Control Backend P04 is `COMPLETED` locally (2026-08-02) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P02 remain completed. P03 adds
-secret-reference-only LLM Provider/Model Catalog and stage/task/case Route authority in Control,
-then applies it through P02 without moving Runtime-owned credentials, clients, health, selection,
-fallback or invocation evidence. Exact Route and Provider revisions are pinned per Task/model stage;
-old Tasks remain stable and exact Runtime apply replay is idempotent. Full `pnpm verify` passed in
-339,537 ms with 1140 Unit/Contract, 135 real isolated PostgreSQL/Redis Integration and 72 E2E tests,
-29 Runtime migrations, production build and all process smokes. Secret scan found zero issues, and
-the independent read-only review closed at 0 Blocking / 0 Major / 0 Minor. Implementation
-`21c7a37` and Evidence `5980243` are verified on the remote branch. P04 is the next permitted phase
-and has not started.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P03 remain completed. P04 adds immutable
+multi-source SMPP Registry Sources and Snapshots, stable Source/Provider/Server identity,
+Registry/Catalog lineage, conditional Latest refresh, atomic Source activation and bounded LKG
+policies without moving Tool Catalog or Availability authority into the Registry. Full `pnpm verify`
+passed in 354,538 ms with 1,143 Unit/Contract, 136 real isolated PostgreSQL/Redis Integration and 72
+E2E tests, 29 Runtime migrations, production build and all process smokes. Secret scan found zero
+issues across 4,188 files and Git history, and the repeated independent read-only review closed at 0
+Blocking / 0 Major / 0 Minor after one lineage Major was repaired. Implementation `11d13d0` is
+committed; evidence publication and remote reconciliation are in progress. P05 has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

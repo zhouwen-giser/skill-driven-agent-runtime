@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P04 SMPP Registry Federation
+
+- Added multi-source SMPP Registry Source revisions, conditional Latest refresh, immutable Snapshot
+  and Provider candidate persistence, deterministic checksum validation and atomic activation.
+- Added stable Source/Provider/Server composite identity and Registry revision/checksum/ETag/expiry
+  lineage while keeping Tool Catalog and live Availability authority outside the Registry.
+- Added bounded local LKG policies, explicit expiry/rollback/drift failures, scheduled Worker refresh
+  and secret-reference-only external HTTP authentication.
+- Added real Control/Runtime PostgreSQL integration proving cross-source isolation, failed Snapshot
+  preservation, ETag replay, outage policy, running-Task stability and durable sync/audit evidence.
+
 ## SDAR v1.4 P03 LLM Provider and Model Route Governance
 
 - Added secret-reference-only LLM Provider definitions, capability-bearing Model Catalogs and
