@@ -58,9 +58,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - [x] 2026-08-02 17:31 +08:00 P05 complete: implementation `f409911`, Evidence `526155f`, remote
   reconciliation, real Discover/Tools Catalog, drift/freshness gates, terminal lifecycle safety,
   Remote Task retention, full verification and three read-only review passes are closed.
-- [x] 2026-08-02 18:50 +08:00 P06 complete locally: implementation `f5be34f`, canonical Capability
+- [x] 2026-08-02 18:50 +08:00 P06 complete: implementation `f5be34f`, Evidence `f7692d0`, canonical Capability
   promises, exact Skill/Plan Template bindings, publication gates, ETag/idempotency, full
-  verification and three read-only review passes are closed; evidence publication is in progress.
+  verification and three read-only review passes are closed; remote reconciliation is in progress.
 - [ ] P07: runtime capability readiness.
 - [ ] P08: A2A exposure and Agent Card revision.
 - [ ] P09: immutable Task capability binding and attempts.
