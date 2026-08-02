@@ -16,6 +16,7 @@ import {
   type LlmProviderDefinition,
   type ModelRouteDefinition,
 } from '../../node-control-domain/src/index.js';
+import { applyControlMigrations } from '../../node-control-persistence-postgres/src/index.js';
 import { PostgresModelRuntimeRepository } from '../../persistence-postgres/src/index.js';
 import {
   RuntimeConfigurationAgent,
@@ -70,14 +71,18 @@ const RevisionHintSchema = z.object({
 });
 
 beforeAll(async () => {
-  await applyRuntimeMigrations(runtimePool);
+  await Promise.all([applyRuntimeMigrations(runtimePool), applyControlMigrations(controlPool)]);
+  const node = await controlPool.query<{ node_id: string }>(
+    'SELECT node_id FROM sdar_control.node_profile LIMIT 1',
+  );
+  const controlNodeId = node.rows[0]?.node_id ?? 'node-p02';
   controlApi = await startNodeControlApi({
     SDAR_CONTROL_DATABASE_URL: controlConnectionString,
     SDAR_CONTROL_API_HOST: '127.0.0.1',
     SDAR_CONTROL_API_PORT: 0,
     SDAR_CONTROL_API_TOKEN: apiToken,
     SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: runtimeToken,
-    SDAR_CONTROL_NODE_ID: 'node-p02',
+    SDAR_CONTROL_NODE_ID: controlNodeId,
     SDAR_CONTROL_NODE_TYPE: 'sdar-runtime',
     SDAR_CONTROL_NODE_DISPLAY_NAME: 'P02 Integration Node',
     SDAR_CONTROL_ENVIRONMENT: 'integration',

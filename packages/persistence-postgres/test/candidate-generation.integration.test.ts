@@ -71,7 +71,8 @@ beforeEach(async () => {
        generalized_pattern,fused_pattern,candidate_generation_run,artifact_lineage,compiled_artifact,
        pattern_candidate_support,pattern_candidate,experience_trace_source,experience_trace,
        compilation_run,experience_job,goal_experience_episode_source,goal_experience_episode,
-       cognitive_runtime_outbox,skill_version,skill,conversation_context CASCADE`,
+       runtime_capability_summary,cognitive_runtime_outbox,skill_version,skill,
+       conversation_context CASCADE`,
   );
 });
 
