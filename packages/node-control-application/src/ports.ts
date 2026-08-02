@@ -9,6 +9,9 @@ import type {
   ModelRouteDefinition,
   NodeProfile,
   RuntimeRevisionAck,
+  SmppProviderCandidateDirectoryEntry,
+  SmppRegistrySnapshot,
+  SmppRegistrySource,
 } from '../../node-control-domain/src/index.js';
 
 export interface NodeControlFoundationRepository {
@@ -120,4 +123,53 @@ export interface NodeControlLlmGovernanceRepository {
   ): Promise<ModelRouteDefinition>;
   findRoute(routeId: string, revision?: number): Promise<ModelRouteDefinition | undefined>;
   listRoutes(limit: number): Promise<readonly ModelRouteDefinition[]>;
+}
+
+export type SmppRegistryFetchResult =
+  | Readonly<{ status: 'not_modified'; etag: string }>
+  | Readonly<{ status: 'snapshot'; snapshot: SmppRegistrySnapshot }>;
+
+export interface SmppRegistryClient {
+  fetchLatest(source: SmppRegistrySource, ifNoneMatch?: string): Promise<SmppRegistryFetchResult>;
+}
+
+export interface SmppSnapshotHead {
+  readonly revision: number;
+  readonly checksum: string;
+  readonly etag: string;
+  readonly validUntil: string;
+}
+
+export interface NodeControlSmppRegistryRepository {
+  createSource(
+    source: SmppRegistrySource,
+    context: ConfigurationMutationContext,
+  ): Promise<SmppRegistrySource>;
+  findSource(sourceId: string, revision?: number): Promise<SmppRegistrySource | undefined>;
+  listSources(limit: number): Promise<readonly SmppRegistrySource[]>;
+  listScheduledSources(limit: number): Promise<readonly SmppRegistrySource[]>;
+  findActiveSnapshot(sourceId: string): Promise<SmppSnapshotHead | undefined>;
+  findSyncReplay(context: ConfigurationMutationContext): Promise<ManagementOperation | undefined>;
+  applySnapshot(
+    source: SmppRegistrySource,
+    snapshot: SmppRegistrySnapshot,
+    validUntil: string,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation>;
+  recordNotModified(
+    source: SmppRegistrySource,
+    etag: string,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation>;
+  recordSyncFailure(
+    source: SmppRegistrySource,
+    errorCode: string,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation>;
+  listCandidates(
+    filter: Readonly<{ sourceId?: string; observedAt: string; limit: number }>,
+  ): Promise<readonly SmppProviderCandidateDirectoryEntry[]>;
 }

@@ -12,7 +12,10 @@ export type NodeControlDomainErrorCode =
   | 'LLM_PROVIDER_INVALID'
   | 'MODEL_ROUTE_INVALID'
   | 'MODEL_ROUTE_CONFLICT'
-  | 'MODEL_ROUTE_PROVIDER_UNAVAILABLE';
+  | 'MODEL_ROUTE_PROVIDER_UNAVAILABLE'
+  | 'SMPP_SOURCE_INVALID'
+  | 'SMPP_SNAPSHOT_INVALID'
+  | 'SMPP_SNAPSHOT_CHECKSUM_MISMATCH';
 
 export class NodeControlDomainError extends Error {
   readonly code: NodeControlDomainErrorCode;

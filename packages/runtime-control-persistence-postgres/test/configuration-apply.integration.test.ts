@@ -92,7 +92,11 @@ beforeAll(async () => {
               runtime_configuration_ack_outbox,runtime_configuration_snapshot CASCADE`,
   );
   await controlPool.query(
-    `TRUNCATE sdar_control.configuration_application,
+    `TRUNCATE sdar_control.smpp_registry_sync_attempt,
+              sdar_control.smpp_provider_candidate,
+              sdar_control.smpp_registry_snapshot,
+              sdar_control.smpp_registry_source,
+              sdar_control.configuration_application,
               sdar_control.configuration_command_receipt,
               sdar_control.configuration_target_state,
               sdar_control.configuration_revision,

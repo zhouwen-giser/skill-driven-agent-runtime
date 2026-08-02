@@ -7,12 +7,18 @@ import {
   NodeControlConfigurationService,
   NodeControlFoundationService,
   NodeControlLlmGovernanceService,
+  NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
   PostgresNodeControlConfigurationRepository,
   PostgresNodeControlFoundationRepository,
   PostgresNodeControlLlmGovernanceRepository,
+  PostgresNodeControlSmppRegistryRepository,
 } from '../../../packages/node-control-persistence-postgres/src/index.js';
+import {
+  EnvironmentSmppCredentialResolver,
+  HttpSmppRegistryClient,
+} from '../../../packages/smpp-registry-adapter/src/index.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
 
@@ -43,6 +49,12 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
+  const smppRegistryService = new NodeControlSmppRegistryService({
+    repository: new PostgresNodeControlSmppRegistryRepository(pool),
+    client: new HttpSmppRegistryClient(new EnvironmentSmppCredentialResolver()),
+    clock: { now: () => new Date().toISOString() },
+    ids: { next: randomUUID },
+  });
   try {
     await service.migrate();
     await service.bootstrapNodeProfile({
@@ -59,6 +71,7 @@ export async function startNodeControlApi(
       nodeEventsUrl: environment.SDAR_CONTROL_NODE_EVENTS_URL,
       a2aAgentCardUrl: environment.SDAR_CONTROL_A2A_AGENT_CARD_URL,
       llmGovernance: llmGovernanceService,
+      smppRegistry: smppRegistryService,
     });
     const server = await listen(
       app,

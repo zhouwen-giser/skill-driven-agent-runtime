@@ -1,18 +1,37 @@
 import process from 'node:process';
+import { randomUUID } from 'node:crypto';
 
 import { Pool } from 'pg';
 
-import { NodeControlFoundationWorker } from '../../../packages/node-control-application/src/index.js';
-import { PostgresNodeControlFoundationRepository } from '../../../packages/node-control-persistence-postgres/src/index.js';
+import {
+  NodeControlFoundationWorker,
+  NodeControlSmppRegistryService,
+} from '../../../packages/node-control-application/src/index.js';
+import {
+  PostgresNodeControlFoundationRepository,
+  PostgresNodeControlSmppRegistryRepository,
+} from '../../../packages/node-control-persistence-postgres/src/index.js';
+import {
+  EnvironmentSmppCredentialResolver,
+  HttpSmppRegistryClient,
+} from '../../../packages/smpp-registry-adapter/src/index.js';
 import { loadNodeControlWorkerEnvironment } from './environment.js';
 
 const environment = loadNodeControlWorkerEnvironment();
 const pool = new Pool({ connectionString: environment.SDAR_CONTROL_DATABASE_URL, max: 4 });
 const repository = new PostgresNodeControlFoundationRepository(pool);
 await repository.migrate();
+const clock = { now: () => new Date().toISOString() };
+const smppRegistry = new NodeControlSmppRegistryService({
+  repository: new PostgresNodeControlSmppRegistryRepository(pool),
+  client: new HttpSmppRegistryClient(new EnvironmentSmppCredentialResolver()),
+  clock,
+  ids: { next: randomUUID },
+});
 const worker = new NodeControlFoundationWorker({
   repository,
-  clock: { now: () => new Date().toISOString() },
+  clock,
+  smppRegistry,
 });
 
 if (environment.SDAR_CONTROL_WORKER_ONCE === 'true') {

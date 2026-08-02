@@ -4,3 +4,4 @@ export * from './health.js';
 export * from './llm-governance.js';
 export * from './management-operation.js';
 export * from './node-profile.js';
+export * from './smpp-registry.js';

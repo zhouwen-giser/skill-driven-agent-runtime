@@ -7,11 +7,16 @@ import {
   NodeControlApplicationError,
   NodeControlConfigurationError,
   NodeControlLlmGovernanceError,
+  NodeControlSmppRegistryError,
   type NodeControlConfigurationService,
   type NodeControlFoundationService,
   type NodeControlLlmGovernanceService,
+  type NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
-import { NodeControlDomainError } from '../../../packages/node-control-domain/src/index.js';
+import {
+  NodeControlDomainError,
+  smppSourceEtag,
+} from '../../../packages/node-control-domain/src/index.js';
 import { RevisionHintBroker } from './revision-hint-broker.js';
 
 export interface NodeControlHttpConfiguration {
@@ -21,6 +26,7 @@ export interface NodeControlHttpConfiguration {
   readonly nodeEventsUrl: string;
   readonly a2aAgentCardUrl: string;
   readonly llmGovernance?: NodeControlLlmGovernanceService;
+  readonly smppRegistry?: NodeControlSmppRegistryService;
 }
 
 export function createNodeControlHttpApp(
@@ -273,6 +279,89 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get('/api/v1/smpp-sources', async (request, response, next) => {
+    try {
+      const items = await requiredSmppRegistry(configuration).listSources(
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/smpp-sources', async (request, response, next) => {
+    try {
+      const input = SmppSourceSchema.parse(request.body);
+      const source = await requiredSmppRegistry(configuration).createSource(
+        {
+          smppSourceId: input.smppSourceId,
+          ...(input.name === undefined ? {} : { name: input.name }),
+          registryEndpoint: input.registryEndpoint,
+          credentialRef: input.credentialRef,
+          ...(input.tenantId === undefined ? {} : { tenantId: input.tenantId }),
+          ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
+          environment: input.environment,
+          syncMode: input.syncMode,
+          snapshotTtlSeconds: input.snapshotTtlSeconds,
+          lkgPolicy: input.lkgPolicy,
+          status: input.status,
+          revision: input.revision,
+        },
+        requiredHeader(request, 'idempotency-key'),
+      );
+      response.status(201).set('etag', smppSourceEtag(source)).json(source);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/smpp-sources/:smppSourceId', async (request, response, next) => {
+    try {
+      const source = await requiredSmppRegistry(configuration).getSource(
+        request.params.smppSourceId,
+      );
+      response.status(200).set('etag', smppSourceEtag(source)).json(source);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/smpp-sources/:smppSourceId/sync', async (request, response, next) => {
+    try {
+      const command = parseCommand(request.body);
+      response
+        .status(202)
+        .json(
+          await requiredSmppRegistry(configuration).synchronize(
+            request.params.smppSourceId,
+            requiredHeader(request, 'idempotency-key'),
+            command.reason,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/mcp-provider-candidates', async (request, response, next) => {
+    try {
+      const items = await requiredSmppRegistry(configuration).listCandidates(
+        typeof request.query['smppSourceId'] === 'string'
+          ? request.query['smppSourceId']
+          : undefined,
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post(
     '/api/v1/configuration-revisions/:configurationId/:revision/publish',
     async (request, response, next) => {
@@ -465,6 +554,18 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    if (error instanceof NodeControlSmppRegistryError) {
+      sendProblem(response, {
+        status: error.code === 'SMPP_SOURCE_NOT_FOUND' ? 404 : 409,
+        code: error.code,
+        title: 'SMPP Registry command rejected',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
     if (error instanceof ZodError) {
       sendProblem(response, {
         status: 400,
@@ -642,6 +743,22 @@ const ModelRouteSchema = z
     revision: z.number().int().positive(),
   })
   .strict();
+const SmppSourceSchema = z
+  .object({
+    smppSourceId: z.string().trim().min(1).max(256),
+    name: z.string().trim().min(1).max(256).optional(),
+    registryEndpoint: z.url(),
+    credentialRef: z.string().trim().min(1).max(256),
+    tenantId: z.string().trim().min(1).max(256).optional(),
+    projectId: z.string().trim().min(1).max(256).optional(),
+    environment: z.string().trim().min(1).max(256),
+    syncMode: z.enum(['manual', 'poll', 'watch']),
+    snapshotTtlSeconds: z.number().int().positive().max(2_592_000),
+    lkgPolicy: z.enum(['allow_unexpired', 'deny_when_unavailable']),
+    status: z.literal('draft'),
+    revision: z.number().int().positive(),
+  })
+  .strict();
 
 function positiveRevision(value: string): number {
   return z.coerce.number().int().positive().parse(value);
@@ -720,6 +837,13 @@ function requiredLlmGovernance(
 ): NodeControlLlmGovernanceService {
   if (configuration.llmGovernance === undefined) throw new Error('LLM_GOVERNANCE_NOT_COMPOSED');
   return configuration.llmGovernance;
+}
+
+function requiredSmppRegistry(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlSmppRegistryService {
+  if (configuration.smppRegistry === undefined) throw new Error('SMPP_REGISTRY_NOT_COMPOSED');
+  return configuration.smppRegistry;
 }
 
 interface ProblemInput {

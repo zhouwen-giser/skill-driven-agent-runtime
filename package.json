@@ -51,7 +51,7 @@
     "test:a2a-tck": "node scripts/run-a2a-tck.mjs",
     "smoke:server": "node scripts/smoke-server.mjs",
     "smoke:node-control": "node scripts/smoke-node-control.mjs",
-    "test:node-control": "vitest run packages/node-control-domain packages/node-control-application packages/runtime-control-application packages/runtime-control-http-client packages/runtime-control-model-adapter apps/node-control-api",
+    "test:node-control": "vitest run packages/node-control-domain packages/node-control-application packages/runtime-control-application packages/runtime-control-http-client packages/runtime-control-model-adapter packages/smpp-registry-adapter apps/node-control-api",
     "verify:ep01": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:contract && pnpm test:e2e && pnpm build && pnpm smoke:server && pnpm test:a2a-tck",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "evidence:licenses": "node scripts/generate-sbom.mjs",
