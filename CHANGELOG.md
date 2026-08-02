@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P06 Capability Definition Authority
+
+- Added canonical versioned Capability business promises with immutable post-publication content,
+  stable lifecycle ETags and schema/evidence/risk/constraint publication gates.
+- Added exact Skill and Plan Template implementation bindings with primary, alternative, supporting,
+  validation and recovery roles; Resource and undeclared implementation kinds fail closed.
+- Added request-hash idempotency, optimistic concurrency, Control audit/receipts and exact read-only
+  Runtime/Artifact authority validation.
+- Added real Control/Runtime PostgreSQL acceptance evidence for compatibility-projection isolation,
+  exact implementation lookup, published immutability and replay after lifecycle change.
+
 ## SDAR v1.4 P05 MCP Provider Binding Governance
 
 - Added explicit Direct and exact-lineage SMPP Provider Binding import through real frozen

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P06",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "86e78550f38b86fa2615ca4358831156641f4c47",
+  "implementationSha": "f5be34fb3a1ef74d3564f496d93d07e3eee1bdda",
+  "evidenceSha": "pending-evidence-commit",
+  "remoteSha": "pending-remote-reconciliation",
+  "completedAt": "2026-08-02T18:50:36+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 349754,
+      "unitContract": 1150,
+      "integration": 138,
+      "e2e": 72,
+      "runtimeMigrations": 29
+    },
+    "focused": {
+      "unitFiles": 2,
+      "unitTests": 4,
+      "capabilityIntegrationTests": 1,
+      "integrationFiles": 25,
+      "integrationTests": 138,
+      "architectureSources": 607,
+      "frozenFiles": 76,
+      "frozenSchemas": 28,
+      "frozenOperations": 111,
+      "frozenEvents": 20,
+      "frozenFixtures": 7
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "closedMajor": 3,
+    "closedMinor": 2,
+    "verdict": "accepted"
+  },
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/v1.4-node-control/failed-attempts/p06-capability-authority.md",
+    "reports/v1.4-node-control/phases/p06-review.md"
+  ],
+  "nextPhase": "P07"
+}

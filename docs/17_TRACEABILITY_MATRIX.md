@@ -814,6 +814,17 @@ changed.
 | Authority isolation | verified | Control stores Binding/Catalog observation/new-selection facts only; Runtime retains Server/Tool/Remote Task authority; Redis owns no P05 fact | architecture gate over 601 TypeScript sources; neutral cross-authority acceptance app |
 | P05 closure | verified | full verify passed; third independent read-only review 0 Blocking/0 Major/0 Minor after 5 Major and 1 Minor repairs; P06 not started | `p05-review.md`, verification summary; Completion/Handoff follows remote reconciliation |
 
+## SDAR v1.4 P06 Capability Definition Authority Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Business-promise authority | verified | canonical immutable `NodeCapabilityDefinitionVersion`; Skill capability list is compatibility-only | hash/validation Unit and mismatched-projection real PostgreSQL acceptance |
+| Exact executable implementation | verified | exact enabled/validated Skill or active compiled Plan Template; active primary/alternative required | Skill integration, Plan Template port Unit, missing-version and Resource rejection |
+| Publication and immutability | verified | Ajv Input/Output schema compilation; Success/Evidence/Risk/Constraints gates; SQL trigger after publish | invalid-schema regression and SQLSTATE 55000 mutation rejection |
+| Command safety | verified | request-hash receipts, audit, replay after publication, ETag/If-Match on lifecycle | real API/PostgreSQL idempotency and 412 stale-state tests |
+| Authority isolation | verified | Control owns definitions/bindings only; Runtime/Artifact lookup ports are exact and read-only; Redis owns no P06 fact | architecture gate over 607 TypeScript sources |
+| P06 closure | verified | full verify passed; third read-only review 0 Blocking/0 Major/0 Minor after 3 Major and 2 Minor repairs; P07 not started | `p06-completion.*`, `p06-review.md`, `p06-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |

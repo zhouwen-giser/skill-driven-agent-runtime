@@ -1,17 +1,15 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P05 is `COMPLETED` (2026-08-02) on
+SDAR v1.4 Node Control Backend P06 is `COMPLETED` locally (2026-08-02) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P04 remain completed. P05 adds explicit
-Direct/SMPP MCP Provider Binding import, real frozen Discover/Tools Catalog authority, immutable
-Registry/Catalog lineage, canonical drift/freshness new-selection gates, terminal lifecycle safety,
-SSRF/redirect protection and retained Runtime Remote Task query/control. Full `pnpm verify` passed
-in 358,400 ms with 1,146 Unit/Contract, 137 real isolated PostgreSQL/Redis Integration and 72 E2E
-tests, 29 Runtime migrations, production build and all process smokes. Secret scan found zero issues
-across 4,226 files and Git history. Three independent read-only review passes closed 5 Major and 1
-Minor findings; final verdict is 0 Blocking / 0 Major / 0 Minor. Implementation `f409911` and
-Evidence `526155f` are verified on the remote branch. P06 is the next permitted phase and has not
-started.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P05 remain completed. P06 adds canonical
+Capability business-promise authority, exact Skill/Plan Template implementation bindings,
+publication schema/evidence/risk/constraint gates, published immutability, command idempotency and
+ETag concurrency. Full `pnpm verify` passed in 349,754 ms with 1,150 Unit/Contract, 138 real isolated
+PostgreSQL/Redis Integration and 72 E2E tests, 29 Runtime migrations, production build and all
+process smokes. Three read-only review passes closed 3 Major and 2 Minor findings; final verdict is
+0 Blocking / 0 Major / 0 Minor. Implementation `f5be34f` awaits evidence publication and remote
+reconciliation. P07 is the next permitted phase and has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

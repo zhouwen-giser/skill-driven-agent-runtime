@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P06",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "f5be34fb3a1ef74d3564f496d93d07e3eee1bdda",
+  "evidenceSha": "pending-evidence-commit",
+  "remoteSha": "pending-remote-reconciliation",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-02T18:50:36+08:00",
+  "nextPhase": "P07",
+  "prerequisites": [
+    "fetch and compare origin/main before P07",
+    "consume only published Capability Definition Versions with exact active implementation bindings",
+    "implement only P07 runtime capability readiness next"
+  ],
+  "authorityBoundary": "P06 owns Control-side business promises and exact Skill/Plan Template implementation bindings. Runtime retains Skill execution and availability authority; P02 retains Artifact and compiled Plan Template authority; Resource is not a Capability implementation binding."
+}
