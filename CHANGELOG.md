@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P07 Runtime Capability Readiness
+
+- Added Runtime-authored immutable Capability Readiness snapshots with exact Definition, Binding,
+  Skill/Plan Template, MCP availability, Model Route, policy, maintenance and kill-switch inputs.
+- Added TTL expiry, immediate safety downgrade, minimum recovery stability, deterministic hashes,
+  restart recovery and status-change Outbox events in Runtime PostgreSQL migration `0137`.
+- Added frozen public read/evaluate routes and the authenticated internal Runtime evaluation route;
+  Control requests recomputation and owns no readiness writer or table.
+- Added real PostgreSQL vertical evidence for availability expiry, idempotency, SQL immutability,
+  Control/Runtime authority isolation and process restart recovery.
+
 ## SDAR v1.4 P06 Capability Definition Authority
 
 - Added canonical versioned Capability business promises with immutable post-publication content,

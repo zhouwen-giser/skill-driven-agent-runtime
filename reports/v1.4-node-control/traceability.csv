@@ -5,8 +5,8 @@ revision apply ack lkg,P02,verified,"packages/node-control-application; packages
 llm provider model route,P03,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; packages/runtime-control-application; packages/runtime-control-model-adapter; packages/application","focused Unit; real Control/Runtime PostgreSQL integration; pnpm verify:v13-secrets; pnpm verify",reports/v1.4-node-control/phases/p03-completion.json
 smpp federation,P04,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; packages/smpp-registry-adapter; apps/node-control-api; apps/node-control-worker","focused Unit; real Control/Runtime PostgreSQL integration; pnpm verify:v13-secrets; pnpm verify",reports/v1.4-node-control/phases/p04-completion.json
 mcp binding,P05,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; packages/mcp-adapter; apps/node-control-api; apps/node-control-acceptance","focused Unit; real SMPP/MCP HTTP plus Control/Runtime PostgreSQL integration; Remote Task retention; pnpm verify:v13-secrets; pnpm verify",reports/v1.4-node-control/phases/p05-completion.json
-capability authority,P06,pending,,,
-readiness runtime authority,P07,pending,,,
+capability authority,P06,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; apps/node-control-api; apps/node-control-acceptance","focused Unit; real Control/Runtime PostgreSQL integration; pnpm verify",reports/v1.4-node-control/phases/p06-completion.json
+readiness runtime authority,P07,verified,"packages/runtime-control-application; packages/runtime-control-persistence-postgres; apps/node-control-api; apps/node-control-acceptance","focused Unit; real Control/Runtime PostgreSQL integration; pnpm verify:migrations; pnpm verify",reports/v1.4-node-control/phases/p07-completion.json
 a2a capability exposure,P08,pending,,,
 immutable task binding,P09,pending,,,
 skill artifact adaptation,P10,pending,,,

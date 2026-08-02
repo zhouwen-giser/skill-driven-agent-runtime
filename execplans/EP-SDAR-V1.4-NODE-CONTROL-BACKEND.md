@@ -60,8 +60,11 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   Remote Task retention, full verification and three read-only review passes are closed.
 - [x] 2026-08-02 18:50 +08:00 P06 complete: implementation `f5be34f`, Evidence `f7692d0`, canonical Capability
   promises, exact Skill/Plan Template bindings, publication gates, ETag/idempotency, full
-  verification and three read-only review passes are closed; remote reconciliation is in progress.
-- [ ] P07: runtime capability readiness.
+  verification and three read-only review passes are closed; remote reconciliation is complete.
+- [x] 2026-08-02 22:41 +08:00 P07 complete: implementation `be9d01d`, Runtime-only immutable
+  readiness snapshots, exact dependency/hash evidence, TTL expiry, stability window, authenticated
+  recomputation, Outbox and restart recovery pass focused and full verification; final review is
+  0 Blocking / 0 Major / 0 Minor.
 - [ ] P08: A2A exposure and Agent Card revision.
 - [ ] P09: immutable Task capability binding and attempts.
 - [ ] P10: Skill, Plan Template, and Artifact management adapters.
@@ -136,6 +139,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   remove are append-only new-selection gates and never mutate Runtime Remote Task authority.
 - 2026-08-02: P05 Catalog HTTP calls reject redirects after exact authority allowlisting. Binding
   identity and localServerId are separately serialized, and Redis owns no P05 fact.
+- 2026-08-02: P07 persists full evaluation input and stability candidates in Runtime PostgreSQL so
+  expiry and restart recomputation remain deterministic. Control may request evaluation through the
+  frozen boundary but has no readiness table or writer.
 
 ## Implementation Steps
 
@@ -192,4 +198,8 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   exact Skill/Plan Template bindings, publication gates, SQL immutability and safe idempotent/ETag
   lifecycle commands. Its full gate passes 1,150 Unit/Contract, 138 Integration and 72 E2E tests;
   three review passes close 3 Major and 2 Minor findings with a final 0 Blocking / 0 Major / 0 Minor
-  verdict. P07 and later behavior are not claimed.
+  verdict. P07 adds Runtime-authored readiness over exact Capability, implementation, Catalog,
+  availability, model route, policy and node-operational inputs. Its full gate passes 938 Unit, 214
+  Contract, 138 Integration and 72 E2E tests with 30 Runtime migrations; four review passes close 5
+  Major and 2 Minor findings with a final 0 Blocking / 0 Major / 0 Minor verdict. P08 and later
+  behavior are not claimed.

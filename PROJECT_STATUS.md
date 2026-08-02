@@ -1,15 +1,16 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P06 is `COMPLETED` locally (2026-08-02) on
+SDAR v1.4 Node Control Backend P07 is `COMPLETED` locally (2026-08-02) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P05 remain completed. P06 adds canonical
-Capability business-promise authority, exact Skill/Plan Template implementation bindings,
-publication schema/evidence/risk/constraint gates, published immutability, command idempotency and
-ETag concurrency. Full `pnpm verify` passed in 349,754 ms with 1,150 Unit/Contract, 138 real isolated
-PostgreSQL/Redis Integration and 72 E2E tests, 29 Runtime migrations, production build and all
-process smokes. Three read-only review passes closed 3 Major and 2 Minor findings; final verdict is
-0 Blocking / 0 Major / 0 Minor. Implementation `f5be34f` and Evidence `f7692d0` are ready for remote
-reconciliation. P07 is the next permitted phase and has not started.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P06 remain completed. P07 adds
+Runtime-only immutable Capability Readiness snapshots over exact Definition/Binding, Skill/Plan
+Template, MCP availability, Model Route, policy, maintenance and kill-switch evidence. TTL expiry,
+minimum stability, authenticated recomputation, auditable SHA-256 identities, Outbox and restart
+recovery are verified. Full `pnpm verify` passed in 404,300 ms with 938 Unit, 214 Contract, 138 real
+isolated PostgreSQL/Redis Integration and 72 E2E tests, 30 Runtime migrations, production build and
+all process smokes. Four read-only review passes closed 5 Major and 2 Minor findings; final verdict
+is 0 Blocking / 0 Major / 0 Minor. Implementation `be9d01d` is ready for evidence publication. P08
+is the next permitted phase and has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

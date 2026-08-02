@@ -825,6 +825,17 @@ changed.
 | Authority isolation | verified | Control owns definitions/bindings only; Runtime/Artifact lookup ports are exact and read-only; Redis owns no P06 fact | architecture gate over 607 TypeScript sources |
 | P06 closure | verified | full verify passed; third read-only review 0 Blocking/0 Major/0 Minor after 3 Major and 2 Minor repairs; P07 not started | `p06-completion.*`, `p06-review.md`, `p06-handoff.json`, verification summary |
 
+## SDAR v1.4 P07 Runtime Capability Readiness Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Runtime-only authority | verified | immutable Runtime PostgreSQL snapshots/receipts/Outbox; Control read/request-only and no readiness table | real two-authority PostgreSQL acceptance and SQLSTATE 55000 mutation rejection |
+| Complete readiness inputs | verified | exact published Definition, active Bindings, Skill/Plan Template, MCP Catalog/freshness, Model Route, policy, maintenance and kill switch | Unit plus vertical API/Runtime integration |
+| Expiry and flapping | verified | bounded TTL scheduler, immediate safety downgrade and minimum-stability recovery | stale-provider integration and deterministic clock Unit regressions |
+| Audit and recovery | verified | catalog/policy/snapshot SHA-256, full evaluation input, candidate state, status-change Outbox and latest-snapshot restart load | snapshot/Outbox queries and API close/restart regression |
+| Frozen interfaces | verified | public list/get/evaluate and authenticated internal Runtime evaluation are composed without contract mutation | frozen contract gate: 76 files, 28 schemas, 111 operations, 20 events, 7 fixtures |
+| P07 closure | verified | full verify passed; fourth read-only review 0 Blocking/0 Major/0 Minor after 5 Major and 2 Minor repairs; P08 not started | `p07-completion.*`, `p07-review.md`, `p07-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |
