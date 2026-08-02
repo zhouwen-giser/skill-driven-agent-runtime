@@ -25,6 +25,7 @@ import {
   HttpSmppRegistryClient,
 } from '../../../packages/smpp-registry-adapter/src/index.js';
 import { NodeControlFrozenMcpCatalogClient } from '../../../packages/mcp-adapter/src/index.js';
+import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
 
@@ -78,6 +79,7 @@ export async function startNodeControlApi(
   const capabilityService = new NodeControlCapabilityService({
     repository: new PostgresNodeControlCapabilityRepository(pool),
     catalog: new PostgresRuntimeCapabilityImplementationCatalog(runtimePool),
+    schemas: new AjvJsonSchemaValidator(),
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });

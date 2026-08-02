@@ -16,6 +16,7 @@ import {
 import type {
   NodeControlCapabilityImplementationCatalog,
   NodeControlCapabilityRepository,
+  NodeControlCapabilitySchemaValidator,
   NodeControlClock,
   NodeControlIdGenerator,
 } from './ports.js';
@@ -24,6 +25,7 @@ export type NodeControlCapabilityErrorCode =
   | 'NODE_CAPABILITY_NOT_FOUND'
   | 'NODE_CAPABILITY_CONFLICT'
   | 'CAPABILITY_IMPLEMENTATION_NOT_FOUND'
+  | 'NODE_CAPABILITY_SCHEMA_INVALID'
   | 'IDEMPOTENCY_KEY_REUSED';
 
 export class NodeControlCapabilityError extends Error {
@@ -38,6 +40,7 @@ export class NodeControlCapabilityError extends Error {
 export class NodeControlCapabilityService {
   readonly #repository: NodeControlCapabilityRepository;
   readonly #catalog: NodeControlCapabilityImplementationCatalog;
+  readonly #schemas: NodeControlCapabilitySchemaValidator;
   readonly #clock: NodeControlClock;
   readonly #ids: NodeControlIdGenerator;
 
@@ -45,12 +48,14 @@ export class NodeControlCapabilityService {
     dependencies: Readonly<{
       repository: NodeControlCapabilityRepository;
       catalog: NodeControlCapabilityImplementationCatalog;
+      schemas: NodeControlCapabilitySchemaValidator;
       clock: NodeControlClock;
       ids: NodeControlIdGenerator;
     }>,
   ) {
     this.#repository = dependencies.repository;
     this.#catalog = dependencies.catalog;
+    this.#schemas = dependencies.schemas;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
   }
@@ -117,6 +122,7 @@ export class NodeControlCapabilityService {
         'NODE_CAPABILITY_CONFLICT',
         'Only a draft Capability Version can enter validation.',
       );
+    this.assertSchemasValid(capability);
     const implementations = await this.#repository.listImplementations(
       capabilityId,
       version,
@@ -139,6 +145,14 @@ export class NodeControlCapabilityService {
     reason: string,
   ): Promise<ManagementOperation> {
     const capability = await this.requireCapability(capabilityId, version);
+    const replayContext = this.context('capability:published', idempotencyKey, reason, {
+      capabilityId,
+      version,
+      status: 'published',
+    });
+    const replay = await this.#repository.findCommandReplay('capability:published', replayContext);
+    if (replay !== undefined) return replay;
+    this.assertSchemasValid(capability);
     const implementations = await this.#repository.listImplementations(
       capabilityId,
       version,
@@ -226,6 +240,20 @@ export class NodeControlCapabilityService {
         throw new NodeControlCapabilityError(
           'CAPABILITY_IMPLEMENTATION_NOT_FOUND',
           `Implementation ${binding.implementationId}:${binding.implementationVersion} no longer exists.`,
+        );
+    }
+  }
+
+  private assertSchemasValid(capability: NodeCapabilityDefinitionVersion): void {
+    for (const [name, schema] of [
+      ['inputSchema', capability.inputSchema],
+      ['outputSchema', capability.outputSchema],
+    ] as const) {
+      const result = this.#schemas.checkSchema(schema);
+      if (!result.valid)
+        throw new NodeControlCapabilityError(
+          'NODE_CAPABILITY_SCHEMA_INVALID',
+          `${name} is not a valid JSON Schema: ${result.errors.join('; ')}`,
         );
     }
   }

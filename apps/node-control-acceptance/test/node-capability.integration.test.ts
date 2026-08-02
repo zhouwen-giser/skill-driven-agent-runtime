@@ -65,14 +65,49 @@ afterAll(async () => {
 
 describe('P06 Capability Definition and implementation authority', { concurrent: false }, () => {
   it('publishes a stable immutable definition only through an exact executable implementation', async () => {
+    const invalidSchema = createNodeCapabilityDefinition({
+      capabilityId: 'device.invalid-schema.p06',
+      version: 1,
+      domain: 'device',
+      name: 'Invalid schema capability',
+      description: 'Proves schema compilation is mandatory.',
+      inputSchema: { type: 42 },
+      outputSchema: { type: 'object' },
+      successCriteria: [{ type: 'completed' }],
+      requiredEvidence: [{ type: 'provider_result' }],
+      riskLevel: 'low',
+      status: 'draft',
+    });
+    await request('/api/v1/node-capabilities', {
+      method: 'POST',
+      body: invalidSchema,
+      expectedStatus: 201,
+    });
+    await expect(
+      command(
+        '/api/v1/node-capabilities/device.invalid-schema.p06/versions/1/validate',
+        'p06-reject-invalid-schema',
+        'Reject malformed input JSON Schema.',
+        422,
+      ),
+    ).resolves.toMatchObject({ code: 'NODE_CAPABILITY_SCHEMA_INVALID' });
+
     const draft = createNodeCapabilityDefinition({
       capabilityId: 'device.inspect.p06',
       version: 1,
       domain: 'device',
       name: 'Inspect device',
       description: 'Read and verify current device condition.',
-      inputSchema: { type: 'object', required: ['deviceId'] },
-      outputSchema: { type: 'object', required: ['condition'] },
+      inputSchema: {
+        type: 'object',
+        properties: { deviceId: { type: 'string' } },
+        required: ['deviceId'],
+      },
+      outputSchema: {
+        type: 'object',
+        properties: { condition: { type: 'string' } },
+        required: ['condition'],
+      },
       successCriteria: [{ type: 'field_equals', field: 'verified', value: true }],
       requiredEvidence: [{ type: 'provider_result', field: 'condition' }],
       constraints: [{ type: 'authorization', level: 'read' }],
@@ -132,6 +167,16 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
         200,
       ),
     ).resolves.toMatchObject({ status: 'validating', definitionHash: draft.definitionHash });
+    const publishedOperation = await command(
+      '/api/v1/node-capabilities/device.inspect.p06/versions/1/publish',
+      'p06-publish-capability',
+      'Publish the validated Capability Version.',
+      202,
+    );
+    expect(publishedOperation).toMatchObject({
+      status: 'succeeded',
+      result: { status: 'published' },
+    });
     await expect(
       command(
         '/api/v1/node-capabilities/device.inspect.p06/versions/1/publish',
@@ -139,7 +184,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
         'Publish the validated Capability Version.',
         202,
       ),
-    ).resolves.toMatchObject({ status: 'succeeded', result: { status: 'published' } });
+    ).resolves.toEqual(publishedOperation);
 
     const published = await request('/api/v1/node-capabilities/device.inspect.p06/versions/1', {
       expectedStatus: 200,

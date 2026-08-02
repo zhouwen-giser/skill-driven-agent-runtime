@@ -838,7 +838,8 @@ export function createNodeControlHttpApp(
         status:
           error.code === 'NODE_CAPABILITY_NOT_FOUND'
             ? 404
-            : error.code === 'CAPABILITY_IMPLEMENTATION_NOT_FOUND'
+            : error.code === 'CAPABILITY_IMPLEMENTATION_NOT_FOUND' ||
+                error.code === 'NODE_CAPABILITY_SCHEMA_INVALID'
               ? 422
               : 409,
         code: error.code,

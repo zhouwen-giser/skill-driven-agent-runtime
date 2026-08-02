@@ -264,6 +264,10 @@ export interface NodeControlCapabilityImplementationCatalog {
   ): Promise<boolean>;
 }
 
+export interface NodeControlCapabilitySchemaValidator {
+  checkSchema(schema: unknown): Readonly<{ valid: boolean; errors: readonly string[] }>;
+}
+
 export interface NodeControlCapabilityRepository {
   createDraft(
     capability: NodeCapabilityDefinitionVersion,
