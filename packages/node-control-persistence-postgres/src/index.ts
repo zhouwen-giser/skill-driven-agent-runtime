@@ -3,4 +3,6 @@ export * from './foundation-repository.js';
 export * from './llm-governance-repository.js';
 export * from './mcp-provider-binding-repository.js';
 export * from './migrations.js';
+export * from './node-capability-repository.js';
+export * from './runtime-implementation-catalog.js';
 export * from './smpp-registry-repository.js';

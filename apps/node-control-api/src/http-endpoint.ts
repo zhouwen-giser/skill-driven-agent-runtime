@@ -8,11 +8,13 @@ import {
   NodeControlConfigurationError,
   NodeControlLlmGovernanceError,
   NodeControlMcpBindingError,
+  NodeControlCapabilityError,
   NodeControlSmppRegistryError,
   type NodeControlConfigurationService,
   type NodeControlFoundationService,
   type NodeControlLlmGovernanceService,
   type NodeControlMcpProviderBindingService,
+  type NodeControlCapabilityService,
   type NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
@@ -30,6 +32,7 @@ export interface NodeControlHttpConfiguration {
   readonly llmGovernance?: NodeControlLlmGovernanceService;
   readonly smppRegistry?: NodeControlSmppRegistryService;
   readonly mcpBindings?: NodeControlMcpProviderBindingService;
+  readonly capabilities?: NodeControlCapabilityService;
 }
 
 export function createNodeControlHttpApp(
@@ -462,6 +465,158 @@ export function createNodeControlHttpApp(
     );
   }
 
+  app.get('/api/v1/node-capabilities', async (request, response, next) => {
+    try {
+      const items = await requiredCapabilities(configuration).list(
+        typeof request.query['status'] === 'string' ? request.query['status'] : undefined,
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/node-capabilities', async (request, response, next) => {
+    try {
+      const input = NodeCapabilitySchema.parse(request.body);
+      response.status(201).json(
+        await requiredCapabilities(configuration).createDraft({
+          capabilityId: input.capabilityId,
+          version: input.version,
+          domain: input.domain,
+          name: input.name,
+          description: input.description,
+          inputSchema: input.inputSchema,
+          outputSchema: input.outputSchema,
+          successCriteria: input.successCriteria,
+          requiredEvidence: input.requiredEvidence,
+          ...(input.effects === undefined ? {} : { effects: input.effects }),
+          ...(input.artifacts === undefined ? {} : { artifacts: input.artifacts }),
+          ...(input.constraints === undefined ? {} : { constraints: input.constraints }),
+          ...(input.supportedModes === undefined ? {} : { supportedModes: input.supportedModes }),
+          riskLevel: input.riskLevel,
+          status: input.status,
+          definitionHash: input.definitionHash,
+          ...(input.previousVersion === undefined
+            ? {}
+            : { previousVersion: input.previousVersion }),
+          ...(input.createdBy === undefined ? {} : { createdBy: input.createdBy }),
+          ...(input.createdAt === undefined ? {} : { createdAt: input.createdAt }),
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get(
+    '/api/v1/node-capabilities/:capabilityId/versions/:version',
+    async (request, response, next) => {
+      try {
+        response
+          .status(200)
+          .json(
+            await requiredCapabilities(configuration).get(
+              request.params.capabilityId,
+              positiveRevision(request.params.version),
+            ),
+          );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.get(
+    '/api/v1/node-capabilities/:capabilityId/versions/:version/implementations',
+    async (request, response, next) => {
+      try {
+        const items = await requiredCapabilities(configuration).listImplementations(
+          request.params.capabilityId,
+          positiveRevision(request.params.version),
+          parseLimit(request.query['pageSize']),
+        );
+        response
+          .status(200)
+          .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/node-capabilities/:capabilityId/versions/:version/implementations',
+    async (request, response, next) => {
+      try {
+        const input = CapabilityImplementationSchema.parse(request.body);
+        const capabilityId = request.params.capabilityId;
+        const capabilityVersion = positiveRevision(request.params.version);
+        if (input.capabilityId !== capabilityId || input.capabilityVersion !== capabilityVersion)
+          throw new NodeControlCapabilityError(
+            'NODE_CAPABILITY_CONFLICT',
+            'Capability Implementation path and body identities must match.',
+          );
+        response.status(201).json(
+          await requiredCapabilities(configuration).addImplementation({
+            bindingId: input.bindingId,
+            capabilityId: input.capabilityId,
+            capabilityVersion: input.capabilityVersion,
+            implementationType: input.implementationType,
+            implementationId: input.implementationId,
+            implementationVersion: input.implementationVersion,
+            role: input.role,
+            priority: input.priority,
+            ...(input.activationCondition === undefined
+              ? {}
+              : { activationCondition: input.activationCondition }),
+            ...(input.providerPolicyOverride === undefined
+              ? {}
+              : { providerPolicyOverride: input.providerPolicyOverride }),
+            status: input.status,
+            revision: input.revision,
+          }),
+        );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  for (const action of ['validate', 'publish', 'suspend', 'deprecate', 'retire'] as const) {
+    app.post(
+      `/api/v1/node-capabilities/:capabilityId/versions/:version/${action}`,
+      async (request, response, next) => {
+        try {
+          const command = parseCommand(request.body);
+          const capabilities = requiredCapabilities(configuration);
+          const args = [
+            request.params.capabilityId,
+            positiveRevision(request.params.version),
+            requiredHeader(request, 'idempotency-key'),
+            command.reason,
+          ] as const;
+          const result =
+            action === 'validate'
+              ? await capabilities.validate(...args)
+              : action === 'publish'
+                ? await capabilities.publish(...args)
+                : action === 'suspend'
+                  ? await capabilities.suspend(...args)
+                  : action === 'deprecate'
+                    ? await capabilities.deprecate(...args)
+                    : await capabilities.retire(...args);
+          response.status(action === 'validate' ? 200 : 202).json(result);
+        } catch (error) {
+          next(error);
+        }
+      },
+    );
+  }
+
   app.post(
     '/api/v1/configuration-revisions/:configurationId/:revision/publish',
     async (request, response, next) => {
@@ -678,6 +833,23 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    if (error instanceof NodeControlCapabilityError) {
+      sendProblem(response, {
+        status:
+          error.code === 'NODE_CAPABILITY_NOT_FOUND'
+            ? 404
+            : error.code === 'CAPABILITY_IMPLEMENTATION_NOT_FOUND'
+              ? 422
+              : 409,
+        code: error.code,
+        title: 'Node Capability command rejected',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
     if (error instanceof ZodError) {
       sendProblem(response, {
         status: 400,
@@ -888,6 +1060,46 @@ const McpBindingImportSchema = z
       .optional(),
   })
   .strict();
+const JsonObjectSchema = z.record(z.string(), z.json());
+const NodeCapabilitySchema = z
+  .object({
+    capabilityId: z.string().trim().min(1).max(512),
+    version: z.number().int().positive(),
+    domain: z.string().trim().min(1).max(512),
+    name: z.string().trim().min(1).max(512),
+    description: z.string().trim().min(1).max(512),
+    inputSchema: JsonObjectSchema,
+    outputSchema: JsonObjectSchema,
+    successCriteria: z.array(JsonObjectSchema).min(1),
+    requiredEvidence: z.array(JsonObjectSchema),
+    effects: z.array(z.string().trim().min(1).max(512)).optional(),
+    artifacts: z.array(z.string().trim().min(1).max(512)).optional(),
+    constraints: z.array(JsonObjectSchema).optional(),
+    supportedModes: z.array(z.string().trim().min(1).max(512)).optional(),
+    riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
+    status: z.enum(['draft', 'validating', 'published', 'suspended', 'deprecated', 'retired']),
+    definitionHash: z.string().regex(/^[a-f0-9]{64}$/u),
+    previousVersion: z.number().int().positive().optional(),
+    createdBy: z.string().trim().min(1).max(512).optional(),
+    createdAt: z.iso.datetime({ offset: true }).optional(),
+  })
+  .strict();
+const CapabilityImplementationSchema = z
+  .object({
+    bindingId: z.string().trim().min(1).max(512),
+    capabilityId: z.string().trim().min(1).max(512),
+    capabilityVersion: z.number().int().positive(),
+    implementationType: z.enum(['skill', 'plan_template']),
+    implementationId: z.string().trim().min(1).max(512),
+    implementationVersion: z.string().trim().min(1).max(512),
+    role: z.enum(['primary', 'alternative', 'supporting', 'validation', 'recovery']),
+    priority: z.number().int().nonnegative(),
+    activationCondition: z.json().optional(),
+    providerPolicyOverride: z.json().optional(),
+    status: z.enum(['draft', 'active', 'suspended', 'retired']),
+    revision: z.number().int().positive(),
+  })
+  .strict();
 
 function positiveRevision(value: string): number {
   return z.coerce.number().int().positive().parse(value);
@@ -980,6 +1192,13 @@ function requiredMcpBindings(
 ): NodeControlMcpProviderBindingService {
   if (configuration.mcpBindings === undefined) throw new Error('MCP_BINDINGS_NOT_COMPOSED');
   return configuration.mcpBindings;
+}
+
+function requiredCapabilities(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlCapabilityService {
+  if (configuration.capabilities === undefined) throw new Error('CAPABILITIES_NOT_COMPOSED');
+  return configuration.capabilities;
 }
 
 interface ProblemInput {

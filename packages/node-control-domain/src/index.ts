@@ -5,4 +5,5 @@ export * from './llm-governance.js';
 export * from './mcp-provider-binding.js';
 export * from './management-operation.js';
 export * from './node-profile.js';
+export * from './node-capability.js';
 export * from './smpp-registry.js';

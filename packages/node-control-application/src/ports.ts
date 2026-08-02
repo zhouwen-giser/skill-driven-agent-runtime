@@ -8,7 +8,10 @@ import type {
   ManagementOperation,
   McpProviderBinding,
   McpProviderBindingRecord,
+  CapabilityImplementationBinding,
+  CapabilityImplementationType,
   ModelRouteDefinition,
+  NodeCapabilityDefinitionVersion,
   NodeProfile,
   RuntimeRevisionAck,
   SmppProviderCandidateDirectoryEntry,
@@ -250,5 +253,48 @@ export interface NodeControlMcpProviderBindingRepository {
     operation: ManagementOperation,
     context: ConfigurationMutationContext,
     errorCode: string,
+  ): Promise<ManagementOperation>;
+}
+
+export interface NodeControlCapabilityImplementationCatalog {
+  exists(
+    implementationType: CapabilityImplementationType,
+    implementationId: string,
+    implementationVersion: string,
+  ): Promise<boolean>;
+}
+
+export interface NodeControlCapabilityRepository {
+  createDraft(
+    capability: NodeCapabilityDefinitionVersion,
+  ): Promise<NodeCapabilityDefinitionVersion>;
+  find(capabilityId: string, version: number): Promise<NodeCapabilityDefinitionVersion | undefined>;
+  list(
+    status: string | undefined,
+    limit: number,
+  ): Promise<readonly NodeCapabilityDefinitionVersion[]>;
+  createImplementation(
+    binding: CapabilityImplementationBinding,
+  ): Promise<CapabilityImplementationBinding>;
+  listImplementations(
+    capabilityId: string,
+    version: number,
+    limit: number,
+  ): Promise<readonly CapabilityImplementationBinding[]>;
+  validate(
+    prior: NodeCapabilityDefinitionVersion,
+    validating: NodeCapabilityDefinitionVersion,
+    context: ConfigurationMutationContext,
+  ): Promise<NodeCapabilityDefinitionVersion>;
+  findCommandReplay(
+    scope: string,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation | undefined>;
+  transition(
+    prior: NodeCapabilityDefinitionVersion,
+    next: NodeCapabilityDefinitionVersion,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
   ): Promise<ManagementOperation>;
 }

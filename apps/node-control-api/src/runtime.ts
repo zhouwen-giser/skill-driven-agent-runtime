@@ -8,6 +8,7 @@ import {
   NodeControlFoundationService,
   NodeControlLlmGovernanceService,
   NodeControlMcpProviderBindingService,
+  NodeControlCapabilityService,
   NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
@@ -15,6 +16,8 @@ import {
   PostgresNodeControlFoundationRepository,
   PostgresNodeControlLlmGovernanceRepository,
   PostgresNodeControlMcpProviderBindingRepository,
+  PostgresNodeControlCapabilityRepository,
+  PostgresRuntimeCapabilityImplementationCatalog,
   PostgresNodeControlSmppRegistryRepository,
 } from '../../../packages/node-control-persistence-postgres/src/index.js';
 import {
@@ -34,6 +37,12 @@ export async function startNodeControlApi(
   environment: NodeControlApiEnvironment,
 ): Promise<NodeControlApiRuntime> {
   const pool = new Pool({ connectionString: environment.SDAR_CONTROL_DATABASE_URL, max: 10 });
+  const runtimePool = new Pool({
+    connectionString:
+      environment.SDAR_CONTROL_RUNTIME_DATABASE_URL ??
+      'postgresql://sdar:sdar_local_only@127.0.0.1:5432/sdar',
+    max: 3,
+  });
   const repository = new PostgresNodeControlFoundationRepository(pool);
   const configurations = new PostgresNodeControlConfigurationRepository(pool);
   const service = new NodeControlFoundationService({
@@ -66,6 +75,12 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
+  const capabilityService = new NodeControlCapabilityService({
+    repository: new PostgresNodeControlCapabilityRepository(pool),
+    catalog: new PostgresRuntimeCapabilityImplementationCatalog(runtimePool),
+    clock: { now: () => new Date().toISOString() },
+    ids: { next: randomUUID },
+  });
   try {
     await service.migrate();
     await service.bootstrapNodeProfile({
@@ -84,6 +99,7 @@ export async function startNodeControlApi(
       llmGovernance: llmGovernanceService,
       smppRegistry: smppRegistryService,
       mcpBindings: mcpBindingService,
+      capabilities: capabilityService,
     });
     const server = await listen(
       app,
@@ -99,10 +115,12 @@ export async function startNodeControlApi(
       async close() {
         await closeServer(server);
         await pool.end();
+        await runtimePool.end();
       },
     };
   } catch (error) {
     await pool.end().catch(() => undefined);
+    await runtimePool.end().catch(() => undefined);
     throw error;
   }
 }

@@ -7,6 +7,10 @@ const EnvironmentSchema = z.object({
     .string()
     .min(1)
     .default('postgresql://sdar_control:sdar_control_local_only@127.0.0.1:55433/sdar_control'),
+  SDAR_CONTROL_RUNTIME_DATABASE_URL: z
+    .string()
+    .min(1)
+    .default('postgresql://sdar:sdar_local_only@127.0.0.1:5432/sdar'),
   SDAR_CONTROL_API_HOST: z.string().min(1).default('127.0.0.1'),
   SDAR_CONTROL_API_PORT: z.coerce.number().int().positive().max(65_535).default(10_080),
   SDAR_CONTROL_API_TOKEN: z.string().min(32).regex(/^\S+$/u),
@@ -27,9 +31,12 @@ const EnvironmentSchema = z.object({
 type ParsedNodeControlApiEnvironment = z.infer<typeof EnvironmentSchema>;
 export type NodeControlApiEnvironment = Omit<
   ParsedNodeControlApiEnvironment,
-  'SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST'
+  'SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST' | 'SDAR_CONTROL_RUNTIME_DATABASE_URL'
 > &
-  Readonly<{ SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST?: string }>;
+  Readonly<{
+    SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST?: string;
+    SDAR_CONTROL_RUNTIME_DATABASE_URL?: string;
+  }>;
 
 export function loadNodeControlApiEnvironment(envFilePath = '.env'): NodeControlApiEnvironment {
   try {
