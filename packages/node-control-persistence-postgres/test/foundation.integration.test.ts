@@ -56,6 +56,7 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
       { version: '0003_llm_provider_model_route' },
       { version: '0004_smpp_registry_federation' },
       { version: '0005_mcp_provider_binding_governance' },
+      { version: '0006_node_capability_authority' },
     ]);
     const runtimeLedger = await pool.query<{ exists: boolean }>(
       `SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists`,
@@ -97,12 +98,16 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
 
   it('rolls back and reapplies only the latest disposable Control migration', async () => {
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
-      '0005_mcp_provider_binding_governance',
+      '0006_node_capability_authority',
     );
     const removed = await pool.query<{ value: string | null }>(
-      `SELECT to_regclass('sdar_control.mcp_provider_binding')::text AS value`,
+      `SELECT to_regclass('sdar_control.node_capability_definition_version')::text AS value`,
     );
     expect(removed.rows[0]?.value).toBeNull();
+    const preserved = await pool.query<{ value: string | null }>(
+      `SELECT to_regclass('sdar_control.mcp_provider_binding')::text AS value`,
+    );
+    expect(preserved.rows[0]?.value).toBe('sdar_control.mcp_provider_binding');
     await expect(repository.probe()).resolves.toBe(true);
     await applyControlMigrations(pool);
     await expect(repository.probe()).resolves.toBe(true);
