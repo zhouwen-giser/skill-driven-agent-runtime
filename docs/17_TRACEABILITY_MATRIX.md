@@ -780,6 +780,17 @@ seven safe-resume inputs are enumerated in
 `reports/operations/v1.3-p14-handoff.json`; no P00-P13 authority or status is
 changed.
 
+## SDAR v1.4 P03 LLM Provider and Model Route Governance Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Provider, Catalog and SecretRef | verified | immutable Control definitions expose `credentialRef` only; model capabilities include structured output, tool calling and embedding | Domain Unit; Control API and PostgreSQL integration; repository secret scan |
+| Scoped Route and fallback | verified | stage/task/case selector, exact candidate order, budget/timeout/attempt/fallback policy and capability availability | Domain/Application Unit; conflict and unavailable API regressions; real fallback integration |
+| Runtime Apply/Ack authority | verified | P02 revision pipeline; Provider reconnect and Route new-task-only appliers; Runtime Ack projects Control active/available status | Runtime applier Unit; real two-database HTTP pull/apply/Ack integration |
+| Stable Task semantics | verified | immutable Task/model-stage binding pins Route checksum and exact Provider configuration revisions | real Route v1/v2 integration proves old Task unchanged and new Task selects v2 |
+| Idempotency and secret safety | verified | exact active apply replay under advisory lock; safe apply/transport code allowlists; generic persisted error messages | secret-bearing Unit regressions; replay Integration; zero-finding full-history scan |
+| P03 closure | verified | full verify passed; independent read-only review 0 Blocking/0 Major/0 Minor; P04 not started | `p03-review.md`, verification summary, P03 completion and handoff |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |

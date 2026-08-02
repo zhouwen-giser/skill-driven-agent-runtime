@@ -1,16 +1,17 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P02 is `COMPLETED` locally (2026-08-02) on
+SDAR v1.4 Node Control Backend P03 is `COMPLETED` locally (2026-08-02) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 and P01 remain completed. P02 adds immutable
-Configuration Revision/Application and Desired/Observed authority in Control PostgreSQL plus
-Runtime-owned Active/LKG, durable Ack and immutable Task pins in Runtime PostgreSQL. The frozen
-Bootstrap/Latest/Watch/Ack path is real HTTP, Watch is hint-only, publish is not applied, concurrent
-publish has one winner, failed revisions preserve LKG and Control outage recovers from it. Full
-`pnpm verify` passed in 373,986 ms with 1135 Unit/Contract, 134 real isolated PostgreSQL/Redis
-Integration and 72 E2E tests, 28 Runtime migrations, production build and all process smokes.
-Implementation `deaa555` and Evidence `9a283eb` are verified on the remote branch. P03 is the next
-permitted phase and has not started.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P02 remain completed. P03 adds
+secret-reference-only LLM Provider/Model Catalog and stage/task/case Route authority in Control,
+then applies it through P02 without moving Runtime-owned credentials, clients, health, selection,
+fallback or invocation evidence. Exact Route and Provider revisions are pinned per Task/model stage;
+old Tasks remain stable and exact Runtime apply replay is idempotent. Full `pnpm verify` passed in
+339,537 ms with 1140 Unit/Contract, 135 real isolated PostgreSQL/Redis Integration and 72 E2E tests,
+29 Runtime migrations, production build and all process smokes. Secret scan found zero issues, and
+the independent read-only review closed at 0 Blocking / 0 Major / 0 Minor. Implementation
+`21c7a37` is committed; evidence publication and remote reconciliation are in progress. P04 has not
+started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

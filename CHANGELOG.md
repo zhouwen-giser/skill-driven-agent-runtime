@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P03 LLM Provider and Model Route Governance
+
+- Added secret-reference-only LLM Provider definitions, capability-bearing Model Catalogs and
+  stage/task/case Route revisions with health, rate, budget, timeout and fallback policies.
+- Connected Provider and Route revisions to the P02 Apply/Ack boundary while preserving
+  Runtime-owned credential resolution, model clients, route selection and invocation evidence.
+- Added exact-revision immutable Task bindings, bounded real fallback execution, safe error
+  categories and idempotent apply replay across the apply-before-Ack crash window.
+- Added separate Control and Runtime migrations plus real two-database integration proving Route
+  conflict/unavailable behavior, fallback success, old-Task stability, Ack/Observed convergence and
+  zero credential disclosure.
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG
 
 - Added immutable, checksummed Configuration Revisions with Desired/Observed state, ETag/If-Match,

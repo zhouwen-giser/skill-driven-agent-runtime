@@ -1,30 +1,30 @@
 {
   "schemaVersion": 1,
   "status": "passed",
-  "commit": "574e8e1f56afd021fbf5be52c7bd7913289f52cb",
+  "commit": "6a925f2c6a3b63044724532eb719507be27f46ca",
   "dirty": true,
   "environment": {
     "node": "v22.14.0",
     "platform": "win32",
     "architecture": "x64",
-    "infrastructureMode": "self-managed-compose"
+    "infrastructureMode": "operator-managed"
   },
-  "startedAt": "2026-08-01T19:39:39.737Z",
-  "finishedAt": "2026-08-01T19:45:53.723Z",
-  "durationMs": 373986,
+  "startedAt": "2026-08-02T00:31:56.908Z",
+  "finishedAt": "2026-08-02T00:37:36.445Z",
+  "durationMs": 339537,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "passed",
-      "startedAt": "2026-08-01T19:39:39.738Z",
-      "finishedAt": "2026-08-01T19:41:31.625Z",
-      "durationMs": 111887,
+      "startedAt": "2026-08-02T00:31:56.909Z",
+      "finishedAt": "2026-08-02T00:34:00.526Z",
+      "durationMs": 123617,
       "logPath": "reports/verification/raw/static-unit-contract-build.log",
-      "outputSha256": "9098fb6e634360f2884da05ab3677f80b88e7474a7991127286c637d0976a65e",
+      "outputSha256": "2bfa4a5753a816d200e39cc20caa28e09c347c98da7daa3f7f1b158bcef99221",
       "metrics": {
-        "testFiles": 168,
-        "tests": 1135,
+        "testFiles": 170,
+        "tests": 1140,
         "openapiOperations": 164
       },
       "exitCode": 0
@@ -33,9 +33,9 @@
       "name": "cognitive-replay-no-physical-provider",
       "command": "pnpm verify:cognitive-replay",
       "status": "passed",
-      "startedAt": "2026-08-01T19:41:31.627Z",
-      "finishedAt": "2026-08-01T19:41:32.480Z",
-      "durationMs": 853,
+      "startedAt": "2026-08-02T00:34:00.528Z",
+      "finishedAt": "2026-08-02T00:34:01.316Z",
+      "durationMs": 788,
       "logPath": "reports/verification/raw/cognitive-replay-no-physical-provider.log",
       "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3",
       "metrics": {},
@@ -45,13 +45,13 @@
       "name": "clean-baseline-reset-seed",
       "command": "pnpm verify:migrations",
       "status": "passed",
-      "startedAt": "2026-08-01T19:41:32.480Z",
-      "finishedAt": "2026-08-01T19:41:52.195Z",
-      "durationMs": 19715,
+      "startedAt": "2026-08-02T00:34:01.316Z",
+      "finishedAt": "2026-08-02T00:34:20.750Z",
+      "durationMs": 19434,
       "logPath": "reports/verification/raw/clean-baseline-reset-seed.log",
-      "outputSha256": "0e45fcd2c9892b904aea98d3eff96a5f3ed840509fde4fb71b3498f4f19d3cfe",
+      "outputSha256": "30615b6b124a9b22abcd13fa1ebac33f88a0cab9062172671e107fdd7d849514",
       "metrics": {
-        "migrationCount": 28
+        "migrationCount": 29
       },
       "exitCode": 0
     },
@@ -59,14 +59,14 @@
       "name": "postgres-redis-integration",
       "command": "pnpm test:integration",
       "status": "passed",
-      "startedAt": "2026-08-01T19:41:52.195Z",
-      "finishedAt": "2026-08-01T19:43:26.153Z",
-      "durationMs": 93958,
+      "startedAt": "2026-08-02T00:34:20.750Z",
+      "finishedAt": "2026-08-02T00:35:43.901Z",
+      "durationMs": 83151,
       "logPath": "reports/verification/raw/postgres-redis-integration.log",
-      "outputSha256": "3ecd729493f0fcd146db692781eba28d6cd19fc3808c079b2b032905ea52ff6f",
+      "outputSha256": "e4e3ccccab11eeba6f6ebe6e7c0ef036d7ffe1aae2ccd743786ddfc37f0ea4a8",
       "metrics": {
         "testFiles": 22,
-        "tests": 134
+        "tests": 135
       },
       "exitCode": 0
     },
@@ -74,11 +74,11 @@
       "name": "postgres-redis-model-mcp-e2e",
       "command": "pnpm test:e2e",
       "status": "passed",
-      "startedAt": "2026-08-01T19:43:26.153Z",
-      "finishedAt": "2026-08-01T19:44:30.999Z",
-      "durationMs": 64846,
+      "startedAt": "2026-08-02T00:35:43.901Z",
+      "finishedAt": "2026-08-02T00:36:33.643Z",
+      "durationMs": 49742,
       "logPath": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
-      "outputSha256": "982e5c23787d1add0af3455c41937e4dce3f3f0198b05d4b0dcc6f9c52e6a650",
+      "outputSha256": "271e5e1722998ed40a4aba0db5b01a6f88eb5c03684c2929673d33e7bbdf7e44",
       "metrics": {
         "testFiles": 6,
         "tests": 72
@@ -89,11 +89,11 @@
       "name": "infrastructure-smoke",
       "command": "pnpm smoke:infra",
       "status": "passed",
-      "startedAt": "2026-08-01T19:44:31.000Z",
-      "finishedAt": "2026-08-01T19:44:44.774Z",
-      "durationMs": 13774,
+      "startedAt": "2026-08-02T00:36:33.643Z",
+      "finishedAt": "2026-08-02T00:36:36.393Z",
+      "durationMs": 2750,
       "logPath": "reports/verification/raw/infrastructure-smoke.log",
-      "outputSha256": "01521a01e454623aa6dd827271f4d73e5a21482008cd12595d2e2bb842ac8dd3",
+      "outputSha256": "e63cc35c6f3bcf998e382f2b45c0967659fa4e5645ed5415bd9392380017e630",
       "metrics": {},
       "exitCode": 0
     },
@@ -101,11 +101,11 @@
       "name": "server-console-smoke",
       "command": "pnpm smoke:server",
       "status": "passed",
-      "startedAt": "2026-08-01T19:44:44.774Z",
-      "finishedAt": "2026-08-01T19:45:13.057Z",
-      "durationMs": 28283,
+      "startedAt": "2026-08-02T00:36:36.393Z",
+      "finishedAt": "2026-08-02T00:36:52.819Z",
+      "durationMs": 16426,
       "logPath": "reports/verification/raw/server-console-smoke.log",
-      "outputSha256": "83c81a1076a3a47fae5b3af31d022e3933ca37b5dcafb71b6b17b8e1e5c8295d",
+      "outputSha256": "f5864784e4e3262f9af572dba862fa6af8c129d6ff51997556221934fcada2e0",
       "metrics": {},
       "exitCode": 0
     },
@@ -113,11 +113,11 @@
       "name": "node-control-api-worker-smoke",
       "command": "pnpm smoke:node-control",
       "status": "passed",
-      "startedAt": "2026-08-01T19:45:13.057Z",
-      "finishedAt": "2026-08-01T19:45:53.723Z",
-      "durationMs": 40666,
+      "startedAt": "2026-08-02T00:36:52.819Z",
+      "finishedAt": "2026-08-02T00:37:36.445Z",
+      "durationMs": 43626,
       "logPath": "reports/verification/raw/node-control-api-worker-smoke.log",
-      "outputSha256": "388aaabd39fb824345fc8483e4862241f7e036247fd1df1106c09face9aba59e",
+      "outputSha256": "5fb1107a3157ee6159621659181fef68b466dc4fcd7db1536d0a313fe3e648f9",
       "metrics": {},
       "exitCode": 0
     }

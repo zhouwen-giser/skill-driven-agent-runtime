@@ -1,8 +1,8 @@
 requirement,phase,status,implementation,test,evidence
 latest main baseline,P00,verified,execplans/EP-SDAR-V1.4-NODE-CONTROL-BACKEND.md,pnpm verify,reports/v1.4-node-control/phases/p00-completion.json
 independent node control backend,P01,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; apps/node-control-api; apps/node-control-worker","pnpm test:node-control; pnpm test:integration; pnpm verify:architecture; pnpm verify:node-control-contract; pnpm build; pnpm smoke:node-control; pnpm verify",reports/v1.4-node-control/phases/p01-completion.json
-revision apply ack lkg,P02,pending,,,
-llm provider model route,P03,pending,,,
+revision apply ack lkg,P02,verified,"packages/node-control-application; packages/node-control-persistence-postgres; packages/runtime-control-application; packages/runtime-control-persistence-postgres","focused Unit/Contract; real PostgreSQL integration; pnpm verify:migrations; pnpm verify",reports/v1.4-node-control/phases/p02-completion.json
+llm provider model route,P03,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; packages/runtime-control-application; packages/runtime-control-model-adapter; packages/application","focused Unit; real Control/Runtime PostgreSQL integration; pnpm verify:v13-secrets; pnpm verify",reports/v1.4-node-control/phases/p03-completion.json
 smpp federation,P04,pending,,,
 mcp binding,P05,pending,,,
 capability authority,P06,pending,,,
