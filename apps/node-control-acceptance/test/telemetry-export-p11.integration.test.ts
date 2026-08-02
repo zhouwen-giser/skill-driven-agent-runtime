@@ -170,7 +170,12 @@ describe('P11 Node Control -> Runtime -> Telemetry endpoint', { concurrent: fals
 
     const firstTask = await insertRuntimeFact('first');
     await waitFor(() => receivedRecords >= 1);
-    const delivered = await publicGet('/api/v1/telemetry-export/status');
+    let delivered: unknown;
+    await waitFor(async () => {
+      delivered = await publicGet('/api/v1/telemetry-export/status');
+      const status = delivered as { status?: string; pendingRecords?: number };
+      return status.status === 'healthy' && status.pendingRecords === 0;
+    });
     expect(delivered).toMatchObject({
       exportId,
       status: 'healthy',
