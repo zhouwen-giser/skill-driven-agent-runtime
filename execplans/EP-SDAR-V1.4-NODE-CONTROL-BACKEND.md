@@ -49,9 +49,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   read-only review and remote reconciliation complete; P02 remains pending.
 - [x] 2026-08-02 03:59 +08:00 P02: implementation `deaa555`, Evidence `9a283eb`, focused and full
   verification, real two-database integration, read-only review and remote reconciliation complete.
-- [x] 2026-08-02 08:37 +08:00 P03 implementation and validation complete: Provider/Model Catalog,
-  scoped Route/Fallback, Runtime Apply/Ack, immutable Task bindings and secret-safe audit semantics
-  pass the full gate; implementation/evidence publication is in progress.
+- [x] 2026-08-02 08:43 +08:00 P03 complete: implementation `21c7a37`, Evidence `5980243`, remote
+  SHA reconciliation, Provider/Model Catalog, scoped Route/Fallback, Runtime Apply/Ack, immutable
+  Task bindings, secret-safe audit, full verification and read-only review are closed.
 - [ ] P04: SMPP Registry federation.
 - [ ] P05: MCP provider-binding governance.
 - [ ] P06: capability definition and implementation-binding authority.

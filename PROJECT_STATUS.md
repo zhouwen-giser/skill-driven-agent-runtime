@@ -10,8 +10,8 @@ old Tasks remain stable and exact Runtime apply replay is idempotent. Full `pnpm
 339,537 ms with 1140 Unit/Contract, 135 real isolated PostgreSQL/Redis Integration and 72 E2E tests,
 29 Runtime migrations, production build and all process smokes. Secret scan found zero issues, and
 the independent read-only review closed at 0 Blocking / 0 Major / 0 Minor. Implementation
-`21c7a37` is committed; evidence publication and remote reconciliation are in progress. P04 has not
-started.
+`21c7a37` and Evidence `5980243` are verified on the remote branch. P04 is the next permitted phase
+and has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual
