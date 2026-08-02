@@ -13,6 +13,10 @@ import {
   nodeCapabilityEtag,
 } from '../../../packages/node-control-domain/src/index.js';
 import { applyControlMigrations } from '../../../packages/node-control-persistence-postgres/src/index.js';
+import { RuntimeTaskCapabilityService } from '../../../packages/application/src/index.js';
+import { createAgentTask, createTaskExecutionAttempt } from '../../../packages/domain/src/index.js';
+import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
+import { PostgresTaskCapabilityRepository } from '../../../packages/persistence-postgres/src/index.js';
 
 const runtimeConnectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ??
@@ -325,9 +329,14 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       idempotencyKey: 'p08-rebuild-agent-card',
       expectedStatus: 202,
     });
+    const activeRevisionResult = await runtimePool.query<{ revision: string }>(
+      "SELECT revision FROM runtime_agent_card_revision WHERE status='active'",
+    );
+    const activeRevision = Number(activeRevisionResult.rows[0]?.revision);
+    expect(activeRevision).toBeGreaterThan(0);
     expect(rebuiltCard).toMatchObject({
       status: 'succeeded',
-      result: { revision: 1, status: 'active' },
+      result: { revision: activeRevision, status: 'active' },
     });
     await expect(
       request('/api/v1/a2a-agent-card-revisions/rebuild', {
@@ -343,7 +352,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       idempotencyKey: 'p08-rebuild-unchanged-card',
       expectedStatus: 202,
     });
-    expect(unchangedCard).toMatchObject({ result: { revision: 1, status: 'active' } });
+    expect(unchangedCard).toMatchObject({ result: { revision: activeRevision, status: 'active' } });
     const revisionCount = await runtimePool.query<{ count: string }>(
       'SELECT COUNT(*)::text AS count FROM runtime_agent_card_revision',
     );
@@ -356,6 +365,12 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
     ]);
     expect(JSON.stringify(runtimeCard.rows[0]?.card)).not.toContain('skill.p06.inspect');
     await expect(
+      runtimePool.query(
+        "UPDATE runtime_agent_card_exposure_snapshot SET capability_id='mutated' WHERE revision=$1",
+        [activeRevision],
+      ),
+    ).rejects.toMatchObject({ code: '55000' });
+    await expect(
       request('/internal/v1/agent-card-revisions/stage', {
         method: 'POST',
         bearerToken: runtimeToken,
@@ -364,7 +379,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
           reason: 'Reject an invalid card without replacing Active.',
           payload: {
             revision: {
-              revision: 2,
+              revision: activeRevision + 1,
               nodeId: 'node-p06',
               exposureRefs: [],
               contentHash: 'a'.repeat(64),
@@ -381,7 +396,149 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
     const activeAfterInvalid = await runtimePool.query<{ revision: string }>(
       "SELECT revision FROM runtime_agent_card_revision WHERE status='active'",
     );
-    expect(activeAfterInvalid.rows).toEqual([{ revision: '1' }]);
+    expect(activeAfterInvalid.rows).toEqual([{ revision: String(activeRevision) }]);
+
+    const capabilityStore = new PostgresTaskCapabilityRepository(runtimePool);
+    const taskCapabilities = new RuntimeTaskCapabilityService({
+      store: capabilityStore,
+      schemas: new AjvJsonSchemaValidator(),
+    });
+    const boundAt = new Date().toISOString();
+    const task = createAgentTask({
+      taskId: 'task.p09.capability',
+      contextId: 'context.p09.capability',
+      userId: 'requester.p09',
+      requestText: 'Inspect device alpha.',
+      requestMetadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: 'exposure.p08.inspect',
+          versionConstraint: '1',
+          requestId: 'request.p09',
+        },
+      },
+      timestamp: boundAt,
+    });
+    await runtimePool.query(
+      `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
+       VALUES($1,$2,$3,$3)`,
+      [task.contextId, task.userId, boundAt],
+    );
+    const inputAttempt = createTaskExecutionAttempt({
+      attemptId: 'task-input-attempt.p09.1',
+      taskId: task.taskId,
+      contextId: task.contextId,
+      reason: 'initial',
+      createdAt: boundAt,
+    });
+    const prepared = await taskCapabilities.prepareAcceptance({
+      task,
+      metadata: task.requestMetadata,
+      capabilityInput: { deviceId: 'alpha' },
+      inputAttempt,
+      bindingId: `binding-${task.taskId}`,
+      capabilityAttemptId: `capability-attempt-${task.taskId}-1`,
+      event: {
+        eventId: 'event.p09.created',
+        taskId: task.taskId,
+        contextId: task.contextId,
+        eventType: 'task.created',
+        timestamp: boundAt,
+        summary: 'Capability Task accepted.',
+      },
+    });
+    if (prepared === undefined) throw new Error('P09_CAPABILITY_ACCEPTANCE_NOT_PREPARED');
+    await expect(
+      taskCapabilities.accept({
+        ...prepared,
+        event: { ...prepared.event, taskId: 'task.p09.missing' },
+      }),
+    ).rejects.toBeDefined();
+    const rolledBack = await runtimePool.query<{ tasks: string; bindings: string }>(
+      `SELECT (SELECT COUNT(*) FROM agent_task WHERE task_id=$1)::text AS tasks,
+              (SELECT COUNT(*) FROM task_capability_binding WHERE task_id=$1)::text AS bindings`,
+      [task.taskId],
+    );
+    expect(rolledBack.rows[0]).toEqual({ tasks: '0', bindings: '0' });
+
+    await taskCapabilities.accept(prepared);
+    const publicBinding = await request('/api/v1/tasks/task.p09.capability/capability-binding', {
+      expectedStatus: 200,
+    });
+    expect(publicBinding).toMatchObject({
+      taskId: task.taskId,
+      requestedCapabilityId: 'device.inspect.p06',
+      capabilityVersion: 1,
+      exposureId: 'exposure.p08.inspect',
+      initialImplementationRefs: ['skill:skill.p06.inspect:1'],
+      providerPolicySnapshot: {
+        implementations: [
+          {
+            bindingId: 'binding.p06.skill.p06.inspect',
+            implementationRef: 'skill:skill.p06.inspect:1',
+            toolPolicy: {
+              required: [{ serverId: 'server.p07', toolName: 'inspect' }],
+              optional: [],
+              forbidden: [],
+            },
+            runtimePolicy: {},
+          },
+        ],
+      },
+    });
+    await expect(
+      request('/internal/v1/tasks/task.p09.capability/capability-binding', {
+        bearerToken: runtimeToken,
+        expectedStatus: 200,
+      }),
+    ).resolves.toEqual(publicBinding);
+    await expect(
+      runtimePool.query(
+        "UPDATE task_capability_binding SET requested_capability_id='mutated' WHERE task_id=$1",
+        [task.taskId],
+      ),
+    ).rejects.toMatchObject({ code: '55000' });
+    await taskCapabilities.appendAttempt(task.taskId, {
+      attemptId: 'capability-attempt-task.p09-2',
+      reason: 'replan',
+      planId: 'plan.p09.2',
+    });
+    await taskCapabilities.appendAttempt(task.taskId, {
+      attemptId: 'capability-attempt-task.p09-3',
+      reason: 'provider_failover',
+      providerBindingRefs: ['mcp:binding.p09.failover:2'],
+    });
+    await taskCapabilities.appendAttempt(task.taskId, {
+      attemptId: 'capability-attempt-task.p09-4',
+      reason: 'recovery',
+      planId: 'plan.p09.recovery',
+    });
+    const capabilityAttempts = await taskCapabilities.listAttempts(task.taskId);
+    expect(capabilityAttempts.map((attempt) => attempt.reason)).toEqual([
+      'initial',
+      'replan',
+      'provider_failover',
+      'recovery',
+    ]);
+    expect(capabilityAttempts.map((attempt) => attempt.status)).toEqual([
+      'superseded',
+      'superseded',
+      'superseded',
+      'prepared',
+    ]);
+    expect(capabilityAttempts[0]?.providerBindingRefs).toEqual(['mcp-tool:server.p07:inspect']);
+    await expect(
+      taskCapabilities.assertTerminalSuccess(task.taskId, {
+        condition: 'nominal',
+        verified: false,
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
+    await expect(
+      taskCapabilities.assertTerminalSuccess(task.taskId, {
+        condition: 'nominal',
+        verified: true,
+        policyEvidence: [{ type: 'authorization', satisfied: true }],
+      }),
+    ).resolves.toBeUndefined();
     await expect(
       request('/api/v1/capability-readiness/device.inspect.p06/1/evaluate', {
         method: 'POST',
@@ -590,8 +747,15 @@ async function cleanup() {
   await runtimePool.query(
     'TRUNCATE capability_readiness_command_receipt,capability_readiness_snapshot',
   );
+  await runtimePool.query('TRUNCATE task_capability_execution_attempt,task_capability_binding');
+  await runtimePool.query("DELETE FROM task_execution_attempt WHERE task_id='task.p09.capability'");
+  await runtimePool.query("DELETE FROM runtime_event WHERE task_id='task.p09.capability'");
+  await runtimePool.query("DELETE FROM agent_task WHERE task_id='task.p09.capability'");
   await runtimePool.query(
-    'TRUNCATE runtime_agent_card_command_receipt,runtime_agent_card_revision',
+    "DELETE FROM conversation_context WHERE context_id='context.p09.capability'",
+  );
+  await runtimePool.query(
+    'TRUNCATE runtime_agent_card_exposure_snapshot,runtime_agent_card_command_receipt,runtime_agent_card_revision',
   );
   await runtimePool.query("DELETE FROM skill_version WHERE skill_id='skill.p06.inspect'");
   await runtimePool.query("DELETE FROM skill WHERE skill_id='skill.p06.inspect'");

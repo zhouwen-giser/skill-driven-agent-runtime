@@ -65,6 +65,7 @@ export * from './model-decisions.js';
 export * from './plan-preparation-processor.js';
 export * from './prompt-service.js';
 export * from './task-service.js';
+export * from './task-capability.js';
 export * from './task-state-notifier.js';
 export * from './task-attempt-dispatch.js';
 export * from './task-quality.js';

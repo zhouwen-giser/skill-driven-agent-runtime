@@ -39,6 +39,28 @@ export class PostgresRuntimeAgentCardRepository implements RuntimeAgentCardDeplo
           candidate.revision.generatedAt,
         ],
       );
+      for (const exposure of candidate.exposureSnapshots ?? []) {
+        await client.query(
+          `INSERT INTO runtime_agent_card_exposure_snapshot(
+             revision,exposure_id,exposure_version,capability_id,capability_version,agent_skill_id,
+             request_schema,result_schema,requester_policy,exposure_hash)
+           VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10)`,
+          [
+            candidate.revision.revision,
+            exposure.exposureId,
+            exposure.version,
+            exposure.capabilityId,
+            exposure.capabilityVersion,
+            exposure.agentSkillId,
+            JSON.stringify(exposure.requestSchema),
+            JSON.stringify(exposure.resultSchema),
+            exposure.requesterPolicy === undefined
+              ? null
+              : JSON.stringify(exposure.requesterPolicy),
+            exposure.exposureHash,
+          ],
+        );
+      }
       await receipt(client, `${command.scope}:stage`, command, candidate.revision.revision);
       await client.query('COMMIT');
     } catch (error) {

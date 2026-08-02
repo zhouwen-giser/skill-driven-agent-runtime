@@ -32,6 +32,7 @@ import { OfficialA2aAgentCardValidator } from '../../../packages/a2a-adapter/src
 import { RuntimeCapabilityReadinessService } from '../../../packages/runtime-control-application/src/index.js';
 import {
   PostgresRuntimeAgentCardRepository,
+  PostgresRuntimeTaskCapabilityBindingQuery,
   PostgresRuntimeCapabilityReadinessRepository,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
@@ -145,6 +146,7 @@ export async function startNodeControlApi(
       a2aExposure,
       runtimeAgentCards,
       agentCardValidator,
+      taskCapabilities: new PostgresRuntimeTaskCapabilityBindingQuery(runtimePool),
     });
     const server = await listen(
       app,

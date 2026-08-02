@@ -286,6 +286,7 @@ export class NodeControlA2aExposureService {
         generatedAt,
       }),
       card,
+      exposureSnapshots: Object.freeze(sorted.map(({ exposure }) => exposure)),
     });
     await this.#repository.saveCandidate(candidate);
     const operation = operationFor(

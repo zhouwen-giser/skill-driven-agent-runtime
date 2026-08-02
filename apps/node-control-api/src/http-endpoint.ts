@@ -20,6 +20,7 @@ import {
   type NodeControlCapabilityService,
   type NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
+import type { TaskCapabilityBinding } from '../../../packages/domain/src/index.js';
 import {
   createManagementOperation,
   createA2aExposureVersion,
@@ -54,6 +55,9 @@ export interface NodeControlHttpConfiguration {
   readonly a2aExposure?: NodeControlA2aExposureService;
   readonly runtimeAgentCards?: RuntimeAgentCardDeployment;
   readonly agentCardValidator?: A2aAgentCardValidator;
+  readonly taskCapabilities?: Readonly<{
+    findBinding(taskId: string): Promise<TaskCapabilityBinding | undefined>;
+  }>;
 }
 
 export function createNodeControlHttpApp(
@@ -886,7 +890,49 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get('/api/v1/tasks/:taskId/capability-binding', async (request, response, next) => {
+    try {
+      const binding = await requiredTaskCapabilities(configuration).findBinding(
+        request.params.taskId,
+      );
+      if (binding === undefined) {
+        response.status(404).type('application/problem+json').json({
+          type: 'https://errors.sdar.io/task-capability-binding-not-found',
+          title: 'Task capability binding not found',
+          status: 404,
+          code: 'TASK_CAPABILITY_BINDING_NOT_FOUND',
+          detail: 'The Task has no immutable Capability binding.',
+        });
+        return;
+      }
+      response.status(200).json(binding);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.use('/internal/v1', bearerAuthentication(configuration.runtimeServiceToken));
+
+  app.get('/internal/v1/tasks/:taskId/capability-binding', async (request, response, next) => {
+    try {
+      const binding = await requiredTaskCapabilities(configuration).findBinding(
+        request.params.taskId,
+      );
+      if (binding === undefined) {
+        response.status(404).type('application/problem+json').json({
+          type: 'https://errors.sdar.io/task-capability-binding-not-found',
+          title: 'Task capability binding not found',
+          status: 404,
+          code: 'TASK_CAPABILITY_BINDING_NOT_FOUND',
+          detail: 'The Task has no immutable Capability binding.',
+        });
+        return;
+      }
+      response.status(200).json(binding);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.post('/internal/v1/agent-card-revisions/stage', async (request, response, next) => {
     try {
@@ -1496,7 +1542,11 @@ const AgentCardRevisionSchema = z
   })
   .strict();
 const RuntimeAgentCardCandidateSchema = z
-  .object({ revision: AgentCardRevisionSchema, card: JsonObjectSchema })
+  .object({
+    revision: AgentCardRevisionSchema,
+    card: JsonObjectSchema,
+    exposureSnapshots: z.array(A2aExposureSchema).max(1_000).optional(),
+  })
   .strict();
 
 function normalizeA2aExposure(input: z.infer<typeof A2aExposureSchema>) {
@@ -1546,6 +1596,9 @@ function normalizeRuntimeAgentCardCandidate(
         : { rejectionCode: input.revision.rejectionCode }),
     }),
     card: Object.freeze(structuredClone(input.card)),
+    ...(input.exposureSnapshots === undefined
+      ? {}
+      : { exposureSnapshots: Object.freeze(input.exposureSnapshots.map(normalizeA2aExposure)) }),
   });
 }
 
@@ -1791,6 +1844,14 @@ function requiredAgentCardValidator(
   if (configuration.agentCardValidator === undefined)
     throw new Error('AGENT_CARD_VALIDATOR_NOT_COMPOSED');
   return configuration.agentCardValidator;
+}
+
+function requiredTaskCapabilities(configuration: NodeControlHttpConfiguration): Readonly<{
+  findBinding(taskId: string): Promise<TaskCapabilityBinding | undefined>;
+}> {
+  if (configuration.taskCapabilities === undefined)
+    throw new Error('TASK_CAPABILITY_BINDING_NOT_COMPOSED');
+  return configuration.taskCapabilities;
 }
 
 interface ProblemInput {

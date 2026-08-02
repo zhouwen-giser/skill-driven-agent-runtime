@@ -1,4 +1,5 @@
 export * from './repositories.js';
+export * from './task-capability-repository.js';
 export * from './compiler/index.js';
 export * from './remote-task-repository.js';
 export * from './remote-task-cancellation-repository.js';

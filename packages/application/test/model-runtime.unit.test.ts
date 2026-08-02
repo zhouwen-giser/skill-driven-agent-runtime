@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   ModelInvocationRecord,
@@ -147,6 +147,7 @@ describe('ModelRuntimeService', () => {
           fallbackOn: ['upstream_error'],
         }),
     };
+    const recordProviderFailover = vi.fn().mockResolvedValue(undefined);
     const service = new ModelRuntimeService({
       repository,
       transport,
@@ -157,6 +158,7 @@ describe('ModelRuntimeService', () => {
       clock: { now: () => '2026-08-02T00:00:00.000Z' },
       ids: { nextInvocationId: () => `controlled-invocation-${String(++ids)}` },
       controlledRoutes,
+      providerFailovers: { record: recordProviderFailover },
     });
 
     await expect(
@@ -170,6 +172,12 @@ describe('ModelRuntimeService', () => {
       }),
     ).resolves.toMatchObject({ structuredResult: { provider: 'provider-fallback' } });
     expect(transport.providerIds).toEqual(['provider-primary', 'provider-fallback']);
+    expect(recordProviderFailover).toHaveBeenCalledOnce();
+    expect(recordProviderFailover).toHaveBeenCalledWith({
+      taskId: 'task-stable-route',
+      failedProviderId: 'provider-primary',
+      nextProviderId: 'provider-fallback',
+    });
     expect(repository.invocations).toHaveLength(2);
     expect(repository.invocations[0]).toMatchObject({
       providerId: 'provider-primary',

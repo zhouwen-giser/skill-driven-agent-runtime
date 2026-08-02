@@ -32,6 +32,7 @@ import type {
 import type { ResultCandidate, ResultProcessor } from './result-processor.js';
 import type { MemoryService } from './memory-service.js';
 import type { ImplicitFeedbackService } from './implicit-feedback.js';
+import type { RuntimeTaskCapabilityService } from './task-capability.js';
 
 export interface SubmitTaskCommand {
   readonly taskId?: string;
@@ -39,6 +40,7 @@ export interface SubmitTaskCommand {
   readonly userId?: string;
   readonly messageText: string;
   readonly metadata: Readonly<Record<string, unknown>>;
+  readonly capabilityInput?: unknown;
   readonly skillDraftIntent?: 'create' | 'update';
 }
 
@@ -78,6 +80,7 @@ export interface TaskServiceDependencies {
   readonly events: RuntimeEventPublisher;
   readonly skillDrafts: SkillDraftRepository;
   readonly taskInputs: TaskInputRepository;
+  readonly taskCapabilities?: RuntimeTaskCapabilityService;
   readonly remoteTaskInputs?: Readonly<{
     prepareResponse(inputRequestId: string, inputContent: unknown): Promise<unknown>;
   }>;
@@ -142,8 +145,6 @@ export class TaskService {
       timestamp,
     });
 
-    if (existing === undefined) await this.#dependencies.contexts.save(context);
-    await this.#dependencies.tasks.save(task);
     const attempt = createTaskExecutionAttempt({
       attemptId: this.#dependencies.ids.nextId('attempt'),
       taskId: task.taskId,
@@ -151,7 +152,38 @@ export class TaskService {
       reason: 'initial',
       createdAt: timestamp,
     });
-    await this.#dependencies.taskInputs.createInitialAttempt(attempt);
+    const createdEvent = {
+      eventId: this.#dependencies.ids.nextId('event'),
+      taskId: task.taskId,
+      contextId: task.contextId,
+      eventType: 'task.created' as const,
+      timestamp,
+      summary: summarizeMessage(command.messageText),
+    };
+    if (
+      command.metadata['io.sdar/requestedCapability'] !== undefined &&
+      this.#dependencies.taskCapabilities === undefined
+    )
+      throw Object.assign(new Error('Explicit Capability admission is unavailable.'), {
+        code: 'TASK_CAPABILITY_RUNTIME_NOT_COMPOSED' as const,
+      });
+    const capabilityAcceptance = await this.#dependencies.taskCapabilities?.prepareAcceptance({
+      task,
+      metadata: command.metadata,
+      capabilityInput: command.capabilityInput ?? { messageText: command.messageText },
+      inputAttempt: attempt,
+      bindingId: `binding-${task.taskId}`,
+      capabilityAttemptId: `capability-attempt-${task.taskId}-1`,
+      event: createdEvent,
+    });
+    if (existing === undefined) await this.#dependencies.contexts.save(context);
+    if (capabilityAcceptance === undefined) {
+      await this.#dependencies.tasks.save(task);
+      await this.#dependencies.taskInputs.createInitialAttempt(attempt);
+      await this.#dependencies.events.publish(createdEvent);
+    } else {
+      await this.#dependencies.taskCapabilities?.accept(capabilityAcceptance);
+    }
     await this.#dependencies.feedback?.observeSubmission(task);
     if (command.skillDraftIntent !== undefined) {
       await this.#dependencies.skillDrafts.save(
@@ -167,14 +199,6 @@ export class TaskService {
         }),
       );
     }
-    await this.#dependencies.events.publish({
-      eventId: this.#dependencies.ids.nextId('event'),
-      taskId: task.taskId,
-      contextId: task.contextId,
-      eventType: 'task.created',
-      timestamp,
-      summary: summarizeMessage(command.messageText),
-    });
     await this.#dependencies.queue.enqueue({
       taskId: task.taskId,
       contextId: task.contextId,
@@ -326,6 +350,11 @@ export class TaskService {
           timestamp: this.#dependencies.clock.now(),
         });
         await this.#dependencies.tasks.save(task);
+        await this.#dependencies.taskCapabilities?.appendAttempt(task.taskId, {
+          attemptId: `capability-attempt-${this.#dependencies.ids.nextId('attempt')}`,
+          reason: 'recovery',
+          planId: revised.planId,
+        });
         return this.#saveTransition(
           task,
           'awaiting_plan_confirmation',
@@ -558,6 +587,11 @@ export class TaskService {
       timestamp: this.#dependencies.clock.now(),
     });
     await this.#dependencies.tasks.save(task);
+    await this.#dependencies.taskCapabilities?.appendAttempt(task.taskId, {
+      attemptId: `capability-attempt-${this.#dependencies.ids.nextId('attempt')}`,
+      reason: 'replan',
+      planId: input.planId,
+    });
     return this.#saveTransition(
       task,
       'awaiting_plan_confirmation',
@@ -609,6 +643,12 @@ export class TaskService {
     await this.#dependencies.tasks.save(task);
     if (previousSkillId !== undefined && previousSkillId !== input.skillId)
       await this.#dependencies.feedback?.observeSkillSwitch(task, previousSkillId, input.skillId);
+    await this.#dependencies.taskCapabilities?.appendAttempt(task.taskId, {
+      attemptId: `capability-attempt-${this.#dependencies.ids.nextId('attempt')}`,
+      reason: 'manual_change',
+      planId: input.planId,
+      skillVersionRefs: [`skill:${input.skillId}:${String(input.skillVersion)}`],
+    });
     return this.#saveTransition(
       task,
       'awaiting_plan_confirmation',
@@ -622,6 +662,7 @@ export class TaskService {
     const timestamp = this.#dependencies.clock.now();
     const failed = { ...failTask(task, errorCode, timestamp), phaseMessage: message };
     await this.#dependencies.tasks.save(failed);
+    await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'failed', timestamp);
     await this.#dependencies.taskInputs.cancelPending(task.taskId, 'canceled');
     await this.#dependencies.events.publish({
       eventId: this.#dependencies.ids.nextId('event'),
@@ -653,6 +694,7 @@ export class TaskService {
     processor: ResultProcessor,
   ): Promise<AgentTask> {
     const output = processor.process(candidate);
+    await this.#dependencies.taskCapabilities?.assertTerminalSuccess(taskId, output.structured);
     let task = await this.get(taskId);
     if (task.phase === 'executing') {
       task = await this.#saveTransition(task, 'evaluating', 'Result validation completed.');
@@ -660,6 +702,7 @@ export class TaskService {
     const timestamp = this.#dependencies.clock.now();
     const completed = completeTask(task, output, timestamp);
     await this.#dependencies.tasks.save(completed);
+    await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'succeeded', timestamp);
     await this.#dependencies.events.publish({
       eventId: this.#dependencies.ids.nextId('event'),
       taskId: completed.taskId,

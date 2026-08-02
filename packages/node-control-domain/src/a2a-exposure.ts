@@ -45,6 +45,7 @@ export interface AgentCardRevision {
 export interface RuntimeAgentCardCandidate {
   readonly revision: AgentCardRevision;
   readonly card: JsonObject;
+  readonly exposureSnapshots?: readonly A2aExposureVersion[];
 }
 
 const exposureStatuses = new Set<A2aExposureStatus>(['draft', 'published', 'suspended', 'retired']);

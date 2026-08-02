@@ -1,0 +1,12 @@
+BEGIN;
+DROP TRIGGER task_capability_attempt_content_immutable ON task_capability_execution_attempt;
+DROP FUNCTION protect_task_capability_attempt_content();
+DROP TABLE task_capability_execution_attempt;
+DROP TRIGGER task_capability_binding_immutable ON task_capability_binding;
+DROP FUNCTION prevent_task_capability_binding_mutation();
+DROP TABLE task_capability_binding;
+DROP TRIGGER runtime_agent_card_exposure_snapshot_immutable ON runtime_agent_card_exposure_snapshot;
+DROP FUNCTION prevent_runtime_agent_card_exposure_snapshot_mutation();
+DROP TABLE runtime_agent_card_exposure_snapshot;
+DELETE FROM schema_migration WHERE version='0139_v14_task_capability_binding';
+COMMIT;

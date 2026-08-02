@@ -22,6 +22,7 @@ import {
   SkillGoalScheduler,
   isSkillGoalCompatible,
   ResultProcessor,
+  RuntimeTaskCapabilityService,
   ResultProcessingService,
   MemoryService,
   MemoryRetentionPolicyService,
@@ -265,6 +266,7 @@ import {
 } from '../../../packages/management-api/src/index.js';
 import {
   PostgresAgentTaskRepository,
+  PostgresTaskCapabilityRepository,
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
@@ -855,12 +857,26 @@ export async function startServerRuntime(
     skill: 1,
     subworkflow: 1,
   };
+  const schemaValidator = new AjvJsonSchemaValidator();
+  const taskCapabilities = new RuntimeTaskCapabilityService({
+    store: new PostgresTaskCapabilityRepository(pool, publishTaskState),
+    schemas: schemaValidator,
+  });
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new CompositeModelTransportAdapter(),
     cipher: secretCipher,
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
+    providerFailovers: {
+      async record(input) {
+        await taskCapabilities.appendAttempt(input.taskId, {
+          attemptId: `capability-attempt-${randomUUID()}`,
+          reason: 'provider_failover',
+          providerBindingRefs: [`model-provider:${input.nextProviderId}`],
+        });
+      },
+    },
   });
   const taskUnderstandings = new PostgresTaskUnderstandingRepository(pool);
   const interactiveGoalRepository = new PostgresInteractiveGoalRepository(pool);
@@ -1405,7 +1421,6 @@ export async function startServerRuntime(
     if (view === undefined) return undefined;
     return a2aInteractionProjection.toInputRequired(view);
   };
-  const schemaValidator = new AjvJsonSchemaValidator();
   const skillPackageSchema = JSON.parse(
     await readFile(resolve(process.cwd(), 'schemas', 'skill-package.schema.json'), 'utf8'),
   ) as unknown;
@@ -2676,6 +2691,7 @@ export async function startServerRuntime(
     events,
     skillDrafts,
     taskInputs,
+    taskCapabilities,
     ...(options.frozenMcpTasks === undefined
       ? {}
       : {

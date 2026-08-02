@@ -23,6 +23,17 @@ export class ModelRuntimeService {
   readonly #clock: Clock;
   readonly #ids: Readonly<{ nextInvocationId(): string }>;
   readonly #controlledRoutes: ControlledModelRouteResolver | undefined;
+  readonly #providerFailovers:
+    | Readonly<{
+        record(
+          input: Readonly<{
+            taskId: string;
+            failedProviderId: string;
+            nextProviderId: string;
+          }>,
+        ): Promise<void>;
+      }>
+    | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -32,6 +43,15 @@ export class ModelRuntimeService {
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string }>;
       controlledRoutes?: ControlledModelRouteResolver;
+      providerFailovers?: Readonly<{
+        record(
+          input: Readonly<{
+            taskId: string;
+            failedProviderId: string;
+            nextProviderId: string;
+          }>,
+        ): Promise<void>;
+      }>;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -40,6 +60,7 @@ export class ModelRuntimeService {
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
     this.#controlledRoutes = dependencies.controlledRoutes;
+    this.#providerFailovers = dependencies.providerFailovers;
   }
 
   async configureProvider(
@@ -198,6 +219,7 @@ export class ModelRuntimeService {
           !route.fallbackOn.includes(fallbackReason(error))
         )
           break;
+        await this.#recordProviderFailover(input.taskId, provider, route.providers[index + 1]);
       }
     }
     throw new ModelRuntimeError(
@@ -253,12 +275,26 @@ export class ModelRuntimeService {
           !route.fallbackOn.includes(fallbackReason(error))
         )
           break;
+        await this.#recordProviderFailover(taskId, provider, route.providers[index + 1]);
       }
     }
     throw new ModelRuntimeError(
       'MODEL_INVOCATION_FAILED',
       'Configured stage embedding invocation failed.',
     );
+  }
+
+  async #recordProviderFailover(
+    taskId: string | undefined,
+    failed: ModelProviderRecord,
+    next: ModelProviderRecord | undefined,
+  ): Promise<void> {
+    if (taskId === undefined || next === undefined || this.#providerFailovers === undefined) return;
+    await this.#providerFailovers.record({
+      taskId,
+      failedProviderId: failed.configuration.providerId,
+      nextProviderId: next.configuration.providerId,
+    });
   }
 
   async #resolveProviders(
