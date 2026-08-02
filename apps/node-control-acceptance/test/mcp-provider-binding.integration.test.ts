@@ -7,18 +7,18 @@ import {
   startNodeControlApi,
   type NodeControlApiRuntime,
 } from '../../../apps/node-control-api/src/runtime.js';
-import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
-import { createRemoteTaskBinding } from '../../domain/src/index.js';
+import { applyRuntimeMigrations } from '../../server/src/runtime.js';
+import { createRemoteTaskBinding } from '../../../packages/domain/src/index.js';
 import {
   computeSmppSnapshotChecksum,
   smppCandidateIdentity,
   type SmppProviderCandidate,
-} from '../../node-control-domain/src/index.js';
+} from '../../../packages/node-control-domain/src/index.js';
 import {
   applyControlMigrations,
   PostgresNodeControlMcpProviderBindingRepository,
-} from '../src/index.js';
-import { PostgresRemoteTaskRepository } from '../../persistence-postgres/src/index.js';
+} from '../../../packages/node-control-persistence-postgres/src/index.js';
+import { PostgresRemoteTaskRepository } from '../../../packages/persistence-postgres/src/index.js';
 
 const runtimeConnectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ??
