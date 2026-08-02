@@ -55,7 +55,7 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - [x] 2026-08-02 10:20 +08:00 P04 complete: implementation `11d13d0`, Evidence `7c9b733`, remote
   reconciliation, multi-source identity, immutable Snapshot/LKG, Latest/ETag refresh, outage
   isolation, full verification and repeated read-only review are closed.
-- [ ] P05: MCP provider-binding governance.
+- [ ] P05: implementation, tests, full gate and final review passed; remote evidence reconciliation pending.
 - [ ] P06: capability definition and implementation-binding authority.
 - [ ] P07: runtime capability readiness.
 - [ ] P08: A2A exposure and Agent Card revision.
@@ -87,6 +87,10 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - The first post-review P03 full gate exposed one stale E2E assertion for the old arbitrary upstream
   error code. That assertion terminated cleanup and caused seven serial cascade failures; after it
   was aligned to the stable redacted category, all 72 E2E tests passed.
+- P05 independent review found terminal reactivation, repeated-drift approval, concurrent local
+  Server identity, redirect SSRF and weak Remote Task evidence gaps. All were closed without moving
+  Runtime authority into Control. The first full gate then correctly rejected the cross-authority
+  test's package placement; moving it to a neutral acceptance app preserved the architecture rule.
 
 ## Decision Log
 
@@ -123,6 +127,11 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-02: P04 Source revisions activate atomically after an authoritative Latest response. A
   failed newer draft cannot hide the previous active Source/LKG, and scheduled poll/watch events are
   refresh hints rather than authoritative content.
+- 2026-08-02: P05 requires explicit import plus real frozen MCP Discover/Tools before a Binding is
+  selectable. Catalog drift remains measured against the last approved active checksum; suspend and
+  remove are append-only new-selection gates and never mutate Runtime Remote Task authority.
+- 2026-08-02: P05 Catalog HTTP calls reject redirects after exact authority allowlisting. Binding
+  identity and localServerId are separately serialized, and Redis owns no P05 fact.
 
 ## Implementation Steps
 
@@ -171,4 +180,9 @@ smokes; the final read-only review closes at 0 Blocking / 0 Major / 0 Minor. P04
 multi-source SMPP Registry federation, immutable Snapshot lineage, conditional Latest refresh and
 policy-specific LKG while preserving Catalog/Availability/Runtime authority. Its final gate passes
 1,143 Unit/Contract, 136 Integration and 72 E2E tests; its repeated read-only review closes at 0
-Blocking / 0 Major / 0 Minor. P05 and later behavior are not claimed.
+Blocking / 0 Major / 0 Minor. P05 adds explicit Direct/SMPP Provider Binding import, real MCP
+Discover/Tools Catalog verification, canonical drift and freshness gates, terminal lifecycle safety
+and retained Runtime Remote Task control. Its full gate passes 1,146 Unit/Contract, 137 Integration
+and 72 E2E tests; three independent read-only review passes close 5 Major and 1 Minor findings with a
+final 0 Blocking / 0 Major / 0 Minor verdict. Remote evidence reconciliation is pending; P06 and
+later behavior are not claimed.

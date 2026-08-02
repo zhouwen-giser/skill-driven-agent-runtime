@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P05 MCP Provider Binding Governance
+
+- Added explicit Direct and exact-lineage SMPP Provider Binding import through real frozen
+  `server/discover` and `tools/list` Catalog verification.
+- Added immutable Binding revisions, canonical Catalog checksums, approved-baseline drift detection,
+  Availability freshness gates and append-only suspend/remove semantics.
+- Added SecretRef-only credentials, endpoint authority allowlisting, redirect rejection, concurrent
+  local Server identity serialization and strict Telemetry-origin rejection.
+- Added real SMPP/MCP HTTP plus Control/Runtime PostgreSQL acceptance evidence proving that candidate
+  Snapshots are not callable and existing Runtime Remote Tasks remain queryable/controllable.
+
 ## SDAR v1.4 P04 SMPP Registry Federation
 
 - Added multi-source SMPP Registry Source revisions, conditional Latest refresh, immutable Snapshot

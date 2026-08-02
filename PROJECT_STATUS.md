@@ -1,17 +1,17 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P04 is `COMPLETED` locally (2026-08-02) on
+SDAR v1.4 Node Control Backend P05 is verified locally and awaiting evidence publication
+(2026-08-02) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P03 remain completed. P04 adds immutable
-multi-source SMPP Registry Sources and Snapshots, stable Source/Provider/Server identity,
-Registry/Catalog lineage, conditional Latest refresh, atomic Source activation and bounded LKG
-policies without moving Tool Catalog or Availability authority into the Registry. Full `pnpm verify`
-passed in 354,538 ms with 1,143 Unit/Contract, 136 real isolated PostgreSQL/Redis Integration and 72
-E2E tests, 29 Runtime migrations, production build and all process smokes. Secret scan found zero
-issues across 4,188 files and Git history, and the repeated independent read-only review closed at 0
-Blocking / 0 Major / 0 Minor after one lineage Major was repaired. Implementation `11d13d0` and
-Evidence `7c9b733` are verified on the remote branch. P05 is the next permitted phase and has not
-started.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P04 remain completed. P05 adds explicit
+Direct/SMPP MCP Provider Binding import, real frozen Discover/Tools Catalog authority, immutable
+Registry/Catalog lineage, canonical drift/freshness new-selection gates, terminal lifecycle safety,
+SSRF/redirect protection and retained Runtime Remote Task query/control. Full `pnpm verify` passed
+in 358,400 ms with 1,146 Unit/Contract, 137 real isolated PostgreSQL/Redis Integration and 72 E2E
+tests, 29 Runtime migrations, production build and all process smokes. Secret scan found zero issues
+across 4,226 files and Git history. Three independent read-only review passes closed 5 Major and 1
+Minor findings; final verdict is 0 Blocking / 0 Major / 0 Minor. Implementation `f409911` is local;
+the evidence SHA and remote Handoff are pending publication. P06 has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

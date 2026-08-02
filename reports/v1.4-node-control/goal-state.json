@@ -44,7 +44,13 @@
       "remoteSha": "7c9b733223f0b8b69098a4e55ae330203d37ee03",
       "completedAt": "2026-08-02T10:20:00+08:00"
     },
-    "P05": { "status": "pending" },
+    "P05": {
+      "status": "evidence_pending",
+      "implementationSha": "f4099115694cee03c792c0f16590d95569b6e5fe",
+      "evidenceSha": null,
+      "remoteSha": null,
+      "completedAt": null
+    },
     "P06": { "status": "pending" },
     "P07": { "status": "pending" },
     "P08": { "status": "pending" },

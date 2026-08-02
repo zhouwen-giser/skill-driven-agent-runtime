@@ -802,6 +802,18 @@ changed.
 | Idempotency and secret safety | verified | receipt recheck under Source advisory lock; opaque SecretRef resolution; generic safe failure codes | replay regression; 4,188-file/history secret scan with zero findings |
 | P04 closure | verified | full verify passed; repeated independent read-only review 0 Blocking/0 Major/0 Minor after lineage repair; P05 not started | `p04-review.md`, verification summary; Completion/Handoff follows remote reconciliation |
 
+## SDAR v1.4 P05 MCP Provider Binding Governance Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Explicit Direct/SMPP import | verified | strict origin schema and exact Registry lineage; candidate remains unselectable until approved import | real SMPP directory, API and Control PostgreSQL acceptance |
+| Catalog and Availability authority | verified | existing frozen adapter performs real `server/discover` and `tools/list`; canonical complete-Catalog checksum; approved-baseline drift and TTL gates | local authenticated MCP JSON-RPC provider; repeated-drift and expiry regressions |
+| Lifecycle and Task stability | verified | append-only active/degraded/suspended/removed revisions; terminal refresh blocked; historical revision lookup retained | Control API/PostgreSQL plus real Runtime Remote Task repository query and poll-control after removal |
+| Identity, idempotency and concurrency | verified | binding and localServerId advisory locks; exact request-hash receipts; one winner for concurrent local identity import | concurrent real PostgreSQL import and post-state idempotent replay regressions |
+| Endpoint and credential safety | verified | SecretRef-only persistence, exact authority allowlist, manual redirect rejection and no Telemetry origin | metadata-IP, redirect, Telemetry and zero-disclosure tests; 4,226-file/history secret scan |
+| Authority isolation | verified | Control stores Binding/Catalog observation/new-selection facts only; Runtime retains Server/Tool/Remote Task authority; Redis owns no P05 fact | architecture gate over 601 TypeScript sources; neutral cross-authority acceptance app |
+| P05 closure | verified | full verify passed; third independent read-only review 0 Blocking/0 Major/0 Minor after 5 Major and 1 Minor repairs; P06 not started | `p05-review.md`, verification summary; Completion/Handoff follows remote reconciliation |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |
