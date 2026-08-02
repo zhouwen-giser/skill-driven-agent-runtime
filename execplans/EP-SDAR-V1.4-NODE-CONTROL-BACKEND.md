@@ -77,7 +77,8 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   Runtime HTTP adapter, exact Skill governance CAS/import recovery, Control operation/audit-only
   persistence, migrations 0140/0141, and real Control -> Runtime -> P02/P06 PostgreSQL/Outbox
   evidence pass. Independent read-only reviews close 1 Blocking and 5 Major findings; full verify
-  passes with 952 Unit/performance, 218 Contract, 143 Integration and 72 E2E tests.
+  passes with 952 Unit/performance, 218 Contract, 143 Integration and 72 E2E tests; implementation
+  `9e53ebb` and Evidence `b75d1b1` are published to the phase branch.
 - [ ] P11: telemetry export only.
 - [ ] P12: organization-facing node profile and events.
 - [ ] P13: security, recovery, operations, and upgrade.

@@ -7,8 +7,8 @@
   "phaseBaseSha": "6f1828cab39ca7425d08662ae1ad5a96ea5c336a",
   "primaryImplementationSha": "0c0e2c6",
   "implementationSha": "9e53ebb0e604558195b51a9cdd5e34d122c89848",
-  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
-  "remoteSha": "PENDING_PUSH",
+  "evidenceSha": "b75d1b19799d7de56101f2d2b90ebae992f4027b",
+  "remoteSha": "b75d1b19799d7de56101f2d2b90ebae992f4027b",
   "completedAt": "2026-08-03T06:23:07+08:00",
   "productionChanges": true,
   "validation": {
