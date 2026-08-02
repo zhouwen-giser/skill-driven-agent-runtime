@@ -1,16 +1,13 @@
 # Verification Summary
 
 - Status: **failed**
-- Commit: `2c8faf81045ffcbd3ebdd672232af4fba0127ff5`
-- Started: 2026-08-02T23:34:20.988Z
-- Finished: 2026-08-02T23:38:54.565Z
-- Duration: 273577 ms
+- Commit: `fe435e646de4ff90e388c118dd7ed0938aa8ce5d`
+- Started: 2026-08-02T23:45:19.702Z
+- Finished: 2026-08-02T23:47:14.469Z
+- Duration: 114767 ms
 - Environment: Node v22.14.0, win32/x64
 - Infrastructure mode: operator-managed
 
 | Gate | Command | Result | Duration |
 | --- | --- | --- | ---: |
-| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 142460 ms |
-| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 996 ms |
-| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 20611 ms |
-| postgres-redis-integration | `pnpm test:integration` | failed | 109507 ms |
+| static-unit-contract-build | `pnpm verify:bootstrap` | failed | 114764 ms |
