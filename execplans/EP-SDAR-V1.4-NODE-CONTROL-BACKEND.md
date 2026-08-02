@@ -55,7 +55,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - [x] 2026-08-02 10:20 +08:00 P04 complete: implementation `11d13d0`, Evidence `7c9b733`, remote
   reconciliation, multi-source identity, immutable Snapshot/LKG, Latest/ETag refresh, outage
   isolation, full verification and repeated read-only review are closed.
-- [ ] P05: implementation, tests, full gate and final review passed; remote evidence reconciliation pending.
+- [x] 2026-08-02 17:31 +08:00 P05 complete: implementation `f409911`, Evidence `526155f`, remote
+  reconciliation, real Discover/Tools Catalog, drift/freshness gates, terminal lifecycle safety,
+  Remote Task retention, full verification and three read-only review passes are closed.
 - [ ] P06: capability definition and implementation-binding authority.
 - [ ] P07: runtime capability readiness.
 - [ ] P08: A2A exposure and Agent Card revision.
@@ -184,5 +186,5 @@ Blocking / 0 Major / 0 Minor. P05 adds explicit Direct/SMPP Provider Binding imp
 Discover/Tools Catalog verification, canonical drift and freshness gates, terminal lifecycle safety
 and retained Runtime Remote Task control. Its full gate passes 1,146 Unit/Contract, 137 Integration
 and 72 E2E tests; three independent read-only review passes close 5 Major and 1 Minor findings with a
-final 0 Blocking / 0 Major / 0 Minor verdict. Remote evidence reconciliation is pending; P06 and
-later behavior are not claimed.
+final 0 Blocking / 0 Major / 0 Minor verdict. Evidence `526155f` is verified on the remote branch;
+P06 and later behavior are not claimed.

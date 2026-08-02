@@ -14,8 +14,8 @@ their original immutable facts.
 - latestObservedMainSha: `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`
 - mainSyncSha: not required; main did not advance before P05 evidence publication
 - implementationSha: `f4099115694cee03c792c0f16590d95569b6e5fe`
-- evidenceSha: pending remote reconciliation
-- remoteSha: pending remote reconciliation
+- evidenceSha: `526155faac63ea06bbfb77bf2c36d825a889b5bc`
+- remoteSha: `526155faac63ea06bbfb77bf2c36d825a889b5bc`, verified after push
 
 ## Implementation
 
@@ -78,6 +78,6 @@ independent read-only review passes closed 5 Major and 1 Minor findings; the fin
 
 ## Handoff
 
-P05 implementation and verification are complete locally. The Handoff becomes `COMPLETED` only
-after the evidence commit is pushed and the remote SHA is reconciled. P06 may then implement only
-Capability definition and implementation-binding authority.
+P05 is `COMPLETED`; implementation and evidence are present on the verified remote branch. P06 may
+start only after a fresh main comparison and may implement only Capability definition and
+implementation-binding authority.

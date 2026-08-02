@@ -4,8 +4,8 @@
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
   "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "branch": "feature/v1.4-node-control-backend",
-  "lastCompletedPhase": "P04",
-  "remoteHeadSha": "7c9b733223f0b8b69098a4e55ae330203d37ee03",
+  "lastCompletedPhase": "P05",
+  "remoteHeadSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
   "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "pullRequest": null,
   "phases": {
@@ -45,11 +45,11 @@
       "completedAt": "2026-08-02T10:20:00+08:00"
     },
     "P05": {
-      "status": "evidence_pending",
+      "status": "completed",
       "implementationSha": "f4099115694cee03c792c0f16590d95569b6e5fe",
-      "evidenceSha": null,
-      "remoteSha": null,
-      "completedAt": null
+      "evidenceSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+      "remoteSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+      "completedAt": "2026-08-02T17:31:00+08:00"
     },
     "P06": { "status": "pending" },
     "P07": { "status": "pending" },
