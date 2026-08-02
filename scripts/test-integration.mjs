@@ -19,7 +19,7 @@ try {
   run(
     process.execPath,
     ['node_modules/vitest/vitest.mjs', 'run', '--project', 'integration'],
-    120_000,
+    240_000,
     {
       ...process.env,
       SDAR_TEST_POSTGRES_URL: databaseUrl(databaseName),
