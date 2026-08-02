@@ -72,12 +72,12 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   Capability/Exposure/Input/criteria/evidence/constraint/Provider-policy Binding, atomic Task
   acceptance, append-only replan/replacement/provider-failover/recovery attempts, terminal guard,
   full verification and final review 0 Blocking / 0 Major / 0 Minor.
-- [ ] 2026-08-03 04:02 +08:00 P10 implementation and focused verification complete: frozen
+- [x] 2026-08-03 06:23 +08:00 P10 complete: frozen
   public/internal Skill and Plan Template routes, distinct RuntimeServiceAuth identity mapping,
   Runtime HTTP adapter, exact Skill governance CAS/import recovery, Control operation/audit-only
   persistence, migrations 0140/0141, and real Control -> Runtime -> P02/P06 PostgreSQL/Outbox
-  evidence pass. Two read-only review rounds close the single Major finding; implementation commit
-  and full gate remain open.
+  evidence pass. Independent read-only reviews close 1 Blocking and 5 Major findings; full verify
+  passes with 952 Unit/performance, 218 Contract, 143 Integration and 72 E2E tests.
 - [ ] P11: telemetry export only.
 - [ ] P12: organization-facing node profile and events.
 - [ ] P13: security, recovery, operations, and upgrade.
@@ -248,4 +248,8 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   Binding, atomic acceptance, complete Provider policy snapshots, append-only execution attempts,
   real Provider-failover recording and terminal criteria/evidence enforcement. Its full gate passes
   949 Unit/performance, 215 Contract, 138 Integration and 72 E2E tests with 32 Runtime migrations;
-  review closes at 0 Blocking / 0 Major / 0 Minor. P10 and later behavior are not claimed.
+  review closes at 0 Blocking / 0 Major / 0 Minor. P10 adds exact Skill import/lifecycle governance
+  and logical Plan Template adapters over the existing P02/P06 authority. Its full gate passes 930
+  Unit, 22 performance, 218 Contract, 143 Integration and 72 E2E tests with 34 Runtime and 7 Control
+  migrations; final review is 0 Blocking / 0 Major / 1 accepted Minor. P11 and later behavior are
+  not claimed.

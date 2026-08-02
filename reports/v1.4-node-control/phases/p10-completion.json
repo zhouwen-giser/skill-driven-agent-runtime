@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P10",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "6f1828cab39ca7425d08662ae1ad5a96ea5c336a",
+  "primaryImplementationSha": "0c0e2c6",
+  "implementationSha": "9e53ebb0e604558195b51a9cdd5e34d122c89848",
+  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+  "remoteSha": "PENDING_PUSH",
+  "completedAt": "2026-08-03T06:23:07+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 391314,
+      "unit": 930,
+      "performance": 22,
+      "contract": 218,
+      "integration": 143,
+      "e2e": 72,
+      "runtimeMigrations": 34,
+      "controlMigrations": 7
+    },
+    "focused": {
+      "unitFiles": 3,
+      "unitTests": 17,
+      "contractFiles": 2,
+      "contractTests": 63,
+      "integrationFiles": 2,
+      "integrationTests": 5,
+      "architectureSources": 629
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 1,
+    "acceptedMinor": 1,
+    "closedBlocking": 1,
+    "closedMajor": 5,
+    "verdict": "accepted"
+  },
+  "verificationSummarySha256": "a17d590a3f69c29f300b9d4729e86ec2ffba579c2f92411c536b60666506d9c6",
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/v1.4-node-control/failed-attempts/p10-skill-plan-governance.md",
+    "reports/v1.4-node-control/phases/p10-review.md"
+  ],
+  "nextPhase": "P11"
+}

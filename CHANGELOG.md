@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P10 Skill and Plan Template Governance
+
+- Added frozen public and internal Skill import/exact-version/publish/suspend/deprecate routes with
+  Runtime-owned validation, immutable exact lifecycle receipts, CAS and response-loss recovery.
+- Added Plan Template list/exact/publish/revalidate/suspend adapters over the existing P02/P06
+  Artifact query, validation, activation, rollback and Outbox authorities.
+- Added Control proxy ManagementOperation/Audit persistence, replay-before-network idempotency and
+  logical-to-exact Artifact identity mapping without copying Skill or Artifact content.
+- Added distinct RuntimeServiceAuth-to-Artifact identity mapping, timestamp-safe redaction and real
+  Control-to-Runtime-to-PostgreSQL/Outbox acceptance evidence.
+
 ## SDAR v1.4 P09 Task Capability Binding and Attempts
 
 - Added deeply immutable, canonically hashed Task Capability Bindings that freeze exact Exposure,

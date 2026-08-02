@@ -858,6 +858,17 @@ changed.
 | Authority isolation | verified | Runtime write repository and Redis-free authority; Control uses only restricted Runtime-Control read query | architecture gate over 623 TypeScript sources |
 | P09 closure | verified | full verify passed; review 0 Blocking/0 Major/0 Minor after 1 Blocking, 3 Major and 2 Minor repairs; P10 not started | `p09-completion.*`, `p09-review.md`, `p09-handoff.json`, verification summary |
 
+## SDAR v1.4 P10 Skill and Plan Template Governance Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Existing authority adaptation | verified | Runtime Skill registry/governance and P02/P06 Artifact query/command services; Control stores Operation/Audit only | architecture inspection and real dual-database assertions |
+| Exact Skill lifecycle/import | verified | validated package import, response-loss reconciliation, exact-version overlay, CAS and immutable receipts | 3 real PostgreSQL repository tests; frozen Runtime/Public contracts |
+| Plan Template governance | verified | logical `artifact_key` public identity maps internally to exact `compiled_artifact.artifact_id`; activate/revalidate/deprecate/rollback reuse existing services | real activation, active pointer, validation and Outbox vertical acceptance |
+| Idempotency and audit | verified | replay-before-network, drift rejection, Runtime receipts and atomic Control Operation/Audit | Unit/Contract plus Control PostgreSQL assertions |
+| Credential and projection safety | verified | distinct RuntimeServiceAuth principal mapping; authority ID stays internal; timestamp-safe redaction | environment/management contract and public schema regressions |
+| P10 closure | verified | full verify passed; review 0 Blocking/0 Major/1 accepted Minor after 1 Blocking and 5 Major repairs; P11 not started | `p10-completion.*`, `p10-review.md`, `p10-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |
