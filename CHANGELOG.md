@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P09 Task Capability Binding and Attempts
+
+- Added deeply immutable, canonically hashed Task Capability Bindings that freeze exact Exposure,
+  input, success, evidence, constraints, implementation and secret-free Provider policy facts.
+- Added atomic Runtime PostgreSQL acceptance for Task, initial generic/Capability attempts and
+  created event, with append-only replan, Skill replacement, Provider fallback and recovery history.
+- Added fail-closed requester/schema admission and terminal success/evidence/policy gates while
+  preserving ordinary Task behavior when no explicit Capability is requested.
+- Added frozen public/internal Binding reads through a restricted Runtime-Control query adapter and
+  real PostgreSQL rollback, immutability, history and terminal regression evidence.
+
 ## SDAR v1.4 P08 A2A Exposure and Agent Card
 
 - Added immutable Capability-backed A2A Exposure versions with exact schemas, visibility,

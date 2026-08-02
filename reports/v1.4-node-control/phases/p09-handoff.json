@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P09",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "39298c3798d6a14447b7a01e30eae0d3b13ae5f8",
+  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+  "remoteSha": null,
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-03T01:56:31+08:00",
+  "nextPhase": "P10",
+  "prerequisites": ["fetch and compare origin/main before P10", "consume TaskCapabilityBinding and Attempt as immutable Runtime authority", "implement only P10 management adapters next"],
+  "authorityBoundary": "Runtime PostgreSQL owns Task, immutable Capability Binding, attempts and terminal evidence. Control reads the frozen Binding through a restricted Runtime-Control adapter. P10 may adapt management surfaces but cannot mutate these facts or create a second execution authority."
+}

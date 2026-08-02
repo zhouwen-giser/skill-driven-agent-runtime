@@ -1,15 +1,15 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P08 is `COMPLETED` locally (2026-08-03) on
+SDAR v1.4 Node Control Backend P09 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P07 remain completed. P08 adds immutable
-Capability-backed A2A Exposures, privacy/readiness filtering, deterministic Agent Card
-Candidate/Diff/Stage/Activate/Ack, Runtime LKG rollback and managed-card endpoint projection.
-Official A2A MUST TCK passed 74 tests with 161 skips and 100% compatibility. Full `pnpm verify`
-passed in 482,100 ms with 941 Unit/performance, 215 Contract, 138 real isolated PostgreSQL/Redis
-Integration and 72 E2E tests, 31 Runtime and 7 Control migrations, production build and all process
-smokes. The read-only review closed 3 Major findings; final verdict is 0 Blocking / 0 Major / 0
-Minor. P09 is the next permitted phase and has not started.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P08 remain completed. P09 adds immutable
+Task Capability Binding, exact Exposure/readiness/requester/schema admission, atomic Task/Binding/
+initial-attempt/event persistence, append-only replan/Skill replacement/real Provider fallback/
+recovery history and terminal success/evidence/policy enforcement. Full `pnpm verify` passed in
+346,117 ms with 949 Unit/performance, 215 Contract, 138 real isolated PostgreSQL/Redis Integration
+and 72 E2E tests, 32 Runtime and 7 Control migrations, production build and all process smokes. The
+read-only review closed 1 Blocking, 3 Major and 2 Minor findings; final verdict is 0 Blocking / 0
+Major / 0 Minor. P10 is the next permitted phase and has not started.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

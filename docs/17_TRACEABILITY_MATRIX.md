@@ -846,6 +846,18 @@ changed.
 | Schema and TCK | verified | official SDK parsing plus frozen schema/API validation | 74 HTTP JSON MUST passed, 161 skipped; frozen contract 76/28/111/20/7 |
 | P08 closure | verified | full verify passed; read-only review 0 Blocking/0 Major/0 Minor after 3 Major repairs; P09 not started | `p08-completion.*`, `p08-review.md`, `p08-handoff.json`, verification summary |
 
+## SDAR v1.4 P09 Task Capability Binding and Attempts Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Atomic acceptance | verified | Task, generic initial attempt, immutable Binding, Capability Attempt and created event share one Runtime PostgreSQL transaction | forced FK rollback leaves zero Task/Binding; migration `0139` |
+| Exact frozen contract | verified | active Exposure plus current Readiness; input, criteria, evidence, constraints, implementations and Provider policies are deeply frozen and hashed | Unit plus real two-database acceptance and SQLSTATE 55000 mutation tests |
+| Admission and compatibility | verified | requester and Ajv input guards; explicit requests fail closed; no-metadata Tasks preserve existing terminal behavior | Capability/A2A/TaskService Unit regressions |
+| Attempt history | verified | replan, replacement, recovery and actual controlled Provider fallback append attempts and supersede only prior non-terminal attempts | Model fallback Unit and PostgreSQL attempt-history assertions |
+| Terminal authority | verified | Workflow completion alone cannot pass frozen success, evidence and authorization/safety requirements | negative and positive terminal guard regressions |
+| Authority isolation | verified | Runtime write repository and Redis-free authority; Control uses only restricted Runtime-Control read query | architecture gate over 623 TypeScript sources |
+| P09 closure | verified | full verify passed; review 0 Blocking/0 Major/0 Minor after 1 Blocking, 3 Major and 2 Minor repairs; P10 not started | `p09-completion.*`, `p09-review.md`, `p09-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |

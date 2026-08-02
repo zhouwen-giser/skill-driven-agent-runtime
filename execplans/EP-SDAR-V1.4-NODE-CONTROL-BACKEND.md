@@ -68,7 +68,10 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - [x] 2026-08-03 00:15 +08:00 P08 complete: implementation `c76a4d0`, exact Capability Exposure,
   public/readiness filtering, deterministic Agent Card deployment, Active/LKG rollback, official
   A2A MUST TCK and full verification; final review is 0 Blocking / 0 Major / 0 Minor.
-- [ ] P09: immutable Task capability binding and attempts.
+- [x] 2026-08-03 01:56 +08:00 P09 complete: implementation `39298c3`, immutable exact
+  Capability/Exposure/Input/criteria/evidence/constraint/Provider-policy Binding, atomic Task
+  acceptance, append-only replan/replacement/provider-failover/recovery attempts, terminal guard,
+  full verification and final review 0 Blocking / 0 Major / 0 Minor.
 - [ ] P10: Skill, Plan Template, and Artifact management adapters.
 - [ ] P11: telemetry export only.
 - [ ] P12: organization-facing node profile and events.
@@ -147,6 +150,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-03: P08 projects AgentSkill only from public, published Capability Exposures with current
   qualifying Runtime readiness. Runtime owns active Card bytes; a failed Control Ack restores the
   prior Runtime LKG. Node Event delivery remains deferred to P12's single frozen stream.
+- 2026-08-03: P09 creates Task, generic initial attempt, immutable Capability Binding, Capability
+  Attempt and created event in one Runtime PostgreSQL transaction. Later execution changes append
+  attempts; Control receives only a read-only Binding view through the Runtime-Control adapter.
 
 ## Implementation Steps
 
@@ -210,5 +216,8 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   Capability-backed Exposure governance, managed Agent Card Candidate/Diff/Apply/Ack/LKG rollback
   and official A2A TCK evidence. Its full gate passes 941 Unit/performance, 215 Contract, 138
   Integration and 72 E2E tests with 31 Runtime and 7 Control migrations; review closes 3 Major
-  findings with a final 0 Blocking / 0 Major / 0 Minor verdict. P09 and later behavior are not
-  claimed.
+  findings with a final 0 Blocking / 0 Major / 0 Minor verdict. P09 adds immutable Task Capability
+  Binding, atomic acceptance, complete Provider policy snapshots, append-only execution attempts,
+  real Provider-failover recording and terminal criteria/evidence enforcement. Its full gate passes
+  949 Unit/performance, 215 Contract, 138 Integration and 72 E2E tests with 32 Runtime migrations;
+  review closes at 0 Blocking / 0 Major / 0 Minor. P10 and later behavior are not claimed.
