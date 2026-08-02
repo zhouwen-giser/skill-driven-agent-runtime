@@ -10,7 +10,7 @@ replan, Skill replacement, Provider failover and recovery as an append-only exec
 - baselineMainSha: `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`
 - phaseBaseSha: `bf7fef973183ccff6c96e7c37afe137b9f1d4b77`
 - implementationSha: `39298c3798d6a14447b7a01e30eae0d3b13ae5f8`
-- evidenceSha: `PENDING_EVIDENCE_COMMIT`
+- evidenceSha: `5a82b5e159a92a47e86f4064a61803d47f284754`
 
 ## Implementation
 
