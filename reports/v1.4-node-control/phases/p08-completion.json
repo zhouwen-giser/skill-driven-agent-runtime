@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P08",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "fcf8455ec692f1c560364a146de811344ab8228e",
+  "implementationSha": "c76a4d01bd1a0627b951c3066903957c68e77adb",
+  "repairShas": ["02f341c", "a426309", "5ddc993"],
+  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+  "remoteSha": null,
+  "completedAt": "2026-08-03T00:15:09+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": { "status": "passed", "durationMs": 482100, "unit": 941, "contract": 215, "integration": 138, "e2e": 72, "runtimeMigrations": 31, "controlMigrations": 7 },
+    "focused": { "unitFiles": 2, "unitTests": 3, "contractFiles": 1, "contractTests": 7, "a2aIntegrationTests": 1, "integrationFiles": 25, "integrationTests": 138, "architectureSources": 618, "tckPassed": 74, "tckSkipped": 161 }
+  },
+  "review": { "blocking": 0, "major": 0, "minor": 0, "closedMajor": 3, "closedMinor": 0, "verdict": "accepted" },
+  "evidence": ["reports/verification/summary.json", "reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/compatibility.json", "reports/v1.4-node-control/failed-attempts/p08-a2a-exposure.md", "reports/v1.4-node-control/phases/p08-review.md"],
+  "nextPhase": "P09"
+}

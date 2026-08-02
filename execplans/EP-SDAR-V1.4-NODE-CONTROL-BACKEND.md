@@ -65,7 +65,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   readiness snapshots, exact dependency/hash evidence, TTL expiry, stability window, authenticated
   recomputation, Outbox and restart recovery pass focused and full verification; final review is
   0 Blocking / 0 Major / 0 Minor.
-- [ ] P08: A2A exposure and Agent Card revision.
+- [x] 2026-08-03 00:15 +08:00 P08 complete: implementation `c76a4d0`, exact Capability Exposure,
+  public/readiness filtering, deterministic Agent Card deployment, Active/LKG rollback, official
+  A2A MUST TCK and full verification; final review is 0 Blocking / 0 Major / 0 Minor.
 - [ ] P09: immutable Task capability binding and attempts.
 - [ ] P10: Skill, Plan Template, and Artifact management adapters.
 - [ ] P11: telemetry export only.
@@ -142,6 +144,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-02: P07 persists full evaluation input and stability candidates in Runtime PostgreSQL so
   expiry and restart recomputation remain deterministic. Control may request evaluation through the
   frozen boundary but has no readiness table or writer.
+- 2026-08-03: P08 projects AgentSkill only from public, published Capability Exposures with current
+  qualifying Runtime readiness. Runtime owns active Card bytes; a failed Control Ack restores the
+  prior Runtime LKG. Node Event delivery remains deferred to P12's single frozen stream.
 
 ## Implementation Steps
 
@@ -201,5 +206,9 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   verdict. P07 adds Runtime-authored readiness over exact Capability, implementation, Catalog,
   availability, model route, policy and node-operational inputs. Its full gate passes 938 Unit, 214
   Contract, 138 Integration and 72 E2E tests with 30 Runtime migrations; four review passes close 5
-  Major and 2 Minor findings with a final 0 Blocking / 0 Major / 0 Minor verdict. P08 and later
-  behavior are not claimed.
+  Major and 2 Minor findings with a final 0 Blocking / 0 Major / 0 Minor verdict. P08 adds
+  Capability-backed Exposure governance, managed Agent Card Candidate/Diff/Apply/Ack/LKG rollback
+  and official A2A TCK evidence. Its full gate passes 941 Unit/performance, 215 Contract, 138
+  Integration and 72 E2E tests with 31 Runtime and 7 Control migrations; review closes 3 Major
+  findings with a final 0 Blocking / 0 Major / 0 Minor verdict. P09 and later behavior are not
+  claimed.

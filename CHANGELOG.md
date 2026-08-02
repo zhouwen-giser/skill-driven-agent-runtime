@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P08 A2A Exposure and Agent Card
+
+- Added immutable Capability-backed A2A Exposure versions with exact schemas, visibility,
+  requester-policy privacy and Runtime-readiness publication policies.
+- Added deterministic Agent Card candidate/diff/stage/activate/ack with sequence-backed revisions,
+  evidence-aware hashes, no-op rebuilds and compensating Runtime LKG rollback.
+- Added frozen public and authenticated internal API routes plus active managed-card projection at
+  the Runtime A2A endpoint; internal Skill identities are never exposed as AgentSkill.
+- Added real two-database acceptance, rollback regression and pinned official A2A MUST TCK evidence.
+
 ## SDAR v1.4 P07 Runtime Capability Readiness
 
 - Added Runtime-authored immutable Capability Readiness snapshots with exact Definition, Binding,

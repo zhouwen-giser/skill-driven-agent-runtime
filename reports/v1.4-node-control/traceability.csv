@@ -7,7 +7,7 @@ smpp federation,P04,verified,"packages/node-control-domain; packages/node-contro
 mcp binding,P05,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; packages/mcp-adapter; apps/node-control-api; apps/node-control-acceptance","focused Unit; real SMPP/MCP HTTP plus Control/Runtime PostgreSQL integration; Remote Task retention; pnpm verify:v13-secrets; pnpm verify",reports/v1.4-node-control/phases/p05-completion.json
 capability authority,P06,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; apps/node-control-api; apps/node-control-acceptance","focused Unit; real Control/Runtime PostgreSQL integration; pnpm verify",reports/v1.4-node-control/phases/p06-completion.json
 readiness runtime authority,P07,verified,"packages/runtime-control-application; packages/runtime-control-persistence-postgres; apps/node-control-api; apps/node-control-acceptance","focused Unit; real Control/Runtime PostgreSQL integration; pnpm verify:migrations; pnpm verify",reports/v1.4-node-control/phases/p07-completion.json
-a2a capability exposure,P08,pending,,,
+a2a capability exposure,P08,verified,"packages/node-control-domain; packages/node-control-application; packages/node-control-persistence-postgres; packages/runtime-control-persistence-postgres; packages/a2a-adapter; apps/node-control-api","focused Unit/Contract; real Control/Runtime PostgreSQL integration; official A2A MUST TCK; pnpm verify:migrations; pnpm verify",reports/v1.4-node-control/phases/p08-completion.json
 immutable task binding,P09,pending,,,
 skill artifact adaptation,P10,pending,,,
 telemetry export only,P11,pending,,,

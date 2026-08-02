@@ -836,6 +836,16 @@ changed.
 | Frozen interfaces | verified | public list/get/evaluate and authenticated internal Runtime evaluation are composed without contract mutation | frozen contract gate: 76 files, 28 schemas, 111 operations, 20 events, 7 fixtures |
 | P07 closure | verified | full verify passed; fourth read-only review 0 Blocking/0 Major/0 Minor after 5 Major and 2 Minor repairs; P08 not started | `p07-completion.*`, `p07-review.md`, `p07-handoff.json`, verification summary |
 
+## SDAR v1.4 P08 A2A Exposure and Agent Card Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Capability-only AgentSkill | verified | public published Exposure over exact published Capability; internal Skill identity never projected | real two-database acceptance and managed-card HTTP contract |
+| Readiness/privacy policy | verified | current Runtime snapshot TTL plus per-Exposure policy; organization-only and sensitive requester data excluded | Domain Unit and vertical API/PostgreSQL test |
+| Candidate apply and LKG | verified | deterministic diff, sequence revision, stage/activate/ack, failed-Control-ack compensation restores Runtime Active | rollback Unit regression and immutable Control/Runtime migrations |
+| Schema and TCK | verified | official SDK parsing plus frozen schema/API validation | 74 HTTP JSON MUST passed, 161 skipped; frozen contract 76/28/111/20/7 |
+| P08 closure | verified | full verify passed; read-only review 0 Blocking/0 Major/0 Minor after 3 Major repairs; P09 not started | `p08-completion.*`, `p08-review.md`, `p08-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |

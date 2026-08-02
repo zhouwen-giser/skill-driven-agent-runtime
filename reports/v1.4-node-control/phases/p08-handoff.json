@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P08",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "c76a4d01bd1a0627b951c3066903957c68e77adb",
+  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+  "remoteSha": null,
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-03T00:15:09+08:00",
+  "nextPhase": "P09",
+  "prerequisites": ["fetch and compare origin/main before P09", "bind Tasks only to exact published Capability and implementation revisions", "implement only P09 immutable Task capability binding next"],
+  "authorityBoundary": "Control owns immutable Exposure definitions and Agent Card revision metadata; Runtime owns staged/active Card bytes and readiness. Internal Skills never directly become AgentSkill. P09 may consume exact identities but cannot redefine these authorities."
+}
