@@ -5,7 +5,7 @@
   "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "branch": "feature/v1.4-node-control-backend",
   "lastCompletedPhase": "P08",
-  "remoteHeadSha": "0097883bb8e0d8052df82cd7d093391802db636d",
+  "remoteHeadSha": "8e59a2a0c9b2babf4ec80e552a4b8f697b7830d8",
   "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "pullRequest": null,
   "phases": {
@@ -68,8 +68,8 @@
     "P08": {
       "status": "completed",
       "implementationSha": "c76a4d01bd1a0627b951c3066903957c68e77adb",
-      "evidenceSha": "PENDING_EVIDENCE_COMMIT",
-      "remoteSha": null,
+      "evidenceSha": "8e59a2a0c9b2babf4ec80e552a4b8f697b7830d8",
+      "remoteSha": "8e59a2a0c9b2babf4ec80e552a4b8f697b7830d8",
       "completedAt": "2026-08-03T00:15:09+08:00"
     },
     "P09": { "status": "pending" },

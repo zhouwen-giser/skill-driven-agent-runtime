@@ -12,7 +12,7 @@ replace the Runtime Active/LKG card.
 - phaseBaseSha: `fcf8455ec692f1c560364a146de811344ab8228e`
 - implementationSha: `c76a4d01bd1a0627b951c3066903957c68e77adb`
 - repairShas: `02f341c`, `a426309`, `5ddc993`
-- evidenceSha: `PENDING_EVIDENCE_COMMIT`
+- evidenceSha: `8e59a2a0c9b2babf4ec80e552a4b8f697b7830d8`
 
 ## Implementation
 
