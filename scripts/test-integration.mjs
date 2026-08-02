@@ -10,8 +10,7 @@ const { Pool } = pg;
 const databaseName = 'sdar_v122_integration_gate';
 const controlDatabaseName = 'sdar_control_v14_integration_gate';
 const adminUrl =
-  process.env.SDAR_TEST_POSTGRES_URL ??
-  'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+  process.env.SDAR_TEST_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 try {
   startInfrastructure();
