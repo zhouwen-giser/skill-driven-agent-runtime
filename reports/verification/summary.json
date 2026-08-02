@@ -1,30 +1,30 @@
 {
   "schemaVersion": 1,
-  "status": "passed",
-  "commit": "9e53ebb0e604558195b51a9cdd5e34d122c89848",
-  "dirty": true,
+  "status": "failed",
+  "commit": "abc057c026cdd14533f12aaf7429f6367c966ef0",
+  "dirty": false,
   "environment": {
     "node": "v22.14.0",
     "platform": "win32",
     "architecture": "x64",
     "infrastructureMode": "operator-managed"
   },
-  "startedAt": "2026-08-02T22:15:55.489Z",
-  "finishedAt": "2026-08-02T22:22:26.803Z",
-  "durationMs": 391314,
+  "startedAt": "2026-08-02T23:29:30.379Z",
+  "finishedAt": "2026-08-02T23:31:52.831Z",
+  "durationMs": 142452,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "passed",
-      "startedAt": "2026-08-02T22:15:55.490Z",
-      "finishedAt": "2026-08-02T22:18:21.952Z",
-      "durationMs": 146462,
+      "startedAt": "2026-08-02T23:29:30.379Z",
+      "finishedAt": "2026-08-02T23:31:50.888Z",
+      "durationMs": 140509,
       "logPath": "reports/verification/raw/static-unit-contract-build.log",
-      "outputSha256": "0bb300dc3c83edbc77722cc2b69f8372e6e8444c14c297ff859f516c2baf28a6",
+      "outputSha256": "f36a98d2466eab96cc34111b8388774d465a78d6f058a9544c2176cf4d026746",
       "metrics": {
-        "testFiles": 180,
-        "tests": 1170,
+        "testFiles": 182,
+        "tests": 1175,
         "openapiOperations": 164
       },
       "exitCode": 0
@@ -33,9 +33,9 @@
       "name": "cognitive-replay-no-physical-provider",
       "command": "pnpm verify:cognitive-replay",
       "status": "passed",
-      "startedAt": "2026-08-02T22:18:21.954Z",
-      "finishedAt": "2026-08-02T22:18:22.727Z",
-      "durationMs": 773,
+      "startedAt": "2026-08-02T23:31:50.891Z",
+      "finishedAt": "2026-08-02T23:31:51.736Z",
+      "durationMs": 845,
       "logPath": "reports/verification/raw/cognitive-replay-no-physical-provider.log",
       "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3",
       "metrics": {},
@@ -44,82 +44,14 @@
     {
       "name": "clean-baseline-reset-seed",
       "command": "pnpm verify:migrations",
-      "status": "passed",
-      "startedAt": "2026-08-02T22:18:22.727Z",
-      "finishedAt": "2026-08-02T22:18:43.823Z",
-      "durationMs": 21096,
+      "status": "failed",
+      "startedAt": "2026-08-02T23:31:51.736Z",
+      "finishedAt": "2026-08-02T23:31:52.831Z",
+      "durationMs": 1095,
       "logPath": "reports/verification/raw/clean-baseline-reset-seed.log",
-      "outputSha256": "f3d7cc15f774a16e32217ab1ed167280fe329258f7de46ac0be6977ec6511550",
-      "metrics": {
-        "migrationCount": 34
-      },
-      "exitCode": 0
-    },
-    {
-      "name": "postgres-redis-integration",
-      "command": "pnpm test:integration",
-      "status": "passed",
-      "startedAt": "2026-08-02T22:18:43.823Z",
-      "finishedAt": "2026-08-02T22:20:26.799Z",
-      "durationMs": 102976,
-      "logPath": "reports/verification/raw/postgres-redis-integration.log",
-      "outputSha256": "f3eba144b8f3071a3a2edc6905090d65b8e2cd164db0b9ed84b6c56139cc1d16",
-      "metrics": {
-        "testFiles": 27,
-        "tests": 143
-      },
-      "exitCode": 0
-    },
-    {
-      "name": "postgres-redis-model-mcp-e2e",
-      "command": "pnpm test:e2e",
-      "status": "passed",
-      "startedAt": "2026-08-02T22:20:26.799Z",
-      "finishedAt": "2026-08-02T22:21:19.909Z",
-      "durationMs": 53110,
-      "logPath": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
-      "outputSha256": "594a9ce3a2a2d2d5f4e9dfd11a218823a696ae73c67ddd5ad0ec7c5c894ccd2f",
-      "metrics": {
-        "testFiles": 6,
-        "tests": 72
-      },
-      "exitCode": 0
-    },
-    {
-      "name": "infrastructure-smoke",
-      "command": "pnpm smoke:infra",
-      "status": "passed",
-      "startedAt": "2026-08-02T22:21:19.910Z",
-      "finishedAt": "2026-08-02T22:21:23.133Z",
-      "durationMs": 3223,
-      "logPath": "reports/verification/raw/infrastructure-smoke.log",
-      "outputSha256": "e63cc35c6f3bcf998e382f2b45c0967659fa4e5645ed5415bd9392380017e630",
+      "outputSha256": "de348ec3f1239b9a46fb284930cbcbb74902c902ef7ab805891fb3349a2c2f1d",
       "metrics": {},
-      "exitCode": 0
-    },
-    {
-      "name": "server-console-smoke",
-      "command": "pnpm smoke:server",
-      "status": "passed",
-      "startedAt": "2026-08-02T22:21:23.133Z",
-      "finishedAt": "2026-08-02T22:21:42.701Z",
-      "durationMs": 19568,
-      "logPath": "reports/verification/raw/server-console-smoke.log",
-      "outputSha256": "f5864784e4e3262f9af572dba862fa6af8c129d6ff51997556221934fcada2e0",
-      "metrics": {},
-      "exitCode": 0
-    },
-    {
-      "name": "node-control-api-worker-smoke",
-      "command": "pnpm smoke:node-control",
-      "status": "passed",
-      "startedAt": "2026-08-02T22:21:42.701Z",
-      "finishedAt": "2026-08-02T22:22:26.803Z",
-      "durationMs": 44102,
-      "logPath": "reports/verification/raw/node-control-api-worker-smoke.log",
-      "outputSha256": "a491da1119dbf8b764f4af8272ca079af1427e716523e288066c8fe22f5bffaf",
-      "metrics": {},
-      "exitCode": 0
+      "exitCode": 1
     }
   ]
 }
