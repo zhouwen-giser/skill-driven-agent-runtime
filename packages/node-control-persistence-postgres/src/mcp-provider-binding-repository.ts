@@ -85,6 +85,15 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
     return findRecord(this.#pool, bindingId, revision);
   }
 
+  async findLatestActive(bindingId: string): Promise<McpProviderBindingRecord | undefined> {
+    const result = await this.#pool.query<BindingRow>(
+      `SELECT * FROM sdar_control.mcp_provider_binding
+        WHERE binding_id=$1 AND status='active' ORDER BY revision DESC LIMIT 1`,
+      [bindingId],
+    );
+    return result.rows[0] === undefined ? undefined : mapRecord(result.rows[0]);
+  }
+
   async list(limit: number): Promise<readonly McpProviderBinding[]> {
     const result = await this.#pool.query<BindingRow>(
       `SELECT DISTINCT ON (binding_id) * FROM sdar_control.mcp_provider_binding
@@ -162,6 +171,7 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
   ): Promise<ManagementOperation> {
     return this.transaction(async (client) => {
       await lockBinding(client, record.binding.bindingId);
+      await lockLocalServer(client, record.binding.localServerId);
       const replay = await lockedReplay(client, 'mcp-binding:import', context);
       if (replay !== undefined) return replay;
       if ((await findRecord(client, record.binding.bindingId)) !== undefined)
@@ -374,6 +384,12 @@ function insertObservation(
 
 function lockBinding(client: PoolClient, bindingId: string) {
   return client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`mcp-binding:${bindingId}`]);
+}
+
+function lockLocalServer(client: PoolClient, localServerId: string) {
+  return client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+    `mcp-binding-local:${localServerId}`,
+  ]);
 }
 
 async function lockedReplay(

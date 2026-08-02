@@ -8,6 +8,7 @@ import {
 } from '../../node-control-domain/src/index.js';
 import { createMcpServer } from '../../domain/src/index.js';
 import { FrozenV1RegistryAdapter } from './frozen-v1-registry.js';
+import { FrozenV1McpClient } from './frozen-v1-mcp-client.js';
 
 const FROZEN_BASELINE_SHA256 = '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708';
 
@@ -15,14 +16,20 @@ export class NodeControlFrozenMcpCatalogClient implements NodeControlMcpCatalogC
   readonly #registry: FrozenV1RegistryAdapter;
   readonly #allowedAuthorities: ReadonlySet<string>;
 
-  constructor(
-    allowedAuthorities: readonly string[],
-    registry: FrozenV1RegistryAdapter = new FrozenV1RegistryAdapter(),
-  ) {
-    this.#registry = registry;
+  constructor(allowedAuthorities: readonly string[], registry?: FrozenV1RegistryAdapter) {
     this.#allowedAuthorities = new Set(
       allowedAuthorities.map((value) => value.trim().toLowerCase()).filter((value) => value !== ''),
     );
+    this.#registry =
+      registry ??
+      new FrozenV1RegistryAdapter(
+        new FrozenV1McpClient((input, init) =>
+          globalThis.fetch(allowedEndpoint(requestUrl(input), this.#allowedAuthorities), {
+            ...init,
+            redirect: 'manual',
+          }),
+        ),
+      );
   }
 
   async discover(input: Parameters<NodeControlMcpCatalogClient['discover']>[0]) {
@@ -51,18 +58,20 @@ export class NodeControlFrozenMcpCatalogClient implements NodeControlMcpCatalogC
         JSON.stringify({
           protocolVersion: discovered.snapshot.protocolVersion,
           serverInfo: discovered.snapshot.serverInfo,
-          tools: discovered.tools.map((tool) =>
-            Object.freeze({
-              name: tool.toolName,
-              title: tool.title ?? null,
-              description: tool.description ?? null,
-              inputSchema: tool.inputSchema,
-              outputSchema: tool.outputSchema ?? null,
-              protocolMode: tool.protocolMode ?? null,
-              executionSemantics: tool.executionSemantics,
-              taskExecutionProfile: tool.taskExecutionProfile ?? null,
-            }),
-          ),
+          tools: [...discovered.tools]
+            .sort((left, right) => compareToolName(left.toolName, right.toolName))
+            .map((tool) =>
+              Object.freeze({
+                name: tool.toolName,
+                title: tool.title ?? null,
+                description: tool.description ?? null,
+                inputSchema: tool.inputSchema,
+                outputSchema: tool.outputSchema ?? null,
+                protocolMode: tool.protocolMode ?? null,
+                executionSemantics: tool.executionSemantics,
+                taskExecutionProfile: tool.taskExecutionProfile ?? null,
+              }),
+            ),
         }),
       ) as JsonValue,
     );
@@ -114,4 +123,12 @@ function denied(): never {
   throw Object.assign(new Error('MCP endpoint is outside the configured SSRF allowlist.'), {
     code: 'MCP_ENDPOINT_NOT_ALLOWED',
   });
+}
+
+function requestUrl(input: string | URL | Request): string {
+  return input instanceof Request ? input.url : input.toString();
+}
+
+function compareToolName(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }

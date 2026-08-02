@@ -164,6 +164,54 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     expect(unsafe).toMatchObject({ status: 'failed', errorCode: 'MCP_ENDPOINT_NOT_ALLOWED' });
     await expect(repository.find('binding-unsafe')).resolves.toBeUndefined();
 
+    const redirected = await command('/api/v1/mcp-provider-bindings', 'p05-reject-redirect', {
+      reason: 'Prove an allowlisted endpoint cannot redirect discovery outside the allowlist.',
+      payload: {
+        bindingId: 'binding-redirect',
+        localServerId: 'redirect-server',
+        originType: 'direct',
+        credentialRef: 'secret://env/MCP_TEST_TOKEN',
+        endpointRef: `${providerBaseUrl}/redirect`,
+      },
+    });
+    expect(redirected).toMatchObject({
+      status: 'failed',
+      errorCode: 'MCP_PROVIDER_DISCOVERY_FAILED',
+    });
+    await expect(repository.find('binding-redirect')).resolves.toBeUndefined();
+
+    const concurrent = await Promise.all([
+      command('/api/v1/mcp-provider-bindings', 'p05-concurrent-binding-a', {
+        reason: 'Serialize the local MCP Server identity.',
+        payload: {
+          bindingId: 'binding-concurrent-a',
+          localServerId: 'catalog-concurrent',
+          originType: 'direct',
+          credentialRef: 'secret://env/MCP_TEST_TOKEN',
+          endpointRef: `${providerBaseUrl}/mcp`,
+        },
+      }),
+      command('/api/v1/mcp-provider-bindings', 'p05-concurrent-binding-b', {
+        reason: 'Serialize the local MCP Server identity.',
+        payload: {
+          bindingId: 'binding-concurrent-b',
+          localServerId: 'catalog-concurrent',
+          originType: 'direct',
+          credentialRef: 'secret://env/MCP_TEST_TOKEN',
+          endpointRef: `${providerBaseUrl}/mcp`,
+        },
+      }),
+    ]);
+    expect(concurrent.map((operation) => operation['status']).sort()).toEqual([
+      'failed',
+      'succeeded',
+    ]);
+    const localBindings = await controlPool.query<{ count: string }>(
+      `SELECT count(DISTINCT binding_id)::text AS count
+         FROM sdar_control.mcp_provider_binding WHERE local_server_id='catalog-concurrent'`,
+    );
+    expect(localBindings.rows).toEqual([{ count: '1' }]);
+
     provider.setCatalog('2.0.0', 'changed-field', 300_000);
     const refreshed = await command(
       '/api/v1/mcp-provider-bindings/binding-smpp/refresh',
@@ -177,6 +225,14 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     await expect(
       repository.findSelectable('catalog-from-smpp', new Date().toISOString()),
     ).resolves.toBeUndefined();
+    await expect(
+      command('/api/v1/mcp-provider-bindings/binding-smpp/refresh', 'p05-refresh-same-drift', {
+        reason: 'Repeated observation must not approve a drifted Catalog.',
+      }),
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      result: { status: 'degraded', resultCode: 'MCP_CATALOG_DRIFT_DETECTED' },
+    });
     await expect(
       publicGet('/api/v1/mcp-provider-bindings/binding-smpp?revision=1'),
     ).resolves.toMatchObject({ revision: 1, status: 'active' });
@@ -216,12 +272,20 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       }),
     ).resolves.toEqual(suspended);
     await expect(publicGet('/api/v1/mcp-provider-bindings/binding-smpp')).resolves.toMatchObject({
-      revision: 4,
+      revision: 5,
       status: 'removed',
     });
     await expect(
       publicGet('/api/v1/mcp-provider-bindings/binding-smpp?revision=1'),
     ).resolves.toMatchObject({ revision: 1, status: 'active' });
+    await expectConflict(
+      '/api/v1/mcp-provider-bindings/binding-smpp/refresh',
+      'p05-refresh-removed',
+    );
+    await expectConflict(
+      '/api/v1/mcp-provider-bindings/binding-smpp/suspend',
+      'p05-suspend-removed',
+    );
     const task = await runtimePool.query<{ phase: string; request_metadata: unknown }>(
       "SELECT phase,request_metadata FROM agent_task WHERE task_id='task-p05-running'",
     );
@@ -295,6 +359,16 @@ async function publicGet(path: string): Promise<unknown> {
   });
   expect(response.status).toBe(200);
   return response.json();
+}
+
+async function expectConflict(path: string, idempotencyKey: string): Promise<void> {
+  const response = await fetch(`${requireControlApi().baseUrl}${path}`, {
+    method: 'POST',
+    headers: publicHeaders(idempotencyKey),
+    body: JSON.stringify({ reason: 'A terminal Binding state cannot be reactivated.' }),
+  });
+  expect(response.status).toBe(409);
+  await expect(response.json()).resolves.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
 }
 
 function publicHeaders(idempotencyKey: string): Record<string, string> {
@@ -373,6 +447,10 @@ class FakeRegistryAndMcpProvider {
     }
     if (request.url === '/mcp' && request.method === 'POST') {
       await this.respondMcp(request, response);
+      return;
+    }
+    if (request.url === '/redirect' && request.method === 'POST') {
+      response.writeHead(302, { location: 'http://169.254.169.254/latest/meta-data' }).end();
       return;
     }
     response.writeHead(404).end();

@@ -213,6 +213,7 @@ export interface McpBindingImportRequest {
 
 export interface NodeControlMcpProviderBindingRepository {
   find(bindingId: string, revision?: number): Promise<McpProviderBindingRecord | undefined>;
+  findLatestActive(bindingId: string): Promise<McpProviderBindingRecord | undefined>;
   list(limit: number): Promise<readonly McpProviderBinding[]>;
   findSelectable(
     localServerId: string,

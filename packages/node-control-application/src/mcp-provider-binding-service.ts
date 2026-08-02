@@ -147,6 +147,11 @@ export class NodeControlMcpProviderBindingService {
     const context = this.context('mcp-binding:refresh', idempotencyKey, reason, request);
     const replay = await this.#repository.findCommandReplay('mcp-binding:refresh', context);
     if (replay !== undefined) return replay;
+    if (prior.binding.status === 'suspended' || prior.binding.status === 'removed')
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        'Suspended or removed MCP Provider Bindings cannot be refreshed.',
+      );
     const operation = this.operation(
       'mcp_provider_binding.refresh',
       prior.binding.bindingId,
@@ -154,6 +159,7 @@ export class NodeControlMcpProviderBindingService {
       context,
     );
     try {
+      const approved = await this.#repository.findLatestActive(prior.binding.bindingId);
       const discovery = await this.#catalog.discover({
         localServerId: prior.binding.localServerId,
         endpointRef: prior.binding.endpointRef,
@@ -162,7 +168,7 @@ export class NodeControlMcpProviderBindingService {
         observedAt: context.occurredAt,
         snapshotId: this.#ids.next(),
       });
-      const drift = discovery.catalogChecksum !== prior.binding.catalogChecksum;
+      const drift = discovery.catalogChecksum !== approved?.binding.catalogChecksum;
       const record = createMcpProviderBindingRecord({
         binding: {
           ...prior.binding,
@@ -222,6 +228,11 @@ export class NodeControlMcpProviderBindingService {
     );
     const replay = await this.#repository.findCommandReplay(`mcp-binding:${status}`, context);
     if (replay !== undefined) return replay;
+    if (prior.binding.status === 'removed' || prior.binding.status === status)
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        `MCP Provider Binding cannot transition from ${prior.binding.status} to ${status}.`,
+      );
     const operation = this.operation(
       `mcp_provider_binding.${status}`,
       bindingId,
