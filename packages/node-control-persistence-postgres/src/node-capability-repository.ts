@@ -83,14 +83,38 @@ export class PostgresNodeControlCapabilityRepository implements NodeControlCapab
     this.#pool = pool;
   }
 
-  async createDraft(capability: NodeCapabilityDefinitionVersion) {
+  async createDraft(
+    capability: NodeCapabilityDefinitionVersion,
+    context: ConfigurationMutationContext,
+  ) {
     try {
-      await insertCapability(
-        this.#pool,
-        capability,
-        capability.createdAt ?? new Date().toISOString(),
-      );
-      return capability;
+      return await this.transaction(async (client) => {
+        await lockCapability(client, capability.capabilityId, capability.version);
+        const receipt = await readReceipt(client, 'capability:create', context);
+        if (receipt !== undefined) {
+          const replay = await findCapability(client, capability.capabilityId, capability.version);
+          if (replay === undefined) throw new Error('CONTROL_CAPABILITY_RECEIPT_DANGLING');
+          return replay;
+        }
+        if (
+          (await findCapability(client, capability.capabilityId, capability.version)) !== undefined
+        )
+          throw new NodeControlCapabilityError(
+            'NODE_CAPABILITY_CONFLICT',
+            'Capability Version already exists.',
+          );
+        await insertCapability(client, capability, context.occurredAt);
+        await insertReceipt(
+          client,
+          'capability:create',
+          context,
+          capability.capabilityId,
+          capability.version,
+          null,
+        );
+        await insertAudit(client, capability, context, 'capability_draft_created');
+        return capability;
+      });
     } catch (error) {
       if (postgresCode(error) === '23505')
         throw new NodeControlCapabilityError(
@@ -115,34 +139,65 @@ export class PostgresNodeControlCapabilityRepository implements NodeControlCapab
     return result.rows.map(mapCapability);
   }
 
-  async createImplementation(binding: CapabilityImplementationBinding) {
+  async createImplementation(
+    binding: CapabilityImplementationBinding,
+    context: ConfigurationMutationContext,
+  ) {
     try {
-      await this.#pool.query(
-        `INSERT INTO sdar_control.capability_implementation_binding(
+      return await this.transaction(async (client) => {
+        await lockCapability(client, binding.capabilityId, binding.capabilityVersion);
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `capability-implementation:${binding.bindingId}`,
+        ]);
+        const receipt = await readReceipt(client, 'capability-implementation:create', context);
+        if (receipt !== undefined) {
+          const replay = await findBinding(client, binding.bindingId, binding.revision);
+          if (replay === undefined) throw new Error('CONTROL_CAPABILITY_RECEIPT_DANGLING');
+          return replay;
+        }
+        const capability = await findCapability(
+          client,
+          binding.capabilityId,
+          binding.capabilityVersion,
+        );
+        if (capability?.status !== 'draft' && capability?.status !== 'validating') conflict();
+        await client.query(
+          `INSERT INTO sdar_control.capability_implementation_binding(
            binding_id,revision,capability_id,capability_version,implementation_type,
            implementation_id,implementation_version,role,priority,activation_condition,
            provider_policy_override,status,created_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,clock_timestamp())`,
-        [
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13)`,
+          [
+            binding.bindingId,
+            binding.revision,
+            binding.capabilityId,
+            binding.capabilityVersion,
+            binding.implementationType,
+            binding.implementationId,
+            binding.implementationVersion,
+            binding.role,
+            binding.priority,
+            binding.activationCondition === undefined
+              ? null
+              : JSON.stringify(binding.activationCondition),
+            binding.providerPolicyOverride === undefined
+              ? null
+              : JSON.stringify(binding.providerPolicyOverride),
+            binding.status,
+            context.occurredAt,
+          ],
+        );
+        await insertReceipt(
+          client,
+          'capability-implementation:create',
+          context,
           binding.bindingId,
           binding.revision,
-          binding.capabilityId,
-          binding.capabilityVersion,
-          binding.implementationType,
-          binding.implementationId,
-          binding.implementationVersion,
-          binding.role,
-          binding.priority,
-          binding.activationCondition === undefined
-            ? null
-            : JSON.stringify(binding.activationCondition),
-          binding.providerPolicyOverride === undefined
-            ? null
-            : JSON.stringify(binding.providerPolicyOverride),
-          binding.status,
-        ],
-      );
-      return binding;
+          null,
+        );
+        await insertBindingAudit(client, binding, context);
+        return binding;
+      });
     } catch (error) {
       if (postgresCode(error) === '23505')
         throw new NodeControlCapabilityError(
@@ -208,6 +263,22 @@ export class PostgresNodeControlCapabilityRepository implements NodeControlCapab
     const operation = await findOperation(this.#pool, receipt.operation_id);
     if (operation === undefined) throw new Error('CONTROL_CAPABILITY_RECEIPT_DANGLING');
     return operation;
+  }
+
+  async hasCommandReceipt(scope: string, context: ConfigurationMutationContext) {
+    return (await readReceipt(this.#pool, scope, context)) !== undefined;
+  }
+
+  async findImplementationReplay(
+    context: ConfigurationMutationContext,
+    bindingId: string,
+    revision: number,
+  ) {
+    const receipt = await readReceipt(this.#pool, 'capability-implementation:create', context);
+    if (receipt === undefined) return undefined;
+    const binding = await findBinding(this.#pool, bindingId, revision);
+    if (binding === undefined) throw new Error('CONTROL_CAPABILITY_RECEIPT_DANGLING');
+    return binding;
   }
 
   async transition(
@@ -318,6 +389,19 @@ async function findCapability(
     [capabilityId, version],
   );
   return result.rows[0] === undefined ? undefined : mapCapability(result.rows[0]);
+}
+
+async function findBinding(
+  database: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
+  bindingId: string,
+  revision: number,
+) {
+  const result = await database.query<BindingRow>(
+    `SELECT * FROM sdar_control.capability_implementation_binding
+      WHERE binding_id=$1 AND revision=$2`,
+    [bindingId, revision],
+  );
+  return result.rows[0] === undefined ? undefined : mapBinding(result.rows[0]);
 }
 
 function mapCapability(row: CapabilityRow): NodeCapabilityDefinitionVersion {
@@ -452,6 +536,28 @@ function insertAudit(
       context.reason,
       context.requestHash,
       resultCode,
+      context.occurredAt,
+    ],
+  );
+}
+
+function insertBindingAudit(
+  client: PoolClient,
+  binding: CapabilityImplementationBinding,
+  context: ConfigurationMutationContext,
+) {
+  return client.query(
+    `INSERT INTO sdar_control.control_audit_event(
+       audit_id,actor_id,action,aggregate_type,aggregate_id,result_revision,reason,
+       request_hash,result_code,created_at)
+     VALUES(gen_random_uuid()::text,$1,'capability_implementation.create',
+            'capability_implementation_binding',$2,$3,$4,$5,'binding_created',$6)`,
+    [
+      context.actorId,
+      binding.bindingId,
+      binding.revision,
+      context.reason,
+      context.requestHash,
       context.occurredAt,
     ],
   );

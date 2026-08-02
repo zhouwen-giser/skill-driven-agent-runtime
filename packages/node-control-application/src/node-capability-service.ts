@@ -6,6 +6,7 @@ import {
   createManagementOperation,
   createNodeCapabilityDefinition,
   hashConfigurationRequest,
+  nodeCapabilityEtag,
   transitionManagementOperation,
   type CapabilityImplementationBinding,
   type JsonObject,
@@ -26,6 +27,7 @@ export type NodeControlCapabilityErrorCode =
   | 'NODE_CAPABILITY_CONFLICT'
   | 'CAPABILITY_IMPLEMENTATION_NOT_FOUND'
   | 'NODE_CAPABILITY_SCHEMA_INVALID'
+  | 'PRECONDITION_FAILED'
   | 'IDEMPOTENCY_KEY_REUSED';
 
 export class NodeControlCapabilityError extends Error {
@@ -68,7 +70,7 @@ export class NodeControlCapabilityService {
     return this.requireCapability(capabilityId, version);
   }
 
-  async createDraft(input: NodeCapabilityDefinitionVersion) {
+  async createDraft(input: NodeCapabilityDefinitionVersion, idempotencyKey: string) {
     if (input.status !== 'draft')
       throw new NodeControlCapabilityError(
         'NODE_CAPABILITY_CONFLICT',
@@ -86,17 +88,40 @@ export class NodeControlCapabilityService {
           'previousVersion must identify an existing Capability Version.',
         );
     }
-    return this.#repository.createDraft(definition);
+    return this.#repository.createDraft(
+      definition,
+      this.context(
+        'capability:create',
+        idempotencyKey,
+        'Create Capability Version draft.',
+        requestJson(definition),
+      ),
+    );
   }
 
-  async addImplementation(input: CapabilityImplementationBinding) {
-    const capability = await this.requireCapability(input.capabilityId, input.capabilityVersion);
+  async addImplementation(input: CapabilityImplementationBinding, idempotencyKey: string) {
+    const binding = createCapabilityImplementationBinding(input);
+    const context = this.context(
+      'capability-implementation:create',
+      idempotencyKey,
+      'Create Capability Implementation Binding.',
+      requestJson(binding),
+    );
+    const replay = await this.#repository.findImplementationReplay(
+      context,
+      binding.bindingId,
+      binding.revision,
+    );
+    if (replay !== undefined) return replay;
+    const capability = await this.requireCapability(
+      binding.capabilityId,
+      binding.capabilityVersion,
+    );
     if (capability.status !== 'draft' && capability.status !== 'validating')
       throw new NodeControlCapabilityError(
         'NODE_CAPABILITY_CONFLICT',
         'Published or terminal Capability Versions cannot accept implementation bindings.',
       );
-    const binding = createCapabilityImplementationBinding(input);
     if (
       !(await this.#catalog.exists(
         binding.implementationType,
@@ -108,15 +133,28 @@ export class NodeControlCapabilityService {
         'CAPABILITY_IMPLEMENTATION_NOT_FOUND',
         'The exact Skill or Plan Template Version does not exist in its authority.',
       );
-    return this.#repository.createImplementation(binding);
+    return this.#repository.createImplementation(binding, context);
   }
 
   listImplementations(capabilityId: string, version: number, limit = 100) {
     return this.#repository.listImplementations(capabilityId, version, boundedLimit(limit));
   }
 
-  async validate(capabilityId: string, version: number, idempotencyKey: string, reason: string) {
+  async validate(
+    capabilityId: string,
+    version: number,
+    expectedEtag: string,
+    idempotencyKey: string,
+    reason: string,
+  ) {
     const capability = await this.requireCapability(capabilityId, version);
+    const context = this.context('capability:validate', idempotencyKey, reason, {
+      capabilityId,
+      version,
+    });
+    if (await this.#repository.hasCommandReceipt('capability:validate', context))
+      return this.#repository.validate(capability, capability, context);
+    assertEtag(capability, expectedEtag);
     if (capability.status !== 'draft' && capability.status !== 'validating')
       throw new NodeControlCapabilityError(
         'NODE_CAPABILITY_CONFLICT',
@@ -131,16 +169,13 @@ export class NodeControlCapabilityService {
     await this.assertImplementationsExist(implementations);
     const validating = createNodeCapabilityDefinition({ ...capability, status: 'validating' });
     assertNodeCapabilityPublishable(validating, implementations);
-    return this.#repository.validate(
-      capability,
-      validating,
-      this.context('capability:validate', idempotencyKey, reason, { capabilityId, version }),
-    );
+    return this.#repository.validate(capability, validating, context);
   }
 
   async publish(
     capabilityId: string,
     version: number,
+    expectedEtag: string,
     idempotencyKey: string,
     reason: string,
   ): Promise<ManagementOperation> {
@@ -152,6 +187,7 @@ export class NodeControlCapabilityService {
     });
     const replay = await this.#repository.findCommandReplay('capability:published', replayContext);
     if (replay !== undefined) return replay;
+    assertEtag(capability, expectedEtag);
     this.assertSchemasValid(capability);
     const implementations = await this.#repository.listImplementations(
       capabilityId,
@@ -160,31 +196,52 @@ export class NodeControlCapabilityService {
     );
     await this.assertImplementationsExist(implementations);
     assertNodeCapabilityPublishable(capability, implementations);
-    return this.transition(capability, 'published', idempotencyKey, reason);
+    return this.transition(capability, 'published', expectedEtag, idempotencyKey, reason);
   }
 
-  async suspend(capabilityId: string, version: number, key: string, reason: string) {
+  async suspend(
+    capabilityId: string,
+    version: number,
+    expectedEtag: string,
+    key: string,
+    reason: string,
+  ) {
     return this.transition(
       await this.requireCapability(capabilityId, version),
       'suspended',
+      expectedEtag,
       key,
       reason,
     );
   }
 
-  async deprecate(capabilityId: string, version: number, key: string, reason: string) {
+  async deprecate(
+    capabilityId: string,
+    version: number,
+    expectedEtag: string,
+    key: string,
+    reason: string,
+  ) {
     return this.transition(
       await this.requireCapability(capabilityId, version),
       'deprecated',
+      expectedEtag,
       key,
       reason,
     );
   }
 
-  async retire(capabilityId: string, version: number, key: string, reason: string) {
+  async retire(
+    capabilityId: string,
+    version: number,
+    expectedEtag: string,
+    key: string,
+    reason: string,
+  ) {
     return this.transition(
       await this.requireCapability(capabilityId, version),
       'retired',
+      expectedEtag,
       key,
       reason,
     );
@@ -193,6 +250,7 @@ export class NodeControlCapabilityService {
   private async transition(
     prior: NodeCapabilityDefinitionVersion,
     status: Exclude<NodeCapabilityStatus, 'draft' | 'validating'>,
+    expectedEtag: string,
     idempotencyKey: string,
     reason: string,
   ): Promise<ManagementOperation> {
@@ -203,6 +261,7 @@ export class NodeControlCapabilityService {
     });
     const replay = await this.#repository.findCommandReplay(`capability:${status}`, context);
     if (replay !== undefined) return replay;
+    assertEtag(prior, expectedEtag);
     assertTransition(prior.status, status);
     const accepted = createManagementOperation(
       {
@@ -304,4 +363,16 @@ function assertTransition(from: NodeCapabilityStatus, to: NodeCapabilityStatus):
 
 function boundedLimit(value: number): number {
   return Number.isSafeInteger(value) && value >= 1 && value <= 1_000 ? value : 100;
+}
+
+function assertEtag(capability: NodeCapabilityDefinitionVersion, expectedEtag: string): void {
+  if (expectedEtag.trim() !== nodeCapabilityEtag(capability))
+    throw new NodeControlCapabilityError(
+      'PRECONDITION_FAILED',
+      'If-Match does not identify the current Capability Version state.',
+    );
+}
+
+function requestJson(value: object): JsonObject {
+  return JSON.parse(JSON.stringify(value)) as JsonObject;
 }

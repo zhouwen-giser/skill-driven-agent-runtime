@@ -16,6 +16,7 @@ export class PostgresRuntimeCapabilityImplementationCatalog implements NodeContr
     implementationId: string,
     implementationVersion: string,
   ): Promise<boolean> {
+    if (!/^[1-9][0-9]*$/u.test(implementationVersion)) return false;
     const version = Number(implementationVersion);
     if (!Number.isSafeInteger(version) || version < 1) return false;
     const result =

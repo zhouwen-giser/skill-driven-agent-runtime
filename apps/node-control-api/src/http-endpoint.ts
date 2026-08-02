@@ -19,6 +19,7 @@ import {
 } from '../../../packages/node-control-application/src/index.js';
 import {
   NodeControlDomainError,
+  nodeCapabilityEtag,
   smppSourceEtag,
 } from '../../../packages/node-control-domain/src/index.js';
 import { RevisionHintBroker } from './revision-hint-broker.js';
@@ -483,29 +484,32 @@ export function createNodeControlHttpApp(
     try {
       const input = NodeCapabilitySchema.parse(request.body);
       response.status(201).json(
-        await requiredCapabilities(configuration).createDraft({
-          capabilityId: input.capabilityId,
-          version: input.version,
-          domain: input.domain,
-          name: input.name,
-          description: input.description,
-          inputSchema: input.inputSchema,
-          outputSchema: input.outputSchema,
-          successCriteria: input.successCriteria,
-          requiredEvidence: input.requiredEvidence,
-          ...(input.effects === undefined ? {} : { effects: input.effects }),
-          ...(input.artifacts === undefined ? {} : { artifacts: input.artifacts }),
-          ...(input.constraints === undefined ? {} : { constraints: input.constraints }),
-          ...(input.supportedModes === undefined ? {} : { supportedModes: input.supportedModes }),
-          riskLevel: input.riskLevel,
-          status: input.status,
-          definitionHash: input.definitionHash,
-          ...(input.previousVersion === undefined
-            ? {}
-            : { previousVersion: input.previousVersion }),
-          ...(input.createdBy === undefined ? {} : { createdBy: input.createdBy }),
-          ...(input.createdAt === undefined ? {} : { createdAt: input.createdAt }),
-        }),
+        await requiredCapabilities(configuration).createDraft(
+          {
+            capabilityId: input.capabilityId,
+            version: input.version,
+            domain: input.domain,
+            name: input.name,
+            description: input.description,
+            inputSchema: input.inputSchema,
+            outputSchema: input.outputSchema,
+            successCriteria: input.successCriteria,
+            requiredEvidence: input.requiredEvidence,
+            ...(input.effects === undefined ? {} : { effects: input.effects }),
+            ...(input.artifacts === undefined ? {} : { artifacts: input.artifacts }),
+            ...(input.constraints === undefined ? {} : { constraints: input.constraints }),
+            ...(input.supportedModes === undefined ? {} : { supportedModes: input.supportedModes }),
+            riskLevel: input.riskLevel,
+            status: input.status,
+            definitionHash: input.definitionHash,
+            ...(input.previousVersion === undefined
+              ? {}
+              : { previousVersion: input.previousVersion }),
+            ...(input.createdBy === undefined ? {} : { createdBy: input.createdBy }),
+            ...(input.createdAt === undefined ? {} : { createdAt: input.createdAt }),
+          },
+          requiredHeader(request, 'idempotency-key'),
+        ),
       );
     } catch (error) {
       next(error);
@@ -516,14 +520,11 @@ export function createNodeControlHttpApp(
     '/api/v1/node-capabilities/:capabilityId/versions/:version',
     async (request, response, next) => {
       try {
-        response
-          .status(200)
-          .json(
-            await requiredCapabilities(configuration).get(
-              request.params.capabilityId,
-              positiveRevision(request.params.version),
-            ),
-          );
+        const capability = await requiredCapabilities(configuration).get(
+          request.params.capabilityId,
+          positiveRevision(request.params.version),
+        );
+        response.status(200).set('etag', nodeCapabilityEtag(capability)).json(capability);
       } catch (error) {
         next(error);
       }
@@ -561,24 +562,27 @@ export function createNodeControlHttpApp(
             'Capability Implementation path and body identities must match.',
           );
         response.status(201).json(
-          await requiredCapabilities(configuration).addImplementation({
-            bindingId: input.bindingId,
-            capabilityId: input.capabilityId,
-            capabilityVersion: input.capabilityVersion,
-            implementationType: input.implementationType,
-            implementationId: input.implementationId,
-            implementationVersion: input.implementationVersion,
-            role: input.role,
-            priority: input.priority,
-            ...(input.activationCondition === undefined
-              ? {}
-              : { activationCondition: input.activationCondition }),
-            ...(input.providerPolicyOverride === undefined
-              ? {}
-              : { providerPolicyOverride: input.providerPolicyOverride }),
-            status: input.status,
-            revision: input.revision,
-          }),
+          await requiredCapabilities(configuration).addImplementation(
+            {
+              bindingId: input.bindingId,
+              capabilityId: input.capabilityId,
+              capabilityVersion: input.capabilityVersion,
+              implementationType: input.implementationType,
+              implementationId: input.implementationId,
+              implementationVersion: input.implementationVersion,
+              role: input.role,
+              priority: input.priority,
+              ...(input.activationCondition === undefined
+                ? {}
+                : { activationCondition: input.activationCondition }),
+              ...(input.providerPolicyOverride === undefined
+                ? {}
+                : { providerPolicyOverride: input.providerPolicyOverride }),
+              status: input.status,
+              revision: input.revision,
+            },
+            requiredHeader(request, 'idempotency-key'),
+          ),
         );
       } catch (error) {
         next(error);
@@ -596,6 +600,7 @@ export function createNodeControlHttpApp(
           const args = [
             request.params.capabilityId,
             positiveRevision(request.params.version),
+            requiredHeader(request, 'if-match'),
             requiredHeader(request, 'idempotency-key'),
             command.reason,
           ] as const;
@@ -838,10 +843,12 @@ export function createNodeControlHttpApp(
         status:
           error.code === 'NODE_CAPABILITY_NOT_FOUND'
             ? 404
-            : error.code === 'CAPABILITY_IMPLEMENTATION_NOT_FOUND' ||
-                error.code === 'NODE_CAPABILITY_SCHEMA_INVALID'
-              ? 422
-              : 409,
+            : error.code === 'PRECONDITION_FAILED'
+              ? 412
+              : error.code === 'CAPABILITY_IMPLEMENTATION_NOT_FOUND' ||
+                  error.code === 'NODE_CAPABILITY_SCHEMA_INVALID'
+                ? 422
+                : 409,
         code: error.code,
         title: 'Node Capability command rejected',
         detail: error.message,

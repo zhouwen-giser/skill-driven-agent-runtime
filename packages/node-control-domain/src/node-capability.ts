@@ -160,6 +160,10 @@ export function assertNodeCapabilityPublishable(
     invalid('At least one active primary or alternative implementation is required.');
 }
 
+export function nodeCapabilityEtag(capability: NodeCapabilityDefinitionVersion): string {
+  return `"node-capability:${capability.capabilityId}:${String(capability.version)}:${capability.status}:${capability.definitionHash}"`;
+}
+
 function normalizeDefinition(
   input: Omit<NodeCapabilityDefinitionVersion, 'definitionHash'> &
     Readonly<{ definitionHash?: string }>,
@@ -184,12 +188,10 @@ function normalizeDefinition(
     outputSchema: object(input.outputSchema),
     successCriteria: objects(input.successCriteria),
     requiredEvidence: objects(input.requiredEvidence),
-    ...(input.effects === undefined ? {} : { effects: strings(input.effects, 'effects') }),
-    ...(input.artifacts === undefined ? {} : { artifacts: strings(input.artifacts, 'artifacts') }),
-    ...(input.constraints === undefined ? {} : { constraints: objects(input.constraints) }),
-    ...(input.supportedModes === undefined
-      ? {}
-      : { supportedModes: strings(input.supportedModes, 'supportedModes') }),
+    effects: strings(input.effects ?? [], 'effects'),
+    artifacts: strings(input.artifacts ?? [], 'artifacts'),
+    constraints: objects(input.constraints ?? []),
+    supportedModes: strings(input.supportedModes ?? [], 'supportedModes'),
     riskLevel: input.riskLevel,
     status: input.status,
     ...(input.previousVersion === undefined ? {} : { previousVersion: input.previousVersion }),

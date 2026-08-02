@@ -20,18 +20,21 @@ describe('P06 Node Capability service', () => {
     });
 
     await expect(
-      service.addImplementation({
-        bindingId: 'binding.plan.p06',
-        capabilityId: 'device.inspect.p06',
-        capabilityVersion: 1,
-        implementationType: 'plan_template',
-        implementationId: 'artifact.plan.p06',
-        implementationVersion: '7',
-        role: 'alternative',
-        priority: 10,
-        status: 'active',
-        revision: 1,
-      }),
+      service.addImplementation(
+        {
+          bindingId: 'binding.plan.p06',
+          capabilityId: 'device.inspect.p06',
+          capabilityVersion: 1,
+          implementationType: 'plan_template',
+          implementationId: 'artifact.plan.p06',
+          implementationVersion: '7',
+          role: 'alternative',
+          priority: 10,
+          status: 'active',
+          revision: 1,
+        },
+        'p06-plan-binding-idempotency',
+      ),
     ).resolves.toMatchObject({ implementationType: 'plan_template', implementationVersion: '7' });
     expect(exists).toHaveBeenCalledWith('plan_template', 'artifact.plan.p06', '7');
   });
@@ -63,6 +66,8 @@ function memoryRepository(): NodeControlCapabilityRepository {
     listImplementations: () => Promise.resolve([]),
     validate: (_prior, validating) => Promise.resolve(validating),
     findCommandReplay: () => Promise.resolve(undefined),
+    hasCommandReceipt: () => Promise.resolve(false),
+    findImplementationReplay: () => Promise.resolve(undefined),
     transition: (_prior, _next, operation) => Promise.resolve(operation),
   };
 }

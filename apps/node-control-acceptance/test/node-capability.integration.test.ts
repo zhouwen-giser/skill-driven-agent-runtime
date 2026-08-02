@@ -6,7 +6,10 @@ import {
   type NodeControlApiRuntime,
 } from '../../node-control-api/src/runtime.js';
 import { applyRuntimeMigrations } from '../../server/src/runtime.js';
-import { createNodeCapabilityDefinition } from '../../../packages/node-control-domain/src/index.js';
+import {
+  createNodeCapabilityDefinition,
+  nodeCapabilityEtag,
+} from '../../../packages/node-control-domain/src/index.js';
 import { applyControlMigrations } from '../../../packages/node-control-persistence-postgres/src/index.js';
 
 const runtimeConnectionString =
@@ -81,6 +84,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
     await request('/api/v1/node-capabilities', {
       method: 'POST',
       body: invalidSchema,
+      idempotencyKey: 'p06-create-invalid-schema',
       expectedStatus: 201,
     });
     await expect(
@@ -88,6 +92,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
         '/api/v1/node-capabilities/device.invalid-schema.p06/versions/1/validate',
         'p06-reject-invalid-schema',
         'Reject malformed input JSON Schema.',
+        nodeCapabilityEtag(invalidSchema),
         422,
       ),
     ).resolves.toMatchObject({ code: 'NODE_CAPABILITY_SCHEMA_INVALID' });
@@ -119,14 +124,34 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
     const created = await request('/api/v1/node-capabilities', {
       method: 'POST',
       body: draft,
+      idempotencyKey: 'p06-create-capability',
       expectedStatus: 201,
     });
     expect(created).toMatchObject({ status: 'draft', definitionHash: draft.definitionHash });
+    await expect(
+      request('/api/v1/node-capabilities', {
+        method: 'POST',
+        body: draft,
+        idempotencyKey: 'p06-create-capability',
+        expectedStatus: 201,
+      }),
+    ).resolves.toEqual(created);
+
+    await expect(
+      command(
+        '/api/v1/node-capabilities/device.inspect.p06/versions/1/validate',
+        'p06-reject-stale-etag',
+        'Reject stale optimistic concurrency state.',
+        '"node-capability:stale"',
+        412,
+      ),
+    ).resolves.toMatchObject({ code: 'PRECONDITION_FAILED' });
 
     const noPath = await command(
       '/api/v1/node-capabilities/device.inspect.p06/versions/1/validate',
       'p06-validate-without-path',
       'Reject a Capability without an executable path.',
+      nodeCapabilityEtag(draft),
       422,
     );
     expect(noPath).toMatchObject({ code: 'NODE_CAPABILITY_INVALID' });
@@ -136,6 +161,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       {
         method: 'POST',
         body: binding('resource', 'resource.p06', '1'),
+        idempotencyKey: 'p06-reject-resource-binding',
         expectedStatus: 400,
       },
     );
@@ -146,24 +172,37 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       {
         method: 'POST',
         body: binding('skill', 'skill.p06.missing', '1'),
+        idempotencyKey: 'p06-reject-missing-binding',
         expectedStatus: 422,
       },
     );
     expect(missing).toMatchObject({ code: 'CAPABILITY_IMPLEMENTATION_NOT_FOUND' });
 
+    const activeBinding = await request(
+      '/api/v1/node-capabilities/device.inspect.p06/versions/1/implementations',
+      {
+        method: 'POST',
+        body: binding('skill', 'skill.p06.inspect', '1'),
+        idempotencyKey: 'p06-create-skill-binding',
+        expectedStatus: 201,
+      },
+    );
+    expect(activeBinding).toMatchObject({ role: 'primary', status: 'active' });
     await expect(
       request('/api/v1/node-capabilities/device.inspect.p06/versions/1/implementations', {
         method: 'POST',
         body: binding('skill', 'skill.p06.inspect', '1'),
+        idempotencyKey: 'p06-create-skill-binding',
         expectedStatus: 201,
       }),
-    ).resolves.toMatchObject({ role: 'primary', status: 'active' });
+    ).resolves.toEqual(activeBinding);
 
     await expect(
       command(
         '/api/v1/node-capabilities/device.inspect.p06/versions/1/validate',
         'p06-validate-capability',
         'Validate every business promise and exact implementation.',
+        nodeCapabilityEtag(draft),
         200,
       ),
     ).resolves.toMatchObject({ status: 'validating', definitionHash: draft.definitionHash });
@@ -171,6 +210,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       '/api/v1/node-capabilities/device.inspect.p06/versions/1/publish',
       'p06-publish-capability',
       'Publish the validated Capability Version.',
+      nodeCapabilityEtag({ ...draft, status: 'validating' }),
       202,
     );
     expect(publishedOperation).toMatchObject({
@@ -182,6 +222,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
         '/api/v1/node-capabilities/device.inspect.p06/versions/1/publish',
         'p06-publish-capability',
         'Publish the validated Capability Version.',
+        nodeCapabilityEtag({ ...draft, status: 'validating' }),
         202,
       ),
     ).resolves.toEqual(publishedOperation);
@@ -198,11 +239,21 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       ),
     ).rejects.toMatchObject({ code: '55000' });
 
+    await expect(
+      request('/api/v1/node-capabilities/device.inspect.p06/versions/1/implementations', {
+        method: 'POST',
+        body: binding('skill', 'skill.p06.inspect', '1'),
+        idempotencyKey: 'p06-create-skill-binding',
+        expectedStatus: 201,
+      }),
+    ).resolves.toEqual(activeBinding);
+
     const lateBinding = await request(
       '/api/v1/node-capabilities/device.inspect.p06/versions/1/implementations',
       {
         method: 'POST',
         body: { ...binding('skill', 'skill.p06.inspect', '1'), bindingId: 'binding.p06.late' },
+        idempotencyKey: 'p06-reject-late-binding',
         expectedStatus: 409,
       },
     );
@@ -229,11 +280,18 @@ function binding(
   };
 }
 
-async function command(path: string, key: string, reason: string, expectedStatus: number) {
+async function command(
+  path: string,
+  key: string,
+  reason: string,
+  ifMatch: string,
+  expectedStatus: number,
+) {
   return request(path, {
     method: 'POST',
     body: { reason },
     idempotencyKey: key,
+    ifMatch,
     expectedStatus,
   });
 }
@@ -244,6 +302,7 @@ async function request(
     method?: string;
     body?: unknown;
     idempotencyKey?: string;
+    ifMatch?: string;
     expectedStatus: number;
   }>,
 ) {
@@ -255,6 +314,7 @@ async function request(
       ...(options.idempotencyKey === undefined
         ? {}
         : { 'idempotency-key': options.idempotencyKey }),
+      ...(options.ifMatch === undefined ? {} : { 'if-match': options.ifMatch }),
     },
     ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
   });

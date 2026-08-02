@@ -271,6 +271,7 @@ export interface NodeControlCapabilitySchemaValidator {
 export interface NodeControlCapabilityRepository {
   createDraft(
     capability: NodeCapabilityDefinitionVersion,
+    context: ConfigurationMutationContext,
   ): Promise<NodeCapabilityDefinitionVersion>;
   find(capabilityId: string, version: number): Promise<NodeCapabilityDefinitionVersion | undefined>;
   list(
@@ -279,12 +280,19 @@ export interface NodeControlCapabilityRepository {
   ): Promise<readonly NodeCapabilityDefinitionVersion[]>;
   createImplementation(
     binding: CapabilityImplementationBinding,
+    context: ConfigurationMutationContext,
   ): Promise<CapabilityImplementationBinding>;
   listImplementations(
     capabilityId: string,
     version: number,
     limit: number,
   ): Promise<readonly CapabilityImplementationBinding[]>;
+  hasCommandReceipt(scope: string, context: ConfigurationMutationContext): Promise<boolean>;
+  findImplementationReplay(
+    context: ConfigurationMutationContext,
+    bindingId: string,
+    revision: number,
+  ): Promise<CapabilityImplementationBinding | undefined>;
   validate(
     prior: NodeCapabilityDefinitionVersion,
     validating: NodeCapabilityDefinitionVersion,
