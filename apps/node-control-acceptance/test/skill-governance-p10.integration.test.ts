@@ -21,6 +21,7 @@ import type {
   ArtifactRuntimeBinding,
   CompiledArtifact,
 } from '../../../packages/domain/src/index.js';
+import { applyControlMigrations } from '../../../packages/node-control-persistence-postgres/src/index.js';
 import {
   PostgresArtifactGovernanceStore,
   PostgresArtifactRepository,
@@ -49,6 +50,11 @@ let planValidationSummaryHash: string;
 
 beforeAll(async () => {
   process.env['SDAR_V13_PROMOTION_ENABLED'] = 'true';
+  await applyControlMigrations(controlPool);
+  const controlNode = await controlPool.query<{ node_id: string }>(
+    'SELECT node_id FROM sdar_control.node_profile LIMIT 1',
+  );
+  const controlNodeId = controlNode.rows[0]?.node_id ?? 'node-p10';
   skillId = `skill.p10.vertical.${randomUUID()}`;
   const artifactIdentity = new ConfiguredBearerArtifactManagementIdentity({
     token: runtimeToken,
@@ -112,7 +118,7 @@ beforeAll(async () => {
     SDAR_CONTROL_API_PORT: 0,
     SDAR_CONTROL_API_TOKEN: apiToken,
     SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: runtimeToken,
-    SDAR_CONTROL_NODE_ID: 'node-p06',
+    SDAR_CONTROL_NODE_ID: controlNodeId,
     SDAR_CONTROL_NODE_TYPE: 'sdar-runtime',
     SDAR_CONTROL_NODE_DISPLAY_NAME: 'P10 Integration Node',
     SDAR_CONTROL_ENVIRONMENT: 'integration',
