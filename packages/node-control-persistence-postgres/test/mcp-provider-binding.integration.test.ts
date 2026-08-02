@@ -1,0 +1,532 @@
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+
+import { Pool } from 'pg';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import {
+  startNodeControlApi,
+  type NodeControlApiRuntime,
+} from '../../../apps/node-control-api/src/runtime.js';
+import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
+import {
+  computeSmppSnapshotChecksum,
+  smppCandidateIdentity,
+  type SmppProviderCandidate,
+} from '../../node-control-domain/src/index.js';
+import {
+  applyControlMigrations,
+  PostgresNodeControlMcpProviderBindingRepository,
+} from '../src/index.js';
+
+const runtimeConnectionString =
+  process.env['SDAR_TEST_POSTGRES_URL'] ??
+  'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar_v122_integration_gate';
+const controlConnectionString =
+  process.env['SDAR_CONTROL_TEST_POSTGRES_URL'] ??
+  'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar_control_v14_integration_gate';
+const apiToken = 'p05-control-api-token-000000000000000000000000';
+const runtimeToken = 'p05-runtime-service-token-0000000000000000000';
+const mcpCredential = 'p05-real-provider-secret';
+const smppCredential = 'p05-real-registry-secret';
+const runtimePool = new Pool({ connectionString: runtimeConnectionString, max: 4 });
+const controlPool = new Pool({ connectionString: controlConnectionString, max: 4 });
+const repository = new PostgresNodeControlMcpProviderBindingRepository(controlPool);
+let provider: FakeRegistryAndMcpProvider;
+let providerServer: Server | undefined;
+let providerBaseUrl = '';
+let controlApi: NodeControlApiRuntime | undefined;
+let previousMcpToken: string | undefined;
+let previousSmppToken: string | undefined;
+
+beforeAll(async () => {
+  await Promise.all([applyRuntimeMigrations(runtimePool), applyControlMigrations(controlPool)]);
+  await truncateControl();
+  previousMcpToken = process.env['MCP_TEST_TOKEN'];
+  previousSmppToken = process.env['SMPP_TEST_TOKEN'];
+  process.env['MCP_TEST_TOKEN'] = mcpCredential;
+  process.env['SMPP_TEST_TOKEN'] = smppCredential;
+  provider = new FakeRegistryAndMcpProvider();
+  providerServer = createServer((request, response) => {
+    void provider.respond(request, response);
+  });
+  providerBaseUrl = await listen(providerServer);
+  provider.configure(providerBaseUrl);
+  controlApi = await startNodeControlApi({
+    SDAR_CONTROL_DATABASE_URL: controlConnectionString,
+    SDAR_CONTROL_API_HOST: '127.0.0.1',
+    SDAR_CONTROL_API_PORT: 0,
+    SDAR_CONTROL_API_TOKEN: apiToken,
+    SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: runtimeToken,
+    SDAR_CONTROL_NODE_ID: 'node-p05',
+    SDAR_CONTROL_NODE_TYPE: 'sdar-runtime',
+    SDAR_CONTROL_NODE_DISPLAY_NAME: 'P05 Integration Node',
+    SDAR_CONTROL_ENVIRONMENT: 'integration',
+    SDAR_CONTROL_RUNTIME_ENDPOINT_REF: 'http://127.0.0.1:9998',
+    SDAR_CONTROL_PUBLIC_URL: 'http://127.0.0.1:10080',
+    SDAR_CONTROL_NODE_EVENTS_URL: 'http://127.0.0.1:10080/api/v1/events',
+    SDAR_CONTROL_A2A_AGENT_CARD_URL: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+    SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST: '127.0.0.1',
+  });
+  await seedRunningTask();
+});
+
+afterAll(async () => {
+  await controlApi?.close();
+  if (providerServer !== undefined) await close(providerServer);
+  await truncateControl();
+  await runtimePool.query("DELETE FROM agent_task WHERE task_id='task-p05-running'");
+  await runtimePool.query(
+    "DELETE FROM conversation_context WHERE context_id='context-p05-running'",
+  );
+  if (previousMcpToken === undefined) delete process.env['MCP_TEST_TOKEN'];
+  else process.env['MCP_TEST_TOKEN'] = previousMcpToken;
+  if (previousSmppToken === undefined) delete process.env['SMPP_TEST_TOKEN'];
+  else process.env['SMPP_TEST_TOKEN'] = previousSmppToken;
+  await Promise.all([runtimePool.end(), controlPool.end()]);
+});
+
+describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
+  it('imports only through real discovery and fails closed for drift, expiry and unsafe origins', async () => {
+    await createAndSynchronizeRegistrySource();
+    const candidate = await firstCandidate();
+    await expect(
+      repository.findSelectable('catalog-from-smpp', new Date().toISOString()),
+    ).resolves.toBeUndefined();
+
+    const importRequest = {
+      bindingId: 'binding-smpp',
+      localServerId: 'catalog-from-smpp',
+      originType: 'smpp_registry',
+      credentialRef: 'secret://env/MCP_TEST_TOKEN',
+      smppSourceId: candidate['smppSourceId'],
+      externalProviderId: candidate['externalProviderId'],
+      externalServerId: candidate['externalServerId'],
+      registryRevision: candidate['registryRevision'],
+      registryChecksum: candidate['registryChecksum'],
+    };
+    const imported = await command('/api/v1/mcp-provider-bindings', 'p05-import-smpp', {
+      reason: 'Approve exact Registry candidate and discover its authoritative Tool Catalog.',
+      payload: importRequest,
+    });
+    expect(imported).toMatchObject({ status: 'succeeded', result: { status: 'active' } });
+    expect(provider.methods()).toEqual(['server/discover', 'tools/list']);
+    const firstBinding = await publicGet('/api/v1/mcp-provider-bindings/binding-smpp');
+    expect(firstBinding).toMatchObject({
+      bindingId: 'binding-smpp',
+      originType: 'smpp_registry',
+      status: 'active',
+      availabilityStatus: 'available',
+      revision: 1,
+      registryRevision: candidate['registryRevision'],
+      registryChecksum: candidate['registryChecksum'],
+    });
+    expect(JSON.stringify(firstBinding)).not.toContain(mcpCredential);
+    await expect(
+      repository.findSelectable('catalog-from-smpp', new Date().toISOString()),
+    ).resolves.toMatchObject({ bindingId: 'binding-smpp', revision: 1 });
+
+    const callsBeforeReplay = provider.methods().length;
+    await expect(
+      command('/api/v1/mcp-provider-bindings', 'p05-import-smpp', {
+        reason: 'Approve exact Registry candidate and discover its authoritative Tool Catalog.',
+        payload: importRequest,
+      }),
+    ).resolves.toEqual(imported);
+    expect(provider.methods()).toHaveLength(callsBeforeReplay);
+
+    const telemetry = await fetch(`${requireControlApi().baseUrl}/api/v1/mcp-provider-bindings`, {
+      method: 'POST',
+      headers: publicHeaders('p05-reject-telemetry'),
+      body: JSON.stringify({
+        reason: 'Telemetry is evidence only.',
+        payload: {
+          bindingId: 'binding-telemetry',
+          localServerId: 'telemetry-server',
+          originType: 'telemetry',
+          credentialRef: 'secret://env/MCP_TEST_TOKEN',
+          endpointRef: `${providerBaseUrl}/mcp`,
+        },
+      }),
+    });
+    expect(telemetry.status).toBe(400);
+    await expect(repository.find('binding-telemetry')).resolves.toBeUndefined();
+
+    const unsafe = await command('/api/v1/mcp-provider-bindings', 'p05-reject-ssrf', {
+      reason: 'Prove metadata endpoints cannot be discovered.',
+      payload: {
+        bindingId: 'binding-unsafe',
+        localServerId: 'unsafe-server',
+        originType: 'direct',
+        credentialRef: 'secret://env/MCP_TEST_TOKEN',
+        endpointRef: 'http://169.254.169.254/latest/meta-data',
+      },
+    });
+    expect(unsafe).toMatchObject({ status: 'failed', errorCode: 'MCP_ENDPOINT_NOT_ALLOWED' });
+    await expect(repository.find('binding-unsafe')).resolves.toBeUndefined();
+
+    provider.setCatalog('2.0.0', 'changed-field', 300_000);
+    const refreshed = await command(
+      '/api/v1/mcp-provider-bindings/binding-smpp/refresh',
+      'p05-refresh-drift',
+      { reason: 'Refresh the real Catalog and detect immutable schema drift.' },
+    );
+    expect(refreshed).toMatchObject({
+      status: 'succeeded',
+      result: { status: 'degraded', resultCode: 'MCP_CATALOG_DRIFT_DETECTED' },
+    });
+    await expect(
+      repository.findSelectable('catalog-from-smpp', new Date().toISOString()),
+    ).resolves.toBeUndefined();
+    await expect(
+      publicGet('/api/v1/mcp-provider-bindings/binding-smpp?revision=1'),
+    ).resolves.toMatchObject({ revision: 1, status: 'active' });
+
+    provider.setCatalog('2.0.0', 'changed-field', 5);
+    const expiring = await command('/api/v1/mcp-provider-bindings', 'p05-import-expiring', {
+      reason: 'Import a short-lived direct Catalog to prove freshness gating.',
+      payload: {
+        bindingId: 'binding-expiring',
+        localServerId: 'catalog-expiring',
+        originType: 'direct',
+        credentialRef: 'secret://env/MCP_TEST_TOKEN',
+        endpointRef: `${providerBaseUrl}/mcp`,
+      },
+    });
+    expect(expiring).toMatchObject({ status: 'succeeded', result: { status: 'active' } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await expect(
+      repository.findSelectable('catalog-expiring', new Date().toISOString()),
+    ).resolves.toBeUndefined();
+
+    const suspended = await command(
+      '/api/v1/mcp-provider-bindings/binding-smpp/suspend',
+      'p05-suspend-binding',
+      { reason: 'Block only future selection.' },
+    );
+    expect(suspended).toMatchObject({ status: 'succeeded', result: { status: 'suspended' } });
+    const removed = await command(
+      '/api/v1/mcp-provider-bindings/binding-smpp/remove',
+      'p05-remove-binding',
+      { reason: 'Remove only future selection while retaining historical revisions.' },
+    );
+    expect(removed).toMatchObject({ status: 'succeeded', result: { status: 'removed' } });
+    await expect(
+      command('/api/v1/mcp-provider-bindings/binding-smpp/suspend', 'p05-suspend-binding', {
+        reason: 'Block only future selection.',
+      }),
+    ).resolves.toEqual(suspended);
+    await expect(publicGet('/api/v1/mcp-provider-bindings/binding-smpp')).resolves.toMatchObject({
+      revision: 4,
+      status: 'removed',
+    });
+    await expect(
+      publicGet('/api/v1/mcp-provider-bindings/binding-smpp?revision=1'),
+    ).resolves.toMatchObject({ revision: 1, status: 'active' });
+    const task = await runtimePool.query<{ phase: string; request_metadata: unknown }>(
+      "SELECT phase,request_metadata FROM agent_task WHERE task_id='task-p05-running'",
+    );
+    expect(task.rows[0]).toMatchObject({
+      phase: 'executing',
+      request_metadata: { mcpBindingId: 'binding-smpp', mcpBindingRevision: 1 },
+    });
+
+    const audit = await controlPool.query<{ payload: string }>(
+      `SELECT coalesce(json_agg(event)::text,'[]') AS payload
+         FROM sdar_control.control_audit_event event
+        WHERE aggregate_type='mcp_provider_binding'`,
+    );
+    expect(audit.rows[0]?.payload).not.toContain(mcpCredential);
+    expect(audit.rows[0]?.payload).not.toContain(smppCredential);
+  });
+});
+
+async function createAndSynchronizeRegistrySource(): Promise<void> {
+  const created = await fetch(`${requireControlApi().baseUrl}/api/v1/smpp-sources`, {
+    method: 'POST',
+    headers: publicHeaders('p05-create-registry-source'),
+    body: JSON.stringify({
+      smppSourceId: 'source-p05',
+      name: 'P05 Registry',
+      registryEndpoint: `${providerBaseUrl}/registry`,
+      credentialRef: 'secret://env/SMPP_TEST_TOKEN',
+      environment: 'integration',
+      syncMode: 'manual',
+      snapshotTtlSeconds: 3_600,
+      lkgPolicy: 'allow_unexpired',
+      status: 'draft',
+      revision: 1,
+    }),
+  });
+  expect(created.status).toBe(201);
+  await expect(
+    command('/api/v1/smpp-sources/source-p05/sync', 'p05-sync-registry-source', {
+      reason: 'Load the candidate directory before explicit import.',
+    }),
+  ).resolves.toMatchObject({ status: 'succeeded' });
+}
+
+async function firstCandidate(): Promise<Record<string, unknown>> {
+  const response = (await publicGet('/api/v1/mcp-provider-candidates?smppSourceId=source-p05')) as {
+    items: readonly Record<string, unknown>[];
+  };
+  expect(response.items).toHaveLength(1);
+  const candidate = response.items[0];
+  if (candidate === undefined) throw new Error('P05_CANDIDATE_MISSING');
+  return candidate;
+}
+
+async function command(
+  path: string,
+  idempotencyKey: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const response = await fetch(`${requireControlApi().baseUrl}${path}`, {
+    method: 'POST',
+    headers: publicHeaders(idempotencyKey),
+    body: JSON.stringify(body),
+  });
+  expect(response.status).toBe(202);
+  return (await response.json()) as Record<string, unknown>;
+}
+
+async function publicGet(path: string): Promise<unknown> {
+  const response = await fetch(`${requireControlApi().baseUrl}${path}`, {
+    headers: { authorization: `Bearer ${apiToken}` },
+  });
+  expect(response.status).toBe(200);
+  return response.json();
+}
+
+function publicHeaders(idempotencyKey: string): Record<string, string> {
+  return {
+    authorization: `Bearer ${apiToken}`,
+    'content-type': 'application/json',
+    'idempotency-key': idempotencyKey,
+  };
+}
+
+async function seedRunningTask(): Promise<void> {
+  const timestamp = new Date().toISOString();
+  await runtimePool.query(
+    `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
+     VALUES('context-p05-running','user-p05',$1,$1)
+     ON CONFLICT(context_id) DO NOTHING`,
+    [timestamp],
+  );
+  await runtimePool.query(
+    `INSERT INTO agent_task(
+       task_id,context_id,user_id,phase,phase_message,request_text,request_metadata,created_at,updated_at)
+     VALUES('task-p05-running','context-p05-running','user-p05','executing','Executing.',
+            'Retain original MCP Binding while Control changes future selection.',
+            '{"mcpBindingId":"binding-smpp","mcpBindingRevision":1}'::jsonb,$1,$1)
+     ON CONFLICT(task_id) DO UPDATE SET phase='executing',request_metadata=EXCLUDED.request_metadata,
+       updated_at=EXCLUDED.updated_at`,
+    [timestamp],
+  );
+}
+
+async function truncateControl(): Promise<void> {
+  await controlPool.query(
+    `TRUNCATE sdar_control.mcp_provider_catalog_observation,
+              sdar_control.mcp_provider_binding,
+              sdar_control.smpp_registry_sync_attempt,
+              sdar_control.smpp_provider_candidate,
+              sdar_control.smpp_registry_snapshot,
+              sdar_control.smpp_registry_source,
+              sdar_control.configuration_application,
+              sdar_control.configuration_command_receipt,
+              sdar_control.configuration_target_state,
+              sdar_control.configuration_revision,
+              sdar_control.model_route_definition,
+              sdar_control.llm_provider_definition,
+              sdar_control.control_audit_event,
+              sdar_control.management_operation,
+              sdar_control.node_profile`,
+  );
+}
+
+class FakeRegistryAndMcpProvider {
+  #baseUrl = '';
+  #version = '1.0.0';
+  #schemaProperty = 'destination';
+  #ttlMs = 300_000;
+  readonly #methods: string[] = [];
+
+  configure(baseUrl: string): void {
+    this.#baseUrl = baseUrl;
+  }
+
+  setCatalog(version: string, schemaProperty: string, ttlMs: number): void {
+    this.#version = version;
+    this.#schemaProperty = schemaProperty;
+    this.#ttlMs = ttlMs;
+  }
+
+  methods(): readonly string[] {
+    return [...this.#methods];
+  }
+
+  async respond(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    if (request.url === '/registry' && request.method === 'GET') {
+      this.respondRegistry(request, response);
+      return;
+    }
+    if (request.url === '/mcp' && request.method === 'POST') {
+      await this.respondMcp(request, response);
+      return;
+    }
+    response.writeHead(404).end();
+  }
+
+  private respondRegistry(request: IncomingMessage, response: ServerResponse): void {
+    if (request.headers.authorization !== `Bearer ${smppCredential}`) {
+      response.writeHead(401).end();
+      return;
+    }
+    const generatedAt = new Date(Date.now() - 1_000).toISOString();
+    const expiresAt = new Date(Date.now() + 3_600_000).toISOString();
+    const raw = {
+      externalProviderId: 'provider-p05',
+      externalServerId: 'server-p05',
+      serverEndpoint: `${this.#baseUrl}/mcp`,
+      catalogRevision: 'directory-hint-only',
+      labels: { environment: 'integration' },
+    };
+    const candidate = candidateFromRaw('source-p05', raw);
+    const checksum = computeSmppSnapshotChecksum({
+      smppSourceId: 'source-p05',
+      revision: 1,
+      generatedAt,
+      expiresAt,
+      candidates: [candidate],
+    });
+    response.writeHead(200, { 'content-type': 'application/json', etag: '"source-p05-1"' }).end(
+      JSON.stringify({
+        revision: 1,
+        checksum,
+        generatedAt,
+        expiresAt,
+        providers: [raw],
+      }),
+    );
+  }
+
+  private async respondMcp(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    if (request.headers.authorization !== `Bearer ${mcpCredential}`) {
+      response.writeHead(401).end();
+      return;
+    }
+    const body = JSON.parse(await readBody(request)) as { id: string | number; method: string };
+    this.#methods.push(body.method);
+    const result =
+      body.method === 'server/discover'
+        ? {
+            resultType: 'complete',
+            supportedVersions: ['2026-07-28'],
+            capabilities: {
+              extensions: {
+                'io.modelcontextprotocol/tasks': {},
+                'io.sdar/taskExecution': { profileVersion: '1.0', taskNotifications: true },
+              },
+            },
+            _meta: {
+              'io.modelcontextprotocol/serverInfo': {
+                name: 'P05 Real Provider',
+                version: this.#version,
+              },
+            },
+            ttlMs: this.#ttlMs,
+          }
+        : {
+            tools: [
+              {
+                name: 'move_to',
+                inputSchema: {
+                  type: 'object',
+                  properties: { [this.#schemaProperty]: { type: 'string' } },
+                  required: [this.#schemaProperty],
+                },
+                outputSchema: { type: 'object' },
+                _meta: {
+                  'io.sdar/taskExecution': {
+                    profileVersion: '1.0',
+                    taskBehavior: 'task_required',
+                    availability: 'dynamic',
+                    supportsScheduling: true,
+                    supportsMaxElapsed: true,
+                    supportsObservations: true,
+                    supportsInputRequired: true,
+                    idempotency: 'client_request_key',
+                  },
+                },
+              },
+            ],
+          };
+    response
+      .writeHead(200, { 'content-type': 'application/json' })
+      .end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
+  }
+}
+
+interface RawProvider {
+  readonly externalProviderId: string;
+  readonly externalServerId: string;
+  readonly serverEndpoint: string;
+  readonly catalogRevision: string;
+  readonly labels: Readonly<Record<string, string>>;
+}
+
+function candidateFromRaw(sourceId: string, provider: RawProvider): SmppProviderCandidate {
+  return {
+    smppSourceId: sourceId,
+    externalProviderId: provider.externalProviderId,
+    externalServerId: provider.externalServerId,
+    compositeIdentity: smppCandidateIdentity(
+      sourceId,
+      provider.externalProviderId,
+      provider.externalServerId,
+    ),
+    serverEndpoint: provider.serverEndpoint,
+    catalogRevision: provider.catalogRevision,
+    labels: provider.labels,
+  };
+}
+
+function readBody(request: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    request.on('data', (chunk: Buffer) => chunks.push(chunk));
+    request.on('end', () => {
+      resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+    request.on('error', reject);
+  });
+}
+
+function listen(server: Server): Promise<string> {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (address === null || typeof address === 'string') {
+        reject(new Error('P05_PROVIDER_ADDRESS_INVALID'));
+        return;
+      }
+      resolve(`http://127.0.0.1:${String(address.port)}`);
+    });
+  });
+}
+
+function close(server: Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error === undefined) resolve();
+      else reject(error);
+    });
+  });
+}
+
+function requireControlApi(): NodeControlApiRuntime {
+  if (controlApi === undefined) throw new Error('P05_CONTROL_API_NOT_STARTED');
+  return controlApi;
+}

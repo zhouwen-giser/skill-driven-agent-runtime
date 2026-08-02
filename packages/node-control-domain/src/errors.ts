@@ -15,7 +15,8 @@ export type NodeControlDomainErrorCode =
   | 'MODEL_ROUTE_PROVIDER_UNAVAILABLE'
   | 'SMPP_SOURCE_INVALID'
   | 'SMPP_SNAPSHOT_INVALID'
-  | 'SMPP_SNAPSHOT_CHECKSUM_MISMATCH';
+  | 'SMPP_SNAPSHOT_CHECKSUM_MISMATCH'
+  | 'MCP_PROVIDER_BINDING_INVALID';
 
 export class NodeControlDomainError extends Error {
   readonly code: NodeControlDomainErrorCode;

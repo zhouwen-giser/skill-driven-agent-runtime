@@ -7,18 +7,21 @@ import {
   NodeControlConfigurationService,
   NodeControlFoundationService,
   NodeControlLlmGovernanceService,
+  NodeControlMcpProviderBindingService,
   NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
   PostgresNodeControlConfigurationRepository,
   PostgresNodeControlFoundationRepository,
   PostgresNodeControlLlmGovernanceRepository,
+  PostgresNodeControlMcpProviderBindingRepository,
   PostgresNodeControlSmppRegistryRepository,
 } from '../../../packages/node-control-persistence-postgres/src/index.js';
 import {
   EnvironmentSmppCredentialResolver,
   HttpSmppRegistryClient,
 } from '../../../packages/smpp-registry-adapter/src/index.js';
+import { NodeControlFrozenMcpCatalogClient } from '../../../packages/mcp-adapter/src/index.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
 
@@ -55,6 +58,14 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
+  const mcpBindingService = new NodeControlMcpProviderBindingService({
+    repository: new PostgresNodeControlMcpProviderBindingRepository(pool),
+    catalog: new NodeControlFrozenMcpCatalogClient(
+      (environment.SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST ?? '127.0.0.1,localhost').split(','),
+    ),
+    clock: { now: () => new Date().toISOString() },
+    ids: { next: randomUUID },
+  });
   try {
     await service.migrate();
     await service.bootstrapNodeProfile({
@@ -72,6 +83,7 @@ export async function startNodeControlApi(
       a2aAgentCardUrl: environment.SDAR_CONTROL_A2A_AGENT_CARD_URL,
       llmGovernance: llmGovernanceService,
       smppRegistry: smppRegistryService,
+      mcpBindings: mcpBindingService,
     });
     const server = await listen(
       app,

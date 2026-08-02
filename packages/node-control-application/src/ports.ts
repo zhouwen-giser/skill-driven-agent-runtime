@@ -6,6 +6,8 @@ import type {
   JsonValue,
   LlmProviderDefinition,
   ManagementOperation,
+  McpProviderBinding,
+  McpProviderBindingRecord,
   ModelRouteDefinition,
   NodeProfile,
   RuntimeRevisionAck,
@@ -172,4 +174,80 @@ export interface NodeControlSmppRegistryRepository {
   listCandidates(
     filter: Readonly<{ sourceId?: string; observedAt: string; limit: number }>,
   ): Promise<readonly SmppProviderCandidateDirectoryEntry[]>;
+}
+
+export interface McpCatalogDiscoveryResult {
+  readonly catalogRevision: string;
+  readonly catalogChecksum: string;
+  readonly availabilityStatus: 'available';
+  readonly availabilityValidUntil: string;
+  readonly observedAt: string;
+  readonly operationCount: number;
+}
+
+export interface NodeControlMcpCatalogClient {
+  discover(
+    input: Readonly<{
+      localServerId: string;
+      endpointRef: string;
+      credentialRef: string;
+      bindingRevision: number;
+      observedAt: string;
+      snapshotId: string;
+    }>,
+  ): Promise<McpCatalogDiscoveryResult>;
+}
+
+export interface McpBindingImportRequest {
+  readonly bindingId: string;
+  readonly localServerId: string;
+  readonly originType: 'direct' | 'smpp_registry';
+  readonly endpointRef?: string;
+  readonly credentialRef: string;
+  readonly smppSourceId?: string;
+  readonly externalProviderId?: string;
+  readonly externalServerId?: string;
+  readonly registryRevision?: number;
+  readonly registryChecksum?: string;
+}
+
+export interface NodeControlMcpProviderBindingRepository {
+  find(bindingId: string, revision?: number): Promise<McpProviderBindingRecord | undefined>;
+  list(limit: number): Promise<readonly McpProviderBinding[]>;
+  findSelectable(
+    localServerId: string,
+    observedAt: string,
+  ): Promise<McpProviderBinding | undefined>;
+  findSmppCandidate(
+    input: Readonly<{
+      smppSourceId: string;
+      externalProviderId: string;
+      externalServerId: string;
+      registryRevision: number;
+      registryChecksum: string;
+      observedAt: string;
+    }>,
+  ): Promise<SmppProviderCandidateDirectoryEntry | undefined>;
+  findCommandReplay(
+    scope: string,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation | undefined>;
+  completeImport(
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation>;
+  completeRevision(
+    prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation>;
+  recordImportFailure(
+    bindingId: string,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    errorCode: string,
+  ): Promise<ManagementOperation>;
 }

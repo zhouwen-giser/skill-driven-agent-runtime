@@ -22,7 +22,9 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pool.query(
-    `TRUNCATE sdar_control.smpp_registry_sync_attempt,
+    `TRUNCATE sdar_control.mcp_provider_catalog_observation,
+              sdar_control.mcp_provider_binding,
+              sdar_control.smpp_registry_sync_attempt,
               sdar_control.smpp_provider_candidate,
               sdar_control.smpp_registry_snapshot,
               sdar_control.smpp_registry_source,
@@ -53,6 +55,7 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
       { version: '0002_configuration_revision_apply_lkg' },
       { version: '0003_llm_provider_model_route' },
       { version: '0004_smpp_registry_federation' },
+      { version: '0005_mcp_provider_binding_governance' },
     ]);
     const runtimeLedger = await pool.query<{ exists: boolean }>(
       `SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists`,
@@ -94,10 +97,10 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
 
   it('rolls back and reapplies only the latest disposable Control migration', async () => {
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
-      '0004_smpp_registry_federation',
+      '0005_mcp_provider_binding_governance',
     );
     const removed = await pool.query<{ value: string | null }>(
-      `SELECT to_regclass('sdar_control.smpp_registry_source')::text AS value`,
+      `SELECT to_regclass('sdar_control.mcp_provider_binding')::text AS value`,
     );
     expect(removed.rows[0]?.value).toBeNull();
     await expect(repository.probe()).resolves.toBe(true);

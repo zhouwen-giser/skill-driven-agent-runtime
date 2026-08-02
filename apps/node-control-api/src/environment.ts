@@ -21,9 +21,15 @@ const EnvironmentSchema = z.object({
   SDAR_CONTROL_A2A_AGENT_CARD_URL: z
     .url()
     .default('http://127.0.0.1:9999/.well-known/agent-card.json'),
+  SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
 });
 
-export type NodeControlApiEnvironment = z.infer<typeof EnvironmentSchema>;
+type ParsedNodeControlApiEnvironment = z.infer<typeof EnvironmentSchema>;
+export type NodeControlApiEnvironment = Omit<
+  ParsedNodeControlApiEnvironment,
+  'SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST'
+> &
+  Readonly<{ SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST?: string }>;
 
 export function loadNodeControlApiEnvironment(envFilePath = '.env'): NodeControlApiEnvironment {
   try {

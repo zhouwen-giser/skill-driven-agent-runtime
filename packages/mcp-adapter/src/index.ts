@@ -4,6 +4,7 @@ export * from './frozen-v1-availability.js';
 export * from './frozen-v1-task-subscriptions.js';
 export * from './frozen-v1-evidence.js';
 export * from './frozen-v1-registry.js';
+export * from './node-control-catalog.js';
 export * from './frozen-v1-mock-provider.js';
 export * from './frozen-v1-runtime-availability.js';
 export * from './frozen-v1-runtime-lifecycle.js';

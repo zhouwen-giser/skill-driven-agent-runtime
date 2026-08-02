@@ -7,10 +7,12 @@ import {
   NodeControlApplicationError,
   NodeControlConfigurationError,
   NodeControlLlmGovernanceError,
+  NodeControlMcpBindingError,
   NodeControlSmppRegistryError,
   type NodeControlConfigurationService,
   type NodeControlFoundationService,
   type NodeControlLlmGovernanceService,
+  type NodeControlMcpProviderBindingService,
   type NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
@@ -27,6 +29,7 @@ export interface NodeControlHttpConfiguration {
   readonly a2aAgentCardUrl: string;
   readonly llmGovernance?: NodeControlLlmGovernanceService;
   readonly smppRegistry?: NodeControlSmppRegistryService;
+  readonly mcpBindings?: NodeControlMcpProviderBindingService;
 }
 
 export function createNodeControlHttpApp(
@@ -362,6 +365,103 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get('/api/v1/mcp-provider-bindings', async (request, response, next) => {
+    try {
+      const items = await requiredMcpBindings(configuration).listBindings(
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/mcp-provider-bindings', async (request, response, next) => {
+    try {
+      const command = parseCommand(request.body);
+      const input = McpBindingImportSchema.parse(command.payload);
+      response.status(202).json(
+        await requiredMcpBindings(configuration).importBinding(
+          {
+            bindingId: input.bindingId,
+            localServerId: input.localServerId,
+            originType: input.originType,
+            credentialRef: input.credentialRef,
+            ...(input.endpointRef === undefined ? {} : { endpointRef: input.endpointRef }),
+            ...(input.smppSourceId === undefined ? {} : { smppSourceId: input.smppSourceId }),
+            ...(input.externalProviderId === undefined
+              ? {}
+              : { externalProviderId: input.externalProviderId }),
+            ...(input.externalServerId === undefined
+              ? {}
+              : { externalServerId: input.externalServerId }),
+            ...(input.registryRevision === undefined
+              ? {}
+              : { registryRevision: input.registryRevision }),
+            ...(input.registryChecksum === undefined
+              ? {}
+              : { registryChecksum: input.registryChecksum }),
+          },
+          requiredHeader(request, 'idempotency-key'),
+          command.reason,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/mcp-provider-bindings/:bindingId', async (request, response, next) => {
+    try {
+      const requestedRevision = request.query['revision'];
+      response
+        .status(200)
+        .json(
+          await requiredMcpBindings(configuration).getBinding(
+            request.params.bindingId,
+            typeof requestedRevision === 'string' ? positiveRevision(requestedRevision) : undefined,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  for (const action of ['refresh', 'suspend', 'remove'] as const) {
+    app.post(
+      `/api/v1/mcp-provider-bindings/:bindingId/${action}`,
+      async (request, response, next) => {
+        try {
+          const command = parseCommand(request.body);
+          const bindings = requiredMcpBindings(configuration);
+          const operation =
+            action === 'refresh'
+              ? await bindings.refresh(
+                  request.params.bindingId,
+                  requiredHeader(request, 'idempotency-key'),
+                  command.reason,
+                )
+              : action === 'suspend'
+                ? await bindings.suspend(
+                    request.params.bindingId,
+                    requiredHeader(request, 'idempotency-key'),
+                    command.reason,
+                  )
+                : await bindings.remove(
+                    request.params.bindingId,
+                    requiredHeader(request, 'idempotency-key'),
+                    command.reason,
+                  );
+          response.status(202).json(operation);
+        } catch (error) {
+          next(error);
+        }
+      },
+    );
+  }
+
   app.post(
     '/api/v1/configuration-revisions/:configurationId/:revision/publish',
     async (request, response, next) => {
@@ -566,6 +666,18 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    if (error instanceof NodeControlMcpBindingError) {
+      sendProblem(response, {
+        status: error.code === 'MCP_PROVIDER_BINDING_NOT_FOUND' ? 404 : 409,
+        code: error.code,
+        title: 'MCP Provider Binding command rejected',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: error.code === 'MCP_PROVIDER_BINDING_STALE',
+      });
+      return;
+    }
     if (error instanceof ZodError) {
       sendProblem(response, {
         status: 400,
@@ -759,6 +871,23 @@ const SmppSourceSchema = z
     revision: z.number().int().positive(),
   })
   .strict();
+const McpBindingImportSchema = z
+  .object({
+    bindingId: z.string().trim().min(1).max(256),
+    localServerId: z.string().trim().min(1).max(256),
+    originType: z.enum(['direct', 'smpp_registry']),
+    endpointRef: z.url().optional(),
+    credentialRef: z.string().trim().min(1).max(512),
+    smppSourceId: z.string().trim().min(1).max(256).optional(),
+    externalProviderId: z.string().trim().min(1).max(256).optional(),
+    externalServerId: z.string().trim().min(1).max(256).optional(),
+    registryRevision: z.number().int().positive().optional(),
+    registryChecksum: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional(),
+  })
+  .strict();
 
 function positiveRevision(value: string): number {
   return z.coerce.number().int().positive().parse(value);
@@ -844,6 +973,13 @@ function requiredSmppRegistry(
 ): NodeControlSmppRegistryService {
   if (configuration.smppRegistry === undefined) throw new Error('SMPP_REGISTRY_NOT_COMPOSED');
   return configuration.smppRegistry;
+}
+
+function requiredMcpBindings(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlMcpProviderBindingService {
+  if (configuration.mcpBindings === undefined) throw new Error('MCP_BINDINGS_NOT_COMPOSED');
+  return configuration.mcpBindings;
 }
 
 interface ProblemInput {

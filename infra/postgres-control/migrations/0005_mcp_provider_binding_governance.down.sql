@@ -1,0 +1,4 @@
+DROP TRIGGER IF EXISTS mcp_provider_catalog_observation_immutable ON sdar_control.mcp_provider_catalog_observation;
+DROP TRIGGER IF EXISTS mcp_provider_binding_immutable ON sdar_control.mcp_provider_binding;
+DROP TABLE IF EXISTS sdar_control.mcp_provider_catalog_observation;
+DROP TABLE IF EXISTS sdar_control.mcp_provider_binding;
