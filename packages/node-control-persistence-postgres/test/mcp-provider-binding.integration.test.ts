@@ -8,6 +8,7 @@ import {
   type NodeControlApiRuntime,
 } from '../../../apps/node-control-api/src/runtime.js';
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
+import { createRemoteTaskBinding } from '../../domain/src/index.js';
 import {
   computeSmppSnapshotChecksum,
   smppCandidateIdentity,
@@ -17,6 +18,7 @@ import {
   applyControlMigrations,
   PostgresNodeControlMcpProviderBindingRepository,
 } from '../src/index.js';
+import { PostgresRemoteTaskRepository } from '../../persistence-postgres/src/index.js';
 
 const runtimeConnectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ??
@@ -74,7 +76,17 @@ afterAll(async () => {
   await controlApi?.close();
   if (providerServer !== undefined) await close(providerServer);
   await truncateControl();
+  await runtimePool.query(
+    "DELETE FROM remote_task_observation WHERE binding_id='remote-binding-p05'",
+  );
+  await runtimePool.query("DELETE FROM remote_task_binding WHERE binding_id='remote-binding-p05'");
+  await runtimePool.query("DELETE FROM mcp_invocation WHERE invocation_id='invocation-p05'");
+  await runtimePool.query("DELETE FROM mcp_server WHERE server_id='catalog-from-smpp'");
+  await runtimePool.query("DELETE FROM workflow_instance WHERE instance_id='instance-p05'");
   await runtimePool.query("DELETE FROM agent_task WHERE task_id='task-p05-running'");
+  await runtimePool.query("DELETE FROM workflow_plan_attempt WHERE plan_id='plan-p05'");
+  await runtimePool.query("DELETE FROM workflow_plan WHERE plan_id='plan-p05'");
+  await runtimePool.query("DELETE FROM goal WHERE goal_id='goal-p05'");
   await runtimePool.query(
     "DELETE FROM conversation_context WHERE context_id='context-p05-running'",
   );
@@ -293,6 +305,26 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       phase: 'executing',
       request_metadata: { mcpBindingId: 'binding-smpp', mcpBindingRevision: 1 },
     });
+    const remoteTasks = new PostgresRemoteTaskRepository(runtimePool);
+    await expect(remoteTasks.findById('remote-binding-p05')).resolves.toMatchObject({
+      serverId: 'catalog-from-smpp',
+      remoteTaskId: 'provider-task-p05',
+      localState: 'polling',
+      version: 1,
+    });
+    const claimedAt = new Date().toISOString();
+    await expect(
+      remoteTasks.claimPoll({
+        bindingId: 'remote-binding-p05',
+        expectedVersion: 1,
+        claimToken: 'p05-post-removal-control-claim',
+        claimedAt,
+        expiresAt: new Date(Date.parse(claimedAt) + 30_000).toISOString(),
+      }),
+    ).resolves.toMatchObject({
+      claimed: true,
+      binding: { serverId: 'catalog-from-smpp', version: 2 },
+    });
 
     const audit = await controlPool.query<{ payload: string }>(
       `SELECT coalesce(json_agg(event)::text,'[]') AS payload
@@ -388,14 +420,110 @@ async function seedRunningTask(): Promise<void> {
     [timestamp],
   );
   await runtimePool.query(
+    `INSERT INTO goal(goal_id,context_id,version,title,description,status,created_at,updated_at)
+     VALUES('goal-p05','context-p05-running',1,'P05 Remote Task','Binding retention proof',
+            'active',$1,$1)
+     ON CONFLICT(goal_id) DO NOTHING`,
+    [timestamp],
+  );
+  await runtimePool.query(
+    `INSERT INTO workflow_plan(
+       plan_id,goal_id,goal_version,goal_contract_json,definition_json,
+       confirmation_status,attempt_count,created_at)
+     VALUES('plan-p05','goal-p05',1,
+            '{"goalId":"goal-p05","version":1,"title":"P05 Remote Task","description":"Binding retention proof","constraints":[],"successCriteria":[]}'::jsonb,
+            '{"workflowDefinitionId":"workflow-p05","version":1}'::jsonb,
+            'confirmed',1,$1)
+     ON CONFLICT(plan_id) DO NOTHING`,
+    [timestamp],
+  );
+  await runtimePool.query(
+    `INSERT INTO workflow_plan_attempt(
+       plan_id,attempt,goal_contract_json,candidate_json,validation_errors_json,valid,created_at)
+     VALUES('plan-p05',1,
+            '{"goalId":"goal-p05","version":1,"title":"P05 Remote Task","description":"Binding retention proof","constraints":[],"successCriteria":[]}'::jsonb,
+            '{}'::jsonb,'[]'::jsonb,true,$1)
+     ON CONFLICT(plan_id,attempt) DO NOTHING`,
+    [timestamp],
+  );
+  await runtimePool.query(
     `INSERT INTO agent_task(
-       task_id,context_id,user_id,phase,phase_message,request_text,request_metadata,created_at,updated_at)
+       task_id,context_id,user_id,phase,phase_message,request_text,request_metadata,
+       goal_id,goal_version,plan_id,created_at,updated_at)
      VALUES('task-p05-running','context-p05-running','user-p05','executing','Executing.',
             'Retain original MCP Binding while Control changes future selection.',
-            '{"mcpBindingId":"binding-smpp","mcpBindingRevision":1}'::jsonb,$1,$1)
+            '{"mcpBindingId":"binding-smpp","mcpBindingRevision":1}'::jsonb,
+            'goal-p05',1,'plan-p05',$1,$1)
      ON CONFLICT(task_id) DO UPDATE SET phase='executing',request_metadata=EXCLUDED.request_metadata,
        updated_at=EXCLUDED.updated_at`,
     [timestamp],
+  );
+  await runtimePool.query(
+    `INSERT INTO workflow_instance(
+       instance_id,plan_id,workflow_definition_id,workflow_version,goal_id,goal_version,
+       status,input_json,errors_json,started_at)
+     VALUES('instance-p05','plan-p05','workflow-p05',1,'goal-p05',1,'running',
+            '{}'::jsonb,'{}'::jsonb,$1)
+     ON CONFLICT(instance_id) DO NOTHING`,
+    [timestamp],
+  );
+  await runtimePool.query(
+    `INSERT INTO mcp_server(
+       server_id,name,endpoint,transport,status,tool_revision,encrypted_credential,
+       created_at,updated_at)
+     VALUES('catalog-from-smpp','P05 Runtime Provider','http://127.0.0.1:1',
+            'streamable_http','enabled',1,'encrypted-p05-test-placeholder',$1,$1)
+     ON CONFLICT(server_id) DO NOTHING`,
+    [timestamp],
+  );
+  await runtimePool.query(
+    `INSERT INTO mcp_invocation(
+       invocation_id,task_id,context_id,server_id,tool_name,arguments_json,result_json,
+       status,started_at,completed_at,duration_ms,execution_mode,simulation_id)
+     VALUES('invocation-p05','task-p05-running','context-p05-running','catalog-from-smpp',
+            'move_to','{}'::jsonb,'{"kind":"remote_task"}'::jsonb,'succeeded',$1,$1,0,
+            'live',NULL)
+     ON CONFLICT(invocation_id) DO NOTHING`,
+    [timestamp],
+  );
+  const remoteTasks = new PostgresRemoteTaskRepository(runtimePool);
+  await remoteTasks.admit(
+    createRemoteTaskBinding({
+      bindingId: 'remote-binding-p05',
+      serverId: 'catalog-from-smpp',
+      operationName: 'move_to',
+      remoteTaskId: 'provider-task-p05',
+      agentTaskId: 'task-p05-running',
+      contextId: 'context-p05-running',
+      goalId: 'goal-p05',
+      goalVersion: 1,
+      workflowPlanId: 'plan-p05',
+      workflowDefinitionId: 'workflow-p05',
+      workflowDefinitionVersion: 1,
+      workflowInstanceId: 'instance-p05',
+      workflowNodeId: 'remote-node-p05',
+      workflowNodeRunId: 'remote-node-p05:1',
+      mcpInvocationId: 'invocation-p05',
+      protocolStatus: 'working',
+      protocolRevision: '2026-07-28',
+      tasksSchemaRevision: 'tasks-schema-revision-1',
+      protocolContract: {
+        mode: 'frozen_v1',
+        protocolVersion: '2026-07-28',
+        baselineSha256: 'a'.repeat(64),
+      },
+      taskBehavior: 'server_directed',
+      runtimeRevision: '1',
+      providerSubstate: 'running',
+      remoteRevision: 'provider-revision-p05',
+      executionContext: { mode: 'live' },
+      credentialRevision: 'credential-revision-p05',
+      sessionRevision: 'session-revision-p05',
+      lastProviderUpdatedAt: timestamp,
+      pollIntervalMs: 100,
+      createdAt: timestamp,
+    }),
+    'remote-binding-p05-admitted',
   );
 }
 
