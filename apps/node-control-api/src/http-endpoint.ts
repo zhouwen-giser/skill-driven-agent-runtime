@@ -18,11 +18,20 @@ import {
   type NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
+  createManagementOperation,
+  createCapabilityImplementationBinding,
+  createNodeCapabilityDefinition,
   NodeControlDomainError,
   nodeCapabilityEtag,
   smppSourceEtag,
+  transitionManagementOperation,
 } from '../../../packages/node-control-domain/src/index.js';
+import type {
+  RuntimeCapabilityReadinessInput,
+  RuntimeCapabilityReadinessService,
+} from '../../../packages/runtime-control-application/src/index.js';
 import { RevisionHintBroker } from './revision-hint-broker.js';
+import type { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
 
 export interface NodeControlHttpConfiguration {
   readonly bearerToken: string;
@@ -34,6 +43,8 @@ export interface NodeControlHttpConfiguration {
   readonly smppRegistry?: NodeControlSmppRegistryService;
   readonly mcpBindings?: NodeControlMcpProviderBindingService;
   readonly capabilities?: NodeControlCapabilityService;
+  readonly capabilityReadiness?: NodeControlCapabilityReadinessCoordinator;
+  readonly runtimeCapabilityReadiness?: RuntimeCapabilityReadinessService;
 }
 
 export function createNodeControlHttpApp(
@@ -622,6 +633,69 @@ export function createNodeControlHttpApp(
     );
   }
 
+  app.get('/api/v1/capability-readiness', async (request, response, next) => {
+    try {
+      const items = await requiredCapabilityReadiness(configuration).list(
+        typeof request.query['status'] === 'string' ? request.query['status'] : undefined,
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get(
+    '/api/v1/capability-readiness/:capabilityId/:version',
+    async (request, response, next) => {
+      try {
+        const record = await requiredCapabilityReadiness(configuration).get(
+          request.params.capabilityId,
+          positiveRevision(request.params.version),
+        );
+        if (record === undefined) {
+          sendProblem(response, {
+            status: 404,
+            code: 'CAPABILITY_READINESS_NOT_FOUND',
+            title: 'Capability readiness snapshot not found',
+            detail:
+              'No Runtime-authoritative snapshot exists for the requested Capability Version.',
+            instance: request.originalUrl,
+            correlationId: correlationId(request),
+            retryable: false,
+          });
+          return;
+        }
+        response.status(200).set('etag', `"${record.snapshotHash}"`).json(record.snapshot);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/capability-readiness/:capabilityId/:version/evaluate',
+    async (request, response, next) => {
+      try {
+        const command = parseCommand(request.body);
+        response
+          .status(202)
+          .json(
+            await requiredCapabilityReadiness(configuration).evaluate(
+              request.params.capabilityId,
+              positiveRevision(request.params.version),
+              requiredHeader(request, 'idempotency-key'),
+              command.reason,
+            ),
+          );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   app.post(
     '/api/v1/configuration-revisions/:configurationId/:revision/publish',
     async (request, response, next) => {
@@ -691,6 +765,51 @@ export function createNodeControlHttpApp(
   });
 
   app.use('/internal/v1', bearerAuthentication(configuration.runtimeServiceToken));
+
+  app.post('/internal/v1/capability-readiness/evaluations', async (request, response, next) => {
+    try {
+      const command = parseCommand(request.body);
+      const input = normalizeRuntimeReadinessInput(
+        RuntimeReadinessInputSchema.parse(command.payload),
+      );
+      const idempotencyKey = requiredHeader(request, 'idempotency-key');
+      const inputHash = createHash('sha256')
+        .update(JSON.stringify({ input, reason: command.reason }))
+        .digest('hex');
+      const record = await requiredRuntimeCapabilityReadiness(configuration).evaluate(input, {
+        idempotencyKey,
+        requestHash: `sha256:${inputHash}`,
+      });
+      const operation = createManagementOperation(
+        {
+          operationId: `readiness-${createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 32)}`,
+          operationType: 'capability.readiness.evaluate',
+          target: {
+            type: 'capability_readiness',
+            id: input.definition.capabilityId,
+            version: String(input.definition.version),
+          },
+          actorId: 'sdar-runtime',
+          reason: command.reason,
+          idempotencyKeyHash: createHash('sha256').update(idempotencyKey).digest('hex'),
+          inputHash,
+        },
+        record.snapshot.evaluatedAt,
+      );
+      response
+        .status(202)
+        .json(
+          transitionManagementOperation(
+            transitionManagementOperation(operation, 'running', record.snapshot.evaluatedAt),
+            'succeeded',
+            record.snapshot.evaluatedAt,
+            { result: record.snapshot },
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.get('/internal/v1/bootstrap', async (_request, response, next) => {
     try {
@@ -858,6 +977,22 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    if (
+      error instanceof Error &&
+      (error.message === 'CAPABILITY_READINESS_IDEMPOTENCY_KEY_REUSED' ||
+        error.message === 'CAPABILITY_READINESS_CONCURRENT_EVALUATION')
+    ) {
+      sendProblem(response, {
+        status: 409,
+        code: error.message,
+        title: 'Capability readiness evaluation conflict',
+        detail: 'The readiness evaluation conflicts with a prior or concurrent command.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: error.message === 'CAPABILITY_READINESS_CONCURRENT_EVALUATION',
+      });
+      return;
+    }
     if (error instanceof ZodError) {
       sendProblem(response, {
         status: 400,
@@ -882,6 +1017,9 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    process.stderr.write(
+      `${JSON.stringify({ event: 'node_control.request_failed', error: error instanceof Error ? error.message : 'UNKNOWN' })}\n`,
+    );
     sendProblem(response, {
       status: 500,
       code: 'NODE_CONTROL_INTERNAL_ERROR',
@@ -1108,6 +1246,17 @@ const CapabilityImplementationSchema = z
     revision: z.number().int().positive(),
   })
   .strict();
+const RuntimeReadinessInputSchema = z
+  .object({
+    definition: NodeCapabilitySchema,
+    implementations: z.array(CapabilityImplementationSchema).max(1_000),
+    maintenanceMode: z.boolean(),
+    killSwitch: z.boolean(),
+    ttlMs: z.number().int().min(1_000).max(86_400_000),
+    minimumStableWindowMs: z.number().int().nonnegative(),
+    trigger: z.string().trim().min(1).max(1_024),
+  })
+  .strict();
 
 function positiveRevision(value: string): number {
   return z.coerce.number().int().positive().parse(value);
@@ -1139,6 +1288,73 @@ function parseRuntimeAck(value: unknown) {
     ...(parsed.reasonCode === undefined ? {} : { reasonCode: parsed.reasonCode }),
     ...(parsed.detail === undefined ? {} : { detail: parsed.detail }),
     acknowledgedAt: parsed.acknowledgedAt,
+  });
+}
+
+function normalizeRuntimeReadinessInput(
+  input: z.infer<typeof RuntimeReadinessInputSchema>,
+): RuntimeCapabilityReadinessInput {
+  return Object.freeze({
+    definition: createNodeCapabilityDefinition({
+      capabilityId: input.definition.capabilityId,
+      version: input.definition.version,
+      domain: input.definition.domain,
+      name: input.definition.name,
+      description: input.definition.description,
+      inputSchema: input.definition.inputSchema,
+      outputSchema: input.definition.outputSchema,
+      successCriteria: input.definition.successCriteria,
+      requiredEvidence: input.definition.requiredEvidence,
+      ...(input.definition.effects === undefined ? {} : { effects: input.definition.effects }),
+      ...(input.definition.artifacts === undefined
+        ? {}
+        : { artifacts: input.definition.artifacts }),
+      ...(input.definition.constraints === undefined
+        ? {}
+        : { constraints: input.definition.constraints }),
+      ...(input.definition.supportedModes === undefined
+        ? {}
+        : { supportedModes: input.definition.supportedModes }),
+      riskLevel: input.definition.riskLevel,
+      status: input.definition.status,
+      definitionHash: input.definition.definitionHash,
+      ...(input.definition.previousVersion === undefined
+        ? {}
+        : { previousVersion: input.definition.previousVersion }),
+      ...(input.definition.createdBy === undefined
+        ? {}
+        : { createdBy: input.definition.createdBy }),
+      ...(input.definition.createdAt === undefined
+        ? {}
+        : { createdAt: input.definition.createdAt }),
+    }),
+    implementations: Object.freeze(
+      input.implementations.map((binding) =>
+        createCapabilityImplementationBinding({
+          bindingId: binding.bindingId,
+          capabilityId: binding.capabilityId,
+          capabilityVersion: binding.capabilityVersion,
+          implementationType: binding.implementationType,
+          implementationId: binding.implementationId,
+          implementationVersion: binding.implementationVersion,
+          role: binding.role,
+          priority: binding.priority,
+          ...(binding.activationCondition === undefined
+            ? {}
+            : { activationCondition: binding.activationCondition }),
+          ...(binding.providerPolicyOverride === undefined
+            ? {}
+            : { providerPolicyOverride: binding.providerPolicyOverride }),
+          status: binding.status,
+          revision: binding.revision,
+        }),
+      ),
+    ),
+    maintenanceMode: input.maintenanceMode,
+    killSwitch: input.killSwitch,
+    ttlMs: input.ttlMs,
+    minimumStableWindowMs: input.minimumStableWindowMs,
+    trigger: input.trigger,
   });
 }
 
@@ -1207,6 +1423,22 @@ function requiredCapabilities(
 ): NodeControlCapabilityService {
   if (configuration.capabilities === undefined) throw new Error('CAPABILITIES_NOT_COMPOSED');
   return configuration.capabilities;
+}
+
+function requiredCapabilityReadiness(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlCapabilityReadinessCoordinator {
+  if (configuration.capabilityReadiness === undefined)
+    throw new Error('CAPABILITY_READINESS_NOT_COMPOSED');
+  return configuration.capabilityReadiness;
+}
+
+function requiredRuntimeCapabilityReadiness(
+  configuration: NodeControlHttpConfiguration,
+): RuntimeCapabilityReadinessService {
+  if (configuration.runtimeCapabilityReadiness === undefined)
+    throw new Error('RUNTIME_CAPABILITY_READINESS_NOT_COMPOSED');
+  return configuration.runtimeCapabilityReadiness;
 }
 
 interface ProblemInput {

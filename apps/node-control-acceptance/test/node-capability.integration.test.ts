@@ -39,10 +39,36 @@ beforeAll(async () => {
      VALUES(
        'skill.p06.inspect',1,'P06 inspection','Inspect a device','Validated P06 implementation',
        '["compatibility.projection.only"]'::jsonb,'Execute the inspection','Return evidence',
-       '{"type":"object"}'::jsonb,'{"type":"object"}'::jsonb,'{}'::jsonb,'{}'::jsonb,
+       '{"type":"object"}'::jsonb,'{"type":"object"}'::jsonb,
+       '{"required":[{"serverId":"server.p07","toolName":"inspect"}],"optional":[],"forbidden":[]}'::jsonb,
+       '{}'::jsonb,
        'enabled','admin',true,NULL,clock_timestamp())`,
   );
-  controlApi = await startNodeControlApi({
+  await runtimePool.query(
+    `INSERT INTO mcp_server(
+       server_id,name,endpoint,transport,status,tool_revision,encrypted_credential,created_at,updated_at)
+     VALUES('server.p07','P07 provider','http://127.0.0.1:1','streamable_http','enabled',1,
+            'encrypted-test-value',clock_timestamp(),clock_timestamp())`,
+  );
+  await runtimePool.query(
+    `INSERT INTO mcp_tool(server_id,tool_name,title,description,input_schema_json,discovered_at)
+     VALUES('server.p07','inspect','Inspect','Inspect a device','{}'::jsonb,clock_timestamp())`,
+  );
+  await runtimePool.query(
+    `INSERT INTO model_provider(
+       provider_id,name,kind,base_url,model,enabled,timeout_ms,encrypted_credential,created_at,updated_at)
+     VALUES('model.p07','P07 model','local','http://127.0.0.1:2','model-p07',true,1000,
+            'encrypted-test-value',clock_timestamp(),clock_timestamp())`,
+  );
+  await runtimePool.query(
+    `INSERT INTO stage_model_route(stage,provider_id,updated_at)
+     VALUES('skill_selection','model.p07',clock_timestamp())`,
+  );
+  controlApi = await startTestApi();
+});
+
+async function startTestApi() {
+  return startNodeControlApi({
     SDAR_CONTROL_DATABASE_URL: controlConnectionString,
     SDAR_CONTROL_RUNTIME_DATABASE_URL: runtimeConnectionString,
     SDAR_CONTROL_API_HOST: '127.0.0.1',
@@ -58,7 +84,7 @@ beforeAll(async () => {
     SDAR_CONTROL_NODE_EVENTS_URL: 'http://127.0.0.1:10080/api/v1/events',
     SDAR_CONTROL_A2A_AGENT_CARD_URL: 'http://127.0.0.1:9999/.well-known/agent-card.json',
   });
-});
+}
 
 afterAll(async () => {
   await controlApi?.close();
@@ -231,6 +257,107 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       expectedStatus: 200,
     });
     expect(published).toMatchObject({ status: 'published', definitionHash: draft.definitionHash });
+
+    const readiness = await request('/api/v1/capability-readiness/device.inspect.p06/1/evaluate', {
+      method: 'POST',
+      body: { reason: 'Evaluate P07 readiness from exact Runtime dependencies.' },
+      idempotencyKey: 'p07-evaluate-readiness',
+      expectedStatus: 202,
+    });
+    expect(readiness).toMatchObject({
+      status: 'succeeded',
+      result: { status: 'available', snapshotVersion: 1 },
+    });
+    await expect(
+      request('/api/v1/capability-readiness/device.inspect.p06/1/evaluate', {
+        method: 'POST',
+        body: { reason: 'Evaluate P07 readiness from exact Runtime dependencies.' },
+        idempotencyKey: 'p07-evaluate-readiness',
+        expectedStatus: 202,
+      }),
+    ).resolves.toEqual(readiness);
+    await expect(
+      request('/api/v1/capability-readiness/device.inspect.p06/1/evaluate', {
+        method: 'POST',
+        body: { reason: 'A changed request must not reuse the same key.' },
+        idempotencyKey: 'p07-evaluate-readiness',
+        expectedStatus: 409,
+      }),
+    ).resolves.toMatchObject({ code: 'CAPABILITY_READINESS_IDEMPOTENCY_KEY_REUSED' });
+
+    await runtimePool.query(
+      `UPDATE mcp_server SET updated_at='2020-01-01T00:00:00.000Z' WHERE server_id='server.p07'`,
+    );
+    const expired = await request('/api/v1/capability-readiness/device.inspect.p06/1/evaluate', {
+      method: 'POST',
+      body: { reason: 'Provider Availability TTL expired.' },
+      idempotencyKey: 'p07-evaluate-expired-provider',
+      expectedStatus: 202,
+    });
+    expect(expired).toMatchObject({
+      status: 'succeeded',
+      result: {
+        status: 'unavailable',
+        snapshotVersion: 2,
+        reasons: [{ code: 'PROVIDER_AVAILABILITY_EXPIRED' }],
+      },
+    });
+    const internalEvaluation = await request('/internal/v1/capability-readiness/evaluations', {
+      method: 'POST',
+      bearerToken: runtimeToken,
+      idempotencyKey: 'p07-internal-readiness-evaluation',
+      body: {
+        reason: 'Runtime evaluates the frozen dependency input.',
+        payload: {
+          definition: { ...draft, status: 'published' },
+          implementations: [binding('skill', 'skill.p06.inspect', '1')],
+          maintenanceMode: false,
+          killSwitch: false,
+          ttlMs: 60_000,
+          minimumStableWindowMs: 10_000,
+          trigger: 'node.capability.version_published',
+        },
+      },
+      expectedStatus: 202,
+    });
+    expect(internalEvaluation).toMatchObject({
+      status: 'succeeded',
+      result: { status: 'unavailable', snapshotVersion: 3 },
+    });
+    const persisted = await request('/api/v1/capability-readiness/device.inspect.p06/1', {
+      expectedStatus: 200,
+    });
+    expect(persisted).toMatchObject({ status: 'unavailable', snapshotVersion: 3 });
+    await expect(
+      runtimePool.query(
+        `UPDATE capability_readiness_snapshot SET status='available'
+          WHERE capability_id='device.inspect.p06' AND capability_version=1`,
+      ),
+    ).rejects.toMatchObject({ code: '55000' });
+    const readinessEvidence = await runtimePool.query<{
+      snapshot_hash: string;
+      event_count: string;
+    }>(
+      `SELECT snapshot.snapshot_hash,
+              (SELECT COUNT(*)::text FROM cognitive_runtime_outbox
+                WHERE event_type='node.capability.readiness_changed'
+                  AND aggregate_id='device.inspect.p06:1') AS event_count
+         FROM capability_readiness_snapshot snapshot
+        WHERE snapshot.capability_id='device.inspect.p06' AND snapshot.capability_version=1
+        ORDER BY snapshot.snapshot_version DESC LIMIT 1`,
+    );
+    expect(readinessEvidence.rows[0]?.snapshot_hash).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    expect(readinessEvidence.rows[0]?.event_count).toBe('2');
+    const controlCopy = await controlPool.query<{ exists: boolean }>(
+      `SELECT to_regclass('sdar_control.capability_readiness_snapshot') IS NOT NULL AS exists`,
+    );
+    expect(controlCopy.rows[0]?.exists).toBe(false);
+
+    await controlApi?.close();
+    controlApi = await startTestApi();
+    await expect(
+      request('/api/v1/capability-readiness/device.inspect.p06/1', { expectedStatus: 200 }),
+    ).resolves.toEqual(persisted);
     await expect(
       controlPool.query(
         `UPDATE sdar_control.node_capability_definition_version
@@ -303,13 +430,14 @@ async function request(
     body?: unknown;
     idempotencyKey?: string;
     ifMatch?: string;
+    bearerToken?: string;
     expectedStatus: number;
   }>,
 ) {
   const response = await fetch(`${requireApi().baseUrl}${path}`, {
     method: options.method ?? 'GET',
     headers: {
-      authorization: `Bearer ${apiToken}`,
+      authorization: `Bearer ${options.bearerToken ?? apiToken}`,
       'content-type': 'application/json',
       ...(options.idempotencyKey === undefined
         ? {}
@@ -348,6 +476,16 @@ async function cleanup() {
               sdar_control.management_operation,
               sdar_control.node_profile`,
   );
+  await runtimePool.query(
+    "DELETE FROM cognitive_runtime_outbox WHERE event_type='node.capability.readiness_changed'",
+  );
+  await runtimePool.query(
+    'TRUNCATE capability_readiness_command_receipt,capability_readiness_snapshot',
+  );
   await runtimePool.query("DELETE FROM skill_version WHERE skill_id='skill.p06.inspect'");
   await runtimePool.query("DELETE FROM skill WHERE skill_id='skill.p06.inspect'");
+  await runtimePool.query("DELETE FROM mcp_tool WHERE server_id='server.p07'");
+  await runtimePool.query("DELETE FROM mcp_server WHERE server_id='server.p07'");
+  await runtimePool.query("DELETE FROM stage_model_route WHERE provider_id='model.p07'");
+  await runtimePool.query("DELETE FROM model_provider WHERE provider_id='model.p07'");
 }

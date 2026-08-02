@@ -26,6 +26,9 @@ import {
 } from '../../../packages/smpp-registry-adapter/src/index.js';
 import { NodeControlFrozenMcpCatalogClient } from '../../../packages/mcp-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
+import { RuntimeCapabilityReadinessService } from '../../../packages/runtime-control-application/src/index.js';
+import { PostgresRuntimeCapabilityReadinessRepository } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
+import { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
 
@@ -83,6 +86,23 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
+  const runtimeReadiness = new RuntimeCapabilityReadinessService({
+    repository: new PostgresRuntimeCapabilityReadinessRepository(runtimePool),
+    clock: { now: () => new Date().toISOString() },
+  });
+  const capabilityReadiness = new NodeControlCapabilityReadinessCoordinator({
+    capabilities: capabilityService,
+    runtime: runtimeReadiness,
+    foundation: service,
+  });
+  const readinessTimer = setInterval(() => {
+    void runtimeReadiness.evaluateExpired().catch((error: unknown) => {
+      process.stderr.write(
+        `${JSON.stringify({ event: 'capability_readiness.expiry_recalculation_failed', error: error instanceof Error ? error.message : 'UNKNOWN' })}\n`,
+      );
+    });
+  }, 5_000);
+  readinessTimer.unref();
   try {
     await service.migrate();
     await service.bootstrapNodeProfile({
@@ -102,6 +122,8 @@ export async function startNodeControlApi(
       smppRegistry: smppRegistryService,
       mcpBindings: mcpBindingService,
       capabilities: capabilityService,
+      capabilityReadiness,
+      runtimeCapabilityReadiness: runtimeReadiness,
     });
     const server = await listen(
       app,
@@ -115,12 +137,14 @@ export async function startNodeControlApi(
     return {
       baseUrl,
       async close() {
+        clearInterval(readinessTimer);
         await closeServer(server);
         await pool.end();
         await runtimePool.end();
       },
     };
   } catch (error) {
+    clearInterval(readinessTimer);
     await pool.end().catch(() => undefined);
     await runtimePool.end().catch(() => undefined);
     throw error;
