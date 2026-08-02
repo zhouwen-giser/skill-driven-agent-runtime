@@ -7,17 +7,27 @@ import {
   type NodeControlApiRuntime,
 } from '../../../apps/node-control-api/src/runtime.js';
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
+import { ModelRuntimeService, type ModelTransportAdapter } from '../../application/src/index.js';
 import {
   createConfigurationRevision,
   type ConfigurationApplyMode,
+  type ConfigurationRevision,
   type JsonValue,
+  type LlmProviderDefinition,
+  type ModelRouteDefinition,
 } from '../../node-control-domain/src/index.js';
+import { PostgresModelRuntimeRepository } from '../../persistence-postgres/src/index.js';
 import {
   RuntimeConfigurationAgent,
+  RuntimeLlmConfigurationApplier,
   type RuntimeConfigurationApplyResult,
   type RuntimeConfigurationSource,
 } from '../../runtime-control-application/src/index.js';
 import { HttpRuntimeConfigurationSource } from '../../runtime-control-http-client/src/index.js';
+import {
+  PostgresExistingModelCredentialResolver,
+  PostgresRuntimeModelControl,
+} from '../../runtime-control-model-adapter/src/index.js';
 import { PostgresRuntimeConfigurationStore } from '../src/index.js';
 
 const runtimeConnectionString =
@@ -77,13 +87,17 @@ beforeAll(async () => {
     SDAR_CONTROL_A2A_AGENT_CARD_URL: 'http://127.0.0.1:9999/.well-known/agent-card.json',
   });
   await runtimePool.query(
-    'TRUNCATE runtime_task_configuration_binding, runtime_configuration_ack_outbox, runtime_configuration_snapshot',
+    `TRUNCATE runtime_task_model_route_binding,runtime_model_route_snapshot,
+              runtime_model_provider_catalog,runtime_task_configuration_binding,
+              runtime_configuration_ack_outbox,runtime_configuration_snapshot CASCADE`,
   );
   await controlPool.query(
     `TRUNCATE sdar_control.configuration_application,
               sdar_control.configuration_command_receipt,
               sdar_control.configuration_target_state,
               sdar_control.configuration_revision,
+              sdar_control.model_route_definition,
+              sdar_control.llm_provider_definition,
               sdar_control.management_operation,
               sdar_control.control_audit_event`,
   );
@@ -306,6 +320,182 @@ describe('P02 Configuration Revision apply, Ack and LKG', { concurrent: false },
       content: first.content,
     });
   });
+
+  it('applies secret-ref Provider and scoped Route revisions with fallback and stable old Task bindings', async () => {
+    await seedRuntimeModelAuthority();
+    const baseUrl = requireControlApi().baseUrl;
+    const source = new HttpRuntimeConfigurationSource({ baseUrl, serviceToken: runtimeToken });
+    const modelControl = new PostgresRuntimeModelControl(
+      runtimePool,
+      new PostgresExistingModelCredentialResolver(runtimePool),
+      () => '2026-08-02T04:20:00.000Z',
+    );
+    const agent = new RuntimeConfigurationAgent({
+      runtimeInstanceId: 'runtime-p03-model-control',
+      runtimeVersion: '1.4.0',
+      source,
+      store: new PostgresRuntimeConfigurationStore(runtimePool),
+      applier: new RuntimeLlmConfigurationApplier(modelControl),
+      clock: { now: () => '2026-08-02T04:20:00.000Z' },
+    });
+
+    const primary = providerDefinition(
+      'provider-primary',
+      'runtime-model-provider://bootstrap-primary',
+      'model-a',
+    );
+    const fallback = providerDefinition(
+      'provider-fallback',
+      'runtime-model-provider://bootstrap-fallback',
+      'model-b',
+    );
+    for (const [index, provider] of [primary, fallback].entries()) {
+      const created = await publicCommand('/api/v1/llm-providers', {
+        method: 'POST',
+        idempotencyKey: `p03-create-provider-${String(index)}`,
+        body: provider,
+      });
+      expect(created.status).toBe(201);
+      expect(JSON.stringify(await json(created))).not.toContain('credential-value');
+      const validated = await publicCommand(
+        `/api/v1/llm-providers/${provider.providerId}/validate`,
+        {
+          method: 'POST',
+          idempotencyKey: `p03-validate-provider-${String(index)}`,
+          body: { reason: 'Validate static Provider catalog and policy.' },
+        },
+      );
+      expect(validated.status).toBe(202);
+      const publishedProvider = await publishP03Definition(
+        providerTarget(provider),
+        provider,
+        'reconnect_required',
+      );
+      await expect(agent.synchronize(providerTarget(provider))).resolves.toMatchObject({
+        status: 'applied',
+      });
+      await expect(
+        modelControl.applyProvider(provider, {
+          configurationId: publishedProvider.configurationId,
+          revision: publishedProvider.revision,
+          checksum: publishedProvider.checksum,
+        }),
+      ).resolves.toMatchObject({ providerId: provider.providerId });
+      const observed = await fetch(`${baseUrl}/api/v1/llm-providers/${provider.providerId}`, {
+        headers: publicHeaders(),
+      });
+      await expect(json(observed)).resolves.toMatchObject({
+        status: 'active',
+        secretStatus: 'available',
+      });
+    }
+
+    const routeV1 = routeDefinition(
+      1,
+      'provider-primary',
+      'model-a',
+      'provider-fallback',
+      'model-b',
+    );
+    const unavailableRoute = await publicCommand('/api/v1/model-routes', {
+      method: 'POST',
+      idempotencyKey: 'p03-create-unavailable-route',
+      body: {
+        ...routeV1,
+        routeId: 'planning-route-unavailable',
+        primary: { providerId: 'provider-missing', modelId: 'model-missing' },
+      },
+    });
+    expect(unavailableRoute.status).toBe(422);
+    await expect(json(unavailableRoute)).resolves.toMatchObject({
+      code: 'MODEL_ROUTE_PROVIDER_UNAVAILABLE',
+    });
+    const createdRoute = await publicCommand('/api/v1/model-routes', {
+      method: 'POST',
+      idempotencyKey: 'p03-create-planning-route-v1',
+      body: routeV1,
+    });
+    expect(createdRoute.status).toBe(201);
+    const conflict = await publicCommand('/api/v1/model-routes', {
+      method: 'POST',
+      idempotencyKey: 'p03-create-conflicting-route',
+      body: { ...routeV1, routeId: 'planning-route-conflict' },
+    });
+    expect(conflict.status).toBe(409);
+    await expect(json(conflict)).resolves.toMatchObject({ code: 'MODEL_ROUTE_CONFLICT' });
+
+    const publishedRouteV1 = await publishP03Definition(routeTarget(), routeV1, 'new_task_only');
+    await expect(agent.synchronize(routeTarget())).resolves.toMatchObject({ status: 'applied' });
+    await expect(
+      modelControl.applyRoute(routeV1, {
+        configurationId: publishedRouteV1.configurationId,
+        revision: publishedRouteV1.revision,
+        checksum: publishedRouteV1.checksum,
+      }),
+    ).resolves.toMatchObject({ routeId: routeV1.routeId });
+    await seedWorkflowPlanningPrompt();
+    await seedModelInvocationTasks();
+    const transport = new P03FallbackTransport('provider-primary');
+    let invocation = 0;
+    const modelRuntime = new ModelRuntimeService({
+      repository: new PostgresModelRuntimeRepository(runtimePool),
+      transport,
+      cipher: {
+        encrypt: (value) => JSON.stringify(value),
+        decrypt: (value) => JSON.parse(value) as Readonly<Record<string, string>>,
+      },
+      clock: { now: () => '2026-08-02T04:21:00.000Z' },
+      ids: { nextInvocationId: () => `p03-invocation-${String(++invocation)}` },
+      controlledRoutes: modelControl,
+    });
+    await expect(invokePlanning(modelRuntime, 'task-p03-before-route-v2')).resolves.toEqual({
+      provider: 'provider-fallback',
+    });
+    expect(transport.providerIds).toEqual(['provider-primary', 'provider-fallback']);
+
+    const routeV2 = routeDefinition(
+      2,
+      'provider-fallback',
+      'model-b',
+      'provider-primary',
+      'model-a',
+    );
+    const createdRouteV2 = await publicCommand('/api/v1/model-routes', {
+      method: 'POST',
+      idempotencyKey: 'p03-create-planning-route-v2',
+      body: routeV2,
+    });
+    expect(createdRouteV2.status).toBe(201);
+    await publishP03Definition(routeTarget(), routeV2, 'new_task_only');
+    await expect(agent.synchronize(routeTarget())).resolves.toMatchObject({ status: 'applied' });
+
+    transport.providerIds.length = 0;
+    await expect(invokePlanning(modelRuntime, 'task-p03-before-route-v2')).resolves.toEqual({
+      provider: 'provider-fallback',
+    });
+    expect(transport.providerIds).toEqual(['provider-primary', 'provider-fallback']);
+    transport.providerIds.length = 0;
+    await expect(invokePlanning(modelRuntime, 'task-p03-after-route-v2')).resolves.toEqual({
+      provider: 'provider-fallback',
+    });
+    expect(transport.providerIds).toEqual(['provider-fallback']);
+
+    const evidence = await runtimePool.query<{
+      bindings: number;
+      failures: number;
+      leaked_errors: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM runtime_task_model_route_binding) AS bindings,
+         (SELECT count(*)::integer FROM model_invocation WHERE invocation_id LIKE 'p03-invocation-%' AND status='failed') AS failures,
+         (SELECT count(*)::integer FROM model_invocation WHERE invocation_id LIKE 'p03-invocation-%' AND error_message LIKE '%credential-value%') AS leaked_errors`,
+    );
+    expect(evidence.rows[0]).toEqual({ bindings: 2, failures: 2, leaked_errors: 0 });
+    const routeProjection = await fetch(`${baseUrl}/api/v1/model-routes/planning-route`, {
+      headers: publicHeaders(),
+    });
+    await expect(json(routeProjection)).resolves.toMatchObject({ revision: 2, status: 'active' });
+  });
 });
 
 async function publishSequentialRevision(
@@ -440,5 +630,232 @@ async function readRevisionHint(reader: ReadableStreamDefaultReader<Uint8Array>)
       if (data !== undefined && data !== '')
         return RevisionHintSchema.parse(JSON.parse(data) as unknown);
     }
+  }
+}
+
+function providerDefinition(
+  providerId: string,
+  credentialRef: string,
+  modelId: string,
+): LlmProviderDefinition {
+  return {
+    providerId,
+    providerType: 'openai_compatible',
+    baseUrl: `https://${providerId}.example.test/v1`,
+    credentialRef,
+    models: [
+      {
+        modelId,
+        capabilities: ['structured_output', 'tool_calling', 'embedding'],
+        contextWindow: 32_768,
+        enabled: true,
+      },
+    ],
+    healthPolicy: {
+      timeoutMs: 10_000,
+      retryAttempts: 1,
+      failureThreshold: 3,
+      recoverySeconds: 30,
+    },
+    rateLimitPolicy: {
+      requestsPerMinute: 60,
+      tokensPerMinute: 100_000,
+      maxConcurrent: 4,
+    },
+    status: 'draft',
+    secretStatus: 'unknown',
+    revision: 1,
+  };
+}
+
+function routeDefinition(
+  revision: number,
+  primaryProviderId: string,
+  primaryModelId: string,
+  fallbackProviderId: string,
+  fallbackModelId: string,
+): ModelRouteDefinition {
+  return {
+    routeId: 'planning-route',
+    stage: 'planning',
+    primary: { providerId: primaryProviderId, modelId: primaryModelId },
+    fallbacks: [{ providerId: fallbackProviderId, modelId: fallbackModelId }],
+    budgetPolicy: {
+      selector: { scope: 'task', key: 'inspection' },
+      timeoutMs: 10_000,
+      maxAttempts: 2,
+      maxInputTokens: 20_000,
+      maxOutputTokens: 4_000,
+      maxCostUsd: 2,
+      fallbackOn: ['upstream_error', 'timeout', 'unavailable'],
+    },
+    status: 'draft',
+    revision,
+  };
+}
+
+function providerTarget(provider: LlmProviderDefinition) {
+  return { targetType: 'llm_provider' as const, targetId: provider.providerId };
+}
+
+function routeTarget() {
+  return { targetType: 'model_route' as const, targetId: 'planning-route' };
+}
+
+async function publishP03Definition(
+  targetValue: Readonly<{
+    targetType: 'llm_provider' | 'model_route';
+    targetId: string;
+  }>,
+  definition: LlmProviderDefinition | ModelRouteDefinition,
+  applyMode: ConfigurationApplyMode,
+): Promise<ConfigurationRevision> {
+  const configurationId = `p03-${targetValue.targetType}-${targetValue.targetId}`;
+  const revision = createConfigurationRevision(
+    {
+      configurationId,
+      targetType: targetValue.targetType,
+      targetId: targetValue.targetId,
+      revision: definition.revision,
+      applyMode,
+      content: JSON.parse(JSON.stringify(definition)) as JsonValue,
+      createdBy: 'operator-p03',
+    },
+    `2026-08-02T04:${String(definition.revision).padStart(2, '0')}:00.000Z`,
+  );
+  const created = await publicCommand('/api/v1/configuration-revisions', {
+    method: 'POST',
+    idempotencyKey: `p03-create-config-${targetValue.targetId}-${String(definition.revision)}`,
+    body: revision,
+  });
+  expect(created.status).toBe(201);
+  const validated = await publicCommand(
+    `/api/v1/configuration-revisions/${configurationId}/${String(definition.revision)}/validate`,
+    {
+      method: 'POST',
+      idempotencyKey: `p03-validate-config-${targetValue.targetId}-${String(definition.revision)}`,
+      ifMatch: requiredEtag(created),
+      body: {
+        reason: 'Validate P03 controlled model definition.',
+        expectedRevision: definition.revision,
+      },
+    },
+  );
+  expect(validated.status).toBe(200);
+  const published = await publicCommand(
+    `/api/v1/configuration-revisions/${configurationId}/${String(definition.revision)}/publish`,
+    {
+      method: 'POST',
+      idempotencyKey: `p03-publish-config-${targetValue.targetId}-${String(definition.revision)}`,
+      ifMatch: requiredEtag(validated),
+      body: {
+        reason: 'Publish P03 controlled model definition.',
+        expectedRevision: definition.revision,
+      },
+    },
+  );
+  expect(published.status).toBe(202);
+  return revision;
+}
+
+async function seedRuntimeModelAuthority(): Promise<void> {
+  const timestamp = '2026-08-02T04:00:00.000Z';
+  for (const providerId of ['bootstrap-primary', 'bootstrap-fallback']) {
+    await runtimePool.query(
+      `INSERT INTO model_provider(
+         provider_id,name,kind,api_style,base_url,model,enabled,timeout_ms,
+         encrypted_credential,created_at,updated_at)
+       VALUES($1,$1,'openai_compatible','openai_chat_completions',$2,'bootstrap-model',true,10000,$3,$4,$4)
+       ON CONFLICT(provider_id) DO UPDATE SET encrypted_credential=EXCLUDED.encrypted_credential,
+         enabled=true,updated_at=EXCLUDED.updated_at`,
+      [
+        providerId,
+        `https://${providerId}.example.test/v1`,
+        JSON.stringify({ Authorization: 'fixture-header-value' }),
+        timestamp,
+      ],
+    );
+  }
+}
+
+async function seedWorkflowPlanningPrompt(): Promise<void> {
+  const timestamp = '2026-08-02T04:00:00.000Z';
+  await runtimePool.query(
+    `INSERT INTO prompt(prompt_id,stage,current_version,created_at,updated_at)
+     VALUES('p03-workflow-planning','workflow_planning',NULL,$1,$1)
+     ON CONFLICT(prompt_id) DO UPDATE SET updated_at=EXCLUDED.updated_at`,
+    [timestamp],
+  );
+  await runtimePool.query(
+    `INSERT INTO prompt_version(prompt_id,stage,version,previous_version,content,status,source,created_at)
+     VALUES('p03-workflow-planning','workflow_planning',1,NULL,'System policy. {{instruction}}','enabled','admin',$1)
+     ON CONFLICT(prompt_id,version) DO NOTHING`,
+    [timestamp],
+  );
+  await runtimePool.query(
+    `UPDATE prompt SET current_version=1,updated_at=$1 WHERE prompt_id='p03-workflow-planning'`,
+    [timestamp],
+  );
+}
+
+async function seedModelInvocationTasks(): Promise<void> {
+  const timestamp = '2026-08-02T04:00:00.000Z';
+  for (const taskId of ['task-p03-before-route-v2', 'task-p03-after-route-v2']) {
+    const contextId = `context-${taskId}`;
+    await runtimePool.query(
+      `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
+       VALUES($1,'user-p03',$2,$2)
+       ON CONFLICT(context_id) DO NOTHING`,
+      [contextId, timestamp],
+    );
+    await runtimePool.query(
+      `INSERT INTO agent_task(
+         task_id,context_id,user_id,phase,phase_message,request_text,request_metadata,
+         created_at,updated_at)
+       VALUES($1,$2,'user-p03','planning','Planning.','Create a bounded plan.',$3::jsonb,$4,$4)
+       ON CONFLICT(task_id) DO NOTHING`,
+      [taskId, contextId, JSON.stringify({ taskType: 'inspection' }), timestamp],
+    );
+  }
+}
+
+function invokePlanning(modelRuntime: ModelRuntimeService, taskId: string): Promise<unknown> {
+  return modelRuntime.generateStructured({
+    stage: 'workflow_planning',
+    instruction: 'Create a bounded plan.',
+    responseSchema: { type: 'object' },
+    correctionErrors: [],
+    taskId,
+    routeContext: { taskType: 'inspection' },
+  });
+}
+
+class P03FallbackTransport implements ModelTransportAdapter {
+  readonly providerIds: string[] = [];
+  readonly #failedProviderId: string;
+
+  constructor(failedProviderId: string) {
+    this.#failedProviderId = failedProviderId;
+  }
+
+  generateStructured(input: Parameters<ModelTransportAdapter['generateStructured']>[0]) {
+    this.providerIds.push(input.configuration.providerId);
+    if (input.configuration.providerId === this.#failedProviderId)
+      return Promise.reject(
+        Object.assign(new Error('upstream credential-value must be redacted'), {
+          code: 'UPSTREAM_FAILED',
+        }),
+      );
+    return Promise.resolve({
+      rawResponse: { status: 'ok' },
+      structuredResult: { provider: input.configuration.providerId },
+      inputTokens: 10,
+      outputTokens: 5,
+    });
+  }
+
+  embed(input: Parameters<ModelTransportAdapter['embed']>[0]) {
+    this.providerIds.push(input.configuration.providerId);
+    return Promise.resolve({ rawResponse: { status: 'ok' }, vector: [1, 0], inputTokens: 2 });
   }
 }

@@ -49,7 +49,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   read-only review and remote reconciliation complete; P02 remains pending.
 - [x] 2026-08-02 03:59 +08:00 P02: implementation `deaa555`, Evidence `9a283eb`, focused and full
   verification, real two-database integration, read-only review and remote reconciliation complete.
-- [ ] P03: LLM provider and model-route governance.
+- [x] 2026-08-02 08:37 +08:00 P03 implementation and validation complete: Provider/Model Catalog,
+  scoped Route/Fallback, Runtime Apply/Ack, immutable Task bindings and secret-safe audit semantics
+  pass the full gate; implementation/evidence publication is in progress.
 - [ ] P04: SMPP Registry federation.
 - [ ] P05: MCP provider-binding governance.
 - [ ] P06: capability definition and implementation-binding authority.
@@ -77,6 +79,12 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   and Runtime Compose project names, cleaning only those projects.
 - GitHub reports `main` as unprotected (REST 404). P14 still follows the task package's no-bypass,
   checks, review, and Merge Commit policy.
+- P03's existing P10 latency assertions are deterministic only when their performance file runs
+  outside the highly parallel Unit batch. The full gate now runs that unchanged 22-test file as an
+  exclusive Unit sub-step and aggregates both Vitest result blocks.
+- The first post-review P03 full gate exposed one stale E2E assertion for the old arbitrary upstream
+  error code. That assertion terminated cleanup and caused seven serial cascade failures; after it
+  was aligned to the stable redacted category, all 72 E2E tests passed.
 
 ## Decision Log
 
@@ -98,6 +106,15 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-02: Runtime Watch carries hints only and Latest remains authoritative after disconnect or
   reordering. Target-specific appliers are deferred to their owning phases instead of representing a
   placeholder as production configuration application.
+- 2026-08-02: P03 keeps Control-owned Provider/Route definitions secret-reference-only. Runtime
+  continues to own credential resolution, clients, live health, route selection, invocations and
+  fallback evidence; P03 must extend that authority rather than create a competing router.
+- 2026-08-02: P03 applies Provider revisions with `reconnect_required` and Route revisions with
+  `new_task_only`; Runtime pins exact Route and Provider revisions per Task/model stage so a new
+  desired revision cannot mutate an in-flight Task.
+- 2026-08-02: Runtime Apply replay is idempotent for an exact active configuration identity/checksum
+  and fails closed for conflicting or stale replays. External transport/apply failures are reduced
+  to explicit safe error-code allowlists before persistence or Ack.
 
 ## Implementation Steps
 
@@ -138,7 +155,9 @@ active/LKG snapshots.
 
 ## Outcomes and Retrospective
 
-P00 and P01 are complete and remotely evidenced. P02 implements the bounded Configuration
-Revision/Application, Desired/Observed, Runtime Apply/Ack and LKG foundation, passes the full and
-focused real-database/process gates, and closes read-only review at 0 Blocking / 0 Major / 0 Minor.
-P03 and later behavior are not claimed.
+P00 through P02 are complete and remotely evidenced. P03 implements bounded LLM Provider, Model
+Catalog and scoped Route governance over the P02 apply/ack boundary, while preserving Runtime-owned
+credentials, clients, selection, fallback and immutable Task bindings. Its final full gate passes
+1140 Unit/Contract, 135 real Integration and 72 E2E tests with 29 Runtime migrations and all process
+smokes; the final read-only review closes at 0 Blocking / 0 Major / 0 Minor. P04 and later behavior
+are not claimed.

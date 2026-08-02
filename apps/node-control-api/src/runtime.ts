@@ -6,10 +6,12 @@ import { Pool } from 'pg';
 import {
   NodeControlConfigurationService,
   NodeControlFoundationService,
+  NodeControlLlmGovernanceService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
   PostgresNodeControlConfigurationRepository,
   PostgresNodeControlFoundationRepository,
+  PostgresNodeControlLlmGovernanceRepository,
 } from '../../../packages/node-control-persistence-postgres/src/index.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
@@ -36,6 +38,11 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
+  const llmGovernanceService = new NodeControlLlmGovernanceService({
+    repository: new PostgresNodeControlLlmGovernanceRepository(pool),
+    clock: { now: () => new Date().toISOString() },
+    ids: { next: randomUUID },
+  });
   try {
     await service.migrate();
     await service.bootstrapNodeProfile({
@@ -51,6 +58,7 @@ export async function startNodeControlApi(
       nodeControlApiUrl: environment.SDAR_CONTROL_PUBLIC_URL,
       nodeEventsUrl: environment.SDAR_CONTROL_NODE_EVENTS_URL,
       a2aAgentCardUrl: environment.SDAR_CONTROL_A2A_AGENT_CARD_URL,
+      llmGovernance: llmGovernanceService,
     });
     const server = await listen(
       app,

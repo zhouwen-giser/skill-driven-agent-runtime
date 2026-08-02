@@ -3,6 +3,8 @@ import type {
   ConfigurationTargetType,
   JsonObject,
   RuntimeRevisionAck,
+  LlmProviderDefinition,
+  ModelRouteDefinition,
 } from '../../node-control-domain/src/index.js';
 
 export interface RuntimeConfigurationTarget {
@@ -60,4 +62,15 @@ export interface RuntimeConfigurationStore {
 
 export interface RuntimeControlClock {
   now(): string;
+}
+
+export interface RuntimeModelControlPort {
+  applyProvider(
+    definition: LlmProviderDefinition,
+    configuration: Readonly<{ configurationId: string; revision: number; checksum: string }>,
+  ): Promise<Readonly<{ providerId: string; modelCount: number }>>;
+  applyRoute(
+    definition: ModelRouteDefinition,
+    configuration: Readonly<{ configurationId: string; revision: number; checksum: string }>,
+  ): Promise<Readonly<{ routeId: string; candidateCount: number }>>;
 }

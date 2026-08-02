@@ -410,6 +410,7 @@ export class PostgresNodeControlConfigurationRepository implements NodeControlCo
       );
       await updateTargetObservation(client, current, acknowledgement);
       await updateDesiredOperation(client, current, acknowledgement);
+      await updateLlmGovernanceProjection(client, current, acknowledgement);
       return Object.freeze({ ...current, status: observedStatus });
     });
   }
@@ -447,6 +448,62 @@ export class PostgresNodeControlConfigurationRepository implements NodeControlCo
     } finally {
       client.release();
     }
+  }
+}
+
+async function updateLlmGovernanceProjection(
+  client: PoolClient,
+  revision: ConfigurationRevision,
+  acknowledgement: RuntimeRevisionAck,
+): Promise<void> {
+  if (revision.targetType === 'llm_provider') {
+    const applied = acknowledgement.status === 'applied';
+    if (applied) {
+      await client.query(
+        `UPDATE sdar_control.llm_provider_definition SET status='retired',updated_at=$3
+          WHERE provider_id=$1 AND revision<>$2 AND status='active'`,
+        [revision.targetId, revision.revision, acknowledgement.acknowledgedAt],
+      );
+    }
+    await client.query(
+      `UPDATE sdar_control.llm_provider_definition
+          SET status=$3,secret_status=$4,last_validated_at=$5,updated_at=$5
+        WHERE provider_id=$1 AND revision=$2 AND status='draft'`,
+      [
+        revision.targetId,
+        revision.revision,
+        applied ? 'active' : 'degraded',
+        applied ? 'available' : acknowledgement.status === 'rejected' ? 'invalid' : 'unavailable',
+        acknowledgement.acknowledgedAt,
+      ],
+    );
+  }
+  if (revision.targetType === 'model_route') {
+    if (acknowledgement.status === 'applied') {
+      await client.query(
+        `UPDATE sdar_control.model_route_definition current_route
+            SET status='suspended',updated_at=$3
+           FROM sdar_control.model_route_definition next_route
+          WHERE next_route.route_id=$1 AND next_route.revision=$2
+            AND (current_route.route_id<>next_route.route_id OR current_route.revision<>next_route.revision)
+            AND current_route.stage=next_route.stage
+            AND current_route.scope_type=next_route.scope_type
+            AND current_route.scope_key=next_route.scope_key
+            AND current_route.status='active'`,
+        [revision.targetId, revision.revision, acknowledgement.acknowledgedAt],
+      );
+    }
+    await client.query(
+      `UPDATE sdar_control.model_route_definition
+          SET status=$3,updated_at=$4
+        WHERE route_id=$1 AND revision=$2 AND status='draft'`,
+      [
+        revision.targetId,
+        revision.revision,
+        acknowledgement.status === 'applied' ? 'active' : 'suspended',
+        acknowledgement.acknowledgedAt,
+      ],
+    );
   }
 }
 

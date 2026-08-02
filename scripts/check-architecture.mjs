@@ -80,6 +80,7 @@ for (const file of sourceFiles) {
     (source.includes("from 'pg'") || source.includes('from "pg"')) &&
     !normalize(file).startsWith('packages/persistence-postgres/') &&
     !normalize(file).startsWith('packages/runtime-control-persistence-postgres/') &&
+    !normalize(file).startsWith('packages/runtime-control-model-adapter/') &&
     !normalize(file).startsWith('packages/node-control-persistence-postgres/') &&
     !normalize(file).startsWith('apps/server/') &&
     !normalize(file).startsWith('apps/node-control-api/') &&
@@ -124,6 +125,7 @@ async function assertNodeControlSeparation() {
     ...(await collectSourceFiles('packages/runtime-control-application')),
     ...(await collectSourceFiles('packages/runtime-control-http-client')),
     ...(await collectSourceFiles('packages/runtime-control-persistence-postgres')),
+    ...(await collectSourceFiles('packages/runtime-control-model-adapter')),
     ...(await collectSourceFiles('apps/server')),
   ]) {
     const source = await readFile(file, 'utf8');

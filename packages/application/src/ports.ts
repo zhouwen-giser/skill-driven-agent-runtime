@@ -1121,6 +1121,29 @@ export interface ModelProviderRecord {
   readonly encryptedCredential: string;
 }
 
+export type ControlledModelFallbackReason =
+  'unavailable' | 'timeout' | 'rate_limited' | 'upstream_error';
+
+export interface ControlledModelRouteResolution {
+  readonly routeRef: string;
+  readonly candidates: readonly ModelProviderRecord[];
+  readonly maxAttempts: number;
+  readonly timeoutMs: number;
+  readonly fallbackOn: readonly ControlledModelFallbackReason[];
+}
+
+export interface ControlledModelRouteResolver {
+  resolve(
+    input: Readonly<{
+      stage: ModelStage;
+      operation: 'structured_generation' | 'embedding';
+      taskId?: string;
+      routeContext?: Readonly<{ taskType?: string; caseType?: string }>;
+      boundAt: string;
+    }>,
+  ): Promise<ControlledModelRouteResolution | undefined>;
+}
+
 export interface ModelRuntimeRepository {
   findProvider(providerId: string): Promise<ModelProviderRecord | undefined>;
   findProviderForStage(stage: ModelStage): Promise<ModelProviderRecord | undefined>;

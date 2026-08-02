@@ -8,6 +8,9 @@ import type {
 
 import type {
   Clock,
+  ControlledModelFallbackReason,
+  ControlledModelRouteResolver,
+  ModelProviderRecord,
   ModelRuntimeRepository,
   ModelTransportAdapter,
   SecretCipher,
@@ -19,6 +22,7 @@ export class ModelRuntimeService {
   readonly #cipher: SecretCipher;
   readonly #clock: Clock;
   readonly #ids: Readonly<{ nextInvocationId(): string }>;
+  readonly #controlledRoutes: ControlledModelRouteResolver | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -27,6 +31,7 @@ export class ModelRuntimeService {
       cipher: SecretCipher;
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string }>;
+      controlledRoutes?: ControlledModelRouteResolver;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -34,6 +39,7 @@ export class ModelRuntimeService {
     this.#cipher = dependencies.cipher;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
+    this.#controlledRoutes = dependencies.controlledRoutes;
   }
 
   async configureProvider(
@@ -75,6 +81,7 @@ export class ModelRuntimeService {
       context?: unknown;
       taskId?: string;
       timeoutMs?: number;
+      routeContext?: Readonly<{ taskType?: string; caseType?: string }>;
     }>,
   ): Promise<unknown> {
     return (await this.#invokeStructured(input)).structuredResult;
@@ -89,6 +96,7 @@ export class ModelRuntimeService {
       context?: unknown;
       taskId?: string;
       timeoutMs?: number;
+      routeContext?: Readonly<{ taskType?: string; caseType?: string }>;
     }>,
   ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
     return this.#invokeStructured(input);
@@ -98,8 +106,10 @@ export class ModelRuntimeService {
     stage: ModelStage,
     text: string,
     context?: unknown,
+    taskId?: string,
+    routeContext?: Readonly<{ taskType?: string; caseType?: string }>,
   ): Promise<Readonly<{ providerId: string; vector: readonly number[] }>> {
-    return this.#invokeEmbedding(stage, text, context);
+    return this.#invokeEmbedding(stage, text, context, taskId, routeContext);
   }
 
   listInvocations(stage?: ModelStage): Promise<readonly ModelInvocationRecord[]> {
@@ -119,9 +129,9 @@ export class ModelRuntimeService {
       context?: unknown;
       taskId?: string;
       timeoutMs?: number;
+      routeContext?: Readonly<{ taskType?: string; caseType?: string }>;
     }>,
   ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
-    const provider = await this.#requiredProvider(input.stage);
     const prompt = await this.#repository.findActivePromptForStage(input.stage);
     if (prompt?.status !== 'enabled') {
       throw new ModelRuntimeError(
@@ -129,98 +139,166 @@ export class ModelRuntimeService {
         `No enabled Prompt is configured for stage ${input.stage}.`,
       );
     }
-    const started = Date.now();
     const renderedInstruction = prompt.content.replaceAll('{{instruction}}', input.instruction);
     const request = {
       instruction: renderedInstruction,
       responseSchema: input.responseSchema,
       correctionErrors: input.correctionErrors,
     };
-    try {
-      const result = await this.#transport.generateStructured({
-        configuration: provider.configuration,
-        credentialHeaders: this.#cipher.decrypt(provider.encryptedCredential),
-        instruction: renderedInstruction,
-        responseSchema: input.responseSchema,
-        correctionErrors: input.correctionErrors,
-        signal: AbortSignal.timeout(
-          input.timeoutMs === undefined
-            ? provider.configuration.timeoutMs
-            : Math.min(provider.configuration.timeoutMs, input.timeoutMs),
-        ),
-      });
-      const invocationId = await this.#audit(
-        provider.configuration,
-        input.stage,
-        'structured_generation',
-        request,
-        input.context,
-        started,
-        'succeeded',
-        result,
-        prompt,
-        input.taskId,
-      );
-      return { structuredResult: result.structuredResult, invocationId };
-    } catch (error: unknown) {
-      await this.#auditFailure(
-        provider.configuration,
-        input.stage,
-        'structured_generation',
-        request,
-        input.context,
-        started,
-        error,
-        prompt,
-        input.taskId,
-      );
-      throw new ModelRuntimeError(
-        'MODEL_INVOCATION_FAILED',
-        'Configured stage model invocation failed.',
-      );
+    const route = await this.#resolveProviders(
+      input.stage,
+      'structured_generation',
+      input.taskId,
+      input.routeContext,
+    );
+    for (const [index, provider] of route.providers.entries()) {
+      const started = Date.now();
+      try {
+        const result = await this.#transport.generateStructured({
+          configuration: provider.configuration,
+          credentialHeaders: this.#cipher.decrypt(provider.encryptedCredential),
+          instruction: renderedInstruction,
+          responseSchema: input.responseSchema,
+          correctionErrors: input.correctionErrors,
+          signal: AbortSignal.timeout(
+            Math.min(
+              provider.configuration.timeoutMs,
+              route.timeoutMs,
+              input.timeoutMs ?? Number.MAX_SAFE_INTEGER,
+            ),
+          ),
+        });
+        const invocationId = await this.#audit(
+          provider.configuration,
+          input.stage,
+          'structured_generation',
+          request,
+          input.context,
+          started,
+          'succeeded',
+          result,
+          prompt,
+          input.taskId,
+        );
+        return { structuredResult: result.structuredResult, invocationId };
+      } catch (error: unknown) {
+        await this.#auditFailure(
+          provider.configuration,
+          input.stage,
+          'structured_generation',
+          request,
+          input.context,
+          started,
+          error,
+          prompt,
+          input.taskId,
+        );
+        if (
+          index === route.providers.length - 1 ||
+          !route.fallbackOn.includes(fallbackReason(error))
+        )
+          break;
+      }
     }
+    throw new ModelRuntimeError(
+      'MODEL_INVOCATION_FAILED',
+      'Configured stage model invocation failed.',
+    );
   }
 
   async #invokeEmbedding(
     stage: ModelStage,
     text: string,
     context?: unknown,
+    taskId?: string,
+    routeContext?: Readonly<{ taskType?: string; caseType?: string }>,
   ): Promise<Readonly<{ providerId: string; vector: readonly number[] }>> {
-    const provider = await this.#requiredProvider(stage);
-    const started = Date.now();
-    try {
-      const result = await this.#transport.embed({
-        configuration: provider.configuration,
-        credentialHeaders: this.#cipher.decrypt(provider.encryptedCredential),
-        text,
-        signal: AbortSignal.timeout(provider.configuration.timeoutMs),
-      });
-      await this.#audit(
-        provider.configuration,
-        stage,
-        'embedding',
-        { text },
-        context,
-        started,
-        'succeeded',
-        { ...result, structuredResult: result.vector },
-      );
-      return { providerId: provider.configuration.providerId, vector: result.vector };
-    } catch (error: unknown) {
-      await this.#auditFailure(
-        provider.configuration,
-        stage,
-        'embedding',
-        { text },
-        context,
-        started,
-        error,
-      );
-      throw new ModelRuntimeError(
-        'MODEL_INVOCATION_FAILED',
-        'Configured stage embedding invocation failed.',
-      );
+    const route = await this.#resolveProviders(stage, 'embedding', taskId, routeContext);
+    for (const [index, provider] of route.providers.entries()) {
+      const started = Date.now();
+      try {
+        const result = await this.#transport.embed({
+          configuration: provider.configuration,
+          credentialHeaders: this.#cipher.decrypt(provider.encryptedCredential),
+          text,
+          signal: AbortSignal.timeout(Math.min(provider.configuration.timeoutMs, route.timeoutMs)),
+        });
+        await this.#audit(
+          provider.configuration,
+          stage,
+          'embedding',
+          { text },
+          context,
+          started,
+          'succeeded',
+          { ...result, structuredResult: result.vector },
+          undefined,
+          taskId,
+        );
+        return { providerId: provider.configuration.providerId, vector: result.vector };
+      } catch (error: unknown) {
+        await this.#auditFailure(
+          provider.configuration,
+          stage,
+          'embedding',
+          { text },
+          context,
+          started,
+          error,
+          undefined,
+          taskId,
+        );
+        if (
+          index === route.providers.length - 1 ||
+          !route.fallbackOn.includes(fallbackReason(error))
+        )
+          break;
+      }
     }
+    throw new ModelRuntimeError(
+      'MODEL_INVOCATION_FAILED',
+      'Configured stage embedding invocation failed.',
+    );
+  }
+
+  async #resolveProviders(
+    stage: ModelStage,
+    operation: ModelInvocationRecord['operation'],
+    taskId?: string,
+    routeContext?: Readonly<{ taskType?: string; caseType?: string }>,
+  ): Promise<
+    Readonly<{
+      providers: readonly ModelProviderRecord[];
+      timeoutMs: number;
+      fallbackOn: readonly ControlledModelFallbackReason[];
+    }>
+  > {
+    const controlled = await this.#controlledRoutes?.resolve({
+      stage,
+      operation,
+      ...(taskId === undefined ? {} : { taskId }),
+      ...(routeContext === undefined ? {} : { routeContext }),
+      boundAt: this.#clock.now(),
+    });
+    if (controlled !== undefined) {
+      const providers = controlled.candidates.slice(0, controlled.maxAttempts);
+      if (providers.length === 0)
+        throw new ModelRuntimeError(
+          'MODEL_PROVIDER_NOT_AVAILABLE',
+          'No controlled route candidate is available.',
+        );
+      return Object.freeze({
+        providers,
+        timeoutMs: controlled.timeoutMs,
+        fallbackOn: controlled.fallbackOn,
+      });
+    }
+    const provider = await this.#requiredProvider(stage);
+    return Object.freeze({
+      providers: Object.freeze([provider]),
+      timeoutMs: provider.configuration.timeoutMs,
+      fallbackOn: Object.freeze([]),
+    });
   }
 
   async #requiredProvider(stage: ModelStage) {
@@ -297,7 +375,7 @@ export class ModelRuntimeService {
       durationMs: Math.max(0, Date.now() - started),
       status: 'failed',
       errorCode: errorCode(error),
-      errorMessage: error instanceof Error ? error.message : 'Model transport failed.',
+      errorMessage: 'Model transport failed.',
       createdAt: this.#clock.now(),
     });
   }
@@ -320,12 +398,26 @@ function validateConfiguration(configuration: ModelProviderConfiguration): void 
 }
 
 function errorCode(error: unknown): string {
-  return typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof error.code === 'string'
-    ? error.code
-    : 'MODEL_TRANSPORT_ERROR';
+  const reason = fallbackReason(error);
+  if (reason === 'timeout') return 'MODEL_TRANSPORT_TIMEOUT';
+  if (reason === 'rate_limited') return 'MODEL_TRANSPORT_RATE_LIMITED';
+  if (reason === 'unavailable') return 'MODEL_TRANSPORT_UNAVAILABLE';
+  return 'MODEL_TRANSPORT_UPSTREAM_ERROR';
+}
+
+function fallbackReason(error: unknown): ControlledModelFallbackReason {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+      ? error.code.toUpperCase()
+      : '';
+  if (
+    code.includes('TIMEOUT') ||
+    (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name))
+  )
+    return 'timeout';
+  if (code.includes('RATE') || code === '429') return 'rate_limited';
+  if (code.includes('UNAVAILABLE') || code.includes('CIRCUIT')) return 'unavailable';
+  return 'upstream_error';
 }
 
 export type ModelRuntimeErrorCode =

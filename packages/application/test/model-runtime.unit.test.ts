@@ -10,6 +10,7 @@ import {
   type ModelProviderRecord,
   type ModelRuntimeRepository,
   type ModelTransportAdapter,
+  type ControlledModelRouteResolver,
 } from '../src/index.js';
 
 describe('ModelRuntimeService', () => {
@@ -75,7 +76,7 @@ describe('ModelRuntimeService', () => {
     expect(repository.invocations).toHaveLength(1);
     expect(repository.invocations[0]).toMatchObject({
       status: 'failed',
-      errorCode: 'UPSTREAM_FAILED',
+      errorCode: 'MODEL_TRANSPORT_UPSTREAM_ERROR',
     });
   });
 
@@ -130,6 +131,53 @@ describe('ModelRuntimeService', () => {
       createService(new MemoryModelRepository(), transport).embed('evaluation', 'text'),
     ).rejects.toMatchObject({ code: 'MODEL_STAGE_NOT_CONFIGURED' });
     expect(transport.providerIds).toHaveLength(0);
+  });
+
+  it('uses a controlled fallback chain, keeps task context and redacts upstream errors', async () => {
+    const repository = new MemoryModelRepository();
+    const transport = new ProviderSelectiveTransport('provider-primary');
+    let ids = 0;
+    const controlledRoutes: ControlledModelRouteResolver = {
+      resolve: () =>
+        Promise.resolve({
+          routeRef: 'planning-route:1',
+          candidates: [record('provider-primary'), record('provider-fallback')],
+          maxAttempts: 2,
+          timeoutMs: 1_000,
+          fallbackOn: ['upstream_error'],
+        }),
+    };
+    const service = new ModelRuntimeService({
+      repository,
+      transport,
+      cipher: {
+        encrypt: (value) => JSON.stringify(value),
+        decrypt: (value) => JSON.parse(value) as Readonly<Record<string, string>>,
+      },
+      clock: { now: () => '2026-08-02T00:00:00.000Z' },
+      ids: { nextInvocationId: () => `controlled-invocation-${String(++ids)}` },
+      controlledRoutes,
+    });
+
+    await expect(
+      service.generateStructuredWithAudit({
+        stage: 'workflow_planning',
+        instruction: 'Plan without exposing credentials.',
+        responseSchema: { type: 'object' },
+        correctionErrors: [],
+        taskId: 'task-stable-route',
+        routeContext: { taskType: 'inspection' },
+      }),
+    ).resolves.toMatchObject({ structuredResult: { provider: 'provider-fallback' } });
+    expect(transport.providerIds).toEqual(['provider-primary', 'provider-fallback']);
+    expect(repository.invocations).toHaveLength(2);
+    expect(repository.invocations[0]).toMatchObject({
+      providerId: 'provider-primary',
+      status: 'failed',
+      errorMessage: 'Model transport failed.',
+      taskId: 'task-stable-route',
+    });
+    expect(JSON.stringify(repository.invocations)).not.toContain('credential-value');
   });
 });
 
@@ -187,6 +235,41 @@ class FakeTransport implements ModelTransportAdapter {
     this.providerIds.push(input.configuration.providerId);
     return Promise.resolve({ rawResponse: { data: 'visible' }, vector: [1, 0], inputTokens: 2 });
   }
+}
+
+class ProviderSelectiveTransport implements ModelTransportAdapter {
+  readonly providerIds: string[] = [];
+  readonly #failedProviderId: string;
+
+  constructor(failedProviderId: string) {
+    this.#failedProviderId = failedProviderId;
+  }
+
+  generateStructured(input: Parameters<ModelTransportAdapter['generateStructured']>[0]) {
+    this.providerIds.push(input.configuration.providerId);
+    if (input.configuration.providerId === this.#failedProviderId)
+      return Promise.reject(
+        Object.assign(new Error('upstream included credential-value'), {
+          code: 'credential-value',
+        }),
+      );
+    return Promise.resolve({
+      rawResponse: { ok: true },
+      structuredResult: { provider: input.configuration.providerId },
+    });
+  }
+
+  embed(input: Parameters<ModelTransportAdapter['embed']>[0]) {
+    this.providerIds.push(input.configuration.providerId);
+    return Promise.resolve({ rawResponse: { ok: true }, vector: [1, 0] });
+  }
+}
+
+function record(providerId: string): ModelProviderRecord {
+  return {
+    configuration: configuration(providerId),
+    encryptedCredential: '{}',
+  };
 }
 
 class MemoryModelRepository implements ModelRuntimeRepository {

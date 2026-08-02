@@ -6,8 +6,10 @@ import { z, ZodError } from 'zod';
 import {
   NodeControlApplicationError,
   NodeControlConfigurationError,
+  NodeControlLlmGovernanceError,
   type NodeControlConfigurationService,
   type NodeControlFoundationService,
+  type NodeControlLlmGovernanceService,
 } from '../../../packages/node-control-application/src/index.js';
 import { NodeControlDomainError } from '../../../packages/node-control-domain/src/index.js';
 import { RevisionHintBroker } from './revision-hint-broker.js';
@@ -18,6 +20,7 @@ export interface NodeControlHttpConfiguration {
   readonly nodeControlApiUrl: string;
   readonly nodeEventsUrl: string;
   readonly a2aAgentCardUrl: string;
+  readonly llmGovernance?: NodeControlLlmGovernanceService;
 }
 
 export function createNodeControlHttpApp(
@@ -161,6 +164,114 @@ export function createNodeControlHttpApp(
       }
     },
   );
+
+  app.get('/api/v1/llm-providers', async (request, response, next) => {
+    try {
+      const llm = requiredLlmGovernance(configuration);
+      const items = await llm.listProviders(parseLimit(request.query['pageSize']));
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/llm-providers', async (request, response, next) => {
+    try {
+      const input = LlmProviderSchema.parse(request.body);
+      response.status(201).json(
+        await requiredLlmGovernance(configuration).createProvider(
+          {
+            ...input,
+            healthPolicy: input.healthPolicy,
+            rateLimitPolicy: input.rateLimitPolicy,
+            secretStatus: input.secretStatus,
+          },
+          requiredHeader(request, 'idempotency-key'),
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/llm-providers/:providerId', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(await requiredLlmGovernance(configuration).getProvider(request.params.providerId));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/llm-providers/:providerId/validate', async (request, response, next) => {
+    try {
+      const command = parseCommand(request.body);
+      response
+        .status(202)
+        .json(
+          await requiredLlmGovernance(configuration).validateProvider(
+            request.params.providerId,
+            requiredHeader(request, 'idempotency-key'),
+            command.reason,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/model-routes', async (request, response, next) => {
+    try {
+      const items = await requiredLlmGovernance(configuration).listRoutes(
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/model-routes', async (request, response, next) => {
+    try {
+      const input = ModelRouteSchema.parse(request.body);
+      response.status(201).json(
+        await requiredLlmGovernance(configuration).createRoute(
+          {
+            ...input,
+            primary: input.primary,
+            fallbacks: input.fallbacks,
+            budgetPolicy: {
+              ...input.budgetPolicy,
+              selector: {
+                scope: input.budgetPolicy.selector.scope,
+                ...(input.budgetPolicy.selector.key === undefined
+                  ? {}
+                  : { key: input.budgetPolicy.selector.key }),
+              },
+            },
+          },
+          requiredHeader(request, 'idempotency-key'),
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/model-routes/:routeId', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(await requiredLlmGovernance(configuration).getRoute(request.params.routeId));
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.post(
     '/api/v1/configuration-revisions/:configurationId/:revision/publish',
@@ -336,6 +447,24 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    if (error instanceof NodeControlLlmGovernanceError) {
+      const status =
+        error.code === 'LLM_PROVIDER_NOT_FOUND' || error.code === 'MODEL_ROUTE_NOT_FOUND'
+          ? 404
+          : error.code === 'MODEL_ROUTE_PROVIDER_UNAVAILABLE'
+            ? 422
+            : 409;
+      sendProblem(response, {
+        status,
+        code: error.code,
+        title: 'LLM governance command rejected',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
     if (error instanceof ZodError) {
       sendProblem(response, {
         status: 400,
@@ -439,6 +568,81 @@ const RuntimeAckSchema = z
   })
   .strict();
 
+const ModelCapabilitySchema = z.enum(['structured_output', 'tool_calling', 'embedding', 'vision']);
+const LlmProviderSchema = z
+  .object({
+    providerId: z.string().trim().min(1).max(256),
+    providerType: z.enum(['openai_compatible', 'anthropic', 'local']),
+    baseUrl: z.url(),
+    credentialRef: z.string().trim().min(1).max(256),
+    models: z
+      .array(
+        z
+          .object({
+            modelId: z.string().trim().min(1).max(256),
+            capabilities: z.array(ModelCapabilitySchema).min(1),
+            contextWindow: z.number().int().positive(),
+            enabled: z.boolean(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(128),
+    healthPolicy: z
+      .object({
+        timeoutMs: z.number().int().min(100).max(300_000),
+        retryAttempts: z.number().int().min(0).max(5),
+        failureThreshold: z.number().int().min(1).max(100),
+        recoverySeconds: z.number().int().min(1).max(86_400),
+      })
+      .strict(),
+    rateLimitPolicy: z
+      .object({
+        requestsPerMinute: z.number().int().positive(),
+        tokensPerMinute: z.number().int().positive(),
+        maxConcurrent: z.number().int().positive(),
+      })
+      .strict(),
+    status: z.literal('draft'),
+    secretStatus: z.literal('unknown').default('unknown'),
+    revision: z.number().int().positive(),
+  })
+  .strict();
+const RouteCandidateSchema = z
+  .object({
+    providerId: z.string().trim().min(1).max(256),
+    modelId: z.string().trim().min(1).max(256),
+  })
+  .strict();
+const ModelRouteSchema = z
+  .object({
+    routeId: z.string().trim().min(1).max(256),
+    stage: z.enum(['understanding', 'planning', 'execution', 'evaluation', 'summary', 'embedding']),
+    primary: RouteCandidateSchema,
+    fallbacks: z.array(RouteCandidateSchema).max(15),
+    budgetPolicy: z
+      .object({
+        selector: z
+          .object({
+            scope: z.enum(['stage', 'task', 'case']),
+            key: z.string().trim().min(1).max(256).optional(),
+          })
+          .strict(),
+        timeoutMs: z.number().int().min(100).max(300_000),
+        maxAttempts: z.number().int().min(1).max(16),
+        maxInputTokens: z.number().int().positive(),
+        maxOutputTokens: z.number().int().positive(),
+        maxCostUsd: z.number().nonnegative(),
+        fallbackOn: z
+          .array(z.enum(['unavailable', 'timeout', 'rate_limited', 'upstream_error']))
+          .min(1),
+      })
+      .strict(),
+    status: z.literal('draft'),
+    revision: z.number().int().positive(),
+  })
+  .strict();
+
 function positiveRevision(value: string): number {
   return z.coerce.number().int().positive().parse(value);
 }
@@ -509,6 +713,13 @@ function parseLimit(value: unknown): number {
   if (typeof value !== 'string') return 100;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= 200 ? parsed : 100;
+}
+
+function requiredLlmGovernance(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlLlmGovernanceService {
+  if (configuration.llmGovernance === undefined) throw new Error('LLM_GOVERNANCE_NOT_COMPOSED');
+  return configuration.llmGovernance;
 }
 
 interface ProblemInput {

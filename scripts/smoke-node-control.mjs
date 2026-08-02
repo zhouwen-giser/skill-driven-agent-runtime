@@ -79,6 +79,7 @@ try {
   const runtimeDatabaseUrl = `postgresql://sdar:sdar_local_only@127.0.0.1:${String(runtimePostgresPort)}/sdar`;
   const runtimeEnvironment = {
     ...process.env,
+    SDAR_REUSE_EXISTING_INFRA: 'false',
     COMPOSE_PROJECT_NAME: runtimeComposeProject,
     SDAR_POSTGRES_PORT: String(runtimePostgresPort),
     SDAR_POSTGRES_URL: runtimeDatabaseUrl,

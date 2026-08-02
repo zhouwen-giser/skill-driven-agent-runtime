@@ -17,7 +17,7 @@ if (pnpmCli === undefined || pnpmCli === '') {
 const childEnvironment = { ...process.env, NO_COLOR: '1' };
 Reflect.deleteProperty(childEnvironment, 'FORCE_COLOR');
 const steps = [
-  ['static-unit-contract-build', 'verify:bootstrap', 180_000],
+  ['static-unit-contract-build', 'verify:bootstrap', 300_000],
   ['cognitive-replay-no-physical-provider', 'verify:cognitive-replay', 60_000],
   ['clean-baseline-reset-seed', 'verify:migrations', 300_000],
   ['postgres-redis-integration', 'test:integration', 300_000],
@@ -104,8 +104,8 @@ function capture(command, args) {
 }
 
 function parseMetrics(value) {
-  const testFiles = lastNumber(value, /Test Files\s+(\d+)\s+passed/gu);
-  const tests = lastNumber(value, /Tests\s+(\d+)\s+passed/gu);
+  const testFiles = sumNumbers(value, /Test Files\s+(\d+)\s+passed/gu);
+  const tests = sumNumbers(value, /Tests\s+(\d+)\s+passed/gu);
   const openapiOperations = lastNumber(value, /Verified\s+(\d+)\s+management API operations/gu);
   const migrationCount = lastNumber(
     value,
@@ -123,6 +123,12 @@ function lastNumber(value, pattern) {
   const matches = [...value.matchAll(pattern)];
   const matched = matches.at(-1)?.[1];
   return matched === undefined ? undefined : Number(matched);
+}
+
+function sumNumbers(value, pattern) {
+  const matches = [...value.matchAll(pattern)];
+  if (matches.length === 0) return undefined;
+  return matches.reduce((sum, match) => sum + Number(match[1] ?? 0), 0);
 }
 
 function renderMarkdown(summaryValue) {

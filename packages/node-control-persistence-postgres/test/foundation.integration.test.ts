@@ -26,6 +26,8 @@ beforeEach(async () => {
               sdar_control.configuration_command_receipt,
               sdar_control.configuration_target_state,
               sdar_control.configuration_revision,
+              sdar_control.model_route_definition,
+              sdar_control.llm_provider_definition,
               sdar_control.control_audit_event,
               sdar_control.management_operation,
               sdar_control.node_profile`,
@@ -45,6 +47,7 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     expect(ledger.rows).toEqual([
       { version: '0001_node_control_foundation' },
       { version: '0002_configuration_revision_apply_lkg' },
+      { version: '0003_llm_provider_model_route' },
     ]);
     const runtimeLedger = await pool.query<{ exists: boolean }>(
       `SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists`,
@@ -86,10 +89,10 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
 
   it('rolls back and reapplies only the latest disposable Control migration', async () => {
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
-      '0002_configuration_revision_apply_lkg',
+      '0003_llm_provider_model_route',
     );
     const removed = await pool.query<{ value: string | null }>(
-      `SELECT to_regclass('sdar_control.configuration_revision')::text AS value`,
+      `SELECT to_regclass('sdar_control.llm_provider_definition')::text AS value`,
     );
     expect(removed.rows[0]?.value).toBeNull();
     await expect(repository.probe()).resolves.toBe(true);

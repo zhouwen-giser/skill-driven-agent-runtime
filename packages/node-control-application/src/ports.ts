@@ -4,7 +4,9 @@ import type {
   ConfigurationTargetType,
   ControlAuditEvent,
   JsonValue,
+  LlmProviderDefinition,
   ManagementOperation,
+  ModelRouteDefinition,
   NodeProfile,
   RuntimeRevisionAck,
 } from '../../node-control-domain/src/index.js';
@@ -98,4 +100,24 @@ export interface NodeControlConfigurationRepository {
   ): Promise<ConfigurationRevision | undefined>;
   acknowledge(acknowledgement: RuntimeRevisionAck): Promise<ConfigurationRevision>;
   activeConfigurationRefs(): Promise<readonly ConfigurationReference[]>;
+}
+
+export interface NodeControlLlmGovernanceRepository {
+  createProvider(
+    definition: LlmProviderDefinition,
+    context: ConfigurationMutationContext,
+  ): Promise<LlmProviderDefinition>;
+  findProvider(providerId: string, revision?: number): Promise<LlmProviderDefinition | undefined>;
+  listProviders(limit: number): Promise<readonly LlmProviderDefinition[]>;
+  validateProvider(
+    providerId: string,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation>;
+  createRoute(
+    definition: ModelRouteDefinition,
+    context: ConfigurationMutationContext,
+  ): Promise<ModelRouteDefinition>;
+  findRoute(routeId: string, revision?: number): Promise<ModelRouteDefinition | undefined>;
+  listRoutes(limit: number): Promise<readonly ModelRouteDefinition[]>;
 }
