@@ -26,6 +26,14 @@ export interface NodeControlFoundationRepository {
   bootstrapNodeProfile(profile: NodeProfile, audit: ControlAuditEvent): Promise<boolean>;
   listManagementOperations(limit: number): Promise<readonly ManagementOperation[]>;
   findManagementOperation(operationId: string): Promise<ManagementOperation | undefined>;
+  findGovernanceOperationReplay?(
+    operationType: string,
+    idempotencyKeyHash: string,
+  ): Promise<ManagementOperation | undefined>;
+  recordGovernanceOperation?(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation>;
   listAuditEvents(limit: number): Promise<readonly ControlAuditEvent[]>;
 }
 

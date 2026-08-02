@@ -14,6 +14,7 @@ import {
 import {
   ArtifactManagementCommandService,
   ArtifactManagementQueryService,
+  RuntimeSkillGovernanceService,
   type ArtifactGovernancePort,
 } from '../../application/src/index.js';
 
@@ -61,6 +62,208 @@ describe('management HTTP API contract', () => {
     const uses = await fetch(`${endpoint.baseUrl}/api/v1/workflow-templates/template-1/uses`);
     expect(uses.status).toBe(200);
     await expect(uses.json()).resolves.toEqual({ items: [] });
+  });
+
+  it('exposes authenticated Runtime Control Skill and Plan Template governance adapters', async () => {
+    const serviceToken = 'p10-runtime-control-service-token-000000000000';
+    const skill = createSkillVersion({
+      skillId: 'skill.runtime.p10',
+      version: 1,
+      name: 'Runtime P10 Skill',
+      summary: 'Governed Skill.',
+      description: 'Governed exact Runtime Skill version.',
+      capabilities: ['governance'],
+      workflowGuidance: 'Execute after publication.',
+      outputInstruction: 'Return status.',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object' },
+      toolPolicy: { required: [], optional: [], forbidden: [] },
+      runtimePolicy: { autoConfirmPlan: false },
+      status: 'draft',
+      sourceKind: 'admin',
+      validationPassed: true,
+      createdAt: '2026-08-02T00:00:00.000Z',
+      outcomeSpecification: {
+        schemaVersion: '1.0',
+        skillId: 'skill.runtime.p10',
+        skillVersion: 1,
+        specificationHash: `sha256:${'1'.repeat(64)}`,
+        effects: ['effect.p10'],
+        evidence: ['evidence.p10'],
+        artifacts: [],
+        taskGoalPolicy: {},
+        confidencePolicy: {},
+        sideEffectPolicy: {},
+      },
+    });
+    const skillGovernance = new RuntimeSkillGovernanceService({
+      skills: {
+        importPackage: () => Promise.resolve(skill),
+        listCurrentVersions: () => Promise.resolve([skill]),
+        listVersions: () => Promise.resolve([skill]),
+        readExactVersion: () => Promise.resolve(skill),
+        validatePackage: () =>
+          Promise.resolve({
+            skillVersion: skill,
+            packageChecksum: 'a'.repeat(64),
+            packageRoot: '/package/p10',
+            fileChecksums: {},
+            skillMarkdown: '# P10',
+            validatedAt: '2026-08-02T00:00:00.000Z',
+          }),
+      },
+      governance: {
+        findGovernance: () => Promise.resolve(undefined),
+        importPackage: (_input, importValidatedPackage) =>
+          importValidatedPackage().then((imported) => ({ skill: imported, replayed: false })),
+        transition: () =>
+          Promise.resolve({
+            skill: { ...skill, status: 'enabled' },
+            status: 'published',
+            governanceRevision: 1,
+            replayed: false,
+          }),
+      },
+    });
+    const activate = vi.fn(() => Promise.resolve());
+    const artifactRepository = {
+      listArtifacts: () =>
+        Promise.resolve({
+          items: [
+            {
+              artifact_id: 'artifact.runtime.p10',
+              artifact_key: 'plan.runtime.p10',
+              version: 1,
+              artifact_type: 'plan_template',
+              status: 'approved',
+              content_hash: 'b'.repeat(64),
+              active_pointer_version: null,
+              validation_status: 'passed',
+              validation_completed_at: '2026-08-02T00:00:00.000Z',
+              created_at: '2026-08-02T00:00:00.000Z',
+            },
+          ],
+        }),
+      getArtifact: () => Promise.resolve(undefined),
+      getArtifactView: () => Promise.resolve(undefined),
+      getRuntimeView: () => Promise.resolve({ items: [] }),
+      getRuntimeDetail: () => Promise.resolve(undefined),
+      listEvents: () => Promise.resolve([]),
+      recordReadAudit: () => Promise.resolve(),
+    };
+    const artifactGovernance: ArtifactGovernancePort = {
+      requestValidation: vi.fn(() => Promise.resolve()),
+      recordApproval: vi.fn(() => Promise.resolve()),
+      activate,
+      requestRevalidation: vi.fn(() => Promise.resolve()),
+      deprecate: vi.fn(() => Promise.resolve()),
+      rollback: vi.fn(() => Promise.resolve()),
+      killSwitch: vi.fn(() => Promise.resolve()),
+    };
+    const artifactToken = 'p10-artifact-management-token-0000000000000';
+    const runtimePrincipalResolver = {
+      resolve: (input: Readonly<{ authorization?: string; requestId: string }>) => {
+        expect(input.authorization).toBe(`Bearer ${serviceToken}`);
+        return Promise.resolve({
+          actorId: 'p10-admin',
+          roles: new Set(['administrator'] as const),
+          kind: 'human' as const,
+          requestId: input.requestId,
+        });
+      },
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: skillGovernance,
+        artifactPrincipalResolver: runtimePrincipalResolver,
+      },
+      artifactManagement: {
+        queries: new ArtifactManagementQueryService({
+          repository: artifactRepository,
+          clock: { now: () => '2026-08-02T00:00:00.000Z' },
+        }),
+        commands: new ArtifactManagementCommandService({
+          governance: artifactGovernance,
+          clock: { now: () => '2026-08-02T00:00:00.000Z' },
+        }),
+        principalResolver: {
+          resolve: (input) => {
+            if (input.authorization !== `Bearer ${artifactToken}`)
+              return Promise.reject(
+                Object.assign(new Error('Artifact authentication failed.'), {
+                  code: 'MANAGEMENT_AUTHENTICATION_REQUIRED',
+                  status: 401,
+                }),
+              );
+            return Promise.resolve({
+              actorId: 'p10-admin',
+              roles: new Set(['administrator']),
+              kind: 'human',
+              requestId: input.requestId,
+            });
+          },
+        },
+      },
+    });
+
+    const unauthorized = await fetch(`${endpoint.baseUrl}/internal/v1/plan-templates`);
+    expect(unauthorized.status).toBe(401);
+    const list = await fetch(`${endpoint.baseUrl}/internal/v1/plan-templates`, {
+      headers: { authorization: `Bearer ${serviceToken}` },
+    });
+    expect(list.status).toBe(200);
+    await expect(list.json()).resolves.toMatchObject({
+      items: [
+        {
+          artifactId: 'plan.runtime.p10',
+          authorityArtifactId: 'artifact.runtime.p10',
+          version: '1',
+          status: 'approved',
+        },
+      ],
+    });
+    const publishedSkill = await fetch(
+      `${endpoint.baseUrl}/internal/v1/skills/skill.runtime.p10/versions/1/publish`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${serviceToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'p10-skill-publish-key',
+        },
+        body: JSON.stringify({ reason: 'Publish exact Skill.', expectedRevision: 0 }),
+      },
+    );
+    expect(publishedSkill.status).toBe(202);
+    await expect(publishedSkill.json()).resolves.toMatchObject({
+      operationType: 'skill.publish',
+      status: 'succeeded',
+      target: { id: 'skill.runtime.p10', version: '1' },
+    });
+    const publishedTemplate = await fetch(
+      `${endpoint.baseUrl}/internal/v1/plan-templates/artifact.runtime.p10/versions/1/publish`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${serviceToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'p10-template-publish-key',
+        },
+        body: JSON.stringify({
+          reason: 'Activate governed template.',
+          expectedRevision: 0,
+          payload: {
+            artifactKey: 'plan.runtime.p10',
+            expectedLockVersion: 0,
+            validationSummaryHash: `sha256:${'c'.repeat(64)}`,
+          },
+        }),
+      },
+    );
+    expect(publishedTemplate.status).toBe(202);
+    expect(activate).toHaveBeenCalledOnce();
   });
 
   it('projects bounded P10 Gateway evidence without changing Task protocol semantics', async () => {

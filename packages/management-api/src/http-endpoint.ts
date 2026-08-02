@@ -1,5 +1,5 @@
 import { once } from 'node:events';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type Server as HttpServer } from 'node:http';
 import path from 'node:path';
 
@@ -9,7 +9,12 @@ import {
   CognitiveManagementController,
   type CognitiveManagementAuthorizer,
 } from './cognitive/cognitive-management-controller.js';
-import { ArtifactManagementError } from '../../application/src/index.js';
+import { ArtifactManagementError, SkillGovernanceError } from '../../application/src/index.js';
+import {
+  createManagementOperation,
+  transitionManagementOperation,
+  type ManagementOperation,
+} from '../../node-control-domain/src/index.js';
 
 import type {
   McpRegistryService,
@@ -73,6 +78,7 @@ import type {
   ArtifactManagementCommandOperation,
   ManagementPrincipal,
   ManagementPrincipalResolver,
+  RuntimeSkillGovernanceService,
 } from '../../application/src/index.js';
 import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
 
@@ -868,6 +874,20 @@ export interface ManagementHttpEndpointHandle {
   close(): Promise<void>;
 }
 
+interface RuntimeControlRouteOptions {
+  readonly artifactManagement?: Readonly<{
+    queries: ArtifactManagementQueryService;
+    commands: ArtifactManagementCommandService;
+    principalResolver: ManagementPrincipalResolver;
+  }>;
+  readonly runtimeControl?: Readonly<{
+    bearerToken: string;
+    skills: RuntimeSkillGovernanceService;
+    actorId?: string;
+    artifactPrincipalResolver?: ManagementPrincipalResolver;
+  }>;
+}
+
 export async function startManagementHttpEndpoint(
   options: Readonly<{
     operations: ManagementOperations;
@@ -880,6 +900,12 @@ export async function startManagementHttpEndpoint(
       queries: ArtifactManagementQueryService;
       commands: ArtifactManagementCommandService;
       principalResolver: ManagementPrincipalResolver;
+    }>;
+    runtimeControl?: Readonly<{
+      bearerToken: string;
+      skills: RuntimeSkillGovernanceService;
+      actorId?: string;
+      artifactPrincipalResolver?: ManagementPrincipalResolver;
     }>;
   }>,
 ): Promise<ManagementHttpEndpointHandle> {
@@ -923,6 +949,8 @@ export async function startManagementHttpEndpoint(
       },
     });
   });
+
+  registerRuntimeControlGovernanceRoutes(app, options);
   app.post(
     '/api/v1/artifacts/promotion/approvals',
     asyncRoute(async (request, response) => {
@@ -3192,6 +3220,20 @@ export async function startManagementHttpEndpoint(
   app.use((error: unknown, _request: Request, response: Response, next: NextFunction) => {
     void next;
     const normalized = normalizeHttpError(error);
+    if (_request.path.startsWith('/internal/v1/')) {
+      response
+        .status(normalized.status)
+        .type('application/problem+json')
+        .json({
+          type: `https://errors.sdar.io/runtime-control/${normalized.body.code.toLowerCase()}`,
+          title: 'Runtime Control request rejected',
+          status: normalized.status,
+          code: normalized.body.code,
+          detail: normalized.body.message,
+          ...(_request.originalUrl === '' ? {} : { instance: _request.originalUrl }),
+        });
+      return;
+    }
     response.status(normalized.status).json({ error: normalized.body });
   });
 
@@ -3208,6 +3250,396 @@ export async function startManagementHttpEndpoint(
     baseUrl: `http://${host}:${String(address.port)}`,
     close: () => closeServer(server),
   };
+}
+
+function registerRuntimeControlGovernanceRoutes(
+  app: express.Express,
+  options: RuntimeControlRouteOptions,
+): void {
+  app.post(
+    '/internal/v1/skills/import',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const command = RuntimeControlCommandSchema.parse(request.body);
+      const payload = RuntimeSkillImportPayloadSchema.parse(command.payload);
+      const idempotencyKey = runtimeIdempotencyKey(request);
+      const occurredAt = new Date().toISOString();
+      const imported = await runtime.skills.importPackage({
+        packageRoot: payload.packageRoot,
+        idempotencyKeyHash: sha256(idempotencyKey),
+        requestHash: sha256Json(command),
+        actorId: runtime.actorId ?? 'sdar-node-control',
+        reason: command.reason,
+        occurredAt,
+      });
+      response.status(202).json(
+        completedRuntimeOperation({
+          operationType: 'skill.import',
+          target: { type: 'skill_version', id: imported.skillId, version: imported.version },
+          actorId: runtime.actorId ?? 'sdar-node-control',
+          reason: command.reason,
+          idempotencyKey,
+          input: command,
+          result: imported,
+          occurredAt,
+        }),
+      );
+    }),
+  );
+
+  for (const operation of ['publish', 'suspend', 'deprecate'] as const) {
+    app.post(
+      `/internal/v1/skills/:skillId/versions/:version/${operation}`,
+      asyncRoute(async (request, response) => {
+        const runtime = requireRuntimeControl(request, options.runtimeControl);
+        const command = RuntimeControlCommandSchema.parse(request.body);
+        if (command.expectedRevision === undefined)
+          throw new HttpInputError(
+            'SKILL_GOVERNANCE_EXPECTED_REVISION_REQUIRED',
+            'Exact Skill lifecycle commands require expectedRevision.',
+          );
+        const idempotencyKey = runtimeIdempotencyKey(request);
+        const occurredAt = new Date().toISOString();
+        const input = {
+          operation,
+          skillId: pathValue(request, 'skillId'),
+          version: z.coerce.number().int().positive().parse(pathValue(request, 'version')),
+          expectedRevision: command.expectedRevision,
+          idempotencyKeyHash: sha256(idempotencyKey),
+          requestHash: sha256Json(command),
+          actorId: runtime.actorId ?? 'sdar-node-control',
+          reason: command.reason,
+          occurredAt,
+        } as const;
+        const governed = await runtime.skills.transition(input);
+        response.status(202).json(
+          completedRuntimeOperation({
+            operationType: `skill.${operation}`,
+            target: { type: 'skill_version', id: input.skillId, version: governed.version },
+            actorId: input.actorId,
+            reason: command.reason,
+            idempotencyKey,
+            input: command,
+            result: governed,
+            occurredAt,
+          }),
+        );
+      }),
+    );
+  }
+
+  app.get(
+    '/internal/v1/plan-templates',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const artifacts = requiredRuntimeArtifactManagement(options.artifactManagement);
+      const principal = await runtimeArtifactPrincipal(
+        request,
+        runtime.artifactPrincipalResolver ?? artifacts.principalResolver,
+      );
+      const listed = (await artifacts.queries.list(principal, {
+        limit: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .default(200)
+          .parse(request.query['pageSize']),
+        ...(typeof request.query['pageToken'] === 'string'
+          ? { cursor: request.query['pageToken'] }
+          : {}),
+        artifactType: 'plan_template',
+        sort: 'key_asc',
+      })) as Readonly<{ items?: readonly unknown[]; nextCursor?: string }>;
+      const items = Object.freeze((listed.items ?? []).map(projectPlanTemplateVersion));
+      response.status(200).json({
+        items,
+        ...(listed.nextCursor === undefined ? {} : { nextPageToken: listed.nextCursor }),
+        totalEstimate: items.length,
+        asOf: new Date().toISOString(),
+      });
+    }),
+  );
+
+  for (const operation of ['publish', 'revalidate', 'suspend'] as const) {
+    app.post(
+      `/internal/v1/plan-templates/:artifactId/versions/:version/${operation}`,
+      asyncRoute(async (request, response) => {
+        const runtime = requireRuntimeControl(request, options.runtimeControl);
+        const artifacts = requiredRuntimeArtifactManagement(options.artifactManagement);
+        const principal = await runtimeArtifactPrincipal(
+          request,
+          runtime.artifactPrincipalResolver ?? artifacts.principalResolver,
+        );
+        const command = RuntimeControlCommandSchema.parse(request.body);
+        if (command.expectedRevision === undefined)
+          throw new HttpInputError(
+            'ARTIFACT_EXPECTED_REVISION_REQUIRED',
+            'Plan Template governance commands require expectedRevision.',
+          );
+        const payload = RuntimePlanTemplatePayloadSchema.parse(command.payload ?? {});
+        const artifactId = pathValue(request, 'artifactId');
+        const version = z.coerce.number().int().positive().parse(pathValue(request, 'version'));
+        const idempotencyKey = runtimeIdempotencyKey(request);
+        const artifactOperation = planTemplateArtifactOperation(operation, payload);
+        const result = await artifacts.commands.execute(principal, artifactOperation.operation, {
+          artifactId,
+          version,
+          expectedVersion: command.expectedRevision,
+          idempotencyKey,
+          reason: command.reason,
+          ...artifactOperation.fields,
+        });
+        response.status(202).json(
+          completedRuntimeOperation({
+            operationType: `plan-template.${operation}`,
+            target: { type: 'plan_template_version', id: artifactId, version: String(version) },
+            actorId: principal.actorId,
+            reason: command.reason,
+            idempotencyKey,
+            input: command,
+            result,
+          }),
+        );
+      }),
+    );
+  }
+}
+
+const RuntimeControlCommandSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(1_024),
+    payload: z.unknown().optional(),
+    expectedRevision: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+const RuntimeSkillImportPayloadSchema = z
+  .object({ packageRoot: z.string().trim().min(1).max(4_096) })
+  .strict();
+const RuntimePlanTemplatePayloadSchema = z
+  .object({
+    artifactKey: z.string().trim().min(1).optional(),
+    expectedLockVersion: z.number().int().nonnegative().optional(),
+    validationSummaryHash: z.string().trim().min(1).optional(),
+    validationRunId: z.string().trim().min(1).optional(),
+    datasetRef: z.string().trim().min(1).optional(),
+    targetArtifactId: z.string().trim().min(1).optional(),
+    targetVersion: z.number().int().positive().optional(),
+  })
+  .strict();
+
+function requireRuntimeControl(
+  request: Request,
+  runtime: RuntimeControlRouteOptions['runtimeControl'],
+): NonNullable<RuntimeControlRouteOptions['runtimeControl']> {
+  if (runtime === undefined)
+    throw Object.assign(new Error('Runtime Control governance is unavailable.'), {
+      code: 'RUNTIME_CONTROL_GOVERNANCE_UNAVAILABLE',
+      status: 503,
+    });
+  const authorization = request.header('authorization') ?? '';
+  const expected = `Bearer ${runtime.bearerToken}`;
+  const actualBuffer = Buffer.from(authorization);
+  const expectedBuffer = Buffer.from(expected);
+  if (
+    actualBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(actualBuffer, expectedBuffer)
+  )
+    throw Object.assign(new Error('Runtime Control authentication failed.'), {
+      code: 'RUNTIME_CONTROL_UNAUTHORIZED',
+      status: 401,
+    });
+  return runtime;
+}
+
+function runtimeIdempotencyKey(request: Request): string {
+  return z.string().trim().min(8).max(256).parse(request.header('idempotency-key'));
+}
+
+function requiredRuntimeArtifactManagement(
+  value: RuntimeControlRouteOptions['artifactManagement'],
+): NonNullable<RuntimeControlRouteOptions['artifactManagement']> {
+  if (value === undefined)
+    throw Object.assign(new Error('Artifact governance is unavailable.'), {
+      code: 'RUNTIME_ARTIFACT_GOVERNANCE_UNAVAILABLE',
+      status: 503,
+    });
+  return value;
+}
+
+function runtimeArtifactPrincipal(
+  request: Request,
+  resolver: ManagementPrincipalResolver,
+): Promise<ManagementPrincipal> {
+  const authorization = request.header('authorization');
+  return resolver.resolve({
+    ...(authorization === undefined ? {} : { authorization }),
+    requestId: request.header('x-request-id') ?? `runtime-control-${randomUUID()}`,
+    ...(request.ip === undefined ? {} : { sourceIp: request.ip }),
+  });
+}
+
+function planTemplateArtifactOperation(
+  operation: 'publish' | 'revalidate' | 'suspend',
+  payload: z.infer<typeof RuntimePlanTemplatePayloadSchema>,
+): Readonly<{
+  operation: ArtifactManagementCommandOperation;
+  fields: Readonly<Record<string, string | number>>;
+}> {
+  if (operation === 'publish')
+    return Object.freeze({
+      operation: 'activate',
+      fields: Object.freeze({
+        artifactKey: requiredString(payload.artifactKey, 'artifactKey'),
+        expectedLockVersion: requiredInteger(payload.expectedLockVersion, 'expectedLockVersion'),
+        validationSummaryHash: requiredString(
+          payload.validationSummaryHash,
+          'validationSummaryHash',
+        ),
+      }),
+    });
+  if (operation === 'revalidate')
+    return Object.freeze({
+      operation: 'revalidate',
+      fields: Object.freeze({
+        validationRunId: requiredString(payload.validationRunId, 'validationRunId'),
+        validationType: 'revalidation',
+        datasetRef: requiredString(payload.datasetRef, 'datasetRef'),
+      }),
+    });
+  if (payload.targetArtifactId !== undefined || payload.targetVersion !== undefined)
+    return Object.freeze({
+      operation: 'rollback',
+      fields: Object.freeze({
+        artifactKey: requiredString(payload.artifactKey, 'artifactKey'),
+        expectedLockVersion: requiredInteger(payload.expectedLockVersion, 'expectedLockVersion'),
+        validationSummaryHash: requiredString(
+          payload.validationSummaryHash,
+          'validationSummaryHash',
+        ),
+        targetArtifactId: requiredString(payload.targetArtifactId, 'targetArtifactId'),
+        targetVersion: requiredInteger(payload.targetVersion, 'targetVersion', true),
+      }),
+    });
+  return Object.freeze({
+    operation: 'deprecate',
+    fields: Object.freeze({
+      artifactKey: requiredString(payload.artifactKey, 'artifactKey'),
+      expectedLockVersion: requiredInteger(payload.expectedLockVersion, 'expectedLockVersion'),
+    }),
+  });
+}
+
+function projectPlanTemplateVersion(value: unknown) {
+  if (typeof value !== 'object' || value === null)
+    throw new HttpInputError('PLAN_TEMPLATE_PROJECTION_INVALID');
+  const row = value as Readonly<Record<string, unknown>>;
+  const authorityArtifactId = requiredRowString(row, 'artifact_id');
+  const artifactId = requiredRowString(row, 'artifact_key');
+  const version = requiredRowInteger(row, 'version');
+  const activePointer =
+    row['active_pointer_version'] !== null && row['active_pointer_version'] !== undefined;
+  const rawStatus = typeof row['status'] === 'string' ? row['status'] : 'candidate';
+  const status = activePointer ? 'active' : planTemplateStatus(rawStatus);
+  const created = row['created_at'];
+  const createdAt =
+    created instanceof Date ? created.toISOString() : new Date(String(created)).toISOString();
+  return Object.freeze({
+    artifactId,
+    authorityArtifactId,
+    version: String(version),
+    name: artifactId,
+    status,
+    checksum: requiredRowString(row, 'content_hash'),
+    ...(row['validation_status'] === null || row['validation_status'] === undefined
+      ? {}
+      : {
+          validationSummary: Object.freeze({
+            status:
+              typeof row['validation_status'] === 'string' ? row['validation_status'] : 'unknown',
+            ...(row['validation_completed_at'] === null ||
+            row['validation_completed_at'] === undefined
+              ? {}
+              : { completedAt: row['validation_completed_at'] }),
+          }),
+        }),
+    activePointer,
+    createdAt,
+  });
+}
+
+function planTemplateStatus(value: string) {
+  if (['candidate', 'validated', 'approved', 'active', 'deprecated', 'retired'].includes(value))
+    return value;
+  if (value === 'suspended' || value === 'disabled') return 'suspended';
+  return 'candidate';
+}
+
+function requiredRowString(row: Readonly<Record<string, unknown>>, key: string): string {
+  const value = row[key];
+  if (typeof value !== 'string' || value.trim() === '')
+    throw new HttpInputError('PLAN_TEMPLATE_PROJECTION_INVALID', `Missing ${key}.`);
+  return value;
+}
+
+function requiredRowInteger(row: Readonly<Record<string, unknown>>, key: string): number {
+  const value = Number(row[key]);
+  if (!Number.isSafeInteger(value) || value < 1)
+    throw new HttpInputError('PLAN_TEMPLATE_PROJECTION_INVALID', `Invalid ${key}.`);
+  return value;
+}
+
+function requiredString(value: string | undefined, field: string): string {
+  if (value === undefined)
+    throw new HttpInputError('RUNTIME_CONTROL_PAYLOAD_INVALID', `${field} is required.`);
+  return value;
+}
+
+function requiredInteger(value: number | undefined, field: string, positive = false): number {
+  if (value === undefined || !Number.isSafeInteger(value) || (positive ? value < 1 : value < 0))
+    throw new HttpInputError('RUNTIME_CONTROL_PAYLOAD_INVALID', `${field} is required.`);
+  return value;
+}
+
+function completedRuntimeOperation(
+  input: Readonly<{
+    operationType: string;
+    target: ManagementOperation['target'];
+    actorId: string;
+    reason: string;
+    idempotencyKey: string;
+    input: unknown;
+    result: unknown;
+    occurredAt?: string;
+  }>,
+): ManagementOperation {
+  const occurredAt = input.occurredAt ?? new Date().toISOString();
+  const operation = createManagementOperation(
+    {
+      operationId: `runtime-${sha256(`${input.operationType}:${input.idempotencyKey}`)}`,
+      operationType: input.operationType,
+      target: input.target,
+      actorId: input.actorId,
+      reason: input.reason,
+      idempotencyKeyHash: sha256(input.idempotencyKey),
+      inputHash: sha256Json(input.input),
+    },
+    occurredAt,
+  );
+  return transitionManagementOperation(
+    transitionManagementOperation(operation, 'running', occurredAt),
+    'succeeded',
+    occurredAt,
+    { result: input.result },
+  );
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function sha256Json(value: unknown): string {
+  return sha256(JSON.stringify(value));
 }
 
 function requiredKnowledgePromotion(
@@ -3576,6 +4008,9 @@ function normalizeHttpError(error: unknown): Readonly<{
       body: { code: error.code, message: 'Artifact management request was rejected.' },
     };
   }
+  if (error instanceof SkillGovernanceError) {
+    return { status: error.status, body: { code: error.code, message: error.message } };
+  }
   if (error instanceof z.ZodError) {
     return {
       status: 400,
@@ -3594,6 +4029,13 @@ function normalizeHttpError(error: unknown): Readonly<{
     };
   }
   const message = error instanceof Error ? error.message : 'Unexpected management API error.';
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    typeof error.status === 'number'
+  )
+    return { status: error.status, body: { code, message } };
   if (code === 'COGNITIVE_MANAGEMENT_UNAUTHORIZED') {
     return { status: 401, body: { code, message } };
   }

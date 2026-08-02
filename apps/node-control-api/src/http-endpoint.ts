@@ -19,6 +19,8 @@ import {
   type NodeControlMcpProviderBindingService,
   type NodeControlCapabilityService,
   type NodeControlSmppRegistryService,
+  type NodeControlRuntimeGovernanceService,
+  NodeControlRuntimeGovernanceError,
 } from '../../../packages/node-control-application/src/index.js';
 import type { TaskCapabilityBinding } from '../../../packages/domain/src/index.js';
 import {
@@ -58,6 +60,7 @@ export interface NodeControlHttpConfiguration {
   readonly taskCapabilities?: Readonly<{
     findBinding(taskId: string): Promise<TaskCapabilityBinding | undefined>;
   }>;
+  readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
 }
 
 export function createNodeControlHttpApp(
@@ -890,6 +893,176 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get('/api/v1/skills', async (request, response, next) => {
+    try {
+      const items = await requiredRuntimeGovernance(configuration).listSkills(
+        typeof request.query['status'] === 'string' ? request.query['status'] : undefined,
+      );
+      response
+        .status(200)
+        .json(
+          page(
+            items,
+            request.query['pageSize'],
+            request.query['pageToken'],
+            `skills:${typeof request.query['status'] === 'string' ? request.query['status'] : ''}`,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/skills/import', async (request, response, next) => {
+    try {
+      const command = parseCommand(request.body);
+      response.status(202).json(
+        await requiredRuntimeGovernance(configuration).importSkill({
+          ...command,
+          idempotencyKey: requiredHeader(request, 'idempotency-key'),
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/skills/:skillId/versions', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          page(
+            await requiredRuntimeGovernance(configuration).listSkillVersions(
+              request.params.skillId,
+            ),
+            request.query['pageSize'],
+            request.query['pageToken'],
+            `skill-versions:${request.params.skillId}`,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/skills/:skillId/versions/:version', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredRuntimeGovernance(configuration).getSkillVersion(
+            request.params.skillId,
+            request.params.version,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  for (const operation of ['publish', 'suspend', 'deprecate'] as const) {
+    app.post(
+      `/api/v1/skills/:skillId/versions/:version/${operation}`,
+      async (request, response, next) => {
+        try {
+          const command = parseCommand(request.body);
+          response.status(202).json(
+            await requiredRuntimeGovernance(configuration).governSkill(
+              operation,
+              request.params.skillId,
+              request.params.version,
+              {
+                ...command,
+                idempotencyKey: requiredHeader(request, 'idempotency-key'),
+              },
+            ),
+          );
+        } catch (error) {
+          next(error);
+        }
+      },
+    );
+  }
+
+  app.get('/api/v1/plan-templates', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          page(
+            await requiredRuntimeGovernance(configuration).listPlanTemplates(),
+            request.query['pageSize'],
+            request.query['pageToken'],
+            'plan-templates',
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/plan-templates/:artifactId/versions', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          page(
+            await requiredRuntimeGovernance(configuration).listPlanTemplateVersions(
+              request.params.artifactId,
+            ),
+            request.query['pageSize'],
+            request.query['pageToken'],
+            `plan-template-versions:${request.params.artifactId}`,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get(
+    '/api/v1/plan-templates/:artifactId/versions/:version',
+    async (request, response, next) => {
+      try {
+        response
+          .status(200)
+          .json(
+            await requiredRuntimeGovernance(configuration).getPlanTemplateVersion(
+              request.params.artifactId,
+              request.params.version,
+            ),
+          );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  for (const operation of ['publish', 'revalidate', 'suspend'] as const) {
+    app.post(
+      `/api/v1/plan-templates/:artifactId/versions/:version/${operation}`,
+      async (request, response, next) => {
+        try {
+          const command = parseCommand(request.body);
+          response.status(202).json(
+            await requiredRuntimeGovernance(configuration).governPlanTemplate(
+              operation,
+              request.params.artifactId,
+              request.params.version,
+              {
+                ...command,
+                idempotencyKey: requiredHeader(request, 'idempotency-key'),
+              },
+            ),
+          );
+        } catch (error) {
+          next(error);
+        }
+      },
+    );
+  }
+
   app.get('/api/v1/tasks/:taskId/capability-binding', async (request, response, next) => {
     try {
       const binding = await requiredTaskCapabilities(configuration).findBinding(
@@ -1195,6 +1368,38 @@ export function createNodeControlHttpApp(
         instance: request.originalUrl,
         correlationId: correlationId(request),
         retryable: false,
+      });
+      return;
+    }
+    if (error instanceof NodeControlRuntimeGovernanceError) {
+      sendProblem(response, {
+        status: error.status,
+        code: error.code,
+        title: 'Runtime governance command rejected',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: error.status >= 500,
+      });
+      return;
+    }
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      typeof error.status === 'number' &&
+      'code' in error &&
+      typeof error.code === 'string'
+    ) {
+      sendProblem(response, {
+        status: error.status,
+        code: error.code,
+        title: 'Runtime adapter request rejected',
+        detail:
+          error instanceof Error ? error.message : 'The Runtime adapter rejected the request.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: error.status >= 500,
       });
       return;
     }
@@ -1779,6 +1984,58 @@ function parseLimit(value: unknown): number {
   return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= 200 ? parsed : 100;
 }
 
+function page<T>(items: readonly T[], pageSize: unknown, pageToken: unknown, scope: string) {
+  const limit = parsePageSize(pageSize);
+  const offset = decodePageToken(pageToken, scope);
+  const selected = items.slice(offset, offset + limit);
+  const nextOffset = offset + selected.length;
+  return Object.freeze({
+    items: Object.freeze(selected),
+    ...(nextOffset < items.length ? { nextPageToken: encodePageToken(nextOffset, scope) } : {}),
+    totalEstimate: items.length,
+    asOf: new Date().toISOString(),
+  });
+}
+
+function parsePageSize(value: unknown): number {
+  if (value === undefined) return 50;
+  if (typeof value !== 'string') throw invalidPage('pageSize must be a query string value.');
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 200)
+    throw invalidPage('pageSize must be an integer between 1 and 200.');
+  return parsed;
+}
+
+function encodePageToken(offset: number, scope: string): string {
+  return Buffer.from(JSON.stringify({ offset, scope }), 'utf8').toString('base64url');
+}
+
+function decodePageToken(value: unknown, scope: string): number {
+  if (value === undefined) return 0;
+  if (typeof value !== 'string' || value.length > 2_048) throw invalidPage('pageToken is invalid.');
+  try {
+    const decoded = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as unknown;
+    if (
+      typeof decoded !== 'object' ||
+      decoded === null ||
+      !('offset' in decoded) ||
+      !Number.isSafeInteger(decoded.offset) ||
+      Number(decoded.offset) < 0 ||
+      !('scope' in decoded) ||
+      decoded.scope !== scope
+    )
+      throw invalidPage('pageToken is invalid for this collection.');
+    return Number(decoded.offset);
+  } catch (error) {
+    if (error instanceof NodeControlRuntimeGovernanceError) throw error;
+    throw invalidPage('pageToken is invalid.');
+  }
+}
+
+function invalidPage(message: string): NodeControlRuntimeGovernanceError {
+  return new NodeControlRuntimeGovernanceError('PAGE_TOKEN_INVALID', message, 400);
+}
+
 function requiredLlmGovernance(
   configuration: NodeControlHttpConfiguration,
 ): NodeControlLlmGovernanceService {
@@ -1852,6 +2109,18 @@ function requiredTaskCapabilities(configuration: NodeControlHttpConfiguration): 
   if (configuration.taskCapabilities === undefined)
     throw new Error('TASK_CAPABILITY_BINDING_NOT_COMPOSED');
   return configuration.taskCapabilities;
+}
+
+function requiredRuntimeGovernance(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlRuntimeGovernanceService {
+  if (configuration.runtimeGovernance === undefined)
+    throw new NodeControlRuntimeGovernanceError(
+      'RUNTIME_GOVERNANCE_NOT_COMPOSED',
+      'Runtime governance is not composed.',
+      503,
+    );
+  return configuration.runtimeGovernance;
 }
 
 interface ProblemInput {

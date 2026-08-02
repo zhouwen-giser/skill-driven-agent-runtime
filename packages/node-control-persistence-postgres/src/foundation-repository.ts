@@ -140,6 +140,51 @@ export class PostgresNodeControlFoundationRepository implements NodeControlFound
     return row === undefined ? undefined : mapOperation(row);
   }
 
+  async findGovernanceOperationReplay(
+    operationType: string,
+    idempotencyKeyHash: string,
+  ): Promise<ManagementOperation | undefined> {
+    const result = await this.#pool.query<OperationRow>(
+      `${operationSelect}
+        WHERE operation_type=$1 AND idempotency_key_hash=$2`,
+      [operationType, idempotencyKeyHash],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapOperation(row);
+  }
+
+  async recordGovernanceOperation(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await insertOperation(client, operation);
+      const result = await client.query<OperationRow>(
+        `${operationSelect}
+          WHERE operation_type=$1 AND idempotency_key_hash=$2
+          FOR UPDATE`,
+        [operation.operationType, operation.idempotencyKeyHash],
+      );
+      const persisted = result.rows[0];
+      if (persisted === undefined) throw new Error('CONTROL_GOVERNANCE_OPERATION_NOT_PERSISTED');
+      if (persisted.input_hash !== operation.inputHash)
+        throw Object.assign(new Error('Governance operation idempotency conflict.'), {
+          code: 'RUNTIME_GOVERNANCE_IDEMPOTENCY_CONFLICT',
+          status: 409,
+        });
+      await insertAudit(client, audit);
+      await client.query('COMMIT');
+      return mapOperation(persisted);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listAuditEvents(limit: number): Promise<readonly ControlAuditEvent[]> {
     const result = await this.#pool.query<AuditRow>(
       `SELECT audit_id, actor_id, action, aggregate_type, aggregate_id,
@@ -182,7 +227,8 @@ async function insertAudit(client: PoolClient, audit: ControlAuditEvent): Promis
     `INSERT INTO sdar_control.control_audit_event (
        audit_id, actor_id, action, aggregate_type, aggregate_id, expected_revision,
        result_revision, reason, request_hash, result_code, created_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     ON CONFLICT(audit_id) DO NOTHING`,
     [
       audit.auditId,
       audit.actorId,
@@ -198,6 +244,39 @@ async function insertAudit(client: PoolClient, audit: ControlAuditEvent): Promis
     ],
   );
 }
+
+async function insertOperation(client: PoolClient, operation: ManagementOperation): Promise<void> {
+  await client.query(
+    `INSERT INTO sdar_control.management_operation(
+       operation_id,operation_type,target_type,target_id,target_version,target_revision,status,
+       idempotency_key_hash,input_hash,actor_id,reason,result,error_code,created_at,started_at,completed_at
+     ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16)
+     ON CONFLICT(operation_type,idempotency_key_hash) DO NOTHING`,
+    [
+      operation.operationId,
+      operation.operationType,
+      operation.target.type,
+      operation.target.id,
+      operation.target.version ?? null,
+      operation.target.revision ?? null,
+      operation.status,
+      operation.idempotencyKeyHash,
+      operation.inputHash,
+      operation.actorId,
+      operation.reason,
+      operation.result === undefined ? null : JSON.stringify(operation.result),
+      operation.errorCode ?? null,
+      operation.createdAt,
+      operation.startedAt ?? null,
+      operation.completedAt ?? null,
+    ],
+  );
+}
+
+const operationSelect = `SELECT operation_id, operation_type, target_type, target_id, target_version,
+       target_revision::text, status, idempotency_key_hash::text, input_hash::text,
+       actor_id, reason, result, error_code, created_at, started_at, completed_at
+  FROM sdar_control.management_operation`;
 
 function mapNodeProfile(row: NodeProfileRow): NodeProfile {
   return rehydrateNodeProfile({

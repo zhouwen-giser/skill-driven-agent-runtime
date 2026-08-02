@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   NodeControlFoundationService,
   NodeControlConfigurationService,
+  NodeControlRuntimeGovernanceService,
   type ConfigurationReference,
   type NodeControlConfigurationRepository,
   type NodeControlFoundationRepository,
@@ -15,6 +16,10 @@ import type {
   ConfigurationRevision,
   ManagementOperation,
   NodeProfile,
+} from '../../../packages/node-control-domain/src/index.js';
+import {
+  createManagementOperation,
+  transitionManagementOperation,
 } from '../../../packages/node-control-domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { createNodeControlHttpApp } from '../src/http-endpoint.js';
@@ -89,11 +94,162 @@ describe('Node Control HTTP frozen contract', () => {
       totalEstimate: 1,
     });
   });
+
+  it('proxies frozen Skill and Plan Template governance without copying content authority', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-02T00:00:00.000Z' },
+      ids: { next: () => 'audit-p10' },
+    });
+    await service.bootstrapNodeProfile({
+      nodeId: 'node-p10',
+      nodeType: 'sdar-runtime',
+      displayName: 'P10 Node',
+      environment: 'test',
+      runtimeEndpointRef: 'http://127.0.0.1:9998',
+    });
+    const configurationService = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-02T00:00:00.000Z' },
+      ids: { next: () => 'operation-p10' },
+    });
+    let runtimeCommands = 0;
+    let runtimePlanTarget: string | undefined;
+    let runtimePlanArtifactKey: unknown;
+    let runtimePlanLookups = 0;
+    const runtimeGovernance = new NodeControlRuntimeGovernanceService({
+      runtime: {
+        listSkills: () => Promise.resolve([skillView(), skillView('skill.p10.second')]),
+        listSkillVersions: () => Promise.resolve([skillView()]),
+        getSkillVersion: () => Promise.resolve(skillView()),
+        listPlanTemplates: () => {
+          runtimePlanLookups += 1;
+          return Promise.resolve([planTemplateView()]);
+        },
+        importSkill: (command) => Promise.resolve(runtimeOperation('skill.import', command.reason)),
+        governSkill: (_operation, _skillId, _version, command) => {
+          runtimeCommands += 1;
+          return Promise.resolve(runtimeOperation('skill.publish', command.reason));
+        },
+        governPlanTemplate: (_operation, artifactId, _version, command) => {
+          runtimePlanTarget = artifactId;
+          runtimePlanArtifactKey = (command.payload as Record<string, unknown>)['artifactKey'];
+          return Promise.resolve(runtimeOperation('plan-template.publish', command.reason));
+        },
+      },
+      operations: repository,
+      clock: { now: () => '2026-08-02T00:00:00.000Z' },
+      actorId: 'node-control:node-p10',
+    });
+    const app = createNodeControlHttpApp(service, configurationService, {
+      bearerToken: token,
+      runtimeServiceToken: `${token}-runtime`,
+      nodeControlApiUrl: 'http://127.0.0.1:10080',
+      nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
+      a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+      runtimeGovernance,
+    });
+    server = await listen(app);
+    const baseUrl = address(server);
+
+    const skills = (await json(`${baseUrl}/api/v1/skills`, true)) as { items: unknown[] };
+    const skillSchema = JSON.parse(
+      await readFile('protocol/node-control/v1/schemas/skill-version.schema.json', 'utf8'),
+    ) as unknown;
+    expect(new AjvJsonSchemaValidator().validate(skillSchema, skills.items[0])).toEqual({
+      valid: true,
+      errors: [],
+    });
+    const templates = (await json(`${baseUrl}/api/v1/plan-templates`, true)) as {
+      items: unknown[];
+    };
+    const templateSchema = JSON.parse(
+      await readFile('protocol/node-control/v1/schemas/plan-template-version.schema.json', 'utf8'),
+    ) as unknown;
+    expect(new AjvJsonSchemaValidator().validate(templateSchema, templates.items[0])).toEqual({
+      valid: true,
+      errors: [],
+    });
+    expect(templates.items[0]).not.toHaveProperty('authorityArtifactId');
+
+    const firstSkillPage = (await json(`${baseUrl}/api/v1/skills?pageSize=1`, true)) as {
+      items: unknown[];
+      nextPageToken: string;
+      totalEstimate: number;
+    };
+    expect(firstSkillPage).toMatchObject({ totalEstimate: 2 });
+    expect(firstSkillPage.items).toHaveLength(1);
+    const secondSkillPage = (await json(
+      `${baseUrl}/api/v1/skills?pageSize=1&pageToken=${encodeURIComponent(firstSkillPage.nextPageToken)}`,
+      true,
+    )) as { items: unknown[]; nextPageToken?: string };
+    expect(secondSkillPage.items).toHaveLength(1);
+    expect(secondSkillPage.nextPageToken).toBeUndefined();
+
+    const planVersions = (await json(
+      `${baseUrl}/api/v1/plan-templates/plan.p10/versions`,
+      true,
+    )) as { items: unknown[] };
+    expect(planVersions.items).toEqual([
+      expect.objectContaining({ artifactId: 'plan.p10', version: '1' }),
+    ]);
+    const publishPlan = () =>
+      fetch(`${baseUrl}/api/v1/plan-templates/plan.p10/versions/1/publish`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'p10-plan-publish-idempotency',
+        },
+        body: JSON.stringify({
+          reason: 'Publish exact Plan Template version.',
+          expectedRevision: 0,
+          payload: {
+            expectedLockVersion: 0,
+            validationSummaryHash: `sha256:${'e'.repeat(64)}`,
+          },
+        }),
+      });
+    const planPublish = await publishPlan();
+    expect(planPublish.status).toBe(202);
+    const planPublishBody = await planPublish.json();
+    const planLookupsAfterFirstCommand = runtimePlanLookups;
+    const planReplay = await publishPlan();
+    expect(planReplay.status).toBe(202);
+    expect(await planReplay.json()).toEqual(planPublishBody);
+    expect(runtimePlanLookups).toBe(planLookupsAfterFirstCommand);
+    expect(runtimePlanTarget).toBe('artifact.p10');
+    expect(runtimePlanArtifactKey).toBe('plan.p10');
+
+    const publish = () =>
+      fetch(`${baseUrl}/api/v1/skills/skill.p10/versions/1/publish`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'p10-publish-idempotency',
+        },
+        body: JSON.stringify({ reason: 'Publish exact validated version.', expectedRevision: 0 }),
+      });
+    const first = await publish();
+    const replay = await publish();
+    expect(first.status).toBe(202);
+    expect(replay.status).toBe(202);
+    expect(await replay.json()).toEqual(await first.json());
+    expect(runtimeCommands).toBe(1);
+    expect(
+      repository.operations.filter((operation) => operation.operationType === 'skill.publish'),
+    ).toHaveLength(1);
+    expect(repository.audits.some((audit) => audit.action === 'skill.publish')).toBe(true);
+  });
 });
 
 class MemoryRepository implements NodeControlFoundationRepository {
   profile: NodeProfile | undefined;
   readonly audits: ControlAuditEvent[] = [];
+  readonly operations: ManagementOperation[] = [];
 
   migrate(): Promise<void> {
     return Promise.resolve();
@@ -111,7 +267,7 @@ class MemoryRepository implements NodeControlFoundationRepository {
     return Promise.resolve(true);
   }
   listManagementOperations(): Promise<readonly ManagementOperation[]> {
-    return Promise.resolve([]);
+    return Promise.resolve(this.operations);
   }
   findManagementOperation(): Promise<ManagementOperation | undefined> {
     return Promise.resolve(undefined);
@@ -119,6 +275,80 @@ class MemoryRepository implements NodeControlFoundationRepository {
   listAuditEvents(): Promise<readonly ControlAuditEvent[]> {
     return Promise.resolve(this.audits);
   }
+  findGovernanceOperationReplay(
+    operationType: string,
+    idempotencyKeyHash: string,
+  ): Promise<ManagementOperation | undefined> {
+    return Promise.resolve(
+      this.operations.find(
+        (operation) =>
+          operation.operationType === operationType &&
+          operation.idempotencyKeyHash === idempotencyKeyHash,
+      ),
+    );
+  }
+  recordGovernanceOperation(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    const existing = this.operations.find(
+      (candidate) =>
+        candidate.operationType === operation.operationType &&
+        candidate.idempotencyKeyHash === operation.idempotencyKeyHash,
+    );
+    if (existing !== undefined) return Promise.resolve(existing);
+    this.operations.push(operation);
+    this.audits.push(audit);
+    return Promise.resolve(operation);
+  }
+}
+
+function skillView(skillId = 'skill.p10') {
+  return Object.freeze({
+    skillId,
+    version: '1',
+    name: 'P10 Skill',
+    description: 'Governed exact Skill version.',
+    status: 'published' as const,
+    inputSchema: Object.freeze({ type: 'object' }),
+    outputSchema: Object.freeze({ type: 'object' }),
+    checksum: 'a'.repeat(64),
+    createdAt: '2026-08-02T00:00:00.000Z',
+  });
+}
+
+function planTemplateView() {
+  return Object.freeze({
+    artifactId: 'plan.p10',
+    authorityArtifactId: 'artifact.p10',
+    version: '1',
+    name: 'P10 Plan Template',
+    status: 'active' as const,
+    checksum: 'b'.repeat(64),
+    activePointer: true,
+    createdAt: '2026-08-02T00:00:00.000Z',
+  });
+}
+
+function runtimeOperation(operationType: string, reason: string): ManagementOperation {
+  const accepted = createManagementOperation(
+    {
+      operationId: `runtime-${operationType}`,
+      operationType,
+      target: { type: 'skill_version', id: 'skill.p10', version: '1' },
+      actorId: 'runtime',
+      reason,
+      idempotencyKeyHash: 'c'.repeat(64),
+      inputHash: 'd'.repeat(64),
+    },
+    '2026-08-02T00:00:00.000Z',
+  );
+  return transitionManagementOperation(
+    transitionManagementOperation(accepted, 'running', '2026-08-02T00:00:00.000Z'),
+    'succeeded',
+    '2026-08-02T00:00:00.000Z',
+    { result: { accepted: true } },
+  );
 }
 
 class MemoryConfigurationRepository implements NodeControlConfigurationRepository {

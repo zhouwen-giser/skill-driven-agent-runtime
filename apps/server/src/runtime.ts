@@ -72,6 +72,7 @@ import {
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
+  RuntimeSkillGovernanceService,
   SkillPackageImporter,
   SkillPackageValidator,
   TemporarySkillService,
@@ -278,6 +279,7 @@ import {
   PostgresSkillEmbeddingRepository,
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
+  PostgresSkillExactVersionGovernanceRepository,
   PostgresCapabilitySummaryRepository,
   PostgresCapabilityCatalogChangeSource,
   PostgresCapabilityCardRepository,
@@ -388,6 +390,10 @@ export interface ServerRuntimeOptions {
   readonly a2aPort?: number;
   readonly managementHost?: string;
   readonly managementPort?: number;
+  /** Bearer token for the frozen Node Control -> Runtime governance adapter. */
+  readonly runtimeControlServiceToken?: string;
+  /** Maps the Runtime service credential to the existing Artifact management identity. */
+  readonly runtimeControlArtifactPrincipalResolver?: ManagementPrincipalResolver;
   /** Optional non-breaking bearer guard for cognitive management writes only. */
   readonly cognitiveManagementBearerToken?: string;
   /** Required for P06 human approval/activation; production deployments must supply a provider-backed port. */
@@ -1577,6 +1583,10 @@ export async function startServerRuntime(
     clock,
     packages: skillPackages,
     afterCatalogChanged: refreshCapabilityCatalogAfterMutation,
+  });
+  const runtimeSkillGovernance = new RuntimeSkillGovernanceService({
+    skills: skillRegistry,
+    governance: new PostgresSkillExactVersionGovernanceRepository(pool),
   });
   const skillQuality = new SkillQualityService({
     repository: new PostgresSkillQualityRepository(pool),
@@ -4423,6 +4433,20 @@ export async function startServerRuntime(
             ),
           }),
       ...(artifactManagement === undefined ? {} : { artifactManagement }),
+      ...(options.runtimeControlServiceToken === undefined
+        ? {}
+        : {
+            runtimeControl: {
+              bearerToken: options.runtimeControlServiceToken,
+              skills: runtimeSkillGovernance,
+              actorId: 'sdar-node-control',
+              ...(options.runtimeControlArtifactPrincipalResolver === undefined
+                ? {}
+                : {
+                    artifactPrincipalResolver: options.runtimeControlArtifactPrincipalResolver,
+                  }),
+            },
+          }),
     });
     management = startedManagement;
     const taskExecutor = new TaskServiceAgentExecutor({

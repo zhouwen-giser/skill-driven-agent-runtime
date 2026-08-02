@@ -40,6 +40,7 @@ const EnvironmentSchema = z
     SDAR_A2A_PORT: z.coerce.number().int().positive().default(9999),
     SDAR_MANAGEMENT_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_MANAGEMENT_PORT: z.coerce.number().int().positive().default(9998),
+    SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
     SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z.string().min(32).optional(),
     SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: z
       .string()
@@ -90,6 +91,17 @@ const EnvironmentSchema = z
         code: 'custom',
         path: ['SDAR_ARTIFACT_MANAGEMENT_ROLES'],
         message: 'Artifact management bearer authentication requires at least one role.',
+      });
+    }
+    if (
+      environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN !== undefined &&
+      environment.SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN === undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN'],
+        message:
+          'Runtime Control Plan Template governance requires the existing Artifact management identity.',
       });
     }
     const exposedHosts = [environment.SDAR_A2A_HOST, environment.SDAR_MANAGEMENT_HOST].filter(

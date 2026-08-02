@@ -72,7 +72,12 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   Capability/Exposure/Input/criteria/evidence/constraint/Provider-policy Binding, atomic Task
   acceptance, append-only replan/replacement/provider-failover/recovery attempts, terminal guard,
   full verification and final review 0 Blocking / 0 Major / 0 Minor.
-- [ ] P10: Skill, Plan Template, and Artifact management adapters.
+- [ ] 2026-08-03 04:02 +08:00 P10 implementation and focused verification complete: frozen
+  public/internal Skill and Plan Template routes, distinct RuntimeServiceAuth identity mapping,
+  Runtime HTTP adapter, exact Skill governance CAS/import recovery, Control operation/audit-only
+  persistence, migrations 0140/0141, and real Control -> Runtime -> P02/P06 PostgreSQL/Outbox
+  evidence pass. Two read-only review rounds close the single Major finding; implementation commit
+  and full gate remain open.
 - [ ] P11: telemetry export only.
 - [ ] P12: organization-facing node profile and events.
 - [ ] P13: security, recovery, operations, and upgrade.
@@ -103,6 +108,19 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   Server identity, redirect SSRF and weak Remote Task evidence gaps. All were closed without moving
   Runtime authority into Control. The first full gate then correctly rejected the cross-authority
   test's package placement; moving it to a neutral acceptance app preserved the architecture rule.
+- P10's first migration-path run correctly rejected migration 0140 because its initial draft did not
+  write the repository's formal `schema_migration` marker. Adding the standard transaction and
+  up/down ledger changes closed the failure; the full migration path then passed through 0140.
+- P10's first PostgreSQL focused run exposed globally reused fixture hashes, followed by stale
+  fixed idempotency keys from the retained immutable command ledger. Binding both values to each
+  random test Skill preserved the production constraints and made reruns truthful.
+- P10's first real Plan Template activation exposed a pre-existing management projection defect:
+  PostgreSQL `Date` values were traversed as empty objects by generic redaction. Preserving them as
+  ISO timestamps restored the existing query contract and is covered by unit and vertical tests.
+- P10 review found that using the Runtime service bearer directly with the separately configured
+  Artifact principal resolver made distinct valid credentials fail. RuntimeServiceAuth now maps
+  through its own resolver to the same existing Artifact operator identity, without weakening
+  either transport authentication or Artifact authorization.
 
 ## Decision Log
 
@@ -153,6 +171,16 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-03: P09 creates Task, generic initial attempt, immutable Capability Binding, Capability
   Attempt and created event in one Runtime PostgreSQL transaction. Later execution changes append
   attempts; Control receives only a read-only Binding view through the Runtime-Control adapter.
+- 2026-08-03: P10 keeps Skill definition rows immutable. Exact publish/suspend/deprecate state is a
+  Runtime-owned governance overlay with CAS and an immutable command ledger; repository reads map
+  that overlay to existing Runtime statuses, and publication alone moves the exact current pointer.
+- 2026-08-03: P10 maps Plan Template publish to existing Artifact activate, revalidate to existing
+  revalidation, and suspend to deprecate or an explicit rollback target. Node Control stores only
+  its proxy ManagementOperation and audit while Runtime P02/P06 services remain content authority.
+- 2026-08-03: RuntimeServiceAuth and the optional Artifact management bearer may be distinct
+  secrets. The composition root maps the authenticated internal credential to the configured
+  existing Artifact identity; Plan publish remains gated by the existing human administrator RBAC
+  and P06 promotion rollout flag.
 
 ## Implementation Steps
 

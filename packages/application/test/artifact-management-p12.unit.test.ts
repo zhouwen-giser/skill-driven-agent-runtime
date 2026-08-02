@@ -56,6 +56,29 @@ describe('P12 Artifact management policy', () => {
     });
   });
 
+  it('preserves PostgreSQL timestamps as ISO strings while redacting query results', async () => {
+    const createdAt = new Date(NOW);
+    const service = new ArtifactManagementQueryService({
+      repository: repositoryStub({
+        listArtifacts: () =>
+          Promise.resolve({
+            items: [{ artifact_id: 'artifact-a', created_at: createdAt }],
+          }),
+      }),
+      clock: { now: () => NOW },
+    });
+
+    const result = (await service.list(principal(['reviewer']), {
+      limit: 50,
+      sort: 'created_desc',
+    })) as { items: readonly Record<string, unknown>[] };
+
+    expect(result.items[0]).toEqual({
+      artifact_id: 'artifact-a',
+      created_at: NOW,
+    });
+  });
+
   it('requires elevated read role for audit and rejects cross-role commands', async () => {
     const service = new ArtifactManagementQueryService({
       repository: repositoryStub(),

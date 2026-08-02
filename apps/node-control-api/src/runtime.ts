@@ -11,7 +11,9 @@ import {
   NodeControlMcpProviderBindingService,
   NodeControlCapabilityService,
   NodeControlSmppRegistryService,
+  NodeControlRuntimeGovernanceService,
 } from '../../../packages/node-control-application/src/index.js';
+import { HttpRuntimeGovernanceClient } from '../../../packages/runtime-control-http-client/src/index.js';
 import {
   PostgresNodeControlA2aExposureRepository,
   PostgresNodeControlConfigurationRepository,
@@ -66,6 +68,15 @@ export async function startNodeControlApi(
     foundation: repository,
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
+  });
+  const runtimeGovernance = new NodeControlRuntimeGovernanceService({
+    runtime: new HttpRuntimeGovernanceClient({
+      baseUrl: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
+      serviceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
+    }),
+    operations: repository,
+    clock: { now: () => new Date().toISOString() },
+    actorId: `node-control:${environment.SDAR_CONTROL_NODE_ID}`,
   });
   const llmGovernanceService = new NodeControlLlmGovernanceService({
     repository: new PostgresNodeControlLlmGovernanceRepository(pool),
@@ -147,6 +158,7 @@ export async function startNodeControlApi(
       runtimeAgentCards,
       agentCardValidator,
       taskCapabilities: new PostgresRuntimeTaskCapabilityBindingQuery(runtimePool),
+      runtimeGovernance,
     });
     const server = await listen(
       app,
