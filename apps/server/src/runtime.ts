@@ -10,6 +10,7 @@ import {
   startA2AHttpEndpoint,
   type A2AHttpEndpointHandle,
 } from '../../../packages/a2a-adapter/src/http-endpoint.js';
+import { parseOfficialAgentCard } from '../../../packages/a2a-adapter/src/node-control-agent-card.js';
 import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
 import { A2AInteractionProjection } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
@@ -241,6 +242,7 @@ import {
 } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
+import { PostgresRuntimeAgentCardRepository } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
   FrozenV1RegistryAdapter,
   FrozenV1RuntimeAvailabilityAdapter,
@@ -730,6 +732,7 @@ export async function startServerRuntime(
     clock,
     nextCardId: () => `capability-card-${randomUUID()}`,
   });
+  const managedAgentCards = new PostgresRuntimeAgentCardRepository(pool);
   const capabilityCatalogChanges = new CapabilityCatalogChangeProjector({
     changes: new PostgresCapabilityCatalogChangeSource(pool),
     summaries: capabilitySummaries,
@@ -4462,6 +4465,12 @@ export async function startServerRuntime(
             },
           }),
       capabilityCardProvider: capabilityCards,
+      agentCardProvider: {
+        async findActive() {
+          const card = await managedAgentCards.findActiveCard();
+          return card === undefined ? undefined : parseOfficialAgentCard(card);
+        },
+      },
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
     });

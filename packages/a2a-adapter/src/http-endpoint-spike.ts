@@ -22,6 +22,7 @@ export interface A2aHttpSpikeOptions {
   readonly artifactProjectionProvider?: Parameters<
     typeof startA2AHttpEndpoint
   >[0]['artifactProjectionProvider'];
+  readonly agentCardProvider?: Parameters<typeof startA2AHttpEndpoint>[0]['agentCardProvider'];
 }
 
 export async function startA2aHttpSpike(
@@ -97,6 +98,9 @@ export async function startA2aHttpSpike(
     ...(options.artifactProjectionProvider === undefined
       ? {}
       : { artifactProjectionProvider: options.artifactProjectionProvider }),
+    ...(options.agentCardProvider === undefined
+      ? {}
+      : { agentCardProvider: options.agentCardProvider }),
   });
 }
 

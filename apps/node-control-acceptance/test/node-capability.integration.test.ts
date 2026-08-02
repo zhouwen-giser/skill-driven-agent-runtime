@@ -7,6 +7,8 @@ import {
 } from '../../node-control-api/src/runtime.js';
 import { applyRuntimeMigrations } from '../../server/src/runtime.js';
 import {
+  a2aExposureEtag,
+  createA2aExposureVersion,
   createNodeCapabilityDefinition,
   nodeCapabilityEtag,
 } from '../../../packages/node-control-domain/src/index.js';
@@ -276,6 +278,110 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
         expectedStatus: 202,
       }),
     ).resolves.toEqual(readiness);
+
+    const exposureDraft = createA2aExposureVersion({
+      exposureId: 'exposure.p08.inspect',
+      version: 1,
+      capabilityId: 'device.inspect.p06',
+      capabilityVersion: 1,
+      agentSkillId: 'capability.device.inspect',
+      name: 'Inspect a device',
+      description: 'Inspect a declared device and return structured evidence.',
+      tags: ['inspection'],
+      inputModes: ['application/json'],
+      outputModes: ['application/json'],
+      requestSchema: draft.inputSchema,
+      resultSchema: draft.outputSchema,
+      visibility: 'public',
+      requesterPolicy: { allowAnonymous: true, allowedRequesterIds: [] },
+      readinessPublicationPolicy: 'publish_when_available',
+      status: 'draft',
+    });
+    await expect(
+      request('/api/v1/a2a-exposures', {
+        method: 'POST',
+        body: exposureDraft,
+        idempotencyKey: 'p08-create-public-exposure',
+        expectedStatus: 201,
+      }),
+    ).resolves.toEqual(exposureDraft);
+    const publishedExposure = await request(
+      '/api/v1/a2a-exposures/exposure.p08.inspect/versions/1/publish',
+      {
+        method: 'POST',
+        body: { reason: 'Publish the exact Capability exposure.' },
+        idempotencyKey: 'p08-publish-public-exposure',
+        ifMatch: a2aExposureEtag(exposureDraft),
+        expectedStatus: 202,
+      },
+    );
+    expect(publishedExposure).toMatchObject({
+      status: 'succeeded',
+      result: { status: 'published' },
+    });
+    const rebuiltCard = await request('/api/v1/a2a-agent-card-revisions/rebuild', {
+      method: 'POST',
+      body: { reason: 'Build the Capability-authoritative public Agent Card.' },
+      idempotencyKey: 'p08-rebuild-agent-card',
+      expectedStatus: 202,
+    });
+    expect(rebuiltCard).toMatchObject({
+      status: 'succeeded',
+      result: { revision: 1, status: 'active' },
+    });
+    await expect(
+      request('/api/v1/a2a-agent-card-revisions/rebuild', {
+        method: 'POST',
+        body: { reason: 'Build the Capability-authoritative public Agent Card.' },
+        idempotencyKey: 'p08-rebuild-agent-card',
+        expectedStatus: 202,
+      }),
+    ).resolves.toEqual(rebuiltCard);
+    const unchangedCard = await request('/api/v1/a2a-agent-card-revisions/rebuild', {
+      method: 'POST',
+      body: { reason: 'Build the Capability-authoritative public Agent Card.' },
+      idempotencyKey: 'p08-rebuild-unchanged-card',
+      expectedStatus: 202,
+    });
+    expect(unchangedCard).toMatchObject({ result: { revision: 1, status: 'active' } });
+    const revisionCount = await runtimePool.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM runtime_agent_card_revision',
+    );
+    expect(revisionCount.rows[0]?.count).toBe('1');
+    const runtimeCard = await runtimePool.query<{ card: { skills?: readonly { id?: string }[] } }>(
+      "SELECT card FROM runtime_agent_card_revision WHERE status='active'",
+    );
+    expect(runtimeCard.rows[0]?.card.skills).toEqual([
+      expect.objectContaining({ id: 'capability.device.inspect' }),
+    ]);
+    expect(JSON.stringify(runtimeCard.rows[0]?.card)).not.toContain('skill.p06.inspect');
+    await expect(
+      request('/internal/v1/agent-card-revisions/stage', {
+        method: 'POST',
+        bearerToken: runtimeToken,
+        idempotencyKey: 'p08-reject-invalid-runtime-card',
+        body: {
+          reason: 'Reject an invalid card without replacing Active.',
+          payload: {
+            revision: {
+              revision: 2,
+              nodeId: 'node-p06',
+              exposureRefs: [],
+              contentHash: 'a'.repeat(64),
+              capabilityCatalogHash: 'b'.repeat(64),
+              status: 'candidate',
+              generatedAt: new Date().toISOString(),
+            },
+            card: {},
+          },
+        },
+        expectedStatus: 422,
+      }),
+    ).resolves.toMatchObject({ code: 'AGENT_CARD_SCHEMA_INVALID' });
+    const activeAfterInvalid = await runtimePool.query<{ revision: string }>(
+      "SELECT revision FROM runtime_agent_card_revision WHERE status='active'",
+    );
+    expect(activeAfterInvalid.rows).toEqual([{ revision: '1' }]);
     await expect(
       request('/api/v1/capability-readiness/device.inspect.p06/1/evaluate', {
         method: 'POST',
@@ -459,6 +565,8 @@ function requireApi(): NodeControlApiRuntime {
 async function cleanup() {
   await controlPool.query(
     `TRUNCATE sdar_control.capability_implementation_binding,
+              sdar_control.agent_card_revision,
+              sdar_control.a2a_exposure_version,
               sdar_control.node_capability_definition_version,
               sdar_control.mcp_provider_catalog_observation,
               sdar_control.mcp_provider_binding,
@@ -481,6 +589,9 @@ async function cleanup() {
   );
   await runtimePool.query(
     'TRUNCATE capability_readiness_command_receipt,capability_readiness_snapshot',
+  );
+  await runtimePool.query(
+    'TRUNCATE runtime_agent_card_command_receipt,runtime_agent_card_revision',
   );
   await runtimePool.query("DELETE FROM skill_version WHERE skill_id='skill.p06.inspect'");
   await runtimePool.query("DELETE FROM skill WHERE skill_id='skill.p06.inspect'");

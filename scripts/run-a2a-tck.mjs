@@ -26,7 +26,18 @@ const tckPython = join(
 
 await mkdir(tooling, { recursive: true });
 if (!succeeds(toolPython, ['--version'])) run(python, ['-m', 'venv', toolVenv]);
-run(toolPython, ['-m', 'pip', 'install', '--disable-pip-version-check', `uv==${UV_VERSION}`]);
+const installedUvVersion = succeeds(uv, ['--version'])
+  ? capture(uv, ['--version']).trim()
+  : undefined;
+if (
+  installedUvVersion !== `uv ${UV_VERSION}` &&
+  !installedUvVersion?.startsWith(`uv ${UV_VERSION} `)
+) {
+  if (!succeeds(toolPython, ['-m', 'pip', '--version'])) {
+    run(toolPython, ['-m', 'ensurepip', '--upgrade']);
+  }
+  run(toolPython, ['-m', 'pip', 'install', '--disable-pip-version-check', `uv==${UV_VERSION}`]);
+}
 if (!succeeds('git', ['-C', tck, 'rev-parse', '--git-dir'])) {
   run('git', ['clone', 'https://github.com/a2aproject/a2a-tck.git', tck]);
 }
@@ -34,6 +45,10 @@ run('git', ['-C', tck, 'checkout', '--detach', TCK_COMMIT]);
 const actualCommit = capture('git', ['-C', tck, 'rev-parse', 'HEAD']).trim();
 if (actualCommit !== TCK_COMMIT) throw new Error(`A2A_TCK_COMMIT_MISMATCH: ${actualCommit}`);
 run(uv, ['sync', '--frozen'], tck);
+if (!succeeds(tckPython, ['-m', 'pytest', '--version'])) {
+  run(uv, ['venv', '--clear', join(tck, '.venv')], tck);
+  run(uv, ['sync', '--frozen', '--reinstall'], tck);
+}
 run(process.execPath, [
   resolve(workspace, 'node_modules/typescript/bin/tsc'),
   '-p',

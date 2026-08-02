@@ -1,4 +1,5 @@
 export * from './configuration-repository.js';
+export * from './a2a-exposure-repository.js';
 export * from './foundation-repository.js';
 export * from './llm-governance-repository.js';
 export * from './mcp-provider-binding-repository.js';

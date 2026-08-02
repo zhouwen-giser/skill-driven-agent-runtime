@@ -7,6 +7,7 @@ import {
   streamPayloadCase,
   type A2aHttpSpikeHandle,
 } from '../src/http-endpoint-spike.js';
+import { buildAgentCard } from '../src/compatibility.js';
 
 describe('A2A 1.0 HTTP endpoint compatibility', () => {
   let handle: A2aHttpSpikeHandle | undefined;
@@ -52,6 +53,30 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
 
     const result = await handle.client.sendMessage(createProbeRequest());
     expect(result).toHaveProperty('status.state', TaskState.TASK_STATE_COMPLETED);
+  });
+
+  it('uses a Runtime-active Capability Agent Card instead of directly exposing internal Skills', async () => {
+    handle = await startA2aHttpSpike({
+      agentCardProvider: {
+        findActive: () =>
+          Promise.resolve(
+            buildAgentCard([
+              {
+                id: 'capability.device.inspect',
+                name: 'Inspect a device',
+                description: 'Capability-governed inspection.',
+                tags: ['capability:device.inspect'],
+              },
+            ]),
+          ),
+      },
+    });
+    const response = await fetch(`${handle.baseUrl}/.well-known/agent-card.json`);
+    const card = (await response.json()) as { skills?: readonly { id?: string }[] };
+
+    expect(response.status).toBe(200);
+    expect(card.skills).toEqual([expect.objectContaining({ id: 'capability.device.inspect' })]);
+    expect(card.skills?.map((skill) => skill.id)).not.toContain('skill.echo');
   });
 
   it('preserves the A2A 1.0.1 media type when the client requests it', async () => {

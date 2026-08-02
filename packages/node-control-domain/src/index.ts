@@ -1,4 +1,5 @@
 export * from './errors.js';
+export * from './a2a-exposure.js';
 export * from './configuration-revision.js';
 export * from './health.js';
 export * from './llm-governance.js';

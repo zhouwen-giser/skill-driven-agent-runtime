@@ -10,6 +10,9 @@ import {
   NodeControlMcpBindingError,
   NodeControlCapabilityError,
   NodeControlSmppRegistryError,
+  type NodeControlA2aExposureService,
+  type A2aAgentCardValidator,
+  type RuntimeAgentCardDeployment,
   type NodeControlConfigurationService,
   type NodeControlFoundationService,
   type NodeControlLlmGovernanceService,
@@ -19,12 +22,15 @@ import {
 } from '../../../packages/node-control-application/src/index.js';
 import {
   createManagementOperation,
+  createA2aExposureVersion,
   createCapabilityImplementationBinding,
   createNodeCapabilityDefinition,
   NodeControlDomainError,
   nodeCapabilityEtag,
+  a2aExposureEtag,
   smppSourceEtag,
   transitionManagementOperation,
+  type RuntimeAgentCardCandidate,
 } from '../../../packages/node-control-domain/src/index.js';
 import type {
   RuntimeCapabilityReadinessInput,
@@ -45,6 +51,9 @@ export interface NodeControlHttpConfiguration {
   readonly capabilities?: NodeControlCapabilityService;
   readonly capabilityReadiness?: NodeControlCapabilityReadinessCoordinator;
   readonly runtimeCapabilityReadiness?: RuntimeCapabilityReadinessService;
+  readonly a2aExposure?: NodeControlA2aExposureService;
+  readonly runtimeAgentCards?: RuntimeAgentCardDeployment;
+  readonly agentCardValidator?: A2aAgentCardValidator;
 }
 
 export function createNodeControlHttpApp(
@@ -633,6 +642,119 @@ export function createNodeControlHttpApp(
     );
   }
 
+  app.get('/api/v1/a2a-exposures', async (request, response, next) => {
+    try {
+      const items = await requiredA2aExposure(configuration).list(
+        typeof request.query['status'] === 'string' ? request.query['status'] : undefined,
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/a2a-exposures', async (request, response, next) => {
+    try {
+      const input = normalizeA2aExposure(A2aExposureSchema.parse(request.body));
+      response
+        .status(201)
+        .json(
+          await requiredA2aExposure(configuration).create(
+            input,
+            requiredHeader(request, 'idempotency-key'),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get(
+    '/api/v1/a2a-exposures/:exposureId/versions/:version',
+    async (request, response, next) => {
+      try {
+        const exposure = await requiredA2aExposure(configuration).get(
+          request.params.exposureId,
+          positiveRevision(request.params.version),
+        );
+        response.status(200).set('etag', a2aExposureEtag(exposure)).json(exposure);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  for (const action of ['publish', 'suspend', 'retire'] as const) {
+    app.post(
+      `/api/v1/a2a-exposures/:exposureId/versions/:version/${action}`,
+      async (request, response, next) => {
+        try {
+          const command = parseCommand(request.body);
+          response
+            .status(202)
+            .json(
+              await requiredA2aExposure(configuration).transition(
+                request.params.exposureId,
+                positiveRevision(request.params.version),
+                action === 'publish' ? 'published' : action === 'suspend' ? 'suspended' : 'retired',
+                requiredHeader(request, 'idempotency-key'),
+                requiredHeader(request, 'if-match'),
+                command.reason,
+              ),
+            );
+        } catch (error) {
+          next(error);
+        }
+      },
+    );
+  }
+
+  app.get('/api/v1/a2a-agent-card-revisions', async (request, response, next) => {
+    try {
+      const items = await requiredA2aExposure(configuration).listAgentCards(
+        parseLimit(request.query['pageSize']),
+      );
+      response
+        .status(200)
+        .json({ items, totalEstimate: items.length, asOf: new Date().toISOString() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/a2a-agent-card-revisions/:revision', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredA2aExposure(configuration).getAgentCard(
+            positiveRevision(request.params.revision),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/a2a-agent-card-revisions/rebuild', async (request, response, next) => {
+    try {
+      const command = parseCommand(request.body);
+      response
+        .status(202)
+        .json(
+          await requiredA2aExposure(configuration).rebuild(
+            requiredHeader(request, 'idempotency-key'),
+            command.reason,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/api/v1/capability-readiness', async (request, response, next) => {
     try {
       const items = await requiredCapabilityReadiness(configuration).list(
@@ -765,6 +887,59 @@ export function createNodeControlHttpApp(
   });
 
   app.use('/internal/v1', bearerAuthentication(configuration.runtimeServiceToken));
+
+  app.post('/internal/v1/agent-card-revisions/stage', async (request, response, next) => {
+    try {
+      const command = parseCommand(request.body);
+      const candidate = normalizeRuntimeAgentCardCandidate(
+        RuntimeAgentCardCandidateSchema.parse(command.payload),
+      );
+      requiredAgentCardValidator(configuration).validate(candidate.card);
+      const context = runtimeAgentCardCommand(
+        'agent-card:runtime-stage',
+        requiredHeader(request, 'idempotency-key'),
+        { candidate, reason: command.reason },
+      );
+      await requiredRuntimeAgentCards(configuration).stage(candidate, context);
+      response
+        .status(202)
+        .json(
+          completedInternalOperation(
+            'agent_card.stage',
+            candidate.revision.revision,
+            command.reason,
+            context,
+            { revision: candidate.revision.revision, status: 'staged' },
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post(
+    '/internal/v1/agent-card-revisions/:revision/activate',
+    async (request, response, next) => {
+      try {
+        const command = parseCommand(request.body);
+        const revision = positiveRevision(request.params.revision);
+        const context = runtimeAgentCardCommand(
+          'agent-card:runtime-activate',
+          requiredHeader(request, 'idempotency-key'),
+          { revision, reason: command.reason },
+        );
+        await requiredRuntimeAgentCards(configuration).activate(revision, context);
+        response.status(202).json(
+          completedInternalOperation('agent_card.activate', revision, command.reason, context, {
+            revision,
+            status: 'active',
+          }),
+        );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   app.post('/internal/v1/capability-readiness/evaluations', async (request, response, next) => {
     try {
@@ -990,6 +1165,32 @@ export function createNodeControlHttpApp(
         instance: request.originalUrl,
         correlationId: correlationId(request),
         retryable: error.message === 'CAPABILITY_READINESS_CONCURRENT_EVALUATION',
+      });
+      return;
+    }
+    if (
+      error instanceof Error &&
+      /^(?:A2A_|AGENT_CARD_|PRECONDITION_FAILED|IDEMPOTENCY_KEY_REUSED|IDEMPOTENCY_KEY_INVALID)/u.test(
+        error.message,
+      )
+    ) {
+      const status = error.message.endsWith('_NOT_FOUND')
+        ? 404
+        : error.message === 'PRECONDITION_FAILED'
+          ? 412
+          : error.message.includes('SCHEMA_') ||
+              error.message.includes('NOT_PUBLISHED') ||
+              error.message.includes('CONTENT_HASH')
+            ? 422
+            : 409;
+      sendProblem(response, {
+        status,
+        code: error.message,
+        title: 'A2A exposure or Agent Card command rejected',
+        detail: 'The A2A governance command failed a frozen authority or safety precondition.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
       });
       return;
     }
@@ -1257,6 +1458,134 @@ const RuntimeReadinessInputSchema = z
     trigger: z.string().trim().min(1).max(1_024),
   })
   .strict();
+const A2aExposureSchema = z
+  .object({
+    exposureId: z.string().trim().min(1).max(512),
+    version: z.number().int().positive(),
+    capabilityId: z.string().trim().min(1).max(512),
+    capabilityVersion: z.number().int().positive(),
+    agentSkillId: z.string().trim().min(1).max(512),
+    name: z.string().trim().min(1).max(256),
+    description: z.string().trim().min(1).max(2_048),
+    tags: z.array(z.string().trim().min(1).max(512)).max(100).optional(),
+    examples: z.array(z.string().trim().min(1).max(512)).max(100).optional(),
+    inputModes: z.array(z.string().trim().min(1).max(512)).max(100).optional(),
+    outputModes: z.array(z.string().trim().min(1).max(512)).max(100).optional(),
+    requestSchema: JsonObjectSchema,
+    resultSchema: JsonObjectSchema,
+    visibility: z.enum(['organization', 'public']),
+    requesterPolicy: JsonObjectSchema.optional(),
+    readinessPublicationPolicy: z
+      .enum(['publish_when_available', 'publish_degraded', 'always_publish_with_status'])
+      .optional(),
+    status: z.enum(['draft', 'published', 'suspended', 'retired']),
+    exposureHash: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict();
+const AgentCardRevisionSchema = z
+  .object({
+    revision: z.number().int().positive(),
+    nodeId: z.string().trim().min(1).max(512),
+    exposureRefs: z.array(z.string().trim().min(1).max(1_024)).max(1_000).optional(),
+    contentHash: z.string().regex(/^[a-f0-9]{64}$/u),
+    capabilityCatalogHash: z.string().regex(/^[a-f0-9]{64}$/u),
+    status: z.enum(['candidate', 'staged', 'active', 'rejected', 'superseded']),
+    generatedAt: z.iso.datetime({ offset: true }),
+    activatedAt: z.iso.datetime({ offset: true }).optional(),
+    rejectionCode: z.string().trim().min(1).max(256).optional(),
+  })
+  .strict();
+const RuntimeAgentCardCandidateSchema = z
+  .object({ revision: AgentCardRevisionSchema, card: JsonObjectSchema })
+  .strict();
+
+function normalizeA2aExposure(input: z.infer<typeof A2aExposureSchema>) {
+  return createA2aExposureVersion({
+    exposureId: input.exposureId,
+    version: input.version,
+    capabilityId: input.capabilityId,
+    capabilityVersion: input.capabilityVersion,
+    agentSkillId: input.agentSkillId,
+    name: input.name,
+    description: input.description,
+    ...(input.tags === undefined ? {} : { tags: input.tags }),
+    ...(input.examples === undefined ? {} : { examples: input.examples }),
+    ...(input.inputModes === undefined ? {} : { inputModes: input.inputModes }),
+    ...(input.outputModes === undefined ? {} : { outputModes: input.outputModes }),
+    requestSchema: input.requestSchema,
+    resultSchema: input.resultSchema,
+    visibility: input.visibility,
+    ...(input.requesterPolicy === undefined ? {} : { requesterPolicy: input.requesterPolicy }),
+    ...(input.readinessPublicationPolicy === undefined
+      ? {}
+      : { readinessPublicationPolicy: input.readinessPublicationPolicy }),
+    status: input.status,
+    exposureHash: input.exposureHash,
+  });
+}
+
+function normalizeRuntimeAgentCardCandidate(
+  input: z.infer<typeof RuntimeAgentCardCandidateSchema>,
+): RuntimeAgentCardCandidate {
+  return Object.freeze({
+    revision: Object.freeze({
+      revision: input.revision.revision,
+      nodeId: input.revision.nodeId,
+      ...(input.revision.exposureRefs === undefined
+        ? {}
+        : { exposureRefs: Object.freeze(input.revision.exposureRefs) }),
+      contentHash: input.revision.contentHash,
+      capabilityCatalogHash: input.revision.capabilityCatalogHash,
+      status: input.revision.status,
+      generatedAt: input.revision.generatedAt,
+      ...(input.revision.activatedAt === undefined
+        ? {}
+        : { activatedAt: input.revision.activatedAt }),
+      ...(input.revision.rejectionCode === undefined
+        ? {}
+        : { rejectionCode: input.revision.rejectionCode }),
+    }),
+    card: Object.freeze(structuredClone(input.card)),
+  });
+}
+
+function runtimeAgentCardCommand(scope: string, idempotencyKey: string, input: unknown) {
+  if (idempotencyKey.trim().length < 8 || idempotencyKey.length > 256)
+    throw new Error('IDEMPOTENCY_KEY_INVALID');
+  return Object.freeze({
+    scope,
+    idempotencyKey,
+    requestHash: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
+    occurredAt: new Date().toISOString(),
+  });
+}
+
+function completedInternalOperation(
+  operationType: string,
+  revision: number,
+  reason: string,
+  context: ReturnType<typeof runtimeAgentCardCommand>,
+  result: Readonly<Record<string, unknown>>,
+) {
+  const operation = createManagementOperation(
+    {
+      operationId: `runtime-card-${createHash('sha256').update(`${context.scope}:${context.idempotencyKey}`).digest('hex').slice(0, 32)}`,
+      operationType,
+      target: { type: 'agent_card_revision', id: String(revision), revision },
+      actorId: 'sdar-runtime',
+      reason,
+      idempotencyKeyHash: createHash('sha256').update(context.idempotencyKey).digest('hex'),
+      inputHash: context.requestHash,
+    },
+    context.occurredAt,
+  );
+  return transitionManagementOperation(
+    transitionManagementOperation(operation, 'running', context.occurredAt),
+    'succeeded',
+    context.occurredAt,
+    { result },
+  );
+}
 
 function positiveRevision(value: string): number {
   return z.coerce.number().int().positive().parse(value);
@@ -1439,6 +1768,29 @@ function requiredRuntimeCapabilityReadiness(
   if (configuration.runtimeCapabilityReadiness === undefined)
     throw new Error('RUNTIME_CAPABILITY_READINESS_NOT_COMPOSED');
   return configuration.runtimeCapabilityReadiness;
+}
+
+function requiredA2aExposure(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlA2aExposureService {
+  if (configuration.a2aExposure === undefined) throw new Error('A2A_EXPOSURE_NOT_COMPOSED');
+  return configuration.a2aExposure;
+}
+
+function requiredRuntimeAgentCards(
+  configuration: NodeControlHttpConfiguration,
+): RuntimeAgentCardDeployment {
+  if (configuration.runtimeAgentCards === undefined)
+    throw new Error('RUNTIME_AGENT_CARD_NOT_COMPOSED');
+  return configuration.runtimeAgentCards;
+}
+
+function requiredAgentCardValidator(
+  configuration: NodeControlHttpConfiguration,
+): A2aAgentCardValidator {
+  if (configuration.agentCardValidator === undefined)
+    throw new Error('AGENT_CARD_VALIDATOR_NOT_COMPOSED');
+  return configuration.agentCardValidator;
 }
 
 interface ProblemInput {

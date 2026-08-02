@@ -4,6 +4,7 @@ import type { Server } from 'node:http';
 import { Pool } from 'pg';
 
 import {
+  NodeControlA2aExposureService,
   NodeControlConfigurationService,
   NodeControlFoundationService,
   NodeControlLlmGovernanceService,
@@ -12,6 +13,7 @@ import {
   NodeControlSmppRegistryService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
+  PostgresNodeControlA2aExposureRepository,
   PostgresNodeControlConfigurationRepository,
   PostgresNodeControlFoundationRepository,
   PostgresNodeControlLlmGovernanceRepository,
@@ -26,8 +28,12 @@ import {
 } from '../../../packages/smpp-registry-adapter/src/index.js';
 import { NodeControlFrozenMcpCatalogClient } from '../../../packages/mcp-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
+import { OfficialA2aAgentCardValidator } from '../../../packages/a2a-adapter/src/node-control-agent-card.js';
 import { RuntimeCapabilityReadinessService } from '../../../packages/runtime-control-application/src/index.js';
-import { PostgresRuntimeCapabilityReadinessRepository } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
+import {
+  PostgresRuntimeAgentCardRepository,
+  PostgresRuntimeCapabilityReadinessRepository,
+} from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
@@ -95,6 +101,18 @@ export async function startNodeControlApi(
     runtime: runtimeReadiness,
     foundation: service,
   });
+  const runtimeAgentCards = new PostgresRuntimeAgentCardRepository(runtimePool);
+  const agentCardValidator = new OfficialA2aAgentCardValidator();
+  const a2aExposure = new NodeControlA2aExposureService({
+    repository: new PostgresNodeControlA2aExposureRepository(pool),
+    capabilities: capabilityService,
+    readiness: runtimeReadiness,
+    runtime: runtimeAgentCards,
+    validator: agentCardValidator,
+    clock: { now: () => new Date().toISOString() },
+    nodeId: environment.SDAR_CONTROL_NODE_ID,
+    a2aUrl: new URL('/a2a', environment.SDAR_CONTROL_A2A_AGENT_CARD_URL).toString(),
+  });
   const readinessTimer = setInterval(() => {
     void runtimeReadiness.evaluateExpired().catch((error: unknown) => {
       process.stderr.write(
@@ -124,6 +142,9 @@ export async function startNodeControlApi(
       capabilities: capabilityService,
       capabilityReadiness,
       runtimeCapabilityReadiness: runtimeReadiness,
+      a2aExposure,
+      runtimeAgentCards,
+      agentCardValidator,
     });
     const server = await listen(
       app,
