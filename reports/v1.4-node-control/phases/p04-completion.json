@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P04",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "d544691cb40325e695525f81184eef8be1e7db16",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "11d13d08d3d72d76cabb4b85fce8cac0967478d3",
+  "evidenceSha": "7c9b733223f0b8b69098a4e55ae330203d37ee03",
+  "remoteSha": "7c9b733223f0b8b69098a4e55ae330203d37ee03",
+  "completedAt": "2026-08-02T10:20:00+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 354538,
+      "unitContract": 1143,
+      "integration": 136,
+      "e2e": 72,
+      "runtimeMigrations": 29
+    },
+    "focused": {
+      "nodeControlFiles": 8,
+      "nodeControlTests": 20,
+      "integrationFiles": 23,
+      "integrationTests": 136,
+      "architectureSources": 596,
+      "secretFiles": 4188,
+      "secretFindings": 0,
+      "frozenFiles": 76,
+      "frozenSchemas": 28,
+      "frozenOperations": 111,
+      "frozenEvents": 20,
+      "frozenFixtures": 7
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "closedMajor": 1,
+    "verdict": "accepted"
+  },
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/goal/v1.3-final-secret-scan-report.json",
+    "reports/v1.4-node-control/failed-attempts/p04-smpp-registry.md",
+    "reports/v1.4-node-control/phases/p04-review.md"
+  ],
+  "nextPhase": "P05"
+}

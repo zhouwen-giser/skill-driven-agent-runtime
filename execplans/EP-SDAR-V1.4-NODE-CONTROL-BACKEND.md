@@ -52,7 +52,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - [x] 2026-08-02 08:43 +08:00 P03 complete: implementation `21c7a37`, Evidence `5980243`, remote
   SHA reconciliation, Provider/Model Catalog, scoped Route/Fallback, Runtime Apply/Ack, immutable
   Task bindings, secret-safe audit, full verification and read-only review are closed.
-- [ ] P04: SMPP Registry federation.
+- [x] 2026-08-02 10:20 +08:00 P04 complete: implementation `11d13d0`, Evidence `7c9b733`, remote
+  reconciliation, multi-source identity, immutable Snapshot/LKG, Latest/ETag refresh, outage
+  isolation, full verification and repeated read-only review are closed.
 - [ ] P05: MCP provider-binding governance.
 - [ ] P06: capability definition and implementation-binding authority.
 - [ ] P07: runtime capability readiness.
@@ -115,6 +117,12 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-02: Runtime Apply replay is idempotent for an exact active configuration identity/checksum
   and fails closed for conflicting or stale replays. External transport/apply failures are reduced
   to explicit safe error-code allowlists before persistence or Ack.
+- 2026-08-02: P04 models SMPP only as a Provider candidate directory. Snapshot entries preserve
+  Registry revision/checksum/ETag/expiry plus Catalog revision, while P05 owns approval/import and
+  live Discover/Tools plus Availability remain their frozen authorities.
+- 2026-08-02: P04 Source revisions activate atomically after an authoritative Latest response. A
+  failed newer draft cannot hide the previous active Source/LKG, and scheduled poll/watch events are
+  refresh hints rather than authoritative content.
 
 ## Implementation Steps
 
@@ -159,5 +167,8 @@ P00 through P02 are complete and remotely evidenced. P03 implements bounded LLM 
 Catalog and scoped Route governance over the P02 apply/ack boundary, while preserving Runtime-owned
 credentials, clients, selection, fallback and immutable Task bindings. Its final full gate passes
 1140 Unit/Contract, 135 real Integration and 72 E2E tests with 29 Runtime migrations and all process
-smokes; the final read-only review closes at 0 Blocking / 0 Major / 0 Minor. P04 and later behavior
-are not claimed.
+smokes; the final read-only review closes at 0 Blocking / 0 Major / 0 Minor. P04 adds bounded
+multi-source SMPP Registry federation, immutable Snapshot lineage, conditional Latest refresh and
+policy-specific LKG while preserving Catalog/Availability/Runtime authority. Its final gate passes
+1,143 Unit/Contract, 136 Integration and 72 E2E tests; its repeated read-only review closes at 0
+Blocking / 0 Major / 0 Minor. P05 and later behavior are not claimed.
