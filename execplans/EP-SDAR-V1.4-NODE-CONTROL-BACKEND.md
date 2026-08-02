@@ -79,7 +79,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   evidence pass. Independent read-only reviews close 1 Blocking and 5 Major findings; full verify
   passes with 952 Unit/performance, 218 Contract, 143 Integration and 72 E2E tests; implementation
   `9e53ebb` and Evidence `b75d1b1` are published to the phase branch.
-- [ ] P11: telemetry export only.
+- [ ] 2026-08-03 P11 in progress: bounded output-only telemetry configuration and delivery;
+  frozen public/internal routes, Runtime Active/LKG, durable delivery state and outage isolation are
+  being implemented without telemetry query, evaluation, reconciliation or Task-timeline APIs.
 - [ ] P12: organization-facing node profile and events.
 - [ ] P13: security, recovery, operations, and upgrade.
 - [ ] P14: final integration, qualification, PR, checks, and protected merge.
@@ -182,6 +184,10 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   secrets. The composition root maps the authenticated internal credential to the configured
   existing Artifact identity; Plan publish remains gated by the existing human administrator RBAC
   and P06 promotion rollout flag.
+- 2026-08-03: P11 reuses P02 Control desired/observed configuration revisions with target type
+  `telemetry_link`, while Runtime PostgreSQL owns the applied Active/LKG snapshot, export outbox and
+  delivery cursor. Export collection and delivery run outside Task transactions; endpoint failure
+  degrades only export status and never Task execution.
 
 ## Implementation Steps
 

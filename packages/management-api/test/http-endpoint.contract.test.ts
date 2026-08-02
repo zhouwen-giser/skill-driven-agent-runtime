@@ -161,6 +161,27 @@ describe('management HTTP API contract', () => {
       killSwitch: vi.fn(() => Promise.resolve()),
     };
     const artifactToken = 'p10-artifact-management-token-0000000000000';
+    const telemetryApply = vi.fn(
+      (configuration: Readonly<{ exportId: string; revision: number }>) =>
+        Promise.resolve({
+          operationId: 'runtime-telemetry-apply-1',
+          operationType: 'telemetry-export.apply',
+          target: {
+            type: 'telemetry_export_configuration',
+            id: configuration.exportId,
+            revision: configuration.revision,
+          },
+          status: 'succeeded' as const,
+          actorId: 'sdar-runtime',
+          reason: 'Apply exact telemetry revision.',
+          idempotencyKeyHash: 'a'.repeat(64),
+          inputHash: 'b'.repeat(64),
+          result: { deliveryStatus: 'degraded' },
+          createdAt: '2026-08-03T00:00:00.000Z',
+          startedAt: '2026-08-03T00:00:00.000Z',
+          completedAt: '2026-08-03T00:00:00.000Z',
+        }),
+    );
     const runtimePrincipalResolver = {
       resolve: (input: Readonly<{ authorization?: string; requestId: string }>) => {
         expect(input.authorization).toBe(`Bearer ${serviceToken}`);
@@ -177,6 +198,19 @@ describe('management HTTP API contract', () => {
       runtimeControl: {
         bearerToken: serviceToken,
         skills: skillGovernance,
+        telemetryExport: {
+          apply: telemetryApply,
+          status: () =>
+            Promise.resolve({
+              exportId: 'export-p11',
+              status: 'degraded' as const,
+              activeRevision: 1,
+              pendingRecords: 2,
+              lastErrorCode: 'TELEMETRY_ENDPOINT_UNAVAILABLE',
+              lastErrorAt: '2026-08-03T00:00:00.000Z',
+              observedAt: '2026-08-03T00:00:00.000Z',
+            }),
+        },
         artifactPrincipalResolver: runtimePrincipalResolver,
       },
       artifactManagement: {
@@ -223,6 +257,43 @@ describe('management HTTP API contract', () => {
           status: 'approved',
         },
       ],
+    });
+    const telemetryConfiguration = {
+      exportId: 'export-p11',
+      endpointRef: 'https://telemetry.example.test/ingest',
+      sourceId: 'runtime-p11',
+      credentialRef: 'env:P11_TELEMETRY_TOKEN',
+      recordFamilies: ['runtime_event'],
+      batchPolicy: { maxRecords: 100 },
+      retryPolicy: { maxDelaySeconds: 300 },
+      outboxPolicy: { maxPendingRecords: 10_000 },
+      status: 'active',
+      revision: 1,
+      applyMode: 'hot_reload',
+    };
+    const telemetryApplied = await fetch(`${endpoint.baseUrl}/internal/v1/telemetry-export/apply`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${serviceToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(telemetryConfiguration),
+    });
+    expect(telemetryApplied.status).toBe(202);
+    await expect(telemetryApplied.json()).resolves.toMatchObject({
+      operationType: 'telemetry-export.apply',
+      status: 'succeeded',
+      result: { deliveryStatus: 'degraded' },
+    });
+    expect(telemetryApply).toHaveBeenCalledWith(telemetryConfiguration);
+    const telemetryStatus = await fetch(`${endpoint.baseUrl}/internal/v1/telemetry-export/status`, {
+      headers: { authorization: `Bearer ${serviceToken}` },
+    });
+    expect(telemetryStatus.status).toBe(200);
+    await expect(telemetryStatus.json()).resolves.toMatchObject({
+      exportId: 'export-p11',
+      status: 'degraded',
+      pendingRecords: 2,
     });
     const publishedSkill = await fetch(
       `${endpoint.baseUrl}/internal/v1/skills/skill.runtime.p10/versions/1/publish`,

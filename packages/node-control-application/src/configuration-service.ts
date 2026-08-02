@@ -199,6 +199,10 @@ export class NodeControlConfigurationService {
     return this.#configurations.acknowledge(acknowledgement);
   }
 
+  getOperation(operationId: string): Promise<ManagementOperation | undefined> {
+    return this.#foundation.findManagementOperation(operationId);
+  }
+
   async bootstrap(): Promise<RuntimeBootstrapProjection> {
     const nodeProfile = await this.#foundation.findNodeProfile();
     if (nodeProfile === undefined)

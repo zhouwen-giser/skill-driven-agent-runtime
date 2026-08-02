@@ -12,8 +12,12 @@ import {
   NodeControlCapabilityService,
   NodeControlSmppRegistryService,
   NodeControlRuntimeGovernanceService,
+  NodeControlTelemetryExportService,
 } from '../../../packages/node-control-application/src/index.js';
-import { HttpRuntimeGovernanceClient } from '../../../packages/runtime-control-http-client/src/index.js';
+import {
+  HttpRuntimeGovernanceClient,
+  HttpRuntimeTelemetryExportClient,
+} from '../../../packages/runtime-control-http-client/src/index.js';
 import {
   PostgresNodeControlA2aExposureRepository,
   PostgresNodeControlConfigurationRepository,
@@ -77,6 +81,16 @@ export async function startNodeControlApi(
     operations: repository,
     clock: { now: () => new Date().toISOString() },
     actorId: `node-control:${environment.SDAR_CONTROL_NODE_ID}`,
+  });
+  const telemetryExport = new NodeControlTelemetryExportService({
+    configurations: configurationService,
+    runtime: new HttpRuntimeTelemetryExportClient({
+      baseUrl: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
+      serviceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
+    }),
+    clock: { now: () => new Date().toISOString() },
+    nodeId: environment.SDAR_CONTROL_NODE_ID,
+    operations: repository,
   });
   const llmGovernanceService = new NodeControlLlmGovernanceService({
     repository: new PostgresNodeControlLlmGovernanceRepository(pool),
@@ -159,6 +173,7 @@ export async function startNodeControlApi(
       agentCardValidator,
       taskCapabilities: new PostgresRuntimeTaskCapabilityBindingQuery(runtimePool),
       runtimeGovernance,
+      telemetryExport,
     });
     const server = await listen(
       app,

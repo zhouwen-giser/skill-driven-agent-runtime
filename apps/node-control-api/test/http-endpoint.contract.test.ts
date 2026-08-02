@@ -7,6 +7,7 @@ import {
   NodeControlFoundationService,
   NodeControlConfigurationService,
   NodeControlRuntimeGovernanceService,
+  type NodeControlTelemetryExportService,
   type ConfigurationReference,
   type NodeControlConfigurationRepository,
   type NodeControlFoundationRepository,
@@ -243,6 +244,96 @@ describe('Node Control HTTP frozen contract', () => {
       repository.operations.filter((operation) => operation.operationType === 'skill.publish'),
     ).toHaveLength(1);
     expect(repository.audits.some((audit) => audit.action === 'skill.publish')).toBe(true);
+  });
+
+  it('exposes only the frozen output-side Telemetry Export routes', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-03T00:00:00.000Z' },
+      ids: { next: () => 'audit-p11' },
+    });
+    const configurationService = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-03T00:00:00.000Z' },
+      ids: { next: () => 'operation-p11' },
+    });
+    const telemetryConfiguration = Object.freeze({
+      exportId: 'export-p11',
+      endpointRef: 'https://telemetry.example.test/ingest',
+      sourceId: 'runtime-p11',
+      nodeId: 'node-p11',
+      credentialRef: 'env:P11_TELEMETRY_TOKEN',
+      recordFamilies: Object.freeze(['runtime_event']),
+      batchPolicy: Object.freeze({ maxRecords: 100 }),
+      retryPolicy: Object.freeze({ maxDelaySeconds: 300 }),
+      outboxPolicy: Object.freeze({ maxPendingRecords: 10_000 }),
+      status: 'active' as const,
+      revision: 1,
+      applyMode: 'hot_reload' as const,
+    });
+    const operation = runtimeOperation('telemetry-export.apply', 'Apply P11 telemetry export.');
+    const telemetryExport = {
+      current: () =>
+        Promise.resolve({ configuration: telemetryConfiguration, etag: '"telemetry:p11:1"' }),
+      create: () =>
+        Promise.resolve({
+          configuration: { ...telemetryConfiguration, status: 'draft' as const },
+          etag: '"telemetry:p11:1"',
+        }),
+      validate: () =>
+        Promise.resolve({
+          configuration: { ...telemetryConfiguration, status: 'draft' as const },
+          etag: '"telemetry:p11:1:validated"',
+        }),
+      publish: () => Promise.resolve(operation),
+      test: () => Promise.resolve(operation),
+      status: () =>
+        Promise.resolve({
+          exportId: 'export-p11',
+          status: 'degraded' as const,
+          activeRevision: 1,
+          pendingRecords: 2,
+          lastErrorCode: 'TELEMETRY_ENDPOINT_UNAVAILABLE',
+          lastErrorAt: '2026-08-03T00:00:00.000Z',
+          observedAt: '2026-08-03T00:00:00.000Z',
+        }),
+    } as unknown as NodeControlTelemetryExportService;
+    const app = createNodeControlHttpApp(service, configurationService, {
+      bearerToken: token,
+      runtimeServiceToken: `${token}-runtime`,
+      nodeControlApiUrl: 'http://127.0.0.1:10080',
+      nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
+      a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+      telemetryExport,
+    });
+    server = await listen(app);
+    const baseUrl = address(server);
+
+    const current = await fetch(`${baseUrl}/api/v1/telemetry-export`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(current.status).toBe(200);
+    expect(current.headers.get('etag')).toBe('"telemetry:p11:1"');
+    const body = await current.json();
+    const schema = JSON.parse(
+      await readFile(
+        'protocol/node-control/v1/schemas/telemetry-export-config.schema.json',
+        'utf8',
+      ),
+    ) as unknown;
+    expect(new AjvJsonSchemaValidator().validate(schema, body)).toEqual({
+      valid: true,
+      errors: [],
+    });
+    const status = await json(`${baseUrl}/api/v1/telemetry-export/status`, true);
+    expect(status).toMatchObject({ status: 'degraded', pendingRecords: 2 });
+
+    const forbiddenQuery = await fetch(`${baseUrl}/api/v1/telemetry-export/query`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(forbiddenQuery.status).toBe(404);
   });
 });
 

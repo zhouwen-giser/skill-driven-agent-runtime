@@ -14,7 +14,9 @@ import {
   createManagementOperation,
   transitionManagementOperation,
   type ManagementOperation,
+  type TelemetryExportConfiguration,
 } from '../../node-control-domain/src/index.js';
+import type { RuntimeTelemetryExportService } from '../../runtime-control-application/src/index.js';
 
 import type {
   McpRegistryService,
@@ -883,6 +885,7 @@ interface RuntimeControlRouteOptions {
   readonly runtimeControl?: Readonly<{
     bearerToken: string;
     skills: RuntimeSkillGovernanceService;
+    telemetryExport?: Pick<RuntimeTelemetryExportService, 'apply' | 'status'>;
     actorId?: string;
     artifactPrincipalResolver?: ManagementPrincipalResolver;
   }>;
@@ -904,6 +907,7 @@ export async function startManagementHttpEndpoint(
     runtimeControl?: Readonly<{
       bearerToken: string;
       skills: RuntimeSkillGovernanceService;
+      telemetryExport?: Pick<RuntimeTelemetryExportService, 'apply' | 'status'>;
       actorId?: string;
       artifactPrincipalResolver?: ManagementPrincipalResolver;
     }>;
@@ -3257,6 +3261,29 @@ function registerRuntimeControlGovernanceRoutes(
   options: RuntimeControlRouteOptions,
 ): void {
   app.post(
+    '/internal/v1/telemetry-export/apply',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const telemetry = requiredRuntimeTelemetryExport(runtime.telemetryExport);
+      response
+        .status(202)
+        .json(
+          await telemetry.apply(
+            TelemetryExportConfigurationSchema.parse(request.body) as TelemetryExportConfiguration,
+          ),
+        );
+    }),
+  );
+  app.get(
+    '/internal/v1/telemetry-export/status',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(200)
+        .json(await requiredRuntimeTelemetryExport(runtime.telemetryExport).status());
+    }),
+  );
+  app.post(
     '/internal/v1/skills/import',
     asyncRoute(async (request, response) => {
       const runtime = requireRuntimeControl(request, options.runtimeControl);
@@ -3413,6 +3440,24 @@ const RuntimeControlCommandSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .strict();
+const JsonObjectSchema = z.record(z.string(), z.json());
+const TelemetryExportConfigurationSchema = z
+  .object({
+    exportId: z.string().trim().min(1).max(256),
+    endpointRef: z.url(),
+    sourceId: z.string().trim().min(1).max(256),
+    nodeId: z.string().trim().min(1).max(256).optional(),
+    credentialRef: z.string().trim().min(1).max(2_048),
+    recordFamilies: z.array(z.string().trim().min(1).max(256)).min(1),
+    batchPolicy: JsonObjectSchema.optional(),
+    retryPolicy: JsonObjectSchema.optional(),
+    outboxPolicy: JsonObjectSchema.optional(),
+    tlsPolicyRef: z.string().trim().min(1).max(2_048).optional(),
+    status: z.enum(['draft', 'active', 'suspended', 'retired']),
+    revision: z.number().int().positive(),
+    applyMode: z.enum(['hot_reload', 'reconnect_required', 'restart_required']).optional(),
+  })
+  .strict();
 const RuntimeSkillImportPayloadSchema = z
   .object({ packageRoot: z.string().trim().min(1).max(4_096) })
   .strict();
@@ -3462,6 +3507,17 @@ function requiredRuntimeArtifactManagement(
   if (value === undefined)
     throw Object.assign(new Error('Artifact governance is unavailable.'), {
       code: 'RUNTIME_ARTIFACT_GOVERNANCE_UNAVAILABLE',
+      status: 503,
+    });
+  return value;
+}
+
+function requiredRuntimeTelemetryExport(
+  value: NonNullable<RuntimeControlRouteOptions['runtimeControl']>['telemetryExport'],
+): Pick<RuntimeTelemetryExportService, 'apply' | 'status'> {
+  if (value === undefined)
+    throw Object.assign(new Error('Telemetry Export runtime is unavailable.'), {
+      code: 'RUNTIME_TELEMETRY_EXPORT_UNAVAILABLE',
       status: 503,
     });
   return value;

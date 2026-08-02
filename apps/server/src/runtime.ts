@@ -244,7 +244,15 @@ import {
 } from '../../../packages/domain/src/index.js';
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
-import { PostgresRuntimeAgentCardRepository } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
+import {
+  PostgresRuntimeAgentCardRepository,
+  PostgresRuntimeTelemetryExportStore,
+} from '../../../packages/runtime-control-persistence-postgres/src/index.js';
+import { RuntimeTelemetryExportService } from '../../../packages/runtime-control-application/src/index.js';
+import {
+  EnvironmentTelemetryCredentialResolver,
+  HttpTelemetryExportTransport,
+} from '../../../packages/telemetry-export-adapter/src/index.js';
 import {
   FrozenV1RegistryAdapter,
   FrozenV1RuntimeAvailabilityAdapter,
@@ -663,6 +671,12 @@ export async function startServerRuntime(
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const telemetryExport = new RuntimeTelemetryExportService({
+    store: new PostgresRuntimeTelemetryExportStore(pool),
+    transport: new HttpTelemetryExportTransport(new EnvironmentTelemetryCredentialResolver()),
+    clock,
+    actorId: 'sdar-runtime',
+  });
   const cognitiveManagementActionRepository = new PostgresCognitiveManagementActionRepository(pool);
   const cognitiveManagementActions = new CognitiveManagementActionGate({
     repository: cognitiveManagementActionRepository,
@@ -4085,6 +4099,22 @@ export async function startServerRuntime(
       });
   }, 500);
   experienceDispatchTimer.unref();
+  let telemetryExportRunning = false;
+  const telemetryExportTimer = setInterval(() => {
+    if (telemetryExportRunning) return;
+    telemetryExportRunning = true;
+    void telemetryExport
+      .drain()
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'telemetry_export.delivery_failed', errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        telemetryExportRunning = false;
+      });
+  }, 1_000);
+  telemetryExportTimer.unref();
   const worker = new BullMqContextWorker({
     connection: options.redis,
     queueName,
@@ -4439,6 +4469,7 @@ export async function startServerRuntime(
             runtimeControl: {
               bearerToken: options.runtimeControlServiceToken,
               skills: runtimeSkillGovernance,
+              telemetryExport,
               actorId: 'sdar-node-control',
               ...(options.runtimeControlArtifactPrincipalResolver === undefined
                 ? {}
@@ -4606,6 +4637,7 @@ export async function startServerRuntime(
         clearInterval(attemptDispatchTimer);
         clearInterval(capabilityCatalogRefreshTimer);
         clearInterval(experienceDispatchTimer);
+        clearInterval(telemetryExportTimer);
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
           clearInterval(remoteTaskContinuationReconcileTimer);
@@ -4658,6 +4690,7 @@ export async function startServerRuntime(
     clearInterval(attemptDispatchTimer);
     clearInterval(capabilityCatalogRefreshTimer);
     clearInterval(experienceDispatchTimer);
+    clearInterval(telemetryExportTimer);
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);

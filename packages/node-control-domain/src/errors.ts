@@ -18,7 +18,8 @@ export type NodeControlDomainErrorCode =
   | 'SMPP_SNAPSHOT_CHECKSUM_MISMATCH'
   | 'MCP_PROVIDER_BINDING_INVALID'
   | 'NODE_CAPABILITY_INVALID'
-  | 'A2A_EXPOSURE_INVALID';
+  | 'A2A_EXPOSURE_INVALID'
+  | 'TELEMETRY_EXPORT_INVALID';
 
 export class NodeControlDomainError extends Error {
   readonly code: NodeControlDomainErrorCode;

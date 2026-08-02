@@ -20,6 +20,7 @@ import {
   type NodeControlCapabilityService,
   type NodeControlSmppRegistryService,
   type NodeControlRuntimeGovernanceService,
+  type NodeControlTelemetryExportService,
   NodeControlRuntimeGovernanceError,
 } from '../../../packages/node-control-application/src/index.js';
 import type { TaskCapabilityBinding } from '../../../packages/domain/src/index.js';
@@ -34,6 +35,7 @@ import {
   smppSourceEtag,
   transitionManagementOperation,
   type RuntimeAgentCardCandidate,
+  type TelemetryExportConfiguration,
 } from '../../../packages/node-control-domain/src/index.js';
 import type {
   RuntimeCapabilityReadinessInput,
@@ -61,6 +63,7 @@ export interface NodeControlHttpConfiguration {
     findBinding(taskId: string): Promise<TaskCapabilityBinding | undefined>;
   }>;
   readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
+  readonly telemetryExport?: NodeControlTelemetryExportService;
 }
 
 export function createNodeControlHttpApp(
@@ -204,6 +207,87 @@ export function createNodeControlHttpApp(
       }
     },
   );
+
+  app.get('/api/v1/telemetry-export', async (_request, response, next) => {
+    try {
+      const current = await requiredTelemetryExport(configuration).current();
+      response.status(200).set('etag', current.etag).json(current.configuration);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/telemetry-export/revisions', async (request, response, next) => {
+    try {
+      const created = await requiredTelemetryExport(configuration).create(
+        TelemetryExportConfigurationSchema.parse(request.body) as TelemetryExportConfiguration,
+        requiredHeader(request, 'idempotency-key'),
+      );
+      response.status(201).set('etag', created.etag).json(created.configuration);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post(
+    '/api/v1/telemetry-export/revisions/:revision/validate',
+    async (request, response, next) => {
+      try {
+        const validated = await requiredTelemetryExport(configuration).validate(
+          positiveRevision(request.params.revision),
+          requiredHeader(request, 'if-match'),
+          requiredHeader(request, 'idempotency-key'),
+          parseCommand(request.body),
+        );
+        response.status(200).set('etag', validated.etag).json(validated.configuration);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/telemetry-export/revisions/:revision/publish',
+    async (request, response, next) => {
+      try {
+        response
+          .status(202)
+          .json(
+            await requiredTelemetryExport(configuration).publish(
+              positiveRevision(request.params.revision),
+              requiredHeader(request, 'if-match'),
+              requiredHeader(request, 'idempotency-key'),
+              parseCommand(request.body),
+            ),
+          );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.get('/api/v1/telemetry-export/status', async (_request, response, next) => {
+    try {
+      response.status(200).json(await requiredTelemetryExport(configuration).status());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/telemetry-export/test', async (request, response, next) => {
+    try {
+      response
+        .status(202)
+        .json(
+          await requiredTelemetryExport(configuration).test(
+            requiredHeader(request, 'idempotency-key'),
+            parseCommand(request.body),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.get('/api/v1/llm-providers', async (request, response, next) => {
     try {
@@ -1659,6 +1743,23 @@ const McpBindingImportSchema = z
   })
   .strict();
 const JsonObjectSchema = z.record(z.string(), z.json());
+const TelemetryExportConfigurationSchema = z
+  .object({
+    exportId: z.string().trim().min(1).max(256),
+    endpointRef: z.url(),
+    sourceId: z.string().trim().min(1).max(256),
+    nodeId: z.string().trim().min(1).max(256).optional(),
+    credentialRef: z.string().trim().min(1).max(2_048),
+    recordFamilies: z.array(z.string().trim().min(1).max(256)).min(1),
+    batchPolicy: JsonObjectSchema.optional(),
+    retryPolicy: JsonObjectSchema.optional(),
+    outboxPolicy: JsonObjectSchema.optional(),
+    tlsPolicyRef: z.string().trim().min(1).max(2_048).optional(),
+    status: z.enum(['draft', 'active', 'suspended', 'retired']),
+    revision: z.number().int().positive(),
+    applyMode: z.enum(['hot_reload', 'reconnect_required', 'restart_required']).optional(),
+  })
+  .strict();
 const NodeCapabilitySchema = z
   .object({
     capabilityId: z.string().trim().min(1).max(512),
@@ -2121,6 +2222,17 @@ function requiredRuntimeGovernance(
       503,
     );
   return configuration.runtimeGovernance;
+}
+
+function requiredTelemetryExport(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlTelemetryExportService {
+  if (configuration.telemetryExport === undefined)
+    throw Object.assign(new Error('Telemetry Export is unavailable.'), {
+      code: 'TELEMETRY_EXPORT_UNAVAILABLE',
+      status: 503,
+    });
+  return configuration.telemetryExport;
 }
 
 interface ProblemInput {

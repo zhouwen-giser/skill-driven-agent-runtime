@@ -6,5 +6,6 @@ export * from './llm-governance-service.js';
 export * from './mcp-provider-binding-service.js';
 export * from './node-capability-service.js';
 export * from './runtime-governance-service.js';
+export * from './telemetry-export-service.js';
 export * from './ports.js';
 export * from './smpp-registry-service.js';
