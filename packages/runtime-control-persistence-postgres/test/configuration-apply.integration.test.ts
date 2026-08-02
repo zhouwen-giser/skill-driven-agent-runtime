@@ -16,7 +16,6 @@ import {
   type LlmProviderDefinition,
   type ModelRouteDefinition,
 } from '../../node-control-domain/src/index.js';
-import { applyControlMigrations } from '../../node-control-persistence-postgres/src/index.js';
 import { PostgresModelRuntimeRepository } from '../../persistence-postgres/src/index.js';
 import {
   RuntimeConfigurationAgent,
@@ -71,11 +70,17 @@ const RevisionHintSchema = z.object({
 });
 
 beforeAll(async () => {
-  await Promise.all([applyRuntimeMigrations(runtimePool), applyControlMigrations(controlPool)]);
-  const node = await controlPool.query<{ node_id: string }>(
-    'SELECT node_id FROM sdar_control.node_profile LIMIT 1',
+  await applyRuntimeMigrations(runtimePool);
+  const profileTable = await controlPool.query<{ profile_table: string | null }>(
+    "SELECT to_regclass('sdar_control.node_profile')::text AS profile_table",
   );
-  const controlNodeId = node.rows[0]?.node_id ?? 'node-p02';
+  const existingNode =
+    profileTable.rows[0]?.profile_table === null || profileTable.rows[0] === undefined
+      ? undefined
+      : await controlPool.query<{ node_id: string }>(
+          'SELECT node_id FROM sdar_control.node_profile LIMIT 1',
+        );
+  const controlNodeId = existingNode?.rows[0]?.node_id ?? 'node-p02';
   controlApi = await startNodeControlApi({
     SDAR_CONTROL_DATABASE_URL: controlConnectionString,
     SDAR_CONTROL_API_HOST: '127.0.0.1',
