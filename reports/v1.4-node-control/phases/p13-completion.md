@@ -13,7 +13,7 @@ and honest operational limits without creating a second Runtime authority.
 - implementationSha: `ee64870d9527bf7aeaef63a08897b411f9de7d1a`
 - reproducibilityFixShas: `63c6961`, `ec10587`
 - fullVerifyCandidateSha: `ec10587073828b1fd940e475a30a8ceebfaedd57`
-- evidenceSha: `PENDING_EVIDENCE_COMMIT`
+- evidenceSha: `b8401045bd267fc861819e04e7ec1fdd40f402df`
 - remoteSha: `PENDING_P14_PUSH`
 
 ## Implementation

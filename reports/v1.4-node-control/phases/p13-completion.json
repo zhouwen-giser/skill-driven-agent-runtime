@@ -7,7 +7,7 @@
   "phaseBaseSha": "ee1826ede8c8d1c3e404eddf08e9cff8cf169a11",
   "implementationSha": "ee64870d9527bf7aeaef63a08897b411f9de7d1a",
   "fullVerifyCandidateSha": "ec10587073828b1fd940e475a30a8ceebfaedd57",
-  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+  "evidenceSha": "b8401045bd267fc861819e04e7ec1fdd40f402df",
   "remoteSha": "PENDING_P14_PUSH",
   "completedAt": "2026-08-03T13:00:00+08:00",
   "productionChanges": true,
