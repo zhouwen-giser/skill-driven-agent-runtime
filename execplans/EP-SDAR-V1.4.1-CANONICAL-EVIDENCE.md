@@ -60,8 +60,9 @@ Control read before mapping.
 ## Progress
 
 - [x] 2026-08-04 Phase 0 package integrity, latest-main baseline, branch, migration decision, and
-  clean full verification established.
-- [ ] Phase 1 map every authoritative source and stable source identity.
+      clean full verification established.
+- [x] 2026-08-04 Phase 1 mapped all 100 authoritative source identities: 93 confirmed and 7
+      explicit clean-cutover blockers.
 - [ ] Phase 2 define canonical evidence Domain contract, schemas, catalog, hashes, and security.
 - [ ] Phase 3 add Strategy B clean-cutover persistence after immutable migration 0143.
 - [ ] Phase 4 replace legacy Telemetry wire/domain path with evidence batch export.
@@ -87,6 +88,13 @@ Control read before mapping.
   project and volume proved the clean baseline without deleting existing data.
 - One full-gate attempt passed all 149 integration assertions but timed out in an `afterAll` hook;
   the identical clean rerun passed.
+- The existing Control `configuration_revision` rows with `target_type=telemetry_link` are the
+  authority for evidence-export configuration governance. The old Runtime telemetry configuration
+  is a projection target, not canonical Control authority.
+- Ninety-three catalog types have non-guessed sources. The only seven missing sources are the two
+  canonical delivery/ACK facts and five evidence-infrastructure facts that Strategy B must append.
+- Typed children inside persisted trace, pattern, and replay JSON have stable domain IDs/keys and
+  may be projected as structured subrecords; missing child identity is a projection issue.
 
 ## Decision Log
 
@@ -104,8 +112,8 @@ Control read before mapping.
 
 ## Implementation Steps
 
-1. Produce the 100-row source matrix, authority map, identity report, coverage baseline, and
-   explicit missing-source blockers.
+1. [Complete] Produce the 100-row source matrix, authority map, identity report, coverage baseline,
+   and explicit missing-source blockers.
 2. Add Domain-owned canonical envelope/catalog/policy/manifest/quality types and JSON Schema
    2020-12 documents with reproducible hashes and fixtures.
 3. Append Runtime migration 0144 (and a Control migration only if a Control-local capture table is
@@ -149,7 +157,9 @@ rewriting pushed history.
 
 ## Outcomes and Retrospective
 
-Phase 0 is complete. No product runtime change has yet been made. The baseline is reproducible on a
-fresh Compose project, all current gates pass, the current Telemetry implementation is confirmed
-insufficient, and the append-only migration route is fixed. This section will be replaced with the
-final measured outcome after Phase 14.
+Phases 0 and 1 are complete. No product runtime change has yet been made. The baseline is
+reproducible on a fresh Compose project, all current gates pass, the current Telemetry implementation
+is confirmed insufficient, the append-only migration route is fixed, and all 100 catalog types now
+have an explicit authority classification. Phase 2 starts with 93 confirmed sources and seven
+non-concealed clean-cutover blockers. This section will be replaced with the final measured outcome
+after Phase 14.
