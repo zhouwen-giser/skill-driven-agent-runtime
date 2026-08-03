@@ -2,6 +2,179 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P14 Release Qualification
+
+- Set the repository target version to `1.4.0` and documented the distinct security boundaries of
+  the trusted-intranet Runtime surfaces and authenticated Node Control API.
+- Added final architecture, authority, traceability, rollback and known-limitations release records.
+- Re-synchronized with latest `origin/main`; it remained the branch ancestor, so no empty merge or
+  history rewrite was created.
+- Qualified exact clean candidate `e6d0b69` with the full 581,785 ms repository gate: 938 Unit, 22
+  performance, 220 Contract, 149 Integration and 72 E2E tests, migration/build/architecture and all
+  process smokes pass with `dirty=false`.
+- Passed zero-finding secret scan, frozen-contract/SBOM/license gates, production audit at 0
+  Critical/High, A2A HTTP/JSON MUST TCK 74 passed and the real backup/restore/restart/outage drill.
+- Fixed a clean-checkout recovery-smoke order dependency by building the production Console before
+  asserting the Runtime Console route; the repeated 404 and successful rerun remain in evidence.
+- Published evidence commit `d5368bd` and opened non-draft PR #15. Live GitHub state is
+  `MERGEABLE/CLEAN` with no checks, reviews or review threads; the active main ruleset requires zero
+  approvals and permits Merge Commit without bypass.
+
+## SDAR v1.4 P13 Security, Recovery and Operations
+
+- Added distinct public role credentials, tenant-bound Organization access, constant-time matching,
+  bounded request/rate limits and separate Runtime service authentication.
+- Added exact/CIDR outbound allowlists, non-loopback TLS enforcement, user-info rejection and
+  deceptive-loopback SSRF regressions for governed LLM and SMPP endpoints.
+- Added real credential rotation/revocation, PostgreSQL dump/restore reconciliation, API restart and
+  Runtime-after-Control-outage drills plus backup, upgrade/rollback and SLO/capacity/chaos runbooks.
+- Preserved four frozen protocol matrices byte-exact across fresh Windows Git checkouts.
+
+## SDAR v1.4 P12 Organization Profile and Node Events
+
+- Added immutable Node Profile draft/validate/publish governance with opaque ETags, request-hash
+  idempotency, ManagementOperation/Audit and Control PostgreSQL revision history.
+- Added the frozen 20-type durable Node Event stream with Event ID/revision/correlation,
+  Last-Event-ID reconnect and authoritative GET recovery; Redis remains wake-only.
+- Added a bounded durable bridge for Runtime readiness and Task capability-binding hints plus safe
+  organization TaskSummary list/detail projections.
+- Added separate organization bearer RBAC for the frozen GET profile while forbidding configuration,
+  provider, raw Skill/Artifact, telemetry, Audit and write surfaces.
+
+## SDAR v1.4 P11 Telemetry Export
+
+- Added frozen public and internal output-only Telemetry Export routes over P02 Configuration
+  Revision, ETag/idempotency, desired/observed Ack and Control Operation/Audit authorities.
+- Added Runtime-owned Active/LKG, collector cursor, durable outbox, bounded retry, exact ACK and
+  auditable local delivery status in migration `0142`.
+- Added SecretRef-only, HTTPS-first, redirect-denying HTTP delivery and a nonblocking Server drain
+  loop whose endpoint failures never affect Task execution.
+- Added real Control-to-Runtime-to-PostgreSQL-to-HTTP evidence for ACK, retention, near-capacity
+  high-watermark enforcement, newer-Draft isolation and endpoint-outage continuation.
+
+## SDAR v1.4 P10 Skill and Plan Template Governance
+
+- Added frozen public and internal Skill import/exact-version/publish/suspend/deprecate routes with
+  Runtime-owned validation, immutable exact lifecycle receipts, CAS and response-loss recovery.
+- Added Plan Template list/exact/publish/revalidate/suspend adapters over the existing P02/P06
+  Artifact query, validation, activation, rollback and Outbox authorities.
+- Added Control proxy ManagementOperation/Audit persistence, replay-before-network idempotency and
+  logical-to-exact Artifact identity mapping without copying Skill or Artifact content.
+- Added distinct RuntimeServiceAuth-to-Artifact identity mapping, timestamp-safe redaction and real
+  Control-to-Runtime-to-PostgreSQL/Outbox acceptance evidence.
+
+## SDAR v1.4 P09 Task Capability Binding and Attempts
+
+- Added deeply immutable, canonically hashed Task Capability Bindings that freeze exact Exposure,
+  input, success, evidence, constraints, implementation and secret-free Provider policy facts.
+- Added atomic Runtime PostgreSQL acceptance for Task, initial generic/Capability attempts and
+  created event, with append-only replan, Skill replacement, Provider fallback and recovery history.
+- Added fail-closed requester/schema admission and terminal success/evidence/policy gates while
+  preserving ordinary Task behavior when no explicit Capability is requested.
+- Added frozen public/internal Binding reads through a restricted Runtime-Control query adapter and
+  real PostgreSQL rollback, immutability, history and terminal regression evidence.
+
+## SDAR v1.4 P08 A2A Exposure and Agent Card
+
+- Added immutable Capability-backed A2A Exposure versions with exact schemas, visibility,
+  requester-policy privacy and Runtime-readiness publication policies.
+- Added deterministic Agent Card candidate/diff/stage/activate/ack with sequence-backed revisions,
+  evidence-aware hashes, no-op rebuilds and compensating Runtime LKG rollback.
+- Added frozen public and authenticated internal API routes plus active managed-card projection at
+  the Runtime A2A endpoint; internal Skill identities are never exposed as AgentSkill.
+- Added real two-database acceptance, rollback regression and pinned official A2A MUST TCK evidence.
+
+## SDAR v1.4 P07 Runtime Capability Readiness
+
+- Added Runtime-authored immutable Capability Readiness snapshots with exact Definition, Binding,
+  Skill/Plan Template, MCP availability, Model Route, policy, maintenance and kill-switch inputs.
+- Added TTL expiry, immediate safety downgrade, minimum recovery stability, deterministic hashes,
+  restart recovery and status-change Outbox events in Runtime PostgreSQL migration `0137`.
+- Added frozen public read/evaluate routes and the authenticated internal Runtime evaluation route;
+  Control requests recomputation and owns no readiness writer or table.
+- Added real PostgreSQL vertical evidence for availability expiry, idempotency, SQL immutability,
+  Control/Runtime authority isolation and process restart recovery.
+
+## SDAR v1.4 P06 Capability Definition Authority
+
+- Added canonical versioned Capability business promises with immutable post-publication content,
+  stable lifecycle ETags and schema/evidence/risk/constraint publication gates.
+- Added exact Skill and Plan Template implementation bindings with primary, alternative, supporting,
+  validation and recovery roles; Resource and undeclared implementation kinds fail closed.
+- Added request-hash idempotency, optimistic concurrency, Control audit/receipts and exact read-only
+  Runtime/Artifact authority validation.
+- Added real Control/Runtime PostgreSQL acceptance evidence for compatibility-projection isolation,
+  exact implementation lookup, published immutability and replay after lifecycle change.
+
+## SDAR v1.4 P05 MCP Provider Binding Governance
+
+- Added explicit Direct and exact-lineage SMPP Provider Binding import through real frozen
+  `server/discover` and `tools/list` Catalog verification.
+- Added immutable Binding revisions, canonical Catalog checksums, approved-baseline drift detection,
+  Availability freshness gates and append-only suspend/remove semantics.
+- Added SecretRef-only credentials, endpoint authority allowlisting, redirect rejection, concurrent
+  local Server identity serialization and strict Telemetry-origin rejection.
+- Added real SMPP/MCP HTTP plus Control/Runtime PostgreSQL acceptance evidence proving that candidate
+  Snapshots are not callable and existing Runtime Remote Tasks remain queryable/controllable.
+
+## SDAR v1.4 P04 SMPP Registry Federation
+
+- Added multi-source SMPP Registry Source revisions, conditional Latest refresh, immutable Snapshot
+  and Provider candidate persistence, deterministic checksum validation and atomic activation.
+- Added stable Source/Provider/Server composite identity and Registry revision/checksum/ETag/expiry
+  lineage while keeping Tool Catalog and live Availability authority outside the Registry.
+- Added bounded local LKG policies, explicit expiry/rollback/drift failures, scheduled Worker refresh
+  and secret-reference-only external HTTP authentication.
+- Added real Control/Runtime PostgreSQL integration proving cross-source isolation, failed Snapshot
+  preservation, ETag replay, outage policy, running-Task stability and durable sync/audit evidence.
+
+## SDAR v1.4 P03 LLM Provider and Model Route Governance
+
+- Added secret-reference-only LLM Provider definitions, capability-bearing Model Catalogs and
+  stage/task/case Route revisions with health, rate, budget, timeout and fallback policies.
+- Connected Provider and Route revisions to the P02 Apply/Ack boundary while preserving
+  Runtime-owned credential resolution, model clients, route selection and invocation evidence.
+- Added exact-revision immutable Task bindings, bounded real fallback execution, safe error
+  categories and idempotent apply replay across the apply-before-Ack crash window.
+- Added separate Control and Runtime migrations plus real two-database integration proving Route
+  conflict/unavailable behavior, fallback success, old-Task stability, Ack/Observed convergence and
+  zero credential disclosure.
+
+## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG
+
+- Added immutable, checksummed Configuration Revisions with Desired/Observed state, ETag/If-Match,
+  idempotency receipts, target-scoped CAS and rollback-as-new-revision semantics.
+- Added frozen internal Runtime Bootstrap/Latest/Watch/Ack endpoints, hint-only SSE and authenticated
+  HTTP client without moving authority across the Control/Runtime boundary.
+- Added Runtime-owned durable Active/LKG snapshots, acknowledgement outbox and immutable running-Task
+  configuration pins, including outage startup recovery and failed-revision preservation.
+- Added separate Control and Runtime migrations plus a real two-database vertical integration proving
+  publish-not-applied, one-winner concurrent publish, LKG fallback, partial/bad revision rejection and
+  stable Task bindings.
+
+## SDAR v1.4 P01 Node Control Foundation
+
+- Added independent Node Control Domain, Application, PostgreSQL persistence, HTTP API and Worker
+  composition packages without introducing a second workflow runtime.
+- Added a dedicated `sdar_control` schema, migration ledger, single Node Profile, durable Management
+  Operation projection and append-only Audit authority with reversible migration evidence.
+- Added authenticated Node/Audit read projections plus public liveness, readiness and discovery
+  routes from the validated frozen Node Control API package.
+- Added a separate Compose stack and environment surface, architecture cross-write gates, frozen
+  contract verification, focused tests and a real smoke proving Runtime survives Control shutdown.
+
+## SDAR v1.4 P00 Latest-main Baseline
+
+- Locked the implementation baseline to latest `origin/main` commit `a7a7c62`
+  and recorded its tree, toolchain, migration ledger, API, A2A, registry,
+  lockfile and repository-setting hashes.
+- Added the validated v1.4 task package and immutable source-lock record for
+  the complete design and Node Control Backend API freeze archives.
+- Added the living P00-P14 ExecPlan and initial object, symbol, authority,
+  migration, API and requirement maps without changing production behavior.
+- Preserved Docker permission and stale-volume collation failures, then passed
+  the complete exact-main gate with isolated PostgreSQL/Redis volumes.
+
 ## PR #13 Merge Review Remediation
 
 - Made durable Model Route decision evidence references include tenant and

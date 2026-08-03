@@ -21,6 +21,9 @@ export interface A2AHttpEndpointOptions {
   readonly capabilityCardProvider?: Readonly<{
     findActive(): Promise<PublicCapabilityCardSnapshot | undefined>;
   }>;
+  readonly agentCardProvider?: Readonly<{
+    findActive(): Promise<AgentCard | undefined>;
+  }>;
   readonly artifactProjectionProvider?: Readonly<{
     projectPublic(): Promise<A2AArtifactProjection>;
   }>;
@@ -52,6 +55,8 @@ export async function startA2AHttpEndpoint(
   const loadSkills = async () => options.skillProvider?.listEnabled() ?? options.skills ?? [];
   const cardBuilder = new A2AAgentCardBuilder();
   const loadCard = async () => {
+    const managedCard = await options.agentCardProvider?.findActive();
+    if (managedCard !== undefined) return managedCard;
     const capabilityProvider = options.capabilityCardProvider;
     const base =
       capabilityProvider === undefined

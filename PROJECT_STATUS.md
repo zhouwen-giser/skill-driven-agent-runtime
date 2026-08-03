@@ -1,5 +1,22 @@
 # Project Status
 
+SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
+`feature/v1.4-node-control-backend`, based on latest observed `origin/main`
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P12 remain completed. P13 adds exact
+Administrator/Operator/Viewer/Security/Organization role profiles, tenant-bound service identity,
+ingress rate/size limits, endpoint allowlist/TLS/SSRF enforcement, real credential rotation,
+PostgreSQL dump/restore, restart and Control-outage recovery plus explicit production-limit
+runbooks. Exact clean `pnpm verify` passed on `ec10587` in 665,151 ms with 960 Unit/performance, 220
+Contract, 149 real PostgreSQL/Redis Integration and 72 E2E tests, 36 Runtime and 8 Control
+migrations, build and all smokes. Review is 0 Blocking / 0 Major / 0 Minor after two Major repairs.
+P14 local release qualification is complete. Latest `origin/main` remains `a7a7c62`, already an
+ancestor of the branch (`0 behind / 66 ahead`), so there is no main conflict or missing merge commit
+to resolve. Exact clean candidate `e6d0b69` passes the complete `pnpm verify` in 581,785 ms with
+`dirty=false`, security/recovery gates and A2A HTTP/JSON MUST TCK; final Review is 0 Blocking / 0
+Major / 0 Minor. Evidence commit `d5368bd` is pushed and non-draft PR #15 is `MERGEABLE/CLEAN` with
+no checks, reviews or review threads. The active main ruleset requires zero approvals and permits
+Merge Commit without bypass; final reconciliation push, live recheck, merge and ancestry proof remain.
+
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual
 conflict with current `origin/main`; the actual blockers were three unresolved

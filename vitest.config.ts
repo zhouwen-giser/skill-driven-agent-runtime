@@ -16,7 +16,7 @@ export default defineConfig({
       {
         test: {
           name: 'contract',
-          include: ['packages/**/*.contract.test.ts'],
+          include: ['packages/**/*.contract.test.ts', 'apps/**/*.contract.test.ts'],
         },
       },
       {

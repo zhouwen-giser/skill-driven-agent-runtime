@@ -1,0 +1,16 @@
+requirement,phase,evidence
+latest main baseline,P00,main-baseline.json
+independent node control backend,P01,architecture report
+revision apply ack lkg,P02,runtime-control contract
+llm provider model route,P03,provider/route tests
+smpp federation,P04,registry tests
+mcp binding,P05,catalog/availability tests
+capability authority,P06,domain/DB/API tests
+readiness runtime authority,P07,readiness tests
+a2a capability exposure,P08,A2A TCK
+immutable task binding,P09,transaction/E2E
+skill/artifact adaptation,P10,adapter tests
+telemetry export only,P11,outage/no-query tests
+organization-facing profile,P12,contract/event tests
+security/recovery,P13,security/chaos reports
+PR merge main,P14,PR/merge evidence

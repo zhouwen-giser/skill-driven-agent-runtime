@@ -1,0 +1,24 @@
+{
+  "capabilityId": "area-inspection",
+  "capabilityVersion": 1,
+  "snapshotVersion": 8,
+  "status": "degraded",
+  "evaluatedAt": "2026-07-31T06:00:00Z",
+  "validUntil": "2026-07-31T06:01:00Z",
+  "catalogHash": "catalog-1",
+  "policyHash": "policy-1",
+  "reasons": [
+    {
+      "code": "PRIMARY_PROVIDER_UNAVAILABLE",
+      "severity": "warning",
+      "detail": "Alternative implementation remains available",
+      "dependencyRef": "mcp-binding:ugv-primary"
+    }
+  ],
+  "availableImplementations": [
+    "plan_template:area-inspection-alt:1"
+  ],
+  "unavailableImplementations": [
+    "plan_template:area-inspection:1"
+  ]
+}

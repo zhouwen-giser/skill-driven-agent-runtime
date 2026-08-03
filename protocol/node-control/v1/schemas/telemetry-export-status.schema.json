@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/TelemetryExportStatus.schema.json",
+  "title": "TelemetryExportStatus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "exportId",
+    "status",
+    "observedAt",
+    "pendingRecords"
+  ],
+  "properties": {
+    "exportId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded",
+        "blocked",
+        "disabled",
+        "unavailable"
+      ]
+    },
+    "activeRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastAcknowledgedSequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pendingRecords": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "oldestPendingAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lastAcknowledgedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lastErrorCode": {
+      "type": "string"
+    },
+    "lastErrorAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

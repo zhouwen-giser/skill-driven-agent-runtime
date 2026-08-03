@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/AgentCardRevision.schema.json",
+  "title": "AgentCardRevision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "nodeId",
+    "contentHash",
+    "capabilityCatalogHash",
+    "status",
+    "generatedAt"
+  ],
+  "properties": {
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nodeId": {
+      "type": "string"
+    },
+    "exposureRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "capabilityCatalogHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "staged",
+        "active",
+        "rejected",
+        "superseded"
+      ]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "activatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rejectionCode": {
+      "type": "string"
+    }
+  }
+}

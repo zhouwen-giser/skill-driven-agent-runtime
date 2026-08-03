@@ -1,0 +1,16 @@
+phase,title,implementation_commit,evidence_commit,push_required
+P00,最新 main 基线与 Goal 建立,docs(v1.4): establish latest-main implementation baseline,docs(v1.4-p00): record completion evidence,yes
+P01,Node Control Backend 独立骨架,feat(v1.4-p01): add node control backend foundation,docs(v1.4-p01): record completion evidence,yes
+P02,Configuration Revision、Apply/Ack 与 LKG,feat(v1.4-p02): add revision apply ack and lkg control,docs(v1.4-p02): record completion evidence,yes
+P03,LLM Provider 与 Model Route 治理,feat(v1.4-p03): add llm provider and model route governance,docs(v1.4-p03): record completion evidence,yes
+P04,SMPP Registry Federation,feat(v1.4-p04): add smpp registry federation,docs(v1.4-p04): record completion evidence,yes
+P05,MCP Provider Binding 治理,feat(v1.4-p05): add mcp provider binding governance,docs(v1.4-p05): record completion evidence,yes
+P06,Capability Definition 与实现绑定,feat(v1.4-p06): add capability definition authority,docs(v1.4-p06): record completion evidence,yes
+P07,Runtime Capability Readiness,feat(v1.4-p07): add runtime capability readiness,docs(v1.4-p07): record completion evidence,yes
+P08,A2A Exposure 与 Agent Card,feat(v1.4-p08): add capability-based a2a exposure,docs(v1.4-p08): record completion evidence,yes
+P09,Task Capability Binding 与 Attempt,feat(v1.4-p09): bind tasks to immutable capabilities,docs(v1.4-p09): record completion evidence,yes
+P10,Skill、Plan Template 与 Artifact 管理适配,feat(v1.4-p10): integrate skill and plan template governance,docs(v1.4-p10): record completion evidence,yes
+P11,Telemetry Export,feat(v1.4-p11): add telemetry export control,docs(v1.4-p11): record completion evidence,yes
+P12,Organization-facing Profile 与 Node Events,feat(v1.4-p12): expose organization node profile,docs(v1.4-p12): record completion evidence,yes
+P13,安全、恢复、运维与升级,feat(v1.4-p13): harden security recovery and operations,docs(v1.4-p13): record completion evidence,yes
+P14,最终集成、发布资格、PR 与 Merge,release(v1.4): qualify node control backend,docs(v1.4-p14): record completion evidence,yes

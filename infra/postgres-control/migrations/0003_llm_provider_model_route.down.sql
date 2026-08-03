@@ -1,0 +1,5 @@
+DROP TRIGGER model_route_applied_immutable ON sdar_control.model_route_definition;
+DROP TRIGGER llm_provider_applied_immutable ON sdar_control.llm_provider_definition;
+DROP FUNCTION sdar_control.protect_applied_llm_definition();
+DROP TABLE sdar_control.model_route_definition;
+DROP TABLE sdar_control.llm_provider_definition;

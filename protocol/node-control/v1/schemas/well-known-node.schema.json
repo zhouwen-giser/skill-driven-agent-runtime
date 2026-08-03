@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/SdarNodeDeclaration.schema.json",
+  "title": "SdarNodeDeclaration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "nodeId",
+    "nodeType",
+    "nodeControlApi",
+    "nodeEvents",
+    "a2aAgentCard",
+    "contractVersions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "nodeId": {
+      "type": "string"
+    },
+    "nodeType": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "nodeControlApi": {
+      "type": "string",
+      "format": "uri"
+    },
+    "nodeEvents": {
+      "type": "string",
+      "format": "uri"
+    },
+    "a2aAgentCard": {
+      "type": "string",
+      "format": "uri"
+    },
+    "contractVersions": {
+      "type": "object",
+      "required": [
+        "nodeControlApi",
+        "nodeEvents"
+      ],
+      "properties": {
+        "nodeControlApi": {
+          "type": "string"
+        },
+        "runtimeControl": {
+          "type": "string"
+        },
+        "nodeEvents": {
+          "type": "string"
+        },
+        "telemetryExport": {
+          "type": "string"
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}

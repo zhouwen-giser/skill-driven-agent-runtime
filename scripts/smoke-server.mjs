@@ -9,7 +9,9 @@ import pg from 'pg';
 
 import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
 
-run(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.build.json'], 120_000);
+const packageManagerExecPath = process.env['npm_execpath'];
+if (packageManagerExecPath === undefined) throw new Error('NPM_EXECPATH_REQUIRED');
+run(process.execPath, [packageManagerExecPath, 'build'], 180_000);
 startInfrastructure();
 const { Pool } = pg;
 const postgresUrl =

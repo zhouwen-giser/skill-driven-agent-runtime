@@ -1,4 +1,4 @@
-# Skill-Driven Agent Runtime V1.2.3
+# Skill-Driven Agent Runtime V1.4
 
 A strict TypeScript modular monolith for Skill-driven A2A tasks. LangGraph.js is the only Workflow runtime. PostgreSQL/pgvector is authoritative storage; Redis/BullMQ owns ephemeral queue/runtime coordination; official A2A and MCP SDKs are isolated behind adapters.
 
@@ -8,9 +8,20 @@ enter formal planning before Replay/Shadow and manual Promotion. The default rol
 injection. There is no Python sidecar, second Workflow runtime or cognitive automatic Skill
 publication. See [v1.2.3 release notes](docs/releases/v1.2.3.md).
 
+V1.4 adds an independently deployable single-node Control backend with its own PostgreSQL authority,
+desired/observed Runtime boundary, Provider/Capability/Exposure/Skill/Plan governance, output-only
+Telemetry Export, organization-safe Node Profile/Events, role-scoped service credentials and real
+backup/restart/outage qualification. It does not add a Console frontend, multi-node orchestration or
+telemetry query plane. Operational procedures are under [docs/operations](docs/operations/).
+
 ## Safety baseline
 
-V1 has **no authentication, authorization, or tenant isolation**. A2A, management API, and Console must remain on localhost or a firewall-isolated trusted intranet. PostgreSQL and Redis must never have public routes. Non-loopback listeners fail closed unless the operator explicitly acknowledges the risk; that acknowledgement does not add authentication.
+The core A2A, Runtime management API and Console retain the V1 **trusted-intranet, no-authentication**
+baseline and must remain on localhost or a firewall-isolated trusted network. The separate V1.4 Node
+Control API requires configured bearer service credentials and enforces bounded role profiles, but
+that does not retrofit authentication or tenant isolation into the core Runtime surfaces. PostgreSQL
+and Redis must never have public routes. Non-loopback Control endpoints require TLS and explicit
+allowlists; deployment termination, secret management and network isolation remain operator duties.
 
 ## Prerequisites
 
@@ -70,6 +81,38 @@ The standalone example client can target a configured running Server:
 ```powershell
 pnpm demo:client -- "Complete the local example task."
 ```
+
+### Run the v1.4 Node Control foundation
+
+The Node Control Backend is a separate process and PostgreSQL authority from the Runtime. Start its
+database without changing the Runtime Compose project:
+
+```powershell
+docker compose -f compose.node-control.yaml up -d --wait control-postgres
+$env:SDAR_CONTROL_API_TOKEN='replace-with-at-least-32-non-whitespace-characters'
+$env:SDAR_CONTROL_ORGANIZATION_API_TOKEN='optional-distinct-read-only-organization-token'
+pnpm start:node-control-api
+```
+
+Run the worker in another shell with the same `SDAR_CONTROL_DATABASE_URL`:
+
+```powershell
+pnpm start:node-control-worker
+```
+
+Public discovery and health are available at `/.well-known/sdar-node`, `/health/live`, and
+`/health/ready`. Node, health, Management Operation, and Audit projections under `/api/v1/*`
+require `Authorization: Bearer <SDAR_CONTROL_API_TOKEN>`. For example:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:10080/api/v1/node `
+  -Headers @{ Authorization = "Bearer $env:SDAR_CONTROL_API_TOKEN" }
+```
+
+P01 deliberately exposes read-only foundation projections. Configuration apply/acknowledgement and
+last-known-good behavior begin in P02. Control never writes Runtime business tables, and stopping
+Control does not stop or recover Runtime work. See `.env.example` for the complete local settings
+and run `pnpm smoke:node-control` for the real isolated-process acceptance path.
 
 The packaged `start:server` command uses the ordinary V1 runtime profile. The additive MCP Tasks runtime is an explicit composition opt-in (`startServerRuntime({ v11McpTasks: { isolationAcknowledged: true } })`) and is exercised by the V1.1 acceptance harness against an isolated `sdar_v11_*` database. This opt-in is also what enables the narrowly scoped restart reconstruction for valid `waiting_external` continuations; it does not recover ordinary running work.
 

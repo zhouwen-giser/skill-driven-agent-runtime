@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/TaskCapabilityBinding.schema.json",
+  "title": "TaskCapabilityBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bindingId",
+    "taskId",
+    "requestedCapabilityId",
+    "capabilityVersion",
+    "inputSnapshot",
+    "successCriteriaSnapshot",
+    "evidenceRequirementSnapshot",
+    "constraintSnapshot",
+    "initialImplementationRefs",
+    "bindingHash",
+    "boundAt"
+  ],
+  "properties": {
+    "bindingId": {
+      "type": "string"
+    },
+    "taskId": {
+      "type": "string"
+    },
+    "requestedCapabilityId": {
+      "type": "string"
+    },
+    "capabilityVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "exposureId": {
+      "type": "string"
+    },
+    "exposureVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "inputSnapshot": {},
+    "successCriteriaSnapshot": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "minItems": 1
+    },
+    "evidenceRequirementSnapshot": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "constraintSnapshot": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "initialImplementationRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "providerPolicySnapshot": {},
+    "bindingHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "boundAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

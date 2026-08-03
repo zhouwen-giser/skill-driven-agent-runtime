@@ -1,0 +1,37 @@
+name: sdar-node-control
+
+services:
+  control-postgres:
+    build:
+      context: .
+      dockerfile: infra/postgres/Dockerfile.pgvector-hardened
+      args:
+        SOURCE_DATE_EPOCH: '0'
+      provenance: false
+      sbom: false
+    image: sdar/postgres-pgvector:17.10-0.8.5-alpine3.23
+    pull_policy: never
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: ${SDAR_CONTROL_POSTGRES_DB:-sdar_control}
+      POSTGRES_USER: ${SDAR_CONTROL_POSTGRES_USER:-sdar_control}
+      POSTGRES_PASSWORD: ${SDAR_CONTROL_POSTGRES_PASSWORD:-sdar_control_local_only}
+    ports:
+      - '127.0.0.1:${SDAR_CONTROL_POSTGRES_PORT:-55433}:5432'
+    volumes:
+      - sdar-control-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: 'no'
+    networks: [sdar-node-control]
+
+networks:
+  sdar-node-control:
+    driver: bridge
+
+volumes:
+  sdar-control-postgres-data:

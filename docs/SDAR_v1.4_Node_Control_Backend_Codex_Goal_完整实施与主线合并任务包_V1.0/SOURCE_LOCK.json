@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-07-31T07:24:57.212546+00:00",
+  "repository": {
+    "nameWithOwner": "zhouwen-giser/skill-driven-agent-runtime",
+    "remote": "origin",
+    "requiredDefaultBranch": "main",
+    "baselineResolution": "MUST_FETCH_AND_RESOLVE_AT_CODEX_EXECUTION_START",
+    "forbiddenBaselineRefs": [
+      "feature/v1.3-sequential-implementation",
+      "any stale local main",
+      "any unmerged feature branch"
+    ],
+    "targetDevelopmentBranch": "feature/v1.4-node-control-backend",
+    "observedRepositoryPolicy": {
+      "defaultBranch": "main",
+      "allowAutoMerge": false,
+      "allowMergeCommit": true,
+      "allowRebaseMerge": true,
+      "allowSquashMerge": true,
+      "allowUpdateBranch": false,
+      "observationNote": "Repository settings observed when this task package was generated; Codex must re-read current settings before final merge."
+    }
+  },
+  "frozenInputs": {
+    "designFreeze": {
+      "filename": "SDAR_v1.4_单节点控制平面_完整设计冻结基线_V1.0.zip",
+      "sha256": "1d0c72a9a54baf88ddd0a2d8a585b33e0c1ba056694c16b37cf19e6b18dfb4cb",
+      "status": "DESIGN_FROZEN_IMPLEMENTATION_READY"
+    },
+    "backendApiFreeze": {
+      "filename": "SDAR_v1.4_Node_Control_Backend_接口协议冻结基线_V1.0.zip",
+      "sha256": "367797107847c210bb4240d5525ad0cfa625f8f65856f1eddc7c61bff2523d1c",
+      "nodeControlApiVersion": "1.0.0",
+      "runtimeControlContractVersion": "1.0.0",
+      "nodeEventsVersion": "1.0.0",
+      "telemetryExportContractVersion": "1.0.0"
+    }
+  },
+  "target": {
+    "productVersion": "1.4.0",
+    "delivery": "merged pull request into main",
+    "mergeMethod": "merge_commit",
+    "tagOrReleaseAuthorized": false
+  }
+}

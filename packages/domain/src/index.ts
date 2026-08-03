@@ -153,5 +153,6 @@ export * from './runtime-terminal-outcome.js';
 export * from './user-goal-runtime.js';
 export * from './task.js';
 export * from './task-input.js';
+export * from './task-capability.js';
 export * from './task-quality.js';
 export * from './task-wait-policy.js';

@@ -1,0 +1,6 @@
+DROP TRIGGER IF EXISTS capability_implementation_binding_immutable ON sdar_control.capability_implementation_binding;
+DROP TRIGGER IF EXISTS node_capability_definition_no_delete ON sdar_control.node_capability_definition_version;
+DROP TRIGGER IF EXISTS node_capability_definition_immutable ON sdar_control.node_capability_definition_version;
+DROP FUNCTION IF EXISTS sdar_control.protect_published_capability_definition();
+DROP TABLE IF EXISTS sdar_control.capability_implementation_binding;
+DROP TABLE IF EXISTS sdar_control.node_capability_definition_version;

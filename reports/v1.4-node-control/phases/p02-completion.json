@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P02",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "574e8e1f56afd021fbf5be52c7bd7913289f52cb",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "deaa555f865861886a480d8ca1c744a4b6becfd4",
+  "evidenceSha": "9a283eb82a8499045a493618295dc2872fcf8d0e",
+  "remoteSha": "9a283eb82a8499045a493618295dc2872fcf8d0e",
+  "completedAt": "2026-08-02T03:59:54.4241787+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 373986,
+      "unitContract": 1135,
+      "integration": 134,
+      "e2e": 72,
+      "runtimeMigrations": 28
+    },
+    "focused": {
+      "tests": 13,
+      "architectureSources": 581,
+      "frozenFiles": 76,
+      "frozenSchemas": 28,
+      "frozenOperations": 111,
+      "frozenEvents": 20,
+      "frozenFixtures": 7
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "verdict": "accepted"
+  },
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/v1.4-node-control/failed-attempts/p02-configuration-control.md",
+    "reports/v1.4-node-control/phases/p02-review.md"
+  ],
+  "nextPhase": "P03"
+}

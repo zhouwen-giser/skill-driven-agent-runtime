@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P05",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "f1ea97874b57c8df3553364388f59217c983a78d",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "f4099115694cee03c792c0f16590d95569b6e5fe",
+  "evidenceSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+  "remoteSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+  "completedAt": "2026-08-02T17:31:00+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 358400,
+      "unitContract": 1146,
+      "integration": 137,
+      "e2e": 72,
+      "runtimeMigrations": 29
+    },
+    "focused": {
+      "nodeControlFiles": 9,
+      "nodeControlTests": 23,
+      "integrationFiles": 24,
+      "integrationTests": 137,
+      "architectureSources": 601,
+      "secretFiles": 4226,
+      "secretFindings": 0,
+      "frozenFiles": 76,
+      "frozenSchemas": 28,
+      "frozenOperations": 111,
+      "frozenEvents": 20,
+      "frozenFixtures": 7
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "closedMajor": 5,
+    "closedMinor": 1,
+    "verdict": "accepted"
+  },
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/goal/v1.3-final-secret-scan-report.json",
+    "reports/v1.4-node-control/failed-attempts/p05-mcp-binding.md",
+    "reports/v1.4-node-control/phases/p05-review.md"
+  ],
+  "nextPhase": "P06"
+}

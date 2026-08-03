@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "mode": "codex_goal",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baseBranch": "main",
+  "developmentBranch": "feature/v1.4-node-control-backend",
+  "targetVersion": "1.4.0",
+  "phases": [
+    "P00",
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P07",
+    "P08",
+    "P09",
+    "P10",
+    "P11",
+    "P12",
+    "P13",
+    "P14"
+  ],
+  "git": {
+    "fetchLatestMainAtStart": true,
+    "requireCleanWorktree": true,
+    "commitEachPhase": true,
+    "pushEachPhase": true,
+    "forcePushAllowed": false,
+    "directMainWriteAllowed": false,
+    "rebasePublishedBranchAllowed": false,
+    "createPullRequestAfterP14": true,
+    "mergeAfterChecks": true,
+    "mergeMethod": "merge_commit",
+    "bypassBranchProtectionAllowed": false
+  },
+  "outOfScope": [
+    "formal console frontend",
+    "hierarchical organization control plane",
+    "telemetry data query",
+    "ClickHouse query proxy",
+    "telemetry dashboard",
+    "global supervision platform",
+    "global interaction hub"
+  ]
+}

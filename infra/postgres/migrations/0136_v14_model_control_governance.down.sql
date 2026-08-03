@@ -1,0 +1,8 @@
+BEGIN;
+DROP TRIGGER runtime_task_model_route_binding_immutable ON runtime_task_model_route_binding;
+DROP FUNCTION protect_runtime_task_model_route_binding();
+DROP TABLE runtime_task_model_route_binding;
+DROP TABLE runtime_model_route_snapshot;
+DROP TABLE runtime_model_provider_catalog;
+DELETE FROM schema_migration WHERE version='0136_v14_model_control_governance';
+COMMIT;

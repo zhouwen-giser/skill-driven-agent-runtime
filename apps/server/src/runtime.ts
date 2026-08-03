@@ -10,6 +10,7 @@ import {
   startA2AHttpEndpoint,
   type A2AHttpEndpointHandle,
 } from '../../../packages/a2a-adapter/src/http-endpoint.js';
+import { parseOfficialAgentCard } from '../../../packages/a2a-adapter/src/node-control-agent-card.js';
 import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
 import { A2AInteractionProjection } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
@@ -21,6 +22,7 @@ import {
   SkillGoalScheduler,
   isSkillGoalCompatible,
   ResultProcessor,
+  RuntimeTaskCapabilityService,
   ResultProcessingService,
   MemoryService,
   MemoryRetentionPolicyService,
@@ -70,6 +72,7 @@ import {
   validateSkillToolPolicies,
   PersistedSkillSemanticRetriever,
   SkillRegistryService,
+  RuntimeSkillGovernanceService,
   SkillPackageImporter,
   SkillPackageValidator,
   TemporarySkillService,
@@ -242,6 +245,15 @@ import {
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
+  PostgresRuntimeAgentCardRepository,
+  PostgresRuntimeTelemetryExportStore,
+} from '../../../packages/runtime-control-persistence-postgres/src/index.js';
+import { RuntimeTelemetryExportService } from '../../../packages/runtime-control-application/src/index.js';
+import {
+  EnvironmentTelemetryCredentialResolver,
+  HttpTelemetryExportTransport,
+} from '../../../packages/telemetry-export-adapter/src/index.js';
+import {
   FrozenV1RegistryAdapter,
   FrozenV1RuntimeAvailabilityAdapter,
   FrozenV1RuntimeLifecycleAdapter,
@@ -263,6 +275,7 @@ import {
 } from '../../../packages/management-api/src/index.js';
 import {
   PostgresAgentTaskRepository,
+  PostgresTaskCapabilityRepository,
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
@@ -274,6 +287,7 @@ import {
   PostgresSkillEmbeddingRepository,
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
+  PostgresSkillExactVersionGovernanceRepository,
   PostgresCapabilitySummaryRepository,
   PostgresCapabilityCatalogChangeSource,
   PostgresCapabilityCardRepository,
@@ -384,6 +398,10 @@ export interface ServerRuntimeOptions {
   readonly a2aPort?: number;
   readonly managementHost?: string;
   readonly managementPort?: number;
+  /** Bearer token for the frozen Node Control -> Runtime governance adapter. */
+  readonly runtimeControlServiceToken?: string;
+  /** Maps the Runtime service credential to the existing Artifact management identity. */
+  readonly runtimeControlArtifactPrincipalResolver?: ManagementPrincipalResolver;
   /** Optional non-breaking bearer guard for cognitive management writes only. */
   readonly cognitiveManagementBearerToken?: string;
   /** Required for P06 human approval/activation; production deployments must supply a provider-backed port. */
@@ -653,6 +671,12 @@ export async function startServerRuntime(
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
   const clock = { now: () => new Date().toISOString() };
+  const telemetryExport = new RuntimeTelemetryExportService({
+    store: new PostgresRuntimeTelemetryExportStore(pool),
+    transport: new HttpTelemetryExportTransport(new EnvironmentTelemetryCredentialResolver()),
+    clock,
+    actorId: 'sdar-runtime',
+  });
   const cognitiveManagementActionRepository = new PostgresCognitiveManagementActionRepository(pool);
   const cognitiveManagementActions = new CognitiveManagementActionGate({
     repository: cognitiveManagementActionRepository,
@@ -730,6 +754,7 @@ export async function startServerRuntime(
     clock,
     nextCardId: () => `capability-card-${randomUUID()}`,
   });
+  const managedAgentCards = new PostgresRuntimeAgentCardRepository(pool);
   const capabilityCatalogChanges = new CapabilityCatalogChangeProjector({
     changes: new PostgresCapabilityCatalogChangeSource(pool),
     summaries: capabilitySummaries,
@@ -852,12 +877,26 @@ export async function startServerRuntime(
     skill: 1,
     subworkflow: 1,
   };
+  const schemaValidator = new AjvJsonSchemaValidator();
+  const taskCapabilities = new RuntimeTaskCapabilityService({
+    store: new PostgresTaskCapabilityRepository(pool, publishTaskState),
+    schemas: schemaValidator,
+  });
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new CompositeModelTransportAdapter(),
     cipher: secretCipher,
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
+    providerFailovers: {
+      async record(input) {
+        await taskCapabilities.appendAttempt(input.taskId, {
+          attemptId: `capability-attempt-${randomUUID()}`,
+          reason: 'provider_failover',
+          providerBindingRefs: [`model-provider:${input.nextProviderId}`],
+        });
+      },
+    },
   });
   const taskUnderstandings = new PostgresTaskUnderstandingRepository(pool);
   const interactiveGoalRepository = new PostgresInteractiveGoalRepository(pool);
@@ -1402,7 +1441,6 @@ export async function startServerRuntime(
     if (view === undefined) return undefined;
     return a2aInteractionProjection.toInputRequired(view);
   };
-  const schemaValidator = new AjvJsonSchemaValidator();
   const skillPackageSchema = JSON.parse(
     await readFile(resolve(process.cwd(), 'schemas', 'skill-package.schema.json'), 'utf8'),
   ) as unknown;
@@ -1559,6 +1597,10 @@ export async function startServerRuntime(
     clock,
     packages: skillPackages,
     afterCatalogChanged: refreshCapabilityCatalogAfterMutation,
+  });
+  const runtimeSkillGovernance = new RuntimeSkillGovernanceService({
+    skills: skillRegistry,
+    governance: new PostgresSkillExactVersionGovernanceRepository(pool),
   });
   const skillQuality = new SkillQualityService({
     repository: new PostgresSkillQualityRepository(pool),
@@ -2673,6 +2715,7 @@ export async function startServerRuntime(
     events,
     skillDrafts,
     taskInputs,
+    taskCapabilities,
     ...(options.frozenMcpTasks === undefined
       ? {}
       : {
@@ -4056,6 +4099,22 @@ export async function startServerRuntime(
       });
   }, 500);
   experienceDispatchTimer.unref();
+  let telemetryExportRunning = false;
+  const telemetryExportTimer = setInterval(() => {
+    if (telemetryExportRunning) return;
+    telemetryExportRunning = true;
+    void telemetryExport
+      .drain()
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'telemetry_export.delivery_failed', errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        telemetryExportRunning = false;
+      });
+  }, 1_000);
+  telemetryExportTimer.unref();
   const worker = new BullMqContextWorker({
     connection: options.redis,
     queueName,
@@ -4404,6 +4463,21 @@ export async function startServerRuntime(
             ),
           }),
       ...(artifactManagement === undefined ? {} : { artifactManagement }),
+      ...(options.runtimeControlServiceToken === undefined
+        ? {}
+        : {
+            runtimeControl: {
+              bearerToken: options.runtimeControlServiceToken,
+              skills: runtimeSkillGovernance,
+              telemetryExport,
+              actorId: 'sdar-node-control',
+              ...(options.runtimeControlArtifactPrincipalResolver === undefined
+                ? {}
+                : {
+                    artifactPrincipalResolver: options.runtimeControlArtifactPrincipalResolver,
+                  }),
+            },
+          }),
     });
     management = startedManagement;
     const taskExecutor = new TaskServiceAgentExecutor({
@@ -4462,6 +4536,12 @@ export async function startServerRuntime(
             },
           }),
       capabilityCardProvider: capabilityCards,
+      agentCardProvider: {
+        async findActive() {
+          const card = await managedAgentCards.findActiveCard();
+          return card === undefined ? undefined : parseOfficialAgentCard(card);
+        },
+      },
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
     });
@@ -4557,6 +4637,7 @@ export async function startServerRuntime(
         clearInterval(attemptDispatchTimer);
         clearInterval(capabilityCatalogRefreshTimer);
         clearInterval(experienceDispatchTimer);
+        clearInterval(telemetryExportTimer);
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
           clearInterval(remoteTaskContinuationReconcileTimer);
@@ -4609,6 +4690,7 @@ export async function startServerRuntime(
     clearInterval(attemptDispatchTimer);
     clearInterval(capabilityCatalogRefreshTimer);
     clearInterval(experienceDispatchTimer);
+    clearInterval(telemetryExportTimer);
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
@@ -4788,7 +4870,7 @@ async function applyPostV122Migrations(
 ): Promise<void> {
   const migrationDirectory = resolve(process.cwd(), 'infra', 'postgres', 'migrations');
   const migrationFiles = (await readdir(migrationDirectory))
-    .filter((file) => /^01[0-9]{2}_v(?:123|13)_[a-z0-9_]+\.up\.sql$/u.test(file))
+    .filter((file) => /^01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+\.up\.sql$/u.test(file))
     .sort();
   const expectedVersions = [
     'v1.2.2_clean_slate_baseline',

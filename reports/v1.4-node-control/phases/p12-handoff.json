@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P12",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "7eb5b83ce042244e6d70eb928ad5d456121f4ebf",
+  "evidenceSha": "062bd2a8d7d1f827b1709c1998d287105ea7e949",
+  "remoteSha": "PENDING_P14_PUSH",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-03T11:04:30+08:00",
+  "nextPhase": "P13",
+  "prerequisites": [
+    "fetch and compare origin/main before P13",
+    "reuse the frozen organization API allowlist and single Node Event stream",
+    "preserve Control/Runtime database authority and Redis wake-only semantics"
+  ],
+  "authorityBoundary": "Control PostgreSQL owns Profile revisions, command receipts, Operation/Audit and the organization event stream. Runtime PostgreSQL owns Task, Capability readiness and binding facts; Control copies only bounded hint envelopes through a durable cursor. Organization clients refetch authoritative GET resources. P13 may harden security/recovery/operations/upgrade but may not add organization hierarchy, multi-node orchestration or a Console BFF."
+}

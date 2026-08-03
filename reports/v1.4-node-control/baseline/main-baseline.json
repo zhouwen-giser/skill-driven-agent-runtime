@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "fetchedAt": "2026-08-01T16:47:29.4636291Z",
+  "mainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "mainTreeSha": "2b43d3200a7d772726d9f4f5349ff4fffa338cef",
+  "mainCommitTime": "2026-08-02T00:13:32+08:00",
+  "packageVersion": "1.2.2",
+  "migrationHead": "0134_v13_artifact_management_projection",
+  "migrationFileCount": 197,
+  "migrationLedgerSha256": "a1bcb1165f96e2d050e4034da9900b0eb244996e3033e788386f99a6d3c65a9f",
+  "managementOpenapiPath": "schemas/management-api.openapi.yaml",
+  "managementOpenapiSha256": "e23a88406d479d2d0d2daca845768c234298a4e63274437b6f17917b4a639cda",
+  "operationInventoryPath": "reports/goal/v1.3-p12-api-operation-inventory.json",
+  "operationInventorySha256": "74ab40ffccf74d9ba432b139680a063abd1ad5c57c5fc379c2816ca257ff3b41",
+  "a2aBaselinePath": "third_party/a2a-1.0.1-baseline.json",
+  "a2aBaselineSha256": "511e922e98adff1ba7289464760f5527bacd63ca36dc248f243883202219e4e6",
+  "frozenInterfaceRegistryPath": "docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/shared/SDAR_v1.3_Frozen_Interface_Registry_V1.2.json",
+  "frozenInterfaceRegistryVersion": "1.2",
+  "frozenInterfaceRegistrySha256": "3b920aa70b142681666278ebc1bfe7bba3f5eb5485d4cc8d67cfa0c1ce1dd1a7",
+  "pnpmLockSha256": "724219de34616aa6d3607363d6d3235170082f5489adf7c76e693c63c0d3043e",
+  "sourceLockSha256": "1f028c017630a9f2af417ed674dca0eb36dcdb0586787b272a4b539f96ebf31e",
+  "branch": "feature/v1.4-node-control-backend",
+  "branchBaseSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "repositorySettings": {
+    "defaultBranch": "main",
+    "mergeCommitAllowed": true,
+    "squashMergeAllowed": true,
+    "rebaseMergeAllowed": true,
+    "deleteBranchOnMerge": false,
+    "mainProtectionApiStatus": 404,
+    "mainProtected": false
+  },
+  "toolchain": {
+    "node": "v22.14.0",
+    "pnpm": "11.7.0",
+    "git": "2.35.1.windows.2",
+    "gh": "2.96.0",
+    "dockerEngine": "29.6.1",
+    "dockerCompose": "5.2.0"
+  },
+  "install": {
+    "command": "pnpm install --frozen-lockfile",
+    "status": "passed",
+    "exitCode": 0
+  },
+  "verify": {
+    "command": "$env:COMPOSE_PROJECT_NAME='sdar-v14-baseline-019fa7dc'; pnpm.cmd verify",
+    "classification": "real isolated local Docker PostgreSQL and Redis",
+    "status": "passed",
+    "startedAt": "2026-08-01T16:55:40.444Z",
+    "finishedAt": "2026-08-01T17:01:25.923Z",
+    "durationMs": 345479,
+    "exitCode": 0,
+    "unitContractTests": 1122,
+    "integrationTests": 130,
+    "e2eTests": 72,
+    "managementOpenapiOperations": 164,
+    "migrationCount": 27,
+    "isolatedComposeProject": "sdar-v14-baseline-019fa7dc"
+  },
+  "v13DependencyGate": {
+    "status": "passed",
+    "evidence": [
+      "reports/goal/v1.3-final-handoff-integrity.json",
+      "reports/goal/v1.3-final-package-consistency.json",
+      "reports/goal/v1.3-final-authority-audit.json",
+      "reports/goal/v1.3-final-migration-report.json"
+    ]
+  }
+}

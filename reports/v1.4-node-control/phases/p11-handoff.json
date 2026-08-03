@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P11",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "7f631fd674352f72633994a2b47875e2856a9922",
+  "evidenceSha": "3a2d872c432e06f26cc36f0f08d4ea9979fb05a9",
+  "remoteSha": "3a2d872c432e06f26cc36f0f08d4ea9979fb05a9",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-03T08:17:43+08:00",
+  "nextPhase": "P12",
+  "prerequisites": [
+    "fetch and compare origin/main before P12",
+    "reuse the frozen Node Profile and Node Events contracts",
+    "preserve Telemetry Export as output-only and Runtime-owned delivery authority"
+  ],
+  "authorityBoundary": "Control owns telemetry_link revisions plus proxy Operation/Audit. Runtime PostgreSQL owns Active/LKG, collector cursor, outbox, retry, ACK and status. Redis is wake-only. P12 may expose organization-facing profile/events but cannot add telemetry query, evaluation, reconciliation or a second event stream."
+}

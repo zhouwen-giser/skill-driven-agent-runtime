@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "version": "1.4.0",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "latestMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "verifiedCandidateSha": "e6d0b698fb0430386edba66474f8214f9f4bd740",
+  "evidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+  "remoteEvidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+  "pullRequest": {
+    "number": 15,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15",
+    "state": "OPEN",
+    "draft": false,
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN",
+    "checks": 0,
+    "reviews": 0,
+    "reviewThreads": 0
+  },
+  "merge": null,
+  "verification": {
+    "status": "passed",
+    "dirty": false,
+    "durationMs": 581785,
+    "summarySha256": "06dfda472b63f01b4d58bc478db3edf2324ef13e056edbd1cd3f112200d45fde",
+    "unit": 938,
+    "performance": 22,
+    "contract": 220,
+    "integration": 149,
+    "e2e": 72,
+    "a2aTckPassed": 74,
+    "a2aTckSkipped": 161
+  },
+  "migrations": {
+    "runtimeUpCount": 107,
+    "runtimeHead": "0143_v14_node_event_projection.up.sql",
+    "controlUpCount": 8,
+    "controlHead": "0008_organization_node_events.up.sql"
+  },
+  "security": {
+    "secretFindings": 0,
+    "productionCritical": 0,
+    "productionHigh": 0,
+    "productionModerate": 1,
+    "sbomNpmPackages": 286
+  },
+  "review": { "blocking": 0, "major": 0, "minor": 0 },
+  "productionDeploymentPerformed": false,
+  "tagCreated": false,
+  "releaseCreated": false
+}

@@ -780,6 +780,153 @@ seven safe-resume inputs are enumerated in
 `reports/operations/v1.3-p14-handoff.json`; no P00-P13 authority or status is
 changed.
 
+## SDAR v1.4 P03 LLM Provider and Model Route Governance Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Provider, Catalog and SecretRef | verified | immutable Control definitions expose `credentialRef` only; model capabilities include structured output, tool calling and embedding | Domain Unit; Control API and PostgreSQL integration; repository secret scan |
+| Scoped Route and fallback | verified | stage/task/case selector, exact candidate order, budget/timeout/attempt/fallback policy and capability availability | Domain/Application Unit; conflict and unavailable API regressions; real fallback integration |
+| Runtime Apply/Ack authority | verified | P02 revision pipeline; Provider reconnect and Route new-task-only appliers; Runtime Ack projects Control active/available status | Runtime applier Unit; real two-database HTTP pull/apply/Ack integration |
+| Stable Task semantics | verified | immutable Task/model-stage binding pins Route checksum and exact Provider configuration revisions | real Route v1/v2 integration proves old Task unchanged and new Task selects v2 |
+| Idempotency and secret safety | verified | exact active apply replay under advisory lock; safe apply/transport code allowlists; generic persisted error messages | secret-bearing Unit regressions; replay Integration; zero-finding full-history scan |
+| P03 closure | verified | full verify passed; independent read-only review 0 Blocking/0 Major/0 Minor; P04 not started | `p03-review.md`, verification summary, P03 completion and handoff |
+
+## SDAR v1.4 P04 SMPP Registry Federation Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Multi-source identity and lineage | verified | exact Source/Provider/Server composite identity; Registry revision/checksum/ETag/expiry and Catalog revision retained | Domain Unit; real two-Source API/PostgreSQL integration |
+| Atomic Snapshot and LKG | verified | immutable Snapshot/candidates, one active Source revision, local/external expiry bound, failed newer draft preserves active LKG | migration 0004; revision-2 failure/activation integration |
+| Drift and conditional refresh | verified | checksum, expiry, rollback and same-revision drift rejection; ETag/304; scheduled poll/watch always re-fetches Latest | real HTTP adapter and PostgreSQL integration |
+| Outage and authority isolation | verified | allow-unexpired versus fail-closed policies; running Runtime Task unchanged; Registry contains no Tool Schema or Availability truth | two-Control-policy plus Runtime-Task integration; architecture review |
+| Idempotency and secret safety | verified | receipt recheck under Source advisory lock; opaque SecretRef resolution; generic safe failure codes | replay regression; 4,188-file/history secret scan with zero findings |
+| P04 closure | verified | full verify passed; repeated independent read-only review 0 Blocking/0 Major/0 Minor after lineage repair; P05 not started | `p04-review.md`, verification summary; Completion/Handoff follows remote reconciliation |
+
+## SDAR v1.4 P05 MCP Provider Binding Governance Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Explicit Direct/SMPP import | verified | strict origin schema and exact Registry lineage; candidate remains unselectable until approved import | real SMPP directory, API and Control PostgreSQL acceptance |
+| Catalog and Availability authority | verified | existing frozen adapter performs real `server/discover` and `tools/list`; canonical complete-Catalog checksum; approved-baseline drift and TTL gates | local authenticated MCP JSON-RPC provider; repeated-drift and expiry regressions |
+| Lifecycle and Task stability | verified | append-only active/degraded/suspended/removed revisions; terminal refresh blocked; historical revision lookup retained | Control API/PostgreSQL plus real Runtime Remote Task repository query and poll-control after removal |
+| Identity, idempotency and concurrency | verified | binding and localServerId advisory locks; exact request-hash receipts; one winner for concurrent local identity import | concurrent real PostgreSQL import and post-state idempotent replay regressions |
+| Endpoint and credential safety | verified | SecretRef-only persistence, exact authority allowlist, manual redirect rejection and no Telemetry origin | metadata-IP, redirect, Telemetry and zero-disclosure tests; 4,226-file/history secret scan |
+| Authority isolation | verified | Control stores Binding/Catalog observation/new-selection facts only; Runtime retains Server/Tool/Remote Task authority; Redis owns no P05 fact | architecture gate over 601 TypeScript sources; neutral cross-authority acceptance app |
+| P05 closure | verified | full verify passed; third independent read-only review 0 Blocking/0 Major/0 Minor after 5 Major and 1 Minor repairs; P06 not started | `p05-review.md`, verification summary; Completion/Handoff follows remote reconciliation |
+
+## SDAR v1.4 P06 Capability Definition Authority Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Business-promise authority | verified | canonical immutable `NodeCapabilityDefinitionVersion`; Skill capability list is compatibility-only | hash/validation Unit and mismatched-projection real PostgreSQL acceptance |
+| Exact executable implementation | verified | exact enabled/validated Skill or active compiled Plan Template; active primary/alternative required | Skill integration, Plan Template port Unit, missing-version and Resource rejection |
+| Publication and immutability | verified | Ajv Input/Output schema compilation; Success/Evidence/Risk/Constraints gates; SQL trigger after publish | invalid-schema regression and SQLSTATE 55000 mutation rejection |
+| Command safety | verified | request-hash receipts, audit, replay after publication, ETag/If-Match on lifecycle | real API/PostgreSQL idempotency and 412 stale-state tests |
+| Authority isolation | verified | Control owns definitions/bindings only; Runtime/Artifact lookup ports are exact and read-only; Redis owns no P06 fact | architecture gate over 607 TypeScript sources |
+| P06 closure | verified | full verify passed; third read-only review 0 Blocking/0 Major/0 Minor after 3 Major and 2 Minor repairs; P07 not started | `p06-completion.*`, `p06-review.md`, `p06-handoff.json`, verification summary |
+
+## SDAR v1.4 P07 Runtime Capability Readiness Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Runtime-only authority | verified | immutable Runtime PostgreSQL snapshots/receipts/Outbox; Control read/request-only and no readiness table | real two-authority PostgreSQL acceptance and SQLSTATE 55000 mutation rejection |
+| Complete readiness inputs | verified | exact published Definition, active Bindings, Skill/Plan Template, MCP Catalog/freshness, Model Route, policy, maintenance and kill switch | Unit plus vertical API/Runtime integration |
+| Expiry and flapping | verified | bounded TTL scheduler, immediate safety downgrade and minimum-stability recovery | stale-provider integration and deterministic clock Unit regressions |
+| Audit and recovery | verified | catalog/policy/snapshot SHA-256, full evaluation input, candidate state, status-change Outbox and latest-snapshot restart load | snapshot/Outbox queries and API close/restart regression |
+| Frozen interfaces | verified | public list/get/evaluate and authenticated internal Runtime evaluation are composed without contract mutation | frozen contract gate: 76 files, 28 schemas, 111 operations, 20 events, 7 fixtures |
+| P07 closure | verified | full verify passed; fourth read-only review 0 Blocking/0 Major/0 Minor after 5 Major and 2 Minor repairs; P08 not started | `p07-completion.*`, `p07-review.md`, `p07-handoff.json`, verification summary |
+
+## SDAR v1.4 P08 A2A Exposure and Agent Card Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Capability-only AgentSkill | verified | public published Exposure over exact published Capability; internal Skill identity never projected | real two-database acceptance and managed-card HTTP contract |
+| Readiness/privacy policy | verified | current Runtime snapshot TTL plus per-Exposure policy; organization-only and sensitive requester data excluded | Domain Unit and vertical API/PostgreSQL test |
+| Candidate apply and LKG | verified | deterministic diff, sequence revision, stage/activate/ack, failed-Control-ack compensation restores Runtime Active | rollback Unit regression and immutable Control/Runtime migrations |
+| Schema and TCK | verified | official SDK parsing plus frozen schema/API validation | 74 HTTP JSON MUST passed, 161 skipped; frozen contract 76/28/111/20/7 |
+| P08 closure | verified | full verify passed; read-only review 0 Blocking/0 Major/0 Minor after 3 Major repairs; P09 not started | `p08-completion.*`, `p08-review.md`, `p08-handoff.json`, verification summary |
+
+## SDAR v1.4 P09 Task Capability Binding and Attempts Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Atomic acceptance | verified | Task, generic initial attempt, immutable Binding, Capability Attempt and created event share one Runtime PostgreSQL transaction | forced FK rollback leaves zero Task/Binding; migration `0139` |
+| Exact frozen contract | verified | active Exposure plus current Readiness; input, criteria, evidence, constraints, implementations and Provider policies are deeply frozen and hashed | Unit plus real two-database acceptance and SQLSTATE 55000 mutation tests |
+| Admission and compatibility | verified | requester and Ajv input guards; explicit requests fail closed; no-metadata Tasks preserve existing terminal behavior | Capability/A2A/TaskService Unit regressions |
+| Attempt history | verified | replan, replacement, recovery and actual controlled Provider fallback append attempts and supersede only prior non-terminal attempts | Model fallback Unit and PostgreSQL attempt-history assertions |
+| Terminal authority | verified | Workflow completion alone cannot pass frozen success, evidence and authorization/safety requirements | negative and positive terminal guard regressions |
+| Authority isolation | verified | Runtime write repository and Redis-free authority; Control uses only restricted Runtime-Control read query | architecture gate over 623 TypeScript sources |
+| P09 closure | verified | full verify passed; review 0 Blocking/0 Major/0 Minor after 1 Blocking, 3 Major and 2 Minor repairs; P10 not started | `p09-completion.*`, `p09-review.md`, `p09-handoff.json`, verification summary |
+
+## SDAR v1.4 P10 Skill and Plan Template Governance Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Existing authority adaptation | verified | Runtime Skill registry/governance and P02/P06 Artifact query/command services; Control stores Operation/Audit only | architecture inspection and real dual-database assertions |
+| Exact Skill lifecycle/import | verified | validated package import, response-loss reconciliation, exact-version overlay, CAS and immutable receipts | 3 real PostgreSQL repository tests; frozen Runtime/Public contracts |
+| Plan Template governance | verified | logical `artifact_key` public identity maps internally to exact `compiled_artifact.artifact_id`; activate/revalidate/deprecate/rollback reuse existing services | real activation, active pointer, validation and Outbox vertical acceptance |
+| Idempotency and audit | verified | replay-before-network, drift rejection, Runtime receipts and atomic Control Operation/Audit | Unit/Contract plus Control PostgreSQL assertions |
+| Credential and projection safety | verified | distinct RuntimeServiceAuth principal mapping; authority ID stays internal; timestamp-safe redaction | environment/management contract and public schema regressions |
+| P10 closure | verified | full verify passed; review 0 Blocking/0 Major/1 accepted Minor after 1 Blocking and 5 Major repairs; P11 not started | `p10-completion.*`, `p10-review.md`, `p10-handoff.json`, verification summary |
+
+## SDAR v1.4 P11 Telemetry Export Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Output-only frozen API | verified | six frozen public routes plus authenticated internal apply/status; no query, timeline, evaluation, reconciliation or ClickHouse route | Node Control and Runtime HTTP Contract; 76-file frozen-contract gate |
+| SecretRef and transport safety | verified | inline-secret rejection, `env:` Runtime resolver, HTTPS except loopback, redirect denial and safe error codes | Domain/transport Unit; zero-secret HTTP/Operation/Audit assertions |
+| Runtime delivery authority | verified | migration `0142` owns Active/LKG, cursor, outbox, retry, exact ACK and auditable local status in Runtime PostgreSQL | real PostgreSQL integration; migration rollback/reapply/checksum gate |
+| Retention and high watermark | verified | failed delivery retains pending rows; capture is capped by remaining durable capacity and blocks without deleting facts | near-capacity, retry and exact-ACK real PostgreSQL regressions |
+| Active revision and outage isolation | verified | connection test selects newest applied revision, never newer Draft; endpoint shutdown degrades export only while both Task rows remain completed | real Control -> Runtime -> HTTP vertical integration |
+| P11 closure | verified | exact-commit full verify passed; Review 0 Blocking/0 Major/0 Minor after 2 Major repairs; P12 not started | `p11-completion.*`, `p11-review.md`, `p11-handoff.json`, verification summary |
+
+## SDAR v1.4 P12 Organization Profile and Node Events Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Profile governance and bounded health | verified | immutable draft/validated/active revisions, opaque ETag, request-hash receipt, ManagementOperation/Audit; unprobed Runtime is explicitly degraded | Domain/Application Unit; Control PostgreSQL integration; migration `0008` |
+| Frozen organization RBAC | verified | separate bearer identity and exact GET allowlist; internal configuration/provider/Skill/Artifact/Telemetry/Audit and all writes denied | HTTP Contract positive/403 fixtures; frozen profile review |
+| Durable hint-only Events | verified | exact 20-event catalog, append-only outbox, Event ID/aggregate revision/correlation, Last-Event-ID recovery and SSE backpressure | Domain Unit, Contract and real reconnect/refetch PostgreSQL vertical |
+| Runtime event boundary | verified | durable high-watermark copy of readiness and Task-binding hints only; Runtime stays fact authority and Redis stays wake-only | migrations `0143`/`0008`; real dual-database acceptance |
+| Safe Task read profile | verified | generic frozen TaskSummary list/detail; request text, user identity and workflow internals omitted; conditional controls disabled | Contract fixture plus real Runtime Task projection |
+| P12 closure | verified | exact-commit full verify passed; Review 0 Blocking/0 Major/0 Minor after 3 Major and 2 Minor repairs; P13 not started | `p12-completion.*`, `p12-review.md`, `p12-handoff.json`, verification summary |
+
+## SDAR v1.4 P13 Security, Recovery and Operations Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Role and tenant authorization | verified | distinct Administrator/Operator/Viewer/Security/Organization credentials, exact profiles and tenant-bound Organization identity | HTTP Contract plus real Node Control role/outage smoke |
+| Secret and transport hardening | verified | SecretRef-only boundaries, separate Runtime credential, request/rate bounds, exact/CIDR allowlists, TLS/user-info/SSRF rejection | Domain/Contract regressions; secret scan 0 findings |
+| Write governance | verified | Administrator-only writes preserve reason, If-Match/expected revision, idempotency and immutable Operation/Audit evidence | full Unit/Contract/Integration gate |
+| Backup, restore and restart | verified | independent Control dump/restore reconciliation, credential rotation/revocation, API restart and Runtime-after-Control-stop | real disposable Docker PostgreSQL/Redis drill |
+| Supply chain and frozen bytes | verified | SBOM/license/source pins; 0 Critical/High production advisories; frozen CSV byte preservation on clean checkout | security gate, prod audit and clean exact verify |
+| Operational truthfulness | verified | backup/restore, upgrade/rollback and capacity/SLO/chaos runbooks disclaim unmeasured production HA/RTO/RPO | P13 read-only review |
+| P13 closure | verified | exact clean `ec10587` full verify; Review 0 Blocking/0 Major/0 Minor after 2 Major repairs | `p13-completion.*`, `p13-review.md`, `p13-handoff.json`, verification summary |
+
+## SDAR v1.4 P14 Release Qualification Addendum
+
+| Requirement | Status | Implementation / boundary | Tests / evidence |
+|---|---|---|---|
+| Latest-main synchronization | verified | `origin/main@a7a7c62` is already the branch ancestor; no empty merge commit | fetch, merge-base and 0-behind/66-ahead evidence |
+| Version and release records | verified local | package/README/CHANGELOG/DoD plus architecture, authority, traceability, rollback, limitations and release report | P14 release directory and completion report |
+| Frozen contracts and migrations | verified | 76 files/28 schemas/111 operations/20 events/7 fixtures; 107 Runtime and 8 Control additive migrations | frozen validator, migration gate and recorded hashes |
+| Security and recovery | verified real-local | 0 secret findings, 0 Critical/High, real dump/restore, credential rotation, restart and Runtime-after-Control-stop | `verify:v14-security`, production audit, `verify:v14-recovery` |
+| Protocol and complete gate | verified | A2A HTTP/JSON MUST 74 passed; clean exact `e6d0b69` is `passed`, `dirty=false` | A2A TCK; `reports/verification/summary.json` |
+| P14 read-only review | verified | 0 Blocking / 0 Major / 0 Minor; no Console product, telemetry query, hierarchy, second Runtime or authority relocation | `p14-review.md` |
+| Publication and merge | ready for merge | evidence `d5368bd` pushed; non-draft PR #15 is `MERGEABLE/CLEAN`, no checks/reviews/threads, ruleset approvals=0 and Merge Commit allowed | P14 Handoff and live PR/ruleset state |
+
+## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Immutable Configuration Revision | verified | canonical checksum, secret-shaped plaintext rejection, published-content database trigger, rollback creates a new revision | Domain Unit; Control PostgreSQL integration; migration 0002 |
+| Desired/Observed authority | verified | Control PostgreSQL owns Desired/Application/Observed; publish remains pending until Runtime Ack | API Contract and real two-database integration |
+| Runtime Active/LKG and outage | verified | Runtime PostgreSQL owns Active/LKG and durable Ack delivery; startup uses LKG when Control is unavailable | Runtime agent Unit; migration 0135; real outage integration |
+| Apply modes and failed revision safety | verified | hot/new-task/reconnect apply port; immutable/restart/partial/bad/stale paths preserve LKG | focused Unit and real Integration regressions |
+| Concurrency and stable running Tasks | verified | ETag/If-Match, idempotency receipt, target advisory lock/CAS; immutable Task revision binding | concurrent publish and revision-switch real Integration cases |
+| Frozen Runtime Control boundary | verified | authenticated Bootstrap/Latest/Watch/Ack; SSE is hint-only and Latest is authoritative | HTTP Contract, SSE integration, 76-file frozen-contract gate |
+| P02 closure | verified | full verify passed; independent read-only review 0 Blocking/0 Major/0 Minor; P03 not started | `p02-completion.*`, `p02-review.md`, `p02-handoff.json`, verification summary |
+
 ## PR #13 Merge Review Remediation Addendum
 
 | Review requirement | Status | Implementation | Tests / evidence |
@@ -794,3 +941,23 @@ changed.
 This addendum closes only PR #13's six actionable review findings. It does
 not change the P13 or P14 terminal evidence, authorize merge, or claim a full
 release verification run.
+
+## SDAR v1.4 P00 Latest-main Baseline Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Exact latest-main source | verified | branch and ExecPlan resolve `origin/main` `a7a7c62`; no old feature content copied | `reports/v1.4-node-control/baseline/main-baseline.{md,json}` |
+| Frozen task/design/API inputs | verified | authorized task package committed under `docs/`; immutable archive hashes and contract versions recorded | task/design/API validators; `baseline/source-lock.json` |
+| v1.3 P00-P13 prerequisites | verified | existing Runtime, Skill, Artifact, A2A, MCP, Outbox and management authorities present on main | v1.3 final integrity, consistency, authority and migration reports |
+| Clean baseline verification | verified | detached exact-main install and full gate with isolated Compose project; existing data preserved | 1122 Unit/Contract, 130 Integration, 72 E2E; migration/build/smoke gates |
+| P00 implementation boundary | active | ExecPlan plus object/symbol/authority/migration/API maps; no production feature change | package validation and architecture read-only review |
+
+## SDAR v1.4 P01 Node Control Foundation Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Independent Control authority | verified | `packages/node-control-{domain,application,persistence-postgres}` and `infra/postgres-control/migrations/0001_*`; separate `sdar_control.control_schema_migration` | Domain/Application Unit; real PostgreSQL Integration including ledger isolation and reversible migration |
+| API and Worker processes | verified | `apps/node-control-api`, `apps/node-control-worker`, `compose.node-control.yaml`, `.env.example` | HTTP Contract, production build, `pnpm smoke:node-control` |
+| Frozen P01 HTTP slice | verified | public discovery/liveness/readiness and bearer-protected Node/health/Management Operation/Audit projections; exact frozen bundle under `protocol/node-control/v1` | 76-file validator: 28 schemas, 111 operations, 20 events and 7 fixtures; HTTP schema validation |
+| Runtime/Control isolation | verified | separate database URLs, migration roots and processes; architecture gate rejects cross-persistence writes and Control-side LangGraph | architecture gate over 567 TypeScript sources; smoke stops Control then starts and probes Runtime |
+| P02 exclusion | verified | health truthfully reports Runtime Control disabled; no configuration apply/ack/LKG command path exists | focused Unit/Contract review and source-boundary inspection |

@@ -139,3 +139,20 @@ Conformant does not imply Interop Certified; see the Phase 11 and Phase 12 repor
 
 P14 therefore satisfies the Definition of Done for a plan-only BLOCKED
 handoff, not for `POST_RELEASE_OPERATIONS_READY` or a production release.
+
+## v1.4 Single-Node Control Backend addendum
+
+- [x] P00-P13 implementation, focused tests, real Control/Runtime PostgreSQL integration, recovery
+      evidence and phase handoffs are complete.
+- [x] Control and Runtime retain independent PostgreSQL authorities; Redis/BullMQ remains
+      rebuildable scheduling/wake state and LangGraph.js remains the only Workflow runtime.
+- [x] Public Node Control roles, tenant rejection, SecretRef-only configuration, bounded ingress,
+      allowlist/TLS/SSRF, audit/CAS/idempotency and credential rotation are verified.
+- [x] Real local backup/restore, restart reconstruction and Runtime-after-Control-outage drills pass;
+      local evidence is not represented as production HA, SLO, capacity, RTO or RPO.
+- [x] P00-P13 traceability, Completion, Review and Handoff evidence is committed.
+- [x] P14 final exact-clean release matrix passes on `e6d0b69` with `dirty=false`; security,
+      recovery, A2A TCK and read-only Review also pass.
+- [x] Remote evidence push and non-draft PR #15 are complete; GitHub reports `MERGEABLE/CLEAN`, no
+      checks/reviews/threads and an active main ruleset requiring zero approvals.
+- [ ] Merge-to-main and candidate ancestry evidence are complete.

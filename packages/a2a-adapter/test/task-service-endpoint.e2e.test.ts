@@ -1379,7 +1379,10 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         await (await fetch(`${baseUrl}/api/v1/models/invocations?stage=skill_authoring`)).json(),
       );
     expect(audits.items.filter((item) => item.providerId === failingProviderId)).toEqual([
-      expect.objectContaining({ status: 'failed', errorCode: 'MODEL_UPSTREAM_ERROR' }),
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'MODEL_TRANSPORT_UPSTREAM_ERROR',
+      }),
     ]);
     expect(
       (

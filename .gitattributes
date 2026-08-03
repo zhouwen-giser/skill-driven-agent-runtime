@@ -1,1 +1,8 @@
 * text=auto eol=lf
+
+# These four frozen contract matrices are byte-locked to the original CRLF
+# artifacts recorded in protocol/node-control/v1/MANIFEST.json.
+protocol/node-control/v1/matrices/authority-matrix.csv -text
+protocol/node-control/v1/matrices/operation-inventory.csv -text
+protocol/node-control/v1/matrices/rbac-matrix.csv -text
+protocol/node-control/v1/matrices/traceability.csv -text

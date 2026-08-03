@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/PlanTemplateVersionView.schema.json",
+  "title": "PlanTemplateVersionView",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifactId",
+    "version",
+    "status",
+    "checksum"
+  ],
+  "properties": {
+    "artifactId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "validated",
+        "approved",
+        "active",
+        "suspended",
+        "deprecated",
+        "retired"
+      ]
+    },
+    "checksum": {
+      "type": "string"
+    },
+    "validationSummary": {
+      "type": "object"
+    },
+    "activePointer": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

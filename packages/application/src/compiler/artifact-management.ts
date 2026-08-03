@@ -598,6 +598,7 @@ function redactForPrincipal(value: unknown, principal: ManagementPrincipal): unk
 function redactUnknown(value: unknown, depth = 0): unknown {
   if (depth > 24) return '[redacted:depth]';
   if (Array.isArray(value)) return value.map((item) => redactUnknown(item, depth + 1));
+  if (value instanceof Date) return value.toISOString();
   if (value === null || typeof value !== 'object') return value;
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [

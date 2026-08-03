@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
+
 import {
   transitionTask,
   createTaskInputRequest,
@@ -15,6 +17,7 @@ import {
   ANONYMOUS_USER_ID,
   MAX_TASK_INPUT_RESPONSE_CHARACTERS,
   TaskService,
+  RuntimeTaskCapabilityService,
   type AgentTaskRepository,
   type ContextTaskQueue,
   type ConversationContextRepository,
@@ -110,6 +113,80 @@ describe('TaskService', () => {
       'event:task.created:task-1',
       'queue:context-1:task-1',
     ]);
+  });
+
+  it('routes an explicit Capability request through the atomic acceptance store without generic Task writes', async () => {
+    let acceptedTask: AgentTask | undefined;
+    const taskCapabilities = new RuntimeTaskCapabilityService({
+      schemas: new AjvJsonSchemaValidator(),
+      store: {
+        resolveExposure: () =>
+          Promise.resolve({
+            exposureId: 'device.inspect',
+            exposureVersion: 1,
+            requestedCapabilityId: 'device.inspect.capability',
+            capabilityVersion: 1,
+            requestSchema: {
+              type: 'object',
+              required: ['deviceId'],
+              properties: { deviceId: { type: 'string' } },
+              additionalProperties: false,
+            },
+            successCriteria: [{ type: 'field_equals', field: 'inspected', value: true }],
+            requiredEvidence: [{ type: 'provider_result', field: 'evidence' }],
+            constraints: [],
+            implementationRefs: ['skill:device.inspect:1'],
+            providerBindingRefs: [],
+          }),
+        accept: (input) => {
+          acceptedTask = input.task;
+          return Promise.resolve();
+        },
+        findBinding: () => Promise.resolve(undefined),
+        listAttempts: () => Promise.resolve([]),
+        appendAttempt: () => Promise.reject(new Error('UNUSED')),
+        updateLatestAttempt: () => Promise.resolve(),
+      },
+    });
+    const harness = createHarness('resumed', false, undefined, taskCapabilities);
+
+    const result = await harness.service.submit({
+      messageText: 'Inspect device alpha.',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-capability-1',
+        },
+      },
+    });
+
+    expect(acceptedTask).toEqual(result.task);
+    expect(harness.tasks.size).toBe(0);
+    expect(harness.events).toHaveLength(0);
+    expect(harness.operations).toEqual(['context.save:context-1', 'queue:context-1:task-1']);
+  });
+
+  it('fails closed instead of downgrading an explicit Capability request when admission is unavailable', async () => {
+    const harness = createHarness();
+    await expect(
+      harness.service.submit({
+        messageText: 'Inspect device alpha.',
+        capabilityInput: { deviceId: 'alpha' },
+        metadata: {
+          'io.sdar/requestedCapability': {
+            exposureId: 'device.inspect',
+            versionConstraint: '1',
+            requestId: 'request-capability-unavailable',
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_RUNTIME_NOT_COMPOSED' });
+    expect(harness.contexts.size).toBe(0);
+    expect(harness.tasks.size).toBe(0);
+    expect(harness.events).toHaveLength(0);
+    expect(harness.operations).toEqual([]);
   });
 
   it('reuses the authoritative context user instead of changing ownership from new metadata', async () => {
@@ -727,6 +804,7 @@ function createHarness(
   resumeDisposition: 'resumed' | 'replan_required' = 'resumed',
   runtimeCancellation = false,
   remotePrepare?: (inputRequestId: string, inputContent: unknown) => Promise<unknown>,
+  taskCapabilities?: RuntimeTaskCapabilityService,
 ): Readonly<{
   service: TaskService;
   contexts: Map<string, ConversationContext>;
@@ -877,6 +955,7 @@ function createHarness(
       events: publisher,
       skillDrafts,
       taskInputs,
+      ...(taskCapabilities === undefined ? {} : { taskCapabilities }),
       ...(remotePrepare === undefined
         ? {}
         : { remoteTaskInputs: { prepareResponse: remotePrepare } }),

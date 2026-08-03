@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/NodeHealth.schema.json",
+  "title": "NodeHealth",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nodeId",
+    "status",
+    "components",
+    "observedAt"
+  ],
+  "properties": {
+    "nodeId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded",
+        "unavailable",
+        "maintenance"
+      ]
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "component",
+          "status"
+        ],
+        "properties": {
+          "component": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded",
+              "unavailable",
+              "disabled"
+            ]
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "activeTasks": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

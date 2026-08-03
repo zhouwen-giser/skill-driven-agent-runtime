@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/ModelRoute.schema.json",
+  "title": "ModelRoute",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "routeId",
+    "stage",
+    "primary",
+    "fallbacks",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "routeId": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "understanding",
+        "planning",
+        "execution",
+        "evaluation",
+        "summary",
+        "embedding"
+      ]
+    },
+    "primary": {
+      "type": "object",
+      "required": [
+        "providerId",
+        "modelId"
+      ],
+      "properties": {
+        "providerId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        }
+      }
+    },
+    "fallbacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "providerId",
+          "modelId"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "budgetPolicy": {
+      "type": "object"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "suspended",
+        "retired"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

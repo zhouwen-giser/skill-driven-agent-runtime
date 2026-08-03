@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/v1.4/codex-goal-state.schema.json",
+  "title": "SdarV14CodexGoalState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "goalId",
+    "status",
+    "repository",
+    "baselineMainSha",
+    "branch",
+    "lastCompletedPhase",
+    "remoteHeadSha",
+    "phases"
+  ],
+  "properties": {
+    "goalId": {
+      "const": "SDAR-V1.4-NODE-CONTROL-BACKEND"
+    },
+    "status": {
+      "enum": [
+        "BASELINING",
+        "ACTIVE",
+        "BLOCKED_RED_MAIN_BASELINE",
+        "BLOCKED_MAIN_NOT_V13_READY",
+        "BLOCKED_CONTRACT_CONFLICT",
+        "RELEASE_CANDIDATE",
+        "PR_OPEN",
+        "AWAITING_PROTECTED_REVIEW",
+        "MERGED",
+        "FAILED"
+      ]
+    },
+    "repository": {
+      "const": "zhouwen-giser/skill-driven-agent-runtime"
+    },
+    "baselineMainSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "branch": {
+      "const": "feature/v1.4-node-control-backend"
+    },
+    "lastCompletedPhase": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^P(0[0-9]|1[0-4])$"
+    },
+    "remoteHeadSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "latestObservedMainSha": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pullRequest": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer"
+        },
+        "url": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "mergeCommitSha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "phases": {
+      "type": "object",
+      "patternProperties": {
+        "^P(0[0-9]|1[0-4])$": {
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "pending",
+                "active",
+                "blocked",
+                "completed"
+              ]
+            },
+            "implementationSha": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "evidenceSha": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "remoteSha": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "completedAt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

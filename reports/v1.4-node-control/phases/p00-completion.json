@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P00",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+  "evidenceSha": "c5ffbda99f58f8b907727eb6287ba8a4efd86e5e",
+  "remoteSha": "c5ffbda99f58f8b907727eb6287ba8a4efd86e5e",
+  "completedAt": "2026-08-02T01:13:45.1147266+08:00",
+  "productionChanges": false,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 345479,
+      "unitContract": 1122,
+      "integration": 130,
+      "e2e": 72,
+      "classification": "real isolated local Docker PostgreSQL and Redis"
+    },
+    "packageValidators": {
+      "task": "passed",
+      "designFreeze": "passed",
+      "apiFreeze": "passed"
+    },
+    "focused": {
+      "formatCheck": "passed",
+      "architecture": "passed"
+    }
+  },
+  "failedAttempts": [
+    "GitHub TLS fetch failed once and passed on authorized retry",
+    "Docker config access denied in sandbox",
+    "existing PostgreSQL PGDATA was incompatible across libc images"
+  ],
+  "evidence": [
+    "reports/v1.4-node-control/baseline/main-baseline.json",
+    "reports/v1.4-node-control/baseline/source-lock.json",
+    "reports/v1.4-node-control/failed-attempts/p00-baseline.md"
+  ],
+  "nextPhase": "P01"
+}

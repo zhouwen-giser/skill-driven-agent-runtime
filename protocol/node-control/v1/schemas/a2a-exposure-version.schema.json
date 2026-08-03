@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/A2AExposureVersion.schema.json",
+  "title": "A2AExposureVersion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "exposureId",
+    "version",
+    "capabilityId",
+    "capabilityVersion",
+    "agentSkillId",
+    "name",
+    "description",
+    "requestSchema",
+    "resultSchema",
+    "visibility",
+    "status",
+    "exposureHash"
+  ],
+  "properties": {
+    "exposureId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capabilityId": {
+      "type": "string"
+    },
+    "capabilityVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "agentSkillId": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputModes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "outputModes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "requestSchema": {
+      "type": "object"
+    },
+    "resultSchema": {
+      "type": "object"
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "organization",
+        "public"
+      ]
+    },
+    "requesterPolicy": {
+      "type": "object"
+    },
+    "readinessPublicationPolicy": {
+      "type": "string",
+      "enum": [
+        "publish_when_available",
+        "publish_degraded",
+        "always_publish_with_status"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "suspended",
+        "retired"
+      ]
+    },
+    "exposureHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

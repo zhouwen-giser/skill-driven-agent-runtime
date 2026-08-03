@@ -96,6 +96,28 @@ describe('server environment', () => {
     ).toThrow('Artifact management bearer authentication requires at least one role.');
   });
 
+  it('maps a distinct Runtime Control service token onto the configured Artifact identity', () => {
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+        SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: 'r'.repeat(32),
+        SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: 'a'.repeat(32),
+        SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID: 'operator-1',
+        SDAR_ARTIFACT_MANAGEMENT_ROLES: 'administrator',
+      }),
+    ).toMatchObject({
+      SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: 'r'.repeat(32),
+      SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: 'a'.repeat(32),
+    });
+
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+        SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: 'r'.repeat(32),
+      }),
+    ).toThrow('requires the existing Artifact management identity');
+  });
+
   it('rejects malformed or incomplete Artifact management identity configuration', () => {
     const masterKey = randomBytes(32).toString('base64');
 

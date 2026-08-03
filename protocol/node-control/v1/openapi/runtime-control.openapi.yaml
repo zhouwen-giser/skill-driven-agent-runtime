@@ -1,0 +1,1783 @@
+openapi: 3.1.0
+info:
+  title: SDAR v1.4 Runtime Control Internal API
+  version: 1.0.0
+  description: Private Node Control Backend to Runtime contract.
+  x-sdar-contract-version: 1.0.0
+servers:
+- url: https://127.0.0.1:10081
+security:
+- RuntimeServiceAuth: []
+paths:
+  /internal/v1/bootstrap:
+    get:
+      operationId: getRuntimeBootstrap
+      summary: Get Runtime bootstrap and active references
+      responses:
+        '200':
+          description: Get Runtime bootstrap and active references
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/runtime-bootstrap.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+  /internal/v1/revisions/latest:
+    get:
+      operationId: getLatestRuntimeRevision
+      summary: Get latest published revision
+      responses:
+        '200':
+          description: Get latest published revision
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/configuration-revision.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: targetType
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: targetId
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: currentRevision
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+  /internal/v1/revisions/watch:
+    get:
+      operationId: watchRuntimeRevisions
+      summary: Watch revision hints over SSE
+      responses:
+        '200':
+          description: Watch revision hints over SSE
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          type: string
+      description: SSE revision hints only. Runtime must recover through latest.
+  /internal/v1/acks:
+    post:
+      operationId: acknowledgeRuntimeRevision
+      summary: Acknowledge Runtime revision application
+      responses:
+        '202':
+          description: Acknowledge Runtime revision application
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/runtime-ack.schema.json
+  /internal/v1/runtime/health:
+    get:
+      operationId: getRuntimeHealth
+      summary: Get Runtime authoritative health
+      responses:
+        '200':
+          description: Get Runtime authoritative health
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/node-health.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+  /internal/v1/runtime/version:
+    get:
+      operationId: getRuntimeVersion
+      summary: Get Runtime and contract versions
+      responses:
+        '200':
+          description: Get Runtime and contract versions
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+  /internal/v1/skills/import:
+    post:
+      operationId: runtimeImportSkillPackage
+      summary: Validate and import Skill package in Runtime
+      responses:
+        '202':
+          description: Validate and import Skill package in Runtime
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/skills/{skillId}/versions/{version}/publish:
+    post:
+      operationId: runtimePublishSkillVersion
+      summary: Publish Runtime Skill version
+      responses:
+        '202':
+          description: Publish Runtime Skill version
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: skillId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/skills/{skillId}/versions/{version}/suspend:
+    post:
+      operationId: runtimeSuspendSkillVersion
+      summary: Suspend Runtime Skill version
+      responses:
+        '202':
+          description: Suspend Runtime Skill version
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: skillId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/skills/{skillId}/versions/{version}/deprecate:
+    post:
+      operationId: runtimeDeprecateSkillVersion
+      summary: Deprecate Runtime Skill version
+      responses:
+        '202':
+          description: Deprecate Runtime Skill version
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: skillId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/plan-templates:
+    get:
+      operationId: runtimeListPlanTemplates
+      summary: List Runtime Plan Template artifacts
+      responses:
+        '200':
+          description: List Runtime Plan Template artifacts
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+  /internal/v1/plan-templates/{artifactId}/versions/{version}/publish:
+    post:
+      operationId: runtimePublishPlanTemplate
+      summary: Publish Runtime Plan Template
+      responses:
+        '202':
+          description: Publish Runtime Plan Template
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/plan-templates/{artifactId}/versions/{version}/revalidate:
+    post:
+      operationId: runtimeRevalidatePlanTemplate
+      summary: Revalidate Runtime Plan Template
+      responses:
+        '202':
+          description: Revalidate Runtime Plan Template
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/plan-templates/{artifactId}/versions/{version}/suspend:
+    post:
+      operationId: runtimeSuspendPlanTemplate
+      summary: Suspend Runtime Plan Template
+      responses:
+        '202':
+          description: Suspend Runtime Plan Template
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/capability-catalogs/stage:
+    post:
+      operationId: stageCapabilityCatalog
+      summary: Stage and validate capability catalog
+      responses:
+        '202':
+          description: Stage and validate capability catalog
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/capability-catalogs/{revision}/activate:
+    post:
+      operationId: activateCapabilityCatalog
+      summary: Atomically activate capability catalog
+      responses:
+        '202':
+          description: Atomically activate capability catalog
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: revision
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/capability-readiness/evaluations:
+    post:
+      operationId: runtimeEvaluateCapabilityReadiness
+      summary: Evaluate Runtime capability readiness
+      responses:
+        '202':
+          description: Evaluate Runtime capability readiness
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/agent-card-revisions/stage:
+    post:
+      operationId: stageAgentCardRevision
+      summary: Stage Agent Card candidate
+      responses:
+        '202':
+          description: Stage Agent Card candidate
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/agent-card-revisions/{revision}/activate:
+    post:
+      operationId: activateAgentCardRevision
+      summary: Atomically activate Agent Card revision
+      responses:
+        '202':
+          description: Atomically activate Agent Card revision
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: revision
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/tasks/{taskId}/capability-binding:
+    get:
+      operationId: runtimeGetTaskCapabilityBinding
+      summary: Read immutable Task capability binding
+      responses:
+        '200':
+          description: Read immutable Task capability binding
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/task-capability-binding.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+  /internal/v1/tasks/{taskId}/pause:
+    post:
+      operationId: runtimePauseTask
+      summary: Request Runtime task pause
+      responses:
+        '202':
+          description: Request Runtime task pause
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/tasks/{taskId}/resume:
+    post:
+      operationId: runtimeResumeTask
+      summary: Request Runtime task resume
+      responses:
+        '202':
+          description: Request Runtime task resume
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/tasks/{taskId}/cancel:
+    post:
+      operationId: runtimeCancelTask
+      summary: Request Runtime task cancel
+      responses:
+        '202':
+          description: Request Runtime task cancel
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/tasks/{taskId}/goal-patches:
+    post:
+      operationId: runtimeSubmitGoalPatch
+      summary: Submit Runtime Goal Patch
+      responses:
+        '202':
+          description: Submit Runtime Goal Patch
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/command-request.schema.json
+  /internal/v1/telemetry-export/apply:
+    post:
+      operationId: applyTelemetryExportConfiguration
+      summary: Apply telemetry export configuration
+      responses:
+        '202':
+          description: Apply telemetry export configuration
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/telemetry-export-config.schema.json
+  /internal/v1/telemetry-export/status:
+    get:
+      operationId: getRuntimeTelemetryExportStatus
+      summary: Get Runtime telemetry delivery state
+      responses:
+        '200':
+          description: Get Runtime telemetry delivery state
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/telemetry-export-status.schema.json
+        '400':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '401':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '403':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '404':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '409':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '412':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '422':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+        '503':
+          description: Problem Details
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/problem-details.schema.json
+components:
+  securitySchemes:
+    RuntimeServiceAuth:
+      type: http
+      scheme: bearer
+  responses:
+    Problem:
+      description: Problem Details
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/problem-details.schema.json

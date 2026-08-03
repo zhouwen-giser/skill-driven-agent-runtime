@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/ManagementOperation.schema.json",
+  "title": "ManagementOperation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operationId",
+    "operationType",
+    "target",
+    "status",
+    "createdAt",
+    "actorId",
+    "reason"
+  ],
+  "properties": {
+    "operationId": {
+      "type": "string"
+    },
+    "operationType": {
+      "type": "string"
+    },
+    "target": {
+      "$ref": "resource-ref.schema.json"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "running",
+        "succeeded",
+        "failed",
+        "canceled"
+      ]
+    },
+    "actorId": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "idempotencyKeyHash": {
+      "type": "string"
+    },
+    "inputHash": {
+      "type": "string"
+    },
+    "result": {},
+    "errorCode": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

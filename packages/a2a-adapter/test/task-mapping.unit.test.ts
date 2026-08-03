@@ -1,7 +1,55 @@
 import { Message } from '@a2a-js/sdk';
 import { describe, expect, it } from 'vitest';
 
-import { toTaskFollowUp } from '../src/task-mapping.js';
+import { toSubmitTaskCommand, toTaskFollowUp } from '../src/task-mapping.js';
+
+describe('A2A Task submission mapping', () => {
+  it('preserves explicit Capability metadata and one structured input part', () => {
+    const message = Message.fromJSON({
+      messageId: 'message-capability',
+      role: 'ROLE_USER',
+      parts: [
+        { text: 'Inspect device alpha.', mediaType: 'text/plain' },
+        { data: { deviceId: 'alpha' }, mediaType: 'application/json' },
+      ],
+      metadata: {
+        user_id: 'operator-1',
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-1',
+        },
+      },
+    });
+
+    expect(toSubmitTaskCommand(message, 'task-1', 'context-1')).toEqual({
+      taskId: 'task-1',
+      contextId: 'context-1',
+      userId: 'operator-1',
+      messageText: 'Inspect device alpha.',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata: {
+        user_id: 'operator-1',
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-1',
+        },
+      },
+    });
+  });
+
+  it('rejects more than one structured Capability input part', () => {
+    const message = Message.fromJSON({
+      messageId: 'message-capability-invalid',
+      role: 'ROLE_USER',
+      parts: [{ text: 'Inspect.' }, { data: { one: true } }, { data: { two: true } }],
+    });
+    expect(() => toSubmitTaskCommand(message, 'task-1', 'context-1')).toThrow(
+      expect.objectContaining({ code: 'A2A_INPUT_CONTENT_INVALID' }),
+    );
+  });
+});
 
 describe('A2A Task follow-up mapping', () => {
   it('extracts one structured provide_input data part into a protocol-neutral command', () => {

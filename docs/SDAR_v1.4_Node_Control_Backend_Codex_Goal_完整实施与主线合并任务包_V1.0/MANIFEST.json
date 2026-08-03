@@ -1,0 +1,234 @@
+{
+  "package": "SDAR_v1.4_Node_Control_Backend_Codex_Goal_完整实施与主线合并任务包",
+  "version": "1.0.0",
+  "generatedAt": "2026-07-31T07:25:52.808659+00:00",
+  "status": "READY_FOR_CODEX_GOAL",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baseResolution": "LATEST_ORIGIN_MAIN_AT_EXECUTION_START",
+  "developmentBranch": "feature/v1.4-node-control-backend",
+  "phases": 15,
+  "phaseDelivery": "IMPLEMENTATION_COMMIT_PLUS_EVIDENCE_COMMIT_AND_PUSH",
+  "finalAction": "CREATE_PR_AND_MERGE_COMMIT_TO_MAIN_WHEN_REPOSITORY_RULES_ALLOW",
+  "tagOrReleaseAuthorized": false,
+  "frozenInputHashes": {
+    "SDAR_v1.4_单节点控制平面_完整设计冻结基线_V1.0.zip": "1d0c72a9a54baf88ddd0a2d8a585b33e0c1ba056694c16b37cf19e6b18dfb4cb",
+    "SDAR_v1.4_Node_Control_Backend_接口协议冻结基线_V1.0.zip": "367797107847c210bb4240d5525ad0cfa625f8f65856f1eddc7c61bff2523d1c"
+  },
+  "files": [
+    {
+      "path": "00_MASTER_GOAL.md",
+      "size": 1566,
+      "sha256": "cc738882248e3d452f360cd3b2b3ea295f4a59f17f8a13107b20d5506fae5b77"
+    },
+    {
+      "path": "01_LATEST_MAIN_BASELINE_AND_BRANCH.md",
+      "size": 2047,
+      "sha256": "51e9d76dc9ea84edfbbe460cad2018febd55fb03f51d1b9766e8cdffd52394a1"
+    },
+    {
+      "path": "02_SCOPE_AUTHORITY_AND_NON_GOALS.md",
+      "size": 1668,
+      "sha256": "3fd68b3e608754171b6941ab4f765f934e7be716725ae1d9011b95a743e68ebb"
+    },
+    {
+      "path": "03_ARCHITECTURE_AND_PACKAGE_MAP.md",
+      "size": 1214,
+      "sha256": "5a69ae3199376a550007a54c4be5db8582207f3a76906c04f12643208e55618a"
+    },
+    {
+      "path": "04_DATABASE_AND_MIGRATION_EXECPLAN.md",
+      "size": 1385,
+      "sha256": "b9542e3cba94e0ab02b7bab9f7923c44a575c4b8d9c542bdc3905bb16e1ace65"
+    },
+    {
+      "path": "05_CONTRACT_IMPLEMENTATION_POLICY.md",
+      "size": 1235,
+      "sha256": "1fdfd1928ca2d3c75a6418fb382bd7b0788024fc2880af29a0982cd46826f533"
+    },
+    {
+      "path": "06_GIT_GITHUB_PHASE_DELIVERY_POLICY.md",
+      "size": 1251,
+      "sha256": "c89046833120eae3ff16bb1a44d4dc8a916c264711916f41efbcfe08a1b02fb9"
+    },
+    {
+      "path": "07_MAIN_SYNC_CONFLICT_AND_RESUME_POLICY.md",
+      "size": 1447,
+      "sha256": "590d9f2f4c7d28847378e488f0c3e4a5f6fec7eb5a80ca104046e4183d1c5274"
+    },
+    {
+      "path": "08_TEST_EVIDENCE_AND_RELEASE_POLICY.md",
+      "size": 1490,
+      "sha256": "a4cbd46980ca12589924927421e0f2dd95b48467a6d450944dac4766a3c3c8ab"
+    },
+    {
+      "path": "09_FINAL_PR_AND_MERGE_POLICY.md",
+      "size": 1864,
+      "sha256": "7508b0d87551fb72f4bd9554da80b9e497d0726d7684a7be218722e7461e175f"
+    },
+    {
+      "path": "CODEX_MASTER_PROMPT.md",
+      "size": 5844,
+      "sha256": "7f25793e830ee03cd6a1c2700d5a2f5e149b28d55d3a25d6cf5c6fb1f1d3a039"
+    },
+    {
+      "path": "README.md",
+      "size": 1460,
+      "sha256": "5fffc4056a6aa16b91219b1b51212ef688ab8b8d8242c9c353450fe91b39cc84"
+    },
+    {
+      "path": "SOURCE_LOCK.json",
+      "size": 1732,
+      "sha256": "1f028c017630a9f2af417ed674dca0eb36dcdb0586787b272a4b539f96ebf31e"
+    },
+    {
+      "path": "TASK.json",
+      "size": 1104,
+      "sha256": "763617fcf4c73179f4eca03ff11ac8f848cc367894ee4cb2a778895e8754f36c"
+    },
+    {
+      "path": "TASK_INDEX.md",
+      "size": 808,
+      "sha256": "92223751df9ee48a4f821827ce8712e4faffe3b98ea308ddfae51ab39e285f1d"
+    },
+    {
+      "path": "adr/ADR-V14-GOAL-001-headless-v14-scope.md",
+      "size": 744,
+      "sha256": "b989c6796a27813ea7dc0d56d16ba109541cdc775dab258cdd382dc5715f9032"
+    },
+    {
+      "path": "matrices/PHASE_COMMIT_MATRIX.csv",
+      "size": 2143,
+      "sha256": "4d2751f8b72a519edaa4bcfc6c13af84283d0573b94150049a3d232ce0d93435"
+    },
+    {
+      "path": "matrices/REQUIREMENT_TRACEABILITY.csv",
+      "size": 722,
+      "sha256": "f96aaf31bf6d0174a926498decc6f752eb6824374d9458979810760535c24785"
+    },
+    {
+      "path": "phases/P00.md",
+      "size": 1266,
+      "sha256": "ed02e0fb55530b6ef3eae747d9c9057bad5a46288754f8e8bddc31c942e11953"
+    },
+    {
+      "path": "phases/P01.md",
+      "size": 1135,
+      "sha256": "5d293ae750a3ae8cc64e3a4bd7c7ff8c6f3f80e180f90a1d5f6b5be32da47703"
+    },
+    {
+      "path": "phases/P02.md",
+      "size": 1114,
+      "sha256": "f79c8363a02e8d5e78a3c0838ea73c4ac28c6ee18225858fcdc7ce58c9dc1df1"
+    },
+    {
+      "path": "phases/P03.md",
+      "size": 1056,
+      "sha256": "f40d9db4bc096e080c5fe93def3ba5fe3bd74f9c540f4e5dbbc8278f315b458e"
+    },
+    {
+      "path": "phases/P04.md",
+      "size": 1068,
+      "sha256": "58ae939660b7065695bd13662ea279b7ae96756bfa3a652e9881b30ca8875133"
+    },
+    {
+      "path": "phases/P05.md",
+      "size": 1115,
+      "sha256": "947ccadbfd12df4f1328d246d64f3b14a7d9a129d20a509c9c7478d31b9ff5c8"
+    },
+    {
+      "path": "phases/P06.md",
+      "size": 1134,
+      "sha256": "a3edacf456fe936f0d831b8b161f290a674d50c83221739db9604a3649fe1ef2"
+    },
+    {
+      "path": "phases/P07.md",
+      "size": 1090,
+      "sha256": "d17bc60b022597fe5c91d602c3384c522fba39c0907aca15e1f5746143b2c2aa"
+    },
+    {
+      "path": "phases/P08.md",
+      "size": 1066,
+      "sha256": "6b30e32fcaab682dbf9d29906ed9f529c158088bf61d22e7a05fc057b490e031"
+    },
+    {
+      "path": "phases/P09.md",
+      "size": 1201,
+      "sha256": "ba7e1db47e5b0db711503ca559d43bb2cde3e6754c00141aa94d002444dde09f"
+    },
+    {
+      "path": "phases/P10.md",
+      "size": 1111,
+      "sha256": "66d81a1a999970a49065338959c68fbe028cfc532281470a2dd50b068ab052b9"
+    },
+    {
+      "path": "phases/P11.md",
+      "size": 1065,
+      "sha256": "844c81c24b3d47c54b0715644acd268dd25071c268ece64551a730de95d3ca29"
+    },
+    {
+      "path": "phases/P12.md",
+      "size": 1073,
+      "sha256": "b9573e30aee5b694c482c4a003d51b5b025777a93d87bda7de17780e9b71b6d1"
+    },
+    {
+      "path": "phases/P13.md",
+      "size": 1146,
+      "sha256": "f30ced35fce6a821edcf77acc6e3611eddb106eea2b4baab3957fdbea19da2e0"
+    },
+    {
+      "path": "phases/P14.md",
+      "size": 1245,
+      "sha256": "bd4e4e137813815549b8c603392af508e9349769dbe6c57e6293a4d9b052ef6f"
+    },
+    {
+      "path": "references/SDAR_v1.4_Node_Control_Backend_接口协议冻结基线_V1.0.zip",
+      "size": 64769,
+      "sha256": "367797107847c210bb4240d5525ad0cfa625f8f65856f1eddc7c61bff2523d1c"
+    },
+    {
+      "path": "references/SDAR_v1.4_单节点控制平面_完整设计冻结基线_V1.0.zip",
+      "size": 67355,
+      "sha256": "1d0c72a9a54baf88ddd0a2d8a585b33e0c1ba056694c16b37cf19e6b18dfb4cb"
+    },
+    {
+      "path": "schemas/goal-state.schema.json",
+      "size": 2732,
+      "sha256": "33a20d27cec1eb76615cb8aaa1acb47266f94004a4eac2d82946e91c37031ad1"
+    },
+    {
+      "path": "scripts/p00-baseline-and-branch.template.sh",
+      "size": 1012,
+      "sha256": "b95300869a0ffd59dd36a892b60dd20f2fe4d530ffec54ad371dd70fc41e77bf"
+    },
+    {
+      "path": "scripts/p14-pr-and-merge.template.sh",
+      "size": 854,
+      "sha256": "bc294d2d4fdbec04238a5e742d90813291d00bacee9902dfbe90bda1823d1e0d"
+    },
+    {
+      "path": "scripts/validate_task_package.py",
+      "size": 2148,
+      "sha256": "12333329cfee4f8a61dc5c7ea80d03f454c759e7e55f5679938991a308094fbf"
+    },
+    {
+      "path": "scripts/verify-phase-push.template.sh",
+      "size": 436,
+      "sha256": "14ce0ea0d7107080a929eed9e13d2339ff6dffb16d8caae3f4a74a02fb323297"
+    },
+    {
+      "path": "templates/BLOCKER_REPORT.md",
+      "size": 226,
+      "sha256": "9bd43199b503d3782f1ccf90ef5d6a72ba31547304828af3ac0ab567618a84de"
+    },
+    {
+      "path": "templates/PHASE_COMPLETION_REPORT.md",
+      "size": 631,
+      "sha256": "cfa5277d70e846d0bffa0623253b17ae30e3bfe00a6f67c0e087ad420c8b445e"
+    },
+    {
+      "path": "templates/PR_BODY.md",
+      "size": 568,
+      "sha256": "b5f97215c2a299e1908608c214c0076cbd65e072828e821cd6b6da7081120383"
+    }
+  ]
+}

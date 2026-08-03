@@ -1,0 +1,128 @@
+{
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "status": "ACTIVE",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "branch": "feature/v1.4-node-control-backend",
+  "lastCompletedPhase": "P14",
+  "remoteHeadSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "pullRequest": {
+    "number": 15,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15",
+    "state": "OPEN",
+    "draft": false,
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN"
+  },
+  "phases": {
+    "P00": {
+      "status": "completed",
+      "implementationSha": "c8ec91505ea600fe5c5cebb07394d2366628ada9",
+      "evidenceSha": "c5ffbda99f58f8b907727eb6287ba8a4efd86e5e",
+      "remoteSha": "c5ffbda99f58f8b907727eb6287ba8a4efd86e5e",
+      "completedAt": "2026-08-02T01:13:45.1147266+08:00"
+    },
+    "P01": {
+      "status": "completed",
+      "implementationSha": "bf564896fe373cb0d608a592eb02652a696b97b6",
+      "evidenceSha": "ef93c264c21d69b48fc71e0c459594856ce233ca",
+      "remoteSha": "ef93c264c21d69b48fc71e0c459594856ce233ca",
+      "completedAt": "2026-08-02T02:25:10.3977973+08:00"
+    },
+    "P02": {
+      "status": "completed",
+      "implementationSha": "deaa555f865861886a480d8ca1c744a4b6becfd4",
+      "evidenceSha": "9a283eb82a8499045a493618295dc2872fcf8d0e",
+      "remoteSha": "9a283eb82a8499045a493618295dc2872fcf8d0e",
+      "completedAt": "2026-08-02T03:59:54.4241787+08:00"
+    },
+    "P03": {
+      "status": "completed",
+      "implementationSha": "21c7a376b0f6d6a6b5181d2da84b75973fbbedb7",
+      "evidenceSha": "598024359da8509143cae26e2e46ce8f56091b6f",
+      "remoteSha": "598024359da8509143cae26e2e46ce8f56091b6f",
+      "completedAt": "2026-08-02T08:43:00+08:00"
+    },
+    "P04": {
+      "status": "completed",
+      "implementationSha": "11d13d08d3d72d76cabb4b85fce8cac0967478d3",
+      "evidenceSha": "7c9b733223f0b8b69098a4e55ae330203d37ee03",
+      "remoteSha": "7c9b733223f0b8b69098a4e55ae330203d37ee03",
+      "completedAt": "2026-08-02T10:20:00+08:00"
+    },
+    "P05": {
+      "status": "completed",
+      "implementationSha": "f4099115694cee03c792c0f16590d95569b6e5fe",
+      "evidenceSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+      "remoteSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+      "completedAt": "2026-08-02T17:31:00+08:00"
+    },
+    "P06": {
+      "status": "completed",
+      "implementationSha": "f5be34fb3a1ef74d3564f496d93d07e3eee1bdda",
+      "evidenceSha": "f7692d05dc34678f3829a1740ce67b10a4866502",
+      "remoteSha": "f7692d05dc34678f3829a1740ce67b10a4866502",
+      "completedAt": "2026-08-02T18:50:36+08:00"
+    },
+    "P07": {
+      "status": "completed",
+      "implementationSha": "be9d01d7f6773f4d07fa26a7ab0de54c9fd7a0c2",
+      "evidenceSha": "0097883bb8e0d8052df82cd7d093391802db636d",
+      "remoteSha": "0097883bb8e0d8052df82cd7d093391802db636d",
+      "completedAt": "2026-08-02T22:41:12+08:00"
+    },
+    "P08": {
+      "status": "completed",
+      "implementationSha": "c76a4d01bd1a0627b951c3066903957c68e77adb",
+      "evidenceSha": "8e59a2a0c9b2babf4ec80e552a4b8f697b7830d8",
+      "remoteSha": "8e59a2a0c9b2babf4ec80e552a4b8f697b7830d8",
+      "completedAt": "2026-08-03T00:15:09+08:00"
+    },
+    "P09": {
+      "status": "completed",
+      "implementationSha": "39298c3798d6a14447b7a01e30eae0d3b13ae5f8",
+      "evidenceSha": "5a82b5e159a92a47e86f4064a61803d47f284754",
+      "remoteSha": "5a82b5e159a92a47e86f4064a61803d47f284754",
+      "completedAt": "2026-08-03T01:56:31+08:00"
+    },
+    "P10": {
+      "status": "completed",
+      "implementationSha": "9e53ebb0e604558195b51a9cdd5e34d122c89848",
+      "evidenceSha": "b75d1b19799d7de56101f2d2b90ebae992f4027b",
+      "remoteSha": "b75d1b19799d7de56101f2d2b90ebae992f4027b",
+      "completedAt": "2026-08-03T06:23:07+08:00"
+    },
+    "P11": {
+      "status": "completed",
+      "implementationSha": "7f631fd674352f72633994a2b47875e2856a9922",
+      "evidenceSha": "3a2d872c432e06f26cc36f0f08d4ea9979fb05a9",
+      "remoteSha": "3a2d872c432e06f26cc36f0f08d4ea9979fb05a9",
+      "completedAt": "2026-08-03T08:17:43+08:00"
+    },
+    "P12": {
+      "status": "completed",
+      "implementationSha": "7eb5b83ce042244e6d70eb928ad5d456121f4ebf",
+      "evidenceSha": "062bd2a8d7d1f827b1709c1998d287105ea7e949",
+      "remoteSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+      "completedAt": "2026-08-03T11:04:30+08:00"
+    },
+    "P13": {
+      "status": "completed",
+      "implementationSha": "ee64870d9527bf7aeaef63a08897b411f9de7d1a",
+      "fullVerifyCandidateSha": "ec10587073828b1fd940e475a30a8ceebfaedd57",
+      "evidenceSha": "b8401045bd267fc861819e04e7ec1fdd40f402df",
+      "remoteSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+      "completedAt": "2026-08-03T13:00:00+08:00"
+    },
+    "P14": {
+      "status": "ready_for_merge",
+      "implementationSha": "47fb8c31ffb474eb2266e4d7b104ae425a3fb530",
+      "verifiedCandidateSha": "e6d0b698fb0430386edba66474f8214f9f4bd740",
+      "evidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+      "remoteEvidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+      "qualifiedAt": "2026-08-03T13:55:28+08:00",
+      "publicationObservedAt": "2026-08-03T18:40:29+08:00"
+    }
+  }
+}

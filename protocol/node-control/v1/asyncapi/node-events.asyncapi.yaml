@@ -1,0 +1,157 @@
+asyncapi: 2.6.0
+info:
+  title: SDAR v1.4 Node Events
+  version: 1.0.0
+  description: SSE hint events for organization-facing consumers.
+servers:
+  nodeControl:
+    url: https://127.0.0.1:10080
+    protocol: https
+channels:
+  /api/v1/events:
+    subscribe:
+      operationId: subscribeNodeEvents
+      message:
+        oneOf:
+        - $ref: '#/components/messages/node_profile_changed'
+        - $ref: '#/components/messages/node_health_changed'
+        - $ref: '#/components/messages/node_configuration_revision_published'
+        - $ref: '#/components/messages/node_configuration_revision_applied'
+        - $ref: '#/components/messages/node_configuration_revision_rejected'
+        - $ref: '#/components/messages/node_llm_provider_changed'
+        - $ref: '#/components/messages/node_smpp_source_changed'
+        - $ref: '#/components/messages/node_mcp_provider_binding_changed'
+        - $ref: '#/components/messages/node_skill_version_changed'
+        - $ref: '#/components/messages/node_plan_template_version_changed'
+        - $ref: '#/components/messages/node_capability_version_published'
+        - $ref: '#/components/messages/node_capability_version_suspended'
+        - $ref: '#/components/messages/node_capability_version_deprecated'
+        - $ref: '#/components/messages/node_capability_version_retired'
+        - $ref: '#/components/messages/node_capability_readiness_changed'
+        - $ref: '#/components/messages/node_a2a_exposure_changed'
+        - $ref: '#/components/messages/node_agent_card_activated'
+        - $ref: '#/components/messages/node_task_capability_bound'
+        - $ref: '#/components/messages/node_management_operation_completed'
+        - $ref: '#/components/messages/node_telemetry_export_status_changed'
+components:
+  messages:
+    node_profile_changed:
+      name: node.profile.changed
+      title: node.profile.changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.profile.changed
+    node_health_changed:
+      name: node.health.changed
+      title: node.health.changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.health.changed
+    node_configuration_revision_published:
+      name: node.configuration.revision_published
+      title: node.configuration.revision_published
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.configuration.revision_published
+    node_configuration_revision_applied:
+      name: node.configuration.revision_applied
+      title: node.configuration.revision_applied
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.configuration.revision_applied
+    node_configuration_revision_rejected:
+      name: node.configuration.revision_rejected
+      title: node.configuration.revision_rejected
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.configuration.revision_rejected
+    node_llm_provider_changed:
+      name: node.llm.provider_changed
+      title: node.llm.provider_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.llm.provider_changed
+    node_smpp_source_changed:
+      name: node.smpp.source_changed
+      title: node.smpp.source_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.smpp.source_changed
+    node_mcp_provider_binding_changed:
+      name: node.mcp.provider_binding_changed
+      title: node.mcp.provider_binding_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.mcp.provider_binding_changed
+    node_skill_version_changed:
+      name: node.skill.version_changed
+      title: node.skill.version_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.skill.version_changed
+    node_plan_template_version_changed:
+      name: node.plan_template.version_changed
+      title: node.plan_template.version_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.plan_template.version_changed
+    node_capability_version_published:
+      name: node.capability.version_published
+      title: node.capability.version_published
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.capability.version_published
+    node_capability_version_suspended:
+      name: node.capability.version_suspended
+      title: node.capability.version_suspended
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.capability.version_suspended
+    node_capability_version_deprecated:
+      name: node.capability.version_deprecated
+      title: node.capability.version_deprecated
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.capability.version_deprecated
+    node_capability_version_retired:
+      name: node.capability.version_retired
+      title: node.capability.version_retired
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.capability.version_retired
+    node_capability_readiness_changed:
+      name: node.capability.readiness_changed
+      title: node.capability.readiness_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.capability.readiness_changed
+    node_a2a_exposure_changed:
+      name: node.a2a.exposure_changed
+      title: node.a2a.exposure_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.a2a.exposure_changed
+    node_agent_card_activated:
+      name: node.agent_card.activated
+      title: node.agent_card.activated
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.agent_card.activated
+    node_task_capability_bound:
+      name: node.task.capability_bound
+      title: node.task.capability_bound
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.task.capability_bound
+    node_management_operation_completed:
+      name: node.management_operation.completed
+      title: node.management_operation.completed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.management_operation.completed
+    node_telemetry_export_status_changed:
+      name: node.telemetry_export.status_changed
+      title: node.telemetry_export.status_changed
+      payload:
+        $ref: ../schemas/event-envelope.schema.json
+      x-event-type: node.telemetry_export.status_changed

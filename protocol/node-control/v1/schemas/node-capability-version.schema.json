@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/NodeCapabilityVersion.schema.json",
+  "title": "NodeCapabilityVersion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilityId",
+    "version",
+    "domain",
+    "name",
+    "description",
+    "inputSchema",
+    "outputSchema",
+    "successCriteria",
+    "requiredEvidence",
+    "riskLevel",
+    "status",
+    "definitionHash"
+  ],
+  "properties": {
+    "capabilityId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "domain": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "inputSchema": {
+      "type": "object"
+    },
+    "outputSchema": {
+      "type": "object"
+    },
+    "successCriteria": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "minItems": 1
+    },
+    "requiredEvidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "supportedModes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "validating",
+        "published",
+        "suspended",
+        "deprecated",
+        "retired"
+      ]
+    },
+    "definitionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "previousVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "createdBy": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

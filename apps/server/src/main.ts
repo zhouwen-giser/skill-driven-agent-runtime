@@ -7,6 +7,9 @@ import { startServerRuntime } from './runtime.js';
 
 const environment = loadServerEnvironment();
 const artifactManagementIdentity = createArtifactManagementIdentity();
+const runtimeControlArtifactIdentity = createArtifactManagementIdentity(
+  environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN,
+);
 const runtime = await startServerRuntime({
   postgresUrl: environment.SDAR_POSTGRES_URL,
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
@@ -16,6 +19,17 @@ const runtime = await startServerRuntime({
   a2aPort: environment.SDAR_A2A_PORT,
   managementHost: environment.SDAR_MANAGEMENT_HOST,
   managementPort: environment.SDAR_MANAGEMENT_PORT,
+  ...(environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN === undefined
+    ? {}
+    : {
+        runtimeControlServiceToken: environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN,
+        ...(runtimeControlArtifactIdentity === undefined
+          ? {}
+          : {
+              runtimeControlArtifactPrincipalResolver:
+                runtimeControlArtifactIdentity.managementPrincipalResolver,
+            }),
+      }),
   ...(environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN === undefined
     ? {}
     : { cognitiveManagementBearerToken: environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN }),
@@ -56,9 +70,10 @@ async function close(): Promise<void> {
 process.once('SIGINT', () => void close());
 process.once('SIGTERM', () => void close());
 
-function createArtifactManagementIdentity():
-  ConfiguredBearerArtifactManagementIdentity | undefined {
-  const token = environment.SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN;
+function createArtifactManagementIdentity(
+  tokenOverride?: string,
+): ConfiguredBearerArtifactManagementIdentity | undefined {
+  const token = tokenOverride ?? environment.SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN;
   if (token === undefined) return undefined;
   const actorId = environment.SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID;
   const roles = environment.SDAR_ARTIFACT_MANAGEMENT_ROLES;

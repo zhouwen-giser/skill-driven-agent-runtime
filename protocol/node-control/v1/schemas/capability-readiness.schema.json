@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/CapabilityReadiness.schema.json",
+  "title": "CapabilityReadiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "capabilityId",
+    "capabilityVersion",
+    "snapshotVersion",
+    "status",
+    "evaluatedAt",
+    "validUntil",
+    "reasons"
+  ],
+  "properties": {
+    "capabilityId": {
+      "type": "string"
+    },
+    "capabilityVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "snapshotVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "degraded",
+        "unavailable",
+        "suspended"
+      ]
+    },
+    "evaluatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "validUntil": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "catalogHash": {
+      "type": "string"
+    },
+    "policyHash": {
+      "type": "string"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "blocking"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "dependencyRef": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "availableImplementations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unavailableImplementations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

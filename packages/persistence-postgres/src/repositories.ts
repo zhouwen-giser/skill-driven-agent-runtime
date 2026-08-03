@@ -4047,7 +4047,7 @@ export class PostgresSkillRepository implements SkillRepository {
     const result = await this.#pool.query<SkillVersionRow>(
       `${skillVersionSelect}
        JOIN skill s ON s.skill_id = v.skill_id AND s.current_version = v.version
-       WHERE v.status = 'enabled' ORDER BY v.skill_id`,
+       WHERE ${skillRuntimeStatusExpression} = 'enabled' ORDER BY v.skill_id`,
     );
     return result.rows.map(mapSkillVersionRow);
   }
@@ -6630,15 +6630,26 @@ export class PostgresMcpRegistryRepository
   }
 }
 
+const skillRuntimeStatusExpression = `CASE governance.lifecycle_status
+  WHEN 'published' THEN 'enabled'
+  WHEN 'suspended' THEN 'disabled'
+  WHEN 'deprecated' THEN 'deprecated'
+  WHEN 'retired' THEN 'deprecated'
+  ELSE v.status
+END`;
+
 const skillVersionSelect = `SELECT
   v.skill_id, v.version, v.name, v.summary, v.description, v.capabilities_json,
   v.workflow_guidance, v.output_instruction, v.input_schema_json, v.output_schema_json,
   v.tool_policy_json, v.runtime_policy_json, v.usage_specification_json,
-  o.specification_json AS outcome_specification_json, v.status, v.source_kind,
+  o.specification_json AS outcome_specification_json,
+  ${skillRuntimeStatusExpression} AS status, v.source_kind,
   v.validation_passed, v.previous_version, v.created_at
   FROM skill_version v
   LEFT JOIN skill_outcome_specification o
-    ON o.skill_id=v.skill_id AND o.skill_version=v.version`;
+    ON o.skill_id=v.skill_id AND o.skill_version=v.version
+  LEFT JOIN runtime_skill_version_governance governance
+    ON governance.skill_id=v.skill_id AND governance.skill_version=v.version`;
 
 export class PostgresSkillDraftRepository implements SkillDraftRepository {
   readonly #pool: Pool;

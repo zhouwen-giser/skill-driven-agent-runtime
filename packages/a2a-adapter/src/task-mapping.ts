@@ -114,6 +114,15 @@ export function toSubmitTaskCommand(
   }
 
   const metadata = messageMetadata(message);
+  const dataParts = message.parts.filter(
+    (part): part is Part & { content: { $case: 'data'; value: unknown } } =>
+      part.content?.$case === 'data',
+  );
+  if (dataParts.length > 1)
+    throw new A2AMappingError(
+      'A2A_INPUT_CONTENT_INVALID',
+      'A2A capability submission accepts at most one structured data part.',
+    );
   const rawUserId = metadata['user_id'];
   if (rawUserId !== undefined && typeof rawUserId !== 'string') {
     throw new A2AMappingError('A2A_USER_ID_INVALID', 'A2A metadata user_id must be a string.');
@@ -125,6 +134,9 @@ export function toSubmitTaskCommand(
     ...(rawUserId === undefined ? {} : { userId: rawUserId }),
     messageText: text,
     metadata,
+    ...(dataParts[0] === undefined
+      ? {}
+      : { capabilityInput: snapshotRemoteTaskInputValue(dataParts[0].content.value) }),
     ...(SkillDraftActionSchema.safeParse(metadata['sdar_action']).success
       ? {
           skillDraftIntent:
