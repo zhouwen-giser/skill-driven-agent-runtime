@@ -982,3 +982,13 @@ release verification run.
 | V141-EVIDENCE-EXPORT-ACK-001 | verified | `RuntimeEvidenceExportService` and `PostgresRuntimeEvidenceExportStore`; lease, exact sent ownership and explicit in-batch contiguous/partial ACK | focused Unit plus 11 real PostgreSQL tests; ADR-128/129 |
 | V141-EVIDENCE-EXPORT-VERTICAL-001 | verified | Control create/validate/publish/test/replay -> Runtime Active/LKG -> canonical outbox -> Redis wake -> HTTP receiver; receiver outage cannot change Task authority | `evidence-export-v141.integration.test.ts`: real Control/Runtime PostgreSQL, Redis and HTTP receiver, 1/1 |
 | V141-EVIDENCE-PHASE4-GATE | verified | complete old external Telemetry API/service/client/transport removal; projectors intentionally begin Phase 5 | `pnpm verify`: 1,207 static Unit/Contract, 158 Integration, 72 E2E, 37 migrations, architecture, build and smokes; `evidence-export-protocol-report.md` |
+
+## SDAR v1.4.1 Runtime Core Evidence Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| V141-EVIDENCE-RUNTIME-CORE-001 | verified | `RuntimeCoreEvidenceProjector` maps all 18 Runtime types with versions, patch lineage, action basis and layered receipt | Unit 3/3; `runtime-core-evidence-report.md`; ADR-130 |
+| V141-EVIDENCE-RUNTIME-REF-001 | verified | exact Plan Step and stable unique real `skill.execution` reference; missing/ambiguous facts create blocking issues | Unit missing-source regression and PostgreSQL identity assertion |
+| V141-EVIDENCE-RUNTIME-TERMINAL-001 | verified | Run Seal keeps Task/Goal/Control/Workflow state distinct and checks consistency | PostgreSQL vertical and schema validation for 19 instances |
+| V141-EVIDENCE-RUNTIME-PROJECTION-001 | verified | repeatable-read snapshot, idempotent outbox, checkpoint, issue and draft manifest | replay/pending/manifest integration assertions; architecture gate |
+| V141-EVIDENCE-PHASE5-GATE | verified | Runtime 18/18; total coverage 18/100; final sealing remains Phase 10 | format/lint/typecheck/architecture/evidence-contract plus Unit and PostgreSQL Integration |

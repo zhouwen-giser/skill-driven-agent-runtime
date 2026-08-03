@@ -1,0 +1,22 @@
+{
+  "contract": "sdar.evidence/v1",
+  "phase": 5,
+  "catalogTotal": 100,
+  "sourceInventory": {
+    "sourceConfirmed": 100,
+    "sourceMissingBlocker": 0,
+    "conditionalNotApplicable": 0,
+    "classified": 100,
+    "classifiedPercent": 100
+  },
+  "implementationCoverage": {
+    "implementedAndVerified": 18,
+    "percent": 18,
+    "family": "runtime",
+    "familyImplementedAndVerified": 18,
+    "familyTotal": 18,
+    "note": "All Runtime-family projectors are implemented and verified. Skill and later families remain source-confirmed for Phases 6-10."
+  },
+  "phase1Baseline": "reports/v1.4.1-evidence/source-coverage-baseline.json",
+  "generatedFrom": "reports/v1.4.1-evidence/source-to-evidence-matrix.json"
+}

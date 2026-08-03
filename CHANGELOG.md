@@ -25,7 +25,11 @@ All notable changes to this project are documented here. The format follows Keep
   outage degrades export state without changing completed Tasks or Active/LKG configuration.
 - Phase 4 full verification passed in 601,088 ms with 1,207 static Unit/Contract tests, 158
   Integration tests, 72 E2E tests, 37 migrations, architecture, build and all smokes. Formal source
-  projector coverage remains 0/100 until Phases 5-10.
+  projector coverage remained 0/100 at that checkpoint.
+- Added the 18-type Runtime Core projector over real Task, Goal/Contract/Patch, versioned Plan/Step,
+  Workflow transition, decisions, gates, action/receipt, verification, outcome and Run Seal sources.
+- Added exact stable `skill.execution` references and blocking Quality Issues for missing/ambiguous
+  sources or terminal inconsistency. Phase 5 gates pass; coverage is 18/100 verified.
 
 ## SDAR v1.4 P14 Release Qualification
 

@@ -1,7 +1,7 @@
 # Project Status
 
 SDAR v1.4.1 Canonical Evidence Export is `IN_PROGRESS` (2026-08-04) on
-`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-4
+`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-5
 are complete: the user-supplied task package is SHA-256 verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
@@ -22,8 +22,12 @@ exact sent ownership, explicit contiguous/partial ACK, required-family enforceme
 CredentialRef-only endpoint security and nonblocking receiver outage behavior. Focused evidence is
 21 Unit, 71 Contract, 11 real PostgreSQL and one real Control-to-HTTP vertical test. Full
 `pnpm verify` passed in 601,088 ms: 1,207 static Unit/Contract tests, 158 Integration, 72 E2E,
-build and all smokes. Formal projector coverage remains 0/100. No ClickHouse, merge, tag, release,
-or deployment has started; Phase 5 Runtime core projection is next.
+build and all smokes. Phase 5 projects all 18 Runtime types from repeatable-read authoritative
+snapshots, including version/patch lineage, action basis, layered receipts, stable Skill Execution
+references, terminal consistency, blocking source-gap issues, checkpoints and a draft manifest.
+Format/lint/typecheck, 658-source architecture, the 100-record contract, 3 Unit and 1 real
+PostgreSQL Integration tests pass. Formal projector coverage is 18/100. No ClickHouse, merge, tag,
+release, or deployment has started; Phase 6 complete Skill usage projection is next.
 
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`

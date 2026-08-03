@@ -778,7 +778,7 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     delivery_guarantee: 'at_least_once; stable-id idempotent',
     evaluation_role: options.role ?? 'required',
     applicability: options.applicability ?? 'episode feature/policy determines applicability',
-    mapper: mapperName(recordType),
+    mapper: options.mapper ?? (family === 'runtime' ? 'RuntimeCoreEvidenceProjector' : mapperName(recordType)),
     projection_mode:
       sourceSystem === 'control'
         ? 'durable_control_source_projector'
@@ -794,7 +794,7 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     artifact_policy:
       options.artifact ?? 'inline bounded structured fact; oversized payload by ArtifactRef',
     required_references: requiredReferences,
-    status: 'source_confirmed',
+    status: options.status ?? (family === 'runtime' ? 'implemented_and_verified' : 'source_confirmed'),
   };
 }
 
@@ -1024,7 +1024,12 @@ for (const record of records) {
     }
   }
   if (
-    !new Set(['source_confirmed', 'source_missing_blocker', 'conditional_not_applicable']).has(
+    !new Set([
+      'source_confirmed',
+      'source_missing_blocker',
+      'conditional_not_applicable',
+      'implemented_and_verified',
+    ]).has(
       record.status,
     )
   ) {
@@ -1040,7 +1045,12 @@ const csv =
   ].join('\n') + '\n';
 
 const statusCounts = Object.fromEntries(
-  ['source_confirmed', 'source_missing_blocker', 'conditional_not_applicable'].map((status) => [
+  [
+    'source_confirmed',
+    'source_missing_blocker',
+    'conditional_not_applicable',
+    'implemented_and_verified',
+  ].map((status) => [
     status,
     records.filter((record) => record.status === status).length,
   ]),

@@ -245,10 +245,15 @@ import {
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
+  PostgresEvidenceStore,
   PostgresRuntimeAgentCardRepository,
+  PostgresRuntimeCoreEvidenceSource,
   PostgresRuntimeEvidenceExportStore,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
-import { RuntimeEvidenceExportService } from '../../../packages/runtime-control-application/src/index.js';
+import {
+  RuntimeCoreEvidenceProjector,
+  RuntimeEvidenceExportService,
+} from '../../../packages/runtime-control-application/src/index.js';
 import {
   EnvironmentEvidenceCredentialResolver,
   HttpEvidenceExportTransport,
@@ -392,6 +397,7 @@ export interface ServerRuntimeOptions {
   readonly postgresUrl: string;
   readonly redis: RedisConnectionConfig;
   readonly masterKeyBase64: string;
+  readonly evidenceEnvironment?: string;
   readonly queueName?: string;
   readonly applyMigrations?: boolean;
   readonly a2aHost?: string;
@@ -676,6 +682,13 @@ export async function startServerRuntime(
     transport: new HttpEvidenceExportTransport(new EnvironmentEvidenceCredentialResolver()),
     clock,
     actorId: 'sdar-runtime',
+  });
+  const runtimeCoreEvidenceSource = new PostgresRuntimeCoreEvidenceSource(pool);
+  const runtimeCoreEvidenceProjector = new RuntimeCoreEvidenceProjector({
+    source: runtimeCoreEvidenceSource,
+    writer: new PostgresEvidenceStore(pool),
+    environment: options.evidenceEnvironment ?? 'runtime',
+    clock,
   });
   const cognitiveManagementActionRepository = new PostgresCognitiveManagementActionRepository(pool);
   const cognitiveManagementActions = new CognitiveManagementActionGate({
@@ -4115,6 +4128,25 @@ export async function startServerRuntime(
       });
   }, 1_000);
   evidenceExportTimer.unref();
+  let runtimeCoreEvidenceProjectionRunning = false;
+  const runtimeCoreEvidenceProjectionTimer = setInterval(() => {
+    if (runtimeCoreEvidenceProjectionRunning) return;
+    runtimeCoreEvidenceProjectionRunning = true;
+    void runtimeCoreEvidenceSource
+      .pendingTaskIds(10)
+      .then(async (taskIds) => {
+        for (const taskId of taskIds) await runtimeCoreEvidenceProjector.projectTask(taskId);
+      })
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'evidence_projection.runtime_core_failed', errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        runtimeCoreEvidenceProjectionRunning = false;
+      });
+  }, 1_000);
+  runtimeCoreEvidenceProjectionTimer.unref();
   const worker = new BullMqContextWorker({
     connection: options.redis,
     queueName,
@@ -4638,6 +4670,7 @@ export async function startServerRuntime(
         clearInterval(capabilityCatalogRefreshTimer);
         clearInterval(experienceDispatchTimer);
         clearInterval(evidenceExportTimer);
+        clearInterval(runtimeCoreEvidenceProjectionTimer);
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
           clearInterval(remoteTaskContinuationReconcileTimer);
@@ -4691,6 +4724,7 @@ export async function startServerRuntime(
     clearInterval(capabilityCatalogRefreshTimer);
     clearInterval(experienceDispatchTimer);
     clearInterval(evidenceExportTimer);
+    clearInterval(runtimeCoreEvidenceProjectionTimer);
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);

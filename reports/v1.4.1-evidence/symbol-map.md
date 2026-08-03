@@ -20,6 +20,9 @@
 | `ExperienceTraceNormalizer` | `packages/application/src/compiler/experience-normalizer.ts` | ExperienceTrace/Activity normalization |
 | `DeterministicProcessMiner` | `packages/application/src/compiler/process-miner.ts` | ProcessVariant and WorkflowPattern derivation |
 | `PatternFusionService` / `PatternGeneralizationService` | `packages/application/src/compiler/pattern-generalization.ts` | fused/generalized compiler evidence |
+| `RuntimeCoreEvidenceProjector` | `packages/runtime-control-application/src/runtime-core-evidence-projector.ts` | all 18 Runtime records, Quality Issues, checkpoint and draft manifest |
+| `createSkillExecutionEvidenceRecordId` | `packages/runtime-control-application/src/runtime-core-evidence-projector.ts` | stable cross-family Skill Execution reference identity |
+| `PostgresRuntimeCoreEvidenceSource` | `packages/runtime-control-persistence-postgres/src/runtime-core-evidence-source.ts` | repeatable-read Runtime source snapshot and pending terminal Task scan |
 
 ## Control evidence source symbols
 

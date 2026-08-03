@@ -49,6 +49,14 @@
 - Artifact/compiler: `packages/domain/src/compiler/`, `packages/application/src/compiler/`, and
   `packages/persistence-postgres/src/compiler/`.
 
+## Phase 5 Runtime Core projection
+
+- Application mapper: `packages/runtime-control-application/src/runtime-core-evidence-projector.ts`.
+- PostgreSQL source: `packages/runtime-control-persistence-postgres/src/runtime-core-evidence-source.ts`.
+- Composition: the sole Server root performs a bounded terminal-Task scan.
+- Evidence authority: `PostgresEvidenceStore` owns outbox/checkpoint/issue/manifest writes.
+- Verification: focused Unit and real PostgreSQL vertical tests in the corresponding packages.
+
 ## Control authoritative source areas
 
 - Domain: `packages/node-control-domain/src/`.

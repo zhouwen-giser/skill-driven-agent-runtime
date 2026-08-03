@@ -69,7 +69,8 @@ Control read before mapping.
       Evidence authorities, and passed focused PostgreSQL, migration, and full verification gates.
 - [x] 2026-08-04 Phase 4 replaced the legacy Telemetry wire/domain path with fenced Evidence batch
       export, explicit contiguous/partial ACK and a real Control-to-Sink outage-safe vertical.
-- [ ] Phase 5 project Runtime core evidence.
+- [x] 2026-08-04 Phase 5 projected all 18 Runtime types with exact references, terminal
+      consistency, blocking source-gap issues, checkpoints and a draft manifest.
 - [ ] Phase 6 project complete Skill usage evidence.
 - [ ] Phase 7 project MCP Task and Capability evidence.
 - [ ] Phase 8 project Experience, Replay, and Artifact evidence.
@@ -118,6 +119,13 @@ Control read before mapping.
   aligned. Regenerating the manifest restored deterministic contract verification.
 - The sandbox could not read Docker's user config during a full migration gate. The authorized
   escalated rerun against the existing isolated services passed all eight stages.
+- Phase 5's first review found that `runtime.action` lacked its required `skill.execution`
+  reference. Exact identity now derives only from one persisted matching Skill Execution; zero or
+  multiple matches create a blocking Quality Issue.
+- Runtime terminal evidence carries Task, Goal, Control and Workflow statuses separately. Terminal
+  Workflow status is checked but is not treated as proof of Goal achievement.
+- A Run Seal alone cannot suppress recovery: pending selection also requires the corresponding
+  manifest, closing the crash window between idempotent record append and manifest save.
 
 ## Decision Log
 
@@ -132,6 +140,10 @@ Control read before mapping.
 - D-EP-006: Required evidence cannot be disabled by configuration; only diagnostic records can be
   excluded.
 - D-EP-007: New dependencies require the OSS intake gate. The initial design adds none.
+- D-EP-008: Runtime core uses a repeatable-read durable source projector over existing authorities;
+  it does not retrofit or rewrite their transaction paths.
+- D-EP-009: Cross-family Skill Execution references use the same canonical source identity that
+  Phase 6 will emit; ambiguous matches fail visibly and are never selected by order.
 
 ## Implementation Steps
 
@@ -145,8 +157,8 @@ Control read before mapping.
 4. [Complete] Replace the old Telemetry application/adapter/API contract with evidence
    configuration, batch/ACK transport, retry/LKG/export status, and fail-closed security
    validation.
-5. Implement source projectors family by family in package order, updating matrix and tests after
-   each phase.
+5. [In progress: Runtime complete] Implement source projectors family by family in package order,
+   updating matrix and tests after each phase. Runtime is 18/18; total is 18/100.
 6. Add manifest/quality/coverage enforcement, management recovery operations, and 44 required
    vertical scenarios.
 7. Run adversarial and performance gates, independent architecture/acceptance audits, freeze the
@@ -182,7 +194,7 @@ rewriting pushed history.
 
 ## Outcomes and Retrospective
 
-Phases 0 through 4 are complete. The baseline is reproducible, the append-only route is fixed, and
+Phases 0 through 5 are complete. The baseline is reproducible, the append-only route is fixed, and
 all 100 catalog types now have source-confirmed authority. The Domain freezes deterministic
 IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas under registry hash
 `sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`.
@@ -192,5 +204,6 @@ Evidence authorities with no data migration or dual write. Eleven focused Postgr
 Telemetry surface with a bounded, fenced `sdar.evidence/v1` batch/ACK service and proves the real
 Control -> Runtime -> PostgreSQL/Redis -> HTTP receiver path plus nonblocking receiver outage. Its
 601,088 ms full `pnpm verify` passes 1,207 static Unit/Contract, 158 Integration and 72 E2E tests.
-Formal projector coverage remains 0/100; Phase 5 starts Runtime core projectors. This section will
-be replaced with the final measured outcome after Phase 14.
+Runtime projector coverage is 18/18 and total formal coverage is 18/100. Phase 6 projects the
+complete Skill usage tree and reuses the frozen Skill Execution identity. This section will be
+replaced with the final measured outcome after Phase 14.
