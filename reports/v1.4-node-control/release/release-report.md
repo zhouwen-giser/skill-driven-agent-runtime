@@ -61,7 +61,7 @@ phase's principal implementation and evidence anchors.
 | Runtime Control OpenAPI | `09796b7cdc9e05c0ec990485d23e1045c679e7d87c662db6bf7618ca32a91177` |
 | Node Events AsyncAPI | `d117282d3fe65c20a7af5444b5c14edd78d77a04f3ec5cb3916dc5d676098f59` |
 | Telemetry Export contract | `46824f8472395342f3e4bffd05116a0f9db23f5bba103c083c2de3a8ba5ee279` |
-| v1.4 traceability CSV | `29a807469f5d1ca4aae79715ec49898f332c69f2e1ee04754df24683688d5f4c` |
+| v1.4 traceability CSV | `7f414ff5633a474d3a8774a75a596adea3c811e94c64a0f5db805171c96af8a4` |
 
 Frozen validation passes 76 files, 28 schemas, 111 operations, 20 events and 7 fixtures. The
 Management API separately validates 164 operations.
