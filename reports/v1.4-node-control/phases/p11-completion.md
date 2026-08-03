@@ -11,7 +11,7 @@ a telemetry query authority or allowing endpoint availability to affect Task exe
 - phaseBaseSha: `d978e8ef5d72ee4b7fd464aa3caac4fb367d00bc`
 - primaryImplementationSha: `a53b4fbd185e3d9c59f13857e9dac317be5f6f4f`
 - implementationSha: `7f631fd674352f72633994a2b47875e2856a9922`
-- evidenceSha: `PENDING_EVIDENCE_COMMIT`
+- evidenceSha: `3a2d872c432e06f26cc36f0f08d4ea9979fb05a9`
 
 ## Implementation
 
