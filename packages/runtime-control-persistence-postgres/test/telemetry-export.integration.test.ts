@@ -72,15 +72,17 @@ describe('P11 Runtime Telemetry Export PostgreSQL authority', { concurrent: fals
   });
 
   it('stops collection at the durable high watermark without deleting retained records', async () => {
-    const bounded = configuration({ outboxPolicy: { maxPendingRecords: 1 } });
+    const bounded = configuration({ outboxPolicy: { maxPendingRecords: 2 } });
     await store.apply(bounded, now);
     await insertEvent('event-p11-watermark-1', 'task.completed', '2026-08-03T01:00:01.000Z');
     await expect(store.capture(bounded, now)).resolves.toBe(1);
     await insertEvent('event-p11-watermark-2', 'task.failed', '2026-08-03T01:00:02.000Z');
-    await expect(store.capture(bounded, '2026-08-03T01:00:03.000Z')).resolves.toBe(0);
-    await expect(store.status('2026-08-03T01:00:03.000Z')).resolves.toMatchObject({
+    await insertEvent('event-p11-watermark-3', 'task.retried', '2026-08-03T01:00:03.000Z');
+    await expect(store.capture(bounded, '2026-08-03T01:00:04.000Z')).resolves.toBe(1);
+    await expect(store.capture(bounded, '2026-08-03T01:00:05.000Z')).resolves.toBe(0);
+    await expect(store.status('2026-08-03T01:00:05.000Z')).resolves.toMatchObject({
       status: 'blocked',
-      pendingRecords: 1,
+      pendingRecords: 2,
       lastErrorCode: 'TELEMETRY_OUTBOX_HIGH_WATERMARK',
     });
   });

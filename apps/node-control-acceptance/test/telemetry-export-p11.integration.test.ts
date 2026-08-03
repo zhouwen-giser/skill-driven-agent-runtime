@@ -28,6 +28,7 @@ const controlPool = new Pool({ connectionString: controlConnectionString, max: 2
 let runtime: ServerRuntimeHandle | undefined;
 let control: NodeControlApiRuntime | undefined;
 let ingestion: Server | undefined;
+let controlNodeId = 'node-p11';
 let ingestionUrl: string;
 let receivedRecords = 0;
 const previousCredential = process.env['P11_TELEMETRY_TOKEN'];
@@ -35,6 +36,16 @@ const previousCredential = process.env['P11_TELEMETRY_TOKEN'];
 beforeAll(async () => {
   process.env['P11_TELEMETRY_TOKEN'] = credential;
   await applyControlMigrations(controlPool);
+  await controlPool.query(
+    `TRUNCATE sdar_control.configuration_application,
+              sdar_control.configuration_command_receipt,
+              sdar_control.configuration_target_state,
+              sdar_control.configuration_revision,
+              sdar_control.model_route_definition,
+              sdar_control.llm_provider_definition,
+              sdar_control.management_operation,
+              sdar_control.control_audit_event CASCADE`,
+  );
   ingestion = createServer((request, response) => {
     if (request.headers.authorization !== `Bearer ${credential}`) {
       response.statusCode = 401;
@@ -64,7 +75,7 @@ beforeAll(async () => {
   const node = await controlPool.query<{ node_id: string }>(
     'SELECT node_id FROM sdar_control.node_profile LIMIT 1',
   );
-  const nodeId = node.rows[0]?.node_id ?? 'node-p11';
+  controlNodeId = node.rows[0]?.node_id ?? 'node-p11';
   runtime = await startServerRuntime({
     postgresUrl: runtimeConnectionString,
     redis: { host: '127.0.0.1', port: redisPort },
@@ -84,7 +95,7 @@ beforeAll(async () => {
     SDAR_CONTROL_API_PORT: 0,
     SDAR_CONTROL_API_TOKEN: apiToken,
     SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: runtimeToken,
-    SDAR_CONTROL_NODE_ID: nodeId,
+    SDAR_CONTROL_NODE_ID: controlNodeId,
     SDAR_CONTROL_NODE_TYPE: 'sdar-runtime',
     SDAR_CONTROL_NODE_DISPLAY_NAME: 'P11 Integration Node',
     SDAR_CONTROL_ENVIRONMENT: 'integration',
@@ -109,7 +120,9 @@ describe('P11 Node Control -> Runtime -> Telemetry endpoint', { concurrent: fals
     if (control === undefined) throw new Error('P11_CONTROL_NOT_STARTED');
     const revisionResult = await controlPool.query<{ next_revision: string }>(
       `SELECT (COALESCE(max(revision),0)+1)::text AS next_revision
-       FROM sdar_control.configuration_revision WHERE target_type='telemetry_link'`,
+       FROM sdar_control.configuration_revision
+       WHERE target_type='telemetry_link' AND target_id=$1`,
+      [controlNodeId],
     );
     const revisionRow = revisionResult.rows[0];
     if (revisionRow === undefined) throw new Error('P11_REVISION_UNAVAILABLE');
@@ -167,6 +180,36 @@ describe('P11 Node Control -> Runtime -> Telemetry endpoint', { concurrent: fals
       { idempotencyKey: testKey },
     );
     expect(testReplay.body).toEqual(tested.body);
+
+    const draftRevisionResult = await controlPool.query<{ next_revision: string }>(
+      `SELECT (COALESCE(max(revision),0)+1)::text AS next_revision
+       FROM sdar_control.configuration_revision
+       WHERE target_type='telemetry_link'
+         AND target_id=(
+           SELECT target_id FROM sdar_control.configuration_revision
+           WHERE configuration_id=$1 AND revision=$2
+         )`,
+      [exportId, revision],
+    );
+    const draftRevisionRow = draftRevisionResult.rows[0];
+    if (draftRevisionRow === undefined) throw new Error('P11_DRAFT_REVISION_UNAVAILABLE');
+    const draftRevision = Number(draftRevisionRow.next_revision);
+    const newerDraft = await command(
+      '/api/v1/telemetry-export/revisions',
+      {
+        ...definition,
+        endpointRef: 'http://127.0.0.1:1/unpublished',
+        revision: draftRevision,
+      },
+      { idempotencyKey: `p11-create-newer-draft-${randomUUID()}` },
+    );
+    expect(newerDraft.response.status, JSON.stringify(newerDraft.body)).toBe(201);
+    const activeTest = await command(
+      '/api/v1/telemetry-export/test',
+      { reason: 'Probe the applied P11 revision, not the newer draft.' },
+      { idempotencyKey: `p11-test-active-${randomUUID()}` },
+    );
+    expect(activeTest.body).toMatchObject({ status: 'succeeded' });
 
     const firstTask = await insertRuntimeFact('first');
     await waitFor(() => receivedRecords >= 1);
@@ -228,7 +271,7 @@ describe('P11 Node Control -> Runtime -> Telemetry endpoint', { concurrent: fals
            WHERE aggregate_id=$1 || ':' || $2::text AND action='telemetry-export.test') AS audits`,
       [exportId, revision],
     );
-    expect(controlAudit.rows).toEqual([{ operations: 1, audits: 1 }]);
+    expect(controlAudit.rows).toEqual([{ operations: 2, audits: 2 }]);
   });
 });
 

@@ -118,7 +118,9 @@ export class PostgresRuntimeTelemetryExportStore implements RuntimeTelemetryExpo
          WHERE export_id=$1 AND acknowledged_at IS NULL`,
         [configuration.exportId],
       );
-      if (Number(pending.rows[0]?.count ?? '0') >= maximumPending(configuration)) {
+      const pendingCount = Number(pending.rows[0]?.count ?? '0');
+      const pendingLimit = maximumPending(configuration);
+      if (pendingCount >= pendingLimit) {
         await this.#recordError(client, 'TELEMETRY_OUTBOX_HIGH_WATERMARK', observedAt);
         await client.query('COMMIT');
         return 0;
@@ -148,7 +150,7 @@ export class PostgresRuntimeTelemetryExportStore implements RuntimeTelemetryExpo
         [
           cursor?.collector_created_at ?? null,
           cursor?.collector_event_id ?? '',
-          Math.min(1_000, maximumPending(configuration)),
+          Math.min(1_000, pendingLimit - pendingCount),
           configuration.recordFamilies.includes('runtime_event') ||
             configuration.recordFamilies.includes('task_event'),
           configuration.recordFamilies,

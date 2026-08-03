@@ -240,8 +240,16 @@ export class NodeControlTelemetryExportService {
   }
 
   async findActive(): Promise<ConfigurationRevision> {
-    const current = await this.current();
-    return this.findByRevision(current.configuration.revision);
+    const revisions = await this.#configurations.list({ targetType: 'telemetry_link', limit: 200 });
+    const active = revisions
+      .filter((revision) => revision.targetId === this.#nodeId && revision.status === 'applied')
+      .sort((left, right) => right.revision - left.revision)[0];
+    if (active === undefined)
+      throw Object.assign(new Error('Active Telemetry Export configuration was not found.'), {
+        code: 'TELEMETRY_EXPORT_ACTIVE_NOT_FOUND',
+        status: 404,
+      });
+    return active;
   }
 }
 
