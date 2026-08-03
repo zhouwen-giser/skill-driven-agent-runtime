@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P12 Organization Profile and Node Events
+
+- Added immutable Node Profile draft/validate/publish governance with opaque ETags, request-hash
+  idempotency, ManagementOperation/Audit and Control PostgreSQL revision history.
+- Added the frozen 20-type durable Node Event stream with Event ID/revision/correlation,
+  Last-Event-ID reconnect and authoritative GET recovery; Redis remains wake-only.
+- Added a bounded durable bridge for Runtime readiness and Task capability-binding hints plus safe
+  organization TaskSummary list/detail projections.
+- Added separate organization bearer RBAC for the frozen GET profile while forbidding configuration,
+  provider, raw Skill/Artifact, telemetry, Audit and write surfaces.
+
 ## SDAR v1.4 P11 Telemetry Export
 
 - Added frozen public and internal output-only Telemetry Export routes over P02 Configuration

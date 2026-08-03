@@ -84,7 +84,11 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   durable outbox/retry/ACK/status, HTTPS SecretRef transport and real outage isolation pass. The
   final exact-commit gate passes 956 Unit/performance, 219 Contract, 146 Integration and 72 E2E
   tests; read-only Review closes 2 Major findings at 0 Blocking / 0 Major / 0 Minor.
-- [ ] P12: organization-facing node profile and events.
+- [x] 2026-08-03 11:04 +08:00 P12 complete: implementation `7eb5b83`, immutable Node Profile
+  governance, separate organization read RBAC, durable hint-only 20-event stream, Runtime
+  readiness/Task-binding bridge and safe TaskSummary reads pass. Exact-commit full verify passes
+  959 Unit/performance, 220 Contract, 149 Integration and 72 E2E tests; final Review closes 3 Major
+  and 2 Minor findings at 0 Blocking / 0 Major / 0 Minor.
 - [ ] P13: security, recovery, operations, and upgrade.
 - [ ] P14: final integration, qualification, PR, checks, and protected merge.
 
@@ -134,6 +138,13 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - P11 Review found that newest Revision was not synonymous with Active and that a near-full Outbox
   could overshoot its configured high watermark. Both were repaired with applied-only selection,
   remaining-capacity capture and real regressions before the final full gate.
+- P12's default local Redis port was already owned by an authorized retained stack. Reusing that
+  Redis while the repository harness created separate Runtime and Control test databases preserved
+  all existing state and produced 149 passing integrations.
+- P12's first exact full gate passed all code tests but the final infrastructure smoke read
+  `SDAR_POSTGRES_URL`, not `SDAR_TEST_POSTGRES_URL`, and reached an unrelated service on port 55432.
+  Supplying both variables to the isolated 55483 instance closed `28P01`; the clean rerun passed all
+  smokes.
 
 ## Decision Log
 
@@ -203,6 +214,12 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-03: The Runtime exporter treats `maxPendingRecords` as a hard durable ceiling. Capture is
   bounded by remaining capacity; reaching the ceiling preserves records and reports a blocked
   status without deleting Runtime events or affecting Task execution.
+- 2026-08-03: P12 keeps one Control-owned Node Event stream. Control changes project locally;
+  Runtime readiness and Task-binding facts cross through a durable source cursor as bounded hints.
+  Organization clients must refetch authoritative GET resources after every hint or reconnect.
+- 2026-08-03: Organization access is a separate service principal with an exact frozen GET
+  allowlist. Conditional Task commands remain disabled in P12; no internal configuration, provider,
+  Skill/Artifact, telemetry or Audit surface is opened.
 
 ## Implementation Steps
 
@@ -277,4 +294,8 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   Telemetry Export over P02 Control revisions and Runtime-owned Active/LKG/outbox/retry/ACK state.
   Its final exact-commit gate passes 934 Unit, 22 performance, 219 Contract, 146 Integration and 72
   E2E tests with 35 Runtime and 7 Control migrations; Review closes 2 Major findings with a final 0
-  Blocking / 0 Major / 0 Minor verdict. P12 and later behavior are not claimed.
+  Blocking / 0 Major / 0 Minor verdict. P12 adds immutable Profile governance, separate organization
+  RBAC, a durable hint-only event stream and safe Runtime TaskSummary reads. Its exact-commit gate
+  passes 937 Unit, 22 performance, 220 Contract, 149 Integration and 72 E2E tests with 36 Runtime
+  and 8 Control migrations; Review closes 3 Major and 2 Minor findings at 0 Blocking / 0 Major / 0
+  Minor. P13 and P14 behavior are not claimed.

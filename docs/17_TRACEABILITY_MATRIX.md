@@ -880,6 +880,17 @@ changed.
 | Active revision and outage isolation | verified | connection test selects newest applied revision, never newer Draft; endpoint shutdown degrades export only while both Task rows remain completed | real Control -> Runtime -> HTTP vertical integration |
 | P11 closure | verified | exact-commit full verify passed; Review 0 Blocking/0 Major/0 Minor after 2 Major repairs; P12 not started | `p11-completion.*`, `p11-review.md`, `p11-handoff.json`, verification summary |
 
+## SDAR v1.4 P12 Organization Profile and Node Events Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Profile governance and bounded health | verified | immutable draft/validated/active revisions, opaque ETag, request-hash receipt, ManagementOperation/Audit; unprobed Runtime is explicitly degraded | Domain/Application Unit; Control PostgreSQL integration; migration `0008` |
+| Frozen organization RBAC | verified | separate bearer identity and exact GET allowlist; internal configuration/provider/Skill/Artifact/Telemetry/Audit and all writes denied | HTTP Contract positive/403 fixtures; frozen profile review |
+| Durable hint-only Events | verified | exact 20-event catalog, append-only outbox, Event ID/aggregate revision/correlation, Last-Event-ID recovery and SSE backpressure | Domain Unit, Contract and real reconnect/refetch PostgreSQL vertical |
+| Runtime event boundary | verified | durable high-watermark copy of readiness and Task-binding hints only; Runtime stays fact authority and Redis stays wake-only | migrations `0143`/`0008`; real dual-database acceptance |
+| Safe Task read profile | verified | generic frozen TaskSummary list/detail; request text, user identity and workflow internals omitted; conditional controls disabled | Contract fixture plus real Runtime Task projection |
+| P12 closure | verified | exact-commit full verify passed; Review 0 Blocking/0 Major/0 Minor after 3 Major and 2 Minor repairs; P13 not started | `p12-completion.*`, `p12-review.md`, `p12-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |
