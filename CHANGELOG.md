@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P11 Telemetry Export
+
+- Added frozen public and internal output-only Telemetry Export routes over P02 Configuration
+  Revision, ETag/idempotency, desired/observed Ack and Control Operation/Audit authorities.
+- Added Runtime-owned Active/LKG, collector cursor, durable outbox, bounded retry, exact ACK and
+  auditable local delivery status in migration `0142`.
+- Added SecretRef-only, HTTPS-first, redirect-denying HTTP delivery and a nonblocking Server drain
+  loop whose endpoint failures never affect Task execution.
+- Added real Control-to-Runtime-to-PostgreSQL-to-HTTP evidence for ACK, retention, near-capacity
+  high-watermark enforcement, newer-Draft isolation and endpoint-outage continuation.
+
 ## SDAR v1.4 P10 Skill and Plan Template Governance
 
 - Added frozen public and internal Skill import/exact-version/publish/suspend/deprecate routes with

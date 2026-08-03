@@ -869,6 +869,17 @@ changed.
 | Credential and projection safety | verified | distinct RuntimeServiceAuth principal mapping; authority ID stays internal; timestamp-safe redaction | environment/management contract and public schema regressions |
 | P10 closure | verified | full verify passed; review 0 Blocking/0 Major/1 accepted Minor after 1 Blocking and 5 Major repairs; P11 not started | `p10-completion.*`, `p10-review.md`, `p10-handoff.json`, verification summary |
 
+## SDAR v1.4 P11 Telemetry Export Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Output-only frozen API | verified | six frozen public routes plus authenticated internal apply/status; no query, timeline, evaluation, reconciliation or ClickHouse route | Node Control and Runtime HTTP Contract; 76-file frozen-contract gate |
+| SecretRef and transport safety | verified | inline-secret rejection, `env:` Runtime resolver, HTTPS except loopback, redirect denial and safe error codes | Domain/transport Unit; zero-secret HTTP/Operation/Audit assertions |
+| Runtime delivery authority | verified | migration `0142` owns Active/LKG, cursor, outbox, retry, exact ACK and auditable local status in Runtime PostgreSQL | real PostgreSQL integration; migration rollback/reapply/checksum gate |
+| Retention and high watermark | verified | failed delivery retains pending rows; capture is capped by remaining durable capacity and blocks without deleting facts | near-capacity, retry and exact-ACK real PostgreSQL regressions |
+| Active revision and outage isolation | verified | connection test selects newest applied revision, never newer Draft; endpoint shutdown degrades export only while both Task rows remain completed | real Control -> Runtime -> HTTP vertical integration |
+| P11 closure | verified | exact-commit full verify passed; Review 0 Blocking/0 Major/0 Minor after 2 Major repairs; P12 not started | `p11-completion.*`, `p11-review.md`, `p11-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |

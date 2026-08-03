@@ -79,9 +79,11 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   evidence pass. Independent read-only reviews close 1 Blocking and 5 Major findings; full verify
   passes with 952 Unit/performance, 218 Contract, 143 Integration and 72 E2E tests; implementation
   `9e53ebb` and Evidence `b75d1b1` are published to the phase branch.
-- [ ] 2026-08-03 P11 in progress: bounded output-only telemetry configuration and delivery;
-  frozen public/internal routes, Runtime Active/LKG, durable delivery state and outage isolation are
-  being implemented without telemetry query, evaluation, reconciliation or Task-timeline APIs.
+- [x] 2026-08-03 08:17 +08:00 P11 complete: implementation `7f631fd`, frozen output-only
+  Telemetry Export routes, P02-backed Control revisions/Operation/Audit, Runtime Active/LKG,
+  durable outbox/retry/ACK/status, HTTPS SecretRef transport and real outage isolation pass. The
+  final exact-commit gate passes 956 Unit/performance, 219 Contract, 146 Integration and 72 E2E
+  tests; read-only Review closes 2 Major findings at 0 Blocking / 0 Major / 0 Minor.
 - [ ] P12: organization-facing node profile and events.
 - [ ] P13: security, recovery, operations, and upgrade.
 - [ ] P14: final integration, qualification, PR, checks, and protected merge.
@@ -124,6 +126,14 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   Artifact principal resolver made distinct valid credentials fail. RuntimeServiceAuth now maps
   through its own resolver to the same existing Artifact operator identity, without weakening
   either transport authentication or Artifact authorization.
+- P11's first exact full gate exposed a real HTTP-receipt/durable-ACK observation race. Waiting for
+  the authoritative status, rather than weakening the ACK assertion, made the test deterministic.
+- P11 full-gate reruns exposed two older serial-suite isolation assumptions: Control tests replaced
+  the single Node identity and a candidate test retained an active Capability Summary. The owning
+  tests now preserve the NodeProfile and clear only their own authority state.
+- P11 Review found that newest Revision was not synonymous with Active and that a near-full Outbox
+  could overshoot its configured high watermark. Both were repaired with applied-only selection,
+  remaining-capacity capture and real regressions before the final full gate.
 
 ## Decision Log
 
@@ -188,6 +198,11 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   `telemetry_link`, while Runtime PostgreSQL owns the applied Active/LKG snapshot, export outbox and
   delivery cursor. Export collection and delivery run outside Task transactions; endpoint failure
   degrades only export status and never Task execution.
+- 2026-08-03: A public Telemetry connection test may reapply only the newest `applied` local-node
+  Revision. Draft/validated/rejected revisions are never treated as Active, even when newer.
+- 2026-08-03: The Runtime exporter treats `maxPendingRecords` as a hard durable ceiling. Capture is
+  bounded by remaining capacity; reaching the ceiling preserves records and reports a blocked
+  status without deleting Runtime events or affecting Task execution.
 
 ## Implementation Steps
 
@@ -258,5 +273,8 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   review closes at 0 Blocking / 0 Major / 0 Minor. P10 adds exact Skill import/lifecycle governance
   and logical Plan Template adapters over the existing P02/P06 authority. Its full gate passes 930
   Unit, 22 performance, 218 Contract, 143 Integration and 72 E2E tests with 34 Runtime and 7 Control
-  migrations; final review is 0 Blocking / 0 Major / 1 accepted Minor. P11 and later behavior are
-  not claimed.
+  migrations; final review is 0 Blocking / 0 Major / 1 accepted Minor. P11 adds output-only
+  Telemetry Export over P02 Control revisions and Runtime-owned Active/LKG/outbox/retry/ACK state.
+  Its final exact-commit gate passes 934 Unit, 22 performance, 219 Contract, 146 Integration and 72
+  E2E tests with 35 Runtime and 7 Control migrations; Review closes 2 Major findings with a final 0
+  Blocking / 0 Major / 0 Minor verdict. P12 and later behavior are not claimed.
