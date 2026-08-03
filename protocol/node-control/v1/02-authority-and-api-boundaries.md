@@ -11,8 +11,8 @@
 | Goal、Task、Plan、Workflow、Skill Attempt | SDAR Runtime PostgreSQL | 查询投影、提交受控命令 |
 | TaskCapabilityBinding | SDAR Runtime PostgreSQL | 只读 |
 | Agent Card Active Revision | SDAR Runtime 本地已应用快照 | 发布候选、读取 Ack |
-| Telemetry Export Config | Node Control PostgreSQL + Runtime LKG | 定义、发布、读取投递状态 |
-| 遥测历史数据 | 独立 Telemetry Platform | SDAR 不提供查询 |
+| Evidence Export Config | Node Control PostgreSQL + Runtime LKG | 定义、发布、读取投递状态 |
+| 遥测历史数据 | 独立 Evidence Sink | SDAR 不提供查询 |
 
 ## 外部与内部 API
 

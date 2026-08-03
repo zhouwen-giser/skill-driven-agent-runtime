@@ -972,3 +972,13 @@ release verification run.
 | V141-EVIDENCE-DELIVERY-001 | verified | per-export/partition leases and fencing, exact sent ownership, contiguous bounded partial ACK, retained DLQ and issue/manifest constraints; ADR-128 | focused persistence and compatibility tests: 2 files / 11 tests |
 | V141-EVIDENCE-SOURCE-001 | source-confirmed | deterministic source matrix maps 100/100 catalog entries to real authoritative sources; projector coverage is intentionally deferred to Phases 4-10 | `source-to-evidence-matrix.{csv,json}`; `source-coverage-phase3.json` |
 | V141-EVIDENCE-PHASE3-GATE | verified | Phase 3 persistence only; external batch protocol remains Phase 4 | `pnpm verify`: 1,198 Unit/Contract, 158 Integration, 72 E2E plus migrations, architecture, build and smokes; `evidence-persistence-report.md` |
+
+## SDAR v1.4.1 Canonical Evidence Export Protocol Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| V141-EVIDENCE-EXPORT-CONFIG-001 | verified | required families cannot be omitted; only catalog Diagnostic types may be excluded; opaque CredentialRef and bounded policies; ADR-129 | Domain and Node Control Unit/Contract tests; frozen protocol validator |
+| V141-EVIDENCE-EXPORT-WIRE-001 | verified | `HttpEvidenceExportTransport`; exact `x-sdar-evidence-contract`; canonical batch hash; HTTPS/loopback, no redirect/user-info; bounded request/response/timeout | adapter Contract tests including invalid UTF-8, empty/numeric/oversized ACK and timeout |
+| V141-EVIDENCE-EXPORT-ACK-001 | verified | `RuntimeEvidenceExportService` and `PostgresRuntimeEvidenceExportStore`; lease, exact sent ownership and explicit in-batch contiguous/partial ACK | focused Unit plus 11 real PostgreSQL tests; ADR-128/129 |
+| V141-EVIDENCE-EXPORT-VERTICAL-001 | verified | Control create/validate/publish/test/replay -> Runtime Active/LKG -> canonical outbox -> Redis wake -> HTTP receiver; receiver outage cannot change Task authority | `evidence-export-v141.integration.test.ts`: real Control/Runtime PostgreSQL, Redis and HTTP receiver, 1/1 |
+| V141-EVIDENCE-PHASE4-GATE | verified | complete old external Telemetry API/service/client/transport removal; projectors intentionally begin Phase 5 | `pnpm verify`: 1,207 static Unit/Contract, 158 Integration, 72 E2E, 37 migrations, architecture, build and smokes; `evidence-export-protocol-report.md` |

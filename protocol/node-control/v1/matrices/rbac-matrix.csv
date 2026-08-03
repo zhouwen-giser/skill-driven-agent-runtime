@@ -1,4 +1,4 @@
-﻿role,a2a.manage,a2a.read,artifact.manage,artifact.read,audit.read,capability.manage,capability.read,configuration.manage,events.read,llm.manage,mcp.manage,node.read,node.write,operation.read,skill.manage,skill.read,smpp.manage,task.control,task.read,telemetry_export.manage
+role,a2a.manage,a2a.read,artifact.manage,artifact.read,audit.read,capability.manage,capability.read,configuration.manage,events.read,llm.manage,mcp.manage,node.read,node.write,operation.read,skill.manage,skill.read,smpp.manage,task.control,task.read,evidence_export.manage
 node_admin,allow,,allow,,allow,allow,,allow,allow,allow,allow,allow,allow,allow,allow,,allow,allow,allow,allow
 configuration_operator,,,,,,,,allow,,allow,,allow,,allow,,,,,,allow
 provider_operator,,,,,,,,,,,allow,allow,,allow,,allow,allow,,,

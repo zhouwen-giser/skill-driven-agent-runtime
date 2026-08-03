@@ -8,7 +8,7 @@ import {
   NodeControlConfigurationService,
   NodeControlEventService,
   NodeControlRuntimeGovernanceService,
-  type NodeControlTelemetryExportService,
+  type NodeControlEvidenceExportService,
   type ConfigurationReference,
   type NodeControlConfigurationRepository,
   type NodeControlFoundationRepository,
@@ -253,7 +253,7 @@ describe('Node Control HTTP frozen contract', () => {
     expect(repository.audits.some((audit) => audit.action === 'skill.publish')).toBe(true);
   });
 
-  it('exposes only the frozen output-side Telemetry Export routes', async () => {
+  it('exposes only the frozen output-side Evidence Export routes', async () => {
     const repository = new MemoryRepository();
     const service = new NodeControlFoundationService({
       repository,
@@ -266,33 +266,45 @@ describe('Node Control HTTP frozen contract', () => {
       clock: { now: () => '2026-08-03T00:00:00.000Z' },
       ids: { next: () => 'operation-p11' },
     });
-    const telemetryConfiguration = Object.freeze({
+    const evidenceConfiguration = Object.freeze({
       exportId: 'export-p11',
-      endpointRef: 'https://telemetry.example.test/ingest',
+      endpointRef: 'https://evidence.example.test/ingest',
       sourceId: 'runtime-p11',
       nodeId: 'node-p11',
-      credentialRef: 'env:P11_TELEMETRY_TOKEN',
-      recordFamilies: Object.freeze(['runtime_event']),
-      batchPolicy: Object.freeze({ maxRecords: 100 }),
-      retryPolicy: Object.freeze({ maxDelaySeconds: 300 }),
-      outboxPolicy: Object.freeze({ maxPendingRecords: 10_000 }),
+      credentialRef: 'env:P11_EVIDENCE_TOKEN',
+      includedFamilies: Object.freeze([
+        'runtime',
+        'skill',
+        'mcp_task',
+        'capability',
+        'experience',
+        'replay',
+        'artifact',
+        'node_control',
+        'evidence',
+      ]),
+      batchPolicy: Object.freeze({ maxRecords: 100, maxBytes: 262_144, flushIntervalMs: 1_000 }),
+      retryPolicy: Object.freeze({ baseDelayMs: 100, maxDelayMs: 300_000 }),
+      outboxPolicy: Object.freeze({ maxPendingRecords: 10_000, retentionDays: 30 }),
+      redactionProfile: 'strict_internal_v1',
+      artifactMode: 'reference' as const,
       status: 'active' as const,
       revision: 1,
       applyMode: 'hot_reload' as const,
     });
-    const operation = runtimeOperation('telemetry-export.apply', 'Apply P11 telemetry export.');
-    const telemetryExport = {
+    const operation = runtimeOperation('evidence-export.apply', 'Apply P11 Evidence export.');
+    const evidenceExport = {
       current: () =>
-        Promise.resolve({ configuration: telemetryConfiguration, etag: '"telemetry:p11:1"' }),
+        Promise.resolve({ configuration: evidenceConfiguration, etag: '"evidence:p11:1"' }),
       create: () =>
         Promise.resolve({
-          configuration: { ...telemetryConfiguration, status: 'draft' as const },
-          etag: '"telemetry:p11:1"',
+          configuration: { ...evidenceConfiguration, status: 'draft' as const },
+          etag: '"evidence:p11:1"',
         }),
       validate: () =>
         Promise.resolve({
-          configuration: { ...telemetryConfiguration, status: 'draft' as const },
-          etag: '"telemetry:p11:1:validated"',
+          configuration: { ...evidenceConfiguration, status: 'draft' as const },
+          etag: '"evidence:p11:1:validated"',
         }),
       publish: () => Promise.resolve(operation),
       test: () => Promise.resolve(operation),
@@ -302,42 +314,39 @@ describe('Node Control HTTP frozen contract', () => {
           status: 'degraded' as const,
           activeRevision: 1,
           pendingRecords: 2,
-          lastErrorCode: 'TELEMETRY_ENDPOINT_UNAVAILABLE',
+          lastErrorCode: 'EVIDENCE_ENDPOINT_UNAVAILABLE',
           lastErrorAt: '2026-08-03T00:00:00.000Z',
           observedAt: '2026-08-03T00:00:00.000Z',
         }),
-    } as unknown as NodeControlTelemetryExportService;
+    } as unknown as NodeControlEvidenceExportService;
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: token,
       runtimeServiceToken: `${token}-runtime`,
       nodeControlApiUrl: 'http://127.0.0.1:10080',
       nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
       a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
-      telemetryExport,
+      evidenceExport,
     });
     server = await listen(app);
     const baseUrl = address(server);
 
-    const current = await fetch(`${baseUrl}/api/v1/telemetry-export`, {
+    const current = await fetch(`${baseUrl}/api/v1/evidence-export`, {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(current.status).toBe(200);
-    expect(current.headers.get('etag')).toBe('"telemetry:p11:1"');
+    expect(current.headers.get('etag')).toBe('"evidence:p11:1"');
     const body = await current.json();
     const schema = JSON.parse(
-      await readFile(
-        'protocol/node-control/v1/schemas/telemetry-export-config.schema.json',
-        'utf8',
-      ),
+      await readFile('protocol/node-control/v1/schemas/evidence-export-config.schema.json', 'utf8'),
     ) as unknown;
     expect(new AjvJsonSchemaValidator().validate(schema, body)).toEqual({
       valid: true,
       errors: [],
     });
-    const status = await json(`${baseUrl}/api/v1/telemetry-export/status`, true);
+    const status = await json(`${baseUrl}/api/v1/evidence-export/status`, true);
     expect(status).toMatchObject({ status: 'degraded', pendingRecords: 2 });
 
-    const forbiddenQuery = await fetch(`${baseUrl}/api/v1/telemetry-export/query`, {
+    const forbiddenQuery = await fetch(`${baseUrl}/api/v1/evidence-export/query`, {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(forbiddenQuery.status).toBe(404);

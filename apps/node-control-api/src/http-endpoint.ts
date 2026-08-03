@@ -23,7 +23,7 @@ import {
   type NodeControlCapabilityService,
   type NodeControlSmppRegistryService,
   type NodeControlRuntimeGovernanceService,
-  type NodeControlTelemetryExportService,
+  type NodeControlEvidenceExportService,
   NodeControlRuntimeGovernanceError,
 } from '../../../packages/node-control-application/src/index.js';
 import type { TaskCapabilityBinding } from '../../../packages/domain/src/index.js';
@@ -38,7 +38,7 @@ import {
   smppSourceEtag,
   transitionManagementOperation,
   type RuntimeAgentCardCandidate,
-  type TelemetryExportConfiguration,
+  type ManagedEvidenceExportConfiguration,
 } from '../../../packages/node-control-domain/src/index.js';
 import type {
   RuntimeCapabilityReadinessInput,
@@ -80,7 +80,7 @@ export interface NodeControlHttpConfiguration {
     get(taskId: string): Promise<NodeControlTaskSummary | undefined>;
   }>;
   readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
-  readonly telemetryExport?: NodeControlTelemetryExportService;
+  readonly evidenceExport?: NodeControlEvidenceExportService;
   readonly nodeEvents?: NodeControlEventService;
 }
 
@@ -141,7 +141,7 @@ export function createNodeControlHttpApp(
           nodeControlApi: '1.0.0',
           runtimeControl: '1.0.0',
           nodeEvents: '1.0.0',
-          telemetryExport: '1.0.0',
+          evidenceExport: 'sdar.evidence/v1',
         },
         features: [
           'node-profile',
@@ -297,19 +297,21 @@ export function createNodeControlHttpApp(
     },
   );
 
-  app.get('/api/v1/telemetry-export', async (_request, response, next) => {
+  app.get('/api/v1/evidence-export', async (_request, response, next) => {
     try {
-      const current = await requiredTelemetryExport(configuration).current();
+      const current = await requiredEvidenceExport(configuration).current();
       response.status(200).set('etag', current.etag).json(current.configuration);
     } catch (error) {
       next(error);
     }
   });
 
-  app.post('/api/v1/telemetry-export/revisions', async (request, response, next) => {
+  app.post('/api/v1/evidence-export/revisions', async (request, response, next) => {
     try {
-      const created = await requiredTelemetryExport(configuration).create(
-        TelemetryExportConfigurationSchema.parse(request.body) as TelemetryExportConfiguration,
+      const created = await requiredEvidenceExport(configuration).create(
+        ManagedEvidenceExportConfigurationSchema.parse(
+          request.body,
+        ) as ManagedEvidenceExportConfiguration,
         requiredHeader(request, 'idempotency-key'),
       );
       response.status(201).set('etag', created.etag).json(created.configuration);
@@ -319,10 +321,10 @@ export function createNodeControlHttpApp(
   });
 
   app.post(
-    '/api/v1/telemetry-export/revisions/:revision/validate',
+    '/api/v1/evidence-export/revisions/:revision/validate',
     async (request, response, next) => {
       try {
-        const validated = await requiredTelemetryExport(configuration).validate(
+        const validated = await requiredEvidenceExport(configuration).validate(
           positiveRevision(request.params.revision),
           requiredHeader(request, 'if-match'),
           requiredHeader(request, 'idempotency-key'),
@@ -336,13 +338,13 @@ export function createNodeControlHttpApp(
   );
 
   app.post(
-    '/api/v1/telemetry-export/revisions/:revision/publish',
+    '/api/v1/evidence-export/revisions/:revision/publish',
     async (request, response, next) => {
       try {
         response
           .status(202)
           .json(
-            await requiredTelemetryExport(configuration).publish(
+            await requiredEvidenceExport(configuration).publish(
               positiveRevision(request.params.revision),
               requiredHeader(request, 'if-match'),
               requiredHeader(request, 'idempotency-key'),
@@ -355,20 +357,20 @@ export function createNodeControlHttpApp(
     },
   );
 
-  app.get('/api/v1/telemetry-export/status', async (_request, response, next) => {
+  app.get('/api/v1/evidence-export/status', async (_request, response, next) => {
     try {
-      response.status(200).json(await requiredTelemetryExport(configuration).status());
+      response.status(200).json(await requiredEvidenceExport(configuration).status());
     } catch (error) {
       next(error);
     }
   });
 
-  app.post('/api/v1/telemetry-export/test', async (request, response, next) => {
+  app.post('/api/v1/evidence-export/test', async (request, response, next) => {
     try {
       response
         .status(202)
         .json(
-          await requiredTelemetryExport(configuration).test(
+          await requiredEvidenceExport(configuration).test(
             requiredHeader(request, 'idempotency-key'),
             parseCommand(request.body),
           ),
@@ -1975,18 +1977,54 @@ const McpBindingImportSchema = z
   })
   .strict();
 const JsonObjectSchema = z.record(z.string(), z.json());
-const TelemetryExportConfigurationSchema = z
+const ManagedEvidenceExportConfigurationSchema = z
   .object({
     exportId: z.string().trim().min(1).max(256),
     endpointRef: z.url(),
     sourceId: z.string().trim().min(1).max(256),
     nodeId: z.string().trim().min(1).max(256).optional(),
-    credentialRef: z.string().trim().min(1).max(2_048),
-    recordFamilies: z.array(z.string().trim().min(1).max(256)).min(1),
-    batchPolicy: JsonObjectSchema.optional(),
-    retryPolicy: JsonObjectSchema.optional(),
-    outboxPolicy: JsonObjectSchema.optional(),
-    tlsPolicyRef: z.string().trim().min(1).max(2_048).optional(),
+    credentialRef: z
+      .string()
+      .trim()
+      .regex(/^(?:env|secret):[A-Za-z0-9_.:/-]{1,256}$/u),
+    includedFamilies: z
+      .array(
+        z.enum([
+          'runtime',
+          'skill',
+          'mcp_task',
+          'capability',
+          'experience',
+          'replay',
+          'artifact',
+          'node_control',
+          'evidence',
+        ]),
+      )
+      .min(1),
+    excludedDiagnosticTypes: z.array(z.string().trim().min(1).max(256)).max(100).optional(),
+    batchPolicy: z
+      .object({
+        maxRecords: z.number().int().min(1).max(1_000),
+        maxBytes: z.number().int().min(1_024).max(262_144),
+        flushIntervalMs: z.number().int().min(10).max(3_600_000),
+      })
+      .strict(),
+    retryPolicy: z
+      .object({
+        baseDelayMs: z.number().int().min(10).max(300_000),
+        maxDelayMs: z.number().int().min(10).max(86_400_000),
+        maxAttempts: z.number().int().min(1).max(1_000).optional(),
+      })
+      .strict(),
+    outboxPolicy: z
+      .object({
+        maxPendingRecords: z.number().int().min(1).max(1_000_000),
+        retentionDays: z.number().int().min(1).max(3_650),
+      })
+      .strict(),
+    redactionProfile: z.string().trim().min(1).max(256),
+    artifactMode: z.enum(['inline', 'reference']),
     status: z.enum(['draft', 'active', 'suspended', 'retired']),
     revision: z.number().int().positive(),
     applyMode: z.enum(['hot_reload', 'reconnect_required', 'restart_required']).optional(),
@@ -2436,10 +2474,10 @@ function roleOperationAllowed(role: PublicApiRole, method: string, originalUrl: 
   if (organizationOperationAllowed(method, originalUrl)) return true;
   if (method !== 'GET') return false;
   const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
-  const telemetryRead = /^\/api\/v1\/telemetry-export(?:\/status)?$/u.test(path);
-  if (role === 'node_viewer') return telemetryRead;
+  const evidenceRead = /^\/api\/v1\/evidence-export(?:\/status)?$/u.test(path);
+  if (role === 'node_viewer') return evidenceRead;
   if (role === 'node_operator' || role === 'security_admin')
-    return telemetryRead || /^\/api\/v1\/audit-events$/u.test(path);
+    return evidenceRead || /^\/api\/v1\/audit-events$/u.test(path);
   return false;
 }
 
@@ -2679,15 +2717,15 @@ function requiredRuntimeGovernance(
   return configuration.runtimeGovernance;
 }
 
-function requiredTelemetryExport(
+function requiredEvidenceExport(
   configuration: NodeControlHttpConfiguration,
-): NodeControlTelemetryExportService {
-  if (configuration.telemetryExport === undefined)
-    throw Object.assign(new Error('Telemetry Export is unavailable.'), {
-      code: 'TELEMETRY_EXPORT_UNAVAILABLE',
+): NodeControlEvidenceExportService {
+  if (configuration.evidenceExport === undefined)
+    throw Object.assign(new Error('Evidence Export is unavailable.'), {
+      code: 'EVIDENCE_EXPORT_UNAVAILABLE',
       status: 503,
     });
-  return configuration.telemetryExport;
+  return configuration.evidenceExport;
 }
 
 function requiredNodeEvents(configuration: NodeControlHttpConfiguration): NodeControlEventService {

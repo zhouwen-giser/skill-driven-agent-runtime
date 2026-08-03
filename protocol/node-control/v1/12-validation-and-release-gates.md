@@ -28,4 +28,4 @@
 - Capability Catalog 原子切换；
 - Agent Card Candidate 失败不覆盖 Active；
 - Task Binding 原子事务；
-- Telemetry Export 故障不影响 Task。
+- Evidence Export 故障不影响 Task。

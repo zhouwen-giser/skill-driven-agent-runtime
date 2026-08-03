@@ -1,7 +1,7 @@
 # Project Status
 
 SDAR v1.4.1 Canonical Evidence Export is `IN_PROGRESS` (2026-08-04) on
-`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-3
+`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-4
 are complete: the user-supplied task package is SHA-256 verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
@@ -16,9 +16,14 @@ Strategy B clean cutover: all three old Telemetry product tables are removed and
 Evidence authorities enforce source identity, hash conflict, sequence, partition cursor,
 High Watermark, lease/fencing, ACK, DLQ, issue, and manifest invariants. The seven missing sources
 are now closed, for 100/100 source-confirmed, while formal projector coverage remains 0/100.
-Eleven focused PostgreSQL tests and the 37-migration gate pass. Full `pnpm verify` passed in 553,810
-ms: 1,198 static Unit/Contract tests, 158 Integration, 72 E2E, build and all smokes. No ClickHouse,
-merge, tag, release, or deployment has started; Phase 4 Evidence batch protocol/service is next.
+Eleven focused PostgreSQL tests and the 37-migration gate pass. Phase 4 removes the complete legacy
+Telemetry API/service/transport surface and adds bounded fenced `sdar.evidence/v1` delivery with
+exact sent ownership, explicit contiguous/partial ACK, required-family enforcement,
+CredentialRef-only endpoint security and nonblocking receiver outage behavior. Focused evidence is
+21 Unit, 71 Contract, 11 real PostgreSQL and one real Control-to-HTTP vertical test. Full
+`pnpm verify` passed in 601,088 ms: 1,207 static Unit/Contract tests, 158 Integration, 72 E2E,
+build and all smokes. Formal projector coverage remains 0/100. No ClickHouse, merge, tag, release,
+or deployment has started; Phase 5 Runtime core projection is next.
 
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`

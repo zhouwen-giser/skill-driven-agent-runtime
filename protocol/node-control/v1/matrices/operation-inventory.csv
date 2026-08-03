@@ -1,4 +1,4 @@
-﻿operationId,method,path,tag,kind
+operationId,method,path,tag,kind
 getSdarNodeDeclaration,GET,/.well-known/sdar-node,Discovery,query
 getNodeControlLiveness,GET,/health/live,Discovery,query
 getNodeControlReadiness,GET,/health/ready,Discovery,query
@@ -73,12 +73,12 @@ pauseTask,POST,/api/v1/tasks/{taskId}/pause,Tasks,command
 resumeTask,POST,/api/v1/tasks/{taskId}/resume,Tasks,command
 cancelTask,POST,/api/v1/tasks/{taskId}/cancel,Tasks,command
 submitTaskGoalPatch,POST,/api/v1/tasks/{taskId}/goal-patches,Tasks,command
-getTelemetryExportConfiguration,GET,/api/v1/telemetry-export,TelemetryExport,query
-createTelemetryExportRevision,POST,/api/v1/telemetry-export/revisions,TelemetryExport,command
-validateTelemetryExportRevision,POST,/api/v1/telemetry-export/revisions/{revision}/validate,TelemetryExport,command
-publishTelemetryExportRevision,POST,/api/v1/telemetry-export/revisions/{revision}/publish,TelemetryExport,command
-getTelemetryExportStatus,GET,/api/v1/telemetry-export/status,TelemetryExport,query
-testTelemetryExportConnection,POST,/api/v1/telemetry-export/test,TelemetryExport,command
+getEvidenceExportConfiguration,GET,/api/v1/evidence-export,EvidenceExport,query
+createEvidenceExportRevision,POST,/api/v1/evidence-export/revisions,EvidenceExport,command
+validateEvidenceExportRevision,POST,/api/v1/evidence-export/revisions/{revision}/validate,EvidenceExport,command
+publishEvidenceExportRevision,POST,/api/v1/evidence-export/revisions/{revision}/publish,EvidenceExport,command
+getEvidenceExportStatus,GET,/api/v1/evidence-export/status,EvidenceExport,query
+testEvidenceExportConnection,POST,/api/v1/evidence-export/test,EvidenceExport,command
 listManagementOperations,GET,/api/v1/management-operations,Operations,query
 getManagementOperation,GET,/api/v1/management-operations/{operationId},Operations,query
 cancelManagementOperation,POST,/api/v1/management-operations/{operationId}/cancel,Operations,command

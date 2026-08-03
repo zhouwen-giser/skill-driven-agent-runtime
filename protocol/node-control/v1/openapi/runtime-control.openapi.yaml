@@ -1645,13 +1645,13 @@ paths:
           application/json:
             schema:
               $ref: ../schemas/command-request.schema.json
-  /internal/v1/telemetry-export/apply:
+  /internal/v1/evidence-export/apply:
     post:
-      operationId: applyTelemetryExportConfiguration
-      summary: Apply telemetry export configuration
+      operationId: applyEvidenceExportConfiguration
+      summary: Apply evidence export configuration
       responses:
         '202':
-          description: Apply telemetry export configuration
+          description: Apply evidence export configuration
           content:
             application/json:
               schema:
@@ -1709,10 +1709,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ../schemas/telemetry-export-config.schema.json
-  /internal/v1/telemetry-export/status:
+              $ref: ../schemas/evidence-export-config.schema.json
+  /internal/v1/evidence-export/status:
     get:
-      operationId: getRuntimeTelemetryExportStatus
+      operationId: getRuntimeEvidenceExportStatus
       summary: Get Runtime telemetry delivery state
       responses:
         '200':
@@ -1720,7 +1720,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ../schemas/telemetry-export-status.schema.json
+                $ref: ../schemas/evidence-export-status.schema.json
         '400':
           description: Problem Details
           content:

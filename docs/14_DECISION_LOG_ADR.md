@@ -29,5 +29,6 @@
 | ADR-126     | v1.4.1 通过追加迁移进行 Canonical Evidence clean cutover，不改写已发布的 0142/0143                    |
 | ADR-127     | `sdar.evidence/v1` 使用稳定来源身份、规范 JSON 哈希及 100 个封闭目录 Schema                            |
 | ADR-128     | Runtime PostgreSQL 独占 Evidence outbox/checkpoint/lease/ACK/DLQ/manifest 权威，Redis 仅可唤醒          |
+| ADR-129     | `sdar.evidence/v1` 是唯一 Batch/ACK 协议；精确发送归属、显式连续 ACK、受限安全传输和 PostgreSQL 权威 |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

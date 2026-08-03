@@ -2,10 +2,10 @@ import { z } from 'zod';
 
 import type {
   ManagementOperation,
-  TelemetryExportConfiguration,
-  TelemetryExportStatus,
+  ManagedEvidenceExportConfiguration,
+  EvidenceExportStatus,
 } from '../../node-control-domain/src/index.js';
-import type { NodeControlRuntimeTelemetryExportClient } from '../../node-control-application/src/index.js';
+import type { NodeControlRuntimeEvidenceExportClient } from '../../node-control-application/src/index.js';
 
 const OperationSchema = z
   .object({
@@ -37,7 +37,10 @@ const StatusSchema = z
     exportId: z.string(),
     status: z.enum(['healthy', 'degraded', 'blocked', 'disabled', 'unavailable']),
     activeRevision: z.number().int().nonnegative().optional(),
-    lastAcknowledgedSequence: z.number().int().nonnegative().optional(),
+    lastAcknowledgedSequence: z
+      .string()
+      .regex(/^(?:0|[1-9][0-9]*)$/u)
+      .optional(),
     pendingRecords: z.number().int().nonnegative(),
     oldestPendingAt: z.iso.datetime({ offset: true }).optional(),
     lastAcknowledgedAt: z.iso.datetime({ offset: true }).optional(),
@@ -47,7 +50,7 @@ const StatusSchema = z
   })
   .strict();
 
-export class HttpRuntimeTelemetryExportClient implements NodeControlRuntimeTelemetryExportClient {
+export class HttpRuntimeEvidenceExportClient implements NodeControlRuntimeEvidenceExportClient {
   readonly #baseUrl: string;
   readonly #serviceToken: string;
 
@@ -56,8 +59,8 @@ export class HttpRuntimeTelemetryExportClient implements NodeControlRuntimeTelem
     this.#serviceToken = configuration.serviceToken;
   }
 
-  async apply(configuration: TelemetryExportConfiguration): Promise<ManagementOperation> {
-    const response = await globalThis.fetch(`${this.#baseUrl}/internal/v1/telemetry-export/apply`, {
+  async apply(configuration: ManagedEvidenceExportConfiguration): Promise<ManagementOperation> {
+    const response = await globalThis.fetch(`${this.#baseUrl}/internal/v1/evidence-export/apply`, {
       method: 'POST',
       headers: this.#headers({ 'content-type': 'application/json' }),
       body: JSON.stringify(configuration),
@@ -85,13 +88,10 @@ export class HttpRuntimeTelemetryExportClient implements NodeControlRuntimeTelem
     });
   }
 
-  async status(): Promise<TelemetryExportStatus> {
-    const response = await globalThis.fetch(
-      `${this.#baseUrl}/internal/v1/telemetry-export/status`,
-      {
-        headers: this.#headers(),
-      },
-    );
+  async status(): Promise<EvidenceExportStatus> {
+    const response = await globalThis.fetch(`${this.#baseUrl}/internal/v1/evidence-export/status`, {
+      headers: this.#headers(),
+    });
     const input = StatusSchema.parse(await responseJson(response));
     return Object.freeze({
       exportId: input.exportId,
@@ -125,8 +125,8 @@ async function responseJson(response: Response): Promise<unknown> {
       'code' in value &&
       typeof value.code === 'string'
         ? value.code
-        : `RUNTIME_TELEMETRY_HTTP_${String(response.status)}`;
-    throw Object.assign(new Error('Runtime Telemetry Export request failed.'), {
+        : `RUNTIME_EVIDENCE_HTTP_${String(response.status)}`;
+    throw Object.assign(new Error('Runtime Evidence Export request failed.'), {
       code,
       status: response.status,
     });

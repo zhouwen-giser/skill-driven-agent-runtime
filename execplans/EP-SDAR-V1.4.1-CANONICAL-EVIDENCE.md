@@ -67,7 +67,8 @@ Control read before mapping.
       schemas, stable identity, canonical hashing, and fail-closed security.
 - [x] 2026-08-04 Phase 3 appended 0144, removed old Telemetry product tables, created eight
       Evidence authorities, and passed focused PostgreSQL, migration, and full verification gates.
-- [ ] Phase 4 replace legacy Telemetry wire/domain path with evidence batch export.
+- [x] 2026-08-04 Phase 4 replaced the legacy Telemetry wire/domain path with fenced Evidence batch
+      export, explicit contiguous/partial ACK and a real Control-to-Sink outage-safe vertical.
 - [ ] Phase 5 project Runtime core evidence.
 - [ ] Phase 6 project complete Skill usage evidence.
 - [ ] Phase 7 project MCP Task and Capability evidence.
@@ -107,6 +108,16 @@ Control read before mapping.
   inspect the actual catalog name, not infer a longer identifier.
 - Several frozen integration fixtures use Redis port 56379 directly. Operator-managed isolated
   infrastructure must preserve that repository contract even when PostgreSQL uses a custom port.
+- Control's `telemetry_link` target type remains only an internal configuration-revision key; the
+  public/internal routes, clients, services, transport and wire header now use Evidence naming.
+- The canonical JSON hard limit is 256 KiB, so the configured batch limit and HTTP body limit must
+  be identical and the service may send a shorter record prefix.
+- The first delivery-failure test exposed that the export-state row may not exist yet. Failure/DLQ
+  persistence now uses an atomic upsert transaction.
+- A full gate caught a stale generated Node Control manifest hash after the schema size limit was
+  aligned. Regenerating the manifest restored deterministic contract verification.
+- The sandbox could not read Docker's user config during a full migration gate. The authorized
+  escalated rerun against the existing isolated services passed all eight stages.
 
 ## Decision Log
 
@@ -131,8 +142,9 @@ Control read before mapping.
 3. [Complete] Append Runtime migration 0144; add clean-cutover authorities, repository semantics,
    guarded reset, migration verification, and real transaction/recovery tests. No Control migration
    was necessary because Control authority remains in its existing database.
-4. Replace the old Telemetry application/adapter/API contract with evidence configuration,
-   batch/ACK transport, retry/LKG/export status, and fail-closed security validation.
+4. [Complete] Replace the old Telemetry application/adapter/API contract with evidence
+   configuration, batch/ACK transport, retry/LKG/export status, and fail-closed security
+   validation.
 5. Implement source projectors family by family in package order, updating matrix and tests after
    each phase.
 6. Add manifest/quality/coverage enforcement, management recovery operations, and 44 required
@@ -170,12 +182,15 @@ rewriting pushed history.
 
 ## Outcomes and Retrospective
 
-Phases 0 through 3 are complete. The baseline is reproducible, the append-only route is fixed, and
+Phases 0 through 4 are complete. The baseline is reproducible, the append-only route is fixed, and
 all 100 catalog types now have source-confirmed authority. The Domain freezes deterministic
 IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas under registry hash
 `sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`.
 Migration 0144 removes the three old Telemetry product tables and creates eight constrained
 Evidence authorities with no data migration or dual write. Eleven focused PostgreSQL tests, the
-37-migration verifier, and a 553,810 ms full `pnpm verify` pass. Formal projector coverage remains
-0/100; Phase 4 starts the Evidence batch service/wire replacement. This section will be replaced
-with the final measured outcome after Phase 14.
+37-migration verifier, and Phase 3 full gate pass. Phase 4 replaces the complete external
+Telemetry surface with a bounded, fenced `sdar.evidence/v1` batch/ACK service and proves the real
+Control -> Runtime -> PostgreSQL/Redis -> HTTP receiver path plus nonblocking receiver outage. Its
+601,088 ms full `pnpm verify` passes 1,207 static Unit/Contract, 158 Integration and 72 E2E tests.
+Formal projector coverage remains 0/100; Phase 5 starts Runtime core projectors. This section will
+be replaced with the final measured outcome after Phase 14.

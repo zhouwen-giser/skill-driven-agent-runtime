@@ -14,9 +14,9 @@ import {
   createManagementOperation,
   transitionManagementOperation,
   type ManagementOperation,
-  type TelemetryExportConfiguration,
+  type ManagedEvidenceExportConfiguration,
 } from '../../node-control-domain/src/index.js';
-import type { RuntimeTelemetryExportService } from '../../runtime-control-application/src/index.js';
+import type { RuntimeEvidenceExportService } from '../../runtime-control-application/src/index.js';
 
 import type {
   McpRegistryService,
@@ -885,7 +885,7 @@ interface RuntimeControlRouteOptions {
   readonly runtimeControl?: Readonly<{
     bearerToken: string;
     skills: RuntimeSkillGovernanceService;
-    telemetryExport?: Pick<RuntimeTelemetryExportService, 'apply' | 'status'>;
+    evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
     actorId?: string;
     artifactPrincipalResolver?: ManagementPrincipalResolver;
   }>;
@@ -907,7 +907,7 @@ export async function startManagementHttpEndpoint(
     runtimeControl?: Readonly<{
       bearerToken: string;
       skills: RuntimeSkillGovernanceService;
-      telemetryExport?: Pick<RuntimeTelemetryExportService, 'apply' | 'status'>;
+      evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
       actorId?: string;
       artifactPrincipalResolver?: ManagementPrincipalResolver;
     }>;
@@ -3261,26 +3261,28 @@ function registerRuntimeControlGovernanceRoutes(
   options: RuntimeControlRouteOptions,
 ): void {
   app.post(
-    '/internal/v1/telemetry-export/apply',
+    '/internal/v1/evidence-export/apply',
     asyncRoute(async (request, response) => {
       const runtime = requireRuntimeControl(request, options.runtimeControl);
-      const telemetry = requiredRuntimeTelemetryExport(runtime.telemetryExport);
+      const evidence = requiredRuntimeEvidenceExport(runtime.evidenceExport);
       response
         .status(202)
         .json(
-          await telemetry.apply(
-            TelemetryExportConfigurationSchema.parse(request.body) as TelemetryExportConfiguration,
+          await evidence.apply(
+            ManagedEvidenceExportConfigurationSchema.parse(
+              request.body,
+            ) as ManagedEvidenceExportConfiguration,
           ),
         );
     }),
   );
   app.get(
-    '/internal/v1/telemetry-export/status',
+    '/internal/v1/evidence-export/status',
     asyncRoute(async (request, response) => {
       const runtime = requireRuntimeControl(request, options.runtimeControl);
       response
         .status(200)
-        .json(await requiredRuntimeTelemetryExport(runtime.telemetryExport).status());
+        .json(await requiredRuntimeEvidenceExport(runtime.evidenceExport).status());
     }),
   );
   app.post(
@@ -3440,19 +3442,54 @@ const RuntimeControlCommandSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .strict();
-const JsonObjectSchema = z.record(z.string(), z.json());
-const TelemetryExportConfigurationSchema = z
+const ManagedEvidenceExportConfigurationSchema = z
   .object({
     exportId: z.string().trim().min(1).max(256),
     endpointRef: z.url(),
     sourceId: z.string().trim().min(1).max(256),
     nodeId: z.string().trim().min(1).max(256).optional(),
-    credentialRef: z.string().trim().min(1).max(2_048),
-    recordFamilies: z.array(z.string().trim().min(1).max(256)).min(1),
-    batchPolicy: JsonObjectSchema.optional(),
-    retryPolicy: JsonObjectSchema.optional(),
-    outboxPolicy: JsonObjectSchema.optional(),
-    tlsPolicyRef: z.string().trim().min(1).max(2_048).optional(),
+    credentialRef: z
+      .string()
+      .trim()
+      .regex(/^(?:env|secret):[A-Za-z0-9_.:/-]{1,256}$/u),
+    includedFamilies: z
+      .array(
+        z.enum([
+          'runtime',
+          'skill',
+          'mcp_task',
+          'capability',
+          'experience',
+          'replay',
+          'artifact',
+          'node_control',
+          'evidence',
+        ]),
+      )
+      .min(1),
+    excludedDiagnosticTypes: z.array(z.string().trim().min(1).max(256)).max(100).optional(),
+    batchPolicy: z
+      .object({
+        maxRecords: z.number().int().min(1).max(1_000),
+        maxBytes: z.number().int().min(1_024).max(262_144),
+        flushIntervalMs: z.number().int().min(10).max(3_600_000),
+      })
+      .strict(),
+    retryPolicy: z
+      .object({
+        baseDelayMs: z.number().int().min(10).max(300_000),
+        maxDelayMs: z.number().int().min(10).max(86_400_000),
+        maxAttempts: z.number().int().min(1).max(1_000).optional(),
+      })
+      .strict(),
+    outboxPolicy: z
+      .object({
+        maxPendingRecords: z.number().int().min(1).max(1_000_000),
+        retentionDays: z.number().int().min(1).max(3_650),
+      })
+      .strict(),
+    redactionProfile: z.string().trim().min(1).max(256),
+    artifactMode: z.enum(['inline', 'reference']),
     status: z.enum(['draft', 'active', 'suspended', 'retired']),
     revision: z.number().int().positive(),
     applyMode: z.enum(['hot_reload', 'reconnect_required', 'restart_required']).optional(),
@@ -3512,12 +3549,12 @@ function requiredRuntimeArtifactManagement(
   return value;
 }
 
-function requiredRuntimeTelemetryExport(
-  value: NonNullable<RuntimeControlRouteOptions['runtimeControl']>['telemetryExport'],
-): Pick<RuntimeTelemetryExportService, 'apply' | 'status'> {
+function requiredRuntimeEvidenceExport(
+  value: NonNullable<RuntimeControlRouteOptions['runtimeControl']>['evidenceExport'],
+): Pick<RuntimeEvidenceExportService, 'apply' | 'status'> {
   if (value === undefined)
-    throw Object.assign(new Error('Telemetry Export runtime is unavailable.'), {
-      code: 'RUNTIME_TELEMETRY_EXPORT_UNAVAILABLE',
+    throw Object.assign(new Error('Evidence Export runtime is unavailable.'), {
+      code: 'RUNTIME_EVIDENCE_EXPORT_UNAVAILABLE',
       status: 503,
     });
   return value;

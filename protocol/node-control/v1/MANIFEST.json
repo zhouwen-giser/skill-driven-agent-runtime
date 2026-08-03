@@ -2,12 +2,12 @@
   "package": "SDAR_v1.4_Node_Control_Backend_接口协议冻结基线",
   "version": "1.0.0",
   "status": "PROTOCOL_DESIGN_FROZEN_IMPLEMENTATION_PENDING",
-  "generatedAt": "2026-07-31T06:27:20.117075+00:00",
+  "generatedAt": "2026-08-04T03:00:00.000Z",
   "contracts": {
     "nodeControlApi": "1.0.0",
     "runtimeControl": "1.0.0",
     "nodeEvents": "1.0.0",
-    "telemetryExport": "1.0.0"
+    "evidenceExport": "sdar.evidence/v1"
   },
   "sourceAlignment": {
     "repository": "zhouwen-giser/skill-driven-agent-runtime",
@@ -18,7 +18,7 @@
   "scope": {
     "frontend": false,
     "telemetryQuery": false,
-    "telemetryExport": true,
+    "evidenceExport": true,
     "organizationPlatform": false
   },
   "validation": "PASS\njson_schemas=28\noperation_ids=111\nevent_messages=20\nfixtures=7",
@@ -32,18 +32,18 @@
   "files": [
     {
       "path": "00-freeze-declaration.md",
-      "size": 1338,
-      "sha256": "fc8da9df6e18246daa53985c5438acd3e5358a6dbd512044e7c86d2593ef7f5e"
+      "size": 1337,
+      "sha256": "87a6e322fe4cf634ad7b6afd287214e1aab35e5a500916804ff36b5e41c0cf9c"
     },
     {
       "path": "01-scope-and-non-goals.md",
-      "size": 994,
-      "sha256": "f13e5558f69a4d6f598aad2b3bddc4a349f10526c6284097853021238e4ba367"
+      "size": 993,
+      "sha256": "0e8c2fbd30bf3c7fbb4e53dcf20cdc4eb167979c7a6d781d159144b885468495"
     },
     {
       "path": "02-authority-and-api-boundaries.md",
-      "size": 1270,
-      "sha256": "d0761c554805ec0df68d33a3d3d73a703aae0697cd045b1a7cd47d55a8234885"
+      "size": 1264,
+      "sha256": "e5c1fb3a01c937b0c17f9f16d9b1ccb0e4ba1cdc1c0b774f13d7f0501043dcd9"
     },
     {
       "path": "03-node-control-api-profile.md",
@@ -52,8 +52,8 @@
     },
     {
       "path": "04-runtime-control-contract.md",
-      "size": 790,
-      "sha256": "602d34085c8b4fd72f2c18dcb68ca7517e933c898da5ba748b98262cf1a4df7c"
+      "size": 789,
+      "sha256": "348443b54ee037a0c8380a9a38ab26562abfcc1d7f2c94304707f89165b85918"
     },
     {
       "path": "05-node-events-contract.md",
@@ -61,14 +61,14 @@
       "sha256": "d142c62e9c4f2e1442c0799cb97932174a7fc44155192f6c79c82873fec0a5b1"
     },
     {
-      "path": "06-telemetry-export-contract.md",
-      "size": 832,
-      "sha256": "9b2c1c2378a9c75f7aac04c6d515412af0aa58858a3e8082e4a86848ae023667"
+      "path": "06-evidence-export-contract.md",
+      "size": 1347,
+      "sha256": "b101e8bc20715534960e85620a02b3f5cff362e8e8e76c90a7028991269bb113"
     },
     {
       "path": "07-versioning-concurrency-idempotency.md",
-      "size": 837,
-      "sha256": "c8d8d5584a8e2fa1fb540379447659a6dbf2da27236c83e108504663e3edda59"
+      "size": 836,
+      "sha256": "61b2fe502474aabe70f1e6e66a0afc1107da625f9e51507471c677ecea9679cf"
     },
     {
       "path": "08-security-rbac-and-secrets.md",
@@ -87,13 +87,13 @@
     },
     {
       "path": "11-v13-adaptation-boundary.md",
-      "size": 809,
-      "sha256": "bd328a16f054dabef16b614b0f6eeb7d57ae755427f593a2b0a939ae857403f5"
+      "size": 808,
+      "sha256": "adc5645b8a5027c94f47252a8c7a617956af78183e1dbf650640e8d2e90f6051"
     },
     {
       "path": "12-validation-and-release-gates.md",
-      "size": 898,
-      "sha256": "b3dd6371f0d9e523bff478d0c0c88e4a3bd617937c66ce91dae1efb473ecab71"
+      "size": 897,
+      "sha256": "ccabb5ffa1999b548f3ddda116bb3d7ff4e77b54b6019fa8fa2589abc5d7bb4a"
     },
     {
       "path": "13-compatibility-policy.md",
@@ -102,8 +102,8 @@
     },
     {
       "path": "README.md",
-      "size": 1611,
-      "sha256": "874a0fed01815e16eb1770cb9f79bd3f8dae88477ffbf130d6b6aa84e06557b1"
+      "size": 1598,
+      "sha256": "797442a4921b9d6eeaf58eb4e51d8dc5dce7e5a53a41eed34c6dc7507ca00413"
     },
     {
       "path": "VALIDATION.txt",
@@ -172,8 +172,8 @@
     },
     {
       "path": "contracts/error-code-catalog.yaml",
-      "size": 1761,
-      "sha256": "94aab8edbba81b8a43e6ac7c413740ec1a405465f4a456be6710d33fd3491c76"
+      "size": 1759,
+      "sha256": "486f35ca762a30cf594e582af15ec4d1ac717f08f6f3933d9d2f92eee85abca9"
     },
     {
       "path": "contracts/node-event-catalog.yaml",
@@ -182,13 +182,13 @@
     },
     {
       "path": "contracts/organization-facing-api-profile.yaml",
-      "size": 789,
-      "sha256": "51e7c2f0485c326d21ec7bce2d656c24314691fa03f8a506cb415c68f1b6519d"
+      "size": 788,
+      "sha256": "626bf3bc27c5f12b68a67243fefe506b08045ad7fa012c6deab8fc918bc373f3"
     },
     {
-      "path": "contracts/telemetry-export-contract.yaml",
-      "size": 508,
-      "sha256": "46824f8472395342f3e4bffd05116a0f9db23f5bba103c083c2de3a8ba5ee279"
+      "path": "contracts/evidence-export-contract.yaml",
+      "size": 654,
+      "sha256": "f4b2be20a18ed89b9222f2970cd3ac026023d3b3238452ac1d660bc8a8faa75f"
     },
     {
       "path": "fixtures/degraded/capability-readiness.json",
@@ -196,9 +196,9 @@
       "sha256": "6f967efae77b93d51ca5fbe461df0a0530facdb94988d939b1ce2f11d86de018"
     },
     {
-      "path": "fixtures/degraded/telemetry-export-status.json",
-      "size": 368,
-      "sha256": "5834b714cd175c997f6c1230d7413fc2b2c65569835e48c946431ba79b7e375d"
+      "path": "fixtures/degraded/evidence-export-status.json",
+      "size": 380,
+      "sha256": "b1bfa7124ac1029992f5e1f46c55bd4dc9ca89157f9ad026fda1d5ab52aa7363"
     },
     {
       "path": "fixtures/error/revision-conflict.problem.json",
@@ -227,33 +227,33 @@
     },
     {
       "path": "matrices/authority-matrix.csv",
-      "size": 872,
-      "sha256": "fbc391b61928df765fba125a931395d4c61464843713b3439932109a50bd5b1d"
+      "size": 855,
+      "sha256": "9a7cb7f6181c861395012e1c9745594af6a5a40696cddb17e5eb4e1608a8e8d0"
     },
     {
       "path": "matrices/operation-inventory.csv",
-      "size": 7223,
-      "sha256": "507b2fdd913696fbb946a1f06b57325b315a59bbe11f2a99ca0ebe4889555c57"
+      "size": 7116,
+      "sha256": "acd90e09cbd76bf842ce7f86ec543c534cb84d3d7f23d87dfdd56ae7e9186f8b"
     },
     {
       "path": "matrices/rbac-matrix.csv",
-      "size": 777,
-      "sha256": "1413346674bd9f7a10092bf7fbc2c5313e9f4fc0bbaecfa26fde9a586aab3793"
+      "size": 765,
+      "sha256": "b6d756c900a1b3e86a160cf683cc1903c59f652adc2271463582928b867bbf20"
     },
     {
       "path": "matrices/traceability.csv",
-      "size": 993,
-      "sha256": "8959e2874f6d6591976aa45be5dbb7f9821880d8995d5eea52bd2cf218bd0701"
+      "size": 986,
+      "sha256": "21b3183a2cabc3d4c40e7b02a0da03e4cdfaeecd57c93b1f1e3836b4b025df65"
     },
     {
       "path": "openapi/node-control.openapi.yaml",
-      "size": 201910,
-      "sha256": "d4693a3c38ac0449e63804804fcdcea93c8fbf154fa1e7959806afc1c7652394"
+      "size": 201879,
+      "sha256": "755fb868e4aec125c92bd44a3a4c7eb95f62b14ec7394d814d80830733cf9a90"
     },
     {
       "path": "openapi/runtime-control.openapi.yaml",
-      "size": 55822,
-      "sha256": "09796b7cdc9e05c0ec990485d23e1045c679e7d87c662db6bf7618ca32a91177"
+      "size": 55814,
+      "sha256": "220339bfb4316ed2acde7cd50d70ac447e6609f0a61188f6e5913dd0621df62d"
     },
     {
       "path": "schemas/a2a-exposure-version.schema.json",
@@ -357,8 +357,8 @@
     },
     {
       "path": "schemas/runtime-bootstrap.schema.json",
-      "size": 984,
-      "sha256": "1404576cfb905a8866b38d4c9f6c3ab2e0fddf84432c2eb387fc3bf4d3a8d614"
+      "size": 983,
+      "sha256": "f0fe98205fb9f3b884d93c0b5c8627ad72d7a4ec8a8a66294cd1e22aadae33de"
     },
     {
       "path": "schemas/skill-version.schema.json",
@@ -381,19 +381,19 @@
       "sha256": "18064fc9a10ca3ccb408ef620ede1595ed148834de4bffaf4164a68def38f7f3"
     },
     {
-      "path": "schemas/telemetry-export-config.schema.json",
-      "size": 1369,
-      "sha256": "580bc695d9ac755522d42196084608b64c46072cee2f9c5784667da702f40920"
+      "path": "schemas/evidence-export-config.schema.json",
+      "size": 2970,
+      "sha256": "717779f9c5af87b3e7e8592454ed1ec80f0c1a2bf34c66398c48f13e5063f35e"
     },
     {
-      "path": "schemas/telemetry-export-status.schema.json",
-      "size": 1188,
-      "sha256": "586d70ee7d9da6cc40ad2827421b23c2f005b052f5dc5326a7cafd0ce081a169"
+      "path": "schemas/evidence-export-status.schema.json",
+      "size": 985,
+      "sha256": "3c3206e6ab4d1beb9ce5cd6d4c9475cae73e42545c2ea7c9b77eea6ddff74608"
     },
     {
       "path": "schemas/well-known-node.schema.json",
-      "size": 1432,
-      "sha256": "92caa2436731c04fc3499039274de4e8c07e5caf3c14b894b1c204191b0a6e09"
+      "size": 1431,
+      "sha256": "689493574ed7441ec8c938b65f474e7971f2480338ec53650c2456cca8dc5106"
     },
     {
       "path": "scripts/validate_freeze.py",

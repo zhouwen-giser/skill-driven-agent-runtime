@@ -1,14 +1,14 @@
 # Phase 0 Symbol Map
 
-## Current export symbols
+## Phase 4 export symbols
 
 | Symbol | Path | Current role | v1.4.1 disposition |
 |---|---|---|---|
-| `TelemetryExportConfiguration` | `packages/node-control-domain/src/telemetry-export.ts` | runtime-event export config | replaced by typed evidence configuration |
-| `NodeControlTelemetryExportService` | `packages/node-control-application/src/telemetry-export-service.ts` | Control revision/publish/apply orchestration | retained conceptually under evidence naming and contract |
-| `RuntimeTelemetryExportService` | `packages/runtime-control-application/src/telemetry-export-service.ts` | captures and sends runtime-event summaries | replaced by canonical evidence export service |
-| `PostgresRuntimeTelemetryExportStore` | `packages/runtime-control-persistence-postgres/src/telemetry-export-store.ts` | old config/state/outbox access | retired by Strategy B migration |
-| `HttpTelemetryExportTransport` | `packages/telemetry-export-adapter/src/http-telemetry-export-transport.ts` | old HTTP batch/ACK | replaced by evidence adapter and header |
+| `ManagedEvidenceExportConfiguration` | `packages/domain/src/evidence/evidence-contracts.ts` | strict Evidence configuration and policy | active Domain contract |
+| `NodeControlEvidenceExportService` | `packages/node-control-application/src/evidence-export-service.ts` | Control revision/publish/apply orchestration | active Control application |
+| `RuntimeEvidenceExportService` | `packages/runtime-control-application/src/evidence-export-service.ts` | fenced canonical batch and ACK orchestration | active Runtime application |
+| `PostgresRuntimeEvidenceExportStore` | `packages/runtime-control-persistence-postgres/src/evidence-export-store.ts` | PostgreSQL pending/lease/send/ACK/retry/DLQ/status | active persistence adapter |
+| `HttpEvidenceExportTransport` | `packages/evidence-export-adapter/src/http-evidence-export-transport.ts` | bounded secure Evidence HTTP batch/ACK | active external adapter |
 
 ## Runtime evidence source symbols
 
@@ -31,8 +31,7 @@
 | `PostgresNodeControlConfigurationRepository` | `packages/node-control-persistence-postgres/src/configuration-repository.ts` | configuration revision/apply/LKG sources |
 | `PostgresNodeCapabilityRepository` | `packages/node-control-persistence-postgres/src/node-capability-repository.ts` | capability definitions and bindings |
 
-## Planned evidence symbols
+## Remaining planned evidence symbols
 
-The exact public names will be frozen in Phase 2, but ownership is fixed: Domain owns canonical
-record/catalog/policy types; Application owns writer/projector/export/manifest services; PostgreSQL
-adapters own outbox/checkpoint/DLQ/manifest repositories; HTTP adapter owns wire delivery only.
+Domain and export names are frozen. Phases 5-10 add source-family projector and manifest services;
+PostgreSQL remains outbox/checkpoint/DLQ/manifest authority and the HTTP adapter remains wire-only.

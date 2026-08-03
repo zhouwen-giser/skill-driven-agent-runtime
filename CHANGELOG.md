@@ -17,7 +17,15 @@ All notable changes to this project are documented here. The format follows Keep
   real PostgreSQL coverage for concurrency, rollback, restart, fencing, ACK, DLQ and manifests.
 - Phase 3 full verification passed with 1,198 Unit/Contract tests, 158 Integration tests, 72 E2E
   tests and all migration, architecture, build and process smoke gates. External batch export and
-  source projection remain subsequent phases and are not claimed complete here.
+  source projection remained subsequent at that checkpoint.
+- Replaced the complete legacy Telemetry configuration/API/service/client/transport surface with
+  the sole `sdar.evidence/v1` batch protocol, explicit contiguous/partial ACK, exact fenced sent
+  ownership, Diagnostic-only exclusion, CredentialRef endpoint security and bounded I/O.
+- Proved the real Control-to-Runtime-to-PostgreSQL/Redis-to-HTTP-receiver path and that receiver
+  outage degrades export state without changing completed Tasks or Active/LKG configuration.
+- Phase 4 full verification passed in 601,088 ms with 1,207 static Unit/Contract tests, 158
+  Integration tests, 72 E2E tests, 37 migrations, architecture, build and all smokes. Formal source
+  projector coverage remains 0/100 until Phases 5-10.
 
 ## SDAR v1.4 P14 Release Qualification
 

@@ -1,0 +1,19 @@
+{
+  "contract": "sdar.evidence/v1",
+  "phase": 4,
+  "catalogTotal": 100,
+  "sourceInventory": {
+    "sourceConfirmed": 100,
+    "sourceMissingBlocker": 0,
+    "conditionalNotApplicable": 0,
+    "classified": 100,
+    "classifiedPercent": 100
+  },
+  "implementationCoverage": {
+    "implementedAndVerified": 0,
+    "percent": 0,
+    "note": "Phase 4 completes transport infrastructure without claiming source-family projectors; formal projector implementation begins in Phase 5."
+  },
+  "phase1Baseline": "reports/v1.4.1-evidence/source-coverage-baseline.json",
+  "generatedFrom": "reports/v1.4.1-evidence/source-to-evidence-matrix.json"
+}

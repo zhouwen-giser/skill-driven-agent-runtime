@@ -10,7 +10,7 @@
 - Task 接受时不可变 Capability Binding；
 - Runtime 内部 Apply/Ack 协议；
 - Node Event Envelope 和事件目录；
-- Telemetry Export 配置与本地 Delivery State；
+- Evidence Export 配置与本地 Delivery State；
 - RBAC Scope、SecretRef、Problem Details 和错误码；
 - 未来组织控制平面的可消费 API Profile。
 

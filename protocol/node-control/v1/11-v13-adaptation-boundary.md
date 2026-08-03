@@ -19,5 +19,5 @@ v1.3 已有 Management API 是 Runtime Operational API，包含 Task、Goal、Wo
 - Capability Definition/Binding/Readiness；
 - A2A Exposure/Agent Card Revision；
 - TaskCapabilityBinding；
-- Telemetry Export Revision；
+- Evidence Export Revision；
 - Node Events。

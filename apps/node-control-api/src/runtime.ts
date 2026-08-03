@@ -13,11 +13,11 @@ import {
   NodeControlCapabilityService,
   NodeControlSmppRegistryService,
   NodeControlRuntimeGovernanceService,
-  NodeControlTelemetryExportService,
+  NodeControlEvidenceExportService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
   HttpRuntimeGovernanceClient,
-  HttpRuntimeTelemetryExportClient,
+  HttpRuntimeEvidenceExportClient,
 } from '../../../packages/runtime-control-http-client/src/index.js';
 import {
   PostgresNodeControlA2aExposureRepository,
@@ -89,9 +89,9 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     actorId: `node-control:${environment.SDAR_CONTROL_NODE_ID}`,
   });
-  const telemetryExport = new NodeControlTelemetryExportService({
+  const evidenceExport = new NodeControlEvidenceExportService({
     configurations: configurationService,
-    runtime: new HttpRuntimeTelemetryExportClient({
+    runtime: new HttpRuntimeEvidenceExportClient({
       baseUrl: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
       serviceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
     }),
@@ -202,7 +202,7 @@ export async function startNodeControlApi(
       taskCapabilities: new PostgresRuntimeTaskCapabilityBindingQuery(runtimePool),
       taskSummaries: new PostgresRuntimeTaskSummaryQuery(runtimePool),
       runtimeGovernance,
-      telemetryExport,
+      evidenceExport,
       nodeEvents,
     });
     const server = await listen(

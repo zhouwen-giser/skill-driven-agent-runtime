@@ -21,7 +21,7 @@ tags:
 - name: Capabilities
 - name: A2A
 - name: Tasks
-- name: TelemetryExport
+- name: EvidenceExport
 - name: Operations
 - name: Audit
 - name: Events
@@ -5801,19 +5801,19 @@ paths:
           application/json:
             schema:
               $ref: ../schemas/command-request.schema.json
-  /api/v1/telemetry-export:
+  /api/v1/evidence-export:
     get:
-      operationId: getTelemetryExportConfiguration
+      operationId: getEvidenceExportConfiguration
       tags:
-      - TelemetryExport
-      summary: Get telemetry export configuration
+      - EvidenceExport
+      summary: Get evidence export configuration
       responses:
         '200':
-          description: Get telemetry export configuration
+          description: Get evidence export configuration
           content:
             application/json:
               schema:
-                $ref: ../schemas/telemetry-export-config.schema.json
+                $ref: ../schemas/evidence-export-config.schema.json
         '400':
           description: Problem Details
           content:
@@ -5868,19 +5868,19 @@ paths:
             application/problem+json:
               schema:
                 $ref: ../schemas/problem-details.schema.json
-  /api/v1/telemetry-export/revisions:
+  /api/v1/evidence-export/revisions:
     post:
-      operationId: createTelemetryExportRevision
+      operationId: createEvidenceExportRevision
       tags:
-      - TelemetryExport
-      summary: Create telemetry export revision draft
+      - EvidenceExport
+      summary: Create evidence export revision draft
       responses:
         '201':
-          description: Create telemetry export revision draft
+          description: Create evidence export revision draft
           content:
             application/json:
               schema:
-                $ref: ../schemas/telemetry-export-config.schema.json
+                $ref: ../schemas/evidence-export-config.schema.json
         '400':
           description: Problem Details
           content:
@@ -5942,20 +5942,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ../schemas/telemetry-export-config.schema.json
-  /api/v1/telemetry-export/revisions/{revision}/validate:
+              $ref: ../schemas/evidence-export-config.schema.json
+  /api/v1/evidence-export/revisions/{revision}/validate:
     post:
-      operationId: validateTelemetryExportRevision
+      operationId: validateEvidenceExportRevision
       tags:
-      - TelemetryExport
-      summary: Validate telemetry export revision
+      - EvidenceExport
+      summary: Validate evidence export revision
       responses:
         '200':
-          description: Validate telemetry export revision
+          description: Validate evidence export revision
           content:
             application/json:
               schema:
-                $ref: ../schemas/telemetry-export-config.schema.json
+                $ref: ../schemas/evidence-export-config.schema.json
         '400':
           description: Problem Details
           content:
@@ -6025,12 +6025,12 @@ paths:
           application/json:
             schema:
               $ref: ../schemas/command-request.schema.json
-  /api/v1/telemetry-export/revisions/{revision}/publish:
+  /api/v1/evidence-export/revisions/{revision}/publish:
     post:
-      operationId: publishTelemetryExportRevision
+      operationId: publishEvidenceExportRevision
       tags:
-      - TelemetryExport
-      summary: Publish telemetry export revision
+      - EvidenceExport
+      summary: Publish evidence export revision
       responses:
         '202':
           description: Management operation accepted
@@ -6107,11 +6107,11 @@ paths:
           application/json:
             schema:
               $ref: ../schemas/command-request.schema.json
-  /api/v1/telemetry-export/status:
+  /api/v1/evidence-export/status:
     get:
-      operationId: getTelemetryExportStatus
+      operationId: getEvidenceExportStatus
       tags:
-      - TelemetryExport
+      - EvidenceExport
       summary: Get local telemetry delivery status
       responses:
         '200':
@@ -6119,7 +6119,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ../schemas/telemetry-export-status.schema.json
+                $ref: ../schemas/evidence-export-status.schema.json
         '400':
           description: Problem Details
           content:
@@ -6174,11 +6174,11 @@ paths:
             application/problem+json:
               schema:
                 $ref: ../schemas/problem-details.schema.json
-  /api/v1/telemetry-export/test:
+  /api/v1/evidence-export/test:
     post:
-      operationId: testTelemetryExportConnection
+      operationId: testEvidenceExportConnection
       tags:
-      - TelemetryExport
+      - EvidenceExport
       summary: Test telemetry ingestion endpoint without querying telemetry data
       responses:
         '202':

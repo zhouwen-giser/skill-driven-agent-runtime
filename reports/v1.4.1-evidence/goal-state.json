@@ -3,10 +3,10 @@
   "status": "IN_PROGRESS",
   "branch": "feature/v1.4.1-canonical-evidence-export",
   "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "headSha": "beb616831093546aaac3b4c9894a776ecc49af39",
+  "headSha": "ffb49321db145e6c7572983755075540bf74bb40",
   "prNumber": 18,
   "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
-  "lastCompletedPhase": 3,
+  "lastCompletedPhase": 4,
   "sourceInventory": {
     "classified": 100,
     "sourceConfirmed": 100,
@@ -31,18 +31,23 @@
   "tests": {
     "pnpmInstallFrozenLockfile": "passed",
     "pnpmVerify": "passed",
-    "unit": 953,
+    "unit": 955,
     "performanceUnit": 22,
-    "contract": 223,
+    "contract": 230,
     "integration": 158,
     "e2e": 72,
     "runtimeMigrations": 37,
     "phase3FocusedPostgres": 11,
-    "phase3FullVerifyDurationMs": 553810
+    "phase3FullVerifyDurationMs": 553810,
+    "phase4FocusedUnit": 21,
+    "phase4FocusedContract": 71,
+    "phase4FocusedPostgres": 11,
+    "phase4RealVertical": 1,
+    "phase4FullVerifyDurationMs": 601088
   },
   "deferredSourceClosures": [
-    "All 100 sources are confirmed. Phases 4-10 must implement and verify the 100 formal projectors before implementation coverage advances."
+    "All 100 sources are confirmed. Phases 5-10 must implement and verify the 100 formal projectors before implementation coverage advances."
   ],
   "blockers": [],
-  "updatedAt": "2026-08-04T02:20:00+08:00"
+  "updatedAt": "2026-08-04T03:55:00+08:00"
 }

@@ -30,7 +30,7 @@
     "activeExposureCatalogRef": {
       "$ref": "resource-ref.schema.json"
     },
-    "telemetryExportRef": {
+    "evidenceExportRef": {
       "$ref": "resource-ref.schema.json"
     },
     "serviceCredentialPolicy": {

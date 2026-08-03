@@ -2,28 +2,35 @@
 
 ## Composition roots
 
-- `apps/server/src/runtime.ts`: sole Runtime composition root; Phase 3 temporarily wires the P11
-  application surface to the canonical Evidence persistence compatibility projection.
+- `apps/server/src/runtime.ts`: sole Runtime composition root; wires the canonical Evidence export
+  service, PostgreSQL store and bounded HTTP transport.
 - `apps/node-control-api/src/runtime.ts`: Control composition root; wires configuration,
-  governance, event, and current Telemetry configuration services.
+  governance, event, and Evidence Export configuration services.
 - `apps/node-control-api/src/http-endpoint.ts`: public Control management routes.
 - `packages/management-api/src/http-endpoint.ts`: Runtime internal management routes.
 
-## Remaining Telemetry names to replace in Phase 4
+## Phase 4 Evidence Export implementation
 
-- Domain: `packages/node-control-domain/src/telemetry-export.ts`.
-- Control application: `packages/node-control-application/src/telemetry-export-service.ts`.
-- Runtime application: `packages/runtime-control-application/src/telemetry-export-service.ts`.
-- Runtime persistence compatibility:
-  `packages/runtime-control-persistence-postgres/src/telemetry-export-store.ts`; it uses only
-  canonical Evidence tables and projects authoritative `agent_task` facts.
-- HTTP adapter: `packages/telemetry-export-adapter/src/http-telemetry-export-transport.ts`.
+- Domain: `packages/domain/src/evidence/evidence-contracts.ts` and
+  `packages/node-control-domain/src/evidence-export.ts`.
+- Control application: `packages/node-control-application/src/evidence-export-service.ts`.
+- Runtime application: `packages/runtime-control-application/src/evidence-export-service.ts`.
+- Runtime persistence: `packages/runtime-control-persistence-postgres/src/evidence-export-store.ts`
+  over the canonical Evidence tables.
+- HTTP adapter: `packages/evidence-export-adapter/src/http-evidence-export-transport.ts`.
+- Runtime Control client:
+  `packages/runtime-control-http-client/src/http-runtime-evidence-export-client.ts`.
+- Public/internal API contracts: Evidence-only routes in Node Control and Runtime OpenAPI.
+- Real vertical: `apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts`.
+
+## Historical names retained without product authority
+
 - Historical immutable Runtime migration: `infra/postgres/migrations/0142_v14_telemetry_export.*`;
   its product tables are removed by `0144_v14_canonical_evidence`.
 - Control-to-Runtime event projection: `infra/postgres/migrations/0143_v14_node_event_projection.*`.
-- Protocol/OpenAPI: `protocol/node-control/v1/contracts/telemetry-export-contract.yaml`,
-  `protocol/node-control/v1/schemas/telemetry-export-*.schema.json`, and both Node Control OpenAPI
-  documents.
+- Control `configuration_revision.target_type=telemetry_link`, the frozen historical Node Event and
+  catalog source names remain internal/source identity only. No legacy external route, header,
+  payload, service, client or transport remains.
 
 ## Runtime authoritative source areas
 
@@ -56,7 +63,7 @@
 - Application writers/projectors/export/manifest: planned `packages/application/src/evidence/`.
 - Runtime PostgreSQL Evidence adapter:
   `packages/runtime-control-persistence-postgres/src/evidence-store.ts`.
-- HTTP Evidence adapter: planned `packages/evidence-export-adapter/`.
+- HTTP Evidence adapter: `packages/evidence-export-adapter/`.
 - Protocol and schemas: `protocol/evidence/v1/` and `schemas/evidence/`.
 - Evidence reports: `reports/v1.4.1-evidence/`.
 

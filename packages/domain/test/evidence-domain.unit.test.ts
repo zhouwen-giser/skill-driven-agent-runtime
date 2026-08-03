@@ -12,6 +12,7 @@ import {
   hashCanonicalEvidenceJson,
   isEvidenceRecordId,
   isEvidenceSha256,
+  normalizeEvidenceExportConfiguration,
 } from '../src/index.js';
 
 const identity = {
@@ -164,5 +165,48 @@ describe('canonical evidence Domain', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(EvidenceContractError);
     }
+  });
+
+  it('normalizes a closed Evidence export configuration and rejects required-family exclusion', () => {
+    const configuration = {
+      exportId: 'primary-evidence-export',
+      revision: 1,
+      endpointRef: 'https://evidence.example.test/v1/batches',
+      sourceId: 'sdar-runtime',
+      nodeId: 'node-001',
+      credentialRef: 'secret:evidence-sink',
+      includedFamilies: [
+        'runtime',
+        'skill',
+        'mcp_task',
+        'capability',
+        'experience',
+        'replay',
+        'artifact',
+        'node_control',
+        'evidence',
+      ],
+      excludedDiagnosticTypes: ['node_control.health_observation'],
+      batchPolicy: { maxRecords: 100, maxBytes: 262_144, flushIntervalMs: 1_000 },
+      retryPolicy: { baseDelayMs: 100, maxDelayMs: 10_000, maxAttempts: 10 },
+      outboxPolicy: { maxPendingRecords: 10_000, retentionDays: 30 },
+      redactionProfile: 'strict_internal_v1',
+      artifactMode: 'reference',
+      status: 'draft',
+      applyMode: 'hot_reload',
+    } as const;
+    expect(normalizeEvidenceExportConfiguration(configuration).includedFamilies).toHaveLength(9);
+    expect(() =>
+      normalizeEvidenceExportConfiguration({
+        ...configuration,
+        includedFamilies: configuration.includedFamilies.filter((family) => family !== 'runtime'),
+      }),
+    ).toThrow(/cannot exclude required Evidence families/u);
+    expect(() =>
+      normalizeEvidenceExportConfiguration({
+        ...configuration,
+        excludedDiagnosticTypes: ['runtime.goal'],
+      }),
+    ).toThrow(/only catalog Diagnostic/u);
   });
 });

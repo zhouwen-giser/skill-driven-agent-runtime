@@ -24,4 +24,4 @@ Control Backend 不可用时 Runtime 使用 LKG，不清空配置、不停止已
 
 ## 运行操作
 
-Skill、Artifact、Capability Catalog、Agent Card、Task Control 和 Telemetry Export 均通过显式内部端点，不允许 Control Backend 写 Runtime 表。
+Skill、Artifact、Capability Catalog、Agent Card、Task Control 和 Evidence Export 均通过显式内部端点，不允许 Control Backend 写 Runtime 表。

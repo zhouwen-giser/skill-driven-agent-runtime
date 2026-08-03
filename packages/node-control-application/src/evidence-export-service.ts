@@ -4,32 +4,32 @@ import type {
   ControlAuditEvent,
   JsonValue,
   ManagementOperation,
-  TelemetryExportConfiguration,
-  TelemetryExportStatus,
+  ManagedEvidenceExportConfiguration,
+  EvidenceExportStatus,
 } from '../../node-control-domain/src/index.js';
 import {
   createConfigurationRevision,
   createManagementOperation,
-  normalizeTelemetryExportConfiguration,
+  normalizeEvidenceExportConfiguration,
   transitionManagementOperation,
   type ConfigurationRevision,
 } from '../../node-control-domain/src/index.js';
 import type { NodeControlConfigurationService } from './configuration-service.js';
 import type { NodeControlFoundationRepository } from './ports.js';
 
-export interface NodeControlRuntimeTelemetryExportClient {
-  apply(configuration: TelemetryExportConfiguration): Promise<ManagementOperation>;
-  status(): Promise<TelemetryExportStatus>;
+export interface NodeControlRuntimeEvidenceExportClient {
+  apply(configuration: ManagedEvidenceExportConfiguration): Promise<ManagementOperation>;
+  status(): Promise<EvidenceExportStatus>;
 }
 
-export interface TelemetryExportConfigurationView {
-  readonly configuration: TelemetryExportConfiguration;
+export interface EvidenceExportConfigurationView {
+  readonly configuration: ManagedEvidenceExportConfiguration;
   readonly etag: string;
 }
 
-export class NodeControlTelemetryExportService {
+export class NodeControlEvidenceExportService {
   readonly #configurations: NodeControlConfigurationService;
-  readonly #runtime: NodeControlRuntimeTelemetryExportClient;
+  readonly #runtime: NodeControlRuntimeEvidenceExportClient;
   readonly #clock: Readonly<{ now(): string }>;
   readonly #nodeId: string;
   readonly #operations: NodeControlFoundationRepository;
@@ -37,7 +37,7 @@ export class NodeControlTelemetryExportService {
   constructor(
     dependencies: Readonly<{
       configurations: NodeControlConfigurationService;
-      runtime: NodeControlRuntimeTelemetryExportClient;
+      runtime: NodeControlRuntimeEvidenceExportClient;
       clock: Readonly<{ now(): string }>;
       nodeId: string;
       operations: NodeControlFoundationRepository;
@@ -50,25 +50,25 @@ export class NodeControlTelemetryExportService {
     this.#operations = dependencies.operations;
   }
 
-  async current(): Promise<TelemetryExportConfigurationView> {
+  async current(): Promise<EvidenceExportConfigurationView> {
     const revisions = await this.#configurations.list({ targetType: 'telemetry_link', limit: 200 });
     const current = revisions
       .filter((revision) => revision.targetId === this.#nodeId)
       .sort((left, right) => right.revision - left.revision)[0];
     if (current === undefined)
-      throw Object.assign(new Error('Telemetry Export configuration was not found.'), {
-        code: 'TELEMETRY_EXPORT_NOT_FOUND',
+      throw Object.assign(new Error('Evidence Export configuration was not found.'), {
+        code: 'EVIDENCE_EXPORT_NOT_FOUND',
         status: 404,
       });
     return view(current);
   }
 
   async create(
-    input: TelemetryExportConfiguration,
+    input: ManagedEvidenceExportConfiguration,
     idempotencyKey: string,
-  ): Promise<TelemetryExportConfigurationView> {
+  ): Promise<EvidenceExportConfigurationView> {
     const now = this.#clock.now();
-    const configuration = normalizeTelemetryExportConfiguration({
+    const configuration = normalizeEvidenceExportConfiguration({
       ...input,
       nodeId: input.nodeId ?? this.#nodeId,
       status: 'draft',
@@ -108,7 +108,7 @@ export class NodeControlTelemetryExportService {
     expectedEtag: string,
     idempotencyKey: string,
     command: Readonly<{ reason: string; expectedRevision?: number }>,
-  ): Promise<TelemetryExportConfigurationView> {
+  ): Promise<EvidenceExportConfigurationView> {
     const current = await this.findByRevision(revision);
     return view(
       await this.#configurations.validate(
@@ -145,7 +145,7 @@ export class NodeControlTelemetryExportService {
       observedRuntimeVersion: '1.4.0',
       ...(runtime.status === 'succeeded'
         ? { activeChecksum: current.checksum }
-        : { reasonCode: runtime.errorCode ?? 'TELEMETRY_EXPORT_APPLY_REJECTED' }),
+        : { reasonCode: runtime.errorCode ?? 'EVIDENCE_EXPORT_APPLY_REJECTED' }),
       detail: {
         runtimeOperationId: runtime.operationId,
         runtimeStatus: runtime.status,
@@ -163,27 +163,27 @@ export class NodeControlTelemetryExportService {
     const cleanKey = idempotencyKey.trim();
     const cleanReason = command.reason.trim();
     if (cleanKey.length < 8 || cleanReason === '')
-      throw Object.assign(new Error('Telemetry test command is invalid.'), {
-        code: 'TELEMETRY_EXPORT_TEST_COMMAND_INVALID',
+      throw Object.assign(new Error('Evidence test command is invalid.'), {
+        code: 'EVIDENCE_EXPORT_TEST_COMMAND_INVALID',
         status: 400,
       });
     const idempotencyKeyHash = sha256(cleanKey);
     const inputHash = sha256(
       JSON.stringify({
-        operationType: 'telemetry-export.test',
+        operationType: 'evidence-export.test',
         exportId: current.configurationId,
         revision: current.revision,
         reason: cleanReason,
       }),
     );
     const replay = await this.#operations.findGovernanceOperationReplay?.(
-      'telemetry-export.test',
+      'evidence-export.test',
       idempotencyKeyHash,
     );
     if (replay !== undefined) {
       if (replay.inputHash !== inputHash)
-        throw Object.assign(new Error('Telemetry test idempotency key was reused.'), {
-          code: 'TELEMETRY_EXPORT_TEST_IDEMPOTENCY_CONFLICT',
+        throw Object.assign(new Error('Evidence test idempotency key was reused.'), {
+          code: 'EVIDENCE_EXPORT_TEST_IDEMPOTENCY_CONFLICT',
           status: 409,
         });
       return replay;
@@ -191,10 +191,10 @@ export class NodeControlTelemetryExportService {
     const occurredAt = this.#clock.now();
     const accepted = createManagementOperation(
       {
-        operationId: `control-telemetry-test-${idempotencyKeyHash}`,
-        operationType: 'telemetry-export.test',
+        operationId: `control-evidence-test-${idempotencyKeyHash}`,
+        operationType: 'evidence-export.test',
         target: {
-          type: 'telemetry_export_configuration',
+          type: 'evidence_export_configuration',
           id: current.configurationId,
           revision: current.revision,
         },
@@ -213,16 +213,16 @@ export class NodeControlTelemetryExportService {
       this.#clock.now(),
       runtime.status === 'succeeded'
         ? { result: { runtimeOperationId: runtime.operationId, runtimeResult: runtime.result } }
-        : { errorCode: runtime.errorCode ?? 'TELEMETRY_EXPORT_TEST_FAILED' },
+        : { errorCode: runtime.errorCode ?? 'EVIDENCE_EXPORT_TEST_FAILED' },
     );
     if (this.#operations.recordGovernanceOperation === undefined) return completed;
     return this.#operations.recordGovernanceOperation(
       completed,
-      auditForTelemetryTest(completed, inputHash),
+      auditForEvidenceTest(completed, inputHash),
     );
   }
 
-  status(): Promise<TelemetryExportStatus> {
+  status(): Promise<EvidenceExportStatus> {
     return this.#runtime.status();
   }
 
@@ -232,8 +232,8 @@ export class NodeControlTelemetryExportService {
       (candidate) => candidate.targetId === this.#nodeId && candidate.revision === revision,
     );
     if (current === undefined)
-      throw Object.assign(new Error('Telemetry Export revision was not found.'), {
-        code: 'TELEMETRY_EXPORT_NOT_FOUND',
+      throw Object.assign(new Error('Evidence Export revision was not found.'), {
+        code: 'EVIDENCE_EXPORT_NOT_FOUND',
         status: 404,
       });
     return current;
@@ -245,15 +245,15 @@ export class NodeControlTelemetryExportService {
       .filter((revision) => revision.targetId === this.#nodeId && revision.status === 'applied')
       .sort((left, right) => right.revision - left.revision)[0];
     if (active === undefined)
-      throw Object.assign(new Error('Active Telemetry Export configuration was not found.'), {
-        code: 'TELEMETRY_EXPORT_ACTIVE_NOT_FOUND',
+      throw Object.assign(new Error('Active Evidence Export configuration was not found.'), {
+        code: 'EVIDENCE_EXPORT_ACTIVE_NOT_FOUND',
         status: 404,
       });
     return active;
   }
 }
 
-function auditForTelemetryTest(
+function auditForEvidenceTest(
   operation: ManagementOperation,
   requestHash: string,
 ): ControlAuditEvent {
@@ -274,11 +274,11 @@ function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function active(revision: ConfigurationRevision): TelemetryExportConfiguration {
+function active(revision: ConfigurationRevision): ManagedEvidenceExportConfiguration {
   return Object.freeze({ ...configurationContent(revision), status: 'active' });
 }
 
-function view(revision: ConfigurationRevision): TelemetryExportConfigurationView {
+function view(revision: ConfigurationRevision): EvidenceExportConfigurationView {
   const configuration = configurationContent(revision);
   return Object.freeze({
     configuration: Object.freeze({
@@ -289,8 +289,8 @@ function view(revision: ConfigurationRevision): TelemetryExportConfigurationView
   });
 }
 
-function configurationContent(revision: ConfigurationRevision): TelemetryExportConfiguration {
-  return normalizeTelemetryExportConfiguration(
-    revision.content as unknown as TelemetryExportConfiguration,
+function configurationContent(revision: ConfigurationRevision): ManagedEvidenceExportConfiguration {
+  return normalizeEvidenceExportConfiguration(
+    revision.content as unknown as ManagedEvidenceExportConfiguration,
   );
 }

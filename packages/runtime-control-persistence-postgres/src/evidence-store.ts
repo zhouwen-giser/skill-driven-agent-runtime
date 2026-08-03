@@ -254,6 +254,9 @@ export class PostgresEvidenceStore {
          evidence_outbox.delivery_attempts::integer AS delivery_attempts_value
        FROM evidence_outbox
        WHERE source_partition=$1 AND acknowledged_at IS NULL AND next_attempt_at<=$2
+         AND NOT EXISTS (
+           SELECT 1 FROM evidence_dead_letter
+           WHERE evidence_dead_letter.sequence=evidence_outbox.sequence)
        ORDER BY evidence_outbox.sequence LIMIT $3`,
       [sourcePartition, observedAt, boundedLimit],
     );
