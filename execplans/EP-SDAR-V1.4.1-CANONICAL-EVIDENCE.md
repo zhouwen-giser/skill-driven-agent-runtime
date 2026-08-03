@@ -63,7 +63,8 @@ Control read before mapping.
       clean full verification established.
 - [x] 2026-08-04 Phase 1 mapped all 100 authoritative source identities: 93 confirmed and 7
       explicit clean-cutover blockers.
-- [ ] Phase 2 define canonical evidence Domain contract, schemas, catalog, hashes, and security.
+- [x] 2026-08-04 Phase 2 froze canonical evidence Domain, all 100 record schemas/hashes, protocol
+      schemas, stable identity, canonical hashing, and fail-closed security.
 - [ ] Phase 3 add Strategy B clean-cutover persistence after immutable migration 0143.
 - [ ] Phase 4 replace legacy Telemetry wire/domain path with evidence batch export.
 - [ ] Phase 5 project Runtime core evidence.
@@ -95,6 +96,11 @@ Control read before mapping.
   canonical delivery/ACK facts and five evidence-infrastructure facts that Strategy B must append.
 - Typed children inside persisted trace, pattern, and replay JSON have stable domain IDs/keys and
   may be projected as structured subrecords; missing child identity is a projection issue.
+- A single generated Draft 2020-12 registry can express all 100 record types without a generic
+  payload placeholder. Record-specific required fields plus a bounded recursive JSON value retain
+  forward-compatible additive data while failing closed on envelope/source/type drift.
+- Windows does not resolve `pnpm exec vitest` in this environment; direct repository-local
+  `node_modules/.bin/vitest.cmd` is the reliable focused-test entry point.
 
 ## Decision Log
 
@@ -114,8 +120,8 @@ Control read before mapping.
 
 1. [Complete] Produce the 100-row source matrix, authority map, identity report, coverage baseline,
    and explicit missing-source blockers.
-2. Add Domain-owned canonical envelope/catalog/policy/manifest/quality types and JSON Schema
-   2020-12 documents with reproducible hashes and fixtures.
+2. [Complete] Add Domain-owned canonical envelope/catalog/policy/manifest/quality types and JSON
+   Schema 2020-12 documents with reproducible hashes and fixtures.
 3. Append Runtime migration 0144 (and a Control migration only if a Control-local capture table is
    proven necessary); add repositories and transaction tests.
 4. Replace the old Telemetry application/adapter/API contract with evidence configuration,
@@ -157,9 +163,11 @@ rewriting pushed history.
 
 ## Outcomes and Retrospective
 
-Phases 0 and 1 are complete. No product runtime change has yet been made. The baseline is
+Phases 0 through 2 are complete. No persistence/export runtime change has yet been made. The baseline is
 reproducible on a fresh Compose project, all current gates pass, the current Telemetry implementation
 is confirmed insufficient, the append-only migration route is fixed, and all 100 catalog types now
-have an explicit authority classification. Phase 2 starts with 93 confirmed sources and seven
-non-concealed clean-cutover blockers. This section will be replaced with the final measured outcome
-after Phase 14.
+have an explicit authority classification. The Domain now freezes deterministic IDs/hashes, 100
+catalog entries, 100 non-placeholder record schemas, and seven protocol schemas under registry hash
+`sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`. Phase 3 starts with
+93 confirmed sources and seven non-concealed clean-cutover blockers. This section will be replaced
+with the final measured outcome after Phase 14.

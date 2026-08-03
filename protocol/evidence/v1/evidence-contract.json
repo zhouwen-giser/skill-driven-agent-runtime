@@ -1,0 +1,23 @@
+{
+  "contractVersion": "sdar.evidence/v1",
+  "requestHeader": { "name": "x-sdar-evidence-contract", "value": "sdar.evidence/v1" },
+  "deliveryGuarantee": "at_least_once",
+  "acknowledgement": "contiguous_with_partial_ack",
+  "recordFamilies": [
+    "runtime",
+    "skill",
+    "mcp_task",
+    "capability",
+    "experience",
+    "replay",
+    "artifact",
+    "node_control",
+    "evidence"
+  ],
+  "recordTypeCount": 100,
+  "registryPath": "../../../schemas/evidence/v1/registry.json",
+  "registryHash": "sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27",
+  "requestSchema": "../../../schemas/evidence/v1/batch-request.schema.json",
+  "acknowledgementSchema": "../../../schemas/evidence/v1/batch-acknowledgement.schema.json",
+  "forbiddenLegacyHeader": "x-sdar-telemetry-contract"
+}

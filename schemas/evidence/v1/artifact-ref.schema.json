@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.local/evidence/v1/artifact-ref.schema.json",
+  "title": "Canonical evidence artifact reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifactId", "version", "uri", "sha256", "mediaType", "byteSize"],
+  "properties": {
+    "artifactId": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "version": { "type": "integer", "minimum": 1 },
+    "uri": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "mediaType": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "byteSize": { "type": "integer", "minimum": 0, "maximum": 1073741824 }
+  }
+}

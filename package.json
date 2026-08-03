@@ -23,6 +23,8 @@
     "verify:a2a-baseline": "node scripts/verify-a2a-baseline.mjs",
     "verify:management-openapi": "node scripts/check-management-openapi.mjs",
     "verify:node-control-contract": "node scripts/verify-node-control-contract.mjs",
+    "generate:evidence-contract": "tsx scripts/generate-v141-evidence-contract.mts",
+    "verify:evidence-contract": "tsx scripts/verify-v141-evidence-contract.mts",
     "verify:acceptance": "node scripts/verify-acceptance-map.mjs",
     "verify:cognitive-replay": "node scripts/run-cognitive-replay.mjs --check",
     "verify:protocol": "node protocol/scripts/verify-protocol-package.mjs",

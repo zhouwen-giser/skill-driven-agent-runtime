@@ -1,15 +1,20 @@
 # Project Status
 
 SDAR v1.4.1 Canonical Evidence Export is `IN_PROGRESS` (2026-08-04) on
-`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0 and 1
+`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-2
 are complete: the user-supplied task package is SHA-256 verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. The inventory finds
-93 confirmed sources and seven explicit Phase 3 evidence-infrastructure blockers. An unmodified-code
+93 confirmed sources and seven explicit Phase 3 evidence-infrastructure blockers. Phase 2 freezes
+deterministic canonical JSON, stable source/schema IDs, payload hashes, a fail-closed 100-entry
+Domain Catalog, 100 non-placeholder Draft 2020-12 record schemas, and seven protocol schemas under
+registry hash `sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`.
+Fifteen focused Unit and three Contract tests pass, including compilation/validation of all schemas
+and adversarial secret/private-reasoning/depth/size/conflict checks. An unmodified-code
 full `pnpm verify` passed in 660,217 ms using an isolated fresh Compose project: 1,180
 static/unit/contract tests, 149 real PostgreSQL/Redis integration tests, 72 E2E tests, 36 Runtime
-migrations, build and all smokes. No canonical evidence product code, ClickHouse, merge, tag,
-release, or deployment has started; Phase 2 canonical contracts and schemas are next.
+migrations, build and all smokes. No canonical evidence persistence/export path, ClickHouse, merge,
+tag, release, or deployment has started; Phase 3 clean-cutover persistence is next.
 
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`

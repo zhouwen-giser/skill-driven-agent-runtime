@@ -3,10 +3,10 @@
   "status": "IN_PROGRESS",
   "branch": "feature/v1.4.1-canonical-evidence-export",
   "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "headSha": "844184d",
+  "headSha": "08eeddf7324bd802cd893f8d33636498b32b7f19",
   "prNumber": 18,
   "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
-  "lastCompletedPhase": 1,
+  "lastCompletedPhase": 2,
   "sourceInventory": {
     "classified": 100,
     "sourceConfirmed": 93,
@@ -23,7 +23,10 @@
   "recordCatalog": {
     "total": 100,
     "implemented": 0,
-    "verified": 0
+    "verified": 0,
+    "contractDefined": 100,
+    "schemaVerified": 100,
+    "schemaRegistryHash": "sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27"
   },
   "tests": {
     "pnpmInstallFrozenLockfile": "passed",
@@ -39,5 +42,5 @@
     "Phase 3 must create the seven missing evidence-infrastructure authorities before their catalog rows can be implemented and verified."
   ],
   "blockers": [],
-  "updatedAt": "2026-08-04T01:30:00+08:00"
+  "updatedAt": "2026-08-04T02:00:00+08:00"
 }

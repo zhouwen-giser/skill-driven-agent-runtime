@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.local/evidence/v1/records/mcp_task.control_event.schema.json",
+  "title": "mcp_task.control_event canonical evidence record",
+  "description": "Canonical mcp_task.control_event evidence projected from Runtime PostgreSQL remote_task_control_event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "schemaName",
+    "schemaVersion",
+    "recordFamily",
+    "recordType",
+    "recordId",
+    "sourceSystem",
+    "sourceTable",
+    "sourceRecordId",
+    "sourceRevision",
+    "environment",
+    "correlationId",
+    "occurredAt",
+    "recordedAt",
+    "deliveryGuarantee",
+    "evaluationRole",
+    "evidenceRefs",
+    "artifactRefs",
+    "payloadHash",
+    "payload"
+  ],
+  "properties": {
+    "contractVersion": { "const": "sdar.evidence/v1" },
+    "schemaName": { "const": "sdar.evidence.mcp_task.control_event" },
+    "schemaVersion": { "const": 1 },
+    "recordFamily": {
+      "const": "mcp_task",
+      "enum": [
+        "runtime",
+        "skill",
+        "mcp_task",
+        "capability",
+        "experience",
+        "replay",
+        "artifact",
+        "node_control",
+        "evidence"
+      ]
+    },
+    "recordType": { "const": "mcp_task.control_event" },
+    "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
+    "sourceSystem": { "const": "runtime" },
+    "sourceTable": { "const": "remote_task_control_event" },
+    "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "deliveryGuarantee": { "const": "transactional" },
+    "evaluationRole": { "const": "required" },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "artifactRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "payload": {
+      "type": "object",
+      "minProperties": 3,
+      "maxProperties": 128,
+      "required": ["eventId", "bindingId", "eventType"],
+      "properties": {
+        "eventId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "bindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "eventType": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      },
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+    },
+    "goalVersion": { "type": "integer", "minimum": 1 },
+    "planVersion": { "type": "integer", "minimum": 1 },
+    "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "taskId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "contextId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "episodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "goalId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "planId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "skillExecutionId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "capabilityBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "remoteTaskBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "causationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "evidenceSequence": { "type": "string", "minLength": 1, "maxLength": 4096 }
+  },
+  "$defs": {
+    "evidenceValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    }
+  },
+  "x-sdar-compatibility": "backward_compatible_additive",
+  "x-sdar-maximum-inline-bytes": 65536,
+  "x-sdar-redaction-policy": "strict_internal_v1",
+  "x-sdar-artifact-policy": "inline_bounded_or_artifact_ref"
+}
