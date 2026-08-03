@@ -88,8 +88,8 @@ LKG, and never delete or restore over unknown data.
 
 ## Merge Evidence
 
-PR #15 is non-draft and targets `main` from `feature/v1.4-node-control-backend`; live GitHub state is
-`MERGEABLE/CLEAN` with no checks, reviews or review threads. The active main ruleset requires PR use
-and resolved threads, requires zero approvals, permits Merge Commit and has no bypass actors. Final
-merge SHA and ancestry will be verified after the Merge Commit. No force push, tag, GitHub Release
-or deployment is authorized.
+PR #15 was non-draft, targeted `main`, and merged without bypass as Merge Commit `0cbb42d` at
+`2026-08-03T18:44:04+08:00`. Its parents are synchronized main `a7a7c62` and release head
+`4dade43`. Candidate `e6d0b69`, evidence `d5368bd` and release head `4dade43` are verified
+`origin/main` ancestors; the remote feature branch was deleted. No force push, tag, GitHub Release
+or deployment occurred.

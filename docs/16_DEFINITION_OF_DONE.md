@@ -155,4 +155,5 @@ handoff, not for `POST_RELEASE_OPERATIONS_READY` or a production release.
       recovery, A2A TCK and read-only Review also pass.
 - [x] Remote evidence push and non-draft PR #15 are complete; GitHub reports `MERGEABLE/CLEAN`, no
       checks/reviews/threads and an active main ruleset requiring zero approvals.
-- [ ] Merge-to-main and candidate ancestry evidence are complete.
+- [x] PR #15 merged by Merge Commit `0cbb42d`; candidate `e6d0b69`, evidence `d5368bd` and release
+      head `4dade43` are `origin/main` ancestors and the remote feature branch is deleted.

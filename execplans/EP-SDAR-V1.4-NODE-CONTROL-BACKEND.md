@@ -102,6 +102,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   `MERGEABLE/CLEAN`, with no checks, reviews or review threads. The active main ruleset requires zero
   approvals, requires resolved threads and permits Merge Commit; final reconciliation and ancestry
   verification remain.
+- [x] 2026-08-03 18:44 +08:00 PR #15 merged without bypass as Merge Commit `0cbb42d` with parents
+  `a7a7c62` and `4dade43`. Candidate `e6d0b69`, evidence `d5368bd` and release head `4dade43` are
+  verified `origin/main` ancestors; the remote feature branch is deleted and P14 is terminal.
 
 ## Discoveries and Surprises
 
@@ -333,5 +336,5 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   Review is 0 Blocking / 0 Major / 0 Minor. P14 qualifies v1.4.0 on clean candidate `e6d0b69`: 938
   Unit, 22 performance, 220 Contract, 149 Integration, 72 E2E, migration/build/architecture and all
   smokes pass. A2A HTTP/JSON MUST, security and real recovery also pass; final read-only Review is 0
-  Blocking / 0 Major / 0 Minor. Publication, live PR state and merge ancestry follow the authorized
-  push.
+  Blocking / 0 Major / 0 Minor. PR #15 merged as `0cbb42d`; candidate/evidence/release head ancestry
+  and remote branch deletion are verified. P00-P14 are complete, with no tag, Release or deployment.

@@ -913,7 +913,7 @@ changed.
 | Security and recovery | verified real-local | 0 secret findings, 0 Critical/High, real dump/restore, credential rotation, restart and Runtime-after-Control-stop | `verify:v14-security`, production audit, `verify:v14-recovery` |
 | Protocol and complete gate | verified | A2A HTTP/JSON MUST 74 passed; clean exact `e6d0b69` is `passed`, `dirty=false` | A2A TCK; `reports/verification/summary.json` |
 | P14 read-only review | verified | 0 Blocking / 0 Major / 0 Minor; no Console product, telemetry query, hierarchy, second Runtime or authority relocation | `p14-review.md` |
-| Publication and merge | ready for merge | evidence `d5368bd` pushed; non-draft PR #15 is `MERGEABLE/CLEAN`, no checks/reviews/threads, ruleset approvals=0 and Merge Commit allowed | P14 Handoff and live PR/ruleset state |
+| Publication and merge | verified | evidence `d5368bd` and release head `4dade43` pushed; non-draft PR #15 merged as `0cbb42d`; candidate/evidence/head are main ancestors; branch deleted | P14 Handoff and live PR/main ancestry state |
 
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 

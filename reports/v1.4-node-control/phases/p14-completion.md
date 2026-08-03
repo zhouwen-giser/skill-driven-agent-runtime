@@ -76,8 +76,11 @@ GitHub Release or deployment is part of P14.
 
 ## Handoff
 
-- status: `READY_FOR_MERGE`
+- status: `COMPLETED`
 - nextPhase: none
-- prerequisites: PR #15 is non-draft, `MERGEABLE/CLEAN`, has no checks, reviews or review threads,
-  and the active main ruleset requires zero approvals while allowing Merge Commit. Recheck latest
-  main, merge without bypass, then verify candidate ancestry.
+- publication: PR #15 merged by Merge Commit `0cbb42da3e6c7c98726d7502a769430eeeacc2e0`
+  at `2026-08-03T18:44:04+08:00`; its parents are the synchronized main `a7a7c62` and release head
+  `4dade43`. The remote feature branch is deleted.
+- ancestry: verified candidate `e6d0b69`, evidence `d5368bd` and release head `4dade43` are all
+  ancestors of `origin/main@0cbb42d`.
+- prerequisites: none; no subsequent phase, tag, GitHub Release or deployment was started.

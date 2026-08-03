@@ -19,6 +19,9 @@ All notable changes to this project are documented here. The format follows Keep
 - Published evidence commit `d5368bd` and opened non-draft PR #15. Live GitHub state is
   `MERGEABLE/CLEAN` with no checks, reviews or review threads; the active main ruleset requires zero
   approvals and permits Merge Commit without bypass.
+- Merged PR #15 without bypass as Merge Commit `0cbb42d` with parents `a7a7c62` and release head
+  `4dade43`; candidate/evidence/head ancestry and remote feature-branch deletion are verified. No
+  tag, GitHub Release or deployment was created.
 
 ## SDAR v1.4 P13 Security, Recovery and Operations
 
