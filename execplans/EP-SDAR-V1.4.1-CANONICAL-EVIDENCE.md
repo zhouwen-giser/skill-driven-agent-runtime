@@ -71,7 +71,8 @@ Control read before mapping.
       export, explicit contiguous/partial ACK and a real Control-to-Sink outage-safe vertical.
 - [x] 2026-08-04 Phase 5 projected all 18 Runtime types with exact references, terminal
       consistency, blocking source-gap issues, checkpoints and a draft manifest.
-- [ ] Phase 6 project complete Skill usage evidence.
+- [x] 2026-08-04 Phase 6 projected all 16 Skill types with exact version/identity, complete
+      execution-tree/failure semantics, blocking no-invention issues and real PostgreSQL replay.
 - [ ] Phase 7 project MCP Task and Capability evidence.
 - [ ] Phase 8 project Experience, Replay, and Artifact evidence.
 - [ ] Phase 9 project Node Control governance evidence.
@@ -120,12 +121,24 @@ Control read before mapping.
 - The sandbox could not read Docker's user config during a full migration gate. The authorized
   escalated rerun against the existing isolated services passed all eight stages.
 - Phase 5's first review found that `runtime.action` lacked its required `skill.execution`
-  reference. Exact identity now derives only from one persisted matching Skill Execution; zero or
-  multiple matches create a blocking Quality Issue.
+  reference. Phase 6 further tightened parent/child correlation with persisted Provider ID and
+  Operation metadata, retaining a single-Plan-execution fallback; zero or multiple exact matches
+  create a blocking Quality Issue.
 - Runtime terminal evidence carries Task, Goal, Control and Workflow statuses separately. Terminal
   Workflow status is checked but is not treated as proof of Goal achievement.
 - A Run Seal alone cannot suppress recovery: pending selection also requires the corresponding
   manifest, closing the crash window between idempotent record append and manifest save.
+- Phase 6 exposed a `version` table-alias/column collision: `to_jsonb(version)` serialized the
+  integer column rather than the row. A distinct row alias plus a real-source assertion prevents
+  recurrence.
+- Parent/child Skills make Plan-only MCP Action correlation ambiguous. Exact Provider ID and
+  Operation metadata now select one Skill Execution; zero/multiple exact matches fail visibly.
+- Capability Slot resolution requires the composite Capability ID/version authority. The declared
+  slot supplies ID and the immutable Task Capability Binding supplies version; no catalog latest or
+  ID-only inference is accepted.
+- Blocking cross-family Skill gaps cannot become terminal checkpoints: unresolved blocking Skill
+  issues keep the Task pending, successful replay resolves obsolete issues, and the same stable
+  issue ID is reopened if the gap returns.
 
 ## Decision Log
 
@@ -142,8 +155,11 @@ Control read before mapping.
 - D-EP-007: New dependencies require the OSS intake gate. The initial design adds none.
 - D-EP-008: Runtime core uses a repeatable-read durable source projector over existing authorities;
   it does not retrofit or rewrite their transaction paths.
-- D-EP-009: Cross-family Skill Execution references use the same canonical source identity that
-  Phase 6 will emit; ambiguous matches fail visibly and are never selected by order.
+- D-EP-009: Cross-family Skill Execution references use the same canonical source identity emitted
+  by Phase 6; ambiguous matches fail visibly and are never selected by order.
+- D-EP-010: Skill Evidence uses post-terminal repeatable-read projection after the Runtime
+  checkpoint. It snapshots declared Skill Version usage separately from execution policy and emits
+  no derived record when exact selection, child, Plan Step or Capability authority is unavailable.
 
 ## Implementation Steps
 
@@ -157,8 +173,9 @@ Control read before mapping.
 4. [Complete] Replace the old Telemetry application/adapter/API contract with evidence
    configuration, batch/ACK transport, retry/LKG/export status, and fail-closed security
    validation.
-5. [In progress: Runtime complete] Implement source projectors family by family in package order,
-   updating matrix and tests after each phase. Runtime is 18/18; total is 18/100.
+5. [In progress: Runtime and Skill complete] Implement source projectors family by family in
+   package order, updating matrix and tests after each phase. Runtime is 18/18, Skill is 16/16;
+   total is 34/100.
 6. Add manifest/quality/coverage enforcement, management recovery operations, and 44 required
    vertical scenarios.
 7. Run adversarial and performance gates, independent architecture/acceptance audits, freeze the
@@ -204,6 +221,8 @@ Evidence authorities with no data migration or dual write. Eleven focused Postgr
 Telemetry surface with a bounded, fenced `sdar.evidence/v1` batch/ACK service and proves the real
 Control -> Runtime -> PostgreSQL/Redis -> HTTP receiver path plus nonblocking receiver outage. Its
 601,088 ms full `pnpm verify` passes 1,207 static Unit/Contract, 158 Integration and 72 E2E tests.
-Runtime projector coverage is 18/18 and total formal coverage is 18/100. Phase 6 projects the
-complete Skill usage tree and reuses the frozen Skill Execution identity. This section will be
-replaced with the final measured outcome after Phase 14.
+Runtime projector coverage is 18/18 and Skill projector coverage is 16/16, for 34/100 total.
+The real Skill vertical proves exact Usage Specification and policy snapshots, parent/child
+composition, Capability Slot ID/version, seven reference kinds, wait/resume, compliance pass/fail,
+degraded missing effects/evidence and replay. Phase 7 projects MCP Task and Capability records.
+This section will be replaced with the final measured outcome after Phase 14.

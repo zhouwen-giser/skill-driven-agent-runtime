@@ -30,6 +30,12 @@ All notable changes to this project are documented here. The format follows Keep
   Workflow transition, decisions, gates, action/receipt, verification, outcome and Run Seal sources.
 - Added exact stable `skill.execution` references and blocking Quality Issues for missing/ambiguous
   sources or terminal inconsistency. Phase 5 gates pass; coverage is 18/100 verified.
+- Added all 16 Skill-family projectors over exact Skill Version usage, discovery/applicability,
+  context, parent/child composition, Capability Slot, procedure/compliance, execution references
+  and failure propagation. Missing authority produces a blocking issue without invented facts.
+- Proved a real PostgreSQL parent/child Skill vertical with precise Capability version, Native and
+  Legacy sources, seven external-reference kinds, wait/resume, compliance pass/fail and idempotent
+  replay. Phase 6 coverage is 34/100 verified.
 
 ## SDAR v1.4 P14 Release Qualification
 

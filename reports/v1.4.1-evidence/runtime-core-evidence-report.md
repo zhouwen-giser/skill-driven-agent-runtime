@@ -16,8 +16,9 @@ types because both the superseded and replacement Plan are retained.
 - Goal and Plan versions are explicit; Goal Patch preserves invalidated Plan identity.
 - Action carries persisted execution mode/semantics; Receipt separates transport, executor and
   business. Executor success leaves business `not_asserted` until Verification and Outcome exist.
-- Action references the exact Plan Step and a stable `skill.execution` ID derived from one real
-  Skill Execution. Zero or multiple candidates create a blocking Quality Issue.
+- Action references the exact Plan Step and a stable `skill.execution` ID. Parent/child plans use
+  persisted Provider ID plus Operation metadata to correlate one execution; a single Plan execution
+  is the bounded fallback. Zero or multiple exact candidates create a blocking Quality Issue.
 - Run Seal records Task, Goal, Control and Workflow status separately and verifies terminal
   consistency. Workflow `succeeded` does not independently claim Goal `achieved`.
 - Missing facts/references become blocking Quality Issues; the mapper never uses prompts or timing

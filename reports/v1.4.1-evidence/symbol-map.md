@@ -23,6 +23,9 @@
 | `RuntimeCoreEvidenceProjector` | `packages/runtime-control-application/src/runtime-core-evidence-projector.ts` | all 18 Runtime records, Quality Issues, checkpoint and draft manifest |
 | `createSkillExecutionEvidenceRecordId` | `packages/runtime-control-application/src/runtime-core-evidence-projector.ts` | stable cross-family Skill Execution reference identity |
 | `PostgresRuntimeCoreEvidenceSource` | `packages/runtime-control-persistence-postgres/src/runtime-core-evidence-source.ts` | repeatable-read Runtime source snapshot and pending terminal Task scan |
+| `SkillEvidenceProjector` | `packages/runtime-control-application/src/skill-evidence-projector.ts` | all 16 Skill records, exact cross-family references, Quality Issues and checkpoint |
+| `PostgresSkillEvidenceSource` | `packages/runtime-control-persistence-postgres/src/skill-evidence-source.ts` | repeatable-read Skill tree snapshot after Runtime checkpoint |
+| `skillExecutionEvidenceRevision` | `packages/runtime-control-application/src/runtime-core-evidence-projector.ts` | one immutable revision input shared by Runtime future refs and emitted Skill Execution |
 
 ## Control evidence source symbols
 

@@ -509,13 +509,41 @@ export class PostgresEvidenceStore {
     );
   }
 
+  async resolveQualityIssues(input: {
+    readonly episodeId: string;
+    readonly recordTypePrefix: string;
+    readonly retainedIssueIds: readonly string[];
+    readonly resolvedAt: string;
+  }): Promise<void> {
+    await this.#pool.query(
+      `UPDATE evidence_quality_issue
+       SET resolved_at=$4
+       WHERE episode_id=$1
+         AND record_type LIKE $2 || '%'
+         AND resolved_at IS NULL
+         AND NOT (issue_id = ANY($3::text[]))`,
+      [input.episodeId, input.recordTypePrefix, input.retainedIssueIds, input.resolvedAt],
+    );
+  }
+
   async recordQualityIssue(issue: EvidenceQualityIssue): Promise<void> {
     await this.#pool.query(
       `INSERT INTO evidence_quality_issue(
          issue_id,issue_code,severity,record_type,record_id,episode_id,source_system,
          source_table,source_record_id,detail,created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)
-       ON CONFLICT (issue_id) DO NOTHING`,
+       ON CONFLICT (issue_id) DO UPDATE SET
+         issue_code=EXCLUDED.issue_code,
+         severity=EXCLUDED.severity,
+         record_type=EXCLUDED.record_type,
+         record_id=EXCLUDED.record_id,
+         episode_id=EXCLUDED.episode_id,
+         source_system=EXCLUDED.source_system,
+         source_table=EXCLUDED.source_table,
+         source_record_id=EXCLUDED.source_record_id,
+         detail=EXCLUDED.detail,
+         created_at=EXCLUDED.created_at,
+         resolved_at=NULL`,
       [
         issue.issueId,
         issue.issueCode,

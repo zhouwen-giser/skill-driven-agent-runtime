@@ -992,3 +992,13 @@ release verification run.
 | V141-EVIDENCE-RUNTIME-TERMINAL-001 | verified | Run Seal keeps Task/Goal/Control/Workflow state distinct and checks consistency | PostgreSQL vertical and schema validation for 19 instances |
 | V141-EVIDENCE-RUNTIME-PROJECTION-001 | verified | repeatable-read snapshot, idempotent outbox, checkpoint, issue and draft manifest | replay/pending/manifest integration assertions; architecture gate |
 | V141-EVIDENCE-PHASE5-GATE | verified | Runtime 18/18; total coverage 18/100; final sealing remains Phase 10 | format/lint/typecheck/architecture/evidence-contract plus Unit and PostgreSQL Integration |
+
+## SDAR v1.4.1 Skill Evidence Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| V141-EVIDENCE-SKILL-TREE-001 | verified | `SkillEvidenceProjector` maps all 16 Skill types from exact versioned discovery, context, composition, execution and failure facts | Skill Unit 7/7; `skill-evidence-report.md`; ADR-131 |
+| V141-EVIDENCE-SKILL-IDENTITY-001 | verified | one immutable Skill Execution revision; exact Plan Step, selection and Capability ID/version refs; missing authority is blocking and never guessed | no-invention regression plus real PostgreSQL identity/reference assertions |
+| V141-EVIDENCE-SKILL-FAILURE-001 | verified | wait/resume, compliance pass/fail, seven external-reference kinds and fail-fast/recoverable/optional/degraded boundaries retained | parameterized Unit and parent/child PostgreSQL vertical |
+| V141-EVIDENCE-SKILL-PROJECTION-001 | verified | repeatable-read source, Runtime-before-Skill Server composition, idempotent outbox and `skill/v1` checkpoint | replay/pending assertions; Redis remains wake-only |
+| V141-EVIDENCE-PHASE6-GATE | verified | Skill 16/16; Runtime + Skill coverage 34/100; final sealing remains Phase 10 | format/lint/typecheck/architecture/evidence-contract plus 10 Unit and 2 PostgreSQL Integration |

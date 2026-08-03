@@ -25,6 +25,7 @@ export interface RuntimeCoreEvidenceSnapshot {
   readonly executionGates: readonly RuntimeCoreSourceRow[];
   readonly confirmations: readonly RuntimeCoreSourceRow[];
   readonly skillExecutions: readonly RuntimeCoreSourceRow[];
+  readonly skillExecutionReferences?: readonly RuntimeCoreSourceRow[];
   readonly invocations: readonly RuntimeCoreSourceRow[];
   readonly verifications: readonly RuntimeCoreSourceRow[];
   readonly outcomes: readonly RuntimeCoreSourceRow[];
@@ -486,15 +487,31 @@ export class RuntimeCoreEvidenceProjector {
       const matchingSkillExecutions = snapshot.skillExecutions.filter(
         (execution) => optionalText(execution, 'workflow_plan_id') === planId,
       );
-      const [matchingSkillExecution] = matchingSkillExecutions;
+      const correlatedSkillExecutions = matchingSkillExecutions.filter((execution) =>
+        (snapshot.skillExecutionReferences ?? []).some(
+          (reference) =>
+            reference['execution_id'] === execution['execution_id'] &&
+            reference['kind'] === 'provider' &&
+            reference['reference_id'] === row['server_id'] &&
+            objectOrEmpty(reference['metadata_json'])['operationName'] === row['tool_name'],
+        ),
+      );
+      const exactSkillExecutions =
+        correlatedSkillExecutions.length > 0
+          ? correlatedSkillExecutions
+          : matchingSkillExecutions.length === 1
+            ? matchingSkillExecutions
+            : [];
+      const [matchingSkillExecution] = exactSkillExecutions;
       const skillExecutionRef =
-        matchingSkillExecutions.length === 1 && matchingSkillExecution !== undefined
+        exactSkillExecutions.length === 1 && matchingSkillExecution !== undefined
           ? createSkillExecutionEvidenceRecordId(matchingSkillExecution)
           : undefined;
       if (skillExecutionRef === undefined) {
         await issue('runtime.action', 'mcp_invocation', invocationId, {
           missingReference: 'skill.execution',
-          matchingSkillExecutionCount: matchingSkillExecutions.length,
+          matchingSkillExecutionCount: exactSkillExecutions.length,
+          planSkillExecutionCount: matchingSkillExecutions.length,
         });
       }
       const action = await emit({
@@ -753,29 +770,45 @@ export function createSkillExecutionEvidenceRecordId(row: RuntimeCoreSourceRow):
     sourceSystem: catalog.sourceSystem,
     sourceTable: catalog.sourceTable,
     sourceRecordId: text(row, 'execution_id'),
-    sourceRevision: hashCanonicalEvidenceJson({
-      executionId: row['execution_id'] ?? null,
-      parentExecutionId: row['parent_execution_id'] ?? null,
-      taskId: row['task_id'] ?? null,
-      goalId: row['goal_id'] ?? null,
-      goalVersion: row['goal_version'] ?? null,
-      skillId: row['skill_id'] ?? null,
-      skillVersion: row['skill_version'] ?? null,
-      selectionRef: row['selection_ref'] ?? null,
-      applicabilityStatus: row['applicability_status'] ?? null,
-      usagePolicy: row['usage_policy_json'] ?? null,
-      workflowPlanId: row['workflow_plan_id'] ?? null,
-      workflowDefinitionId: row['workflow_definition_id'] ?? null,
-      workflowDefinitionVersion: row['workflow_definition_version'] ?? null,
-      createdAt: row['created_at'] ?? null,
-    }),
+    sourceRevision: hashCanonicalEvidenceJson(skillExecutionEvidenceRevision(row)),
     schemaName: catalog.schemaName,
     schemaVersion: catalog.schemaVersion,
   });
 }
 
+export function skillExecutionEvidenceRevision(row: RuntimeCoreSourceRow): EvidenceJsonValue {
+  return {
+    executionId: row['execution_id'] ?? null,
+    parentExecutionId: row['parent_execution_id'] ?? null,
+    taskId: row['task_id'] ?? null,
+    goalId: row['goal_id'] ?? null,
+    goalVersion: row['goal_version'] ?? null,
+    skillId: row['skill_id'] ?? null,
+    skillVersion: row['skill_version'] ?? null,
+    selectionRef: row['selection_ref'] ?? null,
+    applicabilityStatus: row['applicability_status'] ?? null,
+    usagePolicy: row['usage_policy_json'] ?? null,
+    workflowPlanId: row['workflow_plan_id'] ?? null,
+    workflowDefinitionId: row['workflow_definition_id'] ?? null,
+    workflowDefinitionVersion: row['workflow_definition_version'] ?? null,
+    createdAt: row['created_at'] ?? null,
+  };
+}
+
 function key(recordType: string, sourceRecordId: string): string {
   return `${recordType}:${sourceRecordId}`;
+}
+
+function objectOrEmpty(value: EvidenceJsonValue | undefined): RuntimeCoreSourceRow {
+  return isRuntimeCoreSourceRow(value) ? value : {};
+}
+
+function isRuntimeCoreSourceRow(
+  value: EvidenceJsonValue | undefined,
+): value is RuntimeCoreSourceRow {
+  return (
+    value !== null && value !== undefined && !Array.isArray(value) && typeof value === 'object'
+  );
 }
 
 function refs(...records: readonly (CanonicalEvidenceEnvelope | undefined)[]): readonly string[] {

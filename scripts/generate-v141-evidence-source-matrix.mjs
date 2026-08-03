@@ -778,7 +778,13 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     delivery_guarantee: 'at_least_once; stable-id idempotent',
     evaluation_role: options.role ?? 'required',
     applicability: options.applicability ?? 'episode feature/policy determines applicability',
-    mapper: options.mapper ?? (family === 'runtime' ? 'RuntimeCoreEvidenceProjector' : mapperName(recordType)),
+    mapper:
+      options.mapper ??
+      (family === 'runtime'
+        ? 'RuntimeCoreEvidenceProjector'
+        : family === 'skill'
+          ? 'SkillEvidenceProjector'
+          : mapperName(recordType)),
     projection_mode:
       sourceSystem === 'control'
         ? 'durable_control_source_projector'
@@ -794,7 +800,11 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     artifact_policy:
       options.artifact ?? 'inline bounded structured fact; oversized payload by ArtifactRef',
     required_references: requiredReferences,
-    status: options.status ?? (family === 'runtime' ? 'implemented_and_verified' : 'source_confirmed'),
+    status:
+      options.status ??
+      (family === 'runtime' || family === 'skill'
+        ? 'implemented_and_verified'
+        : 'source_confirmed'),
   };
 }
 

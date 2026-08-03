@@ -19,8 +19,9 @@ business authority, guessing absent links, or treating Workflow success as Goal 
 3. Action execution basis comes from persisted MCP invocation mode and semantics. Receipt keeps
    transport, executor and business layers separate; business success is never inferred.
 4. `runtime.action` links to the exact Plan Step and stable future `skill.execution` ID only when
-   one real Skill Execution matches the Task Plan. Missing or ambiguous matches create a blocking
-   Quality Issue.
+   one real Skill Execution matches. Parent/child Plans first correlate persisted Provider ID and
+   Operation metadata; a single Plan execution is the bounded fallback. Missing or ambiguous exact
+   matches create a blocking Quality Issue.
 5. Run Seal projects Task, Goal, Control and Workflow statuses separately. Expected terminal
    mappings are checked; Workflow `succeeded` alone does not establish Goal `achieved`.
 6. The Server polls terminal Tasks lacking either a Run Seal or its corresponding manifest. This

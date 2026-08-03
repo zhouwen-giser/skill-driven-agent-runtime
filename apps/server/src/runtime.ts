@@ -249,10 +249,12 @@ import {
   PostgresRuntimeAgentCardRepository,
   PostgresRuntimeCoreEvidenceSource,
   PostgresRuntimeEvidenceExportStore,
+  PostgresSkillEvidenceSource,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
   RuntimeCoreEvidenceProjector,
   RuntimeEvidenceExportService,
+  SkillEvidenceProjector,
 } from '../../../packages/runtime-control-application/src/index.js';
 import {
   EnvironmentEvidenceCredentialResolver,
@@ -683,10 +685,18 @@ export async function startServerRuntime(
     clock,
     actorId: 'sdar-runtime',
   });
+  const evidenceStore = new PostgresEvidenceStore(pool);
   const runtimeCoreEvidenceSource = new PostgresRuntimeCoreEvidenceSource(pool);
   const runtimeCoreEvidenceProjector = new RuntimeCoreEvidenceProjector({
     source: runtimeCoreEvidenceSource,
-    writer: new PostgresEvidenceStore(pool),
+    writer: evidenceStore,
+    environment: options.evidenceEnvironment ?? 'runtime',
+    clock,
+  });
+  const skillEvidenceSource = new PostgresSkillEvidenceSource(pool);
+  const skillEvidenceProjector = new SkillEvidenceProjector({
+    source: skillEvidenceSource,
+    writer: evidenceStore,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
   });
@@ -4136,6 +4146,8 @@ export async function startServerRuntime(
       .pendingTaskIds(10)
       .then(async (taskIds) => {
         for (const taskId of taskIds) await runtimeCoreEvidenceProjector.projectTask(taskId);
+        const skillTaskIds = await skillEvidenceSource.pendingTaskIds(10);
+        for (const taskId of skillTaskIds) await skillEvidenceProjector.projectTask(taskId);
       })
       .catch((error: unknown) => {
         process.stderr.write(

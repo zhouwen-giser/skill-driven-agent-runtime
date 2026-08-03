@@ -25,10 +25,10 @@
     "status"
   ],
   "statusCounts": {
-    "source_confirmed": 82,
+    "source_confirmed": 66,
     "source_missing_blocker": 0,
     "conditional_not_applicable": 0,
-    "implemented_and_verified": 18
+    "implemented_and_verified": 34
   },
   "familyCounts": {
     "runtime": 18,
@@ -471,13 +471,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillUsageSnapshotEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "runtime.episode,skill.execution",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -494,13 +494,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillCandidateEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "runtime.goal_contract",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -517,13 +517,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillApplicabilityEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.candidate",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -540,13 +540,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillContextResolutionEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.selection",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -563,13 +563,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillSelectionEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.candidate,skill.applicability",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -586,13 +586,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillModeSelectionEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.selection",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -609,13 +609,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillCompositionEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.selection",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -632,13 +632,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillCompositionEdgeEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.composition",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -655,13 +655,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillCapabilitySlotResolutionEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.composition,capability.definition",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -678,13 +678,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillProcedureCompilationEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.capability_slot_resolution",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -701,13 +701,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillPlanComplianceEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.procedure_compilation,runtime.plan",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -724,13 +724,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillExecutionEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.selection,runtime.plan_step",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -747,13 +747,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillExecutionEventEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.execution",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -770,13 +770,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillExecutionReferenceEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.execution",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -793,13 +793,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillFailurePropagationEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "skill.execution_event",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -816,13 +816,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "SkillEvidenceRequirementEvidenceMapper",
+      "mapper": "SkillEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "capability.task_binding",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",

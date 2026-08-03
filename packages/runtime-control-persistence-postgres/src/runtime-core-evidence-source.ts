@@ -132,6 +132,15 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
          WHERE execution.task_id=$1 ORDER BY execution.created_at,execution.execution_id`,
         [taskId],
       );
+      const skillExecutionReferences = await rows(
+        client,
+        `SELECT to_jsonb(reference) AS value
+         FROM skill_execution_reference reference
+         JOIN skill_execution_record execution ON execution.execution_id=reference.execution_id
+         WHERE execution.task_id=$1
+         ORDER BY reference.created_at,reference.link_id`,
+        [taskId],
+      );
       const invocations = await rows(
         client,
         `SELECT to_jsonb(invocation) AS value FROM mcp_invocation invocation
@@ -184,6 +193,7 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
         executionGates,
         confirmations,
         skillExecutions,
+        skillExecutionReferences,
         invocations,
         verifications,
         outcomes,

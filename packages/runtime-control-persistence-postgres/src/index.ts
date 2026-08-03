@@ -6,3 +6,4 @@ export * from './task-summary-query.js';
 export * from './evidence-export-store.js';
 export * from './evidence-store.js';
 export * from './runtime-core-evidence-source.js';
+export * from './skill-evidence-source.js';
