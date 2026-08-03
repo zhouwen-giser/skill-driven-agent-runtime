@@ -7,9 +7,12 @@
 - Baseline and latest synchronized main: `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`
 - Verified code candidate: `e6d0b698fb0430386edba66474f8214f9f4bd740`
 - Evidence and first remote publication commit: `d5368bd460c2d0dff46fbfa2b83b644372a59bda`
-- Pull request: [#15](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15),
-  non-draft, `MERGEABLE/CLEAN`
-- Merge: pending the final post-reconciliation live recheck
+- Pull request: [#15](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15), merged
+- Release head: `4dade4349258126f06a3b1fb09b4ee27a69b107f`
+- Merge Commit: `0cbb42da3e6c7c98726d7502a769430eeeacc2e0`, parents `a7a7c62` and
+  `4dade43`, merged at `2026-08-03T18:44:04+08:00`
+- Post-merge verification: candidate/evidence/release head are `origin/main` ancestors; remote
+  feature branch deleted; main worktree clean
 
 `origin/main` was fetched again after qualification and remains an ancestor of the candidate at
 0 behind / 66 ahead. No empty merge commit was created.

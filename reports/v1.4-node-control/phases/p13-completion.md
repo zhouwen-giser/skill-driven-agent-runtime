@@ -14,7 +14,7 @@ and honest operational limits without creating a second Runtime authority.
 - reproducibilityFixShas: `63c6961`, `ec10587`
 - fullVerifyCandidateSha: `ec10587073828b1fd940e475a30a8ceebfaedd57`
 - evidenceSha: `b8401045bd267fc861819e04e7ec1fdd40f402df`
-- remoteSha: `PENDING_P14_PUSH`
+- remoteSha: `4dade4349258126f06a3b1fb09b4ee27a69b107f`
 
 ## Implementation
 

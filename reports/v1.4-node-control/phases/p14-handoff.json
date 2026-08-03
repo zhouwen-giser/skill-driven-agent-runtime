@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
   "phase": "P14",
-  "status": "READY_FOR_MERGE",
+  "status": "COMPLETED",
   "branch": "feature/v1.4-node-control-backend",
   "baseBranch": "main",
   "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
@@ -13,7 +13,7 @@
   "pullRequest": {
     "number": 15,
     "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15",
-    "state": "OPEN",
+    "state": "MERGED",
     "draft": false,
     "mergeable": "MERGEABLE",
     "mergeStateStatus": "CLEAN",
@@ -21,7 +21,17 @@
     "reviews": [],
     "reviewThreads": []
   },
-  "merge": null,
+  "merge": {
+    "method": "merge_commit",
+    "commitSha": "0cbb42da3e6c7c98726d7502a769430eeeacc2e0",
+    "parentMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+    "parentReleaseHeadSha": "4dade4349258126f06a3b1fb09b4ee27a69b107f",
+    "mergedAt": "2026-08-03T18:44:04+08:00",
+    "candidateIsMainAncestor": true,
+    "evidenceIsMainAncestor": true,
+    "releaseHeadIsMainAncestor": true,
+    "remoteFeatureBranchDeleted": true
+  },
   "review": { "blocking": 0, "major": 0, "minor": 0 },
   "fullVerify": { "status": "passed", "dirty": false, "durationMs": 581785 },
   "productionDeploymentPerformed": false,
@@ -29,5 +39,6 @@
   "releaseCreated": false,
   "qualifiedAt": "2026-08-03T13:55:28+08:00",
   "publicationObservedAt": "2026-08-03T18:40:29+08:00",
-  "safeNextAction": "Push this evidence reconciliation, recheck PR #15 and latest main, merge with a Merge Commit without bypass, then verify the candidate is an origin/main ancestor."
+  "completedAt": "2026-08-03T18:44:04+08:00",
+  "safeNextAction": "None. P14 is terminal; no tag, GitHub Release or deployment was started."
 }

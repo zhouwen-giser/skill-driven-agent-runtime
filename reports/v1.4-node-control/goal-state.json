@@ -1,19 +1,22 @@
 {
   "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
-  "status": "ACTIVE",
+  "status": "COMPLETED",
   "repository": "zhouwen-giser/skill-driven-agent-runtime",
   "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "branch": "feature/v1.4-node-control-backend",
   "lastCompletedPhase": "P14",
-  "remoteHeadSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
-  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "remoteHeadSha": "4dade4349258126f06a3b1fb09b4ee27a69b107f",
+  "latestObservedMainSha": "0cbb42da3e6c7c98726d7502a769430eeeacc2e0",
   "pullRequest": {
     "number": 15,
     "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15",
-    "state": "OPEN",
+    "state": "MERGED",
     "draft": false,
     "mergeable": "MERGEABLE",
-    "mergeStateStatus": "CLEAN"
+    "mergeStateStatus": "CLEAN",
+    "mergeCommitSha": "0cbb42da3e6c7c98726d7502a769430eeeacc2e0",
+    "mergedAt": "2026-08-03T18:44:04+08:00",
+    "remoteFeatureBranchDeleted": true
   },
   "phases": {
     "P00": {
@@ -116,13 +119,16 @@
       "completedAt": "2026-08-03T13:00:00+08:00"
     },
     "P14": {
-      "status": "ready_for_merge",
+      "status": "completed",
       "implementationSha": "47fb8c31ffb474eb2266e4d7b104ae425a3fb530",
       "verifiedCandidateSha": "e6d0b698fb0430386edba66474f8214f9f4bd740",
       "evidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
       "remoteEvidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
       "qualifiedAt": "2026-08-03T13:55:28+08:00",
-      "publicationObservedAt": "2026-08-03T18:40:29+08:00"
+      "publicationObservedAt": "2026-08-03T18:40:29+08:00",
+      "releaseHeadSha": "4dade4349258126f06a3b1fb09b4ee27a69b107f",
+      "mergeCommitSha": "0cbb42da3e6c7c98726d7502a769430eeeacc2e0",
+      "completedAt": "2026-08-03T18:44:04+08:00"
     }
   }
 }

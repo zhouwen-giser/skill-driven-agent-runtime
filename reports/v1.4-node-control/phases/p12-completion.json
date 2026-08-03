@@ -8,7 +8,7 @@
   "implementationSha": "7eb5b83ce042244e6d70eb928ad5d456121f4ebf",
   "fullVerifyCandidateSha": "a787cbf0130a74b894b88aba6706782b654c59ff",
   "evidenceSha": "062bd2a8d7d1f827b1709c1998d287105ea7e949",
-  "remoteSha": "PENDING_P14_PUSH",
+  "remoteSha": "4dade4349258126f06a3b1fb09b4ee27a69b107f",
   "completedAt": "2026-08-03T11:04:30+08:00",
   "productionChanges": true,
   "validation": {
