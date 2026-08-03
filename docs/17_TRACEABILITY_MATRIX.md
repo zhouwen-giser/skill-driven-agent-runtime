@@ -903,6 +903,18 @@ changed.
 | Operational truthfulness | verified | backup/restore, upgrade/rollback and capacity/SLO/chaos runbooks disclaim unmeasured production HA/RTO/RPO | P13 read-only review |
 | P13 closure | verified | exact clean `ec10587` full verify; Review 0 Blocking/0 Major/0 Minor after 2 Major repairs | `p13-completion.*`, `p13-review.md`, `p13-handoff.json`, verification summary |
 
+## SDAR v1.4 P14 Release Qualification Addendum
+
+| Requirement | Status | Implementation / boundary | Tests / evidence |
+|---|---|---|---|
+| Latest-main synchronization | verified | `origin/main@a7a7c62` is already the branch ancestor; no empty merge commit | fetch, merge-base and 0-behind/66-ahead evidence |
+| Version and release records | verified local | package/README/CHANGELOG/DoD plus architecture, authority, traceability, rollback, limitations and release report | P14 release directory and completion report |
+| Frozen contracts and migrations | verified | 76 files/28 schemas/111 operations/20 events/7 fixtures; 107 Runtime and 8 Control additive migrations | frozen validator, migration gate and recorded hashes |
+| Security and recovery | verified real-local | 0 secret findings, 0 Critical/High, real dump/restore, credential rotation, restart and Runtime-after-Control-stop | `verify:v14-security`, production audit, `verify:v14-recovery` |
+| Protocol and complete gate | verified | A2A HTTP/JSON MUST 74 passed; clean exact `e6d0b69` is `passed`, `dirty=false` | A2A TCK; `reports/verification/summary.json` |
+| P14 read-only review | verified | 0 Blocking / 0 Major / 0 Minor; no Console product, telemetry query, hierarchy, second Runtime or authority relocation | `p14-review.md` |
+| Publication and merge | pending live GitHub | no force push, protection bypass, tag, release or deployment; Merge Commit only if checks/reviews permit | P14 Handoff and PR live state |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |

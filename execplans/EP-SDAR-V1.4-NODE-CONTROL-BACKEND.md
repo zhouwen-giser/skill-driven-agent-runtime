@@ -94,9 +94,10 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   credential rotation, restart and Control-outage drills pass. Exact clean full verify passes 960
   Unit/performance, 220 Contract, 149 Integration and 72 E2E tests; final Review is 0 Blocking / 0
   Major / 0 Minor after two Major repairs.
-- [ ] 2026-08-03 13:10 +08:00 P14 in progress: latest `origin/main` remains `a7a7c62` and is already
-  an ancestor (`0 behind / 64 ahead`), so no empty merge commit was created. Version, final release
-  records and clean candidate qualification are underway before the single authorized push.
+- [x] 2026-08-03 13:55 +08:00 P14 local qualification complete: latest `origin/main` remains
+  `a7a7c62` and is already an ancestor (`0 behind / 66 ahead`), so no empty merge commit was created.
+  Exact clean candidate `e6d0b69` passes security, recovery, A2A TCK and the complete `pnpm verify`;
+  read-only Review is 0 Blocking / 0 Major / 0 Minor. Publication/PR/merge evidence follows next.
 
 ## Discoveries and Surprises
 
@@ -157,6 +158,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - One P13 full-gate recovery smoke observed Healthy disposable containers whose Windows host ports
   were transiently unreachable. The immediate same-SHA recovery rerun and two later full smoke runs
   passed; the failure remains recorded and no timeout/assertion was weakened.
+- P14 exposed a deterministic clean-checkout recovery defect: `smoke:server` compiled TypeScript but
+  expected a pre-existing Console bundle. Calling the complete production build made the recovery
+  drill self-contained and removed its hidden test-order dependency.
 
 ## Decision Log
 
@@ -238,6 +242,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-03: P13 accepts only exact/CIDR-allowlisted outbound authorities and HTTPS outside actual
   loopback IPs. PostgreSQL remains authoritative; backup/restore drills use new isolated databases
   and never infer production HA, capacity, RTO or RPO.
+- 2026-08-03: P14 distinguishes the clean verified code candidate from the later evidence/publication
+  commit. Report-only commits may follow the exact gate; they do not upgrade local evidence into a
+  production deployment, tag, release, HA, SLO, capacity, RTO or RPO claim.
 
 ## Implementation Steps
 
@@ -319,4 +326,8 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   Minor. P13 adds role/tenant RBAC, bounded ingress/egress, real backup/restore, credential rotation,
   restart/outage evidence and operational runbooks. Its exact clean gate passes 960 Unit/performance,
   220 Contract, 149 Integration and 72 E2E tests with 36 Runtime and 8 Control migrations; final
-  Review is 0 Blocking / 0 Major / 0 Minor. P14 behavior is not yet claimed.
+  Review is 0 Blocking / 0 Major / 0 Minor. P14 qualifies v1.4.0 on clean candidate `e6d0b69`: 938
+  Unit, 22 performance, 220 Contract, 149 Integration, 72 E2E, migration/build/architecture and all
+  smokes pass. A2A HTTP/JSON MUST, security and real recovery also pass; final read-only Review is 0
+  Blocking / 0 Major / 0 Minor. Publication, live PR state and merge ancestry follow the authorized
+  push.

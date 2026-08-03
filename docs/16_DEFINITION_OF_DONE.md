@@ -151,5 +151,7 @@ handoff, not for `POST_RELEASE_OPERATIONS_READY` or a production release.
 - [x] Real local backup/restore, restart reconstruction and Runtime-after-Control-outage drills pass;
       local evidence is not represented as production HA, SLO, capacity, RTO or RPO.
 - [x] P00-P13 traceability, Completion, Review and Handoff evidence is committed.
-- [ ] P14 final exact-clean release matrix, remote push, non-draft PR, GitHub checks/reviews and
-      merge-to-main ancestry evidence are complete.
+- [x] P14 final exact-clean release matrix passes on `e6d0b69` with `dirty=false`; security,
+      recovery, A2A TCK and read-only Review also pass.
+- [ ] Remote push, non-draft PR, GitHub checks/reviews and merge-to-main ancestry evidence are
+      complete.

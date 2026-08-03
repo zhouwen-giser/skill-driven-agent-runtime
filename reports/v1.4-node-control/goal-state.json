@@ -108,6 +108,13 @@
       "remoteSha": "PENDING_P14_PUSH",
       "completedAt": "2026-08-03T13:00:00+08:00"
     },
-    "P14": { "status": "pending" }
+    "P14": {
+      "status": "qualified_for_publication",
+      "implementationSha": "47fb8c31ffb474eb2266e4d7b104ae425a3fb530",
+      "verifiedCandidateSha": "e6d0b698fb0430386edba66474f8214f9f4bd740",
+      "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+      "remoteSha": "PENDING_P14_PUSH",
+      "qualifiedAt": "2026-08-03T13:55:28+08:00"
+    }
   }
 }

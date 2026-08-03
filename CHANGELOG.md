@@ -9,6 +9,13 @@ All notable changes to this project are documented here. The format follows Keep
 - Added final architecture, authority, traceability, rollback and known-limitations release records.
 - Re-synchronized with latest `origin/main`; it remained the branch ancestor, so no empty merge or
   history rewrite was created.
+- Qualified exact clean candidate `e6d0b69` with the full 581,785 ms repository gate: 938 Unit, 22
+  performance, 220 Contract, 149 Integration and 72 E2E tests, migration/build/architecture and all
+  process smokes pass with `dirty=false`.
+- Passed zero-finding secret scan, frozen-contract/SBOM/license gates, production audit at 0
+  Critical/High, A2A HTTP/JSON MUST TCK 74 passed and the real backup/restore/restart/outage drill.
+- Fixed a clean-checkout recovery-smoke order dependency by building the production Console before
+  asserting the Runtime Console route; the repeated 404 and successful rerun remain in evidence.
 
 ## SDAR v1.4 P13 Security, Recovery and Operations
 
