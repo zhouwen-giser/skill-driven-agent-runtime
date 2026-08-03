@@ -961,3 +961,14 @@ release verification run.
 | Frozen P01 HTTP slice | verified | public discovery/liveness/readiness and bearer-protected Node/health/Management Operation/Audit projections; exact frozen bundle under `protocol/node-control/v1` | 76-file validator: 28 schemas, 111 operations, 20 events and 7 fixtures; HTTP schema validation |
 | Runtime/Control isolation | verified | separate database URLs, migration roots and processes; architecture gate rejects cross-persistence writes and Control-side LangGraph | architecture gate over 567 TypeScript sources; smoke stops Control then starts and probes Runtime |
 | P02 exclusion | verified | health truthfully reports Runtime Control disabled; no configuration apply/ack/LKG command path exists | focused Unit/Contract review and source-boundary inspection |
+
+## SDAR v1.4.1 Canonical Evidence Persistence Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| V141-EVIDENCE-CONTRACT-001 | verified | `packages/domain/src/evidence.ts`; 100 catalog schemas under `protocol/evidence/v1`; ADR-127 | Domain Unit and Contract tests; `pnpm verify:evidence-contract` |
+| V141-EVIDENCE-CUTOVER-001 | verified | immutable 0142/0143 plus clean-cutover migration `0144_v14_canonical_evidence`; no old-row migration or dual write; ADR-126 | `pnpm verify:migrations`; guarded `pnpm db:reset:v1.4.1` |
+| V141-EVIDENCE-PERSIST-001 | verified | `EvidenceStore` and eight Runtime PostgreSQL authorities implement idempotent capture, stable-ID conflict, monotonic sequence, High Watermark and source checkpoints | `evidence-persistence.integration.test.ts`: real PostgreSQL concurrency, rollback, restart and cursor cases |
+| V141-EVIDENCE-DELIVERY-001 | verified | per-export/partition leases and fencing, exact sent ownership, contiguous bounded partial ACK, retained DLQ and issue/manifest constraints; ADR-128 | focused persistence and compatibility tests: 2 files / 11 tests |
+| V141-EVIDENCE-SOURCE-001 | source-confirmed | deterministic source matrix maps 100/100 catalog entries to real authoritative sources; projector coverage is intentionally deferred to Phases 4-10 | `source-to-evidence-matrix.{csv,json}`; `source-coverage-phase3.json` |
+| V141-EVIDENCE-PHASE3-GATE | verified | Phase 3 persistence only; external batch protocol remains Phase 4 | `pnpm verify`: 1,198 Unit/Contract, 158 Integration, 72 E2E plus migrations, architecture, build and smokes; `evidence-persistence-report.md` |

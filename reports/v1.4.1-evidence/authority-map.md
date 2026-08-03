@@ -5,8 +5,8 @@
 `sdar.evidence/v1` is a projection contract, not a new business authority. Runtime PostgreSQL
 continues to own execution, Skill, MCP Task, Runtime Capability, Experience, Replay, and Artifact
 facts. Control PostgreSQL continues to own Node profile, configuration, provider/route, governance,
-Control Capability, exposure/card, operation, audit, and Node Event facts. The new Runtime evidence
-tables will own only projection, delivery, issue, checkpoint, and manifest state.
+Control Capability, exposure/card, operation, audit, and Node Event facts. Runtime Evidence tables
+created by migration 0144 own only projection, delivery, issue, checkpoint, and manifest state.
 
 Redis is wake-only. The external sink is a recipient, never authority. Provider APIs remain the
 authority for provider-side task state; the Runtime-owned remote-task observations and protocol
@@ -23,13 +23,14 @@ attempts are the authoritative record of what this Runtime observed or attempted
 | Experience | Runtime PostgreSQL | Episode, trace, typed trace subrecords, and pattern definitions | 10 / 10 |
 | Replay | Runtime PostgreSQL | Dataset/case/run/result/metric/counterexample facts | 6 / 6 |
 | Artifact | Runtime PostgreSQL | Artifact authority, match, execution, feedback, promotion facts | 6 / 6 |
-| Node Control | Control PostgreSQL | Authenticated revision/event reads into Runtime evidence outbox | 18 / 21 |
-| Evidence | New Runtime evidence tables | Evidence infrastructure is self-describing | 0 / 5 |
+| Node Control | Control PostgreSQL plus Runtime delivery state | Authenticated revision/event reads and durable Runtime delivery/ACK | 21 / 21 |
+| Evidence | Runtime Evidence tables | Evidence infrastructure is self-describing | 5 / 5 |
 
-The three unconfirmed Node Control records are delivery/ACK records backed by the planned Runtime
-evidence export state. `node_control.telemetry_configuration` is confirmed from the existing
-Control `configuration_revision` authority filtered to `target_type=telemetry_link`; the old
-Runtime telemetry configuration is not reused as canonical authority.
+The three Phase 1 Node Control gaps are now source-confirmed from `evidence_export_state` and the
+unified outbox. `node_control.telemetry_configuration` remains confirmed from Control
+`configuration_revision` filtered to `target_type=telemetry_link`; the retired Runtime telemetry
+configuration is not reused as canonical authority. Source confirmation does not claim the formal
+delivery/ACK projectors are implemented before Phase 4.
 
 ## Cross-database rule
 
@@ -48,5 +49,5 @@ transaction and no Runtime write-back into Control are permitted.
   prompts, hidden reasoning, logs, or test reports.
 - Mutable status aggregates use a real version/lock/generation when available. Otherwise every
   emitted revision is keyed by a canonical source-row hash and timestamp/identity cursor.
-- Migration 0142 telemetry tables remain historical implementation only. They are not listed as a
-  source for any canonical evidence record and will not receive dual writes.
+- Migration 0142 telemetry tables remain immutable historical SQL only. Migration 0144 removes the
+  three product tables without migrating old development rows; they receive no dual writes.

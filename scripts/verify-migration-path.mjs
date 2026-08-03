@@ -709,6 +709,14 @@ async function verifyBaseline(pool) {
     'artifact_match_log',
     'experience_trace',
     'pattern_candidate',
+    'evidence_export_configuration',
+    'evidence_outbox',
+    'evidence_source_checkpoint',
+    'evidence_export_state',
+    'evidence_dead_letter',
+    'evidence_projection_issue',
+    'evidence_quality_issue',
+    'episode_evidence_manifest',
   ];
   const tables = await pool.query(
     `SELECT table_name
@@ -719,6 +727,37 @@ async function verifyBaseline(pool) {
   );
   if (tables.rows.length !== requiredTables.length)
     throw new Error('V122_BASELINE_REQUIRED_TABLES_MISSING');
+
+  const evidenceCutover = await pool.query(
+    `SELECT
+       to_regclass('public.runtime_telemetry_export_configuration') IS NULL AS old_configuration_absent,
+       to_regclass('public.runtime_telemetry_export_state') IS NULL AS old_state_absent,
+       to_regclass('public.runtime_telemetry_export_outbox') IS NULL AS old_outbox_absent,
+       EXISTS(SELECT 1 FROM pg_constraint WHERE conname='evidence_outbox_record_id_key') AS record_unique,
+       EXISTS(SELECT 1 FROM pg_constraint
+         WHERE conname='evidence_outbox_source_system_source_table_source_record_id_key') AS source_unique,
+       EXISTS(SELECT 1 FROM pg_indexes
+         WHERE schemaname='public' AND indexname='evidence_outbox_pending_idx') AS pending_index,
+       EXISTS(SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='evidence_export_state'
+           AND column_name='fencing_token' AND is_nullable='NO') AS fencing_token,
+       EXISTS(SELECT 1 FROM information_schema.table_constraints
+         WHERE table_schema='public' AND table_name='evidence_source_checkpoint'
+           AND constraint_type='PRIMARY KEY') AS checkpoint_partition_key`,
+  );
+  const evidence = evidenceCutover.rows[0];
+  if (
+    evidence?.old_configuration_absent !== true ||
+    evidence?.old_state_absent !== true ||
+    evidence?.old_outbox_absent !== true ||
+    evidence?.record_unique !== true ||
+    evidence?.source_unique !== true ||
+    evidence?.pending_index !== true ||
+    evidence?.fencing_token !== true ||
+    evidence?.checkpoint_partition_key !== true
+  ) {
+    throw new Error('V141_CANONICAL_EVIDENCE_CUTOVER_INVALID');
+  }
 
   const modes = await pool.query(
     `SELECT pg_get_constraintdef(oid) AS definition
@@ -852,13 +891,19 @@ async function verifyPostBaselineMigrationsRolledBack(pool) {
     `SELECT to_regclass('public.runtime_capability_summary') IS NULL AS capability_absent,
             to_regclass('public.goal_experience_episode') IS NULL AS experience_absent,
             to_regclass('public.knowledge_status_transition') IS NULL AS knowledge_absent,
-            to_regclass('public.compiled_artifact') IS NULL AS artifact_absent`,
+            to_regclass('public.compiled_artifact') IS NULL AS artifact_absent,
+            to_regclass('public.evidence_outbox') IS NULL AS evidence_outbox_absent,
+            to_regclass('public.evidence_source_checkpoint') IS NULL AS evidence_checkpoint_absent,
+            to_regclass('public.episode_evidence_manifest') IS NULL AS evidence_manifest_absent`,
   );
   if (
     tables.rows[0]?.capability_absent !== true ||
     tables.rows[0]?.experience_absent !== true ||
     tables.rows[0]?.knowledge_absent !== true ||
-    tables.rows[0]?.artifact_absent !== true
+    tables.rows[0]?.artifact_absent !== true ||
+    tables.rows[0]?.evidence_outbox_absent !== true ||
+    tables.rows[0]?.evidence_checkpoint_absent !== true ||
+    tables.rows[0]?.evidence_manifest_absent !== true
   ) {
     throw new Error('V123_ROLLBACK_TABLES_REMAIN');
   }

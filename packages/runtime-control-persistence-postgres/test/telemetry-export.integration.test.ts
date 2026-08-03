@@ -18,8 +18,8 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pool.query(
-    `TRUNCATE runtime_telemetry_export_outbox,runtime_telemetry_export_state,
-      runtime_telemetry_export_configuration,runtime_event,agent_task,goal,conversation_context CASCADE`,
+    `TRUNCATE evidence_source_checkpoint,evidence_outbox,evidence_export_state,
+      evidence_export_configuration,runtime_event,agent_task,goal,conversation_context CASCADE`,
   );
   await pool.query(
     `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
@@ -38,55 +38,53 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe('P11 Runtime Telemetry Export PostgreSQL authority', { concurrent: false }, () => {
-  it('captures real Runtime facts, retains failed records and advances an exact ACK', async () => {
-    await store.apply(configuration(), now);
-    await insertEvent('event-p11-1', 'task.completed', '2026-08-03T01:00:01.000Z');
-    await insertEvent('event-p11-2', 'task.failed', '2026-08-03T01:00:02.000Z');
+describe(
+  'P11 compatibility over canonical Evidence PostgreSQL authority',
+  { concurrent: false },
+  () => {
+    it('projects a real agent_task episode, retains failure and advances an exact ACK', async () => {
+      await store.apply(configuration(), now);
+      await updateTask('failed', '2026-08-03T01:00:02.000Z');
 
-    await expect(store.capture(configuration(), now)).resolves.toBe(2);
-    const pending = await store.pending(100, now);
-    expect(pending.map((record) => record.family).sort()).toEqual([
-      'task.completed',
-      'task.failed',
-    ]);
-    await store.recordDeliveryFailure(
-      pending.map((record) => record.sequence),
-      'TELEMETRY_ENDPOINT_UNAVAILABLE',
-      now,
-    );
-    await expect(store.status(now)).resolves.toMatchObject({
-      status: 'degraded',
-      pendingRecords: 2,
-      lastErrorCode: 'TELEMETRY_ENDPOINT_UNAVAILABLE',
+      await expect(store.capture(configuration(), now)).resolves.toBe(1);
+      const pending = await store.pending(100, now);
+      expect(pending.map((record) => record.family)).toEqual(['runtime.episode']);
+      await store.recordDeliveryFailure(
+        pending.map((record) => record.sequence),
+        'TELEMETRY_ENDPOINT_UNAVAILABLE',
+        now,
+      );
+      await expect(store.status(now)).resolves.toMatchObject({
+        status: 'degraded',
+        pendingRecords: 1,
+        lastErrorCode: 'TELEMETRY_ENDPOINT_UNAVAILABLE',
+      });
+
+      const lastSequence = pending.at(-1)?.sequence;
+      if (lastSequence === undefined) throw new Error('P11_PENDING_BATCH_EMPTY');
+      await store.acknowledge(lastSequence, '2026-08-03T01:01:00.000Z');
+      await expect(store.status('2026-08-03T01:01:00.000Z')).resolves.toMatchObject({
+        status: 'healthy',
+        pendingRecords: 0,
+        lastAcknowledgedSequence: lastSequence,
+      });
     });
 
-    const lastSequence = pending.at(-1)?.sequence;
-    if (lastSequence === undefined) throw new Error('P11_PENDING_BATCH_EMPTY');
-    await store.acknowledge(lastSequence, '2026-08-03T01:01:00.000Z');
-    await expect(store.status('2026-08-03T01:01:00.000Z')).resolves.toMatchObject({
-      status: 'healthy',
-      pendingRecords: 0,
-      lastAcknowledgedSequence: lastSequence,
+    it('stops collection at the durable high watermark without deleting retained records', async () => {
+      const bounded = configuration({ outboxPolicy: { maxPendingRecords: 2 } });
+      await store.apply(bounded, now);
+      await expect(store.capture(bounded, now)).resolves.toBe(1);
+      await updateTask('failed', '2026-08-03T01:00:03.000Z');
+      await expect(store.capture(bounded, '2026-08-03T01:00:04.000Z')).resolves.toBe(1);
+      await expect(store.capture(bounded, '2026-08-03T01:00:05.000Z')).resolves.toBe(0);
+      await expect(store.status('2026-08-03T01:00:05.000Z')).resolves.toMatchObject({
+        status: 'blocked',
+        pendingRecords: 2,
+        lastErrorCode: 'EVIDENCE_OUTBOX_HIGH_WATERMARK',
+      });
     });
-  });
-
-  it('stops collection at the durable high watermark without deleting retained records', async () => {
-    const bounded = configuration({ outboxPolicy: { maxPendingRecords: 2 } });
-    await store.apply(bounded, now);
-    await insertEvent('event-p11-watermark-1', 'task.completed', '2026-08-03T01:00:01.000Z');
-    await expect(store.capture(bounded, now)).resolves.toBe(1);
-    await insertEvent('event-p11-watermark-2', 'task.failed', '2026-08-03T01:00:02.000Z');
-    await insertEvent('event-p11-watermark-3', 'task.retried', '2026-08-03T01:00:03.000Z');
-    await expect(store.capture(bounded, '2026-08-03T01:00:04.000Z')).resolves.toBe(1);
-    await expect(store.capture(bounded, '2026-08-03T01:00:05.000Z')).resolves.toBe(0);
-    await expect(store.status('2026-08-03T01:00:05.000Z')).resolves.toMatchObject({
-      status: 'blocked',
-      pendingRecords: 2,
-      lastErrorCode: 'TELEMETRY_OUTBOX_HIGH_WATERMARK',
-    });
-  });
-});
+  },
+);
 
 function configuration(
   override: Partial<TelemetryExportConfiguration> = {},
@@ -104,10 +102,9 @@ function configuration(
   });
 }
 
-async function insertEvent(eventId: string, eventType: string, occurredAt: string): Promise<void> {
+async function updateTask(phase: string, occurredAt: string): Promise<void> {
   await pool.query(
-    `INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary,created_at)
-     VALUES ($1,'task-p11','context-p11',$2,$3,'P11 runtime fact',$3)`,
-    [eventId, eventType, occurredAt],
+    `UPDATE agent_task SET phase=$1,phase_message=$1,updated_at=$2 WHERE task_id='task-p11'`,
+    [phase, occurredAt],
   );
 }

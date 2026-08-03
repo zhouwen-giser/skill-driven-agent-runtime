@@ -248,11 +248,12 @@ describe('P11 Node Control -> Runtime -> Telemetry endpoint', { concurrent: fals
       last_error_code: string | null;
     }>(
       `SELECT
-         (SELECT count(*)::integer FROM runtime_telemetry_export_configuration WHERE is_active) AS active,
-         (SELECT count(*)::integer FROM runtime_telemetry_export_configuration WHERE is_lkg) AS lkg,
-         (SELECT count(*)::integer FROM runtime_telemetry_export_outbox
-           WHERE export_id=$1 AND acknowledged_at IS NULL) AS pending,
-         (SELECT last_error_code FROM runtime_telemetry_export_state WHERE singleton) AS last_error_code`,
+         (SELECT count(*)::integer FROM evidence_export_configuration WHERE is_active) AS active,
+         (SELECT count(*)::integer FROM evidence_export_configuration WHERE is_lkg) AS lkg,
+         (SELECT count(*)::integer FROM evidence_outbox
+           WHERE source_partition='runtime:episodes' AND acknowledged_at IS NULL) AS pending,
+         (SELECT last_error_code FROM evidence_export_state
+           WHERE export_id=$1 AND source_partition='runtime:episodes') AS last_error_code`,
       [exportId],
     );
     expect(authority.rows).toEqual([

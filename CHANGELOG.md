@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4.1 Canonical Evidence Export (in progress)
+
+- Defined the closed `sdar.evidence/v1` domain and wire contract with deterministic record identity,
+  canonical payload hashing, 100 catalog-backed schemas and fail-closed sensitive-data validation.
+- Added the Strategy B clean cutover migration `0144_v14_canonical_evidence`, preserving published
+  migrations 0142/0143 while removing their product tables without migrating or dual-writing old
+  Telemetry rows.
+- Added Runtime PostgreSQL authorities for configuration, outbox, source checkpoints, export
+  state, dead letters, projection/quality issues and episode manifests. The repository enforces
+  idempotent capture, monotonic sequence, durable High Watermark, per-partition lease fencing,
+  exact sent ownership and bounded contiguous/partial ACK.
+- Added a guarded v1.4.1 reset path, no-fabricated-evidence seed, reversible migration checks and
+  real PostgreSQL coverage for concurrency, rollback, restart, fencing, ACK, DLQ and manifests.
+- Phase 3 full verification passed with 1,198 Unit/Contract tests, 158 Integration tests, 72 E2E
+  tests and all migration, architecture, build and process smoke gates. External batch export and
+  source projection remain subsequent phases and are not claimed complete here.
+
 ## SDAR v1.4 P14 Release Qualification
 
 - Set the repository target version to `1.4.0` and documented the distinct security boundaries of

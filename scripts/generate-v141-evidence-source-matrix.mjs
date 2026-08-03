@@ -702,29 +702,29 @@ const sources = {
   ],
 };
 
-const missingSources = {
+const phase3Sources = {
   evidence_export_state: [
     'runtime',
     runtimeDatabase,
-    'evidence_export_state (planned Phase 3)',
+    'evidence_export_state',
     'Runtime PostgreSQL',
-    'exporter_id + partition_key',
-    'lock_version + last_acknowledged_sequence',
-    'updated_at',
+    'export_id + source_partition',
+    'fencing_token + last_acknowledged_sequence + canonical source hash',
+    'observed_at',
   ],
   episode_evidence_manifest: [
     'runtime',
     runtimeDatabase,
-    'episode_evidence_manifest (planned Phase 3)',
+    'episode_evidence_manifest',
     'Runtime PostgreSQL',
     'manifest_id',
-    'manifest_revision + manifest_hash',
-    'updated_at',
+    'status + last_evidence_sequence + canonical source hash',
+    'created_at / sealed_at',
   ],
   evidence_quality_issue: [
     'runtime',
     runtimeDatabase,
-    'evidence_quality_issue (planned Phase 3)',
+    'evidence_quality_issue',
     'Runtime PostgreSQL',
     'issue_id',
     'issue revision or canonical source hash',
@@ -733,7 +733,7 @@ const missingSources = {
   evidence_projection_issue: [
     'runtime',
     runtimeDatabase,
-    'evidence_projection_issue (planned Phase 3)',
+    'evidence_projection_issue',
     'Runtime PostgreSQL',
     'issue_id',
     'issue revision or canonical source hash',
@@ -742,11 +742,11 @@ const missingSources = {
   evidence_source_checkpoint: [
     'runtime',
     runtimeDatabase,
-    'evidence_source_checkpoint (planned Phase 3)',
+    'evidence_source_checkpoint',
     'Runtime PostgreSQL',
-    'source_family + partition_key',
-    'lock_version + source cursor',
-    'updated_at',
+    'source_family + source_partition',
+    'last source cursor + payload hash + projector version',
+    'last_projected_at',
   ],
 };
 
@@ -758,11 +758,10 @@ function mapperName(recordType) {
 }
 
 function row(recordType, sourceKey, requiredReferences, options = {}) {
-  const source = sources[sourceKey] ?? missingSources[sourceKey];
+  const source = sources[sourceKey] ?? phase3Sources[sourceKey];
   if (!source) throw new Error(`Unknown source key ${sourceKey} for ${recordType}`);
   const [sourceSystem, sourceDatabase, sourceTable, authority, identity, revision, timestamp] =
     source;
-  const missing = sourceKey in missingSources;
   const family = recordType.split('.')[0];
   return {
     source_system: sourceSystem,
@@ -779,17 +778,15 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     delivery_guarantee: 'at_least_once; stable-id idempotent',
     evaluation_role: options.role ?? 'required',
     applicability: options.applicability ?? 'episode feature/policy determines applicability',
-    mapper: missing ? `BLOCKED:${mapperName(recordType)}` : mapperName(recordType),
-    projection_mode: missing
-      ? 'not_available_until_phase_3_clean_cutover'
-      : sourceSystem === 'control'
+    mapper: mapperName(recordType),
+    projection_mode:
+      sourceSystem === 'control'
         ? 'durable_control_source_projector'
         : sourceTable.includes('[]')
           ? 'durable_structured_subrecord_projector'
           : 'durable_runtime_source_projector',
-    cursor_rule: missing
-      ? 'blocked until authoritative table exists'
-      : sourceSystem === 'control'
+    cursor_rule:
+      sourceSystem === 'control'
         ? 'per Control source/partition; node-event sequence or aggregate revision; never global'
         : 'per Runtime source/partition; stable timestamp plus source identity tie-break; never global',
     redaction_profile:
@@ -797,7 +794,7 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     artifact_policy:
       options.artifact ?? 'inline bounded structured fact; oversized payload by ArtifactRef',
     required_references: requiredReferences,
-    status: missing ? 'source_missing_blocker' : 'source_confirmed',
+    status: 'source_confirmed',
   };
 }
 

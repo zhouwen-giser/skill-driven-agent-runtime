@@ -65,7 +65,8 @@ Control read before mapping.
       explicit clean-cutover blockers.
 - [x] 2026-08-04 Phase 2 froze canonical evidence Domain, all 100 record schemas/hashes, protocol
       schemas, stable identity, canonical hashing, and fail-closed security.
-- [ ] Phase 3 add Strategy B clean-cutover persistence after immutable migration 0143.
+- [x] 2026-08-04 Phase 3 appended 0144, removed old Telemetry product tables, created eight
+      Evidence authorities, and passed focused PostgreSQL, migration, and full verification gates.
 - [ ] Phase 4 replace legacy Telemetry wire/domain path with evidence batch export.
 - [ ] Phase 5 project Runtime core evidence.
 - [ ] Phase 6 project complete Skill usage evidence.
@@ -101,6 +102,11 @@ Control read before mapping.
   forward-compatible additive data while failing closed on envelope/source/type drift.
 - Windows does not resolve `pnpm exec vitest` in this environment; direct repository-local
   `node_modules/.bin/vitest.cmd` is the reliable focused-test entry point.
+- PostgreSQL truncates the generated source-identity unique constraint to
+  `evidence_outbox_source_system_source_table_source_record_id_key`; migration verification must
+  inspect the actual catalog name, not infer a longer identifier.
+- Several frozen integration fixtures use Redis port 56379 directly. Operator-managed isolated
+  infrastructure must preserve that repository contract even when PostgreSQL uses a custom port.
 
 ## Decision Log
 
@@ -122,8 +128,9 @@ Control read before mapping.
    and explicit missing-source blockers.
 2. [Complete] Add Domain-owned canonical envelope/catalog/policy/manifest/quality types and JSON
    Schema 2020-12 documents with reproducible hashes and fixtures.
-3. Append Runtime migration 0144 (and a Control migration only if a Control-local capture table is
-   proven necessary); add repositories and transaction tests.
+3. [Complete] Append Runtime migration 0144; add clean-cutover authorities, repository semantics,
+   guarded reset, migration verification, and real transaction/recovery tests. No Control migration
+   was necessary because Control authority remains in its existing database.
 4. Replace the old Telemetry application/adapter/API contract with evidence configuration,
    batch/ACK transport, retry/LKG/export status, and fail-closed security validation.
 5. Implement source projectors family by family in package order, updating matrix and tests after
@@ -163,11 +170,12 @@ rewriting pushed history.
 
 ## Outcomes and Retrospective
 
-Phases 0 through 2 are complete. No persistence/export runtime change has yet been made. The baseline is
-reproducible on a fresh Compose project, all current gates pass, the current Telemetry implementation
-is confirmed insufficient, the append-only migration route is fixed, and all 100 catalog types now
-have an explicit authority classification. The Domain now freezes deterministic IDs/hashes, 100
-catalog entries, 100 non-placeholder record schemas, and seven protocol schemas under registry hash
-`sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`. Phase 3 starts with
-93 confirmed sources and seven non-concealed clean-cutover blockers. This section will be replaced
+Phases 0 through 3 are complete. The baseline is reproducible, the append-only route is fixed, and
+all 100 catalog types now have source-confirmed authority. The Domain freezes deterministic
+IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas under registry hash
+`sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`.
+Migration 0144 removes the three old Telemetry product tables and creates eight constrained
+Evidence authorities with no data migration or dual write. Eleven focused PostgreSQL tests, the
+37-migration verifier, and a 553,810 ms full `pnpm verify` pass. Formal projector coverage remains
+0/100; Phase 4 starts the Evidence batch service/wire replacement. This section will be replaced
 with the final measured outcome after Phase 14.

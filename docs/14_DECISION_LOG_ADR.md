@@ -26,5 +26,8 @@
 | ADR-106     | v1.1 合并后 released migration 单调推进到 0106；isolated profile 与 ledger-gap 保护保留 |
 | ADR-107     | 子 Skill 输出映射由现有 LangGraph 以受限 DSL 数据执行；映射证据使用受限存在性门，顶层选择遵守精确版本 visibility |
 | ADR-108     | Frozen MCP Tasks 使用显式 Legacy/Frozen 双协议边界、单一观察入口和 Evidence A 本地匹配                  |
+| ADR-126     | v1.4.1 通过追加迁移进行 Canonical Evidence clean cutover，不改写已发布的 0142/0143                    |
+| ADR-127     | `sdar.evidence/v1` 使用稳定来源身份、规范 JSON 哈希及 100 个封闭目录 Schema                            |
+| ADR-128     | Runtime PostgreSQL 独占 Evidence outbox/checkpoint/lease/ACK/DLQ/manifest 权威，Redis 仅可唤醒          |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。

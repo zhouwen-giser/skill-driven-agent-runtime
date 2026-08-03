@@ -41,6 +41,7 @@
     "evidence:v13-migration": "node scripts/verify-migration-path.mjs --report",
     "evidence:v13-release": "node scripts/generate-v13-release-evidence.mjs && node scripts/finalize-v13-release-evidence.mjs",
     "db:reset:v1.2.2": "node scripts/reset-v122-database.mjs",
+    "db:reset:v1.4.1": "node scripts/reset-v141-database.mjs",
     "format": "prettier --no-error-on-unmatched-pattern --write package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
     "format:check": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\"",
     "lint": "eslint .",
