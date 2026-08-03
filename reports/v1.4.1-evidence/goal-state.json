@@ -1,0 +1,33 @@
+{
+  "goal": "SDAR v1.4.1 Canonical Evidence Export Completion",
+  "status": "IN_PROGRESS",
+  "branch": "feature/v1.4.1-canonical-evidence-export",
+  "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
+  "headSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
+  "prNumber": null,
+  "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
+  "lastCompletedPhase": 0,
+  "sourceCoverage": {
+    "requiredTotal": 100,
+    "implemented": 0,
+    "verified": 0,
+    "percent": 0
+  },
+  "recordCatalog": {
+    "total": 100,
+    "implemented": 0,
+    "verified": 0
+  },
+  "tests": {
+    "pnpmInstallFrozenLockfile": "passed",
+    "pnpmVerify": "passed",
+    "unit": 938,
+    "performanceUnit": 22,
+    "contract": 220,
+    "integration": 149,
+    "e2e": 72,
+    "runtimeMigrations": 36
+  },
+  "blockers": [],
+  "updatedAt": "2026-08-04T00:16:42+08:00"
+}

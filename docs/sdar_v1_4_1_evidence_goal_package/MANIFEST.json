@@ -1,0 +1,50 @@
+{
+  "package": "sdar_v1_4_1_evidence_goal_package",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "808962f5c0e9fdb4f6165879f07e513e377b756798cb88df33bbac4e9285c484",
+      "size": 254
+    },
+    {
+      "path": "SDAR_v1.4.1_Canonical_Evidence_Export_Completion_Codex_Goal_Task_Package_V1.0.md",
+      "sha256": "594b29c45cba01532fb810688d82e65d04d830349e60ad5dc3cbce461db9b3ae",
+      "size": 53330
+    },
+    {
+      "path": "TASK.json",
+      "sha256": "684f9c5edf5da8e2333bbccd3f0720b7a43d6bb2dc0ec5d9178307e4fcc0914e",
+      "size": 694
+    },
+    {
+      "path": "templates/blocker-report.template.md",
+      "sha256": "2e1f68e6b96bd38df651d80807208cbf2ad4ef43525acd7e2ae16694239a418a",
+      "size": 248
+    },
+    {
+      "path": "templates/goal-state.template.json",
+      "sha256": "cb6ec2475b4df24d826cecf3d5664d3b11b4ff14319ca4d0e4a61901e727693d",
+      "size": 510
+    },
+    {
+      "path": "templates/phase-completion.template.md",
+      "sha256": "c1ef70fe58059ad1fb98181b549a24b0cfe29bb4c9e6fb77a619096d97f5012e",
+      "size": 358
+    },
+    {
+      "path": "templates/pr-body.template.md",
+      "sha256": "e1b3c4f8610cfaaf80b3c7ea80c1bfa37c789e990e0315f1663a15125f39c522",
+      "size": 519
+    },
+    {
+      "path": "templates/record-catalog.template.json",
+      "sha256": "f53a91c486576ddf22e883f38d8755e76d9edd15e4692f63d959cee3f0983097",
+      "size": 270
+    },
+    {
+      "path": "templates/source-to-evidence-matrix.template.csv",
+      "sha256": "f349b72700a8eab0ed5a5f385c8afbc0da4165640b2381f605e6dcae6e1dd965",
+      "size": 339
+    }
+  ]
+}
