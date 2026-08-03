@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P14 Release Qualification
+
+- Set the repository target version to `1.4.0` and documented the distinct security boundaries of
+  the trusted-intranet Runtime surfaces and authenticated Node Control API.
+- Added final architecture, authority, traceability, rollback and known-limitations release records.
+- Re-synchronized with latest `origin/main`; it remained the branch ancestor, so no empty merge or
+  history rewrite was created.
+
 ## SDAR v1.4 P13 Security, Recovery and Operations
 
 - Added distinct public role credentials, tenant-bound Organization access, constant-time matching,

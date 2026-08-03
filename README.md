@@ -1,4 +1,4 @@
-# Skill-Driven Agent Runtime V1.2.3
+# Skill-Driven Agent Runtime V1.4
 
 A strict TypeScript modular monolith for Skill-driven A2A tasks. LangGraph.js is the only Workflow runtime. PostgreSQL/pgvector is authoritative storage; Redis/BullMQ owns ephemeral queue/runtime coordination; official A2A and MCP SDKs are isolated behind adapters.
 
@@ -8,9 +8,20 @@ enter formal planning before Replay/Shadow and manual Promotion. The default rol
 injection. There is no Python sidecar, second Workflow runtime or cognitive automatic Skill
 publication. See [v1.2.3 release notes](docs/releases/v1.2.3.md).
 
+V1.4 adds an independently deployable single-node Control backend with its own PostgreSQL authority,
+desired/observed Runtime boundary, Provider/Capability/Exposure/Skill/Plan governance, output-only
+Telemetry Export, organization-safe Node Profile/Events, role-scoped service credentials and real
+backup/restart/outage qualification. It does not add a Console frontend, multi-node orchestration or
+telemetry query plane. Operational procedures are under [docs/operations](docs/operations/).
+
 ## Safety baseline
 
-V1 has **no authentication, authorization, or tenant isolation**. A2A, management API, and Console must remain on localhost or a firewall-isolated trusted intranet. PostgreSQL and Redis must never have public routes. Non-loopback listeners fail closed unless the operator explicitly acknowledges the risk; that acknowledgement does not add authentication.
+The core A2A, Runtime management API and Console retain the V1 **trusted-intranet, no-authentication**
+baseline and must remain on localhost or a firewall-isolated trusted network. The separate V1.4 Node
+Control API requires configured bearer service credentials and enforces bounded role profiles, but
+that does not retrofit authentication or tenant isolation into the core Runtime surfaces. PostgreSQL
+and Redis must never have public routes. Non-loopback Control endpoints require TLS and explicit
+allowlists; deployment termination, secret management and network isolation remain operator duties.
 
 ## Prerequisites
 

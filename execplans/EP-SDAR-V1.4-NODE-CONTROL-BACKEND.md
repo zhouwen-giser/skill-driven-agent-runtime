@@ -94,7 +94,9 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   credential rotation, restart and Control-outage drills pass. Exact clean full verify passes 960
   Unit/performance, 220 Contract, 149 Integration and 72 E2E tests; final Review is 0 Blocking / 0
   Major / 0 Minor after two Major repairs.
-- [ ] P14: final integration, qualification, PR, checks, and protected merge.
+- [ ] 2026-08-03 13:10 +08:00 P14 in progress: latest `origin/main` remains `a7a7c62` and is already
+  an ancestor (`0 behind / 64 ahead`), so no empty merge commit was created. Version, final release
+  records and clean candidate qualification are underway before the single authorized push.
 
 ## Discoveries and Surprises
 

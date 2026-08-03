@@ -9,8 +9,10 @@ PostgreSQL dump/restore, restart and Control-outage recovery plus explicit produ
 runbooks. Exact clean `pnpm verify` passed on `ec10587` in 665,151 ms with 960 Unit/performance, 220
 Contract, 149 real PostgreSQL/Redis Integration and 72 E2E tests, 36 Runtime and 8 Control
 migrations, build and all smokes. Review is 0 Blocking / 0 Major / 0 Minor after two Major repairs.
-P14 final integration/publication is the only remaining phase; the branch is intentionally not yet
-pushed under the user's P14-only publication instruction.
+P14 final integration/publication is in progress. Latest `origin/main` remains `a7a7c62`, already an
+ancestor of the branch (`0 behind / 64 ahead`), so there is no main conflict or missing merge commit
+to resolve. The branch is intentionally not yet pushed under the user's P14-only publication
+instruction; version/release evidence, final clean qualification and GitHub PR/merge remain.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual
