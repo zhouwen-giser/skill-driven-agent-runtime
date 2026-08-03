@@ -30,6 +30,9 @@ import { createNodeControlHttpApp } from '../src/http-endpoint.js';
 
 const token = 'p01-node-control-contract-token-0000000000000000';
 const organizationToken = 'p12-organization-read-token-000000000000000';
+const operatorToken = 'p13-operator-token-000000000000000000000000';
+const viewerToken = 'p13-viewer-token-00000000000000000000000000';
+const securityToken = 'p13-security-token-000000000000000000000000';
 let server: Server | undefined;
 
 afterEach(async () => {
@@ -384,7 +387,19 @@ describe('Node Control HTTP frozen contract', () => {
     });
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: token,
+      operatorBearerToken: operatorToken,
+      viewerBearerToken: viewerToken,
+      securityBearerToken: securityToken,
       organizationBearerToken: organizationToken,
+      organizationTenantId: 'organization-p12',
+      rateLimitPerMinute: 10,
+      requestBodyLimitKb: 1,
+      providerEndpointAllowlist: [
+        '127.0.0.1',
+        'localhost',
+        '10.20.0.0/16',
+        '127.0.0.1.evil.example',
+      ],
       runtimeServiceToken: `${token}-runtime`,
       nodeControlApiUrl: 'http://127.0.0.1:10080',
       nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
@@ -500,6 +515,124 @@ describe('Node Control HTTP frozen contract', () => {
       body: '{}',
     });
     expect(forbiddenWrite.status).toBe(403);
+
+    const crossTenant = await fetch(`${baseUrl}/api/v1/node`, {
+      headers: { ...organizationHeaders, 'x-sdar-tenant-id': 'another-organization' },
+    });
+    expect(crossTenant.status).toBe(403);
+    await expect(crossTenant.json()).resolves.toMatchObject({ code: 'CONTROL_TENANT_FORBIDDEN' });
+
+    const operatorAudit = await fetch(`${baseUrl}/api/v1/audit-events`, {
+      headers: { authorization: `Bearer ${operatorToken}` },
+    });
+    expect(operatorAudit.status).toBe(200);
+    const operatorWrite = await fetch(`${baseUrl}/api/v1/configuration-revisions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}`, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(operatorWrite.status).toBe(403);
+    const securityAudit = await fetch(`${baseUrl}/api/v1/audit-events`, {
+      headers: { authorization: `Bearer ${securityToken}` },
+    });
+    expect(securityAudit.status).toBe(200);
+    const securityWrite = await fetch(`${baseUrl}/api/v1/configuration-revisions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${securityToken}`, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(securityWrite.status).toBe(403);
+    const viewerHeaders = { authorization: `Bearer ${viewerToken}` };
+    expect((await fetch(`${baseUrl}/api/v1/node`, { headers: viewerHeaders })).status).toBe(200);
+    expect((await fetch(`${baseUrl}/api/v1/audit-events`, { headers: viewerHeaders })).status).toBe(
+      403,
+    );
+
+    const deniedEndpoint = await fetch(`${baseUrl}/api/v1/llm-providers`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        providerId: 'metadata-endpoint',
+        providerType: 'openai_compatible',
+        baseUrl: 'http://169.254.169.254/latest',
+        credentialRef: 'runtime-model-provider://metadata',
+        models: [
+          {
+            modelId: 'model-a',
+            capabilities: ['structured_output'],
+            contextWindow: 4096,
+            enabled: true,
+          },
+        ],
+        healthPolicy: {
+          timeoutMs: 1000,
+          retryAttempts: 0,
+          failureThreshold: 1,
+          recoverySeconds: 30,
+        },
+        rateLimitPolicy: { requestsPerMinute: 10, tokensPerMinute: 1000, maxConcurrent: 1 },
+        status: 'draft',
+        secretStatus: 'unknown',
+        revision: 1,
+      }),
+    });
+    expect(deniedEndpoint.status).toBe(422);
+    await expect(deniedEndpoint.json()).resolves.toMatchObject({ code: 'ENDPOINT_NOT_ALLOWED' });
+
+    const deceptiveLoopback = await fetch(`${baseUrl}/api/v1/llm-providers`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        providerId: 'deceptive-loopback',
+        providerType: 'openai_compatible',
+        baseUrl: 'http://127.0.0.1.evil.example',
+        credentialRef: 'runtime-model-provider://deceptive-loopback',
+        models: [
+          {
+            modelId: 'model-a',
+            capabilities: ['structured_output'],
+            contextWindow: 4096,
+            enabled: true,
+          },
+        ],
+        healthPolicy: {
+          timeoutMs: 1000,
+          retryAttempts: 0,
+          failureThreshold: 1,
+          recoverySeconds: 30,
+        },
+        rateLimitPolicy: { requestsPerMinute: 10, tokensPerMinute: 1000, maxConcurrent: 1 },
+        status: 'draft',
+        secretStatus: 'unknown',
+        revision: 1,
+      }),
+    });
+    expect(deceptiveLoopback.status).toBe(422);
+    await expect(deceptiveLoopback.json()).resolves.toMatchObject({
+      code: 'ENDPOINT_NOT_ALLOWED',
+    });
+
+    const oversized = await fetch(`${baseUrl}/api/v1/node/draft`, {
+      method: 'PUT',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ padding: 'x'.repeat(2_048) }),
+    });
+    expect(oversized.status).toBe(413);
+    await expect(oversized.json()).resolves.toMatchObject({ code: 'REQUEST_BODY_TOO_LARGE' });
+
+    let rateLimited: Response | undefined;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await fetch(`${baseUrl}/api/v1/node`, { headers: viewerHeaders });
+      if (response.status === 429) {
+        rateLimited = response;
+        break;
+      }
+    }
+    if (rateLimited === undefined) throw new Error('TEST_RATE_LIMIT_NOT_ENFORCED');
+    expect(rateLimited.status).toBe(429);
+    await expect(rateLimited.json()).resolves.toMatchObject({
+      code: 'CONTROL_RATE_LIMIT_EXCEEDED',
+    });
 
     const controller = new AbortController();
     const stream = await fetch(`${baseUrl}/api/v1/events`, {

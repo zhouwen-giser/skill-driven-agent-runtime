@@ -32,6 +32,8 @@
     "verify:v13-release": "node scripts/validate-v13-p13-release.mjs",
     "verify:v13-p14": "node scripts/operations/validate-v13-p14.mjs",
     "verify:v13-secrets": "node scripts/verify-v13-secrets.mjs",
+    "verify:v14-security": "pnpm verify:v13-secrets && pnpm verify:licenses && pnpm verify:project-license && pnpm verify:node-control-contract",
+    "verify:v14-recovery": "node scripts/smoke-node-control.mjs",
     "complete:v13-p13": "node scripts/complete-v13-p13.mjs",
     "evidence:v13-capacity": "node scripts/generate-v13-capacity-evidence.mjs",
     "evidence:v13-migration": "node scripts/verify-migration-path.mjs --report",

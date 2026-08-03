@@ -1,4 +1,5 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { isIP } from 'node:net';
 
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { z, ZodError } from 'zod';
@@ -48,7 +49,14 @@ import type { NodeControlCapabilityReadinessCoordinator } from './capability-rea
 
 export interface NodeControlHttpConfiguration {
   readonly bearerToken: string;
+  readonly operatorBearerToken?: string;
+  readonly viewerBearerToken?: string;
+  readonly securityBearerToken?: string;
   readonly organizationBearerToken?: string;
+  readonly organizationTenantId?: string;
+  readonly rateLimitPerMinute?: number;
+  readonly requestBodyLimitKb?: number;
+  readonly providerEndpointAllowlist?: readonly string[];
   readonly runtimeServiceToken: string;
   readonly nodeControlApiUrl: string;
   readonly nodeEventsUrl: string;
@@ -97,7 +105,12 @@ export function createNodeControlHttpApp(
   const app = express();
   const hints = new RevisionHintBroker();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '64kb', strict: true }));
+  app.use(
+    express.json({
+      limit: `${String(configuration.requestBodyLimitKb ?? 64)}kb`,
+      strict: true,
+    }),
+  );
 
   app.get('/health/live', (_request, response) => {
     response.status(200).json({ status: 'live', observedAt: new Date().toISOString() });
@@ -146,10 +159,7 @@ export function createNodeControlHttpApp(
     }
   });
 
-  app.use(
-    '/api/v1',
-    publicApiAuthentication(configuration.bearerToken, configuration.organizationBearerToken),
-  );
+  app.use('/api/v1', publicApiAccessControl(configuration));
 
   app.get('/api/v1/node', async (_request, response, next) => {
     try {
@@ -383,6 +393,7 @@ export function createNodeControlHttpApp(
   app.post('/api/v1/llm-providers', async (request, response, next) => {
     try {
       const input = LlmProviderSchema.parse(request.body);
+      assertOutboundEndpoint(input.baseUrl, configuration.providerEndpointAllowlist);
       response.status(201).json(
         await requiredLlmGovernance(configuration).createProvider(
           {
@@ -492,6 +503,7 @@ export function createNodeControlHttpApp(
   app.post('/api/v1/smpp-sources', async (request, response, next) => {
     try {
       const input = SmppSourceSchema.parse(request.body);
+      assertOutboundEndpoint(input.registryEndpoint, configuration.providerEndpointAllowlist);
       const source = await requiredSmppRegistry(configuration).createSource(
         {
           smppSourceId: input.smppSourceId,
@@ -1516,6 +1528,18 @@ export function createNodeControlHttpApp(
 
   app.use((error: unknown, request: Request, response: Response, next: NextFunction) => {
     void next;
+    if (typeof error === 'object' && error !== null && 'status' in error && error.status === 413) {
+      sendProblem(response, {
+        status: 413,
+        code: 'REQUEST_BODY_TOO_LARGE',
+        title: 'Request body is too large',
+        detail: 'The request exceeds the configured Node Control request-size limit.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
     if (error instanceof NodeControlDomainError && error.code === 'NODE_PROFILE_NOT_FOUND') {
       sendProblem(response, {
         status: 404,
@@ -2298,52 +2322,174 @@ function bearerAuthentication(expectedToken: string) {
   };
 }
 
-function publicApiAuthentication(expectedToken: string, organizationToken?: string) {
-  const nodeAdmin = createHash('sha256').update(expectedToken).digest();
-  const organization =
-    organizationToken === undefined
-      ? undefined
-      : createHash('sha256').update(organizationToken).digest();
+type PublicApiRole =
+  'node_admin' | 'node_operator' | 'node_viewer' | 'security_admin' | 'organization_service';
+
+function publicApiAccessControl(configuration: NodeControlHttpConfiguration) {
+  const credentials = Object.freeze(
+    [
+      credential('node_admin', configuration.bearerToken),
+      credential('node_operator', configuration.operatorBearerToken),
+      credential('node_viewer', configuration.viewerBearerToken),
+      credential('security_admin', configuration.securityBearerToken),
+      credential('organization_service', configuration.organizationBearerToken),
+    ].filter((value) => value !== undefined),
+  );
+  const windows = new Map<string, { readonly startedAt: number; readonly count: number }>();
+  const limit = configuration.rateLimitPerMinute ?? 1_200;
   return (request: Request, response: Response, next: NextFunction): void => {
     const authorization = request.header('authorization');
     const token = authorization?.match(/^Bearer\s+(.+)$/iu)?.[1];
     const supplied = createHash('sha256')
       .update(token ?? '')
       .digest();
-    if (token !== undefined && timingSafeEqual(nodeAdmin, supplied)) {
-      next();
-      return;
-    }
-    if (
-      token !== undefined &&
-      organization !== undefined &&
-      timingSafeEqual(organization, supplied)
-    ) {
-      if (organizationOperationAllowed(request.method, request.originalUrl)) {
-        next();
-        return;
-      }
+    let principal: (typeof credentials)[number] | undefined;
+    for (const candidate of credentials)
+      if (token !== undefined && timingSafeEqual(candidate.digest, supplied))
+        principal ??= candidate;
+    if (principal === undefined) {
       sendProblem(response, {
-        status: 403,
-        code: 'CONTROL_SCOPE_FORBIDDEN',
-        title: 'Operation is outside the organization API profile',
-        detail: 'The organization service principal may use only the frozen read profile.',
+        status: 401,
+        code: 'AUTHENTICATION_REQUIRED',
+        title: 'Authentication required',
+        detail: 'A valid deployment bearer identity is required.',
         instance: request.originalUrl,
         correlationId: correlationId(request),
         retryable: false,
       });
       return;
     }
-    sendProblem(response, {
-      status: 401,
-      code: 'AUTHENTICATION_REQUIRED',
-      title: 'Authentication required',
-      detail: 'A valid deployment bearer identity is required.',
-      instance: request.originalUrl,
-      correlationId: correlationId(request),
-      retryable: false,
+    const now = Date.now();
+    const current = windows.get(principal.key);
+    const window =
+      current === undefined || now - current.startedAt >= 60_000
+        ? { startedAt: now, count: 1 }
+        : { startedAt: current.startedAt, count: current.count + 1 };
+    windows.set(principal.key, window);
+    response.set('x-ratelimit-limit', String(limit));
+    response.set('x-ratelimit-remaining', String(Math.max(0, limit - window.count)));
+    if (window.count > limit) {
+      response.set(
+        'retry-after',
+        String(Math.max(1, Math.ceil((window.startedAt + 60_000 - now) / 1_000))),
+      );
+      sendProblem(response, {
+        status: 429,
+        code: 'CONTROL_RATE_LIMIT_EXCEEDED',
+        title: 'Node Control rate limit exceeded',
+        detail: 'Retry after the current fixed rate-limit window.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: true,
+      });
+      return;
+    }
+    if (
+      principal.role === 'organization_service' &&
+      configuration.organizationTenantId !== undefined &&
+      request.header('x-sdar-tenant-id') !== undefined &&
+      request.header('x-sdar-tenant-id') !== configuration.organizationTenantId
+    ) {
+      sendProblem(response, {
+        status: 403,
+        code: 'CONTROL_TENANT_FORBIDDEN',
+        title: 'Tenant is outside the authenticated organization identity',
+        detail: 'Tenant identity is derived from the organization service credential.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
+    if (!roleOperationAllowed(principal.role, request.method, request.originalUrl)) {
+      sendProblem(response, {
+        status: 403,
+        code: 'CONTROL_SCOPE_FORBIDDEN',
+        title: 'Operation is outside the authenticated role',
+        detail: 'The service principal may use only its frozen Node Control role profile.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
+    response.locals['controlPrincipal'] = Object.freeze({
+      actorId: `node-control:${principal.role}`,
+      role: principal.role,
+      ...(principal.role === 'organization_service' &&
+      configuration.organizationTenantId !== undefined
+        ? { tenantId: configuration.organizationTenantId }
+        : {}),
     });
+    next();
   };
+}
+
+function credential(role: PublicApiRole, token: string | undefined) {
+  if (token === undefined) return undefined;
+  const digest = createHash('sha256').update(token).digest();
+  return Object.freeze({ role, digest, key: `${role}:${digest.toString('hex')}` });
+}
+
+function roleOperationAllowed(role: PublicApiRole, method: string, originalUrl: string): boolean {
+  if (role === 'node_admin') return true;
+  if (organizationOperationAllowed(method, originalUrl)) return true;
+  if (method !== 'GET') return false;
+  const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
+  const telemetryRead = /^\/api\/v1\/telemetry-export(?:\/status)?$/u.test(path);
+  if (role === 'node_viewer') return telemetryRead;
+  if (role === 'node_operator' || role === 'security_admin')
+    return telemetryRead || /^\/api\/v1\/audit-events$/u.test(path);
+  return false;
+}
+
+function assertOutboundEndpoint(value: string, configured?: readonly string[]): void {
+  const endpoint = new URL(value);
+  const hostname = endpoint.hostname.toLowerCase().replace(/^\[|\]$/gu, '');
+  const allowed = configured ?? ['127.0.0.1', 'localhost'];
+  const authorityAllowed = allowed.some((entry) => {
+    const normalized = entry.trim().toLowerCase();
+    return (
+      normalized === hostname ||
+      normalized === endpoint.host.toLowerCase() ||
+      (isIP(hostname) === 4 && ipv4CidrContains(normalized, hostname))
+    );
+  });
+  const loopback =
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    (isIP(hostname) === 4 && hostname.startsWith('127.'));
+  if (
+    endpoint.username !== '' ||
+    endpoint.password !== '' ||
+    !authorityAllowed ||
+    (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && loopback))
+  )
+    throw Object.assign(
+      new Error('Outbound endpoint violates the configured allowlist/TLS policy.'),
+      {
+        code: 'ENDPOINT_NOT_ALLOWED',
+        status: 422,
+      },
+    );
+}
+
+function ipv4CidrContains(cidr: string, address: string): boolean {
+  const match = /^(\d{1,3}(?:\.\d{1,3}){3})\/(\d|[12]\d|3[0-2])$/u.exec(cidr);
+  if (match === null) return false;
+  const base = ipv4Number(match[1] ?? '');
+  const candidate = ipv4Number(address);
+  if (base === undefined || candidate === undefined) return false;
+  const bits = Number(match[2]);
+  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+  return (base & mask) === (candidate & mask);
+}
+
+function ipv4Number(value: string): number | undefined {
+  const parts = value.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
+    return undefined;
+  return parts.reduce((result, part) => ((result << 8) | part) >>> 0, 0);
 }
 
 function organizationOperationAllowed(method: string, originalUrl: string): boolean {

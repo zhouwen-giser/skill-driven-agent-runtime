@@ -95,6 +95,8 @@ beforeAll(async () => {
     SDAR_CONTROL_PUBLIC_URL: 'http://127.0.0.1:10080',
     SDAR_CONTROL_NODE_EVENTS_URL: 'http://127.0.0.1:10080/api/v1/events',
     SDAR_CONTROL_A2A_AGENT_CARD_URL: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+    SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST:
+      'provider-primary.example.test,provider-fallback.example.test',
   });
   await runtimePool.query(
     `TRUNCATE runtime_task_model_route_binding,runtime_model_route_snapshot,

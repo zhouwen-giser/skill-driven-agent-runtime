@@ -166,9 +166,26 @@ export async function startNodeControlApi(
     });
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: environment.SDAR_CONTROL_API_TOKEN,
+      ...(environment.SDAR_CONTROL_OPERATOR_API_TOKEN === undefined
+        ? {}
+        : { operatorBearerToken: environment.SDAR_CONTROL_OPERATOR_API_TOKEN }),
+      ...(environment.SDAR_CONTROL_VIEWER_API_TOKEN === undefined
+        ? {}
+        : { viewerBearerToken: environment.SDAR_CONTROL_VIEWER_API_TOKEN }),
+      ...(environment.SDAR_CONTROL_SECURITY_API_TOKEN === undefined
+        ? {}
+        : { securityBearerToken: environment.SDAR_CONTROL_SECURITY_API_TOKEN }),
       ...(environment.SDAR_CONTROL_ORGANIZATION_API_TOKEN === undefined
         ? {}
         : { organizationBearerToken: environment.SDAR_CONTROL_ORGANIZATION_API_TOKEN }),
+      ...(environment.SDAR_CONTROL_ORGANIZATION_TENANT_ID === undefined
+        ? {}
+        : { organizationTenantId: environment.SDAR_CONTROL_ORGANIZATION_TENANT_ID }),
+      rateLimitPerMinute: environment.SDAR_CONTROL_RATE_LIMIT_PER_MINUTE ?? 1_200,
+      requestBodyLimitKb: environment.SDAR_CONTROL_REQUEST_BODY_LIMIT_KB ?? 64,
+      providerEndpointAllowlist: splitAllowlist(
+        environment.SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST ?? '127.0.0.1,localhost',
+      ),
       runtimeServiceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
       nodeControlApiUrl: environment.SDAR_CONTROL_PUBLIC_URL,
       nodeEventsUrl: environment.SDAR_CONTROL_NODE_EVENTS_URL,
@@ -238,4 +255,13 @@ function closeServer(server: Server): Promise<void> {
 
 function normalizeHost(host: string): string {
   return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+}
+
+function splitAllowlist(value: string): readonly string[] {
+  return Object.freeze(
+    value
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter((entry) => entry !== ''),
+  );
 }
