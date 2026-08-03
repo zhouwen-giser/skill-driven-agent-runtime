@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P13",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "ee1826ede8c8d1c3e404eddf08e9cff8cf169a11",
+  "implementationSha": "ee64870d9527bf7aeaef63a08897b411f9de7d1a",
+  "fullVerifyCandidateSha": "ec10587073828b1fd940e475a30a8ceebfaedd57",
+  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
+  "remoteSha": "PENDING_P14_PUSH",
+  "completedAt": "2026-08-03T13:00:00+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "commit": "ec10587073828b1fd940e475a30a8ceebfaedd57",
+      "dirty": false,
+      "durationMs": 665151,
+      "unit": 938,
+      "performance": 22,
+      "contract": 220,
+      "integration": 149,
+      "e2e": 72,
+      "runtimeMigrations": 36,
+      "controlMigrations": 8
+    },
+    "focused": {
+      "unitContractFiles": 2,
+      "unitContractTests": 7,
+      "nodeControlFiles": 19,
+      "nodeControlTests": 45,
+      "architectureSources": 644,
+      "secretFindings": 0,
+      "productionHighCriticalAdvisories": 0
+    },
+    "recovery": "passed"
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "closedMajor": 2,
+    "verdict": "accepted"
+  },
+  "verificationSummarySha256": "93d4801d8cf8413f9fade71e239427ffd3428fa65b425da4f2d994c70df9d319",
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/v1.4-node-control/failed-attempts/p13-security-recovery.md",
+    "reports/v1.4-node-control/phases/p13-review.md"
+  ],
+  "nextPhase": "P14"
+}

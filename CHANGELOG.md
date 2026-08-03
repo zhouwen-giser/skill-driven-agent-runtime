@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR v1.4 P13 Security, Recovery and Operations
+
+- Added distinct public role credentials, tenant-bound Organization access, constant-time matching,
+  bounded request/rate limits and separate Runtime service authentication.
+- Added exact/CIDR outbound allowlists, non-loopback TLS enforcement, user-info rejection and
+  deceptive-loopback SSRF regressions for governed LLM and SMPP endpoints.
+- Added real credential rotation/revocation, PostgreSQL dump/restore reconciliation, API restart and
+  Runtime-after-Control-outage drills plus backup, upgrade/rollback and SLO/capacity/chaos runbooks.
+- Preserved four frozen protocol matrices byte-exact across fresh Windows Git checkouts.
+
 ## SDAR v1.4 P12 Organization Profile and Node Events
 
 - Added immutable Node Profile draft/validate/publish governance with opaque ETags, request-hash

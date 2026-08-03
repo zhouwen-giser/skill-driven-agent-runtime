@@ -89,7 +89,11 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   readiness/Task-binding bridge and safe TaskSummary reads pass. Exact-commit full verify passes
   959 Unit/performance, 220 Contract, 149 Integration and 72 E2E tests; final Review closes 3 Major
   and 2 Minor findings at 0 Blocking / 0 Major / 0 Minor.
-- [ ] P13: security, recovery, operations, and upgrade.
+- [x] 2026-08-03 13:00 +08:00 P13 complete: implementation `ee64870`, clean candidate `ec10587`,
+  exact role/tenant RBAC, ingress/egress hardening, SecretRef preservation, real backup/restore,
+  credential rotation, restart and Control-outage drills pass. Exact clean full verify passes 960
+  Unit/performance, 220 Contract, 149 Integration and 72 E2E tests; final Review is 0 Blocking / 0
+  Major / 0 Minor after two Major repairs.
 - [ ] P14: final integration, qualification, PR, checks, and protected merge.
 
 ## Discoveries and Surprises
@@ -145,6 +149,12 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   `SDAR_POSTGRES_URL`, not `SDAR_TEST_POSTGRES_URL`, and reached an unrelated service on port 55432.
   Supplying both variables to the isolated 55483 instance closed `28P01`; the clean rerun passed all
   smokes.
+- P13's first clean-worktree gate exposed that four frozen CSV matrices were stored as normalized LF
+  blobs while their MANIFEST locked the original CRLF bytes. Exact `-text` attributes and re-indexing
+  restored reproducibility without changing a frozen byte.
+- One P13 full-gate recovery smoke observed Healthy disposable containers whose Windows host ports
+  were transiently unreachable. The immediate same-SHA recovery rerun and two later full smoke runs
+  passed; the failure remains recorded and no timeout/assertion was weakened.
 
 ## Decision Log
 
@@ -220,6 +230,12 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
 - 2026-08-03: Organization access is a separate service principal with an exact frozen GET
   allowlist. Conditional Task commands remain disabled in P12; no internal configuration, provider,
   Skill/Artifact, telemetry or Audit surface is opened.
+- 2026-08-03: P13 maps each public service credential to one frozen role profile; only Node
+  Administrator can write. Runtime identity remains separate, Organization tenant identity is
+  credential-bound, and unsupported secret-management/task-control operations remain unavailable.
+- 2026-08-03: P13 accepts only exact/CIDR-allowlisted outbound authorities and HTTPS outside actual
+  loopback IPs. PostgreSQL remains authoritative; backup/restore drills use new isolated databases
+  and never infer production HA, capacity, RTO or RPO.
 
 ## Implementation Steps
 
@@ -298,4 +314,7 @@ and 72 E2E tests; three independent read-only review passes close 5 Major and 1 
   RBAC, a durable hint-only event stream and safe Runtime TaskSummary reads. Its exact-commit gate
   passes 937 Unit, 22 performance, 220 Contract, 149 Integration and 72 E2E tests with 36 Runtime
   and 8 Control migrations; Review closes 3 Major and 2 Minor findings at 0 Blocking / 0 Major / 0
-  Minor. P13 and P14 behavior are not claimed.
+  Minor. P13 adds role/tenant RBAC, bounded ingress/egress, real backup/restore, credential rotation,
+  restart/outage evidence and operational runbooks. Its exact clean gate passes 960 Unit/performance,
+  220 Contract, 149 Integration and 72 E2E tests with 36 Runtime and 8 Control migrations; final
+  Review is 0 Blocking / 0 Major / 0 Minor. P14 behavior is not yet claimed.

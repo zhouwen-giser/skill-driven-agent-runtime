@@ -1,16 +1,16 @@
 # Project Status
 
-SDAR v1.4 Node Control Backend P12 is `COMPLETED` locally (2026-08-03) on
+SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
-`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P11 remain completed. P12 adds immutable
-Node Profile governance, separate organization read RBAC, durable 20-type Node Events with
-Last-Event-ID recovery, bounded Runtime readiness/Task-binding hint projection and safe TaskSummary
-list/detail reads. Events remain hints and consumers recover by authoritative GET; Redis owns no
-event or cursor fact. Final `pnpm verify` passed on exact commit `a787cbf` in 617,519 ms with 959
-Unit/performance, 220 Contract, 149 real isolated PostgreSQL/Redis Integration and 72 E2E tests, 36
-Runtime and 8 Control migrations, production build and all process smokes. Read-only Review closed
-3 Major and 2 Minor findings; final verdict is 0 Blocking / 0 Major / 0 Minor. P13 is the next
-permitted phase and has not started.
+`a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P12 remain completed. P13 adds exact
+Administrator/Operator/Viewer/Security/Organization role profiles, tenant-bound service identity,
+ingress rate/size limits, endpoint allowlist/TLS/SSRF enforcement, real credential rotation,
+PostgreSQL dump/restore, restart and Control-outage recovery plus explicit production-limit
+runbooks. Exact clean `pnpm verify` passed on `ec10587` in 665,151 ms with 960 Unit/performance, 220
+Contract, 149 real PostgreSQL/Redis Integration and 72 E2E tests, 36 Runtime and 8 Control
+migrations, build and all smokes. Review is 0 Blocking / 0 Major / 0 Minor after two Major repairs.
+P14 final integration/publication is the only remaining phase; the branch is intentionally not yet
+pushed under the user's P14-only publication instruction.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

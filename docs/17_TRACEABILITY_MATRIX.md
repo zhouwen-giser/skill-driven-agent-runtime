@@ -891,6 +891,18 @@ changed.
 | Safe Task read profile | verified | generic frozen TaskSummary list/detail; request text, user identity and workflow internals omitted; conditional controls disabled | Contract fixture plus real Runtime Task projection |
 | P12 closure | verified | exact-commit full verify passed; Review 0 Blocking/0 Major/0 Minor after 3 Major and 2 Minor repairs; P13 not started | `p12-completion.*`, `p12-review.md`, `p12-handoff.json`, verification summary |
 
+## SDAR v1.4 P13 Security, Recovery and Operations Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| Role and tenant authorization | verified | distinct Administrator/Operator/Viewer/Security/Organization credentials, exact profiles and tenant-bound Organization identity | HTTP Contract plus real Node Control role/outage smoke |
+| Secret and transport hardening | verified | SecretRef-only boundaries, separate Runtime credential, request/rate bounds, exact/CIDR allowlists, TLS/user-info/SSRF rejection | Domain/Contract regressions; secret scan 0 findings |
+| Write governance | verified | Administrator-only writes preserve reason, If-Match/expected revision, idempotency and immutable Operation/Audit evidence | full Unit/Contract/Integration gate |
+| Backup, restore and restart | verified | independent Control dump/restore reconciliation, credential rotation/revocation, API restart and Runtime-after-Control-stop | real disposable Docker PostgreSQL/Redis drill |
+| Supply chain and frozen bytes | verified | SBOM/license/source pins; 0 Critical/High production advisories; frozen CSV byte preservation on clean checkout | security gate, prod audit and clean exact verify |
+| Operational truthfulness | verified | backup/restore, upgrade/rollback and capacity/SLO/chaos runbooks disclaim unmeasured production HA/RTO/RPO | P13 read-only review |
+| P13 closure | verified | exact clean `ec10587` full verify; Review 0 Blocking/0 Major/0 Minor after 2 Major repairs | `p13-completion.*`, `p13-review.md`, `p13-handoff.json`, verification summary |
+
 ## SDAR v1.4 P02 Configuration Revision, Apply/Ack and LKG Addendum
 
 | Requirement | Status | Implementation | Tests / evidence |
