@@ -11,7 +11,7 @@ preserving Control/Runtime authority boundaries and treating events only as chan
 - phaseBaseSha: `e96f26b3ef6e37522261e64f6890e2729892335f`
 - implementationSha: `7eb5b83ce042244e6d70eb928ad5d456121f4ebf`
 - fullVerifyCandidateSha: `a787cbf0130a74b894b88aba6706782b654c59ff`
-- evidenceSha: `PENDING_EVIDENCE_COMMIT`
+- evidenceSha: `062bd2a8d7d1f827b1709c1998d287105ea7e949`
 
 ## Implementation
 
