@@ -16,8 +16,8 @@ a non-draft PR and merge only after live GitHub checks, review and mergeability 
 
 - implementationSha: `47fb8c31ffb474eb2266e4d7b104ae425a3fb530`
 - recoveryFixAndVerifiedCandidateSha: `e6d0b698fb0430386edba66474f8214f9f4bd740`
-- evidenceSha: `PENDING_EVIDENCE_COMMIT`
-- remoteSha: `PENDING_P14_PUSH`
+- evidenceSha: `d5368bd460c2d0dff46fbfa2b83b644372a59bda`
+- remoteEvidenceSha: `d5368bd460c2d0dff46fbfa2b83b644372a59bda`
 - changedFiles: 403 paths from baseline through the verified candidate; P14 itself updates version,
   release/governance records, the versioned SBOM and self-contained recovery smoke.
 
@@ -66,6 +66,8 @@ Control implementation was introduced.
 Zero secret findings, SecretRef-only public contracts, administrator-only writes, bounded role and
 tenant scopes, request/rate limits, exact/CIDR allowlists and non-loopback TLS pass. Production audit
 has 0 Critical/High and one documented Moderate below the blocking threshold.
+GitHub also reports one pre-existing High for development-only `postcss@8.5.16`; `origin/main` and
+the candidate lock the same version, and this PR does not change `pnpm-lock.yaml`.
 
 ## Known Limitations
 
@@ -74,7 +76,8 @@ GitHub Release or deployment is part of P14.
 
 ## Handoff
 
-- status: `QUALIFIED_FOR_PUBLICATION`
+- status: `READY_FOR_MERGE`
 - nextPhase: none
-- prerequisites: push without force, create the prescribed non-draft PR, confirm live base/head,
-  checks/reviews/mergeability, merge with Merge Commit if permitted, and verify candidate ancestry.
+- prerequisites: PR #15 is non-draft, `MERGEABLE/CLEAN`, has no checks, reviews or review threads,
+  and the active main ruleset requires zero approvals while allowing Merge Commit. Recheck latest
+  main, merge without bypass, then verify candidate ancestry.

@@ -6,8 +6,10 @@
 - Branch: `feature/v1.4-node-control-backend`
 - Baseline and latest synchronized main: `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`
 - Verified code candidate: `e6d0b698fb0430386edba66474f8214f9f4bd740`
-- Evidence commit: `PENDING_EVIDENCE_COMMIT`
-- Remote publication SHA / PR / merge: `PENDING_P14_PUBLICATION`
+- Evidence and first remote publication commit: `d5368bd460c2d0dff46fbfa2b83b644372a59bda`
+- Pull request: [#15](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15),
+  non-draft, `MERGEABLE/CLEAN`
+- Merge: pending the final post-reconciliation live recheck
 
 `origin/main` was fetched again after qualification and remains an ancestor of the candidate at
 0 behind / 66 ahead. No empty merge commit was created.
@@ -30,7 +32,7 @@
 | P11 | `7f631fd` | `3a2d872` |
 | P12 | `7eb5b83` | `062bd2a` |
 | P13 | `ee64870`, clean candidate `ec10587` | `b840104` |
-| P14 | `47fb8c3`, recovery fix and clean candidate `e6d0b69` | `PENDING_EVIDENCE_COMMIT` |
+| P14 | `47fb8c3`, recovery fix and clean candidate `e6d0b69` | `d5368bd` |
 
 All intermediate fix/test/reconciliation commits remain in history; the table identifies each
 phase's principal implementation and evidence anchors.
@@ -72,6 +74,8 @@ Exact isolated worktree commit `e6d0b698fb0430386edba66474f8214f9f4bd740`:
 - `pnpm verify:v14-security`: 4,436 current/history files, 0 secret findings; SBOM/licenses/project
   license/frozen contract passed.
 - `pnpm audit --prod --audit-level high`: 0 Critical, 0 High; 1 documented Moderate.
+- GitHub's separate High alert is development-only `postcss@8.5.16`, is already present unchanged
+  on `origin/main`, and is not introduced by this PR; no required Dependency Review check exists.
 - `pnpm verify:v14-recovery`: passed the real local Docker PostgreSQL/Redis drill.
 
 The machine summary is `reports/verification/summary.json`, SHA-256

@@ -153,5 +153,6 @@ handoff, not for `POST_RELEASE_OPERATIONS_READY` or a production release.
 - [x] P00-P13 traceability, Completion, Review and Handoff evidence is committed.
 - [x] P14 final exact-clean release matrix passes on `e6d0b69` with `dirty=false`; security,
       recovery, A2A TCK and read-only Review also pass.
-- [ ] Remote push, non-draft PR, GitHub checks/reviews and merge-to-main ancestry evidence are
-      complete.
+- [x] Remote evidence push and non-draft PR #15 are complete; GitHub reports `MERGEABLE/CLEAN`, no
+      checks/reviews/threads and an active main ruleset requiring zero approvals.
+- [ ] Merge-to-main and candidate ancestry evidence are complete.

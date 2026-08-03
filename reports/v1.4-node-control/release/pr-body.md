@@ -88,5 +88,8 @@ LKG, and never delete or restore over unknown data.
 
 ## Merge Evidence
 
-To be completed from live GitHub state after this non-draft PR is created. Merge method must be a
-Merge Commit; no protection bypass, force push, tag, GitHub Release or deployment is authorized.
+PR #15 is non-draft and targets `main` from `feature/v1.4-node-control-backend`; live GitHub state is
+`MERGEABLE/CLEAN` with no checks, reviews or review threads. The active main ruleset requires PR use
+and resolved threads, requires zero approvals, permits Merge Commit and has no bypass actors. Final
+merge SHA and ancestry will be verified after the Merge Commit. No force push, tag, GitHub Release
+or deployment is authorized.

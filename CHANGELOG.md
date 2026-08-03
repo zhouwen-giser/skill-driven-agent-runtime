@@ -16,6 +16,9 @@ All notable changes to this project are documented here. The format follows Keep
   Critical/High, A2A HTTP/JSON MUST TCK 74 passed and the real backup/restore/restart/outage drill.
 - Fixed a clean-checkout recovery-smoke order dependency by building the production Console before
   asserting the Runtime Console route; the repeated 404 and successful rerun remain in evidence.
+- Published evidence commit `d5368bd` and opened non-draft PR #15. Live GitHub state is
+  `MERGEABLE/CLEAN` with no checks, reviews or review threads; the active main ruleset requires zero
+  approvals and permits Merge Commit without bypass.
 
 ## SDAR v1.4 P13 Security, Recovery and Operations
 

@@ -13,8 +13,9 @@ P14 local release qualification is complete. Latest `origin/main` remains `a7a7c
 ancestor of the branch (`0 behind / 66 ahead`), so there is no main conflict or missing merge commit
 to resolve. Exact clean candidate `e6d0b69` passes the complete `pnpm verify` in 581,785 ms with
 `dirty=false`, security/recovery gates and A2A HTTP/JSON MUST TCK; final Review is 0 Blocking / 0
-Major / 0 Minor. The branch remains intentionally unpushed until this P14 evidence commit; non-draft
-PR creation, live GitHub checks/reviews and Merge Commit ancestry evidence are the remaining actions.
+Major / 0 Minor. Evidence commit `d5368bd` is pushed and non-draft PR #15 is `MERGEABLE/CLEAN` with
+no checks, reviews or review threads. The active main ruleset requires zero approvals and permits
+Merge Commit without bypass; final reconciliation push, live recheck, merge and ancestry proof remain.
 
 PR #13 merge remediation is locally implemented and verified (2026-08-01) on
 `feature/v1.3-sequential-implementation`. `git merge-tree` found no textual

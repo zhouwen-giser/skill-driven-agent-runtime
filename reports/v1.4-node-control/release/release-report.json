@@ -5,9 +5,19 @@
   "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "latestMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
   "verifiedCandidateSha": "e6d0b698fb0430386edba66474f8214f9f4bd740",
-  "evidenceSha": "PENDING_EVIDENCE_COMMIT",
-  "remoteSha": "PENDING_P14_PUSH",
-  "pullRequest": null,
+  "evidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+  "remoteEvidenceSha": "d5368bd460c2d0dff46fbfa2b83b644372a59bda",
+  "pullRequest": {
+    "number": 15,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/15",
+    "state": "OPEN",
+    "draft": false,
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN",
+    "checks": 0,
+    "reviews": 0,
+    "reviewThreads": 0
+  },
   "merge": null,
   "verification": {
     "status": "passed",

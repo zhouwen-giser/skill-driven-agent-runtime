@@ -98,6 +98,10 @@ Control 1.0.0, Node Events 1.0.0, and Telemetry Export 1.0.0 remain separate fro
   `a7a7c62` and is already an ancestor (`0 behind / 66 ahead`), so no empty merge commit was created.
   Exact clean candidate `e6d0b69` passes security, recovery, A2A TCK and the complete `pnpm verify`;
   read-only Review is 0 Blocking / 0 Major / 0 Minor. Publication/PR/merge evidence follows next.
+- [x] 2026-08-03 18:40 +08:00 evidence `d5368bd` is pushed and non-draft PR #15 is
+  `MERGEABLE/CLEAN`, with no checks, reviews or review threads. The active main ruleset requires zero
+  approvals, requires resolved threads and permits Merge Commit; final reconciliation and ancestry
+  verification remain.
 
 ## Discoveries and Surprises
 
