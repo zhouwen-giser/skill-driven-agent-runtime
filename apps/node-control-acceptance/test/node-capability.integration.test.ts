@@ -461,6 +461,26 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
     expect(rolledBack.rows[0]).toEqual({ tasks: '0', bindings: '0' });
 
     await taskCapabilities.accept(prepared);
+    const bindingEvent = await runtimePool.query<{
+      event_type: string;
+      outbox_sequence: string;
+      payload: Readonly<Record<string, unknown>>;
+    }>(
+      `SELECT event_type,outbox_sequence::text,payload
+         FROM cognitive_runtime_outbox
+        WHERE aggregate_type='task_capability_binding' AND aggregate_id=$1`,
+      [prepared.binding.bindingId],
+    );
+    expect(bindingEvent.rows).toEqual([
+      expect.objectContaining({
+        event_type: 'node.task.capability_bound',
+        outbox_sequence: expect.stringMatching(/^[1-9][0-9]*$/u),
+        payload: {
+          resourceRef: { type: 'task_capability_binding', id: task.taskId, revision: 1 },
+          changeCode: 'TASK_CAPABILITY_BOUND',
+        },
+      }),
+    ]);
     const publicBinding = await request('/api/v1/tasks/task.p09.capability/capability-binding', {
       expectedStatus: 200,
     });
@@ -742,7 +762,8 @@ async function cleanup() {
               sdar_control.node_profile`,
   );
   await runtimePool.query(
-    "DELETE FROM cognitive_runtime_outbox WHERE event_type='node.capability.readiness_changed'",
+    `DELETE FROM cognitive_runtime_outbox
+      WHERE event_type IN ('node.capability.readiness_changed','node.task.capability_bound')`,
   );
   await runtimePool.query(
     'TRUNCATE capability_readiness_command_receipt,capability_readiness_snapshot',

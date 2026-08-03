@@ -13,6 +13,7 @@ import type {
   ModelRouteDefinition,
   NodeCapabilityDefinitionVersion,
   NodeProfile,
+  NodeProfileDraftInput,
   RuntimeRevisionAck,
   SmppProviderCandidateDirectoryEntry,
   SmppRegistrySnapshot,
@@ -24,6 +25,23 @@ export interface NodeControlFoundationRepository {
   probe(): Promise<boolean>;
   findNodeProfile(): Promise<NodeProfile | undefined>;
   bootstrapNodeProfile(profile: NodeProfile, audit: ControlAuditEvent): Promise<boolean>;
+  createNodeProfileDraft(
+    profile: NodeProfile,
+    expectedRevision: number,
+    context: ConfigurationMutationContext,
+  ): Promise<NodeProfile>;
+  validateNodeProfileDraft(
+    revision: number,
+    expectedRevision: number,
+    context: ConfigurationMutationContext,
+  ): Promise<NodeProfile>;
+  publishNodeProfileDraft(
+    revision: number,
+    expectedRevision: number,
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation>;
   listManagementOperations(limit: number): Promise<readonly ManagementOperation[]>;
   findManagementOperation(operationId: string): Promise<ManagementOperation | undefined>;
   findGovernanceOperationReplay?(
@@ -36,6 +54,8 @@ export interface NodeControlFoundationRepository {
   ): Promise<ManagementOperation>;
   listAuditEvents(limit: number): Promise<readonly ControlAuditEvent[]>;
 }
+
+export type { NodeProfileDraftInput };
 
 export interface NodeControlClock {
   now(): string;

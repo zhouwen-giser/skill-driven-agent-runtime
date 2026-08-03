@@ -79,6 +79,7 @@ database without changing the Runtime Compose project:
 ```powershell
 docker compose -f compose.node-control.yaml up -d --wait control-postgres
 $env:SDAR_CONTROL_API_TOKEN='replace-with-at-least-32-non-whitespace-characters'
+$env:SDAR_CONTROL_ORGANIZATION_API_TOKEN='optional-distinct-read-only-organization-token'
 pnpm start:node-control-api
 ```
 

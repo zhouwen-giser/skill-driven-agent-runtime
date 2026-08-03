@@ -1,6 +1,7 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import type { NodeControlFoundationRepository } from '../../node-control-application/src/index.js';
+import type { ConfigurationMutationContext } from '../../node-control-application/src/index.js';
 import {
   rehydrateNodeProfile,
   type ControlAuditEvent,
@@ -103,9 +104,165 @@ export class PostgresNodeControlFoundationRepository implements NodeControlFound
         return false;
       }
       await insertProfile(client, profile);
+      await insertProfileRevision(client, profile, 'deployment-bootstrap', profile.updatedAt);
       await insertAudit(client, audit);
       await client.query('COMMIT');
       return true;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async createNodeProfileDraft(
+    profile: NodeProfile,
+    expectedRevision: number,
+    context: ConfigurationMutationContext,
+  ): Promise<NodeProfile> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('sdar_control_node_profile'))");
+      const replay = await findProfileReceipt(client, 'node.profile.draft', context);
+      if (replay !== undefined) {
+        const existing = await findProfileRevision(client, replay.revision);
+        if (existing === undefined) throw new Error('NODE_PROFILE_RECEIPT_DANGLING');
+        await client.query('COMMIT');
+        return draftReplay(existing);
+      }
+      const latest = await latestProfileRevision(client);
+      if (latest !== expectedRevision)
+        throw profileError('PRECONDITION_FAILED', 'The Node Profile revision has advanced.', 412);
+      if (profile.revision !== latest + 1)
+        throw profileError(
+          'NODE_PROFILE_REVISION_CONFLICT',
+          'The Node Profile revision is not contiguous.',
+          409,
+        );
+      await insertProfileRevision(client, profile, context.actorId, context.occurredAt);
+      await insertProfileReceipt(client, 'node.profile.draft', context, profile.revision, null);
+      await client.query('COMMIT');
+      return profile;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async validateNodeProfileDraft(
+    revision: number,
+    expectedRevision: number,
+    context: ConfigurationMutationContext,
+  ): Promise<NodeProfile> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('sdar_control_node_profile'))");
+      const replay = await findProfileReceipt(client, 'node.profile.validate', context);
+      if (replay !== undefined) {
+        const existing = await findProfileRevision(client, replay.revision);
+        if (existing === undefined) throw new Error('NODE_PROFILE_RECEIPT_DANGLING');
+        await client.query('COMMIT');
+        return draftReplay(existing);
+      }
+      const latest = await latestProfileRevision(client);
+      if (latest !== expectedRevision || revision !== latest)
+        throw profileError('PRECONDITION_FAILED', 'The Node Profile draft is stale.', 412);
+      const profile = await findProfileRevision(client, revision, true);
+      if (profile?.status !== 'draft')
+        throw profileError('NODE_PROFILE_DRAFT_NOT_FOUND', 'Node Profile draft not found.', 404);
+      await client.query(
+        `UPDATE sdar_control.node_profile_revision
+            SET validated_at=$2
+          WHERE node_id=$1 AND revision=$3 AND status='draft'`,
+        [profile.nodeId, context.occurredAt, revision],
+      );
+      await insertProfileReceipt(client, 'node.profile.validate', context, revision, null);
+      await client.query('COMMIT');
+      return profile;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async publishNodeProfileDraft(
+    revision: number,
+    expectedRevision: number,
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('sdar_control_node_profile'))");
+      const replay = await findProfileReceipt(client, 'node.profile.publish', context);
+      if (replay?.operationId !== undefined) {
+        const existing = await findOperation(client, replay.operationId);
+        if (existing === undefined) throw new Error('NODE_PROFILE_OPERATION_RECEIPT_DANGLING');
+        await client.query('COMMIT');
+        return existing;
+      }
+      const latest = await latestProfileRevision(client);
+      if (latest !== expectedRevision || revision !== latest)
+        throw profileError('PRECONDITION_FAILED', 'The Node Profile draft is stale.', 412);
+      const draft = await client.query<NodeProfileRow>(
+        `${profileRevisionSelect}
+          WHERE revision=$1 AND status='draft' AND validated_at IS NOT NULL
+          FOR UPDATE`,
+        [revision],
+      );
+      const row = draft.rows[0];
+      if (row === undefined)
+        throw profileError(
+          'NODE_PROFILE_DRAFT_NOT_VALIDATED',
+          'The latest Node Profile draft must be validated before publication.',
+          422,
+        );
+      await client.query(
+        `UPDATE sdar_control.node_profile_revision
+            SET status='active',published_at=$2
+          WHERE node_id=$1 AND revision=$3`,
+        [row.node_id, context.occurredAt, revision],
+      );
+      await client.query(
+        `UPDATE sdar_control.node_profile
+            SET node_type=$2,display_name=$3,description=$4,environment=$5,labels=$6::jsonb,
+                authority_scopes=$7::jsonb,runtime_endpoint_ref=$8,telemetry_source_id=$9,
+                status='active',revision=$10,updated_at=$11
+          WHERE node_id=$1`,
+        [
+          row.node_id,
+          row.node_type,
+          row.display_name,
+          row.description,
+          row.environment,
+          JSON.stringify(row.labels),
+          JSON.stringify(row.authority_scopes),
+          row.runtime_endpoint_ref,
+          row.telemetry_source_id,
+          revision,
+          context.occurredAt,
+        ],
+      );
+      await insertOperation(client, operation);
+      await insertAudit(client, audit);
+      await insertProfileReceipt(
+        client,
+        'node.profile.publish',
+        context,
+        revision,
+        operation.operationId,
+      );
+      await client.query('COMMIT');
+      return operation;
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
       throw error;
@@ -220,6 +377,129 @@ async function insertProfile(client: PoolClient, profile: NodeProfile): Promise<
       profile.updatedAt,
     ],
   );
+}
+
+const profileRevisionSelect = `SELECT node_id,node_type,display_name,description,environment,labels,
+  authority_scopes,runtime_endpoint_ref,telemetry_source_id,status,revision::text,updated_at
+  FROM sdar_control.node_profile_revision`;
+
+async function insertProfileRevision(
+  client: PoolClient,
+  profile: NodeProfile,
+  createdBy: string,
+  createdAt: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO sdar_control.node_profile_revision(
+       node_id,node_type,display_name,description,environment,labels,authority_scopes,
+       runtime_endpoint_ref,telemetry_source_id,status,revision,created_by,created_at,updated_at)
+     VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14)
+     ON CONFLICT(node_id,revision) DO NOTHING`,
+    [
+      profile.nodeId,
+      profile.nodeType,
+      profile.displayName,
+      profile.description,
+      profile.environment,
+      JSON.stringify(profile.labels),
+      JSON.stringify(profile.authorityScopes),
+      profile.runtimeEndpointRef,
+      profile.telemetrySourceId ?? null,
+      profile.status,
+      profile.revision,
+      createdBy,
+      createdAt,
+      profile.updatedAt,
+    ],
+  );
+}
+
+async function latestProfileRevision(client: PoolClient): Promise<number> {
+  const result = await client.query<{ revision: string }>(
+    'SELECT COALESCE(MAX(revision),0)::text AS revision FROM sdar_control.node_profile_revision',
+  );
+  return Number(result.rows[0]?.revision ?? 0);
+}
+
+async function findProfileRevision(
+  client: PoolClient,
+  revision: number,
+  lock = false,
+): Promise<NodeProfile | undefined> {
+  const result = await client.query<NodeProfileRow>(
+    `${profileRevisionSelect} WHERE revision=$1${lock ? ' FOR UPDATE' : ''}`,
+    [revision],
+  );
+  return result.rows[0] === undefined ? undefined : mapNodeProfile(result.rows[0]);
+}
+
+interface ProfileReceiptRow extends QueryResultRow {
+  request_hash: string;
+  revision: string;
+  operation_id: string | null;
+}
+
+async function findProfileReceipt(
+  client: PoolClient,
+  scope: string,
+  context: ConfigurationMutationContext,
+): Promise<Readonly<{ revision: number; operationId?: string }> | undefined> {
+  const result = await client.query<ProfileReceiptRow>(
+    `SELECT request_hash::text,revision::text,operation_id
+       FROM sdar_control.node_profile_command_receipt
+      WHERE scope=$1 AND idempotency_key_hash=$2`,
+    [scope, context.idempotencyKeyHash],
+  );
+  const row = result.rows[0];
+  if (row === undefined) return undefined;
+  if (row.request_hash.trim() !== context.requestHash)
+    throw profileError('IDEMPOTENCY_KEY_REUSED', 'Idempotency-Key was reused.', 409);
+  return Object.freeze({
+    revision: Number(row.revision),
+    ...(row.operation_id === null ? {} : { operationId: row.operation_id }),
+  });
+}
+
+function insertProfileReceipt(
+  client: PoolClient,
+  scope: string,
+  context: ConfigurationMutationContext,
+  revision: number,
+  operationId: string | null,
+): Promise<unknown> {
+  return client.query(
+    `INSERT INTO sdar_control.node_profile_command_receipt(
+       scope,idempotency_key_hash,request_hash,revision,operation_id,created_at)
+     VALUES($1,$2,$3,$4,$5,$6)`,
+    [
+      scope,
+      context.idempotencyKeyHash,
+      context.requestHash,
+      revision,
+      operationId,
+      context.occurredAt,
+    ],
+  );
+}
+
+async function findOperation(
+  client: PoolClient,
+  operationId: string,
+): Promise<ManagementOperation | undefined> {
+  const result = await client.query<OperationRow>(`${operationSelect} WHERE operation_id=$1`, [
+    operationId,
+  ]);
+  return result.rows[0] === undefined ? undefined : mapOperation(result.rows[0]);
+}
+
+function profileError(code: string, message: string, status: number): Error {
+  return Object.assign(new Error(message), { code, status });
+}
+
+function draftReplay(profile: NodeProfile): NodeProfile {
+  return profile.status === 'draft'
+    ? profile
+    : rehydrateNodeProfile(Object.freeze({ ...profile, status: 'draft' }));
 }
 
 async function insertAudit(client: PoolClient, audit: ControlAuditEvent): Promise<void> {

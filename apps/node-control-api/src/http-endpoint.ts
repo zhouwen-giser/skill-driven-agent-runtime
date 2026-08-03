@@ -5,6 +5,7 @@ import { z, ZodError } from 'zod';
 
 import {
   NodeControlApplicationError,
+  NodeControlFoundationError,
   NodeControlConfigurationError,
   NodeControlLlmGovernanceError,
   NodeControlMcpBindingError,
@@ -15,6 +16,7 @@ import {
   type RuntimeAgentCardDeployment,
   type NodeControlConfigurationService,
   type NodeControlFoundationService,
+  type NodeControlEventService,
   type NodeControlLlmGovernanceService,
   type NodeControlMcpProviderBindingService,
   type NodeControlCapabilityService,
@@ -46,6 +48,7 @@ import type { NodeControlCapabilityReadinessCoordinator } from './capability-rea
 
 export interface NodeControlHttpConfiguration {
   readonly bearerToken: string;
+  readonly organizationBearerToken?: string;
   readonly runtimeServiceToken: string;
   readonly nodeControlApiUrl: string;
   readonly nodeEventsUrl: string;
@@ -62,8 +65,28 @@ export interface NodeControlHttpConfiguration {
   readonly taskCapabilities?: Readonly<{
     findBinding(taskId: string): Promise<TaskCapabilityBinding | undefined>;
   }>;
+  readonly taskSummaries?: Readonly<{
+    list(
+      filter: Readonly<{ phase?: string; goalId?: string; limit: number }>,
+    ): Promise<readonly NodeControlTaskSummary[]>;
+    get(taskId: string): Promise<NodeControlTaskSummary | undefined>;
+  }>;
   readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
   readonly telemetryExport?: NodeControlTelemetryExportService;
+  readonly nodeEvents?: NodeControlEventService;
+}
+
+interface NodeControlTaskSummary {
+  readonly taskId: string;
+  readonly goalId?: string;
+  readonly planId?: string;
+  readonly contextId?: string;
+  readonly phase: string;
+  readonly selectedSkillId?: string;
+  readonly capabilityBindingId?: string;
+  readonly createdAt?: string;
+  readonly updatedAt: string;
+  readonly controlledActions: Readonly<Record<string, boolean>>;
 }
 
 export function createNodeControlHttpApp(
@@ -107,18 +130,74 @@ export function createNodeControlHttpApp(
           nodeEvents: '1.0.0',
           telemetryExport: '1.0.0',
         },
-        features: ['node-profile', 'health', 'management-operation', 'audit'],
+        features: [
+          'node-profile',
+          'health',
+          'capability-catalog',
+          'capability-readiness',
+          'a2a-exposure',
+          'configuration-summary',
+          'management-operation',
+          'node-events',
+        ],
       });
     } catch (error) {
       next(error);
     }
   });
 
-  app.use('/api/v1', bearerAuthentication(configuration.bearerToken));
+  app.use(
+    '/api/v1',
+    publicApiAuthentication(configuration.bearerToken, configuration.organizationBearerToken),
+  );
 
   app.get('/api/v1/node', async (_request, response, next) => {
     try {
-      response.status(200).json(await service.getNodeProfile());
+      const profile = await service.getNodeProfile();
+      response.status(200).set('etag', nodeProfileEtag(profile)).json(profile);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put('/api/v1/node/draft', async (request, response, next) => {
+    try {
+      const input = NodeProfileDraftSchema.parse(request.body);
+      const profile = await service.updateNodeProfileDraft(
+        input,
+        requiredHeader(request, 'if-match'),
+        requiredHeader(request, 'idempotency-key'),
+      );
+      response.status(200).set('etag', nodeProfileEtag(profile)).json(profile);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/node/draft/validate', async (request, response, next) => {
+    try {
+      const profile = await service.validateNodeProfileDraft(
+        requiredHeader(request, 'if-match'),
+        requiredHeader(request, 'idempotency-key'),
+        parseCommand(request.body),
+      );
+      response.status(200).set('etag', nodeProfileEtag(profile)).json(profile);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/node/draft/publish', async (request, response, next) => {
+    try {
+      response
+        .status(202)
+        .json(
+          await service.publishNodeProfileDraft(
+            requiredHeader(request, 'if-match'),
+            requiredHeader(request, 'idempotency-key'),
+            parseCommand(request.body),
+          ),
+        );
     } catch (error) {
       next(error);
     }
@@ -966,6 +1045,56 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get('/api/v1/events', async (request, response, next) => {
+    try {
+      const events = requiredNodeEvents(configuration);
+      let cursor = request.header('last-event-id');
+      const first = await events.listAfter(cursor, 100);
+      response.status(200);
+      response.set({
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+      });
+      response.flushHeaders();
+      const initialWrite = writeNodeEvents(response, first.items, cursor);
+      cursor = initialWrite.cursor;
+      let backpressured = initialWrite.backpressured;
+      let closed = false;
+      let running = false;
+      const resume = () => {
+        backpressured = false;
+      };
+      response.on('drain', resume);
+      const timer = setInterval(() => {
+        if (closed || running || backpressured) return;
+        running = true;
+        void events
+          .listAfter(cursor, 100)
+          .then((page) => {
+            if (closed) return;
+            const written = writeNodeEvents(response, page.items, cursor);
+            cursor = written.cursor;
+            backpressured = written.backpressured;
+          })
+          .catch(() => {
+            if (!closed) backpressured = !response.write(': refetch-required\n\n');
+          })
+          .finally(() => {
+            running = false;
+          });
+      }, 250);
+      timer.unref();
+      request.once('close', () => {
+        closed = true;
+        clearInterval(timer);
+        response.off('drain', resume);
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/api/v1/audit-events', async (request, response, next) => {
     try {
       const items = await service.listAuditEvents(parseLimit(request.query['pageSize']));
@@ -1146,6 +1275,42 @@ export function createNodeControlHttpApp(
       },
     );
   }
+
+  app.get('/api/v1/tasks', async (request, response, next) => {
+    try {
+      const items = await requiredTaskSummaries(configuration).list({
+        ...(typeof request.query['phase'] === 'string' ? { phase: request.query['phase'] } : {}),
+        ...(typeof request.query['goalId'] === 'string' ? { goalId: request.query['goalId'] } : {}),
+        limit: 1_000,
+      });
+      response
+        .status(200)
+        .json(page(items, request.query['pageSize'], request.query['pageToken'], 'tasks'));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/tasks/:taskId', async (request, response, next) => {
+    try {
+      const task = await requiredTaskSummaries(configuration).get(request.params.taskId);
+      if (task === undefined) {
+        sendProblem(response, {
+          title: 'Task not found',
+          status: 404,
+          code: 'TASK_NOT_FOUND',
+          detail: 'The Runtime Task projection was not found.',
+          instance: request.originalUrl,
+          correlationId: correlationId(request),
+          retryable: false,
+        });
+        return;
+      }
+      response.status(200).json(task);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.get('/api/v1/tasks/:taskId/capability-binding', async (request, response, next) => {
     try {
@@ -1368,6 +1533,18 @@ export function createNodeControlHttpApp(
         status: 404,
         code: error.code,
         title: 'Management Operation not found',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
+    if (error instanceof NodeControlFoundationError) {
+      sendProblem(response, {
+        status: error.status,
+        code: error.code,
+        title: 'Node Profile command rejected',
         detail: error.message,
         instance: request.originalUrl,
         correlationId: correlationId(request),
@@ -1605,6 +1782,37 @@ const CommandSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .strict();
+const NodeProfileDraftSchema = z
+  .object({
+    nodeId: z.string().trim().min(1).max(128),
+    nodeType: z.string().trim().min(1).max(128),
+    displayName: z.string().trim().min(1).max(256),
+    description: z.string().max(4096).optional(),
+    environment: z.string().trim().min(1).max(128),
+    labels: z.record(z.string(), z.string()).optional(),
+    authorityScopes: z.array(z.string().trim().min(1).max(256)).max(64).optional(),
+    runtimeEndpointRef: z.string().trim().min(1).max(2048),
+    telemetrySourceId: z.string().trim().min(1).max(256).optional(),
+    status: z.literal('draft'),
+    revision: z.number().int().positive(),
+    updatedAt: z.iso.datetime({ offset: true }).optional(),
+  })
+  .strict()
+  .transform((input) => ({
+    nodeId: input.nodeId,
+    nodeType: input.nodeType,
+    displayName: input.displayName,
+    ...(input.description === undefined ? {} : { description: input.description }),
+    environment: input.environment,
+    ...(input.labels === undefined ? {} : { labels: input.labels }),
+    ...(input.authorityScopes === undefined ? {} : { authorityScopes: input.authorityScopes }),
+    runtimeEndpointRef: input.runtimeEndpointRef,
+    ...(input.telemetrySourceId === undefined
+      ? {}
+      : { telemetrySourceId: input.telemetrySourceId }),
+    status: input.status,
+    revision: input.revision,
+  }));
 const LatestRevisionQuerySchema = z.object({
   targetType: TargetTypeSchema,
   targetId: z.string().trim().min(1).max(256),
@@ -2055,6 +2263,17 @@ function etag(revision: {
   return `"configuration:${revision.configurationId}:${String(revision.revision)}:${revision.status}:${revision.checksum}"`;
 }
 
+function nodeProfileEtag(
+  profile: Readonly<{
+    nodeId: string;
+    revision: number;
+    status: string;
+  }>,
+): string {
+  const identityHash = createHash('sha256').update(profile.nodeId).digest('hex');
+  return `"node:${String(profile.revision)}:${profile.status}:${identityHash}"`;
+}
+
 function bearerAuthentication(expectedToken: string) {
   const expectedDigest = createHash('sha256').update(expectedToken).digest();
   return (request: Request, response: Response, next: NextFunction): void => {
@@ -2077,6 +2296,85 @@ function bearerAuthentication(expectedToken: string) {
     }
     next();
   };
+}
+
+function publicApiAuthentication(expectedToken: string, organizationToken?: string) {
+  const nodeAdmin = createHash('sha256').update(expectedToken).digest();
+  const organization =
+    organizationToken === undefined
+      ? undefined
+      : createHash('sha256').update(organizationToken).digest();
+  return (request: Request, response: Response, next: NextFunction): void => {
+    const authorization = request.header('authorization');
+    const token = authorization?.match(/^Bearer\s+(.+)$/iu)?.[1];
+    const supplied = createHash('sha256')
+      .update(token ?? '')
+      .digest();
+    if (token !== undefined && timingSafeEqual(nodeAdmin, supplied)) {
+      next();
+      return;
+    }
+    if (
+      token !== undefined &&
+      organization !== undefined &&
+      timingSafeEqual(organization, supplied)
+    ) {
+      if (organizationOperationAllowed(request.method, request.originalUrl)) {
+        next();
+        return;
+      }
+      sendProblem(response, {
+        status: 403,
+        code: 'CONTROL_SCOPE_FORBIDDEN',
+        title: 'Operation is outside the organization API profile',
+        detail: 'The organization service principal may use only the frozen read profile.',
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: false,
+      });
+      return;
+    }
+    sendProblem(response, {
+      status: 401,
+      code: 'AUTHENTICATION_REQUIRED',
+      title: 'Authentication required',
+      detail: 'A valid deployment bearer identity is required.',
+      instance: request.originalUrl,
+      correlationId: correlationId(request),
+      retryable: false,
+    });
+  };
+}
+
+function organizationOperationAllowed(method: string, originalUrl: string): boolean {
+  if (method !== 'GET') return false;
+  const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
+  return [
+    /^\/api\/v1\/node(?:\/health)?$/u,
+    /^\/api\/v1\/node-capabilities(?:\/[^/]+\/versions\/\d+)?$/u,
+    /^\/api\/v1\/capability-readiness(?:\/[^/]+\/versions\/\d+)?$/u,
+    /^\/api\/v1\/a2a-exposures(?:\/[^/]+\/versions\/\d+)?$/u,
+    /^\/api\/v1\/a2a-agent-card-revisions\/\d+$/u,
+    /^\/api\/v1\/tasks(?:\/[^/]+(?:\/capability-binding)?)?$/u,
+    /^\/api\/v1\/management-operations\/[^/]+$/u,
+    /^\/api\/v1\/events$/u,
+  ].some((pattern) => pattern.test(path));
+}
+
+function writeNodeEvents(
+  response: Response,
+  events: readonly Readonly<{ eventId: string; eventType: string }>[],
+  cursor: string | undefined,
+): Readonly<{ cursor: string | undefined; backpressured: boolean }> {
+  let latest = cursor;
+  for (const event of events) {
+    const writable = response.write(
+      `id: ${event.eventId}\nevent: ${event.eventType}\ndata: ${JSON.stringify(event)}\n\n`,
+    );
+    latest = event.eventId;
+    if (!writable) return Object.freeze({ cursor: latest, backpressured: true });
+  }
+  return Object.freeze({ cursor: latest, backpressured: false });
 }
 
 function parseLimit(value: unknown): number {
@@ -2212,6 +2510,17 @@ function requiredTaskCapabilities(configuration: NodeControlHttpConfiguration): 
   return configuration.taskCapabilities;
 }
 
+function requiredTaskSummaries(
+  configuration: NodeControlHttpConfiguration,
+): NonNullable<NodeControlHttpConfiguration['taskSummaries']> {
+  if (configuration.taskSummaries === undefined)
+    throw Object.assign(new Error('Runtime Task projection is unavailable.'), {
+      code: 'TASK_PROJECTION_UNAVAILABLE',
+      status: 503,
+    });
+  return configuration.taskSummaries;
+}
+
 function requiredRuntimeGovernance(
   configuration: NodeControlHttpConfiguration,
 ): NodeControlRuntimeGovernanceService {
@@ -2233,6 +2542,15 @@ function requiredTelemetryExport(
       status: 503,
     });
   return configuration.telemetryExport;
+}
+
+function requiredNodeEvents(configuration: NodeControlHttpConfiguration): NodeControlEventService {
+  if (configuration.nodeEvents === undefined)
+    throw Object.assign(new Error('Node Events are unavailable.'), {
+      code: 'NODE_EVENTS_UNAVAILABLE',
+      status: 503,
+    });
+  return configuration.nodeEvents;
 }
 
 interface ProblemInput {

@@ -146,6 +146,27 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
           input.event.summary,
         ],
       );
+      await client.query(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at)
+         VALUES($1,'node.task.capability_bound','task_capability_binding',$2,1,$3::jsonb,$4::jsonb,$5)
+         ON CONFLICT(aggregate_type,aggregate_id,aggregate_version,event_type) DO NOTHING`,
+        [
+          `node-task-capability-bound:${input.binding.bindingId}`,
+          input.binding.bindingId,
+          JSON.stringify({ taskId: input.task.taskId, contextId: input.task.contextId }),
+          JSON.stringify({
+            resourceRef: {
+              type: 'task_capability_binding',
+              id: input.task.taskId,
+              revision: 1,
+            },
+            changeCode: 'TASK_CAPABILITY_BOUND',
+          }),
+          input.binding.boundAt,
+        ],
+      );
       await client.query('COMMIT');
       this.#onTaskStateCommitted?.(input.task);
     } catch (error) {

@@ -6,16 +6,19 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   NodeControlFoundationService,
   NodeControlConfigurationService,
+  NodeControlEventService,
   NodeControlRuntimeGovernanceService,
   type NodeControlTelemetryExportService,
   type ConfigurationReference,
   type NodeControlConfigurationRepository,
   type NodeControlFoundationRepository,
+  type ConfigurationMutationContext,
 } from '../../../packages/node-control-application/src/index.js';
 import type {
   ControlAuditEvent,
   ConfigurationRevision,
   ManagementOperation,
+  NodeEventEnvelope,
   NodeProfile,
 } from '../../../packages/node-control-domain/src/index.js';
 import {
@@ -26,6 +29,7 @@ import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/sr
 import { createNodeControlHttpApp } from '../src/http-endpoint.js';
 
 const token = 'p01-node-control-contract-token-0000000000000000';
+const organizationToken = 'p12-organization-read-token-000000000000000';
 let server: Server | undefined;
 
 afterEach(async () => {
@@ -335,6 +339,201 @@ describe('Node Control HTTP frozen contract', () => {
     });
     expect(forbiddenQuery.status).toBe(404);
   });
+
+  it('enforces the organization read profile and streams resumable hint-only Node Events', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-02T08:00:00.000Z' },
+      ids: { next: () => 'audit-p12' },
+    });
+    await service.bootstrapNodeProfile({
+      nodeId: 'node-p12',
+      nodeType: 'sdar-runtime',
+      displayName: 'P12 Node',
+      environment: 'test',
+      runtimeEndpointRef: 'http://127.0.0.1:9998',
+    });
+    const configurationService = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-02T08:00:00.000Z' },
+      ids: { next: () => 'operation-p12' },
+    });
+    const cursors: (string | undefined)[] = [];
+    const event: NodeEventEnvelope = Object.freeze({
+      eventId: 'evt-p12-new',
+      eventType: 'node.profile.changed',
+      occurredAt: '2026-08-02T08:00:00.000Z',
+      nodeId: 'node-p12',
+      aggregateType: 'node_profile',
+      aggregateId: 'node-p12',
+      aggregateRevision: 2,
+      correlationId: 'corr-p12',
+      dataClassification: 'internal',
+      payload: Object.freeze({
+        resourceRef: Object.freeze({ type: 'node_profile', id: 'node-p12', revision: 2 }),
+        changeCode: 'NODE_PROFILE_CHANGED',
+      }),
+    });
+    const nodeEvents = new NodeControlEventService({
+      listAfter: (lastEventId) => {
+        cursors.push(lastEventId);
+        return Promise.resolve({ items: cursors.length === 1 ? [event] : [] });
+      },
+    });
+    const app = createNodeControlHttpApp(service, configurationService, {
+      bearerToken: token,
+      organizationBearerToken: organizationToken,
+      runtimeServiceToken: `${token}-runtime`,
+      nodeControlApiUrl: 'http://127.0.0.1:10080',
+      nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
+      a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+      nodeEvents,
+      taskSummaries: {
+        list: () =>
+          Promise.resolve([
+            Object.freeze({
+              taskId: 'task-p12',
+              contextId: 'context-p12',
+              phase: 'working',
+              updatedAt: '2026-08-02T08:00:00.000Z',
+              controlledActions: Object.freeze({ cancel: false }),
+            }),
+          ]),
+        get: (taskId) =>
+          Promise.resolve(
+            taskId === 'task-p12'
+              ? Object.freeze({
+                  taskId,
+                  contextId: 'context-p12',
+                  phase: 'working',
+                  updatedAt: '2026-08-02T08:00:00.000Z',
+                  controlledActions: Object.freeze({ cancel: false }),
+                })
+              : undefined,
+          ),
+      },
+    });
+    server = await listen(app);
+    const baseUrl = address(server);
+    const organizationHeaders = { authorization: `Bearer ${organizationToken}` };
+
+    const initial = await fetch(`${baseUrl}/api/v1/node`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const draft = await fetch(`${baseUrl}/api/v1/node/draft`, {
+      method: 'PUT',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'if-match': initial.headers.get('etag') ?? '',
+        'idempotency-key': 'p12-profile-draft',
+      },
+      body: JSON.stringify({
+        nodeId: 'node-p12',
+        nodeType: 'sdar-runtime',
+        displayName: 'P12 Organization Node',
+        environment: 'test',
+        runtimeEndpointRef: 'http://127.0.0.1:9998',
+        status: 'draft',
+        revision: 2,
+      }),
+    });
+    expect(draft.status).toBe(200);
+    const draftEtag = draft.headers.get('etag') ?? '';
+    const validated = await fetch(`${baseUrl}/api/v1/node/draft/validate`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'if-match': draftEtag,
+        'idempotency-key': 'p12-profile-validate',
+      },
+      body: JSON.stringify({ reason: 'Validate P12 Profile.', expectedRevision: 2 }),
+    });
+    expect(validated.status).toBe(200);
+    const published = await fetch(`${baseUrl}/api/v1/node/draft/publish`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'if-match': draftEtag,
+        'idempotency-key': 'p12-profile-publish',
+      },
+      body: JSON.stringify({ reason: 'Publish P12 Profile.', expectedRevision: 2 }),
+    });
+    expect(published.status).toBe(202);
+
+    const profile = await fetch(`${baseUrl}/api/v1/node`, { headers: organizationHeaders });
+    expect(profile.status).toBe(200);
+    await expect(profile.json()).resolves.toMatchObject({
+      displayName: 'P12 Organization Node',
+      revision: 2,
+      status: 'active',
+    });
+    const tasks = await fetch(`${baseUrl}/api/v1/tasks`, { headers: organizationHeaders });
+    expect(tasks.status).toBe(200);
+    const taskPage = await tasks.json();
+    expect(taskPage).toMatchObject({
+      items: [expect.objectContaining({ taskId: 'task-p12', phase: 'working' })],
+    });
+    const task = await fetch(`${baseUrl}/api/v1/tasks/task-p12`, {
+      headers: organizationHeaders,
+    });
+    expect(task.status).toBe(200);
+    const taskSchema = JSON.parse(
+      await readFile('protocol/node-control/v1/schemas/task-summary.schema.json', 'utf8'),
+    ) as unknown;
+    expect(new AjvJsonSchemaValidator().validate(taskSchema, await task.json())).toEqual({
+      valid: true,
+      errors: [],
+    });
+    const forbidden = await fetch(`${baseUrl}/api/v1/audit-events`, {
+      headers: organizationHeaders,
+    });
+    expect(forbidden.status).toBe(403);
+    await expect(forbidden.json()).resolves.toMatchObject({ code: 'CONTROL_SCOPE_FORBIDDEN' });
+    const forbiddenWrite = await fetch(`${baseUrl}/api/v1/node-capabilities`, {
+      method: 'POST',
+      headers: { ...organizationHeaders, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(forbiddenWrite.status).toBe(403);
+
+    const controller = new AbortController();
+    const stream = await fetch(`${baseUrl}/api/v1/events`, {
+      headers: { ...organizationHeaders, 'last-event-id': 'evt-p12-old' },
+      signal: controller.signal,
+    });
+    expect(stream.status).toBe(200);
+    expect(stream.headers.get('content-type')).toContain('text/event-stream');
+    const reader = stream.body?.getReader();
+    if (reader === undefined) throw new Error('TEST_NODE_EVENT_STREAM_MISSING');
+    const chunk = await reader.read();
+    const chunkValue: unknown = chunk.value;
+    if (!(chunkValue instanceof Uint8Array)) throw new Error('TEST_NODE_EVENT_CHUNK_MISSING');
+    const text = new TextDecoder().decode(chunkValue);
+    expect(text).toContain('id: evt-p12-new');
+    expect(text).toContain('event: node.profile.changed');
+    const data = text
+      .split('\n')
+      .find((line) => line.startsWith('data: '))
+      ?.slice('data: '.length);
+    if (data === undefined) throw new Error('TEST_NODE_EVENT_DATA_MISSING');
+    const envelope = JSON.parse(data) as unknown;
+    const schema = JSON.parse(
+      await readFile('protocol/node-control/v1/schemas/event-envelope.schema.json', 'utf8'),
+    ) as unknown;
+    expect(new AjvJsonSchemaValidator().validate(schema, envelope)).toEqual({
+      valid: true,
+      errors: [],
+    });
+    expect(envelope).not.toHaveProperty('profile');
+    expect(cursors[0]).toBe('evt-p12-old');
+    controller.abort();
+    await reader.cancel().catch(() => undefined);
+  });
 });
 
 class MemoryRepository implements NodeControlFoundationRepository {
@@ -356,6 +555,43 @@ class MemoryRepository implements NodeControlFoundationRepository {
     this.profile = profile;
     this.audits.push(audit);
     return Promise.resolve(true);
+  }
+  createNodeProfileDraft(
+    profile: NodeProfile,
+    _expectedRevision: number,
+    _context: ConfigurationMutationContext,
+  ): Promise<NodeProfile> {
+    void _expectedRevision;
+    void _context;
+    this.profile = profile;
+    return Promise.resolve(profile);
+  }
+  validateNodeProfileDraft(
+    _revision: number,
+    _expectedRevision: number,
+    _context: ConfigurationMutationContext,
+  ): Promise<NodeProfile> {
+    void _revision;
+    void _expectedRevision;
+    void _context;
+    if (this.profile === undefined) return Promise.reject(new Error('NODE_PROFILE_NOT_FOUND'));
+    return Promise.resolve(this.profile);
+  }
+  publishNodeProfileDraft(
+    _revision: number,
+    _expectedRevision: number,
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+    _context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation> {
+    void _revision;
+    void _expectedRevision;
+    void _context;
+    if (this.profile !== undefined)
+      this.profile = Object.freeze({ ...this.profile, status: 'active' as const });
+    this.operations.push(operation);
+    this.audits.push(audit);
+    return Promise.resolve(operation);
   }
   listManagementOperations(): Promise<readonly ManagementOperation[]> {
     return Promise.resolve(this.operations);

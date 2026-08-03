@@ -7,6 +7,7 @@ import {
   NodeControlA2aExposureService,
   NodeControlConfigurationService,
   NodeControlFoundationService,
+  NodeControlEventService,
   NodeControlLlmGovernanceService,
   NodeControlMcpProviderBindingService,
   NodeControlCapabilityService,
@@ -22,6 +23,7 @@ import {
   PostgresNodeControlA2aExposureRepository,
   PostgresNodeControlConfigurationRepository,
   PostgresNodeControlFoundationRepository,
+  PostgresNodeControlEventRepository,
   PostgresNodeControlLlmGovernanceRepository,
   PostgresNodeControlMcpProviderBindingRepository,
   PostgresNodeControlCapabilityRepository,
@@ -39,6 +41,7 @@ import { RuntimeCapabilityReadinessService } from '../../../packages/runtime-con
 import {
   PostgresRuntimeAgentCardRepository,
   PostgresRuntimeTaskCapabilityBindingQuery,
+  PostgresRuntimeTaskSummaryQuery,
   PostgresRuntimeCapabilityReadinessRepository,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
@@ -66,7 +69,11 @@ export async function startNodeControlApi(
     repository,
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
+    runtimeControlConfigured: true,
   });
+  const nodeEvents = new NodeControlEventService(
+    new PostgresNodeControlEventRepository(pool, runtimePool),
+  );
   const configurationService = new NodeControlConfigurationService({
     configurations,
     foundation: repository,
@@ -155,9 +162,13 @@ export async function startNodeControlApi(
       displayName: environment.SDAR_CONTROL_NODE_DISPLAY_NAME,
       environment: environment.SDAR_CONTROL_ENVIRONMENT,
       runtimeEndpointRef: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
+      status: 'active',
     });
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: environment.SDAR_CONTROL_API_TOKEN,
+      ...(environment.SDAR_CONTROL_ORGANIZATION_API_TOKEN === undefined
+        ? {}
+        : { organizationBearerToken: environment.SDAR_CONTROL_ORGANIZATION_API_TOKEN }),
       runtimeServiceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
       nodeControlApiUrl: environment.SDAR_CONTROL_PUBLIC_URL,
       nodeEventsUrl: environment.SDAR_CONTROL_NODE_EVENTS_URL,
@@ -172,8 +183,10 @@ export async function startNodeControlApi(
       runtimeAgentCards,
       agentCardValidator,
       taskCapabilities: new PostgresRuntimeTaskCapabilityBindingQuery(runtimePool),
+      taskSummaries: new PostgresRuntimeTaskSummaryQuery(runtimePool),
       runtimeGovernance,
       telemetryExport,
+      nodeEvents,
     });
     const server = await listen(
       app,

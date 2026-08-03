@@ -1,0 +1,13 @@
+DROP TRIGGER configuration_application_to_node_event ON sdar_control.configuration_application;
+DROP FUNCTION sdar_control.project_configuration_ack_node_event();
+DROP TRIGGER management_operation_to_node_event ON sdar_control.management_operation;
+DROP FUNCTION sdar_control.project_operation_node_event();
+DROP TRIGGER control_audit_to_node_event ON sdar_control.control_audit_event;
+DROP FUNCTION sdar_control.project_audit_node_event();
+DROP TRIGGER node_event_outbox_immutable ON sdar_control.node_event_outbox;
+DROP TABLE sdar_control.node_event_source_cursor;
+DROP TABLE sdar_control.node_event_outbox;
+DROP TRIGGER node_profile_revision_immutable ON sdar_control.node_profile_revision;
+DROP FUNCTION sdar_control.reject_published_profile_mutation();
+DROP TABLE sdar_control.node_profile_command_receipt;
+DROP TABLE sdar_control.node_profile_revision;

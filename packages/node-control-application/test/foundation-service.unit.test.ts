@@ -7,6 +7,7 @@ import type {
 } from '../../node-control-domain/src/index.js';
 import {
   NodeControlFoundationService,
+  type ConfigurationMutationContext,
   type NodeControlFoundationRepository,
 } from '../src/index.js';
 
@@ -29,6 +30,39 @@ class MemoryFoundationRepository implements NodeControlFoundationRepository {
     this.profile = profile;
     this.audits.push(audit);
     return Promise.resolve(true);
+  }
+  createNodeProfileDraft(
+    profile: NodeProfile,
+    _expectedRevision: number,
+    _context: ConfigurationMutationContext,
+  ): Promise<NodeProfile> {
+    void _expectedRevision;
+    void _context;
+    return Promise.resolve(profile);
+  }
+  validateNodeProfileDraft(
+    _revision: number,
+    _expectedRevision: number,
+    _context: ConfigurationMutationContext,
+  ): Promise<NodeProfile> {
+    void _revision;
+    void _expectedRevision;
+    void _context;
+    if (this.profile === undefined) return Promise.reject(new Error('NODE_PROFILE_NOT_FOUND'));
+    return Promise.resolve(this.profile);
+  }
+  publishNodeProfileDraft(
+    _revision: number,
+    _expectedRevision: number,
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+    _context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation> {
+    void _revision;
+    void _expectedRevision;
+    void _context;
+    this.audits.push(audit);
+    return Promise.resolve(operation);
   }
   listManagementOperations(): Promise<readonly ManagementOperation[]> {
     return Promise.resolve([]);
@@ -74,7 +108,7 @@ describe('NodeControlFoundationService', () => {
         expect.objectContaining({
           component: 'runtime_control',
           status: 'disabled',
-          reasonCode: 'P02_RUNTIME_CONTROL_NOT_CONFIGURED',
+          reasonCode: 'RUNTIME_CONTROL_NOT_CONFIGURED',
         }),
       ]),
     });

@@ -30,9 +30,21 @@ export interface NodeProfileInput {
   readonly status?: NodeProfileStatus;
 }
 
+export interface NodeProfileDraftInput extends NodeProfileInput {
+  readonly revision: number;
+}
+
 const PROFILE_STATUSES = new Set<NodeProfileStatus>(['draft', 'active', 'maintenance', 'retired']);
 
 export function createNodeProfile(input: NodeProfileInput, updatedAt: string): NodeProfile {
+  return createNodeProfileRevision(input, 1, updatedAt);
+}
+
+export function createNodeProfileRevision(
+  input: NodeProfileInput,
+  revision: number,
+  updatedAt: string,
+): NodeProfile {
   const nodeId = required(input.nodeId, 'nodeId', 128);
   const nodeType = required(input.nodeType, 'nodeType', 128);
   const displayName = required(input.displayName, 'displayName', 256);
@@ -40,6 +52,8 @@ export function createNodeProfile(input: NodeProfileInput, updatedAt: string): N
   const runtimeEndpointRef = required(input.runtimeEndpointRef, 'runtimeEndpointRef', 2048);
   const status = input.status ?? 'draft';
   if (!PROFILE_STATUSES.has(status)) invalid('status is not supported.');
+  if (!Number.isSafeInteger(revision) || revision < 1)
+    invalid('revision must be a positive safe integer.');
   assertTimestamp(updatedAt);
   const labels = normalizeLabels(input.labels ?? {});
   const authorityScopes = normalizeStringSet(input.authorityScopes ?? [], 'authorityScopes', 64);
@@ -57,7 +71,7 @@ export function createNodeProfile(input: NodeProfileInput, updatedAt: string): N
     runtimeEndpointRef,
     ...(telemetrySourceId === undefined ? {} : { telemetrySourceId }),
     status,
-    revision: 1,
+    revision,
     updatedAt,
   });
 }
@@ -65,8 +79,7 @@ export function createNodeProfile(input: NodeProfileInput, updatedAt: string): N
 export function rehydrateNodeProfile(profile: NodeProfile): NodeProfile {
   if (!Number.isSafeInteger(profile.revision) || profile.revision < 1)
     invalid('revision must be a positive safe integer.');
-  const base = createNodeProfile(profile, profile.updatedAt);
-  return Object.freeze({ ...base, revision: profile.revision });
+  return createNodeProfileRevision(profile, profile.revision, profile.updatedAt);
 }
 
 function normalizeLabels(
