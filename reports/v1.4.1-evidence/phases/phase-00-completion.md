@@ -3,7 +3,7 @@
 - Phase: 0
 - Goal: Freeze latest-main canonical evidence baseline and branch
 - Base SHA: `cc0719f4db83dc64dc6e32e6dcad2d558823e796`
-- Resulting SHA: pending Phase 0 commit
+- Resulting SHA: `a058c35bee9f3ffc4d0adf34b9a5c2394f0f54b4` (baseline commit; supplemental maps follow without history rewrite)
 - Main SHA observed: `cc0719f4db83dc64dc6e32e6dcad2d558823e796`
 - Changed files: task package, ExecPlan, Phase 0 reports, Goal State, generated verification summary,
   Project Status
@@ -20,5 +20,5 @@
 - Known limitations: canonical evidence implementation is intentionally not started in Phase 0
 - Deferred items: Phases 1-14
 - Blockers: none
-- Push evidence: pending commit/push
+- Push evidence: commit `a058c35` is on `origin/feature/v1.4.1-canonical-evidence-export`; Draft PR #18 exists
 - Next phase: Phase 1 authoritative source inventory

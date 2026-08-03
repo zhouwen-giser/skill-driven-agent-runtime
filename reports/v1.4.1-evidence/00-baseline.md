@@ -67,3 +67,11 @@ its own Draft PR only after the Phase 0 commit is pushed.
 
 All failed attempts, exact causes, and the successful recovery path are recorded in
 `reports/v1.4.1-evidence/failed-attempts/00-baseline.md`.
+
+## Required maps and frozen decisions
+
+- Repository map: `reports/v1.4.1-evidence/repository-map.md`.
+- Symbol map: `reports/v1.4.1-evidence/symbol-map.md`.
+- Migration map: `reports/v1.4.1-evidence/migration-map.md`.
+- D-01 through D-32: `reports/v1.4.1-evidence/frozen-decisions.md`.
+- Migration decision: `adr/ADR-126-v141-canonical-evidence-clean-cutover.md`.

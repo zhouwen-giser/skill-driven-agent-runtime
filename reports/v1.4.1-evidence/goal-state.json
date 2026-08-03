@@ -3,8 +3,8 @@
   "status": "IN_PROGRESS",
   "branch": "feature/v1.4.1-canonical-evidence-export",
   "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "headSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "prNumber": null,
+  "headSha": "a058c35bee9f3ffc4d0adf34b9a5c2394f0f54b4",
+  "prNumber": 18,
   "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
   "lastCompletedPhase": 0,
   "sourceCoverage": {
