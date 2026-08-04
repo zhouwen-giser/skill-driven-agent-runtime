@@ -145,4 +145,24 @@ describe('server environment', () => {
       }),
     ).toThrow();
   });
+
+  it('requires a paired authenticated Node Control Capability Evidence reader', () => {
+    const masterKey = randomBytes(32).toString('base64');
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+      }),
+    ).toThrow('requires both base URL and service token');
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+        SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+      }),
+    ).toMatchObject({
+      SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+      SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+    });
+  });
 });

@@ -713,7 +713,8 @@ export class RuntimeCoreEvidenceProjector {
     ).map((entry) => entry.recordType);
     const projectedTypes = new Set([...projected.values()].map((record) => record.recordType));
     const missingRequiredTypes = requiredRuntimeTypes.filter((type) => !projectedTypes.has(type));
-    const expectedRequiredRecords = projected.size + missingRequiredTypes.length;
+    const expectedRequiredRecords =
+      projected.size + missingRequiredTypes.length + qualityIssueIds.length;
     await this.#writer.saveCheckpoint({
       sourceFamily: 'runtime',
       sourcePartition,

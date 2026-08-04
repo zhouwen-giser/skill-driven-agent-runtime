@@ -25,10 +25,10 @@
     "status"
   ],
   "statusCounts": {
-    "source_confirmed": 66,
+    "source_confirmed": 48,
     "source_missing_blocker": 0,
     "conditional_not_applicable": 0,
-    "implemented_and_verified": 34
+    "implemented_and_verified": 52
   },
   "familyCounts": {
     "runtime": 18,
@@ -839,13 +839,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskToolCallEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "runtime.action",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -862,13 +862,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskAvailabilityEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.tool_call",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -885,13 +885,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskRemoteBindingEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.tool_call",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -908,13 +908,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskObservationEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.remote_binding",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -931,13 +931,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskControlEventEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.remote_binding",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -954,13 +954,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskPollAttemptEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.remote_binding",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -977,13 +977,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskInputLinkEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.remote_binding",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1000,13 +1000,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskCancelEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.remote_binding",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1023,13 +1023,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskReconciliationEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.observation,mcp_task.control_event",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1046,13 +1046,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskContinuationSnapshotEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.remote_binding",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1069,13 +1069,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "McpTaskContinuationAttemptEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "mcp_task.continuation_snapshot",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "control",
@@ -1092,13 +1092,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "CapabilityDefinitionEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_control_source_projector",
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "node_control.capability_revision",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "control",
@@ -1115,13 +1115,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "CapabilityImplementationBindingEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_control_source_projector",
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "capability.definition",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1138,13 +1138,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "CapabilityReadinessEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "capability.definition",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1161,13 +1161,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "CapabilityTaskBindingEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "capability.definition,runtime.episode",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1184,13 +1184,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "CapabilityExecutionAttemptEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "capability.task_binding,skill.execution",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1207,13 +1207,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "CapabilityA2aExposureEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "capability.definition",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
@@ -1230,13 +1230,13 @@
       "delivery_guarantee": "at_least_once; stable-id idempotent",
       "evaluation_role": "required",
       "applicability": "episode feature/policy determines applicability",
-      "mapper": "CapabilityAgentCardRevisionEvidenceMapper",
+      "mapper": "McpCapabilityEvidenceProjector",
       "projection_mode": "durable_runtime_source_projector",
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "internal-default; secrets/prompts/hidden reasoning excluded",
       "artifact_policy": "inline bounded structured fact; oversized payload by ArtifactRef",
       "required_references": "capability.a2a_exposure",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",

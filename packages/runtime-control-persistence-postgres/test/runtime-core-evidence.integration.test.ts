@@ -14,11 +14,13 @@ import {
 } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
+  McpCapabilityEvidenceProjector,
   RuntimeCoreEvidenceProjector,
   SkillEvidenceProjector,
 } from '../../runtime-control-application/src/index.js';
 import {
   PostgresEvidenceStore,
+  PostgresMcpCapabilityEvidenceSource,
   PostgresRuntimeCoreEvidenceSource,
   PostgresSkillEvidenceSource,
   type StoredEvidenceRecord,
@@ -43,10 +45,29 @@ const skillProjector = new SkillEvidenceProjector({
   environment: 'integration',
   clock: { now: () => '2026-08-04T04:20:00.000Z' },
 });
+const mcpCapabilitySource = new PostgresMcpCapabilityEvidenceSource(pool);
+const mcpCapabilityProjector = new McpCapabilityEvidenceProjector({
+  source: {
+    pendingTaskIds: (limit) => mcpCapabilitySource.pendingTaskIds(limit),
+    load: async (taskId) => {
+      const loaded = await mcpCapabilitySource.load(taskId);
+      if (loaded === undefined) return undefined;
+      return {
+        ...loaded,
+        definitions: [controlCapabilityDefinition()],
+        implementationBindings: [controlCapabilityImplementation()],
+      };
+    },
+  },
+  writer: store,
+  environment: 'integration',
+  clock: { now: () => '2026-08-04T04:30:00.000Z' },
+});
 
 beforeAll(async () => {
   await applyRuntimeMigrations(pool);
   await seedRuntimeCoreEpisode();
+  await seedMcpCapabilityFacts();
 });
 
 afterAll(async () => {
@@ -315,6 +336,62 @@ describe('Runtime core canonical Evidence vertical', { concurrent: false }, () =
     });
     await expect(skillSource.pendingTaskIds(10)).resolves.toEqual([]);
   });
+
+  it('projects all MCP Task and Capability families from PostgreSQL facts and replays idempotently', async () => {
+    await expect(mcpCapabilitySource.pendingTaskIds(10)).resolves.toEqual([
+      'task-v141-runtime-core',
+    ]);
+    const first = await mcpCapabilityProjector.projectTask('task-v141-runtime-core');
+    const stored = await store.pending(
+      'mcp-capability:task-v141-runtime-core',
+      200,
+      '2026-08-04T04:31:00.000Z',
+    );
+    expect(new Set(stored.map(({ envelope }) => envelope.recordType))).toEqual(
+      new Set([
+        'mcp_task.tool_call',
+        'mcp_task.availability',
+        'mcp_task.remote_binding',
+        'mcp_task.observation',
+        'mcp_task.control_event',
+        'mcp_task.poll_attempt',
+        'mcp_task.input_link',
+        'mcp_task.cancel',
+        'mcp_task.reconciliation',
+        'mcp_task.continuation_snapshot',
+        'mcp_task.continuation_attempt',
+        'capability.definition',
+        'capability.implementation_binding',
+        'capability.readiness',
+        'capability.task_binding',
+        'capability.execution_attempt',
+        'capability.a2a_exposure',
+        'capability.agent_card_revision',
+      ]),
+    );
+    expect(stored).toHaveLength(18);
+    expect(record(stored, 'mcp_task.observation').payload).toMatchObject({
+      workflowTrigger: false,
+    });
+    expect(record(stored, 'mcp_task.continuation_attempt').payload).toMatchObject({
+      resumePosition: 'saved_continuation_not_start',
+      completedSideEffectReplay: false,
+    });
+    expect(record(stored, 'capability.task_binding').payload).toMatchObject({
+      inputSnapshot: { target: 'runtime' },
+      successCriteriaSnapshot: ['inspection verified'],
+      evidenceRequirementSnapshot: [expect.objectContaining({ requirementId: 'coverage' })],
+      constraintSnapshot: [],
+      initialImplementationRefs: ['skill-v141-runtime-core@1'],
+      bindingHash: '9'.repeat(64),
+    });
+    const second = await mcpCapabilityProjector.projectTask('task-v141-runtime-core');
+    expect(second.projectedRecordIds).toEqual(first.projectedRecordIds);
+    await expect(
+      store.pending('mcp-capability:task-v141-runtime-core', 200, '2026-08-04T04:31:00.000Z'),
+    ).resolves.toHaveLength(18);
+    await expect(mcpCapabilitySource.pendingTaskIds(10)).resolves.toEqual([]);
+  });
 });
 
 async function evidenceRecords(): Promise<readonly StoredEvidenceRecord[]> {
@@ -334,6 +411,205 @@ function jsonField(value: unknown, field: string): EvidenceJsonValue | undefined
   if (value === null || Array.isArray(value) || typeof value !== 'object') return undefined;
   const objectValue = value as Readonly<Record<string, EvidenceJsonValue>>;
   return objectValue[field];
+}
+
+function controlCapabilityDefinition() {
+  return Object.freeze({
+    capability_id: 'capability.inspect-area',
+    version: 1,
+    domain: 'embodied',
+    name: 'Inspect area',
+    input_schema: { type: 'object' },
+    output_schema: { type: 'object' },
+    success_criteria: ['inspection verified'],
+    required_evidence: [{ requirementId: 'coverage' }],
+    constraints: [],
+    status: 'published',
+    definition_hash: '7'.repeat(64),
+    updated_at: '2026-08-04T03:00:00.000Z',
+    node_control_revision_record_id: `evidence_${'8'.repeat(64)}`,
+  });
+}
+
+function controlCapabilityImplementation() {
+  return Object.freeze({
+    binding_id: 'implementation-v141-runtime-core',
+    revision: 1,
+    capability_id: 'capability.inspect-area',
+    capability_version: 1,
+    implementation_type: 'skill',
+    implementation_id: 'skill-v141-runtime-core',
+    implementation_version: '1',
+    role: 'primary',
+    priority: 0,
+    status: 'active',
+    created_at: '2026-08-04T03:00:00.000Z',
+  });
+}
+
+async function seedMcpCapabilityFacts(): Promise<void> {
+  const at = '2026-08-04T03:00:30.000Z';
+  const later = '2026-08-04T03:01:30.000Z';
+  await pool.query(
+    `INSERT INTO task_availability_snapshot(
+       snapshot_id,readiness_id,node_id,server_id,operation_name,arguments_snapshot_json,
+       arguments_hash,result_json,availability,risk_level,reservation_mode,source_revision,
+       checked_at,normalization_reason_codes_json)
+     VALUES('availability-v141-runtime-core','gate-v141-runtime-core','node-v141-runtime-core',
+       'server-v141-runtime-core','inspect_runtime','{"target":"runtime"}',$1,
+       '{"available":true}','available','low','none','provider-revision-1',$2,'[]')`,
+    ['3'.repeat(64), at],
+  );
+  await pool.query(
+    `INSERT INTO remote_task_binding(
+       binding_id,server_id,operation_name,remote_task_id,agent_task_id,context_id,goal_id,
+       goal_version,workflow_plan_id,workflow_definition_id,workflow_definition_version,
+       workflow_instance_id,workflow_node_id,workflow_node_run_id,mcp_invocation_id,
+       protocol_status,protocol_revision,tasks_schema_revision,last_provider_updated_at,
+       local_state,execution_mode,credential_revision,session_revision,poll_interval_ms,
+       created_at,updated_at,task_behavior,runtime_revision)
+     VALUES('remote-v141-runtime-core','server-v141-runtime-core','inspect_runtime',
+       'provider-task-v141','task-v141-runtime-core','context-v141-runtime-core',
+       'goal-v141-runtime-core',2,'plan-v141-runtime-core','workflow-v141-runtime-core',1,
+       'instance-v141-runtime-core','node-v141-runtime-core','node-run-v141',
+       'invocation-v141-runtime-core','working','2026-07-28','2026-07-28',$1,'polling',
+       'live','credential-1','session-1',1000,$1,$1,'task_required','2')`,
+    [at],
+  );
+  await pool.query(
+    `INSERT INTO remote_task_observation(
+       observation_id,binding_id,sequence,observation_type,payload_json,accepted,observed_at,
+       observation_source,runtime_revision,provider_revision)
+     VALUES('observation-v141-runtime-core','remote-v141-runtime-core',1,'task.snapshot',
+       '{"status":"working"}',true,$1,'reconciliation','2','provider-2')`,
+    [at],
+  );
+  await pool.query(
+    `INSERT INTO remote_task_control_event(
+       event_id,binding_id,event_type,remote_revision,result_hash,payload_json,status,created_at,
+       runtime_revision)
+     VALUES('control-event-v141-runtime-core','remote-v141-runtime-core','task.input_required',
+       'provider-2',$1,'{"request":"approval"}','pending',$2,'2')`,
+    ['4'.repeat(64), at],
+  );
+  await pool.query(
+    `INSERT INTO remote_task_protocol_attempt(
+       attempt_id,binding_id,method,expected_binding_version,protocol_revision,status,
+       started_at,completed_at,duration_ms)
+     VALUES('poll-v141-runtime-core','remote-v141-runtime-core','tasks/get',1,'2026-07-28',
+       'succeeded',$1,$1,0)`,
+    [at],
+  );
+  await pool.query(
+    `INSERT INTO task_input_request(
+       input_request_id,task_id,context_id,source,question,status,created_at)
+     VALUES('input-v141-runtime-core','task-v141-runtime-core','context-v141-runtime-core',
+       'workflow','Approve remote Task continuation?','waiting',$1)`,
+    [at],
+  );
+  await pool.query(
+    `INSERT INTO remote_task_input_link(
+       input_request_id,control_event_id,binding_id,remote_task_id,workflow_instance_id,
+       workflow_node_id,workflow_node_run_id,remote_revision,result_hash,input_requests_json,
+       status,created_at,updated_at)
+     VALUES('input-v141-runtime-core','control-event-v141-runtime-core',
+       'remote-v141-runtime-core','provider-task-v141','instance-v141-runtime-core',
+       'node-v141-runtime-core','node-run-v141','provider-2',$1,'[{"id":"approval"}]',
+       'waiting',$2,$2)`,
+    ['4'.repeat(64), at],
+  );
+  await pool.query(
+    `INSERT INTO remote_task_cancel_request(
+       cancel_request_id,binding_id,idempotency_key,source,reason_code,summary,delivery_status,
+       requested_at,updated_at)
+     VALUES('cancel-v141-runtime-core','remote-v141-runtime-core','cancel-key-v141','task',
+       'user_requested','Cancel requested','uncertain',$1,$1)`,
+    [at],
+  );
+  await pool.query(
+    `INSERT INTO workflow_continuation_snapshot(
+       snapshot_id,continuation_id,state_version,schema_version,lifecycle,agent_task_id,context_id,
+       workflow_control_id,goal_id,goal_version,workflow_plan_id,workflow_definition_id,
+       workflow_definition_version,workflow_definition_hash,input_hash,workflow_instance_id,
+       state_json,created_at,updated_at)
+     VALUES('continuation-v141-runtime-core','continuation-id-v141',1,'1.0','active',
+       'task-v141-runtime-core','context-v141-runtime-core','control-v141-runtime-core',
+       'goal-v141-runtime-core',2,'plan-v141-runtime-core','workflow-v141-runtime-core',1,
+       $1,$2,'instance-v141-runtime-core','{"resumeNode":"node-v141-runtime-core"}',$3,$3)`,
+    ['5'.repeat(64), '6'.repeat(64), at],
+  );
+  await pool.query(
+    `INSERT INTO workflow_continuation_wait_binding(
+       snapshot_id,wait_id,binding_id,wait_kind,node_id,node_run_id,wait_state)
+     VALUES('continuation-v141-runtime-core','wait-v141','remote-v141-runtime-core',
+       'remote_task','node-v141-runtime-core','node-run-v141','awaiting_input')`,
+  );
+  await pool.query(
+    `INSERT INTO workflow_continuation_attempt(
+       attempt_id,event_id,snapshot_id,continuation_id,workflow_instance_id,
+       snapshot_state_version,claim_token,status,created_at,started_at,completed_at)
+     VALUES('continuation-attempt-v141','control-event-v141-runtime-core',
+       'continuation-v141-runtime-core','continuation-id-v141','instance-v141-runtime-core',1,
+       'claim-v141','succeeded',$1,$1,$2)`,
+    [at, later],
+  );
+  await pool.query(
+    `INSERT INTO capability_readiness_snapshot(
+       capability_id,capability_version,snapshot_version,status,raw_status,evaluated_at,valid_until,
+       catalog_hash,policy_hash,snapshot_hash,reasons,available_implementations,
+       unavailable_implementations,evaluation_input,trigger_reason)
+     VALUES('capability.inspect-area',1,1,'available','available',$1,$2,$3,$4,$5,'[]',
+       '["skill-v141-runtime-core@1"]','[]','{}','integration')`,
+    [at, later, `sha256:${'a'.repeat(64)}`, `sha256:${'b'.repeat(64)}`, `sha256:${'c'.repeat(64)}`],
+  );
+  await pool.query(
+    `INSERT INTO task_capability_execution_attempt(
+       attempt_id,task_id,capability_binding_id,attempt_no,plan_id,skill_version_refs,
+       provider_binding_refs,reason,status,started_at,completed_at)
+     VALUES('capability-attempt-v141','task-v141-runtime-core','binding-v141-runtime-core',1,
+       'plan-v141-runtime-core','[{"skillId":"skill-v141-runtime-core","version":1}]',
+       '[{"providerId":"server-v141-runtime-core"}]','initial','succeeded',$1,$2)`,
+    [at, later],
+  );
+  await pool.query(
+    `INSERT INTO runtime_agent_card_revision(
+       revision,node_id,exposure_refs,content_hash,capability_catalog_hash,status,card,generated_at,
+       activated_at)
+     VALUES(1,'node-v141','["exposure-v141"]',$1,$2,'active',$3::jsonb,$4,$4)`,
+    [
+      'd'.repeat(64),
+      'e'.repeat(64),
+      JSON.stringify({
+        name: 'SDAR',
+        description: 'Canonical Evidence integration fixture.',
+        supportedInterfaces: [
+          {
+            url: 'http://127.0.0.1:3000/a2a',
+            protocolBinding: 'HTTP+JSON',
+            tenant: '',
+            protocolVersion: '1.0',
+          },
+        ],
+        version: '1.4.1',
+        capabilities: { streaming: true, pushNotifications: false, extensions: [] },
+        securitySchemes: {},
+        securityRequirements: [],
+        defaultInputModes: ['text/plain'],
+        defaultOutputModes: ['text/plain', 'application/json'],
+        skills: [],
+        signatures: [],
+      }),
+      at,
+    ],
+  );
+  await pool.query(
+    `INSERT INTO runtime_agent_card_exposure_snapshot(
+       revision,exposure_id,exposure_version,capability_id,capability_version,agent_skill_id,
+       request_schema,result_schema,exposure_hash)
+     VALUES(1,'exposure-v141',1,'capability.inspect-area',1,'skill-v141-runtime-core',
+       '{"type":"object"}','{"type":"object"}',$1)`,
+    ['f'.repeat(64)],
+  );
 }
 
 async function seedSkillPrerequisiteEvidence(): Promise<void> {
@@ -380,7 +656,8 @@ async function seedSkillPrerequisiteEvidence(): Promise<void> {
 
 async function seedRuntimeCoreEpisode(): Promise<void> {
   await pool.query(
-    `TRUNCATE mcp_invocation,skill_execution_record,skill_selection_record,
+    `TRUNCATE capability_readiness_snapshot,task_capability_execution_attempt,
+      runtime_agent_card_revision,mcp_invocation,skill_execution_record,skill_selection_record,
       skill_input_resolution,task_capability_binding,skill_version,skill,
       conversation_context,evidence_export_configuration,evidence_outbox,
       evidence_source_checkpoint,evidence_export_state,evidence_dead_letter,
@@ -396,6 +673,34 @@ async function seedRuntimeCoreEpisode(): Promise<void> {
      VALUES('context-v141-runtime-core','user-v141-runtime-core',$1,$2)`,
     [created, completed],
   );
+  const usageSpecification = (
+    sourceFormat: 'native' | 'legacy',
+    capabilitySlots: readonly Readonly<Record<string, unknown>>[],
+  ): Readonly<Record<string, unknown>> => ({
+    apiVersion: 'sdar.io/v1alpha1',
+    sourceFormat,
+    visibility: { userSelectable: true, composable: true, internalOnly: false },
+    normative: {
+      constraints: [],
+      forbiddenActions: [],
+      requiredConfirmations: [],
+      noApplicableSkill: 'reject',
+    },
+    adaptive: {
+      instructions: [],
+      optimizationHints: [],
+      allowPreferredProviderFallback: false,
+    },
+    contextRequirements: [],
+    modes: {
+      supported: ['procedure'],
+      defaultMode: 'procedure',
+      procedure: { summary: 'Run the verified procedure.', instructions: ['Record evidence.'] },
+    },
+    taskBindings: [],
+    composition: { maxDepth: 3, fixedDependencies: [], capabilitySlots },
+    evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+  });
   await pool.query(
     `INSERT INTO goal(goal_id,context_id,version,title,description,constraints_json,
        success_criteria_json,status,created_at,updated_at)
@@ -501,15 +806,47 @@ async function seedRuntimeCoreEpisode(): Promise<void> {
         'enabled','admin',true,$1,$3::jsonb)`,
     [
       created,
-      JSON.stringify({
-        sourceFormat: 'native',
-        composition: {
-          capabilitySlots: [{ slotId: 'inspect-slot', capability: 'capability.inspect-area' }],
-        },
-      }),
-      JSON.stringify({ sourceFormat: 'legacy', composition: { capabilitySlots: [] } }),
+      JSON.stringify(
+        usageSpecification('native', [
+          {
+            slotId: 'inspect-slot',
+            capability: 'capability.inspect-area',
+            required: true,
+            candidateSkillIds: ['skill-v141-child'],
+            failurePolicy: 'degraded',
+          },
+        ]),
+      ),
+      JSON.stringify(usageSpecification('legacy', [])),
     ],
   );
+  for (const [skillId, specificationHash] of [
+    ['skill-v141-runtime-core', `sha256:${'1'.repeat(64)}`],
+    ['skill-v141-child', `sha256:${'2'.repeat(64)}`],
+  ] as const) {
+    await pool.query(
+      `INSERT INTO skill_outcome_specification(
+         skill_id,skill_version,schema_version,specification_hash,specification_json,created_at)
+       VALUES($1,1,'1.0',$2,$3::jsonb,$4)`,
+      [
+        skillId,
+        specificationHash,
+        JSON.stringify({
+          schemaVersion: '1.0',
+          skillId,
+          skillVersion: 1,
+          effects: ['inspection.completed'],
+          evidence: ['inspection.receipt'],
+          artifacts: [],
+          taskGoalPolicy: { completion: 'verify' },
+          confidencePolicy: { minimum: 'high' },
+          sideEffectPolicy: { replay: 'forbidden_after_completion' },
+          specificationHash,
+        }),
+        created,
+      ],
+    );
+  }
   const skillPolicy = (
     skillId: string,
     edges: readonly Readonly<Record<string, unknown>>[],

@@ -36,6 +36,16 @@ All notable changes to this project are documented here. The format follows Keep
 - Proved a real PostgreSQL parent/child Skill vertical with precise Capability version, Native and
   Legacy sources, seven external-reference kinds, wait/resume, compliance pass/fail and idempotent
   replay. Phase 6 coverage is 34/100 verified.
+- Added all 11 MCP Task and seven Capability projectors with Task Handle/Observation/Control Event,
+  continuation, cancel, Binding snapshot, Agent Card and cross-authority semantics.
+- Added an authenticated Node Control full-state reader; Capability projection waits for the exact
+  governance Evidence ref and never creates a second authority. Real PostgreSQL replay passes and
+  Phase 7 coverage is 52/100 verified.
+- Serialized canonical projection with a PostgreSQL advisory lease, conserved Manifest failure
+  accounting and awaited in-flight projection during shutdown; valid Skill/Agent Card authority
+  fixtures cover the cross-suite startup path.
+- Phase 7 full verification passed in 865,814 ms with 970 Unit, 22 performance, 230 Contract, 161
+  Integration and 72 E2E tests, 37 migrations, build and all three smoke stages.
 
 ## SDAR v1.4 P14 Release Qualification
 

@@ -3,10 +3,10 @@
   "status": "IN_PROGRESS",
   "branch": "feature/v1.4.1-canonical-evidence-export",
   "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "headSha": "cc2575e",
+  "headSha": "39bad28",
   "prNumber": 18,
   "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
-  "lastCompletedPhase": 6,
+  "lastCompletedPhase": 7,
   "sourceInventory": {
     "classified": 100,
     "sourceConfirmed": 100,
@@ -16,14 +16,14 @@
   },
   "sourceCoverage": {
     "requiredTotal": 100,
-    "implemented": 34,
-    "verified": 34,
-    "percent": 34
+    "implemented": 52,
+    "verified": 52,
+    "percent": 52
   },
   "recordCatalog": {
     "total": 100,
-    "implemented": 34,
-    "verified": 34,
+    "implemented": 52,
+    "verified": 52,
     "contractDefined": 100,
     "schemaVerified": 100,
     "schemaRegistryHash": "sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27"
@@ -31,10 +31,10 @@
   "tests": {
     "pnpmInstallFrozenLockfile": "passed",
     "pnpmVerify": "passed",
-    "unit": 955,
+    "unit": 970,
     "performanceUnit": 22,
     "contract": 230,
-    "integration": 158,
+    "integration": 161,
     "e2e": 72,
     "runtimeMigrations": 37,
     "phase3FocusedPostgres": 11,
@@ -52,11 +52,21 @@
     "phase6FocusedPostgres": 2,
     "phase6ImplementedSkillRecords": 16,
     "phase6ArchitectureSources": 661,
-    "phase6EvidenceContractRecords": 100
+    "phase6EvidenceContractRecords": 100,
+    "phase7FocusedUnit": 12,
+    "phase7FocusedPostgres": 3,
+    "phase7ImplementedMcpTaskRecords": 11,
+    "phase7ImplementedCapabilityRecords": 7,
+    "phase7ArchitectureSources": 667,
+    "phase7EvidenceContractRecords": 100,
+    "phase7ManifestRegressionUnit": 3,
+    "phase7OrderedStartupIntegration": 11,
+    "phase7FullVerify": "passed",
+    "phase7FullVerifyDurationMs": 865814
   },
   "deferredSourceClosures": [
-    "All 100 sources are confirmed. Phases 5-6 implement Runtime 18/18 and Skill 16/16; Phases 7-10 must close the remaining 66 formal projectors."
+    "All 100 sources are confirmed. Phases 5-7 implement Runtime 18/18, Skill 16/16, MCP Task 11/11 and Capability 7/7; Phases 8-10 must close the remaining 48 formal projectors."
   ],
   "blockers": [],
-  "updatedAt": "2026-08-04T06:05:00+08:00"
+  "updatedAt": "2026-08-04T15:10:00+08:00"
 }

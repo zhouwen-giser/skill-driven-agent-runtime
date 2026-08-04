@@ -1002,3 +1002,13 @@ release verification run.
 | V141-EVIDENCE-SKILL-FAILURE-001 | verified | wait/resume, compliance pass/fail, seven external-reference kinds and fail-fast/recoverable/optional/degraded boundaries retained | parameterized Unit and parent/child PostgreSQL vertical |
 | V141-EVIDENCE-SKILL-PROJECTION-001 | verified | repeatable-read source, Runtime-before-Skill Server composition, idempotent outbox and `skill/v1` checkpoint | replay/pending assertions; Redis remains wake-only |
 | V141-EVIDENCE-PHASE6-GATE | verified | Skill 16/16; Runtime + Skill coverage 34/100; final sealing remains Phase 10 | format/lint/typecheck/architecture/evidence-contract plus 10 Unit and 2 PostgreSQL Integration |
+
+## SDAR v1.4.1 MCP Task and Capability Evidence Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| V141-EVIDENCE-MCP-LIFECYCLE-001 | verified | `McpCapabilityEvidenceProjector` maps 11 MCP Task types and preserves ToolCall/Observation/Control/Continuation/Cancel boundaries | Unit lifecycle regressions plus real PostgreSQL 18-record vertical; ADR-132 |
+| V141-EVIDENCE-CAPABILITY-BINDING-001 | verified | complete Input, Success Criteria, Evidence Requirement, Constraint, Initial Implementation, Provider Policy snapshots and Binding Hash | Unit payload and PostgreSQL source assertions |
+| V141-EVIDENCE-CAPABILITY-AUTHORITY-001 | verified | authenticated schema-validated Control read; exact governance Evidence ref required; Runtime owns projection only | HTTP adapter test, enrichment test and architecture gate |
+| V141-EVIDENCE-MCP-SECURITY-001 | verified | forbidden credential/token/private-reasoning keys removed before Source Revision hashing and payload canonicalization | real PostgreSQL regression for `credential_revision`; canonical contract gate |
+| V141-EVIDENCE-PHASE7-GATE | verified | MCP Task 11/11 + Capability 7/7; total coverage 52/100; sealing remains Phase 10 | focused 12 Unit and 3 PostgreSQL Integration; full `pnpm verify` 865,814 ms with 1,222 static assertions, 161 Integration, 72 E2E and all smokes |

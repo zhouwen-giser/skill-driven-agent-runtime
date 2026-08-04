@@ -41,6 +41,8 @@ const EnvironmentSchema = z
     SDAR_MANAGEMENT_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_MANAGEMENT_PORT: z.coerce.number().int().positive().default(9998),
     SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
+    SDAR_NODE_CONTROL_BASE_URL: z.url().optional(),
+    SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
     SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z.string().min(32).optional(),
     SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: z
       .string()
@@ -63,6 +65,16 @@ const EnvironmentSchema = z
       environment.SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID !== undefined ||
       environment.SDAR_ARTIFACT_MANAGEMENT_TENANT_ID !== undefined ||
       environment.SDAR_ARTIFACT_MANAGEMENT_ROLES !== undefined;
+    if (
+      (environment.SDAR_NODE_CONTROL_BASE_URL === undefined) !==
+      (environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN === undefined)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_NODE_CONTROL_BASE_URL'],
+        message: 'Node Control Capability Evidence requires both base URL and service token.',
+      });
+    }
     if (
       environment.SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN === undefined &&
       artifactManagementConfigured

@@ -4,4 +4,6 @@ export * from './runtime-llm-configuration-applier.js';
 export * from './evidence-export-service.js';
 export * from './runtime-core-evidence-projector.js';
 export * from './skill-evidence-projector.js';
+export * from './mcp-capability-evidence-projector.js';
+export * from './control-capability-evidence-source.js';
 export * from './capability-readiness.js';

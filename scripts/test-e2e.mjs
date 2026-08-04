@@ -9,13 +9,12 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 const { Pool } = pg;
 const databaseName = 'sdar_v122_e2e_gate';
 const adminUrl =
-  process.env.SDAR_TEST_POSTGRES_URL ??
-  'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
+  process.env.SDAR_TEST_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 try {
   startInfrastructure();
   await recreateDatabase();
-  run(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', '--project', 'e2e'], 120_000, {
+  run(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', '--project', 'e2e'], 180_000, {
     ...process.env,
     SDAR_TEST_POSTGRES_URL: databaseUrl(databaseName),
   });

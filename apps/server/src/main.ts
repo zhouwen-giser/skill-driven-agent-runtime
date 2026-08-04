@@ -1,6 +1,7 @@
 import process from 'node:process';
 
 import { ConfiguredOperatorIdentityPort } from '../../../packages/application/src/index.js';
+import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runtime-control-http-client/src/index.js';
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
 import { startServerRuntime } from './runtime.js';
@@ -15,6 +16,15 @@ const runtime = await startServerRuntime({
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
   applyMigrations: true,
+  ...(environment.SDAR_NODE_CONTROL_BASE_URL === undefined ||
+  environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN === undefined
+    ? {}
+    : {
+        capabilityAuthorityReader: new HttpNodeControlCapabilityEvidenceReader({
+          baseUrl: environment.SDAR_NODE_CONTROL_BASE_URL,
+          serviceToken: environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN,
+        }),
+      }),
   a2aHost: environment.SDAR_A2A_HOST,
   a2aPort: environment.SDAR_A2A_PORT,
   managementHost: environment.SDAR_MANAGEMENT_HOST,

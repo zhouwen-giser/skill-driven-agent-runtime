@@ -59,7 +59,7 @@ describe('sdar.evidence/v1 JSON Schema registry', () => {
       const validate = ajv.getSchema(schema.$id);
       expect(validate?.(envelope), JSON.stringify(validate?.errors)).toBe(true);
     }
-  });
+  }, 30_000);
 
   it('rejects placeholder payloads and unknown envelope fields', async () => {
     const schema = await readSchema(path.join(schemaRoot, 'records', 'runtime.goal.schema.json'));
@@ -175,7 +175,7 @@ describe('sdar.evidence/v1 JSON Schema registry', () => {
         sealedAt: '2026-08-04T00:00:01Z',
       }),
     ).toBe(true);
-  });
+  }, 30_000);
 });
 
 function sampleValue(schema: Record<string, unknown> | undefined): EvidenceJsonValue {

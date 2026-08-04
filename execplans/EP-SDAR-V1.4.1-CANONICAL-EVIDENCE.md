@@ -73,7 +73,8 @@ Control read before mapping.
       consistency, blocking source-gap issues, checkpoints and a draft manifest.
 - [x] 2026-08-04 Phase 6 projected all 16 Skill types with exact version/identity, complete
       execution-tree/failure semantics, blocking no-invention issues and real PostgreSQL replay.
-- [ ] Phase 7 project MCP Task and Capability evidence.
+- [x] 2026-08-04 Phase 7 projected all 11 MCP Task and seven Capability types with exact lifecycle,
+      binding snapshots, authenticated Control enrichment and real PostgreSQL replay.
 - [ ] Phase 8 project Experience, Replay, and Artifact evidence.
 - [ ] Phase 9 project Node Control governance evidence.
 - [ ] Phase 10 seal episode manifests and enforce coverage/quality.
@@ -96,6 +97,14 @@ Control read before mapping.
 - The existing Control `configuration_revision` rows with `target_type=telemetry_link` are the
   authority for evidence-export configuration governance. The old Runtime telemetry configuration
   is a projection target, not canonical Control authority.
+- Phase 7 real PostgreSQL testing exposed a polluted database template, a forbidden
+  `credential_revision` in raw Source Revision hashing and an Agent Card SQL alias collision. A
+  template0-isolated database plus pre-canonical sensitive-key removal and an unambiguous row alias
+  closed all three without weakening constraints.
+- Phase 7 full verification exposed incomplete enabled-Skill/active-Agent-Card fixtures, Manifest
+  count imbalance, and concurrent projector shutdown contention. Valid authority fixtures,
+  conserved expected/projected/pending/failed counts, a PostgreSQL session advisory lease and
+  awaited shutdown closed them. Harness-only limits were raised without skipping assertions.
 - Ninety-three catalog types have non-guessed sources. The only seven missing sources are the two
   canonical delivery/ACK facts and five evidence-infrastructure facts that Strategy B must append.
 - Typed children inside persisted trace, pattern, and replay JSON have stable domain IDs/keys and
@@ -160,6 +169,9 @@ Control read before mapping.
 - D-EP-010: Skill Evidence uses post-terminal repeatable-read projection after the Runtime
   checkpoint. It snapshots declared Skill Version usage separately from execution policy and emits
   no derived record when exact selection, child, Plan Step or Capability authority is unavailable.
+- D-EP-011: Canonical projection uses a PostgreSQL session advisory lease for cross-process
+  coordination and awaits an in-flight projection during shutdown. PostgreSQL remains authority;
+  Redis is not a lock or evidence owner.
 
 ## Implementation Steps
 
@@ -173,9 +185,9 @@ Control read before mapping.
 4. [Complete] Replace the old Telemetry application/adapter/API contract with evidence
    configuration, batch/ACK transport, retry/LKG/export status, and fail-closed security
    validation.
-5. [In progress: Runtime and Skill complete] Implement source projectors family by family in
-   package order, updating matrix and tests after each phase. Runtime is 18/18, Skill is 16/16;
-   total is 34/100.
+5. [In progress: Phases 5-7 complete] Implement source projectors family by family in package
+   order, updating matrix and tests after each phase. Runtime is 18/18, Skill is 16/16, MCP Task is
+   11/11 and Capability is 7/7; total is 52/100.
 6. Add manifest/quality/coverage enforcement, management recovery operations, and 44 required
    vertical scenarios.
 7. Run adversarial and performance gates, independent architecture/acceptance audits, freeze the
@@ -191,6 +203,12 @@ Final validation additionally runs `verify:evidence-contract`, `verify:evidence-
 Real PostgreSQL/Redis commands use an isolated Compose project and explicit ports/URLs. Reports
 must preserve first failure, root cause, repair, and rerun. Simulated Provider behavior is labelled;
 no physical command claim is permitted.
+
+Phase 7 mandatory full `pnpm verify` passed in 865,814 ms. Bootstrap covered 1,222
+Unit/performance/Contract assertions and 667-source architecture; the remaining stages passed
+Cognitive Replay, 37 migrations, 161 Integration tests, 72 E2E tests and infrastructure,
+Server/Console and Node Control smokes. The first failures, causes and clean rerun hashes remain in
+the Phase 7 Completion and generated verification summary.
 
 ## Idempotence and Recovery
 
@@ -211,7 +229,7 @@ rewriting pushed history.
 
 ## Outcomes and Retrospective
 
-Phases 0 through 5 are complete. The baseline is reproducible, the append-only route is fixed, and
+Phases 0 through 7 are complete. The baseline is reproducible, the append-only route is fixed, and
 all 100 catalog types now have source-confirmed authority. The Domain freezes deterministic
 IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas under registry hash
 `sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`.
@@ -221,8 +239,12 @@ Evidence authorities with no data migration or dual write. Eleven focused Postgr
 Telemetry surface with a bounded, fenced `sdar.evidence/v1` batch/ACK service and proves the real
 Control -> Runtime -> PostgreSQL/Redis -> HTTP receiver path plus nonblocking receiver outage. Its
 601,088 ms full `pnpm verify` passes 1,207 static Unit/Contract, 158 Integration and 72 E2E tests.
-Runtime projector coverage is 18/18 and Skill projector coverage is 16/16, for 34/100 total.
+Runtime projector coverage is 18/18, Skill is 16/16, MCP Task is 11/11 and Capability is 7/7, for
+52/100 total.
 The real Skill vertical proves exact Usage Specification and policy snapshots, parent/child
 composition, Capability Slot ID/version, seven reference kinds, wait/resume, compliance pass/fail,
-degraded missing effects/evidence and replay. Phase 7 projects MCP Task and Capability records.
+degraded missing effects/evidence and replay. Phase 7 additionally proves Remote Task lifecycle,
+continuation/cancel semantics, complete Capability Binding snapshots and authenticated Control
+enrichment. Its mandatory 865,814 ms full gate passes all eight stages. Phase 8 projects
+Experience, Replay and Artifact records.
 This section will be replaced with the final measured outcome after Phase 14.

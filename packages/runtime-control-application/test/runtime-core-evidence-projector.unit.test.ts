@@ -114,7 +114,12 @@ describe('RuntimeCoreEvidenceProjector', () => {
       recordType: 'runtime.action',
       detail: { missingReference: 'skill.execution', matchingSkillExecutionCount: 0 },
     });
-    expect(writer.manifest).toMatchObject({ failedRequiredRecords: 1 });
+    expect(writer.manifest).toMatchObject({
+      expectedRequiredRecords: 19,
+      projectedRequiredRecords: 18,
+      pendingRequiredRecords: 0,
+      failedRequiredRecords: 1,
+    });
   });
 });
 

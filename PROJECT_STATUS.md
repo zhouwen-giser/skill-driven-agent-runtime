@@ -1,7 +1,7 @@
 # Project Status
 
 SDAR v1.4.1 Canonical Evidence Export is `IN_PROGRESS` (2026-08-04) on
-`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-6
+`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-7
 are complete: the user-supplied task package is SHA-256 verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
@@ -31,8 +31,16 @@ authoritative snapshots, sharing exact Skill Execution identity with Runtime Act
 exact Skill Version usage, selection/context, parent/child composition, Capability ID/version,
 procedure/compliance, seven reference kinds, wait/resume and failure boundaries. Its 10 focused
 Unit and 2 real PostgreSQL Integration tests pass with zero Quality Issues and idempotent replay.
-Formal projector coverage is 34/100. No ClickHouse, merge, tag, release, or deployment has
-started; Phase 7 MCP Task and Capability projection is next.
+Phase 7 adds all 11 MCP Task and seven Capability records, preserving Task Handle, Observation,
+Control Event, continuation, no-side-effect-replay, cancel uncertainty and Provider Receipt versus
+Goal Verification boundaries. Complete Capability Binding snapshots and hashes are retained.
+Control-owned definitions/bindings use an authenticated full-state read and require the exact
+governance Evidence ref before Runtime projection. Twelve focused Unit and three real PostgreSQL
+Integration tests pass with idempotent replay; architecture covers 667 sources and the Catalog
+remains 100/100. The mandatory Phase 7 full `pnpm verify` passes in 865,814 ms with 970 Unit, 22
+performance, 230 Contract, 161 Integration and 72 E2E tests, 37 migrations, build and all smokes.
+Formal projector coverage is 52/100. No ClickHouse, merge, tag, release, or
+deployment has started; Phase 8 Experience, Replay and Artifact projection is next.
 
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`

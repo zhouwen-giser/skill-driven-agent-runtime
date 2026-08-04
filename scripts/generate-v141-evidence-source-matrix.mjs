@@ -784,6 +784,8 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
         ? 'RuntimeCoreEvidenceProjector'
         : family === 'skill'
           ? 'SkillEvidenceProjector'
+          : family === 'mcp_task' || family === 'capability'
+            ? 'McpCapabilityEvidenceProjector'
           : mapperName(recordType)),
     projection_mode:
       sourceSystem === 'control'
@@ -802,7 +804,10 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     required_references: requiredReferences,
     status:
       options.status ??
-      (family === 'runtime' || family === 'skill'
+      (family === 'runtime' ||
+      family === 'skill' ||
+      family === 'mcp_task' ||
+      family === 'capability'
         ? 'implemented_and_verified'
         : 'source_confirmed'),
   };

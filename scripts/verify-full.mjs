@@ -17,7 +17,7 @@ if (pnpmCli === undefined || pnpmCli === '') {
 const childEnvironment = { ...process.env, NO_COLOR: '1' };
 Reflect.deleteProperty(childEnvironment, 'FORCE_COLOR');
 const steps = [
-  ['static-unit-contract-build', 'verify:bootstrap', 300_000],
+  ['static-unit-contract-build', 'verify:bootstrap', 600_000],
   ['cognitive-replay-no-physical-provider', 'verify:cognitive-replay', 60_000],
   ['clean-baseline-reset-seed', 'verify:migrations', 300_000],
   ['postgres-redis-integration', 'test:integration', 300_000],

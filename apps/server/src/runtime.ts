@@ -246,15 +246,19 @@ import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/inde
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
   PostgresEvidenceStore,
+  PostgresMcpCapabilityEvidenceSource,
   PostgresRuntimeAgentCardRepository,
   PostgresRuntimeCoreEvidenceSource,
   PostgresRuntimeEvidenceExportStore,
   PostgresSkillEvidenceSource,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
+  ControlEnrichedMcpCapabilityEvidenceSource,
+  McpCapabilityEvidenceProjector,
   RuntimeCoreEvidenceProjector,
   RuntimeEvidenceExportService,
   SkillEvidenceProjector,
+  type CapabilityAuthorityReader,
 } from '../../../packages/runtime-control-application/src/index.js';
 import {
   EnvironmentEvidenceCredentialResolver,
@@ -400,6 +404,8 @@ export interface ServerRuntimeOptions {
   readonly redis: RedisConnectionConfig;
   readonly masterKeyBase64: string;
   readonly evidenceEnvironment?: string;
+  /** Authenticated full-state reader for Control-owned Capability definitions and bindings. */
+  readonly capabilityAuthorityReader?: CapabilityAuthorityReader;
   readonly queueName?: string;
   readonly applyMigrations?: boolean;
   readonly a2aHost?: string;
@@ -696,6 +702,20 @@ export async function startServerRuntime(
   const skillEvidenceSource = new PostgresSkillEvidenceSource(pool);
   const skillEvidenceProjector = new SkillEvidenceProjector({
     source: skillEvidenceSource,
+    writer: evidenceStore,
+    environment: options.evidenceEnvironment ?? 'runtime',
+    clock,
+  });
+  const runtimeMcpCapabilityEvidenceSource = new PostgresMcpCapabilityEvidenceSource(pool);
+  const mcpCapabilityEvidenceSource =
+    options.capabilityAuthorityReader === undefined
+      ? runtimeMcpCapabilityEvidenceSource
+      : new ControlEnrichedMcpCapabilityEvidenceSource({
+          runtime: runtimeMcpCapabilityEvidenceSource,
+          authority: options.capabilityAuthorityReader,
+        });
+  const mcpCapabilityEvidenceProjector = new McpCapabilityEvidenceProjector({
+    source: mcpCapabilityEvidenceSource,
     writer: evidenceStore,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
@@ -4138,24 +4158,44 @@ export async function startServerRuntime(
       });
   }, 1_000);
   evidenceExportTimer.unref();
-  let runtimeCoreEvidenceProjectionRunning = false;
+  let runtimeCoreEvidenceProjection: Promise<void> | undefined;
   const runtimeCoreEvidenceProjectionTimer = setInterval(() => {
-    if (runtimeCoreEvidenceProjectionRunning) return;
-    runtimeCoreEvidenceProjectionRunning = true;
-    void runtimeCoreEvidenceSource
-      .pendingTaskIds(10)
-      .then(async (taskIds) => {
-        for (const taskId of taskIds) await runtimeCoreEvidenceProjector.projectTask(taskId);
-        const skillTaskIds = await skillEvidenceSource.pendingTaskIds(10);
-        for (const taskId of skillTaskIds) await skillEvidenceProjector.projectTask(taskId);
-      })
+    if (runtimeCoreEvidenceProjection !== undefined) return;
+    runtimeCoreEvidenceProjection = (async () => {
+      const projectionClient = await pool.connect();
+      try {
+        const lease = await projectionClient.query<{ acquired: boolean }>(
+          `SELECT pg_try_advisory_lock(
+             hashtextextended('sdar:v141:canonical-evidence-projection',0)
+           ) AS acquired`,
+        );
+        if (lease.rows[0]?.acquired !== true) return;
+        try {
+          const taskIds = await runtimeCoreEvidenceSource.pendingTaskIds(10);
+          for (const taskId of taskIds) await runtimeCoreEvidenceProjector.projectTask(taskId);
+          const skillTaskIds = await skillEvidenceSource.pendingTaskIds(10);
+          for (const taskId of skillTaskIds) await skillEvidenceProjector.projectTask(taskId);
+          const mcpCapabilityTaskIds = await mcpCapabilityEvidenceSource.pendingTaskIds(10);
+          for (const taskId of mcpCapabilityTaskIds)
+            await mcpCapabilityEvidenceProjector.projectTask(taskId);
+        } finally {
+          await projectionClient.query(
+            `SELECT pg_advisory_unlock(
+               hashtextextended('sdar:v141:canonical-evidence-projection',0)
+             )`,
+          );
+        }
+      } finally {
+        projectionClient.release();
+      }
+    })()
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'evidence_projection.runtime_core_failed', errorCode: runtimeErrorCode(error) })}\n`,
         );
       })
       .finally(() => {
-        runtimeCoreEvidenceProjectionRunning = false;
+        runtimeCoreEvidenceProjection = undefined;
       });
   }, 1_000);
   runtimeCoreEvidenceProjectionTimer.unref();
@@ -4721,6 +4761,7 @@ export async function startServerRuntime(
         await artifactShadowRuntime?.revalidationQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
+        await runtimeCoreEvidenceProjection;
         await pool.end();
         if (backgroundExecutionErrors.length > 0) {
           throw new AggregateError(
@@ -4769,6 +4810,7 @@ export async function startServerRuntime(
     await artifactShadowRuntime?.queue.close();
     await artifactShadowRuntime?.revalidationQueue.close();
     await queue.close();
+    await runtimeCoreEvidenceProjection;
     await pool.end();
     throw error;
   }
