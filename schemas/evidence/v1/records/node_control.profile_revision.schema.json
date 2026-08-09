@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,58 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 16,
       "maxProperties": 128,
-      "required": ["nodeId", "revision", "status"],
+      "required": [
+        "nodeId",
+        "nodeType",
+        "displayName",
+        "description",
+        "environment",
+        "labels",
+        "authorityScopes",
+        "runtimeEndpointRef",
+        "telemetrySourceId",
+        "status",
+        "revision",
+        "createdBy",
+        "createdAt",
+        "updatedAt",
+        "validatedAt",
+        "publishedAt"
+      ],
       "properties": {
         "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "revision": { "$ref": "#/$defs/evidenceValue" },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "nodeType": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "description": { "type": "string", "maxLength": 65536 },
+        "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "labels": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "authorityScopes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "runtimeEndpointRef": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "telemetrySourceId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "status": { "type": "string", "enum": ["draft", "active", "maintenance", "retired"] },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "validatedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "publishedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

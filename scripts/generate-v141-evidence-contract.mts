@@ -21,6 +21,33 @@ const json = (value: unknown): Promise<string> =>
 const schemaId = (name: string): string =>
   `https://schemas.sdar.local/evidence/v1/${name}.schema.json`;
 
+if (EVIDENCE_RECORD_CATALOG.length !== 100) {
+  throw new Error(`EVIDENCE_CATALOG_COUNT_INVALID:${String(EVIDENCE_RECORD_CATALOG.length)}`);
+}
+const catalogEvaluationRoles = Object.fromEntries(
+  ['required', 'diagnostic'].map((role) => [
+    role,
+    EVIDENCE_RECORD_CATALOG.filter((entry) => entry.evaluationRole === role).length,
+  ]),
+);
+const catalogDeliveryGuarantees = Object.fromEntries(
+  ['transactional', 'durable_projection'].map((guarantee) => [
+    guarantee,
+    EVIDENCE_RECORD_CATALOG.filter((entry) => entry.deliveryGuarantee === guarantee).length,
+  ]),
+);
+if (catalogEvaluationRoles['required'] !== 95 || catalogEvaluationRoles['diagnostic'] !== 5) {
+  throw new Error(`EVIDENCE_CATALOG_ROLE_COUNTS_INVALID:${JSON.stringify(catalogEvaluationRoles)}`);
+}
+if (
+  catalogDeliveryGuarantees['transactional'] !== 0 ||
+  catalogDeliveryGuarantees['durable_projection'] !== 100
+) {
+  throw new Error(
+    `EVIDENCE_CATALOG_DELIVERY_COUNTS_INVALID:${JSON.stringify(catalogDeliveryGuarantees)}`,
+  );
+}
+
 const artifactRefSchema = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: schemaId('artifact-ref'),

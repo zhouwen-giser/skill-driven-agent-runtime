@@ -16,6 +16,16 @@ export interface NodeHealth {
   readonly observedAt: string;
 }
 
+/**
+ * Append-only Control PostgreSQL health authority. The runtime projects this fact and the related
+ * frozen node.health.changed event; it never invents Control health state.
+ */
+export interface NodeHealthObservation extends NodeHealth {
+  readonly observationId: string;
+  /** Monotonic authority revision for this Node; unrelated to Evidence observationGeneration. */
+  readonly observationRevision: number;
+}
+
 export interface NodeControlReadiness {
   readonly status: 'ready' | 'not_ready';
   readonly checks: readonly NodeHealthComponent[];

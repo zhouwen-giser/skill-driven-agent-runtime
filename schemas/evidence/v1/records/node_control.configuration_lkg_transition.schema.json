@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,15 +73,103 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 17,
       "maxProperties": 128,
-      "required": ["targetType", "targetId", "generation"],
+      "required": [
+        "targetType",
+        "targetId",
+        "desiredConfigurationId",
+        "desiredRevision",
+        "desiredChecksum",
+        "desiredStatus",
+        "desiredOperationId",
+        "observedConfigurationId",
+        "observedRevision",
+        "observedChecksum",
+        "observedStatus",
+        "observedRuntimeVersion",
+        "observedAt",
+        "convergenceStatus",
+        "reasonCode",
+        "detail",
+        "generation"
+      ],
       "properties": {
-        "targetType": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "targetType": {
+          "type": "string",
+          "enum": [
+            "node",
+            "llm_provider",
+            "model_route",
+            "smpp_source",
+            "mcp_provider_binding",
+            "telemetry_link",
+            "runtime_policy"
+          ]
+        },
         "targetId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "generation": { "$ref": "#/$defs/evidenceValue" }
+        "desiredConfigurationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "desiredRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "desiredChecksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "desiredStatus": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "desiredOperationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "observedConfigurationId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "observedRevision": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+            { "type": "null" }
+          ]
+        },
+        "observedChecksum": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "observedStatus": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "observedRuntimeVersion": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "observedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "convergenceStatus": {
+          "type": "string",
+          "enum": [
+            "converged",
+            "pending",
+            "degraded",
+            "rejected",
+            "restart_required",
+            "unavailable"
+          ]
+        },
+        "reasonCode": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "detail": { "oneOf": [{ "type": "string", "maxLength": 65536 }, { "type": "null" }] },
+        "generation": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["observedConfigurationId", "observedRevision", "observedChecksum"],
+          "properties": {
+            "observedConfigurationId": { "const": null },
+            "observedRevision": { "const": null },
+            "observedChecksum": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["observedConfigurationId", "observedRevision", "observedChecksum"],
+          "properties": {
+            "observedConfigurationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "observedRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+            "observedChecksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      ]
     },
     "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },

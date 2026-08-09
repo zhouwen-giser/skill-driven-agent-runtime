@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,37 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 11,
       "maxProperties": 128,
-      "required": ["auditId", "action", "resultCode"],
+      "required": [
+        "auditId",
+        "actorId",
+        "action",
+        "aggregateType",
+        "aggregateId",
+        "expectedRevision",
+        "resultRevision",
+        "reason",
+        "requestHash",
+        "resultCode",
+        "createdAt"
+      ],
       "properties": {
         "auditId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "action": { "$ref": "#/$defs/evidenceValue" },
-        "resultCode": { "$ref": "#/$defs/evidenceValue" }
+        "actorId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "action": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "aggregateType": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "aggregateId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "expectedRevision": {
+          "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 2147483647 }, { "type": "null" }]
+        },
+        "resultRevision": {
+          "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 2147483647 }, { "type": "null" }]
+        },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "requestHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "resultCode": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

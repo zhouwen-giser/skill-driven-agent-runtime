@@ -69,6 +69,27 @@ All notable changes to this project are documented here. The format follows Keep
   32 Integration files / 165 tests except one Node Control race/non-independent migration file,
   which passed 1/1 after repair. Latest targeted format/lint/typecheck pass; no successful full
   verify or whole-repository format claim is made.
+- Added Control migration `0009_canonical_evidence_authority` and Runtime migration
+  `0146_v14_evidence_export_observation_ledger`. Immutable Control observations and immutable
+  Runtime delivery/ACK observations remain separate authorities and feed independently
+  checkpointed Node Control projectors; Redis is wake-only.
+- Implemented all 21 `node_control.*` records with numeric revision ordering, exact
+  Configuration/Apply ACK/LKG and delivery/receiver-ACK references, Last-Event-ID recovery,
+  same-ID conflict detection, recursive CredentialRef redaction and fail-closed scope/
+  classification checks. A fixed internal `node_control.evidence.read` service identity is the
+  only projector reader; public Control roles are not reused.
+- Added the generation-1/no-generation-2 self-observation boundary and a bounded 32-partition
+  single-flight Server drain. The real Control/Runtime PostgreSQL, Redis and HTTP-sink vertical
+  passes 1/1 with exact refs and receiver ACK.
+- Phase 9 Registry coverage is 100 total / 95 Required / five diagnostic, with 95 records
+  `implemented_and_verified`, all 21 Node Control records verified and five `evidence.*` records
+  remaining `source_confirmed` for Phase 10. The current Registry hash is
+  `sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88`; independent Review is
+  Accepted with 0 Blocking / 0 Major / 0 Minor.
+- Phase 9 does not claim a successful full `pnpm verify`: attempt one failed lint and was repaired;
+  attempt two passed 1,058 Unit/performance assertions before one stale positive Contract fixture
+  failed; the repaired direct Evidence Schema Contract passes 10/10. Per explicit user direction,
+  intermediate whole-repository gates are not repeated and the next complete run is Phase 14.
 
 ## SDAR v1.4 P14 Release Qualification
 

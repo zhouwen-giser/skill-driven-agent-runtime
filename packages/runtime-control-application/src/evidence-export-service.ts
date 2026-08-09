@@ -4,9 +4,12 @@ import {
   activeEvidenceExportConfiguration,
   canonicalizeEvidenceJson,
   hashCanonicalEvidenceJson,
+  shouldRecordEvidenceExportObservation,
   type EvidenceBatchAcknowledgement,
   type EvidenceBatchRequest,
   type CanonicalEvidenceEnvelope,
+  type EvidenceExportAckLedgerEntry,
+  type EvidenceExportBatchLedgerEntry,
   type EvidenceExportStatus,
   type ManagedEvidenceExportConfiguration,
 } from '../../domain/src/index.js';
@@ -60,6 +63,19 @@ export interface RuntimeEvidenceExportStore {
     sequences: readonly string[],
     observedAt: string,
   ): Promise<void>;
+  recordBatchAttempt(input: {
+    readonly lease: EvidenceDeliveryLease;
+    readonly batch: EvidenceBatchRequest;
+    readonly recordedAt: string;
+  }): Promise<EvidenceExportBatchLedgerEntry>;
+  recordAcknowledgement(input: {
+    readonly lease: EvidenceDeliveryLease;
+    readonly batch: EvidenceExportBatchLedgerEntry;
+    readonly acknowledgedSequence: string | null;
+    readonly ackDisposition: EvidenceExportAckLedgerEntry['ackDisposition'];
+    readonly errorCode: string | null;
+    readonly acknowledgedAt: string;
+  }): Promise<EvidenceExportAckLedgerEntry>;
   acknowledge(
     lease: EvidenceDeliveryLease,
     lastSequence: string,
@@ -195,14 +211,47 @@ export class RuntimeEvidenceExportService {
       const records = boundedRecords(configuration, pending);
       sequences = records.map((record) => record.sequence);
       const batch = createBatch(configuration, records);
-      const acknowledgement = await this.#transport.send(configuration, batch);
-      assertAcknowledgement(batch, acknowledgement);
-      await this.#store.markSent(lease, sequences, this.#clock.now());
-      await this.#store.acknowledge(
-        lease,
-        acknowledgement.lastAcknowledgedSequence,
-        this.#clock.now(),
+      const recordsExportObservation = shouldRecordEvidenceExportObservation(
+        records.map((record) => record.envelope),
       );
+      const batchLedger = recordsExportObservation
+        ? await this.#store.recordBatchAttempt({ lease, batch, recordedAt: this.#clock.now() })
+        : undefined;
+      const acknowledgement = await this.#transport.send(configuration, batch);
+      await this.#store.markSent(lease, sequences, this.#clock.now());
+      const acknowledgementClassification = classifyAcknowledgement(batch, acknowledgement);
+      const acknowledgedAt = this.#clock.now();
+      if (acknowledgementClassification.disposition === 'rejected') {
+        if (batchLedger !== undefined) {
+          await this.#store.recordAcknowledgement({
+            lease,
+            batch: batchLedger,
+            acknowledgedSequence: null,
+            ackDisposition: 'rejected',
+            errorCode: 'EVIDENCE_ACK_INVALID',
+            acknowledgedAt,
+          });
+        }
+        throw Object.assign(new Error(acknowledgementClassification.reason), {
+          code: 'EVIDENCE_ACK_INVALID',
+        });
+      }
+      if (batchLedger === undefined) {
+        await this.#store.acknowledge(
+          lease,
+          acknowledgement.lastAcknowledgedSequence,
+          acknowledgedAt,
+        );
+      } else {
+        await this.#store.recordAcknowledgement({
+          lease,
+          batch: batchLedger,
+          acknowledgedSequence: acknowledgement.lastAcknowledgedSequence,
+          ackDisposition: acknowledgementClassification.disposition,
+          errorCode: null,
+          acknowledgedAt,
+        });
+      }
       return Object.freeze({
         delivered: records.filter(
           (record) => BigInt(record.sequence) <= BigInt(acknowledgement.lastAcknowledgedSequence),
@@ -284,14 +333,23 @@ function createBatch(
   return Object.freeze({ ...unsigned, batchHash: hashCanonicalEvidenceJson(unsigned) });
 }
 
-function assertAcknowledgement(
+function classifyAcknowledgement(
   batch: EvidenceBatchRequest,
   acknowledgement: EvidenceBatchAcknowledgement,
-): void {
-  const acknowledged = BigInt(acknowledgement.lastAcknowledgedSequence);
+): Readonly<{ disposition: 'accepted' | 'partial' } | { disposition: 'rejected'; reason: string }> {
+  let acknowledged: bigint;
+  try {
+    acknowledged = BigInt(acknowledgement.lastAcknowledgedSequence);
+  } catch {
+    return Object.freeze({
+      disposition: 'rejected',
+      reason: 'Evidence endpoint returned a non-numeric ACK.',
+    });
+  }
   if (acknowledged < BigInt(batch.firstSequence) || acknowledged > BigInt(batch.lastSequence)) {
-    throw Object.assign(new Error('Evidence endpoint returned an out-of-batch ACK.'), {
-      code: 'EVIDENCE_ACK_INVALID',
+    return Object.freeze({
+      disposition: 'rejected',
+      reason: 'Evidence endpoint returned an out-of-batch ACK.',
     });
   }
   if (
@@ -299,10 +357,14 @@ function assertAcknowledgement(
       (record) => record.evidenceSequence === acknowledgement.lastAcknowledgedSequence,
     )
   ) {
-    throw Object.assign(new Error('Evidence endpoint ACK does not identify a sent record.'), {
-      code: 'EVIDENCE_ACK_INVALID',
+    return Object.freeze({
+      disposition: 'rejected',
+      reason: 'Evidence endpoint ACK does not identify a sent record.',
     });
   }
+  return Object.freeze({
+    disposition: acknowledged === BigInt(batch.lastSequence) ? 'accepted' : 'partial',
+  });
 }
 
 function safeEvidenceExportError(error: unknown, fallback: string): string {

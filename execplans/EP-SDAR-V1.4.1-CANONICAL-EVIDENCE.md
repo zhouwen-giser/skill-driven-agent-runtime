@@ -52,10 +52,11 @@ transactional writer ports, durable source projectors, export/ACK/manifest servi
 reconciliation. PostgreSQL adapters own evidence tables and cursor transactions. The HTTP adapter
 owns wire serialization and TLS/credential handling. Server is the only composition root.
 
-Control-to-Runtime projection follows Control transaction -> Control event/audit/revision ->
-authenticated read/event hint -> Runtime projector -> Runtime evidence outbox. There is no
-distributed transaction. A hint that lacks full state is resolved through a revision/ETag-aware
-Control read before mapping.
+Control-to-Runtime projection follows Control transaction -> immutable Control observation ledger
+-> fixed privileged `node_control.evidence.read` service read -> Runtime projector -> Runtime
+evidence outbox. Runtime delivery and receiver-ACK observations come from a separate immutable
+Runtime ledger and independently checkpointed source. There is no distributed transaction, and no
+public Control principal or Redis state may substitute for either PostgreSQL authority.
 
 ## Progress
 
@@ -80,7 +81,13 @@ Control read before mapping.
       `CognitiveSourceRef`, latest-per-source reads and lossless 10,000-element Pattern ArtifactRef
       descriptors. Coverage is 74/100 and 74/95 Required (77.89%); final Review is
       `CLEAN_FOR_PHASE8_CLOSURE` with 0 Blocking/Major/Minor.
-- [ ] Phase 9 project Node Control governance evidence.
+- [x] 2026-08-10 Phase 9 completed the 21 Node Control records, immutable Control and Runtime
+      observation ledgers, exact recovery/references/scope, and the generation-1 export boundary.
+      The real PostgreSQL/Redis/HTTP vertical passes 1/1 and independent Review is clean. The full
+      gate is not reported as passed: lint failed and was repaired on attempt one; attempt two
+      passed 1,058 Unit/performance assertions and stopped on one stale Contract fixture; its
+      repaired direct suite passes 10/10. Per explicit user direction, the next whole-repository
+      `pnpm verify` is the single Phase 14 final gate.
 - [ ] Phase 10 seal episode manifests and enforce coverage/quality.
 - [ ] Phase 11 expose secured evidence operations and recovery runbooks.
 - [ ] Phase 12 verify all required vertical scenarios.
@@ -167,6 +174,16 @@ Control read before mapping.
   URI/JSON-pointer/count/SHA-256 descriptors for collections larger than 256.
 - The isolated `sdar-v141-phase8-20260809` PostgreSQL/Redis project is available on ports
   `55484/56384`. It is the only Phase 8 database authority used by the remediation tests.
+- PostgreSQL `bigint` authority sequences must be ordered as numeric columns before aliasing them
+  as text. Ordering `observation_sequence::text` caused revisions after 9 to sort lexicographically
+  and broke the exact published-Configuration reference.
+- Exporter self-observation requires an explicit generation boundary: generation-1 delivery and
+  ACK observations are exportable, but exporting them may not create generation-2 children. A
+  bounded sequential drain also prevents one-partition-per-tick starvation without weakening the
+  existing single-flight lock.
+- Public Organization, Viewer, Operator, Security or user principals cannot provide projector
+  authority. Node Control projection uses one fixed internal service identity with
+  `node_control.evidence.read`, `global_authority` and `node_local` scope and no public route.
 
 ## Decision Log
 
@@ -192,6 +209,10 @@ Control read before mapping.
 - D-EP-011: Canonical projection uses a PostgreSQL session advisory lease for cross-process
   coordination and awaits an in-flight projection during shutdown. PostgreSQL remains authority;
   Redis is not a lock or evidence owner.
+- D-EP-012: Node Control projection reads the immutable Control observation ledger only through a
+  fixed privileged service principal and reads immutable Runtime delivery/ACK observations through
+  a second independently checkpointed source. Generation-1 delivery/ACK evidence is terminal for
+  self-observation; no generation-2 record is created.
 
 ## Implementation Steps
 
@@ -205,10 +226,11 @@ Control read before mapping.
 4. [Complete] Replace the old Telemetry application/adapter/API contract with evidence
    configuration, batch/ACK transport, retry/LKG/export status, and fail-closed security
    validation.
-5. [Complete through Phase 8] Implement source projectors
+5. [Complete through Phase 9] Implement source projectors
    family by family in package order. Runtime is 18/18, Skill 16/16, MCP Task 11/11, Capability
-   7/7, Experience 10/10, Replay 6/6 and Artifact 6/6. The generated source matrix records 74/100
-   verified and 74/95 Required (77.89%).
+   7/7, Experience 10/10, Replay 6/6, Artifact 6/6 and Node Control 21/21. The generated source
+   matrix records 95/100 implemented and verified, including 94/95 Required (98.95%). The five
+   `evidence.*` records remain source-confirmed for Phase 10.
 6. Add manifest/quality/coverage enforcement, management recovery operations, and 44 required
    vertical scenarios.
 7. Run adversarial and performance gates, independent architecture/acceptance audits, freeze the
@@ -244,6 +266,22 @@ format claim is made. Task-package section 30 mandates full `pnpm verify` only a
 0/3/7/9/12/13/14. Phase 8 therefore closes without representing either attempt as a successful
 full gate.
 
+Phase 9 projects all 21 Node Control records through immutable Control and Runtime observation
+ledgers and two independently checkpointed sources. The real PostgreSQL/Redis/HTTP vertical passes
+1/1, the repaired direct Evidence Schema Contract passes 10/10, and final independent Review is
+Accepted with zero Blocking, Major or Minor findings. The generated Registry remains 100 records
+(95 Required plus five diagnostic); the source matrix records 95 implemented and verified, with
+all 21 `node_control.*` records verified and all five remaining `evidence.*` records
+source-confirmed for Phase 10. Registry hash is
+`sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88`.
+
+The Phase 9 full gate is not reported as passed. Attempt one stopped at lint and the mechanical
+findings were repaired. Attempt two passed format, lint, typecheck and 1,058 Unit/performance
+assertions, then stopped on one stale positive Contract fixture; the repaired affected Contract
+suite subsequently passed 10/10 directly. Following the user's instruction not to repeat
+intermediate whole-repository verification, the next complete `pnpm verify` is deferred to the
+single Phase 14 final gate.
+
 ## Idempotence and Recovery
 
 Catalog/schema generation is deterministic. Stable IDs and unique source/revision/schema keys make
@@ -264,10 +302,11 @@ Phase 11 work and are not claimed by the current implementation. Failed phases r
 
 ## Outcomes and Retrospective
 
-Phases 0 through 7 are complete. The baseline is reproducible, the append-only route is fixed, and
+Phases 0 through 9 are complete for their scoped implementation and independent Review. The
+baseline is reproducible, the append-only route is fixed, and
 all 100 catalog types now have source-confirmed authority. The Domain freezes deterministic
 IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas. The current regenerated
-registry hash is `sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d`.
+registry hash is `sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88`.
 Migration 0144 removes the three old Telemetry product tables and creates eight constrained
 Evidence authorities with no data migration or dual write. Eleven focused PostgreSQL tests, the
 37-migration verifier, and Phase 3 full gate pass. Phase 4 replaces the complete external
@@ -282,6 +321,12 @@ degraded missing effects/evidence and replay. Phase 7 additionally proves Remote
 continuation/cancel semantics, complete Capability Binding snapshots and authenticated Control
 enrichment. Its mandatory 865,814 ms full gate passes all eight stages. Phase 8 Experience, Replay
 and Artifact implementation is complete at generated coverage 74/100 and 74/95 Required (77.89%);
-its final independent Review is clean. Per task-package section 30, the next mandatory full gate is
-Phase 9.
+its final independent Review is clean. Phase 9 Node Control implementation is complete at 95/100
+total and 94/95 Required (98.95%), with
+all 21 Node Control records verified and five Evidence-family records source-confirmed for Phase
+10. Its real vertical passes 1/1 and independent Review is clean. Phase 9's full gate did not pass:
+the first attempt stopped at repaired lint findings and the second passed 1,058 Unit/performance
+assertions before one stale Contract fixture failed; the repaired direct Contract passes 10/10.
+By explicit user direction, whole-repository verification is not repeated in intermediate phases
+and remains scheduled once at Phase 14. Phase 10 is next.
 This section will be replaced with the final measured outcome after Phase 14.

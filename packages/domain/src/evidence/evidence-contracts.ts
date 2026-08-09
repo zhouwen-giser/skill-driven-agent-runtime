@@ -1,6 +1,7 @@
 import type {
   CanonicalEvidenceEnvelope,
   EvidenceJsonValue,
+  EvidenceObservationGeneration,
   EvidenceRecordFamily,
 } from './canonical-evidence.js';
 import { EVIDENCE_RECORD_CATALOG } from './catalog.js';
@@ -22,6 +23,49 @@ export interface EvidenceBatchRequest {
 
 export interface EvidenceBatchAcknowledgement {
   readonly lastAcknowledgedSequence: string;
+}
+
+/** Immutable pre-send attempt authority. A retry always creates a new batchId and attemptNo. */
+export interface EvidenceExportBatchLedgerEntry {
+  readonly batchId: string;
+  readonly exportId: string;
+  readonly sourcePartition: string;
+  readonly configurationRevision: number;
+  readonly firstSequence: string;
+  readonly lastSequence: string;
+  readonly batchHash: `sha256:${string}`;
+  readonly recordCount: number;
+  readonly attemptNo: number;
+  readonly deliveryStatus: 'attempted';
+  readonly observationGeneration: 1;
+  readonly recordedAt: string;
+}
+
+/** Immutable receiver-response authority. Rejected ACKs never advance acknowledged state. */
+export interface EvidenceExportAckLedgerEntry {
+  readonly ackId: string;
+  readonly batchId: string;
+  readonly exportId: string;
+  readonly sourcePartition: string;
+  readonly acknowledgedSequence: string | null;
+  readonly batchHash: `sha256:${string}`;
+  readonly ackDisposition: 'accepted' | 'partial' | 'rejected';
+  readonly errorCode: string | null;
+  readonly observationGeneration: 1;
+  readonly acknowledgedAt: string;
+}
+
+export function evidenceObservationGeneration(
+  envelope: Pick<CanonicalEvidenceEnvelope, 'observationGeneration'>,
+): EvidenceObservationGeneration {
+  return envelope.observationGeneration ?? 0;
+}
+
+/** A pure generation-1 batch is exported, but cannot create another delivery/ACK observation. */
+export function shouldRecordEvidenceExportObservation(
+  records: readonly Pick<CanonicalEvidenceEnvelope, 'observationGeneration'>[],
+): boolean {
+  return records.some((record) => evidenceObservationGeneration(record) === 0);
 }
 
 export interface EvidenceExportConfiguration {

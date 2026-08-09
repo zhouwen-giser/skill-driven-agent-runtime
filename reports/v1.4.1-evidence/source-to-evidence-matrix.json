@@ -1,6 +1,6 @@
 {
   "contract": "sdar.evidence/v1",
-  "registryHash": "sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d",
+  "registryHash": "sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88",
   "generatedBy": "scripts/generate-v141-evidence-source-matrix.mjs",
   "requiredColumns": [
     "source_system",
@@ -26,10 +26,10 @@
     "status"
   ],
   "statusCounts": {
-    "source_confirmed": 26,
+    "source_confirmed": 5,
     "source_missing_blocker": 0,
     "conditional_not_applicable": 0,
-    "implemented_and_verified": 74
+    "implemented_and_verified": 95
   },
   "familyCounts": {
     "runtime": 18,
@@ -1773,17 +1773,17 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
       "source_database": "control_postgresql",
-      "source_table_or_aggregate": "sdar_control.node_event_outbox[event_type=node.health.changed]",
+      "source_table_or_aggregate": "sdar_control.node_health_observation",
       "source_authority": "Control PostgreSQL",
-      "source_identity_fields": "event_id",
-      "source_revision_rule": "aggregate_revision + payload canonical hash",
-      "source_timestamp_field": "occurred_at",
+      "source_identity_fields": "observation_id",
+      "source_revision_rule": "observation_revision + canonical source hash",
+      "source_timestamp_field": "observed_at",
       "record_family": "node_control",
       "record_type": "node_control.health_observation",
       "schema_name": "sdar.evidence.node_control.health_observation",
@@ -1797,7 +1797,7 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.node_event",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1819,8 +1819,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.management_operation",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1843,7 +1843,7 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.configuration_revision",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1866,7 +1866,7 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.configuration_apply_ack",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1888,8 +1888,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1911,8 +1911,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.llm_provider_revision",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1934,8 +1934,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1957,8 +1957,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.smpp_source_revision",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -1981,12 +1981,12 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
       "source_database": "control_postgresql",
-      "source_table_or_aggregate": "sdar_control.control_audit_event[action prefix=plan_template.]",
+      "source_table_or_aggregate": "sdar_control.control_audit_event[action prefix=plan-template.]",
       "source_authority": "Control PostgreSQL",
       "source_identity_fields": "audit_id",
       "source_revision_rule": "immutable audit event; canonical source hash",
@@ -2004,7 +2004,7 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -2027,12 +2027,12 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
       "source_database": "control_postgresql",
-      "source_table_or_aggregate": "sdar_control.node_event_outbox[event_type=capability.readiness.changed]",
+      "source_table_or_aggregate": "sdar_control.node_event_outbox[event_type=node.capability.readiness_changed] + sdar_control.management_operation[result]",
       "source_authority": "Control PostgreSQL",
       "source_identity_fields": "event_id",
       "source_revision_rule": "aggregate_revision + payload canonical hash",
@@ -2050,7 +2050,7 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.capability_revision,node_control.node_event",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -2073,7 +2073,7 @@
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
       "required_references": "node_control.capability_revision",
-      "status": "source_confirmed"
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -2095,8 +2095,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.a2a_exposure",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -2118,8 +2118,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -2141,8 +2141,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.management_operation",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -2164,8 +2164,8 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.audit_event",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "node_control",
@@ -2187,17 +2187,17 @@
       "cursor_rule": "per Control source/partition; node-event sequence or aggregate revision; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.management_operation",
-      "status": "source_confirmed"
+      "required_references": "",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
       "source_database": "runtime_postgresql",
-      "source_table_or_aggregate": "evidence_export_state",
+      "source_table_or_aggregate": "evidence_export_batch",
       "source_authority": "Runtime PostgreSQL",
-      "source_identity_fields": "export_id + source_partition",
-      "source_revision_rule": "fencing_token + last_acknowledged_sequence + canonical source hash",
-      "source_timestamp_field": "observed_at",
+      "source_identity_fields": "batch_id",
+      "source_revision_rule": "immutable pre-send attempt; canonical source hash",
+      "source_timestamp_field": "recorded_at",
       "record_family": "node_control",
       "record_type": "node_control.telemetry_delivery",
       "schema_name": "sdar.evidence.node_control.telemetry_delivery",
@@ -2210,17 +2210,17 @@
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.telemetry_configuration,evidence.export_status",
-      "status": "source_confirmed"
+      "required_references": "node_control.telemetry_configuration",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",
       "source_database": "runtime_postgresql",
-      "source_table_or_aggregate": "evidence_export_state",
+      "source_table_or_aggregate": "evidence_export_ack",
       "source_authority": "Runtime PostgreSQL",
-      "source_identity_fields": "export_id + source_partition",
-      "source_revision_rule": "fencing_token + last_acknowledged_sequence + canonical source hash",
-      "source_timestamp_field": "observed_at",
+      "source_identity_fields": "ack_id",
+      "source_revision_rule": "immutable receiver response; canonical source hash",
+      "source_timestamp_field": "acknowledged_at",
       "record_family": "node_control",
       "record_type": "node_control.telemetry_ack",
       "schema_name": "sdar.evidence.node_control.telemetry_ack",
@@ -2233,8 +2233,8 @@
       "cursor_rule": "per Runtime source/partition; stable timestamp plus source identity tie-break; never global",
       "redaction_profile": "strict_internal_v1",
       "artifact_policy": "inline_bounded_or_artifact_ref",
-      "required_references": "node_control.telemetry_delivery,evidence.export_status",
-      "status": "source_confirmed"
+      "required_references": "node_control.telemetry_delivery",
+      "status": "implemented_and_verified"
     },
     {
       "source_system": "runtime",

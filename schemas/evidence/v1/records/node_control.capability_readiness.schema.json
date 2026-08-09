@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.sdar.local/evidence/v1/records/node_control.capability_readiness.schema.json",
   "title": "node_control.capability_readiness canonical evidence record",
-  "description": "Canonical node_control.capability_readiness evidence projected from Control PostgreSQL sdar_control.node_event_outbox[event_type=capability.readiness.changed].",
+  "description": "Canonical node_control.capability_readiness evidence projected from Control PostgreSQL sdar_control.node_event_outbox[event_type=node.capability.readiness_changed] + sdar_control.management_operation[result].",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -49,7 +49,7 @@
     "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
     "sourceSystem": { "const": "node_control" },
     "sourceTable": {
-      "const": "sdar_control.node_event_outbox[event_type=capability.readiness.changed]"
+      "const": "sdar_control.node_event_outbox[event_type=node.capability.readiness_changed] + sdar_control.management_operation[result]"
     },
     "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
@@ -59,6 +59,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -74,13 +75,32 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 9,
       "maxProperties": 128,
-      "required": ["eventId", "capabilityId", "readinessStatus"],
+      "required": [
+        "eventId",
+        "nodeId",
+        "capabilityId",
+        "capabilityVersion",
+        "readinessStatus",
+        "snapshotVersion",
+        "snapshotHash",
+        "evaluatedAt",
+        "validUntil"
+      ],
       "properties": {
         "eventId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "capabilityId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "readinessStatus": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        "capabilityVersion": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "readinessStatus": {
+          "type": "string",
+          "enum": ["available", "degraded", "unavailable", "suspended"]
+        },
+        "snapshotVersion": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "snapshotHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "evaluatedAt": { "type": "string", "format": "date-time" },
+        "validUntil": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

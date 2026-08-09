@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,15 +73,85 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 10,
       "maxProperties": 128,
-      "required": ["applicationId", "revision", "status"],
+      "required": [
+        "applicationId",
+        "configurationId",
+        "revision",
+        "runtimeInstanceId",
+        "status",
+        "observedRuntimeVersion",
+        "activeChecksum",
+        "reasonCode",
+        "detail",
+        "acknowledgedAt"
+      ],
       "properties": {
         "applicationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "revision": { "$ref": "#/$defs/evidenceValue" },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "configurationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "runtimeInstanceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "staging",
+            "applied",
+            "partially_applied",
+            "rejected",
+            "restart_required",
+            "stale",
+            "unavailable"
+          ]
+        },
+        "observedRuntimeVersion": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "activeChecksum": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "reasonCode": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "detail": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "acknowledgedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "acknowledgedAt"],
+          "properties": {
+            "status": { "type": "string", "enum": ["pending", "staging"] },
+            "acknowledgedAt": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["status", "acknowledgedAt"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "applied",
+                "partially_applied",
+                "rejected",
+                "restart_required",
+                "stale",
+                "unavailable"
+              ]
+            },
+            "acknowledgedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
     },
     "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },

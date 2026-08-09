@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,108 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 20,
       "maxProperties": 128,
-      "required": ["capabilityId", "version", "definitionHash"],
+      "required": [
+        "capabilityId",
+        "version",
+        "domain",
+        "name",
+        "description",
+        "inputSchema",
+        "outputSchema",
+        "successCriteria",
+        "requiredEvidence",
+        "effects",
+        "artifacts",
+        "constraints",
+        "supportedModes",
+        "riskLevel",
+        "status",
+        "definitionHash",
+        "previousVersion",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ],
       "properties": {
         "capabilityId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "version": { "$ref": "#/$defs/evidenceValue" },
-        "definitionHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "domain": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "description": { "type": "string", "maxLength": 65536 },
+        "inputSchema": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "outputSchema": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "successCriteria": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "maxProperties": 1024,
+            "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          }
+        },
+        "requiredEvidence": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "maxProperties": 1024,
+            "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "artifacts": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "constraints": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "maxProperties": 1024,
+            "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          }
+        },
+        "supportedModes": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "validating", "published", "suspended", "deprecated", "retired"]
+        },
+        "definitionHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "previousVersion": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+            { "type": "null" }
+          ]
+        },
+        "createdBy": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "createdAt": { "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

@@ -20,7 +20,9 @@ const databases = [
   'sdar_v122_verify_rogue_ledger',
   'sdar_v13_verify_upgrade',
   'sdar_v13_verify_interrupted',
+  'sdar_v14_verify_control',
 ];
+const controlDatabaseName = databases.at(-1);
 const baselineFile = resolve(
   root,
   'infra',
@@ -30,6 +32,7 @@ const baselineFile = resolve(
 );
 const seedFile = resolve(root, 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_minimal_seed.sql');
 const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
+const controlMigrationDirectory = resolve(root, 'infra', 'postgres-control', 'migrations');
 const postBaselineMigrationFiles = (await readdir(migrationDirectory))
   .filter((file) => /^01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+\.up\.sql$/u.test(file))
   .sort();
@@ -39,6 +42,23 @@ const v123MigrationFiles = postBaselineMigrationFiles.filter(
 const v13MigrationFiles = postBaselineMigrationFiles.filter(
   (file) => file.startsWith('01') && file.slice(0, 4) >= '0125',
 );
+const controlMigrationFiles = (await readdir(controlMigrationDirectory))
+  .filter((file) => /^\d{4}_[a-z0-9_]+\.up\.sql$/u.test(file))
+  .sort();
+const controlMigrationVersions = controlMigrationFiles.map((file) =>
+  file.slice(0, -'.up.sql'.length),
+);
+const requiredRuntimeEvidenceLedgerMigration = '0146_v14_evidence_export_observation_ledger.up.sql';
+const requiredControlEvidenceAuthorityMigration = '0009_canonical_evidence_authority.up.sql';
+if (!postBaselineMigrationFiles.includes(requiredRuntimeEvidenceLedgerMigration)) {
+  throw new Error(`V141_RUNTIME_EVIDENCE_LEDGER_MIGRATION_MISSING`);
+}
+if (!controlMigrationFiles.includes(requiredControlEvidenceAuthorityMigration)) {
+  throw new Error(`V141_CONTROL_EVIDENCE_AUTHORITY_MIGRATION_MISSING`);
+}
+await assertMigrationFilePairs(migrationDirectory, postBaselineMigrationFiles, 'V13');
+await assertMigrationFilePairs(controlMigrationDirectory, controlMigrationFiles, 'V14_CONTROL');
+assertContiguousControlMigrationVersions(controlMigrationVersions);
 const expectedVersions = [
   'v1.2.2_clean_slate_baseline',
   ...postBaselineMigrationFiles.map((file) => file.slice(0, -'.up.sql'.length)),
@@ -76,6 +96,9 @@ try {
   migrationInfrastructureEvidence = isolatedInfrastructure.evidence;
   const { applyRuntimeMigrations } = await import(
     `../dist/apps/server/src/runtime.js?baseline-check=${String(Date.now())}`
+  );
+  const { applyControlMigrations, rollbackLatestControlMigration } = await import(
+    `../dist/packages/node-control-persistence-postgres/src/migrations.js?control-baseline-check=${String(Date.now())}`
   );
   await recreateDatabases();
   await recreateSourceDatabase();
@@ -133,6 +156,29 @@ try {
     await existingPool.end();
   }
 
+  if (controlDatabaseName === undefined) throw new Error('V14_CONTROL_DATABASE_NAME_MISSING');
+  const controlPool = databasePool(controlDatabaseName);
+  try {
+    await applyControlMigrations(controlPool, controlMigrationDirectory);
+    await verifyControlBaseline(controlPool);
+    await applyControlMigrations(controlPool, controlMigrationDirectory);
+    await verifyControlBaseline(controlPool);
+    const rolledBack = await rollbackLatestControlMigration(controlPool, controlMigrationDirectory);
+    if (rolledBack !== controlMigrationVersions.at(-1)) {
+      throw new Error(
+        `V14_CONTROL_ROLLBACK_HEAD_INVALID:${String(rolledBack)}:${String(controlMigrationVersions.at(-1))}`,
+      );
+    }
+    await verifyControlEvidenceMigrationRolledBack(controlPool);
+    await applyControlMigrations(controlPool, controlMigrationDirectory);
+    await verifyControlBaseline(controlPool);
+    await expectControlChecksumDriftRejection(controlPool, applyControlMigrations);
+    await expectControlRogueLedgerRejection(controlPool, applyControlMigrations);
+    await verifyControlBaseline(controlPool);
+  } finally {
+    await controlPool.end();
+  }
+
   const roguePool = databasePool(databases[2]);
   try {
     await applyRuntimeMigrations(roguePool);
@@ -181,7 +227,7 @@ try {
       finishedAt: new Date(),
     });
   process.stdout.write(
-    `SDAR migration path verified: exact frozen v1.2.3 Compose image logical backup/restore into hardened Alpine, ${String(postBaselineMigrationFiles.length)} additive migrations through ${expectedVersions.at(-1)}, idempotency, rollback/reapply, guarded reset, rogue-ledger rejection, representative data preservation, transactional interruption recovery, and incremental SHA-256 checksum drift rejection.\n`,
+    `SDAR migration path verified: exact frozen v1.2.3 Compose image logical backup/restore into hardened Alpine, ${String(postBaselineMigrationFiles.length)} additive migrations through ${expectedVersions.at(-1)}, plus ${String(controlMigrationFiles.length)} independent Control migrations through ${controlMigrationVersions.at(-1)}, idempotency, rollback/reapply, guarded reset, rogue-ledger rejection, representative data preservation, transactional interruption recovery, and incremental SHA-256 checksum drift rejection.\n`,
   );
 } catch (error) {
   if (writeP13Evidence)
@@ -225,6 +271,8 @@ async function writeMigrationReport({ status, startedAt, finishedAt, failure }) 
       migrationHead: expectedVersions.at(-1),
       additiveMigrationCount: postBaselineMigrationFiles.length,
       v13MigrationCount: v13MigrationFiles.length,
+      controlMigrationHead: controlMigrationVersions.at(-1),
+      controlMigrationCount: controlMigrationFiles.length,
     },
     scenarios: {
       freshInstall: status,
@@ -248,6 +296,11 @@ async function writeMigrationReport({ status, startedAt, finishedAt, failure }) 
       noRepresentativeDataLoss: status === 'passed',
       transactionalInterruptionRollback: status,
       migrationChecksumDriftRejection: status,
+      controlFreshInstall: status,
+      controlIdempotentReapply: status,
+      controlRollbackAndReapply: status,
+      controlRogueLedgerRejection: status,
+      controlMigrationChecksumDriftRejection: status,
       postgresqlRestart:
         'covered independently by reports/goal/v1.3-final-chaos-recovery-report.json',
     },
@@ -290,6 +343,170 @@ async function writeMigrationReport({ status, startedAt, finishedAt, failure }) 
     resolve(reportDirectory, 'v1.3-final-migration-report.json'),
     `${JSON.stringify(report, null, 2)}\n`,
   );
+}
+
+async function assertMigrationFilePairs(directory, upFiles, codePrefix) {
+  const names = new Set(await readdir(directory));
+  for (const upFile of upFiles) {
+    const downFile = upFile.replace(/\.up\.sql$/u, '.down.sql');
+    if (!names.has(downFile)) {
+      throw new Error(`${codePrefix}_MIGRATION_DOWN_MISSING:${downFile}`);
+    }
+  }
+}
+
+function assertContiguousControlMigrationVersions(versions) {
+  for (const [index, version] of versions.entries()) {
+    const expectedPrefix = `${String(index + 1).padStart(4, '0')}_`;
+    if (!version.startsWith(expectedPrefix)) {
+      throw new Error(`V14_CONTROL_MIGRATION_GAP:${expectedPrefix}:${String(version)}`);
+    }
+  }
+}
+
+async function verifyControlBaseline(pool) {
+  const ledger = await pool.query(
+    `SELECT version, checksum::text AS checksum
+       FROM sdar_control.control_schema_migration
+      ORDER BY version`,
+  );
+  if (
+    JSON.stringify(ledger.rows.map(({ version }) => version)) !==
+    JSON.stringify(controlMigrationVersions)
+  ) {
+    throw new Error('V14_CONTROL_MIGRATION_MARKERS_INVALID');
+  }
+  for (const [index, file] of controlMigrationFiles.entries()) {
+    const row = ledger.rows[index];
+    const expectedChecksum = createHash('sha256')
+      .update(await readFile(resolve(controlMigrationDirectory, file)))
+      .digest('hex');
+    if (row?.checksum !== expectedChecksum) {
+      throw new Error(`V14_CONTROL_MIGRATION_CHECKSUM_INVALID:${String(row?.version)}`);
+    }
+  }
+
+  const authority = await pool.query(
+    `SELECT
+       to_regclass('sdar_control.node_control_evidence_observation')::text AS observation_table,
+       to_regclass('sdar_control.node_health_observation')::text AS health_table,
+       to_regclass('sdar_control.node_event_outbox')::text AS node_event_table,
+       to_regprocedure('sdar_control.capture_node_control_evidence_observation()')::text
+         AS capture_function,
+       to_regclass('public.schema_migration') IS NULL AS runtime_ledger_absent,
+       (SELECT count(*)::integer
+          FROM pg_trigger
+         WHERE tgname LIKE 'evidence_observe_%' AND NOT tgisinternal) AS observation_triggers`,
+  );
+  const row = authority.rows[0];
+  if (
+    row?.observation_table !== 'sdar_control.node_control_evidence_observation' ||
+    row?.health_table !== 'sdar_control.node_health_observation' ||
+    row?.node_event_table !== 'sdar_control.node_event_outbox' ||
+    row?.capture_function !== 'sdar_control.capture_node_control_evidence_observation()' ||
+    row?.runtime_ledger_absent !== true ||
+    row?.observation_triggers !== 19
+  ) {
+    throw new Error(`V141_CONTROL_EVIDENCE_AUTHORITY_INVALID:${JSON.stringify(row)}`);
+  }
+}
+
+async function verifyControlEvidenceMigrationRolledBack(pool) {
+  const ledger = await pool.query(
+    `SELECT array_agg(version ORDER BY version) AS versions
+       FROM sdar_control.control_schema_migration`,
+  );
+  if (
+    JSON.stringify(ledger.rows[0]?.versions) !==
+    JSON.stringify(controlMigrationVersions.slice(0, -1))
+  ) {
+    throw new Error('V141_CONTROL_EVIDENCE_ROLLBACK_MARKERS_INVALID');
+  }
+  const state = await pool.query(
+    `SELECT
+       to_regclass('sdar_control.node_control_evidence_observation') IS NULL
+         AS observation_table_absent,
+       to_regclass('sdar_control.node_health_observation') IS NULL AS health_table_absent,
+       to_regclass('sdar_control.node_event_outbox')::text AS node_event_table,
+       to_regprocedure('sdar_control.capture_node_control_evidence_observation()') IS NULL
+         AS capture_function_absent,
+       to_regclass('public.schema_migration') IS NULL AS runtime_ledger_absent,
+       (SELECT count(*)::integer
+          FROM pg_trigger
+         WHERE tgname LIKE 'evidence_observe_%' AND NOT tgisinternal) AS observation_triggers`,
+  );
+  const row = state.rows[0];
+  if (
+    row?.observation_table_absent !== true ||
+    row?.health_table_absent !== true ||
+    row?.node_event_table !== 'sdar_control.node_event_outbox' ||
+    row?.capture_function_absent !== true ||
+    row?.runtime_ledger_absent !== true ||
+    row?.observation_triggers !== 0
+  ) {
+    throw new Error(`V141_CONTROL_EVIDENCE_ROLLBACK_INCOMPLETE:${JSON.stringify(row)}`);
+  }
+}
+
+async function expectControlChecksumDriftRejection(pool, applyControlMigrations) {
+  const version = controlMigrationVersions.at(-1);
+  if (version === undefined) throw new Error('V14_CONTROL_CHECKSUM_FIXTURE_MISSING');
+  const recorded = await pool.query(
+    `SELECT checksum::text AS checksum
+       FROM sdar_control.control_schema_migration
+      WHERE version=$1`,
+    [version],
+  );
+  const checksum = recorded.rows[0]?.checksum;
+  if (typeof checksum !== 'string') throw new Error('V14_CONTROL_CHECKSUM_RECORD_MISSING');
+  const drifted = checksum.startsWith('0') ? '1'.repeat(64) : '0'.repeat(64);
+  await pool.query(
+    'UPDATE sdar_control.control_schema_migration SET checksum=$2 WHERE version=$1',
+    [version, drifted],
+  );
+  let rejected = false;
+  try {
+    await applyControlMigrations(pool, controlMigrationDirectory);
+  } catch (error) {
+    if (controlMigrationErrorCode(error) !== 'CONTROL_MIGRATION_CHECKSUM_DRIFT') throw error;
+    rejected = true;
+  } finally {
+    await pool.query(
+      'UPDATE sdar_control.control_schema_migration SET checksum=$2 WHERE version=$1',
+      [version, checksum],
+    );
+  }
+  if (!rejected) throw new Error(`V14_CONTROL_MIGRATION_CHECKSUM_DRIFT_ACCEPTED:${version}`);
+}
+
+async function expectControlRogueLedgerRejection(pool, applyControlMigrations) {
+  const version = '9999_verifier_only_rogue';
+  await pool.query(
+    `INSERT INTO sdar_control.control_schema_migration(version,checksum)
+     VALUES ($1,$2)`,
+    [version, '0'.repeat(64)],
+  );
+  let rejected = false;
+  try {
+    await applyControlMigrations(pool, controlMigrationDirectory);
+  } catch (error) {
+    if (controlMigrationErrorCode(error) !== 'CONTROL_MIGRATION_ROGUE_LEDGER') throw error;
+    rejected = true;
+  } finally {
+    await pool.query('DELETE FROM sdar_control.control_schema_migration WHERE version=$1', [
+      version,
+    ]);
+  }
+  if (!rejected) throw new Error('V14_CONTROL_MIGRATION_ROGUE_LEDGER_ACCEPTED');
+}
+
+function controlMigrationErrorCode(error) {
+  return typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string'
+    ? error.code
+    : undefined;
 }
 
 async function startIsolatedMigrationInfrastructure() {
@@ -521,8 +738,7 @@ function inspectRemoteOciIndex(image) {
   );
   const requestedDigest = image.split('@').at(-1);
   const linuxAmd64 = index.manifests?.find(
-    (manifest) =>
-      manifest.platform?.os === 'linux' && manifest.platform?.architecture === 'amd64',
+    (manifest) => manifest.platform?.os === 'linux' && manifest.platform?.architecture === 'amd64',
   );
   if (
     index.mediaType !== 'application/vnd.oci.image.index.v1+json' ||
@@ -713,6 +929,8 @@ async function verifyBaseline(pool) {
     'evidence_outbox',
     'evidence_source_checkpoint',
     'evidence_export_state',
+    'evidence_export_batch',
+    'evidence_export_ack',
     'evidence_dead_letter',
     'evidence_projection_issue',
     'evidence_quality_issue',
@@ -741,6 +959,16 @@ async function verifyBaseline(pool) {
        EXISTS(SELECT 1 FROM information_schema.columns
          WHERE table_schema='public' AND table_name='evidence_export_state'
            AND column_name='fencing_token' AND is_nullable='NO') AS fencing_token,
+       EXISTS(SELECT 1 FROM information_schema.columns
+         WHERE table_schema='public' AND table_name='evidence_outbox'
+           AND column_name='observation_generation' AND is_nullable='NO'
+           AND data_type='smallint') AS observation_generation,
+       EXISTS(SELECT 1 FROM pg_trigger
+         WHERE tgname='evidence_export_batch_immutable' AND NOT tgisinternal) AS batch_immutable,
+       EXISTS(SELECT 1 FROM pg_trigger
+         WHERE tgname='evidence_export_ack_immutable' AND NOT tgisinternal) AS ack_immutable,
+       EXISTS(SELECT 1 FROM pg_constraint
+         WHERE conname='evidence_export_ack_ack_disposition_check') AS ack_disposition_check,
        EXISTS(SELECT 1 FROM information_schema.table_constraints
          WHERE table_schema='public' AND table_name='evidence_source_checkpoint'
            AND constraint_type='PRIMARY KEY') AS checkpoint_partition_key`,
@@ -754,6 +982,10 @@ async function verifyBaseline(pool) {
     evidence?.source_unique !== true ||
     evidence?.pending_index !== true ||
     evidence?.fencing_token !== true ||
+    evidence?.observation_generation !== true ||
+    evidence?.batch_immutable !== true ||
+    evidence?.ack_immutable !== true ||
+    evidence?.ack_disposition_check !== true ||
     evidence?.checkpoint_partition_key !== true
   ) {
     throw new Error('V141_CANONICAL_EVIDENCE_CUTOVER_INVALID');
@@ -894,7 +1126,9 @@ async function verifyPostBaselineMigrationsRolledBack(pool) {
             to_regclass('public.compiled_artifact') IS NULL AS artifact_absent,
             to_regclass('public.evidence_outbox') IS NULL AS evidence_outbox_absent,
             to_regclass('public.evidence_source_checkpoint') IS NULL AS evidence_checkpoint_absent,
-            to_regclass('public.episode_evidence_manifest') IS NULL AS evidence_manifest_absent`,
+            to_regclass('public.episode_evidence_manifest') IS NULL AS evidence_manifest_absent,
+            to_regclass('public.evidence_export_batch') IS NULL AS evidence_batch_absent,
+            to_regclass('public.evidence_export_ack') IS NULL AS evidence_ack_absent`,
   );
   if (
     tables.rows[0]?.capability_absent !== true ||
@@ -903,7 +1137,9 @@ async function verifyPostBaselineMigrationsRolledBack(pool) {
     tables.rows[0]?.artifact_absent !== true ||
     tables.rows[0]?.evidence_outbox_absent !== true ||
     tables.rows[0]?.evidence_checkpoint_absent !== true ||
-    tables.rows[0]?.evidence_manifest_absent !== true
+    tables.rows[0]?.evidence_manifest_absent !== true ||
+    tables.rows[0]?.evidence_batch_absent !== true ||
+    tables.rows[0]?.evidence_ack_absent !== true
   ) {
     throw new Error('V123_ROLLBACK_TABLES_REMAIN');
   }

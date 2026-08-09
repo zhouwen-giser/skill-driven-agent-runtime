@@ -36,6 +36,11 @@ const unitInterval: EvidenceJsonSchema = { type: 'number', minimum: 0, maximum: 
 const numberValue: EvidenceJsonSchema = { type: 'number' };
 const dateTime: EvidenceJsonSchema = { type: 'string', format: 'date-time' };
 const openText: EvidenceJsonSchema = { type: 'string', maxLength: 65_536 };
+const decimalSequence: EvidenceJsonSchema = {
+  type: 'string',
+  pattern: '^(?:0|[1-9][0-9]{0,18})$',
+};
+const observationGeneration: EvidenceJsonSchema = { type: 'integer', enum: [0, 1] };
 
 const EXPERIENCE_ACTIVITY_KINDS = [
   'skill_goal',
@@ -654,12 +659,424 @@ const phase8PayloadProperties: Readonly<
   },
 });
 
+const configurationTargetType = enumText([
+  'node',
+  'llm_provider',
+  'model_route',
+  'smpp_source',
+  'mcp_provider_binding',
+  'telemetry_link',
+  'runtime_policy',
+]);
+const configurationApplyMode = enumText([
+  'hot_reload',
+  'new_task_only',
+  'reconnect_required',
+  'restart_required',
+  'immutable',
+]);
+const canonicalStringMap: EvidenceJsonSchema = {
+  type: 'object',
+  maxProperties: 64,
+  additionalProperties: text(512),
+};
+const canonicalObject = evidenceValueObject();
+const canonicalValue: EvidenceJsonSchema = { $ref: '#/$defs/evidenceValue' };
+const nodeHealthComponent = exactObject(
+  {
+    component: text(256),
+    status: enumText(['healthy', 'degraded', 'unavailable', 'disabled']),
+    reasonCode: nullable(text(512)),
+    observedAt: dateTime,
+  },
+  ['component', 'status', 'reasonCode', 'observedAt'],
+);
+const controlAuditPayload = {
+  auditId: text(),
+  actorId: text(),
+  action: text(),
+  aggregateType: text(),
+  aggregateId: text(),
+  expectedRevision: nullable(positiveDatabaseInteger),
+  resultRevision: nullable(positiveDatabaseInteger),
+  reason: text(16_384),
+  requestHash: hash,
+  resultCode: text(),
+  createdAt: dateTime,
+} as const satisfies Readonly<Record<string, EvidenceJsonSchema>>;
+
+/**
+ * Phase 9 is a cross-database governance boundary. Every required Node Control field is explicit:
+ * a new source column cannot silently inherit the generic name heuristic and closed vocabularies
+ * reject unknown authority states.
+ */
+const phase9PayloadProperties: Readonly<
+  Record<string, Readonly<Record<string, EvidenceJsonSchema>>>
+> = Object.freeze({
+  'node_control.profile_revision': {
+    nodeId: text(),
+    nodeType: text(),
+    displayName: text(256),
+    description: openText,
+    environment: text(256),
+    labels: canonicalStringMap,
+    authorityScopes: uniqueStringArray(64),
+    runtimeEndpointRef: text(),
+    telemetrySourceId: nullable(text()),
+    status: enumText(['draft', 'active', 'maintenance', 'retired']),
+    revision: positiveInteger,
+    createdBy: text(),
+    createdAt: dateTime,
+    updatedAt: dateTime,
+    validatedAt: nullable(dateTime),
+    publishedAt: nullable(dateTime),
+  },
+  'node_control.health_observation': {
+    observationId: text(),
+    observationRevision: positiveInteger,
+    nodeId: text(),
+    healthStatus: enumText(['healthy', 'degraded', 'unavailable', 'maintenance']),
+    components: schemaArray(nodeHealthComponent, { maxItems: 64 }),
+    activeTasks: nonNegativeInteger,
+    observedAt: dateTime,
+  },
+  'node_control.configuration_revision': {
+    configurationId: text(),
+    targetType: configurationTargetType,
+    targetId: text(),
+    revision: positiveInteger,
+    status: enumText([
+      'draft',
+      'validated',
+      'published',
+      'applying',
+      'applied',
+      'partially_applied',
+      'rejected',
+      'rolled_back',
+    ]),
+    applyMode: configurationApplyMode,
+    content: canonicalValue,
+    checksum: hash,
+    createdBy: text(),
+    createdAt: dateTime,
+    publishedAt: nullable(dateTime),
+  },
+  'node_control.configuration_apply_ack': {
+    applicationId: text(),
+    configurationId: text(),
+    revision: positiveInteger,
+    runtimeInstanceId: text(),
+    status: enumText([
+      'pending',
+      'staging',
+      'applied',
+      'partially_applied',
+      'rejected',
+      'restart_required',
+      'stale',
+      'unavailable',
+    ]),
+    observedRuntimeVersion: nullable(text()),
+    activeChecksum: nullable(hash),
+    reasonCode: nullable(text()),
+    detail: canonicalObject,
+    acknowledgedAt: nullable(dateTime),
+  },
+  'node_control.configuration_lkg_transition': {
+    targetType: configurationTargetType,
+    targetId: text(),
+    desiredConfigurationId: text(),
+    desiredRevision: positiveInteger,
+    desiredChecksum: hash,
+    desiredStatus: text(),
+    desiredOperationId: text(),
+    observedConfigurationId: nullable(text()),
+    observedRevision: nullable(positiveInteger),
+    observedChecksum: nullable(hash),
+    observedStatus: text(),
+    observedRuntimeVersion: nullable(text()),
+    observedAt: nullable(dateTime),
+    convergenceStatus: enumText([
+      'converged',
+      'pending',
+      'degraded',
+      'rejected',
+      'restart_required',
+      'unavailable',
+    ]),
+    reasonCode: nullable(text()),
+    detail: nullable(openText),
+    generation: positiveInteger,
+  },
+  'node_control.llm_provider_revision': {
+    providerId: text(),
+    revision: positiveInteger,
+    providerType: enumText(['openai_compatible', 'anthropic', 'local']),
+    baseUrl: text(),
+    modelCatalog: schemaArray(canonicalObject, { minItems: 1, maxItems: 256 }),
+    healthPolicy: canonicalObject,
+    rateLimitPolicy: canonicalObject,
+    status: enumText(['draft', 'active', 'degraded', 'suspended', 'retired']),
+    secretStatus: enumText(['unknown', 'available', 'unavailable', 'invalid']),
+    lastValidatedAt: nullable(dateTime),
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+  'node_control.model_route_revision': {
+    routeId: text(),
+    revision: positiveInteger,
+    stage: enumText([
+      'understanding',
+      'planning',
+      'execution',
+      'evaluation',
+      'summary',
+      'embedding',
+    ]),
+    primaryCandidate: canonicalObject,
+    fallbackCandidates: schemaArray(canonicalObject, { maxItems: 64 }),
+    budgetPolicy: canonicalObject,
+    scopeType: enumText(['stage', 'task', 'case']),
+    scopeKey: openText,
+    status: enumText(['draft', 'active', 'suspended', 'retired']),
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+  'node_control.smpp_source_revision': {
+    smppSourceId: text(),
+    revision: positiveInteger,
+    name: nullable(text()),
+    registryEndpoint: text(),
+    tenantId: nullable(text()),
+    projectId: nullable(text()),
+    environment: text(256),
+    syncMode: enumText(['manual', 'poll', 'watch']),
+    snapshotTtlSeconds: positiveInteger,
+    lkgPolicy: enumText(['allow_unexpired', 'deny_when_unavailable']),
+    status: enumText(['draft', 'active', 'suspended', 'retired']),
+    activeSnapshotRevision: nullable(positiveInteger),
+    activeSnapshotChecksum: nullable(hash),
+    activeSnapshotEtag: nullable(text()),
+    lastSyncAt: nullable(dateTime),
+    lastErrorCode: nullable(text()),
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+  'node_control.mcp_provider_binding_revision': {
+    bindingId: text(),
+    revision: positiveInteger,
+    localServerId: text(),
+    originType: enumText(['direct', 'smpp_registry']),
+    smppSourceId: nullable(text()),
+    externalProviderId: nullable(text()),
+    externalServerId: nullable(text()),
+    registryRevision: nullable(positiveInteger),
+    registryChecksum: nullable(hash),
+    catalogRevision: text(),
+    catalogChecksum: hash,
+    endpointRef: text(),
+    status: enumText(['candidate', 'imported', 'active', 'degraded', 'suspended', 'removed']),
+    availabilityStatus: enumText(['unknown', 'available', 'degraded', 'unavailable']),
+    availabilityValidUntil: dateTime,
+    catalogObservedAt: dateTime,
+    operationCount: nonNegativeInteger,
+    createdAt: dateTime,
+  },
+  'node_control.skill_governance': {
+    ...controlAuditPayload,
+    action: { type: 'string', minLength: 7, maxLength: 4096, pattern: '^skill\\.' },
+  },
+  'node_control.plan_template_governance': {
+    ...controlAuditPayload,
+    action: { type: 'string', minLength: 15, maxLength: 4096, pattern: '^plan-template\\.' },
+  },
+  'node_control.capability_revision': {
+    capabilityId: text(),
+    version: positiveInteger,
+    domain: text(),
+    name: text(),
+    description: openText,
+    inputSchema: canonicalObject,
+    outputSchema: canonicalObject,
+    successCriteria: schemaArray(canonicalObject, { maxItems: 256 }),
+    requiredEvidence: schemaArray(canonicalObject, { maxItems: 256 }),
+    effects: uniqueStringArray(256),
+    artifacts: uniqueStringArray(256),
+    constraints: schemaArray(canonicalObject, { maxItems: 256 }),
+    supportedModes: uniqueStringArray(256),
+    riskLevel: enumText(['low', 'medium', 'high', 'critical']),
+    status: enumText(['draft', 'validating', 'published', 'suspended', 'deprecated', 'retired']),
+    definitionHash: hash,
+    previousVersion: nullable(positiveInteger),
+    createdBy: nullable(text()),
+    createdAt: nullable(dateTime),
+    updatedAt: dateTime,
+  },
+  'node_control.capability_readiness': {
+    eventId: text(),
+    nodeId: text(),
+    capabilityId: text(),
+    capabilityVersion: positiveInteger,
+    readinessStatus: enumText(['available', 'degraded', 'unavailable', 'suspended']),
+    snapshotVersion: positiveInteger,
+    snapshotHash: hash,
+    evaluatedAt: dateTime,
+    validUntil: dateTime,
+  },
+  'node_control.a2a_exposure': {
+    exposureId: text(),
+    version: positiveInteger,
+    capabilityId: text(),
+    capabilityVersion: positiveInteger,
+    agentSkillId: text(),
+    name: text(256),
+    description: text(2048),
+    tags: uniqueStringArray(100),
+    examples: schemaArray(text(512), { maxItems: 100 }),
+    inputModes: uniqueStringArray(100),
+    outputModes: uniqueStringArray(100),
+    requestSchema: canonicalObject,
+    resultSchema: canonicalObject,
+    visibility: enumText(['organization', 'public']),
+    requesterPolicy: nullable(canonicalObject),
+    readinessPublicationPolicy: enumText([
+      'publish_when_available',
+      'publish_degraded',
+      'always_publish_with_status',
+    ]),
+    status: enumText(['draft', 'published', 'suspended', 'retired']),
+    exposureHash: hash,
+    createdAt: dateTime,
+    updatedAt: dateTime,
+  },
+  'node_control.agent_card_revision': {
+    revision: positiveInteger,
+    nodeId: text(),
+    exposureRefs: uniqueStringArray(256),
+    contentHash: hash,
+    capabilityCatalogHash: hash,
+    status: enumText(['candidate', 'staged', 'active', 'rejected', 'superseded']),
+    card: canonicalObject,
+    generatedAt: dateTime,
+    activatedAt: nullable(dateTime),
+    rejectionCode: nullable(text()),
+  },
+  'node_control.management_operation': {
+    operationId: text(),
+    operationType: text(),
+    target: exactObject(
+      {
+        type: text(),
+        id: text(),
+        version: nullable(text()),
+        revision: nullable(positiveInteger),
+      },
+      ['type', 'id', 'version', 'revision'],
+    ),
+    status: enumText(['accepted', 'running', 'succeeded', 'failed', 'canceled']),
+    idempotencyKeyHash: hash,
+    inputHash: hash,
+    actorId: text(),
+    reason: text(16_384),
+    result: nullable(canonicalValue),
+    errorCode: nullable(text()),
+    createdAt: dateTime,
+    startedAt: nullable(dateTime),
+    completedAt: nullable(dateTime),
+  },
+  'node_control.audit_event': controlAuditPayload,
+  'node_control.node_event': {
+    sequence: decimalSequence,
+    eventId: text(),
+    eventType: enumText([
+      'node.profile.changed',
+      'node.health.changed',
+      'node.configuration.revision_published',
+      'node.configuration.revision_applied',
+      'node.configuration.revision_rejected',
+      'node.llm.provider_changed',
+      'node.smpp.source_changed',
+      'node.mcp.provider_binding_changed',
+      'node.skill.version_changed',
+      'node.plan_template.version_changed',
+      'node.capability.version_published',
+      'node.capability.version_suspended',
+      'node.capability.version_deprecated',
+      'node.capability.version_retired',
+      'node.capability.readiness_changed',
+      'node.a2a.exposure_changed',
+      'node.agent_card.activated',
+      'node.task.capability_bound',
+      'node.management_operation.completed',
+      'node.telemetry_export.status_changed',
+    ]),
+    occurredAt: dateTime,
+    recordedAt: dateTime,
+    nodeId: text(),
+    aggregateType: text(),
+    aggregateId: text(),
+    aggregateRevision: positiveInteger,
+    correlationId: text(),
+    causationId: nullable(text()),
+    actorId: nullable(text()),
+    dataClassification: enumText(['public', 'internal', 'restricted']),
+    payload: canonicalObject,
+  },
+  'node_control.telemetry_configuration': {
+    configurationId: text(),
+    targetId: text(),
+    revision: positiveInteger,
+    status: enumText([
+      'draft',
+      'validated',
+      'published',
+      'applying',
+      'applied',
+      'partially_applied',
+      'rejected',
+      'rolled_back',
+    ]),
+    applyMode: configurationApplyMode,
+    content: canonicalValue,
+    checksum: hash,
+    createdBy: text(),
+    createdAt: dateTime,
+    publishedAt: nullable(dateTime),
+  },
+  'node_control.telemetry_delivery': {
+    batchId: text(),
+    exportId: text(),
+    sourcePartition: text(),
+    configurationRevision: positiveInteger,
+    firstSequence: decimalSequence,
+    lastSequence: decimalSequence,
+    batchHash: hash,
+    recordCount: positiveInteger,
+    attemptNo: positiveInteger,
+    deliveryStatus: { const: 'attempted' },
+    recordedAt: dateTime,
+  },
+  'node_control.telemetry_ack': {
+    ackId: text(),
+    batchId: text(),
+    exportId: text(),
+    sourcePartition: text(),
+    acknowledgedSequence: nullable(decimalSequence),
+    batchHash: hash,
+    ackDisposition: enumText(['accepted', 'partial', 'rejected']),
+    errorCode: nullable(text()),
+    acknowledgedAt: dateTime,
+  },
+});
+
 function payloadProperty(recordType: string, field: string): EvidenceJsonSchema {
   const phase8 = phase8PayloadProperties[recordType];
-  const explicit = phase8?.[field];
+  const phase9 = phase9PayloadProperties[recordType];
+  const explicit = phase8?.[field] ?? phase9?.[field];
   if (explicit !== undefined) return explicit;
-  if (phase8 !== undefined) {
-    throw new Error(`Phase 8 payload field ${recordType}.${field} has no authoritative schema.`);
+  if (phase8 !== undefined || phase9 !== undefined) {
+    throw new Error(`Governed payload field ${recordType}.${field} has no authoritative schema.`);
   }
   return inferredPayloadProperty(field);
 }
@@ -740,6 +1157,167 @@ function payloadCrossFieldConstraints(recordType: string): EvidenceJsonSchema {
           then: objectPropertiesConstraint({
             result: nullable(enumText(['passed', 'failed', 'needs_more_data', 'unsafe'])),
           }),
+        },
+      ],
+    };
+  }
+  if (
+    recordType === 'node_control.configuration_revision' ||
+    recordType === 'node_control.telemetry_configuration'
+  ) {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          status: enumText(['draft', 'validated']),
+          publishedAt: { const: null },
+        }),
+        objectPropertiesConstraint({
+          status: enumText([
+            'published',
+            'applying',
+            'applied',
+            'partially_applied',
+            'rejected',
+            'rolled_back',
+          ]),
+          publishedAt: dateTime,
+        }),
+      ],
+    };
+  }
+  if (recordType === 'node_control.configuration_apply_ack') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          status: enumText(['pending', 'staging']),
+          acknowledgedAt: { const: null },
+        }),
+        objectPropertiesConstraint({
+          status: enumText([
+            'applied',
+            'partially_applied',
+            'rejected',
+            'restart_required',
+            'stale',
+            'unavailable',
+          ]),
+          acknowledgedAt: dateTime,
+        }),
+      ],
+    };
+  }
+  if (recordType === 'node_control.configuration_lkg_transition') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          observedConfigurationId: { const: null },
+          observedRevision: { const: null },
+          observedChecksum: { const: null },
+        }),
+        objectPropertiesConstraint({
+          observedConfigurationId: text(),
+          observedRevision: positiveInteger,
+          observedChecksum: hash,
+        }),
+      ],
+    };
+  }
+  if (recordType === 'node_control.smpp_source_revision') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          activeSnapshotRevision: { const: null },
+          activeSnapshotChecksum: { const: null },
+          activeSnapshotEtag: { const: null },
+        }),
+        objectPropertiesConstraint({
+          activeSnapshotRevision: positiveInteger,
+          activeSnapshotChecksum: hash,
+          activeSnapshotEtag: text(),
+        }),
+      ],
+    };
+  }
+  if (recordType === 'node_control.mcp_provider_binding_revision') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          originType: { const: 'direct' },
+          smppSourceId: { const: null },
+          externalProviderId: { const: null },
+          externalServerId: { const: null },
+          registryRevision: { const: null },
+          registryChecksum: { const: null },
+        }),
+        objectPropertiesConstraint({
+          originType: { const: 'smpp_registry' },
+          smppSourceId: text(),
+          externalProviderId: text(),
+          externalServerId: text(),
+          registryRevision: positiveInteger,
+          registryChecksum: hash,
+        }),
+      ],
+    };
+  }
+  if (recordType === 'node_control.management_operation') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          status: { const: 'accepted' },
+          startedAt: { const: null },
+          completedAt: { const: null },
+          errorCode: { const: null },
+        }),
+        objectPropertiesConstraint({
+          status: { const: 'running' },
+          startedAt: dateTime,
+          completedAt: { const: null },
+          errorCode: { const: null },
+        }),
+        objectPropertiesConstraint({
+          status: enumText(['succeeded', 'canceled']),
+          completedAt: dateTime,
+          errorCode: { const: null },
+        }),
+        objectPropertiesConstraint({
+          status: { const: 'failed' },
+          completedAt: dateTime,
+          errorCode: text(),
+        }),
+      ],
+    };
+  }
+  if (recordType === 'node_control.telemetry_ack') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          ackDisposition: enumText(['accepted', 'partial']),
+          acknowledgedSequence: decimalSequence,
+          errorCode: { const: null },
+        }),
+        objectPropertiesConstraint({
+          ackDisposition: { const: 'rejected' },
+          acknowledgedSequence: { const: null },
+          errorCode: text(),
+        }),
+      ],
+    };
+  }
+  return {};
+}
+
+function envelopeCrossFieldConstraints(recordType: string): EvidenceJsonSchema {
+  if (
+    recordType === 'node_control.telemetry_delivery' ||
+    recordType === 'node_control.telemetry_ack'
+  ) {
+    return {
+      allOf: [
+        {
+          type: 'object',
+          required: ['observationGeneration'],
+          properties: { observationGeneration: { const: 1 } },
         },
       ],
     };
@@ -1000,6 +1578,7 @@ export function buildEvidenceRecordSchema(
       recordedAt: { type: 'string', format: 'date-time' },
       deliveryGuarantee: { const: entry.deliveryGuarantee },
       evaluationRole: { const: entry.evaluationRole },
+      observationGeneration,
       evidenceRefs: { type: 'array', maxItems: 256, uniqueItems: true, items: text() },
       artifactRefs: {
         type: 'array',
@@ -1068,6 +1647,7 @@ export function buildEvidenceRecordSchema(
         ? { conditionExpression: conditionExpressionDefinition }
         : {}),
     },
+    ...envelopeCrossFieldConstraints(entry.recordType),
     'x-sdar-compatibility': entry.compatibility,
     'x-sdar-maximum-inline-bytes': entry.maximumInlineBytes,
     'x-sdar-redaction-policy': entry.redactionPolicy,

@@ -3,10 +3,10 @@
   "status": "IN_PROGRESS",
   "branch": "feature/v1.4.1-canonical-evidence-export",
   "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "headSha": "15ed8dd",
+  "headSha": "ca0bf35",
   "prNumber": 18,
   "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
-  "lastCompletedPhase": 8,
+  "lastCompletedPhase": 9,
   "sourceInventory": {
     "classified": 100,
     "sourceConfirmed": 100,
@@ -18,27 +18,29 @@
     "requiredTotal": 95,
     "diagnosticTotal": 5,
     "catalogTotal": 100,
-    "implemented": 74,
-    "verified": 74,
-    "percent": 77.89
+    "implemented": 95,
+    "verified": 95,
+    "requiredImplementedAndVerified": 94,
+    "percent": 98.95
   },
   "recordCatalog": {
     "total": 100,
-    "implemented": 74,
-    "verified": 74,
+    "implemented": 95,
+    "verified": 95,
     "contractDefined": 100,
     "schemaVerified": 100,
-    "schemaRegistryHash": "sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d"
+    "schemaRegistryHash": "sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88"
   },
   "tests": {
     "pnpmInstallFrozenLockfile": "passed",
-    "pnpmVerify": "last_passed_phase7; phase8_affected_gates_passed; next_mandatory_phase9",
-    "unit": 1024,
+    "pnpmVerify": "last complete pass phase7; phase9 attempt1 failed lint and was repaired; attempt2 passed 1058 Unit/performance assertions then failed one stale Contract fixture; affected Contract passed 10/10; next complete run deferred to Phase14 by explicit user direction",
+    "unit": 1036,
     "performanceUnit": 22,
     "contract": 240,
     "integration": 166,
     "e2e": 72,
-    "runtimeMigrations": 38,
+    "runtimeMigrations": 39,
+    "controlMigrations": 9,
     "phase3FocusedPostgres": 11,
     "phase3FullVerifyDurationMs": 553810,
     "phase4FocusedUnit": 21,
@@ -79,11 +81,25 @@
     "phase8ProjectionPipelineUnit": 3,
     "phase8ProjectionPipelinePostgres": 1,
     "phase8AffectedIntegrationComposite": 166,
-    "phase8MandatoryFullVerify": "not_scheduled; next mandatory full gate is Phase 9"
+    "phase8MandatoryFullVerify": "not_scheduled; historical Phase 8 state",
+    "phase9ImplementedNodeControlRecords": 21,
+    "phase9RemainingEvidenceSourceConfirmed": 5,
+    "phase9EvidenceContractRecords": 100,
+    "phase9EvidenceRegistryHash": "sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88",
+    "phase9RealPostgresRedisHttpE2E": 1,
+    "phase9DirectEvidenceSchemaContract": 10,
+    "phase9FullVerifyAttempt1": "failed_lint_then_repaired",
+    "phase9FullVerifyAttempt2UnitAndPerformancePassed": 1058,
+    "phase9FullVerifyAttempt2Contract": "240/241 passed; stale positive fixture repaired; direct affected suite 10/10 passed",
+    "phase9IndependentReview": "accepted_0_blocking_0_major_0_minor",
+    "phase9FullVerify": "not_passed; next complete run deferred to Phase 14 by explicit user direction"
   },
   "deferredSourceClosures": [
-    "All 100 sources are confirmed. Phases 5-8 have 74 accepted verified records; Phase 9 Node Control and Phase 10 Evidence-family closure remain pending."
+    "All 100 sources are confirmed. Phases 5-9 have 95 implemented-and-verified records. The five Evidence-family records remain source_confirmed for Phase 10."
+  ],
+  "deferredVerification": [
+    "Phase 9 full pnpm verify is not reported as passed. Explicit user direction defers one complete repository gate to Phase 14 after the repaired direct Contract suite passed 10/10."
   ],
   "blockers": [],
-  "updatedAt": "2026-08-10T01:35:00+08:00"
+  "updatedAt": "2026-08-10T03:50:11+08:00"
 }

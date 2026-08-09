@@ -4,6 +4,8 @@ import {
   createCatalogEvidenceEnvelope,
   type EvidenceBatchAcknowledgement,
   type EvidenceBatchRequest,
+  type EvidenceExportAckLedgerEntry,
+  type EvidenceExportBatchLedgerEntry,
   type EvidenceExportStatus,
   type ManagedEvidenceExportConfiguration,
 } from '../../domain/src/index.js';
@@ -71,6 +73,8 @@ describe('RuntimeEvidenceExportService', () => {
     await expect(service.drain()).resolves.toMatchObject({ delivered: 0 });
     expect(store.records).toHaveLength(2);
     expect(store.errorCode).toBe('EVIDENCE_ENDPOINT_UNAVAILABLE');
+    expect(store.batchAttempts).toHaveLength(1);
+    expect(store.acknowledgements).toHaveLength(0);
 
     transport.failSend = false;
     transport.ack = '1';
@@ -83,6 +87,20 @@ describe('RuntimeEvidenceExportService', () => {
       firstSequence: '1',
       lastSequence: '2',
     });
+    expect(store.batchAttempts.map((entry) => entry.attemptNo)).toEqual([1, 2]);
+    expect(store.batchAttempts[0]?.batchId).not.toBe(store.batchAttempts[1]?.batchId);
+    expect(store.acknowledgements).toMatchObject([
+      { ackDisposition: 'partial', acknowledgedSequence: '1', errorCode: null },
+    ]);
+    expect(store.events).toEqual([
+      'batch:1',
+      'send',
+      'failure:EVIDENCE_ENDPOINT_UNAVAILABLE',
+      'batch:2',
+      'send',
+      'mark-sent',
+      'ack:partial',
+    ]);
   });
 
   it('rejects an ACK outside the exact sent batch and leaves records pending', async () => {
@@ -96,13 +114,39 @@ describe('RuntimeEvidenceExportService', () => {
     await expect(service.drain()).resolves.toMatchObject({ delivered: 0 });
     expect(store.records).toHaveLength(1);
     expect(store.errorCode).toBe('EVIDENCE_ACK_INVALID');
-    expect(store.markedSent).toEqual([]);
+    expect(store.markedSent).toEqual(['10']);
+    expect(store.acknowledgements).toMatchObject([
+      {
+        acknowledgedSequence: null,
+        ackDisposition: 'rejected',
+        errorCode: 'EVIDENCE_ACK_INVALID',
+      },
+    ]);
+    expect(store.lastAck).toBeUndefined();
+  });
+
+  it('exports pure generation-1 telemetry without recursively recording batch or ACK facts', async () => {
+    const store = new MemoryEvidenceStore();
+    const transport = new MemoryEvidenceTransport();
+    const service = runtimeService(store, transport);
+    await service.apply(configuration);
+    store.records = [record('20', 'telemetry-20', 1)];
+
+    await expect(service.drain()).resolves.toMatchObject({ delivered: 1 });
+
+    expect(transport.lastBatch?.records).toHaveLength(1);
+    expect(store.batchAttempts).toEqual([]);
+    expect(store.acknowledgements).toEqual([]);
+    expect(store.lastAck).toBe('20');
   });
 });
 
 const now = '2026-08-04T00:00:00.000Z';
 
 function runtimeService(store: RuntimeEvidenceExportStore, transport: EvidenceExportTransport) {
+  if (store instanceof MemoryEvidenceStore && transport instanceof MemoryEvidenceTransport) {
+    transport.events = store.events;
+  }
   return new RuntimeEvidenceExportService({
     store,
     transport,
@@ -112,7 +156,11 @@ function runtimeService(store: RuntimeEvidenceExportStore, transport: EvidenceEx
   });
 }
 
-function record(sequence: string, taskId: string): EvidenceExportRecord {
+function record(
+  sequence: string,
+  taskId: string,
+  observationGeneration?: 0 | 1,
+): EvidenceExportRecord {
   const envelope = createCatalogEvidenceEnvelope({
     recordType: 'runtime.episode',
     sourceRecordId: taskId,
@@ -125,6 +173,7 @@ function record(sequence: string, taskId: string): EvidenceExportRecord {
     contextId: `context-${taskId}`,
     episodeId: taskId,
     evidenceSequence: sequence,
+    ...(observationGeneration === undefined ? {} : { observationGeneration }),
     payload: { episodeId: taskId, taskId, status: 'completed' },
   });
   return Object.freeze({
@@ -141,6 +190,7 @@ class MemoryEvidenceTransport implements EvidenceExportTransport {
   failSend = false;
   ack: string | undefined;
   lastBatch: EvidenceBatchRequest | undefined;
+  events: string[] = [];
 
   probe(): Promise<void> {
     if (this.failProbe)
@@ -155,6 +205,7 @@ class MemoryEvidenceTransport implements EvidenceExportTransport {
     batch: EvidenceBatchRequest,
   ): Promise<EvidenceBatchAcknowledgement> {
     this.lastBatch = batch;
+    this.events.push('send');
     if (this.failSend)
       return Promise.reject(
         Object.assign(new Error('offline'), { code: 'EVIDENCE_ENDPOINT_UNAVAILABLE' }),
@@ -171,6 +222,9 @@ class MemoryEvidenceStore implements RuntimeEvidenceExportStore {
   errorCode: string | undefined;
   lastAck: string | undefined;
   markedSent: string[] = [];
+  batchAttempts: EvidenceExportBatchLedgerEntry[] = [];
+  acknowledgements: EvidenceExportAckLedgerEntry[] = [];
+  events: string[] = [];
 
   findActive(): Promise<ManagedEvidenceExportConfiguration | undefined> {
     return Promise.resolve(this.active);
@@ -207,10 +261,69 @@ class MemoryEvidenceStore implements RuntimeEvidenceExportStore {
 
   markSent(_lease: EvidenceDeliveryLease, sequences: readonly string[]): Promise<void> {
     this.markedSent = [...sequences];
+    this.events.push('mark-sent');
     return Promise.resolve();
   }
 
-  acknowledge(_lease: EvidenceDeliveryLease, lastSequence: string): Promise<void> {
+  recordBatchAttempt(input: {
+    readonly lease: EvidenceDeliveryLease;
+    readonly batch: EvidenceBatchRequest;
+    readonly recordedAt: string;
+  }): Promise<EvidenceExportBatchLedgerEntry> {
+    const attemptNo = this.batchAttempts.length + 1;
+    const entry: EvidenceExportBatchLedgerEntry = Object.freeze({
+      batchId: `batch-${String(attemptNo)}`,
+      exportId: input.lease.exportId,
+      sourcePartition: input.lease.sourcePartition,
+      configurationRevision: input.batch.revision,
+      firstSequence: input.batch.firstSequence,
+      lastSequence: input.batch.lastSequence,
+      batchHash: input.batch.batchHash,
+      recordCount: input.batch.records.length,
+      attemptNo,
+      deliveryStatus: 'attempted',
+      observationGeneration: 1,
+      recordedAt: input.recordedAt,
+    });
+    this.batchAttempts.push(entry);
+    this.events.push(`batch:${String(attemptNo)}`);
+    return Promise.resolve(entry);
+  }
+
+  async recordAcknowledgement(input: {
+    readonly lease: EvidenceDeliveryLease;
+    readonly batch: EvidenceExportBatchLedgerEntry;
+    readonly acknowledgedSequence: string | null;
+    readonly ackDisposition: EvidenceExportAckLedgerEntry['ackDisposition'];
+    readonly errorCode: string | null;
+    readonly acknowledgedAt: string;
+  }): Promise<EvidenceExportAckLedgerEntry> {
+    const entry: EvidenceExportAckLedgerEntry = Object.freeze({
+      ackId: `ack-${input.batch.batchId}`,
+      batchId: input.batch.batchId,
+      exportId: input.lease.exportId,
+      sourcePartition: input.lease.sourcePartition,
+      acknowledgedSequence: input.acknowledgedSequence,
+      batchHash: input.batch.batchHash,
+      ackDisposition: input.ackDisposition,
+      errorCode: input.errorCode,
+      observationGeneration: 1,
+      acknowledgedAt: input.acknowledgedAt,
+    });
+    this.acknowledgements.push(entry);
+    this.events.push(`ack:${input.ackDisposition}`);
+    if (input.ackDisposition !== 'rejected' && input.acknowledgedSequence !== null) {
+      await this.acknowledge(input.lease, input.acknowledgedSequence, input.acknowledgedAt);
+    }
+    return entry;
+  }
+
+  acknowledge(
+    _lease: EvidenceDeliveryLease,
+    lastSequence: string,
+    _acknowledgedAt: string,
+  ): Promise<void> {
+    void _acknowledgedAt;
     this.lastAck = lastSequence;
     this.records = this.records.filter((item) => BigInt(item.sequence) > BigInt(lastSequence));
     this.errorCode = undefined;
@@ -223,6 +336,7 @@ class MemoryEvidenceStore implements RuntimeEvidenceExportStore {
     errorCode: string,
   ): Promise<void> {
     this.errorCode = errorCode;
+    this.events.push(`failure:${errorCode}`);
     return Promise.resolve();
   }
 

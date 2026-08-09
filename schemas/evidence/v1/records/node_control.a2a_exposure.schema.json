@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,90 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 20,
       "maxProperties": 128,
-      "required": ["exposureId", "version", "exposureHash"],
+      "required": [
+        "exposureId",
+        "version",
+        "capabilityId",
+        "capabilityVersion",
+        "agentSkillId",
+        "name",
+        "description",
+        "tags",
+        "examples",
+        "inputModes",
+        "outputModes",
+        "requestSchema",
+        "resultSchema",
+        "visibility",
+        "requesterPolicy",
+        "readinessPublicationPolicy",
+        "status",
+        "exposureHash",
+        "createdAt",
+        "updatedAt"
+      ],
       "properties": {
         "exposureId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "version": { "$ref": "#/$defs/evidenceValue" },
-        "exposureHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "capabilityId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "capabilityVersion": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "agentSkillId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "tags": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "examples": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "inputModes": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "outputModes": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "requestSchema": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "resultSchema": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "visibility": { "type": "string", "enum": ["organization", "public"] },
+        "requesterPolicy": {
+          "oneOf": [
+            {
+              "type": "object",
+              "maxProperties": 1024,
+              "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+            },
+            { "type": "null" }
+          ]
+        },
+        "readinessPublicationPolicy": {
+          "type": "string",
+          "enum": ["publish_when_available", "publish_degraded", "always_publish_with_status"]
+        },
+        "status": { "type": "string", "enum": ["draft", "published", "suspended", "retired"] },
+        "exposureHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

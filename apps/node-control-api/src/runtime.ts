@@ -27,7 +27,9 @@ import {
   PostgresNodeControlLlmGovernanceRepository,
   PostgresNodeControlMcpProviderBindingRepository,
   PostgresNodeControlCapabilityRepository,
+  PostgresNodeControlEvidenceSource,
   PostgresRuntimeCapabilityImplementationCatalog,
+  PostgresNodeHealthObservationProducer,
   PostgresNodeControlSmppRegistryRepository,
 } from '../../../packages/node-control-persistence-postgres/src/index.js';
 import {
@@ -37,8 +39,14 @@ import {
 import { NodeControlFrozenMcpCatalogClient } from '../../../packages/mcp-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { OfficialA2aAgentCardValidator } from '../../../packages/a2a-adapter/src/node-control-agent-card.js';
-import { RuntimeCapabilityReadinessService } from '../../../packages/runtime-control-application/src/index.js';
 import {
+  NodeControlEvidenceProjectionPipeline,
+  NodeControlEvidenceProjector,
+  RuntimeCapabilityReadinessService,
+} from '../../../packages/runtime-control-application/src/index.js';
+import {
+  PostgresEvidenceStore,
+  PostgresNodeControlTelemetryEvidenceSource,
   PostgresRuntimeAgentCardRepository,
   PostgresRuntimeTaskCapabilityBindingQuery,
   PostgresRuntimeTaskSummaryQuery,
@@ -154,6 +162,11 @@ export async function startNodeControlApi(
     });
   }, 5_000);
   readinessTimer.unref();
+  let controlEvidenceTimer: ReturnType<typeof setInterval> | undefined;
+  let healthObservationTimer: ReturnType<typeof setInterval> | undefined;
+  let controlEvidenceInFlight: Promise<void> | undefined;
+  let telemetryEvidenceInFlight: Promise<void> | undefined;
+  let healthObservationInFlight: Promise<void> | undefined;
   try {
     await service.migrate();
     await service.bootstrapNodeProfile({
@@ -164,6 +177,94 @@ export async function startNodeControlApi(
       runtimeEndpointRef: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
       status: 'active',
     });
+    const evidenceWriter = new PostgresEvidenceStore(runtimePool);
+    const controlEvidenceSource = new PostgresNodeControlEvidenceSource(pool, runtimePool, {
+      principalType: 'service',
+      actorId: `service:node-control-evidence-projector:${environment.SDAR_CONTROL_NODE_ID}`,
+      role: 'node_control_evidence_projector',
+      permission: 'node_control.evidence.read',
+      authorityScope: 'global_authority',
+      organizationScope: 'node_local',
+      nodeId: environment.SDAR_CONTROL_NODE_ID,
+      allowedDataClassifications: ['public', 'internal', 'restricted'],
+    });
+    const controlEvidenceProjector = new NodeControlEvidenceProjector({
+      source: controlEvidenceSource,
+      writer: evidenceWriter,
+      environment: environment.SDAR_CONTROL_ENVIRONMENT,
+    });
+    const controlEvidencePipeline = new NodeControlEvidenceProjectionPipeline({
+      source: controlEvidenceSource,
+      projector: controlEvidenceProjector,
+      writer: evidenceWriter,
+    });
+    const telemetryEvidenceSource = new PostgresNodeControlTelemetryEvidenceSource(runtimePool);
+    const telemetryEvidenceProjector = new NodeControlEvidenceProjector({
+      source: telemetryEvidenceSource,
+      writer: evidenceWriter,
+      environment: environment.SDAR_CONTROL_ENVIRONMENT,
+    });
+    const telemetryEvidencePipeline = new NodeControlEvidenceProjectionPipeline({
+      source: telemetryEvidenceSource,
+      projector: telemetryEvidenceProjector,
+      writer: evidenceWriter,
+    });
+    const healthObservations = new PostgresNodeHealthObservationProducer(pool);
+    const observeHealth = async () => {
+      await healthObservations.recordNext(`health-${randomUUID()}`, await service.getNodeHealth(), {
+        actorId: `node-control:${environment.SDAR_CONTROL_NODE_ID}`,
+      });
+    };
+    await observeHealth();
+    const drainControlEvidence = () => {
+      if (controlEvidenceInFlight !== undefined) return;
+      controlEvidenceInFlight = controlEvidencePipeline
+        .drain(50)
+        .then(() => undefined)
+        .catch((error: unknown) => {
+          process.stderr.write(
+            `${JSON.stringify({ event: 'node_control.evidence_projection_failed', errorCode: safeErrorCode(error, 'NODE_CONTROL_EVIDENCE_PROJECTION_FAILED') })}\n`,
+          );
+        })
+        .finally(() => {
+          controlEvidenceInFlight = undefined;
+        });
+    };
+    const drainTelemetryEvidence = () => {
+      if (telemetryEvidenceInFlight !== undefined) return;
+      telemetryEvidenceInFlight = telemetryEvidencePipeline
+        .drain(50)
+        .then(() => undefined)
+        .catch((error: unknown) => {
+          process.stderr.write(
+            `${JSON.stringify({ event: 'node_control.telemetry_evidence_projection_failed', errorCode: safeErrorCode(error, 'NODE_CONTROL_TELEMETRY_EVIDENCE_PROJECTION_FAILED') })}\n`,
+          );
+        })
+        .finally(() => {
+          telemetryEvidenceInFlight = undefined;
+        });
+    };
+    const observeCurrentHealth = () => {
+      if (healthObservationInFlight !== undefined) return;
+      healthObservationInFlight = observeHealth()
+        .catch((error: unknown) => {
+          process.stderr.write(
+            `${JSON.stringify({ event: 'node_control.health_observation_failed', errorCode: safeErrorCode(error, 'NODE_HEALTH_OBSERVATION_FAILED') })}\n`,
+          );
+        })
+        .finally(() => {
+          healthObservationInFlight = undefined;
+        });
+    };
+    controlEvidenceTimer = setInterval(() => {
+      drainControlEvidence();
+      drainTelemetryEvidence();
+    }, 1_000);
+    controlEvidenceTimer.unref();
+    healthObservationTimer = setInterval(observeCurrentHealth, 30_000);
+    healthObservationTimer.unref();
+    drainControlEvidence();
+    drainTelemetryEvidence();
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: environment.SDAR_CONTROL_API_TOKEN,
       ...(environment.SDAR_CONTROL_OPERATOR_API_TOKEN === undefined
@@ -218,6 +319,13 @@ export async function startNodeControlApi(
       baseUrl,
       async close() {
         clearInterval(readinessTimer);
+        if (controlEvidenceTimer !== undefined) clearInterval(controlEvidenceTimer);
+        if (healthObservationTimer !== undefined) clearInterval(healthObservationTimer);
+        await Promise.allSettled(
+          [controlEvidenceInFlight, telemetryEvidenceInFlight, healthObservationInFlight].filter(
+            (item): item is Promise<void> => item !== undefined,
+          ),
+        );
         await closeServer(server);
         await pool.end();
         await runtimePool.end();
@@ -225,10 +333,30 @@ export async function startNodeControlApi(
     };
   } catch (error) {
     clearInterval(readinessTimer);
+    if (controlEvidenceTimer !== undefined) clearInterval(controlEvidenceTimer);
+    if (healthObservationTimer !== undefined) clearInterval(healthObservationTimer);
+    await Promise.allSettled(
+      [controlEvidenceInFlight, telemetryEvidenceInFlight, healthObservationInFlight].filter(
+        (item): item is Promise<void> => item !== undefined,
+      ),
+    );
     await pool.end().catch(() => undefined);
     await runtimePool.end().catch(() => undefined);
     throw error;
   }
+}
+
+function safeErrorCode(error: unknown, fallback: string): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string' &&
+    /^[A-Z][A-Z0-9_]{2,127}$/u.test(error.code)
+  ) {
+    return error.code;
+  }
+  return fallback;
 }
 
 function listen(

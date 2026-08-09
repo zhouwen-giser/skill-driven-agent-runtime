@@ -10,3 +10,4 @@ export * from './skill-evidence-source.js';
 export * from './mcp-capability-evidence-source.js';
 export * from './experience-replay-artifact-evidence-source.js';
 export * from './source-artifact-ref-resolver.js';
+export * from './node-control-telemetry-evidence-source.js';

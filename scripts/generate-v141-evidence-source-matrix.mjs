@@ -20,6 +20,7 @@ const acceptedVerifiedFamilies = new Set([
   'experience',
   'replay',
   'artifact',
+  'node_control',
 ]);
 
 const sources = {
@@ -545,14 +546,14 @@ const sources = {
     'revision',
     'updated_at',
   ],
-  node_health_event: [
+  node_health_observation: [
     'control',
     controlDatabase,
-    'sdar_control.node_event_outbox[event_type=node.health.changed]',
+    'sdar_control.node_health_observation',
     'Control PostgreSQL',
-    'event_id',
-    'aggregate_revision + payload canonical hash',
-    'occurred_at',
+    'observation_id',
+    'observation_revision + canonical source hash',
+    'observed_at',
   ],
   configuration_revision: [
     'control',
@@ -638,7 +639,7 @@ const sources = {
   plan_template_governance_audit: [
     'control',
     controlDatabase,
-    'sdar_control.control_audit_event[action prefix=plan_template.]',
+    'sdar_control.control_audit_event[action prefix=plan-template.]',
     'Control PostgreSQL',
     'audit_id',
     'immutable audit event; canonical source hash',
@@ -665,7 +666,7 @@ const sources = {
   capability_readiness_event: [
     'control',
     controlDatabase,
-    'sdar_control.node_event_outbox[event_type=capability.readiness.changed]',
+    'sdar_control.node_event_outbox[event_type=node.capability.readiness_changed] + sdar_control.management_operation[result]',
     'Control PostgreSQL',
     'event_id',
     'aggregate_revision + payload canonical hash',
@@ -719,6 +720,24 @@ const sources = {
 };
 
 const phase3Sources = {
+  evidence_export_batch: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_export_batch',
+    'Runtime PostgreSQL',
+    'batch_id',
+    'immutable pre-send attempt; canonical source hash',
+    'recorded_at',
+  ],
+  evidence_export_ack: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_export_ack',
+    'Runtime PostgreSQL',
+    'ack_id',
+    'immutable receiver response; canonical source hash',
+    'acknowledged_at',
+  ],
   evidence_export_state: [
     'runtime',
     runtimeDatabase,
@@ -769,7 +788,7 @@ const phase3Sources = {
 function row(recordType, sourceKey, requiredReferences, options = {}) {
   const source = sources[sourceKey] ?? phase3Sources[sourceKey];
   if (!source) throw new Error(`Unknown source key ${sourceKey} for ${recordType}`);
-  const [, sourceDatabase, , , identity, revision, timestamp] = source;
+  const [declaredSourceSystem, sourceDatabase, , , identity, revision, timestamp] = source;
   const catalog = catalogByType.get(recordType);
   if (!catalog) throw new Error(`Missing registry metadata for ${recordType}`);
   const expectedReferences = catalog.expectedReferences.join(',');
@@ -777,6 +796,13 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
   // reference authority comes exclusively from the generated Domain Catalog registry.
   void requiredReferences;
   const sourceSystem = catalog.sourceSystem;
+  const normalizedDeclaredSourceSystem =
+    declaredSourceSystem === 'control' ? 'node_control' : declaredSourceSystem;
+  if (normalizedDeclaredSourceSystem !== sourceSystem) {
+    throw new Error(
+      `${recordType} source mapping declares ${declaredSourceSystem}, but Catalog declares ${sourceSystem}`,
+    );
+  }
   const sourceTable = catalog.sourceTable;
   const authority = catalog.authority;
   const family = catalog.recordFamily;
@@ -938,7 +964,7 @@ const records = [
   row('artifact.promotion', 'artifact_promotion', 'artifact.validation,replay.counterexample'),
 
   row('node_control.profile_revision', 'node_profile_revision', 'node_control.audit_event'),
-  row('node_control.health_observation', 'node_health_event', 'node_control.node_event'),
+  row('node_control.health_observation', 'node_health_observation', 'node_control.node_event'),
   row(
     'node_control.configuration_revision',
     'configuration_revision',
@@ -990,12 +1016,12 @@ const records = [
   ),
   row(
     'node_control.telemetry_delivery',
-    'evidence_export_state',
+    'evidence_export_batch',
     'node_control.telemetry_configuration,evidence.export_status',
   ),
   row(
     'node_control.telemetry_ack',
-    'evidence_export_state',
+    'evidence_export_ack',
     'node_control.telemetry_delivery,evidence.export_status',
   ),
 
@@ -1085,6 +1111,16 @@ const deliveryGuaranteeCounts = Object.fromEntries(
     records.filter((record) => record.delivery_guarantee === guarantee).length,
   ]),
 );
+if (
+  evaluationRoleCounts.required !== 95 ||
+  evaluationRoleCounts.diagnostic !== 5 ||
+  deliveryGuaranteeCounts.transactional !== 0 ||
+  deliveryGuaranteeCounts.durable_projection !== 100
+) {
+  throw new Error(
+    `Catalog policy counts are invalid: roles=${JSON.stringify(evaluationRoleCounts)} delivery=${JSON.stringify(deliveryGuaranteeCounts)}`,
+  );
+}
 
 await mkdir(outputDirectory, { recursive: true });
 await writeFile(path.join(outputDirectory, 'source-to-evidence-matrix.csv'), csv, 'utf8');

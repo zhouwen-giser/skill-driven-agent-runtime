@@ -1,8 +1,10 @@
 # Project Status
 
 SDAR v1.4.1 Canonical Evidence Export is `IN_PROGRESS` (2026-08-04) on
-`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-7
-are complete through Phase 8: the user-supplied task package is SHA-256 verified and retained under `docs/`; immutable
+`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-9
+have completed their scoped implementation and independent Review; the Phase 9 release-level full
+gate remains pending for the single final Phase 14 run. The user-supplied task package is SHA-256
+verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
 confirmed sources and seven explicit evidence-infrastructure blockers; Phase 3 has now closed all
@@ -55,8 +57,30 @@ timing out on the wrong Redis port `56385`; the second used `56379`, passed the 
 files / 165 tests and exposed one Node Control startup/migration isolation defect whose exact file
 then passed 1/1 after repair. Latest targeted format/lint/typecheck pass; no whole-repository format
 or successful full-verify claim is made. Task-package section 30 mandates full `pnpm verify` only at
-Phases 0/3/7/9/12/13/14, so Phase 8 is `COMPLETED`. No ClickHouse, merge, tag, release, or
-deployment has started; Phase 9 implementation has not started.
+Phases 0/3/7/9/12/13/14, so Phase 8 is `COMPLETED`.
+
+Phase 9 adds Control migration `0009_canonical_evidence_authority` and Runtime migration
+`0146_v14_evidence_export_observation_ledger`, preserving Control PostgreSQL as Node Control
+authority and Runtime PostgreSQL as Evidence/export authority. Two independently checkpointed
+sources project all 21 `node_control.*` records through a fixed privileged
+`node_control.evidence.read` service identity. Exact Last-Event-ID recovery, revision/conflict
+handling, Configuration -> Apply ACK -> LKG references, delivery -> receiver ACK references,
+recursive CredentialRef redaction, scope/classification checks and the generation-1/no-generation-2
+self-observation boundary are verified. The Server uses a bounded 32-partition single-flight drain;
+Redis remains wake-only. The Registry is 100 records (95 Required and five diagnostic), the source
+matrix is 95 `implemented_and_verified` plus five `source_confirmed`, Node Control is 21/21
+verified, and the five remaining `evidence.*` records are reserved for Phase 10. The real
+PostgreSQL/Redis/HTTP vertical passes 1/1 and independent Review is Accepted with zero Blocking,
+Major or Minor findings under Registry hash
+`sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88`.
+
+Phase 9 does not claim a successful full `pnpm verify`. Attempt one stopped at lint and the listed
+mechanical findings were repaired. Attempt two passed format, lint, typecheck and 1,058 Unit/
+performance assertions, then stopped on one stale positive Contract fixture; the repaired direct
+Evidence Schema Contract passes 10/10. Following the user's instruction not to repeat intermediate
+whole-repository verification, the next complete full gate is deferred to Phase 14. Phase 9 is
+`COMPLETED` for implementation, Review and handoff with that release-level gate explicitly pending.
+No ClickHouse implementation, merge, tag, release, or deployment has started; Phase 10 is next.
 
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`

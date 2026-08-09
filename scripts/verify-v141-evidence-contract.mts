@@ -173,6 +173,14 @@ if (JSON.stringify(deliveryGuaranteeCounts) !== JSON.stringify(catalogDeliveryGu
     `EVIDENCE_SOURCE_MATRIX_DELIVERY_COUNTS_INVALID:${JSON.stringify(deliveryGuaranteeCounts)}`,
   );
 }
+if (
+  deliveryGuaranteeCounts['transactional'] !== 0 ||
+  deliveryGuaranteeCounts['durable_projection'] !== 100
+) {
+  throw new Error(
+    `EVIDENCE_SOURCE_MATRIX_DURABILITY_INVALID:${JSON.stringify(deliveryGuaranteeCounts)}`,
+  );
+}
 
 const contract = await readJson(path.resolve('protocol/evidence/v1/evidence-contract.json'));
 if (

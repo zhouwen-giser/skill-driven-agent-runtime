@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,15 +73,97 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 11,
       "maxProperties": 128,
-      "required": ["configurationId", "revision", "checksum"],
+      "required": [
+        "configurationId",
+        "targetType",
+        "targetId",
+        "revision",
+        "status",
+        "applyMode",
+        "content",
+        "checksum",
+        "createdBy",
+        "createdAt",
+        "publishedAt"
+      ],
       "properties": {
         "configurationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "revision": { "$ref": "#/$defs/evidenceValue" },
-        "checksum": { "$ref": "#/$defs/evidenceValue" }
+        "targetType": {
+          "type": "string",
+          "enum": [
+            "node",
+            "llm_provider",
+            "model_route",
+            "smpp_source",
+            "mcp_provider_binding",
+            "telemetry_link",
+            "runtime_policy"
+          ]
+        },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "validated",
+            "published",
+            "applying",
+            "applied",
+            "partially_applied",
+            "rejected",
+            "rolled_back"
+          ]
+        },
+        "applyMode": {
+          "type": "string",
+          "enum": [
+            "hot_reload",
+            "new_task_only",
+            "reconnect_required",
+            "restart_required",
+            "immutable"
+          ]
+        },
+        "content": { "$ref": "#/$defs/evidenceValue" },
+        "checksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "publishedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "publishedAt"],
+          "properties": {
+            "status": { "type": "string", "enum": ["draft", "validated"] },
+            "publishedAt": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["status", "publishedAt"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "published",
+                "applying",
+                "applied",
+                "partially_applied",
+                "rejected",
+                "rolled_back"
+              ]
+            },
+            "publishedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
     },
     "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },

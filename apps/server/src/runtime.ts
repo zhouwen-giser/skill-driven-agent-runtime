@@ -4172,19 +4172,24 @@ export async function startServerRuntime(
       });
   }, 500);
   experienceDispatchTimer.unref();
-  let evidenceExportRunning = false;
+  const drainEvidenceExportTick = async () => {
+    const maximumPartitionsPerTick = 32;
+    for (let attempted = 0; attempted < maximumPartitionsPerTick; attempted += 1) {
+      const result = await evidenceExport.drain();
+      if (result.attemptedPartition === undefined || result.delivered === 0) return;
+    }
+  };
+  let evidenceExportInFlight: Promise<void> | undefined;
   const evidenceExportTimer = setInterval(() => {
-    if (evidenceExportRunning) return;
-    evidenceExportRunning = true;
-    void evidenceExport
-      .drain()
+    if (evidenceExportInFlight !== undefined) return;
+    evidenceExportInFlight = drainEvidenceExportTick()
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'evidence_export.delivery_failed', errorCode: runtimeErrorCode(error) })}\n`,
         );
       })
       .finally(() => {
-        evidenceExportRunning = false;
+        evidenceExportInFlight = undefined;
       });
   }, 1_000);
   evidenceExportTimer.unref();
@@ -4803,6 +4808,7 @@ export async function startServerRuntime(
         await artifactShadowRuntime?.revalidationQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
+        await evidenceExportInFlight;
         await runtimeCoreEvidenceProjection;
         await pool.end();
         if (backgroundExecutionErrors.length > 0) {
@@ -4852,6 +4858,7 @@ export async function startServerRuntime(
     await artifactShadowRuntime?.queue.close();
     await artifactShadowRuntime?.revalidationQueue.close();
     await queue.close();
+    await evidenceExportInFlight;
     await runtimeCoreEvidenceProjection;
     await pool.end();
     throw error;

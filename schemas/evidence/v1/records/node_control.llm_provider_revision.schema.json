@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,60 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 12,
       "maxProperties": 128,
-      "required": ["providerId", "revision", "status"],
+      "required": [
+        "providerId",
+        "revision",
+        "providerType",
+        "baseUrl",
+        "modelCatalog",
+        "healthPolicy",
+        "rateLimitPolicy",
+        "status",
+        "secretStatus",
+        "lastValidatedAt",
+        "createdAt",
+        "updatedAt"
+      ],
       "properties": {
         "providerId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "revision": { "$ref": "#/$defs/evidenceValue" },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "providerType": { "type": "string", "enum": ["openai_compatible", "anthropic", "local"] },
+        "baseUrl": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "modelCatalog": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "maxProperties": 1024,
+            "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          }
+        },
+        "healthPolicy": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "rateLimitPolicy": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "active", "degraded", "suspended", "retired"]
+        },
+        "secretStatus": {
+          "type": "string",
+          "enum": ["unknown", "available", "unavailable", "invalid"]
+        },
+        "lastValidatedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

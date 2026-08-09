@@ -30,6 +30,7 @@ export type EvidenceDeliveryGuarantee = 'transactional' | 'durable_projection' |
 export type EvidenceEvaluationRole = 'required' | 'supporting' | 'diagnostic';
 export type EvidenceRequirementLevel = 'required' | 'conditional' | 'optional';
 export type EvidenceSchemaCompatibility = 'backward_compatible_additive' | 'breaking';
+export type EvidenceObservationGeneration = 0 | 1;
 
 export type EvidenceJsonScalar = string | number | boolean | null;
 export type EvidenceJsonValue =
@@ -79,6 +80,8 @@ export interface CanonicalEvidenceEnvelope<TPayload extends EvidenceJsonValue = 
   readonly recordedAt: string;
   readonly deliveryGuarantee: EvidenceDeliveryGuarantee;
   readonly evaluationRole: EvidenceEvaluationRole;
+  /** Omitted is generation 0. Generation 1 is the only allowed self-observation generation. */
+  readonly observationGeneration?: EvidenceObservationGeneration;
   readonly evidenceSequence?: string;
   readonly evidenceRefs: readonly string[];
   readonly artifactRefs: readonly string[];
@@ -106,6 +109,8 @@ export interface CreateCanonicalEvidenceEnvelopeInput<
   readonly recordedAt: string;
   readonly deliveryGuarantee: EvidenceDeliveryGuarantee;
   readonly evaluationRole: EvidenceEvaluationRole;
+  /** Omitted is generation 0. Values above 1 are forbidden to prevent recursive observation. */
+  readonly observationGeneration?: EvidenceObservationGeneration;
   readonly evidenceRefs?: readonly string[];
   readonly artifactRefs?: readonly string[];
   readonly tenantId?: string;
@@ -241,6 +246,18 @@ export function createCanonicalEvidenceEnvelope<TPayload extends EvidenceJsonVal
       'evaluationRole',
     );
   }
+  const observationGeneration: unknown = input.observationGeneration;
+  if (
+    observationGeneration !== undefined &&
+    observationGeneration !== 0 &&
+    observationGeneration !== 1
+  ) {
+    throw new EvidenceContractError(
+      'EVIDENCE_IDENTITY_INVALID',
+      'observationGeneration must be 0 or 1 when present.',
+      'observationGeneration',
+    );
+  }
   const evidenceRefs = normalizeReferences(input.evidenceRefs ?? [], 'evidenceRefs');
   const artifactRefs = normalizeReferences(input.artifactRefs ?? [], 'artifactRefs');
   assertIsoTimestamp(input.occurredAt, 'occurredAt');
@@ -264,6 +281,7 @@ export function createCanonicalEvidenceEnvelope<TPayload extends EvidenceJsonVal
     'remoteTaskBindingId',
     'nodeId',
     'causationId',
+    'observationGeneration',
     'evidenceSequence',
   ] as const);
   return Object.freeze({
@@ -378,7 +396,7 @@ function canonicalize(value: unknown, depth: number, active: Set<object>, path: 
     }
     return `{${entries
       .map(([key, item]) => {
-        if (isForbiddenEvidenceField(key)) {
+        if (isForbiddenEvidenceField(key, item)) {
           throw new EvidenceContractError(
             'EVIDENCE_FORBIDDEN_FIELD',
             `Forbidden evidence field ${key}.`,
@@ -393,11 +411,38 @@ function canonicalize(value: unknown, depth: number, active: Set<object>, path: 
   }
 }
 
-function isForbiddenEvidenceField(key: string): boolean {
+function isForbiddenEvidenceField(key: string, value: unknown): boolean {
   const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/gu, '');
+  // This is an availability enum from the Control authority, never secret material or a locator.
+  if (
+    normalized === 'secretstatus' &&
+    ((typeof value === 'string' &&
+      ['unknown', 'available', 'unavailable', 'invalid'].includes(value)) ||
+      isSecretStatusSchema(value))
+  ) {
+    return false;
+  }
   if (normalized.endsWith('credentialref') || normalized.endsWith('secretref')) return false;
   return /(?:credential|password|passwd|accesstoken|refreshtoken|secret|authorization|apikey|privatekey|chainofthought|privatereasoning|reasoningcontent|hiddenreasoning)/u.test(
     normalized,
+  );
+}
+
+function isSecretStatusSchema(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const descriptor = value as Readonly<Record<string, unknown>>;
+  const keys = Object.keys(descriptor).sort();
+  const enumValues = descriptor['enum'];
+  return (
+    keys.length === 2 &&
+    keys[0] === 'enum' &&
+    keys[1] === 'type' &&
+    descriptor['type'] === 'string' &&
+    Array.isArray(enumValues) &&
+    enumValues.length === 4 &&
+    ['unknown', 'available', 'unavailable', 'invalid'].every((item, index) =>
+      Object.is(enumValues[index], item),
+    )
   );
 }
 

@@ -1,14 +1,18 @@
 import type { Pool, PoolClient } from 'pg';
 
-import type {
-  EvidenceExportStatus,
-  ManagedEvidenceExportConfiguration,
+import {
+  hashCanonicalEvidenceJson,
+  type EvidenceBatchRequest,
+  type EvidenceExportAckLedgerEntry,
+  type EvidenceExportBatchLedgerEntry,
+  type EvidenceExportStatus,
+  type ManagedEvidenceExportConfiguration,
 } from '../../domain/src/index.js';
 import type {
   EvidenceDeliveryLease,
   RuntimeEvidenceExportStore,
 } from '../../runtime-control-application/src/index.js';
-import { PostgresEvidenceStore } from './evidence-store.js';
+import { EvidencePersistenceError, PostgresEvidenceStore } from './evidence-store.js';
 
 const controlPartition = '__export__';
 
@@ -88,6 +92,167 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
     return this.#evidence.markSent(lease, sequences, observedAt);
   }
 
+  async recordBatchAttempt(input: {
+    readonly lease: EvidenceDeliveryLease;
+    readonly batch: EvidenceBatchRequest;
+    readonly recordedAt: string;
+  }): Promise<EvidenceExportBatchLedgerEntry> {
+    if (input.batch.exportId !== input.lease.exportId) {
+      throw new EvidencePersistenceError(
+        'EVIDENCE_ACK_INVALID',
+        'Evidence batch export identity does not match the fenced lease.',
+      );
+    }
+    return withTransaction(this.#pool, async (client) => {
+      const lease = await client.query(
+        `SELECT 1 FROM evidence_export_state
+         WHERE export_id=$1 AND source_partition=$2 AND lease_owner=$3 AND lease_token=$4
+           AND fencing_token=$5::bigint AND lease_expires_at>$6 FOR UPDATE`,
+        [
+          input.lease.exportId,
+          input.lease.sourcePartition,
+          input.lease.owner,
+          input.lease.token,
+          input.lease.fencingToken,
+          input.recordedAt,
+        ],
+      );
+      if (lease.rowCount !== 1) {
+        throw new EvidencePersistenceError(
+          'EVIDENCE_LEASE_NOT_OWNED',
+          'Evidence export lease is expired, fenced, or owned by another worker.',
+        );
+      }
+      const nextAttempt = await client.query<{ attempt_no: number }>(
+        `SELECT COALESCE(max(attempt_no),0)::integer + 1 AS attempt_no
+         FROM evidence_export_batch
+         WHERE export_id=$1 AND source_partition=$2`,
+        [input.batch.exportId, input.lease.sourcePartition],
+      );
+      const attemptNo = nextAttempt.rows[0]?.attempt_no ?? 1;
+      const batchId = stableLedgerId('evidence-export-batch', {
+        exportId: input.batch.exportId,
+        sourcePartition: input.lease.sourcePartition,
+        configurationRevision: input.batch.revision,
+        firstSequence: input.batch.firstSequence,
+        lastSequence: input.batch.lastSequence,
+        batchHash: input.batch.batchHash,
+        attemptNo,
+      });
+      const entry: EvidenceExportBatchLedgerEntry = Object.freeze({
+        batchId,
+        exportId: input.batch.exportId,
+        sourcePartition: input.lease.sourcePartition,
+        configurationRevision: input.batch.revision,
+        firstSequence: input.batch.firstSequence,
+        lastSequence: input.batch.lastSequence,
+        batchHash: input.batch.batchHash,
+        recordCount: input.batch.records.length,
+        attemptNo,
+        deliveryStatus: 'attempted',
+        observationGeneration: 1,
+        recordedAt: input.recordedAt,
+      });
+      await client.query(
+        `INSERT INTO evidence_export_batch(
+           batch_id,export_id,source_partition,configuration_revision,first_sequence,
+           last_sequence,batch_hash,attempt_no,record_count,status,observation_generation,
+           recorded_at)
+         VALUES ($1,$2,$3,$4,$5::bigint,$6::bigint,$7,$8,$9,$10,$11,$12)`,
+        [
+          entry.batchId,
+          entry.exportId,
+          entry.sourcePartition,
+          entry.configurationRevision,
+          entry.firstSequence,
+          entry.lastSequence,
+          entry.batchHash,
+          entry.attemptNo,
+          entry.recordCount,
+          entry.deliveryStatus,
+          entry.observationGeneration,
+          entry.recordedAt,
+        ],
+      );
+      return entry;
+    });
+  }
+
+  async recordAcknowledgement(input: {
+    readonly lease: EvidenceDeliveryLease;
+    readonly batch: EvidenceExportBatchLedgerEntry;
+    readonly acknowledgedSequence: string | null;
+    readonly ackDisposition: EvidenceExportAckLedgerEntry['ackDisposition'];
+    readonly errorCode: string | null;
+    readonly acknowledgedAt: string;
+  }): Promise<EvidenceExportAckLedgerEntry> {
+    if (
+      input.batch.exportId !== input.lease.exportId ||
+      input.batch.sourcePartition !== input.lease.sourcePartition
+    ) {
+      throw new EvidencePersistenceError(
+        'EVIDENCE_ACK_INVALID',
+        'Evidence ACK batch identity does not match the fenced lease.',
+      );
+    }
+    if (input.ackDisposition !== 'rejected' && input.acknowledgedSequence === null) {
+      throw new EvidencePersistenceError(
+        'EVIDENCE_ACK_INVALID',
+        'An accepted or partial ACK must identify an acknowledged sequence.',
+      );
+    }
+    const ackId = stableLedgerId('evidence-export-ack', {
+      batchId: input.batch.batchId,
+      exportId: input.batch.exportId,
+      sourcePartition: input.batch.sourcePartition,
+      acknowledgedSequence: input.acknowledgedSequence,
+      batchHash: input.batch.batchHash,
+      ackDisposition: input.ackDisposition,
+      errorCode: input.errorCode,
+    });
+    const entry: EvidenceExportAckLedgerEntry = Object.freeze({
+      ackId,
+      batchId: input.batch.batchId,
+      exportId: input.batch.exportId,
+      sourcePartition: input.batch.sourcePartition,
+      acknowledgedSequence: input.acknowledgedSequence,
+      batchHash: input.batch.batchHash,
+      ackDisposition: input.ackDisposition,
+      errorCode: input.errorCode,
+      observationGeneration: 1,
+      acknowledgedAt: input.acknowledgedAt,
+    });
+    await withTransaction(this.#pool, async (client) => {
+      await client.query(
+        `INSERT INTO evidence_export_ack(
+           ack_id,batch_id,export_id,source_partition,acknowledged_sequence,batch_hash,
+           ack_disposition,error_code,observation_generation,acknowledged_at)
+         VALUES ($1,$2,$3,$4,$5::bigint,$6,$7,$8,$9,$10)`,
+        [
+          entry.ackId,
+          entry.batchId,
+          entry.exportId,
+          entry.sourcePartition,
+          entry.acknowledgedSequence,
+          entry.batchHash,
+          entry.ackDisposition,
+          entry.errorCode,
+          entry.observationGeneration,
+          entry.acknowledgedAt,
+        ],
+      );
+      if (entry.ackDisposition !== 'rejected' && entry.acknowledgedSequence !== null) {
+        await this.#evidence.acknowledgeWithinTransaction(
+          client,
+          input.lease,
+          entry.acknowledgedSequence,
+          entry.acknowledgedAt,
+        );
+      }
+    });
+    return entry;
+  }
+
   acknowledge(
     lease: EvidenceDeliveryLease,
     lastSequence: string,
@@ -129,17 +294,19 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
         ],
       );
       if (maximumAttempts !== null) {
+        const issueCode = errorCode === 'EVIDENCE_ACK_INVALID' ? 'ack_invalid' : 'export_rejected';
         for (const record of result.rows.filter((row) => row.attempts >= maximumAttempts)) {
           await client.query(
             `INSERT INTO evidence_dead_letter(
              dead_letter_id,sequence,record_id,issue_code,attempts,detail,failed_at)
-           VALUES ($1,$2::bigint,$3,'export_rejected',$4,$5::jsonb,$6)
+           VALUES ($1,$2::bigint,$3,$4,$5,$6::jsonb,$7)
            ON CONFLICT (sequence) DO UPDATE SET attempts=EXCLUDED.attempts,
              detail=EXCLUDED.detail,failed_at=EXCLUDED.failed_at`,
             [
               `dead-letter:${record.sequence}`,
               record.sequence,
               record.record_id,
+              issueCode,
               record.attempts,
               JSON.stringify({ errorCode }),
               failedAt,
@@ -220,6 +387,13 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
 
 function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function stableLedgerId(
+  prefix: 'evidence-export-batch' | 'evidence-export-ack',
+  identity: Parameters<typeof hashCanonicalEvidenceJson>[0],
+): string {
+  return `${prefix}:${hashCanonicalEvidenceJson(identity).slice('sha256:'.length)}`;
 }
 
 async function withTransaction<T>(pool: Pool, operation: (client: PoolClient) => Promise<T>) {

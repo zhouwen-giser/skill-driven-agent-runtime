@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,15 +73,103 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 13,
       "maxProperties": 128,
-      "required": ["operationId", "operationType", "status"],
+      "required": [
+        "operationId",
+        "operationType",
+        "target",
+        "status",
+        "idempotencyKeyHash",
+        "inputHash",
+        "actorId",
+        "reason",
+        "result",
+        "errorCode",
+        "createdAt",
+        "startedAt",
+        "completedAt"
+      ],
       "properties": {
         "operationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "operationType": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "id", "version", "revision"],
+          "properties": {
+            "type": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "id": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "version": {
+              "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+            },
+            "revision": {
+              "oneOf": [
+                { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+                { "type": "null" }
+              ]
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["accepted", "running", "succeeded", "failed", "canceled"]
+        },
+        "idempotencyKeyHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "inputHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "actorId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "result": { "oneOf": [{ "$ref": "#/$defs/evidenceValue" }, { "type": "null" }] },
+        "errorCode": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "startedAt": { "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+        "completedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "startedAt", "completedAt", "errorCode"],
+          "properties": {
+            "status": { "const": "accepted" },
+            "startedAt": { "const": null },
+            "completedAt": { "const": null },
+            "errorCode": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["status", "startedAt", "completedAt", "errorCode"],
+          "properties": {
+            "status": { "const": "running" },
+            "startedAt": { "type": "string", "format": "date-time" },
+            "completedAt": { "const": null },
+            "errorCode": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["status", "completedAt", "errorCode"],
+          "properties": {
+            "status": { "type": "string", "enum": ["succeeded", "canceled"] },
+            "completedAt": { "type": "string", "format": "date-time" },
+            "errorCode": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["status", "completedAt", "errorCode"],
+          "properties": {
+            "status": { "const": "failed" },
+            "completedAt": { "type": "string", "format": "date-time" },
+            "errorCode": { "type": "string", "minLength": 1, "maxLength": 4096 }
+          }
+        }
+      ]
     },
     "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },

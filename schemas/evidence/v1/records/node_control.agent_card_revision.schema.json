@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,47 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 10,
       "maxProperties": 128,
-      "required": ["revision", "nodeId", "contentHash"],
+      "required": [
+        "revision",
+        "nodeId",
+        "exposureRefs",
+        "contentHash",
+        "capabilityCatalogHash",
+        "status",
+        "card",
+        "generatedAt",
+        "activatedAt",
+        "rejectionCode"
+      ],
       "properties": {
-        "revision": { "$ref": "#/$defs/evidenceValue" },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "contentHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        "exposureRefs": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "contentHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "capabilityCatalogHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "status": {
+          "type": "string",
+          "enum": ["candidate", "staged", "active", "rejected", "superseded"]
+        },
+        "card": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "activatedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "rejectionCode": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,15 +73,92 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 18,
       "maxProperties": 128,
-      "required": ["smppSourceId", "revision", "status"],
+      "required": [
+        "smppSourceId",
+        "revision",
+        "name",
+        "registryEndpoint",
+        "tenantId",
+        "projectId",
+        "environment",
+        "syncMode",
+        "snapshotTtlSeconds",
+        "lkgPolicy",
+        "status",
+        "activeSnapshotRevision",
+        "activeSnapshotChecksum",
+        "activeSnapshotEtag",
+        "lastSyncAt",
+        "lastErrorCode",
+        "createdAt",
+        "updatedAt"
+      ],
       "properties": {
         "smppSourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "revision": { "$ref": "#/$defs/evidenceValue" },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "name": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "registryEndpoint": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "tenantId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "projectId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "syncMode": { "type": "string", "enum": ["manual", "poll", "watch"] },
+        "snapshotTtlSeconds": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "lkgPolicy": { "type": "string", "enum": ["allow_unexpired", "deny_when_unavailable"] },
+        "status": { "type": "string", "enum": ["draft", "active", "suspended", "retired"] },
+        "activeSnapshotRevision": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+            { "type": "null" }
+          ]
+        },
+        "activeSnapshotChecksum": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "activeSnapshotEtag": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "lastSyncAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "lastErrorCode": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["activeSnapshotRevision", "activeSnapshotChecksum", "activeSnapshotEtag"],
+          "properties": {
+            "activeSnapshotRevision": { "const": null },
+            "activeSnapshotChecksum": { "const": null },
+            "activeSnapshotEtag": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["activeSnapshotRevision", "activeSnapshotChecksum", "activeSnapshotEtag"],
+          "properties": {
+            "activeSnapshotRevision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "activeSnapshotChecksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "activeSnapshotEtag": { "type": "string", "minLength": 1, "maxLength": 4096 }
+          }
+        }
+      ]
     },
     "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },

@@ -9,12 +9,14 @@ import {
   createCatalogEvidenceEnvelope,
   createCanonicalEvidenceEnvelope,
   createEvidenceRecordId,
+  evidenceObservationGeneration,
   getEvidenceCatalogEntry,
   getEvidenceRecordSchema,
   hashCanonicalEvidenceJson,
   isEvidenceRecordId,
   isEvidenceSha256,
   normalizeEvidenceExportConfiguration,
+  shouldRecordEvidenceExportObservation,
 } from '../src/index.js';
 
 const identity = {
@@ -284,6 +286,129 @@ describe('canonical evidence Domain', () => {
     });
   });
 
+  it('freezes all 21 Phase 9 Node Control payloads to explicit authority schemas', () => {
+    const records = EVIDENCE_RECORD_CATALOG.filter(
+      ({ recordFamily }) => recordFamily === 'node_control',
+    );
+    expect(records).toHaveLength(21);
+    for (const entry of records) {
+      const schema = getEvidenceRecordSchema(entry.recordType) as Readonly<{
+        properties: Readonly<{
+          payload: Readonly<{
+            required: readonly string[];
+            properties: Readonly<Record<string, unknown>>;
+          }>;
+        }>;
+      }>;
+      expect(schema.properties.payload.required).toEqual(entry.requiredPayloadFields);
+      expect(Object.keys(schema.properties.payload.properties).sort()).toEqual(
+        [...entry.requiredPayloadFields].sort(),
+      );
+    }
+
+    expect(getEvidenceCatalogEntry('node_control.health_observation').sourceTable).toBe(
+      'sdar_control.node_health_observation',
+    );
+    expect(getEvidenceCatalogEntry('node_control.capability_readiness').sourceTable).toContain(
+      'event_type=node.capability.readiness_changed',
+    );
+    expect(getEvidenceCatalogEntry('node_control.plan_template_governance').sourceTable).toContain(
+      'action prefix=plan-template.',
+    );
+    expect(getEvidenceCatalogEntry('node_control.telemetry_delivery').sourceTable).toBe(
+      'evidence_export_batch',
+    );
+    expect(getEvidenceCatalogEntry('node_control.telemetry_ack').sourceTable).toBe(
+      'evidence_export_ack',
+    );
+    for (const recordType of [
+      'node_control.profile_revision',
+      'node_control.configuration_revision',
+      'node_control.llm_provider_revision',
+      'node_control.model_route_revision',
+      'node_control.mcp_provider_binding_revision',
+      'node_control.agent_card_revision',
+      'node_control.management_operation',
+      'node_control.audit_event',
+      'node_control.node_event',
+      'node_control.telemetry_configuration',
+    ]) {
+      expect(getEvidenceCatalogEntry(recordType).expectedReferences).toEqual([]);
+    }
+  });
+
+  it('closes Node Control authority vocabularies and decimal sequence contracts', () => {
+    expect(payloadProperties('node_control.profile_revision')['status']).toMatchObject({
+      enum: ['draft', 'active', 'maintenance', 'retired'],
+    });
+    expect(payloadProperties('node_control.capability_readiness')['readinessStatus']).toMatchObject(
+      {
+        enum: ['available', 'degraded', 'unavailable', 'suspended'],
+      },
+    );
+    expect(payloadProperties('node_control.health_observation')['observationRevision']).toEqual({
+      type: 'integer',
+      minimum: 1,
+      maximum: Number.MAX_SAFE_INTEGER,
+    });
+    expect(payloadProperties('node_control.node_event')['eventType']).toMatchObject({
+      enum: expect.arrayContaining([
+        'node.health.changed',
+        'node.capability.readiness_changed',
+        'node.telemetry_export.status_changed',
+      ]),
+    });
+    expect(payloadProperties('node_control.node_event')['sequence']).toEqual({
+      type: 'string',
+      pattern: '^(?:0|[1-9][0-9]{0,18})$',
+    });
+    expect(payloadProperties('node_control.telemetry_delivery')['deliveryStatus']).toEqual({
+      const: 'attempted',
+    });
+    expect(payloadProperties('node_control.telemetry_ack')['ackDisposition']).toMatchObject({
+      enum: ['accepted', 'partial', 'rejected'],
+    });
+  });
+
+  it('bounds export self-observation at generation one', () => {
+    expect(evidenceObservationGeneration({})).toBe(0);
+    expect(evidenceObservationGeneration({ observationGeneration: 1 })).toBe(1);
+    expect(shouldRecordEvidenceExportObservation([{}, { observationGeneration: 1 }])).toBe(true);
+    expect(
+      shouldRecordEvidenceExportObservation([
+        { observationGeneration: 1 },
+        { observationGeneration: 1 },
+      ]),
+    ).toBe(false);
+
+    expect(() =>
+      createCanonicalEvidenceEnvelope({
+        ...identity,
+        recordFamily: 'runtime',
+        recordType: 'runtime.goal',
+        environment: 'test',
+        correlationId: 'correlation-1',
+        occurredAt: '2026-08-04T00:00:00.000Z',
+        recordedAt: '2026-08-04T00:00:01.000Z',
+        deliveryGuarantee: 'durable_projection',
+        evaluationRole: 'required',
+        observationGeneration: 2 as never,
+        payload: { goalId: 'goal-1' },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'EVIDENCE_IDENTITY_INVALID' }));
+
+    const telemetrySchema = getEvidenceRecordSchema('node_control.telemetry_delivery');
+    expect(telemetrySchema).toMatchObject({
+      properties: { observationGeneration: { type: 'integer', enum: [0, 1] } },
+      allOf: [
+        {
+          required: ['observationGeneration'],
+          properties: { observationGeneration: { const: 1 } },
+        },
+      ],
+    });
+  });
+
   it('fails closed when a ref-required Phase 8 payload omits its ArtifactRef URI', () => {
     const entry = getEvidenceCatalogEntry('replay.case');
     const payload = Object.fromEntries(
@@ -361,6 +486,18 @@ describe('canonical evidence Domain', () => {
     expect(() =>
       canonicalizeEvidenceJson({ sinkSecretRef: 'secret://evidence-sink' }),
     ).not.toThrow();
+    expect(() => canonicalizeEvidenceJson({ secretStatus: 'available' })).not.toThrow();
+    expect(() =>
+      canonicalizeEvidenceJson({
+        secretStatus: {
+          type: 'string',
+          enum: ['unknown', 'available', 'unavailable', 'invalid'],
+        },
+      }),
+    ).not.toThrow();
+    expect(() => canonicalizeEvidenceJson({ secretStatus: 'inline-secret' })).toThrow(
+      expect.objectContaining({ code: 'EVIDENCE_FORBIDDEN_FIELD' }),
+    );
   });
 
   it('rejects cycles, excessive depth, excessive bytes and duplicate references', () => {

@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,52 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 11,
       "maxProperties": 128,
-      "required": ["routeId", "revision", "status"],
+      "required": [
+        "routeId",
+        "revision",
+        "stage",
+        "primaryCandidate",
+        "fallbackCandidates",
+        "budgetPolicy",
+        "scopeType",
+        "scopeKey",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ],
       "properties": {
         "routeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "revision": { "$ref": "#/$defs/evidenceValue" },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "stage": {
+          "type": "string",
+          "enum": ["understanding", "planning", "execution", "evaluation", "summary", "embedding"]
+        },
+        "primaryCandidate": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "fallbackCandidates": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "maxProperties": 1024,
+            "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          }
+        },
+        "budgetPolicy": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "scopeType": { "type": "string", "enum": ["stage", "task", "case"] },
+        "scopeKey": { "type": "string", "maxLength": 65536 },
+        "status": { "type": "string", "enum": ["draft", "active", "suspended", "retired"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

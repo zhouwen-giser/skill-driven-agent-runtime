@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.sdar.local/evidence/v1/records/node_control.telemetry_delivery.schema.json",
   "title": "node_control.telemetry_delivery canonical evidence record",
-  "description": "Canonical node_control.telemetry_delivery evidence projected from Runtime PostgreSQL evidence_export_state.",
+  "description": "Canonical node_control.telemetry_delivery evidence projected from Runtime PostgreSQL evidence_export_batch.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -48,7 +48,7 @@
     "recordType": { "const": "node_control.telemetry_delivery" },
     "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
     "sourceSystem": { "const": "runtime" },
-    "sourceTable": { "const": "evidence_export_state" },
+    "sourceTable": { "const": "evidence_export_batch" },
     "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,33 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 11,
       "maxProperties": 128,
-      "required": ["exportId", "batchId", "deliveryStatus"],
+      "required": [
+        "batchId",
+        "exportId",
+        "sourcePartition",
+        "configurationRevision",
+        "firstSequence",
+        "lastSequence",
+        "batchHash",
+        "recordCount",
+        "attemptNo",
+        "deliveryStatus",
+        "recordedAt"
+      ],
       "properties": {
-        "exportId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "batchId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "deliveryStatus": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        "exportId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "configurationRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "firstSequence": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" },
+        "lastSequence": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" },
+        "batchHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "recordCount": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "attemptNo": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "deliveryStatus": { "const": "attempted" },
+        "recordedAt": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },
@@ -130,6 +151,13 @@
       ]
     }
   },
+  "allOf": [
+    {
+      "type": "object",
+      "required": ["observationGeneration"],
+      "properties": { "observationGeneration": { "const": 1 } }
+    }
+  ],
   "x-sdar-compatibility": "backward_compatible_additive",
   "x-sdar-maximum-inline-bytes": 65536,
   "x-sdar-redaction-policy": "strict_internal_v1",

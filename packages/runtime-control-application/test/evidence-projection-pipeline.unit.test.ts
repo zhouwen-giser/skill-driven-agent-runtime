@@ -5,12 +5,16 @@ import {
   CanonicalEvidenceProjectionPipeline,
   EXPERIENCE_REPLAY_ARTIFACT_PROJECTOR_VERSION,
   MCP_CAPABILITY_EVIDENCE_PROJECTOR_VERSION,
+  NODE_CONTROL_EVIDENCE_PROJECTOR_VERSION,
+  NodeControlEvidenceProjectionPipeline,
   RUNTIME_CORE_EVIDENCE_PROJECTOR_VERSION,
   SKILL_EVIDENCE_PROJECTOR_VERSION,
   type EvidenceProjectionIssueWriter,
   type ExperienceReplayArtifactEvidenceSource,
   type ExperienceReplayArtifactProjectionPartition,
   type McpCapabilityEvidenceSource,
+  type NodeControlEvidenceProjectionPartition,
+  type NodeControlEvidenceSource,
   type RuntimeCoreEvidenceSource,
   type SkillEvidenceSource,
 } from '../src/index.js';
@@ -238,6 +242,88 @@ describe('CanonicalEvidenceProjectionPipeline', () => {
   });
 });
 
+describe('NodeControlEvidenceProjectionPipeline', () => {
+  it('isolates a diagnostic Control poison partition and continues required Runtime telemetry', async () => {
+    const health = nodeControlPartition(
+      'node_control.health_observation',
+      'node-control:health:health-1',
+      'health-1',
+    );
+    const delivery = nodeControlPartition(
+      'node_control.telemetry_delivery',
+      'node-control:telemetry-delivery:batch-1',
+      'batch-1',
+    );
+    const recorded: {
+      readonly issue: EvidenceProjectionIssue;
+      readonly role: 'required' | 'supporting' | 'diagnostic';
+    }[] = [];
+    const projected: string[] = [];
+    let repaired = false;
+    const source: NodeControlEvidenceSource = {
+      pendingPartitions: () => Promise.resolve([health, delivery]),
+      pendingPage: () => Promise.resolve({ partitions: [health, delivery] }),
+      load: () => Promise.resolve(undefined),
+    };
+    const pipeline = new NodeControlEvidenceProjectionPipeline({
+      source,
+      projector: {
+        projectPartition: (partition) => {
+          projected.push(partition.sourceRecordId);
+          if (!repaired && partition.recordType === 'node_control.health_observation') {
+            throw new TypeError('credential=must-not-be-persisted');
+          }
+          return Promise.resolve();
+        },
+      },
+      writer: {
+        recordProjectionIssue: (issue, role) => {
+          recorded.push({ issue, role });
+          return Promise.resolve();
+        },
+        resolveProjectionIssue: () => Promise.resolve(),
+      },
+      clock: { now: () => '2026-08-10T08:00:00.000Z' },
+    });
+
+    await expect(pipeline.drain(10)).resolves.toMatchObject({
+      attemptedItems: 2,
+      projectedItems: 1,
+      failedItems: 1,
+    });
+    expect(projected).toEqual(['health-1', 'batch-1']);
+    expect(recorded).toEqual([
+      {
+        role: 'diagnostic',
+        issue: expect.objectContaining({
+          recordType: 'node_control.health_observation',
+          sourceSystem: 'node_control',
+          sourceTable: 'sdar_control.node_health_observation',
+          sourcePartition: health.sourcePartition,
+          projectorVersion: NODE_CONTROL_EVIDENCE_PROJECTOR_VERSION,
+          severity: 'diagnostic',
+          retryable: true,
+          detail: {
+            failureCode: 'TYPE_ERROR',
+            failureStage: 'item_projection',
+            sourceFamily: 'node_control',
+          },
+        }),
+      },
+    ]);
+    expect(JSON.stringify(recorded)).not.toMatch(/credential|must-not-be-persisted/iu);
+
+    repaired = true;
+    projected.length = 0;
+    await expect(pipeline.drain(10)).resolves.toMatchObject({
+      attemptedItems: 2,
+      projectedItems: 2,
+      failedItems: 0,
+    });
+    expect(projected).toEqual(['health-1', 'batch-1']);
+  });
+});
+
 function createPipeline(input: {
   readonly writer: EvidenceProjectionIssueWriter;
   readonly runtimeSource?: RuntimeCoreEvidenceSource;
@@ -302,5 +388,19 @@ function phase8Partition(sourceId: string): ExperienceReplayArtifactProjectionPa
     sourceFamily: 'experience',
     sourcePartition: `v141:experience_pattern:${String(sourceId.length)}:${sourceId}`,
     sourceId,
+  });
+}
+
+function nodeControlPartition(
+  recordType: NodeControlEvidenceProjectionPartition['recordType'],
+  sourcePartition: string,
+  sourceRecordId: string,
+): NodeControlEvidenceProjectionPartition {
+  return Object.freeze({
+    recordType,
+    sourcePartition,
+    sourceRecordId,
+    sourceRevision: 1,
+    observationSequence: '1',
   });
 }

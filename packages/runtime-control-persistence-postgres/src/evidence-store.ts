@@ -114,6 +114,14 @@ export class PostgresEvidenceStore {
     });
   }
 
+  async hasRecord(recordId: string): Promise<boolean> {
+    const result = await this.#pool.query<{ present: boolean }>(
+      'SELECT EXISTS(SELECT 1 FROM evidence_outbox WHERE record_id=$1) AS present',
+      [recordId],
+    );
+    return result.rows[0]?.present === true;
+  }
+
   async append(
     envelope: CanonicalEvidenceEnvelope,
     capturedAt: string,
@@ -167,12 +175,12 @@ export class PostgresEvidenceStore {
            tenant_id,user_scope_id,project_id,environment,task_id,context_id,episode_id,run_id,
            goal_id,goal_version,plan_id,plan_version,skill_execution_id,capability_binding_id,
            remote_task_binding_id,node_id,correlation_id,causation_id,delivery_guarantee,
-           evaluation_role,occurred_at,recorded_at,evidence_refs,artifact_refs,payload,payload_hash,
-           captured_at,next_attempt_at)
+           evaluation_role,observation_generation,occurred_at,recorded_at,evidence_refs,
+           artifact_refs,payload,payload_hash,captured_at,next_attempt_at)
          VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
            $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,
-           $29,$30,$31,$32,$33::jsonb,$34::jsonb,$35::jsonb,$36,$37,$37)
+           $29,$30,$31,$32,$33,$34::jsonb,$35::jsonb,$36::jsonb,$37,$38,$38)
          RETURNING sequence::text`,
         [
           envelope.recordId,
@@ -205,6 +213,7 @@ export class PostgresEvidenceStore {
           envelope.causationId ?? null,
           envelope.deliveryGuarantee,
           envelope.evaluationRole,
+          envelope.observationGeneration ?? 0,
           envelope.occurredAt,
           envelope.recordedAt,
           JSON.stringify(envelope.evidenceRefs),
@@ -376,67 +385,76 @@ export class PostgresEvidenceStore {
     lastAcknowledgedSequence: string,
     acknowledgedAt: string,
   ): Promise<void> {
-    await withTransaction(this.#pool, async (client) => {
-      const state = await client.query<{
-        last_sent_sequence: string | null;
-        last_acknowledged_sequence: string | null;
-      }>(
-        `SELECT last_sent_sequence::text,last_acknowledged_sequence::text
+    await withTransaction(this.#pool, (client) =>
+      this.acknowledgeWithinTransaction(client, lease, lastAcknowledgedSequence, acknowledgedAt),
+    );
+  }
+
+  async acknowledgeWithinTransaction(
+    client: PoolClient,
+    lease: EvidenceExportLease,
+    lastAcknowledgedSequence: string,
+    acknowledgedAt: string,
+  ): Promise<void> {
+    const state = await client.query<{
+      last_sent_sequence: string | null;
+      last_acknowledged_sequence: string | null;
+    }>(
+      `SELECT last_sent_sequence::text,last_acknowledged_sequence::text
          FROM evidence_export_state
          WHERE export_id=$1 AND source_partition=$2 AND lease_owner=$3 AND lease_token=$4
            AND fencing_token=$5::bigint AND lease_expires_at>$6 FOR UPDATE`,
-        [
-          lease.exportId,
-          lease.sourcePartition,
-          lease.owner,
-          lease.token,
-          lease.fencingToken,
-          acknowledgedAt,
-        ],
+      [
+        lease.exportId,
+        lease.sourcePartition,
+        lease.owner,
+        lease.token,
+        lease.fencingToken,
+        acknowledgedAt,
+      ],
+    );
+    const row = state.rows[0];
+    if (row === undefined) throw leaseNotOwned();
+    const acknowledged = BigInt(lastAcknowledgedSequence);
+    const sent = row.last_sent_sequence === null ? -1n : BigInt(row.last_sent_sequence);
+    const previous =
+      row.last_acknowledged_sequence === null ? -1n : BigInt(row.last_acknowledged_sequence);
+    if (acknowledged > sent || acknowledged < previous) {
+      throw new EvidencePersistenceError(
+        'EVIDENCE_ACK_INVALID',
+        'Evidence ACK exceeded the sent boundary or regressed.',
       );
-      const row = state.rows[0];
-      if (row === undefined) throw leaseNotOwned();
-      const acknowledged = BigInt(lastAcknowledgedSequence);
-      const sent = row.last_sent_sequence === null ? -1n : BigInt(row.last_sent_sequence);
-      const previous =
-        row.last_acknowledged_sequence === null ? -1n : BigInt(row.last_acknowledged_sequence);
-      if (acknowledged > sent || acknowledged < previous) {
-        throw new EvidencePersistenceError(
-          'EVIDENCE_ACK_INVALID',
-          'Evidence ACK exceeded the sent boundary or regressed.',
-        );
-      }
-      const skipped = await client.query<{ count: string }>(
-        `SELECT count(*)::text AS count FROM evidence_outbox
+    }
+    const skipped = await client.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM evidence_outbox
          WHERE source_partition=$1 AND sequence<=$2::bigint AND acknowledged_at IS NULL
            AND (sent_export_id IS DISTINCT FROM $3 OR sent_fencing_token IS DISTINCT FROM $4::bigint)`,
-        [lease.sourcePartition, lastAcknowledgedSequence, lease.exportId, lease.fencingToken],
+      [lease.sourcePartition, lastAcknowledgedSequence, lease.exportId, lease.fencingToken],
+    );
+    if (skipped.rows[0]?.count !== '0') {
+      throw new EvidencePersistenceError(
+        'EVIDENCE_ACK_INVALID',
+        'Evidence ACK cannot skip a sequence that was not sent by the current fenced lease.',
       );
-      if (skipped.rows[0]?.count !== '0') {
-        throw new EvidencePersistenceError(
-          'EVIDENCE_ACK_INVALID',
-          'Evidence ACK cannot skip a sequence that was not sent by the current fenced lease.',
-        );
-      }
-      await client.query(
-        `UPDATE evidence_outbox SET acknowledged_at=$1,last_error_code=NULL
+    }
+    await client.query(
+      `UPDATE evidence_outbox SET acknowledged_at=$1,last_error_code=NULL
          WHERE source_partition=$2 AND sequence<=$3::bigint AND acknowledged_at IS NULL
            AND sent_export_id=$4 AND sent_fencing_token=$5::bigint`,
-        [
-          acknowledgedAt,
-          lease.sourcePartition,
-          lastAcknowledgedSequence,
-          lease.exportId,
-          lease.fencingToken,
-        ],
-      );
-      await client.query(
-        `UPDATE evidence_export_state SET last_acknowledged_sequence=$1,
+      [
+        acknowledgedAt,
+        lease.sourcePartition,
+        lastAcknowledgedSequence,
+        lease.exportId,
+        lease.fencingToken,
+      ],
+    );
+    await client.query(
+      `UPDATE evidence_export_state SET last_acknowledged_sequence=$1,
            last_acknowledged_at=$2,last_error_code=NULL,last_error_at=NULL,observed_at=$2
          WHERE export_id=$3 AND source_partition=$4`,
-        [lastAcknowledgedSequence, acknowledgedAt, lease.exportId, lease.sourcePartition],
-      );
-    });
+      [lastAcknowledgedSequence, acknowledgedAt, lease.exportId, lease.sourcePartition],
+    );
   }
 
   async saveCheckpoint(checkpoint: EvidenceSourceCheckpoint): Promise<void> {
@@ -764,6 +782,7 @@ interface EvidenceOutboxRow extends QueryResultRow {
   readonly causation_id: string | null;
   readonly delivery_guarantee: CanonicalEvidenceEnvelope['deliveryGuarantee'];
   readonly evaluation_role: CanonicalEvidenceEnvelope['evaluationRole'];
+  readonly observation_generation: number;
   readonly occurred_at: Date | string;
   readonly recorded_at: Date | string;
   readonly evidence_refs: readonly string[];
@@ -819,6 +838,7 @@ function toStoredEvidenceRecord(row: EvidenceOutboxRow): StoredEvidenceRecord {
       recordedAt: iso(row.recorded_at),
       deliveryGuarantee: row.delivery_guarantee,
       evaluationRole: row.evaluation_role,
+      ...(row.observation_generation === 1 ? { observationGeneration: 1 as const } : {}),
       evidenceSequence: row.sequence_text,
       evidenceRefs: Object.freeze([...row.evidence_refs]),
       artifactRefs: Object.freeze([...row.artifact_refs]),

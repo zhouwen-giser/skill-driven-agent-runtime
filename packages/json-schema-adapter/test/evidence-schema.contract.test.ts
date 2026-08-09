@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EVIDENCE_RECORD_CATALOG,
   createCanonicalEvidenceEnvelope,
+  getEvidenceRecordSchema,
   type EvidenceJsonValue,
 } from '../../domain/src/index.js';
 
@@ -53,6 +54,10 @@ describe('sdar.evidence/v1 JSON Schema registry', () => {
         recordedAt: '2026-08-04T00:00:01.000Z',
         deliveryGuarantee: entry.deliveryGuarantee,
         evaluationRole: entry.evaluationRole,
+        ...(entry.recordType === 'node_control.telemetry_delivery' ||
+        entry.recordType === 'node_control.telemetry_ack'
+          ? { observationGeneration: 1 as const }
+          : {}),
         evidenceRefs: [],
         artifactRefs:
           entry.artifactPolicy === 'artifact_ref_required'
@@ -223,6 +228,71 @@ describe('sdar.evidence/v1 JSON Schema registry', () => {
       `artifact.validation shadow result: ${JSON.stringify(validateValidation.errors)}`,
     ).toBe(true);
   }, 30_000);
+
+  it('fails closed for Phase 9 authority values and export observation recursion', () => {
+    const cases = [
+      ['node_control.capability_readiness', 'readinessStatus', 'ready'],
+      ['node_control.node_event', 'eventType', 'capability.readiness.changed'],
+      ['node_control.plan_template_governance', 'action', 'plan_template.published'],
+      ['node_control.telemetry_delivery', 'firstSequence', '01'],
+    ] as const;
+
+    for (const [recordType, field, value] of cases) {
+      const schema = getEvidenceRecordSchema(recordType) as LoadedSchema;
+      const validate = createAjv(true).compile(schema);
+      const envelope = sampleEnvelope(schema, recordType);
+      const invalid = {
+        ...envelope,
+        payload: { ...envelope.payload, [field]: value },
+      };
+      expect(validate(invalid), `${recordType}.${field}: ${JSON.stringify(validate.errors)}`).toBe(
+        false,
+      );
+    }
+
+    const deliverySchema = getEvidenceRecordSchema(
+      'node_control.telemetry_delivery',
+    ) as LoadedSchema;
+    const deliveryValidate = createAjv(true).compile(deliverySchema);
+    const delivery = sampleEnvelope(deliverySchema, 'node_control.telemetry_delivery');
+    const generationZero = { ...delivery };
+    Reflect.deleteProperty(generationZero, 'observationGeneration');
+    expect(deliveryValidate(generationZero)).toBe(false);
+    expect(deliveryValidate({ ...delivery, observationGeneration: 2 })).toBe(false);
+
+    const ackSchema = getEvidenceRecordSchema('node_control.telemetry_ack') as LoadedSchema;
+    const ackValidate = createAjv(true).compile(ackSchema);
+    const ack = sampleEnvelope(ackSchema, 'node_control.telemetry_ack');
+    expect(
+      ackValidate({
+        ...ack,
+        payload: { ...ack.payload, ackDisposition: 'rejected', errorCode: null },
+      }),
+    ).toBe(false);
+    expect(
+      ackValidate({
+        ...ack,
+        payload: {
+          ...ack.payload,
+          ackDisposition: 'rejected',
+          acknowledgedSequence: '1',
+          errorCode: 'ACK_RESPONSE_INVALID',
+        },
+      }),
+    ).toBe(false);
+    expect(
+      ackValidate({
+        ...ack,
+        payload: {
+          ...ack.payload,
+          ackDisposition: 'rejected',
+          acknowledgedSequence: null,
+          errorCode: 'ACK_RESPONSE_INVALID',
+        },
+      }),
+      JSON.stringify(ackValidate.errors),
+    ).toBe(true);
+  });
 
   it('rejects zero for every Phase 8 positive-version payload field', async () => {
     const cases = [
@@ -816,6 +886,7 @@ function sampleValue(schema: Record<string, unknown> | undefined): EvidenceJsonV
   if (schema?.['$ref'] !== undefined) return 'value';
   if (schema?.['format'] === 'date-time') return '2026-08-04T00:00:00.000Z';
   if (schema?.['pattern'] === '^sha256:[0-9a-f]{64}$') return `sha256:${'a'.repeat(64)}`;
+  if (schema?.['pattern'] === '^(?:0|[1-9][0-9]{0,18})$') return '1';
   if (
     typeof schema?.['pattern'] === 'string' &&
     schema['pattern'].includes('/pattern_candidate/')
@@ -909,6 +980,10 @@ function sampleEnvelope(schema: LoadedSchema, recordType: string) {
     recordedAt: '2026-08-04T00:00:01.000Z',
     deliveryGuarantee: entry.deliveryGuarantee,
     evaluationRole: entry.evaluationRole,
+    ...(recordType === 'node_control.telemetry_delivery' ||
+    recordType === 'node_control.telemetry_ack'
+      ? { observationGeneration: 1 as const }
+      : {}),
     evidenceRefs: [],
     artifactRefs:
       entry.artifactPolicy === 'artifact_ref_required'
@@ -930,6 +1005,37 @@ function normalizePhase8Sample(
     payload['resultHash'] = null;
   }
   if (recordType === 'artifact.validation') payload['result'] = null;
+  normalizePhase9Sample(recordType, payload);
+}
+
+function normalizePhase9Sample(
+  recordType: string,
+  payload: Record<string, EvidenceJsonValue>,
+): void {
+  if (recordType === 'node_control.skill_governance') payload['action'] = 'skill.published';
+  if (recordType === 'node_control.plan_template_governance') {
+    payload['action'] = 'plan-template.published';
+  }
+  if (
+    recordType === 'node_control.configuration_revision' ||
+    recordType === 'node_control.telemetry_configuration'
+  ) {
+    payload['publishedAt'] = null;
+  }
+  if (recordType === 'node_control.configuration_apply_ack') payload['acknowledgedAt'] = null;
+  if (recordType === 'node_control.mcp_provider_binding_revision') {
+    payload['smppSourceId'] = null;
+    payload['externalProviderId'] = null;
+    payload['externalServerId'] = null;
+    payload['registryRevision'] = null;
+    payload['registryChecksum'] = null;
+  }
+  if (recordType === 'node_control.management_operation') {
+    payload['startedAt'] = null;
+    payload['completedAt'] = null;
+    payload['errorCode'] = null;
+  }
+  if (recordType === 'node_control.telemetry_ack') payload['errorCode'] = null;
 }
 
 function schemaId(schemas: ReadonlyMap<string, LoadedSchema>, name: string): string {

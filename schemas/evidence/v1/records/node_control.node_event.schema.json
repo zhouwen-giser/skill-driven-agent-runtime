@@ -57,6 +57,7 @@
     "recordedAt": { "type": "string", "format": "date-time" },
     "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
     "evidenceRefs": {
       "type": "array",
       "maxItems": 256,
@@ -72,13 +73,71 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 14,
       "maxProperties": 128,
-      "required": ["eventId", "eventType", "aggregateRevision"],
+      "required": [
+        "sequence",
+        "eventId",
+        "eventType",
+        "occurredAt",
+        "recordedAt",
+        "nodeId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateRevision",
+        "correlationId",
+        "causationId",
+        "actorId",
+        "dataClassification",
+        "payload"
+      ],
       "properties": {
+        "sequence": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" },
         "eventId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "eventType": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "aggregateRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "node.profile.changed",
+            "node.health.changed",
+            "node.configuration.revision_published",
+            "node.configuration.revision_applied",
+            "node.configuration.revision_rejected",
+            "node.llm.provider_changed",
+            "node.smpp.source_changed",
+            "node.mcp.provider_binding_changed",
+            "node.skill.version_changed",
+            "node.plan_template.version_changed",
+            "node.capability.version_published",
+            "node.capability.version_suspended",
+            "node.capability.version_deprecated",
+            "node.capability.version_retired",
+            "node.capability.readiness_changed",
+            "node.a2a.exposure_changed",
+            "node.agent_card.activated",
+            "node.task.capability_bound",
+            "node.management_operation.completed",
+            "node.telemetry_export.status_changed"
+          ]
+        },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "aggregateType": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "aggregateId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "aggregateRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "causationId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "actorId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "dataClassification": { "type": "string", "enum": ["public", "internal", "restricted"] },
+        "payload": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },
