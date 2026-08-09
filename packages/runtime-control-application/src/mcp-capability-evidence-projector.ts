@@ -12,6 +12,8 @@ import type {
   RuntimeCoreSourceRow,
 } from './runtime-core-evidence-projector.js';
 
+export const MCP_CAPABILITY_EVIDENCE_PROJECTOR_VERSION = '1.4.1' as const;
+
 export interface McpCapabilityEvidenceSnapshot {
   readonly task: RuntimeCoreSourceRow;
   readonly invocations: readonly RuntimeCoreSourceRow[];
@@ -698,7 +700,7 @@ export class McpCapabilityEvidenceProjector {
         issues: issueIds.length,
       }),
       lastProjectedAt: recordedAt,
-      projectorVersion: '1.4.1',
+      projectorVersion: MCP_CAPABILITY_EVIDENCE_PROJECTOR_VERSION,
     };
     await this.#writer.saveCheckpoint(checkpoint);
     await this.#writer.resolveQualityIssues({

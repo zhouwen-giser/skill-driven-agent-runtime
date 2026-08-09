@@ -72,18 +72,100 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 12,
       "maxProperties": 128,
-      "required": ["traceId", "sourceEpisodeId", "completeness"],
+      "required": [
+        "traceId",
+        "sourceEpisodeId",
+        "taskTypeRefs",
+        "goalFingerprint",
+        "capabilityFingerprint",
+        "environmentFingerprint",
+        "completeness",
+        "dataClassification",
+        "redactionCodes",
+        "normalizerVersion",
+        "sourceHash",
+        "traceBody"
+      ],
       "properties": {
         "traceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "sourceEpisodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "completeness": { "$ref": "#/$defs/evidenceValue" }
+        "taskTypeRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "goalFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "capabilityFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "environmentFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "completeness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dataClassification": {
+          "type": "string",
+          "enum": ["public", "internal", "user_scoped", "restricted"]
+        },
+        "redactionCodes": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "normalizerVersion": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourceHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "traceBody": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion",
+            "tenantId",
+            "eventRecordIds",
+            "correctionRefs",
+            "outcomeRef",
+            "outcomeStatus",
+            "missingFactCodes",
+            "environmentClass",
+            "deviceClass"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.2" },
+            "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "eventRecordIds": {
+              "type": "array",
+              "maxItems": 4096,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "correctionRefs": {
+              "type": "array",
+              "maxItems": 4096,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "outcomeRef": {
+              "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+            },
+            "outcomeStatus": {
+              "type": "string",
+              "enum": ["succeeded", "failed", "partial", "unknown"]
+            },
+            "missingFactCodes": {
+              "type": "array",
+              "maxItems": 4096,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "environmentClass": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "deviceClass": {
+              "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+            }
+          }
+        }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },
-    "goalVersion": { "type": "integer", "minimum": 1 },
-    "planVersion": { "type": "integer", "minimum": 1 },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
@@ -107,11 +189,25 @@
         { "type": "boolean" },
         { "type": "number" },
         { "type": "string", "maxLength": 65536 },
-        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/evidenceValue" } },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
         {
           "type": "object",
           "maxProperties": 128,
-          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
         }
       ]
     }

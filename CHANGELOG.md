@@ -46,6 +46,29 @@ All notable changes to this project are documented here. The format follows Keep
   fixtures cover the cross-suite startup path.
 - Phase 7 full verification passed in 865,814 ms with 970 Unit, 22 performance, 230 Contract, 161
   Integration and 72 E2E tests, 37 migrations, build and all three smoke stages.
+- Added all 10 Experience, six Replay and six Artifact projectors over source-owned Runtime
+  PostgreSQL partitions: Task-owned facts retain exact scope while shared Pattern, Replay and
+  Artifact aggregates remain global. The path verifies P03 Pattern decompression, stable subrecord
+  identity, persisted Dataset/no-physical-side-effect proof and bounded resolvable ArtifactRefs.
+- Corrected three Pattern Catalog source paths to the actual compressed definition and regenerated
+  their schemas and registry hash. Exact Plan/Provider Operation references, cross-Task isolation,
+  blocking-issue replay and unambiguous PostgreSQL row aliases have focused regressions.
+- Closed every Phase 8 Review finding with a poison-isolating durable projection pipeline, exact
+  schemas for all 22 Experience/Replay/Artifact records, structured `CognitiveSourceRef`,
+  latest-per-source authority reads and lossless 10,000-element Pattern ArtifactRef descriptors.
+  All 100 Catalog entries now truthfully declare `durable_projection`.
+- Evidence Contract 100/100 (95 Required plus five diagnostic), focused Contract 9/9, real
+  PostgreSQL Runtime Core 5/5 and the 10,000-element producer/resolver 1/1 pass under registry hash
+  `sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d` and
+  contract hash `sha256:a1ffebfde0902dab632c16a8ffdad781926198a9bf69ed3722b52da1206dfd86`.
+  Final independent Review is `CLEAN_FOR_PHASE8_CLOSURE` with 0 Blocking / 0 Major / 0 Minor;
+  generated coverage is 74/100 verified and 74/95 Required (77.89%).
+- Closed Phase 8 as `COMPLETED` under task-package section 30, which mandates full `pnpm verify`
+  only for Phases 0/3/7/9/12/13/14. Two best-effort full attempts remain recorded as failures: the
+  Architecture allowlist was repaired before a wrong Redis `56385` timeout; the `56379` run passed
+  32 Integration files / 165 tests except one Node Control race/non-independent migration file,
+  which passed 1/1 after repair. Latest targeted format/lint/typecheck pass; no successful full
+  verify or whole-repository format claim is made.
 
 ## SDAR v1.4 P14 Release Qualification
 

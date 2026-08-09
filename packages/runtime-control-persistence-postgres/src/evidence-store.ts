@@ -488,7 +488,22 @@ export class PostgresEvidenceStore {
          source_system,source_table,source_record_id,source_partition,projector_version,
          retryable,detail,created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15)
-       ON CONFLICT (issue_id) DO NOTHING`,
+       ON CONFLICT (issue_id) DO UPDATE SET
+         issue_code=EXCLUDED.issue_code,
+         severity=EXCLUDED.severity,
+         evaluation_role=EXCLUDED.evaluation_role,
+         record_type=EXCLUDED.record_type,
+         record_id=EXCLUDED.record_id,
+         episode_id=EXCLUDED.episode_id,
+         source_system=EXCLUDED.source_system,
+         source_table=EXCLUDED.source_table,
+         source_record_id=EXCLUDED.source_record_id,
+         source_partition=EXCLUDED.source_partition,
+         projector_version=EXCLUDED.projector_version,
+         retryable=EXCLUDED.retryable,
+         detail=EXCLUDED.detail,
+         created_at=EXCLUDED.created_at,
+         resolved_at=NULL`,
       [
         issue.issueId,
         issue.issueCode,
@@ -509,6 +524,23 @@ export class PostgresEvidenceStore {
     );
   }
 
+  async resolveProjectionIssue(input: {
+    readonly issueId: string;
+    readonly sourcePartition: string;
+    readonly projectorVersion: string;
+    readonly resolvedAt: string;
+  }): Promise<void> {
+    await this.#pool.query(
+      `UPDATE evidence_projection_issue
+       SET resolved_at=$4
+       WHERE issue_id=$1
+         AND source_partition=$2
+         AND projector_version=$3
+         AND resolved_at IS NULL`,
+      [input.issueId, input.sourcePartition, input.projectorVersion, input.resolvedAt],
+    );
+  }
+
   async resolveQualityIssues(input: {
     readonly episodeId: string;
     readonly recordTypePrefix: string;
@@ -523,6 +555,32 @@ export class PostgresEvidenceStore {
          AND resolved_at IS NULL
          AND NOT (issue_id = ANY($3::text[]))`,
       [input.episodeId, input.recordTypePrefix, input.retainedIssueIds, input.resolvedAt],
+    );
+  }
+
+  async resolveSourceQualityIssues(input: {
+    readonly sourceTable: string;
+    readonly sourceRecordId: string;
+    readonly recordTypePrefix: string;
+    readonly retainedIssueIds: readonly string[];
+    readonly resolvedAt: string;
+  }): Promise<void> {
+    await this.#pool.query(
+      `UPDATE evidence_quality_issue
+       SET resolved_at=$5
+       WHERE source_system='runtime'
+         AND source_table=$1
+         AND source_record_id=$2
+         AND left(record_type,char_length($3))=$3
+         AND resolved_at IS NULL
+         AND NOT (issue_id = ANY($4::text[]))`,
+      [
+        input.sourceTable,
+        input.sourceRecordId,
+        input.recordTypePrefix,
+        input.retainedIssueIds,
+        input.resolvedAt,
+      ],
     );
   }
 
@@ -786,7 +844,8 @@ function checkpointRegressed(
     existing.last_source_record_id ?? '',
   );
   if (idDelta !== 0) return idDelta < 0;
-  return (next.lastSourceRevision ?? '').localeCompare(existing.last_source_revision ?? '') < 0;
+  // Source revisions and payload hashes are opaque equality markers, not ordered cursor fields.
+  return false;
 }
 
 function compact(

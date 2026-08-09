@@ -74,7 +74,11 @@ describe('P06 P05 evidence -> promotion -> P02 activation integration', () => {
       artifactRef: `${candidate.artifact.artifactId}:${String(candidate.artifact.version)}`,
       datasetRef: 'dataset-p05-1:1',
       validationType: 'replay',
-      metrics: { holdout_pass_rate: 1, unsafe_allow_count: 0 },
+      metrics: {
+        holdout_pass_rate: 1,
+        side_effect_attempt_count: 0,
+        unsafe_allow_count: 0,
+      },
       failureRefs: [],
       counterexampleRefs: [],
       unsafe: false,
@@ -84,6 +88,14 @@ describe('P06 P05 evidence -> promotion -> P02 activation integration', () => {
       artifactHash: candidate.artifact.contentHash,
       datasetHash: hash,
       resultHash: hash,
+      replaySafety: {
+        provider: 'ReplayNoPhysicalProvider',
+        physicalAdapterInvocationCount: 0,
+        sideEffectAttemptCount: 0,
+        deniedBeforePhysicalBoundaryCount: 0,
+        denialEvidenceRefs: [],
+        physicalOutcomeClaim: 'none',
+      },
       completedAt: now,
     });
     await pool.query(

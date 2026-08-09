@@ -113,6 +113,7 @@ export interface ArtifactMatchAuditInput {
   readonly requestId: string;
   readonly taskId: string;
   readonly artifactId: string;
+  readonly artifactVersion: number;
   readonly score: ArtifactMatch['score'];
   readonly applicability: ArtifactApplicabilityResult;
   readonly decision: RuntimeExecutionDecision['path'];
@@ -305,6 +306,7 @@ export class ArtifactRetrievalService {
           requestId: input.requestId,
           taskId: input.taskId,
           artifactId: candidate.artifact.artifactId,
+          artifactVersion: candidate.artifact.version,
           score: candidate.match.score,
           applicability: candidate.applicability,
           decision: decisionPath,

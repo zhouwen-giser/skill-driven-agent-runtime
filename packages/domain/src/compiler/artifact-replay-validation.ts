@@ -1,12 +1,12 @@
 import type { JsonValue } from './contracts.js';
 import { ArtifactDomainError, type ArtifactDomainErrorCode } from './errors.js';
 
-export const ARTIFACT_REPLAY_VALIDATION_CONTRACT_VERSION = '1.1' as const;
+export const ARTIFACT_REPLAY_VALIDATION_CONTRACT_VERSION = '1.2' as const;
 export const ARTIFACT_REPLAY_VALIDATION_SCHEMA_HASHES = Object.freeze({
   ArtifactReplayCase: 'ab24f3c2d8a692f6e569c7e95f04f4389244941da0b297ec799610e8d1bab64f',
   ReplayDatasetManifest: '132f1c215f12fdd28388ac3879589fd22e8772f1fd75ce058ce36977802c746e',
   ArtifactValidationRun: 'c602d26e36dc9fc55b0ecaeeeebbf962af8e4d8f80080b7d9f12798be2afdd1a',
-  ArtifactValidationResult: '0a9b4fe3b71242744760ecf7bfcd14cf4272b32ac130e111878f67f3514fd64b',
+  ArtifactValidationResult: '64be4fd20222d6d13d879ad591b7b492c36012d6138ce537a92a70222d3e99c5',
   ArtifactValidationFailure: 'e017c434add5d1f1aec004552a8795c34509461699d351d879a02003ddb37182',
   ArtifactCounterexample: 'ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3',
 } as const);
@@ -82,11 +82,19 @@ export interface ArtifactValidationRun {
 export type ArtifactValidationResultType = 'static' | 'replay' | 'counterfactual';
 export type ArtifactValidationResultStatus = 'passed' | 'failed' | 'needs_more_data' | 'unsafe';
 
-export interface ArtifactValidationResult {
+export interface ArtifactReplaySafety {
+  readonly provider: 'ReplayNoPhysicalProvider';
+  readonly physicalAdapterInvocationCount: 0;
+  readonly sideEffectAttemptCount: number;
+  readonly deniedBeforePhysicalBoundaryCount: number;
+  readonly denialEvidenceRefs: readonly string[];
+  readonly physicalOutcomeClaim: 'none';
+}
+
+interface ArtifactValidationResultBase {
   readonly validationRunId: string;
   readonly artifactRef: string;
   readonly datasetRef: string;
-  readonly validationType: ArtifactValidationResultType;
   readonly metrics: Readonly<Record<string, number>>;
   readonly failureRefs: readonly string[];
   readonly counterexampleRefs: readonly string[];
@@ -99,6 +107,21 @@ export interface ArtifactValidationResult {
   readonly resultHash: string;
   readonly completedAt: string;
 }
+
+export type ArtifactReplayValidationResult = ArtifactValidationResultBase &
+  Readonly<{
+    validationType: 'replay';
+    replaySafety: ArtifactReplaySafety;
+  }>;
+
+export type ArtifactNonReplayValidationResult = ArtifactValidationResultBase &
+  Readonly<{
+    validationType: Exclude<ArtifactValidationResultType, 'replay'>;
+    replaySafety?: never;
+  }>;
+
+export type ArtifactValidationResult =
+  ArtifactReplayValidationResult | ArtifactNonReplayValidationResult;
 
 export const ARTIFACT_VALIDATION_FAILURE_CATEGORIES = Object.freeze([
   'schema',
@@ -333,6 +356,7 @@ export function createArtifactValidationResult(
       'artifactHash',
       'datasetHash',
       'resultHash',
+      'replaySafety',
       'completedAt',
     ],
     code,
@@ -362,8 +386,107 @@ export function createArtifactValidationResult(
   for (const field of ['artifactHash', 'datasetHash', 'resultHash'] as const) {
     assertHash(input[field], field, code);
   }
+  const replaySafety = freezeReplaySafety(input, metrics, code);
   assertTimestamp(input.completedAt, 'completedAt', code);
+  if (input.validationType === 'replay') {
+    if (replaySafety === undefined)
+      invalid(code, 'replay validation results require replaySafety.');
+    return Object.freeze({ ...input, metrics, failureRefs, counterexampleRefs, replaySafety });
+  }
   return Object.freeze({ ...input, metrics, failureRefs, counterexampleRefs });
+}
+
+function freezeReplaySafety(
+  input: ArtifactValidationResult,
+  metrics: Readonly<Record<string, number>>,
+  code: ArtifactDomainErrorCode,
+): ArtifactReplaySafety | undefined {
+  const replaySafetyValue = (input as unknown as Readonly<Record<string, unknown>>)['replaySafety'];
+  if (input.validationType !== 'replay') {
+    if (replaySafetyValue !== undefined) {
+      invalid(code, 'replaySafety is valid only for replay validation results.');
+    }
+    return undefined;
+  }
+  const safetyValue = replaySafetyValue;
+  if (
+    typeof safetyValue !== 'object' ||
+    safetyValue === null ||
+    Array.isArray(safetyValue) ||
+    Object.getPrototypeOf(safetyValue) !== Object.prototype
+  ) {
+    invalid(code, 'replay validation results require replaySafety.');
+  }
+  const safety = safetyValue as Readonly<Record<string, unknown>>;
+  assertExactKeys(
+    safety,
+    [
+      'provider',
+      'physicalAdapterInvocationCount',
+      'sideEffectAttemptCount',
+      'deniedBeforePhysicalBoundaryCount',
+      'denialEvidenceRefs',
+      'physicalOutcomeClaim',
+    ],
+    code,
+  );
+  if (safety['provider'] !== 'ReplayNoPhysicalProvider') {
+    invalid(code, 'replaySafety.provider must be ReplayNoPhysicalProvider.');
+  }
+  if (safety['physicalAdapterInvocationCount'] !== 0) {
+    invalid(code, 'replaySafety.physicalAdapterInvocationCount must be zero.');
+  }
+  for (const field of ['sideEffectAttemptCount', 'deniedBeforePhysicalBoundaryCount'] as const) {
+    const value = safety[field];
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+      invalid(code, `replaySafety.${field} must be a non-negative integer.`);
+    }
+  }
+  const sideEffectAttemptCount = safety['sideEffectAttemptCount'] as number;
+  const deniedBeforePhysicalBoundaryCount = safety['deniedBeforePhysicalBoundaryCount'] as number;
+  const metricAttemptCount = metrics['side_effect_attempt_count'];
+  if (
+    metricAttemptCount === undefined ||
+    !Number.isSafeInteger(metricAttemptCount) ||
+    metricAttemptCount < 0
+  ) {
+    invalid(code, 'metrics.side_effect_attempt_count must be a non-negative integer.');
+  }
+  if (
+    sideEffectAttemptCount !== metricAttemptCount ||
+    deniedBeforePhysicalBoundaryCount !== metricAttemptCount
+  ) {
+    invalid(code, 'replaySafety denial counts must equal metrics.side_effect_attempt_count.');
+  }
+  const denialEvidenceRefs = freezeRefs(
+    safety['denialEvidenceRefs'] as readonly string[],
+    'replaySafety.denialEvidenceRefs',
+    code,
+  );
+  const canonicalEvidenceRefs = [...denialEvidenceRefs].sort();
+  if (denialEvidenceRefs.some((reference, index) => reference !== canonicalEvidenceRefs[index])) {
+    invalid(code, 'replaySafety.denialEvidenceRefs must use canonical order.');
+  }
+  if (
+    (metricAttemptCount === 0 && denialEvidenceRefs.length !== 0) ||
+    (metricAttemptCount > 0 && denialEvidenceRefs.length === 0)
+  ) {
+    invalid(code, 'replaySafety.denialEvidenceRefs do not match the denial count.');
+  }
+  if (safety['physicalOutcomeClaim'] !== 'none') {
+    invalid(code, 'replaySafety.physicalOutcomeClaim must be none.');
+  }
+  if (metricAttemptCount > 0 && (!input.unsafe || input.result !== 'unsafe')) {
+    invalid(code, 'replay side-effect attempts require an unsafe result.');
+  }
+  return Object.freeze({
+    provider: 'ReplayNoPhysicalProvider',
+    physicalAdapterInvocationCount: 0,
+    sideEffectAttemptCount,
+    deniedBeforePhysicalBoundaryCount,
+    denialEvidenceRefs,
+    physicalOutcomeClaim: 'none',
+  });
 }
 
 export function createArtifactValidationFailure(

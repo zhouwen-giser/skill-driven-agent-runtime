@@ -97,13 +97,14 @@ describe('P07 P06 Active -> P02 Repository -> retrieval audit integration', () =
     });
     await expect(
       pool.query(
-        `SELECT candidate_artifact_id,decision,reason_codes->>0 AS first_reason
+        `SELECT candidate_artifact_id,artifact_version,decision,reason_codes->>0 AS first_reason
          FROM artifact_match_log WHERE match_id='p07-match-1'`,
       ),
     ).resolves.toMatchObject({
       rows: [
         expect.objectContaining({
           candidate_artifact_id: active.artifactId,
+          artifact_version: active.version,
           decision: 'compiled_fast',
         }),
       ],
@@ -122,6 +123,21 @@ describe('P07 P06 Active -> P02 Repository -> retrieval audit integration', () =
         }),
       ],
     });
+    await expect(
+      pool.query(
+        `INSERT INTO artifact_match_log(
+           match_id,request_id,task_id,candidate_artifact_id,artifact_version,score,applicability,
+           decision,reason_codes,policy_snapshot_hash,created_at)
+         VALUES('p07-invalid-version','p07-invalid-request','p07-invalid-task',$1,$2,
+           '{}'::jsonb,'{}'::jsonb,'compiled_fast','[]'::jsonb,$3,$4)`,
+        [
+          active.artifactId,
+          active.version + 1,
+          `sha256:${'a'.repeat(64)}`,
+          '2026-08-09T00:00:00.000Z',
+        ],
+      ),
+    ).rejects.toMatchObject({ code: '23503' });
 
     const fallback = await service.retrieve({
       ...request(active, 'tenant-a'),
@@ -237,6 +253,101 @@ describe('P07 P06 Active -> P02 Repository -> retrieval audit integration', () =
         }),
       ],
     });
+  });
+
+  it('fails the forward backfill on a contradictory selected ref and recovers with the exact version', async () => {
+    const active = await seedP06ActiveArtifact('tenant-a');
+    const migrationRoot = new URL('../../../infra/postgres/migrations/', import.meta.url);
+    const [upMigration, downMigration] = await Promise.all([
+      readFile(new URL('0145_v14_artifact_match_exact_version.up.sql', migrationRoot), 'utf8'),
+      readFile(new URL('0145_v14_artifact_match_exact_version.down.sql', migrationRoot), 'utf8'),
+    ]);
+    const client = await pool.connect();
+    const exactRef = `${active.artifactId}:${String(active.version)}`;
+    try {
+      await client.query(downMigration);
+      await client.query(
+        `INSERT INTO artifact_match_log(
+           match_id,request_id,task_id,candidate_artifact_id,score,applicability,decision,
+           reason_codes,policy_snapshot_hash,created_at)
+         VALUES('p07-backfill-match','p07-backfill-request','p07-backfill-task',$1,
+           '{}'::jsonb,'{}'::jsonb,'compiled_fast','[]'::jsonb,$2,$3)`,
+        [active.artifactId, `sha256:${'a'.repeat(64)}`, '2026-08-09T00:00:00.000Z'],
+      );
+      await client.query(
+        `INSERT INTO artifact_match_log(
+           match_id,request_id,task_id,candidate_artifact_id,score,applicability,decision,
+           reason_codes,policy_snapshot_hash,created_at)
+         VALUES('p07-backfill-unique','p07-backfill-unique-request','p07-backfill-unique-task',$1,
+           '{}'::jsonb,'{}'::jsonb,'compiled_fast','[]'::jsonb,$2,$3)`,
+        [active.artifactId, `sha256:${'a'.repeat(64)}`, '2026-08-09T00:00:00.000Z'],
+      );
+      await client.query(
+        `INSERT INTO runtime_candidate_decision(
+           decision_id,match_id,request_id,path,selected_artifact_ref,parameter_bindings,
+           missing_parameters,required_confirmations,reason_codes,matcher_snapshot_hash,
+           policy_snapshot_hash,created_at)
+         VALUES('p07-backfill-decision','p07-backfill-match','p07-backfill-request',
+           'compiled_fast',$1,'{}'::jsonb,'[]'::jsonb,'[]'::jsonb,'[]'::jsonb,$2,$3,$4)`,
+        [
+          `${active.artifactId}:${String(active.version + 1)}`,
+          `sha256:${'b'.repeat(64)}`,
+          `sha256:${'a'.repeat(64)}`,
+          '2026-08-09T00:00:00.000Z',
+        ],
+      );
+
+      await expect(client.query(upMigration)).rejects.toThrow(
+        /ARTIFACT_MATCH_BACKFILL_SELECTED_REF_INVALID/u,
+      );
+      await client.query('ROLLBACK');
+      await expect(
+        client.query(
+          `SELECT EXISTS(
+             SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='artifact_match_log'
+               AND column_name='artifact_version'
+           ) AS exists`,
+        ),
+      ).resolves.toMatchObject({ rows: [{ exists: false }] });
+
+      await client.query(
+        `UPDATE runtime_candidate_decision SET selected_artifact_ref=$1
+         WHERE decision_id='p07-backfill-decision'`,
+        [exactRef],
+      );
+      await client.query(upMigration);
+      await expect(
+        client.query<{ match_id: string; artifact_version: number }>(
+          `SELECT match_id,artifact_version FROM artifact_match_log
+           WHERE match_id IN ('p07-backfill-match','p07-backfill-unique')
+           ORDER BY match_id`,
+        ),
+      ).resolves.toMatchObject({
+        rows: [
+          { match_id: 'p07-backfill-match', artifact_version: active.version },
+          { match_id: 'p07-backfill-unique', artifact_version: active.version },
+        ],
+      });
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+      const column = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='artifact_match_log'
+             AND column_name='artifact_version'
+         ) AS exists`,
+      );
+      if (column.rows[0]?.exists !== true) {
+        await client.query(
+          `UPDATE runtime_candidate_decision SET selected_artifact_ref=$1
+           WHERE decision_id='p07-backfill-decision'`,
+          [exactRef],
+        );
+        await client.query(upMigration);
+      }
+      client.release();
+    }
   });
 });
 

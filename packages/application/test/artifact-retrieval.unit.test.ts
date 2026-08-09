@@ -119,6 +119,7 @@ describe('P07 Artifact retrieval and applicability', () => {
     expect(audit.entries[0]).toMatchObject({
       decision: 'compiled_fast',
       artifactId: artifact.artifactId,
+      artifactVersion: artifact.version,
     });
     expect(revalidation.entries).toEqual([]);
   });

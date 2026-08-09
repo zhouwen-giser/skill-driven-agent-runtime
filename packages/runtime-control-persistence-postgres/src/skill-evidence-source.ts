@@ -17,32 +17,63 @@ export class PostgresSkillEvidenceSource implements SkillEvidenceSource {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new Error('Skill Evidence pending limit must be between 1 and 1000.');
     const result = await this.#pool.query<{ task_id: string }>(
-      `SELECT DISTINCT execution.task_id
-       FROM skill_execution_record execution
-       JOIN runtime_terminal_outcome outcome ON outcome.task_id=execution.task_id
-       WHERE EXISTS (
-           SELECT 1 FROM evidence_source_checkpoint runtime_checkpoint
-           WHERE runtime_checkpoint.source_family='runtime'
-             AND runtime_checkpoint.source_partition='runtime-core:' || execution.task_id
-         )
-         AND (NOT EXISTS (
-           SELECT 1 FROM evidence_outbox evidence
-           WHERE evidence.record_type='skill.usage_snapshot'
-             AND evidence.source_record_id=execution.execution_id
-         )
-         OR NOT EXISTS (
-           SELECT 1 FROM evidence_source_checkpoint checkpoint
-           WHERE checkpoint.source_family='skill'
-             AND checkpoint.source_partition='skill:' || execution.task_id
-         )
-         OR EXISTS (
-           SELECT 1 FROM evidence_quality_issue issue
-           WHERE issue.episode_id=execution.task_id
-             AND issue.severity='blocking'
-             AND issue.record_type LIKE 'skill.%'
-             AND issue.resolved_at IS NULL
-         ))
-       ORDER BY execution.task_id LIMIT $1`,
+      `WITH candidate AS (
+         SELECT execution.task_id,MIN(execution.created_at) AS first_created_at
+         FROM skill_execution_record execution
+         JOIN runtime_terminal_outcome outcome ON outcome.task_id=execution.task_id
+         WHERE EXISTS (
+             SELECT 1 FROM evidence_source_checkpoint runtime_checkpoint
+             WHERE runtime_checkpoint.source_family='runtime'
+               AND runtime_checkpoint.source_partition='runtime-core:' || execution.task_id
+           )
+           AND (NOT EXISTS (
+             SELECT 1 FROM evidence_outbox evidence
+             WHERE evidence.record_type='skill.usage_snapshot'
+               AND evidence.source_record_id=execution.execution_id
+           )
+           OR NOT EXISTS (
+             SELECT 1 FROM evidence_source_checkpoint checkpoint
+             WHERE checkpoint.source_family='skill'
+               AND checkpoint.source_partition='skill:' || execution.task_id
+           )
+           OR EXISTS (
+             SELECT 1 FROM evidence_quality_issue issue
+             WHERE issue.episode_id=execution.task_id
+               AND issue.severity='blocking'
+               AND issue.record_type LIKE 'skill.%'
+               AND issue.resolved_at IS NULL
+           )
+           OR EXISTS (
+             SELECT 1 FROM evidence_projection_issue projection_issue
+             WHERE projection_issue.source_partition='skill:' || execution.task_id
+               AND projection_issue.projector_version='skill/v1'
+               AND projection_issue.evaluation_role='required'
+               AND projection_issue.severity='blocking'
+               AND projection_issue.retryable
+               AND projection_issue.resolved_at IS NULL
+           ))
+         GROUP BY execution.task_id
+       )
+       SELECT candidate.task_id
+       FROM candidate
+       LEFT JOIN LATERAL (
+         SELECT projection_issue.created_at
+         FROM evidence_projection_issue projection_issue
+         WHERE projection_issue.source_partition='skill:' || candidate.task_id
+           AND projection_issue.projector_version='skill/v1'
+           AND projection_issue.evaluation_role='required'
+           AND projection_issue.severity='blocking'
+           AND projection_issue.retryable
+           AND projection_issue.resolved_at IS NULL
+         ORDER BY projection_issue.created_at DESC,projection_issue.issue_id
+         LIMIT 1
+       ) projection_issue ON true
+       WHERE projection_issue.created_at IS NULL
+          OR projection_issue.created_at + interval '5 seconds' <= clock_timestamp()
+       ORDER BY COALESCE(
+         projection_issue.created_at + interval '5 seconds',candidate.first_created_at
+       ),candidate.task_id
+       LIMIT $1`,
       [limit],
     );
     return Object.freeze(result.rows.map((row) => row.task_id));

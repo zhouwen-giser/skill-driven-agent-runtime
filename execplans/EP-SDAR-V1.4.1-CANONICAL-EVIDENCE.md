@@ -75,7 +75,11 @@ Control read before mapping.
       execution-tree/failure semantics, blocking no-invention issues and real PostgreSQL replay.
 - [x] 2026-08-04 Phase 7 projected all 11 MCP Task and seven Capability types with exact lifecycle,
       binding snapshots, authenticated Control enrichment and real PostgreSQL replay.
-- [ ] Phase 8 project Experience, Replay, and Artifact evidence.
+- [x] 2026-08-10 Phase 8 completed. Remediation
+      closes poison-source starvation, exact schemas for all 22 records, structured
+      `CognitiveSourceRef`, latest-per-source reads and lossless 10,000-element Pattern ArtifactRef
+      descriptors. Coverage is 74/100 and 74/95 Required (77.89%); final Review is
+      `CLEAN_FOR_PHASE8_CLOSURE` with 0 Blocking/Major/Minor.
 - [ ] Phase 9 project Node Control governance evidence.
 - [ ] Phase 10 seal episode manifests and enforce coverage/quality.
 - [ ] Phase 11 expose secured evidence operations and recovery runbooks.
@@ -148,14 +152,30 @@ Control read before mapping.
 - Blocking cross-family Skill gaps cannot become terminal checkpoints: unresolved blocking Skill
   issues keep the Task pending, successful replay resolves obsolete issues, and the same stable
   issue ID is reopened if the gap returns.
+- Independent Phase 8 Review found two Blocking and eight Major semantic defects despite the
+  original focused PostgreSQL pass. The accepted repair is source-owned bounded partitions with
+  aggregate equality revisions, complete V1.2 payloads, exact references/scopes, resolvable
+  ArtifactRefs and persisted Replay safety proof; the original completion claim is withdrawn.
+- Evidence capture is currently performed by durable source projectors after the business
+  authority transaction. The Catalog therefore declares all 100 records `durable_projection`;
+  it does not claim same-transaction capture that the implementation cannot provide.
+- Poison source items must not stop healthy projection work. A stable required/blocking durable
+  Projection Issue plus restart-safe backoff and exact resolution is part of the shared pipeline,
+  not a family-specific test accommodation.
+- A Pattern with 10,000 children cannot fit the bounded inline Evidence schema. The accepted
+  representation keeps the immutable canonical definition behind an exact ArtifactRef and uses
+  URI/JSON-pointer/count/SHA-256 descriptors for collections larger than 256.
+- The isolated `sdar-v141-phase8-20260809` PostgreSQL/Redis project is available on ports
+  `55484/56384`. It is the only Phase 8 database authority used by the remediation tests.
 
 ## Decision Log
 
 - D-EP-001: Use migration Strategy B. Preserve 0142/0143 byte-for-byte and append the next
   migration for the clean cutover. No legacy data migration and no dual write.
 - D-EP-002: `sdar.evidence/v1` is the only external evaluation evidence contract.
-- D-EP-003: Required facts are captured transactionally when their source transaction is local;
-  derived and cross-database facts use durable per-source projection.
+- D-EP-003: Canonical Evidence is appended by durable source-owned projectors after the business
+  authority transaction. All 100 Catalog entries therefore declare `durable_projection`; any
+  future same-transaction producer requires a separate contract change and proof.
 - D-EP-004: Runtime PostgreSQL owns exporter state; Control PostgreSQL remains Control authority;
   Redis and the external sink remain non-authoritative.
 - D-EP-005: Stable IDs derive only from source system/table/record/revision/schema identity.
@@ -185,9 +205,10 @@ Control read before mapping.
 4. [Complete] Replace the old Telemetry application/adapter/API contract with evidence
    configuration, batch/ACK transport, retry/LKG/export status, and fail-closed security
    validation.
-5. [In progress: Phases 5-7 complete] Implement source projectors family by family in package
-   order, updating matrix and tests after each phase. Runtime is 18/18, Skill is 16/16, MCP Task is
-   11/11 and Capability is 7/7; total is 52/100.
+5. [Complete through Phase 8] Implement source projectors
+   family by family in package order. Runtime is 18/18, Skill 16/16, MCP Task 11/11, Capability
+   7/7, Experience 10/10, Replay 6/6 and Artifact 6/6. The generated source matrix records 74/100
+   verified and 74/95 Required (77.89%).
 6. Add manifest/quality/coverage enforcement, management recovery operations, and 44 required
    vertical scenarios.
 7. Run adversarial and performance gates, independent architecture/acceptance audits, freeze the
@@ -210,13 +231,27 @@ Cognitive Replay, 37 migrations, 161 Integration tests, 72 E2E tests and infrast
 Server/Console and Node Control smokes. The first failures, causes and clean rerun hashes remain in
 the Phase 7 Completion and generated verification summary.
 
+Phase 8 Evidence Contract passes 100/100 (95 Required plus five diagnostic), focused Contract 9/9,
+real PostgreSQL Runtime Core/Phase 8 5/5 and real 10,000-element Pattern producer/resolver 1/1.
+Registry hash is `sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d`;
+contract hash is `sha256:a1ffebfde0902dab632c16a8ffdad781926198a9bf69ed3722b52da1206dfd86`.
+Final independent Review is `CLEAN_FOR_PHASE8_CLOSURE` with zero Blocking, Major or Minor findings.
+Two later best-effort full verify attempts did not complete: the Architecture allowlist was fixed
+before a wrong Redis `56385` timeout; with correct Redis `56379`, the other 32 Integration files /
+165 tests passed and the sole Node Control race/non-independent migration file passed 1/1 after
+repair. Latest targeted format/lint/typecheck pass; Prettier wrote touched files, so no whole-repo
+format claim is made. Task-package section 30 mandates full `pnpm verify` only at Phases
+0/3/7/9/12/13/14. Phase 8 therefore closes without representing either attempt as a successful
+full gate.
+
 ## Idempotence and Recovery
 
 Catalog/schema generation is deterministic. Stable IDs and unique source/revision/schema keys make
-projection replay idempotent. Projectors commit record writes and per-source checkpoints together.
-Exporter ACK advances only through contiguous sequences; replay and DLQ operations are audited and
-bounded. Failed phases resume from `reports/v1.4.1-evidence/goal-state.json` and this plan without
-rewriting pushed history.
+projection replay idempotent. Projectors save a checkpoint only after all record writes and exact
+source-scoped issue reconciliation complete; a crash before that point replays idempotently.
+Exporter ACK advances only through contiguous sequences. Audited replay and DLQ operations remain
+Phase 11 work and are not claimed by the current implementation. Failed phases resume from
+`reports/v1.4.1-evidence/goal-state.json` and this plan without rewriting pushed history.
 
 ## Artifacts and Evidence
 
@@ -231,8 +266,8 @@ rewriting pushed history.
 
 Phases 0 through 7 are complete. The baseline is reproducible, the append-only route is fixed, and
 all 100 catalog types now have source-confirmed authority. The Domain freezes deterministic
-IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas under registry hash
-`sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`.
+IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas. The current regenerated
+registry hash is `sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d`.
 Migration 0144 removes the three old Telemetry product tables and creates eight constrained
 Evidence authorities with no data migration or dual write. Eleven focused PostgreSQL tests, the
 37-migration verifier, and Phase 3 full gate pass. Phase 4 replaces the complete external
@@ -245,6 +280,8 @@ The real Skill vertical proves exact Usage Specification and policy snapshots, p
 composition, Capability Slot ID/version, seven reference kinds, wait/resume, compliance pass/fail,
 degraded missing effects/evidence and replay. Phase 7 additionally proves Remote Task lifecycle,
 continuation/cancel semantics, complete Capability Binding snapshots and authenticated Control
-enrichment. Its mandatory 865,814 ms full gate passes all eight stages. Phase 8 projects
-Experience, Replay and Artifact records.
+enrichment. Its mandatory 865,814 ms full gate passes all eight stages. Phase 8 Experience, Replay
+and Artifact implementation is complete at generated coverage 74/100 and 74/95 Required (77.89%);
+its final independent Review is clean. Per task-package section 30, the next mandatory full gate is
+Phase 9.
 This section will be replaced with the final measured outcome after Phase 14.

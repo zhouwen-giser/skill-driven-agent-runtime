@@ -970,7 +970,7 @@ release verification run.
 | V141-EVIDENCE-CUTOVER-001 | verified | immutable 0142/0143 plus clean-cutover migration `0144_v14_canonical_evidence`; no old-row migration or dual write; ADR-126 | `pnpm verify:migrations`; guarded `pnpm db:reset:v1.4.1` |
 | V141-EVIDENCE-PERSIST-001 | verified | `EvidenceStore` and eight Runtime PostgreSQL authorities implement idempotent capture, stable-ID conflict, monotonic sequence, High Watermark and source checkpoints | `evidence-persistence.integration.test.ts`: real PostgreSQL concurrency, rollback, restart and cursor cases |
 | V141-EVIDENCE-DELIVERY-001 | verified | per-export/partition leases and fencing, exact sent ownership, contiguous bounded partial ACK, retained DLQ and issue/manifest constraints; ADR-128 | focused persistence and compatibility tests: 2 files / 11 tests |
-| V141-EVIDENCE-SOURCE-001 | source-confirmed | deterministic source matrix maps 100/100 catalog entries to real authoritative sources; projector coverage is intentionally deferred to Phases 4-10 | `source-to-evidence-matrix.{csv,json}`; `source-coverage-phase3.json` |
+| V141-EVIDENCE-SOURCE-001 | verified | deterministic source matrix maps 100/100 Catalog entries to real authorities; all entries use `durable_projection`; Phase 8's 22 accepted projectors produce 74/100 verified and 74/95 Required (77.89%) | `source-to-evidence-matrix.{csv,json}`; `source-coverage-phase8.json`; final Review clean |
 | V141-EVIDENCE-PHASE3-GATE | verified | Phase 3 persistence only; external batch protocol remains Phase 4 | `pnpm verify`: 1,198 Unit/Contract, 158 Integration, 72 E2E plus migrations, architecture, build and smokes; `evidence-persistence-report.md` |
 
 ## SDAR v1.4.1 Canonical Evidence Export Protocol Addendum
@@ -1012,3 +1012,13 @@ release verification run.
 | V141-EVIDENCE-CAPABILITY-AUTHORITY-001 | verified | authenticated schema-validated Control read; exact governance Evidence ref required; Runtime owns projection only | HTTP adapter test, enrichment test and architecture gate |
 | V141-EVIDENCE-MCP-SECURITY-001 | verified | forbidden credential/token/private-reasoning keys removed before Source Revision hashing and payload canonicalization | real PostgreSQL regression for `credential_revision`; canonical contract gate |
 | V141-EVIDENCE-PHASE7-GATE | verified | MCP Task 11/11 + Capability 7/7; total coverage 52/100; sealing remains Phase 10 | focused 12 Unit and 3 PostgreSQL Integration; full `pnpm verify` 865,814 ms with 1,222 static assertions, 161 Integration, 72 E2E and all smokes |
+
+## SDAR v1.4.1 Experience, Replay and Artifact Evidence Addendum
+
+| Requirement | Status | Implementation | Tests / evidence |
+|---|---|---|---|
+| V141-EVIDENCE-EXPERIENCE-001 | verified | `ExperienceReplayArtifactEvidenceProjector` maps 10 Experience types with real Activity identity, parent/concurrency/branch semantics, ordered variants, recovery, corrections and structured `CognitiveSourceRef` provenance | focused Contract 9/9; Runtime Core PostgreSQL 5/5; ADR-133; final Review 0/0/0 |
+| V141-EVIDENCE-EXPERIENCE-IDENTITY-001 | verified | 10 exact source-owned partitions; latest revision per source identity; Brotli size/hash verification; stable child IDs; poison-item durable issue/backoff/resolution | late-arrival/isolation/decompression/reorder and real poison-pipeline PostgreSQL regression; final Review clean |
+| V141-EVIDENCE-REPLAY-001 | verified | six Replay types retain Dataset Version, source snapshot hash, Case/Run/Metric/Counterexample lineage and persisted no-physical-side-effect proof under exact schemas | legal V1.2 PostgreSQL mapper 4/4 and real vertical 3/3; Evidence Contract 100/100 |
+| V141-EVIDENCE-ARTIFACT-001 | verified | six Artifact types retain exact version, policy/authority refs, retrieval/usage correlation, validation and promotion lineage; 10,000-element Patterns reconstruct through exact ArtifactRef/JSON-pointer/count/hash descriptors | real 10,000-element producer/resolver 1/1; registry `sha256:a2ce623b...`; contract `sha256:a1ffebfd...`; final Review clean |
+| V141-EVIDENCE-PHASE8-GATE | verified | shared poison-isolating pipeline, repeatable-read source reconciliation, latest-per-source query, exact 22 schemas, `CognitiveSourceRef`, blocking-issue replay and all-`durable_projection` Catalog | focused Contract 9/9, PostgreSQL 5/5 + 1/1, Evidence Contract 100/100 (95 Required + 5 diagnostic), combined Integration other 32 files/165 tests plus repaired file 1/1, final Review clean; §30 does not mandate full verify at Phase 8 |

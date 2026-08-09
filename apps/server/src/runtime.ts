@@ -246,6 +246,7 @@ import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/inde
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
   PostgresEvidenceStore,
+  PostgresExperienceReplayArtifactEvidenceSource,
   PostgresMcpCapabilityEvidenceSource,
   PostgresRuntimeAgentCardRepository,
   PostgresRuntimeCoreEvidenceSource,
@@ -253,7 +254,10 @@ import {
   PostgresSkillEvidenceSource,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
+  CanonicalEvidenceProjectionPipeline,
   ControlEnrichedMcpCapabilityEvidenceSource,
+  EvidenceProjectionIssuePersistenceError,
+  ExperienceReplayArtifactEvidenceProjector,
   McpCapabilityEvidenceProjector,
   RuntimeCoreEvidenceProjector,
   RuntimeEvidenceExportService,
@@ -718,6 +722,32 @@ export async function startServerRuntime(
     source: mcpCapabilityEvidenceSource,
     writer: evidenceStore,
     environment: options.evidenceEnvironment ?? 'runtime',
+    clock,
+  });
+  const experienceReplayArtifactEvidenceSource = new PostgresExperienceReplayArtifactEvidenceSource(
+    pool,
+  );
+  const experienceReplayArtifactEvidenceProjector = new ExperienceReplayArtifactEvidenceProjector({
+    source: experienceReplayArtifactEvidenceSource,
+    writer: evidenceStore,
+    environment: options.evidenceEnvironment ?? 'runtime',
+    clock,
+  });
+  const canonicalEvidenceProjectionPipeline = new CanonicalEvidenceProjectionPipeline({
+    writer: evidenceStore,
+    runtimeCore: {
+      source: runtimeCoreEvidenceSource,
+      projector: runtimeCoreEvidenceProjector,
+    },
+    skill: { source: skillEvidenceSource, projector: skillEvidenceProjector },
+    mcpCapability: {
+      source: mcpCapabilityEvidenceSource,
+      projector: mcpCapabilityEvidenceProjector,
+    },
+    experienceReplayArtifact: {
+      source: experienceReplayArtifactEvidenceSource,
+      projector: experienceReplayArtifactEvidenceProjector,
+    },
     clock,
   });
   const cognitiveManagementActionRepository = new PostgresCognitiveManagementActionRepository(pool);
@@ -4171,13 +4201,17 @@ export async function startServerRuntime(
         );
         if (lease.rows[0]?.acquired !== true) return;
         try {
-          const taskIds = await runtimeCoreEvidenceSource.pendingTaskIds(10);
-          for (const taskId of taskIds) await runtimeCoreEvidenceProjector.projectTask(taskId);
-          const skillTaskIds = await skillEvidenceSource.pendingTaskIds(10);
-          for (const taskId of skillTaskIds) await skillEvidenceProjector.projectTask(taskId);
-          const mcpCapabilityTaskIds = await mcpCapabilityEvidenceSource.pendingTaskIds(10);
-          for (const taskId of mcpCapabilityTaskIds)
-            await mcpCapabilityEvidenceProjector.projectTask(taskId);
+          const result = await canonicalEvidenceProjectionPipeline.drain(10);
+          if (result.failedItems > 0 || result.sourceListingFailures > 0) {
+            process.stderr.write(
+              `${JSON.stringify({
+                event: 'evidence_projection.items_deferred',
+                failedItems: result.failedItems,
+                sourceListingFailures: result.sourceListingFailures,
+                durableIssueCount: result.openIssueIds.length,
+              })}\n`,
+            );
+          }
         } finally {
           await projectionClient.query(
             `SELECT pg_advisory_unlock(
@@ -4190,8 +4224,16 @@ export async function startServerRuntime(
       }
     })()
       .catch((error: unknown) => {
+        const issuePersistenceFailures =
+          error instanceof EvidenceProjectionIssuePersistenceError
+            ? error.result.issuePersistenceFailures
+            : undefined;
         process.stderr.write(
-          `${JSON.stringify({ event: 'evidence_projection.runtime_core_failed', errorCode: runtimeErrorCode(error) })}\n`,
+          `${JSON.stringify({
+            event: 'evidence_projection.pipeline_failed',
+            errorCode: runtimeErrorCode(error),
+            ...(issuePersistenceFailures === undefined ? {} : { issuePersistenceFailures }),
+          })}\n`,
         );
       })
       .finally(() => {

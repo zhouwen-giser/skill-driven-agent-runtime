@@ -72,18 +72,68 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 11,
       "maxProperties": 128,
-      "required": ["traceId", "eventId", "activityKey"],
+      "required": [
+        "traceId",
+        "eventId",
+        "activityKey",
+        "activityKind",
+        "objectiveSummary",
+        "sourcePlanNodeRef",
+        "sourceSkillGoalRef",
+        "sourceAttemptRef",
+        "operationRef",
+        "capabilityRefs",
+        "effectRefs"
+      ],
       "properties": {
         "traceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "eventId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "activityKey": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        "activityKey": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "activityKind": {
+          "type": "string",
+          "enum": [
+            "skill_goal",
+            "plan_node",
+            "provider_operation",
+            "observation",
+            "verification",
+            "reasoning",
+            "human_gate",
+            "unknown"
+          ]
+        },
+        "objectiveSummary": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "sourcePlanNodeRef": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "sourceSkillGoalRef": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "sourceAttemptRef": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "operationRef": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "capabilityRefs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "effectRefs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },
-    "goalVersion": { "type": "integer", "minimum": 1 },
-    "planVersion": { "type": "integer", "minimum": 1 },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
@@ -107,11 +157,25 @@
         { "type": "boolean" },
         { "type": "number" },
         { "type": "string", "maxLength": 65536 },
-        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/evidenceValue" } },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
         {
           "type": "object",
           "maxProperties": 128,
-          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
         }
       ]
     }

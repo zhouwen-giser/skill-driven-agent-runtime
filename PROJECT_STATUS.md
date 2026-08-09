@@ -2,14 +2,14 @@
 
 SDAR v1.4.1 Canonical Evidence Export is `IN_PROGRESS` (2026-08-04) on
 `feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-7
-are complete: the user-supplied task package is SHA-256 verified and retained under `docs/`; immutable
+are complete through Phase 8: the user-supplied task package is SHA-256 verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
 confirmed sources and seven explicit evidence-infrastructure blockers; Phase 3 has now closed all
 seven source-authority gaps. Phase 2 freezes
 deterministic canonical JSON, stable source/schema IDs, payload hashes, a fail-closed 100-entry
 Domain Catalog, 100 non-placeholder Draft 2020-12 record schemas, and seven protocol schemas under
-registry hash `sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27`.
+registry hash `sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d`.
 Fifteen focused Unit and three Contract tests pass, including compilation/validation of all schemas
 and adversarial secret/private-reasoning/depth/size/conflict checks. Migration 0144 performs the
 Strategy B clean cutover: all three old Telemetry product tables are removed and eight canonical
@@ -39,8 +39,24 @@ governance Evidence ref before Runtime projection. Twelve focused Unit and three
 Integration tests pass with idempotent replay; architecture covers 667 sources and the Catalog
 remains 100/100. The mandatory Phase 7 full `pnpm verify` passes in 865,814 ms with 970 Unit, 22
 performance, 230 Contract, 161 Integration and 72 E2E tests, 37 migrations, build and all smokes.
-Formal projector coverage is 52/100. No ClickHouse, merge, tag, release, or
-deployment has started; Phase 8 Experience, Replay and Artifact projection is next.
+Phase 8's first independent read-only review rejected the initial implementation with two Blocking
+and eight Major findings; a later review added three Major and one Minor. The source-owned repair
+now includes poison-item isolation with durable Projection Issues, exact schemas for all 22 Phase 8
+records, structured `CognitiveSourceRef`, latest-per-source reads and lossless 10,000-element
+Pattern ArtifactRef descriptors. All 100 records declare `durable_projection`. Evidence Contract
+100/100 (95 Required plus five diagnostic), focused Contract 9/9, real PostgreSQL Runtime Core 5/5
+and the 10,000-element producer/resolver 1/1 pass under registry hash
+`sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d` and contract hash
+`sha256:a1ffebfde0902dab632c16a8ffdad781926198a9bf69ed3722b52da1206dfd86`.
+Final independent Review is `CLEAN_FOR_PHASE8_CLOSURE` with zero Blocking, Major or Minor findings;
+generated coverage is 74/100 verified and 74/95 Required (77.89%). The two best-effort full verify
+attempts did not complete: the first exposed and repaired an Architecture allowlist omission before
+timing out on the wrong Redis port `56385`; the second used `56379`, passed the other 32 Integration
+files / 165 tests and exposed one Node Control startup/migration isolation defect whose exact file
+then passed 1/1 after repair. Latest targeted format/lint/typecheck pass; no whole-repository format
+or successful full-verify claim is made. Task-package section 30 mandates full `pnpm verify` only at
+Phases 0/3/7/9/12/13/14, so Phase 8 is `COMPLETED`. No ClickHouse, merge, tag, release, or
+deployment has started; Phase 9 implementation has not started.
 
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`

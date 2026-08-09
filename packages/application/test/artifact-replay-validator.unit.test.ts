@@ -6,11 +6,13 @@ import {
   CounterfactualReplayEvaluator,
   PlanReplayEvaluator,
   RuleReplayEvaluator,
+  appendReplaySafetyFailures,
   type HistoricalReplayOutcome,
   type PlanReplayInput,
 } from '../src/index.js';
 import {
   USER_GOAL_RUNTIME_LIMITS,
+  createArtifactValidationFailure,
   type ArtifactReplayCase,
   type CandidateStaticValidationResult,
   type CompiledArtifact,
@@ -317,6 +319,14 @@ describe('P05 Artifact replay validator', () => {
       unsafe: false,
       artifactHash: sha('a'),
       datasetHash: sha('d'),
+      replaySafety: {
+        provider: 'ReplayNoPhysicalProvider',
+        physicalAdapterInvocationCount: 0,
+        sideEffectAttemptCount: 0,
+        deniedBeforePhysicalBoundaryCount: 0,
+        denialEvidenceRefs: [],
+        physicalOutcomeClaim: 'none',
+      },
     });
     expect(first.result.resultHash).toBe(second.result.resultHash);
     expect(first.result.validationRunId).not.toBe(second.result.validationRunId);
@@ -431,6 +441,53 @@ describe('P05 Artifact replay validator', () => {
       evaluations: [changed],
       completedAt: at,
     });
+    expect(second.result.resultHash).not.toBe(first.result.resultHash);
+  });
+
+  it('binds exact replay denial evidence into replaySafety and resultHash identity', () => {
+    const evaluation = new PlanReplayEvaluator().evaluate(input());
+    const withDenial = (evidenceRef: string, failureId: string) =>
+      appendReplaySafetyFailures(evaluation, {
+        artifact: artifact(),
+        replayCase: replayCase(),
+        evaluatedAt: at,
+        failures: [
+          createArtifactValidationFailure({
+            failureId,
+            validationRunRef: 'validation-run-p05',
+            replayCaseRef: 'replay-case-p05',
+            category: 'side_effect_attempt',
+            severity: 'critical',
+            actualRef: 'mcp_tool:provider-operation-p05',
+            evidenceRefs: [evidenceRef],
+            explanation: 'Replay denied the operation before the physical adapter boundary.',
+          }),
+        ],
+      });
+    const engine = new ArtifactReplayValidationEngine();
+    const first = engine.validate({
+      validationRunId: 'validation-run-p05',
+      artifact: artifact(),
+      dataset: dataset(),
+      evaluations: [withDenial('replay-denial-a', 'failure-denial-a')],
+      completedAt: at,
+    });
+    const second = engine.validate({
+      validationRunId: 'validation-run-p05-other',
+      artifact: artifact(),
+      dataset: dataset(),
+      evaluations: [withDenial('replay-denial-b', 'failure-denial-b')],
+      completedAt: at,
+    });
+    expect(first.result.replaySafety).toEqual({
+      provider: 'ReplayNoPhysicalProvider',
+      physicalAdapterInvocationCount: 0,
+      sideEffectAttemptCount: 1,
+      deniedBeforePhysicalBoundaryCount: 1,
+      denialEvidenceRefs: ['replay-denial-a'],
+      physicalOutcomeClaim: 'none',
+    });
+    expect(first.result.result).toBe('unsafe');
     expect(second.result.resultHash).not.toBe(first.result.resultHash);
   });
 

@@ -72,20 +72,106 @@ for (const entry of EVIDENCE_RECORD_CATALOG) {
   if (actualHash !== entry.schemaHash || registryEntry?.['schemaHash'] !== actualHash) {
     throw new Error(`EVIDENCE_SCHEMA_HASH_MISMATCH:${entry.recordType}`);
   }
+  const registryContractFields = {
+    sourceSystem: entry.sourceSystem,
+    sourceTable: entry.sourceTable,
+    authority: entry.authority,
+    recordFamily: entry.recordFamily,
+    recordType: entry.recordType,
+    schemaName: entry.schemaName,
+    schemaVersion: entry.schemaVersion,
+    mapper: entry.mapper,
+    deliveryGuarantee: entry.deliveryGuarantee,
+    evaluationRole: entry.evaluationRole,
+    requirementLevel: entry.requirementLevel,
+    applicability: entry.applicability,
+    redactionPolicy: entry.redactionPolicy,
+    artifactPolicy: entry.artifactPolicy,
+    expectedReferences: entry.expectedReferences,
+  };
+  for (const [field, expectedValue] of Object.entries(registryContractFields)) {
+    if (JSON.stringify(registryEntry?.[field]) !== JSON.stringify(expectedValue)) {
+      throw new Error(`EVIDENCE_REGISTRY_CATALOG_DRIFT:${entry.recordType}:${field}`);
+    }
+  }
 }
 
 const matrix = await readJson(
   path.resolve('reports/v1.4.1-evidence/source-to-evidence-matrix.json'),
 );
+if (matrix['registryHash'] !== registry['registryHash']) {
+  throw new Error('EVIDENCE_SOURCE_MATRIX_REGISTRY_HASH_DRIFT');
+}
 const matrixRecords = matrix['records'];
-if (!Array.isArray(matrixRecords)) throw new Error('EVIDENCE_SOURCE_MATRIX_INVALID');
-const matrixTypes = new Set(
-  matrixRecords.map((record) => (record as Record<string, unknown>)['record_type']),
+if (!Array.isArray(matrixRecords) || matrixRecords.length !== 100) {
+  throw new Error('EVIDENCE_SOURCE_MATRIX_INVALID');
+}
+const matrixByType = new Map(
+  matrixRecords.map((record) => {
+    if (typeof record !== 'object' || record === null)
+      throw new Error('EVIDENCE_SOURCE_MATRIX_ROW_INVALID');
+    const typed = record as Record<string, unknown>;
+    return [typed['record_type'], typed] as const;
+  }),
 );
+if (matrixByType.size !== 100) throw new Error('EVIDENCE_SOURCE_MATRIX_DUPLICATE_TYPE');
 for (const entry of EVIDENCE_RECORD_CATALOG) {
-  if (!matrixTypes.has(entry.recordType)) {
+  const matrixEntry = matrixByType.get(entry.recordType);
+  if (matrixEntry === undefined) {
     throw new Error(`EVIDENCE_SOURCE_MATRIX_CATALOG_DRIFT:${entry.recordType}`);
   }
+  const matrixContractFields = {
+    source_system: entry.sourceSystem,
+    source_table_or_aggregate: entry.sourceTable,
+    source_authority: entry.authority,
+    record_family: entry.recordFamily,
+    schema_name: entry.schemaName,
+    schema_version: entry.schemaVersion,
+    delivery_guarantee: entry.deliveryGuarantee,
+    evaluation_role: entry.evaluationRole,
+    applicability: entry.applicability,
+    mapper: entry.mapper,
+    redaction_profile: entry.redactionPolicy,
+    artifact_policy: entry.artifactPolicy,
+    required_references: entry.expectedReferences.join(','),
+  };
+  for (const [field, expectedValue] of Object.entries(matrixContractFields)) {
+    if (JSON.stringify(matrixEntry[field]) !== JSON.stringify(expectedValue)) {
+      throw new Error(`EVIDENCE_SOURCE_MATRIX_FIELD_DRIFT:${entry.recordType}:${field}`);
+    }
+  }
+}
+const evaluationRoleCounts = Object.fromEntries(
+  ['required', 'diagnostic'].map((role) => [
+    role,
+    matrixRecords.filter(
+      (record) => (record as Record<string, unknown>)['evaluation_role'] === role,
+    ).length,
+  ]),
+);
+if (evaluationRoleCounts['required'] !== 95 || evaluationRoleCounts['diagnostic'] !== 5) {
+  throw new Error(
+    `EVIDENCE_SOURCE_MATRIX_ROLE_COUNTS_INVALID:${JSON.stringify(evaluationRoleCounts)}`,
+  );
+}
+const deliveryGuaranteeCounts = Object.fromEntries(
+  ['transactional', 'durable_projection'].map((guarantee) => [
+    guarantee,
+    matrixRecords.filter(
+      (record) => (record as Record<string, unknown>)['delivery_guarantee'] === guarantee,
+    ).length,
+  ]),
+);
+const catalogDeliveryGuaranteeCounts = Object.fromEntries(
+  ['transactional', 'durable_projection'].map((guarantee) => [
+    guarantee,
+    EVIDENCE_RECORD_CATALOG.filter((entry) => entry.deliveryGuarantee === guarantee).length,
+  ]),
+);
+if (JSON.stringify(deliveryGuaranteeCounts) !== JSON.stringify(catalogDeliveryGuaranteeCounts)) {
+  throw new Error(
+    `EVIDENCE_SOURCE_MATRIX_DELIVERY_COUNTS_INVALID:${JSON.stringify(deliveryGuaranteeCounts)}`,
+  );
 }
 
 const contract = await readJson(path.resolve('protocol/evidence/v1/evidence-contract.json'));
@@ -97,5 +183,5 @@ if (
 }
 
 stdout.write(
-  `${JSON.stringify({ status: 'PASSED', records: 100, familyCounts, registryHash: registry['registryHash'] })}\n`,
+  `${JSON.stringify({ status: 'PASSED', records: 100, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts, registryHash: registry['registryHash'] })}\n`,
 );

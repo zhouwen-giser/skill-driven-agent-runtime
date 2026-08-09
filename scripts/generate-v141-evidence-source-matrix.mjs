@@ -1,10 +1,26 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { stdout } from 'node:process';
 
 const outputDirectory = path.resolve('reports/v1.4.1-evidence');
 const runtimeDatabase = 'runtime_postgresql';
 const controlDatabase = 'control_postgresql';
+const registry = JSON.parse(
+  await readFile(path.resolve('schemas/evidence/v1/registry.json'), 'utf8'),
+);
+if (!Array.isArray(registry.records) || registry.records.length !== 100) {
+  throw new Error('Evidence registry must contain exactly 100 records before matrix generation');
+}
+const catalogByType = new Map(registry.records.map((entry) => [entry.recordType, entry]));
+const acceptedVerifiedFamilies = new Set([
+  'runtime',
+  'skill',
+  'mcp_task',
+  'capability',
+  'experience',
+  'replay',
+  'artifact',
+]);
 
 const sources = {
   agent_task: [
@@ -370,7 +386,7 @@ const sources = {
   pattern_variant: [
     'runtime',
     runtimeDatabase,
-    'pattern_candidate.definition.processVariants[]',
+    'pattern_candidate.definition.variants[]',
     'Runtime PostgreSQL',
     'pattern_id + variantId',
     'parent pattern canonical hash + variant canonical hash',
@@ -379,18 +395,18 @@ const sources = {
   pattern_dependency: [
     'runtime',
     runtimeDatabase,
-    'pattern_candidate.definition.dependencies[]',
+    'pattern_candidate.definition.workflowPattern.dependencyPatterns[]',
     'Runtime PostgreSQL',
-    'pattern_id + dependencyKey',
+    'pattern_id + canonical dependency hash',
     'parent pattern canonical hash + dependency canonical hash',
     'created_at',
   ],
   pattern_recovery: [
     'runtime',
     runtimeDatabase,
-    'pattern_candidate.definition.recoveryPatterns[]',
+    'pattern_candidate.definition.workflowPattern.recoveryPatterns[]',
     'Runtime PostgreSQL',
-    'pattern_id + recoveryPatternId',
+    'pattern_id + canonical recovery hash',
     'parent pattern canonical hash + recovery canonical hash',
     'created_at',
   ],
@@ -750,19 +766,20 @@ const phase3Sources = {
   ],
 };
 
-function mapperName(recordType) {
-  return `${recordType
-    .split(/[._]/)
-    .map((part) => part[0].toUpperCase() + part.slice(1))
-    .join('')}EvidenceMapper`;
-}
-
 function row(recordType, sourceKey, requiredReferences, options = {}) {
   const source = sources[sourceKey] ?? phase3Sources[sourceKey];
   if (!source) throw new Error(`Unknown source key ${sourceKey} for ${recordType}`);
-  const [sourceSystem, sourceDatabase, sourceTable, authority, identity, revision, timestamp] =
-    source;
-  const family = recordType.split('.')[0];
+  const [, sourceDatabase, , , identity, revision, timestamp] = source;
+  const catalog = catalogByType.get(recordType);
+  if (!catalog) throw new Error(`Missing registry metadata for ${recordType}`);
+  const expectedReferences = catalog.expectedReferences.join(',');
+  // The historical third argument is retained only to keep the 100-row source inventory readable;
+  // reference authority comes exclusively from the generated Domain Catalog registry.
+  void requiredReferences;
+  const sourceSystem = catalog.sourceSystem;
+  const sourceTable = catalog.sourceTable;
+  const authority = catalog.authority;
+  const family = catalog.recordFamily;
   return {
     source_system: sourceSystem,
     source_database: sourceDatabase,
@@ -773,43 +790,28 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     source_timestamp_field: timestamp,
     record_family: family,
     record_type: recordType,
-    schema_name: `sdar.evidence.${recordType}`,
-    schema_version: '1.0.0-proposed',
-    delivery_guarantee: 'at_least_once; stable-id idempotent',
-    evaluation_role: options.role ?? 'required',
-    applicability: options.applicability ?? 'episode feature/policy determines applicability',
-    mapper:
-      options.mapper ??
-      (family === 'runtime'
-        ? 'RuntimeCoreEvidenceProjector'
-        : family === 'skill'
-          ? 'SkillEvidenceProjector'
-          : family === 'mcp_task' || family === 'capability'
-            ? 'McpCapabilityEvidenceProjector'
-          : mapperName(recordType)),
+    schema_name: catalog.schemaName,
+    schema_version: catalog.schemaVersion,
+    delivery_guarantee: catalog.deliveryGuarantee,
+    evaluation_role: catalog.evaluationRole,
+    applicability: catalog.applicability,
+    mapper: catalog.mapper,
     projection_mode:
-      sourceSystem === 'control'
+      sourceSystem === 'node_control'
         ? 'durable_control_source_projector'
         : sourceTable.includes('[]')
           ? 'durable_structured_subrecord_projector'
           : 'durable_runtime_source_projector',
     cursor_rule:
-      sourceSystem === 'control'
+      sourceSystem === 'node_control'
         ? 'per Control source/partition; node-event sequence or aggregate revision; never global'
         : 'per Runtime source/partition; stable timestamp plus source identity tie-break; never global',
-    redaction_profile:
-      options.redaction ?? 'internal-default; secrets/prompts/hidden reasoning excluded',
-    artifact_policy:
-      options.artifact ?? 'inline bounded structured fact; oversized payload by ArtifactRef',
-    required_references: requiredReferences,
+    redaction_profile: catalog.redactionPolicy,
+    artifact_policy: catalog.artifactPolicy,
+    required_references: expectedReferences,
     status:
       options.status ??
-      (family === 'runtime' ||
-      family === 'skill' ||
-      family === 'mcp_task' ||
-      family === 'capability'
-        ? 'implemented_and_verified'
-        : 'source_confirmed'),
+      (acceptedVerifiedFamilies.has(family) ? 'implemented_and_verified' : 'source_confirmed'),
   };
 }
 
@@ -1044,9 +1046,7 @@ for (const record of records) {
       'source_missing_blocker',
       'conditional_not_applicable',
       'implemented_and_verified',
-    ]).has(
-      record.status,
-    )
+    ]).has(record.status)
   ) {
     throw new Error(`${record.record_type} has invalid status ${record.status}`);
   }
@@ -1065,10 +1065,7 @@ const statusCounts = Object.fromEntries(
     'source_missing_blocker',
     'conditional_not_applicable',
     'implemented_and_verified',
-  ].map((status) => [
-    status,
-    records.filter((record) => record.status === status).length,
-  ]),
+  ].map((status) => [status, records.filter((record) => record.status === status).length]),
 );
 const familyCounts = Object.fromEntries(
   [...new Set(records.map(({ record_family }) => record_family))].map((family) => [
@@ -1076,12 +1073,26 @@ const familyCounts = Object.fromEntries(
     records.filter((record) => record.record_family === family).length,
   ]),
 );
+const evaluationRoleCounts = Object.fromEntries(
+  ['required', 'diagnostic'].map((role) => [
+    role,
+    records.filter((record) => record.evaluation_role === role).length,
+  ]),
+);
+const deliveryGuaranteeCounts = Object.fromEntries(
+  ['transactional', 'durable_projection'].map((guarantee) => [
+    guarantee,
+    records.filter((record) => record.delivery_guarantee === guarantee).length,
+  ]),
+);
 
 await mkdir(outputDirectory, { recursive: true });
 await writeFile(path.join(outputDirectory, 'source-to-evidence-matrix.csv'), csv, 'utf8');
 await writeFile(
   path.join(outputDirectory, 'source-to-evidence-matrix.json'),
-  `${JSON.stringify({ contract: 'sdar.evidence/v1', generatedBy: 'scripts/generate-v141-evidence-source-matrix.mjs', requiredColumns, statusCounts, familyCounts, records }, null, 2)}\n`,
+  `${JSON.stringify({ contract: 'sdar.evidence/v1', registryHash: registry.registryHash, generatedBy: 'scripts/generate-v141-evidence-source-matrix.mjs', requiredColumns, statusCounts, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts, records }, null, 2)}\n`,
   'utf8',
 );
-stdout.write(`${JSON.stringify({ total: records.length, statusCounts, familyCounts })}\n`);
+stdout.write(
+  `${JSON.stringify({ total: records.length, statusCounts, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts })}\n`,
+);

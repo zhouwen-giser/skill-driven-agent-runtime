@@ -19,7 +19,7 @@ import {
 } from '../../../domain/src/index.js';
 import { VALIDATION_METRIC_CATALOG_VERSION, ValidationMetricCatalog } from './replay-metrics.js';
 
-export const ARTIFACT_REPLAY_VALIDATOR_VERSION = 'sdar-artifact-replay-validator/1.1' as const;
+export const ARTIFACT_REPLAY_VALIDATOR_VERSION = 'sdar-artifact-replay-validator/1.2' as const;
 
 export type ReplayAuthorityDecision = 'allow' | 'deny' | 'require_confirmation';
 
@@ -505,6 +505,23 @@ export class ArtifactReplayValidationEngine {
         status: counterexample.status,
       }))
       .sort(compareCanonical);
+    const sideEffectFailures = failures.filter(
+      (failure) => failure.category === 'side_effect_attempt',
+    );
+    const sideEffectAttemptCount = metrics['side_effect_attempt_count'] ?? 0;
+    if (sideEffectAttemptCount !== sideEffectFailures.length) {
+      throw new Error('REPLAY_SIDE_EFFECT_EVIDENCE_MISMATCH');
+    }
+    const replaySafety = Object.freeze({
+      provider: 'ReplayNoPhysicalProvider' as const,
+      physicalAdapterInvocationCount: 0 as const,
+      sideEffectAttemptCount,
+      deniedBeforePhysicalBoundaryCount: sideEffectAttemptCount,
+      denialEvidenceRefs: uniqueSorted(
+        sideEffectFailures.flatMap((failure) => [...failure.evidenceRefs]),
+      ),
+      physicalOutcomeClaim: 'none' as const,
+    });
     const resultIdentity = {
       validationType: 'replay' as const,
       metrics,
@@ -516,6 +533,7 @@ export class ArtifactReplayValidationEngine {
       metricCatalogVersion: VALIDATION_METRIC_CATALOG_VERSION,
       artifactHash: input.artifact.contentHash,
       datasetHash: input.dataset.contentHash,
+      replaySafety,
     };
     const validationResult = createArtifactValidationResult({
       validationRunId: input.validationRunId,
@@ -534,6 +552,7 @@ export class ArtifactReplayValidationEngine {
       artifactHash: input.artifact.contentHash,
       datasetHash: input.dataset.contentHash,
       resultHash: hash(resultIdentity),
+      replaySafety,
       completedAt: input.completedAt,
     });
     return Object.freeze({

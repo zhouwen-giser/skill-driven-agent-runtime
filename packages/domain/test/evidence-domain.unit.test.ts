@@ -6,9 +6,11 @@ import {
   EvidenceContractError,
   assertEvidencePayloadIdentity,
   canonicalizeEvidenceJson,
+  createCatalogEvidenceEnvelope,
   createCanonicalEvidenceEnvelope,
   createEvidenceRecordId,
   getEvidenceCatalogEntry,
+  getEvidenceRecordSchema,
   hashCanonicalEvidenceJson,
   isEvidenceRecordId,
   isEvidenceSha256,
@@ -49,8 +51,263 @@ describe('canonical evidence Domain', () => {
     expect(EVIDENCE_RECORD_CATALOG.every((entry) => entry.requiredPayloadFields.length >= 2)).toBe(
       true,
     );
+    expect(
+      EVIDENCE_RECORD_CATALOG.every((entry) => entry.deliveryGuarantee === 'durable_projection'),
+    ).toBe(true);
     expect(getEvidenceCatalogEntry('runtime.goal').sourceTable).toBe('goal');
+    expect(getEvidenceCatalogEntry('artifact.usage')).toMatchObject({
+      sourceTable: 'artifact_execution',
+      deliveryGuarantee: 'durable_projection',
+    });
+    expect(getEvidenceCatalogEntry('artifact.feedback')).toMatchObject({
+      sourceTable: 'artifact_feedback',
+      deliveryGuarantee: 'durable_projection',
+    });
     expect(() => getEvidenceCatalogEntry('unknown.record')).toThrow('EVIDENCE_RECORD_TYPE_UNKNOWN');
+  });
+
+  it('freezes reconstructible Phase 8 Experience payloads and source-owned references', () => {
+    expect(getEvidenceCatalogEntry('experience.trace').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'taskTypeRefs',
+        'goalFingerprint',
+        'capabilityFingerprint',
+        'environmentFingerprint',
+        'traceBody',
+      ]),
+    );
+    expect(getEvidenceCatalogEntry('experience.trace_event').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'sequence',
+        'actorType',
+        'activityRecordId',
+        'capabilityRefs',
+        'authorityRefs',
+        'parentEventRefs',
+        'concurrencyGroup',
+        'branchRef',
+        'payloadSummary',
+      ]),
+    );
+    expect(getEvidenceCatalogEntry('experience.activity').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'activityKind',
+        'objectiveSummary',
+        'sourcePlanNodeRef',
+        'sourceSkillGoalRef',
+        'sourceAttemptRef',
+        'operationRef',
+        'capabilityRefs',
+        'effectRefs',
+      ]),
+    );
+    expect(getEvidenceCatalogEntry('experience.process_variant').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'activitySequence',
+        'activityKindSequence',
+        'concurrencyGroups',
+        'branchSequence',
+        'traceRefs',
+        'successCount',
+        'failureCount',
+      ]),
+    );
+    expect(getEvidenceCatalogEntry('experience.workflow_pattern').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'taskTypeId',
+        'activityPatterns',
+        'sourcePatternRef',
+        'sourceTraceRefs',
+        'quality',
+      ]),
+    );
+    expect(
+      getEvidenceCatalogEntry('experience.workflow_pattern_dependency').requiredPayloadFields,
+    ).toEqual(expect.arrayContaining(['condition', 'supportRefs', 'contradictionRefs']));
+    expect(getEvidenceCatalogEntry('experience.recovery_pattern').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'resumeActivityKey',
+        'activitySequence',
+        'requiredCapabilityRefs',
+        'supportRefs',
+      ]),
+    );
+  });
+
+  it('freezes acyclic Replay and exact Artifact lineage references', () => {
+    expect(getEvidenceCatalogEntry('replay.case').expectedReferences).toEqual([
+      'experience.episode',
+    ]);
+    expect(getEvidenceCatalogEntry('replay.dataset').expectedReferences).toEqual(['replay.case']);
+    expect(getEvidenceCatalogEntry('artifact.validation').expectedReferences).toEqual([
+      'artifact.lifecycle',
+    ]);
+    expect(getEvidenceCatalogEntry('artifact.usage').expectedReferences).toEqual([
+      'artifact.lifecycle',
+      'artifact.retrieval',
+      'runtime.episode',
+    ]);
+    expect(getEvidenceCatalogEntry('artifact.promotion').expectedReferences).toEqual([
+      'artifact.lifecycle',
+      'artifact.validation',
+      'replay.counterexample',
+    ]);
+    for (const recordType of [
+      'experience.process_variant',
+      'experience.workflow_pattern',
+      'experience.workflow_pattern_dependency',
+      'experience.recovery_pattern',
+      'replay.case',
+      'replay.dataset',
+      'artifact.lifecycle',
+    ]) {
+      expect(getEvidenceCatalogEntry(recordType).artifactPolicy).toBe('artifact_ref_required');
+    }
+    expect(getEvidenceCatalogEntry('replay.run').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'artifactVersion',
+        'datasetVersion',
+        'sourceSnapshotHash',
+        'replaySafety',
+        'noPhysicalSideEffects',
+      ]),
+    );
+    expect(getEvidenceCatalogEntry('artifact.lifecycle').requiredPayloadFields).toEqual(
+      expect.arrayContaining(['version', 'policyRefs', 'authorityRef', 'artifactRef', 'lineage']),
+    );
+    expect(getEvidenceCatalogEntry('artifact.usage').requiredPayloadFields).toEqual(
+      expect.arrayContaining(['artifactVersion', 'retrievalDecisionId', 'retrievalMatchId']),
+    );
+    expect(getEvidenceCatalogEntry('artifact.promotion').requiredPayloadFields).toEqual(
+      expect.arrayContaining([
+        'artifactVersion',
+        'promotionPolicyVersion',
+        'validationSummaryRef',
+        'validationSummaryHash',
+        'counterexampleRefs',
+      ]),
+    );
+  });
+
+  it('keeps repeated Process Variant activity order and narrows only explicit nullable fields', () => {
+    const variantPayload = payloadProperties('experience.process_variant');
+    const activitySequence = variantPayload['activitySequence'] as Readonly<{
+      oneOf: readonly unknown[];
+    }>;
+    expect(activitySequence.oneOf[0]).toEqual({
+      type: 'array',
+      minItems: 1,
+      maxItems: 256,
+      items: { type: 'string', minLength: 1, maxLength: 4096 },
+    });
+    expect(activitySequence.oneOf[0]).not.toHaveProperty('uniqueItems');
+    expect(activitySequence.oneOf[1]).toMatchObject({
+      type: 'object',
+      additionalProperties: false,
+      required: ['artifactRefUri', 'jsonPointer', 'count', 'sha256'],
+    });
+    expect(variantPayload['activityKindSequence']).toHaveProperty('oneOf');
+    expect(variantPayload['concurrencyGroups']).toHaveProperty('oneOf');
+
+    expect(payloadProperties('artifact.lifecycle')['tenantId']).toEqual({
+      oneOf: [{ type: 'string', minLength: 1, maxLength: 4096 }, { type: 'null' }],
+    });
+    expect(payloadProperties('replay.run')['validatorVersion']).toEqual({
+      oneOf: [{ type: 'string', minLength: 1, maxLength: 4096 }, { type: 'null' }],
+    });
+    expect(payloadProperties('artifact.promotion')['promotionPolicyVersion']).toEqual({
+      type: 'string',
+      minLength: 1,
+      maxLength: 4096,
+    });
+    expect(variantPayload['patternDefinitionArtifactRef']).toMatchObject({
+      type: 'object',
+      additionalProperties: false,
+      required: ['artifactId', 'version', 'uri', 'sha256', 'mediaType', 'byteSize'],
+    });
+    expect(payloadProperties('experience.workflow_pattern')['processVariantSet']).toMatchObject({
+      properties: { jsonPointer: { const: '/variants' } },
+    });
+  });
+
+  it('derives Phase 8 enum and positive-version schemas from closed Domain authorities', () => {
+    expect(payloadProperties('experience.activity')['activityKind']).toMatchObject({
+      type: 'string',
+      enum: expect.arrayContaining(['skill_goal', 'plan_node', 'provider_operation', 'unknown']),
+    });
+    expect(payloadProperties('experience.trace_event')['eventType']).toMatchObject({
+      enum: expect.arrayContaining(['goal_created', 'business_event_observed', 'goal_failed']),
+    });
+    expect(payloadProperties('experience.episode')['goalVersion']).toEqual({
+      type: 'integer',
+      minimum: 1,
+      maximum: 2_147_483_647,
+    });
+    expect(payloadProperties('experience.interaction_episode')['goalVersion']).toEqual({
+      oneOf: [{ type: 'integer', minimum: 1, maximum: 2_147_483_647 }, { type: 'null' }],
+    });
+    expect(payloadProperties('replay.dataset')['purpose']).toMatchObject({
+      enum: ['discovery', 'candidate_development', 'promotion_holdout', 'counterexample'],
+    });
+    expect(payloadProperties('artifact.lifecycle')['artifactType']).toMatchObject({
+      enum: ['intent_route', 'plan_template', 'decision_rule', 'case_template', 'model_route'],
+    });
+    expect(payloadProperties('artifact.retrieval')['decision']).toMatchObject({
+      enum: [
+        'compiled_fast',
+        'template_adapt',
+        'case_adapt',
+        'small_model',
+        'cognitive_runtime',
+        'human_input',
+        'denied',
+      ],
+    });
+    expect(payloadProperties('artifact.retrieval')['applicability']).toMatchObject({
+      type: 'object',
+      additionalProperties: false,
+      required: expect.arrayContaining(['disposition', 'applicable', 'confidence']),
+    });
+    expect(payloadProperties('replay.run')['replaySafety']).toMatchObject({
+      oneOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: expect.arrayContaining([
+            'provider',
+            'physicalAdapterInvocationCount',
+            'physicalOutcomeClaim',
+          ]),
+        },
+        { type: 'null' },
+      ],
+    });
+  });
+
+  it('fails closed when a ref-required Phase 8 payload omits its ArtifactRef URI', () => {
+    const entry = getEvidenceCatalogEntry('replay.case');
+    const payload = Object.fromEntries(
+      entry.requiredPayloadFields.map((field) => [field, null]),
+    ) as Readonly<Record<string, null>>;
+    const input = {
+      recordType: 'replay.case',
+      sourceRecordId: 'replay-case-1',
+      sourceRevision: 'revision-1',
+      environment: 'test',
+      correlationId: 'correlation-1',
+      occurredAt: '2026-08-04T00:00:00.000Z',
+      recordedAt: '2026-08-04T00:00:01.000Z',
+      payload,
+    } as const;
+    expect(() => createCatalogEvidenceEnvelope(input)).toThrow(
+      expect.objectContaining({ code: 'EVIDENCE_REFERENCE_INVALID', field: 'artifactRefs' }),
+    );
+    expect(() =>
+      createCatalogEvidenceEnvelope({
+        ...input,
+        artifactRefs: ['artifact://runtime/v1/artifact_replay_case/replay-case-1/1/content'],
+      }),
+    ).not.toThrow();
   });
 
   it('canonicalizes object keys and hashes deterministically', () => {
@@ -210,3 +467,10 @@ describe('canonical evidence Domain', () => {
     ).toThrow(/only catalog Diagnostic/u);
   });
 });
+
+function payloadProperties(recordType: string): Readonly<Record<string, unknown>> {
+  const schema = getEvidenceRecordSchema(recordType);
+  const properties = schema['properties'] as Readonly<Record<string, unknown>>;
+  const payload = properties['payload'] as Readonly<Record<string, unknown>>;
+  return payload['properties'] as Readonly<Record<string, unknown>>;
+}

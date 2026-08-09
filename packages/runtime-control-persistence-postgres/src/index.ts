@@ -8,3 +8,5 @@ export * from './evidence-store.js';
 export * from './runtime-core-evidence-source.js';
 export * from './skill-evidence-source.js';
 export * from './mcp-capability-evidence-source.js';
+export * from './experience-replay-artifact-evidence-source.js';
+export * from './source-artifact-ref-resolver.js';

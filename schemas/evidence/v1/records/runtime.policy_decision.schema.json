@@ -55,7 +55,7 @@
     "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "occurredAt": { "type": "string", "format": "date-time" },
     "recordedAt": { "type": "string", "format": "date-time" },
-    "deliveryGuarantee": { "const": "transactional" },
+    "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
     "evidenceRefs": {
       "type": "array",
@@ -77,13 +77,13 @@
       "required": ["controlId", "roundIndex", "reasonCodes"],
       "properties": {
         "controlId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "roundIndex": { "type": "integer", "minimum": 0 },
+        "roundIndex": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "reasonCodes": { "$ref": "#/$defs/evidenceValue" }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },
-    "goalVersion": { "type": "integer", "minimum": 1 },
-    "planVersion": { "type": "integer", "minimum": 1 },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
@@ -107,11 +107,25 @@
         { "type": "boolean" },
         { "type": "number" },
         { "type": "string", "maxLength": 65536 },
-        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/evidenceValue" } },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
         {
           "type": "object",
           "maxProperties": 128,
-          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
         }
       ]
     }

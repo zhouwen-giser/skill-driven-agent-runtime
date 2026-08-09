@@ -77,6 +77,10 @@ describe('P08 TemplateRuntimeService', () => {
     );
     expect(planning.input?.plan.skillGoals[0]).not.toHaveProperty('skillId');
     expect(executions.started).toHaveLength(1);
+    expect(executions.started[0]?.decisionSnapshot).toMatchObject({
+      retrievalDecisionId: 'decision.1',
+      retrievalRequestId: 'request.1',
+    });
     expect(executions.completed).toHaveLength(1);
     expect(executions.feedback).toEqual(
       expect.arrayContaining([expect.objectContaining({ reasonCode: 'handoff' })]),

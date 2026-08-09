@@ -17,29 +17,58 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new Error('MCP/Capability Evidence pending limit must be between 1 and 1000.');
     const result = await this.#pool.query<{ task_id: string }>(
-      `SELECT task.task_id
-       FROM agent_task task
-       JOIN runtime_terminal_outcome outcome ON outcome.task_id=task.task_id
-       WHERE EXISTS (
-         SELECT 1 FROM evidence_source_checkpoint checkpoint
-         WHERE checkpoint.source_family='runtime'
-           AND checkpoint.source_partition='runtime-core:' || task.task_id
-       ) AND (
-         EXISTS (SELECT 1 FROM mcp_invocation invocation WHERE invocation.task_id=task.task_id)
-         OR EXISTS (SELECT 1 FROM task_capability_binding binding WHERE binding.task_id=task.task_id)
-       ) AND (
-         NOT EXISTS (
+      `WITH candidate AS (
+         SELECT task.task_id,task.created_at
+         FROM agent_task task
+         JOIN runtime_terminal_outcome outcome ON outcome.task_id=task.task_id
+         WHERE EXISTS (
            SELECT 1 FROM evidence_source_checkpoint checkpoint
-           WHERE checkpoint.source_family='mcp-capability'
-             AND checkpoint.source_partition='mcp-capability:' || task.task_id
-         ) OR EXISTS (
-           SELECT 1 FROM evidence_quality_issue issue
-           WHERE issue.episode_id=task.task_id AND issue.severity='blocking'
-             AND issue.resolved_at IS NULL
-             AND (issue.record_type LIKE 'mcp_task.%' OR issue.record_type LIKE 'capability.%')
+           WHERE checkpoint.source_family='runtime'
+             AND checkpoint.source_partition='runtime-core:' || task.task_id
+         ) AND (
+           EXISTS (SELECT 1 FROM mcp_invocation invocation WHERE invocation.task_id=task.task_id)
+           OR EXISTS (SELECT 1 FROM task_capability_binding binding WHERE binding.task_id=task.task_id)
+         ) AND (
+           NOT EXISTS (
+             SELECT 1 FROM evidence_source_checkpoint checkpoint
+             WHERE checkpoint.source_family='mcp-capability'
+               AND checkpoint.source_partition='mcp-capability:' || task.task_id
+           ) OR EXISTS (
+             SELECT 1 FROM evidence_quality_issue issue
+             WHERE issue.episode_id=task.task_id AND issue.severity='blocking'
+               AND issue.resolved_at IS NULL
+               AND (issue.record_type LIKE 'mcp_task.%' OR issue.record_type LIKE 'capability.%')
+           ) OR EXISTS (
+             SELECT 1 FROM evidence_projection_issue projection_issue
+             WHERE projection_issue.source_partition='mcp-capability:' || task.task_id
+               AND projection_issue.projector_version='1.4.1'
+               AND projection_issue.evaluation_role='required'
+               AND projection_issue.severity='blocking'
+               AND projection_issue.retryable
+               AND projection_issue.resolved_at IS NULL
+           )
          )
        )
-       ORDER BY task.task_id LIMIT $1`,
+       SELECT candidate.task_id
+       FROM candidate
+       LEFT JOIN LATERAL (
+         SELECT projection_issue.created_at
+         FROM evidence_projection_issue projection_issue
+         WHERE projection_issue.source_partition='mcp-capability:' || candidate.task_id
+           AND projection_issue.projector_version='1.4.1'
+           AND projection_issue.evaluation_role='required'
+           AND projection_issue.severity='blocking'
+           AND projection_issue.retryable
+           AND projection_issue.resolved_at IS NULL
+         ORDER BY projection_issue.created_at DESC,projection_issue.issue_id
+         LIMIT 1
+       ) projection_issue ON true
+       WHERE projection_issue.created_at IS NULL
+          OR projection_issue.created_at + interval '5 seconds' <= clock_timestamp()
+       ORDER BY COALESCE(
+         projection_issue.created_at + interval '5 seconds',candidate.created_at
+       ),candidate.task_id
+       LIMIT $1`,
       [limit],
     );
     return Object.freeze(result.rows.map((row) => row.task_id));

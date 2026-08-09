@@ -17,22 +17,51 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new Error('Runtime core Evidence pending limit must be between 1 and 1000.');
     const result = await this.#pool.query<{ task_id: string }>(
-      `SELECT outcome.task_id
-       FROM runtime_terminal_outcome outcome
-       WHERE outcome.task_id IS NOT NULL
-         AND (
-           NOT EXISTS (
-             SELECT 1 FROM evidence_outbox evidence
-             WHERE evidence.record_type='runtime.run_seal'
-               AND evidence.source_record_id=outcome.outcome_id
+      `WITH candidate AS (
+         SELECT outcome.task_id,outcome.outcome_id,outcome.committed_at
+         FROM runtime_terminal_outcome outcome
+         WHERE outcome.task_id IS NOT NULL
+           AND (
+             NOT EXISTS (
+               SELECT 1 FROM evidence_outbox evidence
+               WHERE evidence.record_type='runtime.run_seal'
+                 AND evidence.source_record_id=outcome.outcome_id
+             )
+             OR NOT EXISTS (
+               SELECT 1 FROM episode_evidence_manifest manifest
+               WHERE manifest.episode_id=outcome.task_id
+                 AND manifest.terminal_outcome_id=outcome.outcome_id
+             )
+             OR EXISTS (
+               SELECT 1 FROM evidence_projection_issue projection_issue
+               WHERE projection_issue.source_partition='runtime-core:' || outcome.task_id
+                 AND projection_issue.projector_version='runtime-core/v1'
+                 AND projection_issue.evaluation_role='required'
+                 AND projection_issue.severity='blocking'
+                 AND projection_issue.retryable
+                 AND projection_issue.resolved_at IS NULL
+             )
            )
-           OR NOT EXISTS (
-             SELECT 1 FROM episode_evidence_manifest manifest
-             WHERE manifest.episode_id=outcome.task_id
-               AND manifest.terminal_outcome_id=outcome.outcome_id
-           )
-         )
-       ORDER BY outcome.committed_at,outcome.outcome_id
+       )
+       SELECT candidate.task_id
+       FROM candidate
+       LEFT JOIN LATERAL (
+         SELECT projection_issue.created_at
+         FROM evidence_projection_issue projection_issue
+         WHERE projection_issue.source_partition='runtime-core:' || candidate.task_id
+           AND projection_issue.projector_version='runtime-core/v1'
+           AND projection_issue.evaluation_role='required'
+           AND projection_issue.severity='blocking'
+           AND projection_issue.retryable
+           AND projection_issue.resolved_at IS NULL
+         ORDER BY projection_issue.created_at DESC,projection_issue.issue_id
+         LIMIT 1
+       ) projection_issue ON true
+       WHERE projection_issue.created_at IS NULL
+          OR projection_issue.created_at + interval '5 seconds' <= clock_timestamp()
+       ORDER BY COALESCE(
+         projection_issue.created_at + interval '5 seconds',candidate.committed_at
+       ),candidate.outcome_id
        LIMIT $1`,
       [limit],
     );

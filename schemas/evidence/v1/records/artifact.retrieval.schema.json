@@ -72,18 +72,136 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 9,
       "maxProperties": 128,
-      "required": ["matchId", "candidateArtifactId", "decision"],
+      "required": [
+        "matchId",
+        "candidateArtifactId",
+        "artifactVersion",
+        "decision",
+        "policySnapshotHash",
+        "requestId",
+        "reasonCodes",
+        "applicability",
+        "score"
+      ],
       "properties": {
         "matchId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "candidateArtifactId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "decision": { "$ref": "#/$defs/evidenceValue" }
+        "artifactVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "compiled_fast",
+            "template_adapt",
+            "case_adapt",
+            "small_model",
+            "cognitive_runtime",
+            "human_input",
+            "denied"
+          ]
+        },
+        "policySnapshotHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "requestId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "reasonCodes": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifactRef",
+            "applicable",
+            "confidence",
+            "satisfiedConditionIds",
+            "missingConditionIds",
+            "violatedConditionIds",
+            "uncertainConditionIds",
+            "outOfDistribution",
+            "disposition",
+            "reasonCodes"
+          ],
+          "properties": {
+            "artifactRef": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "applicable": { "type": "boolean" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "satisfiedConditionIds": {
+              "type": "array",
+              "maxItems": 256,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "missingConditionIds": {
+              "type": "array",
+              "maxItems": 257,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "violatedConditionIds": {
+              "type": "array",
+              "maxItems": 257,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "uncertainConditionIds": {
+              "type": "array",
+              "maxItems": 513,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "outOfDistribution": { "type": "boolean" },
+            "disposition": {
+              "type": "string",
+              "enum": [
+                "eligible",
+                "requires_adaptation",
+                "fallback",
+                "require_confirmation",
+                "deny"
+              ]
+            },
+            "reasonCodes": {
+              "type": "array",
+              "maxItems": 5,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            }
+          }
+        },
+        "score": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "intentScore",
+            "structuredConditionScore",
+            "parameterCoverageScore",
+            "capabilityShapeScore",
+            "environmentSimilarityScore",
+            "validationConfidenceScore",
+            "recentReliabilityScore",
+            "riskPenalty",
+            "totalScore"
+          ],
+          "properties": {
+            "intentScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "structuredConditionScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "parameterCoverageScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "capabilityShapeScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "environmentSimilarityScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "validationConfidenceScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "recentReliabilityScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "riskPenalty": { "type": "number", "minimum": 0, "maximum": 1 },
+            "totalScore": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },
-    "goalVersion": { "type": "integer", "minimum": 1 },
-    "planVersion": { "type": "integer", "minimum": 1 },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
@@ -107,11 +225,25 @@
         { "type": "boolean" },
         { "type": "number" },
         { "type": "string", "maxLength": 65536 },
-        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/evidenceValue" } },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
         {
           "type": "object",
           "maxProperties": 128,
-          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
         }
       ]
     }

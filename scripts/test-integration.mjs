@@ -9,6 +9,7 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 const { Pool } = pg;
 const databaseName = 'sdar_v122_integration_gate';
 const controlDatabaseName = 'sdar_control_v14_integration_gate';
+const requestedTests = process.argv.slice(2).filter((argument) => argument !== '--');
 const adminUrl =
   process.env.SDAR_TEST_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
@@ -17,8 +18,8 @@ try {
   await recreateDatabases();
   run(
     process.execPath,
-    ['node_modules/vitest/vitest.mjs', 'run', '--project', 'integration'],
-    240_000,
+    ['node_modules/vitest/vitest.mjs', 'run', '--project', 'integration', ...requestedTests],
+    600_000,
     {
       ...process.env,
       SDAR_TEST_POSTGRES_URL: databaseUrl(databaseName),

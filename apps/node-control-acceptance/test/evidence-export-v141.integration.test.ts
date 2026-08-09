@@ -8,7 +8,11 @@ import {
   startNodeControlApi,
   type NodeControlApiRuntime,
 } from '../../node-control-api/src/runtime.js';
-import { startServerRuntime, type ServerRuntimeHandle } from '../../server/src/runtime.js';
+import {
+  applyRuntimeMigrations,
+  startServerRuntime,
+  type ServerRuntimeHandle,
+} from '../../server/src/runtime.js';
 import { applyControlMigrations } from '../../../packages/node-control-persistence-postgres/src/index.js';
 import { PostgresEvidenceStore } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import { createCatalogEvidenceEnvelope } from '../../../packages/domain/src/index.js';
@@ -37,11 +41,11 @@ const previousCredential = process.env['P11_EVIDENCE_TOKEN'];
 
 beforeAll(async () => {
   process.env['P11_EVIDENCE_TOKEN'] = credential;
+  await Promise.all([applyRuntimeMigrations(runtimePool), applyControlMigrations(controlPool)]);
   await runtimePool.query(
     `TRUNCATE evidence_dead_letter,evidence_source_checkpoint,evidence_outbox,
       evidence_export_state,evidence_export_configuration CASCADE`,
   );
-  await applyControlMigrations(controlPool);
   await controlPool.query(
     `TRUNCATE sdar_control.configuration_application,
               sdar_control.configuration_command_receipt,
@@ -271,6 +275,14 @@ describe(
           pendingRecords?: number;
         };
         return status.status === 'degraded' && (status.pendingRecords ?? 0) >= 1;
+      });
+      await waitFor(async () => {
+        const failure = await runtimePool.query<{ last_error_code: string | null }>(
+          `SELECT last_error_code FROM evidence_export_state
+           WHERE export_id=$1 AND source_partition='runtime:episodes'`,
+          [exportId],
+        );
+        return failure.rows[0]?.last_error_code === 'EVIDENCE_ENDPOINT_UNAVAILABLE';
       });
       await expect(
         runtimePool.query<{ phase: string }>(

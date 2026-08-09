@@ -69,6 +69,15 @@ describe('P05 PostgreSQL replay-validation contract', () => {
     expect(repository).not.toContain('artifact_active_pointer');
   });
 
+  it('persists the domain-validated replay safety proof inside result_payload', async () => {
+    const repository = await readFile(repositoryUrl, 'utf8');
+    expect(repository).toContain(
+      'const result = createArtifactValidationResult(completion.validationResult)',
+    );
+    expect(repository).toContain('result_payload=$10::jsonb');
+    expect(repository).toContain('JSON.stringify(result)');
+  });
+
   it('provides a symmetric P05-only rollback', async () => {
     const rollback = await readFile(rollbackUrl, 'utf8');
     expect(rollback).toContain(

@@ -55,7 +55,7 @@
     "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "occurredAt": { "type": "string", "format": "date-time" },
     "recordedAt": { "type": "string", "format": "date-time" },
-    "deliveryGuarantee": { "const": "transactional" },
+    "deliveryGuarantee": { "const": "durable_projection" },
     "evaluationRole": { "const": "required" },
     "evidenceRefs": {
       "type": "array",
@@ -72,18 +72,44 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 11,
       "maxProperties": 128,
-      "required": ["artifactExecutionId", "artifactId", "status"],
+      "required": [
+        "artifactExecutionId",
+        "artifactId",
+        "artifactVersion",
+        "status",
+        "taskId",
+        "goalId",
+        "goalVersion",
+        "generatedPlanId",
+        "mode",
+        "retrievalDecisionId",
+        "retrievalMatchId"
+      ],
       "properties": {
         "artifactExecutionId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "artifactId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "artifactVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "status": { "type": "string", "enum": ["started", "completed", "failed", "canceled"] },
+        "taskId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "goalId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "goalVersion": {
+          "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 2147483647 }, { "type": "null" }]
+        },
+        "generatedPlanId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "mode": { "type": "string", "maxLength": 65536 },
+        "retrievalDecisionId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "retrievalMatchId": { "type": "string", "minLength": 1, "maxLength": 4096 }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },
-    "goalVersion": { "type": "integer", "minimum": 1 },
-    "planVersion": { "type": "integer", "minimum": 1 },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
@@ -107,11 +133,25 @@
         { "type": "boolean" },
         { "type": "number" },
         { "type": "string", "maxLength": 65536 },
-        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/evidenceValue" } },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
         {
           "type": "object",
           "maxProperties": 128,
-          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
         }
       ]
     }

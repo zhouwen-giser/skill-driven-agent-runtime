@@ -72,18 +72,113 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 15,
       "maxProperties": 128,
-      "required": ["validationRunId", "artifactId", "validationType"],
+      "required": [
+        "validationRunId",
+        "artifactId",
+        "artifactVersion",
+        "validationType",
+        "datasetRef",
+        "datasetVersion",
+        "artifactHash",
+        "datasetHash",
+        "status",
+        "result",
+        "metrics",
+        "resultHash",
+        "validatorVersion",
+        "metricCatalogVersion",
+        "counterexampleRefs"
+      ],
       "properties": {
         "validationRunId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "artifactId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "validationType": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        "artifactVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "validationType": {
+          "type": "string",
+          "enum": ["static", "replay", "simulation", "shadow", "revalidation"]
+        },
+        "datasetRef": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "datasetVersion": {
+          "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 2147483647 }, { "type": "null" }]
+        },
+        "artifactHash": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "datasetHash": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "status": { "type": "string", "enum": ["pending", "running", "passed", "failed"] },
+        "result": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "metrics": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "resultHash": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "validatorVersion": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "metricCatalogVersion": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "counterexampleRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["status", "result"],
+              "properties": {
+                "status": { "type": "string", "enum": ["pending", "running"] },
+                "result": { "const": null }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["status", "result"],
+              "properties": {
+                "status": { "type": "string", "enum": ["passed", "failed"] },
+                "result": { "type": "string", "minLength": 1, "maxLength": 4096 }
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": ["validationType"],
+            "properties": { "validationType": { "const": "replay" } }
+          },
+          "then": {
+            "type": "object",
+            "required": ["result"],
+            "properties": {
+              "result": {
+                "oneOf": [
+                  { "type": "string", "enum": ["passed", "failed", "needs_more_data", "unsafe"] },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
-    "goalVersion": { "type": "integer", "minimum": 1 },
-    "planVersion": { "type": "integer", "minimum": 1 },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
@@ -107,11 +202,25 @@
         { "type": "boolean" },
         { "type": "number" },
         { "type": "string", "maxLength": 65536 },
-        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/evidenceValue" } },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
         {
           "type": "object",
           "maxProperties": 128,
-          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
         }
       ]
     }

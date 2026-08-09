@@ -3,10 +3,10 @@
   "status": "IN_PROGRESS",
   "branch": "feature/v1.4.1-canonical-evidence-export",
   "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "headSha": "c531994",
+  "headSha": "15ed8dd",
   "prNumber": 18,
   "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
-  "lastCompletedPhase": 7,
+  "lastCompletedPhase": 8,
   "sourceInventory": {
     "classified": 100,
     "sourceConfirmed": 100,
@@ -15,28 +15,30 @@
     "classifiedPercent": 100
   },
   "sourceCoverage": {
-    "requiredTotal": 100,
-    "implemented": 52,
-    "verified": 52,
-    "percent": 52
+    "requiredTotal": 95,
+    "diagnosticTotal": 5,
+    "catalogTotal": 100,
+    "implemented": 74,
+    "verified": 74,
+    "percent": 77.89
   },
   "recordCatalog": {
     "total": 100,
-    "implemented": 52,
-    "verified": 52,
+    "implemented": 74,
+    "verified": 74,
     "contractDefined": 100,
     "schemaVerified": 100,
-    "schemaRegistryHash": "sha256:b425727078045bd8e710660bd73277993e2c98bfcbd143430f88aee31ddb5b27"
+    "schemaRegistryHash": "sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d"
   },
   "tests": {
     "pnpmInstallFrozenLockfile": "passed",
-    "pnpmVerify": "passed",
-    "unit": 970,
+    "pnpmVerify": "last_passed_phase7; phase8_affected_gates_passed; next_mandatory_phase9",
+    "unit": 1024,
     "performanceUnit": 22,
-    "contract": 230,
-    "integration": 161,
+    "contract": 240,
+    "integration": 166,
     "e2e": 72,
-    "runtimeMigrations": 37,
+    "runtimeMigrations": 38,
     "phase3FocusedPostgres": 11,
     "phase3FullVerifyDurationMs": 553810,
     "phase4FocusedUnit": 21,
@@ -62,11 +64,26 @@
     "phase7ManifestRegressionUnit": 3,
     "phase7OrderedStartupIntegration": 11,
     "phase7FullVerify": "passed",
-    "phase7FullVerifyDurationMs": 865814
+    "phase7FullVerifyDurationMs": 865814,
+    "phase8FocusedUnit": 98,
+    "phase8MapperPostgres": 4,
+    "phase8RealVerticalPostgresRedis": 3,
+    "phase8ArchitectureSources": 682,
+    "phase8Build": "passed",
+    "phase8RemediationStatus": "completed_clean_review",
+    "phase8EvidenceContractRecords": 100,
+    "phase8EvidenceRegistryHash": "sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d",
+    "phase8SchemaContract": 9,
+    "phase8RuntimeCorePostgres": 5,
+    "phase8P03TenThousandPostgres": 1,
+    "phase8ProjectionPipelineUnit": 3,
+    "phase8ProjectionPipelinePostgres": 1,
+    "phase8AffectedIntegrationComposite": 166,
+    "phase8MandatoryFullVerify": "not_scheduled; next mandatory full gate is Phase 9"
   },
   "deferredSourceClosures": [
-    "All 100 sources are confirmed. Phases 5-7 implement Runtime 18/18, Skill 16/16, MCP Task 11/11 and Capability 7/7; Phases 8-10 must close the remaining 48 formal projectors."
+    "All 100 sources are confirmed. Phases 5-8 have 74 accepted verified records; Phase 9 Node Control and Phase 10 Evidence-family closure remain pending."
   ],
   "blockers": [],
-  "updatedAt": "2026-08-04T15:10:00+08:00"
+  "updatedAt": "2026-08-10T01:35:00+08:00"
 }

@@ -13,6 +13,8 @@ import {
 
 export type RuntimeCoreSourceRow = Readonly<Record<string, EvidenceJsonValue>>;
 
+export const RUNTIME_CORE_EVIDENCE_PROJECTOR_VERSION = 'runtime-core/v1' as const;
+
 export interface RuntimeCoreEvidenceSnapshot {
   readonly task: RuntimeCoreSourceRow;
   readonly goals: readonly RuntimeCoreSourceRow[];
@@ -723,7 +725,7 @@ export class RuntimeCoreEvidenceProjector {
       lastSourceRevision: hashCanonicalEvidenceJson(taskRevision),
       lastPayloadHash: episode.payloadHash,
       lastProjectedAt: recordedAt,
-      projectorVersion: 'runtime-core/v1',
+      projectorVersion: RUNTIME_CORE_EVIDENCE_PROJECTOR_VERSION,
     });
     if (manifestId !== undefined && terminalOutcomeId !== undefined) {
       await this.#writer.saveManifest({

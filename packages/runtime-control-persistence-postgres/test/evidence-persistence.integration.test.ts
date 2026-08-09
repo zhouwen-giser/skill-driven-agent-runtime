@@ -8,6 +8,7 @@ import {
   createCatalogEvidenceEnvelope,
   type CanonicalEvidenceEnvelope,
   type EvidenceExportConfiguration,
+  type EvidenceQualityIssue,
 } from '../../domain/src/index.js';
 import { PostgresEvidenceStore } from '../src/index.js';
 
@@ -127,11 +128,23 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       sourcePartition: 'tenant-a',
       lastOccurredAt: '2026-08-04T03:01:00.000Z',
       lastSourceRecordId: 'episode-2',
-      lastSourceRevision: '2',
+      lastSourceRevision: `sha256:${'f'.repeat(64)}`,
       lastPayloadHash: episode('episode-2', '2').payloadHash,
       lastProjectedAt: '2026-08-04T03:01:01.000Z',
       projectorVersion: 'v1.4.1-test',
     });
+    await expect(
+      store.saveCheckpoint({
+        sourceFamily: 'runtime_episode',
+        sourcePartition: 'tenant-a',
+        lastOccurredAt: '2026-08-04T03:01:00.000Z',
+        lastSourceRecordId: 'episode-2',
+        lastSourceRevision: `sha256:${'0'.repeat(64)}`,
+        lastPayloadHash: episode('episode-2', '2').payloadHash,
+        lastProjectedAt: '2026-08-04T03:01:02.000Z',
+        projectorVersion: 'v1.4.1-test',
+      }),
+    ).resolves.toBeUndefined();
     await store.saveCheckpoint({
       sourceFamily: 'runtime_episode',
       sourcePartition: 'tenant-b',
@@ -153,10 +166,75 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
         projectorVersion: 'v1.4.1-test',
       }),
     ).rejects.toMatchObject({ code: 'EVIDENCE_CHECKPOINT_REGRESSION' });
+    await expect(
+      store.saveCheckpoint({
+        sourceFamily: 'runtime_episode',
+        sourcePartition: 'tenant-a',
+        lastOccurredAt: '2026-08-04T03:01:00.000Z',
+        lastSourceRecordId: 'episode-1',
+        lastSourceRevision: `sha256:${'f'.repeat(64)}`,
+        lastProjectedAt: '2026-08-04T03:02:00.000Z',
+        projectorVersion: 'v1.4.1-test',
+      }),
+    ).rejects.toMatchObject({ code: 'EVIDENCE_CHECKPOINT_REGRESSION' });
+    const stored = await pool.query<{ last_source_revision: string }>(
+      `SELECT last_source_revision
+       FROM evidence_source_checkpoint
+       WHERE source_family='runtime_episode' AND source_partition='tenant-a'`,
+    );
+    expect(stored.rows[0]?.last_source_revision).toBe(`sha256:${'0'.repeat(64)}`);
     const count = await pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM evidence_source_checkpoint',
     );
     expect(count.rows[0]?.count).toBe('2');
+  });
+
+  it('resolves only obsolete Runtime quality issues in the exact source and record-type scope', async () => {
+    const issues = [
+      qualityIssue('target-obsolete', 'runtime', 'experience_trace', 'trace-a', 'experience.trace'),
+      qualityIssue(
+        'target-retained',
+        'runtime',
+        'experience_trace',
+        'trace-a',
+        'experience.activity',
+      ),
+      qualityIssue('other-record', 'runtime', 'experience_trace', 'trace-b', 'experience.trace'),
+      qualityIssue('other-table', 'runtime', 'workflow_pattern', 'trace-a', 'experience.trace'),
+      qualityIssue('other-family', 'runtime', 'experience_trace', 'trace-a', 'replay.run'),
+      qualityIssue(
+        'other-source-system',
+        'node_control',
+        'experience_trace',
+        'trace-a',
+        'experience.trace',
+      ),
+    ] as const;
+    await Promise.all(issues.map((issue) => store.recordQualityIssue(issue)));
+
+    await store.resolveSourceQualityIssues({
+      sourceTable: 'experience_trace',
+      sourceRecordId: 'trace-a',
+      recordTypePrefix: 'experience.',
+      retainedIssueIds: ['quality-target-retained'],
+      resolvedAt: '2026-08-04T03:04:00.000Z',
+    });
+
+    const result = await pool.query<{ issue_id: string; resolved_at: Date | null }>(
+      `SELECT issue_id,resolved_at
+       FROM evidence_quality_issue
+       ORDER BY issue_id`,
+    );
+    expect(
+      Object.fromEntries(result.rows.map((row) => [row.issue_id, row.resolved_at !== null])),
+    ).toEqual({
+      'quality-other-family': false,
+      'quality-other-record': false,
+      'quality-other-source-system': false,
+      'quality-other-table': false,
+      'quality-target-obsolete': true,
+      'quality-target-retained': false,
+    });
   });
 
   it('fences leases and accepts only monotonic partial ACKs within the sent boundary', async () => {
@@ -378,5 +456,25 @@ function configuration(maxPendingRecords: number): EvidenceExportConfiguration {
     outboxPolicy: Object.freeze({ maxPendingRecords, retentionDays: 30 }),
     redactionProfile: 'strict_internal_v1',
     artifactMode: 'reference',
+  });
+}
+
+function qualityIssue(
+  suffix: string,
+  sourceSystem: EvidenceQualityIssue['sourceSystem'],
+  sourceTable: string,
+  sourceRecordId: string,
+  recordType: string,
+): EvidenceQualityIssue {
+  return Object.freeze({
+    issueId: `quality-${suffix}`,
+    issueCode: 'reference_unresolved',
+    severity: 'blocking',
+    recordType,
+    sourceSystem,
+    sourceTable,
+    sourceRecordId,
+    detail: { missingReference: 'evidence-test-reference' },
+    createdAt: baseTime,
   });
 }

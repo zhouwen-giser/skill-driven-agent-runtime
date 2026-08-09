@@ -14,6 +14,8 @@ import {
   type RuntimeCoreSourceRow,
 } from './runtime-core-evidence-projector.js';
 
+export const SKILL_EVIDENCE_PROJECTOR_VERSION = 'skill/v1' as const;
+
 export interface SkillEvidenceSnapshot {
   readonly task: RuntimeCoreSourceRow;
   readonly selections: readonly RuntimeCoreSourceRow[];
@@ -327,7 +329,7 @@ export class SkillEvidenceProjector {
         [...projected.values()].map((record) => record.payloadHash),
       ),
       lastProjectedAt: recordedAt,
-      projectorVersion: 'skill/v1',
+      projectorVersion: SKILL_EVIDENCE_PROJECTOR_VERSION,
     } satisfies EvidenceSourceCheckpoint);
     return Object.freeze({
       taskId: normalizedTaskId,
