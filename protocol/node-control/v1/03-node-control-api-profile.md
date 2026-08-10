@@ -27,3 +27,10 @@ convergence
 ## SSE
 
 事件只携带稳定 ID、Revision 和简要变化；消费者收到后重新 GET 资源。
+
+## v1.4.1 Evidence Operations profile
+
+Evidence Operations GET 路由是有界 metadata 投影，绝不返回 canonical Evidence payload。恢复路由
+返回 `ManagementOperation`：`202` 代表 accepted/running，幂等重放已经终态成功时可以返回 `200`。
+恢复授权来自认证后的 Node Control role，不能由请求体提供；Organization credential 对所有
+Evidence Operations 路径均被拒绝。

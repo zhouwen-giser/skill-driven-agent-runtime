@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
 import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
+import { performance } from 'node:perf_hooks';
 import { SendMessageRequest, type Task, TaskState } from '@a2a-js/sdk';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -9,20 +11,36 @@ import { runExampleA2AClient } from '../../../apps/example-a2a-client/src/client
 import { startServerRuntime, type ServerRuntimeHandle } from '../../../apps/server/src/runtime.js';
 import {
   createIsolatedRuntimeDatabase,
+  createTestPostgresPool,
   dropIsolatedRuntimeDatabase,
   isolatedDatabaseUrl,
+  type TestPostgresPool,
 } from '../../../apps/server/test-support/postgres.js';
 import type { RegisterSkillVersionInput } from '../../application/src/index.js';
+import {
+  EnvironmentEvidenceCredentialResolver,
+  HttpEvidenceExportTransport,
+} from '../../evidence-export-adapter/src/index.js';
+import { RuntimeEvidenceExportService } from '../../runtime-control-application/src/index.js';
+import {
+  createCatalogEvidenceEnvelope,
+  type EvidenceExportConfiguration,
+} from '../../domain/src/index.js';
 import {
   startFrozenMcpTasksMockProvider,
   startMcpLoopbackServer,
 } from '../../mcp-adapter/src/index.js';
+import {
+  EvidencePersistenceError,
+  PostgresEvidenceStore,
+  PostgresRuntimeEvidenceExportStore,
+} from '../../runtime-control-persistence-postgres/src/index.js';
 
 const postgresAdminUrl =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const databaseName = 'sdar_v11_a2a_e2e';
 const postgresUrl = isolatedDatabaseUrl(postgresAdminUrl, databaseName);
-const redis = { host: '127.0.0.1', port: 56379 };
+const redis = { host: '127.0.0.1', port: Number(process.env['SDAR_REDIS_PORT'] ?? '56379') };
 const queueName = `a2a-lifecycle-${randomUUID()}`;
 let runtime: ServerRuntimeHandle;
 let modelServer: Server;
@@ -337,7 +355,7 @@ afterAll(async () => {
   modelServer.close();
   await once(modelServer, 'close');
   await dropIsolatedRuntimeDatabase(postgresAdminUrl, databaseName);
-});
+}, 120_000);
 
 describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   it('routes an ambiguous prompt-injection attempt through persisted Task Understanding', async () => {
@@ -6653,6 +6671,198 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it(
+    'keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds',
+    { timeout: 180_000 },
+    async () => {
+      const skillId = `skill.evidence-performance.${randomUUID()}`;
+      await runtime.registerSkill({
+        ...skillInput(skillId, 'Zebra Auto Task'),
+        runtimePolicy: { autoConfirmPlan: true },
+      });
+      const request = () =>
+        SendMessageRequest.fromJSON({
+          message: {
+            messageId: `message-${randomUUID()}`,
+            role: 'ROLE_USER',
+            parts: [{ text: 'Run the zebra auto task.', mediaType: 'text/plain' }],
+          },
+          configuration: { returnImmediately: false },
+        });
+      const runTask = async (): Promise<number> => {
+        const startedAt = performance.now();
+        const result = await runtime.a2a.client.sendMessage(request());
+        if (!('id' in result)) throw new Error('P13_PERFORMANCE_TASK_RESULT_MISSING');
+        expect(result.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+        return performance.now() - startedAt;
+      };
+
+      let receivedRecords = 0;
+      const sink = createServer((requestValue, response) => {
+        let body = '';
+        requestValue.setEncoding('utf8');
+        requestValue.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        requestValue.on('end', () => {
+          try {
+            const batch = JSON.parse(body) as {
+              lastSequence?: string;
+              records?: readonly unknown[];
+            };
+            if (batch.lastSequence === undefined || batch.records === undefined) {
+              throw new Error('P13_PERFORMANCE_BATCH_INVALID');
+            }
+            receivedRecords += batch.records.length;
+            response.writeHead(200, { 'content-type': 'application/json' });
+            response.end(JSON.stringify({ lastAcknowledgedSequence: batch.lastSequence }));
+          } catch {
+            response.writeHead(400, { 'content-type': 'application/json' });
+            response.end(JSON.stringify({ error: 'invalid evidence batch' }));
+          }
+        });
+      });
+      await new Promise<void>((resolve, reject) => {
+        sink.once('error', reject);
+        sink.listen(0, '127.0.0.1', resolve);
+      });
+      const sinkAddress = sink.address();
+      if (sinkAddress === null || typeof sinkAddress === 'string') {
+        throw new Error('P13_PERFORMANCE_SINK_ADDRESS_MISSING');
+      }
+
+      const evidencePool = createTestPostgresPool(postgresUrl);
+      const evidenceStore = new PostgresEvidenceStore(evidencePool);
+      const directEvidenceExport = new RuntimeEvidenceExportService({
+        store: new PostgresRuntimeEvidenceExportStore(evidencePool),
+        transport: new HttpEvidenceExportTransport(new EnvironmentEvidenceCredentialResolver()),
+        clock: { now: () => new Date().toISOString() },
+        actorId: 'phase13-performance-evidence-export',
+      });
+      const phase13RecordIds: string[] = [];
+      process.env['PHASE13_EVIDENCE_TOKEN'] = 'phase13-local-opaque-token';
+      try {
+        for (let index = 0; index < 10; index += 1) {
+          phase13RecordIds.push(
+            await appendPhase13Evidence(evidenceStore, `warmup-${String(index)}`),
+          );
+        }
+        const appendSamples: number[] = [];
+        for (let index = 0; index < 100; index += 1) {
+          const appendStartedAt = performance.now();
+          phase13RecordIds.push(
+            await appendPhase13Evidence(evidenceStore, `sample-${String(index)}`),
+          );
+          appendSamples.push(performance.now() - appendStartedAt);
+        }
+
+        await evidenceStore.applyConfiguration(
+          phase13EvidenceConfiguration(`http://127.0.0.1:${String(sinkAddress.port)}/evidence`),
+          new Date().toISOString(),
+        );
+        await waitForPhase13EvidenceDrain(
+          directEvidenceExport,
+          evidencePool,
+          phase13RecordIds,
+          () => receivedRecords,
+        );
+        await setPhase13EvidenceActive(evidencePool, false);
+
+        for (let index = 0; index < 10; index += 1) await runTask();
+        await setPhase13EvidenceActive(evidencePool, true);
+        await waitForPhase13ExportQuiescence(directEvidenceExport, evidencePool);
+        await setPhase13EvidenceActive(evidencePool, false);
+
+        const baselineSamples: number[] = [];
+        const enabledSamples: number[] = [];
+        const measurementOrders = [
+          ['baseline', 'enabled', 'baseline'],
+          ['enabled', 'baseline', 'baseline'],
+          ['baseline', 'baseline', 'enabled'],
+        ] as const;
+        for (let index = 0; index < 20; index += 1) {
+          const order = measurementOrders[index % measurementOrders.length];
+          if (order === undefined) throw new Error('P13_PERFORMANCE_ORDER_MISSING');
+          for (const mode of order) {
+            const enabled = mode === 'enabled';
+            await setPhase13EvidenceActive(evidencePool, enabled);
+            const sample = await runTask();
+            if (enabled) enabledSamples.push(sample);
+            else baselineSamples.push(sample);
+          }
+        }
+        await setPhase13EvidenceActive(evidencePool, true);
+        await waitForPhase13EvidenceDrain(
+          directEvidenceExport,
+          evidencePool,
+          phase13RecordIds,
+          () => receivedRecords,
+        );
+        await setPhase13EvidenceActive(evidencePool, false);
+
+        const baselineP95Ms = phase13Percentile(baselineSamples, 0.95);
+        const evidenceEnabledP95Ms = phase13Percentile(enabledSamples, 0.95);
+        const appendP95Ms = phase13Percentile(appendSamples, 0.95);
+        const baselineBeforeSamples = baselineSamples.slice(0, 20);
+        const baselineAfterSamples = baselineSamples.slice(20);
+        const baselineBeforeMedianMs = phase13Median(baselineBeforeSamples);
+        const baselineAfterMedianMs = phase13Median(baselineAfterSamples);
+        const baselineMedianDriftPercent = phase13Round(
+          (Math.abs(baselineAfterMedianMs - baselineBeforeMedianMs) /
+            ((baselineBeforeMedianMs + baselineAfterMedianMs) / 2)) *
+            100,
+        );
+        const regressionPercent = phase13Round(
+          ((evidenceEnabledP95Ms - baselineP95Ms) / baselineP95Ms) * 100,
+        );
+        const report = {
+          schemaVersion: 1,
+          environment:
+            'local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO',
+          samples: {
+            runtimeBaselineInterleaved: 40,
+            runtimeEvidenceEnabled: 20,
+            evidenceAppend: 100,
+          },
+          baselineP95Ms,
+          baselineBeforeMedianMs,
+          baselineAfterMedianMs,
+          baselineMedianDriftPercent,
+          evidenceEnabledP95Ms,
+          regressionPercent,
+          appendP95Ms,
+          receivedRecords,
+          boundaries: {
+            runtimeBusinessAuthority: 'real A2A -> Runtime -> PostgreSQL -> LangGraph path',
+            evidenceDelivery: 'real local HTTP batch and PostgreSQL ACK',
+            providerModel: 'deterministic local test doubles',
+            physicalSideEffects: false,
+            baselineMethod:
+              'balanced rotating ABA/BAA/AAB order with a combined baseline P95 and first/last baseline median drift gate; pre-existing delivery backlog is drained before measurement',
+          },
+        };
+        writeFileSync(
+          new URL('../../../reports/v1.4.1-evidence/phase-13-performance.json', import.meta.url),
+          `${JSON.stringify(report, null, 2)}\n`,
+          'utf8',
+        );
+        expect(receivedRecords).toBeGreaterThan(0);
+        expect(baselineMedianDriftPercent).toBeLessThanOrEqual(15);
+        expect(regressionPercent).toBeLessThanOrEqual(10);
+        expect(appendP95Ms).toBeLessThanOrEqual(20);
+      } finally {
+        delete process.env['PHASE13_EVIDENCE_TOKEN'];
+        await evidencePool.end();
+        await new Promise<void>((resolve, reject) => {
+          sink.close((error) => {
+            if (error === undefined) resolve();
+            else reject(error);
+          });
+        });
+      }
+    },
+  );
+
   it('retrieves Skill/Prompt corrections, failure reasons, and evaluation conclusions as evolution memory', async () => {
     const promptId = 'prompt.intent.e2e';
     const prompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
@@ -9105,4 +9315,149 @@ async function readAgentCard() {
       skills: z.array(z.object({ id: z.string(), name: z.string() })),
     })
     .parse(parsed);
+}
+
+function phase13EvidenceConfiguration(endpointRef: string): EvidenceExportConfiguration {
+  return {
+    exportId: 'phase13-evidence-performance',
+    revision: 1,
+    endpointRef,
+    sourceId: 'phase13-runtime',
+    nodeId: 'node-phase13-performance',
+    credentialRef: 'env:PHASE13_EVIDENCE_TOKEN',
+    includedFamilies: [
+      'runtime',
+      'skill',
+      'mcp_task',
+      'capability',
+      'experience',
+      'replay',
+      'artifact',
+      'node_control',
+      'evidence',
+    ],
+    batchPolicy: { maxRecords: 1_000, maxBytes: 262_144, flushIntervalMs: 100 },
+    retryPolicy: { baseDelayMs: 100, maxDelayMs: 10_000, maxAttempts: 5 },
+    outboxPolicy: { maxPendingRecords: 100_000, retentionDays: 30 },
+    redactionProfile: 'strict_internal_v1',
+    artifactMode: 'reference',
+  };
+}
+
+async function appendPhase13Evidence(
+  store: PostgresEvidenceStore,
+  suffix: string,
+): Promise<string> {
+  const occurredAt = new Date().toISOString();
+  const sourceRecordId = `phase13-append-${suffix}-${randomUUID()}`;
+  const envelope = createCatalogEvidenceEnvelope({
+    recordType: 'runtime.episode',
+    sourceRecordId,
+    sourceRevision: occurredAt,
+    environment: 'performance',
+    correlationId: sourceRecordId,
+    occurredAt,
+    recordedAt: occurredAt,
+    taskId: sourceRecordId,
+    episodeId: sourceRecordId,
+    payload: { episodeId: sourceRecordId, taskId: sourceRecordId, status: 'completed' },
+  });
+  await store.append(envelope, occurredAt, 'phase13:append');
+  return envelope.recordId;
+}
+
+async function waitForPhase13EvidenceDrain(
+  service: RuntimeEvidenceExportService,
+  pool: TestPostgresPool,
+  recordIds: readonly string[],
+  receivedRecords: () => number,
+): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  let lastUnacknowledged = recordIds.length;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ unacknowledged: string }>(
+      `SELECT count(*) FILTER (WHERE acknowledged_at IS NULL)::text AS unacknowledged
+       FROM evidence_outbox WHERE record_id=ANY($1::text[])`,
+      [recordIds],
+    );
+    lastUnacknowledged = Number(result.rows[0]?.unacknowledged ?? recordIds.length);
+    if (lastUnacknowledged === 0 && receivedRecords() > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const confirmed = await pool.query<{ unacknowledged: string }>(
+        `SELECT count(*) FILTER (WHERE acknowledged_at IS NULL)::text AS unacknowledged
+         FROM evidence_outbox WHERE record_id=ANY($1::text[])`,
+        [recordIds],
+      );
+      if (Number(confirmed.rows[0]?.unacknowledged ?? recordIds.length) === 0) return;
+    }
+    try {
+      await service.drain(1_000);
+    } catch (error) {
+      if (!(error instanceof EvidencePersistenceError) || error.code !== 'EVIDENCE_LEASE_NOT_OWNED')
+        throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`P13_EVIDENCE_DRAIN_TIMEOUT:${String(lastUnacknowledged)}`);
+}
+
+async function waitForPhase13ExportQuiescence(
+  service: RuntimeEvidenceExportService,
+  pool: TestPostgresPool,
+): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  let consecutiveEmptyChecks = 0;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ unacknowledged: string }>(
+      `SELECT count(*)::text AS unacknowledged
+       FROM evidence_outbox
+       WHERE observation_generation=0 AND acknowledged_at IS NULL`,
+    );
+    if (Number(result.rows[0]?.unacknowledged ?? 1) === 0) {
+      consecutiveEmptyChecks += 1;
+      if (consecutiveEmptyChecks === 2) return;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      continue;
+    }
+    consecutiveEmptyChecks = 0;
+    try {
+      await service.drain(1_000);
+    } catch (error) {
+      if (!(error instanceof EvidencePersistenceError) || error.code !== 'EVIDENCE_LEASE_NOT_OWNED')
+        throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('P13_EVIDENCE_QUIESCENCE_TIMEOUT');
+}
+
+async function setPhase13EvidenceActive(pool: TestPostgresPool, active: boolean): Promise<void> {
+  await pool.query(
+    `UPDATE evidence_export_configuration SET is_active=$1,is_lkg=$1
+     WHERE export_id='phase13-evidence-performance' AND revision=1`,
+    [active],
+  );
+}
+
+function phase13Percentile(samples: readonly number[], quantile: number): number {
+  const ordered = [...samples].sort((left, right) => left - right);
+  const index = Math.min(ordered.length - 1, Math.ceil(ordered.length * quantile) - 1);
+  const value = ordered[index];
+  if (value === undefined) throw new Error('P13_PERFORMANCE_SAMPLES_MISSING');
+  return phase13Round(value);
+}
+
+function phase13Median(samples: readonly number[]): number {
+  const ordered = [...samples].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  const upper = ordered[middle];
+  const lower = ordered[middle - 1];
+  if (upper === undefined || lower === undefined) {
+    throw new Error('P13_PERFORMANCE_MEDIAN_SAMPLES_MISSING');
+  }
+  return phase13Round((lower + upper) / 2);
+}
+
+function phase13Round(value: number): number {
+  return Number(value.toFixed(3));
 }

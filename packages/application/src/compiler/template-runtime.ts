@@ -804,6 +804,8 @@ function usageSnapshot(
   return {
     p08: true,
     instantiationRequestRef: request.input.requestRef,
+    retrievalDecisionId: request.decision.decisionId,
+    retrievalRequestId: request.decision.requestId,
     artifactHash: request.input.artifactHash,
     candidateHash: candidate.contentHash,
     runtimeSnapshotHash,

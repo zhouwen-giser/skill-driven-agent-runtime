@@ -23,7 +23,9 @@ import {
   type NodeControlCapabilityService,
   type NodeControlSmppRegistryService,
   type NodeControlRuntimeGovernanceService,
-  type NodeControlTelemetryExportService,
+  type NodeControlEvidenceExportService,
+  type NodeControlEvidenceOperationsService,
+  type EvidenceOperationsPrincipal,
   NodeControlRuntimeGovernanceError,
 } from '../../../packages/node-control-application/src/index.js';
 import type { TaskCapabilityBinding } from '../../../packages/domain/src/index.js';
@@ -38,7 +40,7 @@ import {
   smppSourceEtag,
   transitionManagementOperation,
   type RuntimeAgentCardCandidate,
-  type TelemetryExportConfiguration,
+  type ManagedEvidenceExportConfiguration,
 } from '../../../packages/node-control-domain/src/index.js';
 import type {
   RuntimeCapabilityReadinessInput,
@@ -80,7 +82,8 @@ export interface NodeControlHttpConfiguration {
     get(taskId: string): Promise<NodeControlTaskSummary | undefined>;
   }>;
   readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
-  readonly telemetryExport?: NodeControlTelemetryExportService;
+  readonly evidenceExport?: NodeControlEvidenceExportService;
+  readonly evidenceOperations?: NodeControlEvidenceOperationsService;
   readonly nodeEvents?: NodeControlEventService;
 }
 
@@ -141,7 +144,7 @@ export function createNodeControlHttpApp(
           nodeControlApi: '1.0.0',
           runtimeControl: '1.0.0',
           nodeEvents: '1.0.0',
-          telemetryExport: '1.0.0',
+          evidenceExport: 'sdar.evidence/v1',
         },
         features: [
           'node-profile',
@@ -151,6 +154,7 @@ export function createNodeControlHttpApp(
           'a2a-exposure',
           'configuration-summary',
           'management-operation',
+          'evidence-operations',
           'node-events',
         ],
       });
@@ -297,19 +301,21 @@ export function createNodeControlHttpApp(
     },
   );
 
-  app.get('/api/v1/telemetry-export', async (_request, response, next) => {
+  app.get('/api/v1/evidence-export', async (_request, response, next) => {
     try {
-      const current = await requiredTelemetryExport(configuration).current();
+      const current = await requiredEvidenceExport(configuration).current();
       response.status(200).set('etag', current.etag).json(current.configuration);
     } catch (error) {
       next(error);
     }
   });
 
-  app.post('/api/v1/telemetry-export/revisions', async (request, response, next) => {
+  app.post('/api/v1/evidence-export/revisions', async (request, response, next) => {
     try {
-      const created = await requiredTelemetryExport(configuration).create(
-        TelemetryExportConfigurationSchema.parse(request.body) as TelemetryExportConfiguration,
+      const created = await requiredEvidenceExport(configuration).create(
+        ManagedEvidenceExportConfigurationSchema.parse(
+          request.body,
+        ) as ManagedEvidenceExportConfiguration,
         requiredHeader(request, 'idempotency-key'),
       );
       response.status(201).set('etag', created.etag).json(created.configuration);
@@ -319,10 +325,10 @@ export function createNodeControlHttpApp(
   });
 
   app.post(
-    '/api/v1/telemetry-export/revisions/:revision/validate',
+    '/api/v1/evidence-export/revisions/:revision/validate',
     async (request, response, next) => {
       try {
-        const validated = await requiredTelemetryExport(configuration).validate(
+        const validated = await requiredEvidenceExport(configuration).validate(
           positiveRevision(request.params.revision),
           requiredHeader(request, 'if-match'),
           requiredHeader(request, 'idempotency-key'),
@@ -336,13 +342,13 @@ export function createNodeControlHttpApp(
   );
 
   app.post(
-    '/api/v1/telemetry-export/revisions/:revision/publish',
+    '/api/v1/evidence-export/revisions/:revision/publish',
     async (request, response, next) => {
       try {
         response
           .status(202)
           .json(
-            await requiredTelemetryExport(configuration).publish(
+            await requiredEvidenceExport(configuration).publish(
               positiveRevision(request.params.revision),
               requiredHeader(request, 'if-match'),
               requiredHeader(request, 'idempotency-key'),
@@ -355,24 +361,167 @@ export function createNodeControlHttpApp(
     },
   );
 
-  app.get('/api/v1/telemetry-export/status', async (_request, response, next) => {
+  app.get('/api/v1/evidence-export/status', async (_request, response, next) => {
     try {
-      response.status(200).json(await requiredTelemetryExport(configuration).status());
+      response.status(200).json(await requiredEvidenceExport(configuration).status());
     } catch (error) {
       next(error);
     }
   });
 
-  app.post('/api/v1/telemetry-export/test', async (request, response, next) => {
+  app.post('/api/v1/evidence-export/test', async (request, response, next) => {
     try {
       response
         .status(202)
         .json(
-          await requiredTelemetryExport(configuration).test(
+          await requiredEvidenceExport(configuration).test(
             requiredHeader(request, 'idempotency-key'),
             parseCommand(request.body),
           ),
         );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/outbox', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).outbox(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/source-checkpoints', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).checkpoints(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/projection-issues', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).projectionIssues(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/quality-issues', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).qualityIssues(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get(
+    '/api/v1/evidence-export/episode-manifests/:episodeId',
+    async (request, response, next) => {
+      try {
+        const manifest = await requiredEvidenceOperations(configuration).manifest(
+          boundedEvidenceIdentifier(request.params.episodeId),
+        );
+        if (manifest === undefined)
+          throw Object.assign(new Error('Evidence Episode Manifest was not found.'), {
+            code: 'EVIDENCE_MANIFEST_NOT_FOUND',
+            status: 404,
+          });
+        response.status(200).json(manifest);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.get('/api/v1/evidence-export/dead-letters', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).deadLetters(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/evidence-export/replays', async (request, response, next) => {
+    try {
+      const body = EvidenceReplayCommandSchema.parse(request.body);
+      const operation = await requiredEvidenceOperations(configuration).recover(
+        evidenceReplayIntent(body),
+        controlPrincipal(response),
+        requiredHeader(request, 'idempotency-key'),
+        body.reason,
+      );
+      response.status(operation.status === 'succeeded' ? 200 : 202).json(operation);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post(
+    '/api/v1/evidence-export/dead-letters/:deadLetterId/retry',
+    async (request, response, next) => {
+      try {
+        const body = EvidenceRecoveryReasonSchema.parse(request.body);
+        const operation = await requiredEvidenceOperations(configuration).recover(
+          {
+            operation: 'retry_dead_letter',
+            deadLetterId: boundedEvidenceIdentifier(request.params.deadLetterId),
+          },
+          controlPrincipal(response),
+          requiredHeader(request, 'idempotency-key'),
+          body.reason,
+        );
+        response.status(operation.status === 'succeeded' ? 200 : 202).json(operation);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post('/api/v1/evidence-export/reconcile', async (request, response, next) => {
+    try {
+      const body = EvidenceReconcileCommandSchema.parse(request.body);
+      const operation = await requiredEvidenceOperations(configuration).recover(
+        {
+          operation: 'reconcile_coverage',
+          ...(body.episodeId === undefined ? {} : { episodeId: body.episodeId }),
+        },
+        controlPrincipal(response),
+        requiredHeader(request, 'idempotency-key'),
+        body.reason,
+      );
+      response.status(operation.status === 'succeeded' ? 200 : 202).json(operation);
     } catch (error) {
       next(error);
     }
@@ -1806,6 +1955,52 @@ const CommandSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .strict();
+const EvidenceIdentifierSchema = z.string().trim().min(1).max(512);
+const EvidenceRecoveryReasonSchema = z
+  .object({ reason: z.string().trim().min(1).max(2_048) })
+  .strict();
+const EvidenceReplayCommandSchema = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('record'),
+      recordId: EvidenceIdentifierSchema,
+      reason: z.string().trim().min(1).max(2_048),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('source_partition'),
+      sourceFamily: EvidenceIdentifierSchema,
+      sourcePartition: EvidenceIdentifierSchema,
+      reason: z.string().trim().min(1).max(2_048),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('episode'),
+      episodeId: EvidenceIdentifierSchema,
+      reason: z.string().trim().min(1).max(2_048),
+    })
+    .strict(),
+]);
+const EvidenceReconcileCommandSchema = z
+  .object({
+    episodeId: EvidenceIdentifierSchema.optional(),
+    reason: z.string().trim().min(1).max(2_048),
+  })
+  .strict();
+const EvidenceOperationsQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().positive().max(200).default(100),
+    cursor: z.string().trim().min(1).max(2_048).optional(),
+    episodeId: EvidenceIdentifierSchema.optional(),
+    sourcePartition: EvidenceIdentifierSchema.optional(),
+    openOnly: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+  })
+  .strict();
 const NodeProfileDraftSchema = z
   .object({
     nodeId: z.string().trim().min(1).max(128),
@@ -1975,18 +2170,54 @@ const McpBindingImportSchema = z
   })
   .strict();
 const JsonObjectSchema = z.record(z.string(), z.json());
-const TelemetryExportConfigurationSchema = z
+const ManagedEvidenceExportConfigurationSchema = z
   .object({
     exportId: z.string().trim().min(1).max(256),
     endpointRef: z.url(),
     sourceId: z.string().trim().min(1).max(256),
     nodeId: z.string().trim().min(1).max(256).optional(),
-    credentialRef: z.string().trim().min(1).max(2_048),
-    recordFamilies: z.array(z.string().trim().min(1).max(256)).min(1),
-    batchPolicy: JsonObjectSchema.optional(),
-    retryPolicy: JsonObjectSchema.optional(),
-    outboxPolicy: JsonObjectSchema.optional(),
-    tlsPolicyRef: z.string().trim().min(1).max(2_048).optional(),
+    credentialRef: z
+      .string()
+      .trim()
+      .regex(/^(?:env|secret):[A-Za-z0-9_.:/-]{1,256}$/u),
+    includedFamilies: z
+      .array(
+        z.enum([
+          'runtime',
+          'skill',
+          'mcp_task',
+          'capability',
+          'experience',
+          'replay',
+          'artifact',
+          'node_control',
+          'evidence',
+        ]),
+      )
+      .min(1),
+    excludedDiagnosticTypes: z.array(z.string().trim().min(1).max(256)).max(100).optional(),
+    batchPolicy: z
+      .object({
+        maxRecords: z.number().int().min(1).max(1_000),
+        maxBytes: z.number().int().min(1_024).max(262_144),
+        flushIntervalMs: z.number().int().min(10).max(3_600_000),
+      })
+      .strict(),
+    retryPolicy: z
+      .object({
+        baseDelayMs: z.number().int().min(10).max(300_000),
+        maxDelayMs: z.number().int().min(10).max(86_400_000),
+        maxAttempts: z.number().int().min(1).max(1_000).optional(),
+      })
+      .strict(),
+    outboxPolicy: z
+      .object({
+        maxPendingRecords: z.number().int().min(1).max(1_000_000),
+        retentionDays: z.number().int().min(1).max(3_650),
+      })
+      .strict(),
+    redactionProfile: z.string().trim().min(1).max(256),
+    artifactMode: z.enum(['inline', 'reference']),
     status: z.enum(['draft', 'active', 'suspended', 'retired']),
     revision: z.number().int().positive(),
     applyMode: z.enum(['hot_reload', 'reconnect_required', 'restart_required']).optional(),
@@ -2192,6 +2423,68 @@ function parseCommand(value: unknown) {
     reason: parsed.reason,
     ...(parsed.payload === undefined ? {} : { payload: parsed.payload }),
     ...(parsed.expectedRevision === undefined ? {} : { expectedRevision: parsed.expectedRevision }),
+  });
+}
+
+function parseEvidenceOperationsQuery(request: Request) {
+  const parsed = EvidenceOperationsQuerySchema.parse({
+    limit: request.query['limit'] ?? request.query['pageSize'],
+    cursor: request.query['cursor'] ?? request.query['pageToken'],
+    episodeId: request.query['episodeId'],
+    sourcePartition: request.query['sourcePartition'],
+    openOnly: request.query['openOnly'],
+  });
+  return Object.freeze({
+    limit: parsed.limit,
+    ...(parsed.cursor === undefined ? {} : { cursor: parsed.cursor }),
+    ...(parsed.episodeId === undefined ? {} : { episodeId: parsed.episodeId }),
+    ...(parsed.sourcePartition === undefined ? {} : { sourcePartition: parsed.sourcePartition }),
+    ...(parsed.openOnly === undefined ? {} : { openOnly: parsed.openOnly }),
+  });
+}
+
+function evidenceReplayIntent(input: z.infer<typeof EvidenceReplayCommandSchema>) {
+  switch (input.scope) {
+    case 'record':
+      return Object.freeze({ operation: 'replay_record' as const, recordId: input.recordId });
+    case 'source_partition':
+      return Object.freeze({
+        operation: 'replay_source_partition' as const,
+        sourceFamily: input.sourceFamily,
+        sourcePartition: input.sourcePartition,
+      });
+    case 'episode':
+      return Object.freeze({ operation: 'replay_episode' as const, episodeId: input.episodeId });
+  }
+}
+
+function boundedEvidenceIdentifier(value: string): string {
+  return EvidenceIdentifierSchema.parse(value);
+}
+
+function controlPrincipal(response: Response): EvidenceOperationsPrincipal {
+  const value: unknown = response.locals['controlPrincipal'];
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('actorId' in value) ||
+    typeof value.actorId !== 'string' ||
+    !('role' in value) ||
+    ![
+      'node_admin',
+      'security_admin',
+      'node_operator',
+      'node_viewer',
+      'organization_service',
+    ].includes(String(value.role))
+  )
+    throw Object.assign(new Error('Evidence operations principal is unavailable.'), {
+      code: 'EVIDENCE_OPERATIONS_PRINCIPAL_UNAVAILABLE',
+      status: 401,
+    });
+  return Object.freeze({
+    actorId: value.actorId,
+    role: value.role as EvidenceOperationsPrincipal['role'],
   });
 }
 
@@ -2433,14 +2726,23 @@ function credential(role: PublicApiRole, token: string | undefined) {
 
 function roleOperationAllowed(role: PublicApiRole, method: string, originalUrl: string): boolean {
   if (role === 'node_admin') return true;
+  if (role === 'organization_service') return organizationOperationAllowed(method, originalUrl);
   if (organizationOperationAllowed(method, originalUrl)) return true;
-  if (method !== 'GET') return false;
   const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
-  const telemetryRead = /^\/api\/v1\/telemetry-export(?:\/status)?$/u.test(path);
-  if (role === 'node_viewer') return telemetryRead;
-  if (role === 'node_operator' || role === 'security_admin')
-    return telemetryRead || /^\/api\/v1\/audit-events$/u.test(path);
-  return false;
+  const evidenceRecovery = [
+    /^\/api\/v1\/evidence-export\/replays$/u,
+    /^\/api\/v1\/evidence-export\/dead-letters\/[^/]+\/retry$/u,
+    /^\/api\/v1\/evidence-export\/reconcile$/u,
+  ].some((pattern) => pattern.test(path));
+  if (method === 'POST' && role === 'security_admin' && evidenceRecovery) return true;
+  if (method !== 'GET') return false;
+  const evidenceRead = [
+    /^\/api\/v1\/evidence-export(?:\/status)?$/u,
+    /^\/api\/v1\/evidence-export\/(?:outbox|source-checkpoints|projection-issues|quality-issues|dead-letters)$/u,
+    /^\/api\/v1\/evidence-export\/episode-manifests\/[^/]+$/u,
+  ].some((pattern) => pattern.test(path));
+  if (role === 'node_viewer') return evidenceRead;
+  return evidenceRead || /^\/api\/v1\/audit-events$/u.test(path);
 }
 
 function assertOutboundEndpoint(value: string, configured?: readonly string[]): void {
@@ -2679,15 +2981,26 @@ function requiredRuntimeGovernance(
   return configuration.runtimeGovernance;
 }
 
-function requiredTelemetryExport(
+function requiredEvidenceExport(
   configuration: NodeControlHttpConfiguration,
-): NodeControlTelemetryExportService {
-  if (configuration.telemetryExport === undefined)
-    throw Object.assign(new Error('Telemetry Export is unavailable.'), {
-      code: 'TELEMETRY_EXPORT_UNAVAILABLE',
+): NodeControlEvidenceExportService {
+  if (configuration.evidenceExport === undefined)
+    throw Object.assign(new Error('Evidence Export is unavailable.'), {
+      code: 'EVIDENCE_EXPORT_UNAVAILABLE',
       status: 503,
     });
-  return configuration.telemetryExport;
+  return configuration.evidenceExport;
+}
+
+function requiredEvidenceOperations(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlEvidenceOperationsService {
+  if (configuration.evidenceOperations === undefined)
+    throw Object.assign(new Error('Evidence operations are unavailable.'), {
+      code: 'EVIDENCE_OPERATIONS_UNAVAILABLE',
+      status: 503,
+    });
+  return configuration.evidenceOperations;
 }
 
 function requiredNodeEvents(configuration: NodeControlHttpConfiguration): NodeControlEventService {

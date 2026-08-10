@@ -13,7 +13,7 @@
 - Capability Readiness；
 - A2A Exposure 和 Agent Card Revision；
 - Task/Capability Binding 查询及受控任务命令；
-- Telemetry Export 配置、投递水位和错误；
+- Evidence Export 配置、投递水位和错误；
 - Management Operation、Audit、Node Events；
 - Runtime Bootstrap、Revision Pull/Watch、Apply/Ack/LKG。
 

@@ -1,0 +1,15 @@
+{
+  "contractVersion": "sdar.evidence/v1",
+  "status": "template",
+  "families": {
+    "runtime": [],
+    "skill": [],
+    "mcp_task": [],
+    "capability": [],
+    "experience": [],
+    "replay": [],
+    "artifact": [],
+    "node_control": [],
+    "evidence": []
+  }
+}

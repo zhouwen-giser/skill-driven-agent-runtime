@@ -1,0 +1,1152 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { stdout } from 'node:process';
+
+const outputDirectory = path.resolve('reports/v1.4.1-evidence');
+const runtimeDatabase = 'runtime_postgresql';
+const controlDatabase = 'control_postgresql';
+const registry = JSON.parse(
+  await readFile(path.resolve('schemas/evidence/v1/registry.json'), 'utf8'),
+);
+const verificationProofPath = path.resolve(
+  'reports/v1.4.1-evidence/verification-proof-manifest.json',
+);
+const verificationProof = JSON.parse(await readFile(verificationProofPath, 'utf8'));
+if (!Array.isArray(registry.records) || registry.records.length !== 100) {
+  throw new Error('Evidence registry must contain exactly 100 records before matrix generation');
+}
+const catalogByType = new Map(registry.records.map((entry) => [entry.recordType, entry]));
+if (!Array.isArray(verificationProof.records) || verificationProof.records.length !== 100) {
+  throw new Error('Evidence verification proof must contain exactly 100 records');
+}
+const proofByType = new Map();
+for (const proof of verificationProof.records) {
+  if (typeof proof.recordType !== 'string' || proofByType.has(proof.recordType)) {
+    throw new Error(`Evidence verification proof has an invalid or duplicate recordType`);
+  }
+  proofByType.set(proof.recordType, proof);
+}
+for (const recordType of catalogByType.keys()) {
+  if (!proofByType.has(recordType)) {
+    throw new Error(`Evidence verification proof is missing ${recordType}`);
+  }
+}
+for (const recordType of proofByType.keys()) {
+  if (!catalogByType.has(recordType)) {
+    throw new Error(`Evidence verification proof contains unknown ${recordType}`);
+  }
+}
+
+const sources = {
+  agent_task: [
+    'runtime',
+    runtimeDatabase,
+    'agent_task',
+    'Runtime PostgreSQL',
+    'task_id',
+    'status/update revision as canonical source hash',
+    'updated_at',
+  ],
+  goal: [
+    'runtime',
+    runtimeDatabase,
+    'goal',
+    'Runtime PostgreSQL',
+    'goal_id + version',
+    'version + canonical source hash',
+    'updated_at',
+  ],
+  goal_patch: [
+    'runtime',
+    runtimeDatabase,
+    'goal_patch',
+    'Runtime PostgreSQL',
+    'patch_id',
+    'immutable row; canonical source hash',
+    'created_at',
+  ],
+  user_goal_contract: [
+    'runtime',
+    runtimeDatabase,
+    'user_goal_contract',
+    'Runtime PostgreSQL',
+    'goal_id + goal_version',
+    'goal_version + contract_hash',
+    'created_at',
+  ],
+  user_goal_plan: [
+    'runtime',
+    runtimeDatabase,
+    'user_goal_plan',
+    'Runtime PostgreSQL',
+    'plan_id',
+    'revision + lock_version + content_hash',
+    'created_at',
+  ],
+  skill_goal: [
+    'runtime',
+    runtimeDatabase,
+    'skill_goal',
+    'Runtime PostgreSQL',
+    'skill_goal_id',
+    'lock_version + canonical source hash',
+    'updated_at',
+  ],
+  skill_goal_dependency: [
+    'runtime',
+    runtimeDatabase,
+    'skill_goal_dependency',
+    'Runtime PostgreSQL',
+    'dependency_id',
+    'immutable composite row; canonical source hash',
+    'none; immutable dependency is ordered through its parent plan',
+  ],
+  workflow_node_event: [
+    'runtime',
+    runtimeDatabase,
+    'workflow_node_event',
+    'Runtime PostgreSQL',
+    'event_id',
+    'immutable event; canonical source hash',
+    'event_timestamp',
+  ],
+  workflow_control_round: [
+    'runtime',
+    runtimeDatabase,
+    'workflow_control_round',
+    'Runtime PostgreSQL',
+    'control_id + round_index',
+    'immutable round; canonical source hash',
+    'created_at',
+  ],
+  task_execution_readiness: [
+    'runtime',
+    runtimeDatabase,
+    'task_execution_readiness',
+    'Runtime PostgreSQL',
+    'readiness_id',
+    'immutable readiness check; canonical source hash',
+    'created_at',
+  ],
+  workflow_plan: [
+    'runtime',
+    runtimeDatabase,
+    'workflow_plan',
+    'Runtime PostgreSQL',
+    'plan_id',
+    'attempt_count + confirmation status + canonical source hash',
+    'created_at / confirmed_at',
+  ],
+  mcp_invocation: [
+    'runtime',
+    runtimeDatabase,
+    'mcp_invocation',
+    'Runtime PostgreSQL',
+    'invocation_id',
+    'immutable invocation; canonical source hash',
+    'started_at',
+  ],
+  completed_effect: [
+    'runtime',
+    runtimeDatabase,
+    'completed_effect',
+    'Runtime PostgreSQL',
+    'completed_effect_id',
+    'immutable effect; canonical source hash',
+    'created_at',
+  ],
+  outcome_decision: [
+    'runtime',
+    runtimeDatabase,
+    'outcome_decision',
+    'Runtime PostgreSQL',
+    'outcome_decision_id',
+    'immutable decision; canonical source hash',
+    'created_at',
+  ],
+  runtime_terminal_outcome: [
+    'runtime',
+    runtimeDatabase,
+    'runtime_terminal_outcome',
+    'Runtime PostgreSQL',
+    'outcome_id',
+    'terminal sequence + canonical source hash',
+    'committed_at',
+  ],
+  skill_execution_record: [
+    'runtime',
+    runtimeDatabase,
+    'skill_execution_record',
+    'Runtime PostgreSQL',
+    'execution_id',
+    'immutable execution snapshot; canonical source hash',
+    'created_at',
+  ],
+  skill_selection_record: [
+    'runtime',
+    runtimeDatabase,
+    'skill_selection_record',
+    'Runtime PostgreSQL',
+    'selection_id',
+    'immutable selection; canonical source hash',
+    'created_at',
+  ],
+  skill_input_resolution: [
+    'runtime',
+    runtimeDatabase,
+    'skill_input_resolution',
+    'Runtime PostgreSQL',
+    'resolution_id',
+    'immutable resolution; canonical source hash',
+    'created_at',
+  ],
+  skill_execution_event: [
+    'runtime',
+    runtimeDatabase,
+    'skill_execution_event',
+    'Runtime PostgreSQL',
+    'event_id',
+    'immutable event sequence; canonical source hash',
+    'occurred_at',
+  ],
+  skill_execution_reference: [
+    'runtime',
+    runtimeDatabase,
+    'skill_execution_reference',
+    'Runtime PostgreSQL',
+    'link_id',
+    'immutable reference; canonical source hash',
+    'created_at',
+  ],
+  task_capability_binding: [
+    'runtime',
+    runtimeDatabase,
+    'task_capability_binding',
+    'Runtime PostgreSQL',
+    'binding_id',
+    'binding_hash',
+    'bound_at',
+  ],
+  task_availability_snapshot: [
+    'runtime',
+    runtimeDatabase,
+    'task_availability_snapshot',
+    'Runtime PostgreSQL',
+    'snapshot_id',
+    'immutable snapshot; canonical source hash',
+    'checked_at',
+  ],
+  remote_task_binding: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_binding',
+    'Runtime PostgreSQL',
+    'binding_id',
+    'version + canonical source hash',
+    'created_at',
+  ],
+  remote_task_observation: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_observation',
+    'Runtime PostgreSQL',
+    'observation_id',
+    'provider revision or canonical source hash',
+    'observed_at',
+  ],
+  remote_task_reconciliation: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_observation[observation_source=reconciliation]',
+    'Runtime PostgreSQL',
+    'observation_id',
+    'provider/runtime revision + canonical source hash',
+    'observed_at',
+  ],
+  remote_task_control_event: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_control_event',
+    'Runtime PostgreSQL',
+    'event_id',
+    'immutable event; canonical source hash',
+    'created_at',
+  ],
+  remote_task_protocol_attempt: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_protocol_attempt',
+    'Runtime PostgreSQL',
+    'attempt_id',
+    'immutable attempt; canonical source hash',
+    'started_at',
+  ],
+  remote_task_input_link: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_input_link',
+    'Runtime PostgreSQL',
+    'input_request_id',
+    'remote revision + result_hash',
+    'created_at',
+  ],
+  remote_task_cancel_request: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_cancel_request',
+    'Runtime PostgreSQL',
+    'cancel_request_id',
+    'version + canonical source hash',
+    'requested_at / updated_at',
+  ],
+  workflow_continuation_snapshot: [
+    'runtime',
+    runtimeDatabase,
+    'workflow_continuation_snapshot',
+    'Runtime PostgreSQL',
+    'snapshot_id',
+    'state_version + canonical source hash',
+    'created_at',
+  ],
+  workflow_continuation_attempt: [
+    'runtime',
+    runtimeDatabase,
+    'workflow_continuation_attempt',
+    'Runtime PostgreSQL',
+    'attempt_id',
+    'immutable attempt; canonical source hash',
+    'created_at',
+  ],
+  capability_readiness_snapshot: [
+    'runtime',
+    runtimeDatabase,
+    'capability_readiness_snapshot',
+    'Runtime PostgreSQL',
+    'capability_id + capability_version + snapshot_version',
+    'snapshot_version + snapshot_hash',
+    'evaluated_at',
+  ],
+  task_capability_execution_attempt: [
+    'runtime',
+    runtimeDatabase,
+    'task_capability_execution_attempt',
+    'Runtime PostgreSQL',
+    'attempt_id',
+    'attempt_no + canonical source hash',
+    'started_at',
+  ],
+  runtime_agent_card_exposure_snapshot: [
+    'runtime',
+    runtimeDatabase,
+    'runtime_agent_card_exposure_snapshot',
+    'Runtime PostgreSQL',
+    'revision + exposure_id + exposure_version',
+    'revision + exposure_hash',
+    'parent runtime_agent_card_revision.generated_at',
+  ],
+  runtime_agent_card_revision: [
+    'runtime',
+    runtimeDatabase,
+    'runtime_agent_card_revision',
+    'Runtime PostgreSQL',
+    'revision',
+    'revision + content_hash',
+    'generated_at',
+  ],
+  goal_experience_episode: [
+    'runtime',
+    runtimeDatabase,
+    'goal_experience_episode',
+    'Runtime PostgreSQL',
+    'episode_id',
+    'revision + episode_hash',
+    'created_at',
+  ],
+  experience_trace: [
+    'runtime',
+    runtimeDatabase,
+    'experience_trace',
+    'Runtime PostgreSQL',
+    'trace_id',
+    'source_hash from experience_trace_source',
+    'created_at',
+  ],
+  experience_trace_event: [
+    'runtime',
+    runtimeDatabase,
+    'experience_trace.trace.events[]',
+    'Runtime PostgreSQL',
+    'trace_id + eventId',
+    'parent trace source_hash + event canonical hash',
+    'occurredAt',
+  ],
+  experience_activity: [
+    'runtime',
+    runtimeDatabase,
+    'experience_trace.trace.events[].activity',
+    'Runtime PostgreSQL',
+    'trace_id + eventId + activityKey',
+    'parent trace source_hash + activity canonical hash',
+    'occurredAt',
+  ],
+  pattern_candidate: [
+    'runtime',
+    runtimeDatabase,
+    'pattern_candidate',
+    'Runtime PostgreSQL',
+    'pattern_id',
+    'immutable pattern definition; canonical source hash',
+    'created_at',
+  ],
+  pattern_variant: [
+    'runtime',
+    runtimeDatabase,
+    'pattern_candidate.definition.variants[]',
+    'Runtime PostgreSQL',
+    'pattern_id + variantId',
+    'parent pattern canonical hash + variant canonical hash',
+    'created_at',
+  ],
+  pattern_dependency: [
+    'runtime',
+    runtimeDatabase,
+    'pattern_candidate.definition.workflowPattern.dependencyPatterns[]',
+    'Runtime PostgreSQL',
+    'pattern_id + canonical dependency hash',
+    'parent pattern canonical hash + dependency canonical hash',
+    'created_at',
+  ],
+  pattern_recovery: [
+    'runtime',
+    runtimeDatabase,
+    'pattern_candidate.definition.workflowPattern.recoveryPatterns[]',
+    'Runtime PostgreSQL',
+    'pattern_id + canonical recovery hash',
+    'parent pattern canonical hash + recovery canonical hash',
+    'created_at',
+  ],
+  planning_correction_fact: [
+    'runtime',
+    runtimeDatabase,
+    'planning_correction_fact',
+    'Runtime PostgreSQL',
+    'correction_id',
+    'immutable correction; canonical source hash',
+    'created_at',
+  ],
+  planning_interaction_episode: [
+    'runtime',
+    runtimeDatabase,
+    'planning_interaction_episode',
+    'Runtime PostgreSQL',
+    'episode_id',
+    'revision + episode_hash',
+    'created_at',
+  ],
+  replay_dataset_manifest: [
+    'runtime',
+    runtimeDatabase,
+    'replay_dataset_manifest',
+    'Runtime PostgreSQL',
+    'dataset_id + dataset_version',
+    'dataset_version + content_hash',
+    'created_at',
+  ],
+  artifact_replay_case: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_replay_case',
+    'Runtime PostgreSQL',
+    'replay_case_id',
+    'content_hash',
+    'created_at',
+  ],
+  artifact_validation_run: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_validation_run',
+    'Runtime PostgreSQL',
+    'validation_run_id',
+    'updated_at + canonical source hash',
+    'updated_at',
+  ],
+  artifact_replay_case_result: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_replay_case_result',
+    'Runtime PostgreSQL',
+    'validation_run_id + replay_case_id',
+    'result_hash',
+    'created_at',
+  ],
+  artifact_metric_result: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_replay_case_result.metrics[]',
+    'Runtime PostgreSQL',
+    'validation_run_id + replay_case_id + metric key',
+    'result_hash + metric canonical hash',
+    'created_at',
+  ],
+  artifact_counterexample: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_counterexample',
+    'Runtime PostgreSQL',
+    'counterexample_id',
+    'immutable counterexample; canonical source hash',
+    'created_at',
+  ],
+  compiled_artifact: [
+    'runtime',
+    runtimeDatabase,
+    'compiled_artifact + artifact_lineage',
+    'Runtime PostgreSQL',
+    'artifact_id + version',
+    'version + content_hash',
+    'created_at',
+  ],
+  artifact_match_log: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_match_log',
+    'Runtime PostgreSQL',
+    'match_id',
+    'immutable match; canonical source hash',
+    'created_at',
+  ],
+  runtime_candidate_decision: [
+    'runtime',
+    runtimeDatabase,
+    'runtime_candidate_decision',
+    'Runtime PostgreSQL',
+    'decision_id',
+    'immutable decision; canonical source hash',
+    'created_at',
+  ],
+  artifact_execution: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_execution',
+    'Runtime PostgreSQL',
+    'artifact_execution_id',
+    'status transition source hash',
+    'started_at',
+  ],
+  artifact_feedback: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_feedback',
+    'Runtime PostgreSQL',
+    'feedback_id',
+    'immutable feedback; canonical source hash',
+    'created_at',
+  ],
+  artifact_promotion: [
+    'runtime',
+    runtimeDatabase,
+    'artifact_promotion_package + artifact_promotion_assessment',
+    'Runtime PostgreSQL',
+    'promotion_package_id',
+    'content_hash + evidence_hash',
+    'created_at',
+  ],
+  node_profile_revision: [
+    'control',
+    controlDatabase,
+    'sdar_control.node_profile_revision',
+    'Control PostgreSQL',
+    'node_id + revision',
+    'revision',
+    'updated_at',
+  ],
+  node_health_observation: [
+    'control',
+    controlDatabase,
+    'sdar_control.node_health_observation',
+    'Control PostgreSQL',
+    'observation_id',
+    'observation_revision + canonical source hash',
+    'observed_at',
+  ],
+  configuration_revision: [
+    'control',
+    controlDatabase,
+    'sdar_control.configuration_revision',
+    'Control PostgreSQL',
+    'configuration_id + revision',
+    'revision + checksum',
+    'created_at',
+  ],
+  evidence_configuration_revision: [
+    'control',
+    controlDatabase,
+    'sdar_control.configuration_revision[target_type=telemetry_link]',
+    'Control PostgreSQL',
+    'configuration_id + revision',
+    'revision + checksum',
+    'created_at',
+  ],
+  configuration_application: [
+    'control',
+    controlDatabase,
+    'sdar_control.configuration_application',
+    'Control PostgreSQL',
+    'application_id',
+    'status + canonical source hash',
+    'acknowledged_at',
+  ],
+  configuration_lkg: [
+    'control',
+    controlDatabase,
+    'sdar_control.configuration_target_state',
+    'Control PostgreSQL',
+    'target_type + target_id',
+    'generation + observed revision',
+    'observed_at',
+  ],
+  llm_provider_definition: [
+    'control',
+    controlDatabase,
+    'sdar_control.llm_provider_definition',
+    'Control PostgreSQL',
+    'provider_id + revision',
+    'revision',
+    'updated_at',
+  ],
+  model_route_definition: [
+    'control',
+    controlDatabase,
+    'sdar_control.model_route_definition',
+    'Control PostgreSQL',
+    'route_id + revision',
+    'revision',
+    'updated_at',
+  ],
+  smpp_registry_source: [
+    'control',
+    controlDatabase,
+    'sdar_control.smpp_registry_source',
+    'Control PostgreSQL',
+    'smpp_source_id + revision',
+    'revision',
+    'updated_at',
+  ],
+  mcp_provider_binding: [
+    'control',
+    controlDatabase,
+    'sdar_control.mcp_provider_binding',
+    'Control PostgreSQL',
+    'binding_id + revision',
+    'revision + catalog_checksum',
+    'created_at',
+  ],
+  skill_governance_audit: [
+    'control',
+    controlDatabase,
+    'sdar_control.control_audit_event[action prefix=skill.]',
+    'Control PostgreSQL',
+    'audit_id',
+    'immutable audit event; canonical source hash',
+    'created_at',
+  ],
+  plan_template_governance_audit: [
+    'control',
+    controlDatabase,
+    'sdar_control.control_audit_event[action prefix=plan-template.]',
+    'Control PostgreSQL',
+    'audit_id',
+    'immutable audit event; canonical source hash',
+    'created_at',
+  ],
+  node_capability_definition: [
+    'control',
+    controlDatabase,
+    'sdar_control.node_capability_definition_version',
+    'Control PostgreSQL',
+    'capability_id + version',
+    'version + definition_hash',
+    'updated_at',
+  ],
+  capability_implementation_binding: [
+    'control',
+    controlDatabase,
+    'sdar_control.capability_implementation_binding',
+    'Control PostgreSQL',
+    'binding_id + revision',
+    'revision',
+    'created_at',
+  ],
+  capability_readiness_event: [
+    'control',
+    controlDatabase,
+    'sdar_control.node_event_outbox[event_type=node.capability.readiness_changed] + sdar_control.management_operation[result]',
+    'Control PostgreSQL',
+    'event_id',
+    'aggregate_revision + payload canonical hash',
+    'occurred_at',
+  ],
+  a2a_exposure_version: [
+    'control',
+    controlDatabase,
+    'sdar_control.a2a_exposure_version',
+    'Control PostgreSQL',
+    'exposure_id + version',
+    'version + exposure_hash',
+    'updated_at',
+  ],
+  agent_card_revision: [
+    'control',
+    controlDatabase,
+    'sdar_control.agent_card_revision',
+    'Control PostgreSQL',
+    'revision',
+    'revision + content_hash',
+    'generated_at',
+  ],
+  management_operation: [
+    'control',
+    controlDatabase,
+    'sdar_control.management_operation',
+    'Control PostgreSQL',
+    'operation_id',
+    'status + canonical source hash',
+    'created_at / started_at / completed_at',
+  ],
+  control_audit_event: [
+    'control',
+    controlDatabase,
+    'sdar_control.control_audit_event',
+    'Control PostgreSQL',
+    'audit_id',
+    'immutable audit event; canonical source hash',
+    'created_at',
+  ],
+  node_event_outbox: [
+    'control',
+    controlDatabase,
+    'sdar_control.node_event_outbox',
+    'Control PostgreSQL',
+    'event_id',
+    'aggregate_revision + payload canonical hash',
+    'occurred_at',
+  ],
+};
+
+const phase3Sources = {
+  evidence_export_batch: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_export_batch',
+    'Runtime PostgreSQL',
+    'batch_id',
+    'immutable pre-send attempt; canonical source hash',
+    'recorded_at',
+  ],
+  evidence_export_ack: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_export_ack',
+    'Runtime PostgreSQL',
+    'ack_id',
+    'immutable receiver response; canonical source hash',
+    'acknowledged_at',
+  ],
+  evidence_export_status: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_export_batch + evidence_export_ack[generation0-derived]',
+    'Runtime PostgreSQL',
+    'evidence_export_batch.batch_id + evidence_export_ack.ack_id (nullable)',
+    'evidence_export_batch.ledger_sequence + evidence_export_ack.ledger_sequence (nullable); immutable ledger rows',
+    'COALESCE(evidence_export_ack.acknowledged_at,evidence_export_batch.recorded_at)',
+  ],
+  episode_evidence_manifest: [
+    'runtime',
+    runtimeDatabase,
+    'episode_evidence_manifest',
+    'Runtime PostgreSQL',
+    'manifest_id',
+    'status + last_evidence_sequence + canonical source hash',
+    'created_at / sealed_at',
+  ],
+  evidence_quality_issue: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_quality_issue',
+    'Runtime PostgreSQL',
+    'issue_id',
+    'issue revision or canonical source hash',
+    'created_at',
+  ],
+  evidence_projection_issue: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_projection_issue',
+    'Runtime PostgreSQL',
+    'issue_id',
+    'issue revision or canonical source hash',
+    'created_at',
+  ],
+  evidence_source_checkpoint: [
+    'runtime',
+    runtimeDatabase,
+    'evidence_source_checkpoint',
+    'Runtime PostgreSQL',
+    'source_family + source_partition',
+    'last source cursor + payload hash + projector version',
+    'last_projected_at',
+  ],
+};
+
+function row(recordType, sourceKey, requiredReferences) {
+  const source = sources[sourceKey] ?? phase3Sources[sourceKey];
+  if (!source) throw new Error(`Unknown source key ${sourceKey} for ${recordType}`);
+  const [declaredSourceSystem, sourceDatabase, , , identity, revision, timestamp] = source;
+  const catalog = catalogByType.get(recordType);
+  if (!catalog) throw new Error(`Missing registry metadata for ${recordType}`);
+  const proof = proofByType.get(recordType);
+  if (!proof) throw new Error(`Missing verification proof for ${recordType}`);
+  const expectedReferences = catalog.expectedReferences.join(',');
+  // The historical third argument is retained only to keep the 100-row source inventory readable;
+  // reference authority comes exclusively from the generated Domain Catalog registry.
+  void requiredReferences;
+  const sourceSystem = catalog.sourceSystem;
+  const normalizedDeclaredSourceSystem =
+    declaredSourceSystem === 'control' ? 'node_control' : declaredSourceSystem;
+  if (normalizedDeclaredSourceSystem !== sourceSystem) {
+    throw new Error(
+      `${recordType} source mapping declares ${declaredSourceSystem}, but Catalog declares ${sourceSystem}`,
+    );
+  }
+  const sourceTable = catalog.sourceTable;
+  const authority = catalog.authority;
+  const family = catalog.recordFamily;
+  return {
+    source_system: sourceSystem,
+    source_database: sourceDatabase,
+    source_table_or_aggregate: sourceTable,
+    source_authority: authority,
+    source_identity_fields: identity,
+    source_revision_rule: revision,
+    source_timestamp_field: timestamp,
+    record_family: family,
+    record_type: recordType,
+    schema_name: catalog.schemaName,
+    schema_version: catalog.schemaVersion,
+    schema_path: catalog.schemaPath,
+    schema_hash: catalog.schemaHash,
+    delivery_guarantee: catalog.deliveryGuarantee,
+    evaluation_role: catalog.evaluationRole,
+    applicability: catalog.applicability,
+    mapper: catalog.mapper,
+    projection_mode:
+      sourceSystem === 'node_control'
+        ? 'durable_control_source_projector'
+        : sourceTable.includes('[]')
+          ? 'durable_structured_subrecord_projector'
+          : 'durable_runtime_source_projector',
+    cursor_rule:
+      sourceSystem === 'node_control'
+        ? 'per Control source/partition; node-event sequence or aggregate revision; never global'
+        : 'per Runtime source/partition; stable timestamp plus source identity tie-break; never global',
+    redaction_profile: catalog.redactionPolicy,
+    artifact_policy: catalog.artifactPolicy,
+    required_references: expectedReferences,
+    status: proof.verificationStatus,
+  };
+}
+
+const records = [
+  row('runtime.episode', 'agent_task', 'runtime.request,runtime.goal,runtime.outcome'),
+  row('runtime.request', 'agent_task', 'runtime.episode'),
+  row('runtime.a2a_task', 'agent_task', 'runtime.request'),
+  row('runtime.goal', 'goal', 'runtime.episode'),
+  row('runtime.goal_contract', 'user_goal_contract', 'runtime.goal'),
+  row('runtime.goal_patch', 'goal_patch', 'runtime.goal,runtime.goal_contract'),
+  row('runtime.plan', 'user_goal_plan', 'runtime.goal_contract'),
+  row('runtime.plan_step', 'skill_goal', 'runtime.plan'),
+  row('runtime.state_transition', 'workflow_node_event', 'runtime.episode,runtime.plan_step'),
+  row('runtime.decision', 'workflow_control_round', 'runtime.episode,runtime.plan'),
+  row('runtime.policy_decision', 'workflow_control_round', 'runtime.decision'),
+  row(
+    'runtime.execution_gate',
+    'task_execution_readiness',
+    'runtime.policy_decision,runtime.human_confirmation',
+  ),
+  row('runtime.human_confirmation', 'workflow_plan', 'runtime.plan'),
+  row('runtime.action', 'mcp_invocation', 'runtime.plan_step,skill.execution'),
+  row('runtime.receipt', 'mcp_invocation', 'runtime.action'),
+  row('runtime.verification', 'completed_effect', 'runtime.action,runtime.receipt'),
+  row('runtime.outcome', 'outcome_decision', 'runtime.verification'),
+  row('runtime.run_seal', 'runtime_terminal_outcome', 'runtime.outcome,evidence.episode_manifest'),
+
+  row('skill.usage_snapshot', 'skill_execution_record', 'runtime.episode,skill.execution'),
+  row('skill.candidate', 'skill_selection_record', 'runtime.goal_contract'),
+  row('skill.applicability', 'skill_selection_record', 'skill.candidate'),
+  row('skill.context_resolution', 'skill_input_resolution', 'skill.selection'),
+  row('skill.selection', 'skill_selection_record', 'skill.candidate,skill.applicability'),
+  row('skill.mode_selection', 'skill_execution_event', 'skill.selection'),
+  row('skill.composition', 'skill_execution_record', 'skill.selection'),
+  row('skill.composition_edge', 'skill_execution_event', 'skill.composition'),
+  row(
+    'skill.capability_slot_resolution',
+    'skill_execution_event',
+    'skill.composition,capability.definition',
+  ),
+  row('skill.procedure_compilation', 'skill_execution_event', 'skill.capability_slot_resolution'),
+  row('skill.plan_compliance', 'skill_execution_event', 'skill.procedure_compilation,runtime.plan'),
+  row('skill.execution', 'skill_execution_record', 'skill.selection,runtime.plan_step'),
+  row('skill.execution_event', 'skill_execution_event', 'skill.execution'),
+  row('skill.execution_reference', 'skill_execution_reference', 'skill.execution'),
+  row('skill.failure_propagation', 'skill_execution_event', 'skill.execution_event'),
+  row('skill.evidence_requirement', 'task_capability_binding', 'capability.task_binding'),
+
+  row('mcp_task.tool_call', 'mcp_invocation', 'runtime.action'),
+  row('mcp_task.availability', 'task_availability_snapshot', 'mcp_task.tool_call'),
+  row('mcp_task.remote_binding', 'remote_task_binding', 'mcp_task.tool_call'),
+  row('mcp_task.observation', 'remote_task_observation', 'mcp_task.remote_binding'),
+  row('mcp_task.control_event', 'remote_task_control_event', 'mcp_task.remote_binding'),
+  row('mcp_task.poll_attempt', 'remote_task_protocol_attempt', 'mcp_task.remote_binding'),
+  row('mcp_task.input_link', 'remote_task_input_link', 'mcp_task.remote_binding'),
+  row('mcp_task.cancel', 'remote_task_cancel_request', 'mcp_task.remote_binding'),
+  row(
+    'mcp_task.reconciliation',
+    'remote_task_reconciliation',
+    'mcp_task.observation,mcp_task.control_event',
+  ),
+  row(
+    'mcp_task.continuation_snapshot',
+    'workflow_continuation_snapshot',
+    'mcp_task.remote_binding',
+  ),
+  row(
+    'mcp_task.continuation_attempt',
+    'workflow_continuation_attempt',
+    'mcp_task.continuation_snapshot',
+  ),
+
+  row('capability.definition', 'node_capability_definition', 'node_control.capability_revision'),
+  row(
+    'capability.implementation_binding',
+    'capability_implementation_binding',
+    'capability.definition',
+  ),
+  row('capability.readiness', 'capability_readiness_snapshot', 'capability.definition'),
+  row(
+    'capability.task_binding',
+    'task_capability_binding',
+    'capability.definition,runtime.episode',
+  ),
+  row(
+    'capability.execution_attempt',
+    'task_capability_execution_attempt',
+    'capability.task_binding,skill.execution',
+  ),
+  row('capability.a2a_exposure', 'runtime_agent_card_exposure_snapshot', 'capability.definition'),
+  row('capability.agent_card_revision', 'runtime_agent_card_revision', 'capability.a2a_exposure'),
+
+  row('experience.episode', 'goal_experience_episode', 'runtime.episode'),
+  row('experience.trace', 'experience_trace', 'experience.episode'),
+  row('experience.trace_event', 'experience_trace_event', 'experience.trace'),
+  row('experience.activity', 'experience_activity', 'experience.trace_event'),
+  row('experience.process_variant', 'pattern_variant', 'experience.trace'),
+  row('experience.workflow_pattern', 'pattern_candidate', 'experience.process_variant'),
+  row(
+    'experience.workflow_pattern_dependency',
+    'pattern_dependency',
+    'experience.workflow_pattern',
+  ),
+  row('experience.recovery_pattern', 'pattern_recovery', 'experience.workflow_pattern'),
+  row(
+    'experience.planning_correction',
+    'planning_correction_fact',
+    'runtime.plan,experience.episode',
+  ),
+  row('experience.interaction_episode', 'planning_interaction_episode', 'runtime.episode'),
+
+  row('replay.dataset', 'replay_dataset_manifest', 'artifact.lifecycle'),
+  row('replay.case', 'artifact_replay_case', 'replay.dataset'),
+  row('replay.run', 'artifact_validation_run', 'replay.dataset,artifact.validation'),
+  row('replay.case_result', 'artifact_replay_case_result', 'replay.run,replay.case'),
+  row('replay.metric_result', 'artifact_metric_result', 'replay.case_result'),
+  row('replay.counterexample', 'artifact_counterexample', 'replay.case_result,artifact.lifecycle'),
+
+  row('artifact.lifecycle', 'compiled_artifact', 'experience.workflow_pattern'),
+  row('artifact.validation', 'artifact_validation_run', 'artifact.lifecycle,replay.run'),
+  row('artifact.retrieval', 'artifact_match_log', 'artifact.lifecycle,runtime.request'),
+  row('artifact.usage', 'artifact_execution', 'artifact.retrieval,runtime.episode'),
+  row('artifact.feedback', 'artifact_feedback', 'artifact.usage'),
+  row('artifact.promotion', 'artifact_promotion', 'artifact.validation,replay.counterexample'),
+
+  row('node_control.profile_revision', 'node_profile_revision', 'node_control.audit_event'),
+  row('node_control.health_observation', 'node_health_observation', 'node_control.node_event'),
+  row(
+    'node_control.configuration_revision',
+    'configuration_revision',
+    'node_control.management_operation',
+  ),
+  row(
+    'node_control.configuration_apply_ack',
+    'configuration_application',
+    'node_control.configuration_revision',
+  ),
+  row(
+    'node_control.configuration_lkg_transition',
+    'configuration_lkg',
+    'node_control.configuration_apply_ack',
+  ),
+  row('node_control.llm_provider_revision', 'llm_provider_definition', 'node_control.audit_event'),
+  row(
+    'node_control.model_route_revision',
+    'model_route_definition',
+    'node_control.llm_provider_revision',
+  ),
+  row('node_control.smpp_source_revision', 'smpp_registry_source', 'node_control.audit_event'),
+  row(
+    'node_control.mcp_provider_binding_revision',
+    'mcp_provider_binding',
+    'node_control.smpp_source_revision',
+  ),
+  row('node_control.skill_governance', 'skill_governance_audit', 'node_control.audit_event'),
+  row(
+    'node_control.plan_template_governance',
+    'plan_template_governance_audit',
+    'node_control.audit_event',
+  ),
+  row('node_control.capability_revision', 'node_capability_definition', 'node_control.audit_event'),
+  row(
+    'node_control.capability_readiness',
+    'capability_readiness_event',
+    'node_control.capability_revision,node_control.node_event',
+  ),
+  row('node_control.a2a_exposure', 'a2a_exposure_version', 'node_control.capability_revision'),
+  row('node_control.agent_card_revision', 'agent_card_revision', 'node_control.a2a_exposure'),
+  row('node_control.management_operation', 'management_operation', 'node_control.audit_event'),
+  row('node_control.audit_event', 'control_audit_event', 'node_control.management_operation'),
+  row('node_control.node_event', 'node_event_outbox', 'node_control.audit_event'),
+  row(
+    'node_control.telemetry_configuration',
+    'evidence_configuration_revision',
+    'node_control.management_operation',
+  ),
+  row(
+    'node_control.telemetry_delivery',
+    'evidence_export_batch',
+    'node_control.telemetry_configuration,evidence.export_status',
+  ),
+  row(
+    'node_control.telemetry_ack',
+    'evidence_export_ack',
+    'node_control.telemetry_delivery,evidence.export_status',
+  ),
+
+  row('evidence.episode_manifest', 'episode_evidence_manifest', 'runtime.run_seal'),
+  row('evidence.quality_issue', 'evidence_quality_issue', ''),
+  row('evidence.projection_issue', 'evidence_projection_issue', ''),
+  row('evidence.source_checkpoint', 'evidence_source_checkpoint', ''),
+  row('evidence.export_status', 'evidence_export_status', 'evidence.source_checkpoint'),
+];
+
+const requiredColumns = [
+  'source_system',
+  'source_database',
+  'source_table_or_aggregate',
+  'source_authority',
+  'source_identity_fields',
+  'source_revision_rule',
+  'source_timestamp_field',
+  'record_family',
+  'record_type',
+  'schema_name',
+  'schema_version',
+  'schema_path',
+  'schema_hash',
+  'delivery_guarantee',
+  'evaluation_role',
+  'applicability',
+  'mapper',
+  'projection_mode',
+  'cursor_rule',
+  'redaction_profile',
+  'artifact_policy',
+  'required_references',
+  'status',
+];
+
+if (records.length !== 100) throw new Error(`Expected 100 records, found ${records.length}`);
+if (new Set(records.map(({ record_type }) => record_type)).size !== records.length) {
+  throw new Error('Record types must be unique');
+}
+for (const record of records) {
+  for (const column of requiredColumns) {
+    if (!(column in record) || (record[column] === '' && column !== 'required_references')) {
+      throw new Error(`${record.record_type} is missing ${column}`);
+    }
+  }
+  if (
+    !new Set([
+      'source_confirmed',
+      'source_missing_blocker',
+      'conditional_not_applicable',
+      'implemented_and_verified',
+    ]).has(record.status)
+  ) {
+    throw new Error(`${record.record_type} has invalid status ${record.status}`);
+  }
+}
+
+const quoteCsv = (value) => `"${String(value).replaceAll('"', '""')}"`;
+const csv =
+  [
+    requiredColumns.join(','),
+    ...records.map((record) => requiredColumns.map((column) => quoteCsv(record[column])).join(',')),
+  ].join('\n') + '\n';
+
+const statusCounts = Object.fromEntries(
+  [
+    'source_confirmed',
+    'source_missing_blocker',
+    'conditional_not_applicable',
+    'implemented_and_verified',
+  ].map((status) => [status, records.filter((record) => record.status === status).length]),
+);
+const familyCounts = Object.fromEntries(
+  [...new Set(records.map(({ record_family }) => record_family))].map((family) => [
+    family,
+    records.filter((record) => record.record_family === family).length,
+  ]),
+);
+const evaluationRoleCounts = Object.fromEntries(
+  ['required', 'diagnostic'].map((role) => [
+    role,
+    records.filter((record) => record.evaluation_role === role).length,
+  ]),
+);
+const deliveryGuaranteeCounts = Object.fromEntries(
+  ['transactional', 'durable_projection'].map((guarantee) => [
+    guarantee,
+    records.filter((record) => record.delivery_guarantee === guarantee).length,
+  ]),
+);
+if (
+  evaluationRoleCounts.required !== 95 ||
+  evaluationRoleCounts.diagnostic !== 5 ||
+  deliveryGuaranteeCounts.transactional !== 0 ||
+  deliveryGuaranteeCounts.durable_projection !== 100
+) {
+  throw new Error(
+    `Catalog policy counts are invalid: roles=${JSON.stringify(evaluationRoleCounts)} delivery=${JSON.stringify(deliveryGuaranteeCounts)}`,
+  );
+}
+
+await mkdir(outputDirectory, { recursive: true });
+await writeFile(path.join(outputDirectory, 'source-to-evidence-matrix.csv'), csv, 'utf8');
+await writeFile(
+  path.join(outputDirectory, 'source-to-evidence-matrix.json'),
+  `${JSON.stringify({ contract: 'sdar.evidence/v1', registryHash: registry.registryHash, generatedBy: 'scripts/generate-v141-evidence-source-matrix.mjs', verificationProof: 'reports/v1.4.1-evidence/verification-proof-manifest.json', verificationProofVersion: verificationProof.schemaVersion, requiredColumns, statusCounts, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts, records }, null, 2)}\n`,
+  'utf8',
+);
+stdout.write(
+  `${JSON.stringify({ total: records.length, statusCounts, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts })}\n`,
+);

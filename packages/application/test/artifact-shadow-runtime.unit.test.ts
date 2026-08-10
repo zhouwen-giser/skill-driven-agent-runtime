@@ -268,7 +268,7 @@ function validationResult(): ArtifactValidationResult {
     artifactRef: 'artifact-1:1',
     datasetRef: 'dataset-1:1',
     validationType: 'replay',
-    metrics: { holdout_pass_rate: 1 },
+    metrics: { holdout_pass_rate: 1, side_effect_attempt_count: 0 },
     failureRefs: [],
     counterexampleRefs: [],
     unsafe: false,
@@ -278,6 +278,14 @@ function validationResult(): ArtifactValidationResult {
     artifactHash: hash,
     datasetHash: laterHash,
     resultHash: hash,
+    replaySafety: {
+      provider: 'ReplayNoPhysicalProvider',
+      physicalAdapterInvocationCount: 0,
+      sideEffectAttemptCount: 0,
+      deniedBeforePhysicalBoundaryCount: 0,
+      denialEvidenceRefs: [],
+      physicalOutcomeClaim: 'none',
+    },
     completedAt: now,
   };
 }

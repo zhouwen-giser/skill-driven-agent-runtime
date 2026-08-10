@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sdar://contracts/ArtifactValidationResult/1.2",
+  "title": "ArtifactValidationResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "validationRunId",
+    "artifactRef",
+    "datasetRef",
+    "validationType",
+    "metrics",
+    "failureRefs",
+    "counterexampleRefs",
+    "unsafe",
+    "result",
+    "validatorVersion",
+    "metricCatalogVersion",
+    "artifactHash",
+    "datasetHash",
+    "resultHash",
+    "completedAt"
+  ],
+  "properties": {
+    "validationRunId": { "$ref": "#/$defs/identifier" },
+    "artifactRef": { "$ref": "#/$defs/identifier" },
+    "datasetRef": { "$ref": "#/$defs/identifier" },
+    "validationType": {
+      "enum": ["static", "replay", "counterfactual"]
+    },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 256,
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "type": "number" }
+    },
+    "failureRefs": { "$ref": "#/$defs/referenceList" },
+    "counterexampleRefs": { "$ref": "#/$defs/referenceList" },
+    "unsafe": { "type": "boolean" },
+    "result": {
+      "enum": ["passed", "failed", "needs_more_data", "unsafe"]
+    },
+    "validatorVersion": { "$ref": "#/$defs/identifier" },
+    "metricCatalogVersion": { "$ref": "#/$defs/identifier" },
+    "artifactHash": { "$ref": "#/$defs/hash" },
+    "datasetHash": { "$ref": "#/$defs/hash" },
+    "resultHash": { "$ref": "#/$defs/hash" },
+    "replaySafety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "physicalAdapterInvocationCount",
+        "sideEffectAttemptCount",
+        "deniedBeforePhysicalBoundaryCount",
+        "denialEvidenceRefs",
+        "physicalOutcomeClaim"
+      ],
+      "properties": {
+        "provider": { "const": "ReplayNoPhysicalProvider" },
+        "physicalAdapterInvocationCount": { "const": 0 },
+        "sideEffectAttemptCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deniedBeforePhysicalBoundaryCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denialEvidenceRefs": { "$ref": "#/$defs/referenceList" },
+        "physicalOutcomeClaim": { "const": "none" }
+      }
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "validationType": { "const": "replay" }
+        },
+        "required": ["validationType"]
+      },
+      "then": { "required": ["replaySafety"] },
+      "else": { "not": { "required": ["replaySafety"] } }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "referenceList": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/identifier" }
+    }
+  }
+}

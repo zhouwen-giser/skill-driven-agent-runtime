@@ -35,10 +35,15 @@ const openApi = await Promise.all(
     .filter((file) => file.includes('/openapi/') && file.endsWith('.yaml'))
     .map((file) => readFile(path.resolve(file), 'utf8')),
 );
+const [nodeControlOpenApi, runtimeControlOpenApi] = openApi;
 const operationIds = openApi.flatMap((source) =>
   [...source.matchAll(/^\s+operationId:\s*([^\s]+)\s*$/gmu)].map((match) => match[1]),
 );
-if (operationIds.length !== 111 || new Set(operationIds).size !== operationIds.length)
+const expectedOperationCount = manifest.counts.publicOperations + manifest.counts.internalOperations;
+if (
+  operationIds.length !== expectedOperationCount ||
+  new Set(operationIds).size !== operationIds.length
+)
   throw new Error('NODE_CONTROL_OPERATION_INVENTORY_INVALID');
 for (const requiredOperation of [
   'getSdarNodeDeclaration',
@@ -53,6 +58,121 @@ for (const requiredOperation of [
   if (!operationIds.includes(requiredOperation))
     throw new Error(`NODE_CONTROL_P01_OPERATION_MISSING: ${requiredOperation}`);
 }
+for (const [source, method, route, operationId] of [
+  [nodeControlOpenApi, 'get', '/api/v1/evidence-export/outbox', 'listEvidenceOutbox'],
+  [
+    nodeControlOpenApi,
+    'get',
+    '/api/v1/evidence-export/source-checkpoints',
+    'listEvidenceSourceCheckpoints',
+  ],
+  [
+    nodeControlOpenApi,
+    'get',
+    '/api/v1/evidence-export/projection-issues',
+    'listEvidenceProjectionIssues',
+  ],
+  [
+    nodeControlOpenApi,
+    'get',
+    '/api/v1/evidence-export/quality-issues',
+    'listEvidenceQualityIssues',
+  ],
+  [
+    nodeControlOpenApi,
+    'get',
+    '/api/v1/evidence-export/episode-manifests/{episodeId}',
+    'getEpisodeEvidenceManifest',
+  ],
+  [
+    nodeControlOpenApi,
+    'get',
+    '/api/v1/evidence-export/dead-letters',
+    'listEvidenceDeadLetters',
+  ],
+  [nodeControlOpenApi, 'post', '/api/v1/evidence-export/replays', 'replayEvidence'],
+  [
+    nodeControlOpenApi,
+    'post',
+    '/api/v1/evidence-export/dead-letters/{deadLetterId}/retry',
+    'retryEvidenceDeadLetter',
+  ],
+  [
+    nodeControlOpenApi,
+    'post',
+    '/api/v1/evidence-export/reconcile',
+    'reconcileEvidenceCoverage',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/configuration',
+    'getRuntimeEvidenceOperationsConfiguration',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/status',
+    'getRuntimeEvidenceOperationsStatus',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/outbox',
+    'listRuntimeEvidenceOutbox',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/source-checkpoints',
+    'listRuntimeEvidenceSourceCheckpoints',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/projection-issues',
+    'listRuntimeEvidenceProjectionIssues',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/quality-issues',
+    'listRuntimeEvidenceQualityIssues',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/episode-manifests/{episodeId}',
+    'getRuntimeEpisodeEvidenceManifest',
+  ],
+  [
+    runtimeControlOpenApi,
+    'get',
+    '/internal/v1/evidence-export/operations/dead-letters',
+    'listRuntimeEvidenceDeadLetters',
+  ],
+  [
+    runtimeControlOpenApi,
+    'post',
+    '/internal/v1/evidence-export/operations/replays',
+    'replayRuntimeEvidence',
+  ],
+  [
+    runtimeControlOpenApi,
+    'post',
+    '/internal/v1/evidence-export/operations/dead-letters/{deadLetterId}/retry',
+    'retryRuntimeEvidenceDeadLetter',
+  ],
+  [
+    runtimeControlOpenApi,
+    'post',
+    '/internal/v1/evidence-export/operations/reconcile',
+    'reconcileRuntimeEvidenceCoverage',
+  ],
+]) {
+  if (source === undefined || !source.includes(`  ${route}:\n    ${method}:\n      operationId: ${operationId}\n`))
+    throw new Error(`NODE_CONTROL_P11_ROUTE_MISSING: ${operationId}`);
+}
 
 const asyncApi = await readFile(path.join(root, 'asyncapi/node-events.asyncapi.yaml'), 'utf8');
 const eventMessages = [...asyncApi.matchAll(/^\s{4}node_[a-z0-9_]+:\s*$/gmu)];
@@ -65,7 +185,7 @@ for (const file of fixtureFiles) JSON.parse(await readFile(path.resolve(file), '
 if (fixtureFiles.length !== 7) throw new Error('NODE_CONTROL_FIXTURE_COUNT_INVALID');
 
 process.stdout.write(
-  'Node Control frozen contract verified: 76 files, 28 schemas, 111 operations, 20 events, 7 fixtures.\n',
+  `Node Control frozen contract verified: ${String(manifest.counts.files)} files, ${String(manifest.counts.schemas)} schemas, ${String(expectedOperationCount)} operations, 20 events, 7 fixtures.\n`,
 );
 
 function isManifestEntry(value) {

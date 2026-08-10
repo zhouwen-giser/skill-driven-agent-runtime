@@ -42,8 +42,12 @@ if (!succeeds('git', ['-C', tck, 'rev-parse', '--git-dir'])) {
   run('git', ['clone', 'https://github.com/a2aproject/a2a-tck.git', tck]);
 }
 run('git', ['-C', tck, 'checkout', '--detach', TCK_COMMIT]);
+run('git', ['-C', tck, 'restore', '--source', TCK_COMMIT, '--staged', '--worktree', '.']);
 const actualCommit = capture('git', ['-C', tck, 'rev-parse', 'HEAD']).trim();
 if (actualCommit !== TCK_COMMIT) throw new Error(`A2A_TCK_COMMIT_MISMATCH: ${actualCommit}`);
+if (!succeeds('git', ['-C', tck, 'diff', '--quiet'])) {
+  throw new Error('A2A_TCK_TRACKED_WORKTREE_DIRTY');
+}
 run(uv, ['sync', '--frozen'], tck);
 if (!succeeds(tckPython, ['-m', 'pytest', '--version'])) {
   run(uv, ['venv', '--clear', join(tck, '.venv')], tck);

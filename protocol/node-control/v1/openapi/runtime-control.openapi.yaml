@@ -1645,13 +1645,13 @@ paths:
           application/json:
             schema:
               $ref: ../schemas/command-request.schema.json
-  /internal/v1/telemetry-export/apply:
+  /internal/v1/evidence-export/apply:
     post:
-      operationId: applyTelemetryExportConfiguration
-      summary: Apply telemetry export configuration
+      operationId: applyEvidenceExportConfiguration
+      summary: Apply evidence export configuration
       responses:
         '202':
-          description: Apply telemetry export configuration
+          description: Apply evidence export configuration
           content:
             application/json:
               schema:
@@ -1709,10 +1709,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ../schemas/telemetry-export-config.schema.json
-  /internal/v1/telemetry-export/status:
+              $ref: ../schemas/evidence-export-config.schema.json
+  /internal/v1/evidence-export/status:
     get:
-      operationId: getRuntimeTelemetryExportStatus
+      operationId: getRuntimeEvidenceExportStatus
       summary: Get Runtime telemetry delivery state
       responses:
         '200':
@@ -1720,7 +1720,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ../schemas/telemetry-export-status.schema.json
+                $ref: ../schemas/evidence-export-status.schema.json
         '400':
           description: Problem Details
           content:
@@ -1769,6 +1769,275 @@ paths:
             application/problem+json:
               schema:
                 $ref: ../schemas/problem-details.schema.json
+  /internal/v1/evidence-export/operations/configuration:
+    get:
+      operationId: getRuntimeEvidenceOperationsConfiguration
+      summary: Get active Evidence Operations configuration metadata
+      description: Returns policy metadata only; endpoint credentials and resolved secrets are absent.
+      x-sdar-authority: runtime-postgresql
+      responses:
+        '200':
+          description: Active configuration metadata, or null when no active configuration exists
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: ../schemas/evidence-operations.schema.json#/$defs/configuration
+                - type: 'null'
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/status:
+    get:
+      operationId: getRuntimeEvidenceOperationsStatus
+      summary: Get PostgreSQL-authoritative Evidence Operations status
+      x-sdar-authority: runtime-postgresql
+      responses:
+        '200':
+          description: Evidence Operations status metadata
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/status
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/outbox:
+    get:
+      operationId: listRuntimeEvidenceOutbox
+      summary: List bounded canonical Evidence Outbox metadata
+      description: The canonical Evidence payload is intentionally absent.
+      x-sdar-authority: runtime-postgresql
+      parameters:
+      - &runtimeEvidenceLimitParameter
+        name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 100
+      - &runtimeEvidenceCursorParameter
+        name: cursor
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 2048
+      - &runtimeEvidenceEpisodeParameter
+        name: episodeId
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      - &runtimeEvidencePartitionParameter
+        name: sourcePartition
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 2048
+      - &runtimeEvidenceOpenOnlyParameter
+        name: openOnly
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Bounded Outbox metadata page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/outboxPage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/source-checkpoints:
+    get:
+      operationId: listRuntimeEvidenceSourceCheckpoints
+      summary: List bounded Evidence source checkpoint metadata
+      x-sdar-authority: runtime-postgresql
+      parameters:
+      - *runtimeEvidenceLimitParameter
+      - *runtimeEvidenceCursorParameter
+      - *runtimeEvidenceEpisodeParameter
+      - *runtimeEvidencePartitionParameter
+      - *runtimeEvidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded source checkpoint page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/checkpointPage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/projection-issues:
+    get:
+      operationId: listRuntimeEvidenceProjectionIssues
+      summary: List bounded Evidence projection issue metadata
+      x-sdar-authority: runtime-postgresql
+      parameters:
+      - *runtimeEvidenceLimitParameter
+      - *runtimeEvidenceCursorParameter
+      - *runtimeEvidenceEpisodeParameter
+      - *runtimeEvidencePartitionParameter
+      - *runtimeEvidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded projection issue page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/projectionIssuePage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/quality-issues:
+    get:
+      operationId: listRuntimeEvidenceQualityIssues
+      summary: List bounded Evidence quality issue metadata
+      x-sdar-authority: runtime-postgresql
+      parameters:
+      - *runtimeEvidenceLimitParameter
+      - *runtimeEvidenceCursorParameter
+      - *runtimeEvidenceEpisodeParameter
+      - *runtimeEvidencePartitionParameter
+      - *runtimeEvidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded quality issue page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/qualityIssuePage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/episode-manifests/{episodeId}:
+    get:
+      operationId: getRuntimeEpisodeEvidenceManifest
+      summary: Get one recomputable Episode Evidence Manifest
+      x-sdar-authority: runtime-postgresql
+      parameters:
+      - name: episodeId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      responses:
+        '200':
+          description: Episode Manifest metadata, or null when it does not exist
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: ../schemas/evidence-operations.schema.json#/$defs/manifest
+                - type: 'null'
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/dead-letters:
+    get:
+      operationId: listRuntimeEvidenceDeadLetters
+      summary: List bounded Evidence dead-letter metadata
+      x-sdar-authority: runtime-postgresql
+      parameters:
+      - *runtimeEvidenceLimitParameter
+      - *runtimeEvidenceCursorParameter
+      - *runtimeEvidenceEpisodeParameter
+      - *runtimeEvidencePartitionParameter
+      - *runtimeEvidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded dead-letter metadata page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/deadLetterPage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/replays:
+    post:
+      operationId: replayRuntimeEvidence
+      summary: Persist one bounded Evidence replay run
+      description: Accepts only record, exact source-family/partition, or Episode replay; no SQL or business command is accepted.
+      x-sdar-authority: runtime-postgresql
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/evidence-operations.schema.json#/$defs/internalReplayRequest
+      responses:
+        '202':
+          description: Durable Recovery Run requested, running or terminal
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/recoveryRun
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/dead-letters/{deadLetterId}/retry:
+    post:
+      operationId: retryRuntimeEvidenceDeadLetter
+      summary: Persist one retained dead-letter retry run
+      x-sdar-authority: runtime-postgresql
+      parameters:
+      - name: deadLetterId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/evidence-operations.schema.json#/$defs/internalRetryRequest
+      responses:
+        '202':
+          description: Durable Recovery Run requested, running or terminal
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/recoveryRun
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /internal/v1/evidence-export/operations/reconcile:
+    post:
+      operationId: reconcileRuntimeEvidenceCoverage
+      summary: Persist one bounded Evidence coverage reconciliation run
+      x-sdar-authority: runtime-postgresql
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/evidence-operations.schema.json#/$defs/internalReconcileRequest
+      responses:
+        '202':
+          description: Durable Recovery Run requested, running or terminal
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/recoveryRun
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
 components:
   securitySchemes:
     RuntimeServiceAuth:

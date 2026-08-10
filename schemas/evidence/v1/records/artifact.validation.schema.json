@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.local/evidence/v1/records/artifact.validation.schema.json",
+  "title": "artifact.validation canonical evidence record",
+  "description": "Canonical artifact.validation evidence projected from Runtime PostgreSQL artifact_validation_run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "schemaName",
+    "schemaVersion",
+    "recordFamily",
+    "recordType",
+    "recordId",
+    "sourceSystem",
+    "sourceTable",
+    "sourceRecordId",
+    "sourceRevision",
+    "environment",
+    "correlationId",
+    "occurredAt",
+    "recordedAt",
+    "deliveryGuarantee",
+    "evaluationRole",
+    "evidenceRefs",
+    "artifactRefs",
+    "payloadHash",
+    "payload"
+  ],
+  "properties": {
+    "contractVersion": { "const": "sdar.evidence/v1" },
+    "schemaName": { "const": "sdar.evidence.artifact.validation" },
+    "schemaVersion": { "const": 1 },
+    "recordFamily": {
+      "const": "artifact",
+      "enum": [
+        "runtime",
+        "skill",
+        "mcp_task",
+        "capability",
+        "experience",
+        "replay",
+        "artifact",
+        "node_control",
+        "evidence"
+      ]
+    },
+    "recordType": { "const": "artifact.validation" },
+    "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
+    "sourceSystem": { "const": "runtime" },
+    "sourceTable": { "const": "artifact_validation_run" },
+    "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "deliveryGuarantee": { "const": "durable_projection" },
+    "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "artifactRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "payload": {
+      "type": "object",
+      "minProperties": 15,
+      "maxProperties": 128,
+      "required": [
+        "validationRunId",
+        "artifactId",
+        "artifactVersion",
+        "validationType",
+        "datasetRef",
+        "datasetVersion",
+        "artifactHash",
+        "datasetHash",
+        "status",
+        "result",
+        "metrics",
+        "resultHash",
+        "validatorVersion",
+        "metricCatalogVersion",
+        "counterexampleRefs"
+      ],
+      "properties": {
+        "validationRunId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "artifactId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "artifactVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "validationType": {
+          "type": "string",
+          "enum": ["static", "replay", "simulation", "shadow", "revalidation"]
+        },
+        "datasetRef": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "datasetVersion": {
+          "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 2147483647 }, { "type": "null" }]
+        },
+        "artifactHash": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "datasetHash": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "status": { "type": "string", "enum": ["pending", "running", "passed", "failed"] },
+        "result": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "metrics": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "resultHash": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "validatorVersion": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "metricCatalogVersion": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "counterexampleRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        }
+      },
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["status", "result"],
+              "properties": {
+                "status": { "type": "string", "enum": ["pending", "running"] },
+                "result": { "const": null }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["status", "result"],
+              "properties": {
+                "status": { "type": "string", "enum": ["passed", "failed"] },
+                "result": { "type": "string", "minLength": 1, "maxLength": 4096 }
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": ["validationType"],
+            "properties": { "validationType": { "const": "replay" } }
+          },
+          "then": {
+            "type": "object",
+            "required": ["result"],
+            "properties": {
+              "result": {
+                "oneOf": [
+                  { "type": "string", "enum": ["passed", "failed", "needs_more_data", "unsafe"] },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "taskId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "contextId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "episodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "goalId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "planId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "skillExecutionId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "capabilityBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "remoteTaskBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "causationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "evidenceSequence": { "type": "string", "minLength": 1, "maxLength": 4096 }
+  },
+  "$defs": {
+    "evidenceValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
+        {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
+        }
+      ]
+    }
+  },
+  "x-sdar-compatibility": "backward_compatible_additive",
+  "x-sdar-maximum-inline-bytes": 65536,
+  "x-sdar-redaction-policy": "strict_internal_v1",
+  "x-sdar-artifact-policy": "inline_bounded_or_artifact_ref"
+}

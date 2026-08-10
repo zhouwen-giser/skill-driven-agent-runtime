@@ -35,7 +35,7 @@ forbiddenTags:
 - MCP
 - Skills
 - PlanTemplates
-- TelemetryExport
+- EvidenceExport
 - Audit
 notes:
 - No telemetry query proxy

@@ -63,10 +63,10 @@ codes:
 - code: SECRET_REFERENCE_UNAVAILABLE
   httpStatus: 422
   retryable: false
-- code: TELEMETRY_EXPORT_UNAVAILABLE
+- code: EVIDENCE_EXPORT_UNAVAILABLE
   httpStatus: 503
   retryable: true
-- code: TELEMETRY_EXPORT_BLOCKED
+- code: EVIDENCE_EXPORT_BLOCKED
   httpStatus: 409
   retryable: false
 - code: OPERATION_NOT_CANCELLABLE

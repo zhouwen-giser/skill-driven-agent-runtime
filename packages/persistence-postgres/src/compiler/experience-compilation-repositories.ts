@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import {
   EXPERIENCE_COMPILATION_CONTRACT_VERSION,
+  canonicalizeSourceArtifactJson,
   createCohortDefinition,
   createDiscoveredProcessPattern,
   createExperienceTrace,
@@ -16,6 +17,7 @@ import {
   type ExperienceTrace,
   type ExperienceTraceBody,
   type ExperienceTraceEvent,
+  type EvidenceJsonValue,
   type WorkflowPattern,
 } from '../../../domain/src/index.js';
 import type {
@@ -1129,7 +1131,7 @@ async function insertPatternSupport(
   );
 }
 
-async function encodePatternDefinition(
+export async function encodePatternDefinition(
   definition: Readonly<Record<string, unknown>>,
   workflowPattern: WorkflowPattern,
 ): Promise<z.infer<typeof CompressedPatternDefinitionSchema>> {
@@ -1247,20 +1249,7 @@ function assertSameJson(left: unknown, right: unknown, code: string): void {
 }
 
 function canonicalJson(value: unknown): string {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
-    return JSON.stringify(value);
-  }
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new Error('EXPERIENCE_COMPILATION_NON_FINITE_JSON');
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (typeof value !== 'object') throw new Error('EXPERIENCE_COMPILATION_NON_JSON_VALUE');
-  return `{${Object.entries(value)
-    .filter(([, item]) => item !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`)
-    .join(',')}}`;
+  return canonicalizeSourceArtifactJson(value as EvidenceJsonValue);
 }
 
 function stableId(namespace: string, value: string): string {

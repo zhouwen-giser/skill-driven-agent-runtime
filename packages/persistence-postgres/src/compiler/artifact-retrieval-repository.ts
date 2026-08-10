@@ -22,6 +22,7 @@ export class PostgresArtifactMatchAuditRepository implements ArtifactMatchAuditR
       input.requestId,
       input.taskId,
       input.artifactId,
+      input.artifactVersion,
       JSON.stringify(input.score),
       JSON.stringify(input.applicability),
       input.decision,
@@ -31,17 +32,18 @@ export class PostgresArtifactMatchAuditRepository implements ArtifactMatchAuditR
     ];
     const inserted = await this.pool.query(
       `INSERT INTO artifact_match_log(
-         match_id,request_id,task_id,candidate_artifact_id,score,applicability,decision,
-         reason_codes,policy_snapshot_hash,created_at)
-       VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8::jsonb,$9,$10)
+         match_id,request_id,task_id,candidate_artifact_id,artifact_version,score,applicability,
+         decision,reason_codes,policy_snapshot_hash,created_at)
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9::jsonb,$10,$11)
        ON CONFLICT(match_id) DO NOTHING RETURNING match_id`,
       payload,
     );
     if (inserted.rowCount === 1) return;
     const existing = await this.pool.query<{ same: boolean }>(
-      `SELECT request_id=$2 AND task_id=$3 AND candidate_artifact_id=$4
-         AND score=$5::jsonb AND applicability=$6::jsonb AND decision=$7
-         AND reason_codes=$8::jsonb AND policy_snapshot_hash=$9 AND created_at=$10::timestamptz AS same
+      `SELECT request_id=$2 AND task_id=$3 AND candidate_artifact_id=$4 AND artifact_version=$5
+         AND score=$6::jsonb AND applicability=$7::jsonb AND decision=$8
+         AND reason_codes=$9::jsonb AND policy_snapshot_hash=$10
+         AND created_at=$11::timestamptz AS same
        FROM artifact_match_log WHERE match_id=$1`,
       payload,
     );

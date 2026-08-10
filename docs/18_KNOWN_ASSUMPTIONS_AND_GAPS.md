@@ -439,3 +439,14 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - These inputs are preserved as `P14-BLK-001` through `P14-BLK-007`. Until all
   are supplied and independently reverified, the only truthful terminal state
   is `POST_RELEASE_OPERATIONS_BLOCKED`.
+
+## v1.4.1 Canonical Evidence limitations
+
+- Delivery is at least once; the receiver must deduplicate stable record and batch hashes.
+- Local performance, PostgreSQL/Redis/HTTP and recovery evidence is not a production HA, SLO, RTO or
+  RPO claim.
+- Diagnostic exclusion and retention are policy-controlled; all 95 Required types remain mandatory.
+- Artifact content remains hash/size/URI referenced and requires an authorized resolver.
+- The ClickHouse handoff contains schemas and fixtures only. No ClickHouse database, DDL, query proxy
+  or operational authority is implemented or authorized in v1.4.1.
+- Final merge, tag, release and deploy remain protected human/governance actions.

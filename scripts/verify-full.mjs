@@ -17,11 +17,13 @@ if (pnpmCli === undefined || pnpmCli === '') {
 const childEnvironment = { ...process.env, NO_COLOR: '1' };
 Reflect.deleteProperty(childEnvironment, 'FORCE_COLOR');
 const steps = [
-  ['static-unit-contract-build', 'verify:bootstrap', 300_000],
+  ['static-unit-contract-build', 'verify:bootstrap', 600_000],
   ['cognitive-replay-no-physical-provider', 'verify:cognitive-replay', 60_000],
   ['clean-baseline-reset-seed', 'verify:migrations', 300_000],
-  ['postgres-redis-integration', 'test:integration', 300_000],
-  ['postgres-redis-model-mcp-e2e', 'test:e2e', 300_000],
+  ['postgres-redis-integration', 'test:integration', 660_000],
+  ['postgres-redis-model-mcp-e2e', 'test:e2e', 360_000],
+  ['official-a2a-tck', 'test:a2a-tck', 300_000],
+  ['canonical-evidence-demo', 'demo:evidence-e2e', 600_000],
   ['infrastructure-smoke', 'smoke:infra', 240_000],
   ['server-console-smoke', 'smoke:server', 300_000],
   ['node-control-api-worker-smoke', 'smoke:node-control', 300_000],

@@ -1,6 +1,10 @@
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+
 import { describe, expect, it } from 'vitest';
 
 import {
+  ARTIFACT_REPLAY_VALIDATION_CONTRACT_VERSION,
   ARTIFACT_REPLAY_VALIDATION_SCHEMA_HASHES,
   ArtifactDomainError,
   createArtifactCounterexample,
@@ -10,6 +14,8 @@ import {
   createArtifactValidationRun,
   createReplayDatasetManifest,
   type ArtifactReplayCase,
+  type ArtifactReplaySafety,
+  type ArtifactReplayValidationResult,
   type ArtifactValidationResult,
 } from '../src/index.js';
 
@@ -18,15 +24,32 @@ const laterHash = `sha256:${'b'.repeat(64)}`;
 const timestamp = '2026-07-28T15:00:00.000Z';
 
 describe('P05 artifact replay and validation contracts', () => {
-  it('freezes the exact six V1.1 schema hashes', () => {
+  it('publishes the V1.2 result hash without changing unrelated schema identities', () => {
+    expect(ARTIFACT_REPLAY_VALIDATION_CONTRACT_VERSION).toBe('1.2');
     expect(ARTIFACT_REPLAY_VALIDATION_SCHEMA_HASHES).toEqual({
       ArtifactReplayCase: 'ab24f3c2d8a692f6e569c7e95f04f4389244941da0b297ec799610e8d1bab64f',
       ReplayDatasetManifest: '132f1c215f12fdd28388ac3879589fd22e8772f1fd75ce058ce36977802c746e',
       ArtifactValidationRun: 'c602d26e36dc9fc55b0ecaeeeebbf962af8e4d8f80080b7d9f12798be2afdd1a',
-      ArtifactValidationResult: '0a9b4fe3b71242744760ecf7bfcd14cf4272b32ac130e111878f67f3514fd64b',
+      ArtifactValidationResult: '64be4fd20222d6d13d879ad591b7b492c36012d6138ce537a92a70222d3e99c5',
       ArtifactValidationFailure: 'e017c434add5d1f1aec004552a8795c34509461699d351d879a02003ddb37182',
       ArtifactCounterexample: 'ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3',
     });
+  });
+
+  it('derives the V1.2 ArtifactValidationResult hash from its canonical JSON Schema', async () => {
+    const schema = JSON.parse(
+      await readFile(
+        new URL(
+          '../src/compiler/schemas/artifact-validation-result-1.2.schema.json',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    ) as unknown;
+    const canonical = JSON.stringify(sortSchemaValue(schema));
+    expect(createHash('sha256').update(canonical).digest('hex')).toBe(
+      ARTIFACT_REPLAY_VALIDATION_SCHEMA_HASHES.ArtifactValidationResult,
+    );
   });
 
   it('creates an immutable strict ReplayCase without inventing optional snapshots', () => {
@@ -114,9 +137,20 @@ describe('P05 artifact replay and validation contracts', () => {
     const result = createArtifactValidationResult(validationResult());
     expect(result.metrics).toEqual({
       criterion_coverage: 1,
+      side_effect_attempt_count: 0,
       unsafe_allow_count: 0,
     });
     expect(Object.isFrozen(result.metrics)).toBe(true);
+    expect(result.replaySafety).toEqual({
+      provider: 'ReplayNoPhysicalProvider',
+      physicalAdapterInvocationCount: 0,
+      sideEffectAttemptCount: 0,
+      deniedBeforePhysicalBoundaryCount: 0,
+      denialEvidenceRefs: [],
+      physicalOutcomeClaim: 'none',
+    });
+    expect(Object.isFrozen(result.replaySafety)).toBe(true);
+    expect(Object.isFrozen(result.replaySafety?.denialEvidenceRefs)).toBe(true);
     expect(() =>
       createArtifactValidationResult({
         ...validationResult(),
@@ -124,6 +158,64 @@ describe('P05 artifact replay and validation contracts', () => {
         result: 'passed',
       }),
     ).toThrow(/unsafe flag/u);
+  });
+
+  it('requires replay safety proof to agree with the authoritative side-effect metric', () => {
+    const missingReplaySafety = omitReplaySafety(validationResult());
+    expect(() => createArtifactValidationResult(missingReplaySafety)).toThrow(
+      /require replaySafety/u,
+    );
+    expect(() =>
+      createArtifactValidationResult({
+        ...validationResult(),
+        metrics: {
+          ...validationResult().metrics,
+          side_effect_attempt_count: 1,
+        },
+      }),
+    ).toThrow(/denial counts/u);
+    expect(() =>
+      createArtifactValidationResult({
+        ...validationResult(),
+        replaySafety: {
+          ...requiredReplaySafety(validationResult()),
+          physicalAdapterInvocationCount: 1 as 0,
+        },
+      }),
+    ).toThrow(/physicalAdapterInvocationCount/u);
+  });
+
+  it('accepts exact canonical denial evidence only for an unsafe replay result', () => {
+    const unsafeResult = requiredReplayValidationResult(
+      createArtifactValidationResult({
+        ...validationResult(),
+        metrics: {
+          ...validationResult().metrics,
+          side_effect_attempt_count: 1,
+        },
+        failureRefs: ['failure-1'],
+        unsafe: true,
+        result: 'unsafe',
+        replaySafety: {
+          provider: 'ReplayNoPhysicalProvider',
+          physicalAdapterInvocationCount: 0,
+          sideEffectAttemptCount: 1,
+          deniedBeforePhysicalBoundaryCount: 1,
+          denialEvidenceRefs: ['replay-denial-1'],
+          physicalOutcomeClaim: 'none',
+        },
+      }),
+    );
+    expect(unsafeResult.replaySafety.denialEvidenceRefs).toEqual(['replay-denial-1']);
+    expect(() =>
+      createArtifactValidationResult({
+        ...unsafeResult,
+        replaySafety: {
+          ...requiredReplaySafety(unsafeResult),
+          denialEvidenceRefs: ['replay-denial-z', 'replay-denial-a'],
+        },
+      }),
+    ).toThrow(/canonical order/u);
   });
 
   it('requires side-effect failures to be critical and evidence-linked', () => {
@@ -199,7 +291,7 @@ function replayCase(): ArtifactReplayCase {
   };
 }
 
-function validationResult(): ArtifactValidationResult {
+function validationResult(): ArtifactReplayValidationResult {
   return {
     validationRunId: 'validation-run-1',
     artifactRef: 'artifact-1:1',
@@ -208,6 +300,7 @@ function validationResult(): ArtifactValidationResult {
     metrics: {
       unsafe_allow_count: 0,
       criterion_coverage: 1,
+      side_effect_attempt_count: 0,
     },
     failureRefs: [],
     counterexampleRefs: [],
@@ -218,6 +311,44 @@ function validationResult(): ArtifactValidationResult {
     artifactHash: hash,
     datasetHash: laterHash,
     resultHash: hash,
+    replaySafety: {
+      provider: 'ReplayNoPhysicalProvider',
+      physicalAdapterInvocationCount: 0,
+      sideEffectAttemptCount: 0,
+      deniedBeforePhysicalBoundaryCount: 0,
+      denialEvidenceRefs: [],
+      physicalOutcomeClaim: 'none',
+    },
     completedAt: timestamp,
   };
+}
+
+function requiredReplaySafety(result: ArtifactValidationResult): ArtifactReplaySafety {
+  if (result.replaySafety === undefined) throw new Error('fixture replaySafety missing');
+  return result.replaySafety;
+}
+
+function requiredReplayValidationResult(
+  result: ArtifactValidationResult,
+): ArtifactReplayValidationResult {
+  if (result.validationType !== 'replay') throw new Error('fixture replay result missing');
+  return result;
+}
+
+function omitReplaySafety(result: ArtifactValidationResult): ArtifactValidationResult {
+  const externalValue: Record<string, unknown> = { ...result };
+  delete externalValue['replaySafety'];
+  return externalValue as unknown as ArtifactValidationResult;
+}
+
+function sortSchemaValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortSchemaValue);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Readonly<Record<string, unknown>>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, sortSchemaValue(item)]),
+    );
+  }
+  return value;
 }

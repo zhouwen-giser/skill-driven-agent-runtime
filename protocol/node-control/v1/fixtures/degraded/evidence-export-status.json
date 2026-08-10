@@ -1,0 +1,12 @@
+{
+  "exportId": "primary-evidence-export",
+  "status": "degraded",
+  "activeRevision": 3,
+  "lastAcknowledgedSequence": "18234",
+  "pendingRecords": 27,
+  "oldestPendingAt": "2026-07-31T05:10:00Z",
+  "lastAcknowledgedAt": "2026-07-31T05:59:00Z",
+  "lastErrorCode": "EVIDENCE_ENDPOINT_UNAVAILABLE",
+  "lastErrorAt": "2026-07-31T06:00:00Z",
+  "observedAt": "2026-07-31T06:00:05Z"
+}

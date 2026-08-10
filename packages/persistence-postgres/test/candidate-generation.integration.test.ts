@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -25,9 +27,14 @@ import {
   createGoalExperienceEpisode,
   createSkillUsageSpecification,
   createSkillVersion,
+  hashCanonicalEvidenceJson,
+  type ArtifactRef,
+  type CanonicalEvidenceEnvelope,
   type CognitiveSourceRef,
+  type EvidenceExportConfiguration,
   type GoalExperienceEpisode,
 } from '../../domain/src/index.js';
+import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
   PostgresArtifactRepository,
   PostgresArtifactReplayValidationRepository,
@@ -45,6 +52,17 @@ import {
   BullMqReplayValidationWorker,
   type RedisConnectionConfig,
 } from '../../runtime-redis/src/index.js';
+import {
+  ExperienceReplayArtifactEvidenceProjector,
+  RuntimeCoreEvidenceProjector,
+} from '../../runtime-control-application/src/index.js';
+import {
+  PostgresEvidenceStore,
+  PostgresExperienceReplayArtifactEvidenceSource,
+  PostgresRuntimeCoreEvidenceSource,
+  PostgresRuntimeSourceArtifactResolver,
+  type StoredEvidenceRecord,
+} from '../../runtime-control-persistence-postgres/src/index.js';
 
 const connectionString =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
@@ -70,15 +88,46 @@ beforeEach(async () => {
        candidate_model_invocation,candidate_static_validation,candidate_fingerprint,
        generalized_pattern,fused_pattern,candidate_generation_run,artifact_lineage,compiled_artifact,
        pattern_candidate_support,pattern_candidate,experience_trace_source,experience_trace,
-       compilation_run,experience_job,goal_experience_episode_source,goal_experience_episode,
+       compilation_run,experience_job,planning_correction_fact,planning_interaction_episode,
+       goal_experience_episode_source,goal_experience_episode,
        runtime_capability_summary,cognitive_runtime_outbox,skill_version,skill,
-       conversation_context CASCADE`,
+       conversation_context,evidence_export_configuration,evidence_outbox,
+       evidence_source_checkpoint,evidence_export_state,evidence_dead_letter,
+       evidence_projection_issue,evidence_quality_issue,episode_evidence_manifest
+       RESTART IDENTITY CASCADE`,
   );
 });
 
 afterAll(async () => {
   await pool.end();
 });
+
+function phase12EvidenceConfiguration(): EvidenceExportConfiguration {
+  return {
+    exportId: 'phase12-candidate-evidence',
+    revision: 1,
+    endpointRef: 'https://evidence.example.test/v1/batches',
+    sourceId: 'phase12-candidate-runtime',
+    nodeId: 'node-phase12-candidate',
+    credentialRef: 'env:PHASE12_EVIDENCE_TOKEN',
+    includedFamilies: [
+      'runtime',
+      'skill',
+      'mcp_task',
+      'capability',
+      'experience',
+      'replay',
+      'artifact',
+      'node_control',
+      'evidence',
+    ],
+    batchPolicy: { maxRecords: 1_000, maxBytes: 262_144, flushIntervalMs: 1_000 },
+    retryPolicy: { baseDelayMs: 100, maxDelayMs: 10_000, maxAttempts: 5 },
+    outboxPolicy: { maxPendingRecords: 100_000, retentionDays: 30 },
+    redactionProfile: 'strict_internal_v1',
+    artifactMode: 'reference',
+  };
+}
 
 async function insertReplayRun(
   input: Readonly<{
@@ -751,6 +800,311 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
     });
     expect(evidence.rows[0]?.result_hash).toMatch(/^sha256:[0-9a-f]{64}$/u);
 
+    const evidenceStore = new PostgresEvidenceStore(pool);
+    const runtimeEvidenceSource = new PostgresRuntimeCoreEvidenceSource(pool);
+    const runtimeEvidenceProjector = new RuntimeCoreEvidenceProjector({
+      source: runtimeEvidenceSource,
+      writer: evidenceStore,
+      environment: 'integration',
+      clock: { now: () => '2026-07-28T05:00:01.250Z' },
+    });
+    const runtimeTaskIds = await runtimeEvidenceSource.pendingTaskIds(100);
+    expect(runtimeTaskIds).toEqual(
+      expect.arrayContaining([
+        'task-success-a',
+        'task-success-b',
+        'task-failure-recovery',
+        ...independent.map((item) => `task-${item.suffix}`),
+      ]),
+    );
+    for (const taskId of runtimeTaskIds) {
+      const projection = await runtimeEvidenceProjector.projectTask(taskId);
+      expect(projection.qualityIssueIds).toEqual([]);
+      expect(projection.projectedRecordIds).toEqual(
+        expect.arrayContaining([expect.stringMatching(/^evidence_[0-9a-f]{64}$/u)]),
+      );
+    }
+
+    const phase8Clock = { value: '2026-07-28T05:00:02.000Z' };
+    const phase8Source = new PostgresExperienceReplayArtifactEvidenceSource(pool);
+    const phase8Projector = new ExperienceReplayArtifactEvidenceProjector({
+      source: phase8Source,
+      writer: evidenceStore,
+      environment: 'integration',
+      clock: { now: () => phase8Clock.value },
+    });
+    const phase8Partitions = await phase8Source.pendingPartitions(1_000);
+    expect(phase8Partitions.map((partition) => partition.kind)).toEqual(
+      expect.arrayContaining([
+        'experience_task',
+        'experience_pattern',
+        'replay_case',
+        'artifact',
+        'replay_dataset',
+        'validation',
+      ]),
+    );
+    expect(phase8Partitions.map((partition) => phase8ProjectionPriority(partition.kind))).toEqual(
+      [...phase8Partitions]
+        .map((partition) => phase8ProjectionPriority(partition.kind))
+        .sort((left, right) => left - right),
+    );
+    for (const partition of phase8Partitions) {
+      const projection = await phase8Projector.projectPartition(partition);
+      expect(projection.sourcePartition).toBe(partition.sourcePartition);
+      expect(projection.qualityIssueIds).toEqual([]);
+      expect(projection.projectedRecordIds.length).toBeGreaterThan(0);
+    }
+
+    await evidenceStore.applyConfiguration(
+      phase12EvidenceConfiguration(),
+      '2026-07-28T05:00:02.500Z',
+    );
+
+    const phase8Rows = (
+      await Promise.all(
+        phase8Partitions.map((partition) =>
+          evidenceStore.pending(partition.sourcePartition, 1_000, '2026-07-28T05:00:03.000Z'),
+        ),
+      )
+    ).flat();
+    expect(phase8Rows.length).toBeGreaterThan(0);
+    const phase8RecordTypes = new Set(phase8Rows.map(({ envelope }) => envelope.recordType));
+    for (const recordType of [
+      'experience.episode',
+      'experience.trace',
+      'experience.workflow_pattern',
+      'replay.case',
+      'replay.dataset',
+      'artifact.lifecycle',
+      'artifact.validation',
+      'replay.run',
+      'replay.case_result',
+      'replay.metric_result',
+    ]) {
+      expect(phase8RecordTypes.has(recordType)).toBe(true);
+    }
+
+    const schemaValidator = new AjvJsonSchemaValidator({ strict: false });
+    const checkedSchemas = new Set<string>();
+    for (const { envelope, sourcePartition } of phase8Rows) {
+      expect(sourcePartition).toMatch(/^v141:/u);
+      expect(
+        phase8Partitions.some((partition) => partition.sourcePartition === sourcePartition),
+      ).toBe(true);
+      expect(envelope.recordId).toMatch(/^evidence_[0-9a-f]{64}$/u);
+      expect(envelope.payloadHash).toBe(hashCanonicalEvidenceJson(envelope.payload));
+      if (!checkedSchemas.has(envelope.recordType)) {
+        const schema = JSON.parse(
+          readFileSync(
+            path.resolve('schemas/evidence/v1/records', `${envelope.recordType}.schema.json`),
+            'utf8',
+          ),
+        ) as object;
+        expect(schemaValidator.validate(schema, envelope)).toEqual({ valid: true, errors: [] });
+        checkedSchemas.add(envelope.recordType);
+      }
+    }
+    const allEvidenceIds = new Set(
+      (await pool.query<{ record_id: string }>('SELECT record_id FROM evidence_outbox')).rows.map(
+        (row) => row.record_id,
+      ),
+    );
+    for (const { envelope } of phase8Rows) {
+      for (const reference of envelope.evidenceRefs.filter((value) =>
+        value.startsWith('evidence_'),
+      )) {
+        expect(allEvidenceIds.has(reference)).toBe(true);
+      }
+    }
+
+    const taskTrace = requiredPhase8Evidence(
+      phase8Rows,
+      'experience.trace',
+      (envelope) => phase8PayloadField(envelope, 'sourceEpisodeId') === 'episode-p04r-success-a',
+    );
+    expect(taskTrace).toMatchObject({
+      tenantId,
+      userScopeId: 'user-a',
+      taskId: 'task-success-a',
+      contextId: 'context-success-a',
+      episodeId: 'task-success-a',
+      goalId: 'goal-success-a',
+      goalVersion: 1,
+    });
+    const taskEpisode = requiredPhase8Evidence(
+      phase8Rows,
+      'experience.episode',
+      (envelope) => envelope.sourceRecordId === 'episode-p04r-success-a',
+    );
+    expect(taskTrace.evidenceRefs).toEqual([taskEpisode.recordId]);
+    expect(requiredPhase8StoredEvidence(phase8Rows, taskTrace.recordId).sourcePartition).toBe(
+      'v141:experience_task:14:task-success-a',
+    );
+
+    const workflowPatternEvidence = requiredPhase8Evidence(
+      phase8Rows,
+      'experience.workflow_pattern',
+    );
+    const artifactLifecycleEvidence = requiredPhase8Evidence(phase8Rows, 'artifact.lifecycle');
+    const replayDatasetEvidence = requiredPhase8Evidence(
+      phase8Rows,
+      'replay.dataset',
+      (envelope) =>
+        envelope.sourceRecordId === `${replayRun.datasetId}:${String(replayRun.datasetVersion)}`,
+    );
+    const replayRunEvidence = requiredPhase8Evidence(
+      phase8Rows,
+      'replay.run',
+      (envelope) => envelope.sourceRecordId === replayRun.validationRunId,
+    );
+    for (const globalEvidence of [
+      workflowPatternEvidence,
+      artifactLifecycleEvidence,
+      replayDatasetEvidence,
+      replayRunEvidence,
+    ]) {
+      expect(globalEvidence).not.toHaveProperty('taskId');
+      expect(globalEvidence).not.toHaveProperty('contextId');
+      expect(globalEvidence).not.toHaveProperty('episodeId');
+      expect(globalEvidence).not.toHaveProperty('userScopeId');
+      expect(globalEvidence).not.toHaveProperty('goalId');
+      expect(globalEvidence).not.toHaveProperty('planId');
+    }
+    for (const [globalEvidence, partitionKind] of [
+      [workflowPatternEvidence, 'experience_pattern'],
+      [artifactLifecycleEvidence, 'artifact'],
+      [replayDatasetEvidence, 'replay_dataset'],
+      [replayRunEvidence, 'validation'],
+    ] as const) {
+      expect(
+        requiredPhase8StoredEvidence(phase8Rows, globalEvidence.recordId).sourcePartition,
+      ).toMatch(new RegExp(`^v141:${partitionKind}:`, 'u'));
+    }
+    expect(artifactLifecycleEvidence.evidenceRefs).toContain(workflowPatternEvidence.recordId);
+    expect(replayRunEvidence.evidenceRefs).toEqual(
+      expect.arrayContaining([
+        replayDatasetEvidence.recordId,
+        requiredPhase8Evidence(
+          phase8Rows,
+          'artifact.validation',
+          (envelope) => envelope.sourceRecordId === replayRun.validationRunId,
+        ).recordId,
+      ]),
+    );
+
+    const persistedReplayResult = await pool.query<{
+      result_payload: Record<string, unknown>;
+    }>(`SELECT result_payload FROM artifact_validation_run WHERE validation_run_id=$1`, [
+      replayRun.validationRunId,
+    ]);
+    expect(replayRunEvidence.payload).toMatchObject({
+      replaySafetyStatus: 'verified',
+      noPhysicalSideEffects: true,
+      replaySafety: persistedReplayResult.rows[0]?.result_payload['replaySafety'],
+    });
+
+    const artifactResolver = new PostgresRuntimeSourceArtifactResolver(pool);
+    for (const envelope of [
+      requiredPhase8Evidence(phase8Rows, 'replay.case'),
+      replayDatasetEvidence,
+      artifactLifecycleEvidence,
+    ]) {
+      const artifactRef = requiredArtifactRef(envelope);
+      const resolved = await artifactResolver.resolve(artifactRef);
+      expect(resolved.artifactRef).toEqual(artifactRef);
+      expect(resolved.canonicalBytes.byteLength).toBe(artifactRef.byteSize);
+      expect(`sha256:${createHash('sha256').update(resolved.canonicalBytes).digest('hex')}`).toBe(
+        artifactRef.sha256,
+      );
+      expect(envelope.artifactRefs).toEqual([artifactRef.uri]);
+    }
+
+    const lateFixture = {
+      suffix: 'phase8-late-arrival',
+      userId: 'user-phase8-late-arrival',
+      achieved: true,
+      timestamp: '2026-07-28T02:59:00.000Z',
+      request: 'Collect a late authoritative workflow trace without timestamp cursor loss.',
+    } as const;
+    await contexts.save({
+      contextId: `context-${lateFixture.suffix}`,
+      userId: lateFixture.userId,
+      createdAt: lateFixture.timestamp,
+      updatedAt: lateFixture.timestamp,
+    });
+    await saveTerminalAuthorityFixtures([lateFixture]);
+    const lateEpisode = formalEpisodeAt(
+      lateFixture.suffix,
+      lateFixture.userId,
+      'succeeded',
+      lateFixture.timestamp,
+      lateFixture.request,
+    );
+    await episodeRepository.saveIfAbsent(lateEpisode);
+    const lateRuntimeProjection = await runtimeEvidenceProjector.projectTask(
+      `task-${lateFixture.suffix}`,
+    );
+    expect(lateRuntimeProjection.projectedRecordIds.length).toBeGreaterThan(0);
+
+    const lateTaskPartition = (await phase8Source.pendingPartitions(1_000)).find(
+      (partition) =>
+        partition.kind === 'experience_task' && partition.sourceId === `task-${lateFixture.suffix}`,
+    );
+    if (lateTaskPartition === undefined) throw new Error('PHASE8_LATE_TASK_PARTITION_MISSING');
+    phase8Clock.value = '2026-07-28T05:00:03.500Z';
+    const beforeTraceProjection = await phase8Projector.projectPartition(lateTaskPartition);
+    expect(beforeTraceProjection.qualityIssueIds).toEqual([]);
+    const checkpointBeforeLateArrival = await phase8Checkpoint(
+      lateTaskPartition.sourceFamily,
+      lateTaskPartition.sourcePartition,
+    );
+    await compilationRuns.createNormalizationRun(lateEpisode.episodeId, now.value, 3);
+    const [lateNormalizationRun] = await normalization.claim('normalizer-phase8-late', 1);
+    if (lateNormalizationRun === undefined) {
+      throw new Error('PHASE8_LATE_NORMALIZATION_RUN_MISSING');
+    }
+    await normalization.process(lateNormalizationRun, 'normalizer-phase8-late');
+    const lateTrace = await pool.query<{ trace_id: string; created_at: string }>(
+      `SELECT trace_id,created_at::text
+       FROM experience_trace WHERE source_episode_id=$1`,
+      [lateEpisode.episodeId],
+    );
+    const lateTraceId = lateTrace.rows[0]?.trace_id;
+    if (lateTraceId === undefined) throw new Error('PHASE8_LATE_TRACE_MISSING');
+    const rescannedPartitions = await phase8Source.pendingPartitions(1_000);
+    const rescannedTaskPartition = rescannedPartitions.find(
+      (partition) => partition.sourcePartition === lateTaskPartition.sourcePartition,
+    );
+    if (rescannedTaskPartition === undefined) {
+      throw new Error('PHASE8_LATE_TRACE_PARTITION_NOT_RESCANNED');
+    }
+    phase8Clock.value = '2026-07-28T05:00:04.000Z';
+    const lateProjection = await phase8Projector.projectPartition(rescannedTaskPartition);
+    expect(lateProjection.qualityIssueIds).toEqual([]);
+    const checkpointAfterLateArrival = await phase8Checkpoint(
+      lateTaskPartition.sourceFamily,
+      lateTaskPartition.sourcePartition,
+    );
+    expect(checkpointAfterLateArrival.last_occurred_at).toBe(
+      checkpointBeforeLateArrival.last_occurred_at,
+    );
+    expect(checkpointAfterLateArrival.last_source_revision).not.toBe(
+      checkpointBeforeLateArrival.last_source_revision,
+    );
+    const rescannedRows = await evidenceStore.pending(
+      lateTaskPartition.sourcePartition,
+      1_000,
+      '2026-07-28T05:00:05.000Z',
+    );
+    expect(
+      requiredPhase8Evidence(
+        rescannedRows,
+        'experience.trace',
+        (envelope) => envelope.sourceRecordId === lateTraceId,
+      ).occurredAt,
+    ).toBe('2026-07-28T02:59:00.000Z');
+
     const holdoutLeakage = await pool.query<{ leaked: number }>(
       `SELECT count(*)::integer AS leaked
        FROM replay_dataset_manifest manifest
@@ -1126,7 +1480,14 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       });
     }
     now.value = '2026-07-28T05:01:09.000Z';
-    const redisConnection: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
+    const configuredRedisPort = Number(process.env['SDAR_REDIS_PORT'] ?? 56379);
+    if (!Number.isSafeInteger(configuredRedisPort) || configuredRedisPort < 1) {
+      throw new Error('P05_REDIS_TEST_PORT_INVALID');
+    }
+    const redisConnection: RedisConnectionConfig = {
+      host: '127.0.0.1',
+      port: configuredRedisPort,
+    };
     const queueName = `sdar-p05-postgres-workers-${String(Date.now())}`;
     const wakeQueue = new BullMqReplayValidationQueue(redisConnection, queueName);
     const participantIds = new Set<string>();
@@ -1662,6 +2023,10 @@ async function saveTerminalAuthorityFixtures(
         new Date(Date.parse(timestamp) + 4_000).toISOString(),
       ],
     );
+    await pool.query(`UPDATE workflow_plan SET confirmation_task_id=$2 WHERE plan_id=$1`, [
+      planId,
+      taskId,
+    ]);
     await pool.query(
       `INSERT INTO workflow_instance(
          instance_id,plan_id,workflow_definition_id,workflow_version,goal_id,goal_version,
@@ -2002,6 +2367,7 @@ function formalEpisodeAt(
     episodeId: `episode-p04r-${suffix}`,
     goalId: `goal-${suffix}`,
     goalVersion: 1,
+    taskId: `task-${suffix}`,
     contextId: `context-${suffix}`,
     episodeType: 'terminal',
     revision: 1,
@@ -2199,6 +2565,93 @@ function source(
     dataClassification: 'internal',
     capturedAt,
   });
+}
+
+function phase8ProjectionPriority(kind: string): number {
+  const dependencyOrder = [
+    'experience_task',
+    'experience_pattern',
+    'replay_case',
+    'artifact',
+    'replay_dataset',
+    'validation',
+    'retrieval',
+    'usage',
+    'feedback',
+    'promotion',
+  ] as const;
+  const priority = dependencyOrder.findIndex((value) => value === kind);
+  if (priority < 0) throw new Error(`Unknown Phase8 projection kind ${kind}.`);
+  return priority;
+}
+
+function requiredPhase8Evidence(
+  rows: readonly StoredEvidenceRecord[],
+  recordType: string,
+  predicate: (envelope: CanonicalEvidenceEnvelope) => boolean = () => true,
+): CanonicalEvidenceEnvelope {
+  const envelope = rows.find(
+    (row) => row.envelope.recordType === recordType && predicate(row.envelope),
+  )?.envelope;
+  if (envelope === undefined) throw new Error(`Missing Phase8 Evidence ${recordType}.`);
+  return envelope;
+}
+
+function requiredPhase8StoredEvidence(
+  rows: readonly StoredEvidenceRecord[],
+  recordId: string,
+): StoredEvidenceRecord {
+  const row = rows.find((candidate) => candidate.envelope.recordId === recordId);
+  if (row === undefined) throw new Error(`Missing stored Phase8 Evidence ${recordId}.`);
+  return row;
+}
+
+function requiredArtifactRef(envelope: CanonicalEvidenceEnvelope): ArtifactRef {
+  const payload = envelope.payload;
+  if (payload === null || Array.isArray(payload) || typeof payload !== 'object') {
+    throw new Error(`Phase8 Evidence ${envelope.recordType} payload is not an object.`);
+  }
+  const value = (payload as Readonly<Record<string, unknown>>)['artifactRef'];
+  const artifactValue = value as Readonly<Record<string, unknown>>;
+  if (
+    value === null ||
+    Array.isArray(value) ||
+    typeof value !== 'object' ||
+    typeof artifactValue['artifactId'] !== 'string' ||
+    !Number.isSafeInteger(artifactValue['version']) ||
+    typeof artifactValue['uri'] !== 'string' ||
+    typeof artifactValue['sha256'] !== 'string' ||
+    !artifactValue['sha256'].startsWith('sha256:') ||
+    typeof artifactValue['mediaType'] !== 'string' ||
+    !Number.isSafeInteger(artifactValue['byteSize'])
+  ) {
+    throw new Error(`Phase8 Evidence ${envelope.recordType} ArtifactRef is invalid.`);
+  }
+  return value as unknown as ArtifactRef;
+}
+
+function phase8PayloadField(envelope: CanonicalEvidenceEnvelope, field: string): unknown {
+  const payload = envelope.payload;
+  if (payload === null || Array.isArray(payload) || typeof payload !== 'object') return undefined;
+  return (payload as Readonly<Record<string, unknown>>)[field];
+}
+
+async function phase8Checkpoint(
+  sourceFamily: string,
+  sourcePartition: string,
+): Promise<Readonly<{ last_occurred_at: string | null; last_source_revision: string }>> {
+  const result = await pool.query<{
+    last_occurred_at: string | null;
+    last_source_revision: string;
+  }>(
+    `SELECT last_occurred_at::text AS last_occurred_at,last_source_revision
+     FROM evidence_source_checkpoint
+     WHERE source_family=$1 AND source_partition=$2`,
+    [sourceFamily, sourcePartition],
+  );
+  const checkpoint = result.rows[0];
+  if (checkpoint === undefined) throw new Error('Phase8 Evidence checkpoint is missing.');
+  return checkpoint;
 }
 
 function sha(value: string): string {

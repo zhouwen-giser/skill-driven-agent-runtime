@@ -1,0 +1,21 @@
+# Phase Completion
+
+- Phase:
+- Goal:
+- Base SHA:
+- Resulting SHA:
+- Main SHA observed:
+- Changed files:
+- Source matrix rows changed:
+- Record catalog types changed:
+- Architecture decisions:
+- Tests requested:
+- Tests actually run:
+- Passed:
+- Failed:
+- Skipped with reason:
+- Known limitations:
+- Deferred items:
+- Blockers:
+- Push evidence:
+- Next phase:

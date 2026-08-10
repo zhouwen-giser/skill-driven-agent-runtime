@@ -1,0 +1,34 @@
+version: sdar.evidence/v1
+configurationSchema: ../schemas/evidence-export-config.schema.json
+statusSchema: ../schemas/evidence-export-status.schema.json
+operationsSchema: ../schemas/evidence-operations.schema.json
+requiredProperties:
+- endpointRef
+- sourceId
+- credentialRef
+- includedFamilies
+- batchPolicy
+- retryPolicy
+- outboxPolicy
+- redactionProfile
+- artifactMode
+forbiddenCapabilities:
+- telemetry_query
+- clickhouse_proxy
+- arbitrary_sql
+- evidence_payload_query
+- evaluation_query
+- task_timeline_query
+invariants:
+- export_failure_does_not_stop_task_runtime
+- delivery_state_is_not_task_authority
+- secret_reference_only
+- required_evidence_cannot_be_excluded
+- contiguous_partial_ack_only
+- x_sdar_evidence_contract_only
+- operations_metadata_only
+- recovery_run_postgresql_authority
+- recovery_requires_node_admin_or_security_admin
+- organization_service_has_no_evidence_operations_access
+- source_partition_replay_requires_exact_source_family
+- replay_respects_active_configuration_eligibility

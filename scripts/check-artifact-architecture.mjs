@@ -72,6 +72,7 @@ for (const file of productFiles) {
     normalized.startsWith('packages/persistence-postgres/src/compiler/') ||
     normalized === 'packages/persistence-postgres/src/index.ts' ||
     normalized === 'packages/persistence-postgres/test/experience-p03.contract.test.ts' ||
+    normalized === 'packages/persistence-postgres/test/pattern-definition-canonical.unit.test.ts' ||
     normalized.startsWith('packages/runtime-redis/src/compiler/') ||
     normalized === 'packages/runtime-redis/src/index.ts' ||
     normalized === 'packages/domain/test/experience-compilation.unit.test.ts' ||

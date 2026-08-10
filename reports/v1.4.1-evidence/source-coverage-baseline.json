@@ -1,0 +1,39 @@
+{
+  "contract": "sdar.evidence/v1",
+  "phase": 1,
+  "catalogTotal": 100,
+  "sourceInventory": {
+    "sourceConfirmed": 93,
+    "sourceMissingBlocker": 7,
+    "conditionalNotApplicable": 0,
+    "classified": 100,
+    "classifiedPercent": 100
+  },
+  "implementationCoverage": {
+    "implementedAndVerified": 0,
+    "percent": 0,
+    "note": "Phase 1 confirms source authority only; it does not claim canonical projection implementation."
+  },
+  "families": {
+    "runtime": { "total": 18, "sourceConfirmed": 18, "sourceMissingBlocker": 0 },
+    "skill": { "total": 16, "sourceConfirmed": 16, "sourceMissingBlocker": 0 },
+    "mcp_task": { "total": 11, "sourceConfirmed": 11, "sourceMissingBlocker": 0 },
+    "capability": { "total": 7, "sourceConfirmed": 7, "sourceMissingBlocker": 0 },
+    "experience": { "total": 10, "sourceConfirmed": 10, "sourceMissingBlocker": 0 },
+    "replay": { "total": 6, "sourceConfirmed": 6, "sourceMissingBlocker": 0 },
+    "artifact": { "total": 6, "sourceConfirmed": 6, "sourceMissingBlocker": 0 },
+    "node_control": { "total": 21, "sourceConfirmed": 18, "sourceMissingBlocker": 3 },
+    "evidence": { "total": 5, "sourceConfirmed": 0, "sourceMissingBlocker": 5 }
+  },
+  "missingRecordTypes": [
+    "node_control.telemetry_delivery",
+    "node_control.telemetry_ack",
+    "evidence.episode_manifest",
+    "evidence.quality_issue",
+    "evidence.projection_issue",
+    "evidence.source_checkpoint",
+    "evidence.export_status"
+  ],
+  "closurePhase": 3,
+  "generatedFrom": "reports/v1.4.1-evidence/source-to-evidence-matrix.json"
+}

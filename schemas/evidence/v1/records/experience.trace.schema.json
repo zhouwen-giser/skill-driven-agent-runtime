@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.local/evidence/v1/records/experience.trace.schema.json",
+  "title": "experience.trace canonical evidence record",
+  "description": "Canonical experience.trace evidence projected from Runtime PostgreSQL experience_trace.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "schemaName",
+    "schemaVersion",
+    "recordFamily",
+    "recordType",
+    "recordId",
+    "sourceSystem",
+    "sourceTable",
+    "sourceRecordId",
+    "sourceRevision",
+    "environment",
+    "correlationId",
+    "occurredAt",
+    "recordedAt",
+    "deliveryGuarantee",
+    "evaluationRole",
+    "evidenceRefs",
+    "artifactRefs",
+    "payloadHash",
+    "payload"
+  ],
+  "properties": {
+    "contractVersion": { "const": "sdar.evidence/v1" },
+    "schemaName": { "const": "sdar.evidence.experience.trace" },
+    "schemaVersion": { "const": 1 },
+    "recordFamily": {
+      "const": "experience",
+      "enum": [
+        "runtime",
+        "skill",
+        "mcp_task",
+        "capability",
+        "experience",
+        "replay",
+        "artifact",
+        "node_control",
+        "evidence"
+      ]
+    },
+    "recordType": { "const": "experience.trace" },
+    "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
+    "sourceSystem": { "const": "runtime" },
+    "sourceTable": { "const": "experience_trace" },
+    "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "deliveryGuarantee": { "const": "durable_projection" },
+    "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "artifactRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "payload": {
+      "type": "object",
+      "minProperties": 12,
+      "maxProperties": 128,
+      "required": [
+        "traceId",
+        "sourceEpisodeId",
+        "taskTypeRefs",
+        "goalFingerprint",
+        "capabilityFingerprint",
+        "environmentFingerprint",
+        "completeness",
+        "dataClassification",
+        "redactionCodes",
+        "normalizerVersion",
+        "sourceHash",
+        "traceBody"
+      ],
+      "properties": {
+        "traceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourceEpisodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "taskTypeRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "goalFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "capabilityFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "environmentFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "completeness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "dataClassification": {
+          "type": "string",
+          "enum": ["public", "internal", "user_scoped", "restricted"]
+        },
+        "redactionCodes": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "normalizerVersion": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourceHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "traceBody": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion",
+            "tenantId",
+            "eventRecordIds",
+            "correctionRefs",
+            "outcomeRef",
+            "outcomeStatus",
+            "missingFactCodes",
+            "environmentClass",
+            "deviceClass"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.2" },
+            "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "eventRecordIds": {
+              "type": "array",
+              "maxItems": 4096,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "correctionRefs": {
+              "type": "array",
+              "maxItems": 4096,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "outcomeRef": {
+              "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+            },
+            "outcomeStatus": {
+              "type": "string",
+              "enum": ["succeeded", "failed", "partial", "unknown"]
+            },
+            "missingFactCodes": {
+              "type": "array",
+              "maxItems": 4096,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "environmentClass": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "deviceClass": {
+              "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+            }
+          }
+        }
+      },
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+    },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "taskId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "contextId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "episodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "goalId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "planId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "skillExecutionId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "capabilityBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "remoteTaskBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "causationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "evidenceSequence": { "type": "string", "minLength": 1, "maxLength": 4096 }
+  },
+  "$defs": {
+    "evidenceValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
+        {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
+        }
+      ]
+    }
+  },
+  "x-sdar-compatibility": "backward_compatible_additive",
+  "x-sdar-maximum-inline-bytes": 65536,
+  "x-sdar-redaction-policy": "strict_internal_v1",
+  "x-sdar-artifact-policy": "inline_bounded_or_artifact_ref"
+}

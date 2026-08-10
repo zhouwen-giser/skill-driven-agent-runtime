@@ -9,4 +9,4 @@ export * from './node-profile.js';
 export * from './node-event.js';
 export * from './node-capability.js';
 export * from './smpp-registry.js';
-export * from './telemetry-export.js';
+export * from './evidence-export.js';

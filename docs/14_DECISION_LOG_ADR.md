@@ -26,5 +26,20 @@
 | ADR-106     | v1.1 合并后 released migration 单调推进到 0106；isolated profile 与 ledger-gap 保护保留 |
 | ADR-107     | 子 Skill 输出映射由现有 LangGraph 以受限 DSL 数据执行；映射证据使用受限存在性门，顶层选择遵守精确版本 visibility |
 | ADR-108     | Frozen MCP Tasks 使用显式 Legacy/Frozen 双协议边界、单一观察入口和 Evidence A 本地匹配                  |
+| ADR-126     | v1.4.1 通过追加迁移进行 Canonical Evidence clean cutover，不改写已发布的 0142/0143                    |
+| ADR-127     | `sdar.evidence/v1` 使用稳定来源身份、规范 JSON 哈希及 100 个封闭目录 Schema                            |
+| ADR-128     | Runtime PostgreSQL 独占 Evidence outbox/checkpoint/lease/ACK/DLQ/manifest 权威，Redis 仅可唤醒          |
+| ADR-129     | `sdar.evidence/v1` 是唯一 Batch/ACK 协议；精确发送归属、显式连续 ACK、受限安全传输和 PostgreSQL 权威 |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。
+# v1.4.1 Evidence decision index addendum
+
+- ADR-126: append-only Canonical Evidence cutover after published migrations 0142/0143.
+- ADR-127: stable source/schema identity, canonical JSON hash and closed 100-record catalog.
+- ADR-128: Runtime PostgreSQL is Evidence authority; Redis is wake-only.
+- ADR-129: sole bounded `sdar.evidence/v1` Batch/ACK protocol and transport boundary.
+- ADR-130 through ADR-133: Runtime/Skill/MCP/Experience source projection authority.
+- ADR-134: Episode applicability, Manifest/quality rules and bounded generation-1 observation.
+
+Phase 13 fairness and reference-scope validation implement accepted boundaries without adding a
+runtime or authority, so no new ADR is required.

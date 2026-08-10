@@ -104,3 +104,11 @@ When and only when the V1.1 composition is enabled, a Task backed by a valid act
 ## Release operations
 
 Run `pnpm verify`, review `reports/verification/`, the V1 acceptance/migration/demo reports, SBOM, Third-Party Notices, security warnings, and `templates/RELEASE_CHECKLIST.md`. Public ingress is prohibited. No deployment or production mutation is performed by repository scripts.
+
+## v1.4.1 Canonical Evidence recovery
+
+Use `docs/operations/v141-canonical-evidence-export-recovery.md` for receiver outage, High Watermark,
+DLQ retry, record/source/episode replay, coverage reconcile and bounded Diagnostic retention. Inspect
+metadata-only status before recovery, preserve the active export revision and use a Node Admin or
+Security Admin audited command. Never delete PostgreSQL Evidence authority, reset cursors manually,
+replay business commands, expose payload/secret fields or treat Redis/the receiver as recovery truth.

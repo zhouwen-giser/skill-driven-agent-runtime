@@ -125,3 +125,13 @@ existing outer confirmation boundary. Remote waits, input, cancel, reconcile and
 Binding/continuation authority. Append-only `SkillExecutionRecord` rows expose exact parent/child,
 Provider, evidence and degraded-outcome projections without becoming a second Task, Workflow or
 Provider lifecycle.
+
+## v1.4.1 Canonical Evidence Export addendum
+
+`sdar.evidence/v1` is the sole external Evidence output. Runtime PostgreSQL owns canonical Outbox,
+cursor, ACK, DLQ, Manifest and recovery state; Control PostgreSQL owns Node governance facts. Redis
+is wake/scheduling state only, and the HTTP receiver cannot mutate business authority. All 100
+record types use durable source projection with stable source/schema identity and canonical hashes.
+The single Runtime gives foreground Tasks priority while projection and export retain independent,
+bounded five-second fairness. No ClickHouse, second Workflow runtime or cross-database transaction is
+introduced; the ClickHouse directory is a future-adapter handoff only.

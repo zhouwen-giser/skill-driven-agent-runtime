@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.local/evidence/v1/projection-issue.schema.json",
+  "title": "Canonical evidence projection issue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "issueId",
+    "issueCode",
+    "severity",
+    "sourceSystem",
+    "sourceTable",
+    "sourceRecordId",
+    "detail",
+    "createdAt",
+    "projectorVersion",
+    "sourcePartition",
+    "retryable"
+  ],
+  "properties": {
+    "issueId": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "issueCode": {
+      "enum": [
+        "schema_invalid",
+        "source_identity_missing",
+        "source_revision_missing",
+        "payload_hash_conflict",
+        "reference_unresolved",
+        "redaction_rejected",
+        "artifact_write_failed",
+        "export_rejected",
+        "ack_invalid",
+        "source_unavailable",
+        "projection_bug"
+      ]
+    },
+    "severity": { "enum": ["diagnostic", "degraded", "blocking"] },
+    "recordType": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
+    "episodeId": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "sourceSystem": { "enum": ["runtime", "node_control"] },
+    "sourceTable": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "detail": { "type": "object", "maxProperties": 64 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "projectorVersion": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "retryable": { "type": "boolean" }
+  }
+}

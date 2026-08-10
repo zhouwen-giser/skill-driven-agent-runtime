@@ -54,7 +54,8 @@ export class PostgresNodeControlEventRepository implements NodeControlEventRepos
       try {
         await synchronizeRuntimeEvents(this.#pool, this.#runtimePool);
         this.#runtimeSynchronizationUnavailable = false;
-      } catch {
+      } catch (error) {
+        if (errorCode(error) === 'NODE_EVENT_PAYLOAD_CONFLICT') throw error;
         if (!this.#runtimeSynchronizationUnavailable)
           process.stderr.write(
             `${JSON.stringify({ event: 'node_event.runtime_synchronization_failed', errorCode: 'RUNTIME_EVENT_SOURCE_UNAVAILABLE' })}\n`,
@@ -82,7 +83,7 @@ export class PostgresNodeControlEventRepository implements NodeControlEventRepos
               causation_id,actor_id,data_classification,payload
          FROM sdar_control.node_event_outbox
         WHERE sequence>$1::bigint
-        ORDER BY sequence
+        ORDER BY sdar_control.node_event_outbox.sequence
         LIMIT $2`,
       [afterSequence, limit],
     );
@@ -93,6 +94,12 @@ export class PostgresNodeControlEventRepository implements NodeControlEventRepos
       ...(lastEvent === undefined ? {} : { lastEventId: lastEvent.eventId }),
     });
   }
+}
+
+function errorCode(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? (error as Readonly<{ code?: unknown }>).code
+    : undefined;
 }
 
 async function synchronizeRuntimeEvents(controlPool: Pool, runtimePool: Pool): Promise<void> {
@@ -131,35 +138,68 @@ async function synchronizeRuntimeEvents(controlPool: Pool, runtimePool: Pool): P
       return;
     }
     for (const event of source.rows) {
-      await client.query(
+      const eventId = `runtime:${event.event_id}`;
+      const correlationId = runtimeCorrelationId(event);
+      const payload = {
+        resourceRef: {
+          type: event.aggregate_type,
+          id: event.aggregate_id,
+          revision: event.aggregate_version,
+        },
+        changeCode:
+          event.event_type === 'node.capability.readiness_changed'
+            ? 'READINESS_CHANGED'
+            : 'TASK_CAPABILITY_BOUND',
+      };
+      const inserted = await client.query(
         `INSERT INTO sdar_control.node_event_outbox(
            event_id,event_type,occurred_at,node_id,aggregate_type,aggregate_id,
            aggregate_revision,correlation_id,causation_id,data_classification,payload)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'internal',$10::jsonb)
-         ON CONFLICT(event_id) DO NOTHING`,
+         ON CONFLICT(event_id) DO NOTHING RETURNING event_id`,
         [
-          `runtime:${event.event_id}`,
+          eventId,
           event.event_type,
           event.occurred_at,
           nodeId,
           event.aggregate_type,
           event.aggregate_id,
           event.aggregate_version,
-          runtimeCorrelationId(event),
+          correlationId,
           event.event_id,
-          JSON.stringify({
-            resourceRef: {
-              type: event.aggregate_type,
-              id: event.aggregate_id,
-              revision: event.aggregate_version,
-            },
-            changeCode:
-              event.event_type === 'node.capability.readiness_changed'
-                ? 'READINESS_CHANGED'
-                : 'TASK_CAPABILITY_BOUND',
-          }),
+          JSON.stringify(payload),
         ],
       );
+      if (inserted.rowCount === 0) {
+        const replay = await client.query<{ identical: boolean }>(
+          `SELECT event_type=$2 AND occurred_at=$3::timestamptz AND node_id=$4
+                  AND aggregate_type=$5 AND aggregate_id=$6
+                  AND aggregate_revision=$7::bigint AND correlation_id=$8
+                  AND causation_id=$9 AND actor_id IS NULL
+                  AND data_classification='internal' AND payload=$10::jsonb AS identical
+             FROM sdar_control.node_event_outbox WHERE event_id=$1`,
+          [
+            eventId,
+            event.event_type,
+            event.occurred_at,
+            nodeId,
+            event.aggregate_type,
+            event.aggregate_id,
+            event.aggregate_version,
+            correlationId,
+            event.event_id,
+            JSON.stringify(payload),
+          ],
+        );
+        if (replay.rows[0]?.identical !== true) {
+          throw Object.assign(
+            new Error('Runtime Node Event identity was reused with new content.'),
+            {
+              code: 'NODE_EVENT_PAYLOAD_CONFLICT',
+            },
+          );
+        }
+      }
     }
     const lastCopied = source.rows.at(-1)?.outbox_sequence;
     const nextCursor = source.rows.length === 200 ? (lastCopied ?? lastSequence) : highWatermark;

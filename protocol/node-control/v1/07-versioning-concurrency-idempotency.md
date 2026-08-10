@@ -5,7 +5,7 @@
 - Node Control API Version；
 - Runtime Control Contract Version；
 - Node Event Contract Version；
-- Telemetry Export Contract Version；
+- Evidence Export Contract Version；
 - Resource Revision；
 - Definition Version；
 - Agent Card Revision；

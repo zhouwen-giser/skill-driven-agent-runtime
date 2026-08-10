@@ -50,7 +50,10 @@ const databaseName = 'sdar_v11_remote_composition_integration';
 const adminConnection =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const databaseConnection = replaceDatabase(adminConnection, databaseName);
-const redis: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
+const redis: RedisConnectionConfig = {
+  host: '127.0.0.1',
+  port: Number(process.env['SDAR_REDIS_PORT'] ?? '56379'),
+};
 const timestamp = '2026-07-17T08:00:00.000Z';
 const resources: { close(): Promise<void> }[] = [];
 let pool: Pool;

@@ -9,22 +9,55 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 const { Pool } = pg;
 const databaseName = 'sdar_v122_integration_gate';
 const controlDatabaseName = 'sdar_control_v14_integration_gate';
+const requestedTests = process.argv.slice(2).filter((argument) => argument !== '--');
+const isolatedNodeControlAcceptance =
+  'apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts';
 const adminUrl =
   process.env.SDAR_TEST_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 try {
   startInfrastructure();
   await recreateDatabases();
-  run(
-    process.execPath,
-    ['node_modules/vitest/vitest.mjs', 'run', '--project', 'integration'],
-    240_000,
-    {
-      ...process.env,
-      SDAR_TEST_POSTGRES_URL: databaseUrl(databaseName),
-      SDAR_CONTROL_TEST_POSTGRES_URL: databaseUrl(controlDatabaseName),
-    },
-  );
+  const environment = {
+    ...process.env,
+    SDAR_TEST_POSTGRES_URL: databaseUrl(databaseName),
+    SDAR_CONTROL_TEST_POSTGRES_URL: databaseUrl(controlDatabaseName),
+  };
+  if (requestedTests.length > 0) {
+    run(
+      process.execPath,
+      ['node_modules/vitest/vitest.mjs', 'run', '--project', 'integration', ...requestedTests],
+      600_000,
+      environment,
+    );
+  } else {
+    run(
+      process.execPath,
+      [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        '--project',
+        'integration',
+        '--exclude',
+        isolatedNodeControlAcceptance,
+      ],
+      600_000,
+      environment,
+    );
+    await recreateDatabases();
+    run(
+      process.execPath,
+      [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        '--project',
+        'integration',
+        isolatedNodeControlAcceptance,
+      ],
+      300_000,
+      environment,
+    );
+  }
 } finally {
   await dropDatabases().catch(() => undefined);
   stopInfrastructure();

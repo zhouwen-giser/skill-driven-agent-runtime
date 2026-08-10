@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.local/evidence/v1/records/replay.dataset.schema.json",
+  "title": "replay.dataset canonical evidence record",
+  "description": "Canonical replay.dataset evidence projected from Runtime PostgreSQL replay_dataset_manifest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "schemaName",
+    "schemaVersion",
+    "recordFamily",
+    "recordType",
+    "recordId",
+    "sourceSystem",
+    "sourceTable",
+    "sourceRecordId",
+    "sourceRevision",
+    "environment",
+    "correlationId",
+    "occurredAt",
+    "recordedAt",
+    "deliveryGuarantee",
+    "evaluationRole",
+    "evidenceRefs",
+    "artifactRefs",
+    "payloadHash",
+    "payload"
+  ],
+  "properties": {
+    "contractVersion": { "const": "sdar.evidence/v1" },
+    "schemaName": { "const": "sdar.evidence.replay.dataset" },
+    "schemaVersion": { "const": 1 },
+    "recordFamily": {
+      "const": "replay",
+      "enum": [
+        "runtime",
+        "skill",
+        "mcp_task",
+        "capability",
+        "experience",
+        "replay",
+        "artifact",
+        "node_control",
+        "evidence"
+      ]
+    },
+    "recordType": { "const": "replay.dataset" },
+    "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
+    "sourceSystem": { "const": "runtime" },
+    "sourceTable": { "const": "replay_dataset_manifest" },
+    "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "deliveryGuarantee": { "const": "durable_projection" },
+    "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "artifactRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "payload": {
+      "type": "object",
+      "minProperties": 12,
+      "maxProperties": 128,
+      "required": [
+        "datasetId",
+        "datasetVersion",
+        "purpose",
+        "tenantId",
+        "caseRefs",
+        "contentHash",
+        "sourceSnapshotHash",
+        "leakageCheckRef",
+        "promotionEligible",
+        "invalidatedAt",
+        "invalidationReason",
+        "artifactRef"
+      ],
+      "properties": {
+        "datasetId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "datasetVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "purpose": {
+          "type": "string",
+          "enum": ["discovery", "candidate_development", "promotion_holdout", "counterexample"]
+        },
+        "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "caseRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "contentHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sourceSnapshotHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "leakageCheckRef": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "promotionEligible": { "type": "boolean" },
+        "invalidatedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "invalidationReason": {
+          "oneOf": [{ "type": "string", "maxLength": 65536 }, { "type": "null" }]
+        },
+        "artifactRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifactId", "version", "uri", "sha256", "mediaType", "byteSize"],
+          "properties": {
+            "artifactId": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+            "uri": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "^artifact://runtime/v1/replay_dataset_manifest/(?!\\.{1,2}/)(?:[A-Za-z0-9_.!~*'()-]|%(?:22|23|24|25|26|2B|2C|3A|3B|3C|3D|3E|3F|40|5B|5D|5E|60|7B|7C|7D)|(?:%(?:C[2-9A-F]|D[0-9A-F])%[89AB][0-9A-F]|%E0%[AB][0-9A-F]%[89AB][0-9A-F]|%E(?:[1-9A-C]|E|F)%[89AB][0-9A-F]%[89AB][0-9A-F]|%ED%[89][0-9A-F]%[89AB][0-9A-F]|%F0%[9AB][0-9A-F](?:%[89AB][0-9A-F]){2}|%F[1-3]%[89AB][0-9A-F](?:%[89AB][0-9A-F]){2}|%F4%8[0-9A-F](?:%[89AB][0-9A-F]){2}))(?:(?:(?:[A-Za-z0-9_.!~*'()-]|%(?:22|23|24|25|26|2B|2C|3A|3B|3C|3D|3E|3F|40|5B|5D|5E|60|7B|7C|7D)|(?:%(?:C[2-9A-F]|D[0-9A-F])%[89AB][0-9A-F]|%E0%[AB][0-9A-F]%[89AB][0-9A-F]|%E(?:[1-9A-C]|E|F)%[89AB][0-9A-F]%[89AB][0-9A-F]|%ED%[89][0-9A-F]%[89AB][0-9A-F]|%F0%[9AB][0-9A-F](?:%[89AB][0-9A-F]){2}|%F[1-3]%[89AB][0-9A-F](?:%[89AB][0-9A-F]){2}|%F4%8[0-9A-F](?:%[89AB][0-9A-F]){2}))|%20)*(?:[A-Za-z0-9_.!~*'()-]|%(?:22|23|24|25|26|2B|2C|3A|3B|3C|3D|3E|3F|40|5B|5D|5E|60|7B|7C|7D)|(?:%(?:C[2-9A-F]|D[0-9A-F])%[89AB][0-9A-F]|%E0%[AB][0-9A-F]%[89AB][0-9A-F]|%E(?:[1-9A-C]|E|F)%[89AB][0-9A-F]%[89AB][0-9A-F]|%ED%[89][0-9A-F]%[89AB][0-9A-F]|%F0%[9AB][0-9A-F](?:%[89AB][0-9A-F]){2}|%F[1-3]%[89AB][0-9A-F](?:%[89AB][0-9A-F]){2}|%F4%8[0-9A-F](?:%[89AB][0-9A-F]){2})))?/(?:[1-9][0-9]{0,8}|1[0-9]{9}|20[0-9]{8}|21[0-3][0-9]{7}|214[0-6][0-9]{6}|2147[0-3][0-9]{5}|21474[0-7][0-9]{4}|214748[0-2][0-9]{3}|2147483[0-5][0-9]{2}|21474836[0-3][0-9]|214748364[0-7])/content$"
+            },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "mediaType": { "const": "application/json" },
+            "byteSize": { "type": "integer", "minimum": 0, "maximum": 1048576 }
+          }
+        }
+      },
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["invalidatedAt", "invalidationReason"],
+          "properties": {
+            "invalidatedAt": { "const": null },
+            "invalidationReason": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["invalidatedAt", "invalidationReason"],
+          "properties": {
+            "invalidatedAt": { "type": "string", "format": "date-time" },
+            "invalidationReason": { "type": "string", "minLength": 1, "maxLength": 65536 }
+          }
+        }
+      ]
+    },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "taskId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "contextId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "episodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "goalId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "planId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "skillExecutionId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "capabilityBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "remoteTaskBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "causationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "evidenceSequence": { "type": "string", "minLength": 1, "maxLength": 4096 }
+  },
+  "$defs": {
+    "evidenceValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
+        {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
+        }
+      ]
+    }
+  },
+  "x-sdar-compatibility": "backward_compatible_additive",
+  "x-sdar-maximum-inline-bytes": 131072,
+  "x-sdar-redaction-policy": "strict_internal_v1",
+  "x-sdar-artifact-policy": "artifact_ref_required"
+}

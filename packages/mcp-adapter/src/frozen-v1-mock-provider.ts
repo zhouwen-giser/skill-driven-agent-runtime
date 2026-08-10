@@ -38,6 +38,7 @@ export interface FrozenMcpTasksMockProviderOptions {
   }>;
   readonly notificationQueueLimit?: number;
   readonly notificationBurst?: number;
+  readonly notificationDelayMs?: number;
   readonly createdAt?: string;
 }
 
@@ -575,44 +576,47 @@ function sendSubscription(
   response.write(
     `data: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/subscriptions/acknowledged', params: { _meta: { 'io.modelcontextprotocol/subscriptionId': id }, notifications: { taskIds: requested } } })}\n\n`,
   );
-  setTimeout(() => {
-    if (response.destroyed) return;
-    // Re-authorize at send time: a Task created after the Ack must never leak
-    // into an earlier subscription, even if Provider state changed meanwhile.
-    if (requested.includes(state.taskId)) {
-      const outcome = operationOutcome(options, state.operationName ?? 'embodied.move');
-      // Restart acceptance is intentionally poll-driven. An Ack-only stream proves the
-      // subscription without allowing the local mock to complete the Task pre-restart.
-      if (outcome === 'remote_restart_success') {
-        response.end();
-        return;
-      }
-      const pending: string[] = [];
-      const queueLimit = boundedPositiveInteger(options.notificationQueueLimit, 256);
-      const burst = boundedPositiveInteger(options.notificationBurst, 1);
-      for (let index = 0; index < burst; index += 1) {
-        if (pending.length >= queueLimit) {
-          state.notificationOverflowCount += 1;
-          response.destroy(new Error('FROZEN_MCP_NOTIFICATION_QUEUE_OVERFLOW'));
+  setTimeout(
+    () => {
+      if (response.destroyed) return;
+      // Re-authorize at send time: a Task created after the Ack must never leak
+      // into an earlier subscription, even if Provider state changed meanwhile.
+      if (requested.includes(state.taskId)) {
+        const outcome = operationOutcome(options, state.operationName ?? 'embodied.move');
+        // Restart acceptance is intentionally poll-driven. An Ack-only stream proves the
+        // subscription without allowing the local mock to complete the Task pre-restart.
+        if (outcome === 'remote_restart_success') {
+          response.end();
           return;
         }
-        state.revision += 1;
-        const status = state.cancelled
-          ? 'cancelled'
-          : outcome === 'remote_input_required' && !state.updated
-            ? 'input_required'
-            : state.operationName === 'task_success' && state.taskGetCalls === 0
-              ? 'working'
-              : 'completed';
-        const snapshot = task('complete', status, state);
-        pending.push(
-          `data: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/tasks', params: { ...snapshot, _meta: { ...record(snapshot['_meta']), 'io.modelcontextprotocol/subscriptionId': id } } })}\n\n`,
-        );
+        const pending: string[] = [];
+        const queueLimit = boundedPositiveInteger(options.notificationQueueLimit, 256);
+        const burst = boundedPositiveInteger(options.notificationBurst, 1);
+        for (let index = 0; index < burst; index += 1) {
+          if (pending.length >= queueLimit) {
+            state.notificationOverflowCount += 1;
+            response.destroy(new Error('FROZEN_MCP_NOTIFICATION_QUEUE_OVERFLOW'));
+            return;
+          }
+          state.revision += 1;
+          const status = state.cancelled
+            ? 'cancelled'
+            : outcome === 'remote_input_required' && !state.updated
+              ? 'input_required'
+              : state.operationName === 'task_success' && state.taskGetCalls === 0
+                ? 'working'
+                : 'completed';
+          const snapshot = task('complete', status, state);
+          pending.push(
+            `data: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/tasks', params: { ...snapshot, _meta: { ...record(snapshot['_meta']), 'io.modelcontextprotocol/subscriptionId': id } } })}\n\n`,
+          );
+        }
+        for (const event of pending) response.write(event);
       }
-      for (const event of pending) response.write(event);
-    }
-    response.end();
-  }, 25);
+      response.end();
+    },
+    boundedPositiveInteger(options.notificationDelayMs, 25),
+  );
 }
 
 function boundedPositiveInteger(value: number | undefined, fallback: number): number {

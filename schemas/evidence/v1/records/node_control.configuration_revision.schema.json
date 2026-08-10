@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.local/evidence/v1/records/node_control.configuration_revision.schema.json",
+  "title": "node_control.configuration_revision canonical evidence record",
+  "description": "Canonical node_control.configuration_revision evidence projected from Control PostgreSQL sdar_control.configuration_revision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "schemaName",
+    "schemaVersion",
+    "recordFamily",
+    "recordType",
+    "recordId",
+    "sourceSystem",
+    "sourceTable",
+    "sourceRecordId",
+    "sourceRevision",
+    "environment",
+    "correlationId",
+    "occurredAt",
+    "recordedAt",
+    "deliveryGuarantee",
+    "evaluationRole",
+    "evidenceRefs",
+    "artifactRefs",
+    "payloadHash",
+    "payload"
+  ],
+  "properties": {
+    "contractVersion": { "const": "sdar.evidence/v1" },
+    "schemaName": { "const": "sdar.evidence.node_control.configuration_revision" },
+    "schemaVersion": { "const": 1 },
+    "recordFamily": {
+      "const": "node_control",
+      "enum": [
+        "runtime",
+        "skill",
+        "mcp_task",
+        "capability",
+        "experience",
+        "replay",
+        "artifact",
+        "node_control",
+        "evidence"
+      ]
+    },
+    "recordType": { "const": "node_control.configuration_revision" },
+    "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
+    "sourceSystem": { "const": "node_control" },
+    "sourceTable": { "const": "sdar_control.configuration_revision" },
+    "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "correlationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "deliveryGuarantee": { "const": "durable_projection" },
+    "evaluationRole": { "const": "required" },
+    "observationGeneration": { "type": "integer", "enum": [0, 1] },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "artifactRefs": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "payload": {
+      "type": "object",
+      "minProperties": 11,
+      "maxProperties": 128,
+      "required": [
+        "configurationId",
+        "targetType",
+        "targetId",
+        "revision",
+        "status",
+        "applyMode",
+        "content",
+        "checksum",
+        "createdBy",
+        "createdAt",
+        "publishedAt"
+      ],
+      "properties": {
+        "configurationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "targetType": {
+          "type": "string",
+          "enum": [
+            "node",
+            "llm_provider",
+            "model_route",
+            "smpp_source",
+            "mcp_provider_binding",
+            "telemetry_link",
+            "runtime_policy"
+          ]
+        },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "validated",
+            "published",
+            "applying",
+            "applied",
+            "partially_applied",
+            "rejected",
+            "rolled_back"
+          ]
+        },
+        "applyMode": {
+          "type": "string",
+          "enum": [
+            "hot_reload",
+            "new_task_only",
+            "reconnect_required",
+            "restart_required",
+            "immutable"
+          ]
+        },
+        "content": { "$ref": "#/$defs/evidenceValue" },
+        "checksum": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "publishedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "publishedAt"],
+          "properties": {
+            "status": { "type": "string", "enum": ["draft", "validated"] },
+            "publishedAt": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["status", "publishedAt"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "published",
+                "applying",
+                "applied",
+                "partially_applied",
+                "rejected",
+                "rolled_back"
+              ]
+            },
+            "publishedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    },
+    "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+    "tenantId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "userScopeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "projectId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "taskId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "contextId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "episodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "runId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "goalId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "planId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "skillExecutionId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "capabilityBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "remoteTaskBindingId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "nodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "causationId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "evidenceSequence": { "type": "string", "minLength": 1, "maxLength": 4096 }
+  },
+  "$defs": {
+    "evidenceValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/evidenceValue" } },
+        {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        }
+      ]
+    },
+    "artifactValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 65536 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/artifactValue" } },
+        {
+          "type": "object",
+          "maxProperties": 128,
+          "additionalProperties": { "$ref": "#/$defs/artifactValue" }
+        }
+      ]
+    }
+  },
+  "x-sdar-compatibility": "backward_compatible_additive",
+  "x-sdar-maximum-inline-bytes": 65536,
+  "x-sdar-redaction-policy": "strict_internal_v1",
+  "x-sdar-artifact-policy": "inline_bounded_or_artifact_ref"
+}

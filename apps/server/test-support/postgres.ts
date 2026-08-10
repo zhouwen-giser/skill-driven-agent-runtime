@@ -2,6 +2,12 @@ import { readFile } from 'node:fs/promises';
 
 import { Pool } from 'pg';
 
+export type TestPostgresPool = Pool;
+
+export function createTestPostgresPool(connectionString: string, max = 4): TestPostgresPool {
+  return new Pool({ connectionString, max });
+}
+
 export function isolatedDatabaseUrl(adminConnection: string, databaseName: string): string {
   const url = new URL(adminConnection);
   url.pathname = `/${databaseName}`;

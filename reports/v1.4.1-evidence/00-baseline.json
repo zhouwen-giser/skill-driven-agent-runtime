@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "phase": 0,
+  "status": "COMPLETED",
+  "observedAt": "2026-08-04T00:16:42+08:00",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "branch": "feature/v1.4.1-canonical-evidence-export",
+  "base": {
+    "mainSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
+    "originMainSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
+    "mergeBaseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
+    "packageVersion": "1.4.0",
+    "node": "v22.14.0",
+    "pnpm": "11.7.0",
+    "lockfileSha256": "724219de34616aa6d3607363d6d3235170082f5489adf7c76e693c63c0d3043e"
+  },
+  "taskPackage": {
+    "path": "docs/sdar_v1_4_1_evidence_goal_package",
+    "verifiedAgainstSha256Sums": true,
+    "contractVersion": "sdar.evidence/v1",
+    "requiredRecordTypes": 100
+  },
+  "migration": {
+    "head": "0143_v14_node_event_projection",
+    "publishedTelemetryMigration": "0142_v14_telemetry_export",
+    "migration0142Sha256": "37e945ac16c7340212b2c904659122aac15a7bacac36d4a3e79db43873124985",
+    "migration0143Sha256": "d365fa192bf02b09626986e5bcfa675323df74f5906b62e759d73189479eb053",
+    "strategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
+    "reason": "0142 and 0143 are published on origin/main and protected by the monotonic checksum gate"
+  },
+  "currentImplementation": {
+    "externalHeader": "x-sdar-telemetry-contract: 1.0.0",
+    "recordFamilies": ["runtime_event"],
+    "runtimeTables": [
+      "runtime_telemetry_export_configuration",
+      "runtime_telemetry_export_state",
+      "runtime_telemetry_export_outbox"
+    ],
+    "canonicalEvidenceImplemented": false
+  },
+  "github": {
+    "openPullRequestsObserved": [10],
+    "conflictingEvidenceBranchOrPr": false
+  },
+  "verification": {
+    "status": "passed",
+    "commit": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
+    "durationMs": 660217,
+    "environment": "Windows x64, Node v22.14.0, isolated Docker PostgreSQL/Redis",
+    "composeProject": "sdar-v141-baseline-cc0719f",
+    "postgresPort": 55484,
+    "redisPort": 56379,
+    "metrics": {
+      "staticUnitContractTests": 1180,
+      "unit": 938,
+      "performanceUnit": 22,
+      "contract": 220,
+      "integration": 149,
+      "e2e": 72,
+      "managementOpenApiOperations": 164,
+      "runtimeMigrations": 36
+    },
+    "report": "reports/verification/summary.json"
+  },
+  "productRuntimeModified": false
+}

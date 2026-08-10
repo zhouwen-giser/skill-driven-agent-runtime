@@ -1,5 +1,135 @@
 # Project Status
 
+SDAR v1.4.1 Canonical Evidence Export is `COMPLETED_PR_READY` (2026-08-10) on
+`feature/v1.4.1-canonical-evidence-export`, based on `origin/main` `cc0719f`. Phases 0-13
+have completed their scoped implementation and independent Review; the single Phase 14
+release-level `pnpm verify` passed all ten stages in 1,213,445 ms. Required Source Coverage is
+95/95, total Catalog coverage is 100/100, Phase 12 is 44/44 and Phase 13 is 25/25. Implementation
+commit `eb72012` is pushed and PR #18 is `OPEN`, `CLEAN` and Ready for
+Review against `main`; final acceptance is published under `reports/v1.4.1-evidence/`. The
+user-supplied task package is SHA-256
+verified and retained under `docs/`; immutable
+published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
+100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
+confirmed sources and seven explicit evidence-infrastructure blockers; Phase 3 has now closed all
+seven source-authority gaps. Phase 2 freezes
+deterministic canonical JSON, stable source/schema IDs, payload hashes, a fail-closed 100-entry
+Domain Catalog, 100 non-placeholder Draft 2020-12 record schemas, and seven protocol schemas under
+registry hash `sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d`.
+Fifteen focused Unit and three Contract tests pass, including compilation/validation of all schemas
+and adversarial secret/private-reasoning/depth/size/conflict checks. Migration 0144 performs the
+Strategy B clean cutover: all three old Telemetry product tables are removed and eight canonical
+Evidence authorities enforce source identity, hash conflict, sequence, partition cursor,
+High Watermark, lease/fencing, ACK, DLQ, issue, and manifest invariants. The seven missing sources
+are now closed, for 100/100 source-confirmed, while formal projector coverage remains 0/100.
+Eleven focused PostgreSQL tests and the 37-migration gate pass. Phase 4 removes the complete legacy
+Telemetry API/service/transport surface and adds bounded fenced `sdar.evidence/v1` delivery with
+exact sent ownership, explicit contiguous/partial ACK, required-family enforcement,
+CredentialRef-only endpoint security and nonblocking receiver outage behavior. Focused evidence is
+21 Unit, 71 Contract, 11 real PostgreSQL and one real Control-to-HTTP vertical test. Full
+`pnpm verify` passed in 601,088 ms: 1,207 static Unit/Contract tests, 158 Integration, 72 E2E,
+build and all smokes. Phase 5 projects all 18 Runtime types from repeatable-read authoritative
+snapshots, including version/patch lineage, action basis, layered receipts, stable Skill Execution
+references, terminal consistency, blocking source-gap issues, checkpoints and a draft manifest.
+Format/lint/typecheck, 658-source architecture, the 100-record contract, 3 Unit and 1 real
+PostgreSQL Integration tests pass. Phase 6 adds all 16 Skill records from repeatable-read
+authoritative snapshots, sharing exact Skill Execution identity with Runtime Action and preserving
+exact Skill Version usage, selection/context, parent/child composition, Capability ID/version,
+procedure/compliance, seven reference kinds, wait/resume and failure boundaries. Its 10 focused
+Unit and 2 real PostgreSQL Integration tests pass with zero Quality Issues and idempotent replay.
+Phase 7 adds all 11 MCP Task and seven Capability records, preserving Task Handle, Observation,
+Control Event, continuation, no-side-effect-replay, cancel uncertainty and Provider Receipt versus
+Goal Verification boundaries. Complete Capability Binding snapshots and hashes are retained.
+Control-owned definitions/bindings use an authenticated full-state read and require the exact
+governance Evidence ref before Runtime projection. Twelve focused Unit and three real PostgreSQL
+Integration tests pass with idempotent replay; architecture covers 667 sources and the Catalog
+remains 100/100. The mandatory Phase 7 full `pnpm verify` passes in 865,814 ms with 970 Unit, 22
+performance, 230 Contract, 161 Integration and 72 E2E tests, 37 migrations, build and all smokes.
+Phase 8's first independent read-only review rejected the initial implementation with two Blocking
+and eight Major findings; a later review added three Major and one Minor. The source-owned repair
+now includes poison-item isolation with durable Projection Issues, exact schemas for all 22 Phase 8
+records, structured `CognitiveSourceRef`, latest-per-source reads and lossless 10,000-element
+Pattern ArtifactRef descriptors. All 100 records declare `durable_projection`. Evidence Contract
+100/100 (95 Required plus five diagnostic), focused Contract 9/9, real PostgreSQL Runtime Core 5/5
+and the 10,000-element producer/resolver 1/1 pass under registry hash
+`sha256:a2ce623b2d26371680ba9392a33d10315639e66786d4acbcc244c5627202ba3d` and contract hash
+`sha256:a1ffebfde0902dab632c16a8ffdad781926198a9bf69ed3722b52da1206dfd86`.
+Final independent Review is `CLEAN_FOR_PHASE8_CLOSURE` with zero Blocking, Major or Minor findings;
+generated coverage is 74/100 verified and 74/95 Required (77.89%). The two best-effort full verify
+attempts did not complete: the first exposed and repaired an Architecture allowlist omission before
+timing out on the wrong Redis port `56385`; the second used `56379`, passed the other 32 Integration
+files / 165 tests and exposed one Node Control startup/migration isolation defect whose exact file
+then passed 1/1 after repair. Latest targeted format/lint/typecheck pass; no whole-repository format
+or successful full-verify claim is made. Task-package section 30 mandates full `pnpm verify` only at
+Phases 0/3/7/9/12/13/14, so Phase 8 is `COMPLETED`.
+
+Phase 9 adds Control migration `0009_canonical_evidence_authority` and Runtime migration
+`0146_v14_evidence_export_observation_ledger`, preserving Control PostgreSQL as Node Control
+authority and Runtime PostgreSQL as Evidence/export authority. Two independently checkpointed
+sources project all 21 `node_control.*` records through a fixed privileged
+`node_control.evidence.read` service identity. Exact Last-Event-ID recovery, revision/conflict
+handling, Configuration -> Apply ACK -> LKG references, delivery -> receiver ACK references,
+recursive CredentialRef redaction, scope/classification checks and the generation-1/no-generation-2
+self-observation boundary are verified. The Server uses a bounded 32-partition single-flight drain;
+Redis remains wake-only. The Registry is 100 records (95 Required and five diagnostic), the source
+matrix is 95 `implemented_and_verified` plus five `source_confirmed`, Node Control is 21/21
+verified, and the five remaining `evidence.*` records are reserved for Phase 10. The real
+PostgreSQL/Redis/HTTP vertical passes 1/1 and independent Review is Accepted with zero Blocking,
+Major or Minor findings under Registry hash
+`sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88`.
+
+Phase 9 does not claim a successful full `pnpm verify`. Attempt one stopped at lint and the listed
+mechanical findings were repaired. Attempt two passed format, lint, typecheck and 1,058 Unit/
+performance assertions, then stopped on one stale positive Contract fixture; the repaired direct
+Evidence Schema Contract passes 10/10. Following the user's instruction not to repeat intermediate
+whole-repository verification, the next complete full gate is deferred to Phase 14. Phase 9 is
+`COMPLETED` for implementation, Review and handoff with that release-level gate explicitly pending.
+
+Phase 10 adds Runtime migration `0147_v14_evidence_coverage_authority`, authority-derived
+expectations, revisioned draft/projecting/sealed Episode Manifests, ten quality rules, schema-gated
+canonical appends and all five `evidence.*` projectors. Required facts count complete only after
+receiver ACK. Skill selection/input/execution, MCP Availability and task-scoped Artifact
+retrieval/usage/feedback now contribute exact applicability and issue scope; poison partitions are
+durable, isolated and retried without false-complete or unrelated false-incomplete Manifests. The
+proof-manifest-derived gate reaches 100/100 implemented and verified records, 95/95 Required and
+5/5 diagnostic under Registry hash
+`sha256:a7ac427efdc75530aee8cb27359243084cb29a0450d62e7b19bd21feb99771e5`.
+Focused Unit 3/3, Contract 1/1, PostgreSQL 1/1 and typecheck pass; independent Review is Accepted
+with 0 Blocking / 0 Major / 0 Minor. Per explicit user direction, full `pnpm verify` is not repeated
+here and remains the single Phase 14 final gate. Phase 10 is `COMPLETED`.
+
+Phase 11 adds Runtime migration `0148_v14_evidence_operations_recovery`, durable request/claim/
+action recovery, restart resume, record/source-partition/episode replay, DLQ retry, real coverage
+reconciliation and bounded continuing Diagnostic retention. Node Control exposes metadata-only
+reads and audited recovery commands through typed Runtime internal APIs; Organization Service is
+denied, recovery is limited to Node Admin/Security Admin, and no arbitrary SQL, payload or
+ClickHouse proxy is exposed. The real PostgreSQL/Redis/HTTP vertical passes 1/1 with record replay,
+canonical ManagementOperation Evidence, re-ACK and receiver-outage isolation. It also exposed and
+closed duplicate canonical-null Schema branches and an impossible export-partition checkpoint
+reference; preserved Export Status batches project 2/2 using exact Telemetry Delivery lineage.
+Current Registry hash is
+`sha256:2bc75460820a778830bc1c787afa74a4f71571b9658b8dd496b495e528c85567`; independent Review is
+Accepted with 0 Blocking / 0 Major / 0 Minor. Phase 11 is `COMPLETED`.
+
+Phase 12 passes all 44 required Runtime/Skill, MCP Task, Capability/Experience, Node Control and
+Export/Manifest scenarios with 42 direct tests across 25 resumable suites. Every scenario has
+explicit passed-test provenance for all ten required dimensions; real delivery uses the local
+Control/Runtime PostgreSQL databases, Redis `56384` and an HTTP Evidence receiver. The first
+read-only Review found and closed one Major over-attribution in the report; the final Review is
+0 Blocking / 0 Major / 0 Minor. First failures and repairs remain under
+`reports/v1.4.1-evidence/failed-attempts/`. By explicit user direction, no intermediate full gate
+was repeated; one final repository-wide `pnpm verify` remains Phase 14. Phase 12 is `COMPLETED` and
+Phase 13 closes the frozen 25-item adversarial list with direct owning-layer evidence. PostgreSQL
+now rejects resolved Evidence references whose explicit tenant or user scope conflicts; the
+single-process scheduler grants foreground Tasks priority while guaranteeing projection and export
+one durable slice at least every ten seconds under sustained load. The stable balanced ABA/BAA/AAB
+benchmark passes with baseline P95 805.957 ms, Evidence-enabled P95 880.984 ms (9.309%), append
+P95 15.576 ms and first/second-half median drift 14.823%. Final independent Review is 0 Blocking /
+0 Major / 0 Minor after one Blocking, two Major and one Minor repair. The final repository-wide
+`pnpm verify` passed all ten stages in 1,213,445 ms. Phase 13 is `COMPLETED`; Phase 14 publication
+is pending local commit/push and marking PR #18 Ready for Review.
+No ClickHouse implementation, merge, tag, release, or deployment has started.
+
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`
 `a7a7c62cd39fb7d4ee7c67b18929c557593b08b8`; P00 through P12 remain completed. P13 adds exact

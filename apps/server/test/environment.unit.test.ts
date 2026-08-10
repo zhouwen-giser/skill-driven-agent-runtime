@@ -8,12 +8,23 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadServerEnvironment, parseServerEnvironment } from '../src/environment.js';
 
 describe('server environment', () => {
-  const originalMasterKey = process.env['SDAR_MASTER_KEY_BASE64'];
+  const isolatedEnvironmentKeys = [
+    'SDAR_MASTER_KEY_BASE64',
+    'SDAR_REDIS_PORT',
+    'SDAR_A2A_PORT',
+    'SDAR_MANAGEMENT_PORT',
+  ] as const;
+  const originalEnvironment = new Map(
+    isolatedEnvironmentKeys.map((key) => [key, process.env[key]] as const),
+  );
   const temporaryDirectories: string[] = [];
 
   afterEach(() => {
-    if (originalMasterKey === undefined) delete process.env['SDAR_MASTER_KEY_BASE64'];
-    else process.env['SDAR_MASTER_KEY_BASE64'] = originalMasterKey;
+    for (const key of isolatedEnvironmentKeys) {
+      const original = originalEnvironment.get(key);
+      if (original === undefined) Reflect.deleteProperty(process.env, key);
+      else process.env[key] = original;
+    }
 
     for (const directory of temporaryDirectories.splice(0)) {
       rmSync(directory, { recursive: true, force: true });
@@ -26,7 +37,7 @@ describe('server environment', () => {
     const masterKey = randomBytes(32).toString('base64');
     const envFilePath = join(directory, '.env');
     writeFileSync(envFilePath, `SDAR_MASTER_KEY_BASE64=${masterKey}\n`, 'utf8');
-    delete process.env['SDAR_MASTER_KEY_BASE64'];
+    for (const key of isolatedEnvironmentKeys) Reflect.deleteProperty(process.env, key);
 
     expect(loadServerEnvironment(envFilePath)).toMatchObject({
       SDAR_MASTER_KEY_BASE64: masterKey,
@@ -144,5 +155,25 @@ describe('server environment', () => {
         SDAR_ARTIFACT_MANAGEMENT_ROLES: 'root',
       }),
     ).toThrow();
+  });
+
+  it('requires a paired authenticated Node Control Capability Evidence reader', () => {
+    const masterKey = randomBytes(32).toString('base64');
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+      }),
+    ).toThrow('requires both base URL and service token');
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+        SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+      }),
+    ).toMatchObject({
+      SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+      SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+    });
   });
 });
