@@ -73,13 +73,37 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 8,
       "maxProperties": 128,
-      "required": ["sourceFamily", "sourcePartition", "projectorVersion"],
+      "required": [
+        "sourceFamily",
+        "sourcePartition",
+        "lastOccurredAt",
+        "lastSourceRecordId",
+        "lastSourceRevision",
+        "lastPayloadHash",
+        "lastProjectedAt",
+        "projectorVersion"
+      ],
       "properties": {
-        "sourceFamily": { "$ref": "#/$defs/evidenceValue" },
-        "sourcePartition": { "$ref": "#/$defs/evidenceValue" },
-        "projectorVersion": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        "sourceFamily": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "lastOccurredAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "lastSourceRecordId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "lastSourceRevision": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "lastPayloadHash": {
+          "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "lastProjectedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "projectorVersion": { "type": "string", "minLength": 1, "maxLength": 4096 }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

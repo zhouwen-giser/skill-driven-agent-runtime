@@ -5,6 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
 import {
+  EPISODE_EVIDENCE_POLICY,
+  EPISODE_EVIDENCE_POLICY_VERSION,
   createCatalogEvidenceEnvelope,
   type CanonicalEvidenceEnvelope,
   type EvidenceExportConfiguration,
@@ -25,7 +27,8 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pool.query(
-    `TRUNCATE episode_evidence_manifest,evidence_quality_issue,evidence_projection_issue,
+    `TRUNCATE evidence_expected_record,episode_evidence_manifest,evidence_quality_issue,evidence_projection_issue,
+      evidence_export_ack,evidence_export_batch,
       evidence_dead_letter,evidence_source_checkpoint,evidence_outbox,evidence_export_state,
       evidence_export_configuration RESTART IDENTITY CASCADE`,
   );
@@ -36,7 +39,7 @@ afterAll(async () => {
 });
 
 describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }, () => {
-  it('cleanly retires legacy telemetry tables and creates all eight constrained authorities', async () => {
+  it('cleanly retires legacy telemetry tables and creates all nine constrained authorities', async () => {
     const result = await pool.query<{
       old_configuration: string | null;
       old_state: string | null;
@@ -59,6 +62,7 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
           'evidence_projection_issue',
           'evidence_quality_issue',
           'episode_evidence_manifest',
+          'evidence_expected_record',
         ],
       ],
     );
@@ -66,7 +70,7 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       old_configuration: null,
       old_state: null,
       old_outbox: null,
-      authority_count: 8,
+      authority_count: 9,
     });
   });
 
@@ -104,6 +108,41 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
        WHERE source_record_id='episode-rollback'`,
     );
     expect(count.rows[0]?.count).toBe('0');
+  });
+
+  it('rejects an Evidence reference that crosses tenant authority', async () => {
+    const source = createCatalogEvidenceEnvelope({
+      recordType: 'runtime.episode',
+      sourceRecordId: 'episode-tenant-a',
+      sourceRevision: '1',
+      tenantId: 'tenant-a',
+      environment: 'integration',
+      correlationId: 'correlation-tenant-a',
+      occurredAt: baseTime,
+      recordedAt: baseTime,
+      taskId: 'task-tenant-a',
+      episodeId: 'episode-tenant-a',
+      payload: { episodeId: 'episode-tenant-a', taskId: 'task-tenant-a', status: 'completed' },
+    });
+    await store.append(source, baseTime, 'runtime:episodes');
+    const crossTenant = createCatalogEvidenceEnvelope({
+      recordType: 'runtime.episode',
+      sourceRecordId: 'episode-tenant-b',
+      sourceRevision: '1',
+      tenantId: 'tenant-b',
+      environment: 'integration',
+      correlationId: 'correlation-tenant-b',
+      occurredAt: baseTime,
+      recordedAt: baseTime,
+      taskId: 'task-tenant-b',
+      episodeId: 'episode-tenant-b',
+      evidenceRefs: [source.recordId],
+      payload: { episodeId: 'episode-tenant-b', taskId: 'task-tenant-b', status: 'completed' },
+    });
+
+    await expect(store.append(crossTenant, baseTime, 'runtime:episodes')).rejects.toMatchObject({
+      code: 'EVIDENCE_REFERENCE_SCOPE_CONFLICT',
+    });
   });
 
   it('stops evidence capture at the durable high watermark without network or Runtime mutation', async () => {
@@ -316,6 +355,8 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
     await expect(
       store.saveManifest({
         manifestId: 'manifest-early',
+        revision: 1,
+        policyVersion: EPISODE_EVIDENCE_POLICY_VERSION,
         episodeId: 'episode-manifest',
         taskId: 'task-manifest',
         terminalOutcomeId: 'outcome-manifest',
@@ -332,7 +373,9 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
         lastEvidenceSequence: '0',
         status: 'complete',
         qualityIssueIds: ['projection-required-1'],
+        sourceSnapshotHash: `sha256:${'1'.repeat(64)}`,
         createdAt: baseTime,
+        recomputedAt: baseTime,
         sealedAt: baseTime,
       }),
     ).rejects.toMatchObject({ code: '23514' });
@@ -349,6 +392,7 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
   });
 
   it('recovers committed rows after a new store instance and never depends on Redis', async () => {
+    await store.applyConfiguration(configuration(100), baseTime);
     const sequence = await store.append(
       episode('episode-restart', '1'),
       baseTime,
@@ -361,7 +405,241 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
     expect(pending[0]?.envelope.sourceRecordId).toBe('episode-restart');
   });
 
-  it('rolls migration 0144 back to the immutable 0142 shape and reapplies cleanly', async () => {
+  it('recomputes exact multi-instance expectations idempotently without self-observation', async () => {
+    const episodeId = 'episode-coverage';
+    const taskId = 'task-episode-coverage';
+    await store.append(episode(episodeId, '1'), baseTime, 'runtime:coverage');
+    for (const ordinal of [1, 2]) {
+      await store.append(
+        createCatalogEvidenceEnvelope({
+          recordType: 'runtime.plan_step',
+          sourceRecordId: `step-${String(ordinal)}`,
+          sourceRevision: String(ordinal),
+          environment: 'integration',
+          correlationId: taskId,
+          occurredAt: baseTime,
+          recordedAt: baseTime,
+          taskId,
+          episodeId,
+          payload: { skillGoalId: `step-${String(ordinal)}`, ordinal, status: 'completed' },
+        }),
+        baseTime,
+        'runtime:coverage',
+      );
+    }
+    await store.append(
+      createCatalogEvidenceEnvelope({
+        recordType: 'evidence.quality_issue',
+        sourceRecordId: 'self-observation',
+        sourceRevision: '1',
+        environment: 'integration',
+        correlationId: taskId,
+        occurredAt: baseTime,
+        recordedAt: baseTime,
+        observationGeneration: 1,
+        taskId,
+        episodeId,
+        payload: {
+          issueId: 'self-observation',
+          revision: 1,
+          issueCode: 'source_identity_missing',
+          ruleId: 'sequence_gap',
+          severity: 'diagnostic',
+          episodeId,
+          recordType: 'runtime.episode',
+          recordId: 'self-record',
+          sourceSystem: 'runtime',
+          sourceTable: 'evidence_quality_issue',
+          sourceRecordId: 'self-observation',
+          detail: {},
+          createdAt: baseTime,
+          resolvedAt: null,
+        },
+      }),
+      baseTime,
+      'runtime:coverage',
+    );
+
+    const first = await store.refreshEpisodeExpectations({
+      episodeId,
+      taskId,
+      policyRecords: EPISODE_EVIDENCE_POLICY.records,
+      recomputedAt: baseTime,
+    });
+    const second = await store.refreshEpisodeExpectations({
+      episodeId,
+      taskId,
+      policyRecords: EPISODE_EVIDENCE_POLICY.records,
+      recomputedAt: '2026-08-04T03:00:01.000Z',
+    });
+    expect(
+      first.expectedRecords.filter((record) => record.recordType === 'runtime.plan_step'),
+    ).toEqual([
+      expect.objectContaining({ sourceRecordId: 'step-1', stage: 'projected_pending_export' }),
+      expect.objectContaining({ sourceRecordId: 'step-2', stage: 'projected_pending_export' }),
+    ]);
+    expect(first.expectedRecords.some((record) => record.recordFamily === 'evidence')).toBe(false);
+    expect(second.sourceSnapshotHash).toBe(first.sourceSnapshotHash);
+    const revisions = await pool.query<{ minimum: string; maximum: string }>(
+      `SELECT min(revision)::text AS minimum,max(revision)::text AS maximum
+       FROM evidence_expected_record WHERE episode_id=$1`,
+      [episodeId],
+    );
+    expect(revisions.rows[0]).toEqual({ minimum: '1', maximum: '1' });
+
+    const projectionIssueId = 'projection-task-coverage';
+    await store.recordProjectionIssue(
+      {
+        issueId: projectionIssueId,
+        issueCode: 'schema_invalid',
+        severity: 'blocking',
+        episodeId,
+        sourceSystem: 'runtime',
+        sourceTable: 'artifact_execution',
+        sourceRecordId: 'artifact-execution-coverage',
+        sourcePartition: 'v141:usage:27:artifact-execution-coverage',
+        projectorVersion: '1.4.1-phase8.2',
+        retryable: true,
+        detail: { failureStage: 'item_projection', sourceFamily: 'artifact' },
+        createdAt: '2026-08-04T03:00:02.000Z',
+      },
+      'required',
+    );
+    const blocked = await store.refreshEpisodeExpectations({
+      episodeId,
+      taskId,
+      policyRecords: EPISODE_EVIDENCE_POLICY.records,
+      recomputedAt: '2026-08-04T03:00:03.000Z',
+    });
+    expect(blocked.qualityIssues).toEqual([
+      expect.objectContaining({ issueId: projectionIssueId, severity: 'blocking' }),
+    ]);
+
+    const manifest = {
+      manifestId: 'manifest-coverage',
+      revision: 1,
+      policyVersion: EPISODE_EVIDENCE_POLICY_VERSION,
+      episodeId,
+      taskId,
+      terminalOutcomeId: 'outcome-coverage',
+      expectedRequiredRecords: 7,
+      projectedRequiredRecords: 3,
+      pendingRequiredRecords: 4,
+      failedRequiredRecords: 0,
+      expectedFamilies: ['runtime'] as const,
+      completedFamilies: [] as const,
+      missingFamilies: ['runtime'] as const,
+      sourceCoverage: {
+        runtime: { expected: 7, projected: 3, pending: 4, failed: 0 },
+      },
+      lastEvidenceSequence: '3',
+      status: 'incomplete' as const,
+      qualityIssueIds: [projectionIssueId] as const,
+      sourceSnapshotHash: blocked.sourceSnapshotHash,
+      createdAt: baseTime,
+      recomputedAt: '2026-08-04T03:00:03.000Z',
+      sealedAt: '2026-08-04T03:00:03.000Z',
+    };
+    await store.saveManifest(manifest);
+    await store.saveManifest(manifest);
+    await expect(
+      store.saveManifest({ ...manifest, revision: 2, projectedRequiredRecords: 2 }),
+    ).rejects.toMatchObject({ code: 'EVIDENCE_MANIFEST_SNAPSHOT_CONFLICT' });
+    await expect(
+      store.saveManifest({
+        ...manifest,
+        revision: 3,
+        sourceSnapshotHash: `sha256:${'f'.repeat(64)}`,
+      }),
+    ).rejects.toMatchObject({ code: 'EVIDENCE_MANIFEST_REVISION_CONFLICT' });
+    await expect(store.loadManifest(episodeId)).resolves.toMatchObject({ revision: 1 });
+  });
+
+  it('persists stable quality-rule revisions across idempotent observe, resolve, and reopen', async () => {
+    const issue = qualityIssue(
+      'stable-rule',
+      'runtime',
+      'agent_task',
+      'task-stable-rule',
+      'runtime.verification',
+    );
+    await store.recordQualityIssue(issue, 'missing_verification');
+    await store.recordQualityIssue(issue, 'missing_verification');
+    await store.resolveQualityIssue({
+      issueId: issue.issueId,
+      ruleId: 'missing_verification',
+      resolvedAt: '2026-08-04T03:01:00.000Z',
+    });
+    await store.recordQualityIssue(issue, 'missing_verification');
+    await store.resolveQualityRuleIssues({
+      ruleId: 'missing_verification',
+      retainedIssueIds: [],
+      resolvedAt: '2026-08-04T03:02:00.000Z',
+    });
+    await store.resolveQualityRuleIssues({
+      ruleId: 'missing_verification',
+      retainedIssueIds: [],
+      resolvedAt: '2026-08-04T03:03:00.000Z',
+    });
+    const persisted = await pool.query<{
+      rule_id: string;
+      revision: string;
+      resolved_at: Date | null;
+    }>(
+      `SELECT rule_id,revision::text,resolved_at FROM evidence_quality_issue
+       WHERE issue_id=$1`,
+      [issue.issueId],
+    );
+    expect(persisted.rows[0]).toEqual({
+      rule_id: 'missing_verification',
+      revision: '4',
+      resolved_at: new Date('2026-08-04T03:02:00.000Z'),
+    });
+  });
+
+  it('rolls the dependent Evidence migrations back to immutable 0142 and reapplies cleanly', async () => {
+    const recoveryDown = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0148_v14_evidence_operations_recovery.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const recoveryUp = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0148_v14_evidence_operations_recovery.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const coverageDown = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0147_v14_evidence_coverage_authority.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const coverageUp = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0147_v14_evidence_coverage_authority.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const ledgerDown = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0146_v14_evidence_export_observation_ledger.down.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const ledgerUp = await readFile(
+      new URL(
+        '../../../infra/postgres/migrations/0146_v14_evidence_export_observation_ledger.up.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
     const down = await readFile(
       new URL(
         '../../../infra/postgres/migrations/0144_v14_canonical_evidence.down.sql',
@@ -376,6 +654,25 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       ),
       'utf8',
     );
+    await pool.query(recoveryDown);
+    await pool.query(coverageDown);
+    const coverageRolledBack = await pool.query<{
+      marker_absent: boolean;
+      expectations_absent: boolean;
+      export_ledger_preserved: boolean;
+    }>(
+      `SELECT
+         NOT EXISTS(SELECT 1 FROM schema_migration
+           WHERE version='0147_v14_evidence_coverage_authority') AS marker_absent,
+         to_regclass('public.evidence_expected_record') IS NULL AS expectations_absent,
+         to_regclass('public.evidence_export_batch') IS NOT NULL AS export_ledger_preserved`,
+    );
+    expect(coverageRolledBack.rows[0]).toEqual({
+      marker_absent: true,
+      expectations_absent: true,
+      export_ledger_preserved: true,
+    });
+    await pool.query(ledgerDown);
     await pool.query(down);
     const rolledBack = await pool.query<{
       marker_absent: boolean;
@@ -394,21 +691,30 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       legacy_present: true,
     });
     await pool.query(up);
+    await pool.query(ledgerUp);
+    await pool.query(coverageUp);
+    await pool.query(recoveryUp);
     const reapplied = await pool.query<{
       marker_present: boolean;
       evidence_present: boolean;
       legacy_absent: boolean;
+      coverage_present: boolean;
+      recovery_present: boolean;
     }>(
       `SELECT
          EXISTS(SELECT 1 FROM schema_migration
            WHERE version='0144_v14_canonical_evidence') AS marker_present,
          to_regclass('public.evidence_outbox') IS NOT NULL AS evidence_present,
-         to_regclass('public.runtime_telemetry_export_outbox') IS NULL AS legacy_absent`,
+         to_regclass('public.runtime_telemetry_export_outbox') IS NULL AS legacy_absent,
+         to_regclass('public.evidence_expected_record') IS NOT NULL AS coverage_present,
+         to_regclass('public.evidence_recovery_run') IS NOT NULL AS recovery_present`,
     );
     expect(reapplied.rows[0]).toEqual({
       marker_present: true,
       evidence_present: true,
       legacy_absent: true,
+      coverage_present: true,
+      recovery_present: true,
     });
   });
 });
@@ -471,6 +777,7 @@ function qualityIssue(
     issueCode: 'reference_unresolved',
     severity: 'blocking',
     recordType,
+    episodeId: `episode-${suffix}`,
     sourceSystem,
     sourceTable,
     sourceRecordId,

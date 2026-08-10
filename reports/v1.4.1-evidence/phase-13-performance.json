@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "samples": {
+    "runtimeBaselineInterleaved": 40,
+    "runtimeEvidenceEnabled": 20,
+    "evidenceAppend": 100
+  },
+  "baselineP95Ms": 805.957,
+  "baselineBeforeMedianMs": 546.711,
+  "baselineAfterMedianMs": 634.236,
+  "baselineMedianDriftPercent": 14.823,
+  "evidenceEnabledP95Ms": 880.984,
+  "regressionPercent": 9.309,
+  "appendP95Ms": 15.576,
+  "receivedRecords": 111,
+  "boundaries": {
+    "runtimeBusinessAuthority": "real A2A -> Runtime -> PostgreSQL -> LangGraph path",
+    "evidenceDelivery": "real local HTTP batch and PostgreSQL ACK",
+    "providerModel": "deterministic local test doubles",
+    "physicalSideEffects": false,
+    "baselineMethod": "balanced rotating ABA/BAA/AAB order with a combined baseline P95 and first/last baseline median drift gate; pre-existing delivery backlog is drained before measurement"
+  }
+}

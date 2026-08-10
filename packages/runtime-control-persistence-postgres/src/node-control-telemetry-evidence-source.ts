@@ -584,14 +584,14 @@ SELECT normalized.ledger_sequence::text,normalized.record_type,
        checkpoint.last_source_record_id AS checkpoint_record_id,
        checkpoint.last_source_revision AS checkpoint_revision,
        checkpoint.projector_version AS checkpoint_projector_version,
-       COALESCE(projection_issue.created_at + interval '5 seconds' > CURRENT_TIMESTAMP,false)
+       COALESCE(projection_issue.last_observed_at + interval '5 seconds' > CURRENT_TIMESTAMP,false)
          AS in_backoff
   FROM normalized
   LEFT JOIN evidence_source_checkpoint checkpoint
     ON checkpoint.source_family='node_control'
    AND checkpoint.source_partition=normalized.evidence_source_partition
   LEFT JOIN LATERAL (
-    SELECT issue.created_at
+    SELECT issue.last_observed_at
       FROM evidence_projection_issue issue
      WHERE issue.source_system='runtime'
        AND issue.source_partition=normalized.evidence_source_partition

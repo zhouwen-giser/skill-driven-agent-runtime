@@ -84,3 +84,12 @@ getManagementOperation,GET,/api/v1/management-operations/{operationId},Operation
 cancelManagementOperation,POST,/api/v1/management-operations/{operationId}/cancel,Operations,command
 listAuditEvents,GET,/api/v1/audit-events,Audit,query
 subscribeNodeEvents,GET,/api/v1/events,Events,query
+listEvidenceOutbox,GET,/api/v1/evidence-export/outbox,EvidenceExport,query
+listEvidenceSourceCheckpoints,GET,/api/v1/evidence-export/source-checkpoints,EvidenceExport,query
+listEvidenceProjectionIssues,GET,/api/v1/evidence-export/projection-issues,EvidenceExport,query
+listEvidenceQualityIssues,GET,/api/v1/evidence-export/quality-issues,EvidenceExport,query
+getEpisodeEvidenceManifest,GET,/api/v1/evidence-export/episode-manifests/{episodeId},EvidenceExport,query
+listEvidenceDeadLetters,GET,/api/v1/evidence-export/dead-letters,EvidenceExport,query
+replayEvidence,POST,/api/v1/evidence-export/replays,EvidenceExport,command
+retryEvidenceDeadLetter,POST,/api/v1/evidence-export/dead-letters/{deadLetterId}/retry,EvidenceExport,command
+reconcileEvidenceCoverage,POST,/api/v1/evidence-export/reconcile,EvidenceExport,command

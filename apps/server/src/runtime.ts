@@ -245,7 +245,10 @@ import {
 import { Aes256GcmSecretCipher } from '../../../packages/crypto-adapter/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
+  PostgresEvidenceOperationsRepository,
   PostgresEvidenceStore,
+  PostgresEvidenceInfrastructureSource,
+  PostgresEvidenceQualityAuthoritySource,
   PostgresExperienceReplayArtifactEvidenceSource,
   PostgresMcpCapabilityEvidenceSource,
   PostgresRuntimeAgentCardRepository,
@@ -254,9 +257,17 @@ import {
   PostgresSkillEvidenceSource,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
+  CatalogValidatingEvidenceWriter,
   CanonicalEvidenceProjectionPipeline,
   ControlEnrichedMcpCapabilityEvidenceSource,
+  EpisodeEvidenceCoverageProjectionPipeline,
+  EpisodeEvidenceCoverageService,
+  EvidenceBackgroundFairnessGate,
+  EvidenceInfrastructureProjectionPipeline,
+  EvidenceInfrastructureProjector,
+  EvidenceOperationsService,
   EvidenceProjectionIssuePersistenceError,
+  EvidenceQualityEvaluator,
   ExperienceReplayArtifactEvidenceProjector,
   McpCapabilityEvidenceProjector,
   RuntimeCoreEvidenceProjector,
@@ -696,17 +707,28 @@ export async function startServerRuntime(
     actorId: 'sdar-runtime',
   });
   const evidenceStore = new PostgresEvidenceStore(pool);
+  const catalogValidatingEvidenceWriter = new CatalogValidatingEvidenceWriter({
+    delegate: evidenceStore,
+    validator: new AjvJsonSchemaValidator({ strict: false }),
+  });
+  const evidenceProjectorWriter = Object.assign(catalogValidatingEvidenceWriter, {
+    hasRecord: evidenceStore.hasRecord.bind(evidenceStore),
+    recordQualityIssue: evidenceStore.recordQualityIssue.bind(evidenceStore),
+    resolveQualityIssues: evidenceStore.resolveQualityIssues.bind(evidenceStore),
+    resolveSourceQualityIssues: evidenceStore.resolveSourceQualityIssues.bind(evidenceStore),
+    saveCheckpoint: evidenceStore.saveCheckpoint.bind(evidenceStore),
+  });
   const runtimeCoreEvidenceSource = new PostgresRuntimeCoreEvidenceSource(pool);
   const runtimeCoreEvidenceProjector = new RuntimeCoreEvidenceProjector({
     source: runtimeCoreEvidenceSource,
-    writer: evidenceStore,
+    writer: evidenceProjectorWriter,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
   });
   const skillEvidenceSource = new PostgresSkillEvidenceSource(pool);
   const skillEvidenceProjector = new SkillEvidenceProjector({
     source: skillEvidenceSource,
-    writer: evidenceStore,
+    writer: evidenceProjectorWriter,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
   });
@@ -720,7 +742,7 @@ export async function startServerRuntime(
         });
   const mcpCapabilityEvidenceProjector = new McpCapabilityEvidenceProjector({
     source: mcpCapabilityEvidenceSource,
-    writer: evidenceStore,
+    writer: evidenceProjectorWriter,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
   });
@@ -729,7 +751,7 @@ export async function startServerRuntime(
   );
   const experienceReplayArtifactEvidenceProjector = new ExperienceReplayArtifactEvidenceProjector({
     source: experienceReplayArtifactEvidenceSource,
-    writer: evidenceStore,
+    writer: evidenceProjectorWriter,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
   });
@@ -748,6 +770,48 @@ export async function startServerRuntime(
       source: experienceReplayArtifactEvidenceSource,
       projector: experienceReplayArtifactEvidenceProjector,
     },
+    clock,
+  });
+  const evidenceQualityEvaluator = new EvidenceQualityEvaluator({
+    source: new PostgresEvidenceQualityAuthoritySource(pool),
+    writer: evidenceStore,
+    clock,
+  });
+  const episodeEvidenceCoverageService = new EpisodeEvidenceCoverageService({
+    repository: evidenceStore,
+    clock,
+  });
+  const evidenceOperations = new EvidenceOperationsService({
+    repository: new PostgresEvidenceOperationsRepository(pool),
+    coverageRecovery: {
+      async reconcileEpisode(target) {
+        await episodeEvidenceCoverageService.reconcile({
+          episodeId: target.episodeId,
+          taskId: target.taskId,
+          terminalOutcomeId: target.terminalOutcomeId,
+          sealRequested: target.sealRequested,
+        });
+      },
+    },
+    clock,
+  });
+  const episodeEvidenceCoverageProjectionPipeline = new EpisodeEvidenceCoverageProjectionPipeline({
+    writer: evidenceStore,
+    source: evidenceStore,
+    reconciler: episodeEvidenceCoverageService,
+    clock,
+  });
+  const evidenceInfrastructureSource = new PostgresEvidenceInfrastructureSource(pool);
+  const evidenceInfrastructureProjector = new EvidenceInfrastructureProjector({
+    source: evidenceInfrastructureSource,
+    writer: evidenceProjectorWriter,
+    environment: options.evidenceEnvironment ?? 'runtime',
+    clock,
+  });
+  const evidenceInfrastructureProjectionPipeline = new EvidenceInfrastructureProjectionPipeline({
+    writer: evidenceStore,
+    source: evidenceInfrastructureSource,
+    projector: evidenceInfrastructureProjector,
     clock,
   });
   const cognitiveManagementActionRepository = new PostgresCognitiveManagementActionRepository(pool);
@@ -4172,17 +4236,45 @@ export async function startServerRuntime(
       });
   }, 500);
   experienceDispatchTimer.unref();
-  const drainEvidenceExportTick = async () => {
-    const maximumPartitionsPerTick = 32;
+  const foregroundTaskIsBusy = async (): Promise<boolean> => {
+    const result = await pool.query<{ busy: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM agent_task
+         WHERE phase IN (
+           'context_loading','goal_deliberation','skill_resolution',
+           'planning','executing','evaluating'
+         ) OR updated_at >= clock_timestamp() - interval '500 milliseconds'
+       ) AS busy`,
+    );
+    return result.rows[0]?.busy === true;
+  };
+  const evidenceExportFairness = new EvidenceBackgroundFairnessGate({
+    idleSliceLimit: 8,
+    busySliceLimit: 1,
+    maximumDeferralMs: 10_000,
+  });
+  const evidenceProjectionFairness = new EvidenceBackgroundFairnessGate({
+    idleSliceLimit: 8,
+    busySliceLimit: 1,
+    maximumDeferralMs: 10_000,
+  });
+  const drainEvidenceExportTick = async (
+    maximumPartitionsPerTick: number,
+    maximumRecordsPerPartition?: number,
+  ) => {
     for (let attempted = 0; attempted < maximumPartitionsPerTick; attempted += 1) {
-      const result = await evidenceExport.drain();
+      const result = await evidenceExport.drain(maximumRecordsPerPartition);
       if (result.attemptedPartition === undefined || result.delivered === 0) return;
     }
   };
   let evidenceExportInFlight: Promise<void> | undefined;
   const evidenceExportTimer = setInterval(() => {
     if (evidenceExportInFlight !== undefined) return;
-    evidenceExportInFlight = drainEvidenceExportTick()
+    evidenceExportInFlight = (async () => {
+      const foregroundBusy = await foregroundTaskIsBusy();
+      const sliceLimit = evidenceExportFairness.grant(foregroundBusy, Date.now());
+      if (sliceLimit > 0) await drainEvidenceExportTick(sliceLimit, foregroundBusy ? 1 : 16);
+    })()
       .catch((error: unknown) => {
         process.stderr.write(
           `${JSON.stringify({ event: 'evidence_export.delivery_failed', errorCode: runtimeErrorCode(error) })}\n`,
@@ -4193,10 +4285,92 @@ export async function startServerRuntime(
       });
   }, 1_000);
   evidenceExportTimer.unref();
+  let evidenceOperationsMaintenanceInFlight: Promise<void> | undefined;
+  let lastEvidenceRetentionBucket: string | undefined;
+  const maintainEvidenceOperations = async (): Promise<void> => {
+    let recoveryResumeSucceeded = false;
+    let retentionRunStillRunning = false;
+    try {
+      const recovered = await evidenceOperations.resumeRecoveryRuns(20);
+      recoveryResumeSucceeded = true;
+      retentionRunStillRunning = recovered.some(
+        (run) => run.operation === 'apply_retention' && run.status === 'running',
+      );
+      const failedRecoveryRuns = recovered.filter((run) => run.status === 'failed');
+      if (failedRecoveryRuns.length > 0) {
+        process.stderr.write(
+          `${JSON.stringify({
+            event: 'evidence_operations.recovery_failed',
+            recoveryRunIds: failedRecoveryRuns.map((run) => run.recoveryRunId),
+          })}\n`,
+        );
+      }
+    } catch (error: unknown) {
+      process.stderr.write(
+        `${JSON.stringify({
+          event: 'evidence_operations.resume_failed',
+          errorCode: runtimeErrorCode(error),
+        })}\n`,
+      );
+    }
+
+    // Finish the previously committed bounded retention run before scheduling a new daily run.
+    if (!recoveryResumeSucceeded || retentionRunStillRunning) return;
+    try {
+      const configuration = await evidenceOperations.configuration();
+      if (!configuration?.isActive) return;
+      const requestedAt = clock.now();
+      const retentionBucket = requestedAt.slice(0, 10);
+      const retentionScope = `${configuration.exportId}:${String(configuration.revision)}:${retentionBucket}`;
+      if (retentionScope === lastEvidenceRetentionBucket) return;
+      const retentionIdentity = createHash('sha256').update(retentionScope).digest('hex');
+      const result = await evidenceOperations.applyRetention({
+        operationId: `evidence-retention:${retentionIdentity}`,
+        idempotencyKeyHash: `sha256:${retentionIdentity}`,
+        actorId: 'sdar-runtime',
+        reason: 'scheduled canonical Evidence diagnostic retention',
+        requestedAt,
+      });
+      lastEvidenceRetentionBucket = retentionScope;
+      if (result.status === 'failed') {
+        process.stderr.write(
+          `${JSON.stringify({
+            event: 'evidence_operations.retention_failed',
+            recoveryRunId: result.recoveryRunId,
+            errorCode: result.errorCode,
+          })}\n`,
+        );
+      }
+    } catch (error: unknown) {
+      process.stderr.write(
+        `${JSON.stringify({
+          event: 'evidence_operations.retention_failed',
+          errorCode: runtimeErrorCode(error),
+        })}\n`,
+      );
+    }
+  };
+  const scheduleEvidenceOperationsMaintenance = (): void => {
+    if (evidenceOperationsMaintenanceInFlight !== undefined) return;
+    evidenceOperationsMaintenanceInFlight = maintainEvidenceOperations().finally(() => {
+      evidenceOperationsMaintenanceInFlight = undefined;
+    });
+  };
+  await maintainEvidenceOperations();
+  const evidenceOperationsMaintenanceTimer = setInterval(
+    scheduleEvidenceOperationsMaintenance,
+    1_000,
+  );
+  evidenceOperationsMaintenanceTimer.unref();
   let runtimeCoreEvidenceProjection: Promise<void> | undefined;
   const runtimeCoreEvidenceProjectionTimer = setInterval(() => {
     if (runtimeCoreEvidenceProjection !== undefined) return;
     runtimeCoreEvidenceProjection = (async () => {
+      const canonicalDrainLimit = evidenceProjectionFairness.grant(
+        await foregroundTaskIsBusy(),
+        Date.now(),
+      );
+      if (canonicalDrainLimit === 0) return;
       const projectionClient = await pool.connect();
       try {
         const lease = await projectionClient.query<{ acquired: boolean }>(
@@ -4206,14 +4380,60 @@ export async function startServerRuntime(
         );
         if (lease.rows[0]?.acquired !== true) return;
         try {
-          const result = await canonicalEvidenceProjectionPipeline.drain(10);
-          if (result.failedItems > 0 || result.sourceListingFailures > 0) {
+          let canonicalAttemptedItems = 0;
+          let canonicalFailedItems = 0;
+          let canonicalSourceListingFailures = 0;
+          let canonicalDurableIssueCount = 0;
+          let canonicalQuiescent = false;
+          for (let round = 0; round < canonicalDrainLimit; round += 1) {
+            const result = await canonicalEvidenceProjectionPipeline.drain(10);
+            canonicalAttemptedItems += result.attemptedItems;
+            canonicalFailedItems += result.failedItems;
+            canonicalSourceListingFailures += result.sourceListingFailures;
+            canonicalDurableIssueCount += result.openIssueIds.length;
+            if (result.sourceListingFailures > 0) break;
+            if (result.attemptedItems === 0) {
+              canonicalQuiescent = true;
+              break;
+            }
+          }
+          if (
+            !canonicalQuiescent ||
+            canonicalFailedItems > 0 ||
+            canonicalSourceListingFailures > 0
+          ) {
+            process.stderr.write(
+              `${JSON.stringify({
+                event: 'evidence_projection.seal_deferred',
+                reason:
+                  canonicalSourceListingFailures > 0
+                    ? 'source_listing_failed'
+                    : canonicalFailedItems > 0
+                      ? 'projection_failed'
+                      : 'canonical_backlog_not_quiescent',
+                attemptedItems: canonicalAttemptedItems,
+                failedItems: canonicalFailedItems,
+                sourceListingFailures: canonicalSourceListingFailures,
+                durableIssueCount: canonicalDurableIssueCount,
+              })}\n`,
+            );
+            return;
+          }
+
+          await evidenceQualityEvaluator.evaluate();
+          const coverageResult = await episodeEvidenceCoverageProjectionPipeline.drain(10);
+          const infrastructureResult = await evidenceInfrastructureProjectionPipeline.drain(25);
+          const failedItems = coverageResult.failedItems + infrastructureResult.failedItems;
+          const sourceListingFailures =
+            coverageResult.sourceListingFailures + infrastructureResult.sourceListingFailures;
+          if (failedItems > 0 || sourceListingFailures > 0) {
             process.stderr.write(
               `${JSON.stringify({
                 event: 'evidence_projection.items_deferred',
-                failedItems: result.failedItems,
-                sourceListingFailures: result.sourceListingFailures,
-                durableIssueCount: result.openIssueIds.length,
+                failedItems,
+                sourceListingFailures,
+                durableIssueCount:
+                  coverageResult.openIssueIds.length + infrastructureResult.openIssueIds.length,
               })}\n`,
             );
           }
@@ -4244,7 +4464,7 @@ export async function startServerRuntime(
       .finally(() => {
         runtimeCoreEvidenceProjection = undefined;
       });
-  }, 1_000);
+  }, 2_000);
   runtimeCoreEvidenceProjectionTimer.unref();
   const worker = new BullMqContextWorker({
     connection: options.redis,
@@ -4601,6 +4821,7 @@ export async function startServerRuntime(
               bearerToken: options.runtimeControlServiceToken,
               skills: runtimeSkillGovernance,
               evidenceExport,
+              evidenceOperations,
               actorId: 'sdar-node-control',
               ...(options.runtimeControlArtifactPrincipalResolver === undefined
                 ? {}
@@ -4769,6 +4990,7 @@ export async function startServerRuntime(
         clearInterval(capabilityCatalogRefreshTimer);
         clearInterval(experienceDispatchTimer);
         clearInterval(evidenceExportTimer);
+        clearInterval(evidenceOperationsMaintenanceTimer);
         clearInterval(runtimeCoreEvidenceProjectionTimer);
         if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
         if (remoteTaskContinuationReconcileTimer !== undefined)
@@ -4809,6 +5031,7 @@ export async function startServerRuntime(
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
         await evidenceExportInFlight;
+        await evidenceOperationsMaintenanceInFlight;
         await runtimeCoreEvidenceProjection;
         await pool.end();
         if (backgroundExecutionErrors.length > 0) {
@@ -4825,6 +5048,7 @@ export async function startServerRuntime(
     clearInterval(capabilityCatalogRefreshTimer);
     clearInterval(experienceDispatchTimer);
     clearInterval(evidenceExportTimer);
+    clearInterval(evidenceOperationsMaintenanceTimer);
     clearInterval(runtimeCoreEvidenceProjectionTimer);
     if (remoteTaskReconcileTimer !== undefined) clearInterval(remoteTaskReconcileTimer);
     if (remoteTaskContinuationReconcileTimer !== undefined)
@@ -4859,6 +5083,7 @@ export async function startServerRuntime(
     await artifactShadowRuntime?.revalidationQueue.close();
     await queue.close();
     await evidenceExportInFlight;
+    await evidenceOperationsMaintenanceInFlight;
     await runtimeCoreEvidenceProjection;
     await pool.end();
     throw error;

@@ -1,5 +1,15 @@
 # Release Checklist
 
+## v1.4.1 Canonical Evidence release addendum
+
+- [x] Contract, 100-record Catalog, schemas, hashes, Matrix and policies are frozen.
+- [x] Required Source Coverage is 95/95 with no Required deferred item.
+- [x] Phase 12 vertical acceptance is 44/44 and Phase 13 adversarial Review is clean.
+- [x] ClickHouse handoff is adapter-only and contains no DDL/query/authority implementation.
+- [x] Final exact-tree `pnpm verify` passes; `14-final-acceptance.{md,json}` is published with the final publication commit.
+- [ ] Current branch is committed and pushed; PR is Ready for Review.
+- [ ] Merge, tag, release and deploy remain unperformed.
+
 - [x] Clean checkout installs successfully. Evidence: `reports/EP-07-hardening-acceptance/V1-CLEAN-CHECKOUT.{md,json}`.
 - [x] Database migrations pass from empty and prior baseline. Evidence: `reports/EP-07-hardening-acceptance/V1-MIGRATION-PATH.{md,json}`.
 - [x] `pnpm verify` passes. Evidence: `reports/verification/summary.{md,json}`.
@@ -33,12 +43,12 @@ The RC checklist is complete. Do not create or announce stable `v1.1.0` until PR
 ## v1.2 Skill usage final addendum
 
 - [x] Package metadata, CHANGELOG, architecture/domain/DSL/API, ADR index, DoD, traceability, known
-  gaps, operations and release documentation describe v1.2 exact-version usage.
+      gaps, operations and release documentation describe v1.2 exact-version usage.
 - [x] Phase 1–14 reports and trace rows are verified; Phase 14 has zero open required findings.
 - [x] Formal move-to and recursive area-patrol acceptance cover all required modes, Provider states,
-  composition/failure semantics, remote waits, input, cancel, restart, hard gates and evidence trees.
+      composition/failure semantics, remote waits, input, cancel, restart, hard gates and evidence trees.
 - [x] Real local versus simulated versus externally unverified evidence is explicitly classified;
-  external production Provider interoperability is a limitation, not claimed evidence.
+      external production Provider interoperability is a limitation, not claimed evidence.
 - [x] Every explicit Phase 15 command and the final clean `pnpm verify` pass on `b3b6e67`.
 - [x] `15-final-acceptance.{md,json}` records no required deferred item and is committed and pushed.
 - [x] PR #5 is updated and marked Ready for Review; merge remains a separate protected action.

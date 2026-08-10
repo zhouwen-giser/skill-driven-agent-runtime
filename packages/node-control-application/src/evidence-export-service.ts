@@ -142,7 +142,7 @@ export class NodeControlEvidenceExportService {
       targetId: this.#nodeId,
       revision,
       status: runtime.status === 'succeeded' ? 'applied' : 'rejected',
-      observedRuntimeVersion: '1.4.0',
+      observedRuntimeVersion: '1.4.1',
       ...(runtime.status === 'succeeded'
         ? { activeChecksum: current.checksum }
         : { reasonCode: runtime.errorCode ?? 'EVIDENCE_EXPORT_APPLY_REJECTED' }),

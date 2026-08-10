@@ -2,7 +2,7 @@
   "package": "SDAR_v1.4_Node_Control_Backend_接口协议冻结基线",
   "version": "1.0.0",
   "status": "PROTOCOL_DESIGN_FROZEN_IMPLEMENTATION_PENDING",
-  "generatedAt": "2026-08-04T03:00:00.000Z",
+  "generatedAt": "2026-08-09T23:22:14.135Z",
   "contracts": {
     "nodeControlApi": "1.0.0",
     "runtimeControl": "1.0.0",
@@ -21,12 +21,12 @@
     "evidenceExport": true,
     "organizationPlatform": false
   },
-  "validation": "PASS\njson_schemas=28\noperation_ids=111\nevent_messages=20\nfixtures=7",
+  "validation": "PASS\njson_schemas=29\noperation_ids=131\nevent_messages=20\nfixtures=7",
   "counts": {
-    "files": 76,
-    "schemas": 28,
-    "publicOperations": 85,
-    "internalOperations": 26,
+    "files": 77,
+    "schemas": 29,
+    "publicOperations": 94,
+    "internalOperations": 37,
     "events": 20
   },
   "files": [
@@ -47,13 +47,13 @@
     },
     {
       "path": "03-node-control-api-profile.md",
-      "size": 691,
-      "sha256": "1e7e77cff33cfedac345f223b31fc8085fe9e88eaca5070e8e9c3aac58ef04fb"
+      "size": 1116,
+      "sha256": "c53fb66d779761fe2f85aa529eaa0bb98416e2b7988818c38893b58f535638a1"
     },
     {
       "path": "04-runtime-control-contract.md",
-      "size": 789,
-      "sha256": "348443b54ee037a0c8380a9a38ab26562abfcc1d7f2c94304707f89165b85918"
+      "size": 1561,
+      "sha256": "5f5ce88a6b79d42e370b39a42816e4ac97fdea20f36e1bc2c15e8bd9bf350652"
     },
     {
       "path": "05-node-events-contract.md",
@@ -62,8 +62,8 @@
     },
     {
       "path": "06-evidence-export-contract.md",
-      "size": 1347,
-      "sha256": "b101e8bc20715534960e85620a02b3f5cff362e8e8e76c90a7028991269bb113"
+      "size": 2841,
+      "sha256": "628fb7003952e47d60f3906759af6269d1e8e6dab6fb0b96fb38222f0365a002"
     },
     {
       "path": "07-versioning-concurrency-idempotency.md",
@@ -72,8 +72,8 @@
     },
     {
       "path": "08-security-rbac-and-secrets.md",
-      "size": 725,
-      "sha256": "ef34369f84dd4a499b78b6e2b60ea84158967c1491db34497d676b51cad72fef"
+      "size": 1230,
+      "sha256": "fbb28134c5b9d89db6e6ee7ce7c0973278193d04d20cee94edba612d7430cefc"
     },
     {
       "path": "09-error-and-operation-semantics.md",
@@ -108,7 +108,7 @@
     {
       "path": "VALIDATION.txt",
       "size": 68,
-      "sha256": "ad4a7abf4e5bc8335766d48ce6d52cf77ee3613fbc1295b4fe199a0a1abee2f8"
+      "sha256": "8755e0d3af4e9be2e1480f218490c1c1a7ab6607f38e5d9a146499b6e4c73c4c"
     },
     {
       "path": "adr/ADR-NCB-001-headless-backend.md",
@@ -187,8 +187,8 @@
     },
     {
       "path": "contracts/evidence-export-contract.yaml",
-      "size": 654,
-      "sha256": "f4b2be20a18ed89b9222f2970cd3ac026023d3b3238452ac1d660bc8a8faa75f"
+      "size": 1008,
+      "sha256": "01003d0875390833f44254de35c1bcee14ff921c49b6c388f71c1981bdb9b184"
     },
     {
       "path": "fixtures/degraded/capability-readiness.json",
@@ -232,13 +232,13 @@
     },
     {
       "path": "matrices/operation-inventory.csv",
-      "size": 7116,
-      "sha256": "acd90e09cbd76bf842ce7f86ec543c534cb84d3d7f23d87dfdd56ae7e9186f8b"
+      "size": 7940,
+      "sha256": "150e74baa085a965fd7130d334d858c6af14d816ff4c3ce6ba199b0f9ce81c3e"
     },
     {
       "path": "matrices/rbac-matrix.csv",
-      "size": 765,
-      "sha256": "b6d756c900a1b3e86a160cf683cc1903c59f652adc2271463582928b867bbf20"
+      "size": 1014,
+      "sha256": "74d3b5bad5eebf3cca7520af3daf24a7acad93b71c78f4790a4075d2930e538a"
     },
     {
       "path": "matrices/traceability.csv",
@@ -247,13 +247,13 @@
     },
     {
       "path": "openapi/node-control.openapi.yaml",
-      "size": 201879,
-      "sha256": "755fb868e4aec125c92bd44a3a4c7eb95f62b14ec7394d814d80830733cf9a90"
+      "size": 211939,
+      "sha256": "870a7451b84410fe6979ac2e773dd42ba63e545dfe45899afc493b56010a6fde"
     },
     {
       "path": "openapi/runtime-control.openapi.yaml",
-      "size": 55814,
-      "sha256": "220339bfb4316ed2acde7cd50d70ac447e6609f0a61188f6e5913dd0621df62d"
+      "size": 66338,
+      "sha256": "d9f250a8f057eab5d9d5dc77088faf0fc525835804f8f3ad8fdb7fca18e66aba"
     },
     {
       "path": "schemas/a2a-exposure-version.schema.json",
@@ -391,14 +391,19 @@
       "sha256": "3c3206e6ab4d1beb9ce5cd6d4c9475cae73e42545c2ea7c9b77eea6ddff74608"
     },
     {
+      "path": "schemas/evidence-operations.schema.json",
+      "size": 21480,
+      "sha256": "6eb2adf6d3d648042ec0fac03a587fae784c968b213d8f3acac8d3c691dcc815"
+    },
+    {
       "path": "schemas/well-known-node.schema.json",
       "size": 1431,
       "sha256": "689493574ed7441ec8c938b65f474e7971f2480338ec53650c2456cca8dc5106"
     },
     {
       "path": "scripts/validate_freeze.py",
-      "size": 3360,
-      "sha256": "641e0cb357ea1941902aa104a4906d13d825f65b85b731111e34bd3a2fb392aa"
+      "size": 8168,
+      "sha256": "a036c331621c8bfe48e9e8fcc2fbd57a3bf3c03bc6ef8bd3e7007fa2bd52d7d1"
     },
     {
       "path": "source-alignment/SDAR_v1.3_alignment.md",

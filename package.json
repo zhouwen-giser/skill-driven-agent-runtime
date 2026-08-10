@@ -1,6 +1,6 @@
 {
   "name": "skill-driven-agent-runtime",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "author": "zhouwen",
   "license": "Apache-2.0",
   "private": true,
@@ -19,12 +19,15 @@
     "demo:client": "tsx apps/example-a2a-client/src/main.ts",
     "demo:local": "node scripts/run-local-demo.mjs",
     "demo:acceptance": "node scripts/run-local-demo.mjs",
+    "demo:evidence-e2e": "node scripts/run-v141-evidence-e2e.mjs",
     "verify:architecture": "node scripts/check-architecture.mjs",
     "verify:a2a-baseline": "node scripts/verify-a2a-baseline.mjs",
     "verify:management-openapi": "node scripts/check-management-openapi.mjs",
     "verify:node-control-contract": "node scripts/verify-node-control-contract.mjs",
     "generate:evidence-contract": "tsx scripts/generate-v141-evidence-contract.mts",
+    "generate:evidence-handoff": "tsx scripts/generate-v141-clickhouse-handoff.mts",
     "verify:evidence-contract": "tsx scripts/verify-v141-evidence-contract.mts",
+    "verify:evidence-coverage": "node scripts/verify-v141-evidence-coverage.mjs",
     "verify:acceptance": "node scripts/verify-acceptance-map.mjs",
     "verify:cognitive-replay": "node scripts/run-cognitive-replay.mjs --check",
     "verify:protocol": "node protocol/scripts/verify-protocol-package.mjs",
@@ -64,7 +67,7 @@
     "verify:project-license": "node scripts/verify-project-license.mjs",
     "verify:infra": "node scripts/verify-compose.mjs && node scripts/verify-compose-config.mjs",
     "verify:sources": "node scripts/check-sources-lock.mjs",
-    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && pnpm test:unit && pnpm test:contract && node scripts/check-architecture.mjs && node scripts/verify-a2a-baseline.mjs && node scripts/check-management-openapi.mjs && node scripts/verify-node-control-contract.mjs && node scripts/verify-acceptance-map.mjs && node scripts/check-sources-lock.mjs && node protocol/scripts/verify-protocol-package.mjs && node scripts/verify-compose.mjs && node scripts/verify-project-license.mjs && node scripts/generate-sbom.mjs --check && node scripts/verify-compose-config.mjs && tsc -p tsconfig.build.json && pnpm --dir apps/console build",
+    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && pnpm test:unit && pnpm test:contract && pnpm verify:evidence-contract && pnpm verify:evidence-coverage && node scripts/check-architecture.mjs && node scripts/verify-a2a-baseline.mjs && node scripts/check-management-openapi.mjs && node scripts/verify-node-control-contract.mjs && node scripts/verify-acceptance-map.mjs && node scripts/check-sources-lock.mjs && node protocol/scripts/verify-protocol-package.mjs && node scripts/verify-compose.mjs && node scripts/verify-project-license.mjs && node scripts/generate-sbom.mjs --check && node scripts/verify-compose-config.mjs && tsc -p tsconfig.build.json && pnpm --dir apps/console build",
     "verify": "node scripts/verify-full.mjs"
   },
   "dependencies": {

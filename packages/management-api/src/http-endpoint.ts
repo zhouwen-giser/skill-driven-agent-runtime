@@ -16,7 +16,11 @@ import {
   type ManagementOperation,
   type ManagedEvidenceExportConfiguration,
 } from '../../node-control-domain/src/index.js';
-import type { RuntimeEvidenceExportService } from '../../runtime-control-application/src/index.js';
+import type {
+  EvidenceOperationsPageQuery,
+  EvidenceOperationsService,
+  RuntimeEvidenceExportService,
+} from '../../runtime-control-application/src/index.js';
 
 import type {
   McpRegistryService,
@@ -876,6 +880,19 @@ export interface ManagementHttpEndpointHandle {
   close(): Promise<void>;
 }
 
+type RuntimeEvidenceOperationsSurface = Pick<
+  EvidenceOperationsService,
+  | 'configuration'
+  | 'status'
+  | 'outbox'
+  | 'checkpoints'
+  | 'projectionIssues'
+  | 'qualityIssues'
+  | 'manifest'
+  | 'deadLetters'
+  | 'recover'
+>;
+
 interface RuntimeControlRouteOptions {
   readonly artifactManagement?: Readonly<{
     queries: ArtifactManagementQueryService;
@@ -886,6 +903,7 @@ interface RuntimeControlRouteOptions {
     bearerToken: string;
     skills: RuntimeSkillGovernanceService;
     evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
+    evidenceOperations?: RuntimeEvidenceOperationsSurface;
     actorId?: string;
     artifactPrincipalResolver?: ManagementPrincipalResolver;
   }>;
@@ -908,6 +926,7 @@ export async function startManagementHttpEndpoint(
       bearerToken: string;
       skills: RuntimeSkillGovernanceService;
       evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
+      evidenceOperations?: RuntimeEvidenceOperationsSurface;
       actorId?: string;
       artifactPrincipalResolver?: ManagementPrincipalResolver;
     }>;
@@ -3260,6 +3279,146 @@ function registerRuntimeControlGovernanceRoutes(
   app: express.Express,
   options: RuntimeControlRouteOptions,
 ): void {
+  app.get(
+    '/internal/v1/evidence-export/operations/configuration',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const configuration = await requiredRuntimeEvidenceOperations(
+        runtime.evidenceOperations,
+      ).configuration();
+      response.status(200).json(configuration ?? null);
+    }),
+  );
+  app.get(
+    '/internal/v1/evidence-export/operations/status',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(200)
+        .json(await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).status());
+    }),
+  );
+  app.get(
+    '/internal/v1/evidence-export/operations/outbox',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(200)
+        .json(
+          await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).outbox(
+            parseRuntimeEvidenceOperationsPageQuery(request.query),
+          ),
+        );
+    }),
+  );
+  app.get(
+    '/internal/v1/evidence-export/operations/source-checkpoints',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(200)
+        .json(
+          await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).checkpoints(
+            parseRuntimeEvidenceOperationsPageQuery(request.query),
+          ),
+        );
+    }),
+  );
+  app.get(
+    '/internal/v1/evidence-export/operations/projection-issues',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(200)
+        .json(
+          await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).projectionIssues(
+            parseRuntimeEvidenceOperationsPageQuery(request.query),
+          ),
+        );
+    }),
+  );
+  app.get(
+    '/internal/v1/evidence-export/operations/quality-issues',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(200)
+        .json(
+          await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).qualityIssues(
+            parseRuntimeEvidenceOperationsPageQuery(request.query),
+          ),
+        );
+    }),
+  );
+  app.get(
+    '/internal/v1/evidence-export/operations/episode-manifests/:episodeId',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const episodeId = EvidenceOperationsIdentifierSchema.parse(request.params['episodeId']);
+      const manifest = await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).manifest(
+        episodeId,
+      );
+      response.status(200).json(manifest ?? null);
+    }),
+  );
+  app.get(
+    '/internal/v1/evidence-export/operations/dead-letters',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(200)
+        .json(
+          await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).deadLetters(
+            parseRuntimeEvidenceOperationsPageQuery(request.query),
+          ),
+        );
+    }),
+  );
+  app.post(
+    '/internal/v1/evidence-export/operations/replays',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      response
+        .status(202)
+        .json(
+          await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).recover(
+            EvidenceReplayRequestSchema.parse(request.body),
+          ),
+        );
+    }),
+  );
+  app.post(
+    '/internal/v1/evidence-export/operations/dead-letters/:deadLetterId/retry',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const body = EvidenceRecoveryRequestBaseSchema.parse(request.body);
+      response.status(202).json(
+        await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).recover({
+          ...body,
+          operation: 'retry_dead_letter',
+          deadLetterId: EvidenceOperationsIdentifierSchema.parse(request.params['deadLetterId']),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/internal/v1/evidence-export/operations/reconcile',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const body = EvidenceCoverageReconcileRequestSchema.parse(request.body);
+      response.status(202).json(
+        await requiredRuntimeEvidenceOperations(runtime.evidenceOperations).recover({
+          operation: 'reconcile_coverage',
+          operationId: body.operationId,
+          idempotencyKeyHash: body.idempotencyKeyHash,
+          actorId: body.actorId,
+          reason: body.reason,
+          requestedAt: body.requestedAt,
+          ...(body.episodeId === undefined ? {} : { episodeId: body.episodeId }),
+        }),
+      );
+    }),
+  );
   app.post(
     '/internal/v1/evidence-export/apply',
     asyncRoute(async (request, response) => {
@@ -3435,6 +3594,62 @@ function registerRuntimeControlGovernanceRoutes(
   }
 }
 
+const EvidenceOperationsIdentifierSchema = z.string().trim().min(1).max(512);
+const EvidenceOperationsSha256Schema = z
+  .string()
+  .regex(/^sha256:[a-f0-9]{64}$/u)
+  .transform((value) => value as `sha256:${string}`);
+const EvidenceOperationsPageQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(200).default(100),
+    cursor: z.string().trim().min(1).max(2_048).optional(),
+    episodeId: EvidenceOperationsIdentifierSchema.optional(),
+    sourcePartition: z.string().trim().min(1).max(2_048).optional(),
+    openOnly: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+  })
+  .strict();
+const EvidenceRecoveryRequestBaseSchema = z
+  .object({
+    operationId: EvidenceOperationsIdentifierSchema,
+    idempotencyKeyHash: EvidenceOperationsSha256Schema,
+    actorId: z.string().trim().min(1).max(512),
+    reason: z.string().trim().min(1).max(2_048),
+    requestedAt: z.iso.datetime({ offset: true }),
+  })
+  .strict();
+const EvidenceReplayRequestSchema = z.discriminatedUnion('operation', [
+  EvidenceRecoveryRequestBaseSchema.extend({
+    operation: z.literal('replay_record'),
+    recordId: EvidenceOperationsIdentifierSchema,
+  }),
+  EvidenceRecoveryRequestBaseSchema.extend({
+    operation: z.literal('replay_source_partition'),
+    sourceFamily: EvidenceOperationsIdentifierSchema,
+    sourcePartition: z.string().trim().min(1).max(2_048),
+  }),
+  EvidenceRecoveryRequestBaseSchema.extend({
+    operation: z.literal('replay_episode'),
+    episodeId: EvidenceOperationsIdentifierSchema,
+  }),
+]);
+const EvidenceCoverageReconcileRequestSchema = EvidenceRecoveryRequestBaseSchema.extend({
+  episodeId: EvidenceOperationsIdentifierSchema.optional(),
+});
+
+function parseRuntimeEvidenceOperationsPageQuery(value: unknown): EvidenceOperationsPageQuery {
+  const parsed = EvidenceOperationsPageQuerySchema.parse(value);
+  return Object.freeze({
+    limit: parsed.limit,
+    ...(parsed.cursor === undefined ? {} : { cursor: parsed.cursor }),
+    ...(parsed.episodeId === undefined ? {} : { episodeId: parsed.episodeId }),
+    ...(parsed.sourcePartition === undefined ? {} : { sourcePartition: parsed.sourcePartition }),
+    ...(parsed.openOnly === undefined ? {} : { openOnly: parsed.openOnly }),
+  });
+}
+
 const RuntimeControlCommandSchema = z
   .object({
     reason: z.string().trim().min(1).max(1_024),
@@ -3555,6 +3770,17 @@ function requiredRuntimeEvidenceExport(
   if (value === undefined)
     throw Object.assign(new Error('Evidence Export runtime is unavailable.'), {
       code: 'RUNTIME_EVIDENCE_EXPORT_UNAVAILABLE',
+      status: 503,
+    });
+  return value;
+}
+
+function requiredRuntimeEvidenceOperations(
+  value: NonNullable<RuntimeControlRouteOptions['runtimeControl']>['evidenceOperations'],
+): RuntimeEvidenceOperationsSurface {
+  if (value === undefined)
+    throw Object.assign(new Error('Evidence operations runtime is unavailable.'), {
+      code: 'RUNTIME_EVIDENCE_OPERATIONS_UNAVAILABLE',
       status: 503,
     });
   return value;

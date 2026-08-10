@@ -162,6 +162,7 @@ describe('Frozen MCP local component conformance', () => {
   it('re-authorizes subscription interests at Notification send time', async () => {
     frozen = await startFrozenMcpTasksMockProvider({
       moveTo: { outcome: 'remote_notification_success' },
+      notificationDelayMs: 100,
     });
     const client = new FrozenV1McpClient();
     const lifecycle = lifecycleClient(client, frozen.endpoint);

@@ -83,7 +83,7 @@ export class PostgresNodeControlEventRepository implements NodeControlEventRepos
               causation_id,actor_id,data_classification,payload
          FROM sdar_control.node_event_outbox
         WHERE sequence>$1::bigint
-        ORDER BY sequence
+        ORDER BY sdar_control.node_event_outbox.sequence
         LIMIT $2`,
       [afterSequence, limit],
     );

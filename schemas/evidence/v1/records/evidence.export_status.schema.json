@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.sdar.local/evidence/v1/records/evidence.export_status.schema.json",
   "title": "evidence.export_status canonical evidence record",
-  "description": "Canonical evidence.export_status evidence projected from Runtime PostgreSQL evidence_export_state.",
+  "description": "Canonical evidence.export_status evidence projected from Runtime PostgreSQL evidence_export_batch + evidence_export_ack[generation0-derived].",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -48,7 +48,7 @@
     "recordType": { "const": "evidence.export_status" },
     "recordId": { "type": "string", "pattern": "^evidence_[0-9a-f]{64}$" },
     "sourceSystem": { "const": "runtime" },
-    "sourceTable": { "const": "evidence_export_state" },
+    "sourceTable": { "const": "evidence_export_batch + evidence_export_ack[generation0-derived]" },
     "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 },
     "environment": { "type": "string", "minLength": 1, "maxLength": 256 },
@@ -73,15 +73,119 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 17,
       "maxProperties": 128,
-      "required": ["exportId", "sourcePartition", "lastAcknowledgedSequence"],
+      "required": [
+        "exportId",
+        "sourcePartition",
+        "batchId",
+        "configurationRevision",
+        "firstSequence",
+        "lastSequence",
+        "batchHash",
+        "recordCount",
+        "attemptNo",
+        "status",
+        "recordedAt",
+        "ackId",
+        "acknowledgedSequence",
+        "ackDisposition",
+        "errorCode",
+        "acknowledgedAt",
+        "observedAt"
+      ],
       "properties": {
         "exportId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "sourcePartition": { "$ref": "#/$defs/evidenceValue" },
-        "lastAcknowledgedSequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "batchId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "configurationRevision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "firstSequence": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" },
+        "lastSequence": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" },
+        "batchHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "recordCount": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "attemptNo": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "status": { "type": "string", "enum": ["attempted", "acknowledged", "rejected"] },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "ackId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "acknowledgedSequence": {
+          "oneOf": [{ "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" }, { "type": "null" }]
+        },
+        "ackDisposition": {
+          "oneOf": [
+            { "type": "string", "enum": ["accepted", "partial", "rejected"] },
+            { "type": "null" }
+          ]
+        },
+        "errorCode": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "acknowledgedAt": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        },
+        "observedAt": { "type": "string", "format": "date-time" }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "status",
+            "ackId",
+            "acknowledgedSequence",
+            "ackDisposition",
+            "errorCode",
+            "acknowledgedAt"
+          ],
+          "properties": {
+            "status": { "const": "attempted" },
+            "ackId": { "const": null },
+            "acknowledgedSequence": { "const": null },
+            "ackDisposition": { "const": null },
+            "errorCode": { "const": null },
+            "acknowledgedAt": { "const": null }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "status",
+            "ackId",
+            "acknowledgedSequence",
+            "ackDisposition",
+            "errorCode",
+            "acknowledgedAt"
+          ],
+          "properties": {
+            "status": { "const": "acknowledged" },
+            "ackId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "acknowledgedSequence": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" },
+            "ackDisposition": { "type": "string", "enum": ["accepted", "partial"] },
+            "errorCode": { "const": null },
+            "acknowledgedAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "status",
+            "ackId",
+            "acknowledgedSequence",
+            "ackDisposition",
+            "errorCode",
+            "acknowledgedAt"
+          ],
+          "properties": {
+            "status": { "const": "rejected" },
+            "ackId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "acknowledgedSequence": { "const": null },
+            "ackDisposition": { "const": "rejected" },
+            "errorCode": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "acknowledgedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
     },
     "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },

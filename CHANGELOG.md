@@ -2,7 +2,15 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
-## SDAR v1.4.1 Canonical Evidence Export (in progress)
+## SDAR v1.4.1 Canonical Evidence Export (Phase 14 publication pending)
+
+- Passed the final ten-stage `pnpm verify` in 1,213,445 ms: 1,305 static Unit/performance/Contract
+  assertions, 41 Runtime plus 9 Control migrations, 175 Integration tests, 73 E2E tests, official
+  A2A HTTP+JSON/MUST TCK, 44-scenario Canonical Evidence demo and all infrastructure, Server and
+  Node Control smokes.
+- Froze the downstream ClickHouse adapter handoff at 100/100 Catalog mappings, 95/95 Required,
+  5/5 Diagnostic, zero Required deferred items and `fullVerify=passed`; no ClickHouse DDL, query
+  proxy, storage authority or deployment was added.
 
 - Defined the closed `sdar.evidence/v1` domain and wire contract with deterministic record identity,
   canonical payload hashing, 100 catalog-backed schemas and fail-closed sensitive-data validation.
@@ -90,6 +98,47 @@ All notable changes to this project are documented here. The format follows Keep
   attempt two passed 1,058 Unit/performance assertions before one stale positive Contract fixture
   failed; the repaired direct Evidence Schema Contract passes 10/10. Per explicit user direction,
   intermediate whole-repository gates are not repeated and the next complete run is Phase 14.
+- Added migration `0147_v14_evidence_coverage_authority`, the authority-derived Episode Evidence
+  Policy/expectation ledger, revisioned Manifest sealing, ten quality rules and canonical
+  projection of all five `evidence.*` records. Required facts remain incomplete until ACK.
+- Added Catalog schema validation before every production append, durable poison isolation and
+  bounded drain-to-quiescence. Skill selection/input facts, MCP Availability and task-scoped
+  Artifact retrieval/usage/feedback now participate in exact applicability and issue scope.
+- Phase 10 reaches 100/100 implemented and verified records (95/95 Required, 5/5 diagnostic) under
+  registry hash `sha256:a7ac427efdc75530aee8cb27359243084cb29a0450d62e7b19bd21feb99771e5`.
+  Focused Unit 3/3, Contract 1/1, PostgreSQL 1/1 and typecheck pass; independent Review is
+  0 Blocking / 0 Major / 0 Minor. The next whole-repository gate remains Phase 14.
+- Added migration `0148_v14_evidence_operations_recovery`, metadata-only Runtime/Control Evidence
+  operations, durable request/claim/action recovery, DLQ retry, coverage reconciliation, restart
+  resume and bounded continuing Diagnostic retention. PostgreSQL remains authority; Redis is
+  wake-only.
+- Added audited Node Control recovery RBAC, typed Runtime internal clients, nine public operations,
+  eleven internal operations and the v1.4.1 recovery runbook. Organization Service remains denied
+  and no arbitrary SQL, payload or ClickHouse proxy is exposed.
+- The real PostgreSQL/Redis/HTTP vertical passes 1/1 with record replay, ManagementOperation/Audit,
+  canonical operation Evidence, re-ACK and receiver-outage isolation. It also closed duplicate
+  canonical-null Schema branches and replaced an impossible Export Status checkpoint reference
+  with exact immutable Telemetry Delivery lineage. Independent Review is 0/0/0; the current
+  Registry hash is `sha256:2bc75460820a778830bc1c787afa74a4f71571b9658b8dd496b495e528c85567`.
+- Added a resumable Phase 12 runner for all 44 required Runtime/Skill, MCP Task,
+  Capability/Experience, Node Control and Export/Manifest scenarios. It verifies Registry/Matrix
+  coverage and records ten explicit evidence dimensions per scenario.
+- Phase 12 passes 44/44 scenarios through 42 direct tests in 25 shared suites against real local
+  PostgreSQL, Redis and HTTP Evidence delivery. First failures remain preserved, and final Review
+  is 0 Blocking / 0 Major / 0 Minor after repairing one evidence-provenance Major without adding
+  redundant test executions. The single repository-wide final gate remains Phase 14.
+- Closed the Phase 13 frozen 25-item adversarial list with direct stable ID/hash/revision,
+  sensitive-data, size/cycle/Artifact path, ACK/retry/DLQ/cursor/restart, Control revision,
+  Required/Manifest, Remote Task/degraded and replay-safety evidence.
+- Added PostgreSQL fail-closed validation for resolved cross-tenant and cross-user-scope Evidence
+  references, while preserving legitimate global/scoped aggregate references.
+- Added bounded single-process scheduler fairness: foreground Tasks retain priority, but canonical
+  projection and export each receive one durable slice at least every ten seconds under sustained
+  load and eight slices when idle.
+- The stable balanced ABA/BAA/AAB performance run passes unchanged gates with Runtime P95 regression
+  9.309% and append P95 15.576 ms; baseline median drift is independently bounded at 15% and
+  measured 14.823%. Final Phase 13 Review is 0 Blocking / 0 Major / 0 Minor after one Blocking,
+  two Major and one Minor repair. The final Phase 14 full repository gate passed all ten stages.
 
 ## SDAR v1.4 P14 Release Qualification
 

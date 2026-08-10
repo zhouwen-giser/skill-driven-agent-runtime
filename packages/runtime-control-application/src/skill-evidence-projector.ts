@@ -324,7 +324,11 @@ export class SkillEvidenceProjector {
       sourcePartition: partition,
       lastOccurredAt: timestamp(snapshot.task, 'updated_at'),
       lastSourceRecordId: normalizedTaskId,
-      lastSourceRevision: hashCanonicalEvidenceJson(snapshot.executions),
+      lastSourceRevision: hashCanonicalEvidenceJson({
+        selections: snapshot.selections,
+        inputResolutions: snapshot.inputResolutions,
+        executions: snapshot.executions,
+      }),
       lastPayloadHash: hashCanonicalEvidenceJson(
         [...projected.values()].map((record) => record.payloadHash),
       ),

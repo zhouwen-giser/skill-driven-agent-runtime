@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  EPISODE_EVIDENCE_POLICY,
+  EVIDENCE_EXPECTATION_STAGES,
   EVIDENCE_MAX_CANONICAL_BYTES,
+  EVIDENCE_QUALITY_RULE_IDS,
   EVIDENCE_RECORD_CATALOG,
   EvidenceContractError,
   assertEvidencePayloadIdentity,
@@ -66,6 +69,67 @@ describe('canonical evidence Domain', () => {
       deliveryGuarantee: 'durable_projection',
     });
     expect(() => getEvidenceCatalogEntry('unknown.record')).toThrow('EVIDENCE_RECORD_TYPE_UNKNOWN');
+  });
+
+  it('freezes the Phase 10 episode policy and five explicit Evidence infrastructure contracts', () => {
+    expect(EPISODE_EVIDENCE_POLICY).toMatchObject({
+      policyVersion: 'episode-evidence-policy/v1',
+      catalogRecordCount: 100,
+      requiredRecordCount: 95,
+      diagnosticRecordCount: 5,
+      durableProjectionRecordCount: 100,
+    });
+    expect(EPISODE_EVIDENCE_POLICY.records).toHaveLength(100);
+    expect(EVIDENCE_EXPECTATION_STAGES).toEqual([
+      'source_fact_missing',
+      'source_fact_unprojected',
+      'projected_pending_export',
+      'exported_unacknowledged',
+      'acknowledged',
+      'projection_failed',
+      'schema_invalid',
+      'payload_conflict',
+    ]);
+    expect(EVIDENCE_QUALITY_RULE_IDS).toEqual([
+      'sequence_gap',
+      'payload_conflict',
+      'orphan_reference',
+      'version_gap',
+      'missing_verification',
+      'remote_task_unclosed',
+      'skill_tree_incomplete',
+      'experience_missing_fact',
+      'node_revision_regression',
+      'export_ack_gap',
+    ]);
+    expect(getEvidenceCatalogEntry('runtime.run_seal').expectedReferences).toEqual([
+      'runtime.outcome',
+    ]);
+    expect(getEvidenceCatalogEntry('evidence.episode_manifest').expectedReferences).toEqual([
+      'runtime.run_seal',
+    ]);
+
+    const infrastructure = EVIDENCE_RECORD_CATALOG.filter(
+      (entry) => entry.recordFamily === 'evidence',
+    );
+    expect(infrastructure).toHaveLength(5);
+    for (const entry of infrastructure) {
+      const schema = getEvidenceRecordSchema(entry.recordType) as Readonly<{
+        properties: Readonly<{
+          payload: Readonly<{
+            required: readonly string[];
+            properties: Readonly<Record<string, unknown>>;
+          }>;
+        }>;
+      }>;
+      expect(schema.properties.payload.required).toEqual(entry.requiredPayloadFields);
+      expect(Object.keys(schema.properties.payload.properties).sort()).toEqual(
+        [...entry.requiredPayloadFields].sort(),
+      );
+    }
+    expect(getEvidenceCatalogEntry('evidence.export_status').sourceTable).toBe(
+      'evidence_export_batch + evidence_export_ack[generation0-derived]',
+    );
   });
 
   it('freezes reconstructible Phase 8 Experience payloads and source-owned references', () => {

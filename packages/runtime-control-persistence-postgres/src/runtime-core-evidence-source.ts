@@ -27,11 +27,6 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
                WHERE evidence.record_type='runtime.run_seal'
                  AND evidence.source_record_id=outcome.outcome_id
              )
-             OR NOT EXISTS (
-               SELECT 1 FROM episode_evidence_manifest manifest
-               WHERE manifest.episode_id=outcome.task_id
-                 AND manifest.terminal_outcome_id=outcome.outcome_id
-             )
              OR EXISTS (
                SELECT 1 FROM evidence_projection_issue projection_issue
                WHERE projection_issue.source_partition='runtime-core:' || outcome.task_id
@@ -46,7 +41,7 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
        SELECT candidate.task_id
        FROM candidate
        LEFT JOIN LATERAL (
-         SELECT projection_issue.created_at
+         SELECT projection_issue.last_observed_at
          FROM evidence_projection_issue projection_issue
          WHERE projection_issue.source_partition='runtime-core:' || candidate.task_id
            AND projection_issue.projector_version='runtime-core/v1'
@@ -54,13 +49,13 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
            AND projection_issue.severity='blocking'
            AND projection_issue.retryable
            AND projection_issue.resolved_at IS NULL
-         ORDER BY projection_issue.created_at DESC,projection_issue.issue_id
+         ORDER BY projection_issue.last_observed_at DESC,projection_issue.issue_id
          LIMIT 1
        ) projection_issue ON true
-       WHERE projection_issue.created_at IS NULL
-          OR projection_issue.created_at + interval '5 seconds' <= clock_timestamp()
+       WHERE projection_issue.last_observed_at IS NULL
+          OR projection_issue.last_observed_at + interval '5 seconds' <= clock_timestamp()
        ORDER BY COALESCE(
-         projection_issue.created_at + interval '5 seconds',candidate.committed_at
+         projection_issue.last_observed_at + interval '5 seconds',candidate.committed_at
        ),candidate.outcome_id
        LIMIT $1`,
       [limit],

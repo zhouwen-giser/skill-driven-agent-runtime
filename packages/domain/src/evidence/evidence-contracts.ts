@@ -1,8 +1,12 @@
 import type {
   CanonicalEvidenceEnvelope,
+  EvidenceDeliveryGuarantee,
+  EvidenceEvaluationRole,
   EvidenceJsonValue,
   EvidenceObservationGeneration,
   EvidenceRecordFamily,
+  EvidenceRequirementLevel,
+  EvidenceSourceSystem,
 } from './canonical-evidence.js';
 import { EVIDENCE_RECORD_CATALOG } from './catalog.js';
 
@@ -254,6 +258,112 @@ function invalidConfiguration(message: string): never {
 
 export type EvidenceManifestStatus = 'projecting' | 'complete' | 'degraded' | 'incomplete';
 
+export const EPISODE_EVIDENCE_POLICY_VERSION = 'episode-evidence-policy/v1' as const;
+
+export const EVIDENCE_EXPECTATION_STAGES = Object.freeze([
+  'source_fact_missing',
+  'source_fact_unprojected',
+  'projected_pending_export',
+  'exported_unacknowledged',
+  'acknowledged',
+  'projection_failed',
+  'schema_invalid',
+  'payload_conflict',
+] as const);
+
+export type EvidenceExpectationStage = (typeof EVIDENCE_EXPECTATION_STAGES)[number];
+
+export const EVIDENCE_QUALITY_RULE_IDS = Object.freeze([
+  'sequence_gap',
+  'payload_conflict',
+  'orphan_reference',
+  'version_gap',
+  'missing_verification',
+  'remote_task_unclosed',
+  'skill_tree_incomplete',
+  'experience_missing_fact',
+  'node_revision_regression',
+  'export_ack_gap',
+] as const);
+
+export type EvidenceQualityRuleId = (typeof EVIDENCE_QUALITY_RULE_IDS)[number];
+
+export interface EvidenceExpectedRecord {
+  readonly recordType: string;
+  readonly recordFamily: EvidenceRecordFamily;
+  readonly sourceSystem: EvidenceSourceSystem;
+  readonly sourceTable: string;
+  readonly evaluationRole: EvidenceEvaluationRole;
+  readonly requirementLevel: EvidenceRequirementLevel;
+  readonly applicable: boolean;
+  readonly stage: EvidenceExpectationStage;
+  readonly sourceRecordId?: string;
+  readonly recordId?: string;
+}
+
+export interface EpisodeEvidenceRecordPolicy {
+  readonly recordType: string;
+  readonly recordFamily: EvidenceRecordFamily;
+  readonly sourceSystem: EvidenceSourceSystem;
+  readonly sourceTable: string;
+  readonly evaluationRole: EvidenceEvaluationRole;
+  readonly requirementLevel: EvidenceRequirementLevel;
+  readonly deliveryGuarantee: EvidenceDeliveryGuarantee;
+  readonly applicability: string;
+  readonly expectedReferences: readonly string[];
+}
+
+export interface EpisodeEvidencePolicy {
+  readonly policyVersion: typeof EPISODE_EVIDENCE_POLICY_VERSION;
+  readonly catalogRecordCount: number;
+  readonly requiredRecordCount: number;
+  readonly diagnosticRecordCount: number;
+  readonly durableProjectionRecordCount: number;
+  readonly qualityRuleIds: readonly EvidenceQualityRuleId[];
+  readonly records: readonly EpisodeEvidenceRecordPolicy[];
+}
+
+const episodeEvidenceRecordPolicies = Object.freeze(
+  EVIDENCE_RECORD_CATALOG.map((entry) =>
+    Object.freeze({
+      recordType: entry.recordType,
+      recordFamily: entry.recordFamily,
+      sourceSystem: entry.sourceSystem,
+      sourceTable: entry.sourceTable,
+      evaluationRole: entry.evaluationRole,
+      requirementLevel: entry.requirementLevel,
+      deliveryGuarantee: entry.deliveryGuarantee,
+      applicability: entry.applicability,
+      expectedReferences: Object.freeze([...entry.expectedReferences]),
+    }),
+  ),
+);
+
+export const EPISODE_EVIDENCE_POLICY: EpisodeEvidencePolicy = Object.freeze({
+  policyVersion: EPISODE_EVIDENCE_POLICY_VERSION,
+  catalogRecordCount: episodeEvidenceRecordPolicies.length,
+  requiredRecordCount: episodeEvidenceRecordPolicies.filter(
+    (record) => record.evaluationRole === 'required',
+  ).length,
+  diagnosticRecordCount: episodeEvidenceRecordPolicies.filter(
+    (record) => record.evaluationRole === 'diagnostic',
+  ).length,
+  durableProjectionRecordCount: episodeEvidenceRecordPolicies.filter(
+    (record) => record.deliveryGuarantee === 'durable_projection',
+  ).length,
+  qualityRuleIds: EVIDENCE_QUALITY_RULE_IDS,
+  records: episodeEvidenceRecordPolicies,
+});
+
+if (
+  EPISODE_EVIDENCE_POLICY.catalogRecordCount !== 100 ||
+  EPISODE_EVIDENCE_POLICY.requiredRecordCount !== 95 ||
+  EPISODE_EVIDENCE_POLICY.diagnosticRecordCount !== 5 ||
+  EPISODE_EVIDENCE_POLICY.durableProjectionRecordCount !== 100
+) {
+  throw new Error('EPISODE_EVIDENCE_POLICY_CATALOG_DRIFT');
+}
+
 export interface EvidenceSourceCoverage {
   readonly expected: number;
   readonly projected: number;
@@ -264,6 +374,8 @@ export interface EvidenceSourceCoverage {
 
 export interface EpisodeEvidenceManifest {
   readonly manifestId: string;
+  readonly revision: number;
+  readonly policyVersion: typeof EPISODE_EVIDENCE_POLICY_VERSION;
   readonly episodeId: string;
   readonly taskId: string;
   readonly terminalOutcomeId: string;
@@ -278,7 +390,9 @@ export interface EpisodeEvidenceManifest {
   readonly lastEvidenceSequence: string;
   readonly status: EvidenceManifestStatus;
   readonly qualityIssueIds: readonly string[];
+  readonly sourceSnapshotHash: `sha256:${string}`;
   readonly createdAt: string;
+  readonly recomputedAt: string;
   readonly sealedAt?: string;
 }
 
@@ -301,6 +415,7 @@ export type EvidenceIssueSeverity = 'diagnostic' | 'degraded' | 'blocking';
 
 export interface EvidenceQualityIssue {
   readonly issueId: string;
+  readonly revision?: number;
   readonly issueCode: EvidenceIssueCode;
   readonly severity: EvidenceIssueSeverity;
   readonly recordType?: string;
@@ -311,6 +426,7 @@ export interface EvidenceQualityIssue {
   readonly sourceRecordId: string;
   readonly detail: Readonly<Record<string, EvidenceJsonValue>>;
   readonly createdAt: string;
+  readonly resolvedAt?: string;
 }
 
 export interface EvidenceProjectionIssue extends EvidenceQualityIssue {

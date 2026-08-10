@@ -31,6 +31,7 @@ import {
   type ArtifactRef,
   type CanonicalEvidenceEnvelope,
   type CognitiveSourceRef,
+  type EvidenceExportConfiguration,
   type GoalExperienceEpisode,
 } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
@@ -100,6 +101,33 @@ beforeEach(async () => {
 afterAll(async () => {
   await pool.end();
 });
+
+function phase12EvidenceConfiguration(): EvidenceExportConfiguration {
+  return {
+    exportId: 'phase12-candidate-evidence',
+    revision: 1,
+    endpointRef: 'https://evidence.example.test/v1/batches',
+    sourceId: 'phase12-candidate-runtime',
+    nodeId: 'node-phase12-candidate',
+    credentialRef: 'env:PHASE12_EVIDENCE_TOKEN',
+    includedFamilies: [
+      'runtime',
+      'skill',
+      'mcp_task',
+      'capability',
+      'experience',
+      'replay',
+      'artifact',
+      'node_control',
+      'evidence',
+    ],
+    batchPolicy: { maxRecords: 1_000, maxBytes: 262_144, flushIntervalMs: 1_000 },
+    retryPolicy: { baseDelayMs: 100, maxDelayMs: 10_000, maxAttempts: 5 },
+    outboxPolicy: { maxPendingRecords: 100_000, retentionDays: 30 },
+    redactionProfile: 'strict_internal_v1',
+    artifactMode: 'reference',
+  };
+}
 
 async function insertReplayRun(
   input: Readonly<{
@@ -827,6 +855,11 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       expect(projection.qualityIssueIds).toEqual([]);
       expect(projection.projectedRecordIds.length).toBeGreaterThan(0);
     }
+
+    await evidenceStore.applyConfiguration(
+      phase12EvidenceConfiguration(),
+      '2026-07-28T05:00:02.500Z',
+    );
 
     const phase8Rows = (
       await Promise.all(

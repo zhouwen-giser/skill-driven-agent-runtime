@@ -118,8 +118,9 @@ describe('canonical Evidence projection poison isolation', { concurrent: false }
       },
       resolved_at: null,
     });
-    expect(new Date(retriedIssue.created_at).getTime()).toBeGreaterThan(
-      new Date(initialIssue.created_at).getTime(),
+    expect(retriedIssue.created_at).toEqual(initialIssue.created_at);
+    expect(new Date(retriedIssue.last_observed_at).getTime()).toBeGreaterThan(
+      new Date(initialIssue.last_observed_at).getTime(),
     );
     await expect(checkpointIds()).resolves.toEqual([healthyId]);
 
@@ -223,10 +224,12 @@ async function projectionIssue(sourcePartition: string) {
     retryable: boolean;
     detail: Record<string, unknown>;
     created_at: Date | string;
+    last_observed_at: Date | string;
     resolved_at: Date | string | null;
   }>(
     `SELECT issue_id,issue_code,severity,evaluation_role,source_system,source_table,
-       source_record_id,source_partition,projector_version,retryable,detail,created_at,resolved_at
+       source_record_id,source_partition,projector_version,retryable,detail,created_at,
+       last_observed_at,resolved_at
      FROM evidence_projection_issue
      WHERE source_partition=$1 AND projector_version=$2`,
     [sourcePartition, EXPERIENCE_REPLAY_ARTIFACT_PROJECTOR_VERSION],
@@ -251,7 +254,8 @@ async function checkpointIds(): Promise<readonly string[]> {
 async function ageOpenIssue(sourcePartition: string): Promise<void> {
   await pool.query(
     `UPDATE evidence_projection_issue
-     SET created_at=clock_timestamp() - interval '10 seconds'
+     SET first_observed_at=clock_timestamp() - interval '10 seconds',
+         last_observed_at=clock_timestamp() - interval '10 seconds'
      WHERE source_partition=$1 AND resolved_at IS NULL`,
     [sourcePartition],
   );

@@ -119,7 +119,7 @@
         "inputHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "actorId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "reason": { "type": "string", "minLength": 1, "maxLength": 16384 },
-        "result": { "oneOf": [{ "$ref": "#/$defs/evidenceValue" }, { "type": "null" }] },
+        "result": { "$ref": "#/$defs/evidenceValue" },
         "errorCode": {
           "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
         },

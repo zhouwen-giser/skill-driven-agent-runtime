@@ -14,10 +14,12 @@ import {
   NodeControlSmppRegistryService,
   NodeControlRuntimeGovernanceService,
   NodeControlEvidenceExportService,
+  NodeControlEvidenceOperationsService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
   HttpRuntimeGovernanceClient,
   HttpRuntimeEvidenceExportClient,
+  HttpRuntimeEvidenceOperationsClient,
 } from '../../../packages/runtime-control-http-client/src/index.js';
 import {
   PostgresNodeControlA2aExposureRepository,
@@ -40,6 +42,7 @@ import { NodeControlFrozenMcpCatalogClient } from '../../../packages/mcp-adapter
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import { OfficialA2aAgentCardValidator } from '../../../packages/a2a-adapter/src/node-control-agent-card.js';
 import {
+  CatalogValidatingEvidenceWriter,
   NodeControlEvidenceProjectionPipeline,
   NodeControlEvidenceProjector,
   RuntimeCapabilityReadinessService,
@@ -106,6 +109,14 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     nodeId: environment.SDAR_CONTROL_NODE_ID,
     operations: repository,
+  });
+  const evidenceOperations = new NodeControlEvidenceOperationsService({
+    runtime: new HttpRuntimeEvidenceOperationsClient({
+      baseUrl: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
+      serviceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
+    }),
+    operations: repository,
+    clock: { now: () => new Date().toISOString() },
   });
   const llmGovernanceService = new NodeControlLlmGovernanceService({
     repository: new PostgresNodeControlLlmGovernanceRepository(pool),
@@ -177,7 +188,15 @@ export async function startNodeControlApi(
       runtimeEndpointRef: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
       status: 'active',
     });
-    const evidenceWriter = new PostgresEvidenceStore(runtimePool);
+    const evidenceStore = new PostgresEvidenceStore(runtimePool);
+    const catalogValidatingEvidenceWriter = new CatalogValidatingEvidenceWriter({
+      delegate: evidenceStore,
+      validator: new AjvJsonSchemaValidator({ strict: false }),
+    });
+    const evidenceProjectorWriter = Object.assign(catalogValidatingEvidenceWriter, {
+      hasRecord: evidenceStore.hasRecord.bind(evidenceStore),
+      saveCheckpoint: evidenceStore.saveCheckpoint.bind(evidenceStore),
+    });
     const controlEvidenceSource = new PostgresNodeControlEvidenceSource(pool, runtimePool, {
       principalType: 'service',
       actorId: `service:node-control-evidence-projector:${environment.SDAR_CONTROL_NODE_ID}`,
@@ -190,24 +209,24 @@ export async function startNodeControlApi(
     });
     const controlEvidenceProjector = new NodeControlEvidenceProjector({
       source: controlEvidenceSource,
-      writer: evidenceWriter,
+      writer: evidenceProjectorWriter,
       environment: environment.SDAR_CONTROL_ENVIRONMENT,
     });
     const controlEvidencePipeline = new NodeControlEvidenceProjectionPipeline({
       source: controlEvidenceSource,
       projector: controlEvidenceProjector,
-      writer: evidenceWriter,
+      writer: evidenceStore,
     });
     const telemetryEvidenceSource = new PostgresNodeControlTelemetryEvidenceSource(runtimePool);
     const telemetryEvidenceProjector = new NodeControlEvidenceProjector({
       source: telemetryEvidenceSource,
-      writer: evidenceWriter,
+      writer: evidenceProjectorWriter,
       environment: environment.SDAR_CONTROL_ENVIRONMENT,
     });
     const telemetryEvidencePipeline = new NodeControlEvidenceProjectionPipeline({
       source: telemetryEvidenceSource,
       projector: telemetryEvidenceProjector,
-      writer: evidenceWriter,
+      writer: evidenceStore,
     });
     const healthObservations = new PostgresNodeHealthObservationProducer(pool);
     const observeHealth = async () => {
@@ -304,6 +323,7 @@ export async function startNodeControlApi(
       taskSummaries: new PostgresRuntimeTaskSummaryQuery(runtimePool),
       runtimeGovernance,
       evidenceExport,
+      evidenceOperations,
       nodeEvents,
     });
     const server = await listen(
@@ -378,6 +398,7 @@ function closeServer(server: Server): Promise<void> {
       if (error === undefined) resolve();
       else reject(error);
     });
+    server.closeAllConnections();
   });
 }
 

@@ -32,3 +32,14 @@
 | ADR-129     | `sdar.evidence/v1` 是唯一 Batch/ACK 协议；精确发送归属、显式连续 ACK、受限安全传输和 PostgreSQL 权威 |
 
 所有重大变更必须新增 ADR，不得直接修改历史 ADR 来掩盖决策变化。
+# v1.4.1 Evidence decision index addendum
+
+- ADR-126: append-only Canonical Evidence cutover after published migrations 0142/0143.
+- ADR-127: stable source/schema identity, canonical JSON hash and closed 100-record catalog.
+- ADR-128: Runtime PostgreSQL is Evidence authority; Redis is wake-only.
+- ADR-129: sole bounded `sdar.evidence/v1` Batch/ACK protocol and transport boundary.
+- ADR-130 through ADR-133: Runtime/Skill/MCP/Experience source projection authority.
+- ADR-134: Episode applicability, Manifest/quality rules and bounded generation-1 observation.
+
+Phase 13 fairness and reference-scope validation implement accepted boundaries without adding a
+runtime or authority, so no new ADR is required.

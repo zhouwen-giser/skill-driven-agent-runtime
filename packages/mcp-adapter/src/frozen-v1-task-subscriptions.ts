@@ -96,20 +96,11 @@ export class FrozenRemoteTaskSubscriptionManager {
     let acceptedTaskIds: readonly string[] = [];
     let notifications = 0;
     let reconciled = 0;
+    const notifiedTaskIds = new Set<string>();
     for await (const message of stream.messages) {
       if (first) {
         first = false;
         acceptedTaskIds = parseAck(message, stream.requestId, requested);
-        if (input.reconnecting)
-          for (const taskId of acceptedTaskIds) {
-            const admission = await this.#lifecycle.getTaskAdmission(
-              taskId,
-              input.outputValidationByTaskId?.get(taskId),
-            );
-            if (admission.accepted)
-              await input.onObservation(admission.task, 'reconciliation', stream.requestId);
-            reconciled += 1;
-          }
         continue;
       }
       const parsed = notificationSchema.safeParse(message);
@@ -127,6 +118,7 @@ export class FrozenRemoteTaskSubscriptionManager {
           'FROZEN_TASK_NOTIFICATION_UNAUTHORIZED',
           'Task Notification is outside the acknowledged subscription.',
         );
+      notifiedTaskIds.add(parsed.data.params.taskId);
       const admission = this.#lifecycle.admitNotification(
         parsed.data.params,
         input.outputValidationByTaskId?.get(parsed.data.params.taskId),
@@ -141,6 +133,17 @@ export class FrozenRemoteTaskSubscriptionManager {
         'FROZEN_TASK_SUBSCRIPTION_ACK_MISSING',
         'Task subscription stream ended before the required first Ack.',
       );
+    if (input.reconnecting)
+      for (const taskId of acceptedTaskIds) {
+        if (notifiedTaskIds.has(taskId)) continue;
+        const admission = await this.#lifecycle.getTaskAdmission(
+          taskId,
+          input.outputValidationByTaskId?.get(taskId),
+        );
+        if (admission.accepted)
+          await input.onObservation(admission.task, 'reconciliation', stream.requestId);
+        reconciled += 1;
+      }
     return { subscriptionId: stream.requestId, acceptedTaskIds, notifications, reconciled };
   }
 }

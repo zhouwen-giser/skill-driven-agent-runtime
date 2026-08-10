@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "samples": {
+    "runtimeBaseline": 20,
+    "runtimeEvidenceEnabled": 20,
+    "evidenceAppend": 100
+  },
+  "baselineP95Ms": 432.149,
+  "evidenceEnabledP95Ms": 607.767,
+  "regressionPercent": 40.638,
+  "appendP95Ms": 6.21,
+  "receivedRecords": 936,
+  "result": "INVALID_SEQUENTIAL_BASELINE",
+  "rootCause": "The single A-then-B comparison used an unusually low pre-enable baseline and did not control for JIT, cache, or database-age drift.",
+  "repair": "Use an A-B-A bracketed baseline and retain the unchanged ten-percent threshold."
+}

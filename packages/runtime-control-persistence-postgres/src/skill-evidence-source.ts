@@ -17,47 +17,106 @@ export class PostgresSkillEvidenceSource implements SkillEvidenceSource {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new Error('Skill Evidence pending limit must be between 1 and 1000.');
     const result = await this.#pool.query<{ task_id: string }>(
-      `WITH candidate AS (
-         SELECT execution.task_id,MIN(execution.created_at) AS first_created_at
-         FROM skill_execution_record execution
-         JOIN runtime_terminal_outcome outcome ON outcome.task_id=execution.task_id
+      `WITH skill_authority AS (
+         SELECT task.task_id,selection.created_at AS observed_at
+         FROM agent_task task
+         JOIN skill_selection_record selection ON selection.selection_id=task.skill_selection_id
+         UNION ALL
+         SELECT resolution.task_id,resolution.created_at FROM skill_input_resolution resolution
+         UNION ALL
+         SELECT execution.task_id,execution.created_at FROM skill_execution_record execution
+       ), candidate AS (
+         SELECT authority.task_id,MIN(authority.observed_at) AS first_created_at
+         FROM skill_authority authority
+         JOIN runtime_terminal_outcome outcome ON outcome.task_id=authority.task_id
          WHERE EXISTS (
              SELECT 1 FROM evidence_source_checkpoint runtime_checkpoint
              WHERE runtime_checkpoint.source_family='runtime'
-               AND runtime_checkpoint.source_partition='runtime-core:' || execution.task_id
+               AND runtime_checkpoint.source_partition='runtime-core:' || authority.task_id
+               AND runtime_checkpoint.projector_version='runtime-core/v1'
            )
            AND (NOT EXISTS (
-             SELECT 1 FROM evidence_outbox evidence
-             WHERE evidence.record_type='skill.usage_snapshot'
-               AND evidence.source_record_id=execution.execution_id
-           )
-           OR NOT EXISTS (
              SELECT 1 FROM evidence_source_checkpoint checkpoint
              WHERE checkpoint.source_family='skill'
-               AND checkpoint.source_partition='skill:' || execution.task_id
+               AND checkpoint.source_partition='skill:' || authority.task_id
+               AND checkpoint.projector_version='skill/v1'
+           )
+           OR EXISTS (
+             SELECT 1 FROM agent_task task
+             WHERE task.task_id=authority.task_id AND task.skill_selection_id IS NOT NULL
+               AND NOT EXISTS (
+                 SELECT 1 FROM evidence_outbox evidence
+                 WHERE evidence.observation_generation=0
+                   AND evidence.record_type='skill.selection'
+                   AND evidence.source_record_id=task.skill_selection_id
+                   AND (evidence.task_id=authority.task_id OR evidence.episode_id=authority.task_id)
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM evidence_quality_issue issue
+                 WHERE issue.episode_id=authority.task_id
+                   AND issue.source_table='skill_selection_record'
+                   AND issue.source_record_id=task.skill_selection_id
+                   AND issue.resolved_at IS NULL
+               )
+           )
+           OR EXISTS (
+             SELECT 1 FROM skill_input_resolution resolution
+             WHERE resolution.task_id=authority.task_id
+               AND NOT EXISTS (
+                 SELECT 1 FROM evidence_outbox evidence
+                 WHERE evidence.observation_generation=0
+                   AND evidence.record_type='skill.context_resolution'
+                   AND evidence.source_record_id=resolution.resolution_id
+                   AND (evidence.task_id=authority.task_id OR evidence.episode_id=authority.task_id)
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM evidence_quality_issue issue
+                 WHERE issue.episode_id=authority.task_id
+                   AND issue.source_table='skill_input_resolution'
+                   AND issue.source_record_id=resolution.resolution_id
+                   AND issue.resolved_at IS NULL
+               )
+           )
+           OR EXISTS (
+             SELECT 1 FROM skill_execution_record execution
+             WHERE execution.task_id=authority.task_id
+               AND NOT EXISTS (
+                 SELECT 1 FROM evidence_outbox evidence
+                 WHERE evidence.observation_generation=0
+                   AND evidence.record_type='skill.execution'
+                   AND evidence.source_record_id=execution.execution_id
+                   AND (evidence.task_id=authority.task_id OR evidence.episode_id=authority.task_id)
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM evidence_quality_issue issue
+                 WHERE issue.episode_id=authority.task_id
+                   AND issue.source_table='skill_execution_record'
+                   AND issue.source_record_id=execution.execution_id
+                   AND issue.resolved_at IS NULL
+               )
            )
            OR EXISTS (
              SELECT 1 FROM evidence_quality_issue issue
-             WHERE issue.episode_id=execution.task_id
+             WHERE issue.episode_id=authority.task_id
                AND issue.severity='blocking'
                AND issue.record_type LIKE 'skill.%'
                AND issue.resolved_at IS NULL
            )
            OR EXISTS (
              SELECT 1 FROM evidence_projection_issue projection_issue
-             WHERE projection_issue.source_partition='skill:' || execution.task_id
+             WHERE projection_issue.source_partition='skill:' || authority.task_id
                AND projection_issue.projector_version='skill/v1'
                AND projection_issue.evaluation_role='required'
                AND projection_issue.severity='blocking'
                AND projection_issue.retryable
                AND projection_issue.resolved_at IS NULL
            ))
-         GROUP BY execution.task_id
+         GROUP BY authority.task_id
        )
        SELECT candidate.task_id
        FROM candidate
        LEFT JOIN LATERAL (
-         SELECT projection_issue.created_at
+         SELECT projection_issue.last_observed_at
          FROM evidence_projection_issue projection_issue
          WHERE projection_issue.source_partition='skill:' || candidate.task_id
            AND projection_issue.projector_version='skill/v1'
@@ -65,13 +124,13 @@ export class PostgresSkillEvidenceSource implements SkillEvidenceSource {
            AND projection_issue.severity='blocking'
            AND projection_issue.retryable
            AND projection_issue.resolved_at IS NULL
-         ORDER BY projection_issue.created_at DESC,projection_issue.issue_id
+         ORDER BY projection_issue.last_observed_at DESC,projection_issue.issue_id
          LIMIT 1
        ) projection_issue ON true
-       WHERE projection_issue.created_at IS NULL
-          OR projection_issue.created_at + interval '5 seconds' <= clock_timestamp()
+       WHERE projection_issue.last_observed_at IS NULL
+          OR projection_issue.last_observed_at + interval '5 seconds' <= clock_timestamp()
        ORDER BY COALESCE(
-         projection_issue.created_at + interval '5 seconds',candidate.first_created_at
+         projection_issue.last_observed_at + interval '5 seconds',candidate.first_created_at
        ),candidate.task_id
        LIMIT $1`,
       [limit],
@@ -103,7 +162,9 @@ export class PostgresSkillEvidenceSource implements SkillEvidenceSource {
         client,
         `SELECT to_jsonb(selection) AS value
          FROM skill_selection_record selection
-         WHERE EXISTS (
+         WHERE selection.selection_id=(
+           SELECT task.skill_selection_id FROM agent_task task WHERE task.task_id=$1
+         ) OR EXISTS (
            SELECT 1 FROM skill_execution_record execution
            WHERE execution.selection_ref=selection.selection_id AND execution.task_id=$1
          )

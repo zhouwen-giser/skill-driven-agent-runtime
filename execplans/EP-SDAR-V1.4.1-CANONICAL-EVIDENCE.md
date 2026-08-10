@@ -88,11 +88,24 @@ public Control principal or Redis state may substitute for either PostgreSQL aut
       passed 1,058 Unit/performance assertions and stopped on one stale Contract fixture; its
       repaired direct suite passes 10/10. Per explicit user direction, the next whole-repository
       `pnpm verify` is the single Phase 14 final gate.
-- [ ] Phase 10 seal episode manifests and enforce coverage/quality.
-- [ ] Phase 11 expose secured evidence operations and recovery runbooks.
-- [ ] Phase 12 verify all required vertical scenarios.
-- [ ] Phase 13 run adversarial, authority, security, and performance hardening.
-- [ ] Phase 14 publish final acceptance, frozen handoff, and Ready PR.
+- [x] 2026-08-10 Phase 10 sealed authority-derived Episode Manifests, implemented all five
+      Evidence infrastructure records and ten quality rules, enforced ACK-gated Required coverage,
+      and closed independent Review at 0 Blocking/Major/Minor. Focused Unit 3/3, Contract 1/1,
+      PostgreSQL 1/1 and typecheck pass; the final full gate remains Phase 14 only.
+- [x] 2026-08-10 Phase 11 exposed metadata-only Evidence operations, durable restartable recovery,
+      audited Node Control RBAC, DLQ replay, real coverage reconciliation, bounded continuing
+      retention and the operator runbook. The existing real PostgreSQL/Redis/HTTP vertical passes
+      1/1 with record replay and endpoint-outage isolation; independent Review is 0/0/0. Per user
+      direction no intermediate full gate was repeated.
+- [x] 2026-08-10 Phase 12 verified all 44 required vertical scenarios across ten explicit evidence
+      dimensions with 42 direct tests in 25 resumable shared suites. First failures and repairs are
+      retained; the final independent Review is 0/0/0 after one evidence-provenance Major repair.
+- [x] 2026-08-10 Phase 13 closed all 25 frozen adversarial findings, added bounded foreground/
+      Evidence scheduler fairness and cross-tenant/user-scope reference enforcement, and passed
+      the stable balanced performance gates: Runtime P95 regression 9.309%, append P95
+      15.576 ms. Final independent Review is 0 Blocking/Major/Minor after 1 Blocking, 2 Major and
+      1 Minor repair; the final Phase 14 repository gate passed all ten stages in 1,213,445 ms.
+- [ ] Phase 14 publish final acceptance, commit/push the frozen handoff, and mark PR #18 Ready.
 
 ## Discoveries and Surprises
 
@@ -181,6 +194,12 @@ public Control principal or Redis state may substitute for either PostgreSQL aut
   ACK observations are exportable, but exporting them may not create generation-2 children. A
   bounded sequential drain also prevents one-partition-per-tick starvation without weakening the
   existing single-flight lock.
+- A nullable wrapper around the already-nullable canonical Evidence value creates two matching
+  `oneOf` branches and rejects a valid running ManagementOperation. Canonical nullability must be
+  expressed exactly once.
+- Export delivery partitions are not projection-source partitions and therefore have no source
+  checkpoint. `evidence.export_status` lineage uses the exact immutable batch's canonical
+  `node_control.telemetry_delivery` record instead of inventing a checkpoint.
 - Public Organization, Viewer, Operator, Security or user principals cannot provide projector
   authority. Node Control projection uses one fixed internal service identity with
   `node_control.evidence.read`, `global_authority` and `node_local` scope and no public route.
@@ -226,15 +245,18 @@ public Control principal or Redis state may substitute for either PostgreSQL aut
 4. [Complete] Replace the old Telemetry application/adapter/API contract with evidence
    configuration, batch/ACK transport, retry/LKG/export status, and fail-closed security
    validation.
-5. [Complete through Phase 9] Implement source projectors
+5. [Complete through Phase 10] Implement source projectors
    family by family in package order. Runtime is 18/18, Skill 16/16, MCP Task 11/11, Capability
    7/7, Experience 10/10, Replay 6/6, Artifact 6/6 and Node Control 21/21. The generated source
    matrix records 95/100 implemented and verified, including 94/95 Required (98.95%). The five
-   `evidence.*` records remain source-confirmed for Phase 10.
-6. Add manifest/quality/coverage enforcement, management recovery operations, and 44 required
-   vertical scenarios.
-7. Run adversarial and performance gates, independent architecture/acceptance audits, freeze the
-   ClickHouse handoff, update release documentation, and mark the PR Ready.
+   `evidence.*` records are now 5/5 implemented and verified, for 100/100 total and 95/95 Required.
+6. [Complete through Phase 12] Add manifest/quality/coverage enforcement, metadata-only management
+   operations, restartable recovery, DLQ retry, coverage reconcile, audited RBAC and bounded
+   Diagnostic retention. The resumable Phase 12 runner now maps and passes all 44 required
+   scenarios with explicit ten-dimension provenance.
+7. [Phase 14 gate passed; publication pending] Run adversarial and performance gates, independent
+   architecture/acceptance audits, freeze the ClickHouse handoff, update release documentation,
+   commit/push the exact tree and mark PR #18 Ready for Review.
 
 ## Validation
 
@@ -282,6 +304,21 @@ suite subsequently passed 10/10 directly. Following the user's instruction not t
 intermediate whole-repository verification, the next complete `pnpm verify` is deferred to the
 single Phase 14 final gate.
 
+Phase 11's existing real Control/Runtime PostgreSQL, Redis and HTTP vertical passes 1/1 after
+adding record replay, Control ManagementOperation/Audit, canonical operation Evidence, re-ACK and
+receiver-outage isolation. The same failure path exposed and closed duplicate canonical-null
+schema branches and an impossible export-partition checkpoint reference. Two preserved Export
+Status batches then project 2/2 with exact Telemetry Delivery lineage. Independent Review is
+0 Blocking / 0 Major / 0 Minor; no broad intermediate gate was repeated.
+
+Phase 12 passes 44/44 required scenarios using 42 direct tests in 25 resumable shared suites. Each
+scenario records explicit provenance for Source Fact, Outbox, stable ID, payload hash, sequence,
+references, real HTTP delivery, PostgreSQL ACK, Manifest and business-authority isolation. The
+first Review's evidence-provenance Major was repaired without adding redundant tests; the second
+read-only Review is 0 Blocking / 0 Major / 0 Minor. First failures, roots and direct reruns remain
+under `reports/v1.4.1-evidence/failed-attempts/`. Per the user's reduced intermediate-test
+direction, the next and only repository-wide full gate remains Phase 14.
+
 ## Idempotence and Recovery
 
 Catalog/schema generation is deterministic. Stable IDs and unique source/revision/schema keys make
@@ -302,7 +339,7 @@ Phase 11 work and are not claimed by the current implementation. Failed phases r
 
 ## Outcomes and Retrospective
 
-Phases 0 through 9 are complete for their scoped implementation and independent Review. The
+Phases 0 through 12 are complete for their scoped implementation and independent Review. The
 baseline is reproducible, the append-only route is fixed, and
 all 100 catalog types now have source-confirmed authority. The Domain freezes deterministic
 IDs/hashes, 100 non-placeholder schemas, and seven protocol schemas. The current regenerated
@@ -323,10 +360,22 @@ enrichment. Its mandatory 865,814 ms full gate passes all eight stages. Phase 8 
 and Artifact implementation is complete at generated coverage 74/100 and 74/95 Required (77.89%);
 its final independent Review is clean. Phase 9 Node Control implementation is complete at 95/100
 total and 94/95 Required (98.95%), with
-all 21 Node Control records verified and five Evidence-family records source-confirmed for Phase
-10. Its real vertical passes 1/1 and independent Review is clean. Phase 9's full gate did not pass:
+all 21 Node Control records verified and five Evidence-family records source-confirmed for Phase 10. Its real vertical passes 1/1 and independent Review is clean. Phase 9's full gate did not pass:
 the first attempt stopped at repaired lint findings and the second passed 1,058 Unit/performance
 assertions before one stale Contract fixture failed; the repaired direct Contract passes 10/10.
 By explicit user direction, whole-repository verification is not repeated in intermediate phases
-and remains scheduled once at Phase 14. Phase 10 is next.
-This section will be replaced with the final measured outcome after Phase 14.
+and remains scheduled once at Phase 14. Phase 10 reaches 100/100 implemented-and-verified records
+under its Phase 10 closure registry hash; the current Phase 11 registry hash is
+`sha256:2bc75460820a778830bc1c787afa74a4f71571b9658b8dd496b495e528c85567`;
+its direct Unit 3/3, Contract 1/1 and PostgreSQL 1/1 checks pass and independent Review is clean.
+Phase 11's real recovery/outage vertical passes 1/1 and its independent Review is clean. Phase 12
+passes all 44 required scenario mappings with ten-dimension evidence and a clean final Review.
+Phase 13 closes the exact 25-item adversarial matrix with zero final Blocking/Major/Minor findings.
+The final balanced ABA/BAA/AAB benchmark retains the original thresholds and records 9.309% Runtime
+P95 regression, 14.823% baseline median drift and 15.576 ms Evidence append P95. Phase 14's exact
+tree `pnpm verify` passed all ten stages in 1,213,445 ms: 1,305 static assertions, 41 Runtime and
+9 Control migrations, 175 Integration tests, 73 E2E tests, official A2A TCK, the 44/44 Evidence
+demo and all three smoke stages. The generated ClickHouse handoff is adapter-only, reports 95/95
+Required and 100/100 total mappings, zero Required deferred items and `fullVerify=passed`. Local
+publication and PR readiness remain the only unfinished Phase 14 actions; no merge, tag, release or
+deployment is authorized.

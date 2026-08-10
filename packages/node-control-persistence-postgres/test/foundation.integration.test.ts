@@ -487,6 +487,11 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
 
   it('rejects a reused Runtime Event identity without advancing the Control cursor', async () => {
     await pool.query(
+      `UPDATE sdar_control.node_event_source_cursor
+       SET last_sequence=0,updated_at=clock_timestamp()
+       WHERE source_name='runtime-cognitive-outbox'`,
+    );
+    await pool.query(
       `CREATE TABLE public.cognitive_runtime_outbox(
          outbox_sequence bigint PRIMARY KEY,event_id text NOT NULL,event_type text NOT NULL,
          aggregate_type text NOT NULL,aggregate_id text NOT NULL,aggregate_version integer NOT NULL,

@@ -8,16 +8,57 @@ import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mj
 
 const { Pool } = pg;
 const databaseName = 'sdar_v122_e2e_gate';
+const requestedTests = process.argv.slice(2).filter((argument) => argument !== '--');
+const performanceTestFile = 'packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts';
+const performanceTestName =
+  'keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds';
 const adminUrl =
   process.env.SDAR_TEST_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
 try {
   startInfrastructure();
   await recreateDatabase();
-  run(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', '--project', 'e2e'], 180_000, {
+  const environment = {
     ...process.env,
     SDAR_TEST_POSTGRES_URL: databaseUrl(databaseName),
-  });
+  };
+  if (requestedTests.length > 0) {
+    run(
+      process.execPath,
+      ['node_modules/vitest/vitest.mjs', 'run', '--project', 'e2e', ...requestedTests],
+      300_000,
+      environment,
+    );
+  } else {
+    run(
+      process.execPath,
+      [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        '--project',
+        'e2e',
+        '--testNamePattern',
+        `^(?!.*${escapeRegExp(performanceTestName)}).*$`,
+      ],
+      300_000,
+      environment,
+    );
+    await recreateDatabase();
+    run(
+      process.execPath,
+      [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        '--project',
+        'e2e',
+        performanceTestFile,
+        '--testNamePattern',
+        performanceTestName,
+      ],
+      300_000,
+      environment,
+    );
+  }
 } finally {
   await dropDatabase().catch(() => undefined);
   stopInfrastructure();
@@ -39,6 +80,10 @@ function databaseUrl(database) {
   const url = new URL(adminUrl);
   url.pathname = `/${database}`;
   return url.toString();
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 async function recreateDatabase() {

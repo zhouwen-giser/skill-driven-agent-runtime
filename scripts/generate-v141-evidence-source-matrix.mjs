@@ -8,20 +8,34 @@ const controlDatabase = 'control_postgresql';
 const registry = JSON.parse(
   await readFile(path.resolve('schemas/evidence/v1/registry.json'), 'utf8'),
 );
+const verificationProofPath = path.resolve(
+  'reports/v1.4.1-evidence/verification-proof-manifest.json',
+);
+const verificationProof = JSON.parse(await readFile(verificationProofPath, 'utf8'));
 if (!Array.isArray(registry.records) || registry.records.length !== 100) {
   throw new Error('Evidence registry must contain exactly 100 records before matrix generation');
 }
 const catalogByType = new Map(registry.records.map((entry) => [entry.recordType, entry]));
-const acceptedVerifiedFamilies = new Set([
-  'runtime',
-  'skill',
-  'mcp_task',
-  'capability',
-  'experience',
-  'replay',
-  'artifact',
-  'node_control',
-]);
+if (!Array.isArray(verificationProof.records) || verificationProof.records.length !== 100) {
+  throw new Error('Evidence verification proof must contain exactly 100 records');
+}
+const proofByType = new Map();
+for (const proof of verificationProof.records) {
+  if (typeof proof.recordType !== 'string' || proofByType.has(proof.recordType)) {
+    throw new Error(`Evidence verification proof has an invalid or duplicate recordType`);
+  }
+  proofByType.set(proof.recordType, proof);
+}
+for (const recordType of catalogByType.keys()) {
+  if (!proofByType.has(recordType)) {
+    throw new Error(`Evidence verification proof is missing ${recordType}`);
+  }
+}
+for (const recordType of proofByType.keys()) {
+  if (!catalogByType.has(recordType)) {
+    throw new Error(`Evidence verification proof contains unknown ${recordType}`);
+  }
+}
 
 const sources = {
   agent_task: [
@@ -738,14 +752,14 @@ const phase3Sources = {
     'immutable receiver response; canonical source hash',
     'acknowledged_at',
   ],
-  evidence_export_state: [
+  evidence_export_status: [
     'runtime',
     runtimeDatabase,
-    'evidence_export_state',
+    'evidence_export_batch + evidence_export_ack[generation0-derived]',
     'Runtime PostgreSQL',
-    'export_id + source_partition',
-    'fencing_token + last_acknowledged_sequence + canonical source hash',
-    'observed_at',
+    'evidence_export_batch.batch_id + evidence_export_ack.ack_id (nullable)',
+    'evidence_export_batch.ledger_sequence + evidence_export_ack.ledger_sequence (nullable); immutable ledger rows',
+    'COALESCE(evidence_export_ack.acknowledged_at,evidence_export_batch.recorded_at)',
   ],
   episode_evidence_manifest: [
     'runtime',
@@ -785,12 +799,14 @@ const phase3Sources = {
   ],
 };
 
-function row(recordType, sourceKey, requiredReferences, options = {}) {
+function row(recordType, sourceKey, requiredReferences) {
   const source = sources[sourceKey] ?? phase3Sources[sourceKey];
   if (!source) throw new Error(`Unknown source key ${sourceKey} for ${recordType}`);
   const [declaredSourceSystem, sourceDatabase, , , identity, revision, timestamp] = source;
   const catalog = catalogByType.get(recordType);
   if (!catalog) throw new Error(`Missing registry metadata for ${recordType}`);
+  const proof = proofByType.get(recordType);
+  if (!proof) throw new Error(`Missing verification proof for ${recordType}`);
   const expectedReferences = catalog.expectedReferences.join(',');
   // The historical third argument is retained only to keep the 100-row source inventory readable;
   // reference authority comes exclusively from the generated Domain Catalog registry.
@@ -818,6 +834,8 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     record_type: recordType,
     schema_name: catalog.schemaName,
     schema_version: catalog.schemaVersion,
+    schema_path: catalog.schemaPath,
+    schema_hash: catalog.schemaHash,
     delivery_guarantee: catalog.deliveryGuarantee,
     evaluation_role: catalog.evaluationRole,
     applicability: catalog.applicability,
@@ -835,9 +853,7 @@ function row(recordType, sourceKey, requiredReferences, options = {}) {
     redaction_profile: catalog.redactionPolicy,
     artifact_policy: catalog.artifactPolicy,
     required_references: expectedReferences,
-    status:
-      options.status ??
-      (acceptedVerifiedFamilies.has(family) ? 'implemented_and_verified' : 'source_confirmed'),
+    status: proof.verificationStatus,
   };
 }
 
@@ -1026,10 +1042,10 @@ const records = [
   ),
 
   row('evidence.episode_manifest', 'episode_evidence_manifest', 'runtime.run_seal'),
-  row('evidence.quality_issue', 'evidence_quality_issue', 'evidence.episode_manifest'),
-  row('evidence.projection_issue', 'evidence_projection_issue', 'evidence.source_checkpoint'),
+  row('evidence.quality_issue', 'evidence_quality_issue', ''),
+  row('evidence.projection_issue', 'evidence_projection_issue', ''),
   row('evidence.source_checkpoint', 'evidence_source_checkpoint', ''),
-  row('evidence.export_status', 'evidence_export_state', 'evidence.source_checkpoint'),
+  row('evidence.export_status', 'evidence_export_status', 'evidence.source_checkpoint'),
 ];
 
 const requiredColumns = [
@@ -1044,6 +1060,8 @@ const requiredColumns = [
   'record_type',
   'schema_name',
   'schema_version',
+  'schema_path',
+  'schema_hash',
   'delivery_guarantee',
   'evaluation_role',
   'applicability',
@@ -1126,7 +1144,7 @@ await mkdir(outputDirectory, { recursive: true });
 await writeFile(path.join(outputDirectory, 'source-to-evidence-matrix.csv'), csv, 'utf8');
 await writeFile(
   path.join(outputDirectory, 'source-to-evidence-matrix.json'),
-  `${JSON.stringify({ contract: 'sdar.evidence/v1', registryHash: registry.registryHash, generatedBy: 'scripts/generate-v141-evidence-source-matrix.mjs', requiredColumns, statusCounts, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts, records }, null, 2)}\n`,
+  `${JSON.stringify({ contract: 'sdar.evidence/v1', registryHash: registry.registryHash, generatedBy: 'scripts/generate-v141-evidence-source-matrix.mjs', verificationProof: 'reports/v1.4.1-evidence/verification-proof-manifest.json', verificationProofVersion: verificationProof.schemaVersion, requiredColumns, statusCounts, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts, records }, null, 2)}\n`,
   'utf8',
 );
 stdout.write(

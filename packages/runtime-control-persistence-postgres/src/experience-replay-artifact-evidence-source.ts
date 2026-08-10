@@ -15,6 +15,7 @@ interface PartitionRow {
   readonly source_family: 'experience' | 'replay' | 'artifact';
   readonly source_id: string;
   readonly source_version: number | null;
+  readonly episode_id: string | null;
 }
 
 export class PostgresExperienceReplayArtifactEvidenceSource implements ExperienceReplayArtifactEvidenceSource {
@@ -233,55 +234,61 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
 
 const pendingPartitionsSql = `WITH candidate AS (
   SELECT 'experience_task'::text AS kind,'experience'::text AS source_family,
-         episode.task_id AS source_id,NULL::integer AS source_version,0 AS priority
+         episode.task_id AS source_id,NULL::integer AS source_version,
+         episode.task_id AS episode_id,0 AS priority
   FROM goal_experience_episode episode WHERE episode.task_id IS NOT NULL
   UNION
-  SELECT 'experience_task','experience',correction.task_id,NULL::integer,0
+  SELECT 'experience_task','experience',correction.task_id,NULL::integer,correction.task_id,0
   FROM planning_correction_fact correction
   UNION
-  SELECT 'experience_task','experience',interaction.task_id,NULL::integer,0
+  SELECT 'experience_task','experience',interaction.task_id,NULL::integer,interaction.task_id,0
   FROM planning_interaction_episode interaction
   UNION
-  SELECT 'experience_pattern','experience',pattern.pattern_id,NULL::integer,1
+  SELECT 'experience_pattern','experience',pattern.pattern_id,NULL::integer,NULL::text,1
   FROM pattern_candidate pattern
   UNION
-  SELECT 'replay_case','replay',replay_case.replay_case_id,NULL::integer,2
+  SELECT 'replay_case','replay',replay_case.replay_case_id,NULL::integer,episode.task_id,2
   FROM artifact_replay_case replay_case
+  JOIN goal_experience_episode episode
+    ON episode.episode_id=replay_case.primary_source_episode_id
   UNION
-  SELECT 'artifact','artifact',artifact.artifact_id,artifact.version,3
+  SELECT 'artifact','artifact',artifact.artifact_id,artifact.version,NULL::text,3
   FROM compiled_artifact artifact
   UNION
-  SELECT 'replay_dataset','replay',dataset.dataset_id,dataset.dataset_version,4
+  SELECT 'replay_dataset','replay',dataset.dataset_id,dataset.dataset_version,NULL::text,4
   FROM replay_dataset_manifest dataset
   UNION
-  SELECT 'validation','replay',validation.validation_run_id,NULL::integer,5
+  SELECT 'validation','replay',validation.validation_run_id,NULL::integer,NULL::text,5
   FROM artifact_validation_run validation
   UNION
-  SELECT 'retrieval','artifact',match.match_id,NULL::integer,6
+  SELECT 'retrieval','artifact',match.match_id,NULL::integer,match.task_id,6
   FROM artifact_match_log match
   UNION
-  SELECT 'usage','artifact',execution.artifact_execution_id,NULL::integer,7
+  SELECT 'usage','artifact',execution.artifact_execution_id,NULL::integer,execution.task_id,7
   FROM artifact_execution execution
   UNION
-  SELECT 'feedback','artifact',feedback.feedback_id,NULL::integer,8
+  SELECT 'feedback','artifact',feedback.feedback_id,NULL::integer,execution.task_id,8
   FROM artifact_feedback feedback
+  JOIN artifact_execution execution
+    ON execution.artifact_execution_id=feedback.artifact_execution_id
   UNION
-  SELECT 'promotion','artifact',package.promotion_package_id,NULL::integer,9
+  SELECT 'promotion','artifact',package.promotion_package_id,NULL::integer,NULL::text,9
   FROM artifact_promotion_package package
 ), normalized AS (
-  SELECT kind,source_family,source_id,source_version,priority,
+  SELECT kind,source_family,source_id,source_version,episode_id,priority,
          'v141:' || kind || ':' || length(source_id)::text || ':' || source_id ||
            CASE WHEN source_version IS NULL THEN '' ELSE ':v' || source_version::text END
            AS source_partition
   FROM candidate
 )
-SELECT normalized.kind,normalized.source_family,normalized.source_id,normalized.source_version
+SELECT normalized.kind,normalized.source_family,normalized.source_id,normalized.source_version,
+       normalized.episode_id
 FROM normalized
 LEFT JOIN evidence_source_checkpoint checkpoint
   ON checkpoint.source_family=normalized.source_family
  AND checkpoint.source_partition=normalized.source_partition
 LEFT JOIN LATERAL (
-  SELECT projection_issue.created_at
+  SELECT projection_issue.last_observed_at
   FROM evidence_projection_issue projection_issue
   WHERE projection_issue.source_partition=normalized.source_partition
     AND projection_issue.projector_version=$1
@@ -289,15 +296,15 @@ LEFT JOIN LATERAL (
     AND projection_issue.severity='blocking'
     AND projection_issue.retryable
     AND projection_issue.resolved_at IS NULL
-  ORDER BY projection_issue.created_at DESC,projection_issue.issue_id
+  ORDER BY projection_issue.last_observed_at DESC,projection_issue.issue_id
   LIMIT 1
 ) projection_issue ON true
-WHERE projection_issue.created_at IS NULL
-   OR projection_issue.created_at + interval '5 seconds' <= clock_timestamp()
+WHERE projection_issue.last_observed_at IS NULL
+   OR projection_issue.last_observed_at + interval '5 seconds' <= clock_timestamp()
 ORDER BY
   CASE WHEN checkpoint.projector_version IS DISTINCT FROM $1 THEN 0 ELSE 1 END,
   COALESCE(
-    projection_issue.created_at + interval '5 seconds',checkpoint.last_projected_at
+    projection_issue.last_observed_at + interval '5 seconds',checkpoint.last_projected_at
   ) NULLS FIRST,
   normalized.priority,normalized.source_partition
 LIMIT $2`;
@@ -556,6 +563,7 @@ function toPartition(row: PartitionRow): ExperienceReplayArtifactProjectionParti
     sourcePartition: sourcePartition(row.kind, row.source_id, row.source_version ?? undefined),
     sourceId: row.source_id,
     ...(row.source_version === null ? {} : { sourceVersion: row.source_version }),
+    ...(row.episode_id === null ? {} : { episodeId: row.episode_id }),
   });
 }
 
@@ -583,11 +591,17 @@ function assertProjectionPartition(partition: ExperienceReplayArtifactProjection
         ? 'replay'
         : 'artifact';
   const versioned = partition.kind === 'artifact' || partition.kind === 'replay_dataset';
+  const episodeId = partition.episodeId?.trim();
   if (
     partition.sourceFamily !== expectedFamily ||
     versioned !== (partition.sourceVersion !== undefined) ||
     (partition.sourceVersion !== undefined &&
       (!Number.isSafeInteger(partition.sourceVersion) || partition.sourceVersion < 1)) ||
+    (partition.episodeId !== undefined &&
+      (episodeId === '' ||
+        episodeId !== partition.episodeId ||
+        partition.episodeId.length > 512)) ||
+    (partition.kind === 'experience_task' && partition.episodeId !== partition.sourceId) ||
     partition.sourcePartition !==
       sourcePartition(partition.kind, partition.sourceId, partition.sourceVersion)
   ) {

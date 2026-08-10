@@ -979,7 +979,7 @@ const phase9PayloadProperties: Readonly<
     inputHash: hash,
     actorId: text(),
     reason: text(16_384),
-    result: nullable(canonicalValue),
+    result: canonicalValue,
     errorCode: nullable(text()),
     createdAt: dateTime,
     startedAt: nullable(dateTime),
@@ -1070,18 +1070,164 @@ const phase9PayloadProperties: Readonly<
   },
 });
 
+const evidenceSourceCoverage = exactObject(
+  {
+    expected: nonNegativeInteger,
+    projected: nonNegativeInteger,
+    pending: nonNegativeInteger,
+    failed: nonNegativeInteger,
+    lastSourceRevision: text(),
+  },
+  ['expected', 'projected', 'pending', 'failed'],
+);
+const evidenceSourceCoverageMap: EvidenceJsonSchema = {
+  type: 'object',
+  maxProperties: 100,
+  additionalProperties: evidenceSourceCoverage,
+};
+const evidenceIssueCodes = [
+  'schema_invalid',
+  'source_identity_missing',
+  'source_revision_missing',
+  'payload_hash_conflict',
+  'reference_unresolved',
+  'redaction_rejected',
+  'artifact_write_failed',
+  'export_rejected',
+  'ack_invalid',
+  'source_unavailable',
+  'projection_bug',
+] as const;
+const evidenceQualityRuleIds = [
+  'sequence_gap',
+  'payload_conflict',
+  'orphan_reference',
+  'version_gap',
+  'missing_verification',
+  'remote_task_unclosed',
+  'skill_tree_incomplete',
+  'experience_missing_fact',
+  'node_revision_regression',
+  'export_ack_gap',
+] as const;
+
+/** Phase 10 Evidence-infrastructure payloads are closed over their PostgreSQL authorities. */
+const evidenceInfrastructurePayloadProperties: Readonly<
+  Record<string, Readonly<Record<string, EvidenceJsonSchema>>>
+> = Object.freeze({
+  'evidence.episode_manifest': {
+    manifestId: text(),
+    revision: positiveInteger,
+    policyVersion: { const: 'episode-evidence-policy/v1' },
+    episodeId: text(),
+    taskId: text(),
+    terminalOutcomeId: text(),
+    expectedRequiredRecords: nonNegativeInteger,
+    projectedRequiredRecords: nonNegativeInteger,
+    pendingRequiredRecords: nonNegativeInteger,
+    failedRequiredRecords: nonNegativeInteger,
+    expectedFamilies: enumTextArray(EVIDENCE_RECORD_FAMILIES, EVIDENCE_RECORD_FAMILIES.length, 1),
+    completedFamilies: enumTextArray(EVIDENCE_RECORD_FAMILIES, EVIDENCE_RECORD_FAMILIES.length),
+    missingFamilies: enumTextArray(EVIDENCE_RECORD_FAMILIES, EVIDENCE_RECORD_FAMILIES.length),
+    sourceCoverage: evidenceSourceCoverageMap,
+    lastEvidenceSequence: decimalSequence,
+    status: enumText(['projecting', 'complete', 'degraded', 'incomplete']),
+    qualityIssueIds: uniqueStringArray(4096),
+    sourceSnapshotHash: hash,
+    createdAt: dateTime,
+    recomputedAt: dateTime,
+    sealedAt: nullable(dateTime),
+  },
+  'evidence.quality_issue': {
+    issueId: text(),
+    revision: positiveInteger,
+    issueCode: enumText(evidenceIssueCodes),
+    ruleId: nullable(enumText(evidenceQualityRuleIds)),
+    severity: enumText(['diagnostic', 'degraded', 'blocking']),
+    episodeId: nullable(text()),
+    recordType: nullable(text()),
+    recordId: nullable(text()),
+    sourceSystem: enumText(['runtime', 'node_control']),
+    sourceTable: text(),
+    sourceRecordId: text(),
+    detail: canonicalObject,
+    createdAt: dateTime,
+    resolvedAt: nullable(dateTime),
+  },
+  'evidence.projection_issue': {
+    issueId: text(),
+    revision: positiveInteger,
+    issueCode: enumText(evidenceIssueCodes),
+    severity: enumText(['diagnostic', 'degraded', 'blocking']),
+    evaluationRole: enumText(['required', 'supporting', 'diagnostic']),
+    recordType: nullable(text()),
+    recordId: nullable(text()),
+    episodeId: nullable(text()),
+    sourceSystem: enumText(['runtime', 'node_control']),
+    sourceTable: text(),
+    sourceRecordId: text(),
+    sourcePartition: text(),
+    projectorVersion: text(),
+    retryable: booleanValue,
+    detail: canonicalObject,
+    createdAt: dateTime,
+    resolvedAt: nullable(dateTime),
+  },
+  'evidence.source_checkpoint': {
+    sourceFamily: text(),
+    sourcePartition: text(),
+    lastOccurredAt: nullable(dateTime),
+    lastSourceRecordId: nullable(text()),
+    lastSourceRevision: nullable(text()),
+    lastPayloadHash: nullable(hash),
+    lastProjectedAt: nullable(dateTime),
+    projectorVersion: text(),
+  },
+  'evidence.export_status': {
+    exportId: text(),
+    sourcePartition: text(),
+    batchId: text(),
+    configurationRevision: positiveInteger,
+    firstSequence: decimalSequence,
+    lastSequence: decimalSequence,
+    batchHash: hash,
+    recordCount: positiveInteger,
+    attemptNo: positiveInteger,
+    status: enumText(['attempted', 'acknowledged', 'rejected']),
+    recordedAt: dateTime,
+    ackId: nullable(text()),
+    acknowledgedSequence: nullable(decimalSequence),
+    ackDisposition: nullable(enumText(['accepted', 'partial', 'rejected'])),
+    errorCode: nullable(text()),
+    acknowledgedAt: nullable(dateTime),
+    observedAt: dateTime,
+  },
+});
+
 function payloadProperty(recordType: string, field: string): EvidenceJsonSchema {
   const phase8 = phase8PayloadProperties[recordType];
   const phase9 = phase9PayloadProperties[recordType];
-  const explicit = phase8?.[field] ?? phase9?.[field];
+  const evidenceInfrastructure = evidenceInfrastructurePayloadProperties[recordType];
+  const explicit = phase8?.[field] ?? phase9?.[field] ?? evidenceInfrastructure?.[field];
   if (explicit !== undefined) return explicit;
-  if (phase8 !== undefined || phase9 !== undefined) {
+  if (phase8 !== undefined || phase9 !== undefined || evidenceInfrastructure !== undefined) {
     throw new Error(`Governed payload field ${recordType}.${field} has no authoritative schema.`);
   }
   return inferredPayloadProperty(field);
 }
 
 function payloadCrossFieldConstraints(recordType: string): EvidenceJsonSchema {
+  if (recordType === 'evidence.episode_manifest') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({ status: { const: 'projecting' }, sealedAt: { const: null } }),
+        objectPropertiesConstraint({
+          status: enumText(['complete', 'degraded', 'incomplete']),
+          sealedAt: dateTime,
+        }),
+      ],
+    };
+  }
   if (recordType === 'experience.interaction_episode') {
     return {
       oneOf: [
@@ -1300,6 +1446,36 @@ function payloadCrossFieldConstraints(recordType: string): EvidenceJsonSchema {
           ackDisposition: { const: 'rejected' },
           acknowledgedSequence: { const: null },
           errorCode: text(),
+        }),
+      ],
+    };
+  }
+  if (recordType === 'evidence.export_status') {
+    return {
+      oneOf: [
+        objectPropertiesConstraint({
+          status: { const: 'attempted' },
+          ackId: { const: null },
+          acknowledgedSequence: { const: null },
+          ackDisposition: { const: null },
+          errorCode: { const: null },
+          acknowledgedAt: { const: null },
+        }),
+        objectPropertiesConstraint({
+          status: { const: 'acknowledged' },
+          ackId: text(),
+          acknowledgedSequence: decimalSequence,
+          ackDisposition: enumText(['accepted', 'partial']),
+          errorCode: { const: null },
+          acknowledgedAt: dateTime,
+        }),
+        objectPropertiesConstraint({
+          status: { const: 'rejected' },
+          ackId: text(),
+          acknowledgedSequence: { const: null },
+          ackDisposition: { const: 'rejected' },
+          errorCode: text(),
+          acknowledgedAt: dateTime,
         }),
       ],
     };

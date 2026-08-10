@@ -11,3 +11,6 @@ export * from './mcp-capability-evidence-source.js';
 export * from './experience-replay-artifact-evidence-source.js';
 export * from './source-artifact-ref-resolver.js';
 export * from './node-control-telemetry-evidence-source.js';
+export * from './evidence-infrastructure-source.js';
+export * from './evidence-operations-repository.js';
+export * from './evidence-quality-source.js';

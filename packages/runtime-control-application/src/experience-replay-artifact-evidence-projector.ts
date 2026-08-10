@@ -39,6 +39,7 @@ export interface ExperienceReplayArtifactProjectionPartition {
   readonly sourcePartition: string;
   readonly sourceId: string;
   readonly sourceVersion?: number;
+  readonly episodeId?: string;
 }
 
 export interface ExperienceReplayArtifactEvidenceSnapshot {

@@ -24,6 +24,8 @@ import {
   type NodeControlSmppRegistryService,
   type NodeControlRuntimeGovernanceService,
   type NodeControlEvidenceExportService,
+  type NodeControlEvidenceOperationsService,
+  type EvidenceOperationsPrincipal,
   NodeControlRuntimeGovernanceError,
 } from '../../../packages/node-control-application/src/index.js';
 import type { TaskCapabilityBinding } from '../../../packages/domain/src/index.js';
@@ -81,6 +83,7 @@ export interface NodeControlHttpConfiguration {
   }>;
   readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
   readonly evidenceExport?: NodeControlEvidenceExportService;
+  readonly evidenceOperations?: NodeControlEvidenceOperationsService;
   readonly nodeEvents?: NodeControlEventService;
 }
 
@@ -151,6 +154,7 @@ export function createNodeControlHttpApp(
           'a2a-exposure',
           'configuration-summary',
           'management-operation',
+          'evidence-operations',
           'node-events',
         ],
       });
@@ -375,6 +379,149 @@ export function createNodeControlHttpApp(
             parseCommand(request.body),
           ),
         );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/outbox', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).outbox(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/source-checkpoints', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).checkpoints(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/projection-issues', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).projectionIssues(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/v1/evidence-export/quality-issues', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).qualityIssues(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get(
+    '/api/v1/evidence-export/episode-manifests/:episodeId',
+    async (request, response, next) => {
+      try {
+        const manifest = await requiredEvidenceOperations(configuration).manifest(
+          boundedEvidenceIdentifier(request.params.episodeId),
+        );
+        if (manifest === undefined)
+          throw Object.assign(new Error('Evidence Episode Manifest was not found.'), {
+            code: 'EVIDENCE_MANIFEST_NOT_FOUND',
+            status: 404,
+          });
+        response.status(200).json(manifest);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.get('/api/v1/evidence-export/dead-letters', async (request, response, next) => {
+    try {
+      response
+        .status(200)
+        .json(
+          await requiredEvidenceOperations(configuration).deadLetters(
+            parseEvidenceOperationsQuery(request),
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/v1/evidence-export/replays', async (request, response, next) => {
+    try {
+      const body = EvidenceReplayCommandSchema.parse(request.body);
+      const operation = await requiredEvidenceOperations(configuration).recover(
+        evidenceReplayIntent(body),
+        controlPrincipal(response),
+        requiredHeader(request, 'idempotency-key'),
+        body.reason,
+      );
+      response.status(operation.status === 'succeeded' ? 200 : 202).json(operation);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post(
+    '/api/v1/evidence-export/dead-letters/:deadLetterId/retry',
+    async (request, response, next) => {
+      try {
+        const body = EvidenceRecoveryReasonSchema.parse(request.body);
+        const operation = await requiredEvidenceOperations(configuration).recover(
+          {
+            operation: 'retry_dead_letter',
+            deadLetterId: boundedEvidenceIdentifier(request.params.deadLetterId),
+          },
+          controlPrincipal(response),
+          requiredHeader(request, 'idempotency-key'),
+          body.reason,
+        );
+        response.status(operation.status === 'succeeded' ? 200 : 202).json(operation);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post('/api/v1/evidence-export/reconcile', async (request, response, next) => {
+    try {
+      const body = EvidenceReconcileCommandSchema.parse(request.body);
+      const operation = await requiredEvidenceOperations(configuration).recover(
+        {
+          operation: 'reconcile_coverage',
+          ...(body.episodeId === undefined ? {} : { episodeId: body.episodeId }),
+        },
+        controlPrincipal(response),
+        requiredHeader(request, 'idempotency-key'),
+        body.reason,
+      );
+      response.status(operation.status === 'succeeded' ? 200 : 202).json(operation);
     } catch (error) {
       next(error);
     }
@@ -1808,6 +1955,52 @@ const CommandSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .strict();
+const EvidenceIdentifierSchema = z.string().trim().min(1).max(512);
+const EvidenceRecoveryReasonSchema = z
+  .object({ reason: z.string().trim().min(1).max(2_048) })
+  .strict();
+const EvidenceReplayCommandSchema = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('record'),
+      recordId: EvidenceIdentifierSchema,
+      reason: z.string().trim().min(1).max(2_048),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('source_partition'),
+      sourceFamily: EvidenceIdentifierSchema,
+      sourcePartition: EvidenceIdentifierSchema,
+      reason: z.string().trim().min(1).max(2_048),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('episode'),
+      episodeId: EvidenceIdentifierSchema,
+      reason: z.string().trim().min(1).max(2_048),
+    })
+    .strict(),
+]);
+const EvidenceReconcileCommandSchema = z
+  .object({
+    episodeId: EvidenceIdentifierSchema.optional(),
+    reason: z.string().trim().min(1).max(2_048),
+  })
+  .strict();
+const EvidenceOperationsQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().positive().max(200).default(100),
+    cursor: z.string().trim().min(1).max(2_048).optional(),
+    episodeId: EvidenceIdentifierSchema.optional(),
+    sourcePartition: EvidenceIdentifierSchema.optional(),
+    openOnly: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+  })
+  .strict();
 const NodeProfileDraftSchema = z
   .object({
     nodeId: z.string().trim().min(1).max(128),
@@ -2233,6 +2426,68 @@ function parseCommand(value: unknown) {
   });
 }
 
+function parseEvidenceOperationsQuery(request: Request) {
+  const parsed = EvidenceOperationsQuerySchema.parse({
+    limit: request.query['limit'] ?? request.query['pageSize'],
+    cursor: request.query['cursor'] ?? request.query['pageToken'],
+    episodeId: request.query['episodeId'],
+    sourcePartition: request.query['sourcePartition'],
+    openOnly: request.query['openOnly'],
+  });
+  return Object.freeze({
+    limit: parsed.limit,
+    ...(parsed.cursor === undefined ? {} : { cursor: parsed.cursor }),
+    ...(parsed.episodeId === undefined ? {} : { episodeId: parsed.episodeId }),
+    ...(parsed.sourcePartition === undefined ? {} : { sourcePartition: parsed.sourcePartition }),
+    ...(parsed.openOnly === undefined ? {} : { openOnly: parsed.openOnly }),
+  });
+}
+
+function evidenceReplayIntent(input: z.infer<typeof EvidenceReplayCommandSchema>) {
+  switch (input.scope) {
+    case 'record':
+      return Object.freeze({ operation: 'replay_record' as const, recordId: input.recordId });
+    case 'source_partition':
+      return Object.freeze({
+        operation: 'replay_source_partition' as const,
+        sourceFamily: input.sourceFamily,
+        sourcePartition: input.sourcePartition,
+      });
+    case 'episode':
+      return Object.freeze({ operation: 'replay_episode' as const, episodeId: input.episodeId });
+  }
+}
+
+function boundedEvidenceIdentifier(value: string): string {
+  return EvidenceIdentifierSchema.parse(value);
+}
+
+function controlPrincipal(response: Response): EvidenceOperationsPrincipal {
+  const value: unknown = response.locals['controlPrincipal'];
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('actorId' in value) ||
+    typeof value.actorId !== 'string' ||
+    !('role' in value) ||
+    ![
+      'node_admin',
+      'security_admin',
+      'node_operator',
+      'node_viewer',
+      'organization_service',
+    ].includes(String(value.role))
+  )
+    throw Object.assign(new Error('Evidence operations principal is unavailable.'), {
+      code: 'EVIDENCE_OPERATIONS_PRINCIPAL_UNAVAILABLE',
+      status: 401,
+    });
+  return Object.freeze({
+    actorId: value.actorId,
+    role: value.role as EvidenceOperationsPrincipal['role'],
+  });
+}
+
 function parseRuntimeAck(value: unknown) {
   const parsed = RuntimeAckSchema.parse(value);
   return Object.freeze({
@@ -2471,14 +2726,23 @@ function credential(role: PublicApiRole, token: string | undefined) {
 
 function roleOperationAllowed(role: PublicApiRole, method: string, originalUrl: string): boolean {
   if (role === 'node_admin') return true;
+  if (role === 'organization_service') return organizationOperationAllowed(method, originalUrl);
   if (organizationOperationAllowed(method, originalUrl)) return true;
-  if (method !== 'GET') return false;
   const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
-  const evidenceRead = /^\/api\/v1\/evidence-export(?:\/status)?$/u.test(path);
+  const evidenceRecovery = [
+    /^\/api\/v1\/evidence-export\/replays$/u,
+    /^\/api\/v1\/evidence-export\/dead-letters\/[^/]+\/retry$/u,
+    /^\/api\/v1\/evidence-export\/reconcile$/u,
+  ].some((pattern) => pattern.test(path));
+  if (method === 'POST' && role === 'security_admin' && evidenceRecovery) return true;
+  if (method !== 'GET') return false;
+  const evidenceRead = [
+    /^\/api\/v1\/evidence-export(?:\/status)?$/u,
+    /^\/api\/v1\/evidence-export\/(?:outbox|source-checkpoints|projection-issues|quality-issues|dead-letters)$/u,
+    /^\/api\/v1\/evidence-export\/episode-manifests\/[^/]+$/u,
+  ].some((pattern) => pattern.test(path));
   if (role === 'node_viewer') return evidenceRead;
-  if (role === 'node_operator' || role === 'security_admin')
-    return evidenceRead || /^\/api\/v1\/audit-events$/u.test(path);
-  return false;
+  return evidenceRead || /^\/api\/v1\/audit-events$/u.test(path);
 }
 
 function assertOutboundEndpoint(value: string, configured?: readonly string[]): void {
@@ -2726,6 +2990,17 @@ function requiredEvidenceExport(
       status: 503,
     });
   return configuration.evidenceExport;
+}
+
+function requiredEvidenceOperations(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlEvidenceOperationsService {
+  if (configuration.evidenceOperations === undefined)
+    throw Object.assign(new Error('Evidence operations are unavailable.'), {
+      code: 'EVIDENCE_OPERATIONS_UNAVAILABLE',
+      status: 503,
+    });
+  return configuration.evidenceOperations;
 }
 
 function requiredNodeEvents(configuration: NodeControlHttpConfiguration): NodeControlEventService {

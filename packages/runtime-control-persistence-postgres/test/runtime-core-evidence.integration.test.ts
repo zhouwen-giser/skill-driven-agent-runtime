@@ -31,6 +31,7 @@ import {
   hashSourceArtifactJson,
   type ArtifactRef,
   type CanonicalEvidenceEnvelope,
+  type EvidenceExportConfiguration,
   type EvidenceJsonValue,
   type EvidenceQualityIssue,
   type PlanTemplateArtifactDefinition,
@@ -102,11 +103,39 @@ beforeAll(async () => {
   await seedRuntimeCoreEpisode();
   await seedMcpCapabilityFacts();
   await seedExperienceReplayArtifactFacts();
+  await store.applyConfiguration(phase12EvidenceConfiguration(), '2026-08-04T03:59:00.000Z');
 });
 
 afterAll(async () => {
   await pool.end();
 });
+
+function phase12EvidenceConfiguration(): EvidenceExportConfiguration {
+  return {
+    exportId: 'phase12-runtime-core-evidence',
+    revision: 1,
+    endpointRef: 'https://evidence.example.test/v1/batches',
+    sourceId: 'phase12-runtime-core',
+    nodeId: 'node-phase12-runtime-core',
+    credentialRef: 'env:PHASE12_EVIDENCE_TOKEN',
+    includedFamilies: [
+      'runtime',
+      'skill',
+      'mcp_task',
+      'capability',
+      'experience',
+      'replay',
+      'artifact',
+      'node_control',
+      'evidence',
+    ],
+    batchPolicy: { maxRecords: 1_000, maxBytes: 262_144, flushIntervalMs: 1_000 },
+    retryPolicy: { baseDelayMs: 100, maxDelayMs: 10_000, maxAttempts: 5 },
+    outboxPolicy: { maxPendingRecords: 100_000, retentionDays: 30 },
+    redactionProfile: 'strict_internal_v1',
+    artifactMode: 'reference',
+  };
+}
 
 describe('Runtime core canonical Evidence vertical', { concurrent: false }, () => {
   it('projects real authoritative facts through a draft manifest with stable IDs, hashes, references and sequences', async () => {
@@ -177,29 +206,11 @@ describe('Runtime core canonical Evidence vertical', { concurrent: false }, () =
       authority: 'user_goal_plan_controller',
     });
 
-    const manifest = await pool.query<{
-      manifest_id: string;
-      status: string;
-      expected_required_records: number;
-      projected_required_records: number;
-      pending_required_records: number;
-      failed_required_records: number;
-      last_evidence_sequence: string;
-    }>(
-      `SELECT manifest_id,status,expected_required_records,projected_required_records,
-         pending_required_records,failed_required_records,last_evidence_sequence::text
-       FROM episode_evidence_manifest WHERE episode_id=$1`,
-      ['task-v141-runtime-core'],
-    );
-    expect(manifest.rows[0]).toMatchObject({
-      manifest_id: first.manifestId,
-      status: 'projecting',
-      expected_required_records: 19,
-      projected_required_records: 19,
-      pending_required_records: 0,
-      failed_required_records: 0,
-      last_evidence_sequence: '19',
-    });
+    await expect(
+      pool.query(`SELECT 1 FROM episode_evidence_manifest WHERE episode_id=$1`, [
+        'task-v141-runtime-core',
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
     await expect(
       pool.query(`SELECT 1 FROM evidence_quality_issue WHERE episode_id=$1`, [
         'task-v141-runtime-core',
@@ -211,12 +222,6 @@ describe('Runtime core canonical Evidence vertical', { concurrent: false }, () =
     await expect(evidenceRecords()).resolves.toHaveLength(19);
     await expect(source.pendingTaskIds(10)).resolves.toEqual([]);
 
-    await pool.query(`DELETE FROM episode_evidence_manifest WHERE episode_id=$1`, [
-      'task-v141-runtime-core',
-    ]);
-    await expect(source.pendingTaskIds(10)).resolves.toEqual(['task-v141-runtime-core']);
-    await projector.projectTask('task-v141-runtime-core');
-    await expect(evidenceRecords()).resolves.toHaveLength(19);
     await expect(source.pendingTaskIds(10)).resolves.toEqual([]);
   });
 

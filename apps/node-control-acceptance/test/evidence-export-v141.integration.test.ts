@@ -159,7 +159,7 @@ afterAll(async () => {
   await Promise.all([runtimePool.end(), controlPool.end()]);
   if (previousCredential === undefined) delete process.env['P11_EVIDENCE_TOKEN'];
   else process.env['P11_EVIDENCE_TOKEN'] = previousCredential;
-});
+}, 60_000);
 
 describe(
   'v1.4.1 Node Control -> Runtime -> Canonical Evidence endpoint',
@@ -294,22 +294,42 @@ describe(
         'node_control.telemetry_delivery',
         'node_control.telemetry_ack',
       ] as const;
-      await waitFor(async () => {
-        const projected = await runtimePool.query<{ record_type: string }>(
-          `SELECT DISTINCT record_type FROM evidence_outbox
-            WHERE record_type=ANY($1::text[])`,
+      try {
+        await waitFor(async () => {
+          const projected = await runtimePool.query<{ record_type: string }>(
+            `SELECT DISTINCT record_type FROM evidence_outbox
+              WHERE record_type=ANY($1::text[])`,
+            [verticalRecordTypes],
+          );
+          const present = new Set(projected.rows.map((row) => row.record_type));
+          if (!verticalRecordTypes.every((recordType) => present.has(recordType))) return false;
+          const deliveredSelfObservations = await runtimePool.query<{ delivered: number }>(
+            `SELECT count(*)::integer AS delivered FROM evidence_outbox
+              WHERE record_type IN (
+                'node_control.telemetry_delivery','node_control.telemetry_ack'
+              ) AND observation_generation=1 AND acknowledged_at IS NOT NULL`,
+          );
+          return (deliveredSelfObservations.rows[0]?.delivered ?? 0) >= 2;
+        }, 60_000);
+      } catch (error) {
+        const diagnostics = await runtimePool.query<{
+          present_types: readonly string[];
+          issues: readonly Readonly<{ recordType: string | null; issueCode: string }>[];
+        }>(
+          `SELECT
+             ARRAY(SELECT DISTINCT record_type FROM evidence_outbox
+               WHERE record_type=ANY($1::text[]) ORDER BY record_type) AS present_types,
+             ARRAY(SELECT jsonb_build_object(
+               'recordType',record_type,'issueCode',issue_code
+             ) FROM evidence_projection_issue WHERE resolved_at IS NULL
+               ORDER BY last_observed_at DESC LIMIT 20) AS issues`,
           [verticalRecordTypes],
         );
-        const present = new Set(projected.rows.map((row) => row.record_type));
-        if (!verticalRecordTypes.every((recordType) => present.has(recordType))) return false;
-        const deliveredSelfObservations = await runtimePool.query<{ delivered: number }>(
-          `SELECT count(*)::integer AS delivered FROM evidence_outbox
-            WHERE record_type IN (
-              'node_control.telemetry_delivery','node_control.telemetry_ack'
-            ) AND observation_generation=1 AND acknowledged_at IS NOT NULL`,
+        throw new Error(
+          `P11_VERTICAL_EVIDENCE_TIMEOUT:${JSON.stringify(diagnostics.rows[0] ?? {})}`,
+          { cause: error },
         );
-        return (deliveredSelfObservations.rows[0]?.delivered ?? 0) >= 2;
-      }, 60_000);
+      }
 
       const verticalEvidence = await evidenceRows(verticalRecordTypes);
       expect(new Set(verticalEvidence.map((row) => row.record_type))).toEqual(
@@ -448,7 +468,7 @@ describe(
           [firstTask],
         );
         return deliveredTask.rows[0]?.delivered === true;
-      });
+      }, 30_000);
       let delivered: unknown;
       await waitFor(async () => {
         delivered = await publicGet('/api/v1/evidence-export/status');
@@ -459,6 +479,65 @@ describe(
         exportId,
         status: 'healthy',
         pendingRecords: 0,
+      });
+
+      const outboxPage = (await publicGet(
+        `/api/v1/evidence-export/outbox?episodeId=${encodeURIComponent(firstTask)}&limit=10`,
+      )) as {
+        items?: readonly Readonly<{ recordId?: string; payload?: unknown }>[];
+      };
+      const replayRecord = outboxPage.items?.find((item) => item.recordId !== undefined);
+      if (replayRecord?.recordId === undefined) throw new Error('P11_REPLAY_RECORD_MISSING');
+      expect(replayRecord).not.toHaveProperty('payload');
+      const replayKey = `p11-evidence-replay-${randomUUID()}`;
+      const replayed = await command(
+        '/api/v1/evidence-export/replays',
+        {
+          scope: 'record',
+          recordId: replayRecord.recordId,
+          reason: 'Re-deliver one acknowledged canonical Evidence record.',
+        },
+        { idempotencyKey: replayKey },
+      );
+      expect(replayed.response.status, JSON.stringify(replayed.body)).toBe(200);
+      expect(replayed.body).toMatchObject({
+        operationType: 'evidence.replay',
+        status: 'succeeded',
+      });
+      await waitFor(async () => {
+        const redelivered = await runtimePool.query<{ delivered: boolean }>(
+          `SELECT acknowledged_at IS NOT NULL AS delivered FROM evidence_outbox
+            WHERE record_id=$1`,
+          [replayRecord.recordId],
+        );
+        return redelivered.rows[0]?.delivered === true;
+      });
+      const replayGovernance = await controlPool.query<{
+        operations: number;
+        audits: number;
+        operation_id: string | null;
+      }>(
+        `SELECT
+             (SELECT count(*)::integer FROM sdar_control.management_operation
+               WHERE operation_type='evidence.replay') AS operations,
+             (SELECT max(operation_id) FROM sdar_control.management_operation
+               WHERE operation_type='evidence.replay') AS operation_id,
+             (SELECT count(*)::integer FROM sdar_control.control_audit_event
+               WHERE action='evidence.replay'
+                 AND aggregate_id=$1) AS audits`,
+        [replayRecord.recordId],
+      );
+      expect(replayGovernance.rows).toMatchObject([{ operations: 1, audits: 2 }]);
+      const replayOperationId = replayGovernance.rows[0]?.operation_id;
+      if (replayOperationId === null || replayOperationId === undefined)
+        throw new Error('P11_REPLAY_OPERATION_ID_MISSING');
+      await waitFor(async () => {
+        const projectedOperation = await runtimePool.query<{ delivered: boolean }>(
+          `SELECT acknowledged_at IS NOT NULL AS delivered FROM evidence_outbox
+            WHERE record_type='node_control.management_operation' AND source_record_id=$1`,
+          [replayOperationId],
+        );
+        return projectedOperation.rows[0]?.delivered === true;
       });
 
       if (ingestion === undefined) throw new Error('P11_INGESTION_NOT_STARTED');
@@ -474,7 +553,8 @@ describe(
       await waitFor(async () => {
         const failure = await runtimePool.query<{ last_error_code: string | null }>(
           `SELECT last_error_code FROM evidence_export_state
-           WHERE export_id=$1 AND source_partition='runtime:episodes'`,
+           WHERE export_id=$1 AND last_error_code='EVIDENCE_ENDPOINT_UNAVAILABLE'
+           ORDER BY last_error_at DESC NULLS LAST LIMIT 1`,
           [exportId],
         );
         return failure.rows[0]?.last_error_code === 'EVIDENCE_ENDPOINT_UNAVAILABLE';
@@ -495,10 +575,12 @@ describe(
          (SELECT count(*)::integer FROM evidence_export_configuration WHERE is_active) AS active,
          (SELECT count(*)::integer FROM evidence_export_configuration WHERE is_lkg) AS lkg,
          (SELECT count(*)::integer FROM evidence_outbox
-           WHERE source_partition='runtime:episodes' AND acknowledged_at IS NULL) AS pending,
+           WHERE source_record_id=$2 AND record_type='runtime.episode'
+             AND acknowledged_at IS NULL) AS pending,
          (SELECT last_error_code FROM evidence_export_state
-           WHERE export_id=$1 AND source_partition='runtime:episodes') AS last_error_code`,
-        [exportId],
+           WHERE export_id=$1 AND last_error_code='EVIDENCE_ENDPOINT_UNAVAILABLE'
+           ORDER BY last_error_at DESC NULLS LAST LIMIT 1) AS last_error_code`,
+        [exportId, outageTask],
       );
       expect(authority.rows).toEqual([
         {

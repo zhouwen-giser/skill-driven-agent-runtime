@@ -73,13 +73,70 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 17,
       "maxProperties": 128,
-      "required": ["issueId", "issueCode", "projectorVersion"],
+      "required": [
+        "issueId",
+        "revision",
+        "issueCode",
+        "severity",
+        "evaluationRole",
+        "recordType",
+        "recordId",
+        "episodeId",
+        "sourceSystem",
+        "sourceTable",
+        "sourceRecordId",
+        "sourcePartition",
+        "projectorVersion",
+        "retryable",
+        "detail",
+        "createdAt",
+        "resolvedAt"
+      ],
       "properties": {
         "issueId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "issueCode": { "$ref": "#/$defs/evidenceValue" },
-        "projectorVersion": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "issueCode": {
+          "type": "string",
+          "enum": [
+            "schema_invalid",
+            "source_identity_missing",
+            "source_revision_missing",
+            "payload_hash_conflict",
+            "reference_unresolved",
+            "redaction_rejected",
+            "artifact_write_failed",
+            "export_rejected",
+            "ack_invalid",
+            "source_unavailable",
+            "projection_bug"
+          ]
+        },
+        "severity": { "type": "string", "enum": ["diagnostic", "degraded", "blocking"] },
+        "evaluationRole": { "type": "string", "enum": ["required", "supporting", "diagnostic"] },
+        "recordType": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "recordId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "episodeId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "sourceSystem": { "type": "string", "enum": ["runtime", "node_control"] },
+        "sourceTable": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "projectorVersion": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "retryable": { "type": "boolean" },
+        "detail": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

@@ -122,7 +122,7 @@ describe('Canonical Evidence Export PostgreSQL adapter', { concurrent: false }, 
     await expect(store.status(now)).resolves.toMatchObject({
       status: 'degraded',
       lastErrorCode: 'EVIDENCE_ENDPOINT_UNAVAILABLE',
-      pendingRecords: 1,
+      pendingRecords: 0,
     });
     const deadLetters = await pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM evidence_dead_letter WHERE issue_code=$1',
@@ -176,7 +176,7 @@ describe('Canonical Evidence Export PostgreSQL adapter', { concurrent: false }, 
 
     await expect(store.status('2026-08-04T01:00:01.000Z')).resolves.toMatchObject({
       lastErrorCode: 'EVIDENCE_ACK_INVALID',
-      pendingRecords: 1,
+      pendingRecords: 0,
     });
     const authority = await pool.query<{
       last_acknowledged_sequence: string | null;

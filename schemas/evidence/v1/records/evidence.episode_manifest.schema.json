@@ -73,15 +73,152 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 21,
       "maxProperties": 128,
-      "required": ["manifestId", "episodeId", "status"],
+      "required": [
+        "manifestId",
+        "revision",
+        "policyVersion",
+        "episodeId",
+        "taskId",
+        "terminalOutcomeId",
+        "expectedRequiredRecords",
+        "projectedRequiredRecords",
+        "pendingRequiredRecords",
+        "failedRequiredRecords",
+        "expectedFamilies",
+        "completedFamilies",
+        "missingFamilies",
+        "sourceCoverage",
+        "lastEvidenceSequence",
+        "status",
+        "qualityIssueIds",
+        "sourceSnapshotHash",
+        "createdAt",
+        "recomputedAt",
+        "sealedAt"
+      ],
       "properties": {
         "manifestId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "policyVersion": { "const": "episode-evidence-policy/v1" },
         "episodeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "status": { "$ref": "#/$defs/evidenceValue" }
+        "taskId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "terminalOutcomeId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "expectedRequiredRecords": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "projectedRequiredRecords": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "pendingRequiredRecords": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "failedRequiredRecords": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "expectedFamilies": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "runtime",
+              "skill",
+              "mcp_task",
+              "capability",
+              "experience",
+              "replay",
+              "artifact",
+              "node_control",
+              "evidence"
+            ]
+          }
+        },
+        "completedFamilies": {
+          "type": "array",
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "runtime",
+              "skill",
+              "mcp_task",
+              "capability",
+              "experience",
+              "replay",
+              "artifact",
+              "node_control",
+              "evidence"
+            ]
+          }
+        },
+        "missingFamilies": {
+          "type": "array",
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "runtime",
+              "skill",
+              "mcp_task",
+              "capability",
+              "experience",
+              "replay",
+              "artifact",
+              "node_control",
+              "evidence"
+            ]
+          }
+        },
+        "sourceCoverage": {
+          "type": "object",
+          "maxProperties": 100,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expected", "projected", "pending", "failed"],
+            "properties": {
+              "expected": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "projected": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "pending": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "failed": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "lastSourceRevision": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            }
+          }
+        },
+        "lastEvidenceSequence": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,18})$" },
+        "status": {
+          "type": "string",
+          "enum": ["projecting", "complete", "degraded", "incomplete"]
+        },
+        "qualityIssueIds": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        },
+        "sourceSnapshotHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "recomputedAt": { "type": "string", "format": "date-time" },
+        "sealedAt": { "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] }
       },
-      "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+      "additionalProperties": { "$ref": "#/$defs/evidenceValue" },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "sealedAt"],
+          "properties": { "status": { "const": "projecting" }, "sealedAt": { "const": null } }
+        },
+        {
+          "type": "object",
+          "required": ["status", "sealedAt"],
+          "properties": {
+            "status": { "type": "string", "enum": ["complete", "degraded", "incomplete"] },
+            "sealedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
     },
     "goalVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
     "planVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },

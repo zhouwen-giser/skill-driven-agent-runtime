@@ -11,6 +11,11 @@ import {
   type ExperienceReplayArtifactProjectionPartition,
 } from './experience-replay-artifact-evidence-projector.js';
 import {
+  EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION,
+  type EvidenceInfrastructureProjectionPartition,
+  type EvidenceInfrastructureSource,
+} from './evidence-infrastructure-projector.js';
+import {
   MCP_CAPABILITY_EVIDENCE_PROJECTOR_VERSION,
   type McpCapabilityEvidenceSource,
 } from './mcp-capability-evidence-projector.js';
@@ -39,6 +44,32 @@ interface PartitionEvidenceProjector {
 interface NodeControlPartitionEvidenceProjector {
   projectPartition(partition: NodeControlEvidenceProjectionPartition): Promise<unknown>;
 }
+
+interface EvidenceInfrastructurePartitionProjector {
+  projectPartition(partition: EvidenceInfrastructureProjectionPartition): Promise<unknown>;
+}
+
+export interface TerminalEpisodeCoverageCandidate {
+  readonly episodeId: string;
+  readonly taskId: string;
+  readonly terminalOutcomeId: string;
+  readonly sealRequested: boolean;
+}
+
+export interface TerminalEpisodeCoverageSource {
+  pendingTerminalEpisodes(limit: number): Promise<readonly TerminalEpisodeCoverageCandidate[]>;
+}
+
+export interface TerminalEpisodeCoverageReconciler {
+  reconcile(input: {
+    readonly episodeId: string;
+    readonly taskId: string;
+    readonly terminalOutcomeId: string;
+    readonly sealRequested: boolean;
+  }): Promise<unknown>;
+}
+
+export const EPISODE_EVIDENCE_COVERAGE_PROJECTOR_VERSION = 'episode-evidence-coverage/v1' as const;
 
 export interface EvidenceProjectionIssueWriter {
   recordProjectionIssue(
@@ -79,6 +110,9 @@ interface ProjectionItemDescriptor {
   readonly sourceTable: string;
   readonly sourceRecordId: string;
   readonly projectorVersion: string;
+  readonly sourceSystem?: 'runtime' | 'node_control';
+  readonly evaluationRole?: 'required' | 'supporting' | 'diagnostic';
+  readonly recordType?: string;
   readonly episodeId?: string;
 }
 
@@ -336,6 +370,195 @@ export class CanonicalEvidenceProjectionPipeline {
 }
 
 /**
+ * Recomputes terminal episode coverage without allowing one malformed episode to starve the
+ * remaining terminal authority rows. The runner only coordinates Application ports; PostgreSQL
+ * remains the candidate, Manifest and issue authority.
+ */
+export class EpisodeEvidenceCoverageProjectionPipeline {
+  readonly #source: TerminalEpisodeCoverageSource;
+  readonly #reconciler: TerminalEpisodeCoverageReconciler;
+  readonly #attempts: IsolatedProjectionAttempts;
+
+  constructor(
+    input: Readonly<{
+      writer: EvidenceProjectionIssueWriter;
+      source: TerminalEpisodeCoverageSource;
+      reconciler: TerminalEpisodeCoverageReconciler;
+      clock?: Readonly<{ now(): string }>;
+    }>,
+  ) {
+    this.#source = input.source;
+    this.#reconciler = input.reconciler;
+    this.#attempts = new IsolatedProjectionAttempts(input.writer, input.clock);
+  }
+
+  async drain(limit = 10): Promise<EvidenceProjectionPipelineResult> {
+    assertProjectionLimit(limit, 'Episode Evidence coverage');
+    const state = projectionPipelineState();
+    const listing = episodeCoverageListingDescriptor();
+    let candidates: readonly TerminalEpisodeCoverageCandidate[];
+    try {
+      candidates = await this.#source.pendingTerminalEpisodes(limit);
+      await this.#attempts.resolve(listing, state);
+    } catch (error) {
+      state.sourceListingFailures += 1;
+      await this.#attempts.record(listing, error, 'source_listing', state);
+      return finishProjectionPipeline(state);
+    }
+
+    for (const candidate of candidates) {
+      const descriptor = episodeCoverageCandidateDescriptor(candidate);
+      await this.#attempts.project(
+        descriptor,
+        () =>
+          this.#reconciler.reconcile({
+            episodeId: candidate.episodeId,
+            taskId: candidate.taskId,
+            terminalOutcomeId: candidate.terminalOutcomeId,
+            sealRequested: candidate.sealRequested,
+          }),
+        state,
+      );
+    }
+    return finishProjectionPipeline(state);
+  }
+}
+
+/**
+ * Projects the five Evidence-infrastructure record types after episode coverage reconciliation.
+ * Its own durable Projection Issues are deliberately identified by the infrastructure projector
+ * version so the PostgreSQL source can exclude them from self-observation.
+ */
+export class EvidenceInfrastructureProjectionPipeline {
+  readonly #source: EvidenceInfrastructureSource;
+  readonly #projector: EvidenceInfrastructurePartitionProjector;
+  readonly #attempts: IsolatedProjectionAttempts;
+
+  constructor(
+    input: Readonly<{
+      writer: EvidenceProjectionIssueWriter;
+      source: EvidenceInfrastructureSource;
+      projector: EvidenceInfrastructurePartitionProjector;
+      clock?: Readonly<{ now(): string }>;
+    }>,
+  ) {
+    this.#source = input.source;
+    this.#projector = input.projector;
+    this.#attempts = new IsolatedProjectionAttempts(input.writer, input.clock);
+  }
+
+  async drain(limit = 25): Promise<EvidenceProjectionPipelineResult> {
+    assertProjectionLimit(limit, 'Evidence infrastructure projection');
+    const state = projectionPipelineState();
+    const listing = evidenceInfrastructureListingDescriptor();
+    let partitions: readonly EvidenceInfrastructureProjectionPartition[];
+    try {
+      partitions = await this.#source.pendingPartitions(limit);
+      await this.#attempts.resolve(listing, state);
+    } catch (error) {
+      state.sourceListingFailures += 1;
+      await this.#attempts.record(listing, error, 'source_listing', state);
+      return finishProjectionPipeline(state);
+    }
+
+    for (const partition of partitions) {
+      const descriptor = evidenceInfrastructurePartitionDescriptor(partition);
+      await this.#attempts.project(
+        descriptor,
+        () => this.#projector.projectPartition(partition),
+        state,
+      );
+    }
+    return finishProjectionPipeline(state);
+  }
+}
+
+class IsolatedProjectionAttempts {
+  readonly #writer: EvidenceProjectionIssueWriter;
+  readonly #clock: Readonly<{ now(): string }>;
+
+  constructor(
+    writer: EvidenceProjectionIssueWriter,
+    clock: Readonly<{ now(): string }> = { now: () => new Date().toISOString() },
+  ) {
+    this.#writer = writer;
+    this.#clock = clock;
+  }
+
+  async project(
+    descriptor: ProjectionItemDescriptor,
+    project: () => Promise<unknown>,
+    state: MutableProjectionPipelineResult,
+  ): Promise<void> {
+    state.attemptedItems += 1;
+    try {
+      await project();
+      state.projectedItems += 1;
+      await this.resolve(descriptor, state);
+    } catch (error) {
+      state.failedItems += 1;
+      await this.record(descriptor, error, 'item_projection', state);
+    }
+  }
+
+  async record(
+    descriptor: ProjectionItemDescriptor,
+    error: unknown,
+    failureStage: 'source_listing' | 'item_projection',
+    state: MutableProjectionPipelineResult,
+  ): Promise<void> {
+    const issueId = projectionIssueId(descriptor);
+    const evaluationRole = descriptor.evaluationRole ?? 'required';
+    const issue: EvidenceProjectionIssue = {
+      issueId,
+      issueCode: projectionIssueCode(error),
+      severity:
+        evaluationRole === 'required'
+          ? 'blocking'
+          : evaluationRole === 'diagnostic'
+            ? 'diagnostic'
+            : 'degraded',
+      ...(descriptor.recordType === undefined ? {} : { recordType: descriptor.recordType }),
+      ...(descriptor.episodeId === undefined ? {} : { episodeId: descriptor.episodeId }),
+      sourceSystem: descriptor.sourceSystem ?? 'runtime',
+      sourceTable: descriptor.sourceTable,
+      sourceRecordId: descriptor.sourceRecordId,
+      sourcePartition: descriptor.sourcePartition,
+      projectorVersion: descriptor.projectorVersion,
+      retryable: true,
+      detail: Object.freeze({
+        failureCode: safeFailureCode(error),
+        failureStage,
+        sourceFamily: descriptor.sourceFamily,
+      }) satisfies Readonly<Record<string, EvidenceJsonValue>>,
+      createdAt: this.#clock.now(),
+    };
+    try {
+      await this.#writer.recordProjectionIssue(issue, evaluationRole);
+      state.openIssueIds.push(issueId);
+    } catch {
+      state.issuePersistenceFailures += 1;
+    }
+  }
+
+  async resolve(
+    descriptor: ProjectionItemDescriptor,
+    state: MutableProjectionPipelineResult,
+  ): Promise<void> {
+    try {
+      await this.#writer.resolveProjectionIssue({
+        issueId: projectionIssueId(descriptor),
+        sourcePartition: descriptor.sourcePartition,
+        projectorVersion: descriptor.projectorVersion,
+        resolvedAt: this.#clock.now(),
+      });
+    } catch {
+      state.issuePersistenceFailures += 1;
+    }
+  }
+}
+
+/**
  * Drains the cross-database Node Control source independently from the Runtime-owned families.
  * One corrupt authority aggregate must neither starve healthy partitions nor erase the durable
  * reason that it remains pending.
@@ -468,6 +691,101 @@ export class NodeControlEvidenceProjectionPipeline {
   }
 }
 
+function projectionPipelineState(): MutableProjectionPipelineResult {
+  return {
+    attemptedItems: 0,
+    projectedItems: 0,
+    failedItems: 0,
+    sourceListingFailures: 0,
+    issuePersistenceFailures: 0,
+    openIssueIds: [],
+  };
+}
+
+function finishProjectionPipeline(
+  state: MutableProjectionPipelineResult,
+): EvidenceProjectionPipelineResult {
+  const result: EvidenceProjectionPipelineResult = Object.freeze({
+    attemptedItems: state.attemptedItems,
+    projectedItems: state.projectedItems,
+    failedItems: state.failedItems,
+    sourceListingFailures: state.sourceListingFailures,
+    issuePersistenceFailures: state.issuePersistenceFailures,
+    openIssueIds: Object.freeze([...state.openIssueIds]),
+  });
+  if (result.issuePersistenceFailures > 0) {
+    throw new EvidenceProjectionIssuePersistenceError(result);
+  }
+  return result;
+}
+
+function assertProjectionLimit(limit: number, label: string): void {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
+    throw new Error(`${label} limit must be between 1 and 1000.`);
+  }
+}
+
+function episodeCoverageListingDescriptor(): ProjectionItemDescriptor {
+  const catalog = getEvidenceCatalogEntry('evidence.episode_manifest');
+  return {
+    sourceFamily: 'evidence-coverage',
+    sourcePartition: 'projection-source:evidence-coverage',
+    sourceTable: 'runtime_terminal_outcome',
+    sourceRecordId: 'terminal-episodes',
+    projectorVersion: EPISODE_EVIDENCE_COVERAGE_PROJECTOR_VERSION,
+    sourceSystem: catalog.sourceSystem,
+    evaluationRole: catalog.evaluationRole,
+    recordType: catalog.recordType,
+  };
+}
+
+function episodeCoverageCandidateDescriptor(
+  candidate: TerminalEpisodeCoverageCandidate,
+): ProjectionItemDescriptor {
+  const catalog = getEvidenceCatalogEntry('evidence.episode_manifest');
+  return {
+    sourceFamily: 'evidence-coverage',
+    sourcePartition: `v141:evidence-coverage:${String(candidate.episodeId.length)}:${candidate.episodeId}`,
+    sourceTable: 'runtime_terminal_outcome',
+    sourceRecordId: candidate.terminalOutcomeId,
+    projectorVersion: EPISODE_EVIDENCE_COVERAGE_PROJECTOR_VERSION,
+    sourceSystem: catalog.sourceSystem,
+    evaluationRole: catalog.evaluationRole,
+    recordType: catalog.recordType,
+    episodeId: candidate.episodeId,
+  };
+}
+
+function evidenceInfrastructureListingDescriptor(): ProjectionItemDescriptor {
+  const catalog = getEvidenceCatalogEntry('evidence.episode_manifest');
+  return {
+    sourceFamily: 'evidence',
+    sourcePartition: 'projection-source:evidence-infrastructure',
+    sourceTable: 'evidence_source_checkpoint',
+    sourceRecordId: 'evidence-infrastructure',
+    projectorVersion: EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION,
+    sourceSystem: catalog.sourceSystem,
+    evaluationRole: catalog.evaluationRole,
+    recordType: catalog.recordType,
+  };
+}
+
+function evidenceInfrastructurePartitionDescriptor(
+  partition: EvidenceInfrastructureProjectionPartition,
+): ProjectionItemDescriptor {
+  const catalog = getEvidenceCatalogEntry(partition.recordType);
+  return {
+    sourceFamily: 'evidence',
+    sourcePartition: partition.sourcePartition,
+    sourceTable: catalog.sourceTable,
+    sourceRecordId: partition.sourceRecordId,
+    projectorVersion: EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION,
+    sourceSystem: catalog.sourceSystem,
+    evaluationRole: catalog.evaluationRole,
+    recordType: catalog.recordType,
+  };
+}
+
 interface NodeControlProjectionItemDescriptor {
   readonly sourcePartition: string;
   readonly sourceTable: string;
@@ -532,7 +850,7 @@ function partitionDescriptor(
         ? partition.sourceId
         : `${partition.sourceId}@${String(partition.sourceVersion)}`,
     projectorVersion: EXPERIENCE_REPLAY_ARTIFACT_PROJECTOR_VERSION,
-    ...(partition.kind === 'experience_task' ? { episodeId: partition.sourceId } : {}),
+    ...(partition.episodeId === undefined ? {} : { episodeId: partition.episodeId }),
   };
 }
 
@@ -571,6 +889,11 @@ function projectionIssueId(descriptor: ProjectionItemDescriptor): string {
 }
 
 function projectionIssueCode(error: unknown): EvidenceIssueCode {
+  const code = errorCode(error);
+  if (code === 'SCHEMA_INVALID') return 'schema_invalid';
+  if (code === 'EVIDENCE_PAYLOAD_HASH_CONFLICT' || code === 'EVIDENCE_SOURCE_IDENTITY_CONFLICT') {
+    return 'payload_hash_conflict';
+  }
   return isSourceUnavailable(error) ? 'source_unavailable' : 'projection_bug';
 }
 

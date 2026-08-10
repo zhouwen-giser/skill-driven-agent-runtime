@@ -1,13 +1,22 @@
 # Verification Summary
 
-- Status: **failed**
-- Commit: `ca0bf359afcb911b61cd18391459d4aa78b74fad` (dirty working tree)
-- Started: 2026-08-09T19:41:46.809Z
-- Finished: 2026-08-09T19:45:20.430Z
-- Duration: 213621 ms
+- Status: **passed**
+- Commit: `0868821462a32043b6badf65714716302be6a3ac` (dirty working tree)
+- Started: 2026-08-10T12:02:25.425Z
+- Finished: 2026-08-10T12:22:38.870Z
+- Duration: 1213445 ms
 - Environment: Node v22.14.0, win32/x64
-- Infrastructure mode: self-managed-compose
+- Infrastructure mode: operator-managed
 
 | Gate | Command | Result | Duration |
 | --- | --- | --- | ---: |
-| static-unit-contract-build | `pnpm verify:bootstrap` | failed | 213617 ms |
+| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 223674 ms |
+| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 1153 ms |
+| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 28672 ms |
+| postgres-redis-integration | `pnpm test:integration` | passed | 223092 ms |
+| postgres-redis-model-mcp-e2e | `pnpm test:e2e` | passed | 189713 ms |
+| official-a2a-tck | `pnpm test:a2a-tck` | passed | 80863 ms |
+| canonical-evidence-demo | `pnpm demo:evidence-e2e` | passed | 331261 ms |
+| infrastructure-smoke | `pnpm smoke:infra` | passed | 7677 ms |
+| server-console-smoke | `pnpm smoke:server` | passed | 38501 ms |
+| node-control-api-worker-smoke | `pnpm smoke:node-control` | passed | 88832 ms |

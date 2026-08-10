@@ -1,9 +1,12 @@
 # Project Status
 
-SDAR v1.4.1 Canonical Evidence Export is `IN_PROGRESS` (2026-08-04) on
-`feature/v1.4.1-canonical-evidence-export`, based on latest `origin/main` `cc0719f`. Phases 0-9
-have completed their scoped implementation and independent Review; the Phase 9 release-level full
-gate remains pending for the single final Phase 14 run. The user-supplied task package is SHA-256
+SDAR v1.4.1 Canonical Evidence Export is `PHASE_14_PUBLICATION_PENDING` (2026-08-10) on
+`feature/v1.4.1-canonical-evidence-export`, based on `origin/main` `cc0719f`. Phases 0-13
+have completed their scoped implementation and independent Review; the single Phase 14
+release-level `pnpm verify` passed all ten stages in 1,213,445 ms. Required Source Coverage is
+95/95, total Catalog coverage is 100/100, Phase 12 is 44/44 and Phase 13 is 25/25. Only local
+commit/push and marking PR #18 Ready for Review remain; merge, tag, release and deploy are not
+authorized. The user-supplied task package is SHA-256
 verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
@@ -80,7 +83,51 @@ performance assertions, then stopped on one stale positive Contract fixture; the
 Evidence Schema Contract passes 10/10. Following the user's instruction not to repeat intermediate
 whole-repository verification, the next complete full gate is deferred to Phase 14. Phase 9 is
 `COMPLETED` for implementation, Review and handoff with that release-level gate explicitly pending.
-No ClickHouse implementation, merge, tag, release, or deployment has started; Phase 10 is next.
+
+Phase 10 adds Runtime migration `0147_v14_evidence_coverage_authority`, authority-derived
+expectations, revisioned draft/projecting/sealed Episode Manifests, ten quality rules, schema-gated
+canonical appends and all five `evidence.*` projectors. Required facts count complete only after
+receiver ACK. Skill selection/input/execution, MCP Availability and task-scoped Artifact
+retrieval/usage/feedback now contribute exact applicability and issue scope; poison partitions are
+durable, isolated and retried without false-complete or unrelated false-incomplete Manifests. The
+proof-manifest-derived gate reaches 100/100 implemented and verified records, 95/95 Required and
+5/5 diagnostic under Registry hash
+`sha256:a7ac427efdc75530aee8cb27359243084cb29a0450d62e7b19bd21feb99771e5`.
+Focused Unit 3/3, Contract 1/1, PostgreSQL 1/1 and typecheck pass; independent Review is Accepted
+with 0 Blocking / 0 Major / 0 Minor. Per explicit user direction, full `pnpm verify` is not repeated
+here and remains the single Phase 14 final gate. Phase 10 is `COMPLETED`.
+
+Phase 11 adds Runtime migration `0148_v14_evidence_operations_recovery`, durable request/claim/
+action recovery, restart resume, record/source-partition/episode replay, DLQ retry, real coverage
+reconciliation and bounded continuing Diagnostic retention. Node Control exposes metadata-only
+reads and audited recovery commands through typed Runtime internal APIs; Organization Service is
+denied, recovery is limited to Node Admin/Security Admin, and no arbitrary SQL, payload or
+ClickHouse proxy is exposed. The real PostgreSQL/Redis/HTTP vertical passes 1/1 with record replay,
+canonical ManagementOperation Evidence, re-ACK and receiver-outage isolation. It also exposed and
+closed duplicate canonical-null Schema branches and an impossible export-partition checkpoint
+reference; preserved Export Status batches project 2/2 using exact Telemetry Delivery lineage.
+Current Registry hash is
+`sha256:2bc75460820a778830bc1c787afa74a4f71571b9658b8dd496b495e528c85567`; independent Review is
+Accepted with 0 Blocking / 0 Major / 0 Minor. Phase 11 is `COMPLETED`.
+
+Phase 12 passes all 44 required Runtime/Skill, MCP Task, Capability/Experience, Node Control and
+Export/Manifest scenarios with 42 direct tests across 25 resumable suites. Every scenario has
+explicit passed-test provenance for all ten required dimensions; real delivery uses the local
+Control/Runtime PostgreSQL databases, Redis `56384` and an HTTP Evidence receiver. The first
+read-only Review found and closed one Major over-attribution in the report; the final Review is
+0 Blocking / 0 Major / 0 Minor. First failures and repairs remain under
+`reports/v1.4.1-evidence/failed-attempts/`. By explicit user direction, no intermediate full gate
+was repeated; one final repository-wide `pnpm verify` remains Phase 14. Phase 12 is `COMPLETED` and
+Phase 13 closes the frozen 25-item adversarial list with direct owning-layer evidence. PostgreSQL
+now rejects resolved Evidence references whose explicit tenant or user scope conflicts; the
+single-process scheduler grants foreground Tasks priority while guaranteeing projection and export
+one durable slice at least every ten seconds under sustained load. The stable balanced ABA/BAA/AAB
+benchmark passes with baseline P95 805.957 ms, Evidence-enabled P95 880.984 ms (9.309%), append
+P95 15.576 ms and first/second-half median drift 14.823%. Final independent Review is 0 Blocking /
+0 Major / 0 Minor after one Blocking, two Major and one Minor repair. The final repository-wide
+`pnpm verify` passed all ten stages in 1,213,445 ms. Phase 13 is `COMPLETED`; Phase 14 publication
+is pending local commit/push and marking PR #18 Ready for Review.
+No ClickHouse implementation, merge, tag, release, or deployment has started.
 
 SDAR v1.4 Node Control Backend P13 is `COMPLETED` locally (2026-08-03) on
 `feature/v1.4-node-control-backend`, based on latest observed `origin/main`

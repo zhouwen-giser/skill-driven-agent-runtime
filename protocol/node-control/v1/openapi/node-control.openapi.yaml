@@ -6249,6 +6249,290 @@ paths:
               $ref: ../schemas/command-request.schema.json
       parameters:
       - *id002
+  /api/v1/evidence-export/outbox:
+    get:
+      operationId: listEvidenceOutbox
+      tags:
+      - EvidenceExport
+      summary: List bounded canonical Evidence Outbox metadata
+      description: Returns identifiers, source metadata, delivery state and hashes; canonical Evidence payload is never returned.
+      x-sdar-permission: evidence_export.read
+      parameters:
+      - &evidenceLimitParameter
+        name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 100
+      - &evidenceCursorParameter
+        name: cursor
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 2048
+      - &evidenceEpisodeParameter
+        name: episodeId
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      - &evidencePartitionParameter
+        name: sourcePartition
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      - &evidenceOpenOnlyParameter
+        name: openOnly
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Bounded Outbox metadata page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/outboxPage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/source-checkpoints:
+    get:
+      operationId: listEvidenceSourceCheckpoints
+      tags:
+      - EvidenceExport
+      summary: List bounded Evidence source checkpoint metadata
+      x-sdar-permission: evidence_export.read
+      parameters:
+      - *evidenceLimitParameter
+      - *evidenceCursorParameter
+      - *evidenceEpisodeParameter
+      - *evidencePartitionParameter
+      - *evidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded source checkpoint page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/checkpointPage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/projection-issues:
+    get:
+      operationId: listEvidenceProjectionIssues
+      tags:
+      - EvidenceExport
+      summary: List bounded Evidence projection issue metadata
+      x-sdar-permission: evidence_export.read
+      parameters:
+      - *evidenceLimitParameter
+      - *evidenceCursorParameter
+      - *evidenceEpisodeParameter
+      - *evidencePartitionParameter
+      - *evidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded projection issue page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/projectionIssuePage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/quality-issues:
+    get:
+      operationId: listEvidenceQualityIssues
+      tags:
+      - EvidenceExport
+      summary: List bounded Evidence quality issue metadata
+      x-sdar-permission: evidence_export.read
+      parameters:
+      - *evidenceLimitParameter
+      - *evidenceCursorParameter
+      - *evidenceEpisodeParameter
+      - *evidencePartitionParameter
+      - *evidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded quality issue page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/qualityIssuePage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/episode-manifests/{episodeId}:
+    get:
+      operationId: getEpisodeEvidenceManifest
+      tags:
+      - EvidenceExport
+      summary: Get one recomputable Episode Evidence Manifest
+      x-sdar-permission: evidence_export.read
+      parameters:
+      - name: episodeId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      responses:
+        '200':
+          description: Episode Evidence Manifest metadata
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/manifest
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/dead-letters:
+    get:
+      operationId: listEvidenceDeadLetters
+      tags:
+      - EvidenceExport
+      summary: List bounded Evidence dead-letter metadata
+      x-sdar-permission: evidence_export.read
+      parameters:
+      - *evidenceLimitParameter
+      - *evidenceCursorParameter
+      - *evidenceEpisodeParameter
+      - *evidencePartitionParameter
+      - *evidenceOpenOnlyParameter
+      responses:
+        '200':
+          description: Bounded dead-letter metadata page
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/evidence-operations.schema.json#/$defs/deadLetterPage
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/replays:
+    post:
+      operationId: replayEvidence
+      tags:
+      - EvidenceExport
+      summary: Start one bounded record, exact source partition, or Episode replay
+      x-sdar-permission: evidence_export.recover
+      parameters:
+      - *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/evidence-operations.schema.json#/$defs/replayCommand
+      responses:
+        '200':
+          description: Idempotent recovery operation already succeeded
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '202':
+          description: Recovery operation accepted or running
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/dead-letters/{deadLetterId}/retry:
+    post:
+      operationId: retryEvidenceDeadLetter
+      tags:
+      - EvidenceExport
+      summary: Retry one retained Evidence dead-letter
+      x-sdar-permission: evidence_export.recover
+      parameters:
+      - *id002
+      - name: deadLetterId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/evidence-operations.schema.json#/$defs/recoveryReason
+      responses:
+        '200':
+          description: Idempotent retry operation already succeeded
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '202':
+          description: Dead-letter retry accepted or running
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/evidence-export/reconcile:
+    post:
+      operationId: reconcileEvidenceCoverage
+      tags:
+      - EvidenceExport
+      summary: Recompute bounded Evidence source coverage
+      x-sdar-permission: evidence_export.recover
+      parameters:
+      - *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/evidence-operations.schema.json#/$defs/reconcileCommand
+      responses:
+        '200':
+          description: Idempotent reconcile operation already succeeded
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '202':
+          description: Coverage reconcile accepted or running
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/management-operation.schema.json
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /api/v1/management-operations:
     get:
       operationId: listManagementOperations

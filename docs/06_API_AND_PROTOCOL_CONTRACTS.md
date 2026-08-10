@@ -104,3 +104,13 @@ A2A 返回自然语言结果，并在有主 Skill 时返回符合 `output_schema
   remains the explicit fallback; a polling refresh is never represented as a successful reconnect.
 - Protocol diagnosis, read-only baseline audit, immutable mode guard and expected-version-CAS remote
   reconciliation remain credential-free Management operations.
+
+## v1.4.1 Evidence protocol
+
+The only export wire contract is `sdar.evidence/v1` with header
+`x-sdar-evidence-contract: sdar.evidence/v1`. Batches are bounded, hash-addressed and delivered at
+least once; ACK is explicit, contiguous and may be partial. Node Control exposes metadata-only
+Evidence reads and audited replay/retry/reconcile operations under its frozen RBAC; Runtime internal
+operations are typed and do not expose arbitrary SQL or payload query. Non-loopback receivers require
+HTTPS and a CredentialRef. The frozen schemas, catalog and hashes live under `schemas/evidence/v1/`
+and `protocol/evidence/v1/`.

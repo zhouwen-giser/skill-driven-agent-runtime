@@ -20,6 +20,7 @@ describe('PostgresExperienceReplayArtifactEvidenceSource', () => {
       sourceFamily: 'experience',
       sourcePartition: 'v141:experience_task:6:task-a',
       sourceId: 'task-a',
+      episodeId: 'task-a',
     });
     const patternSnapshot = await source.load({
       kind: 'experience_pattern',

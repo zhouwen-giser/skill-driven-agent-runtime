@@ -1,0 +1,572 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sdar.io/node-control/v1/evidence-operations.schema.json",
+  "title": "Canonical Evidence Operations metadata and recovery contract",
+  "$defs": {
+    "recordFamily": {
+      "enum": [
+        "runtime",
+        "skill",
+        "mcp_task",
+        "capability",
+        "experience",
+        "replay",
+        "artifact",
+        "node_control",
+        "evidence"
+      ]
+    },
+    "sourceSystem": { "enum": ["runtime", "node_control"] },
+    "evaluationRole": { "enum": ["required", "supporting", "diagnostic"] },
+    "issueCode": {
+      "enum": [
+        "schema_invalid",
+        "source_identity_missing",
+        "source_revision_missing",
+        "payload_hash_conflict",
+        "reference_unresolved",
+        "redaction_rejected",
+        "artifact_write_failed",
+        "export_rejected",
+        "ack_invalid",
+        "source_unavailable",
+        "projection_bug"
+      ]
+    },
+    "issueSeverity": { "enum": ["diagnostic", "degraded", "blocking"] },
+    "decimalSequence": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "configuration": {
+      "type": "object",
+      "required": [
+        "exportId",
+        "revision",
+        "checksum",
+        "appliedAt",
+        "isActive",
+        "isLastKnownGood",
+        "includedFamilies",
+        "excludedDiagnosticTypes",
+        "maxPendingRecords",
+        "retentionDays"
+      ],
+      "properties": {
+        "exportId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "checksum": { "type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$" },
+        "appliedAt": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" },
+        "isLastKnownGood": { "type": "boolean" },
+        "includedFamilies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/recordFamily" },
+          "uniqueItems": true
+        },
+        "excludedDiagnosticTypes": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "uniqueItems": true
+        },
+        "maxPendingRecords": { "type": "integer", "minimum": 1 },
+        "retentionDays": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "partitionStatus": {
+      "type": "object",
+      "required": [
+        "exportId",
+        "sourcePartition",
+        "status",
+        "fencingToken",
+        "observedAt"
+      ],
+      "properties": {
+        "exportId": { "type": "string", "minLength": 1 },
+        "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "status": {
+          "enum": ["idle", "exporting", "degraded", "high_watermark", "disabled"]
+        },
+        "lastSentSequence": { "$ref": "#/$defs/decimalSequence" },
+        "lastAcknowledgedSequence": { "$ref": "#/$defs/decimalSequence" },
+        "lastAcknowledgedAt": { "type": "string", "format": "date-time" },
+        "leaseExpiresAt": { "type": "string", "format": "date-time" },
+        "fencingToken": { "$ref": "#/$defs/decimalSequence" },
+        "lastErrorCode": { "type": "string", "minLength": 1 },
+        "lastErrorAt": { "type": "string", "format": "date-time" },
+        "observedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "object",
+      "required": [
+        "pendingRecords",
+        "deadLetterRecords",
+        "openProjectionIssues",
+        "openQualityIssues",
+        "highWatermarkActive",
+        "partitions",
+        "observedAt"
+      ],
+      "properties": {
+        "exportId": { "type": "string", "minLength": 1 },
+        "activeRevision": { "type": "integer", "minimum": 1 },
+        "pendingRecords": { "type": "integer", "minimum": 0 },
+        "deadLetterRecords": { "type": "integer", "minimum": 0 },
+        "openProjectionIssues": { "type": "integer", "minimum": 0 },
+        "openQualityIssues": { "type": "integer", "minimum": 0 },
+        "globalAcknowledgedFrontier": { "$ref": "#/$defs/decimalSequence" },
+        "highWatermarkActive": { "type": "boolean" },
+        "partitions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/partitionStatus" }
+        },
+        "observedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "outboxRecord": {
+      "description": "Delivery metadata only. The canonical Evidence payload is intentionally absent.",
+      "type": "object",
+      "required": [
+        "sequence",
+        "recordId",
+        "recordFamily",
+        "recordType",
+        "schemaName",
+        "schemaVersion",
+        "sourceSystem",
+        "sourceTable",
+        "sourceRecordId",
+        "sourceRevision",
+        "sourcePartition",
+        "evaluationRole",
+        "payloadHash",
+        "capturedAt",
+        "deliveryAttempts",
+        "nextAttemptAt"
+      ],
+      "properties": {
+        "sequence": { "$ref": "#/$defs/decimalSequence" },
+        "recordId": { "type": "string", "pattern": "^evidence_[a-f0-9]{64}$" },
+        "recordFamily": { "$ref": "#/$defs/recordFamily" },
+        "recordType": { "type": "string", "minLength": 1 },
+        "schemaName": { "type": "string", "minLength": 1 },
+        "schemaVersion": { "type": "integer", "minimum": 1 },
+        "sourceSystem": { "$ref": "#/$defs/sourceSystem" },
+        "sourceTable": { "type": "string", "minLength": 1 },
+        "sourceRecordId": { "type": "string", "minLength": 1 },
+        "sourceRevision": { "type": "string", "minLength": 1 },
+        "sourcePartition": { "type": "string", "minLength": 1 },
+        "evaluationRole": { "$ref": "#/$defs/evaluationRole" },
+        "taskId": { "type": "string", "minLength": 1 },
+        "episodeId": { "type": "string", "minLength": 1 },
+        "payloadHash": { "$ref": "#/$defs/sha256" },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "deliveryAttempts": { "type": "integer", "minimum": 0 },
+        "nextAttemptAt": { "type": "string", "format": "date-time" },
+        "sentAt": { "type": "string", "format": "date-time" },
+        "acknowledgedAt": { "type": "string", "format": "date-time" },
+        "lastErrorCode": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "checkpoint": {
+      "type": "object",
+      "required": ["sourceFamily", "sourcePartition", "projectorVersion"],
+      "properties": {
+        "sourceFamily": { "type": "string", "minLength": 1 },
+        "sourcePartition": { "type": "string", "minLength": 1 },
+        "lastOccurredAt": { "type": "string", "format": "date-time" },
+        "lastSourceRecordId": { "type": "string", "minLength": 1 },
+        "lastSourceRevision": { "type": "string", "minLength": 1 },
+        "lastPayloadHash": { "$ref": "#/$defs/sha256" },
+        "lastProjectedAt": { "type": "string", "format": "date-time" },
+        "projectorVersion": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "projectionIssue": {
+      "type": "object",
+      "required": [
+        "issueId",
+        "issueCode",
+        "severity",
+        "evaluationRole",
+        "sourceSystem",
+        "sourceTable",
+        "sourceRecordId",
+        "sourcePartition",
+        "projectorVersion",
+        "retryable",
+        "firstObservedAt",
+        "lastObservedAt",
+        "revision"
+      ],
+      "properties": {
+        "issueId": { "type": "string", "minLength": 1 },
+        "ruleId": { "type": "string", "minLength": 1 },
+        "issueCode": { "$ref": "#/$defs/issueCode" },
+        "severity": { "$ref": "#/$defs/issueSeverity" },
+        "evaluationRole": { "$ref": "#/$defs/evaluationRole" },
+        "recordType": { "type": "string", "minLength": 1 },
+        "recordId": { "type": "string", "minLength": 1 },
+        "episodeId": { "type": "string", "minLength": 1 },
+        "sourceSystem": { "$ref": "#/$defs/sourceSystem" },
+        "sourceTable": { "type": "string", "minLength": 1 },
+        "sourceRecordId": { "type": "string", "minLength": 1 },
+        "sourcePartition": { "type": "string", "minLength": 1 },
+        "projectorVersion": { "type": "string", "minLength": 1 },
+        "retryable": { "type": "boolean" },
+        "firstObservedAt": { "type": "string", "format": "date-time" },
+        "lastObservedAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "type": "string", "format": "date-time" },
+        "revision": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "qualityIssue": {
+      "type": "object",
+      "required": [
+        "issueId",
+        "issueCode",
+        "severity",
+        "sourceSystem",
+        "sourceTable",
+        "sourceRecordId",
+        "firstObservedAt",
+        "lastObservedAt",
+        "revision"
+      ],
+      "properties": {
+        "issueId": { "type": "string", "minLength": 1 },
+        "ruleId": { "type": "string", "minLength": 1 },
+        "issueCode": { "$ref": "#/$defs/issueCode" },
+        "severity": { "$ref": "#/$defs/issueSeverity" },
+        "recordType": { "type": "string", "minLength": 1 },
+        "recordId": { "type": "string", "minLength": 1 },
+        "episodeId": { "type": "string", "minLength": 1 },
+        "sourceSystem": { "$ref": "#/$defs/sourceSystem" },
+        "sourceTable": { "type": "string", "minLength": 1 },
+        "sourceRecordId": { "type": "string", "minLength": 1 },
+        "firstObservedAt": { "type": "string", "format": "date-time" },
+        "lastObservedAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "type": "string", "format": "date-time" },
+        "revision": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "sourceCoverage": {
+      "type": "object",
+      "required": ["expected", "projected", "pending", "failed"],
+      "properties": {
+        "expected": { "type": "integer", "minimum": 0 },
+        "projected": { "type": "integer", "minimum": 0 },
+        "pending": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "lastSourceRevision": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "required": [
+        "manifestId",
+        "revision",
+        "policyVersion",
+        "episodeId",
+        "taskId",
+        "terminalOutcomeId",
+        "expectedRequiredRecords",
+        "projectedRequiredRecords",
+        "pendingRequiredRecords",
+        "failedRequiredRecords",
+        "expectedFamilies",
+        "completedFamilies",
+        "missingFamilies",
+        "sourceCoverage",
+        "lastEvidenceSequence",
+        "status",
+        "qualityIssueIds",
+        "sourceSnapshotHash",
+        "createdAt",
+        "recomputedAt"
+      ],
+      "properties": {
+        "manifestId": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "policyVersion": { "type": "string", "minLength": 1 },
+        "episodeId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "terminalOutcomeId": { "type": "string", "minLength": 1 },
+        "expectedRequiredRecords": { "type": "integer", "minimum": 0 },
+        "projectedRequiredRecords": { "type": "integer", "minimum": 0 },
+        "pendingRequiredRecords": { "type": "integer", "minimum": 0 },
+        "failedRequiredRecords": { "type": "integer", "minimum": 0 },
+        "expectedFamilies": { "type": "array", "items": { "$ref": "#/$defs/recordFamily" } },
+        "completedFamilies": { "type": "array", "items": { "$ref": "#/$defs/recordFamily" } },
+        "missingFamilies": { "type": "array", "items": { "$ref": "#/$defs/recordFamily" } },
+        "sourceCoverage": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/sourceCoverage" }
+        },
+        "lastEvidenceSequence": { "$ref": "#/$defs/decimalSequence" },
+        "status": { "enum": ["projecting", "complete", "degraded", "incomplete"] },
+        "qualityIssueIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "sourceSnapshotHash": { "$ref": "#/$defs/sha256" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "recomputedAt": { "type": "string", "format": "date-time" },
+        "sealedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "deadLetter": {
+      "type": "object",
+      "required": [
+        "deadLetterId",
+        "sequence",
+        "recordId",
+        "issueCode",
+        "attempts",
+        "failedAt",
+        "requeueCount"
+      ],
+      "properties": {
+        "deadLetterId": { "type": "string", "minLength": 1 },
+        "sequence": { "$ref": "#/$defs/decimalSequence" },
+        "recordId": { "type": "string", "minLength": 1 },
+        "issueCode": { "$ref": "#/$defs/issueCode" },
+        "attempts": { "type": "integer", "minimum": 0 },
+        "failedAt": { "type": "string", "format": "date-time" },
+        "requeuedAt": { "type": "string", "format": "date-time" },
+        "requeueCount": { "type": "integer", "minimum": 0 },
+        "requeuedBy": { "type": "string", "minLength": 1 },
+        "requeueReason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "outboxPage": { "$ref": "#/$defs/outboxPageObject" },
+    "outboxPageObject": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/outboxRecord" } },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      },
+      "additionalProperties": false
+    },
+    "checkpointPage": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/checkpoint" } },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      },
+      "additionalProperties": false
+    },
+    "projectionIssuePage": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/projectionIssue" } },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      },
+      "additionalProperties": false
+    },
+    "qualityIssuePage": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/qualityIssue" } },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      },
+      "additionalProperties": false
+    },
+    "deadLetterPage": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/deadLetter" } },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      },
+      "additionalProperties": false
+    },
+    "replayCommand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["scope", "recordId", "reason"],
+          "properties": {
+            "scope": { "const": "record" },
+            "recordId": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "reason": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["scope", "sourceFamily", "sourcePartition", "reason"],
+          "properties": {
+            "scope": { "const": "source_partition" },
+            "sourceFamily": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "reason": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["scope", "episodeId", "reason"],
+          "properties": {
+            "scope": { "const": "episode" },
+            "episodeId": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "reason": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "recoveryReason": {
+      "type": "object",
+      "required": ["reason"],
+      "properties": { "reason": { "type": "string", "minLength": 1, "maxLength": 2048 } },
+      "additionalProperties": false
+    },
+    "reconcileCommand": {
+      "type": "object",
+      "required": ["reason"],
+      "properties": {
+        "episodeId": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      },
+      "additionalProperties": false
+    },
+    "internalRecoveryBase": {
+      "type": "object",
+      "required": ["operationId", "idempotencyKeyHash", "actorId", "reason", "requestedAt"],
+      "properties": {
+        "operationId": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "idempotencyKeyHash": { "$ref": "#/$defs/sha256" },
+        "actorId": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "requestedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "internalReplayRequest": {
+      "oneOf": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/internalRecoveryBase" },
+            {
+              "type": "object",
+              "required": ["operation", "recordId"],
+              "properties": {
+                "operation": { "const": "replay_record" },
+                "recordId": { "type": "string", "minLength": 1, "maxLength": 512 }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/internalRecoveryBase" },
+            {
+              "type": "object",
+              "required": ["operation", "sourceFamily", "sourcePartition"],
+              "properties": {
+                "operation": { "const": "replay_source_partition" },
+                "sourceFamily": { "type": "string", "minLength": 1, "maxLength": 512 },
+                "sourcePartition": { "type": "string", "minLength": 1, "maxLength": 2048 }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/internalRecoveryBase" },
+            {
+              "type": "object",
+              "required": ["operation", "episodeId"],
+              "properties": {
+                "operation": { "const": "replay_episode" },
+                "episodeId": { "type": "string", "minLength": 1, "maxLength": 512 }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "internalRetryRequest": {
+      "allOf": [{ "$ref": "#/$defs/internalRecoveryBase" }],
+      "unevaluatedProperties": false
+    },
+    "internalReconcileRequest": {
+      "allOf": [
+        { "$ref": "#/$defs/internalRecoveryBase" },
+        {
+          "type": "object",
+          "properties": {
+            "episodeId": { "type": "string", "minLength": 1, "maxLength": 512 }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "recoveryRun": {
+      "type": "object",
+      "required": [
+        "recoveryRunId",
+        "operationId",
+        "idempotencyKeyHash",
+        "requestHash",
+        "operation",
+        "target",
+        "actorId",
+        "reason",
+        "status",
+        "affectedRecords",
+        "requestedAt",
+        "revision"
+      ],
+      "properties": {
+        "recoveryRunId": { "type": "string", "minLength": 1 },
+        "operationId": { "type": "string", "minLength": 1 },
+        "idempotencyKeyHash": { "$ref": "#/$defs/sha256" },
+        "requestHash": { "$ref": "#/$defs/sha256" },
+        "operation": {
+          "enum": [
+            "replay_record",
+            "replay_source_partition",
+            "replay_episode",
+            "retry_dead_letter",
+            "reconcile_coverage"
+          ]
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "actorId": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["requested", "running", "succeeded", "failed"] },
+        "affectedRecords": { "type": "integer", "minimum": 0 },
+        "resultSummary": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number"] }
+        },
+        "errorCode": { "type": "string", "minLength": 1 },
+        "requestedAt": { "type": "string", "format": "date-time" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "revision": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$ref": "#/$defs/status"
+}

@@ -4,7 +4,6 @@ import {
   createEvidenceRecordId,
   hashCanonicalEvidenceJson,
   type CanonicalEvidenceEnvelope,
-  type EpisodeEvidenceManifest,
   type EvidenceJsonValue,
   type EvidenceIssueCode,
   type EvidenceQualityIssue,
@@ -47,7 +46,6 @@ export interface RuntimeCoreEvidenceWriter {
   ): Promise<string>;
   recordQualityIssue(issue: EvidenceQualityIssue): Promise<void>;
   saveCheckpoint(checkpoint: EvidenceSourceCheckpoint): Promise<void>;
-  saveManifest(manifest: EpisodeEvidenceManifest): Promise<void>;
 }
 
 export interface RuntimeCoreProjectionResult {
@@ -56,7 +54,6 @@ export interface RuntimeCoreProjectionResult {
   readonly projectedRecordIds: readonly string[];
   readonly qualityIssueIds: readonly string[];
   readonly lastEvidenceSequence: string;
-  readonly manifestId?: string;
 }
 
 export class RuntimeCoreEvidenceProjector {
@@ -625,11 +622,8 @@ export class RuntimeCoreEvidenceProjector {
       });
     }
 
-    let manifestId: string | undefined;
-    let terminalOutcomeId: string | undefined;
     for (const row of snapshot.runSeals) {
       const outcomeId = text(row, 'outcome_id');
-      terminalOutcomeId = outcomeId;
       const outcomeKind = text(row, 'outcome_kind');
       const taskStatus = optionalText(row, 'task_status');
       const goalStatus = optionalText(row, 'goal_status');
@@ -682,7 +676,6 @@ export class RuntimeCoreEvidenceProjector {
           'projection_bug',
         );
       }
-      manifestId = `manifest_${hashCanonicalEvidenceJson([episodeId, outcomeId]).slice('sha256:'.length)}`;
       const outcomeRefs = [...projected.values()].filter(
         (record) => record.recordType === 'runtime.outcome',
       );
@@ -703,20 +696,13 @@ export class RuntimeCoreEvidenceProjector {
           workflowInstanceId: row['final_instance_id'] ?? null,
           authority: row['authority'] ?? null,
         },
-        evidenceRefs: [...outcomeRefs.map((record) => record.recordId), manifestId],
+        evidenceRefs: outcomeRefs.map((record) => record.recordId),
         goalId: text(row, 'goal_id'),
         goalVersion: integer(row, 'goal_version'),
       });
     }
 
     const lastEvidenceSequence = sequences.at(-1) ?? '0';
-    const requiredRuntimeTypes = EVIDENCE_RECORD_CATALOG.filter(
-      (entry) => entry.recordFamily === 'runtime' && entry.evaluationRole === 'required',
-    ).map((entry) => entry.recordType);
-    const projectedTypes = new Set([...projected.values()].map((record) => record.recordType));
-    const missingRequiredTypes = requiredRuntimeTypes.filter((type) => !projectedTypes.has(type));
-    const expectedRequiredRecords =
-      projected.size + missingRequiredTypes.length + qualityIssueIds.length;
     await this.#writer.saveCheckpoint({
       sourceFamily: 'runtime',
       sourcePartition,
@@ -727,41 +713,12 @@ export class RuntimeCoreEvidenceProjector {
       lastProjectedAt: recordedAt,
       projectorVersion: RUNTIME_CORE_EVIDENCE_PROJECTOR_VERSION,
     });
-    if (manifestId !== undefined && terminalOutcomeId !== undefined) {
-      await this.#writer.saveManifest({
-        manifestId,
-        episodeId,
-        taskId: normalizedTaskId,
-        terminalOutcomeId,
-        expectedRequiredRecords,
-        projectedRequiredRecords: projected.size,
-        pendingRequiredRecords: missingRequiredTypes.length,
-        failedRequiredRecords: qualityIssueIds.length,
-        expectedFamilies: ['runtime'],
-        completedFamilies: [],
-        missingFamilies: ['runtime'],
-        sourceCoverage: {
-          runtime: {
-            expected: expectedRequiredRecords,
-            projected: projected.size,
-            pending: missingRequiredTypes.length,
-            failed: qualityIssueIds.length,
-            lastSourceRevision: hashCanonicalEvidenceJson(taskRevision),
-          },
-        },
-        lastEvidenceSequence,
-        status: 'projecting',
-        qualityIssueIds,
-        createdAt: recordedAt,
-      });
-    }
     return Object.freeze({
       taskId: normalizedTaskId,
       episodeId,
       projectedRecordIds: Object.freeze([...projected.values()].map((record) => record.recordId)),
       qualityIssueIds: Object.freeze(qualityIssueIds),
       lastEvidenceSequence,
-      ...(manifestId === undefined ? {} : { manifestId }),
     });
   }
 }

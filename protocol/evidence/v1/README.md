@@ -18,3 +18,9 @@ Generate and verify deterministically with:
 pnpm generate:evidence-contract
 pnpm verify:evidence-contract
 ```
+
+The v1.4.1 freeze is identified by `schemas/evidence/v1/registry.json` and the matching
+`registryHash` in `evidence-contract.json`. Future ClickHouse adapters consume only the generated
+handoff under `reports/v1.4.1-evidence/clickhouse-handoff/`; they must preserve stable IDs/hashes,
+at-least-once delivery, contiguous ACK and PostgreSQL authority. This repository does not provide
+ClickHouse DDL or a query proxy.

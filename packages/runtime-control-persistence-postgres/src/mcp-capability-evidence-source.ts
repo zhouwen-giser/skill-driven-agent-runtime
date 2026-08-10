@@ -28,6 +28,15 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
          ) AND (
            EXISTS (SELECT 1 FROM mcp_invocation invocation WHERE invocation.task_id=task.task_id)
            OR EXISTS (SELECT 1 FROM task_capability_binding binding WHERE binding.task_id=task.task_id)
+           OR EXISTS (
+             SELECT 1
+             FROM task_availability_snapshot snapshot
+             JOIN task_execution_readiness readiness
+               ON readiness.readiness_id=snapshot.readiness_id
+             JOIN workflow_control control
+               ON control.current_plan_id=readiness.workflow_plan_id
+             WHERE control.task_id=task.task_id
+           )
          ) AND (
            NOT EXISTS (
              SELECT 1 FROM evidence_source_checkpoint checkpoint
@@ -52,7 +61,7 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
        SELECT candidate.task_id
        FROM candidate
        LEFT JOIN LATERAL (
-         SELECT projection_issue.created_at
+         SELECT projection_issue.last_observed_at
          FROM evidence_projection_issue projection_issue
          WHERE projection_issue.source_partition='mcp-capability:' || candidate.task_id
            AND projection_issue.projector_version='1.4.1'
@@ -60,13 +69,13 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
            AND projection_issue.severity='blocking'
            AND projection_issue.retryable
            AND projection_issue.resolved_at IS NULL
-         ORDER BY projection_issue.created_at DESC,projection_issue.issue_id
+         ORDER BY projection_issue.last_observed_at DESC,projection_issue.issue_id
          LIMIT 1
        ) projection_issue ON true
-       WHERE projection_issue.created_at IS NULL
-          OR projection_issue.created_at + interval '5 seconds' <= clock_timestamp()
+       WHERE projection_issue.last_observed_at IS NULL
+          OR projection_issue.last_observed_at + interval '5 seconds' <= clock_timestamp()
        ORDER BY COALESCE(
-         projection_issue.created_at + interval '5 seconds',candidate.created_at
+         projection_issue.last_observed_at + interval '5 seconds',candidate.created_at
        ),candidate.task_id
        LIMIT $1`,
       [limit],

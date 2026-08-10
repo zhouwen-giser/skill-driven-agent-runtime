@@ -151,3 +151,11 @@ V1.1 开发期使用保留的 `0100+` 范围和显式 `v1.1-isolated` disposable
 - `0105_skill_usage_specification`：向现有 `skill_version` 增加 exact-version Usage JSONB snapshot，并以同一 `(skill_id, version)` 记录 package root、package/file checksum、validation/import time 审计；不新增平行 Registry 或 lifecycle authority。
 
 `0104` 的 down migration 在存在任何 `node_waiting_external` 证据时以 `MIGRATION_0104_ROLLBACK_REQUIRES_NO_EXTERNAL_WAIT_EVENTS` 拒绝，避免删除仍被引用的审计语义。`0105` 在存在原生 Usage 或 package import evidence 时以 `MIGRATION_0105_ROLLBACK_REQUIRES_NO_SKILL_USAGE_EVIDENCE` 拒绝回滚。Phase 10 migration gate 验证 released profile 的空库/0064→0105 upgrade、幂等、空证据 rollback/reapply、isolated profile guard 和 ledger gap fail-closed；当前记录共检查 69 个可逆 migration pairs。
+# v1.4.1 Canonical Evidence storage addendum
+
+Runtime migrations 0144, 0146, 0147 and 0148 own the canonical Evidence configuration, Outbox,
+source checkpoint, export state, immutable batch/ACK, DLQ, issue, expectation, Episode Manifest and
+durable recovery authorities. Runtime sequence, lease/fence, ACK and retention are PostgreSQL
+transactions. Control migration 0009 owns immutable Node governance observations. Redis and the
+receiver contain no authority. Published 0142/0143 are not rewritten; later disposable migrations
+must roll back in reverse dependency order.

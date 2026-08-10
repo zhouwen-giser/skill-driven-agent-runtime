@@ -124,6 +124,8 @@ const manifestSchema = {
   additionalProperties: false,
   required: [
     'manifestId',
+    'revision',
+    'policyVersion',
     'episodeId',
     'taskId',
     'terminalOutcomeId',
@@ -138,10 +140,14 @@ const manifestSchema = {
     'lastEvidenceSequence',
     'status',
     'qualityIssueIds',
+    'sourceSnapshotHash',
     'createdAt',
+    'recomputedAt',
   ],
   properties: {
     manifestId: { type: 'string', minLength: 1, maxLength: 512 },
+    revision: { type: 'integer', minimum: 1 },
+    policyVersion: { const: 'episode-evidence-policy/v1' },
     episodeId: { type: 'string', minLength: 1, maxLength: 512 },
     taskId: { type: 'string', minLength: 1, maxLength: 512 },
     terminalOutcomeId: { type: 'string', minLength: 1, maxLength: 512 },
@@ -176,7 +182,9 @@ const manifestSchema = {
       uniqueItems: true,
       items: { type: 'string', minLength: 1, maxLength: 512 },
     },
+    sourceSnapshotHash: { type: 'string', pattern: '^sha256:[0-9a-f]{64}$' },
     createdAt: { type: 'string', format: 'date-time' },
+    recomputedAt: { type: 'string', format: 'date-time' },
     sealedAt: { type: 'string', format: 'date-time' },
   },
   $defs: {

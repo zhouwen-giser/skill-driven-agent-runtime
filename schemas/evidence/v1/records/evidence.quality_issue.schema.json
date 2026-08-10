@@ -73,13 +73,83 @@
     "payloadHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "payload": {
       "type": "object",
-      "minProperties": 3,
+      "minProperties": 14,
       "maxProperties": 128,
-      "required": ["issueId", "issueCode", "severity"],
+      "required": [
+        "issueId",
+        "revision",
+        "issueCode",
+        "ruleId",
+        "severity",
+        "episodeId",
+        "recordType",
+        "recordId",
+        "sourceSystem",
+        "sourceTable",
+        "sourceRecordId",
+        "detail",
+        "createdAt",
+        "resolvedAt"
+      ],
       "properties": {
         "issueId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "issueCode": { "$ref": "#/$defs/evidenceValue" },
-        "severity": { "$ref": "#/$defs/evidenceValue" }
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "issueCode": {
+          "type": "string",
+          "enum": [
+            "schema_invalid",
+            "source_identity_missing",
+            "source_revision_missing",
+            "payload_hash_conflict",
+            "reference_unresolved",
+            "redaction_rejected",
+            "artifact_write_failed",
+            "export_rejected",
+            "ack_invalid",
+            "source_unavailable",
+            "projection_bug"
+          ]
+        },
+        "ruleId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "sequence_gap",
+                "payload_conflict",
+                "orphan_reference",
+                "version_gap",
+                "missing_verification",
+                "remote_task_unclosed",
+                "skill_tree_incomplete",
+                "experience_missing_fact",
+                "node_revision_regression",
+                "export_ack_gap"
+              ]
+            },
+            { "type": "null" }
+          ]
+        },
+        "severity": { "type": "string", "enum": ["diagnostic", "degraded", "blocking"] },
+        "episodeId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "recordType": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "recordId": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 4096 }, { "type": "null" }]
+        },
+        "sourceSystem": { "type": "string", "enum": ["runtime", "node_control"] },
+        "sourceTable": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sourceRecordId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "detail": {
+          "type": "object",
+          "maxProperties": 1024,
+          "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] }
       },
       "additionalProperties": { "$ref": "#/$defs/evidenceValue" }
     },

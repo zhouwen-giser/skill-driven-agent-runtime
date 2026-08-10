@@ -123,3 +123,13 @@ durable instances and active pointers but cannot redefine the aggregate. `Artifa
 a rebuildable projection and is never the active Artifact authority. Artifact data cannot invoke a
 Skill, MCP tool, Provider, or LangGraph execution and cannot write Goal or Outcome state. Detailed
 boundary decisions are recorded in ADR-116.
+
+## v1.4.1 Evidence domain
+
+The Evidence domain freezes `CanonicalEvidenceEnvelope`, the 100-entry `EvidenceRecordCatalog`,
+stable record identity, canonical payload hash, `ArtifactRef`, export configuration/batch/ACK,
+source checkpoint, quality/projection issue, Episode expectation/Manifest and durable recovery run.
+References must resolve before append and cannot cross explicit tenant or user-scope authority.
+Required facts become complete only after receiver ACK; Diagnostic findings may degrade but cannot
+impersonate a missing Required record. Evidence is an observation/projection product and never
+changes Goal, Workflow, Skill, MCP Task, Capability, Artifact or Node Control authority.

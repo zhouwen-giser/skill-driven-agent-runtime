@@ -1,5 +1,15 @@
 # Definition of Done
 
+## v1.4.1 Canonical Evidence addendum
+
+- [x] Catalog/Schema/Matrix contain 100/100 implemented records, 95/95 Required and 5/5 Diagnostic.
+- [x] Phase 12 passes 44/44 scenarios with ten explicit Evidence dimensions.
+- [x] Phase 13 closes all 25 adversarial items and unchanged performance thresholds.
+- [x] Runtime/Control PostgreSQL authority, Redis wake-only and receiver non-authority remain intact.
+- [x] ClickHouse handoff contains no ClickHouse implementation or query proxy.
+- [x] The exact Phase 14 `pnpm verify` passes; final acceptance report publication is the remaining documentation step.
+- [ ] The feature branch is committed/pushed and PR is Ready for Review; merge remains separate.
+
 ## 项目级完成条件
 
 - [x] 全部需求在 Traceability Matrix 中状态为“已验证”。

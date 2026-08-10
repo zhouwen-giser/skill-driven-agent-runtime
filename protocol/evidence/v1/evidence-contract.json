@@ -16,7 +16,7 @@
   ],
   "recordTypeCount": 100,
   "registryPath": "../../../schemas/evidence/v1/registry.json",
-  "registryHash": "sha256:62fd3e06d4b2b5cebf00814a9cee1d8331ac6acd3e2b59bafbce9c2e7099cf88",
+  "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
   "requestSchema": "../../../schemas/evidence/v1/batch-request.schema.json",
   "acknowledgementSchema": "../../../schemas/evidence/v1/batch-acknowledgement.schema.json",
   "forbiddenLegacyHeader": "x-sdar-telemetry-contract"

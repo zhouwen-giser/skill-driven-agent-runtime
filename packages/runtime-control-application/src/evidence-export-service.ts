@@ -176,9 +176,17 @@ export class RuntimeEvidenceExportService {
     return this.#store.status(this.#clock.now());
   }
 
-  async drain(): Promise<
+  async drain(
+    maximumRecords?: number,
+  ): Promise<
     Readonly<{ delivered: number; status: EvidenceExportStatus; attemptedPartition?: string }>
   > {
+    if (
+      maximumRecords !== undefined &&
+      (!Number.isSafeInteger(maximumRecords) || maximumRecords < 1 || maximumRecords > 1_000)
+    ) {
+      throw new Error('EVIDENCE_EXPORT_DRAIN_LIMIT_INVALID');
+    }
     const configuration = await this.#store.findActive();
     if (configuration === undefined)
       return Object.freeze({ delivered: 0, status: await this.status() });
@@ -196,7 +204,7 @@ export class RuntimeEvidenceExportService {
     });
     const pending = await this.#store.pending(
       sourcePartition,
-      configuration.batchPolicy.maxRecords,
+      Math.min(configuration.batchPolicy.maxRecords, maximumRecords ?? Number.POSITIVE_INFINITY),
       observedAt,
     );
     if (pending.length === 0) {

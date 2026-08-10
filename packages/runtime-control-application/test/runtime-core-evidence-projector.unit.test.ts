@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   CanonicalEvidenceEnvelope,
-  EpisodeEvidenceManifest,
   EvidenceQualityIssue,
   EvidenceSourceCheckpoint,
 } from '../../domain/src/index.js';
@@ -13,7 +12,7 @@ import {
 } from '../src/index.js';
 
 describe('RuntimeCoreEvidenceProjector', () => {
-  it('projects the real Runtime core source shape with stable identity, references and a draft manifest', async () => {
+  it('projects the real Runtime core source shape and leaves manifest sealing to coverage', async () => {
     const writer = new MemoryWriter();
     const projector = new RuntimeCoreEvidenceProjector({
       source: {
@@ -70,14 +69,9 @@ describe('RuntimeCoreEvidenceProjector', () => {
     });
     expect(writer.issues).toEqual([]);
     expect(writer.checkpoint?.projectorVersion).toBe('runtime-core/v1');
-    expect(writer.manifest).toMatchObject({
-      status: 'projecting',
-      expectedRequiredRecords: 18,
-      projectedRequiredRecords: 18,
-      pendingRequiredRecords: 0,
-      failedRequiredRecords: 0,
-      lastEvidenceSequence: '18',
-    });
+    expect(
+      writer.records.find((record) => record.recordType === 'runtime.run_seal')?.evidenceRefs,
+    ).toHaveLength(1);
     expect(result).toMatchObject({ lastEvidenceSequence: '18', qualityIssueIds: [] });
   });
 
@@ -114,12 +108,6 @@ describe('RuntimeCoreEvidenceProjector', () => {
       recordType: 'runtime.action',
       detail: { missingReference: 'skill.execution', matchingSkillExecutionCount: 0 },
     });
-    expect(writer.manifest).toMatchObject({
-      expectedRequiredRecords: 19,
-      projectedRequiredRecords: 18,
-      pendingRequiredRecords: 0,
-      failedRequiredRecords: 1,
-    });
   });
 });
 
@@ -128,7 +116,6 @@ class MemoryWriter implements RuntimeCoreEvidenceWriter {
   readonly sequences: string[] = [];
   readonly issues: EvidenceQualityIssue[] = [];
   checkpoint?: EvidenceSourceCheckpoint;
-  manifest?: EpisodeEvidenceManifest;
 
   append(envelope: CanonicalEvidenceEnvelope): Promise<string> {
     const sequence = String(this.records.length + 1);
@@ -144,11 +131,6 @@ class MemoryWriter implements RuntimeCoreEvidenceWriter {
 
   saveCheckpoint(checkpoint: EvidenceSourceCheckpoint): Promise<void> {
     this.checkpoint = checkpoint;
-    return Promise.resolve();
-  }
-
-  saveManifest(manifest: EpisodeEvidenceManifest): Promise<void> {
-    this.manifest = manifest;
     return Promise.resolve();
   }
 }

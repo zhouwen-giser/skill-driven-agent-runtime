@@ -62,7 +62,19 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
        WHERE acknowledged_at IS NULL AND next_attempt_at<=$1
          AND NOT EXISTS (
            SELECT 1 FROM evidence_dead_letter
-           WHERE evidence_dead_letter.sequence=evidence_outbox.sequence)
+           WHERE evidence_dead_letter.sequence=evidence_outbox.sequence
+             AND evidence_dead_letter.requeued_at IS NULL)
+         AND EXISTS (
+           SELECT 1 FROM evidence_export_configuration configuration
+           WHERE configuration.is_active
+             AND configuration.definition->'includedFamilies' ? evidence_outbox.record_family
+             AND NOT (
+               evidence_outbox.evaluation_role='diagnostic'
+               AND COALESCE(
+                 configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
+               ) ? evidence_outbox.record_type
+             )
+         )
        GROUP BY source_partition ORDER BY min(sequence) LIMIT 1`,
       [observedAt],
     );
@@ -301,7 +313,8 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
              dead_letter_id,sequence,record_id,issue_code,attempts,detail,failed_at)
            VALUES ($1,$2::bigint,$3,$4,$5,$6::jsonb,$7)
            ON CONFLICT (sequence) DO UPDATE SET attempts=EXCLUDED.attempts,
-             detail=EXCLUDED.detail,failed_at=EXCLUDED.failed_at`,
+             detail=EXCLUDED.detail,failed_at=EXCLUDED.failed_at,
+             requeued_at=NULL,requeued_by=NULL,requeue_reason=NULL`,
             [
               `dead-letter:${record.sequence}`,
               record.sequence,
@@ -339,23 +352,59 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
       last_error_code: string | null;
       last_error_at: Date | string | null;
     }>(
-      `SELECT active.export_id,active.revision::text,
-         (SELECT count(*)::text FROM evidence_outbox WHERE acknowledged_at IS NULL) AS pending_records,
-         (SELECT min(captured_at) FROM evidence_outbox WHERE acknowledged_at IS NULL) AS oldest_pending_at,
-         (SELECT max(last_acknowledged_sequence)::text FROM evidence_export_state
-           WHERE export_id=active.export_id) AS last_acknowledged_sequence,
+      `WITH active AS (
+         SELECT * FROM evidence_export_configuration WHERE is_active
+       ), eligible AS (
+         SELECT evidence.sequence,evidence.captured_at
+         FROM evidence_outbox evidence
+         JOIN active ON true
+         WHERE evidence.acknowledged_at IS NULL
+           AND active.definition->'includedFamilies' ? evidence.record_family
+           AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
+             active.definition->'excludedDiagnosticTypes','[]'::jsonb
+           ) ? evidence.record_type)
+           AND NOT EXISTS (
+             SELECT 1 FROM evidence_dead_letter dead_letter
+             WHERE dead_letter.sequence=evidence.sequence
+               AND dead_letter.requeued_at IS NULL
+           )
+       ), frontier_records AS (
+         SELECT evidence.sequence,evidence.acknowledged_at
+         FROM evidence_outbox evidence
+         JOIN active ON true
+         WHERE active.definition->'includedFamilies' ? evidence.record_family
+           AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
+             active.definition->'excludedDiagnosticTypes','[]'::jsonb
+           ) ? evidence.record_type)
+       )
+       SELECT active.export_id,active.revision::text,
+         (SELECT count(*)::text FROM eligible) AS pending_records,
+         (SELECT min(captured_at) FROM eligible) AS oldest_pending_at,
+         (SELECT CASE
+           WHEN count(*)=0 THEN NULL
+           WHEN min(sequence) FILTER (WHERE acknowledged_at IS NULL) IS NULL
+             THEN max(sequence)::text
+           ELSE GREATEST(
+             0,min(sequence) FILTER (WHERE acknowledged_at IS NULL)-1
+           )::text
+         END FROM frontier_records) AS last_acknowledged_sequence,
          (SELECT max(last_acknowledged_at) FROM evidence_export_state
            WHERE export_id=active.export_id) AS last_acknowledged_at,
+         (SELECT count(*) FROM eligible) >= COALESCE(
+           (active.definition->'outboxPolicy'->>'maxPendingRecords')::bigint,10000
+         ) AS blocked,
          EXISTS(SELECT 1 FROM evidence_export_state WHERE export_id=active.export_id
-           AND status='high_watermark') AS blocked,
-         EXISTS(SELECT 1 FROM evidence_export_state WHERE export_id=active.export_id
-           AND (status='degraded' OR last_error_code IS NOT NULL)) AS degraded,
+           AND (status='degraded' OR (last_error_code IS NOT NULL
+             AND last_error_code<>'EVIDENCE_OUTBOX_HIGH_WATERMARK'))) AS degraded,
          (SELECT last_error_code FROM evidence_export_state WHERE export_id=active.export_id
-           AND last_error_code IS NOT NULL ORDER BY last_error_at DESC NULLS LAST LIMIT 1)
+           AND last_error_code IS NOT NULL
+           AND last_error_code<>'EVIDENCE_OUTBOX_HIGH_WATERMARK'
+           ORDER BY last_error_at DESC NULLS LAST LIMIT 1)
            AS last_error_code,
-         (SELECT max(last_error_at) FROM evidence_export_state WHERE export_id=active.export_id)
+         (SELECT max(last_error_at) FROM evidence_export_state WHERE export_id=active.export_id
+           AND last_error_code<>'EVIDENCE_OUTBOX_HIGH_WATERMARK')
            AS last_error_at
-       FROM evidence_export_configuration active WHERE active.is_active`,
+       FROM active`,
     );
     const row = result.rows[0];
     if (row?.export_id === null || row?.export_id === undefined) {

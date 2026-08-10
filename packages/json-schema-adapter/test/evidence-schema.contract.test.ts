@@ -294,6 +294,56 @@ describe('sdar.evidence/v1 JSON Schema registry', () => {
     ).toBe(true);
   });
 
+  it('validates all five Phase 10 Evidence infrastructure payloads and ACK states', () => {
+    const recordTypes = [
+      'evidence.episode_manifest',
+      'evidence.quality_issue',
+      'evidence.projection_issue',
+      'evidence.source_checkpoint',
+      'evidence.export_status',
+    ] as const;
+    for (const recordType of recordTypes) {
+      const schema = getEvidenceRecordSchema(recordType) as LoadedSchema;
+      const validate = createAjv(true).compile(schema);
+      const value = sampleEnvelope(schema, recordType);
+      expect(validate(value), `${recordType}: ${JSON.stringify(validate.errors)}`).toBe(true);
+    }
+
+    const schema = getEvidenceRecordSchema('evidence.export_status') as LoadedSchema;
+    const validate = createAjv(true).compile(schema);
+    const attempted = sampleEnvelope(schema, 'evidence.export_status');
+    expect(
+      validate({
+        ...attempted,
+        payload: {
+          ...attempted.payload,
+          status: 'acknowledged',
+          ackId: 'ack-1',
+          acknowledgedSequence: '1',
+          ackDisposition: 'accepted',
+          errorCode: null,
+          acknowledgedAt: '2026-08-10T00:00:01.000Z',
+        },
+      }),
+      JSON.stringify(validate.errors),
+    ).toBe(true);
+    expect(
+      validate({
+        ...attempted,
+        payload: {
+          ...attempted.payload,
+          status: 'rejected',
+          ackId: 'ack-2',
+          acknowledgedSequence: null,
+          ackDisposition: 'rejected',
+          errorCode: 'ACK_RESPONSE_INVALID',
+          acknowledgedAt: '2026-08-10T00:00:02.000Z',
+        },
+      }),
+      JSON.stringify(validate.errors),
+    ).toBe(true);
+  });
+
   it('rejects zero for every Phase 8 positive-version payload field', async () => {
     const cases = [
       ['experience.episode', 'goalVersion'],
@@ -856,6 +906,8 @@ describe('sdar.evidence/v1 JSON Schema registry', () => {
     expect(
       ajv.getSchema(schemaId(common, 'episode-evidence-manifest'))?.({
         manifestId: 'manifest-1',
+        revision: 1,
+        policyVersion: 'episode-evidence-policy/v1',
         episodeId: 'episode-1',
         taskId: 'task-1',
         terminalOutcomeId: 'outcome-1',
@@ -870,7 +922,9 @@ describe('sdar.evidence/v1 JSON Schema registry', () => {
         lastEvidenceSequence: '1',
         status: 'complete',
         qualityIssueIds: [],
+        sourceSnapshotHash: `sha256:${'a'.repeat(64)}`,
         createdAt: '2026-08-04T00:00:00Z',
+        recomputedAt: '2026-08-04T00:00:01Z',
         sealedAt: '2026-08-04T00:00:01Z',
       }),
     ).toBe(true);
@@ -1036,6 +1090,18 @@ function normalizePhase9Sample(
     payload['errorCode'] = null;
   }
   if (recordType === 'node_control.telemetry_ack') payload['errorCode'] = null;
+  if (recordType === 'evidence.quality_issue' || recordType === 'evidence.projection_issue') {
+    payload['resolvedAt'] = null;
+  }
+  if (recordType === 'evidence.episode_manifest') payload['sealedAt'] = null;
+  if (recordType === 'evidence.export_status') {
+    payload['status'] = 'attempted';
+    payload['ackId'] = null;
+    payload['acknowledgedSequence'] = null;
+    payload['ackDisposition'] = null;
+    payload['errorCode'] = null;
+    payload['acknowledgedAt'] = null;
+  }
 }
 
 function schemaId(schemas: ReadonlyMap<string, LoadedSchema>, name: string): string {

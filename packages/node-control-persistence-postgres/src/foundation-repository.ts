@@ -342,6 +342,74 @@ export class PostgresNodeControlFoundationRepository implements NodeControlFound
     }
   }
 
+  async completeGovernanceOperation(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    if (!['succeeded', 'failed', 'canceled'].includes(operation.status)) {
+      throw Object.assign(new Error('Governance operation completion must be terminal.'), {
+        code: 'RUNTIME_GOVERNANCE_TERMINAL_STATUS_REQUIRED',
+        status: 409,
+      });
+    }
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentResult = await client.query<OperationRow>(
+        `${operationSelect} WHERE operation_id=$1 FOR UPDATE`,
+        [operation.operationId],
+      );
+      const current = currentResult.rows[0];
+      if (current === undefined) {
+        throw Object.assign(new Error('Governance operation intent was not persisted.'), {
+          code: 'RUNTIME_GOVERNANCE_INTENT_NOT_FOUND',
+          status: 409,
+        });
+      }
+      if (
+        current.operation_type !== operation.operationType ||
+        current.idempotency_key_hash !== operation.idempotencyKeyHash ||
+        current.input_hash !== operation.inputHash ||
+        current.actor_id !== operation.actorId
+      ) {
+        throw Object.assign(new Error('Governance operation completion identity conflicts.'), {
+          code: 'RUNTIME_GOVERNANCE_IDEMPOTENCY_CONFLICT',
+          status: 409,
+        });
+      }
+      if (['succeeded', 'failed', 'canceled'].includes(current.status)) {
+        await client.query('COMMIT');
+        return mapOperation(current);
+      }
+      const completed = await client.query<OperationRow>(
+        `UPDATE sdar_control.management_operation SET
+           status=$2,result=$3::jsonb,error_code=$4,started_at=$5,completed_at=$6
+         WHERE operation_id=$1 AND status IN ('accepted','running')
+         RETURNING operation_id,operation_type,target_type,target_id,target_version,
+           target_revision::text,status,idempotency_key_hash::text,input_hash::text,
+           actor_id,reason,result,error_code,created_at,started_at,completed_at`,
+        [
+          operation.operationId,
+          operation.status,
+          operation.result === undefined ? null : JSON.stringify(operation.result),
+          operation.errorCode ?? null,
+          operation.startedAt ?? operation.createdAt,
+          operation.completedAt ?? audit.createdAt,
+        ],
+      );
+      const row = completed.rows[0];
+      if (row === undefined) throw new Error('CONTROL_GOVERNANCE_OPERATION_NOT_COMPLETED');
+      await insertAudit(client, audit);
+      await client.query('COMMIT');
+      return mapOperation(row);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listAuditEvents(limit: number): Promise<readonly ControlAuditEvent[]> {
     const result = await this.#pool.query<AuditRow>(
       `SELECT audit_id, actor_id, action, aggregate_type, aggregate_id,
