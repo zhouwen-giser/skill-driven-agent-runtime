@@ -105,7 +105,7 @@ public Control principal or Redis state may substitute for either PostgreSQL aut
       the stable balanced performance gates: Runtime P95 regression 9.309%, append P95
       15.576 ms. Final independent Review is 0 Blocking/Major/Minor after 1 Blocking, 2 Major and
       1 Minor repair; the final Phase 14 repository gate passed all ten stages in 1,213,445 ms.
-- [ ] Phase 14 publish final acceptance, commit/push the frozen handoff, and mark PR #18 Ready.
+- [x] Phase 14 published final acceptance, committed/pushed the frozen handoff, and marked PR #18 Ready.
 
 ## Discoveries and Surprises
 
@@ -254,9 +254,9 @@ public Control principal or Redis state may substitute for either PostgreSQL aut
    operations, restartable recovery, DLQ retry, coverage reconcile, audited RBAC and bounded
    Diagnostic retention. The resumable Phase 12 runner now maps and passes all 44 required
    scenarios with explicit ten-dimension provenance.
-7. [Phase 14 gate passed; publication pending] Run adversarial and performance gates, independent
-   architecture/acceptance audits, freeze the ClickHouse handoff, update release documentation,
-   commit/push the exact tree and mark PR #18 Ready for Review.
+7. [Complete] Run adversarial and performance gates, independent architecture/acceptance audits,
+   freeze the ClickHouse handoff, update release documentation, commit/push the exact tree and mark
+   PR #18 Ready for Review.
 
 ## Validation
 
@@ -377,5 +377,5 @@ tree `pnpm verify` passed all ten stages in 1,213,445 ms: 1,305 static assertion
 9 Control migrations, 175 Integration tests, 73 E2E tests, official A2A TCK, the 44/44 Evidence
 demo and all three smoke stages. The generated ClickHouse handoff is adapter-only, reports 95/95
 Required and 100/100 total mappings, zero Required deferred items and `fullVerify=passed`. Local
-publication and PR readiness remain the only unfinished Phase 14 actions; no merge, tag, release or
-deployment is authorized.
+publication is complete and PR #18 is Ready for Review; no merge, tag, release or deployment was
+performed or authorized.

@@ -6,9 +6,9 @@
 - [x] Required Source Coverage is 95/95 with no Required deferred item.
 - [x] Phase 12 vertical acceptance is 44/44 and Phase 13 adversarial Review is clean.
 - [x] ClickHouse handoff is adapter-only and contains no DDL/query/authority implementation.
-- [x] Final exact-tree `pnpm verify` passes; `14-final-acceptance.{md,json}` is published with the final publication commit.
-- [ ] Current branch is committed and pushed; PR is Ready for Review.
-- [ ] Merge, tag, release and deploy remain unperformed.
+- [x] Final exact-tree `pnpm verify` passes and `14-final-acceptance.{md,json}` is published.
+- [x] Current branch is committed and pushed; PR #18 is Ready for Review.
+- [x] Merge, tag, release and deploy remain unperformed.
 
 - [x] Clean checkout installs successfully. Evidence: `reports/EP-07-hardening-acceptance/V1-CLEAN-CHECKOUT.{md,json}`.
 - [x] Database migrations pass from empty and prior baseline. Evidence: `reports/EP-07-hardening-acceptance/V1-MIGRATION-PATH.{md,json}`.

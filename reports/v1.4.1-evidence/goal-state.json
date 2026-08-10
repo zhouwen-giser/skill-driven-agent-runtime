@@ -1,12 +1,12 @@
 {
   "goal": "SDAR v1.4.1 Canonical Evidence Export Completion",
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "branch": "feature/v1.4.1-canonical-evidence-export",
   "baseSha": "cc0719f4db83dc64dc6e32e6dcad2d558823e796",
-  "headSha": "0868821",
+  "headSha": "eb72012",
   "prNumber": 18,
   "migrationStrategy": "B_APPEND_CLEAN_CUTOVER_AFTER_0143",
-  "lastCompletedPhase": 13,
+  "lastCompletedPhase": 14,
   "sourceInventory": {
     "classified": 100,
     "sourceConfirmed": 100,
@@ -140,10 +140,12 @@
     "phase14E2eTests": 73,
     "phase14OfficialA2aTck": "passed_74_must_161_scoped_skips",
     "phase14EvidenceDemo": "passed_44_of_44",
-    "phase14Smokes": "passed_infrastructure_server_console_node_control"
+    "phase14Smokes": "passed_infrastructure_server_console_node_control",
+    "phase14FinalAcceptance": "passed",
+    "phase14PullRequest": "18_ready_open_clean"
   },
   "deferredSourceClosures": [],
   "deferredVerification": [],
   "blockers": [],
-  "updatedAt": "2026-08-10T20:25:00+08:00"
+  "updatedAt": "2026-08-10T20:30:00+08:00"
 }

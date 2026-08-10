@@ -7,8 +7,8 @@
 - [x] Phase 13 closes all 25 adversarial items and unchanged performance thresholds.
 - [x] Runtime/Control PostgreSQL authority, Redis wake-only and receiver non-authority remain intact.
 - [x] ClickHouse handoff contains no ClickHouse implementation or query proxy.
-- [x] The exact Phase 14 `pnpm verify` passes; final acceptance report publication is the remaining documentation step.
-- [ ] The feature branch is committed/pushed and PR is Ready for Review; merge remains separate.
+- [x] The exact Phase 14 `pnpm verify` and final acceptance reports pass.
+- [x] The feature branch is committed/pushed and PR #18 is Ready for Review; merge remains separate.
 
 ## 项目级完成条件
 

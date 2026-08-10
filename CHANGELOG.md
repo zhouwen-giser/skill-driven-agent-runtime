@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
-## SDAR v1.4.1 Canonical Evidence Export (Phase 14 publication pending)
+## SDAR v1.4.1 Canonical Evidence Export (completed; PR Ready)
 
 - Passed the final ten-stage `pnpm verify` in 1,213,445 ms: 1,305 static Unit/performance/Contract
   assertions, 41 Runtime plus 9 Control migrations, 175 Integration tests, 73 E2E tests, official

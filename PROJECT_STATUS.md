@@ -1,12 +1,13 @@
 # Project Status
 
-SDAR v1.4.1 Canonical Evidence Export is `PHASE_14_PUBLICATION_PENDING` (2026-08-10) on
+SDAR v1.4.1 Canonical Evidence Export is `COMPLETED_PR_READY` (2026-08-10) on
 `feature/v1.4.1-canonical-evidence-export`, based on `origin/main` `cc0719f`. Phases 0-13
 have completed their scoped implementation and independent Review; the single Phase 14
 release-level `pnpm verify` passed all ten stages in 1,213,445 ms. Required Source Coverage is
-95/95, total Catalog coverage is 100/100, Phase 12 is 44/44 and Phase 13 is 25/25. Only local
-commit/push and marking PR #18 Ready for Review remain; merge, tag, release and deploy are not
-authorized. The user-supplied task package is SHA-256
+95/95, total Catalog coverage is 100/100, Phase 12 is 44/44 and Phase 13 is 25/25. Implementation
+commit `eb72012` is pushed and PR #18 is `OPEN`, `CLEAN` and Ready for
+Review against `main`; final acceptance is published under `reports/v1.4.1-evidence/`. The
+user-supplied task package is SHA-256
 verified and retained under `docs/`; immutable
 published migrations 0142/0143 force Strategy B (append-only clean cutover); and every one of the
 100 catalog record types has an explicit non-guessed authority classification. Phase 1 found 93
