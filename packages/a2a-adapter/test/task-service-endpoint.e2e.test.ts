@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { renameSync, rmSync, writeFileSync } from 'node:fs';
+import { linkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
 import { performance } from 'node:perf_hooks';
@@ -6768,8 +6768,6 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             forwardReferencePlan: forwardReferencePlan.rows[0]?.['QUERY PLAN'],
           })}\n`,
         );
-        expect(appendP95RawMs).toBeLessThanOrEqual(20);
-
         await evidenceStore.applyConfiguration(
           phase13EvidenceConfiguration(`http://127.0.0.1:${String(sinkAddress.port)}/evidence`),
           new Date().toISOString(),
@@ -6814,6 +6812,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             samples: { mode: 'baseline' | 'enabled'; latencyMs: number }[];
           }[];
         }[] = [];
+        const sampleDiagnostics: Phase13SampleDiagnostic[] = [];
         for (let windowIndex = 0; windowIndex < 3; windowIndex += 1) {
           const window: (typeof measurementWindows)[number] = {
             baselineSamples: [],
@@ -6824,11 +6823,41 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             const order = measurementOrders[index % measurementOrders.length];
             if (order === undefined) throw new Error('P13_PERFORMANCE_ORDER_MISSING');
             const round: (typeof window.rounds)[number] = { order: [...order], samples: [] };
-            for (const mode of order) {
+            for (const [positionIndex, mode] of order.entries()) {
               const enabled = mode === 'enabled';
               await setPhase13EvidenceActive(evidencePool, enabled);
+              const startedAtMs = Date.now();
               const sample = await runTask();
+              const finishedAtMs = Date.now();
               round.samples.push({ mode, latencyMs: sample });
+              sampleDiagnostics.push({
+                sample: sampleDiagnostics.length + 1,
+                window: windowIndex + 1,
+                block: index + 1,
+                position: positionIndex + 1,
+                order: [...order],
+                mode,
+                latencyMs: sample,
+                startedAt: new Date(startedAtMs).toISOString(),
+                finishedAt: new Date(finishedAtMs).toISOString(),
+                startedAtMs,
+                finishedAtMs,
+                backgroundOverlap: {
+                  primaryLifecycleOverlapCount: 0,
+                  primaryBacklogAtStartCount: 0,
+                  primaryCarryoverAtFinishCount: 0,
+                  primaryCapturedCount: 0,
+                  primarySentCount: 0,
+                  primaryAcknowledgedCount: 0,
+                  observationCapturedCount: 0,
+                  exportBatchCount: 0,
+                  exportBatchRecordCount: 0,
+                  exportAckCount: 0,
+                  acceptedAckCount: 0,
+                  exportCarryoverAtStartCount: 0,
+                  exportCarryoverAtFinishCount: 0,
+                },
+              });
               if (enabled) window.enabledSamples.push(sample);
               else window.baselineSamples.push(sample);
             }
@@ -6839,6 +6868,20 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         await setPhase13EvidenceActive(evidencePool, true);
         await waitForPhase13ExportQuiescence(evidencePool);
         await setPhase13EvidenceActive(evidencePool, false);
+
+        const firstDiagnostic = sampleDiagnostics[0];
+        const lastDiagnostic = sampleDiagnostics.at(-1);
+        if (firstDiagnostic === undefined || lastDiagnostic === undefined) {
+          throw new Error('P13_PERFORMANCE_DIAGNOSTIC_SAMPLE_MISSING');
+        }
+        const backgroundEvents = await readPhase13BackgroundEvents(
+          evidencePool,
+          firstDiagnostic.startedAt,
+          lastDiagnostic.finishedAt,
+        );
+        for (const diagnostic of sampleDiagnostics) {
+          diagnostic.backgroundOverlap = phase13BackgroundOverlap(diagnostic, backgroundEvents);
+        }
 
         const baselineSamples = measurementWindows.flatMap((window) => window.baselineSamples);
         const enabledSamples = measurementWindows.flatMap((window) => window.enabledSamples);
@@ -6889,9 +6932,67 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             appendTailMs: orderedAppendSamples.slice(-10),
           })}\n`,
         );
+        const failedThresholds = [
+          ...(receivedRecords > 0 ? [] : ['Evidence delivery emitted no records']),
+          ...(baselineMedianDriftRawPercent <= 15
+            ? []
+            : ['Baseline median drift exceeded 15 percent']),
+          ...(regressionRawPercent <= 10 ? [] : ['Runtime E2E P95 regression exceeded 10 percent']),
+          ...(appendP95RawMs <= 20 ? [] : ['Evidence append P95 exceeded 20 milliseconds']),
+        ];
+        if (failedThresholds.length > 0) {
+          writeImmutablePhase13FailureDiagnostic({
+            schemaVersion: 1,
+            status: 'failed',
+            result: 'FAILED_PHASE13_PERFORMANCE_DIAGNOSTIC',
+            environment:
+              'local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO',
+            source: {
+              testFile: 'packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts',
+              diagnosticAttempt: 8,
+            },
+            measurementDesign: {
+              discardedWarmupWindows,
+              warmupBlocksPerWindow,
+              roundsPerWindow,
+              measurementWindowCount: measurementWindows.length,
+              order: 'strict alternating ABBA/BAAB blocks with equal baseline and enabled samples',
+              runtimePercentileMethod: 'pooled_raw_nearest_rank',
+              baselineDriftMethod: 'maximum_pairwise_symmetric_window_median',
+              diagnosticCollection:
+                'in-memory sample boundaries only during measurement; outbox lifecycle and phase13 export ledger are read once after measurement',
+              observationGenerationSemantics:
+                'generation 0 is primary canonical evidence; generation 1 is derived export observation evidence',
+            },
+            rawSamples: {
+              baselineMs: baselineSamples,
+              evidenceEnabledMs: enabledSamples,
+              evidenceAppendMs: appendSamples,
+            },
+            metrics: {
+              baselineP95RawMs,
+              evidenceEnabledP95RawMs,
+              regressionRawPercent,
+              baselineWindowMediansRawMs,
+              baselineMedianDriftRawPercent,
+              appendP95RawMs,
+              receivedRecords,
+            },
+            thresholds: {
+              baselineMedianDriftPercentMaximum: 15,
+              runtimeP95RegressionPercentMaximum: 10,
+              evidenceAppendP95MsMaximum: 20,
+              evaluatedBeforeDisplayRounding: true,
+            },
+            failedThresholds,
+            sampleDiagnostics,
+            backgroundEvents,
+          });
+        }
         expect(receivedRecords).toBeGreaterThan(0);
         expect(baselineMedianDriftRawPercent).toBeLessThanOrEqual(15);
         expect(regressionRawPercent).toBeLessThanOrEqual(10);
+        expect(appendP95RawMs).toBeLessThanOrEqual(20);
 
         const report = {
           schemaVersion: 1,
@@ -9509,6 +9610,241 @@ async function setPhase13EvidenceActive(pool: TestPostgresPool, active: boolean)
      WHERE export_id='phase13-evidence-performance' AND revision=1`,
     [active],
   );
+}
+
+interface Phase13BackgroundEvents {
+  readonly exportBatches: readonly {
+    readonly recordedAt: string;
+    readonly recordCount: number;
+    readonly acknowledgedAt?: string;
+    readonly ackDisposition?: 'accepted' | 'partial' | 'rejected';
+  }[];
+  readonly outboxLifecycles: readonly {
+    readonly observationGeneration: 0 | 1;
+    readonly capturedAt: string;
+    readonly sentAt?: string;
+    readonly acknowledgedAt?: string;
+    readonly sentByPhase13: boolean;
+  }[];
+}
+
+interface Phase13SampleDiagnostic {
+  readonly sample: number;
+  readonly window: number;
+  readonly block: number;
+  readonly position: number;
+  readonly order: readonly ('baseline' | 'enabled')[];
+  readonly mode: 'baseline' | 'enabled';
+  readonly latencyMs: number;
+  readonly startedAt: string;
+  readonly finishedAt: string;
+  readonly startedAtMs: number;
+  readonly finishedAtMs: number;
+  backgroundOverlap: {
+    readonly primaryLifecycleOverlapCount: number;
+    readonly primaryBacklogAtStartCount: number;
+    readonly primaryCarryoverAtFinishCount: number;
+    readonly primaryCapturedCount: number;
+    readonly primarySentCount: number;
+    readonly primaryAcknowledgedCount: number;
+    readonly observationCapturedCount: number;
+    readonly exportBatchCount: number;
+    readonly exportBatchRecordCount: number;
+    readonly exportAckCount: number;
+    readonly acceptedAckCount: number;
+    readonly exportCarryoverAtStartCount: number;
+    readonly exportCarryoverAtFinishCount: number;
+  };
+}
+
+async function readPhase13BackgroundEvents(
+  pool: TestPostgresPool,
+  startedAt: string,
+  finishedAt: string,
+): Promise<Phase13BackgroundEvents> {
+  const [batchResult, projectionResult] = await Promise.all([
+    pool.query<{
+      recorded_at: Date | string;
+      record_count: number;
+      acknowledged_at: Date | string | null;
+      ack_disposition: 'accepted' | 'partial' | 'rejected' | null;
+    }>(
+      `SELECT batch.recorded_at,batch.record_count,
+          acknowledgement.acknowledged_at,acknowledgement.ack_disposition
+       FROM evidence_export_batch batch
+       LEFT JOIN evidence_export_ack acknowledgement ON acknowledgement.batch_id=batch.batch_id
+       WHERE batch.export_id='phase13-evidence-performance'
+         AND batch.recorded_at <= $2::timestamptz
+         AND (
+           acknowledgement.acknowledged_at IS NULL
+           OR acknowledgement.acknowledged_at >= $1::timestamptz
+         )
+       ORDER BY batch.recorded_at,batch.ledger_sequence`,
+      [startedAt, finishedAt],
+    ),
+    pool.query<{
+      observation_generation: number;
+      captured_at: Date | string;
+      sent_at: Date | string | null;
+      acknowledged_at: Date | string | null;
+      sent_by_phase13: boolean;
+    }>(
+      `SELECT observation_generation,captured_at,sent_at,acknowledged_at,
+          COALESCE(sent_export_id='phase13-evidence-performance',false) AS sent_by_phase13
+       FROM evidence_outbox
+       WHERE (
+           observation_generation=0
+           AND captured_at <= $2::timestamptz
+           AND (acknowledged_at IS NULL OR acknowledged_at >= $1::timestamptz)
+           AND (sent_export_id IS NULL OR sent_export_id='phase13-evidence-performance')
+         ) OR (
+           observation_generation=1
+           AND captured_at >= $1::timestamptz
+           AND captured_at <= $2::timestamptz
+         )
+       ORDER BY captured_at,sequence`,
+      [startedAt, finishedAt],
+    ),
+  ]);
+  return {
+    exportBatches: batchResult.rows.map((row) => ({
+      recordedAt: phase13Iso(row.recorded_at),
+      recordCount: row.record_count,
+      ...(row.acknowledged_at === null ? {} : { acknowledgedAt: phase13Iso(row.acknowledged_at) }),
+      ...(row.ack_disposition === null ? {} : { ackDisposition: row.ack_disposition }),
+    })),
+    outboxLifecycles: projectionResult.rows.map((row) => {
+      if (row.observation_generation !== 0 && row.observation_generation !== 1) {
+        throw new Error('P13_PERFORMANCE_DIAGNOSTIC_OBSERVATION_GENERATION_INVALID');
+      }
+      return {
+        observationGeneration: row.observation_generation,
+        capturedAt: phase13Iso(row.captured_at),
+        ...(row.sent_at === null ? {} : { sentAt: phase13Iso(row.sent_at) }),
+        ...(row.acknowledged_at === null
+          ? {}
+          : { acknowledgedAt: phase13Iso(row.acknowledged_at) }),
+        sentByPhase13: row.sent_by_phase13,
+      };
+    }),
+  };
+}
+
+function phase13BackgroundOverlap(
+  sample: Phase13SampleDiagnostic,
+  events: Phase13BackgroundEvents,
+): Phase13SampleDiagnostic['backgroundOverlap'] {
+  const primaryLifecycles = events.outboxLifecycles.filter(
+    (event) => event.observationGeneration === 0,
+  );
+  const primaryOverlap = primaryLifecycles.filter((event) => {
+    const capturedAtMs = Date.parse(event.capturedAt);
+    const acknowledgedAtMs =
+      event.acknowledgedAt === undefined ? undefined : Date.parse(event.acknowledgedAt);
+    return (
+      capturedAtMs <= sample.finishedAtMs &&
+      (acknowledgedAtMs === undefined || acknowledgedAtMs >= sample.startedAtMs)
+    );
+  });
+  const primaryCaptured = primaryLifecycles.filter((event) =>
+    phase13TimeWithin(event.capturedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const primarySent = primaryLifecycles.filter(
+    (event) =>
+      event.sentByPhase13 &&
+      event.sentAt !== undefined &&
+      phase13TimeWithin(event.sentAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const primaryAcknowledged = primaryLifecycles.filter(
+    (event) =>
+      event.sentByPhase13 &&
+      event.acknowledgedAt !== undefined &&
+      phase13TimeWithin(event.acknowledgedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const observationCaptured = events.outboxLifecycles.filter(
+    (event) =>
+      event.observationGeneration === 1 &&
+      phase13TimeWithin(event.capturedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const batches = events.exportBatches.filter((batch) => {
+    const batchStartedAtMs = Date.parse(batch.recordedAt);
+    const batchFinishedAtMs =
+      batch.acknowledgedAt === undefined ? undefined : Date.parse(batch.acknowledgedAt);
+    return (
+      batchStartedAtMs <= sample.finishedAtMs &&
+      (batchFinishedAtMs === undefined || batchFinishedAtMs >= sample.startedAtMs)
+    );
+  });
+  const acknowledgements = batches.filter(
+    (batch) =>
+      batch.acknowledgedAt !== undefined &&
+      phase13TimeWithin(batch.acknowledgedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  return {
+    primaryLifecycleOverlapCount: primaryOverlap.length,
+    primaryBacklogAtStartCount: primaryOverlap.filter(
+      (event) => Date.parse(event.capturedAt) < sample.startedAtMs,
+    ).length,
+    primaryCarryoverAtFinishCount: primaryOverlap.filter(
+      (event) =>
+        event.acknowledgedAt === undefined ||
+        Date.parse(event.acknowledgedAt) > sample.finishedAtMs,
+    ).length,
+    primaryCapturedCount: primaryCaptured.length,
+    primarySentCount: primarySent.length,
+    primaryAcknowledgedCount: primaryAcknowledged.length,
+    observationCapturedCount: observationCaptured.length,
+    exportBatchCount: batches.length,
+    exportBatchRecordCount: batches.reduce((total, batch) => total + batch.recordCount, 0),
+    exportAckCount: acknowledgements.length,
+    acceptedAckCount: acknowledgements.filter((batch) => batch.ackDisposition === 'accepted')
+      .length,
+    exportCarryoverAtStartCount: batches.filter(
+      (batch) => Date.parse(batch.recordedAt) < sample.startedAtMs,
+    ).length,
+    exportCarryoverAtFinishCount: batches.filter(
+      (batch) =>
+        batch.acknowledgedAt === undefined ||
+        Date.parse(batch.acknowledgedAt) > sample.finishedAtMs,
+    ).length,
+  };
+}
+
+function phase13TimeWithin(value: string, startedAtMs: number, finishedAtMs: number): boolean {
+  const observedAtMs = Date.parse(value);
+  return observedAtMs >= startedAtMs && observedAtMs <= finishedAtMs;
+}
+
+function phase13Iso(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new Error('P13_PERFORMANCE_DIAGNOSTIC_TIME_INVALID');
+  return date.toISOString();
+}
+
+function writeImmutablePhase13FailureDiagnostic(report: unknown): void {
+  const reportUrl = new URL(
+    '../../../reports/v1.4.1-evidence/failed-attempts/13-performance-attempt-8-diagnostic.json',
+    import.meta.url,
+  );
+  const temporaryUrl = new URL(`${reportUrl.href}.tmp-${String(process.pid)}-${randomUUID()}`);
+  writeFileSync(temporaryUrl, `${JSON.stringify(report, null, 2)}\n`, {
+    encoding: 'utf8',
+    flag: 'wx',
+  });
+  try {
+    try {
+      // A same-directory hard link publishes a complete file and fails atomically if the
+      // immutable attempt path already exists; unlike rename, it cannot replace a prior run.
+      linkSync(temporaryUrl, reportUrl);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+        throw new Error('P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXISTS', { cause: error });
+      }
+      throw error;
+    }
+  } finally {
+    rmSync(temporaryUrl, { force: true });
+  }
 }
 
 function writePhase13Report(report: unknown): void {
