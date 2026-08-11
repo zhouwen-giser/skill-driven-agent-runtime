@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "sdar.home-lab-capability-governance/v1",
+  "status": "passed",
+  "observedAt": "2026-08-11T05:08:38.981Z",
+  "capabilityGovernanceReady": true,
+  "runtimeCapabilityReadiness": "available",
+  "resourcePolicy": {
+    "identifierAuthority": "public_resource_id",
+    "auxiliaryLightIncluded": true,
+    "allowedResourceIds": [
+      "living-room-main-light",
+      "living-room-air-conditioner",
+      "living-room-aux-light"
+    ],
+    "physicalResourceBindings": 0
+  },
+  "skills": [
+    {
+      "skillId": "home.light.get-state",
+      "skillVersion": 1,
+      "taskType": "light_get_state",
+      "mcpToolName": "light_get_state",
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "localServerId": "home-lab-light-mcp",
+      "packageChecksum": "723de394aa6fc43abae9858d688f5658807591b7db096257d93c22d8bf247b31",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "home.light.set-power",
+      "skillVersion": 1,
+      "taskType": "light_set_power",
+      "mcpToolName": "light_set_power",
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "localServerId": "home-lab-light-mcp",
+      "packageChecksum": "51443408f506bb6c9f5b022854679aaa2840e134d63e448797ba7470c807960f",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "home.climate.get-state",
+      "skillVersion": 1,
+      "taskType": "climate_get_state",
+      "mcpToolName": "climate_get_state",
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "localServerId": "home-lab-climate-mcp",
+      "packageChecksum": "5db93c5e9b226ddc42c6acd9d39ad12e36fcd5b1a0b4578cc7ee3942e425ed92",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "home.climate.set-hvac-mode",
+      "skillVersion": 1,
+      "taskType": "climate_set_hvac_mode",
+      "mcpToolName": "climate_set_hvac_mode",
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "localServerId": "home-lab-climate-mcp",
+      "packageChecksum": "8e48555b569607f21c969e0565e4d5bd89a35e973227e3c1a67bd1c403d4c154",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "home.climate.set-temperature",
+      "skillVersion": 1,
+      "taskType": "climate_set_temperature",
+      "mcpToolName": "climate_set_temperature",
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "localServerId": "home-lab-climate-mcp",
+      "packageChecksum": "1749b3f8fcee28647a1c5820b95bd0714ab62fd02309ec43eda529a5331f167c",
+      "action": "reconciled",
+      "status": "published"
+    }
+  ],
+  "capabilities": [
+    {
+      "capabilityId": "home.light.read-state",
+      "capabilityVersion": 1,
+      "definitionHash": "032196099d7a391d022b491c560e8b4045b370f538ee563f79dddb29eb5456b8",
+      "implementationBindingId": "capability-binding-home.light.read-state-v1",
+      "skillId": "home.light.get-state",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "allowedResourceIds": [
+        "living-room-main-light",
+        "living-room-aux-light"
+      ],
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:49.927Z"
+    },
+    {
+      "capabilityId": "home.light.set-power",
+      "capabilityVersion": 1,
+      "definitionHash": "41970218d5b727b3327f1c7d3b2e25f1272550e7601b8ed1c93765f428653e40",
+      "implementationBindingId": "capability-binding-home.light.set-power-v1",
+      "skillId": "home.light.set-power",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "allowedResourceIds": [
+        "living-room-main-light",
+        "living-room-aux-light"
+      ],
+      "riskLevel": "high",
+      "confirmation": "required",
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:49.999Z"
+    },
+    {
+      "capabilityId": "home.climate.read-state",
+      "capabilityVersion": 1,
+      "definitionHash": "0afe80641abf08fef36e8ebb9d6514ac464e05d1b70e62918197d15d8954bc5b",
+      "implementationBindingId": "capability-binding-home.climate.read-state-v1",
+      "skillId": "home.climate.get-state",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "allowedResourceIds": [
+        "living-room-air-conditioner"
+      ],
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:50.031Z"
+    },
+    {
+      "capabilityId": "home.climate.set-hvac-mode",
+      "capabilityVersion": 1,
+      "definitionHash": "66c0048ceffb0b3d2df0b237cdc5f7ece6d9476f96737a28e5ffa4a1ff233b08",
+      "implementationBindingId": "capability-binding-home.climate.set-hvac-mode-v1",
+      "skillId": "home.climate.set-hvac-mode",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "allowedResourceIds": [
+        "living-room-air-conditioner"
+      ],
+      "riskLevel": "high",
+      "confirmation": "required",
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:50.070Z"
+    },
+    {
+      "capabilityId": "home.climate.set-temperature",
+      "capabilityVersion": 1,
+      "definitionHash": "9194a948fe8a5f2b945404a83a5a1023a564ff3d12eb80701f9d589919f66893",
+      "implementationBindingId": "capability-binding-home.climate.set-temperature-v1",
+      "skillId": "home.climate.set-temperature",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "allowedResourceIds": [
+        "living-room-air-conditioner"
+      ],
+      "riskLevel": "high",
+      "confirmation": "required",
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:50.107Z"
+    }
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

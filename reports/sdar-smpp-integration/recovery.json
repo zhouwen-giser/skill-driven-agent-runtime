@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G12",
+  "status": "blocked",
+  "evidenceClass": "mixed_same_goal_live_read_only_and_isolated_deterministic",
+  "observedAt": "2026-08-10T16:38:42.493Z",
+  "resilienceIntegrationReady": false,
+  "qualification": {
+    "isolatedDeterministic": "passed",
+    "sameGoalRegistryAndBindingEvidence": "passed",
+    "liveInFlightAndFaultRecovery": "blocked"
+  },
+  "scopeBoundary": {
+    "dockerInvoked": false,
+    "liveDatabaseInvoked": false,
+    "liveServiceRestarted": false,
+    "nativeSmppRegistryMutated": false,
+    "testFailpointInvoked": false,
+    "deviceWritesAttempted": 0,
+    "physicalSideEffectsObserved": 0
+  },
+  "currentRun": {
+    "sdar": {
+      "testFilesPassed": 10,
+      "testsPassed": 96,
+      "testsFailed": 0,
+      "classes": [
+        "registry_projection_and_checksum",
+        "provider_binding_rebind_and_fail_closed_discovery",
+        "catalog_tool_removal_and_schema_drift",
+        "remote_task_poll_continuation_and_cancel_authority",
+        "notification_reconciliation_and_restart_contract",
+        "postgresql_authoritative_wake_rebuild_unit"
+      ]
+    },
+    "smpp": {
+      "testFilesPassed": 12,
+      "testsPassed": 77,
+      "testsFailed": 0,
+      "evidenceUse": "Cross-repository producer, LKG, Adapter recovery and fake Home Assistant fault behavior."
+    }
+  },
+  "registry": [
+    {
+      "case": "conditional_304",
+      "status": "passed",
+      "evidenceClass": "same_goal_live_plus_current_contract"
+    },
+    {
+      "case": "new_revision",
+      "status": "passed",
+      "evidenceClass": "same_goal_live_plus_current_contract"
+    },
+    {
+      "case": "bad_checksum",
+      "status": "passed",
+      "evidenceClass": "current_contract"
+    },
+    {
+      "case": "rollback",
+      "status": "passed",
+      "evidenceClass": "same_goal_previous_postgresql_test"
+    },
+    {
+      "case": "same_revision_drift",
+      "status": "passed",
+      "evidenceClass": "same_goal_previous_postgresql_test"
+    },
+    {
+      "case": "projection_expired",
+      "status": "passed",
+      "evidenceClass": "same_goal_live_fail_closed"
+    },
+    {
+      "case": "registry_outage",
+      "status": "passed",
+      "evidenceClass": "same_goal_controlled_live_outage"
+    },
+    {
+      "case": "lkg_unexpired",
+      "status": "passed",
+      "evidenceClass": "same_goal_controlled_live_outage"
+    },
+    {
+      "case": "lkg_expired",
+      "status": "passed",
+      "evidenceClass": "same_goal_live_fail_closed"
+    },
+    {
+      "case": "provider_removed_from_snapshot",
+      "status": "passed",
+      "evidenceClass": "same_goal_previous_postgresql_test"
+    }
+  ],
+  "binding": [
+    {
+      "case": "catalog_drift",
+      "status": "passed",
+      "evidenceClass": "same_goal_live_plus_current_unit"
+    },
+    {
+      "case": "tool_removed",
+      "status": "passed",
+      "evidenceClass": "current_unit"
+    },
+    {
+      "case": "tool_schema_changed",
+      "status": "passed",
+      "evidenceClass": "same_goal_live_plus_current_unit"
+    },
+    {
+      "case": "availability_expired",
+      "status": "passed",
+      "evidenceClass": "same_goal_live"
+    },
+    {
+      "case": "binding_suspended",
+      "status": "passed",
+      "evidenceClass": "same_goal_live"
+    },
+    {
+      "case": "binding_removed",
+      "status": "passed",
+      "evidenceClass": "same_goal_live"
+    },
+    {
+      "case": "new_task_selection_fails_closed",
+      "status": "passed",
+      "evidenceClass": "same_goal_postgresql_acceptance"
+    },
+    {
+      "case": "existing_task_retains_prior_binding_revision",
+      "status": "passed",
+      "evidenceClass": "same_goal_postgresql_acceptance"
+    }
+  ],
+  "runtime": [
+    {
+      "case": "sdar_restart_while_waiting_remote_task",
+      "controlledStatus": "passed_contract",
+      "liveStatus": "blocked_not_executed"
+    },
+    {
+      "case": "smpp_runtime_restart",
+      "controlledStatus": "passed_recreated_engine_and_recovery_controller",
+      "liveStatus": "blocked_not_executed"
+    },
+    {
+      "case": "adapter_restart",
+      "controlledStatus": "passed_recreated_engine_without_duplicate_call",
+      "liveStatus": "blocked_not_executed"
+    },
+    {
+      "case": "notification_disconnect",
+      "controlledStatus": "passed",
+      "liveStatus": "not_claimed"
+    },
+    {
+      "case": "poll_fallback",
+      "controlledStatus": "passed",
+      "liveStatus": "not_claimed"
+    },
+    {
+      "case": "home_assistant_unreachable",
+      "controlledStatus": "passed_fake",
+      "liveStatus": "blocked_not_executed"
+    },
+    {
+      "case": "rest_200_without_state_change",
+      "controlledStatus": "passed_fake_timeout_fail_closed",
+      "liveStatus": "blocked_not_executed"
+    },
+    {
+      "case": "provider_state_file_corrupted",
+      "controlledStatus": "passed_temp_file_contract",
+      "liveStatus": "blocked_not_executed"
+    }
+  ],
+  "taskAuthority": {
+    "registryDecidesTerminalState": false,
+    "telemetryDecidesTerminalState": false,
+    "cancelAckEqualsCancelledTerminal": false,
+    "pollFallbackUsesProviderTaskAuthority": true,
+    "currentRunCreatedTaskRows": false,
+    "activeAndUncertainCounts": "not_requeried_by_G12_no_database_scope",
+    "lastSameGoalObservation": {
+      "activeSdarTasks": 0,
+      "uncertainSdarTasks": 0,
+      "activeSmppTasks": 0,
+      "uncertainSmppTasks": 0
+    }
+  },
+  "failpointGate": {
+    "scopesChecked": ["Process", "User", "Machine"],
+    "runtimeEnvTestPresent": false,
+    "realDeviceTestFailpointsYesPresent": false,
+    "invoked": false,
+    "productionRejectionExercised": false
+  },
+  "blockers": [
+    "REAL_IN_FLIGHT_SDAR_REMOTE_TASK_RESTART_UNVERIFIED",
+    "REAL_IN_FLIGHT_SMPP_RUNTIME_RESTART_RECOVERY_UNVERIFIED",
+    "REAL_IN_FLIGHT_ADAPTER_RESTART_RECOVERY_UNVERIFIED",
+    "REAL_HOME_ASSISTANT_OUTAGE_RECOVERY_UNVERIFIED",
+    "REAL_REST_200_WITHOUT_STATE_CHANGE_UNVERIFIED",
+    "REAL_PROVIDER_STATE_FILE_CORRUPTION_UNVERIFIED",
+    "PMS_OUTAGE_TASK_AUTHORITY_UNVERIFIED",
+    "REAL_FAULT_INJECTION_GATES_ABSENT",
+    "PRODUCTION_FAILPOINT_REJECTION_NOT_EXERCISED"
+  ],
+  "evidenceReferences": [
+    ".codex-sdar-smpp/execution-log.md",
+    "reports/sdar-smpp-integration/provider-catalog.json",
+    "packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts",
+    "apps/node-control-acceptance/test/mcp-provider-binding.integration.test.ts"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

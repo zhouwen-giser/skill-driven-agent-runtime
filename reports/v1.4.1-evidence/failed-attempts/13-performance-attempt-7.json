@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "result": "FAILED_RUNTIME_P95_REGRESSION",
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "source": {
+    "verificationSummary": "reports/verification/summary.json",
+    "rawLog": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+    "commit": "a9957c82c17ca01e77528f3817c03d86224aaf88",
+    "dirty": true,
+    "startedAt": "2026-08-11T04:21:11.197Z",
+    "finishedAt": "2026-08-11T04:41:19.158Z",
+    "e2eOutputSha256": "039c743869e405927b5526a6bb75118fd2067ff2bfd2b4d4931bc025462e7813"
+  },
+  "samples": {
+    "runtimeBaseline": 72,
+    "runtimeEvidenceEnabled": 72,
+    "evidenceAppend": 100,
+    "discardedWarmupWindows": 2,
+    "measurementWindows": 3
+  },
+  "measurementDesign": {
+    "orders": ["ABBA", "BAAB"],
+    "blocksPerMeasuredWindow": 12,
+    "runtimePercentileMethod": "pooled_raw_nearest_rank",
+    "baselineDriftMethod": "maximum_pairwise_symmetric_window_median"
+  },
+  "baselineP95RawMs": 1009.7737000000052,
+  "evidenceEnabledP95RawMs": 1413.4922999999835,
+  "regressionRawPercent": 39.981096754646735,
+  "baselineWindowMediansRawMs": [673.0939500000022, 692.3316500000074, 652.3456999999908],
+  "baselineMedianDriftRawPercent": 5.947292858025259,
+  "appendP95RawMs": 9.931700000001001,
+  "thresholds": {
+    "baselineMedianDriftPercentMaximum": 15,
+    "runtimeP95RegressionPercentMaximum": 10,
+    "evidenceAppendP95MsMaximum": 20,
+    "evaluatedBeforeDisplayRounding": true
+  },
+  "failedThresholds": ["Runtime E2E P95 regression exceeded 10 percent"],
+  "assertion": {
+    "actual": 39.981096754646735,
+    "operator": "<=",
+    "expected": 10
+  },
+  "limitations": [
+    "The failed log emitted the aggregate Runtime P95 values and the complete Evidence append sample array, but not the 72 baseline or 72 enabled Runtime sample arrays; their P95 values cannot be independently recomputed from the log alone."
+  ],
+  "rootCause": "No evidence-backed root cause has been established. The fixed equal-sample protocol produced a stable baseline and a passing Evidence append result, but the Evidence-enabled Runtime P95 exceeded the unchanged regression threshold during the full verification run.",
+  "repair": "No further protocol edits or result-seeking reruns were performed. Keep the Phase 13 and full verification gates blocked pending a separately scoped performance investigation."
+}

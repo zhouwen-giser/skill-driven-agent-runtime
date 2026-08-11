@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "capturedAt": "2026-08-10T13:05:00.000Z",
+  "environment": "home-lab",
+  "repository": {
+    "name": "zhouwen-giser/skill-driven-agent-runtime",
+    "branch": "codex/sdar-smpp-home-lab-integration",
+    "baselineSha": "a9957c82c17ca01e77528f3817c03d86224aaf88"
+  },
+  "companionRepository": {
+    "name": "zhouwen-giser/sdar-mcp-provider-platform",
+    "branch": "codex/ha-real-device-preparation",
+    "baselineSha": "981792b9cb22f8b3117fe3ab26f639de71487d1f"
+  },
+  "isolation": {
+    "runtimeDatabase": "sdar_runtime_integration",
+    "controlDatabase": "sdar_control_integration",
+    "redis": "dedicated ephemeral Goal instance",
+    "existingUserDataReset": false
+  },
+  "preflight": {
+    "homeAssistant": "passed_read_only_10_of_10",
+    "sideEffectsAttempted": false,
+    "secretAndEntityIdScan": "passed",
+    "activeTasks": 0,
+    "uncertainTasks": 0
+  },
+  "writeAuthority": {
+    "allowed": false,
+    "reason": "ALLOW_REAL_DEVICE_SIDE_EFFECTS and REAL_DEVICE_TEST_RUN_ID are absent"
+  },
+  "gate": "WORKSPACE_READY"
+}

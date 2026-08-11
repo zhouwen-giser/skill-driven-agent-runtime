@@ -1,5 +1,24 @@
 # Project Status
 
+SDAR x SMPP Home-Lab Integration is `BLOCKED_DRAFT_PUBLISHED` (2026-08-11) on
+`codex/sdar-smpp-home-lab-integration`, with tested candidate
+`af88761891f6204bf6625bd423f382f025f59ba3` in Draft PR #19. Goal Run
+`019fca75-f48a-7780-ac5e-942503c6690e` passed G00-G07: exact baseline/isolation, real Home
+Assistant read-only preflight (10/10), live SMPP Climate/Light deployments, byte-identical frozen
+Registry projection, real Source 200/304/LKG/outage/restart behavior, exact revision-17 Provider
+Bindings and live MCP Catalogs, five governed exact-version Skills/Capabilities, and deterministic
+Climate/Light read-only execution plus same-run replay. G08 is blocked by zero enabled model
+providers/routes and missing standard Task Understanding composition. G09-G11 are
+`deferred_by_safety` because the required real-device write gates are absent; no physical write was
+attempted. G12 lacks Required real in-flight restart/fault evidence. The authoritative SDAR
+repository-wide `pnpm verify` passed its first four stages and failed its final E2E stage solely at
+the Phase 13 Runtime P95 regression gate (`39.981096754646735% > 10%`); failed attempts 6 and 7 are
+preserved and the later focused pass is not full-run acceptance evidence. Final active/uncertain
+Task counts are SDAR `0/0` and SMPP `0/0`; device restore is `RESTORED` because no write occurred.
+`crossRepositoryIntegrationReady=false`. No merge, tag, release or public deployment has started.
+The living plan is `execplans/EP-SDAR-SMPP-HOME-LAB-INTEGRATION.md`; shared run state is under the
+sibling `.codex-sdar-smpp/` directory.
+
 SDAR v1.4.1 Canonical Evidence Export is `COMPLETED_PR_READY` (2026-08-10) on
 `feature/v1.4.1-canonical-evidence-export`, based on `origin/main` `cc0719f`. Phases 0-13
 have completed their scoped implementation and independent Review; the single Phase 14

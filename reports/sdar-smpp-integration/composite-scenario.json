@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G11",
+  "status": "blocked",
+  "disposition": "deferred_by_safety",
+  "evidenceClass": "real_environment_gate_observation_plus_read_only_database_counts",
+  "observedAt": "2026-08-10T16:22:14.664Z",
+  "scenario": {
+    "mainLight": "Turn on living-room-main-light.",
+    "climate": "Set living-room-air-conditioner to cooling mode and a safe target temperature.",
+    "auxiliaryLight": "Include living-room-aux-light only when currently available."
+  },
+  "fullScenarioReady": false,
+  "blocker": {
+    "code": "REAL_DEVICE_WRITE_AUTHORITY_MISSING",
+    "missingRequiredGates": [
+      "ALLOW_REAL_DEVICE_SIDE_EFFECTS=YES",
+      "REAL_DEVICE_TEST_RUN_ID=<unique non-empty value>"
+    ]
+  },
+  "gateObservation": {
+    "scopesChecked": ["Process", "User", "Machine"],
+    "allowRealDeviceSideEffects": {
+      "requiredValue": "YES",
+      "presentInAnyScope": false
+    },
+    "realDeviceTestRunId": {
+      "required": "unique_non_empty",
+      "presentInAnyScope": false
+    },
+    "allowClimatePowerTest": {
+      "presentInAnyScope": false,
+      "applicableToThisScenario": false,
+      "reason": "The required composite scenario uses HVAC mode and target temperature, not climate_set_power."
+    },
+    "writeAuthorityOpen": false
+  },
+  "configuredProviderBindings": [
+    "mcp-binding-ha-light-lab",
+    "mcp-binding-ha-climate-lab"
+  ],
+  "workflow": {
+    "initialStateRead": "not_run_due_to_closed_write_gate",
+    "formalPlanCreated": false,
+    "confirmationRecorded": false,
+    "crossProviderParallelismObserved": false,
+    "climateInternalOrderObserved": false,
+    "finalStateRead": "not_run",
+    "evidenceJudged": false,
+    "goalOutcomeCreated": false,
+    "attemptHistoryCount": 0,
+    "implicitCompensationUsed": false,
+    "restorationPolicy": "required_when_writes_occur",
+    "restorationAttempted": false,
+    "restoreStatus": "not_required_no_write_occurred",
+    "auxiliaryLightDisposition": "not_evaluated_scenario_blocked_before_initial_state_read"
+  },
+  "requiredChecks": {
+    "twoProviderBindings": "configured_not_executed",
+    "crossProviderParallelism": "not_run",
+    "climateModeBeforeTemperature": "not_run",
+    "partialFailureSemantics": "not_run",
+    "attemptHistory": "not_run",
+    "noImplicitCompensation": "not_run",
+    "explicitRestorationStrategy": "declared_not_executed",
+    "unavailableAuxiliaryLightExcluded": "not_run"
+  },
+  "authoritativeCountsAfterGateDecision": {
+    "activeSdarTasks": 0,
+    "uncertainSdarTasks": 0,
+    "activeSmppTasks": 0,
+    "uncertainSmppTasks": 0,
+    "sdarAgentTaskRows": 0,
+    "sdarRemoteTaskBindingRows": 0,
+    "sdarMcpInvocationRows": 0,
+    "lightProviderTaskRows": 0,
+    "climateProviderTaskRows": 0,
+    "lightTaskCommandRows": 0,
+    "climateTaskCommandRows": 0
+  },
+  "sideEffects": {
+    "mcpToolsCalled": [],
+    "deviceWritesAttempted": 0,
+    "deviceWritesObserved": 0,
+    "physicalStateChanged": false
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G08",
+  "status": "blocked",
+  "evidenceClass": "real_live_read_only_preflight_plus_repository_composition_audit",
+  "observedAt": "2026-08-10T16:22:14.664Z",
+  "request": "查询客厅主灯和空调当前状态",
+  "a2aReadOnlyReady": false,
+  "blockers": [
+    {
+      "code": "A2A_MODEL_RUNTIME_NOT_CONFIGURED",
+      "authority": "runtime_model_authority",
+      "evidence": {
+        "runtimeHealth": "ok",
+        "enabledModelProviderCount": 0,
+        "modelRouteCount": 0,
+        "requiredModelStages": [
+          "task_understanding",
+          "goal_contract_generation",
+          "goal_planning",
+          "skill_input_resolution",
+          "workflow_planning",
+          "result_processing",
+          "goal_evaluation"
+        ]
+      },
+      "effect": "The driver stopped before publishing an A2A exposure or submitting an A2A request."
+    },
+    {
+      "code": "A2A_TASK_UNDERSTANDING_NOT_COMPOSED",
+      "authority": "standard_runtime_composition",
+      "evidence": {
+        "runtimeSupportsOptionalTaskUnderstanding": true,
+        "standardEntrypointSuppliesTaskUnderstanding": false,
+        "inspectedSource": "apps/server/src/main.ts"
+      },
+      "effect": "The required A2A to Task Understanding chain is not composed by the running standard entrypoint."
+    }
+  ],
+  "driverObservation": {
+    "mode": "execute",
+    "result": "failed_closed_before_mutation",
+    "errorCode": "A2A_MODEL_RUNTIME_NOT_CONFIGURED",
+    "a2aRequestSubmitted": false,
+    "nodeControlMutationAttempted": false,
+    "deviceReadAttempted": false,
+    "deviceWriteAttempted": false
+  },
+  "authoritativeCountsAfterDriver": {
+    "agentTask": 0,
+    "modelProvider": 0,
+    "stageModelRoute": 0,
+    "persistedA2aExposureVersion": 0,
+    "externalTaskProjection": 0,
+    "remoteTaskBinding": 0,
+    "taskExecutionAttempt": 0,
+    "mcpInvocation": 0
+  },
+  "requiredChain": {
+    "a2aTaskAndGoalLinked": "not_run_blocked_before_a2a_request",
+    "allowedCapabilityOnlyPlan": "not_run_blocked_before_plan",
+    "unqualifiedOperationExcluded": "not_run_blocked_before_plan",
+    "deviceWriteOperations": 0,
+    "structuredGoalOutcome": "not_run_blocked_before_goal",
+    "identifierChainQueryable": "not_run_no_chain_created"
+  },
+  "safety": {
+    "allowedReadOperations": ["light_get_state", "climate_get_state"],
+    "operationsInvoked": [],
+    "writeOperationsInvoked": 0,
+    "physicalWritesInvoked": 0,
+    "realDeviceWriteAuthority": "closed"
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}
