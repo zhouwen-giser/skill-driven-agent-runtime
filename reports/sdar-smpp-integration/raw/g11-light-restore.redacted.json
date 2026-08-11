@@ -1,0 +1,164 @@
+{
+  "evidenceClass": "real",
+  "phase": "P6_LIGHT_RESTORE_RECOVERY",
+  "integrationRunId": "019fca75-f48a-7780-ac5e-942503c6690e-g11-final-light-restore-6b126431",
+  "startedAt": "2026-08-11T22:08:13.502Z",
+  "completedAt": "2026-08-11T22:08:25.309Z",
+  "status": "passed",
+  "safetyGate": {
+    "allowRealDeviceSideEffects": true,
+    "runIdPresent": true,
+    "writeBudgetPerResource": 1
+  },
+  "resources": [
+    {
+      "resourceId": "living-room-main-light",
+      "expectedPower": "off",
+      "currentBeforeRestore": {
+        "resourceId": "living-room-main-light",
+        "power": "on",
+        "reachable": true,
+        "brightnessPercent": 100,
+        "observedAt": "2026-08-11T22:07:18.636102+00:00"
+      },
+      "status": "restored",
+      "runtimeTaskId": "2d565991-80c6-4a2a-8bdf-258514b85357",
+      "correlationId": "019fca75-f48a-7780-ac5e-942503c6690e-g11-final-light-restore-6b126431:restore:living-room-main-light",
+      "adapterExternalExecutionId": null,
+      "homeAssistantObservationId": "home-assistant-light-2d565991-80c6-4a2a-8bdf-258514b85357-4",
+      "task": {
+        "status": "completed",
+        "runtimeTaskId": "2d565991-80c6-4a2a-8bdf-258514b85357",
+        "correlationId": "019fca75-f48a-7780-ac5e-942503c6690e-g11-final-light-restore-6b126431:restore:living-room-main-light",
+        "finalTask": {
+          "status": "completed",
+          "revision": null,
+          "reasonCode": null,
+          "result": {
+            "resultType": "complete",
+            "_meta": {
+              "io.sdar/evidence": {
+                "items": [
+                  {
+                    "producer": [
+                      "home-assistant"
+                    ],
+                    "evidenceId": "home-assistant-light-2d565991-80c6-4a2a-8bdf-258514b85357-4",
+                    "observedAt": "2026-08-11T22:08:14.666311+00:00",
+                    "payloadRef": {
+                      "kind": "structured_content",
+                      "jsonPointer": "/power"
+                    },
+                    "subjectRef": "resource:living-room-main-light",
+                    "evidenceType": "light.state.observation"
+                  }
+                ],
+                "profileVersion": "1.0"
+              }
+            },
+            "content": [
+              {
+                "text": "Desired light state confirmed.",
+                "type": "text"
+              }
+            ],
+            "isError": false,
+            "structuredContent": {
+              "power": "off",
+              "confirmed": true,
+              "observedAt": "2026-08-11T22:08:14.666311+00:00",
+              "resourceId": "living-room-main-light"
+            }
+          },
+          "evidence": null
+        },
+        "adapterExternalExecutionId": null,
+        "homeAssistantObservationId": "home-assistant-light-2d565991-80c6-4a2a-8bdf-258514b85357-4"
+      },
+      "currentAfterRestore": {
+        "resourceId": "living-room-main-light",
+        "power": "off",
+        "reachable": true,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T22:08:14.666311+00:00"
+      }
+    },
+    {
+      "resourceId": "living-room-aux-light",
+      "expectedPower": "off",
+      "currentBeforeRestore": {
+        "resourceId": "living-room-aux-light",
+        "power": "on",
+        "reachable": true,
+        "brightnessPercent": 100,
+        "observedAt": "2026-08-11T22:07:18.367941+00:00"
+      },
+      "status": "restored",
+      "runtimeTaskId": "c8eb079b-379e-43c6-ba81-69bd66d6c6de",
+      "correlationId": "019fca75-f48a-7780-ac5e-942503c6690e-g11-final-light-restore-6b126431:restore:living-room-aux-light",
+      "adapterExternalExecutionId": null,
+      "homeAssistantObservationId": "home-assistant-light-c8eb079b-379e-43c6-ba81-69bd66d6c6de-4",
+      "task": {
+        "status": "completed",
+        "runtimeTaskId": "c8eb079b-379e-43c6-ba81-69bd66d6c6de",
+        "correlationId": "019fca75-f48a-7780-ac5e-942503c6690e-g11-final-light-restore-6b126431:restore:living-room-aux-light",
+        "finalTask": {
+          "status": "completed",
+          "revision": null,
+          "reasonCode": null,
+          "result": {
+            "resultType": "complete",
+            "_meta": {
+              "io.sdar/evidence": {
+                "items": [
+                  {
+                    "producer": [
+                      "home-assistant"
+                    ],
+                    "evidenceId": "home-assistant-light-c8eb079b-379e-43c6-ba81-69bd66d6c6de-4",
+                    "observedAt": "2026-08-11T22:08:21.406634+00:00",
+                    "payloadRef": {
+                      "kind": "structured_content",
+                      "jsonPointer": "/power"
+                    },
+                    "subjectRef": "resource:living-room-aux-light",
+                    "evidenceType": "light.state.observation"
+                  }
+                ],
+                "profileVersion": "1.0"
+              }
+            },
+            "content": [
+              {
+                "text": "Desired light state confirmed.",
+                "type": "text"
+              }
+            ],
+            "isError": false,
+            "structuredContent": {
+              "power": "off",
+              "confirmed": true,
+              "observedAt": "2026-08-11T22:08:21.406634+00:00",
+              "resourceId": "living-room-aux-light"
+            }
+          },
+          "evidence": null
+        },
+        "adapterExternalExecutionId": null,
+        "homeAssistantObservationId": "home-assistant-light-c8eb079b-379e-43c6-ba81-69bd66d6c6de-4"
+      },
+      "currentAfterRestore": {
+        "resourceId": "living-room-aux-light",
+        "power": "off",
+        "reachable": true,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T22:08:21.406634+00:00"
+      }
+    }
+  ],
+  "runtimeTaskCounts": {
+    "active": 0,
+    "uncertain": 0
+  },
+  "errors": []
+}

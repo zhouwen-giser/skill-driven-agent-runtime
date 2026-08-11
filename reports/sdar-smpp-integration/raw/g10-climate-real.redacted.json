@@ -1,0 +1,586 @@
+{
+  "evidenceClass": "real",
+  "phase": "P6_MCP_REAL_DEVICE_E2E",
+  "integrationRunId": "019fca75-f48a-7780-ac5e-942503c6690e-g09-g11-c7e36bbf-4620-4f44-800a-83c15ec4095b",
+  "environment": "home-lab",
+  "startedAt": "2026-08-11T21:45:17.955Z",
+  "completedAt": "2026-08-11T21:45:32.587Z",
+  "status": "blocked",
+  "safetyGate": {
+    "allowRealDeviceSideEffects": true,
+    "runIdPresent": true,
+    "writeGateOpen": true,
+    "climatePowerTestGateOpen": true,
+    "lightWriteBudgetPerResource": 2,
+    "globalWriteBudget": 10,
+    "globalWritesUsed": 4,
+    "climateWriteBudget": {
+      "climateHvacMode": 2,
+      "climateTemperature": 2,
+      "climatePowerOn": 1,
+      "climatePowerOff": 1
+    },
+    "writesUsed": {
+      "climateHvacMode": 1,
+      "climatePowerOn": 1,
+      "climateTemperature": 2
+    }
+  },
+  "registry": {
+    "revision": 2,
+    "checksum": "57018a96c6c5dbd9a4713a7cc4fa5ea2730af592ee53593cdb41c59ad429384c",
+    "providerIds": [
+      "ha-climate-lab",
+      "ha-light-lab"
+    ],
+    "etag": "\"57018a96c6c5dbd9a4713a7cc4fa5ea2730af592ee53593cdb41c59ad429384c\"",
+    "containsEntityIdKeys": false,
+    "containsSecretKeys": false
+  },
+  "initialStates": [
+    {
+      "providerId": "ha-climate-lab",
+      "resourceId": "living-room-air-conditioner",
+      "power": "off",
+      "reachable": true,
+      "hvacMode": "off",
+      "targetTemperature": 16,
+      "currentTemperature": null,
+      "brightnessPercent": null,
+      "observedAt": "2026-08-11T15:33:54.603540+00:00",
+      "observationId": null
+    },
+    {
+      "providerId": "ha-light-lab",
+      "resourceId": "living-room-main-light",
+      "power": "off",
+      "reachable": true,
+      "hvacMode": null,
+      "targetTemperature": null,
+      "currentTemperature": null,
+      "brightnessPercent": null,
+      "observedAt": "2026-08-11T15:36:47.842457+00:00",
+      "observationId": null
+    },
+    {
+      "providerId": "ha-light-lab",
+      "resourceId": "living-room-aux-light",
+      "power": "off",
+      "reachable": true,
+      "hvacMode": null,
+      "targetTemperature": null,
+      "currentTemperature": null,
+      "brightnessPercent": null,
+      "observedAt": "2026-08-11T15:35:29.569764+00:00",
+      "observationId": null
+    }
+  ],
+  "scenarios": [
+    {
+      "providerId": "ha-climate-lab",
+      "resourceId": "living-room-air-conditioner",
+      "operation": "climate_set_hvac_mode",
+      "before": {
+        "providerId": "ha-climate-lab",
+        "resourceId": "living-room-air-conditioner",
+        "power": "off",
+        "reachable": true,
+        "hvacMode": "off",
+        "targetTemperature": 16,
+        "currentTemperature": null,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T15:33:54.603540+00:00",
+        "observationId": null
+      },
+      "desired": {
+        "hvacMode": "cool"
+      },
+      "status": "completed",
+      "accepted": true,
+      "runtimeTaskId": "d976f4f6-9d81-4fc3-a532-aacf358bfcb6",
+      "correlationId": "019fca75-f48a-7780-ac5e-942503c6690e-g09-g11-c7e36bbf-4620-4f44-800a-83c15ec4095b:climate:mode",
+      "taskStatuses": [
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "completed",
+          "revision": null,
+          "reasonCode": null
+        }
+      ],
+      "finalTask": {
+        "status": "completed",
+        "revision": null,
+        "reasonCode": null,
+        "result": {
+          "resultType": "complete",
+          "_meta": {
+            "io.sdar/evidence": {
+              "items": [
+                {
+                  "producer": [
+                    "home-assistant"
+                  ],
+                  "evidenceId": "home-assistant-climate-d976f4f6-9d81-4fc3-a532-aacf358bfcb6-4",
+                  "observedAt": "2026-08-11T21:45:20.027959+00:00",
+                  "payloadRef": {
+                    "kind": "structured_content",
+                    "jsonPointer": "/hvacMode"
+                  },
+                  "subjectRef": "resource:living-room-air-conditioner",
+                  "evidenceType": "climate.hvac_mode.observation"
+                }
+              ],
+              "profileVersion": "1.0"
+            }
+          },
+          "content": [
+            {
+              "text": "Desired climate state confirmed.",
+              "type": "text"
+            }
+          ],
+          "isError": false,
+          "structuredContent": {
+            "hvacMode": "cool",
+            "confirmed": true,
+            "observedAt": "2026-08-11T21:45:20.027959+00:00",
+            "resourceId": "living-room-air-conditioner"
+          }
+        },
+        "evidence": null
+      },
+      "adapterExternalExecutionId": null,
+      "homeAssistantObservationId": "home-assistant-climate-d976f4f6-9d81-4fc3-a532-aacf358bfcb6-4",
+      "after": {
+        "providerId": "ha-climate-lab",
+        "resourceId": "living-room-air-conditioner",
+        "power": "on",
+        "reachable": true,
+        "hvacMode": "cool",
+        "targetTemperature": 16,
+        "currentTemperature": null,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T21:45:20.027959+00:00",
+        "observationId": null
+      },
+      "idempotency": {
+        "sameArgumentsSameTask": true,
+        "duplicateRuntimeTaskId": "d976f4f6-9d81-4fc3-a532-aacf358bfcb6",
+        "sameKeyDifferentArgumentsRejected": true,
+        "duplicateHttpStatus": 200,
+        "conflictHttpStatus": 400
+      }
+    },
+    {
+      "providerId": "ha-climate-lab",
+      "resourceId": "living-room-air-conditioner",
+      "operation": "climate_set_temperature",
+      "before": {
+        "providerId": "ha-climate-lab",
+        "resourceId": "living-room-air-conditioner",
+        "power": "on",
+        "reachable": true,
+        "hvacMode": "cool",
+        "targetTemperature": 16,
+        "currentTemperature": null,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T21:45:20.027959+00:00",
+        "observationId": null
+      },
+      "desired": {
+        "targetTemperature": 17
+      },
+      "status": "completed",
+      "accepted": true,
+      "runtimeTaskId": "80bc502d-e1ad-4c4c-a343-30b3dc598705",
+      "correlationId": "019fca75-f48a-7780-ac5e-942503c6690e-g09-g11-c7e36bbf-4620-4f44-800a-83c15ec4095b:climate:temperature",
+      "taskStatuses": [
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "completed",
+          "revision": null,
+          "reasonCode": null
+        }
+      ],
+      "finalTask": {
+        "status": "completed",
+        "revision": null,
+        "reasonCode": null,
+        "result": {
+          "resultType": "complete",
+          "_meta": {
+            "io.sdar/evidence": {
+              "items": [
+                {
+                  "producer": [
+                    "home-assistant"
+                  ],
+                  "evidenceId": "home-assistant-climate-80bc502d-e1ad-4c4c-a343-30b3dc598705-4",
+                  "observedAt": "2026-08-11T21:45:23.478467+00:00",
+                  "payloadRef": {
+                    "kind": "structured_content",
+                    "jsonPointer": "/targetTemperature"
+                  },
+                  "subjectRef": "resource:living-room-air-conditioner",
+                  "evidenceType": "climate.target_temperature.observation"
+                }
+              ],
+              "profileVersion": "1.0"
+            }
+          },
+          "content": [
+            {
+              "text": "Desired climate state confirmed.",
+              "type": "text"
+            }
+          ],
+          "isError": false,
+          "structuredContent": {
+            "confirmed": true,
+            "observedAt": "2026-08-11T21:45:23.478467+00:00",
+            "resourceId": "living-room-air-conditioner",
+            "targetTemperature": 17
+          }
+        },
+        "evidence": null
+      },
+      "adapterExternalExecutionId": null,
+      "homeAssistantObservationId": "home-assistant-climate-80bc502d-e1ad-4c4c-a343-30b3dc598705-4",
+      "after": {
+        "providerId": "ha-climate-lab",
+        "resourceId": "living-room-air-conditioner",
+        "power": "on",
+        "reachable": true,
+        "hvacMode": "cool",
+        "targetTemperature": 17,
+        "currentTemperature": null,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T21:45:25.945031+00:00",
+        "observationId": null
+      }
+    },
+    {
+      "providerId": "ha-climate-lab",
+      "resourceId": "living-room-air-conditioner",
+      "operation": "climate_set_temperature.restore",
+      "before": {
+        "providerId": "ha-climate-lab",
+        "resourceId": "living-room-air-conditioner",
+        "power": "on",
+        "reachable": true,
+        "hvacMode": "cool",
+        "targetTemperature": 17,
+        "currentTemperature": null,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T21:45:25.945031+00:00",
+        "observationId": null
+      },
+      "desired": {
+        "targetTemperature": 16
+      },
+      "status": "completed",
+      "accepted": true,
+      "runtimeTaskId": "747b67ac-238e-4a5a-8795-c0750b751ff7",
+      "correlationId": "019fca75-f48a-7780-ac5e-942503c6690e-g09-g11-c7e36bbf-4620-4f44-800a-83c15ec4095b:climate:restore-temperature",
+      "taskStatuses": [
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "working",
+          "revision": null,
+          "reasonCode": null
+        },
+        {
+          "status": "completed",
+          "revision": null,
+          "reasonCode": null
+        }
+      ],
+      "finalTask": {
+        "status": "completed",
+        "revision": null,
+        "reasonCode": null,
+        "result": {
+          "resultType": "complete",
+          "_meta": {
+            "io.sdar/evidence": {
+              "items": [
+                {
+                  "producer": [
+                    "home-assistant"
+                  ],
+                  "evidenceId": "home-assistant-climate-747b67ac-238e-4a5a-8795-c0750b751ff7-4",
+                  "observedAt": "2026-08-11T21:45:28.435682+00:00",
+                  "payloadRef": {
+                    "kind": "structured_content",
+                    "jsonPointer": "/targetTemperature"
+                  },
+                  "subjectRef": "resource:living-room-air-conditioner",
+                  "evidenceType": "climate.target_temperature.observation"
+                }
+              ],
+              "profileVersion": "1.0"
+            }
+          },
+          "content": [
+            {
+              "text": "Desired climate state confirmed.",
+              "type": "text"
+            }
+          ],
+          "isError": false,
+          "structuredContent": {
+            "confirmed": true,
+            "observedAt": "2026-08-11T21:45:28.435682+00:00",
+            "resourceId": "living-room-air-conditioner",
+            "targetTemperature": 16
+          }
+        },
+        "evidence": null
+      },
+      "adapterExternalExecutionId": null,
+      "homeAssistantObservationId": "home-assistant-climate-747b67ac-238e-4a5a-8795-c0750b751ff7-4"
+    }
+  ],
+  "finalStates": [],
+  "stateRestoration": [],
+  "climateSafety": {
+    "status": "blocked",
+    "restoration": {
+      "providerId": "ha-climate-lab",
+      "resourceId": "living-room-air-conditioner",
+      "status": "manual_restore_required",
+      "original": {
+        "providerId": "ha-climate-lab",
+        "resourceId": "living-room-air-conditioner",
+        "power": "off",
+        "reachable": true,
+        "hvacMode": "off",
+        "targetTemperature": 16,
+        "currentTemperature": null,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T15:33:54.603540+00:00",
+        "observationId": null
+      },
+      "currentBeforeRestore": {
+        "providerId": "ha-climate-lab",
+        "resourceId": "living-room-air-conditioner",
+        "power": "on",
+        "reachable": true,
+        "hvacMode": "cool",
+        "targetTemperature": 16,
+        "currentTemperature": null,
+        "brightnessPercent": null,
+        "observedAt": "2026-08-11T21:45:28.435682+00:00",
+        "observationId": null
+      },
+      "currentAfterRestore": null,
+      "manualRestoreRequired": true,
+      "writesUsed": {
+        "climateHvacMode": 1,
+        "climatePowerOn": 1,
+        "climateTemperature": 2
+      },
+      "waits": [
+        {
+          "safetyIntervalMs": 300000,
+          "remainingMs": 295848,
+          "waitedMs": 0,
+          "reason": "opposite climate power operation"
+        }
+      ],
+      "idempotency": null,
+      "reason": "CLIMATE_OPPOSITE_POWER_INTERVAL_ACTIVE"
+    }
+  },
+  "runtimeTaskCounts": null,
+  "errors": [
+    "CLIMATE_LIVE_QUALIFICATION_FAILED"
+  ]
+}

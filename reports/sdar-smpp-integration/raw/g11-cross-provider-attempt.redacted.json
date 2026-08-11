@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "phase": "G11",
+  "status": "blocked",
+  "observedAt": "2026-08-11T21:58:09.039Z",
+  "initialStates": [
+    {
+      "resourceId": "living-room-air-conditioner",
+      "power": "off",
+      "reachable": true,
+      "hvacMode": "off",
+      "targetTemperature": 16,
+      "currentTemperature": null,
+      "observedAt": "2026-08-11T21:51:46.286602+00:00"
+    },
+    {
+      "resourceId": "living-room-main-light",
+      "power": "off",
+      "reachable": true,
+      "brightnessPercent": null,
+      "observedAt": "2026-08-11T21:57:22.161494+00:00"
+    },
+    {
+      "resourceId": "living-room-aux-light",
+      "power": "off",
+      "reachable": true,
+      "brightnessPercent": null,
+      "observedAt": "2026-08-11T21:57:24.923306+00:00"
+    }
+  ],
+  "execution": {
+    "parallelDispatchWindowMs": 546.0089000000003,
+    "climateModeBeforeTemperature": false,
+    "tasks": [
+      {
+        "operation": "climate_set_hvac_mode",
+        "status": "completed",
+        "runtimeTaskId": "501b9f15-c871-4bba-8a4e-8e9e77983269",
+        "acceptedOffsetMs": 1456.5863000000002,
+        "result": {
+          "resultType": "complete",
+          "structuredContent": {
+            "hvacMode": "cool",
+            "confirmed": true,
+            "observedAt": "2026-08-11T21:58:04.278431+00:00",
+            "resourceId": "living-room-air-conditioner"
+          }
+        }
+      },
+      {
+        "operation": "light_set_power",
+        "status": "completed",
+        "runtimeTaskId": "c37ec912-2025-4294-812a-5a550a95b71c",
+        "acceptedOffsetMs": 1120.7582999999997,
+        "result": {
+          "resultType": "complete",
+          "structuredContent": {
+            "power": "on",
+            "confirmed": true,
+            "observedAt": "2026-08-11T21:58:03.942718+00:00",
+            "resourceId": "living-room-main-light"
+          }
+        }
+      },
+      {
+        "operation": "light_set_power",
+        "status": "completed",
+        "runtimeTaskId": "fb4915cc-6591-45b4-ae32-6a905064aa78",
+        "acceptedOffsetMs": 910.5773999999999,
+        "result": {
+          "resultType": "complete",
+          "structuredContent": {
+            "power": "on",
+            "confirmed": true,
+            "observedAt": "2026-08-11T21:58:03.735162+00:00",
+            "resourceId": "living-room-aux-light"
+          }
+        }
+      }
+    ]
+  },
+  "objectiveStates": [],
+  "restoration": {
+    "attempted": false,
+    "status": "not_started",
+    "tasks": [],
+    "finalStates": []
+  },
+  "active": null,
+  "uncertain": null,
+  "deviceWritesObserved": 3,
+  "errors": [
+    "G11_CLIMATE_MODE_STATE_MISMATCH"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

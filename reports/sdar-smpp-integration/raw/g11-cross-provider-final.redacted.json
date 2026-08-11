@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "phase": "G11-continuation",
+  "status": "blocked",
+  "startedAt": "2026-08-11T22:07:16.891Z",
+  "completedAt": "2026-08-11T22:07:27.997Z",
+  "tasks": [
+    {
+      "operation": "climate_set_hvac_mode",
+      "status": "completed",
+      "runtimeTaskId": "b3af5000-ad7b-4e67-8c3d-3eb9e1cfddb9",
+      "structuredContent": {
+        "hvacMode": "cool",
+        "confirmed": true,
+        "observedAt": "2026-08-11T22:07:19.096821+00:00",
+        "resourceId": "living-room-air-conditioner"
+      }
+    },
+    {
+      "operation": "light_set_power",
+      "status": "completed",
+      "runtimeTaskId": "78427628-8605-45ee-b0f6-b6d7be1dd3df",
+      "structuredContent": {
+        "power": "on",
+        "confirmed": true,
+        "observedAt": "2026-08-11T22:07:18.636102+00:00",
+        "resourceId": "living-room-main-light"
+      }
+    },
+    {
+      "operation": "light_set_power",
+      "status": "completed",
+      "runtimeTaskId": "8e6db027-ca9e-4dfc-9b35-434d835a49e0",
+      "structuredContent": {
+        "power": "on",
+        "confirmed": true,
+        "observedAt": "2026-08-11T22:07:18.367941+00:00",
+        "resourceId": "living-room-aux-light"
+      }
+    },
+    {
+      "operation": "climate_set_temperature",
+      "status": "completed",
+      "runtimeTaskId": "c26ce589-1761-457f-9e3f-37215d6d853b",
+      "structuredContent": {
+        "confirmed": true,
+        "observedAt": "2026-08-11T22:07:20.791587+00:00",
+        "resourceId": "living-room-air-conditioner",
+        "targetTemperature": 17
+      }
+    }
+  ],
+  "objectiveStates": [
+    {
+      "resourceId": "living-room-air-conditioner",
+      "power": "off",
+      "reachable": true,
+      "hvacMode": "off",
+      "targetTemperature": 17,
+      "currentTemperature": null,
+      "observedAt": "2026-08-11T22:07:22.684722+00:00"
+    },
+    {
+      "resourceId": "living-room-main-light",
+      "power": "on",
+      "reachable": true,
+      "brightnessPercent": 100,
+      "observedAt": "2026-08-11T22:07:18.636102+00:00"
+    },
+    {
+      "resourceId": "living-room-aux-light",
+      "power": "on",
+      "reachable": true,
+      "brightnessPercent": 100,
+      "observedAt": "2026-08-11T22:07:18.367941+00:00"
+    }
+  ],
+  "restoreStates": [],
+  "restoreStatus": "not_started",
+  "errors": [
+    "G11_CONTINUATION_OBJECTIVE_NOT_STABLE"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

@@ -4,13 +4,13 @@ Goal Run ID: `019fca75-f48a-7780-ac5e-942503c6690e`
 
 ## Publication
 
-- SDAR tested implementation candidate: `93889e87088072ab12fe1a1c574d734d2fa629a7`
-- SDAR local evidence head: `03bf7d84a12f27b3e05e87ff6a334544ac75e492`
-- SMPP tested candidate: `5b17f12ff7312449cc7e3376795ff24c0375b9d9`
+- SDAR pushed implementation candidate: `258c8113bd0523064525dd1f3b15c204e12cfba3`
+- SMPP pushed implementation candidate: `3d24d3dd1f01c35704ec0d247bdb55941608584f`
 - SDAR Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/19>
 - SMPP Draft PR: <https://github.com/zhouwen-giser/sdar-mcp-provider-platform/pull/10>
 - Merge, tag, release, and public deployment: not authorized
-- Local commits are not yet pushed; explicit destination/payload authorization is pending.
+- Local implementation commits were pushed to both existing Draft PR branches. This report is a
+  follow-up evidence update on the same branches.
 
 The candidate SHAs identify the tested implementation and frozen contract. This report and the
 final handoff are published in a later evidence-only commit on each Draft PR branch.
@@ -32,14 +32,18 @@ The final qualified allowlist contains only `living-room-main-light` and
 
 ## Safety closeout
 
-Physical writes attempted and observed were both zero. All write operations remained blocked or
-deferred because the required real-device authority variables were absent. Active and uncertain
-Task counts were zero in SDAR and both SMPP Runtimes. No restoration action was required; the
-device restore disposition is `RESTORED`.
+The process-scoped real-device gates were opened for the bounded G09-G11 run. G09 toggled the main
+light and restored it. G10 changed climate mode and temperature, observed idempotency, waited the
+mandatory opposite-power interval, and restored the original off/off/16 state. G11 completed the
+parallel Runtime Tasks but failed because the climate returned from `cool` to `off` within about
+three seconds. Both lights and the climate were restored, all write gates were closed, and active
+and uncertain Task counts were zero in SDAR and both SMPP Runtimes.
 
 ## Remaining blockers
 
-- G09-G11: physical write scenarios were `deferred_by_safety`.
+- G09/G10: the real SMPP provider path passed, but the required SDAR Goal/Plan/confirmation lineage
+  was not executed, so the phases remain partial.
+- G11: real cross-provider execution failed `CLIMATE_OBJECTIVE_STATE_NOT_STABLE`; restoration passed.
 - G12: required real in-flight restart, outage, corrupt-state, and failpoint evidence is absent.
 - G13: the authoritative full SDAR verification failed Runtime P95 regression at
   `39.981096754646735%`, above the `10%` ceiling. The root cause is not established.

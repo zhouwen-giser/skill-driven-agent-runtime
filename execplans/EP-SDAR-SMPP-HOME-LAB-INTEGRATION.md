@@ -84,8 +84,12 @@ explicitly allowlisted, stale availability, drift, and missing credentials fail 
       all seven task-linked structured-model stages, two live read-only MCP invocations, a combined
       structured Outcome, complete queryable authority lineage, and same-run Runtime restart
       recovery. Model semantics are explicitly supplied by a local simulated structured fixture.
-- [ ] G09-G11 are `deferred_by_safety`: required real-device write gates are absent at Process, User
-      and Machine scopes, so no main-light, climate or cross-provider write scenario was attempted.
+- [ ] G09 and G10 completed the bounded real SMPP Runtime/Adapter/Home Assistant provider path,
+      idempotency checks and restoration. They remain partial because the required SDAR
+      Goal/Plan/confirmation/MCP lineage was not executed.
+- [ ] G11 executed the real cross-provider tasks but failed the objective: the Climate Task
+      confirmed `cool`, then Home Assistant returned to `off` within about three seconds. Climate
+      and both lights were restored, write gates were closed and active/uncertain counts are `0/0`.
 - [ ] G12 is blocked: deterministic/same-Goal read-only recovery evidence exists, but the Required
       real in-flight SDAR/SMPP/Adapter restart and fault cases were not executed.
 - [ ] G13 is blocked by the authoritative full-run Phase 13 Runtime P95 regression
@@ -126,8 +130,9 @@ explicitly allowlisted, stale availability, drift, and missing credentials fail 
 - 2026-08-11: Preserve Phase 13 attempts 6 and 7 as immutable failed evidence. Do not use the later
   focused pass as repository-wide acceptance and do not perform result-seeking retries or further
   measurement-protocol edits in this Goal.
-- 2026-08-11: Keep G09-G11 false and excluded from allowed operations while real-device write gates
-  are absent. No historical device result is promoted into this Goal.
+- 2026-08-12: Open the real-device gates only for the bounded run, then close them after restoration.
+  Record G09/G10 as provider-path partial rather than SDAR-governed success, and record G11 as a
+  real objective failure rather than retrying the device until green.
 
 ## Implementation Steps
 
