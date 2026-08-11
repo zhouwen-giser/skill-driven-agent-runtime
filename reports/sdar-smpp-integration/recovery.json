@@ -4,7 +4,7 @@
   "phase": "G12",
   "status": "blocked",
   "evidenceClass": "mixed_same_goal_live_read_only_and_isolated_deterministic",
-  "observedAt": "2026-08-10T16:38:42.493Z",
+  "observedAt": "2026-08-11T06:52:09.153Z",
   "resilienceIntegrationReady": false,
   "qualification": {
     "isolatedDeterministic": "passed",
@@ -174,7 +174,8 @@
     {
       "case": "provider_state_file_corrupted",
       "controlledStatus": "passed_temp_file_contract",
-      "liveStatus": "blocked_not_executed"
+      "liveStatus": "partial_observed",
+      "evidenceReference": "reports/sdar-smpp-integration/raw/g12-light-state-corruption-partial.redacted.json"
     }
   ],
   "taskAuthority": {
@@ -211,6 +212,7 @@
   ],
   "evidenceReferences": [
     ".codex-sdar-smpp/execution-log.md",
+    "reports/sdar-smpp-integration/raw/g12-light-state-corruption-partial.redacted.json",
     "reports/sdar-smpp-integration/provider-catalog.json",
     "packages/node-control-persistence-postgres/test/smpp-registry.integration.test.ts",
     "apps/node-control-acceptance/test/mcp-provider-binding.integration.test.ts"
