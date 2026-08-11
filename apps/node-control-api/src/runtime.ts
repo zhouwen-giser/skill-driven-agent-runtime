@@ -54,6 +54,7 @@ import {
   PostgresRuntimeTaskCapabilityBindingQuery,
   PostgresRuntimeTaskSummaryQuery,
   PostgresRuntimeCapabilityReadinessRepository,
+  PostgresRuntimeMcpCatalogAuthorityReader,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
 import type { NodeControlApiEnvironment } from './environment.js';
@@ -129,8 +130,9 @@ export async function startNodeControlApi(
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
+  const mcpBindingRepository = new PostgresNodeControlMcpProviderBindingRepository(pool);
   const mcpBindingService = new NodeControlMcpProviderBindingService({
-    repository: new PostgresNodeControlMcpProviderBindingRepository(pool),
+    repository: mcpBindingRepository,
     catalog: new NodeControlFrozenMcpCatalogClient(
       (environment.SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST ?? '127.0.0.1,localhost').split(','),
     ),
@@ -145,7 +147,11 @@ export async function startNodeControlApi(
     ids: { next: randomUUID },
   });
   const runtimeReadiness = new RuntimeCapabilityReadinessService({
-    repository: new PostgresRuntimeCapabilityReadinessRepository(runtimePool),
+    repository: new PostgresRuntimeCapabilityReadinessRepository(
+      runtimePool,
+      mcpBindingRepository,
+      new PostgresRuntimeMcpCatalogAuthorityReader(runtimePool),
+    ),
     clock: { now: () => new Date().toISOString() },
   });
   const capabilityReadiness = new NodeControlCapabilityReadinessCoordinator({

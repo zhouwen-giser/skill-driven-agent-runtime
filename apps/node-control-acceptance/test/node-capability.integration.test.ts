@@ -99,6 +99,99 @@ afterAll(async () => {
 });
 
 describe('P06 Capability Definition and implementation authority', { concurrent: false }, () => {
+  it('round-trips provider policy presence and fails closed for explicit JSON null', async () => {
+    const policyCases = [
+      { name: 'absent' },
+      { name: 'null', providerPolicyOverride: null },
+      {
+        name: 'object',
+        providerPolicyOverride: { selection: 'required', marker: { intact: true } },
+      },
+    ] as const;
+
+    for (const policyCase of policyCases) {
+      const capabilityId = `device.policy-${policyCase.name}.p06`;
+      const draft = policyPersistenceDraft(capabilityId);
+      await request('/api/v1/node-capabilities', {
+        method: 'POST',
+        body: draft,
+        idempotencyKey: `p06-create-policy-${policyCase.name}-capability`,
+        expectedStatus: 201,
+      });
+      const implementation = {
+        ...binding('skill', 'skill.p06.inspect', '1'),
+        bindingId: `binding.p06.policy-${policyCase.name}`,
+        capabilityId,
+        ...('providerPolicyOverride' in policyCase
+          ? { providerPolicyOverride: policyCase.providerPolicyOverride }
+          : {}),
+      };
+      const created = await request(
+        `/api/v1/node-capabilities/${capabilityId}/versions/1/implementations`,
+        {
+          method: 'POST',
+          body: implementation,
+          idempotencyKey: `p06-create-policy-${policyCase.name}-binding`,
+          expectedStatus: 201,
+        },
+      );
+      const replay = await request(
+        `/api/v1/node-capabilities/${capabilityId}/versions/1/implementations`,
+        {
+          method: 'POST',
+          body: implementation,
+          idempotencyKey: `p06-create-policy-${policyCase.name}-binding`,
+          expectedStatus: 201,
+        },
+      );
+      expect(replay).toEqual(created);
+      const listed = (await request(
+        `/api/v1/node-capabilities/${capabilityId}/versions/1/implementations`,
+        { expectedStatus: 200 },
+      )) as Readonly<{ items: readonly Readonly<Record<string, unknown>>[] }>;
+      const persisted = listed.items[0];
+      const hasOverride = 'providerPolicyOverride' in policyCase;
+      expect(Object.hasOwn(persisted ?? {}, 'providerPolicyOverride')).toBe(hasOverride);
+      expect(persisted?.['providerPolicyOverride']).toEqual(
+        hasOverride ? policyCase.providerPolicyOverride : undefined,
+      );
+    }
+
+    const nullCapabilityId = 'device.policy-null.p06';
+    const nullDraft = policyPersistenceDraft(nullCapabilityId);
+    await expect(
+      command(
+        `/api/v1/node-capabilities/${nullCapabilityId}/versions/1/validate`,
+        'p06-validate-null-policy-capability',
+        'Validate the explicit JSON null policy persistence fixture.',
+        nodeCapabilityEtag(nullDraft),
+        200,
+      ),
+    ).resolves.toMatchObject({ status: 'validating' });
+    await expect(
+      command(
+        `/api/v1/node-capabilities/${nullCapabilityId}/versions/1/publish`,
+        'p06-publish-null-policy-capability',
+        'Publish the explicit JSON null policy persistence fixture.',
+        nodeCapabilityEtag({ ...nullDraft, status: 'validating' }),
+        202,
+      ),
+    ).resolves.toMatchObject({ status: 'succeeded', result: { status: 'published' } });
+    const readiness = await request(`/api/v1/capability-readiness/${nullCapabilityId}/1/evaluate`, {
+      method: 'POST',
+      body: { reason: 'Explicit JSON null policy must remain governed and fail closed.' },
+      idempotencyKey: 'p06-evaluate-null-policy-readiness',
+      expectedStatus: 202,
+    });
+    expect(readiness).toMatchObject({
+      status: 'succeeded',
+      result: {
+        status: 'unavailable',
+        reasons: [{ code: 'MCP_PROVIDER_BINDING_POLICY_INVALID', severity: 'blocking' }],
+      },
+    });
+  });
+
   it('publishes a stable immutable definition only through an exact executable implementation', async () => {
     const invalidSchema = createNodeCapabilityDefinition({
       capabilityId: 'device.invalid-schema.p06',
@@ -545,7 +638,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       'superseded',
       'prepared',
     ]);
-    expect(capabilityAttempts[0]?.providerBindingRefs).toEqual(['mcp-tool:server.p07:inspect']);
+    expect(capabilityAttempts[0]?.providerBindingRefs).toEqual([]);
     await expect(
       taskCapabilities.assertTerminalSuccess(task.taskId, {
         condition: 'nominal',
@@ -690,6 +783,24 @@ function binding(
   };
 }
 
+function policyPersistenceDraft(capabilityId: string) {
+  return createNodeCapabilityDefinition({
+    capabilityId,
+    version: 1,
+    domain: 'device',
+    name: 'Provider policy persistence',
+    description: 'Preserve the semantic presence of a provider policy override.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    successCriteria: [{ type: 'completed' }],
+    requiredEvidence: [{ type: 'provider_result' }],
+    riskLevel: 'low',
+    status: 'draft',
+    createdBy: 'p06-integration',
+    createdAt: '2026-08-11T01:00:00.000Z',
+  });
+}
+
 async function command(
   path: string,
   key: string,
@@ -748,6 +859,7 @@ async function cleanup() {
               sdar_control.mcp_provider_catalog_observation,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
+              sdar_control.smpp_registry_snapshot_lineage,
               sdar_control.smpp_provider_candidate,
               sdar_control.smpp_registry_snapshot,
               sdar_control.smpp_registry_source,

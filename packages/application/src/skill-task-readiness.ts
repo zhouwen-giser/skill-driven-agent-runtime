@@ -6,12 +6,14 @@ import {
   type SkillTaskProviderCandidateReadiness,
   type SkillTaskReadinessDisposition,
   type SkillTaskReadinessSummary,
+  type TaskAvailabilityArguments,
   type TaskAvailabilityCheckResult,
   type TaskAvailabilityReadResult,
 } from '../../domain/src/index.js';
 
 import type {
   Clock,
+  CurrentMcpProviderBindingAuthorityPort,
   SkillTaskOperationCandidateCatalog,
   SkillTaskReadinessPort,
   TaskAvailabilityBatchReader,
@@ -21,17 +23,24 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
   readonly #operations: SkillTaskOperationCandidateCatalog;
   readonly #availability: TaskAvailabilityBatchReader;
   readonly #clock: Clock;
+  readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
+  readonly #resolveArguments:
+    ((binding: SkillTaskBinding) => TaskAvailabilityArguments) | undefined;
 
   constructor(
     dependencies: Readonly<{
       operations: SkillTaskOperationCandidateCatalog;
       availability: TaskAvailabilityBatchReader;
       clock: Clock;
+      providerBindings?: CurrentMcpProviderBindingAuthorityPort;
+      resolveArguments?: (binding: SkillTaskBinding) => TaskAvailabilityArguments;
     }>,
   ) {
     this.#operations = dependencies.operations;
     this.#availability = dependencies.availability;
     this.#clock = dependencies.clock;
+    this.#providerBindings = dependencies.providerBindings;
+    this.#resolveArguments = dependencies.resolveArguments;
   }
 
   async inspect(input: Parameters<SkillTaskReadinessPort['inspect']>[0]) {
@@ -56,10 +65,21 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
       return emptyBindingReadiness(binding, emptyReason(registered.length, binding.providerPolicy));
     const inspected = await Promise.all(
       eligible.map(async (candidate) => {
+        const bindingAuthorityFailure = await this.#currentBindingFailure(candidate.providerId);
+        if (bindingAuthorityFailure !== undefined)
+          return candidateReadiness(
+            candidate.providerId,
+            candidate.operationName,
+            'frozen_v1',
+            candidate.attributes,
+            { kind: 'provider_protocol', errorCode: bindingAuthorityFailure },
+            binding.bindingId,
+            this.#clock.now(),
+          );
         const request = {
           nodeId: binding.bindingId,
           operationName: candidate.operationName,
-          arguments: {
+          arguments: this.#resolveArguments?.(binding) ?? {
             unresolved: true as const,
             knownArguments: {},
             unresolvedPaths: ['$'],
@@ -103,6 +123,23 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
           }),
       candidates: Object.freeze(candidates),
     });
+  }
+
+  async #currentBindingFailure(localServerId: string): Promise<string | undefined> {
+    if (this.#providerBindings === undefined) return undefined;
+    try {
+      const authority = await this.#providerBindings.loadCurrentMcpProviderBinding({
+        localServerId,
+      });
+      if (
+        authority.binding.localServerId !== localServerId ||
+        Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(this.#clock.now())
+      )
+        return 'MCP_PROVIDER_BINDING_NOT_CURRENT';
+      return undefined;
+    } catch {
+      return 'MCP_PROVIDER_BINDING_NOT_CURRENT';
+    }
   }
 }
 

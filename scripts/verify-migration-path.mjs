@@ -50,15 +50,30 @@ const controlMigrationVersions = controlMigrationFiles.map((file) =>
 );
 const requiredRuntimeEvidenceLedgerMigration = '0146_v14_evidence_export_observation_ledger.up.sql';
 const requiredControlEvidenceAuthorityMigration = '0009_canonical_evidence_authority.up.sql';
+const requiredControlLineageMigration = '0010_smpp_registry_lineage_revalidation.up.sql';
 if (!postBaselineMigrationFiles.includes(requiredRuntimeEvidenceLedgerMigration)) {
   throw new Error(`V141_RUNTIME_EVIDENCE_LEDGER_MIGRATION_MISSING`);
 }
 if (!controlMigrationFiles.includes(requiredControlEvidenceAuthorityMigration)) {
   throw new Error(`V141_CONTROL_EVIDENCE_AUTHORITY_MIGRATION_MISSING`);
 }
+if (!controlMigrationFiles.includes(requiredControlLineageMigration)) {
+  throw new Error(`V141_CONTROL_LINEAGE_MIGRATION_MISSING`);
+}
 await assertMigrationFilePairs(migrationDirectory, postBaselineMigrationFiles, 'V13');
 await assertMigrationFilePairs(controlMigrationDirectory, controlMigrationFiles, 'V14_CONTROL');
 assertContiguousControlMigrationVersions(controlMigrationVersions);
+const controlEvidenceAuthorityVersion = requiredControlEvidenceAuthorityMigration.slice(
+  0,
+  -'.up.sql'.length,
+);
+const controlLineageVersion = requiredControlLineageMigration.slice(0, -'.up.sql'.length);
+if (
+  JSON.stringify(controlMigrationVersions.slice(-2)) !==
+  JSON.stringify([controlEvidenceAuthorityVersion, controlLineageVersion])
+) {
+  throw new Error('V141_CONTROL_EVIDENCE_LINEAGE_ORDER_INVALID');
+}
 const expectedVersions = [
   'v1.2.2_clean_slate_baseline',
   ...postBaselineMigrationFiles.map((file) => file.slice(0, -'.up.sql'.length)),
@@ -163,10 +178,23 @@ try {
     await verifyControlBaseline(controlPool);
     await applyControlMigrations(controlPool, controlMigrationDirectory);
     await verifyControlBaseline(controlPool);
-    const rolledBack = await rollbackLatestControlMigration(controlPool, controlMigrationDirectory);
-    if (rolledBack !== controlMigrationVersions.at(-1)) {
+    const rolledBackLineage = await rollbackLatestControlMigration(
+      controlPool,
+      controlMigrationDirectory,
+    );
+    if (rolledBackLineage !== controlLineageVersion) {
       throw new Error(
-        `V14_CONTROL_ROLLBACK_HEAD_INVALID:${String(rolledBack)}:${String(controlMigrationVersions.at(-1))}`,
+        `V141_CONTROL_LINEAGE_ROLLBACK_HEAD_INVALID:${String(rolledBackLineage)}:${controlLineageVersion}`,
+      );
+    }
+    await verifyControlLineageMigrationRolledBack(controlPool);
+    const rolledBackEvidence = await rollbackLatestControlMigration(
+      controlPool,
+      controlMigrationDirectory,
+    );
+    if (rolledBackEvidence !== controlEvidenceAuthorityVersion) {
+      throw new Error(
+        `V141_CONTROL_EVIDENCE_ROLLBACK_HEAD_INVALID:${String(rolledBackEvidence)}:${controlEvidenceAuthorityVersion}`,
       );
     }
     await verifyControlEvidenceMigrationRolledBack(controlPool);
@@ -409,6 +437,126 @@ async function verifyControlBaseline(pool) {
   ) {
     throw new Error(`V141_CONTROL_EVIDENCE_AUTHORITY_INVALID:${JSON.stringify(row)}`);
   }
+
+  const lineage = await pool.query(
+    `SELECT
+       to_regclass('sdar_control.smpp_registry_snapshot_lineage')::text AS lineage_table,
+       to_regprocedure('sdar_control.protect_smpp_source_definition()')::text
+         AS protect_function,
+       position(
+         'active_snapshot_valid_until' IN
+         pg_get_functiondef(to_regprocedure('sdar_control.protect_smpp_source_definition()'))
+       ) > 0 AS protect_allows_active_snapshot_valid_until,
+       (SELECT count(*)::integer
+          FROM information_schema.columns
+         WHERE table_schema='sdar_control'
+           AND table_name='smpp_registry_source'
+           AND column_name='active_snapshot_valid_until') AS source_validity_columns,
+       (SELECT count(*)::integer
+          FROM information_schema.columns
+         WHERE table_schema='sdar_control'
+           AND table_name='smpp_registry_sync_attempt'
+           AND column_name IN (
+             'observed_native_revision','observed_native_checksum',
+             'observed_projection_contract','observed_valid_until'
+           )) AS attempt_lineage_columns,
+       (SELECT count(*)::integer
+          FROM pg_constraint
+         WHERE connamespace='sdar_control'::regnamespace
+           AND conname IN (
+             'smpp_registry_source_active_validity_consistent',
+             'smpp_registry_sync_attempt_native_lineage_consistent'
+           )) AS lineage_constraints,
+       (SELECT count(*)::integer
+          FROM pg_trigger
+         WHERE tgname='smpp_registry_snapshot_lineage_immutable'
+           AND tgrelid=to_regclass('sdar_control.smpp_registry_snapshot_lineage')
+           AND NOT tgisinternal) AS lineage_triggers`,
+  );
+  const lineageRow = lineage.rows[0];
+  if (
+    lineageRow?.lineage_table !== 'sdar_control.smpp_registry_snapshot_lineage' ||
+    lineageRow?.protect_function !== 'sdar_control.protect_smpp_source_definition()' ||
+    lineageRow?.protect_allows_active_snapshot_valid_until !== true ||
+    lineageRow?.source_validity_columns !== 1 ||
+    lineageRow?.attempt_lineage_columns !== 4 ||
+    lineageRow?.lineage_constraints !== 2 ||
+    lineageRow?.lineage_triggers !== 1
+  ) {
+    throw new Error(`V141_CONTROL_LINEAGE_AUTHORITY_INVALID:${JSON.stringify(lineageRow)}`);
+  }
+}
+
+async function verifyControlLineageMigrationRolledBack(pool) {
+  const ledger = await pool.query(
+    `SELECT array_agg(version ORDER BY version) AS versions
+       FROM sdar_control.control_schema_migration`,
+  );
+  if (
+    JSON.stringify(ledger.rows[0]?.versions) !==
+    JSON.stringify(controlMigrationVersions.slice(0, -1))
+  ) {
+    throw new Error('V141_CONTROL_LINEAGE_ROLLBACK_MARKERS_INVALID');
+  }
+  const state = await pool.query(
+    `SELECT
+       to_regclass('sdar_control.smpp_registry_snapshot_lineage') IS NULL
+         AS lineage_table_absent,
+       to_regprocedure('sdar_control.protect_smpp_source_definition()')::text
+         AS protect_function,
+       position(
+         'active_snapshot_valid_until' IN
+         pg_get_functiondef(to_regprocedure('sdar_control.protect_smpp_source_definition()'))
+       ) > 0 AS protect_allows_active_snapshot_valid_until,
+       (SELECT count(*)::integer
+          FROM information_schema.columns
+         WHERE table_schema='sdar_control'
+           AND table_name='smpp_registry_source'
+           AND column_name='active_snapshot_valid_until') AS source_validity_columns,
+       (SELECT count(*)::integer
+          FROM information_schema.columns
+         WHERE table_schema='sdar_control'
+           AND table_name='smpp_registry_sync_attempt'
+           AND column_name IN (
+             'observed_native_revision','observed_native_checksum',
+             'observed_projection_contract','observed_valid_until'
+           )) AS attempt_lineage_columns,
+       (SELECT count(*)::integer
+          FROM pg_constraint
+         WHERE connamespace='sdar_control'::regnamespace
+           AND conname IN (
+             'smpp_registry_source_active_validity_consistent',
+             'smpp_registry_sync_attempt_native_lineage_consistent'
+           )) AS lineage_constraints,
+       (SELECT count(*)::integer
+          FROM pg_trigger
+         WHERE tgname='smpp_registry_snapshot_lineage_immutable'
+           AND NOT tgisinternal) AS lineage_triggers,
+       to_regclass('sdar_control.node_control_evidence_observation')::text
+         AS observation_table,
+       to_regclass('sdar_control.node_health_observation')::text AS health_table,
+       to_regprocedure('sdar_control.capture_node_control_evidence_observation()')::text
+         AS capture_function,
+       (SELECT count(*)::integer
+          FROM pg_trigger
+         WHERE tgname LIKE 'evidence_observe_%' AND NOT tgisinternal) AS observation_triggers`,
+  );
+  const row = state.rows[0];
+  if (
+    row?.lineage_table_absent !== true ||
+    row?.protect_function !== 'sdar_control.protect_smpp_source_definition()' ||
+    row?.protect_allows_active_snapshot_valid_until !== false ||
+    row?.source_validity_columns !== 0 ||
+    row?.attempt_lineage_columns !== 0 ||
+    row?.lineage_constraints !== 0 ||
+    row?.lineage_triggers !== 0 ||
+    row?.observation_table !== 'sdar_control.node_control_evidence_observation' ||
+    row?.health_table !== 'sdar_control.node_health_observation' ||
+    row?.capture_function !== 'sdar_control.capture_node_control_evidence_observation()' ||
+    row?.observation_triggers !== 19
+  ) {
+    throw new Error(`V141_CONTROL_LINEAGE_ROLLBACK_INCOMPLETE:${JSON.stringify(row)}`);
+  }
 }
 
 async function verifyControlEvidenceMigrationRolledBack(pool) {
@@ -418,7 +566,7 @@ async function verifyControlEvidenceMigrationRolledBack(pool) {
   );
   if (
     JSON.stringify(ledger.rows[0]?.versions) !==
-    JSON.stringify(controlMigrationVersions.slice(0, -1))
+    JSON.stringify(controlMigrationVersions.slice(0, -2))
   ) {
     throw new Error('V141_CONTROL_EVIDENCE_ROLLBACK_MARKERS_INVALID');
   }
@@ -430,6 +578,8 @@ async function verifyControlEvidenceMigrationRolledBack(pool) {
        to_regclass('sdar_control.node_event_outbox')::text AS node_event_table,
        to_regprocedure('sdar_control.capture_node_control_evidence_observation()') IS NULL
          AS capture_function_absent,
+       to_regclass('sdar_control.smpp_registry_snapshot_lineage') IS NULL
+         AS lineage_table_absent,
        to_regclass('public.schema_migration') IS NULL AS runtime_ledger_absent,
        (SELECT count(*)::integer
           FROM pg_trigger
@@ -441,6 +591,7 @@ async function verifyControlEvidenceMigrationRolledBack(pool) {
     row?.health_table_absent !== true ||
     row?.node_event_table !== 'sdar_control.node_event_outbox' ||
     row?.capture_function_absent !== true ||
+    row?.lineage_table_absent !== true ||
     row?.runtime_ledger_absent !== true ||
     row?.observation_triggers !== 0
   ) {

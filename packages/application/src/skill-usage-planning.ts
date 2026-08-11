@@ -231,11 +231,18 @@ export function checkSkillUsagePlanCompliance(
         (mapping) => mapping.targetPath === `evidence.${requirement.requirementId}`,
       ),
     );
+    const providerEvidence =
+      !mappedEvidence &&
+      policy.taskOperations.some((task) => isSynchronousOnlyTaskOperation(policy, task.bindingId));
+    const evidencePath = `evidence.${
+      providerEvidence ? requirement.evidenceType : requirement.requirementId
+    }`;
     const gate = definition.nodes.find(
       (node) =>
         node.type === 'condition' &&
-        (node.expression.op === 'ref' || (mappedEvidence && node.expression.op === 'exists')) &&
-        node.expression.path.join('.') === `evidence.${requirement.requirementId}`,
+        (node.expression.op === 'ref' ||
+          ((mappedEvidence || providerEvidence) && node.expression.op === 'exists')) &&
+        node.expression.path.join('.') === evidencePath,
     );
     const falseEdge =
       gate === undefined
@@ -285,6 +292,17 @@ function hasFalseToFailureGate(definition: WorkflowDefinition, referencePath: st
   return target?.type === 'result' && target.value.op === 'literal' && target.value.value === false;
 }
 
+function isSynchronousOnlyTaskOperation(policy: SkillUsagePlanPolicy, bindingId: string): boolean {
+  return (
+    policy.readiness.bindings
+      .find((binding) => binding.bindingId === bindingId)
+      ?.candidates?.some(
+        (candidate) =>
+          candidate.selected && candidate.attributes.includes('task_behavior:synchronous_only'),
+      ) === true
+  );
+}
+
 function compileDeterministicDefinition(
   input: Readonly<{
     policy: SkillUsagePlanPolicy;
@@ -314,16 +332,19 @@ function compileDeterministicDefinition(
       outputMappings: child.outputMappings,
     }),
   );
-  input.policy.taskOperations.forEach((task, index) =>
+  input.policy.taskOperations.forEach((task, index) => {
+    const synchronousOnly = isSynchronousOnlyTaskOperation(input.policy, task.bindingId);
     primary.push({
       nodeId: `usage_task_${String(index)}`,
       name: `Execute ${task.bindingId}`,
       type: 'mcp_tool',
       tool: { serverId: task.providerId, toolName: task.operationName },
       arguments: { op: 'ref', path: ['input', 'skillInput'] },
-      taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
-    }),
-  );
+      ...(synchronousOnly
+        ? {}
+        : { taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' } }),
+    });
+  });
   input.policy.evidenceRequirements
     .filter(
       (item) =>
@@ -335,13 +356,21 @@ function compileDeterministicDefinition(
           (mapping) => mapping.targetPath === `evidence.${requirement.requirementId}`,
         ),
       );
+      const providerEvidence =
+        !mappedEvidence &&
+        input.policy.taskOperations.some((task) =>
+          isSynchronousOnlyTaskOperation(input.policy, task.bindingId),
+        );
       primary.push({
         nodeId: `usage_evidence_${String(index)}`,
         name: `Require evidence ${requirement.requirementId}`,
         type: 'condition',
         expression: {
-          op: mappedEvidence ? 'exists' : 'ref',
-          path: ['evidence', requirement.requirementId],
+          op: mappedEvidence || providerEvidence ? 'exists' : 'ref',
+          path: [
+            'evidence',
+            providerEvidence ? requirement.evidenceType : requirement.requirementId,
+          ],
         },
       });
     });

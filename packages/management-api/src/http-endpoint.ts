@@ -77,6 +77,8 @@ import type {
   CapabilityPatternInductionService,
   KnowledgePromotionService,
   CognitiveManagementActionGate,
+  CognitiveManagementActionLeaseGuard,
+  CognitiveManagementActionRecoveryResult,
   CognitiveManagementActionRepository,
   ArtifactPromotionGovernanceService,
   ArtifactManagementCommandService,
@@ -434,6 +436,23 @@ const ExecuteWorkflowSchema = z.object({
   input: z.unknown(),
   skillIds: z.array(z.string().min(1)).optional(),
 });
+const ExecuteDeterministicCapabilitySchema = z
+  .object({
+    taskId: z.string().trim().min(1).max(512),
+    contextId: z.string().trim().min(1).max(512),
+    capabilityBindingId: z.string().trim().min(1).max(512),
+    capabilityBindingVersion: z.number().int().positive(),
+    capabilityId: z.string().trim().min(1).max(512),
+    capabilityVersion: z.number().int().positive(),
+    skillId: z.string().trim().min(1).max(512),
+    skillVersion: z.number().int().positive(),
+    mcpProviderBindingId: z.string().trim().min(1).max(512),
+    providerId: z.string().trim().min(1).max(512),
+    serverId: z.string().trim().min(1).max(512),
+    toolName: z.string().trim().min(1).max(512),
+    resourceId: z.string().trim().min(1).max(512),
+  })
+  .strict();
 const ResumeHumanConfirmationSchema = z.object({ confirmed: z.boolean() });
 const CreateGoalSchema = z.object({
   goalId: z.string().min(1),
@@ -875,6 +894,30 @@ export interface ManagementOperations {
   >;
 }
 
+export type DeterministicCapabilityExecutionInput = z.infer<
+  typeof ExecuteDeterministicCapabilitySchema
+> &
+  Readonly<{ idempotencyKey: string }>;
+
+export interface DeterministicCapabilityExecutionOperation {
+  execute(
+    input: DeterministicCapabilityExecutionInput,
+    lease: CognitiveManagementActionLeaseGuard,
+  ): Promise<unknown>;
+  reconcile(
+    input: DeterministicCapabilityExecutionInput,
+    lease: CognitiveManagementActionLeaseGuard,
+  ): Promise<CognitiveManagementActionRecoveryResult<unknown>>;
+}
+
+export interface DeterministicCapabilityExecutionRouteOptions {
+  readonly operation: DeterministicCapabilityExecutionOperation;
+  /** This route is never allowed to inherit the trusted-intranet fallback. */
+  readonly authorizer: CognitiveManagementAuthorizer & Readonly<{ mode: 'bearer' }>;
+  /** Runtime composes this only with the PostgreSQL-backed action repository. */
+  readonly actions: Pick<CognitiveManagementActionGate, 'execute'>;
+}
+
 export interface ManagementHttpEndpointHandle {
   readonly baseUrl: string;
   close(): Promise<void>;
@@ -917,6 +960,7 @@ export async function startManagementHttpEndpoint(
     port?: number;
     cognitiveManagementAuthorizer?: CognitiveManagementAuthorizer;
     cognitiveManagementActions?: Pick<CognitiveManagementActionGate, 'execute'>;
+    deterministicCapabilityExecution?: DeterministicCapabilityExecutionRouteOptions;
     artifactManagement?: Readonly<{
       queries: ArtifactManagementQueryService;
       commands: ArtifactManagementCommandService;
@@ -947,6 +991,14 @@ export async function startManagementHttpEndpoint(
       ? {}
       : { actions: options.cognitiveManagementActions }),
   });
+  const deterministicCapabilityExecution = options.deterministicCapabilityExecution;
+  const deterministicManagement =
+    deterministicCapabilityExecution === undefined
+      ? undefined
+      : new CognitiveManagementController({
+          authorizer: deterministicCapabilityExecution.authorizer,
+          actions: deterministicCapabilityExecution.actions,
+        });
   app.use(express.json({ limit: '1mb' }));
   app.use((_request, response, next) => {
     response.setHeader(
@@ -2050,6 +2102,47 @@ export async function startManagementHttpEndpoint(
       );
     }),
   );
+  if (deterministicCapabilityExecution !== undefined && deterministicManagement !== undefined) {
+    app.post(
+      '/api/v1/capability-executions/deterministic',
+      asyncRoute(async (request, response) => {
+        const input = ExecuteDeterministicCapabilitySchema.parse(request.body);
+        const idempotencyKey = request.header('idempotency-key')?.trim();
+        if (idempotencyKey === undefined || idempotencyKey === '' || idempotencyKey.length > 256)
+          throw new HttpInputError(
+            'IDEMPOTENCY_KEY_REQUIRED',
+            'A bounded Idempotency-Key is required for deterministic execution.',
+          );
+        const result = await deterministicManagement.executeWrite(
+          {
+            operation: 'deterministic_capability_execution',
+            // Idempotency-Key is scoped to this POST collection, not to a caller-selected Task.
+            subjectId: 'deterministic-capability-execution',
+            expectedVersion: input.capabilityBindingVersion,
+            idempotencyKey,
+            actorId: 'sdar-deterministic-capability-execution',
+            reason: 'Execute the exact admitted deterministic Capability contract.',
+            requestFingerprint: sha256Json(input),
+          },
+          request.header('authorization'),
+          (lease) =>
+            deterministicCapabilityExecution.operation.execute(
+              {
+                ...input,
+                idempotencyKey,
+              },
+              lease,
+            ),
+          (lease) =>
+            deterministicCapabilityExecution.operation.reconcile(
+              { ...input, idempotencyKey },
+              lease,
+            ),
+        );
+        response.status(201).type('application/json').send(canonicalJsonResponse(result));
+      }),
+    );
+  }
   app.post(
     '/api/v1/workflows/plans/:planId/pause',
     asyncRoute(async (request, response) => {
@@ -3961,6 +4054,30 @@ function sha256Json(value: unknown): string {
   return sha256(JSON.stringify(value));
 }
 
+function canonicalJsonResponse(value: unknown): string {
+  if (value === null) return 'null';
+  if (
+    value === undefined ||
+    typeof value === 'function' ||
+    typeof value === 'symbol' ||
+    typeof value === 'bigint'
+  )
+    throw new Error('DETERMINISTIC_RESPONSE_NOT_JSON_SERIALIZABLE');
+  if (Array.isArray(value))
+    return `[${value
+      .map((item) => (item === undefined ? 'null' : canonicalJsonResponse(item)))
+      .join(',')}]`;
+  if (typeof value === 'object') {
+    const record = value as Readonly<Record<string, unknown>>;
+    return `{${Object.keys(record)
+      .filter((key) => record[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJsonResponse(record[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function requiredKnowledgePromotion(
   service: ManagementOperations['knowledgePromotion'],
 ): NonNullable<ManagementOperations['knowledgePromotion']> {
@@ -4377,6 +4494,11 @@ function normalizeHttpError(error: unknown): Readonly<{
         code.endsWith('_IDEMPOTENCY_CONFLICT'))) ||
     code === 'CAPABILITY_SUMMARY_ACTIVE_REVISION_CONFLICT' ||
     code === 'CAPABILITY_CARD_ACTIVE_REVISION_CONFLICT' ||
+    code === 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT' ||
+    code === 'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS' ||
+    code === 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST' ||
+    code === 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING' ||
+    code === 'DETERMINISTIC_RECOVERY_PROVIDER_DISPATCH_INDETERMINATE' ||
     code === 'EXPERIENCE_DEAD_LETTER_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT'

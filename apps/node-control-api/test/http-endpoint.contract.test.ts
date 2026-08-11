@@ -1,13 +1,14 @@
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   NodeControlFoundationService,
   NodeControlConfigurationService,
   NodeControlEventService,
   NodeControlRuntimeGovernanceService,
+  type NodeControlMcpProviderBindingService,
   type NodeControlEvidenceExportService,
   type ConfigurationReference,
   type NodeControlConfigurationRepository,
@@ -100,6 +101,79 @@ describe('Node Control HTTP frozen contract', () => {
     await expect(json(`${baseUrl}/api/v1/audit-events`, true)).resolves.toMatchObject({
       items: [expect.objectContaining({ action: 'node.profile.bootstrap' })],
       totalEstimate: 1,
+    });
+  });
+
+  it('exposes only secret-free current MCP Binding authority to the Runtime service identity', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-11T02:00:00.000Z' },
+      ids: { next: () => 'audit-current-binding' },
+    });
+    const configurationService = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-11T02:00:00.000Z' },
+      ids: { next: () => 'operation-current-binding' },
+    });
+    const getCurrentAuthority = vi.fn(() =>
+      Promise.resolve({
+        observedAt: '2026-08-11T02:00:00.000Z',
+        binding: {
+          bindingId: 'binding-light',
+          revision: 7,
+          localServerId: 'home-lab-light-mcp',
+          originType: 'smpp_registry' as const,
+          providerId: 'ha-light-lab',
+          externalProviderId: 'ha-light-lab',
+          externalServerId: 'runtime-light',
+          registryRevision: 2,
+          registryChecksum: 'a'.repeat(64),
+          catalogRevision: '2.0.0:7',
+          catalogChecksum: 'b'.repeat(64),
+          endpointRef: 'http://127.0.0.1:18081/mcp',
+          availabilityValidUntil: '2026-08-11T03:00:00.000Z',
+          catalogObservedAt: '2026-08-11T02:00:00.000Z',
+          operationCount: 3,
+        },
+        sourceCandidateLineage: {
+          smppSourceId: 'home-lab-smpp',
+          externalProviderId: 'ha-light-lab',
+          externalServerId: 'runtime-light',
+          registryRevision: 2,
+          registryChecksum: 'a'.repeat(64),
+          nativeRevision: 2,
+          nativeChecksum: 'c'.repeat(64),
+          projectionContract: 'sdar-registry-v1' as const,
+          candidateEndpoint: 'http://127.0.0.1:18081/mcp',
+        },
+      }),
+    );
+    const app = createNodeControlHttpApp(service, configurationService, {
+      bearerToken: token,
+      runtimeServiceToken: `${token}-runtime`,
+      nodeControlApiUrl: 'http://127.0.0.1:10080',
+      nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
+      a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+      mcpBindings: { getCurrentAuthority } as unknown as NodeControlMcpProviderBindingService,
+    });
+    server = await listen(app);
+    const url = `${address(server)}/internal/v1/mcp-provider-bindings/current?bindingId=binding-light&localServerId=home-lab-light-mcp`;
+
+    expect((await fetch(url)).status).toBe(401);
+    const response = await fetch(url, {
+      headers: { authorization: `Bearer ${token}-runtime` },
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    expect(body).toMatchObject({
+      binding: { bindingId: 'binding-light', localServerId: 'home-lab-light-mcp' },
+    });
+    expect(JSON.stringify(body)).not.toMatch(/credential|secret/iu);
+    expect(getCurrentAuthority).toHaveBeenCalledWith({
+      bindingId: 'binding-light',
+      localServerId: 'home-lab-light-mcp',
     });
   });
 

@@ -131,6 +131,9 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       revision: 1,
       registryRevision: candidate['registryRevision'],
       registryChecksum: candidate['registryChecksum'],
+      catalogObservedAt: expect.any(String),
+      availabilityValidUntil: expect.any(String),
+      operationCount: 1,
     });
     expect(JSON.stringify(firstBinding)).not.toContain(mcpCredential);
     await expect(
@@ -145,6 +148,62 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       }),
     ).resolves.toEqual(imported);
     expect(provider.methods()).toHaveLength(callsBeforeReplay);
+
+    provider.setCandidate(2, 'server-p05-v2', '/mcp-v2');
+    await expect(
+      command('/api/v1/smpp-sources/source-p05/sync', 'p05-sync-registry-source-v2', {
+        reason: 'Publish the next exact Source Candidate before CAS rebind.',
+      }),
+    ).resolves.toMatchObject({ status: 'succeeded' });
+    const nextCandidate = await firstCandidate();
+    const staleRebind = await fetch(
+      `${requireControlApi().baseUrl}/api/v1/mcp-provider-bindings/binding-smpp/refresh`,
+      {
+        method: 'POST',
+        headers: publicHeaders('p05-rebind-stale-revision'),
+        body: JSON.stringify({
+          reason: 'Reject a stale expected Binding revision.',
+          expectedRevision: 9,
+          payload: rebindPayload(nextCandidate),
+        }),
+      },
+    );
+    expect(staleRebind.status).toBe(409);
+    await expect(staleRebind.json()).resolves.toMatchObject({
+      code: 'MCP_PROVIDER_BINDING_CONFLICT',
+    });
+    const methodsBeforeRebind = provider.methods().length;
+    const rebound = await command(
+      '/api/v1/mcp-provider-bindings/binding-smpp/refresh',
+      'p05-rebind-current-candidate',
+      {
+        reason: 'CAS rebind to the exact current unexpired Source Candidate.',
+        expectedRevision: 1,
+        payload: rebindPayload(nextCandidate),
+      },
+    );
+    expect(rebound).toMatchObject({
+      status: 'succeeded',
+      result: { revision: 2, status: 'active', resultCode: 'rebound' },
+    });
+    expect(provider.methods().slice(methodsBeforeRebind)).toEqual([
+      'server/discover',
+      'tools/list',
+    ]);
+    await expect(publicGet('/api/v1/mcp-provider-bindings/binding-smpp')).resolves.toMatchObject({
+      revision: 2,
+      externalServerId: 'server-p05-v2',
+      registryRevision: 2,
+      registryChecksum: nextCandidate['registryChecksum'],
+      endpointRef: `${providerBaseUrl}/mcp-v2`,
+      status: 'active',
+    });
+    const frozenTaskAfterRebind = await runtimePool.query<{
+      request_metadata: unknown;
+    }>("SELECT request_metadata FROM agent_task WHERE task_id='task-p05-running'");
+    expect(frozenTaskAfterRebind.rows[0]).toMatchObject({
+      request_metadata: { mcpBindingId: 'binding-smpp', mcpBindingRevision: 1 },
+    });
 
     const telemetry = await fetch(`${requireControlApi().baseUrl}/api/v1/mcp-provider-bindings`, {
       method: 'POST',
@@ -284,7 +343,7 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       }),
     ).resolves.toEqual(suspended);
     await expect(publicGet('/api/v1/mcp-provider-bindings/binding-smpp')).resolves.toMatchObject({
-      revision: 5,
+      revision: 6,
       status: 'removed',
     });
     await expect(
@@ -334,7 +393,186 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     expect(audit.rows[0]?.payload).not.toContain(mcpCredential);
     expect(audit.rows[0]?.payload).not.toContain(smppCredential);
   });
+
+  it('projects only exact current secret-free Binding authority and native lineage', async () => {
+    const observedAt = new Date().toISOString();
+    await seedSmppAuthority('current', observedAt, { immutableSnapshotExpired: true });
+    await expect(
+      repository.findCurrentAuthority({
+        bindingId: 'authority-binding-current',
+        localServerId: 'authority-server-current',
+        observedAt,
+      }),
+    ).resolves.toMatchObject({
+      binding: {
+        bindingId: 'authority-binding-current',
+        localServerId: 'authority-server-current',
+      },
+      sourceCandidateLineage: {
+        nativeRevision: 41,
+        nativeChecksum: 'c'.repeat(64),
+        projectionContract: 'sdar-registry-v1',
+      },
+    });
+
+    for (const [caseId, options] of [
+      ['suspended', { bindingStatus: 'suspended' }],
+      ['availability-expired', { bindingExpired: true }],
+      ['source-pointer-expired', { sourcePointerExpired: true }],
+      ['source-checksum-drift', { sourceChecksumDrift: true }],
+      ['candidate-endpoint-drift', { candidateEndpointDrift: true }],
+      ['lineage-missing', { lineageMissing: true }],
+    ] as const) {
+      await seedSmppAuthority(caseId, observedAt, options);
+      await expect(
+        repository.findCurrentAuthority({
+          bindingId: `authority-binding-${caseId}`,
+          localServerId: `authority-server-${caseId}`,
+          observedAt,
+        }),
+      ).resolves.toBeUndefined();
+    }
+
+    await seedDirectAuthority('direct', 'authority-server-direct', observedAt);
+    await expect(
+      repository.findCurrentAuthority({
+        bindingId: 'authority-binding-direct',
+        localServerId: 'authority-server-direct',
+        observedAt,
+      }),
+    ).resolves.toMatchObject({
+      binding: { originType: 'direct', bindingId: 'authority-binding-direct' },
+    });
+
+    await seedDirectAuthority('ambiguous-a', 'authority-server-ambiguous', observedAt);
+    await seedDirectAuthority('ambiguous-b', 'authority-server-ambiguous', observedAt);
+    await expect(
+      repository.findCurrentAuthority({
+        localServerId: 'authority-server-ambiguous',
+        observedAt,
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_AUTHORITY_AMBIGUOUS' });
+  });
 });
+
+async function seedSmppAuthority(
+  caseId: string,
+  observedAt: string,
+  options: Readonly<{
+    bindingStatus?: 'active' | 'suspended';
+    bindingExpired?: boolean;
+    sourcePointerExpired?: boolean;
+    sourceChecksumDrift?: boolean;
+    candidateEndpointDrift?: boolean;
+    lineageMissing?: boolean;
+    immutableSnapshotExpired?: boolean;
+  }> = {},
+): Promise<void> {
+  const sourceId = `authority-source-${caseId}`;
+  const bindingId = `authority-binding-${caseId}`;
+  const localServerId = `authority-server-${caseId}`;
+  const externalProviderId = `authority-provider-${caseId}`;
+  const externalServerId = `authority-external-server-${caseId}`;
+  const endpoint = `https://provider.example.test/${caseId}`;
+  const snapshotChecksum = 'a'.repeat(64);
+  const now = Date.parse(observedAt);
+  const past = new Date(now - 60_000).toISOString();
+  const older = new Date(now - 120_000).toISOString();
+  const future = new Date(now + 3_600_000).toISOString();
+  await controlPool.query(
+    `INSERT INTO sdar_control.smpp_registry_source(
+       smpp_source_id,revision,name,registry_endpoint,credential_ref,environment,sync_mode,
+       snapshot_ttl_seconds,lkg_policy,status,active_snapshot_revision,active_snapshot_checksum,
+       active_snapshot_etag,active_snapshot_valid_until,last_sync_at,last_error_code,created_at,updated_at)
+     VALUES($1,1,$1,'https://registry.example.test','secret://env/SMPP_TEST_TOKEN','integration',
+            'manual',3600,'allow_unexpired','active',41,$2,'"authority-etag"',$3,$4,NULL,$4,$4)`,
+    [
+      sourceId,
+      options.sourceChecksumDrift === true ? 'b'.repeat(64) : snapshotChecksum,
+      options.sourcePointerExpired === true ? past : future,
+      observedAt,
+    ],
+  );
+  await controlPool.query(
+    `INSERT INTO sdar_control.smpp_registry_snapshot(
+       smpp_source_id,snapshot_revision,checksum,etag,generated_at,external_expires_at,
+       valid_until,provider_count,applied_at)
+     VALUES($1,41,$2,'"authority-etag"',$3,$4,$5,1,$6)`,
+    [
+      sourceId,
+      snapshotChecksum,
+      older,
+      options.immutableSnapshotExpired === true ? past : future,
+      options.immutableSnapshotExpired === true ? past : future,
+      observedAt,
+    ],
+  );
+  await controlPool.query(
+    `INSERT INTO sdar_control.smpp_provider_candidate(
+       smpp_source_id,snapshot_revision,external_provider_id,external_server_id,
+       composite_identity,server_endpoint,display_name,catalog_revision,labels)
+     VALUES($1,41,$2,$3,$4,$5,$2,'41','{}'::jsonb)`,
+    [
+      sourceId,
+      externalProviderId,
+      externalServerId,
+      `${externalProviderId}::${externalServerId}`,
+      options.candidateEndpointDrift === true ? `${endpoint}/stale` : endpoint,
+    ],
+  );
+  if (options.lineageMissing !== true)
+    await controlPool.query(
+      `INSERT INTO sdar_control.smpp_registry_snapshot_lineage(
+         smpp_source_id,snapshot_revision,native_revision,native_checksum,projection_contract,observed_at)
+       VALUES($1,41,41,$2,'sdar-registry-v1',$3)`,
+      [sourceId, 'c'.repeat(64), observedAt],
+    );
+  await controlPool.query(
+    `INSERT INTO sdar_control.mcp_provider_binding(
+       binding_id,revision,local_server_id,origin_type,smpp_source_id,external_provider_id,
+       external_server_id,registry_revision,registry_checksum,catalog_revision,catalog_checksum,
+       endpoint_ref,credential_ref,status,availability_status,availability_valid_until,
+       catalog_observed_at,operation_count,created_at)
+     VALUES($1,1,$2,'smpp_registry',$3,$4,$5,41,$6,'41:1',$7,$8,
+            'secret://env/MCP_TEST_TOKEN',$9,'available',$10,$11,1,$11)`,
+    [
+      bindingId,
+      localServerId,
+      sourceId,
+      externalProviderId,
+      externalServerId,
+      snapshotChecksum,
+      'd'.repeat(64),
+      endpoint,
+      options.bindingStatus ?? 'active',
+      options.bindingExpired === true ? past : future,
+      options.bindingExpired === true ? older : observedAt,
+    ],
+  );
+}
+
+async function seedDirectAuthority(
+  caseId: string,
+  localServerId: string,
+  observedAt: string,
+): Promise<void> {
+  await controlPool.query(
+    `INSERT INTO sdar_control.mcp_provider_binding(
+       binding_id,revision,local_server_id,origin_type,catalog_revision,catalog_checksum,
+       endpoint_ref,credential_ref,status,availability_status,availability_valid_until,
+       catalog_observed_at,operation_count,created_at)
+     VALUES($1,1,$2,'direct','1.0.0:1',$3,$4,'secret://env/MCP_TEST_TOKEN','active',
+            'available',$5,$6,1,$6)`,
+    [
+      `authority-binding-${caseId}`,
+      localServerId,
+      'e'.repeat(64),
+      `https://provider.example.test/${caseId}`,
+      new Date(Date.parse(observedAt) + 3_600_000).toISOString(),
+      observedAt,
+    ],
+  );
+}
 
 async function createAndSynchronizeRegistrySource(): Promise<void> {
   const created = await fetch(`${requireControlApi().baseUrl}/api/v1/smpp-sources`, {
@@ -369,6 +607,17 @@ async function firstCandidate(): Promise<Record<string, unknown>> {
   const candidate = response.items[0];
   if (candidate === undefined) throw new Error('P05_CANDIDATE_MISSING');
   return candidate;
+}
+
+function rebindPayload(candidate: Record<string, unknown>): Record<string, unknown> {
+  return {
+    smppSourceId: candidate['smppSourceId'],
+    externalProviderId: candidate['externalProviderId'],
+    externalServerId: candidate['externalServerId'],
+    registryRevision: candidate['registryRevision'],
+    registryChecksum: candidate['registryChecksum'],
+    endpointRef: candidate['serverEndpoint'],
+  };
 }
 
 async function command(
@@ -532,6 +781,7 @@ async function truncateControl(): Promise<void> {
     `TRUNCATE sdar_control.mcp_provider_catalog_observation,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
+              sdar_control.smpp_registry_snapshot_lineage,
               sdar_control.smpp_provider_candidate,
               sdar_control.smpp_registry_snapshot,
               sdar_control.smpp_registry_source,
@@ -552,6 +802,9 @@ class FakeRegistryAndMcpProvider {
   #version = '1.0.0';
   #schemaProperty = 'destination';
   #ttlMs = 300_000;
+  #registryRevision = 1;
+  #externalServerId = 'server-p05';
+  #mcpPath = '/mcp';
   readonly #methods: string[] = [];
 
   configure(baseUrl: string): void {
@@ -564,6 +817,12 @@ class FakeRegistryAndMcpProvider {
     this.#ttlMs = ttlMs;
   }
 
+  setCandidate(registryRevision: number, externalServerId: string, mcpPath: string): void {
+    this.#registryRevision = registryRevision;
+    this.#externalServerId = externalServerId;
+    this.#mcpPath = mcpPath;
+  }
+
   methods(): readonly string[] {
     return [...this.#methods];
   }
@@ -573,7 +832,7 @@ class FakeRegistryAndMcpProvider {
       this.respondRegistry(request, response);
       return;
     }
-    if (request.url === '/mcp' && request.method === 'POST') {
+    if (['/mcp', '/mcp-v2'].includes(request.url ?? '') && request.method === 'POST') {
       await this.respondMcp(request, response);
       return;
     }
@@ -593,28 +852,36 @@ class FakeRegistryAndMcpProvider {
     const expiresAt = new Date(Date.now() + 3_600_000).toISOString();
     const raw = {
       externalProviderId: 'provider-p05',
-      externalServerId: 'server-p05',
-      serverEndpoint: `${this.#baseUrl}/mcp`,
-      catalogRevision: 'directory-hint-only',
-      labels: { environment: 'integration' },
+      externalServerId: this.#externalServerId,
+      serverEndpoint: `${this.#baseUrl}${this.#mcpPath}`,
+      catalogRevision: String(this.#registryRevision),
+      labels: { environment: 'integration', protocolMode: 'frozen_v1' },
     };
     const candidate = candidateFromRaw('source-p05', raw);
     const checksum = computeSmppSnapshotChecksum({
       smppSourceId: 'source-p05',
-      revision: 1,
+      revision: this.#registryRevision,
       generatedAt,
       expiresAt,
       candidates: [candidate],
     });
-    response.writeHead(200, { 'content-type': 'application/json', etag: '"source-p05-1"' }).end(
-      JSON.stringify({
-        revision: 1,
-        checksum,
-        generatedAt,
-        expiresAt,
-        providers: [raw],
-      }),
-    );
+    response
+      .writeHead(200, {
+        'content-type': 'application/json',
+        etag: `"${checksum}"`,
+        'x-smpp-native-revision': String(this.#registryRevision),
+        'x-smpp-native-checksum': 'e'.repeat(64),
+        'x-smpp-projection-contract': 'sdar-registry-v1',
+      })
+      .end(
+        JSON.stringify({
+          revision: this.#registryRevision,
+          checksum,
+          generatedAt,
+          expiresAt,
+          providers: [raw],
+        }),
+      );
   }
 
   private async respondMcp(request: IncomingMessage, response: ServerResponse): Promise<void> {

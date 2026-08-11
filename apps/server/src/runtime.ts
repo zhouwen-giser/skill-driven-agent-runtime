@@ -28,6 +28,7 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  McpRuntimeBindingAuthorityVerifier,
   McpProtocolOperationsService,
   FrozenMcpRegistryService,
   FrozenRemoteTaskNotificationService,
@@ -62,6 +63,8 @@ import {
   SkillModeSelector,
   SkillUsageCandidateAssessor,
   prepareSkillUsagePlan,
+  checkSkillUsagePlanCompliance,
+  matchSkillEvidence,
   SkillExecutionRecordingService,
   FrozenSkillTaskReadinessAdapter,
   SkillInputResolutionService,
@@ -107,6 +110,7 @@ import {
   InteractivePlanningSessionService,
   InteractiveActionRouter,
   CognitiveManagementActionGate,
+  type CognitiveManagementActionLeaseGuard,
   InteractivePlanPatchService,
   UserGoalPlanCandidateValidator,
   ConfirmedPlanHandoff,
@@ -228,6 +232,7 @@ import {
   COGNITIVE_SCHEMA_VERSION,
   DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS,
   createCognitiveSourceRef,
+  deriveFrozenMcpCatalogAuthority,
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
@@ -236,6 +241,7 @@ import {
   type GoalExecutionContract,
   type McpInvocationOutcome,
   type RuntimeRequestContext,
+  type SkillUsageCandidateSnapshot,
   type SkillUsageSelectionContext,
   type SkillVersion,
   type WorkflowBudgetLimits,
@@ -263,6 +269,7 @@ import {
   EpisodeEvidenceCoverageProjectionPipeline,
   EpisodeEvidenceCoverageService,
   EvidenceBackgroundFairnessGate,
+  ForegroundActivityTracker,
   EvidenceInfrastructureProjectionPipeline,
   EvidenceInfrastructureProjector,
   EvidenceOperationsService,
@@ -272,8 +279,11 @@ import {
   McpCapabilityEvidenceProjector,
   RuntimeCoreEvidenceProjector,
   RuntimeEvidenceExportService,
+  runEvidenceBackgroundSlices,
   SkillEvidenceProjector,
   type CapabilityAuthorityReader,
+  type CurrentMcpProviderBindingAuthorityReader,
+  type CurrentMcpProviderBindingAuthoritySnapshot,
 } from '../../../packages/runtime-control-application/src/index.js';
 import {
   EnvironmentEvidenceCredentialResolver,
@@ -297,6 +307,8 @@ import {
 import {
   BearerCognitiveManagementAuthorizer,
   startManagementHttpEndpoint,
+  type DeterministicCapabilityExecutionInput,
+  type DeterministicCapabilityExecutionOperation,
   type ManagementHttpEndpointHandle,
 } from '../../../packages/management-api/src/index.js';
 import {
@@ -386,6 +398,15 @@ import {
   PostgresArtifactManagementQueryRepository,
 } from '../../../packages/persistence-postgres/src/index.js';
 import {
+  DeterministicCapabilityRecoveryService,
+  assertNoHomeAssistantEntityId,
+  deterministicCapabilityExecutionResponse,
+  deterministicExecutionError,
+  deterministicExecutionIdentity,
+  requireDeterministicToolResult,
+  type DeterministicSkillSuccessProjection,
+} from './deterministic-capability-recovery.js';
+import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
   BullMqRemoteTaskPollQueue,
@@ -421,6 +442,8 @@ export interface ServerRuntimeOptions {
   readonly evidenceEnvironment?: string;
   /** Authenticated full-state reader for Control-owned Capability definitions and bindings. */
   readonly capabilityAuthorityReader?: CapabilityAuthorityReader;
+  /** Authenticated current-state authority for Node Control-owned MCP Provider Bindings. */
+  readonly currentMcpProviderBindingAuthorityReader?: CurrentMcpProviderBindingAuthorityReader;
   readonly queueName?: string;
   readonly applyMigrations?: boolean;
   readonly a2aHost?: string;
@@ -591,6 +614,31 @@ const PROMOTION_CONTROLLED_ARTIFACT_MANAGEMENT_OPERATIONS =
   ]);
 const SHADOW_CONTROLLED_ARTIFACT_MANAGEMENT_OPERATIONS =
   new Set<ArtifactManagementCommandOperation>(['shadow', 'revalidate']);
+
+const HOME_LAB_READ_ONLY_EXECUTION_CONTRACTS = Object.freeze({
+  'home.light.read-state': Object.freeze({
+    capabilityVersion: 1,
+    capabilityBindingId: 'capability-binding-home.light.read-state-v1',
+    capabilityBindingVersion: 1,
+    skillId: 'home.light.get-state',
+    skillVersion: 1,
+    mcpProviderBindingId: 'mcp-binding-ha-light-lab',
+    toolName: 'light_get_state',
+    resourceId: 'living-room-main-light',
+    evidenceType: 'light.state.observation',
+  }),
+  'home.climate.read-state': Object.freeze({
+    capabilityVersion: 1,
+    capabilityBindingId: 'capability-binding-home.climate.read-state-v1',
+    capabilityBindingVersion: 1,
+    skillId: 'home.climate.get-state',
+    skillVersion: 1,
+    mcpProviderBindingId: 'mcp-binding-ha-climate-lab',
+    toolName: 'climate_get_state',
+    resourceId: 'living-room-air-conditioner',
+    evidenceType: 'climate.state.observation',
+  }),
+});
 
 export async function startServerRuntime(
   options: ServerRuntimeOptions,
@@ -1015,9 +1063,18 @@ export async function startServerRuntime(
     subworkflow: 1,
   };
   const schemaValidator = new AjvJsonSchemaValidator();
+  const runtimeMcpBindingAuthority = new McpRuntimeBindingAuthorityVerifier({
+    repository: mcpRepository,
+    clock,
+  });
   const taskCapabilities = new RuntimeTaskCapabilityService({
     store: new PostgresTaskCapabilityRepository(pool, publishTaskState),
     schemas: schemaValidator,
+    evidence: mcpRepository,
+    ...(options.currentMcpProviderBindingAuthorityReader === undefined
+      ? {}
+      : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
+    runtimeProviderBindings: runtimeMcpBindingAuthority,
   });
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
@@ -1797,6 +1854,10 @@ export async function startServerRuntime(
     schemas: schemaValidator,
     frozenAvailability: new FrozenV1RuntimeAvailabilityAdapter(),
     frozenLifecycle: new FrozenV1RuntimeLifecycleAdapter({ now: clock.now }),
+    ...(options.currentMcpProviderBindingAuthorityReader === undefined
+      ? {}
+      : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
+    runtimeBindingAuthority: runtimeMcpBindingAuthority,
     clock,
     ids: {
       nextInvocationId: () => `mcp-invocation-${randomUUID()}`,
@@ -1838,6 +1899,9 @@ export async function startServerRuntime(
     operations: mcpRepository,
     availability: mcpRegistry,
     clock,
+    ...(options.currentMcpProviderBindingAuthorityReader === undefined
+      ? {}
+      : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
   });
   const skillUsage = new SkillUsageCandidateAssessor({
     applicability: new SkillApplicabilityAssessor({
@@ -1846,6 +1910,73 @@ export async function startServerRuntime(
     }),
     modes: new SkillModeSelector(),
   });
+  const createDeterministicSkillSelection = (input: DeterministicCapabilityExecutionInput) => {
+    const exactReadiness = new FrozenSkillTaskReadinessAdapter({
+      operations: mcpRepository,
+      availability: mcpRegistry,
+      clock,
+      ...(options.currentMcpProviderBindingAuthorityReader === undefined
+        ? {}
+        : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
+      resolveArguments: (binding) => {
+        if (
+          binding.taskType !== input.toolName ||
+          binding.providerPolicy.selection !== 'required' ||
+          binding.providerPolicy.requiredProviderId !== input.serverId
+        )
+          throw deterministicExecutionError(
+            'DETERMINISTIC_SKILL_TASK_BINDING_NOT_EXACT',
+            'Resolved availability arguments require the exact governed Task binding.',
+          );
+        return Object.freeze({
+          unresolved: false as const,
+          value: Object.freeze({ resourceId: input.resourceId }),
+        });
+      },
+    });
+    const exactUsage = new SkillUsageCandidateAssessor({
+      applicability: new SkillApplicabilityAssessor({
+        contexts: new SkillContextRequirementResolver(),
+        readiness: exactReadiness,
+      }),
+      modes: new SkillModeSelector(),
+    });
+    return new SkillSelectionService({
+      skills,
+      graph: skillGraphRepository,
+      records: skillSelectionRepository,
+      retriever: {
+        score: (_goalContract, candidates) =>
+          Promise.resolve(
+            Object.freeze(
+              Object.fromEntries(candidates.map((candidate) => [candidate.skillId, 1])),
+            ),
+          ),
+      },
+      decider: {
+        decide: ({ candidates }) => {
+          const candidate = candidates[0];
+          if (candidate === undefined || candidates.length !== 1)
+            throw deterministicExecutionError(
+              'DETERMINISTIC_SKILL_SELECTION_NOT_EXACT',
+              'Deterministic execution requires exactly one admitted Skill candidate.',
+            );
+          return Promise.resolve({
+            selectedSkillId: candidate.skillId,
+            decisionSummary:
+              'Exact published Capability implementation selected deterministically.',
+          });
+        },
+      },
+      mcpWarnings: mcpRepository,
+      usage: exactUsage,
+      clock,
+      ids: {
+        nextSelectionId: () => `skill-selection-deterministic-${randomUUID()}`,
+        nextReplacementPlanId: () => `skill-replacement-deterministic-${randomUUID()}`,
+      },
+    });
+  };
   const skillSelection =
     options.skillSelection === undefined
       ? undefined
@@ -2022,6 +2153,12 @@ export async function startServerRuntime(
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
   const skillCallAncestry = new AsyncLocalStorage<readonly string[]>();
   const workflowTaskAuthority = new AsyncLocalStorage<AgentTask>();
+  const deterministicCapabilityLease = new AsyncLocalStorage<
+    Readonly<{
+      input: DeterministicCapabilityExecutionInput;
+      lease: CognitiveManagementActionLeaseGuard;
+    }>
+  >();
   const workflowPorts: WorkflowRuntimePorts = {
     async executeLlm({ executionId, instruction, context, responseSchema }) {
       const instance = await workflowInstances.findInstance(executionId);
@@ -2055,6 +2192,18 @@ export async function startServerRuntime(
       const instance = await workflowInstances.findInstance(executionId);
       const task = instance === undefined ? undefined : await tasks.findByPlanId(instance.planId);
       const authorityTask = task ?? workflowTaskAuthority.getStore();
+      const deterministicLease = deterministicCapabilityLease.getStore();
+      if (
+        deterministicLease !== undefined &&
+        (authorityTask?.taskId !== deterministicLease.input.taskId ||
+          tool.serverId !== deterministicLease.input.serverId ||
+          tool.toolName !== deterministicLease.input.toolName ||
+          arguments_['resourceId'] !== deterministicLease.input.resourceId)
+      )
+        throw deterministicExecutionError(
+          'DETERMINISTIC_PROVIDER_DISPATCH_AUTHORITY_MISMATCH',
+          'The Workflow MCP call differs from its deterministic lease authority.',
+        );
       const plan =
         instance === undefined ? undefined : await workflowPlans.findPlan(instance.planId);
       const skillCallLink =
@@ -2097,6 +2246,20 @@ export async function startServerRuntime(
               executionContext,
               ...(signal === undefined ? {} : { signal }),
             });
+      const providerBindingContext =
+        authorityTask === undefined
+          ? undefined
+          : await currentTaskProviderBindingContext(authorityTask, tool.serverId, taskCapabilities);
+      const preTransportFence =
+        deterministicLease === undefined
+          ? undefined
+          : {
+              invocationId: deterministicExecutionIdentity(deterministicLease.input.taskId)
+                .mcpInvocationId,
+              signal: deterministicLease.lease.signal,
+              enter: (dispatch: Readonly<{ dispatchId: string; dispatchHash: string }>) =>
+                deterministicLease.lease.enterProviderDispatch(dispatch),
+            };
       const receipt = await mcpRegistry.callDetailed(
         tool.serverId,
         tool.toolName,
@@ -2108,14 +2271,17 @@ export async function startServerRuntime(
               ...(guardedTaskExecution === undefined
                 ? {}
                 : { taskExecution: guardedTaskExecution }),
+              ...(preTransportFence === undefined ? {} : { preTransportFence }),
             }
           : {
               taskId: authorityTask.taskId,
               contextId: authorityTask.contextId,
+              ...(providerBindingContext ?? {}),
               executionContext,
               ...(guardedTaskExecution === undefined
                 ? {}
                 : { taskExecution: guardedTaskExecution }),
+              ...(preTransportFence === undefined ? {} : { preTransportFence }),
             },
       );
       if (receipt.outcome.kind === 'immediate') return receipt.outcome;
@@ -4236,7 +4402,9 @@ export async function startServerRuntime(
       });
   }, 500);
   experienceDispatchTimer.unref();
+  const foregroundActivity = new ForegroundActivityTracker();
   const foregroundTaskIsBusy = async (): Promise<boolean> => {
+    if (foregroundActivity.isBusy()) return true;
     const result = await pool.query<{ busy: boolean }>(
       `SELECT EXISTS(
          SELECT 1 FROM agent_task
@@ -4246,7 +4414,7 @@ export async function startServerRuntime(
          ) OR updated_at >= clock_timestamp() - interval '500 milliseconds'
        ) AS busy`,
     );
-    return result.rows[0]?.busy === true;
+    return foregroundActivity.isBusy() || result.rows[0]?.busy === true;
   };
   const evidenceExportFairness = new EvidenceBackgroundFairnessGate({
     idleSliceLimit: 8,
@@ -4258,22 +4426,22 @@ export async function startServerRuntime(
     busySliceLimit: 1,
     maximumDeferralMs: 10_000,
   });
-  const drainEvidenceExportTick = async (
-    maximumPartitionsPerTick: number,
-    maximumRecordsPerPartition?: number,
-  ) => {
-    for (let attempted = 0; attempted < maximumPartitionsPerTick; attempted += 1) {
-      const result = await evidenceExport.drain(maximumRecordsPerPartition);
-      if (result.attemptedPartition === undefined || result.delivered === 0) return;
-    }
-  };
   let evidenceExportInFlight: Promise<void> | undefined;
   const evidenceExportTimer = setInterval(() => {
     if (evidenceExportInFlight !== undefined) return;
     evidenceExportInFlight = (async () => {
-      const foregroundBusy = await foregroundTaskIsBusy();
-      const sliceLimit = evidenceExportFairness.grant(foregroundBusy, Date.now());
-      if (sliceLimit > 0) await drainEvidenceExportTick(sliceLimit, foregroundBusy ? 1 : 16);
+      await runEvidenceBackgroundSlices({
+        gate: evidenceExportFairness,
+        maximumSlices: 8,
+        idleItemLimit: 16,
+        busyItemLimit: 1,
+        foregroundBusy: foregroundTaskIsBusy,
+        now: Date.now,
+        runSlice: async ({ itemLimit }) => {
+          const result = await evidenceExport.drain(itemLimit);
+          return result.attemptedPartition !== undefined && result.delivered > 0;
+        },
+      });
     })()
       .catch((error: unknown) => {
         process.stderr.write(
@@ -4366,11 +4534,6 @@ export async function startServerRuntime(
   const runtimeCoreEvidenceProjectionTimer = setInterval(() => {
     if (runtimeCoreEvidenceProjection !== undefined) return;
     runtimeCoreEvidenceProjection = (async () => {
-      const canonicalDrainLimit = evidenceProjectionFairness.grant(
-        await foregroundTaskIsBusy(),
-        Date.now(),
-      );
-      if (canonicalDrainLimit === 0) return;
       const projectionClient = await pool.connect();
       try {
         const lease = await projectionClient.query<{ acquired: boolean }>(
@@ -4384,21 +4547,26 @@ export async function startServerRuntime(
           let canonicalFailedItems = 0;
           let canonicalSourceListingFailures = 0;
           let canonicalDurableIssueCount = 0;
-          let canonicalQuiescent = false;
-          for (let round = 0; round < canonicalDrainLimit; round += 1) {
-            const result = await canonicalEvidenceProjectionPipeline.drain(10);
-            canonicalAttemptedItems += result.attemptedItems;
-            canonicalFailedItems += result.failedItems;
-            canonicalSourceListingFailures += result.sourceListingFailures;
-            canonicalDurableIssueCount += result.openIssueIds.length;
-            if (result.sourceListingFailures > 0) break;
-            if (result.attemptedItems === 0) {
-              canonicalQuiescent = true;
-              break;
-            }
-          }
+          const canonicalProgress = { quiescent: false };
+          await runEvidenceBackgroundSlices({
+            gate: evidenceProjectionFairness,
+            maximumSlices: 8,
+            idleItemLimit: 10,
+            busyItemLimit: 1,
+            foregroundBusy: foregroundTaskIsBusy,
+            now: Date.now,
+            runSlice: async ({ itemLimit }) => {
+              const result = await canonicalEvidenceProjectionPipeline.drain(itemLimit);
+              canonicalAttemptedItems += result.attemptedItems;
+              canonicalFailedItems += result.failedItems;
+              canonicalSourceListingFailures += result.sourceListingFailures;
+              canonicalDurableIssueCount += result.openIssueIds.length;
+              if (result.attemptedItems === 0) canonicalProgress.quiescent = true;
+              return result.sourceListingFailures === 0 && result.attemptedItems > 0;
+            },
+          });
           if (
-            !canonicalQuiescent ||
+            !canonicalProgress.quiescent ||
             canonicalFailedItems > 0 ||
             canonicalSourceListingFailures > 0
           ) {
@@ -4420,6 +4588,7 @@ export async function startServerRuntime(
             return;
           }
 
+          if (await foregroundTaskIsBusy()) return;
           await evidenceQualityEvaluator.evaluate();
           const coverageResult = await episodeEvidenceCoverageProjectionPipeline.drain(10);
           const infrastructureResult = await evidenceInfrastructureProjectionPipeline.drain(25);
@@ -4608,6 +4777,488 @@ export async function startServerRuntime(
   remoteTaskWorker?.start();
   remoteTaskContinuationWorker?.start();
   remoteTaskCancellationWorker?.start();
+  const recordDeterministicSkillEvidenceAndReferences = async (
+    projection: DeterministicSkillSuccessProjection,
+  ): Promise<void> => {
+    const evidence = await skillExecutionRecording.recordEvidenceMatches({
+      workflowPlanId: projection.workflowPlanId,
+      sourceSystem: projection.providerId,
+      matches: projection.evidence,
+    });
+    if (evidence === undefined) throw new Error('DETERMINISTIC_RECOVERY_SKILL_NOT_FOUND');
+    const references = [
+      {
+        kind: 'provider' as const,
+        referenceId: projection.providerBindingId,
+        referenceType: 'mcp.provider_binding',
+        sourceSystem: 'node_control',
+        metadata: { providerId: projection.providerId, serverId: projection.serverId },
+      },
+      {
+        kind: 'evidence' as const,
+        referenceId: projection.capabilityBindingId,
+        referenceType: 'node.capability_binding',
+        sourceSystem: 'node_control',
+        metadata: {
+          capabilityBindingVersion: projection.capabilityBindingVersion,
+          capabilityId: projection.capabilityId,
+          capabilityVersion: projection.capabilityVersion,
+        },
+      },
+      {
+        kind: 'resource' as const,
+        referenceId: projection.resourceId,
+        referenceType: 'public.resource',
+        sourceSystem: 'node_control',
+        metadata: { identifierAuthority: 'public_resource_id' },
+      },
+      {
+        kind: 'outcome' as const,
+        referenceId: projection.invocationId,
+        referenceType: 'mcp.invocation',
+        sourceSystem: 'mcp_registry',
+        metadata: { workflowInstanceId: projection.workflowInstanceId },
+      },
+    ];
+    for (const reference of references) {
+      const recorded = await skillExecutionRecording.recordReference({
+        workflowPlanId: projection.workflowPlanId,
+        ...reference,
+      });
+      if (recorded === undefined) throw new Error('DETERMINISTIC_RECOVERY_SKILL_NOT_FOUND');
+    }
+  };
+  const deterministicCapabilityRecovery = new DeterministicCapabilityRecoveryService({
+    findTask: (taskId) => tasks.findById(taskId),
+    findWorkflow: (instanceId) => workflowExecution.get(instanceId),
+    findSkillExecutionByPlan: (planId) => skillExecutionRepository.findByPlan(planId),
+    findSkillVersion: (skillId, skillVersion) => skills.findVersion(skillId, skillVersion),
+    listInvocationsByTask: (taskId) => mcpRegistry.listInvocationsByTask(taskId),
+    workflowBudgetDefaults,
+    mcpCallCost: workflowCallCosts.mcp,
+    recordTaskResult: ({ taskId, structured, outputSchema }) =>
+      service.recordResult(
+        taskId,
+        {
+          text: 'Schema-valid governed read-only Provider state returned.',
+          structured,
+          outputSchema,
+        },
+        resultProcessor,
+      ),
+    recordTaskFailure: async (taskId, errorCode) => {
+      await service.fail(
+        taskId,
+        errorCode,
+        'Interrupted deterministic execution was terminated during durable reconciliation.',
+      );
+    },
+    recordSkillEvidenceAndReferences: recordDeterministicSkillEvidenceAndReferences,
+    recordSkillCompleted: async (workflowPlanId, details) => {
+      const recorded = await skillExecutionRecording.recordStatus({
+        workflowPlanId,
+        eventType: 'skill.execution_completed',
+        status: 'completed',
+        summary: 'Deterministic governed read-only Workflow execution completed.',
+        details,
+      });
+      if (recorded === undefined) throw new Error('DETERMINISTIC_RECOVERY_SKILL_NOT_FOUND');
+    },
+    recordSkillFailure: async (workflowPlanId, errorCode) => {
+      const recorded = await skillExecutionRecording.recordStatus({
+        workflowPlanId,
+        eventType: 'skill.execution_failed',
+        status: 'failed',
+        summary: 'Interrupted deterministic execution failed closed during reconciliation.',
+        details: { errorCode },
+      });
+      if (recorded === undefined) throw new Error('DETERMINISTIC_RECOVERY_SKILL_NOT_FOUND');
+    },
+  });
+  const deterministicCapabilityExecutions: DeterministicCapabilityExecutionOperation = {
+    async execute(input, lease) {
+      return deterministicCapabilityLease.run({ input, lease }, async () => {
+        const contract = requireHomeLabReadOnlyExecutionContract(input);
+        let acceptedTask = false;
+        let workflowPlanId: string | undefined;
+        try {
+          const currentProviderBinding = await requireDeterministicProviderBindingAuthority(
+            input,
+            options.currentMcpProviderBindingAuthorityReader,
+          );
+          const skill = await skills.findVersion(input.skillId, input.skillVersion);
+          if (skill?.status !== 'enabled')
+            throw deterministicExecutionError(
+              'DETERMINISTIC_SKILL_NOT_ENABLED',
+              'The exact governed Skill version is not enabled.',
+            );
+          assertDeterministicReadOnlySkill(skill, input, contract.evidenceType);
+
+          const runtimeServer = await mcpRepository.findServer(input.serverId);
+          const runtimeTools = await mcpRepository.listTools(input.serverId);
+          const runtimeSnapshot = await mcpRepository.findCurrentProtocolSnapshot(input.serverId);
+          const tool = runtimeTools.find((candidate) => candidate.toolName === input.toolName);
+          if (
+            runtimeServer?.server.status !== 'enabled' ||
+            runtimeServer.server.endpoint !== currentProviderBinding.binding.endpointRef ||
+            runtimeSnapshot?.protocolMode !== 'frozen_v1' ||
+            runtimeSnapshot.toolRevision !== runtimeServer.server.toolRevision ||
+            tool?.protocolMode !== 'frozen_v1' ||
+            tool.taskExecutionProfile?.taskBehavior !== 'synchronous_only' ||
+            tool.outputSchema === undefined
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_READ_ONLY_TOOL_NOT_READY',
+              'The exact frozen synchronous read Tool is not registered.',
+            );
+          const runtimeCatalog = deriveFrozenMcpCatalogAuthority(
+            runtimeSnapshot,
+            runtimeTools,
+            runtimeServer.server.toolRevision,
+          );
+          if (
+            runtimeCatalog.catalogRevision !== currentProviderBinding.binding.catalogRevision ||
+            runtimeCatalog.catalogChecksum !== currentProviderBinding.binding.catalogChecksum ||
+            runtimeCatalog.operationCount !== currentProviderBinding.binding.operationCount
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_PROVIDER_CATALOG_NOT_CURRENT',
+              'Runtime frozen MCP Catalog differs from current Node Control Binding authority.',
+            );
+          const toolPlanningMetadata = await buildMcpToolPlanningMetadata(
+            skill.toolPolicy,
+            async (reference) =>
+              (await mcpRepository.listTools(reference.serverId)).find(
+                (candidate) => candidate.toolName === reference.toolName,
+              ),
+          );
+          const requiredTool = toolPlanningMetadata.find(
+            (metadata) =>
+              metadata.policy === 'required' &&
+              metadata.reference.serverId === input.serverId &&
+              metadata.reference.toolName === input.toolName,
+          );
+          if (
+            requiredTool?.taskExecutionProfile?.taskBehavior !== 'synchronous_only' ||
+            toolPlanningMetadata.filter((metadata) => metadata.policy === 'required').length !== 1
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_SKILL_TOOL_POLICY_NOT_EXACT',
+              'The governed Skill does not require exactly one synchronous read Tool.',
+            );
+
+          const submitted = await service.submitDeterministic({
+            taskId: input.taskId,
+            contextId: input.contextId,
+            messageText: `deterministic:${input.capabilityBindingId}:${input.resourceId}`,
+            metadata: {
+              'io.sdar/deterministicCapabilityExecution': {
+                schemaVersion: '1.0',
+                capabilityBindingId: input.capabilityBindingId,
+                capabilityBindingVersion: input.capabilityBindingVersion,
+                capabilityId: input.capabilityId,
+                capabilityVersion: input.capabilityVersion,
+                skillId: input.skillId,
+                skillVersion: input.skillVersion,
+                mcpProviderBindingId: input.mcpProviderBindingId,
+                providerId: input.providerId,
+                serverId: input.serverId,
+                toolName: input.toolName,
+                resourceId: input.resourceId,
+              },
+            },
+          });
+          acceptedTask = true;
+          const identity = deterministicExecutionIdentity(input.taskId);
+          const goal = await goalService.create({
+            goalId: identity.goalId,
+            contextId: submitted.context.contextId,
+            title: 'Deterministic governed read-only execution',
+            description: `Execute ${input.capabilityId}@${String(input.capabilityVersion)} for the admitted public resource.`,
+            constraints: [
+              'Use the exact published Capability implementation and exact enabled Skill version.',
+              'Invoke exactly one synchronous get-state Tool and perform no physical write.',
+            ],
+            successCriteria: [
+              'The Skill output schema and public resource identity are valid.',
+              'Required Provider evidence is present and validated.',
+            ],
+          });
+          const goalContract = createGoalExecutionContract(goal);
+          await lease.assertCurrent();
+          const selection = await createDeterministicSkillSelection(input).selectFromCandidates(
+            goalContract,
+            [skill],
+            deterministicSkillUsageContext(input, currentProviderBinding),
+          );
+          if (
+            selection.selectedSkillId !== input.skillId ||
+            selection.selectedSkillVersion !== input.skillVersion
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_SKILL_SELECTION_NOT_EXACT',
+              'Persisted Skill selection differs from the requested exact version.',
+            );
+          const usageCandidate = selection.candidates[0]?.usageCandidate;
+          assertDeterministicUsageCandidate(usageCandidate, input);
+
+          const preparedTask = await service.prepareDeterministicExecution(input.taskId, {
+            goalId: goal.goalId,
+            goalVersion: goal.version,
+            skillId: input.skillId,
+            skillVersion: input.skillVersion,
+            selectionId: selection.selectionId,
+          });
+          const resolution = await skillInputResolution.resolveExact({
+            task: preparedTask,
+            goal,
+            skill,
+            supplementaryInputs: [],
+            structuredInput: { resourceId: input.resourceId },
+            sourceRef: `node-control:${input.mcpProviderBindingId}:resource:${input.resourceId}`,
+          });
+          const composition = await skillComposition.composeUsage(
+            { skillId: skill.skillId, skillVersion: skill.version },
+            [],
+          );
+          const interpretation = skillComposition.interpretUsage(
+            skill,
+            usageCandidate.modeDecision,
+            composition,
+          );
+          if (interpretation.kind !== 'procedure')
+            throw deterministicExecutionError(
+              'DETERMINISTIC_SKILL_PROCEDURE_REQUIRED',
+              'Read-only execution requires the governed procedure mode.',
+            );
+          const preparedUsage = prepareSkillUsagePlan({
+            skill,
+            candidate: usageCandidate,
+            interpretation,
+            goalContract,
+            workflowDefinitionId: identity.workflowDefinitionId,
+            workflowVersion: 1,
+          });
+          if (preparedUsage.deterministicDefinition === undefined)
+            throw deterministicExecutionError(
+              'DETERMINISTIC_WORKFLOW_DEFINITION_REQUIRED',
+              'The governed procedure did not compile to Workflow DSL.',
+            );
+          const compliance = checkSkillUsagePlanCompliance(
+            preparedUsage.deterministicDefinition,
+            preparedUsage.policy,
+          );
+          if (!compliance.compliant)
+            throw deterministicExecutionError(
+              'DETERMINISTIC_WORKFLOW_POLICY_INVALID',
+              'The governed procedure failed structural Skill policy compliance.',
+            );
+
+          workflowPlanId = identity.workflowPlanId;
+          const plan = await workflowPlanner.plan({
+            planId: workflowPlanId,
+            workflowDefinitionId: identity.workflowDefinitionId,
+            workflowVersion: 1,
+            goalId: goal.goalId,
+            goalVersion: goal.version,
+            goalContract,
+            compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
+            toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
+            taskId: input.taskId,
+            skillUsagePolicy: preparedUsage.policy,
+            deterministicDefinition: preparedUsage.deterministicDefinition,
+            deterministicOnly: true,
+            planningInstruction: canonicalJson({
+              operation: 'deterministic_read_only_capability_execution',
+              capabilityBindingId: input.capabilityBindingId,
+              capabilityBindingVersion: input.capabilityBindingVersion,
+              skillId: input.skillId,
+              skillVersion: input.skillVersion,
+              providerBindingId: input.mcpProviderBindingId,
+              resourceId: input.resourceId,
+            }),
+          });
+          if (plan.definition === undefined)
+            throw deterministicExecutionError(
+              'DETERMINISTIC_WORKFLOW_DEFINITION_REQUIRED',
+              'The persisted deterministic Workflow plan has no validated definition.',
+            );
+          await skillExecutionRecording.recordPlanning({
+            executionId: identity.skillExecutionId,
+            taskId: input.taskId,
+            goalId: goal.goalId,
+            goalVersion: goal.version,
+            selectionRef: selection.selectionId,
+            applicabilityStatus: usageCandidate.applicability.status,
+            policy: preparedUsage.policy,
+            workflowPlanId: plan.planId,
+            workflowDefinitionId: plan.definition.workflowDefinitionId,
+            workflowDefinitionVersion: plan.definition.version,
+            procedureCompiled: true,
+            planCompliancePassed: true,
+          });
+          await service.attachPlan(input.taskId, {
+            planId: plan.planId,
+            goalId: goal.goalId,
+            goalVersion: goal.version,
+            skillInputResolutionId: resolution.resolutionId,
+          });
+          await workflowExecution.confirm(plan.planId, input.taskId);
+          await service.beginDeterministicExecution(input.taskId);
+          await skillExecutionRecording.recordStatus({
+            workflowPlanId: plan.planId,
+            eventType: 'skill.execution_started',
+            status: 'executing',
+            summary: 'Deterministic governed read-only Workflow execution started.',
+          });
+
+          await lease.assertCurrent();
+          const instance = await workflowExecution.execute({
+            instanceId: identity.workflowInstanceId,
+            planId: plan.planId,
+            input: resolution.structuredInput,
+            skillIds: [skill.skillId],
+          });
+          if (
+            instance.status !== 'succeeded' ||
+            instance.result === false ||
+            instance.budgetUsage.llmCalls !== 0 ||
+            instance.budgetUsage.mcpCalls !== 1
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_WORKFLOW_OUTCOME_INVALID',
+              'The read-only Workflow did not complete with zero model calls and one MCP call.',
+            );
+          const invocations = await mcpRegistry.listInvocationsByTask(input.taskId);
+          if (invocations.length !== 1)
+            throw deterministicExecutionError(
+              'DETERMINISTIC_MCP_INVOCATION_NOT_EXACT',
+              'Deterministic execution requires exactly one Task-bound MCP invocation.',
+            );
+          const invocation = invocations[0];
+          if (
+            invocation?.invocationId !== identity.mcpInvocationId ||
+            invocation.serverId !== input.serverId ||
+            invocation.toolName !== input.toolName ||
+            invocation.status !== 'succeeded' ||
+            invocation.executionMode !== 'live' ||
+            invocation.arguments['resourceId'] !== input.resourceId
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_MCP_INVOCATION_NOT_EXACT',
+              'The recorded MCP invocation differs from the exact read-only authority.',
+            );
+          const toolResult = requireDeterministicToolResult(invocation.result);
+          if (canonicalJson(toolResult.structuredContent) !== canonicalJson(instance.result))
+            throw deterministicExecutionError(
+              'DETERMINISTIC_RESULT_LINEAGE_INVALID',
+              'Workflow output differs from the recorded MCP result.',
+            );
+          if (!isRecord(instance.result) || instance.result['resourceId'] !== input.resourceId)
+            throw deterministicExecutionError(
+              'DETERMINISTIC_RESOURCE_IDENTITY_INVALID',
+              'Structured output does not preserve the admitted public resource identity.',
+            );
+          assertNoHomeAssistantEntityId(instance.result);
+
+          const matchedEvidence = matchSkillEvidence({
+            requirements: preparedUsage.policy.evidenceRequirements,
+            result: toolResult,
+          });
+          if (
+            matchedEvidence.matches.some(
+              (match) => (match.required || match.hardGate) && !match.satisfied,
+            )
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_PROVIDER_EVIDENCE_REQUIRED',
+              'Required Provider evidence did not satisfy the governed Skill policy.',
+            );
+          await lease.runFencedProjection(async () => {
+            await recordDeterministicSkillEvidenceAndReferences({
+              workflowPlanId: plan.planId,
+              providerId: input.providerId,
+              providerBindingId: input.mcpProviderBindingId,
+              serverId: input.serverId,
+              capabilityBindingId: input.capabilityBindingId,
+              capabilityBindingVersion: input.capabilityBindingVersion,
+              capabilityId: input.capabilityId,
+              capabilityVersion: input.capabilityVersion,
+              resourceId: input.resourceId,
+              invocationId: invocation.invocationId,
+              workflowInstanceId: instance.instanceId,
+              evidence: matchedEvidence.matches,
+            });
+            await service.recordResult(
+              input.taskId,
+              {
+                text: 'Schema-valid governed read-only Provider state returned.',
+                structured: instance.result,
+                outputSchema: skill.outputSchema,
+              },
+              resultProcessor,
+            );
+            await skillExecutionRecording.recordStatus({
+              workflowPlanId: plan.planId,
+              eventType: 'skill.execution_completed',
+              status: 'completed',
+              summary: 'Deterministic governed read-only Workflow execution completed.',
+              details: {
+                workflowInstanceId: instance.instanceId,
+                mcpInvocationId: invocation.invocationId,
+              },
+            });
+          });
+          const response = deterministicCapabilityExecutionResponse(
+            input,
+            instance,
+            invocation.invocationId,
+            matchedEvidence.matches,
+          );
+          assertNoHomeAssistantEntityId(response);
+          return response;
+        } catch (error: unknown) {
+          const leaseLost =
+            lease.signal.aborted ||
+            runtimeErrorCode(error) === 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST';
+          const providerDispatchIndeterminate = lease.executionPhase() === 'provider_dispatch';
+          const failedPlanId = workflowPlanId;
+          if (
+            !leaseLost &&
+            !providerDispatchIndeterminate &&
+            (failedPlanId !== undefined || acceptedTask)
+          ) {
+            try {
+              await lease.runFencedProjection(async () => {
+                if (failedPlanId !== undefined)
+                  await recordSkillProjectionSafely(() =>
+                    skillExecutionRecording.recordStatus({
+                      workflowPlanId: failedPlanId,
+                      eventType: 'skill.execution_failed',
+                      status: 'failed',
+                      summary: 'Deterministic governed read-only Workflow execution failed.',
+                      details: { errorCode: runtimeErrorCode(error) },
+                    }),
+                  );
+                if (acceptedTask)
+                  await service.fail(
+                    input.taskId,
+                    runtimeErrorCode(error),
+                    'Deterministic governed read-only execution failed closed.',
+                  );
+              });
+            } catch {
+              // Preserve the authoritative execution error if failure projection is unavailable.
+            }
+          }
+          throw error;
+        }
+      });
+    },
+    reconcile(input, lease) {
+      return deterministicCapabilityRecovery.reconcile(input, lease);
+    },
+  };
   let management: ManagementHttpEndpointHandle | undefined;
   try {
     const startedManagement = await startManagementHttpEndpoint({
@@ -4813,6 +5464,18 @@ export async function startServerRuntime(
               options.cognitiveManagementBearerToken,
             ),
           }),
+      ...(options.cognitiveManagementBearerToken === undefined ||
+      options.currentMcpProviderBindingAuthorityReader === undefined
+        ? {}
+        : {
+            deterministicCapabilityExecution: {
+              operation: deterministicCapabilityExecutions,
+              authorizer: new BearerCognitiveManagementAuthorizer(
+                options.cognitiveManagementBearerToken,
+              ),
+              actions: cognitiveManagementActions,
+            },
+          }),
       ...(artifactManagement === undefined ? {} : { artifactManagement }),
       ...(options.runtimeControlServiceToken === undefined
         ? {}
@@ -4832,8 +5495,16 @@ export async function startServerRuntime(
           }),
     });
     management = startedManagement;
+    const foregroundAwareTasks = {
+      submit: (command: Parameters<typeof service.submit>[0]) =>
+        foregroundActivity.run(() => service.submit(command)),
+      get: service.get.bind(service),
+      followUp: (command: Parameters<typeof service.followUp>[0]) =>
+        foregroundActivity.run(() => service.followUp(command)),
+      cancel: (taskId: string) => foregroundActivity.run(() => service.cancel(taskId)),
+    };
     const taskExecutor = new TaskServiceAgentExecutor({
-      tasks: service,
+      tasks: foregroundAwareTasks,
       notifier: taskStateNotifier,
       interaction: interactiveGoalMetadata,
       ...(options.a2aWaitTimeoutMs === undefined
@@ -4849,7 +5520,9 @@ export async function startServerRuntime(
         new PostgresExternalTaskProjectionRepository(pool),
         tasks,
         async (taskId) => {
-          if ((await service.get(taskId)).phase !== 'canceled') await service.cancel(taskId);
+          if ((await service.get(taskId)).phase !== 'canceled') {
+            await foregroundAwareTasks.cancel(taskId);
+          }
         },
         interactiveGoalMetadata,
       ),
@@ -5099,6 +5772,192 @@ function conservativeSkillUsageSelectionContext() {
       allowedModes: Object.freeze(['guidance', 'template', 'procedure'] as const),
       requireProcedureForHighRisk: true,
       allowGuidanceWithIncompleteContext: true,
+    }),
+  });
+}
+
+function requireHomeLabReadOnlyExecutionContract(input: DeterministicCapabilityExecutionInput) {
+  if (input.idempotencyKey !== input.taskId)
+    throw deterministicExecutionError(
+      'DETERMINISTIC_IDEMPOTENCY_IDENTITY_MISMATCH',
+      'Idempotency-Key must equal the deterministic Task ID.',
+    );
+  assertNoHomeAssistantEntityId(input);
+  const contract = Object.entries(HOME_LAB_READ_ONLY_EXECUTION_CONTRACTS).find(
+    ([capabilityId]) => capabilityId === input.capabilityId,
+  )?.[1];
+  if (
+    input.capabilityVersion !== contract?.capabilityVersion ||
+    input.capabilityBindingId !== contract.capabilityBindingId ||
+    input.capabilityBindingVersion !== contract.capabilityBindingVersion ||
+    input.skillId !== contract.skillId ||
+    input.skillVersion !== contract.skillVersion ||
+    input.mcpProviderBindingId !== contract.mcpProviderBindingId ||
+    input.toolName !== contract.toolName ||
+    input.resourceId !== contract.resourceId
+  )
+    throw deterministicExecutionError(
+      'DETERMINISTIC_READ_ONLY_CONTRACT_NOT_EXACT',
+      'Execution authority does not match one supported home-lab read-only contract.',
+    );
+  return contract;
+}
+
+function assertDeterministicReadOnlySkill(
+  skill: SkillVersion,
+  input: DeterministicCapabilityExecutionInput,
+  evidenceType: string,
+): void {
+  const usage = skill.usageSpecification;
+  const requiredTool = skill.toolPolicy.required[0];
+  const taskBinding = usage?.taskBindings[0];
+  const sideEffectPolicy = skill.outcomeSpecification?.sideEffectPolicy;
+  const requiredEvidence = usage?.evidencePolicy.requirements.filter(
+    (requirement) => requirement.required || requirement.hardGate,
+  );
+  if (
+    skill.capabilities.length !== 1 ||
+    skill.capabilities[0] !== input.capabilityId ||
+    requiredTool?.serverId !== input.serverId ||
+    requiredTool.toolName !== input.toolName ||
+    skill.toolPolicy.required.length !== 1 ||
+    skill.toolPolicy.optional.length !== 0 ||
+    skill.runtimePolicy.maxLlmCalls !== 0 ||
+    skill.runtimePolicy.maxMcpCalls !== 1 ||
+    !isRecord(sideEffectPolicy) ||
+    sideEffectPolicy['sideEffecting'] !== false ||
+    usage?.modes.supported.length !== 1 ||
+    usage.modes.supported[0] !== 'procedure' ||
+    usage.modes.defaultMode !== 'procedure' ||
+    taskBinding?.taskType !== input.toolName ||
+    taskBinding.providerPolicy.selection !== 'required' ||
+    taskBinding.providerPolicy.requiredProviderId !== input.serverId ||
+    !taskBinding.providerPolicy.requiredAttributes.includes('task_behavior:synchronous_only') ||
+    usage.taskBindings.length !== 1 ||
+    !usage.evidencePolicy.rejectSuccessWithoutRequiredEvidence ||
+    requiredEvidence?.length !== 1 ||
+    requiredEvidence[0]?.evidenceType !== evidenceType ||
+    !requiredEvidence[0].hardGate
+  )
+    throw deterministicExecutionError(
+      'DETERMINISTIC_READ_ONLY_SKILL_POLICY_INVALID',
+      'The exact Skill does not preserve the closed read-only procedure contract.',
+    );
+}
+
+function assertDeterministicUsageCandidate(
+  candidate: SkillUsageCandidateSnapshot | undefined,
+  input: DeterministicCapabilityExecutionInput,
+): asserts candidate is SkillUsageCandidateSnapshot &
+  Readonly<{
+    modeDecision: Extract<SkillUsageCandidateSnapshot['modeDecision'], { decision: 'selected' }>;
+  }> {
+  const binding = candidate?.applicability.readiness.bindings[0];
+  const selectedProvider = binding?.candidates?.find((provider) => provider.selected);
+  if (
+    candidate?.skillId !== input.skillId ||
+    candidate.skillVersion !== input.skillVersion ||
+    candidate.applicability.status !== 'satisfied' ||
+    candidate.applicability.readiness.overall !== 'ready' ||
+    candidate.modeDecision.decision !== 'selected' ||
+    candidate.modeDecision.mode !== 'procedure' ||
+    !candidate.modeDecision.confirmationSatisfied ||
+    candidate.applicability.readiness.bindings.length !== 1 ||
+    binding?.selectedProviderId !== input.serverId ||
+    binding.selectedOperationName !== input.toolName ||
+    selectedProvider?.providerId !== input.serverId ||
+    selectedProvider.operationName !== input.toolName ||
+    !selectedProvider.attributes.includes('task_behavior:synchronous_only')
+  )
+    throw deterministicExecutionError(
+      'DETERMINISTIC_SKILL_USAGE_NOT_READY',
+      'Exact Skill procedure applicability or synchronous Provider readiness is not satisfied.',
+    );
+}
+
+async function currentTaskProviderBindingContext(
+  task: AgentTask,
+  localServerId: string,
+  taskCapabilities: Pick<RuntimeTaskCapabilityService, 'resolveCurrentProviderBindingId'>,
+): Promise<Readonly<{ providerBindingId: string; providerId?: string }> | undefined> {
+  const deterministic = task.requestMetadata['io.sdar/deterministicCapabilityExecution'];
+  if (isRecord(deterministic)) {
+    const bindingId = deterministic['mcpProviderBindingId'];
+    const providerId = deterministic['providerId'];
+    const serverId = deterministic['serverId'];
+    if (
+      typeof bindingId !== 'string' ||
+      bindingId.trim() === '' ||
+      typeof providerId !== 'string' ||
+      providerId.trim() === '' ||
+      serverId !== localServerId
+    )
+      throw new Error('TASK_MCP_PROVIDER_BINDING_CONTEXT_INVALID');
+    return Object.freeze({ providerBindingId: bindingId, providerId });
+  }
+  const providerBindingId = await taskCapabilities.resolveCurrentProviderBindingId(
+    task.taskId,
+    localServerId,
+  );
+  return providerBindingId === undefined ? undefined : Object.freeze({ providerBindingId });
+}
+
+async function requireDeterministicProviderBindingAuthority(
+  input: DeterministicCapabilityExecutionInput,
+  reader: CurrentMcpProviderBindingAuthorityReader | undefined,
+): Promise<CurrentMcpProviderBindingAuthoritySnapshot> {
+  if (reader === undefined)
+    throw deterministicExecutionError(
+      'DETERMINISTIC_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE',
+      'Current Node Control MCP Provider Binding authority is required.',
+    );
+  try {
+    const authority = await reader.loadCurrentMcpProviderBinding({
+      bindingId: input.mcpProviderBindingId,
+      localServerId: input.serverId,
+    });
+    if (
+      authority.binding.bindingId !== input.mcpProviderBindingId ||
+      authority.binding.localServerId !== input.serverId ||
+      authority.binding.providerId !== input.providerId ||
+      Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(authority.observedAt)
+    )
+      throw new Error('MCP_PROVIDER_BINDING_NOT_CURRENT');
+    return authority;
+  } catch {
+    throw deterministicExecutionError(
+      'DETERMINISTIC_PROVIDER_BINDING_NOT_CURRENT',
+      'Current Node Control MCP Provider Binding authority does not match the request.',
+    );
+  }
+}
+
+function deterministicSkillUsageContext(
+  input: DeterministicCapabilityExecutionInput,
+  providerBinding: CurrentMcpProviderBindingAuthoritySnapshot,
+): SkillUsageSelectionContext {
+  return Object.freeze({
+    observations: Object.freeze([
+      Object.freeze({
+        requirementId: 'public-resource-id',
+        source: 'authoritative_context' as const,
+        status: 'available' as const,
+        evidenceRef: `public-resource:${input.resourceId}`,
+      }),
+      Object.freeze({
+        requirementId: 'provider-binding-freshness',
+        source: 'authoritative_context' as const,
+        status: 'available' as const,
+        evidenceRef: `node-control-provider-binding:${providerBinding.binding.bindingId}:revision:${String(providerBinding.binding.revision)}:observed-at:${providerBinding.observedAt}`,
+      }),
+    ]),
+    risk: 'low' as const,
+    humanConfirmation: 'confirmed' as const,
+    systemPolicy: Object.freeze({
+      allowedModes: Object.freeze(['procedure'] as const),
+      preferredMode: 'procedure' as const,
+      requireProcedureForHighRisk: true,
+      allowGuidanceWithIncompleteContext: false,
     }),
   });
 }

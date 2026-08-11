@@ -176,4 +176,20 @@ describe('server environment', () => {
       SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
     });
   });
+
+  it('accepts only a bounded whitespace-free dedicated cognitive bearer', () => {
+    const masterKey = randomBytes(32).toString('base64');
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: 'c'.repeat(32),
+      }),
+    ).toMatchObject({ SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: 'c'.repeat(32) });
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: `${'c'.repeat(32)} `,
+      }),
+    ).toThrow('must not contain whitespace');
+  });
 });

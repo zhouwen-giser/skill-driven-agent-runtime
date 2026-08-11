@@ -43,7 +43,12 @@ const EnvironmentSchema = z
     SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
     SDAR_NODE_CONTROL_BASE_URL: z.url().optional(),
     SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
-    SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z.string().min(32).optional(),
+    SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z
+      .string()
+      .min(32)
+      .max(4_096)
+      .regex(/^\S+$/u, 'Cognitive management bearer token must not contain whitespace.')
+      .optional(),
     SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: z
       .string()
       .min(32)

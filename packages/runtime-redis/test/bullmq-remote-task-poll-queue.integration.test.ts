@@ -8,7 +8,10 @@ import {
   type RedisConnectionConfig,
 } from '../src/index.js';
 
-const connection: RedisConnectionConfig = { host: '127.0.0.1', port: 56379 };
+const connection: RedisConnectionConfig = {
+  host: '127.0.0.1',
+  port: Number(process.env['SDAR_REDIS_PORT'] ?? '56379'),
+};
 const resources: { close(): Promise<void> }[] = [];
 
 afterEach(async () => {

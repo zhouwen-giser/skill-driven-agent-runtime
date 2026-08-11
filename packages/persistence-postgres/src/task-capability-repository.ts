@@ -349,6 +349,7 @@ function mapResolution(
   policies: Readonly<{
     implementations: readonly Readonly<Record<string, unknown>>[];
     providerBindingRefs: readonly string[];
+    providerBindingRequirements: readonly Readonly<{ bindingId: string; localServerId: string }>[];
   }>,
 ): RuntimeCapabilityResolution {
   const definition = record(row.evaluation_input['definition']);
@@ -377,6 +378,7 @@ function mapResolution(
     constraints: records(definition['constraints'] ?? []),
     implementationRefs: Object.freeze(implementationRefs),
     providerBindingRefs: policies.providerBindingRefs,
+    providerBindingRequirements: policies.providerBindingRequirements,
     providerPolicySnapshot: Object.freeze({
       catalogHash: row.catalog_hash,
       policyHash: row.policy_hash,
@@ -393,6 +395,7 @@ async function snapshotImplementationPolicies(
   Readonly<{
     implementations: readonly Readonly<Record<string, unknown>>[];
     providerBindingRefs: readonly string[];
+    providerBindingRequirements: readonly Readonly<{ bindingId: string; localServerId: string }>[];
   }>
 > {
   const available = new Set(row.available_implementations);
@@ -400,13 +403,24 @@ async function snapshotImplementationPolicies(
     (binding) => typeof binding['bindingId'] === 'string' && available.has(binding['bindingId']),
   );
   const implementations: Readonly<Record<string, unknown>>[] = [];
-  const providerBindingRefs = new Set<string>();
+  const providerBindingRequirements = new Map<
+    string,
+    Readonly<{ bindingId: string; localServerId: string }>
+  >();
   for (const binding of bindings) {
     const bindingId = text(binding['bindingId'], 'bindingId');
     const implementationType = text(binding['implementationType'], 'implementationType');
     const implementationId = text(binding['implementationId'], 'implementationId');
     const implementationVersion = text(binding['implementationVersion'], 'implementationVersion');
     const implementationRef = `${implementationType}:${implementationId}:${implementationVersion}`;
+    const providerBindingRequirement = exactProviderBindingRequirement(
+      binding['providerPolicyOverride'],
+    );
+    if (providerBindingRequirement !== undefined)
+      providerBindingRequirements.set(
+        providerBindingRequirement.bindingId,
+        providerBindingRequirement,
+      );
     if (implementationType === 'skill') {
       const result = await pool.query<SkillPolicyRow>(
         `SELECT tool_policy_json AS tool_policy,runtime_policy_json AS runtime_policy
@@ -415,13 +429,13 @@ async function snapshotImplementationPolicies(
       );
       const policy = result.rows[0];
       if (policy === undefined) throw new Error('TASK_CAPABILITY_POLICY_SNAPSHOT_UNAVAILABLE');
-      collectProviderBindingRefs(policy.tool_policy, providerBindingRefs);
       implementations.push(
         Object.freeze({
           bindingId,
           implementationRef,
           toolPolicy: structuredClone(policy.tool_policy),
           runtimePolicy: structuredClone(policy.runtime_policy),
+          ...(providerBindingRequirement === undefined ? {} : { providerBindingRequirement }),
         }),
       );
       continue;
@@ -445,20 +459,49 @@ async function snapshotImplementationPolicies(
   }
   return Object.freeze({
     implementations: Object.freeze(implementations),
-    providerBindingRefs: Object.freeze([...providerBindingRefs].sort()),
+    providerBindingRefs: Object.freeze([...providerBindingRequirements.keys()].sort()),
+    providerBindingRequirements: Object.freeze(
+      [...providerBindingRequirements.values()].sort((left, right) =>
+        left.bindingId.localeCompare(right.bindingId),
+      ),
+    ),
   });
 }
 
-function collectProviderBindingRefs(policy: unknown, target: Set<string>): void {
-  const value = record(policy);
-  for (const reference of [
-    ...records(value['required'] ?? []),
-    ...records(value['optional'] ?? []),
-  ]) {
-    target.add(
-      `mcp-tool:${text(reference['serverId'], 'serverId')}:${text(reference['toolName'], 'toolName')}`,
-    );
-  }
+function exactProviderBindingRequirement(
+  value: unknown,
+): Readonly<{ bindingId: string; localServerId: string }> | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || Array.isArray(value))
+    throw new Error('TASK_CAPABILITY_PROVIDER_BINDING_POLICY_INVALID');
+  const policy = value as Readonly<Record<string, unknown>>;
+  const declaresProviderBinding = [
+    'selection',
+    'mcpProviderBindingId',
+    'localServerId',
+    'mcpToolName',
+    'requireActive',
+    'requireAvailable',
+    'requireUnexpiredFreshness',
+    'denyFallback',
+  ].some((key) => Object.hasOwn(policy, key));
+  if (!declaresProviderBinding) return undefined;
+  if (
+    policy['selection'] !== 'required' ||
+    typeof policy['mcpProviderBindingId'] !== 'string' ||
+    policy['mcpProviderBindingId'].trim() === '' ||
+    typeof policy['localServerId'] !== 'string' ||
+    policy['localServerId'].trim() === '' ||
+    policy['requireActive'] !== true ||
+    policy['requireAvailable'] !== true ||
+    policy['requireUnexpiredFreshness'] !== true ||
+    policy['denyFallback'] !== true
+  )
+    throw new Error('TASK_CAPABILITY_PROVIDER_BINDING_POLICY_INVALID');
+  return Object.freeze({
+    bindingId: policy['mcpProviderBindingId'],
+    localServerId: policy['localServerId'],
+  });
 }
 
 function mapBinding(row: BindingRow): TaskCapabilityBinding {

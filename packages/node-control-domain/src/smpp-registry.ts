@@ -19,6 +19,7 @@ export interface SmppRegistrySource {
   readonly status: SmppSourceStatus;
   readonly activeSnapshotRevision?: number;
   readonly activeSnapshotChecksum?: string;
+  readonly activeSnapshotValidUntil?: string;
   readonly lastSyncAt?: string;
   readonly lastErrorCode?: string;
   readonly revision: number;
@@ -40,6 +41,9 @@ export interface SmppProviderCandidateDirectoryEntry extends SmppProviderCandida
   readonly registryChecksum: string;
   readonly registryEtag: string;
   readonly registryValidUntil: string;
+  readonly nativeRegistryRevision?: number;
+  readonly nativeRegistryChecksum?: string;
+  readonly registryProjectionContract?: 'sdar-registry-v1';
 }
 
 export interface SmppRegistrySnapshot {
@@ -93,8 +97,18 @@ export function rehydrateSmppRegistrySource(input: SmppRegistrySource): SmppRegi
       sourceInvalid,
     );
   if (input.activeSnapshotChecksum !== undefined) checksum(input.activeSnapshotChecksum);
-  if ((input.activeSnapshotRevision === undefined) !== (input.activeSnapshotChecksum === undefined))
-    sourceInvalid('active Snapshot revision and checksum must be present together.');
+  if (input.activeSnapshotValidUntil !== undefined)
+    timestamp(input.activeSnapshotValidUntil, 'activeSnapshotValidUntil', sourceInvalid);
+  const activePointerFields = [
+    input.activeSnapshotRevision,
+    input.activeSnapshotChecksum,
+    input.activeSnapshotValidUntil,
+  ];
+  if (
+    activePointerFields.some((field) => field === undefined) &&
+    activePointerFields.some((field) => field !== undefined)
+  )
+    sourceInvalid('active Snapshot revision, checksum, and validUntil must be present together.');
   if (input.lastSyncAt !== undefined) timestamp(input.lastSyncAt, 'lastSyncAt', sourceInvalid);
   const lastErrorCode = optional(input.lastErrorCode, 'lastErrorCode');
   return Object.freeze({
@@ -105,6 +119,7 @@ export function rehydrateSmppRegistrySource(input: SmppRegistrySource): SmppRegi
       : {
           activeSnapshotRevision: input.activeSnapshotRevision,
           activeSnapshotChecksum: input.activeSnapshotChecksum,
+          activeSnapshotValidUntil: input.activeSnapshotValidUntil,
         }),
     ...(input.lastSyncAt === undefined ? {} : { lastSyncAt: input.lastSyncAt }),
     ...(lastErrorCode === undefined ? {} : { lastErrorCode }),
@@ -199,10 +214,29 @@ export function effectiveSmppSnapshotValidUntil(
   return new Date(Math.min(localExpiry, Date.parse(snapshot.expiresAt))).toISOString();
 }
 
+export function effectiveSmppRevalidatedValidUntil(
+  source: SmppRegistrySource,
+  externalExpiresAt: string,
+  receivedAt: string,
+): string {
+  timestamp(externalExpiresAt, 'externalExpiresAt', snapshotInvalid);
+  timestamp(receivedAt, 'receivedAt', snapshotInvalid);
+  const localExpiry = Date.parse(receivedAt) + source.snapshotTtlSeconds * 1_000;
+  return new Date(Math.min(localExpiry, Date.parse(externalExpiresAt))).toISOString();
+}
+
 export function smppSourceEtag(source: SmppRegistrySource): string {
-  return `"smpp-source:${source.smppSourceId}:${String(source.revision)}:${source.status}:${
-    source.activeSnapshotChecksum ?? 'none'
-  }"`;
+  return `"smpp-source:${hashConfigurationRequest(
+    Object.freeze({
+      smppSourceId: source.smppSourceId,
+      revision: source.revision,
+      status: source.status,
+      activeSnapshotChecksum: source.activeSnapshotChecksum ?? null,
+      activeSnapshotValidUntil: source.activeSnapshotValidUntil ?? null,
+      lastSyncAt: source.lastSyncAt ?? null,
+      lastErrorCode: source.lastErrorCode ?? null,
+    }),
+  )}"`;
 }
 
 function normalizeCandidate(sourceId: string, input: SmppProviderCandidate): SmppProviderCandidate {

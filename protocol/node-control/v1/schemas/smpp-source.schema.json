@@ -70,6 +70,10 @@
     "activeSnapshotChecksum": {
       "type": "string"
     },
+    "activeSnapshotValidUntil": {
+      "type": "string",
+      "format": "date-time"
+    },
     "lastSyncAt": {
       "type": "string",
       "format": "date-time"

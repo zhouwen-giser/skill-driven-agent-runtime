@@ -328,10 +328,16 @@ describe('PostgreSQL protocol-domain repositories', () => {
       reason: 'Reviewed evidence passed.',
       requestHash: `sha256:${'a'.repeat(64)}`,
       claimedAt: '2026-07-26T10:00:00.000Z',
+      leaseOwner: 'runtime-owner-1',
+      leaseToken: 'lease-token-1',
+      leaseDurationMs: 60_000,
     };
-    await expect(repository.claim(claim)).resolves.toEqual({ disposition: 'claimed' });
+    const claimed = await repository.claim(claim);
+    expect(claimed).toMatchObject({ disposition: 'claimed', lease: { attempt: 1 } });
+    if (claimed.disposition !== 'claimed') throw new Error('ACTION_LEASE_NOT_CLAIMED');
+    const started = await repository.startExecution(claimed.lease);
     await repository.complete(
-      claim.actionId,
+      started,
       { knowledgeId: 'heuristic-1', version: 3 },
       '2026-07-26T10:00:01.000Z',
     );
@@ -346,6 +352,255 @@ describe('PostgreSQL protocol-domain repositories', () => {
         requestHash: `sha256:${'b'.repeat(64)}`,
       }),
     ).resolves.toEqual({ disposition: 'conflict' });
+  });
+
+  it('persists deterministic Capability execution actions for restart-safe replay', async () => {
+    const repository = new PostgresCognitiveManagementActionRepository(pool);
+    const claim = {
+      actionId: 'cognitive-management-deterministic-capability-1',
+      operation: 'deterministic_capability_execution' as const,
+      subjectId: 'deterministic-capability-execution',
+      expectedVersion: 1,
+      idempotencyKey: 'task-home-lab-read-db-1',
+      actorId: 'sdar-deterministic-capability-execution',
+      reason: 'Execute the exact admitted deterministic Capability contract.',
+      requestHash: `sha256:${'c'.repeat(64)}`,
+      claimedAt: '2026-08-11T00:00:00.000Z',
+      leaseOwner: 'runtime-owner-deterministic-1',
+      leaseToken: 'lease-token-deterministic-1',
+      leaseDurationMs: 60_000,
+    };
+    const claimed = await repository.claim(claim);
+    expect(claimed).toMatchObject({ disposition: 'claimed', lease: { attempt: 1 } });
+    if (claimed.disposition !== 'claimed') throw new Error('ACTION_LEASE_NOT_CLAIMED');
+    const started = await repository.startExecution(claimed.lease);
+    await repository.complete(
+      started,
+      { status: 'succeeded', taskId: 'task-home-lab-read-db-1' },
+      '2026-08-11T00:00:01.000Z',
+    );
+
+    const restartedRepository = new PostgresCognitiveManagementActionRepository(pool);
+    await expect(restartedRepository.claim(claim)).resolves.toEqual({
+      disposition: 'completed',
+      result: { status: 'succeeded', taskId: 'task-home-lab-read-db-1' },
+    });
+    await expect(
+      restartedRepository.claim({
+        ...claim,
+        actionId: 'cognitive-management-deterministic-capability-2',
+        requestHash: `sha256:${'d'.repeat(64)}`,
+      }),
+    ).resolves.toEqual({ disposition: 'conflict' });
+  });
+
+  it('atomically takes over expired leases and fences every stale owner across dispatch', async () => {
+    const firstRepository = new PostgresCognitiveManagementActionRepository(pool);
+    const claim = {
+      actionId: 'cognitive-management-deterministic-lease-1',
+      operation: 'deterministic_capability_execution' as const,
+      subjectId: 'deterministic-capability-execution',
+      expectedVersion: 1,
+      idempotencyKey: 'task-home-lab-read-db-lease-1',
+      actorId: 'sdar-deterministic-capability-execution',
+      reason: 'Execute the exact admitted deterministic Capability contract.',
+      requestHash: `sha256:${'e'.repeat(64)}`,
+      claimedAt: '2026-08-11T00:00:00.000Z',
+      leaseOwner: 'runtime-owner-lease-1',
+      leaseToken: 'lease-token-lease-1',
+      leaseDurationMs: 60_000,
+    };
+    const firstClaim = await firstRepository.claim(claim);
+    if (firstClaim.disposition !== 'claimed') throw new Error('ACTION_LEASE_NOT_CLAIMED');
+    const firstStarted = await firstRepository.startExecution(firstClaim.lease);
+
+    await expect(
+      firstRepository.claim({
+        ...claim,
+        leaseOwner: 'runtime-owner-lease-concurrent',
+        leaseToken: 'lease-token-lease-concurrent',
+      }),
+    ).resolves.toEqual({ disposition: 'pending' });
+
+    await pool.query(
+      `UPDATE cognitive_management_action
+       SET lease_expires_at=clock_timestamp()-interval '1 second'
+       WHERE action_id=$1`,
+      [claim.actionId],
+    );
+    const restartedRepository = new PostgresCognitiveManagementActionRepository(pool);
+    const secondClaim = await restartedRepository.claim({
+      ...claim,
+      leaseOwner: 'runtime-owner-lease-2',
+      leaseToken: 'lease-token-lease-2',
+    });
+    expect(secondClaim).toMatchObject({
+      disposition: 'recovered',
+      lease: { attempt: 2, executionPhase: 'execution_started' },
+    });
+    if (secondClaim.disposition !== 'recovered') throw new Error('ACTION_LEASE_NOT_RECOVERED');
+
+    await expect(firstRepository.assertCurrentLease(firstStarted)).rejects.toThrow(
+      'COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT',
+    );
+    await expect(firstRepository.renewLease(firstStarted, 60_000)).rejects.toThrow(
+      'COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT',
+    );
+    await expect(
+      firstRepository.enterProviderDispatch(firstStarted, {
+        dispatchId: 'mcp-invocation-stale-owner',
+        dispatchHash: `sha256:${'f'.repeat(64)}`,
+      }),
+    ).rejects.toThrow('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+    await expect(
+      firstRepository.complete(firstStarted, { status: 'stale' }, '2026-08-11T00:00:01.000Z'),
+    ).rejects.toThrow('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+    await expect(
+      firstRepository.fail(firstStarted, 'STALE_OWNER', '2026-08-11T00:00:01.000Z'),
+    ).rejects.toThrow('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+
+    const dispatch = await restartedRepository.enterProviderDispatch(secondClaim.lease, {
+      dispatchId: 'mcp-invocation-deterministic-lease-1',
+      dispatchHash: `sha256:${'1'.repeat(64)}`,
+    });
+    expect(dispatch).toMatchObject({
+      attempt: 2,
+      executionPhase: 'provider_dispatch',
+      providerDispatchId: 'mcp-invocation-deterministic-lease-1',
+      providerDispatchHash: `sha256:${'1'.repeat(64)}`,
+    });
+    await expect(
+      restartedRepository.enterProviderDispatch(dispatch, {
+        dispatchId: 'mcp-invocation-deterministic-lease-duplicate',
+        dispatchHash: `sha256:${'2'.repeat(64)}`,
+      }),
+    ).rejects.toThrow('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+
+    await pool.query(
+      `UPDATE cognitive_management_action
+       SET lease_expires_at=clock_timestamp()-interval '1 second'
+       WHERE action_id=$1`,
+      [claim.actionId],
+    );
+    const thirdRepository = new PostgresCognitiveManagementActionRepository(pool);
+    const thirdClaim = await thirdRepository.claim({
+      ...claim,
+      leaseOwner: 'runtime-owner-lease-3',
+      leaseToken: 'lease-token-lease-3',
+    });
+    expect(thirdClaim).toMatchObject({
+      disposition: 'recovered',
+      lease: {
+        attempt: 3,
+        executionPhase: 'provider_dispatch',
+        providerDispatchId: 'mcp-invocation-deterministic-lease-1',
+        providerDispatchHash: `sha256:${'1'.repeat(64)}`,
+      },
+    });
+    if (thirdClaim.disposition !== 'recovered') throw new Error('ACTION_LEASE_NOT_RECOVERED');
+
+    await expect(restartedRepository.renewLease(dispatch, 60_000)).rejects.toThrow(
+      'COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT',
+    );
+    await expect(
+      restartedRepository.complete(dispatch, { status: 'stale' }, '2026-08-11T00:00:02.000Z'),
+    ).rejects.toThrow('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+    await expect(
+      restartedRepository.fail(dispatch, 'STALE_OWNER', '2026-08-11T00:00:02.000Z'),
+    ).rejects.toThrow('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+
+    await thirdRepository.complete(
+      thirdClaim.lease,
+      { status: 'succeeded', taskId: claim.idempotencyKey },
+      '2026-08-11T00:00:03.000Z',
+    );
+    await expect(thirdRepository.list()).resolves.toEqual([
+      expect.objectContaining({
+        actionId: claim.actionId,
+        status: 'completed',
+        leaseAttempt: 3,
+        executionPhase: 'terminal',
+        providerDispatchId: 'mcp-invocation-deterministic-lease-1',
+        providerDispatchHash: `sha256:${'1'.repeat(64)}`,
+      }),
+    ]);
+    await expect(
+      thirdRepository.claim({
+        ...claim,
+        requestHash: `sha256:${'3'.repeat(64)}`,
+      }),
+    ).resolves.toEqual({ disposition: 'conflict' });
+  });
+
+  it('holds the action row fence until a projection finishes before allowing lease takeover', async () => {
+    const firstRepository = new PostgresCognitiveManagementActionRepository(pool);
+    const claim = {
+      actionId: 'cognitive-management-projection-fence-1',
+      operation: 'deterministic_capability_execution' as const,
+      subjectId: 'deterministic-capability-execution',
+      expectedVersion: 1,
+      idempotencyKey: 'task-home-lab-projection-fence-1',
+      actorId: 'sdar-deterministic-capability-execution',
+      reason: 'Prove projection and takeover serialization.',
+      requestHash: `sha256:${'4'.repeat(64)}`,
+      claimedAt: '2026-08-11T00:00:00.000Z',
+      leaseOwner: 'runtime-owner-projection-1',
+      leaseToken: 'lease-token-projection-1',
+      leaseDurationMs: 50,
+    };
+    const firstClaim = await firstRepository.claim(claim);
+    if (firstClaim.disposition !== 'claimed') throw new Error('ACTION_LEASE_NOT_CLAIMED');
+    const firstStarted = await firstRepository.startExecution(firstClaim.lease);
+    const order: string[] = [];
+    let enterProjection: (() => void) | undefined;
+    let releaseProjection: (() => void) | undefined;
+    const projectionEntered = new Promise<void>((resolve) => {
+      enterProjection = resolve;
+    });
+    const projectionReleased = new Promise<void>((resolve) => {
+      releaseProjection = resolve;
+    });
+    const projection = firstRepository.runFencedProjection(firstStarted, async () => {
+      order.push('projection-entered');
+      enterProjection?.();
+      await projectionReleased;
+      order.push('projection-finished');
+    });
+
+    await projectionEntered;
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    const restartedRepository = new PostgresCognitiveManagementActionRepository(pool);
+    let takeoverSettled = false;
+    const takeover = restartedRepository
+      .claim({
+        ...claim,
+        leaseOwner: 'runtime-owner-projection-2',
+        leaseToken: 'lease-token-projection-2',
+        leaseDurationMs: 60_000,
+      })
+      .then((result) => {
+        takeoverSettled = true;
+        order.push('takeover-finished');
+        return result;
+      });
+    try {
+      await new Promise<void>((resolve) => setTimeout(resolve, 30));
+      expect(takeoverSettled).toBe(false);
+      expect(order).toEqual(['projection-entered']);
+    } finally {
+      releaseProjection?.();
+    }
+    await projection;
+    const recovered = await takeover;
+    expect(recovered).toMatchObject({
+      disposition: 'recovered',
+      lease: {
+        owner: 'runtime-owner-projection-2',
+        attempt: 2,
+        executionPhase: 'execution_started',
+      },
+    });
+    expect(order).toEqual(['projection-entered', 'projection-finished', 'takeover-finished']);
   });
 
   it('persists low-confidence feedback and finds the previous terminal Task', async () => {
@@ -4173,7 +4428,10 @@ describe('PostgreSQL protocol-domain repositories', () => {
     try {
       runtime = await startServerRuntime({
         postgresUrl: connectionString,
-        redis: { host: '127.0.0.1', port: 56379 },
+        redis: {
+          host: '127.0.0.1',
+          port: Number(process.env['SDAR_REDIS_PORT'] ?? '56379'),
+        },
         masterKeyBase64: randomBytes(32).toString('base64'),
         queueName: `p03-server-composition-${randomUUID()}`,
         applyMigrations: false,

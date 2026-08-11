@@ -11,6 +11,44 @@ import { SkillInputResolutionService, type JsonSchemaValidationResult } from '..
 const timestamp = '2026-07-16T00:00:00.000Z';
 
 describe('SkillInputResolutionService', () => {
+  it('persists exact schema-valid input without invoking the model', async () => {
+    const repository = new MemoryRepository();
+    const model = new DecisionModel(new Error('MODEL_MUST_NOT_BE_CALLED'));
+    const service = resolutionService(repository, model);
+
+    await expect(
+      service.resolveExact({
+        task: task(),
+        goal,
+        skill,
+        supplementaryInputs: [],
+        structuredInput: { deviceId: 'public-device-1' },
+        sourceRef: 'node-control:binding-1:resource:public-device-1',
+      }),
+    ).resolves.toMatchObject({
+      status: 'resolved',
+      structuredInput: { deviceId: 'public-device-1' },
+      sourceRefs: ['node-control:binding-1:resource:public-device-1'],
+    });
+    expect(model.calls).toHaveLength(0);
+  });
+
+  it('fails closed when exact deterministic input violates the Skill schema', async () => {
+    await expect(
+      resolutionService(
+        new MemoryRepository(),
+        new DecisionModel(new Error('MODEL_MUST_NOT_BE_CALLED')),
+      ).resolveExact({
+        task: task(),
+        goal,
+        skill,
+        supplementaryInputs: [],
+        structuredInput: { deviceId: 42 },
+        sourceRef: 'node-control:binding-1:resource:public-device-1',
+      }),
+    ).rejects.toMatchObject({ code: 'SKILL_INPUT_EXACT_SCHEMA_MISMATCH' });
+  });
+
   it('gives explicit A2A structured input precedence over conflicting model extraction', async () => {
     const repository = new MemoryRepository();
     const model = new DecisionModel({

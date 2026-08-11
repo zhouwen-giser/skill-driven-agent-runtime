@@ -307,8 +307,8 @@
     },
     {
       "path": "schemas/mcp-provider-binding.schema.json",
-      "size": 1509,
-      "sha256": "91dbf2f318b61db5cd74997b3a66d33395243a4b3c53323ed9de8af0128d8311"
+      "size": 1664,
+      "sha256": "3afe0532b62675eda9b054da5e5a3f3e3cc9760829d7da0d6f28dc2f38d30dd2"
     },
     {
       "path": "schemas/model-route.schema.json",
@@ -367,8 +367,8 @@
     },
     {
       "path": "schemas/smpp-source.schema.json",
-      "size": 1572,
-      "sha256": "676d7b13473bc8436d061878388852af9226b3a98b943c245d3df3501dca6d60"
+      "size": 1665,
+      "sha256": "ae31dd7441c7f8e52cdf3360d30ead7fcbbcfcc6c77e51b5cae9f12495710b0a"
     },
     {
       "path": "schemas/task-capability-binding.schema.json",

@@ -115,6 +115,44 @@ describe('TaskService', () => {
     ]);
   });
 
+  it('prepares an exact deterministic Task without enqueueing natural-language processing', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submitDeterministic({
+      taskId: 'task-deterministic',
+      contextId: 'context-deterministic',
+      messageText: 'deterministic:binding:resource',
+      metadata: {},
+    });
+    expect(harness.operations.some((operation) => operation.startsWith('queue:'))).toBe(false);
+    expect(harness.attempts.values().next().value).toMatchObject({ status: 'completed' });
+
+    const planning = await harness.service.prepareDeterministicExecution(submitted.task.taskId, {
+      goalId: 'goal-deterministic',
+      goalVersion: 1,
+      skillId: 'skill.read-state',
+      skillVersion: 1,
+      selectionId: 'selection-deterministic',
+    });
+    expect(planning).toMatchObject({
+      phase: 'planning',
+      goalId: 'goal-deterministic',
+      goalVersion: 1,
+      selectedSkillId: 'skill.read-state',
+      selectedSkillVersion: 1,
+      skillSelectionId: 'selection-deterministic',
+    });
+    const attached = await harness.service.attachPlan(planning.taskId, {
+      planId: 'plan-deterministic',
+      goalId: 'goal-deterministic',
+      goalVersion: 1,
+      skillInputResolutionId: 'resolution-deterministic',
+    });
+    expect(attached.skillInputResolutionId).toBe('resolution-deterministic');
+    await expect(
+      harness.service.beginDeterministicExecution(planning.taskId),
+    ).resolves.toMatchObject({ phase: 'executing', planId: 'plan-deterministic' });
+  });
+
   it('routes an explicit Capability request through the atomic acceptance store without generic Task writes', async () => {
     let acceptedTask: AgentTask | undefined;
     const taskCapabilities = new RuntimeTaskCapabilityService({

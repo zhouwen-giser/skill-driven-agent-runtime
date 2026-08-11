@@ -215,7 +215,30 @@ describe('P12 Artifact management policy', () => {
       },
       audit: new CognitiveManagementActionGate({
         repository: {
-          claim: () => Promise.resolve({ disposition: 'claimed' }),
+          claim: (input) =>
+            Promise.resolve({
+              disposition: 'claimed',
+              lease: {
+                actionId: input.actionId,
+                owner: input.leaseOwner,
+                attempt: 1,
+                token: input.leaseToken,
+                expiresAt: '2099-01-01T00:00:00.000Z',
+                executionPhase: 'claimed',
+              },
+            }),
+          renewLease: (lease) => Promise.resolve(lease),
+          assertCurrentLease: () => Promise.resolve(),
+          runFencedProjection: (_lease, projection) => projection(),
+          startExecution: (lease) =>
+            Promise.resolve({ ...lease, executionPhase: 'execution_started' }),
+          enterProviderDispatch: (lease, dispatch) =>
+            Promise.resolve({
+              ...lease,
+              executionPhase: 'provider_dispatch',
+              providerDispatchId: dispatch.dispatchId,
+              providerDispatchHash: dispatch.dispatchHash,
+            }),
           complete: () => Promise.resolve(),
           fail: () => Promise.resolve(),
           list: () => Promise.resolve([]),

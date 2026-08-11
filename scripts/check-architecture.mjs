@@ -103,6 +103,21 @@ for (const file of sourceFiles) {
 }
 
 async function assertNodeControlSeparation() {
+  const runtimeWriterFixture = await readFile(
+    'scripts/architecture-fixtures/runtime-control-reuses-runtime-write-repository.txt',
+    'utf8',
+  );
+  if (!referencesRuntimeWriteRepository(runtimeWriterFixture))
+    throw new Error('ARCH_RUNTIME_CONTROL_WRITE_REPOSITORY_GUARD_REGRESSION');
+
+  for (const file of await collectSourceFiles(
+    'packages/runtime-control-persistence-postgres/src',
+  )) {
+    const source = await readFile(file, 'utf8');
+    if (referencesRuntimeWriteRepository(source))
+      throw new Error(`ARCH_RUNTIME_CONTROL_REUSES_RUNTIME_WRITE_REPOSITORY: ${normalize(file)}`);
+  }
+
   const nodeControlFiles = [
     ...(await collectSourceFiles('packages/node-control-domain')),
     ...(await collectSourceFiles('packages/node-control-application')),
@@ -112,7 +127,10 @@ async function assertNodeControlSeparation() {
   ];
   for (const file of nodeControlFiles) {
     const source = await readFile(file, 'utf8');
-    if (source.includes('packages/persistence-postgres') || source.includes('../persistence-postgres'))
+    if (
+      source.includes('packages/persistence-postgres') ||
+      source.includes('../persistence-postgres')
+    )
       throw new Error(`ARCH_CONTROL_WRITES_RUNTIME_DATABASE: ${normalize(file)}`);
     if (source.includes('@langchain/langgraph'))
       throw new Error(`ARCH_CONTROL_SECOND_WORKFLOW_RUNTIME: ${normalize(file)}`);
@@ -132,6 +150,14 @@ async function assertNodeControlSeparation() {
     if (source.includes('node-control-persistence-postgres'))
       throw new Error(`ARCH_RUNTIME_WRITES_CONTROL_DATABASE: ${normalize(file)}`);
   }
+}
+
+function referencesRuntimeWriteRepository(source) {
+  return (
+    source.includes('packages/persistence-postgres') ||
+    source.includes('../persistence-postgres') ||
+    source.includes('PostgresMcpRegistryRepository')
+  );
 }
 
 process.stdout.write(

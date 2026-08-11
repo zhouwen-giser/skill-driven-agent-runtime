@@ -40,6 +40,29 @@ describe('WorkflowPlannerService', () => {
     });
     expect(repaired.attemptCount).toBe(2);
     expect(repairModel.calls[0]?.correctionErrors.join(' ')).toContain('WORKFLOW_SCHEMA_INVALID');
+
+    const closedRepository = new MemoryPlanRepository();
+    const closedModel = new SequenceModel([validDefinition()]);
+    await expect(
+      planner(closedRepository, closedModel).plan({
+        ...input(),
+        deterministicDefinition: { invalid: true } as unknown as WorkflowDefinition,
+        deterministicOnly: true,
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_PLANNING_FAILED' });
+    expect(closedModel.calls).toHaveLength(0);
+    expect(closedRepository.attempts).toHaveLength(1);
+    expect(closedRepository.plans.get('plan-1')).toMatchObject({ attemptCount: 1 });
+  });
+
+  it('requires a definition for deterministic-only planning before model or repository work', async () => {
+    const repository = new MemoryPlanRepository();
+    const model = new SequenceModel([validDefinition()]);
+    await expect(
+      planner(repository, model).plan({ ...input(), deterministicOnly: true }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_DETERMINISTIC_DEFINITION_REQUIRED' });
+    expect(model.calls).toHaveLength(0);
+    expect(repository.attempts).toHaveLength(0);
   });
 
   it('feeds structured validation errors back and saves every candidate', async () => {

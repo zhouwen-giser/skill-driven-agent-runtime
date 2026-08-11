@@ -6,7 +6,11 @@ import {
   type JsonValue,
   validateMcpCredentialRef,
 } from '../../node-control-domain/src/index.js';
-import { createMcpServer } from '../../domain/src/index.js';
+import {
+  createMcpServer,
+  deriveFrozenMcpCatalogAuthority,
+  frozenMcpCatalogDocument,
+} from '../../domain/src/index.js';
 import { FrozenV1RegistryAdapter } from './frozen-v1-registry.js';
 import { FrozenV1McpClient } from './frozen-v1-mcp-client.js';
 
@@ -53,38 +57,25 @@ export class NodeControlFrozenMcpCatalogClient implements NodeControlMcpCatalogC
       baselineSha256: FROZEN_BASELINE_SHA256,
       discoveredAt: input.observedAt,
     });
-    const catalogChecksum = hashConfigurationRequest(
-      JSON.parse(
-        JSON.stringify({
-          protocolVersion: discovered.snapshot.protocolVersion,
-          serverInfo: discovered.snapshot.serverInfo,
-          tools: [...discovered.tools]
-            .sort((left, right) => compareToolName(left.toolName, right.toolName))
-            .map((tool) =>
-              Object.freeze({
-                name: tool.toolName,
-                title: tool.title ?? null,
-                description: tool.description ?? null,
-                inputSchema: tool.inputSchema,
-                outputSchema: tool.outputSchema ?? null,
-                protocolMode: tool.protocolMode ?? null,
-                executionSemantics: tool.executionSemantics,
-                taskExecutionProfile: tool.taskExecutionProfile ?? null,
-              }),
-            ),
-        }),
-      ) as JsonValue,
+    const catalogAuthority = deriveFrozenMcpCatalogAuthority(
+      discovered.snapshot,
+      discovered.tools,
+      input.bindingRevision,
     );
-    const serverVersion = discovered.snapshot.serverInfo['version'];
+    const validatedChecksum = hashConfigurationRequest(
+      frozenMcpCatalogDocument(discovered.snapshot, discovered.tools) as JsonValue,
+    );
+    if (validatedChecksum !== catalogAuthority.catalogChecksum)
+      throw new Error('MCP_CATALOG_CANONICAL_AUTHORITY_MISMATCH');
     return Object.freeze({
-      catalogRevision: `${typeof serverVersion === 'string' ? serverVersion : 'unknown'}:${String(input.bindingRevision)}`,
-      catalogChecksum,
+      catalogRevision: catalogAuthority.catalogRevision,
+      catalogChecksum: catalogAuthority.catalogChecksum,
       availabilityStatus: 'available' as const,
       availabilityValidUntil:
         discovered.snapshot.validUntil ??
         new Date(Date.parse(input.observedAt) + 300_000).toISOString(),
       observedAt: input.observedAt,
-      operationCount: discovered.tools.length,
+      operationCount: catalogAuthority.operationCount,
     });
   }
 }
@@ -127,8 +118,4 @@ function denied(): never {
 
 function requestUrl(input: string | URL | Request): string {
   return input instanceof Request ? input.url : input.toString();
-}
-
-function compareToolName(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }
