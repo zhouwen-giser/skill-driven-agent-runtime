@@ -48,10 +48,11 @@ describe('PostgresRuntimeMcpCatalogAuthorityReader', () => {
                 effect: 'read_only',
                 execution: 'synchronous',
                 cancellation: 'unsupported',
-                idempotency: 'none',
+                idempotency: 'server_managed',
                 replay: 'allowed',
-                source: 'mcp_declared',
+                source: 'admin_override',
               },
+              declared_execution_semantics_json: null,
               task_execution_json: {
                 profileVersion: '1.0',
                 taskBehavior: 'synchronous_only',
@@ -77,7 +78,8 @@ describe('PostgresRuntimeMcpCatalogAuthorityReader', () => {
     } as unknown as Pool;
     const reader = new PostgresRuntimeMcpCatalogAuthorityReader(pool);
 
-    await expect(reader.loadCurrentAuthority('home-lab-light-mcp')).resolves.toMatchObject({
+    const authority = await reader.loadCurrentAuthority('home-lab-light-mcp');
+    expect(authority).toMatchObject({
       endpoint: 'https://provider.example.test/mcp',
       status: 'enabled',
       serverUpdatedAt: '2026-08-10T11:59:30.000Z',
@@ -86,9 +88,11 @@ describe('PostgresRuntimeMcpCatalogAuthorityReader', () => {
       snapshotToolRevision: 11,
       catalogRevision: '2.0.0:11',
       catalogChecksum: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      discoveredCatalogChecksum: expect.stringMatching(/^[a-f0-9]{64}$/u),
       operationCount: 1,
       toolNames: ['light_get_state'],
     });
+    expect(authority?.catalogChecksum).not.toBe(authority?.discoveredCatalogChecksum);
 
     const statements = query.mock.calls.map(([statement]) => statement);
     expect(statements[0]).toBe('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');

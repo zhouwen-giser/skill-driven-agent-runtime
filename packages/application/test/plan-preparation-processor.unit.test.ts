@@ -41,6 +41,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     }).process(initialJob);
     expect(tasks.value).toMatchObject({ phase: 'awaiting_plan_confirmation' });
     expect(tasks.goalFormulations).toBe(1);
+    expect(tasks.userGoalPlanningInputs[0]?.taskId).toBe('task-1');
   });
 
   it('stops denied P10 requests without entering cognitive fallback', async () => {
@@ -189,6 +190,9 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       phase: 'failed',
       phaseMessage: 'Task preparation failed with MODEL_INVOCATION_FAILED: configured model failed',
     });
+    expect(tasks.capabilityAttemptTransitions).toEqual([
+      { taskId: 'task-1', status: 'failed', timestamp },
+    ]);
   });
 
   it('reuses the active Goal for another Task in the same context', async () => {
@@ -292,6 +296,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       goalId: 'goal-1',
     });
     expect(tasks.formulationInputs[0]).toContain('device-17');
+    expect(tasks.userGoalPlanningInputs.at(-1)?.taskId).toBe('task-1');
   });
 
   it('requests missing top-level Skill input and replans with the resolved response', async () => {
@@ -496,7 +501,8 @@ function processorWith(
     },
     userGoalPlanning: {
       findReusablePlan: () => Promise.resolve(undefined),
-      plan: () => {
+      plan: (input) => {
+        tasks.userGoalPlanningInputs.push(input);
         tasks.userGoalRuntimeCalls.push('goal_planning');
         return Promise.resolve({ plan: { planId: 'user-goal-plan-1' } });
       },
@@ -627,6 +633,16 @@ function processorWith(
         return Promise.resolve();
       },
     },
+    taskCapabilities: {
+      markLatestAttempt: (taskId, status, transitionTimestamp) => {
+        tasks.capabilityAttemptTransitions.push({
+          taskId,
+          status,
+          timestamp: transitionTimestamp,
+        });
+        return Promise.resolve();
+      },
+    },
     requestTaskInput: (_taskId, question) => {
       if (tasks.value === undefined) throw new Error('TASK_NOT_FOUND');
       tasks.value = transitionTask(tasks.value, 'awaiting_user_input', question, timestamp);
@@ -723,7 +739,13 @@ class MemoryTasks {
   autoConfirm = false;
   useTemporarySkill = false;
   planningInput: unknown;
+  readonly userGoalPlanningInputs: Readonly<{ goal: unknown; taskId: string }>[] = [];
   readonly autoExecutions: { taskId: string; planId: string; executionInput: unknown }[] = [];
+  readonly capabilityAttemptTransitions: Readonly<{
+    taskId: string;
+    status: 'succeeded' | 'failed' | 'canceled';
+    timestamp: string;
+  }>[] = [];
   findById() {
     return Promise.resolve(this.value);
   }

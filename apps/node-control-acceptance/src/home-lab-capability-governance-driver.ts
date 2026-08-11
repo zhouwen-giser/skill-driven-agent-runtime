@@ -20,6 +20,9 @@ const SKILL_VERSION = 1;
 const MAIN_LIGHT_RESOURCE_ID = 'living-room-main-light';
 const AUX_LIGHT_RESOURCE_ID = 'living-room-aux-light';
 const CLIMATE_RESOURCE_ID = 'living-room-air-conditioner';
+const COMPOSITE_CAPABILITY_ID = 'home.living-room.read-state';
+const COMPOSITE_SKILL_ID = 'home.living-room.get-state';
+const COMPOSITE_TASK_TYPE = 'living_room_read_state';
 
 const PROVIDERS = Object.freeze({
   light: Object.freeze({
@@ -104,6 +107,17 @@ const GOVERNANCE_SPECS = Object.freeze([
   }),
 ]);
 
+const COMPOSITE_SPEC = Object.freeze({
+  capabilityId: COMPOSITE_CAPABILITY_ID,
+  skillId: COMPOSITE_SKILL_ID,
+  name: 'Read living-room light and climate state',
+  summary: 'Read the allowlisted living-room main light and climate state in one bounded Skill.',
+  riskLevel: 'low' as const,
+  sideEffecting: false,
+  effect: 'effect.home.living-room.state_read',
+  evidence: Object.freeze(['light.state.observation', 'climate.state.observation']),
+});
+
 type ProviderKind = keyof typeof PROVIDERS;
 type GovernanceSpec = (typeof GOVERNANCE_SPECS)[number];
 
@@ -133,9 +147,15 @@ export interface HomeLabCapabilityGovernanceReport {
     skillId: string;
     skillVersion: 1;
     taskType: string;
-    mcpToolName: string;
-    mcpProviderBindingId: string;
-    localServerId: string;
+    mcpToolName?: string;
+    mcpProviderBindingId?: string;
+    localServerId?: string;
+    mcpTools: readonly Readonly<{
+      mcpToolName: string;
+      mcpProviderBindingId: string;
+      localServerId: string;
+    }>[];
+    maxMcpCalls: 1 | 2;
     packageChecksum: string;
     action: 'imported' | 'reconciled';
     status: 'published';
@@ -147,7 +167,12 @@ export interface HomeLabCapabilityGovernanceReport {
     implementationBindingId: string;
     skillId: string;
     skillVersion: 1;
-    mcpProviderBindingId: string;
+    mcpProviderBindingId?: string;
+    providerBindings: readonly Readonly<{
+      mcpProviderBindingId: string;
+      localServerId: string;
+      mcpToolName: string;
+    }>[];
     allowedResourceIds: readonly string[];
     riskLevel: 'low' | 'high';
     confirmation: 'not_required' | 'required';
@@ -317,7 +342,8 @@ interface HomeLabPreflightPolicy {
   readonly allResourceIds: readonly string[];
 }
 
-interface PreparedGovernance {
+interface PreparedSingleGovernance {
+  readonly kind: 'single';
   readonly spec: GovernanceSpec;
   readonly binding: Binding;
   readonly tool: Tool;
@@ -330,6 +356,23 @@ interface PreparedGovernance {
   readonly existingCapability?: NodeCapabilityDefinitionVersion;
   readonly existingImplementation?: CapabilityImplementationBinding;
 }
+
+interface PreparedCompositeGovernance {
+  readonly kind: 'composite';
+  readonly spec: typeof COMPOSITE_SPEC;
+  readonly bindings: readonly [Binding, Binding];
+  readonly tools: readonly [Tool, Tool];
+  readonly allowedResourceIds: readonly [typeof MAIN_LIGHT_RESOURCE_ID, typeof CLIMATE_RESOURCE_ID];
+  readonly skill: Readonly<Record<string, unknown>>;
+  readonly usage: Readonly<Record<string, unknown>>;
+  readonly capability: NodeCapabilityDefinitionVersion;
+  readonly implementation: CapabilityImplementationBinding;
+  readonly existingRuntimeSkill?: z.infer<typeof RuntimeSkillSchema>;
+  readonly existingCapability?: NodeCapabilityDefinitionVersion;
+  readonly existingImplementation?: CapabilityImplementationBinding;
+}
+
+type PreparedGovernance = PreparedSingleGovernance | PreparedCompositeGovernance;
 
 export async function governHomeLabCapabilities(
   input: HomeLabCapabilityGovernanceConfiguration,
@@ -392,6 +435,7 @@ export async function governHomeLabCapabilities(
     }
     prepared.push(
       Object.freeze({
+        kind: 'single' as const,
         spec,
         binding,
         tool,
@@ -406,6 +450,110 @@ export async function governHomeLabCapabilities(
       }),
     );
   }
+
+  const lightBinding = bindings.get('light');
+  const climateBinding = bindings.get('climate');
+  const lightTool = tools.get('light:light_get_state');
+  const climateTool = tools.get('climate:climate_get_state');
+  if (
+    lightBinding === undefined ||
+    climateBinding === undefined ||
+    lightTool === undefined ||
+    climateTool === undefined
+  )
+    fail('GOVERNANCE_DEPENDENCY_MISSING', 'A composite governance dependency is missing.');
+  const compositeSkillContract = buildCompositeSkillContract(
+    lightBinding,
+    climateBinding,
+    lightTool,
+    climateTool,
+  );
+  const compositeCapability = buildCompositeCapability(
+    lightBinding,
+    climateBinding,
+    lightTool,
+    climateTool,
+  );
+  const compositeImplementation = buildCompositeImplementation(
+    lightBinding,
+    climateBinding,
+    lightTool,
+    climateTool,
+  );
+  assertSafeGovernanceJson({
+    skillContract: compositeSkillContract,
+    capability: compositeCapability,
+    implementation: compositeImplementation,
+  });
+  const existingCompositeRuntimeSkill = await runtimeGetSkill(
+    configuration,
+    COMPOSITE_SPEC.skillId,
+    request,
+  );
+  if (existingCompositeRuntimeSkill !== undefined)
+    assertRuntimeSkillExact(existingCompositeRuntimeSkill, compositeSkillContract);
+  const existingCompositeCapability = await controlGetCapability(
+    configuration,
+    COMPOSITE_SPEC.capabilityId,
+    request,
+  );
+  let existingCompositeImplementation: CapabilityImplementationBinding | undefined;
+  if (existingCompositeCapability !== undefined) {
+    assertCapabilityExact(existingCompositeCapability, compositeCapability);
+    const implementations = await controlGetImplementations(
+      configuration,
+      COMPOSITE_SPEC.capabilityId,
+      request,
+    );
+    if (implementations.length > 1)
+      fail(
+        'CAPABILITY_IMPLEMENTATION_AUTHORITY_AMBIGUOUS',
+        'The composite Capability has more than one implementation binding.',
+      );
+    existingCompositeImplementation = implementations[0];
+    if (existingCompositeImplementation !== undefined)
+      assertImplementationExact(existingCompositeImplementation, compositeImplementation);
+    if (
+      existingCompositeCapability.status === 'published' &&
+      existingCompositeImplementation === undefined
+    )
+      fail(
+        'CAPABILITY_IMPLEMENTATION_MISSING',
+        'The published composite Capability is missing its exact Skill implementation.',
+      );
+  }
+  const compositeBindings: PreparedCompositeGovernance['bindings'] = Object.freeze([
+    lightBinding,
+    climateBinding,
+  ]);
+  const compositeTools: PreparedCompositeGovernance['tools'] = Object.freeze([
+    lightTool,
+    climateTool,
+  ]);
+  const compositeAllowedResourceIds: PreparedCompositeGovernance['allowedResourceIds'] =
+    Object.freeze([MAIN_LIGHT_RESOURCE_ID, CLIMATE_RESOURCE_ID]);
+  prepared.push(
+    Object.freeze({
+      kind: 'composite' as const,
+      spec: COMPOSITE_SPEC,
+      bindings: compositeBindings,
+      tools: compositeTools,
+      allowedResourceIds: compositeAllowedResourceIds,
+      skill: compositeSkillContract.skill,
+      usage: compositeSkillContract.usage,
+      capability: compositeCapability,
+      implementation: compositeImplementation,
+      ...(existingCompositeRuntimeSkill === undefined
+        ? {}
+        : { existingRuntimeSkill: existingCompositeRuntimeSkill }),
+      ...(existingCompositeCapability === undefined
+        ? {}
+        : { existingCapability: existingCompositeCapability }),
+      ...(existingCompositeImplementation === undefined
+        ? {}
+        : { existingImplementation: existingCompositeImplementation }),
+    }),
+  );
 
   const skillReports: HomeLabCapabilityGovernanceReport['skills'][number][] = [];
   for (const item of prepared) {
@@ -455,17 +603,44 @@ export async function governHomeLabCapabilities(
     );
     assertGovernedSkillExact(governed, item.skill, item.usage);
     skillReports.push(
-      Object.freeze({
-        skillId: item.spec.skillId,
-        skillVersion: 1,
-        taskType: item.spec.toolName,
-        mcpToolName: item.spec.toolName,
-        mcpProviderBindingId: item.binding.bindingId,
-        localServerId: item.binding.localServerId,
-        packageChecksum: packageResult.packageChecksum,
-        action,
-        status: 'published',
-      }),
+      item.kind === 'single'
+        ? Object.freeze({
+            skillId: item.spec.skillId,
+            skillVersion: 1,
+            taskType: item.spec.toolName,
+            mcpToolName: item.spec.toolName,
+            mcpProviderBindingId: item.binding.bindingId,
+            localServerId: item.binding.localServerId,
+            mcpTools: Object.freeze([
+              Object.freeze({
+                mcpToolName: item.spec.toolName,
+                mcpProviderBindingId: item.binding.bindingId,
+                localServerId: item.binding.localServerId,
+              }),
+            ]),
+            maxMcpCalls: 1,
+            packageChecksum: packageResult.packageChecksum,
+            action,
+            status: 'published',
+          })
+        : Object.freeze({
+            skillId: item.spec.skillId,
+            skillVersion: 1,
+            taskType: COMPOSITE_TASK_TYPE,
+            mcpTools: Object.freeze(
+              item.tools.map((tool, index) =>
+                Object.freeze({
+                  mcpToolName: tool.toolName,
+                  mcpProviderBindingId: item.bindings[index]?.bindingId ?? '',
+                  localServerId: tool.serverId,
+                }),
+              ),
+            ),
+            maxMcpCalls: 2,
+            packageChecksum: packageResult.packageChecksum,
+            action,
+            status: 'published',
+          }),
     );
   }
 
@@ -547,7 +722,24 @@ export async function governHomeLabCapabilities(
       implementationBindingId: item.implementation.bindingId,
       skillId: item.spec.skillId,
       skillVersion: 1,
-      mcpProviderBindingId: item.binding.bindingId,
+      ...(item.kind === 'single' ? { mcpProviderBindingId: item.binding.bindingId } : {}),
+      providerBindings: Object.freeze(
+        item.kind === 'single'
+          ? [
+              Object.freeze({
+                mcpProviderBindingId: item.binding.bindingId,
+                localServerId: item.binding.localServerId,
+                mcpToolName: item.spec.toolName,
+              }),
+            ]
+          : item.tools.map((tool, index) =>
+              Object.freeze({
+                mcpProviderBindingId: item.bindings[index]?.bindingId ?? '',
+                localServerId: tool.serverId,
+                mcpToolName: tool.toolName,
+              }),
+            ),
+      ),
       allowedResourceIds: item.allowedResourceIds,
       riskLevel: item.spec.riskLevel,
       confirmation: item.spec.sideEffecting ? 'required' : 'not_required',
@@ -1037,6 +1229,324 @@ function buildSkillContract(
   return Object.freeze({ skill, usage });
 }
 
+function buildCompositeSkillContract(
+  lightBinding: Binding,
+  climateBinding: Binding,
+  lightTool: Tool,
+  climateTool: Tool,
+): Readonly<{
+  skill: Readonly<Record<string, unknown>>;
+  usage: Readonly<Record<string, unknown>>;
+}> {
+  const inputSchema = compositeInputSchema();
+  const outputSchema = compositeOutputSchema(lightTool, climateTool);
+  const providerBindings = Object.freeze([
+    exactBindingPolicy(lightBinding, lightTool, Object.freeze([MAIN_LIGHT_RESOURCE_ID])),
+    exactBindingPolicy(climateBinding, climateTool, Object.freeze([CLIMATE_RESOURCE_ID])),
+  ]);
+  const outcomeBase = Object.freeze({
+    schemaVersion: '1.0',
+    skillId: COMPOSITE_SPEC.skillId,
+    skillVersion: 1,
+    effects: Object.freeze([COMPOSITE_SPEC.effect]),
+    evidence: COMPOSITE_SPEC.evidence,
+    artifacts: Object.freeze([]),
+    taskGoalPolicy: Object.freeze({
+      taskType: COMPOSITE_TASK_TYPE,
+      requestedCapabilityId: COMPOSITE_SPEC.capabilityId,
+      mainLightResourceId: MAIN_LIGHT_RESOURCE_ID,
+      climateResourceId: CLIMATE_RESOURCE_ID,
+      providerBindings,
+      requiredMcpCalls: 2,
+    }),
+    confidencePolicy: Object.freeze({
+      rejectSuccessWithoutRequiredEvidence: true,
+      requireSchemaValidation: true,
+    }),
+    sideEffectPolicy: Object.freeze({
+      sideEffecting: false,
+      confirmation: 'not_required',
+      writesAllowed: false,
+    }),
+  });
+  const outcomeSpecification = Object.freeze({
+    ...outcomeBase,
+    specificationHash: `sha256:${sha256(stableStringify(outcomeBase))}`,
+  });
+  const skill = Object.freeze({
+    skillId: COMPOSITE_SPEC.skillId,
+    version: 1,
+    name: COMPOSITE_SPEC.name,
+    summary: COMPOSITE_SPEC.summary,
+    description:
+      'Read exactly the living-room main light and climate public resources through both governed Provider Bindings.',
+    capabilities: Object.freeze([COMPOSITE_SPEC.capabilityId]),
+    workflowGuidance:
+      'Call light_get_state once and climate_get_state once with their fixed public resource IDs, then return both structured results. Do not call any write Tool or LLM node.',
+    outputInstruction:
+      'Return a schema-valid object with mainLight and climate structured provider results.',
+    inputSchema,
+    outputSchema,
+    toolPolicy: Object.freeze({
+      required: Object.freeze([
+        Object.freeze({ serverId: lightBinding.localServerId, toolName: lightTool.toolName }),
+        Object.freeze({ serverId: climateBinding.localServerId, toolName: climateTool.toolName }),
+      ]),
+      optional: Object.freeze([]),
+      forbidden: Object.freeze([
+        Object.freeze({ serverId: lightBinding.localServerId, toolName: 'light_set_power' }),
+        Object.freeze({ serverId: lightBinding.localServerId, toolName: 'light_set_brightness' }),
+        Object.freeze({ serverId: climateBinding.localServerId, toolName: 'climate_set_power' }),
+        Object.freeze({
+          serverId: climateBinding.localServerId,
+          toolName: 'climate_set_hvac_mode',
+        }),
+        Object.freeze({
+          serverId: climateBinding.localServerId,
+          toolName: 'climate_set_temperature',
+        }),
+      ]),
+    }),
+    runtimePolicy: Object.freeze({
+      autoConfirmPlan: false,
+      maxReplans: 0,
+      maxDurationSeconds: 60,
+      maxLlmCalls: 0,
+      maxMcpCalls: 2,
+      cancelStrategy: 'wait_current',
+    }),
+    outcomeSpecification,
+    status: 'draft',
+    sourceKind: 'admin',
+    validationPassed: true,
+    createdAt: CREATED_AT,
+  });
+  const usage = Object.freeze({
+    visibility: Object.freeze({ userSelectable: true, composable: true, internalOnly: false }),
+    normative: Object.freeze({
+      constraints: Object.freeze([
+        `Use exactly ${MAIN_LIGHT_RESOURCE_ID} and ${CLIMATE_RESOURCE_ID}.`,
+        'Require both exact active, available, fresh Provider Bindings with no fallback.',
+        'Invoke exactly light_get_state and climate_get_state once each; never invoke a write Tool.',
+      ]),
+      forbiddenActions: Object.freeze([
+        'Resolve, persist or return Home Assistant entity IDs.',
+        'Invoke any MCP Tool other than light_get_state and climate_get_state.',
+        'Invoke any Tool with write or side-effect semantics.',
+        'Select a different Provider Binding or use a Tool alias.',
+      ]),
+      requiredConfirmations: Object.freeze([]),
+      noApplicableSkill: 'reject',
+    }),
+    // The exact resource values and both current Binding authorities are hard
+    // gates at Capability admission. They are not duplicated as Workflow
+    // context keys because no such runtime context authority is projected.
+    contextRequirements: Object.freeze([]),
+    taskBindings: Object.freeze([
+      Object.freeze({
+        bindingId: `task-binding-${COMPOSITE_SPEC.skillId}-light-v1`,
+        taskType: lightTool.toolName,
+        providerPolicy: Object.freeze({
+          selection: 'required',
+          preferredProviderIds: Object.freeze([]),
+          requiredProviderId: lightBinding.localServerId,
+          forbiddenProviderIds: Object.freeze([]),
+          requiredAttributes: Object.freeze(['task_behavior:synchronous_only']),
+        }),
+      }),
+      Object.freeze({
+        bindingId: `task-binding-${COMPOSITE_SPEC.skillId}-climate-v1`,
+        taskType: climateTool.toolName,
+        providerPolicy: Object.freeze({
+          selection: 'required',
+          preferredProviderIds: Object.freeze([]),
+          requiredProviderId: climateBinding.localServerId,
+          forbiddenProviderIds: Object.freeze([]),
+          requiredAttributes: Object.freeze(['task_behavior:synchronous_only']),
+        }),
+      }),
+    ]),
+    adaptive: Object.freeze({
+      instructions: Object.freeze([
+        'Preserve both exact Provider Bindings, Tool names, Skill version and fixed public resources.',
+      ]),
+      optimizationHints: Object.freeze([]),
+      allowPreferredProviderFallback: false,
+    }),
+    modes: Object.freeze({
+      supported: Object.freeze(['guidance']),
+      defaultMode: 'guidance',
+      guidance: Object.freeze({
+        summary: 'Model-planned, policy-validated exact-two read-only living-room execution.',
+        instructions: Object.freeze([
+          'Generate the fixed two-read topology with both required evidence hard gates and preserve both results.',
+        ]),
+      }),
+    }),
+    evidence: Object.freeze({
+      requirements: Object.freeze([
+        Object.freeze({
+          requirementId: 'evidence-light-state',
+          evidenceType: 'light.state.observation',
+          required: true,
+          hardGate: true,
+        }),
+        Object.freeze({
+          requirementId: 'evidence-climate-state',
+          evidenceType: 'climate.state.observation',
+          required: true,
+          hardGate: true,
+        }),
+      ]),
+      rejectSuccessWithoutRequiredEvidence: true,
+    }),
+  });
+  return Object.freeze({ skill, usage });
+}
+
+function buildCompositeCapability(
+  lightBinding: Binding,
+  climateBinding: Binding,
+  lightTool: Tool,
+  climateTool: Tool,
+): NodeCapabilityDefinitionVersion {
+  return createNodeCapabilityDefinition({
+    capabilityId: COMPOSITE_SPEC.capabilityId,
+    version: CAPABILITY_VERSION,
+    domain: 'home.living-room',
+    name: COMPOSITE_SPEC.name,
+    description: COMPOSITE_SPEC.summary,
+    inputSchema: compositeInputSchema(),
+    outputSchema: compositeOutputSchema(lightTool, climateTool),
+    successCriteria: [
+      Object.freeze({ type: 'output_schema_valid', required: true }),
+      Object.freeze({ type: 'required_evidence_complete', required: true }),
+    ],
+    requiredEvidence: [
+      Object.freeze({
+        type: 'provider_result',
+        field: 'mainLight',
+        inputField: 'mainLightResourceId',
+        serverId: lightBinding.localServerId,
+        toolName: lightTool.toolName,
+        evidenceType: 'light.state.observation',
+        required: true,
+        hardGate: true,
+      }),
+      Object.freeze({
+        type: 'provider_result',
+        field: 'climate',
+        inputField: 'climateResourceId',
+        serverId: climateBinding.localServerId,
+        toolName: climateTool.toolName,
+        evidenceType: 'climate.state.observation',
+        required: true,
+        hardGate: true,
+      }),
+    ],
+    effects: [COMPOSITE_SPEC.effect],
+    artifacts: [],
+    constraints: [
+      providerBindingConstraint(lightBinding, lightTool),
+      providerBindingConstraint(climateBinding, climateTool),
+      Object.freeze({ type: 'confirmation_policy', required: false, stage: 'not_applicable' }),
+    ],
+    supportedModes: ['deterministic'],
+    riskLevel: COMPOSITE_SPEC.riskLevel,
+    status: 'draft',
+    createdBy: 'home-lab-governance-driver',
+    createdAt: CREATED_AT,
+  });
+}
+
+function buildCompositeImplementation(
+  lightBinding: Binding,
+  climateBinding: Binding,
+  lightTool: Tool,
+  climateTool: Tool,
+): CapabilityImplementationBinding {
+  return Object.freeze({
+    bindingId: `capability-binding-${COMPOSITE_SPEC.capabilityId}-v1`,
+    capabilityId: COMPOSITE_SPEC.capabilityId,
+    capabilityVersion: CAPABILITY_VERSION,
+    implementationType: 'skill',
+    implementationId: COMPOSITE_SPEC.skillId,
+    implementationVersion: String(SKILL_VERSION),
+    role: 'primary',
+    priority: 0,
+    providerPolicyOverride: Object.freeze({
+      selection: 'required_all',
+      requirements: Object.freeze([
+        exactBindingPolicy(lightBinding, lightTool, Object.freeze([MAIN_LIGHT_RESOURCE_ID])),
+        exactBindingPolicy(climateBinding, climateTool, Object.freeze([CLIMATE_RESOURCE_ID])),
+      ]),
+    }),
+    status: 'active',
+    revision: 1,
+  });
+}
+
+function exactBindingPolicy(
+  binding: Binding,
+  tool: Pick<Tool, 'toolName'>,
+  allowedResourceIds: readonly string[],
+) {
+  return Object.freeze({
+    selection: 'required' as const,
+    mcpProviderBindingId: binding.bindingId,
+    localServerId: binding.localServerId,
+    mcpToolName: tool.toolName,
+    allowedResourceIds,
+    requireActive: true as const,
+    requireAvailable: true as const,
+    requireUnexpiredFreshness: true as const,
+    denyFallback: true as const,
+  });
+}
+
+function providerBindingConstraint(binding: Binding, tool: Tool) {
+  return Object.freeze({
+    type: 'provider_binding_policy',
+    mcpProviderBindingId: binding.bindingId,
+    localServerId: binding.localServerId,
+    mcpToolName: tool.toolName,
+    requiredStatus: 'active',
+    requiredAvailabilityStatus: 'available',
+    requiredFreshness: 'unexpired',
+    fallback: 'deny',
+  });
+}
+
+function compositeInputSchema(): JsonObject {
+  return Object.freeze({
+    type: 'object',
+    additionalProperties: false,
+    properties: Object.freeze({
+      mainLightResourceId: Object.freeze({
+        type: 'string',
+        enum: Object.freeze([MAIN_LIGHT_RESOURCE_ID]),
+      }),
+      climateResourceId: Object.freeze({
+        type: 'string',
+        enum: Object.freeze([CLIMATE_RESOURCE_ID]),
+      }),
+    }),
+    required: Object.freeze(['mainLightResourceId', 'climateResourceId']),
+  });
+}
+
+function compositeOutputSchema(lightTool: Tool, climateTool: Tool): JsonObject {
+  return Object.freeze({
+    type: 'object',
+    additionalProperties: false,
+    properties: Object.freeze({
+      mainLight: requireObjectSchema(lightTool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+      climate: requireObjectSchema(climateTool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
+    }),
+    required: Object.freeze(['mainLight', 'climate']),
+  });
+}
+
 function buildCapability(
   spec: GovernanceSpec,
   binding: Binding,
@@ -1181,13 +1691,13 @@ function constrainedInputSchema(value: unknown, allowedResourceIds: readonly str
 
 async function materializeSkillPackage(
   workspaceRoot: string,
-  spec: GovernanceSpec,
+  spec: Readonly<{ skillId: string; name: string; summary: string }>,
   skill: Readonly<Record<string, unknown>>,
   usage: Readonly<Record<string, unknown>>,
 ): Promise<Readonly<{ packageRoot: string; packageChecksum: string }>> {
   const packageRoot = join(workspaceRoot, spec.skillId, 'v1');
   await mkdir(packageRoot, { recursive: true });
-  const markdown = `# ${spec.name}\n\n${spec.summary}\n\nThis exact version uses ${spec.toolName} through its governed Provider Binding.\n`;
+  const markdown = `# ${spec.name}\n\n${spec.summary}\n\nThis exact version uses only the MCP Tools declared by its governed Provider Binding policy.\n`;
   const files = Object.freeze({
     'SKILL.md': markdown,
     'normative.json': stablePretty({
@@ -1294,12 +1804,8 @@ function assertRuntimeSkillExact(
     if (stableStringify(actual[key]) !== stableStringify(value))
       fail('SKILL_EXACT_VERSION_DRIFT', `Existing exact Skill version drifted at ${key}.`);
   const taskBindings = (actual.usageSpecification['taskBindings'] ?? []) as readonly unknown[];
-  if (
-    taskBindings.length !== 1 ||
-    !isRecord(taskBindings[0]) ||
-    taskBindings[0]['taskType'] !== exactTaskType(expected.skill)
-  )
-    fail('SKILL_TASK_TYPE_NOT_EXACT', 'Skill.taskType must equal the exact MCP Tool.name.');
+  if (stableStringify(taskBindings) !== stableStringify(expected.usage['taskBindings']))
+    fail('SKILL_TASK_TYPE_NOT_EXACT', 'Skill task bindings differ from exact governance.');
 }
 
 function assertGovernedSkillExact(
@@ -1310,12 +1816,8 @@ function assertGovernedSkillExact(
   if (actual.skillId !== skill['skillId'] || String(actual.version) !== '1')
     fail('SKILL_GOVERNANCE_IDENTITY_MISMATCH', 'Governed Skill identity is not exact.');
   const taskBindings = (actual.usageSpecification['taskBindings'] ?? []) as readonly unknown[];
-  if (
-    taskBindings.length !== 1 ||
-    !isRecord(taskBindings[0]) ||
-    taskBindings[0]['taskType'] !== exactTaskType(skill)
-  )
-    fail('SKILL_TASK_TYPE_NOT_EXACT', 'Governed Skill taskType is not the MCP Tool.name.');
+  if (stableStringify(taskBindings) !== stableStringify(usage['taskBindings']))
+    fail('SKILL_TASK_TYPE_NOT_EXACT', 'Governed Skill task bindings differ from governance.');
   const expectedToolPolicy = skill['toolPolicy'];
   const expectedOutcome = skill['outcomeSpecification'];
   if (
@@ -1351,16 +1853,6 @@ function expectedRuntimeUsage(
     modes: usage['modes'],
     evidencePolicy: usage['evidence'],
   });
-}
-
-function exactTaskType(skill: Readonly<Record<string, unknown>>): string {
-  const policy = skill['toolPolicy'];
-  const required = isRecord(policy) ? policy['required'] : undefined;
-  const references: readonly unknown[] = Array.isArray(required) ? required : [];
-  const reference = references[0];
-  if (!isRecord(reference) || typeof reference['toolName'] !== 'string')
-    return fail('SKILL_TOOL_POLICY_INVALID', 'Skill required Tool policy is missing.');
-  return reference['toolName'];
 }
 
 function assertCapabilityExact(

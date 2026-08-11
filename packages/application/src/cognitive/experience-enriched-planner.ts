@@ -96,6 +96,7 @@ export class ExperienceEnrichedUserGoalPlanningService {
     try {
       const enriched = await this.#base.generateCandidate({
         goal: input.goal,
+        taskId: input.taskId,
         planningContext: context.bundle,
       });
       return Object.freeze({
@@ -128,6 +129,7 @@ export class ExperienceEnrichedUserGoalPlanningService {
     try {
       const shadow = await this.#base.generateCandidate({
         goal: input.goal,
+        taskId: input.taskId,
         planningContext: context.bundle,
       });
       return Object.freeze({
@@ -178,7 +180,7 @@ export class ExperienceEnrichedUserGoalPlanningService {
   #generateBase(
     input: ExperiencePlanningInput,
   ): ReturnType<UserGoalPlanningService['generateCandidate']> {
-    return this.#base.generateCandidate({ goal: input.goal });
+    return this.#base.generateCandidate({ goal: input.goal, taskId: input.taskId });
   }
 }
 

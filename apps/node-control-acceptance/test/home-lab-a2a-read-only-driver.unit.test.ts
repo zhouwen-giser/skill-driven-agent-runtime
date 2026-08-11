@@ -1,52 +1,49 @@
-import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { Task, TaskState } from '@a2a-js/sdk';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
-  HOME_LAB_A2A_READ_ONLY_TURNS,
-  assertMcpInvocations,
+  HOME_LAB_A2A_READ_ONLY_SCENARIO,
+  assertCompositeMcpInvocations,
+  assertCompositeReadOnlyPlan,
+  assertFrozenProviderBindingRequirements,
+  assertModelInvocations,
   assertModelRuntimeReady,
-  assertReadOnlyPlan,
+  confirmCompositeReadOnlyPlanAfterZeroInvocationGate,
+  interactiveCandidateUserGoalPlan,
+  managementUserGoalPlan,
   runHomeLabA2AReadOnly,
   structuredOutcome,
-  validateTurns,
+  validateScenario,
 } from '../src/home-lab-a2a-read-only-driver.js';
+import {
+  HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES,
+  HOME_LAB_A2A_MODEL_FIXTURE_MODEL,
+  HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+  HOME_LAB_A2A_MODEL_STAGES,
+} from '../src/home-lab-a2a-model-contract.js';
 
 const timestamp = '2026-08-10T12:00:00.000Z';
-const requiredModelStages = [
-  'task_understanding',
-  'goal_contract_generation',
-  'goal_planning',
-  'skill_input_resolution',
-  'workflow_planning',
-  'result_processing',
-  'goal_evaluation',
-] as const;
-const temporaryDirectories: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    temporaryDirectories
-      .splice(0)
-      .map((directory) => rm(directory, { recursive: true, force: true })),
-  );
-});
+const capabilityAttemptId = 'capability-attempt-task-g08-1';
+const requiredModelStages = HOME_LAB_A2A_MODEL_STAGES;
 
 describe('home-lab A2A read-only safety gates', () => {
-  it('rejects a replaced write intent before any network or A2A client access', async () => {
+  it('rejects every scenario mutation before network or A2A client access', async () => {
     const request = vi.fn<typeof fetch>();
     const createA2AClient = vi.fn();
-    const turns = HOME_LAB_A2A_READ_ONLY_TURNS.map((turn, index) =>
-      index === 0 ? { ...turn, toolName: 'light_set_power' } : turn,
-    );
+    const scenario = {
+      ...HOME_LAB_A2A_READ_ONLY_SCENARIO,
+      operations: [
+        { ...scenarioOperation('light'), toolName: 'light_set_power' },
+        scenarioOperation('climate'),
+      ],
+    } as unknown as typeof HOME_LAB_A2A_READ_ONLY_SCENARIO;
 
+    expect(() => validateScenario(scenario)).toThrow(
+      expect.objectContaining({ code: 'A2A_WRITE_INTENT_FORBIDDEN' }),
+    );
     await expect(
       runHomeLabA2AReadOnly(
-        { ...baseConfiguration('execute'), turns },
+        { ...baseConfiguration(), scenario },
         { fetch: request, createA2AClient },
       ),
     ).rejects.toMatchObject({ code: 'A2A_WRITE_INTENT_FORBIDDEN' });
@@ -54,194 +51,311 @@ describe('home-lab A2A read-only safety gates', () => {
     expect(createA2AClient).not.toHaveBeenCalled();
   });
 
-  it('fails before Node Control mutation when Model authority is absent', async () => {
-    const request = vi.fn<typeof fetch>((input) => {
-      const url = requestUrl(input);
-      if (url.pathname === '/api/v1/health') return Promise.resolve(json({ status: 'ok' }));
-      if (url.pathname === '/api/v1/models/providers') return Promise.resolve(json({ items: [] }));
-      if (url.pathname === '/api/v1/models/routes') return Promise.resolve(json({ items: [] }));
-      throw new Error(`UNEXPECTED_REQUEST:${url.pathname}`);
-    });
-    const createA2AClient = vi.fn();
-
-    await expect(
-      runHomeLabA2AReadOnly(baseConfiguration('execute'), { fetch: request, createA2AClient }),
-    ).rejects.toMatchObject({ code: 'A2A_MODEL_RUNTIME_NOT_CONFIGURED' });
-    expect(createA2AClient).not.toHaveBeenCalled();
-    expect(request.mock.calls.map(([input]) => requestUrl(input).origin)).toEqual([
-      'http://127.0.0.1:29998',
-      'http://127.0.0.1:29998',
-      'http://127.0.0.1:29998',
-    ]);
-  });
-
-  it('requires every cognitive route to use an enabled Provider', () => {
+  it('requires every cognitive route to use an enabled Model Provider', () => {
     expect(() => assertModelRuntimeReady([], [])).toThrow(
       expect.objectContaining({ code: 'A2A_MODEL_RUNTIME_NOT_CONFIGURED' }),
     );
     expect(() =>
       assertModelRuntimeReady(
-        [{ providerId: 'provider-1', enabled: true }],
-        requiredModelStages.slice(1).map((stage) => ({ stage, providerId: 'provider-1' })),
+        [fixtureProvider()],
+        HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES.slice(1).map((stage) => ({
+          stage,
+          providerId: HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+        })),
       ),
     ).toThrow(expect.objectContaining({ code: 'A2A_MODEL_RUNTIME_NOT_CONFIGURED' }));
     expect(
       assertModelRuntimeReady(
-        [{ providerId: 'provider-1', enabled: true }],
-        requiredModelStages.map((stage) => ({ stage, providerId: 'provider-1' })),
+        [fixtureProvider()],
+        HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES.map((stage) => ({
+          stage,
+          providerId: HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+        })),
       ),
     ).toEqual({ configuredProviderCount: 1 });
+    expect(() =>
+      assertModelRuntimeReady(
+        [{ ...fixtureProvider(), model: 'wrong-model' }],
+        HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES.map((stage) => ({
+          stage,
+          providerId: HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+        })),
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_MODEL_RUNTIME_NOT_CONFIGURED' }));
   });
 
-  it('admits exactly one qualified read Tool and rejects LLM or write nodes', () => {
-    const turn = HOME_LAB_A2A_READ_ONLY_TURNS[0];
-    if (turn === undefined) throw new Error('LIGHT_TURN_MISSING');
-    const nodes = [
-      { type: 'mcp_tool', tool: { serverId: turn.serverId, toolName: turn.toolName } },
-      { type: 'condition' },
-      { type: 'result' },
-      { type: 'error_handler' },
-    ];
+  it('binds every Task-linked Model invocation to the exact fixture identity', () => {
+    const required = requiredModelStages.map((stage) => modelInvocation(stage));
+    expect(assertModelInvocations({ items: required })).toEqual([...requiredModelStages].sort());
+    expect(() =>
+      assertModelInvocations({ items: [...required, modelInvocation('workflow_planning')] }),
+    ).toThrow(expect.objectContaining({ code: 'A2A_MODEL_EVIDENCE_INCOMPLETE' }));
+    expect(() =>
+      assertModelInvocations({
+        items: [
+          ...required,
+          { ...modelInvocation('evaluation'), status: 'failed', errorCode: 'UPSTREAM' },
+        ],
+      }),
+    ).toThrow(expect.objectContaining({ code: 'A2A_MODEL_INVOCATION_FAILED' }));
+    expect(() =>
+      assertModelInvocations({
+        items: [...required.slice(0, -1), { ...required.at(-1), providerId: 'provider.external' }],
+      }),
+    ).toThrow(expect.objectContaining({ code: 'A2A_MODEL_AUTHORITY_MISMATCH' }));
+  });
+
+  it('accepts only the exact reachable two-read, two-evidence-gate topology', () => {
+    const plan = exactPlan();
     expect(() => {
-      assertReadOnlyPlan({ definition: { nodes } }, turn);
+      assertCompositeReadOnlyPlan(plan);
     }).not.toThrow();
+
     expect(() => {
-      assertReadOnlyPlan({ definition: { nodes: [...nodes, { type: 'llm' }] } }, turn);
-    }).toThrow(expect.objectContaining({ code: 'A2A_PLAN_UNQUALIFIED_OPERATION' }));
+      assertCompositeReadOnlyPlan({
+        ...plan,
+        toolExecutionSemantics: plan.toolExecutionSemantics.map((item) =>
+          item.reference.toolName === 'light_get_state'
+            ? {
+                ...item,
+                executionSemantics: {
+                  ...item.executionSemantics,
+                  effect: 'unknown',
+                  source: 'default_unknown',
+                },
+              }
+            : item,
+        ),
+      });
+    }).toThrow(expect.objectContaining({ code: 'A2A_PLAN_EXECUTION_SEMANTICS_INVALID' }));
+
     expect(() => {
-      assertReadOnlyPlan(
-        {
-          definition: {
-            nodes: [
-              {
-                type: 'mcp_tool',
-                tool: { serverId: turn.serverId, toolName: 'light_set_power' },
-              },
-            ],
+      assertCompositeReadOnlyPlan(
+        mutateNode(plan, 'mainLight', {
+          arguments: {
+            resourceId: { op: 'ref', path: ['input', 'mainLightResourceId'] },
           },
-        },
-        turn,
+        }),
       );
     }).toThrow(expect.objectContaining({ code: 'A2A_PLAN_UNQUALIFIED_OPERATION' }));
+
+    expect(() => {
+      assertCompositeReadOnlyPlan(
+        mutateNode(plan, 'mainLight', {
+          tool: { serverId: scenarioOperation('light').serverId, toolName: 'light_set_power' },
+        }),
+      );
+    }).toThrow(expect.objectContaining({ code: 'A2A_PLAN_UNQUALIFIED_OPERATION' }));
+
+    expect(() => {
+      assertCompositeReadOnlyPlan(
+        mutateNode(plan, 'result', {
+          value: {
+            op: 'ref',
+            path: ['outputs', 'mainLight', 'data', 'structuredContent'],
+          },
+        }),
+      );
+    }).toThrow(expect.objectContaining({ code: 'A2A_PLAN_RESULT_MAPPING_INVALID' }));
+
+    expect(() => {
+      assertCompositeReadOnlyPlan({
+        ...plan,
+        definition: {
+          ...plan.definition,
+          edges: plan.definition.edges.map((edge) =>
+            edge.sourceNodeId === 'evidenceMainLight' && edge.outcome === 'true'
+              ? { ...edge, targetNodeId: 'result' }
+              : edge,
+          ),
+        },
+      });
+    }).toThrow(expect.objectContaining({ code: 'A2A_PLAN_UNQUALIFIED_OPERATION' }));
+
+    expect(() => {
+      assertCompositeReadOnlyPlan({
+        ...plan,
+        definition: {
+          ...plan.definition,
+          nodes: [
+            ...plan.definition.nodes,
+            { nodeId: 'optional', type: 'mcp_tool', tool: { serverId: 'x', toolName: 'read' } },
+          ],
+        },
+      });
+    }).toThrow(expect.objectContaining({ code: 'A2A_PLAN_UNQUALIFIED_OPERATION' }));
   });
 
-  it('rejects side-effecting or evidence-free MCP records even under the read Tool name', () => {
-    const turn = HOME_LAB_A2A_READ_ONLY_TURNS[0];
-    if (turn === undefined) throw new Error('LIGHT_TURN_MISSING');
-    const output = stateFor('light');
-    const invocation = providerInvocation(turn, output);
+  it('requires the zero-invocation gate to finish before confirmation', async () => {
+    const order: string[] = [];
+    await expect(
+      confirmCompositeReadOnlyPlanAfterZeroInvocationGate({
+        assertNoMcpInvocations: () => {
+          order.push('zero-mcp');
+          return Promise.resolve();
+        },
+        confirm: () => {
+          order.push('confirm');
+          return Promise.resolve('confirmed');
+        },
+      }),
+    ).resolves.toBe('confirmed');
+    expect(order).toEqual(['zero-mcp', 'confirm']);
+
+    const confirm = vi.fn(() => Promise.resolve('must-not-run'));
+    await expect(
+      confirmCompositeReadOnlyPlanAfterZeroInvocationGate({
+        assertNoMcpInvocations: () => Promise.reject(new Error('MCP_ALREADY_OBSERVED')),
+        confirm,
+      }),
+    ).rejects.toThrow('MCP_ALREADY_OBSERVED');
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('validates the current interactive plan candidate before accepting review', () => {
+    const plan = { planId: 'user-goal-plan-1' };
+    const view = {
+      session: {
+        sessionId: 'planning-session-1',
+        taskId: 'task-1',
+        goalId: 'goal-1',
+        goalVersion: 1,
+        state: 'plan_review',
+        currentCandidateId: 'candidate-1',
+        currentCandidateRevision: 2,
+      },
+      candidate: {
+        sessionId: 'planning-session-1',
+        candidateId: 'candidate-1',
+        revision: 2,
+        status: 'candidate',
+        plan,
+      },
+    };
+    expect(interactiveCandidateUserGoalPlan(view, 'task-1', 'goal-1', 1)).toBe(plan);
+    expect(() =>
+      interactiveCandidateUserGoalPlan(
+        {
+          ...view,
+          session: { ...view.session, currentCandidateId: 'candidate-other' },
+        },
+        'task-1',
+        'goal-1',
+        1,
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_USER_GOAL_PLAN_INVALID' }));
+  });
+
+  it('unwraps the UserGoalPlan from the management read envelope', () => {
+    const plan = { planId: 'user-goal-plan-1', skillGoals: [] };
+
+    expect(
+      managementUserGoalPlan({ plan, lockVersion: 2, outcomes: [], completedEffects: [] }),
+    ).toBe(plan);
+    expect(() => managementUserGoalPlan({ item: plan })).toThrow(
+      expect.objectContaining({ code: 'A2A_USER_GOAL_PLAN_INVALID' }),
+    );
+  });
+
+  it('accepts exactly two live read invocations with Provider evidence', () => {
+    const output = compositeState();
+    const invocations = HOME_LAB_A2A_READ_ONLY_SCENARIO.operations.map((operation) =>
+      providerInvocation(operation, output[operation.outputField]),
+    );
     expect(() => {
-      assertMcpInvocations({ items: [invocation] }, turn, output);
+      assertCompositeMcpInvocations(
+        { items: invocations },
+        HOME_LAB_A2A_READ_ONLY_SCENARIO,
+        output,
+        capabilityAttemptId,
+      );
     }).not.toThrow();
     expect(() => {
-      assertMcpInvocations(
+      assertCompositeMcpInvocations(
+        {
+          items: [
+            ...invocations,
+            { ...invocations[0], invocationId: 'unexpected-third-invocation' },
+          ],
+        },
+        HOME_LAB_A2A_READ_ONLY_SCENARIO,
+        output,
+        capabilityAttemptId,
+      );
+    }).toThrow(expect.objectContaining({ code: 'A2A_MCP_INVOCATION_INVALID' }));
+    expect(() => {
+      assertCompositeMcpInvocations(
         {
           items: [
             {
-              ...invocation,
-              executionSemantics: { ...invocation.executionSemantics, effect: 'side_effecting' },
+              ...invocations[0],
+              executionSemantics: { effect: 'side_effecting' },
             },
+            invocations[1],
           ],
         },
-        turn,
+        HOME_LAB_A2A_READ_ONLY_SCENARIO,
         output,
+        capabilityAttemptId,
       );
     }).toThrow(expect.objectContaining({ code: 'A2A_MCP_EVIDENCE_INVALID' }));
     expect(() => {
-      assertMcpInvocations(
-        { items: [{ ...invocation, result: { ...invocation.result, evidence: [] } }] },
-        turn,
+      assertCompositeMcpInvocations(
+        {
+          items: [
+            { ...invocations[0], capabilityAttemptId: 'capability-attempt-previous' },
+            invocations[1],
+          ],
+        },
+        HOME_LAB_A2A_READ_ONLY_SCENARIO,
         output,
+        capabilityAttemptId,
       );
-    }).toThrow(expect.objectContaining({ code: 'A2A_MCP_EVIDENCE_INVALID' }));
+    }).toThrow(expect.objectContaining({ code: 'A2A_MCP_INVOCATION_INVALID' }));
   });
 
-  it('accepts only the requested public resource state and rejects physical entity identity', () => {
-    const turn = HOME_LAB_A2A_READ_ONLY_TURNS[0];
-    if (turn === undefined) throw new Error('LIGHT_TURN_MISSING');
-    const output = stateFor('light');
-    expect(structuredOutcome(a2aTask('light'), turn)).toEqual(output);
-    expect(() =>
-      structuredOutcome(a2aTask('light', { ...output, resourceId: 'another-light' }), turn),
-    ).toThrow(expect.objectContaining({ code: 'A2A_RESOURCE_IDENTITY_MISMATCH' }));
+  it('freezes both declared requirements and both fresh current SMPP authorities', () => {
+    const snapshot = providerPolicySnapshot();
+    expect(() => {
+      assertFrozenProviderBindingRequirements(snapshot, HOME_LAB_A2A_READ_ONLY_SCENARIO);
+    }).not.toThrow();
+    expect(() => {
+      assertFrozenProviderBindingRequirements(
+        {
+          ...snapshot,
+          currentProviderBindings: [
+            snapshot.currentProviderBindings[0],
+            {
+              ...snapshot.currentProviderBindings[1],
+              binding: {
+                ...snapshot.currentProviderBindings[1]?.binding,
+                localServerId: 'wrong-server',
+              },
+            },
+          ],
+        },
+        HOME_LAB_A2A_READ_ONLY_SCENARIO,
+      );
+    }).toThrow(expect.objectContaining({ code: 'A2A_FROZEN_PROVIDER_BINDINGS_INVALID' }));
+  });
+
+  it('returns only both public resource states and rejects physical entity identity', () => {
+    const output = compositeState();
+    expect(structuredOutcome(a2aTask(output))).toEqual(output);
     expect(() =>
       structuredOutcome(
-        a2aTask('light', { ...output, entityId: 'light.private_physical_id' }),
-        turn,
+        a2aTask({
+          ...output,
+          mainLight: { ...output.mainLight, entityId: 'light.private_physical_id' },
+        }),
       ),
     ).toThrow(expect.objectContaining({ code: 'A2A_SENSITIVE_EVIDENCE_FORBIDDEN' }));
   });
-
-  it('keeps the two-turn scenario immutable', () => {
-    expect(validateTurns(HOME_LAB_A2A_READ_ONLY_TURNS)).toEqual(HOME_LAB_A2A_READ_ONLY_TURNS);
-  });
 });
 
-describe('home-lab A2A restart recovery', () => {
-  it('re-queries stable getTask, cognitive/runtime evidence, and immutable bindings after restart', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'sdar-g08-a2a-'));
-    temporaryDirectories.push(directory);
-    const checkpointFile = join(directory, 'checkpoint.json');
-    const scenario = restartScenario();
-    await writeFile(checkpointFile, `${JSON.stringify(scenario.checkpoint, null, 2)}\n`, 'utf8');
-    const getTask = vi.fn(({ id }: Readonly<{ id: string }>) => {
-      const task = scenario.tasks.get(id);
-      if (task === undefined) throw new Error(`TASK_NOT_FOUND:${id}`);
-      return Promise.resolve(task);
-    });
-    const sendMessage = vi.fn();
-    const createA2AClient = vi.fn(() => Promise.resolve({ getTask, sendMessage }));
-    const requestedPaths: string[] = [];
-    const request = vi.fn<typeof fetch>((input, init) => {
-      const url = requestUrl(input);
-      requestedPaths.push(`${url.origin}${url.pathname}${url.search}`);
-      if (url.origin === 'http://127.0.0.1:29998')
-        return Promise.resolve(runtimeResponse(url, scenario));
-      if (url.origin === 'http://127.0.0.1:20080') {
-        expect(new Headers(init?.headers).get('authorization')).toBe('Bearer node-control-token');
-        return Promise.resolve(nodeControlResponse(url, scenario));
-      }
-      throw new Error(`UNEXPECTED_ORIGIN:${url.origin}`);
-    });
-
-    const report = await runHomeLabA2AReadOnly(
-      {
-        ...baseConfiguration('verify-restart'),
-        checkpointFile,
-        restartEvidenceId: 'runtime-restart-evidence-1',
-      },
-      { fetch: request, createA2AClient, now: () => timestamp },
-    );
-
-    expect(report).toMatchObject({
-      status: 'passed',
-      mode: 'verify-restart',
-      a2aReadOnlyReady: true,
-      restartRecoveryVerified: true,
-      contextId: 'context-g08',
-      modelAuthority: { configuredProviderCount: 1, failedInvocationCount: 0 },
-      safety: { writeOperationsInvoked: 0, physicalWritesInvoked: 0 },
-    });
-    expect(report.turns).toHaveLength(2);
-    expect(getTask).toHaveBeenCalledTimes(4);
-    expect(sendMessage).not.toHaveBeenCalled();
-    expect(requestedPaths).toEqual(
-      expect.arrayContaining([
-        'http://127.0.0.1:29998/api/v1/tasks/task-light/understanding',
-        'http://127.0.0.1:29998/api/v1/mcp/invocations?taskId=task-light',
-        'http://127.0.0.1:20080/api/v1/tasks/task-light',
-        'http://127.0.0.1:20080/api/v1/tasks/task-light/capability-binding',
-      ]),
-    );
-    expect(
-      request.mock.calls.every(([, init]) => init?.method === undefined || init.method === 'GET'),
-    ).toBe(true);
-  });
-});
-
-function baseConfiguration(mode: 'execute' | 'verify-restart') {
+function baseConfiguration() {
   return {
-    mode,
+    mode: 'execute' as const,
     a2aBaseUrl: 'http://127.0.0.1:29999',
     runtimeManagementBaseUrl: 'http://127.0.0.1:29998',
     nodeControlBaseUrl: 'http://127.0.0.1:20080',
@@ -249,249 +363,140 @@ function baseConfiguration(mode: 'execute' | 'verify-restart') {
     runId: 'goal-run-g08-unit',
     pollIntervalMs: 10,
     maxPolls: 2,
-  } as const;
+  };
 }
 
-function restartScenario() {
-  const tasks = new Map<string, Task>();
-  const turns = HOME_LAB_A2A_READ_ONLY_TURNS.map((turn) => {
-    const taskId = `task-${turn.kind}`;
-    const goalId = `goal-${turn.kind}`;
-    const planId = `plan-${turn.kind}`;
-    const task = a2aTask(turn.kind, undefined, taskId);
-    tasks.set(taskId, task);
-    const output = stateFor(turn.kind);
-    const taskSnapshot = {
-      id: task.id,
-      contextId: task.contextId,
-      state: task.status?.state,
-      internalPhase: task.metadata?.['internalPhase'],
-      outputHash: sha256(canonical(output)),
-    };
-    return {
-      kind: turn.kind,
-      taskId,
-      contextId: 'context-g08',
-      goalId,
-      goalVersion: 1,
-      planId,
-      capabilityId: turn.capabilityId,
-      exposureId: turn.exposureId,
-      skillId: turn.skillId,
-      serverId: turn.serverId,
-      operationName: turn.toolName,
-      resourceId: turn.resourceId,
-      a2aTaskHash: sha256(canonical(taskSnapshot)),
-      structuredOutcomeHash: sha256(canonical(output)),
-      capabilityBindingHash: turn.kind === 'light' ? 'a'.repeat(64) : 'b'.repeat(64),
-    };
-  });
+function exactPlan() {
+  const light = scenarioOperation('light');
+  const climate = scenarioOperation('climate');
   return {
-    tasks,
-    checkpoint: {
-      schemaVersion: 'sdar.home-lab-a2a-checkpoint/v1',
-      runId: 'goal-run-g08-unit',
-      createdAt: timestamp,
-      contextId: 'context-g08',
-      turns,
+    definition: {
+      entryNodeId: 'mainLight',
+      exitNodeIds: ['result', 'failure'],
+      nodes: [
+        {
+          nodeId: 'mainLight',
+          type: 'mcp_tool',
+          tool: { serverId: light.serverId, toolName: light.toolName },
+          arguments: {
+            resourceId: {
+              op: 'ref',
+              path: ['input', 'skillInput', 'mainLightResourceId'],
+            },
+          },
+        },
+        {
+          nodeId: 'evidenceMainLight',
+          type: 'condition',
+          expression: { op: 'exists', path: ['evidence', light.evidenceType] },
+        },
+        {
+          nodeId: 'climate',
+          type: 'mcp_tool',
+          tool: { serverId: climate.serverId, toolName: climate.toolName },
+          arguments: {
+            resourceId: {
+              op: 'ref',
+              path: ['input', 'skillInput', 'climateResourceId'],
+            },
+          },
+        },
+        {
+          nodeId: 'evidenceClimate',
+          type: 'condition',
+          expression: { op: 'exists', path: ['evidence', climate.evidenceType] },
+        },
+        { nodeId: 'result', type: 'result', value: { op: 'ref', path: ['outputs'] } },
+        { nodeId: 'failure', type: 'result', value: { op: 'literal', value: false } },
+      ],
+      edges: [
+        { sourceNodeId: 'mainLight', targetNodeId: 'evidenceMainLight' },
+        { sourceNodeId: 'evidenceMainLight', targetNodeId: 'climate', outcome: 'true' },
+        { sourceNodeId: 'evidenceMainLight', targetNodeId: 'failure', outcome: 'false' },
+        { sourceNodeId: 'climate', targetNodeId: 'evidenceClimate' },
+        { sourceNodeId: 'evidenceClimate', targetNodeId: 'result', outcome: 'true' },
+        { sourceNodeId: 'evidenceClimate', targetNodeId: 'failure', outcome: 'false' },
+      ],
+    },
+    toolExecutionSemantics: [
+      ...[light, climate].map((operation) => ({
+        reference: { serverId: operation.serverId, toolName: operation.toolName },
+        executionSemantics: { effect: 'read_only', source: 'admin_override' },
+      })),
+      {
+        reference: { serverId: light.serverId, toolName: 'light_set_power' },
+        executionSemantics: { effect: 'side_effecting', source: 'admin_override' },
+      },
+    ],
+  };
+}
+
+function scenarioOperation(kind: 'light' | 'climate') {
+  const operation = HOME_LAB_A2A_READ_ONLY_SCENARIO.operations.find(
+    (candidate) => candidate.kind === kind,
+  );
+  if (operation === undefined) throw new Error(`SCENARIO_OPERATION_MISSING:${kind}`);
+  return operation;
+}
+
+function mutateNode(
+  plan: ReturnType<typeof exactPlan>,
+  nodeId: string,
+  patch: Readonly<Record<string, unknown>>,
+) {
+  return {
+    ...plan,
+    definition: {
+      ...plan.definition,
+      nodes: plan.definition.nodes.map((node) =>
+        node.nodeId === nodeId ? { ...node, ...patch } : node,
+      ),
     },
   };
 }
 
-type RestartScenario = ReturnType<typeof restartScenario>;
-
-function runtimeResponse(url: URL, scenario: RestartScenario): Response {
-  if (url.pathname === '/api/v1/health') return json({ status: 'ok' });
-  if (url.pathname === '/api/v1/models/providers')
-    return json({ items: [{ providerId: 'provider-1', enabled: true }] });
-  if (url.pathname === '/api/v1/models/routes')
-    return json({
-      items: requiredModelStages.map((stage) => ({ stage, providerId: 'provider-1' })),
-    });
-  const taskId = pathCapture(url.pathname, /^\/api\/v1\/tasks\/([^/]+)$/u);
-  if (taskId !== undefined) {
-    const saved = savedTurn(scenario, taskId);
-    return json({
-      taskId,
-      contextId: saved.contextId,
-      phase: 'completed',
-      goalId: saved.goalId,
-      goalVersion: saved.goalVersion,
-      planId: saved.planId,
-      selectedSkillId: saved.skillId,
-      selectedSkillVersion: 1,
-      output: { text: 'Current state.', structured: stateFor(saved.kind) },
-    });
-  }
-  const understandingTaskId = pathCapture(
-    url.pathname,
-    /^\/api\/v1\/tasks\/([^/]+)\/understanding$/u,
-  );
-  if (understandingTaskId !== undefined) {
-    const saved = savedTurn(scenario, understandingTaskId);
-    return json({
-      taskId: understandingTaskId,
-      disposition: 'contract_candidate',
-      modelInvocationId: `model-understanding-${saved.kind}`,
-      capabilityRequirements: [
-        { capabilityId: saved.capabilityId, required: true, available: true },
-      ],
-    });
-  }
-  const eventTaskId = pathCapture(url.pathname, /^\/api\/v1\/tasks\/([^/]+)\/events$/u);
-  if (eventTaskId !== undefined) return json({ items: [{ taskId: eventTaskId }] });
-  const goalId = pathCapture(url.pathname, /^\/api\/v1\/goals\/([^/]+)$/u);
-  if (goalId !== undefined) {
-    const saved = scenario.checkpoint.turns.find((turn) => turn.goalId === goalId);
-    if (saved === undefined) throw new Error(`GOAL_NOT_FOUND:${goalId}`);
-    return json({
-      goalId,
-      contextId: saved.contextId,
-      version: saved.goalVersion,
-      status: 'achieved',
-    });
-  }
-  const tracePlanId = pathCapture(url.pathname, /^\/api\/v1\/workflows\/plans\/([^/]+)\/trace$/u);
-  if (tracePlanId !== undefined)
-    return json({
-      instance: { planId: tracePlanId, status: 'succeeded' },
-      events: [{ nodeId: 'read', eventType: 'node_succeeded' }],
-    });
-  const planId = pathCapture(url.pathname, /^\/api\/v1\/workflows\/plans\/([^/]+)$/u);
-  if (planId !== undefined) {
-    const saved = scenario.checkpoint.turns.find((turn) => turn.planId === planId);
-    if (saved === undefined) throw new Error(`PLAN_NOT_FOUND:${planId}`);
-    return json({
-      planId,
-      definition: {
-        nodes: [
-          {
-            nodeId: 'read',
-            type: 'mcp_tool',
-            tool: { serverId: saved.serverId, toolName: saved.operationName },
-          },
-          { nodeId: 'result', type: 'result' },
-        ],
-      },
-    });
-  }
-  if (url.pathname === '/api/v1/models/invocations')
-    return json({
-      items: requiredModelStages.map((stage) => ({ stage, status: 'succeeded' })),
-    });
-  if (url.pathname === '/api/v1/mcp/invocations') {
-    const saved = savedTurn(scenario, url.searchParams.get('taskId') ?? '');
-    return json({
-      items: [
-        providerInvocation(
-          {
-            serverId: saved.serverId,
-            toolName: saved.operationName,
-            resourceId: saved.resourceId,
-            kind: saved.kind,
-          },
-          stateFor(saved.kind),
-        ),
-      ],
-    });
-  }
-  throw new Error(`UNEXPECTED_RUNTIME_REQUEST:${url.pathname}${url.search}`);
-}
-
-function nodeControlResponse(url: URL, scenario: RestartScenario): Response {
-  const bindingTaskId = pathCapture(
-    url.pathname,
-    /^\/api\/v1\/tasks\/([^/]+)\/capability-binding$/u,
-  );
-  if (bindingTaskId !== undefined) {
-    const saved = savedTurn(scenario, bindingTaskId);
-    return json({
-      taskId: bindingTaskId,
-      requestedCapabilityId: saved.capabilityId,
-      capabilityVersion: 1,
-      exposureId: saved.exposureId,
-      exposureVersion: 1,
-      initialImplementationRefs: [`skill:${saved.skillId}:1`],
-      bindingHash: saved.capabilityBindingHash,
-    });
-  }
-  const taskId = pathCapture(url.pathname, /^\/api\/v1\/tasks\/([^/]+)$/u);
-  if (taskId !== undefined) return json({ taskId });
-  throw new Error(`UNEXPECTED_NODE_CONTROL_REQUEST:${url.pathname}`);
-}
-
-function savedTurn(scenario: RestartScenario, taskId: string) {
-  const saved = scenario.checkpoint.turns.find((turn) => turn.taskId === taskId);
-  if (saved === undefined) throw new Error(`SAVED_TURN_NOT_FOUND:${taskId}`);
-  return saved;
-}
-
-function a2aTask(
-  kind: 'light' | 'climate',
-  output = stateFor(kind),
-  taskId = `task-${kind}`,
-): Task {
-  return Task.fromJSON({
-    id: taskId,
-    contextId: 'context-g08',
-    status: { state: TaskState.TASK_STATE_COMPLETED, timestamp },
-    artifacts: [
-      {
-        artifactId: `${taskId}:result`,
-        name: 'result',
-        parts: [{ data: output, mediaType: 'application/json' }],
-      },
-    ],
-    metadata: { internalPhase: 'completed' },
-  });
-}
-
-function stateFor(kind: 'light' | 'climate'): Readonly<Record<string, unknown>> {
-  if (kind === 'light')
-    return {
+function compositeState() {
+  return {
+    mainLight: {
       resourceId: 'living-room-main-light',
       power: 'on',
       reachable: true,
       brightnessPercent: 72,
       observedAt: timestamp,
-    };
-  return {
-    resourceId: 'living-room-air-conditioner',
-    power: 'on',
-    reachable: true,
-    hvacMode: 'cool',
-    currentTemperature: 25.2,
-    targetTemperature: 24,
-    temperatureUnit: 'C',
-    observedAt: timestamp,
-  };
+    },
+    climate: {
+      resourceId: 'living-room-air-conditioner',
+      power: 'on',
+      reachable: true,
+      hvacMode: 'cool',
+      currentTemperature: 25.2,
+      targetTemperature: 24,
+      temperatureUnit: 'C',
+      observedAt: timestamp,
+    },
+  } as const;
 }
 
 function providerInvocation(
-  turn: Readonly<{
-    serverId: string;
-    toolName: string;
-    resourceId: string;
-    kind: 'light' | 'climate';
-  }>,
+  operation: (typeof HOME_LAB_A2A_READ_ONLY_SCENARIO.operations)[number],
   output: Readonly<Record<string, unknown>>,
 ) {
   return {
-    invocationId: `invocation-${turn.kind}`,
+    invocationId: `invocation-${operation.kind}`,
+    capabilityAttemptId,
     executionMode: 'live',
-    serverId: turn.serverId,
-    toolName: turn.toolName,
+    serverId: operation.serverId,
+    toolName: operation.toolName,
     status: 'succeeded',
     executionSemantics: { effect: 'read_only' },
-    arguments: { resourceId: turn.resourceId },
+    arguments: { resourceId: operation.resourceId },
     result: {
       structuredContent: output,
       isError: false,
       evidence: [
         {
-          evidenceId: `evidence-${turn.kind}`,
-          evidenceType:
-            turn.kind === 'light' ? 'light.state.observation' : 'climate.state.observation',
+          evidenceId: `evidence-${operation.kind}`,
+          evidenceType: operation.evidenceType,
           observedAt: timestamp,
           payloadRef: { kind: 'structured_content', jsonPointer: '' },
         },
@@ -500,35 +505,105 @@ function providerInvocation(
   } as const;
 }
 
-function requestUrl(input: unknown): URL {
-  if (typeof input === 'string') return new URL(input);
-  if (input instanceof URL) return input;
-  if (input instanceof Request) return new URL(input.url);
-  throw new Error('REQUEST_URL_INVALID');
+function providerPolicySnapshot() {
+  const requirements = HOME_LAB_A2A_READ_ONLY_SCENARIO.operations.map((operation) => ({
+    bindingId: operation.providerBindingId,
+    localServerId: operation.serverId,
+  }));
+  const currentProviderBindings = HOME_LAB_A2A_READ_ONLY_SCENARIO.operations.map(
+    (operation, index) => {
+      const checksum = index === 0 ? 'a'.repeat(64) : 'b'.repeat(64);
+      const endpointRef = `https://${operation.serverId}.example.test/mcp`;
+      const externalProviderId = `ha-${operation.kind}-lab`;
+      const externalServerId = `${operation.kind}-server`;
+      return {
+        observedAt: timestamp,
+        binding: {
+          bindingId: operation.providerBindingId,
+          revision: index + 1,
+          localServerId: operation.serverId,
+          originType: 'smpp_registry',
+          providerId: externalProviderId,
+          externalProviderId,
+          externalServerId,
+          registryRevision: index + 11,
+          registryChecksum: checksum,
+          catalogRevision: `catalog-${operation.kind}-1`,
+          catalogChecksum: checksum,
+          endpointRef,
+          availabilityValidUntil: '2026-08-10T13:00:00.000Z',
+          catalogObservedAt: '2026-08-10T11:59:00.000Z',
+          operationCount: 1,
+        },
+        sourceCandidateLineage: {
+          smppSourceId: 'smpp-home-lab',
+          externalProviderId,
+          externalServerId,
+          registryRevision: index + 11,
+          registryChecksum: checksum,
+          nativeRevision: index + 21,
+          nativeChecksum: checksum,
+          projectionContract: 'sdar-registry-v1',
+          candidateEndpoint: endpointRef,
+        },
+      };
+    },
+  );
+  return {
+    resolution: {
+      implementations: [
+        {
+          implementationRef: `skill:${HOME_LAB_A2A_READ_ONLY_SCENARIO.skillId}:1`,
+          providerBindingRequirements: requirements,
+        },
+      ],
+    },
+    currentProviderBindings,
+  };
 }
 
-function pathCapture(pathname: string, pattern: RegExp): string | undefined {
-  return pattern.exec(pathname)?.[1];
+function fixtureProvider() {
+  return {
+    providerId: HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+    kind: 'local',
+    apiStyle: 'openai_chat_completions',
+    baseUrl: 'http://127.0.0.1:18461/v1',
+    model: HOME_LAB_A2A_MODEL_FIXTURE_MODEL,
+    enabled: true,
+  } as const;
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
+function modelInvocation(stage: string) {
+  return {
+    invocationId: `model-${stage}`,
+    stage,
+    providerId: HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+    model: HOME_LAB_A2A_MODEL_FIXTURE_MODEL,
+    operation: stage === 'goal' ? 'embedding' : 'structured_generation',
+    ...(stage === 'goal'
+      ? {}
+      : { promptId: `prompt.home-lab-a2a-fixture.${stage}`, promptVersion: 1 }),
+    status: 'succeeded',
+  } as const;
+}
+
+function a2aTask(
+  output: Readonly<{
+    mainLight: Readonly<Record<string, unknown>>;
+    climate: Readonly<Record<string, unknown>>;
+  }>,
+): Task {
+  return Task.fromJSON({
+    id: 'task-g08',
+    contextId: 'context-g08',
+    status: { state: TaskState.TASK_STATE_COMPLETED, timestamp },
+    artifacts: [
+      {
+        artifactId: 'task-g08:result',
+        name: 'result',
+        parts: [{ data: output, mediaType: 'application/json' }],
+      },
+    ],
+    metadata: { internalPhase: 'completed' },
   });
-}
-
-function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-function canonical(value: unknown): string {
-  if (value === undefined) return 'null';
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  const object = value as Readonly<Record<string, unknown>>;
-  return `{${Object.keys(object)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonical(object[key])}`)
-    .join(',')}}`;
 }

@@ -8,12 +8,24 @@ import { ClientFactory, type Client } from '@a2a-js/sdk/client';
 import { z } from 'zod';
 
 import {
+  HomeLabReadOnlyWorkflowContractError,
+  assertHomeLabReadOnlyWorkflowContract,
+} from '../../../packages/application/src/home-lab-read-only-workflow-contract.js';
+
+import {
   a2aExposureEtag,
   createA2aExposureVersion,
   type A2aExposureVersion,
   type JsonObject,
   type JsonValue,
 } from '../../../packages/node-control-domain/src/index.js';
+import {
+  HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES,
+  HOME_LAB_A2A_MODEL_FIXTURE_BOUNDARY,
+  HOME_LAB_A2A_MODEL_FIXTURE_MODEL,
+  HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+  HOME_LAB_A2A_MODEL_STAGES,
+} from './home-lab-a2a-model-contract.js';
 
 const CHECKSUM = /^[a-f0-9]{64}$/u;
 const TERMINAL_STATES = new Set<TaskState>([
@@ -22,54 +34,50 @@ const TERMINAL_STATES = new Set<TaskState>([
   TaskState.TASK_STATE_CANCELED,
   TaskState.TASK_STATE_REJECTED,
 ]);
-const REQUIRED_MODEL_STAGES = Object.freeze([
-  'task_understanding',
-  'goal_contract_generation',
-  'goal_planning',
-  'skill_input_resolution',
-  'workflow_planning',
-  'result_processing',
-  'goal_evaluation',
-] as const);
+const REQUIRED_MODEL_STAGES = HOME_LAB_A2A_MODEL_STAGES;
 
-export type HomeLabA2ATurnKind = 'light' | 'climate';
+export const HOME_LAB_A2A_READ_ONLY_SCENARIO = Object.freeze({
+  requestText: '查询客厅主灯和空调当前状态',
+  exposureId: 'home-lab-a2a-living-room-read-state',
+  capabilityId: 'home.living-room.read-state',
+  capabilityImplementationBindingId: 'capability-binding-home.living-room.read-state-v1',
+  agentSkillId: 'home-lab.living-room.read-state',
+  skillId: 'home.living-room.get-state',
+  taskTypeId: 'task-type.home-lab-living-room-read-state',
+  taskType: 'living_room_read_state',
+  operations: Object.freeze([
+    Object.freeze({
+      kind: 'light' as const,
+      providerBindingId: 'mcp-binding-ha-light-lab',
+      serverId: 'home-lab-light-mcp',
+      toolName: 'light_get_state',
+      inputField: 'mainLightResourceId',
+      outputField: 'mainLight',
+      resourceId: 'living-room-main-light',
+      evidenceType: 'light.state.observation',
+    }),
+    Object.freeze({
+      kind: 'climate' as const,
+      providerBindingId: 'mcp-binding-ha-climate-lab',
+      serverId: 'home-lab-climate-mcp',
+      toolName: 'climate_get_state',
+      inputField: 'climateResourceId',
+      outputField: 'climate',
+      resourceId: 'living-room-air-conditioner',
+      evidenceType: 'climate.state.observation',
+    }),
+  ]),
+});
 
-export interface HomeLabA2AReadOnlyTurn {
-  readonly kind: HomeLabA2ATurnKind;
-  readonly requestText: string;
-  readonly exposureId: string;
-  readonly capabilityId: string;
-  readonly agentSkillId: string;
-  readonly skillId: string;
-  readonly serverId: string;
-  readonly toolName: string;
-  readonly resourceId: string;
+export type HomeLabA2AReadOnlyScenario = typeof HOME_LAB_A2A_READ_ONLY_SCENARIO;
+type HomeLabOperation = HomeLabA2AReadOnlyScenario['operations'][number];
+
+function requiredOperation(scenario: HomeLabA2AReadOnlyScenario, index: number): HomeLabOperation {
+  const operation = scenario.operations[index];
+  if (operation === undefined)
+    fail('A2A_SCENARIO_OPERATION_MISSING', 'The frozen exact-two operation is absent.');
+  return operation;
 }
-
-export const HOME_LAB_A2A_READ_ONLY_TURNS: readonly HomeLabA2AReadOnlyTurn[] = Object.freeze([
-  Object.freeze({
-    kind: 'light' as const,
-    requestText: '查询客厅主灯当前状态',
-    exposureId: 'home-lab-a2a-light-read-state',
-    capabilityId: 'home.light.read-state',
-    agentSkillId: 'home-lab.light.read-state',
-    skillId: 'home.light.get-state',
-    serverId: 'home-lab-light-mcp',
-    toolName: 'light_get_state',
-    resourceId: 'living-room-main-light',
-  }),
-  Object.freeze({
-    kind: 'climate' as const,
-    requestText: '再查询客厅空调当前状态',
-    exposureId: 'home-lab-a2a-climate-read-state',
-    capabilityId: 'home.climate.read-state',
-    agentSkillId: 'home-lab.climate.read-state',
-    skillId: 'home.climate.get-state',
-    serverId: 'home-lab-climate-mcp',
-    toolName: 'climate_get_state',
-    resourceId: 'living-room-air-conditioner',
-  }),
-]);
 
 export interface HomeLabA2AReadOnlyConfiguration {
   readonly mode: 'execute' | 'verify-restart';
@@ -82,26 +90,63 @@ export interface HomeLabA2AReadOnlyConfiguration {
   readonly restartEvidenceId?: string;
   readonly pollIntervalMs?: number;
   readonly maxPolls?: number;
-  readonly turns?: readonly HomeLabA2AReadOnlyTurn[];
+  readonly scenario?: HomeLabA2AReadOnlyScenario;
+}
+
+export interface HomeLabA2AReadOnlyTaskReport {
+  readonly taskId: string;
+  readonly contextId: string;
+  readonly goalId: string;
+  readonly goalVersion: number;
+  readonly userGoalPlanId: string;
+  readonly workflowPlanId: string;
+  readonly terminalOutcomeId: string;
+  readonly capabilityId: typeof HOME_LAB_A2A_READ_ONLY_SCENARIO.capabilityId;
+  readonly capabilityVersion: 1;
+  readonly exposureId: typeof HOME_LAB_A2A_READ_ONLY_SCENARIO.exposureId;
+  readonly exposureVersion: 1;
+  readonly skillId: typeof HOME_LAB_A2A_READ_ONLY_SCENARIO.skillId;
+  readonly skillVersion: 1;
+  readonly states: Readonly<{
+    mainLight: Readonly<Record<string, unknown>>;
+    climate: Readonly<Record<string, unknown>>;
+  }>;
+  readonly operations: readonly Readonly<{
+    serverId: string;
+    operationName: string;
+    resourceId: string;
+    evidenceType: string;
+  }>[];
+  readonly a2aTaskHash: string;
+  readonly structuredOutcomeHash: string;
+  readonly capabilityBindingHash: string;
+  readonly eventCount: number;
+  readonly modelStages: readonly string[];
+  readonly evidenceQueries: readonly string[];
 }
 
 export interface HomeLabA2AReadOnlyReport {
-  readonly schemaVersion: 'sdar.home-lab-a2a-read-only/v1';
+  readonly schemaVersion: 'sdar.home-lab-a2a-read-only/v2';
   readonly status: 'passed';
   readonly mode: 'execute' | 'verify-restart';
   readonly observedAt: string;
   readonly a2aReadOnlyReady: true;
   readonly restartRecoveryVerified: boolean;
   readonly contextId: string;
-  readonly turns: readonly HomeLabA2ATurnReport[];
+  readonly task: HomeLabA2AReadOnlyTaskReport;
   readonly modelAuthority: Readonly<{
     requiredStages: readonly string[];
+    configuredRouteStages: readonly string[];
+    providerId: typeof HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID;
+    model: typeof HOME_LAB_A2A_MODEL_FIXTURE_MODEL;
     configuredProviderCount: number;
-    failedInvocationCount: number;
+    failedInvocationCount: 0;
+    evidenceClass: 'real_a2a_runtime_mcp_ha_with_simulated_local_model_semantics';
+    modelBoundary: typeof HOME_LAB_A2A_MODEL_FIXTURE_BOUNDARY;
   }>;
   readonly safety: Readonly<{
-    allowedCapabilities: readonly string[];
-    allowedOperations: readonly string[];
+    allowedCapabilities: readonly [typeof HOME_LAB_A2A_READ_ONLY_SCENARIO.capabilityId];
+    allowedOperations: readonly ['light_get_state', 'climate_get_state'];
     writeOperationsInvoked: 0;
     physicalWritesInvoked: 0;
     realDeviceWriteGateObserved: 'closed' | 'open_but_unused';
@@ -113,53 +158,26 @@ export interface HomeLabA2AReadOnlyReport {
   }>;
 }
 
-export interface HomeLabA2ATurnReport {
-  readonly kind: HomeLabA2ATurnKind;
-  readonly taskId: string;
-  readonly contextId: string;
-  readonly goalId: string;
-  readonly goalVersion: number;
-  readonly planId: string;
-  readonly capabilityId: string;
-  readonly capabilityVersion: 1;
-  readonly exposureId: string;
-  readonly exposureVersion: 1;
-  readonly skillId: string;
-  readonly skillVersion: 1;
-  readonly serverId: string;
-  readonly operationName: string;
-  readonly resourceId: string;
-  readonly state: Readonly<Record<string, unknown>>;
-  readonly a2aTaskHash: string;
-  readonly structuredOutcomeHash: string;
-  readonly capabilityBindingHash: string;
-  readonly eventCount: number;
-  readonly modelStages: readonly string[];
-  readonly evidenceQueries: readonly string[];
-}
-
 interface HomeLabA2ACheckpoint {
-  readonly schemaVersion: 'sdar.home-lab-a2a-checkpoint/v1';
+  readonly schemaVersion: 'sdar.home-lab-a2a-checkpoint/v2';
   readonly runId: string;
   readonly createdAt: string;
   readonly contextId: string;
-  readonly turns: readonly Readonly<{
-    kind: HomeLabA2ATurnKind;
+  readonly task: Readonly<{
     taskId: string;
     contextId: string;
     goalId: string;
     goalVersion: number;
-    planId: string;
+    userGoalPlanId: string;
+    workflowPlanId: string;
+    terminalOutcomeId: string;
     capabilityId: string;
     exposureId: string;
     skillId: string;
-    serverId: string;
-    operationName: string;
-    resourceId: string;
     a2aTaskHash: string;
     structuredOutcomeHash: string;
     capabilityBindingHash: string;
-  }>[];
+  }>;
 }
 
 type A2AClient = Pick<Client, 'sendMessage' | 'getTask'>;
@@ -172,25 +190,32 @@ interface DriverDependencies {
   readonly environment?: NodeJS.ProcessEnv;
 }
 
+export async function confirmCompositeReadOnlyPlanAfterZeroInvocationGate<T>(
+  input: Readonly<{
+    assertNoMcpInvocations(): Promise<void>;
+    confirm(): Promise<T>;
+  }>,
+): Promise<T> {
+  await input.assertNoMcpInvocations();
+  return input.confirm();
+}
+
 const ProviderCollectionSchema = z.object({
   items: z.array(
     z
       .object({
         providerId: z.string().min(1),
+        kind: z.string().min(1),
+        apiStyle: z.string().min(1),
+        baseUrl: z.url(),
+        model: z.string().min(1),
         enabled: z.boolean(),
       })
       .loose(),
   ),
 });
 const RouteCollectionSchema = z.object({
-  items: z.array(
-    z
-      .object({
-        stage: z.string().min(1),
-        providerId: z.string().min(1),
-      })
-      .loose(),
-  ),
+  items: z.array(z.object({ stage: z.string().min(1), providerId: z.string().min(1) }).loose()),
 });
 const CapabilitySchema = z
   .object({
@@ -200,6 +225,7 @@ const CapabilitySchema = z
     description: z.string().min(1),
     inputSchema: z.record(z.string(), z.unknown()),
     outputSchema: z.record(z.string(), z.unknown()),
+    constraints: z.array(z.record(z.string(), z.unknown())).optional(),
     status: z.literal('published'),
     riskLevel: z.literal('low'),
     definitionHash: z.string().regex(CHECKSUM),
@@ -211,10 +237,13 @@ const ReadinessSchema = z
     capabilityVersion: z.number().int().positive(),
     status: z.literal('available'),
     validUntil: z.iso.datetime(),
-    availableImplementations: z.array(z.string()).min(1),
+    availableImplementations: z.array(z.string()),
     unavailableImplementations: z.array(z.string()),
   })
   .loose();
+const ToolReferenceSchema = z
+  .object({ serverId: z.string().min(1), toolName: z.string().min(1) })
+  .strict();
 const SkillSchema = z
   .object({
     skillId: z.string().min(1),
@@ -223,9 +252,7 @@ const SkillSchema = z
     capabilities: z.array(z.string()),
     toolPolicy: z
       .object({
-        required: z.array(
-          z.object({ serverId: z.string().min(1), toolName: z.string().min(1) }).strict(),
-        ),
+        required: z.array(ToolReferenceSchema),
         optional: z.array(z.unknown()),
         forbidden: z.array(z.unknown()),
       })
@@ -259,11 +286,7 @@ const ExposureSchema = z
   })
   .loose();
 const OperationSchema = z
-  .object({
-    status: z.literal('succeeded'),
-    errorCode: z.string().optional(),
-    result: z.unknown().optional(),
-  })
+  .object({ status: z.literal('succeeded'), errorCode: z.string().optional(), result: z.unknown() })
   .loose();
 const RuntimeTaskSchema = z
   .object({
@@ -286,36 +309,35 @@ const TaskCapabilityBindingSchema = z
     capabilityVersion: z.number().int().positive(),
     exposureId: z.string().min(1),
     exposureVersion: z.number().int().positive(),
-    initialImplementationRefs: z.array(z.string()).min(1),
+    initialImplementationRefs: z.array(z.string()),
+    providerPolicySnapshot: z.record(z.string(), z.unknown()),
     bindingHash: z.string().regex(CHECKSUM),
   })
   .loose();
 const CollectionSchema = z.object({ items: z.array(z.unknown()) });
 const CheckpointSchema = z
   .object({
-    schemaVersion: z.literal('sdar.home-lab-a2a-checkpoint/v1'),
+    schemaVersion: z.literal('sdar.home-lab-a2a-checkpoint/v2'),
     runId: z.string().min(1),
     createdAt: z.iso.datetime(),
     contextId: z.string().min(1),
-    turns: z.array(
-      z.object({
-        kind: z.enum(['light', 'climate']),
+    task: z
+      .object({
         taskId: z.string().min(1),
         contextId: z.string().min(1),
         goalId: z.string().min(1),
         goalVersion: z.number().int().positive(),
-        planId: z.string().min(1),
+        userGoalPlanId: z.string().min(1),
+        workflowPlanId: z.string().min(1),
+        terminalOutcomeId: z.string().min(1),
         capabilityId: z.string().min(1),
         exposureId: z.string().min(1),
         skillId: z.string().min(1),
-        serverId: z.string().min(1),
-        operationName: z.string().min(1),
-        resourceId: z.string().min(1),
         a2aTaskHash: z.string().regex(CHECKSUM),
         structuredOutcomeHash: z.string().regex(CHECKSUM),
         capabilityBindingHash: z.string().regex(CHECKSUM),
-      }),
-    ),
+      })
+      .strict(),
   })
   .strict();
 
@@ -324,7 +346,7 @@ export async function runHomeLabA2AReadOnly(
   dependencies: DriverDependencies = {},
 ): Promise<HomeLabA2AReadOnlyReport> {
   const configuration = validateConfiguration(input);
-  const turns = validateTurns(input.turns ?? HOME_LAB_A2A_READ_ONLY_TURNS);
+  const scenario = validateScenario(input.scenario ?? HOME_LAB_A2A_READ_ONLY_SCENARIO);
   const request = dependencies.fetch ?? fetch;
   const now = dependencies.now ?? (() => new Date().toISOString());
   const observedAt = validTimestamp(now(), 'A2A_DRIVER_CLOCK_INVALID');
@@ -335,20 +357,6 @@ export async function runHomeLabA2AReadOnly(
       ? 'open_but_unused'
       : 'closed';
 
-  if (configuration.mode === 'verify-restart') {
-    return verifyRestartRecovery(
-      configuration,
-      turns,
-      request,
-      dependencies.createA2AClient,
-      observedAt,
-      writeGateObserved,
-    );
-  }
-
-  // Every external dependency and authority fact is checked before the first
-  // Node Control mutation. In particular, an absent LLM provider/route cannot
-  // leave a partially published A2A Exposure behind.
   await runtimeGet(configuration, '/api/v1/health', request);
   const providers = ProviderCollectionSchema.parse(
     await runtimeGet(configuration, '/api/v1/models/providers', request),
@@ -358,162 +366,168 @@ export async function runHomeLabA2AReadOnly(
   );
   const modelAuthority = assertModelRuntimeReady(providers.items, routes.items);
 
-  const prepared = await Promise.all(
-    turns.map((turn) => preflightTurn(configuration, turn, observedAt, request)),
-  );
-  for (const item of prepared) await ensureExposure(configuration, item.exposure, request);
+  if (configuration.mode === 'verify-restart')
+    return verifyRestartRecovery(
+      configuration,
+      scenario,
+      request,
+      dependencies.createA2AClient,
+      observedAt,
+      writeGateObserved,
+      modelAuthority.configuredProviderCount,
+    );
+
+  const exposure = await preflightAuthority(configuration, scenario, observedAt, request);
+  await ensureExposure(configuration, exposure, request);
   const rebuilt = OperationSchema.parse(
     await controlMutation(
       configuration,
       '/api/v1/a2a-agent-card-revisions/rebuild',
       stableKey(configuration.runId, 'agent-card-rebuild'),
-      { reason: 'Publish the exact two read-only home-lab A2A Capability exposures.' },
+      { reason: 'Publish the exact composite read-only home-lab A2A Capability exposure.' },
       request,
     ),
   );
   if (!isRecord(rebuilt.result) || rebuilt.result['status'] !== 'active')
     fail('A2A_AGENT_CARD_NOT_ACTIVE', 'Node Control did not activate the rebuilt Agent Card.');
-  const agentCard = await publicGet(
-    configuration.a2aBaseUrl,
-    '/.well-known/agent-card.json',
-    request,
+  assertAgentCard(
+    await publicGet(configuration.a2aBaseUrl, '/.well-known/agent-card.json', request),
+    scenario,
   );
-  assertAgentCard(agentCard, turns);
 
   const client = await createClient(configuration.a2aBaseUrl, dependencies.createA2AClient);
-  const turnReports: HomeLabA2ATurnReport[] = [];
-  let contextId: string | undefined;
-  for (const turn of turns) {
-    const completed = await executeTurn(
-      configuration,
-      turn,
-      contextId,
-      client,
-      request,
-      dependencies,
-    );
-    contextId ??= completed.contextId;
-    if (completed.contextId !== contextId)
-      fail('A2A_CONTEXT_CHAIN_BROKEN', 'The two read-only A2A turns did not share one context.');
-    turnReports.push(completed);
-  }
-  if (contextId === undefined) fail('A2A_CONTEXT_MISSING', 'The A2A context was not created.');
-
+  const task = await executeScenario(configuration, scenario, client, request, dependencies);
   const report = buildReport({
     mode: 'execute',
     observedAt,
-    contextId,
-    turns: turnReports,
+    task,
     configuredProviderCount: modelAuthority.configuredProviderCount,
     restartRecoveryVerified: false,
     writeGateObserved,
   });
-  if (configuration.checkpointFile !== undefined) {
-    await writeCheckpoint(configuration.checkpointFile, {
-      schemaVersion: 'sdar.home-lab-a2a-checkpoint/v1',
-      runId: configuration.runId,
-      createdAt: observedAt,
-      contextId,
-      turns: turnReports.map((turn) => ({
-        kind: turn.kind,
-        taskId: turn.taskId,
-        contextId: turn.contextId,
-        goalId: turn.goalId,
-        goalVersion: turn.goalVersion,
-        planId: turn.planId,
-        capabilityId: turn.capabilityId,
-        exposureId: turn.exposureId,
-        skillId: turn.skillId,
-        serverId: turn.serverId,
-        operationName: turn.operationName,
-        resourceId: turn.resourceId,
-        a2aTaskHash: turn.a2aTaskHash,
-        structuredOutcomeHash: turn.structuredOutcomeHash,
-        capabilityBindingHash: turn.capabilityBindingHash,
-      })),
-    });
-  }
+  if (configuration.checkpointFile !== undefined)
+    await writeCheckpoint(
+      configuration.checkpointFile,
+      checkpoint(configuration.runId, observedAt, task),
+    );
   return report;
 }
 
 export function assertModelRuntimeReady(
-  providers: readonly Readonly<{ providerId: string; enabled: boolean }>[],
+  providers: readonly Readonly<{
+    providerId: string;
+    kind: string;
+    apiStyle: string;
+    baseUrl: string;
+    model: string;
+    enabled: boolean;
+  }>[],
   routes: readonly Readonly<{ stage: string; providerId: string }>[],
 ): Readonly<{ configuredProviderCount: number }> {
-  const enabled = new Set(
-    providers.filter((provider) => provider.enabled).map((provider) => provider.providerId),
+  const enabled = providers.filter((provider) => provider.enabled);
+  const fixture = providers.find(
+    (provider) => provider.providerId === HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
   );
   const routed = new Map(routes.map((route) => [route.stage, route.providerId]));
-  const missingStages = REQUIRED_MODEL_STAGES.filter((stage) => {
-    const providerId = routed.get(stage);
-    return providerId === undefined || !enabled.has(providerId);
-  });
-  if (enabled.size === 0 || missingStages.length > 0) {
+  const missing = HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES.filter(
+    (stage) => routed.get(stage) !== HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+  );
+  if (
+    fixture?.enabled !== true ||
+    fixture.kind !== 'local' ||
+    fixture.apiStyle !== 'openai_chat_completions' ||
+    fixture.model !== HOME_LAB_A2A_MODEL_FIXTURE_MODEL ||
+    !isLoopbackModelV1BaseUrl(fixture.baseUrl) ||
+    missing.length > 0
+  )
     fail(
       'A2A_MODEL_RUNTIME_NOT_CONFIGURED',
-      `The real A2A path requires an enabled Model Provider and routes for: ${missingStages.join(', ') || 'all required stages'}.`,
+      `A2A requires the exact simulated local fixture and routes for: ${missing.join(', ') || 'all configured stages'}.`,
     );
-  }
-  return Object.freeze({ configuredProviderCount: enabled.size });
+  return Object.freeze({ configuredProviderCount: enabled.length });
 }
 
-export function assertReadOnlyPlan(
+export function validateScenario(value: HomeLabA2AReadOnlyScenario): HomeLabA2AReadOnlyScenario {
+  if (canonical(value) !== canonical(HOME_LAB_A2A_READ_ONLY_SCENARIO))
+    fail(
+      'A2A_WRITE_INTENT_FORBIDDEN',
+      'G08 accepts only the frozen single-Task, exact-two read-only scenario.',
+    );
+  assertNoWriteOperations(value);
+  return HOME_LAB_A2A_READ_ONLY_SCENARIO;
+}
+
+export function assertCompositeReadOnlyPlan(
   plan: unknown,
-  expected: Pick<HomeLabA2AReadOnlyTurn, 'serverId' | 'toolName'>,
+  scenario: HomeLabA2AReadOnlyScenario = HOME_LAB_A2A_READ_ONLY_SCENARIO,
 ): void {
-  const definition = record(plan, 'A2A_PLAN_INVALID')['definition'];
-  const nodes = records(record(definition, 'A2A_PLAN_DEFINITION_INVALID')['nodes'] ?? []);
-  const allowedNodeTypes = new Set(['mcp_tool', 'condition', 'result', 'error_handler']);
-  const tools = nodes
-    .filter((node) => node['type'] === 'mcp_tool')
-    .map((node) => record(node['tool'], 'A2A_PLAN_TOOL_INVALID'));
-  const tool = tools.length === 1 ? tools[0] : undefined;
-  if (nodes.some((node) => typeof node['type'] !== 'string' || !allowedNodeTypes.has(node['type'])))
-    fail(
-      'A2A_PLAN_UNQUALIFIED_OPERATION',
-      'The read-only Skill plan contains an unqualified executable node.',
-    );
-  if (tool?.['serverId'] !== expected.serverId || tool['toolName'] !== expected.toolName) {
-    fail(
-      'A2A_PLAN_UNQUALIFIED_OPERATION',
-      'The plan must invoke exactly the qualified read-only MCP operation.',
-    );
+  const recordValue = record(plan, 'A2A_PLAN_INVALID');
+  const definition = record(recordValue['definition'], 'A2A_PLAN_DEFINITION_INVALID');
+  try {
+    assertHomeLabReadOnlyWorkflowContract(definition);
+  } catch (error: unknown) {
+    if (error instanceof HomeLabReadOnlyWorkflowContractError) {
+      const code = error.code.endsWith('RESULT_MAPPING_INVALID')
+        ? 'A2A_PLAN_RESULT_MAPPING_INVALID'
+        : error.code.endsWith('EVIDENCE_GATE_INVALID')
+          ? 'A2A_PLAN_EVIDENCE_GATE_INVALID'
+          : 'A2A_PLAN_UNQUALIFIED_OPERATION';
+      fail(code, error.message);
+    }
+    throw error;
   }
-  assertNoWriteOperations(plan);
+  const semantics = records(recordValue['toolExecutionSemantics'] ?? []);
+  if (
+    scenario.operations.some((operation) => {
+      const exact = semantics.filter((item) => {
+        const reference = isRecord(item['reference']) ? item['reference'] : undefined;
+        return (
+          reference?.['serverId'] === operation.serverId &&
+          reference['toolName'] === operation.toolName
+        );
+      });
+      const execution = isRecord(exact[0]?.['executionSemantics'])
+        ? exact[0]['executionSemantics']
+        : undefined;
+      return (
+        exact.length !== 1 ||
+        execution?.['effect'] !== 'read_only' ||
+        (execution['source'] !== 'mcp_declared' && execution['source'] !== 'admin_override')
+      );
+    })
+  )
+    fail(
+      'A2A_PLAN_EXECUTION_SEMANTICS_INVALID',
+      'Both planned MCP nodes require frozen read-only execution semantics.',
+    );
+  // The persisted semantics snapshot also contains forbidden policy Tools for audit. Only the
+  // executable Workflow definition is subject to the zero-write operation gate.
+  assertNoWriteOperations(definition);
 }
 
-export function structuredOutcome(task: Task, turn: HomeLabA2AReadOnlyTurn): unknown {
+export function structuredOutcome(
+  task: Task,
+  scenario: HomeLabA2AReadOnlyScenario = HOME_LAB_A2A_READ_ONLY_SCENARIO,
+): Readonly<{
+  mainLight: Readonly<Record<string, unknown>>;
+  climate: Readonly<Record<string, unknown>>;
+}> {
   const dataParts: unknown[] = [];
   for (const artifact of task.artifacts)
     for (const part of artifact.parts)
       if (part.content?.$case === 'data') dataParts.push(part.content.value as unknown);
   if (dataParts.length !== 1)
-    fail('A2A_STRUCTURED_OUTCOME_MISSING', 'The terminal A2A Task must expose one data Artifact.');
-  const output = record(dataParts[0], 'A2A_STRUCTURED_OUTCOME_INVALID');
-  if (output['resourceId'] !== turn.resourceId)
-    fail(
-      'A2A_RESOURCE_IDENTITY_MISMATCH',
-      'The structured A2A outcome does not match the requested public resource ID.',
-    );
-  if (
-    typeof output['power'] !== 'string' ||
-    typeof output['reachable'] !== 'boolean' ||
-    typeof output['observedAt'] !== 'string' ||
-    !Number.isFinite(Date.parse(output['observedAt']))
-  ) {
-    fail('A2A_STRUCTURED_STATE_INVALID', 'The A2A outcome is not a structured current state.');
-  }
-  if (
-    turn.kind === 'climate' &&
-    (!Object.hasOwn(output, 'hvacMode') ||
-      !Object.hasOwn(output, 'currentTemperature') ||
-      !Object.hasOwn(output, 'targetTemperature') ||
-      typeof output['temperatureUnit'] !== 'string')
-  ) {
-    fail('A2A_STRUCTURED_STATE_INVALID', 'The climate outcome is missing structured state fields.');
-  }
-  assertSafeJson(output);
-  return output;
+    fail('A2A_STRUCTURED_OUTCOME_MISSING', 'The terminal Task must expose one data Artifact.');
+  const value = record(dataParts[0], 'A2A_STRUCTURED_OUTCOME_INVALID');
+  const mainLight = record(value['mainLight'], 'A2A_LIGHT_STATE_INVALID');
+  const climate = record(value['climate'], 'A2A_CLIMATE_STATE_INVALID');
+  assertResourceState(mainLight, requiredOperation(scenario, 0));
+  assertResourceState(climate, requiredOperation(scenario, 1));
+  assertSafeJson(value);
+  return Object.freeze({
+    mainLight: Object.freeze({ ...mainLight }),
+    climate: Object.freeze({ ...climate }),
+  });
 }
 
 export function assertNoWriteOperations(value: unknown): void {
@@ -522,90 +536,102 @@ export function assertNoWriteOperations(value: unknown): void {
       (key === 'toolName' || key === 'operationName' || key === 'mcpToolName') &&
       typeof item === 'string' &&
       /(?:^|_)(?:set|write|toggle|turn_on|turn_off|power_on|power_off)(?:_|$)/iu.test(item)
-    ) {
+    )
       fail('A2A_WRITE_OPERATION_FORBIDDEN', 'G08 forbids every device write operation.');
-    }
   });
 }
 
-async function preflightTurn(
+async function preflightAuthority(
   configuration: ValidatedConfiguration,
-  turn: HomeLabA2AReadOnlyTurn,
+  scenario: HomeLabA2AReadOnlyScenario,
   observedAt: string,
   request: typeof fetch,
-): Promise<Readonly<{ exposure: A2aExposureVersion }>> {
+): Promise<A2aExposureVersion> {
   const capability = CapabilitySchema.parse(
     await controlGet(
       configuration,
-      `/api/v1/node-capabilities/${encodeURIComponent(turn.capabilityId)}/versions/1`,
+      `/api/v1/node-capabilities/${encodeURIComponent(scenario.capabilityId)}/versions/1`,
       request,
     ),
   );
-  if (capability.capabilityId !== turn.capabilityId || capability.version !== 1)
-    fail('A2A_CAPABILITY_IDENTITY_MISMATCH', 'The exact read-only Capability is unavailable.');
+  if (capability.capabilityId !== scenario.capabilityId || capability.version !== 1)
+    fail('A2A_CAPABILITY_IDENTITY_MISMATCH', 'The exact composite Capability is unavailable.');
+  assertCompositeCapabilityConstraints(capability.constraints ?? [], scenario);
+
   const readiness = ReadinessSchema.parse(
     await controlGet(
       configuration,
-      `/api/v1/capability-readiness/${encodeURIComponent(turn.capabilityId)}/1`,
+      `/api/v1/capability-readiness/${encodeURIComponent(scenario.capabilityId)}/1`,
       request,
     ),
   );
   if (
-    readiness.capabilityId !== turn.capabilityId ||
+    readiness.capabilityId !== scenario.capabilityId ||
     readiness.capabilityVersion !== 1 ||
+    canonical(readiness.availableImplementations) !==
+      canonical([scenario.capabilityImplementationBindingId]) ||
     readiness.unavailableImplementations.length !== 0 ||
     Date.parse(readiness.validUntil) <= Date.parse(observedAt)
-  ) {
-    fail('A2A_CAPABILITY_READINESS_INVALID', 'Capability readiness is stale or not exact.');
-  }
+  )
+    fail(
+      'A2A_CAPABILITY_READINESS_INVALID',
+      'Composite Capability readiness is stale, partial or not exact.',
+    );
+
   const skill = SkillSchema.parse(
     await runtimeGet(
       configuration,
-      `/api/v1/skills/${encodeURIComponent(turn.skillId)}/versions/1`,
+      `/api/v1/skills/${encodeURIComponent(scenario.skillId)}/versions/1`,
       request,
     ),
   );
-  const requiredTool =
-    skill.toolPolicy.required.length === 1 ? skill.toolPolicy.required[0] : undefined;
+  const required = skill.toolPolicy.required.map(toolKey).sort();
+  const expected = scenario.operations.map((operation) => toolKey(operation)).sort();
   if (
-    skill.skillId !== turn.skillId ||
+    skill.skillId !== scenario.skillId ||
     skill.version !== 1 ||
-    !skill.capabilities.includes(turn.capabilityId) ||
-    requiredTool?.serverId !== turn.serverId ||
-    requiredTool.toolName !== turn.toolName ||
+    canonical(skill.capabilities) !== canonical([scenario.capabilityId]) ||
+    canonical(required) !== canonical(expected) ||
     skill.toolPolicy.optional.length !== 0 ||
-    skill.toolPolicy.forbidden.length !== 0 ||
     skill.runtimePolicy['autoConfirmPlan'] !== false ||
-    skill.runtimePolicy['maxMcpCalls'] !== 1 ||
+    skill.runtimePolicy['maxMcpCalls'] !== 2 ||
     skill.runtimePolicy['maxLlmCalls'] !== 0
-  ) {
-    fail('A2A_SKILL_AUTHORITY_INVALID', 'The exact read-only Skill authority is not executable.');
+  )
+    fail(
+      'A2A_SKILL_AUTHORITY_INVALID',
+      'The composite Skill must allow exactly two reads, zero LLM calls and no optional Tool.',
+    );
+  assertNoWriteOperations(skill.toolPolicy.required);
+
+  for (const operation of scenario.operations) {
+    const provider = ProviderBindingSchema.parse(
+      await controlGet(
+        configuration,
+        `/api/v1/mcp-provider-bindings/${encodeURIComponent(operation.providerBindingId)}`,
+        request,
+      ),
+    );
+    if (
+      provider.bindingId !== operation.providerBindingId ||
+      provider.localServerId !== operation.serverId ||
+      Date.parse(provider.availabilityValidUntil) <= Date.parse(observedAt)
+    )
+      fail(
+        'A2A_PROVIDER_BINDING_INVALID',
+        'Both exact Provider Bindings must be active, available and unexpired.',
+      );
   }
-  const providerBindingId = providerBindingFor(turn);
-  const provider = ProviderBindingSchema.parse(
-    await controlGet(
-      configuration,
-      `/api/v1/mcp-provider-bindings/${encodeURIComponent(providerBindingId)}`,
-      request,
-    ),
-  );
-  if (
-    provider.bindingId !== providerBindingId ||
-    provider.localServerId !== turn.serverId ||
-    Date.parse(provider.availabilityValidUntil) <= Date.parse(observedAt)
-  ) {
-    fail('A2A_PROVIDER_BINDING_INVALID', 'The exact Provider Binding is stale or unavailable.');
-  }
+
   const exposure = createA2aExposureVersion({
-    exposureId: turn.exposureId,
+    exposureId: scenario.exposureId,
     version: 1,
-    capabilityId: turn.capabilityId,
+    capabilityId: scenario.capabilityId,
     capabilityVersion: 1,
-    agentSkillId: turn.agentSkillId,
+    agentSkillId: scenario.agentSkillId,
     name: capability.name,
     description: capability.description,
-    tags: ['home-lab', 'read-only', turn.kind],
-    examples: [turn.requestText],
+    tags: ['home-lab', 'read-only', 'composite', 'light', 'climate'],
+    examples: [scenario.requestText],
     inputModes: ['text/plain', 'application/json'],
     outputModes: ['application/json'],
     requestSchema: jsonObject(capability.inputSchema, 'A2A_CAPABILITY_INPUT_SCHEMA_INVALID'),
@@ -616,7 +642,40 @@ async function preflightTurn(
     status: 'draft',
   });
   assertSafeJson(exposure);
-  return Object.freeze({ exposure });
+  return exposure;
+}
+
+function assertCompositeCapabilityConstraints(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+  scenario: HomeLabA2AReadOnlyScenario,
+): void {
+  const policies = constraints.filter(
+    (constraint) => constraint['type'] === 'provider_binding_policy',
+  );
+  if (
+    policies.length !== 2 ||
+    scenario.operations.some(
+      (operation) =>
+        !policies.some(
+          (policy) =>
+            policy['mcpProviderBindingId'] === operation.providerBindingId &&
+            policy['localServerId'] === operation.serverId &&
+            policy['mcpToolName'] === operation.toolName &&
+            policy['requiredStatus'] === 'active' &&
+            policy['requiredAvailabilityStatus'] === 'available' &&
+            policy['requiredFreshness'] === 'unexpired' &&
+            policy['fallback'] === 'deny',
+        ),
+    ) ||
+    constraints.some(
+      (constraint) =>
+        constraint['type'] === 'confirmation_policy' && constraint['required'] !== false,
+    )
+  )
+    fail(
+      'A2A_CAPABILITY_POLICY_INVALID',
+      'The composite Capability must require both exact Binding policies and zero confirmation.',
+    );
 }
 
 async function ensureExposure(
@@ -627,7 +686,7 @@ async function ensureExposure(
   const path = `/api/v1/a2a-exposures/${encodeURIComponent(draft.exposureId)}/versions/1`;
   const response = await controlResponse(configuration, path, { method: 'GET' }, request);
   let current: A2aExposureVersion;
-  if (response.status === 404) {
+  if (response.status === 404)
     current = ExposureSchema.parse(
       await controlMutation(
         configuration,
@@ -638,14 +697,9 @@ async function ensureExposure(
         201,
       ),
     ) as A2aExposureVersion;
-  } else {
-    current = ExposureSchema.parse(await responseJson(response, 200)) as A2aExposureVersion;
-    if (current.exposureHash !== draft.exposureHash)
-      fail(
-        'A2A_EXPOSURE_DRIFT',
-        'An existing A2A Exposure differs from the exact read-only contract.',
-      );
-  }
+  else current = ExposureSchema.parse(await responseJson(response, 200)) as A2aExposureVersion;
+  if (current.exposureHash !== draft.exposureHash)
+    fail('A2A_EXPOSURE_DRIFT', 'The existing Exposure differs from the exact composite contract.');
   if (current.status === 'retired')
     fail('A2A_EXPOSURE_RETIRED', 'A retired exact-version Exposure cannot be reused.');
   if (current.status === 'published') return;
@@ -654,41 +708,44 @@ async function ensureExposure(
       configuration,
       `${path}/publish`,
       stableKey(configuration.runId, `exposure-publish:${draft.exposureId}`),
-      { reason: `Publish exact read-only Exposure ${draft.exposureId}@1.` },
+      { reason: `Publish exact composite read-only Exposure ${draft.exposureId}@1.` },
       request,
       202,
       a2aExposureEtag(current),
     ),
   );
   if (!isRecord(operation.result) || operation.result['status'] !== 'published')
-    fail('A2A_EXPOSURE_NOT_PUBLISHED', 'The exact read-only Exposure was not published.');
+    fail('A2A_EXPOSURE_NOT_PUBLISHED', 'The exact composite Exposure was not published.');
 }
 
-async function executeTurn(
+async function executeScenario(
   configuration: ValidatedConfiguration,
-  turn: HomeLabA2AReadOnlyTurn,
-  contextId: string | undefined,
+  scenario: HomeLabA2AReadOnlyScenario,
   client: A2AClient,
   request: typeof fetch,
   dependencies: DriverDependencies,
-): Promise<HomeLabA2ATurnReport> {
+): Promise<HomeLabA2AReadOnlyTaskReport> {
   const randomId = dependencies.randomId ?? randomUUID;
   const submitted = await client.sendMessage(
     SendMessageRequest.fromJSON({
       message: {
         messageId: `home-lab-a2a-${randomId()}`,
-        ...(contextId === undefined ? {} : { contextId }),
         role: 'ROLE_USER',
         parts: [
-          { text: turn.requestText, mediaType: 'text/plain' },
-          { data: { resourceId: turn.resourceId }, mediaType: 'application/json' },
+          { text: scenario.requestText, mediaType: 'text/plain' },
+          {
+            data: Object.fromEntries(
+              scenario.operations.map((operation) => [operation.inputField, operation.resourceId]),
+            ),
+            mediaType: 'application/json',
+          },
         ],
         metadata: {
           user_id: 'home-lab-a2a-read-only',
           'io.sdar/requestedCapability': {
-            exposureId: turn.exposureId,
+            exposureId: scenario.exposureId,
             versionConstraint: '1',
-            requestId: `${configuration.runId}:${turn.kind}`,
+            requestId: `${configuration.runId}:composite-read`,
           },
         },
       },
@@ -698,78 +755,114 @@ async function executeTurn(
   if (!('id' in submitted))
     fail('A2A_TASK_EXPECTED', 'The A2A endpoint returned a Message instead of a Task.');
   let task = submitted;
+  let understandingValidated = false;
+  let userGoalPlanValidated = false;
+  let planConfirmed = false;
   for (
     let interruption = 0;
     task.status?.state === TaskState.TASK_STATE_INPUT_REQUIRED;
     interruption += 1
   ) {
     if (interruption >= 4)
-      fail('A2A_INPUT_LOOP_EXCEEDED', 'The fixed read-only flow exceeded bounded confirmations.');
+      fail('A2A_INPUT_LOOP_EXCEEDED', 'The fixed flow exceeded bounded cognitive confirmations.');
     const runtimeTask = RuntimeTaskSchema.partial().parse(
       await runtimeGet(configuration, `/api/v1/tasks/${encodeURIComponent(task.id)}`, request),
     );
     if (runtimeTask.phase === 'awaiting_user_input') {
-      assertAcceptableCognitiveReview(task);
-      const accepted = await client.sendMessage(
-        SendMessageRequest.fromJSON({
-          message: {
-            messageId: `home-lab-a2a-review-${randomId()}`,
-            taskId: task.id,
-            contextId: task.contextId,
-            role: 'ROLE_USER',
-            parts: [
-              { text: 'accept', mediaType: 'text/plain' },
-              { data: { action: 'accept', payload: {} }, mediaType: 'application/json' },
-            ],
-            metadata: { user_id: 'home-lab-a2a-read-only', sdar_action: 'provide_input' },
-          },
-          configuration: { returnImmediately: true },
-        }),
+      const understanding = await runtimeGet(
+        configuration,
+        `/api/v1/tasks/${encodeURIComponent(task.id)}/understanding`,
+        request,
       );
-      if (!('id' in accepted))
-        fail('A2A_REVIEW_TASK_EXPECTED', 'Cognitive review did not return the Task.');
-      task = await pollResponseBoundary(
+      assertTaskUnderstanding(understanding, task.id, scenario);
+      understandingValidated = true;
+      const review = assertAcceptableCognitiveReview(task);
+      if (review === 'interactive_planning') {
+        if (runtimeTask.goalId === undefined || runtimeTask.goalVersion === undefined)
+          fail('A2A_GOAL_LINK_INVALID', 'Interactive planning lacks an attached Goal identity.');
+        assertCompositeUserGoalPlan(
+          interactiveCandidateUserGoalPlan(
+            await runtimeGet(
+              configuration,
+              `/api/v1/tasks/${encodeURIComponent(task.id)}/planning-session`,
+              request,
+            ),
+            task.id,
+            runtimeTask.goalId,
+            runtimeTask.goalVersion,
+          ),
+          runtimeTask.goalId,
+          runtimeTask.goalVersion,
+          scenario,
+        );
+        userGoalPlanValidated = true;
+      }
+      task = await submitContinuation(
         client,
-        accepted.id,
-        configuration.pollIntervalMs,
-        configuration.maxPolls,
+        task,
+        randomId,
+        'review',
+        'accept',
+        { action: 'accept', payload: {} },
+        'provide_input',
+        configuration,
       );
       continue;
     }
     if (runtimeTask.phase !== 'awaiting_plan_confirmation' || runtimeTask.planId === undefined)
       fail(
         'A2A_UNEXPECTED_INPUT_REQUIRED',
-        'The fixed read-only flow requested unsupported supplementary input.',
+        'The fixed query requested unsupported supplementary input.',
       );
-    assertReadOnlyPlan(
+    const understanding = await runtimeGet(
+      configuration,
+      `/api/v1/tasks/${encodeURIComponent(task.id)}/understanding`,
+      request,
+    );
+    assertTaskUnderstanding(understanding, task.id, scenario);
+    understandingValidated = true;
+    if (runtimeTask.goalId === undefined || runtimeTask.goalVersion === undefined)
+      fail('A2A_GOAL_LINK_INVALID', 'Workflow confirmation lacks an attached Goal identity.');
+    assertCompositeUserGoalPlan(
+      await loadUserGoalPlan(configuration, runtimeTask.goalId, runtimeTask.goalVersion, request),
+      runtimeTask.goalId,
+      runtimeTask.goalVersion,
+      scenario,
+    );
+    userGoalPlanValidated = true;
+    await preflightAuthority(
+      configuration,
+      scenario,
+      validTimestamp(
+        (dependencies.now ?? (() => new Date().toISOString()))(),
+        'A2A_DRIVER_CLOCK_INVALID',
+      ),
+      request,
+    );
+    assertCompositeReadOnlyPlan(
       await runtimeGet(
         configuration,
         `/api/v1/workflows/plans/${encodeURIComponent(runtimeTask.planId)}`,
         request,
       ),
-      turn,
+      scenario,
     );
-    const confirmation = await client.sendMessage(
-      SendMessageRequest.fromJSON({
-        message: {
-          messageId: `home-lab-a2a-confirm-${randomId()}`,
-          taskId: task.id,
-          contextId: task.contextId,
-          role: 'ROLE_USER',
-          parts: [{ text: '确认执行只读计划。', mediaType: 'text/plain' }],
-          metadata: { user_id: 'home-lab-a2a-read-only', sdar_action: 'confirm_plan' },
-        },
-        configuration: { returnImmediately: true },
-      }),
-    );
-    if (!('id' in confirmation))
-      fail('A2A_CONFIRMATION_TASK_EXPECTED', 'Plan confirmation did not return the Task.');
-    task = await pollResponseBoundary(
-      client,
-      confirmation.id,
-      configuration.pollIntervalMs,
-      configuration.maxPolls,
-    );
+    task = await confirmCompositeReadOnlyPlanAfterZeroInvocationGate({
+      assertNoMcpInvocations: () =>
+        assertNoMcpInvocationsBeforeConfirmation(configuration, task.id, request),
+      confirm: () =>
+        submitContinuation(
+          client,
+          task,
+          randomId,
+          'confirm',
+          '确认执行只读计划。',
+          undefined,
+          'confirm_plan',
+          configuration,
+        ),
+    });
+    planConfirmed = true;
   }
   if (task.status?.state === undefined || !TERMINAL_STATES.has(task.status.state))
     task = await pollTerminalTask(
@@ -778,46 +871,112 @@ async function executeTurn(
       configuration.pollIntervalMs,
       configuration.maxPolls,
     );
-  if (task.status?.state !== TaskState.TASK_STATE_COMPLETED) {
+  if (
+    task.status?.state !== TaskState.TASK_STATE_COMPLETED ||
+    !understandingValidated ||
+    !userGoalPlanValidated ||
+    !planConfirmed
+  ) {
+    if (!planConfirmed)
+      await assertNoMcpInvocationsBeforeConfirmation(configuration, task.id, request);
     const runtimeTask = RuntimeTaskSchema.partial().parse(
       await runtimeGet(configuration, `/api/v1/tasks/${encodeURIComponent(task.id)}`, request),
     );
     fail(
       'A2A_TASK_NOT_COMPLETED',
-      `The read-only A2A Task terminated fail-closed with ${runtimeTask.errorCode ?? runtimeTask.phase ?? 'unknown'}.`,
+      `The single Task terminated fail-closed with ${runtimeTask.errorCode ?? runtimeTask.phase ?? 'unknown'}.`,
     );
   }
-  const firstRead = await client.getTask({ tenant: '', id: task.id });
-  const secondRead = await client.getTask({ tenant: '', id: task.id });
-  const firstSnapshot = a2aTaskSnapshot(firstRead, turn);
-  const secondSnapshot = a2aTaskSnapshot(secondRead, turn);
-  if (canonical(firstSnapshot) !== canonical(secondSnapshot))
+  const first = await client.getTask({ tenant: '', id: task.id });
+  const second = await client.getTask({ tenant: '', id: task.id });
+  if (canonical(taskSnapshot(first, scenario)) !== canonical(taskSnapshot(second, scenario)))
     fail('A2A_GET_TASK_INCONSISTENT', 'Repeated getTask calls returned different terminal facts.');
+  return collectCompletedEvidence(configuration, scenario, second, request, dependencies.now);
+}
 
-  const output = structuredOutcome(secondRead, turn);
+async function submitContinuation(
+  client: A2AClient,
+  task: Task,
+  randomId: () => string,
+  scope: string,
+  textValue: string,
+  data: unknown,
+  action: 'provide_input' | 'confirm_plan',
+  configuration: ValidatedConfiguration,
+): Promise<Task> {
+  const response = await client.sendMessage(
+    SendMessageRequest.fromJSON({
+      message: {
+        messageId: `home-lab-a2a-${scope}-${randomId()}`,
+        taskId: task.id,
+        contextId: task.contextId,
+        role: 'ROLE_USER',
+        parts: [
+          { text: textValue, mediaType: 'text/plain' },
+          ...(data === undefined ? [] : [{ data, mediaType: 'application/json' }]),
+        ],
+        metadata: { user_id: 'home-lab-a2a-read-only', sdar_action: action },
+      },
+      configuration: { returnImmediately: true },
+    }),
+  );
+  if (!('id' in response))
+    fail('A2A_CONTINUATION_TASK_EXPECTED', 'The A2A continuation did not return the Task.');
+  return pollResponseBoundary(
+    client,
+    response.id,
+    configuration.pollIntervalMs,
+    configuration.maxPolls,
+  );
+}
+
+async function collectCompletedEvidence(
+  configuration: ValidatedConfiguration,
+  scenario: HomeLabA2AReadOnlyScenario,
+  task: Task,
+  request: typeof fetch,
+  now?: () => string,
+): Promise<HomeLabA2AReadOnlyTaskReport> {
+  if (task.status?.state !== TaskState.TASK_STATE_COMPLETED)
+    fail('A2A_TASK_NOT_COMPLETED', 'Evidence collection requires a completed A2A Task.');
+  const output = structuredOutcome(task, scenario);
   const runtimeTask = RuntimeTaskSchema.parse(
     await runtimeGet(configuration, `/api/v1/tasks/${encodeURIComponent(task.id)}`, request),
   );
   if (
     runtimeTask.contextId !== task.contextId ||
     runtimeTask.phase !== 'completed' ||
-    runtimeTask.selectedSkillId !== turn.skillId ||
+    runtimeTask.selectedSkillId !== scenario.skillId ||
     runtimeTask.selectedSkillVersion !== 1 ||
     canonical(runtimeTask.output?.structured) !== canonical(output)
-  ) {
+  )
     fail('A2A_RUNTIME_TASK_MISMATCH', 'A2A and Runtime Task authority do not match exactly.');
-  }
 
+  await preflightAuthority(
+    configuration,
+    scenario,
+    validTimestamp((now ?? (() => new Date().toISOString()))(), 'A2A_DRIVER_CLOCK_INVALID'),
+    request,
+  );
+  const userGoalPlanPromise = loadUserGoalPlan(
+    configuration,
+    runtimeTask.goalId,
+    runtimeTask.goalVersion,
+    request,
+  );
+  const terminalOutcomeId = `terminal-outcome-task-${task.id}`;
   const [
     understanding,
     goal,
+    userGoalPlan,
     plan,
     trace,
     events,
-    capabilityBinding,
+    bindingValue,
     taskProjection,
     invocations,
     models,
+    terminalOutcome,
   ] = await Promise.all([
     runtimeGet(
       configuration,
@@ -825,6 +984,7 @@ async function executeTurn(
       request,
     ),
     runtimeGet(configuration, `/api/v1/goals/${encodeURIComponent(runtimeTask.goalId)}`, request),
+    userGoalPlanPromise,
     runtimeGet(
       configuration,
       `/api/v1/workflows/plans/${encodeURIComponent(runtimeTask.planId)}`,
@@ -852,48 +1012,75 @@ async function executeTurn(
       `/api/v1/models/invocations?taskId=${encodeURIComponent(task.id)}`,
       request,
     ),
+    runtimeGet(
+      configuration,
+      `/api/v1/runtime-terminal-outcomes/${encodeURIComponent(terminalOutcomeId)}`,
+      request,
+    ),
   ]);
-  assertTaskUnderstanding(understanding, runtimeTask, turn);
+  assertTaskUnderstanding(understanding, task.id, scenario);
   assertGoal(goal, runtimeTask);
-  assertReadOnlyPlan(plan, turn);
+  const userGoalPlanId = assertCompositeUserGoalPlan(
+    userGoalPlan,
+    runtimeTask.goalId,
+    runtimeTask.goalVersion,
+    scenario,
+  );
+  assertCompositeReadOnlyPlan(plan, scenario);
   assertTraceIdentity(trace, runtimeTask.planId);
+  const capabilityAttemptId = assertTerminalOutcome(
+    terminalOutcome,
+    terminalOutcomeId,
+    runtimeTask,
+  );
   const eventCount = CollectionSchema.parse(events).items.length;
   if (eventCount === 0) fail('A2A_TASK_EVENTS_MISSING', 'The Task has no observable events.');
-  const binding = TaskCapabilityBindingSchema.parse(capabilityBinding);
+  const binding = TaskCapabilityBindingSchema.parse(bindingValue);
   if (
     binding.taskId !== task.id ||
-    binding.requestedCapabilityId !== turn.capabilityId ||
+    binding.requestedCapabilityId !== scenario.capabilityId ||
     binding.capabilityVersion !== 1 ||
-    binding.exposureId !== turn.exposureId ||
+    binding.exposureId !== scenario.exposureId ||
     binding.exposureVersion !== 1 ||
-    canonical(binding.initialImplementationRefs) !== canonical([`skill:${turn.skillId}:1`])
-  ) {
+    canonical(binding.initialImplementationRefs) !== canonical([`skill:${scenario.skillId}:1`])
+  )
     fail('A2A_CAPABILITY_BINDING_MISMATCH', 'The immutable Task Capability binding is not exact.');
-  }
+  assertFrozenProviderBindingRequirements(binding.providerPolicySnapshot, scenario);
   if (record(taskProjection, 'A2A_TASK_PROJECTION_INVALID')['taskId'] !== task.id)
     fail('A2A_TASK_PROJECTION_MISMATCH', 'Node Control cannot query the A2A Task ID.');
-  assertMcpInvocations(invocations, turn, output);
+  assertCompositeMcpInvocations(invocations, scenario, output, capabilityAttemptId);
   const modelStages = assertModelInvocations(models);
-  assertNoWriteOperations({ plan, trace, invocations });
-
+  assertNoWriteOperations(trace);
+  const snapshot = taskSnapshot(task, scenario);
   return Object.freeze({
-    kind: turn.kind,
     taskId: task.id,
     contextId: task.contextId,
     goalId: runtimeTask.goalId,
     goalVersion: runtimeTask.goalVersion,
-    planId: runtimeTask.planId,
-    capabilityId: turn.capabilityId,
+    userGoalPlanId,
+    workflowPlanId: runtimeTask.planId,
+    terminalOutcomeId,
+    capabilityId: scenario.capabilityId,
     capabilityVersion: 1,
-    exposureId: turn.exposureId,
+    exposureId: scenario.exposureId,
     exposureVersion: 1,
-    skillId: turn.skillId,
+    skillId: scenario.skillId,
     skillVersion: 1,
-    serverId: turn.serverId,
-    operationName: turn.toolName,
-    resourceId: turn.resourceId,
-    state: sanitizeState(output, turn),
-    a2aTaskHash: sha256(canonical(secondSnapshot)),
+    states: Object.freeze({
+      mainLight: sanitizeState(output.mainLight, requiredOperation(scenario, 0)),
+      climate: sanitizeState(output.climate, requiredOperation(scenario, 1)),
+    }),
+    operations: Object.freeze(
+      scenario.operations.map((operation) =>
+        Object.freeze({
+          serverId: operation.serverId,
+          operationName: operation.toolName,
+          resourceId: operation.resourceId,
+          evidenceType: operation.evidenceType,
+        }),
+      ),
+    ),
+    a2aTaskHash: sha256(canonical(snapshot)),
     structuredOutcomeHash: sha256(canonical(output)),
     capabilityBindingHash: binding.bindingHash,
     eventCount,
@@ -903,218 +1090,229 @@ async function executeTurn(
       'runtime.task',
       'runtime.task-understanding',
       'runtime.goal',
-      'runtime.plan',
-      'runtime.trace',
+      'runtime.user-goal-plan',
+      'runtime.workflow-plan',
+      'runtime.workflow-trace',
       'runtime.events',
       'runtime.mcp-invocations',
       'runtime.model-invocations',
+      'runtime.terminal-outcome',
       'node-control.task',
       'node-control.capability-binding',
+      'node-control.provider-bindings',
     ]),
   });
 }
 
-async function verifyRestartRecovery(
-  configuration: ValidatedConfiguration,
-  turns: readonly HomeLabA2AReadOnlyTurn[],
-  request: typeof fetch,
-  clientFactory: DriverDependencies['createA2AClient'],
-  observedAt: string,
-  writeGateObserved: 'closed' | 'open_but_unused',
-): Promise<HomeLabA2AReadOnlyReport> {
-  if (configuration.checkpointFile === undefined)
-    fail('A2A_CHECKPOINT_REQUIRED', 'Restart verification requires a checkpoint file.');
-  if (!nonEmpty(configuration.restartEvidenceId))
+export function assertFrozenProviderBindingRequirements(
+  value: Readonly<Record<string, unknown>>,
+  scenario: HomeLabA2AReadOnlyScenario,
+): void {
+  const resolution = record(value['resolution'], 'A2A_FROZEN_PROVIDER_BINDINGS_INVALID');
+  const implementations = records(resolution['implementations'] ?? []);
+  const implementation = implementations[0];
+  const requirements = records(implementation?.['providerBindingRequirements'] ?? []);
+  const expectedRequirements = [...scenario.operations]
+    .map((operation) => ({
+      bindingId: operation.providerBindingId,
+      localServerId: operation.serverId,
+    }))
+    .sort((left, right) => left.bindingId.localeCompare(right.bindingId));
+  const actualRequirements = requirements
+    .map((requirement) => ({
+      bindingId: requirement['bindingId'],
+      localServerId: requirement['localServerId'],
+    }))
+    .sort((left, right) => String(left.bindingId).localeCompare(String(right.bindingId)));
+  if (
+    implementations.length !== 1 ||
+    implementation?.['implementationRef'] !== `skill:${scenario.skillId}:1` ||
+    requirements.length !== 2 ||
+    canonical(actualRequirements) !== canonical(expectedRequirements)
+  )
     fail(
-      'A2A_RESTART_EVIDENCE_REQUIRED',
-      'Restart verification requires an external restart evidence reference.',
+      'A2A_FROZEN_PROVIDER_BINDINGS_INVALID',
+      'The selected implementation must freeze both exact Provider Binding requirements.',
     );
-  await runtimeGet(configuration, '/api/v1/health', request);
-  const providers = ProviderCollectionSchema.parse(
-    await runtimeGet(configuration, '/api/v1/models/providers', request),
-  );
-  const routes = RouteCollectionSchema.parse(
-    await runtimeGet(configuration, '/api/v1/models/routes', request),
-  );
-  const modelAuthority = assertModelRuntimeReady(providers.items, routes.items);
-  const checkpoint = CheckpointSchema.parse(
-    JSON.parse(await readFile(configuration.checkpointFile, 'utf8')),
-  ) as HomeLabA2ACheckpoint;
-  if (checkpoint.runId !== configuration.runId)
-    fail('A2A_CHECKPOINT_RUN_MISMATCH', 'The restart checkpoint belongs to a different Goal run.');
-  if (checkpoint.turns.length !== turns.length)
-    fail('A2A_CHECKPOINT_INVALID', 'The restart checkpoint has an unexpected turn count.');
-  const client = await createClient(configuration.a2aBaseUrl, clientFactory);
-  const recovered: HomeLabA2ATurnReport[] = [];
-  for (const [index, saved] of checkpoint.turns.entries()) {
-    const turn = turns[index];
-    if (turn === undefined)
-      fail('A2A_CHECKPOINT_AUTHORITY_MISMATCH', 'Checkpoint turn has no fixed scenario match.');
+
+  const current = records(value['currentProviderBindings'] ?? []);
+  if (current.length !== 2)
+    fail(
+      'A2A_FROZEN_PROVIDER_BINDINGS_INVALID',
+      'The Task admission snapshot must contain exactly two current Provider authorities.',
+    );
+  const observedAuthorities = current.map((authority) => {
+    const binding = record(authority['binding'], 'A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID');
+    const lineage = record(
+      authority['sourceCandidateLineage'],
+      'A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID',
+    );
+    const observedAt = text(
+      authority['observedAt'],
+      'A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID',
+    );
+    const availabilityValidUntil = text(
+      binding['availabilityValidUntil'],
+      'A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID',
+    );
+    const catalogObservedAt = text(
+      binding['catalogObservedAt'],
+      'A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID',
+    );
+    const endpointRef = safeHttpEndpoint(binding['endpointRef']);
+    const candidateEndpoint = safeHttpEndpoint(lineage['candidateEndpoint']);
     if (
-      saved.kind !== turn.kind ||
-      saved.capabilityId !== turn.capabilityId ||
-      saved.exposureId !== turn.exposureId ||
-      saved.skillId !== turn.skillId ||
-      saved.serverId !== turn.serverId ||
-      saved.operationName !== turn.toolName ||
-      saved.resourceId !== turn.resourceId
-    ) {
-      fail(
-        'A2A_CHECKPOINT_AUTHORITY_MISMATCH',
-        'Checkpoint authority differs from the fixed scenario.',
-      );
-    }
-    const first = await client.getTask({ tenant: '', id: saved.taskId });
-    const second = await client.getTask({ tenant: '', id: saved.taskId });
-    if (first.status?.state !== TaskState.TASK_STATE_COMPLETED)
-      fail(
-        'A2A_RESTART_TASK_NOT_RECOVERED',
-        'A completed A2A Task was not recovered after restart.',
-      );
-    const snapshot = a2aTaskSnapshot(second, turn);
-    const output = structuredOutcome(second, turn);
-    if (
-      first.id !== saved.taskId ||
-      first.contextId !== saved.contextId ||
-      canonical(a2aTaskSnapshot(first, turn)) !== canonical(snapshot) ||
-      sha256(canonical(snapshot)) !== saved.a2aTaskHash ||
-      sha256(canonical(output)) !== saved.structuredOutcomeHash
-    ) {
-      fail('A2A_RESTART_GET_TASK_DRIFT', 'Recovered getTask evidence differs from the checkpoint.');
-    }
-    const [
-      runtimeTaskValue,
-      understanding,
-      goal,
-      plan,
-      trace,
-      bindingValue,
-      taskProjection,
-      events,
-      invocations,
-      models,
-    ] = await Promise.all([
-      runtimeGet(configuration, `/api/v1/tasks/${encodeURIComponent(saved.taskId)}`, request),
-      runtimeGet(
-        configuration,
-        `/api/v1/tasks/${encodeURIComponent(saved.taskId)}/understanding`,
-        request,
-      ),
-      runtimeGet(configuration, `/api/v1/goals/${encodeURIComponent(saved.goalId)}`, request),
-      runtimeGet(
-        configuration,
-        `/api/v1/workflows/plans/${encodeURIComponent(saved.planId)}`,
-        request,
-      ),
-      runtimeGet(
-        configuration,
-        `/api/v1/workflows/plans/${encodeURIComponent(saved.planId)}/trace`,
-        request,
-      ),
-      controlGet(
-        configuration,
-        `/api/v1/tasks/${encodeURIComponent(saved.taskId)}/capability-binding`,
-        request,
-      ),
-      controlGet(configuration, `/api/v1/tasks/${encodeURIComponent(saved.taskId)}`, request),
-      runtimeGet(
-        configuration,
-        `/api/v1/tasks/${encodeURIComponent(saved.taskId)}/events`,
-        request,
-      ),
-      runtimeGet(
-        configuration,
-        `/api/v1/mcp/invocations?taskId=${encodeURIComponent(saved.taskId)}`,
-        request,
-      ),
-      runtimeGet(
-        configuration,
-        `/api/v1/models/invocations?taskId=${encodeURIComponent(saved.taskId)}`,
-        request,
-      ),
-    ]);
-    const runtimeTask = RuntimeTaskSchema.parse(runtimeTaskValue);
-    if (
-      runtimeTask.taskId !== saved.taskId ||
-      runtimeTask.contextId !== saved.contextId ||
-      runtimeTask.goalId !== saved.goalId ||
-      runtimeTask.goalVersion !== saved.goalVersion ||
-      runtimeTask.planId !== saved.planId ||
-      runtimeTask.selectedSkillId !== saved.skillId ||
-      runtimeTask.selectedSkillVersion !== 1 ||
-      runtimeTask.phase !== 'completed'
-    ) {
-      fail('A2A_RESTART_RUNTIME_TASK_DRIFT', 'Recovered Runtime Task IDs or authority drifted.');
-    }
-    assertTaskUnderstanding(understanding, runtimeTask, turn);
-    assertGoal(goal, runtimeTask);
-    assertReadOnlyPlan(plan, turn);
-    assertTraceIdentity(trace, runtimeTask.planId);
-    const binding = TaskCapabilityBindingSchema.parse(bindingValue);
-    if (
-      binding.bindingHash !== saved.capabilityBindingHash ||
-      binding.taskId !== saved.taskId ||
-      binding.requestedCapabilityId !== saved.capabilityId ||
-      binding.exposureId !== saved.exposureId ||
-      canonical(binding.initialImplementationRefs) !== canonical([`skill:${saved.skillId}:1`])
+      !Number.isFinite(Date.parse(observedAt)) ||
+      !Number.isFinite(Date.parse(availabilityValidUntil)) ||
+      !Number.isFinite(Date.parse(catalogObservedAt)) ||
+      Date.parse(availabilityValidUntil) <= Date.parse(observedAt) ||
+      Date.parse(catalogObservedAt) > Date.parse(observedAt) ||
+      binding['originType'] !== 'smpp_registry' ||
+      !nonEmpty(typeof binding['bindingId'] === 'string' ? binding['bindingId'] : undefined) ||
+      !nonEmpty(
+        typeof binding['localServerId'] === 'string' ? binding['localServerId'] : undefined,
+      ) ||
+      !nonEmpty(typeof binding['providerId'] === 'string' ? binding['providerId'] : undefined) ||
+      !nonEmpty(
+        typeof binding['externalProviderId'] === 'string'
+          ? binding['externalProviderId']
+          : undefined,
+      ) ||
+      !nonEmpty(
+        typeof binding['externalServerId'] === 'string' ? binding['externalServerId'] : undefined,
+      ) ||
+      !Number.isSafeInteger(binding['revision']) ||
+      Number(binding['revision']) < 1 ||
+      !Number.isSafeInteger(binding['registryRevision']) ||
+      Number(binding['registryRevision']) < 1 ||
+      !nonEmpty(
+        typeof binding['catalogRevision'] === 'string' ? binding['catalogRevision'] : undefined,
+      ) ||
+      typeof binding['catalogChecksum'] !== 'string' ||
+      !CHECKSUM.test(binding['catalogChecksum']) ||
+      typeof binding['registryChecksum'] !== 'string' ||
+      !CHECKSUM.test(binding['registryChecksum']) ||
+      !Number.isSafeInteger(binding['operationCount']) ||
+      Number(binding['operationCount']) < 1 ||
+      Number(binding['operationCount']) > 1024 ||
+      !nonEmpty(
+        typeof lineage['smppSourceId'] === 'string' ? lineage['smppSourceId'] : undefined,
+      ) ||
+      lineage['externalProviderId'] !== binding['externalProviderId'] ||
+      lineage['externalServerId'] !== binding['externalServerId'] ||
+      lineage['registryRevision'] !== binding['registryRevision'] ||
+      lineage['registryChecksum'] !== binding['registryChecksum'] ||
+      !Number.isSafeInteger(lineage['nativeRevision']) ||
+      Number(lineage['nativeRevision']) < 1 ||
+      typeof lineage['nativeChecksum'] !== 'string' ||
+      !CHECKSUM.test(lineage['nativeChecksum']) ||
+      lineage['projectionContract'] !== 'sdar-registry-v1' ||
+      endpointRef !== candidateEndpoint ||
+      binding['providerId'] !== binding['externalProviderId']
     )
-      fail('A2A_RESTART_BINDING_NOT_RECOVERED', 'Capability binding was not recovered.');
-    if (record(taskProjection, 'A2A_RESTART_TASK_PROJECTION_INVALID')['taskId'] !== saved.taskId)
-      fail('A2A_RESTART_TASK_PROJECTION_DRIFT', 'Node Control Task projection was not recovered.');
-    assertMcpInvocations(invocations, turn, output);
-    const modelStages = assertModelInvocations(models);
-    const eventCount = CollectionSchema.parse(events).items.length;
-    if (eventCount === 0)
-      fail('A2A_RESTART_TASK_EVENTS_MISSING', 'The recovered Task has no observable events.');
-    assertNoWriteOperations({ plan, trace, invocations });
-    recovered.push(
-      Object.freeze({
-        kind: turn.kind,
-        taskId: saved.taskId,
-        contextId: saved.contextId,
-        goalId: saved.goalId,
-        goalVersion: saved.goalVersion,
-        planId: saved.planId,
-        capabilityId: saved.capabilityId,
-        capabilityVersion: 1,
-        exposureId: saved.exposureId,
-        exposureVersion: 1,
-        skillId: saved.skillId,
-        skillVersion: 1,
-        serverId: saved.serverId,
-        operationName: saved.operationName,
-        resourceId: saved.resourceId,
-        state: sanitizeState(output, turn),
-        a2aTaskHash: saved.a2aTaskHash,
-        structuredOutcomeHash: saved.structuredOutcomeHash,
-        capabilityBindingHash: saved.capabilityBindingHash,
-        eventCount,
-        modelStages,
-        evidenceQueries: Object.freeze([
-          'a2a.getTask.after-restart',
-          'runtime.task.after-restart',
-          'runtime.task-understanding.after-restart',
-          'runtime.goal.after-restart',
-          'runtime.plan.after-restart',
-          'runtime.trace.after-restart',
-          'runtime.events.after-restart',
-          'runtime.mcp-invocations.after-restart',
-          'runtime.model-invocations.after-restart',
-          'node-control.task.after-restart',
-          'node-control.capability-binding.after-restart',
-        ]),
-      }),
-    );
-  }
-  return buildReport({
-    mode: 'verify-restart',
-    observedAt,
-    contextId: checkpoint.contextId,
-    turns: recovered,
-    configuredProviderCount: modelAuthority.configuredProviderCount,
-    restartRecoveryVerified: true,
-    writeGateObserved,
+      fail(
+        'A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID',
+        'A current Provider Binding lacks fresh catalog or complete native SMPP lineage authority.',
+      );
+    return Object.freeze({
+      bindingId: binding['bindingId'],
+      localServerId: binding['localServerId'],
+    });
   });
+  const sortedAuthorities = [...observedAuthorities].sort((left, right) =>
+    String(left.bindingId).localeCompare(String(right.bindingId)),
+  );
+  if (canonical(sortedAuthorities) !== canonical(expectedRequirements))
+    fail(
+      'A2A_FROZEN_PROVIDER_BINDINGS_INVALID',
+      'Current Provider Binding authorities must match the selected implementation one-to-one.',
+    );
+}
+
+export function assertTaskUnderstanding(
+  understanding: unknown,
+  taskId: string,
+  scenario: HomeLabA2AReadOnlyScenario = HOME_LAB_A2A_READ_ONLY_SCENARIO,
+): void {
+  const value = record(understanding, 'A2A_TASK_UNDERSTANDING_INVALID');
+  const requirements = records(value['capabilityRequirements'] ?? []);
+  const candidates = records(value['taskTypeCandidates'] ?? []);
+  const missingDimensions = records(value['missingDimensions'] ?? []);
+  const requirement = requirements[0];
+  const candidate = candidates[0];
+  if (
+    value['taskId'] !== taskId ||
+    value['originalRequest'] !== scenario.requestText ||
+    value['disposition'] !== 'contract_candidate' ||
+    typeof value['modelInvocationId'] !== 'string' ||
+    requirements.length !== 1 ||
+    requirement?.['capabilityId'] !== scenario.capabilityId ||
+    requirement['required'] !== true ||
+    requirement['available'] !== true ||
+    candidates.length !== 1 ||
+    candidate?.['taskTypeId'] !== scenario.taskTypeId ||
+    candidate['version'] !== 1 ||
+    missingDimensions.some((dimension) => dimension['severity'] === 'blocking')
+  )
+    fail(
+      'A2A_TASK_UNDERSTANDING_MISMATCH',
+      'Task Understanding must preserve the exact request and sole composite Capability.',
+    );
+  assertNoWriteOperations(value);
+}
+
+function assertCompositeUserGoalPlan(
+  value: unknown,
+  goalId: string,
+  goalVersion: number,
+  scenario: HomeLabA2AReadOnlyScenario,
+): string {
+  const plan = record(value, 'A2A_USER_GOAL_PLAN_INVALID');
+  const skillGoals = records(plan['skillGoals'] ?? []);
+  const dependencies = records(plan['dependencies'] ?? []);
+  const skillGoal = skillGoals[0];
+  if (
+    plan['goalId'] !== goalId ||
+    plan['goalVersion'] !== goalVersion ||
+    typeof plan['planId'] !== 'string' ||
+    skillGoals.length !== 1 ||
+    dependencies.length !== 0 ||
+    skillGoal === undefined ||
+    canonical(skillGoal['capabilityNeeds']) !== canonical([scenario.capabilityId]) ||
+    typeof skillGoal['requiredResult'] !== 'string'
+  )
+    fail(
+      'A2A_USER_GOAL_PLAN_NOT_COMPOSITE',
+      'The User Goal plan must contain one SkillGoal requiring only the composite Capability.',
+    );
+  assertNoWriteOperations(plan);
+  return plan['planId'];
+}
+
+export function interactiveCandidateUserGoalPlan(
+  value: unknown,
+  taskId: string,
+  goalId: string,
+  goalVersion: number,
+): unknown {
+  const view = record(value, 'A2A_USER_GOAL_PLAN_INVALID');
+  const session = record(view['session'], 'A2A_USER_GOAL_PLAN_INVALID');
+  const candidate = record(view['candidate'], 'A2A_USER_GOAL_PLAN_INVALID');
+  if (
+    session['taskId'] !== taskId ||
+    session['goalId'] !== goalId ||
+    session['goalVersion'] !== goalVersion ||
+    session['state'] !== 'plan_review' ||
+    candidate['sessionId'] !== session['sessionId'] ||
+    candidate['candidateId'] !== session['currentCandidateId'] ||
+    candidate['revision'] !== session['currentCandidateRevision'] ||
+    candidate['status'] !== 'candidate'
+  )
+    fail(
+      'A2A_USER_GOAL_PLAN_INVALID',
+      'The interactive planning review does not expose the exact current candidate.',
+    );
+  return candidate['plan'];
 }
 
 function assertGoal(goal: unknown, task: z.infer<typeof RuntimeTaskSchema>): void {
@@ -1124,108 +1322,85 @@ function assertGoal(goal: unknown, task: z.infer<typeof RuntimeTaskSchema>): voi
     value['contextId'] !== task.contextId ||
     value['version'] !== task.goalVersion ||
     (value['status'] !== 'active' && value['status'] !== 'achieved')
-  ) {
-    fail('A2A_GOAL_LINK_INVALID', 'The A2A Task and Goal linkage is not queryable or exact.');
-  }
-}
-
-function assertTaskUnderstanding(
-  understanding: unknown,
-  task: z.infer<typeof RuntimeTaskSchema>,
-  turn: HomeLabA2AReadOnlyTurn,
-): void {
-  const value = record(understanding, 'A2A_TASK_UNDERSTANDING_INVALID');
-  const requirements = records(value['capabilityRequirements'] ?? []);
-  if (
-    value['taskId'] !== task.taskId ||
-    value['disposition'] !== 'contract_candidate' ||
-    typeof value['modelInvocationId'] !== 'string' ||
-    !requirements.some(
-      (requirement) =>
-        requirement['capabilityId'] === turn.capabilityId &&
-        requirement['required'] === true &&
-        requirement['available'] === true,
-    )
-  ) {
-    fail(
-      'A2A_TASK_UNDERSTANDING_MISMATCH',
-      'Task Understanding does not identify the exact available read-only Capability.',
-    );
-  }
-}
-
-function assertAcceptableCognitiveReview(task: Task): void {
-  const metadata = record(task.metadata ?? {}, 'A2A_TASK_METADATA_INVALID');
-  const interaction = record(
-    metadata['io.sdar/interaction'],
-    'A2A_COGNITIVE_REVIEW_METADATA_MISSING',
-  );
-  const allowedActions = interaction['allowedActions'];
-  if (
-    (interaction['kind'] !== 'interactive_goal' &&
-      interaction['kind'] !== 'interactive_planning') ||
-    (interaction['state'] !== 'goal_review' && interaction['state'] !== 'plan_review') ||
-    !Array.isArray(allowedActions) ||
-    !allowedActions.includes('accept')
-  ) {
-    fail(
-      'A2A_COGNITIVE_REVIEW_NOT_ACCEPTABLE',
-      'The fixed query may accept only a complete Goal or plan review; it never invents missing input.',
-    );
-  }
-}
-
-function assertTraceIdentity(trace: unknown, planId: string): void {
-  const value = record(trace, 'A2A_TRACE_INVALID');
-  const instance = record(value['instance'], 'A2A_TRACE_INSTANCE_INVALID');
-  const events = value['events'];
-  if (
-    instance['planId'] !== planId ||
-    instance['status'] !== 'succeeded' ||
-    !Array.isArray(events) ||
-    events.length === 0
   )
-    fail('A2A_TRACE_PLAN_MISMATCH', 'Workflow trace identity differs from the Task plan.');
-  assertSafeJson(trace);
+    fail('A2A_GOAL_LINK_INVALID', 'The Task and Goal linkage is not queryable or exact.');
+  assertNoWriteOperations(value);
 }
 
-export function assertMcpInvocations(
+function assertTerminalOutcome(
   value: unknown,
-  turn: HomeLabA2AReadOnlyTurn,
-  output: unknown,
+  outcomeId: string,
+  task: z.infer<typeof RuntimeTaskSchema>,
+): string {
+  const outcome = record(value, 'A2A_TERMINAL_OUTCOME_INVALID');
+  const capabilityAttemptId = outcome['capabilityAttemptId'];
+  if (
+    outcome['outcomeId'] !== outcomeId ||
+    outcome['taskId'] !== task.taskId ||
+    outcome['goalId'] !== task.goalId ||
+    outcome['goalVersion'] !== task.goalVersion ||
+    outcome['kind'] !== 'achieved' ||
+    outcome['controlStatus'] !== 'achieved' ||
+    outcome['authority'] !== 'user_goal_plan_controller' ||
+    !nonEmpty(typeof capabilityAttemptId === 'string' ? capabilityAttemptId : undefined) ||
+    typeof outcome['summary'] !== 'string' ||
+    typeof outcome['committedAt'] !== 'string' ||
+    !Number.isFinite(Date.parse(outcome['committedAt']))
+  )
+    fail(
+      'A2A_STRUCTURED_GOAL_OUTCOME_INVALID',
+      'The queryable terminal Goal Outcome is absent or not authoritatively achieved.',
+    );
+  assertNoWriteOperations(outcome);
+  return capabilityAttemptId as string;
+}
+
+export function assertCompositeMcpInvocations(
+  value: unknown,
+  scenario: HomeLabA2AReadOnlyScenario,
+  output: Readonly<{ mainLight: unknown; climate: unknown }>,
+  capabilityAttemptId: string,
 ): void {
   const items = records(CollectionSchema.parse(value).items);
-  const exact = items.filter(
-    (item) => item['serverId'] === turn.serverId && item['toolName'] === turn.toolName,
-  );
-  const invocation = exact[0];
-  if (
-    items.length !== 1 ||
-    exact.length !== 1 ||
-    invocation?.['status'] !== 'succeeded' ||
-    invocation['executionMode'] !== 'live'
-  ) {
-    fail('A2A_MCP_INVOCATION_INVALID', 'Expected exactly one successful read-only MCP invocation.');
-  }
-  const semantics = record(invocation['executionSemantics'], 'A2A_MCP_EXECUTION_SEMANTICS_MISSING');
-  const argumentsValue = record(invocation['arguments'], 'A2A_MCP_ARGUMENTS_INVALID');
-  const result = record(invocation['result'], 'A2A_MCP_RESULT_INVALID');
-  const evidence = records(result['evidence'] ?? []);
-  if (
-    semantics['effect'] !== 'read_only' ||
-    canonical(argumentsValue) !== canonical({ resourceId: turn.resourceId }) ||
-    result['isError'] !== false ||
-    canonical(result['structuredContent']) !== canonical(output) ||
-    evidence.length === 0 ||
-    evidence.some((item) => !validProviderEvidence(item))
-  ) {
-    fail(
-      'A2A_MCP_EVIDENCE_INVALID',
-      'The MCP invocation lacks exact read-only Provider result and evidence lineage.',
+  if (items.length !== 2)
+    fail('A2A_MCP_INVOCATION_INVALID', 'Expected exactly two successful live MCP reads.');
+  for (const operation of scenario.operations) {
+    const exact = items.filter(
+      (item) => item['serverId'] === operation.serverId && item['toolName'] === operation.toolName,
     );
+    const invocation = exact[0];
+    if (
+      exact.length !== 1 ||
+      invocation?.['capabilityAttemptId'] !== capabilityAttemptId ||
+      invocation['status'] !== 'succeeded' ||
+      invocation['executionMode'] !== 'live'
+    )
+      fail('A2A_MCP_INVOCATION_INVALID', 'Each exact read operation must execute once and live.');
+    const semantics = record(
+      invocation['executionSemantics'],
+      'A2A_MCP_EXECUTION_SEMANTICS_MISSING',
+    );
+    const argumentsValue = record(invocation['arguments'], 'A2A_MCP_ARGUMENTS_INVALID');
+    const result = record(invocation['result'], 'A2A_MCP_RESULT_INVALID');
+    const evidence = records(result['evidence'] ?? []);
+    if (
+      semantics['effect'] !== 'read_only' ||
+      canonical(argumentsValue) !== canonical({ resourceId: operation.resourceId }) ||
+      result['isError'] !== false ||
+      canonical(result['structuredContent']) !== canonical(output[operation.outputField]) ||
+      evidence.length === 0 ||
+      !evidence.some(
+        (item) => item['evidenceType'] === operation.evidenceType && validProviderEvidence(item),
+      ) ||
+      evidence.some((item) => !validProviderEvidence(item))
+    )
+      fail(
+        'A2A_MCP_EVIDENCE_INVALID',
+        'An MCP read lacks exact arguments, structured result or Provider evidence lineage.',
+      );
   }
-  assertNoWriteOperations(invocation);
-  assertSafeJson({ arguments: argumentsValue, result });
+  assertNoWriteOperations(items);
+  assertSafeJson(items);
 }
 
 function validProviderEvidence(item: Readonly<Record<string, unknown>>): boolean {
@@ -1245,44 +1420,350 @@ function validProviderEvidence(item: Readonly<Record<string, unknown>>): boolean
   );
 }
 
-function assertModelInvocations(value: unknown): readonly string[] {
+export function assertModelInvocations(value: unknown): readonly string[] {
   const items = records(CollectionSchema.parse(value).items);
   if (items.length === 0)
-    fail('A2A_MODEL_EVIDENCE_MISSING', 'The A2A Task has no observable Model invocation evidence.');
+    fail('A2A_MODEL_EVIDENCE_MISSING', 'The Task has no observable Model invocation evidence.');
   if (items.some((item) => item['status'] !== 'succeeded'))
-    fail('A2A_MODEL_INVOCATION_FAILED', 'The A2A Task contains a failed Model invocation.');
+    fail('A2A_MODEL_INVOCATION_FAILED', 'The Task contains a failed Model invocation.');
+  if (
+    items.some(
+      (item) =>
+        item['providerId'] !== HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID ||
+        item['model'] !== HOME_LAB_A2A_MODEL_FIXTURE_MODEL ||
+        !validModelInvocationOperation(item),
+    )
+  )
+    fail(
+      'A2A_MODEL_AUTHORITY_MISMATCH',
+      'Task-linked Model evidence crossed the exact simulated local fixture authority.',
+    );
   const stages = [
     ...new Set(items.map((item) => text(item['stage'], 'A2A_MODEL_STAGE_INVALID'))),
   ].sort();
-  if (REQUIRED_MODEL_STAGES.some((stage) => !stages.includes(stage)))
+  if (
+    REQUIRED_MODEL_STAGES.some(
+      (stage) => items.filter((item) => item['stage'] === stage).length !== 1,
+    )
+  )
     fail(
       'A2A_MODEL_EVIDENCE_INCOMPLETE',
-      'Observable Model evidence does not cover the full G08 cognitive path.',
+      'Observable Model evidence must contain exactly one invocation for every required stage.',
     );
   return Object.freeze(stages);
 }
 
-function assertAgentCard(value: unknown, turns: readonly HomeLabA2AReadOnlyTurn[]): void {
-  const skills = records(record(value, 'A2A_AGENT_CARD_INVALID')['skills'] ?? []);
-  for (const turn of turns) {
-    if (!skills.some((skill) => skill['id'] === turn.agentSkillId))
-      fail(
-        'A2A_AGENT_CARD_EXPOSURE_MISSING',
-        'The Agent Card lacks a required read-only Exposure.',
-      );
-  }
-  assertNoWriteOperations(skills);
-  assertSafeJson(value);
+function validModelInvocationOperation(item: Readonly<Record<string, unknown>>): boolean {
+  const stage = item['stage'];
+  const operation = item['operation'];
+  if (stage === 'goal')
+    return (
+      operation === 'embedding' &&
+      item['promptId'] === undefined &&
+      item['promptVersion'] === undefined
+    );
+  return (
+    operation === 'structured_generation' &&
+    item['promptId'] === `prompt.home-lab-a2a-fixture.${String(stage)}` &&
+    Number.isSafeInteger(item['promptVersion']) &&
+    Number(item['promptVersion']) > 0
+  );
 }
 
-function a2aTaskSnapshot(task: Task, turn: HomeLabA2AReadOnlyTurn) {
+function assertAcceptableCognitiveReview(task: Task): 'interactive_goal' | 'interactive_planning' {
+  const metadata = record(task.metadata ?? {}, 'A2A_TASK_METADATA_INVALID');
+  const interaction = record(
+    metadata['io.sdar/interaction'],
+    'A2A_COGNITIVE_REVIEW_METADATA_MISSING',
+  );
+  const allowedActions = interaction['allowedActions'];
+  if (
+    (interaction['kind'] !== 'interactive_goal' &&
+      interaction['kind'] !== 'interactive_planning') ||
+    (interaction['state'] !== 'goal_review' && interaction['state'] !== 'plan_review') ||
+    !Array.isArray(allowedActions) ||
+    !allowedActions.includes('accept')
+  )
+    fail(
+      'A2A_COGNITIVE_REVIEW_NOT_ACCEPTABLE',
+      'The fixed query may accept only a complete Goal or plan review.',
+    );
+  return interaction['kind'];
+}
+
+function assertTraceIdentity(trace: unknown, planId: string): void {
+  const value = record(trace, 'A2A_TRACE_INVALID');
+  const instance = record(value['instance'], 'A2A_TRACE_INSTANCE_INVALID');
+  const events = value['events'];
+  if (
+    instance['planId'] !== planId ||
+    instance['status'] !== 'succeeded' ||
+    !Array.isArray(events) ||
+    events.length === 0
+  )
+    fail('A2A_TRACE_PLAN_MISMATCH', 'Workflow trace identity differs from the Task plan.');
+  assertSafeJson(trace);
+}
+
+function assertAgentCard(value: unknown, scenario: HomeLabA2AReadOnlyScenario): void {
+  const skills = records(record(value, 'A2A_AGENT_CARD_INVALID')['skills'] ?? []);
+  const matches = skills.filter((skill) => skill['id'] === scenario.agentSkillId);
+  if (matches.length !== 1)
+    fail('A2A_AGENT_CARD_EXPOSURE_MISSING', 'The Agent Card lacks the exact composite Exposure.');
+  const match = matches[0];
+  if (
+    !isRecord(match) ||
+    !Array.isArray(match['examples']) ||
+    !match['examples'].includes(scenario.requestText)
+  )
+    fail('A2A_AGENT_CARD_EXPOSURE_INVALID', 'The Agent Card does not preserve the frozen request.');
+  assertNoWriteOperations(match);
+  assertSafeJson(match);
+}
+
+async function assertNoMcpInvocationsBeforeConfirmation(
+  configuration: ValidatedConfiguration,
+  taskId: string,
+  request: typeof fetch,
+): Promise<void> {
+  const value = await runtimeGet(
+    configuration,
+    `/api/v1/mcp/invocations?taskId=${encodeURIComponent(taskId)}`,
+    request,
+  );
+  if (CollectionSchema.parse(value).items.length !== 0)
+    fail(
+      'A2A_MCP_BEFORE_VALIDATED_CONFIRMATION',
+      'An invalid or unconfirmed model plan reached MCP execution.',
+    );
+}
+
+async function loadUserGoalPlan(
+  configuration: ValidatedConfiguration,
+  goalId: string,
+  goalVersion: number,
+  request: typeof fetch,
+): Promise<unknown> {
+  return managementUserGoalPlan(
+    await runtimeGet(
+      configuration,
+      `/api/v1/goals/${encodeURIComponent(goalId)}/user-goal-plan?goalVersion=${String(goalVersion)}`,
+      request,
+    ),
+  );
+}
+
+export function managementUserGoalPlan(value: unknown): unknown {
+  const view = record(value, 'A2A_USER_GOAL_PLAN_INVALID');
+  return record(view['plan'], 'A2A_USER_GOAL_PLAN_INVALID');
+}
+
+async function verifyRestartRecovery(
+  configuration: ValidatedConfiguration,
+  scenario: HomeLabA2AReadOnlyScenario,
+  request: typeof fetch,
+  clientFactory: DriverDependencies['createA2AClient'],
+  observedAt: string,
+  writeGateObserved: 'closed' | 'open_but_unused',
+  configuredProviderCount: number,
+): Promise<HomeLabA2AReadOnlyReport> {
+  if (configuration.checkpointFile === undefined)
+    fail('A2A_CHECKPOINT_REQUIRED', 'Restart verification requires a checkpoint file.');
+  if (!nonEmpty(configuration.restartEvidenceId))
+    fail(
+      'A2A_RESTART_EVIDENCE_REQUIRED',
+      'Restart verification requires an external restart evidence reference.',
+    );
+  const saved = CheckpointSchema.parse(
+    JSON.parse(await readFile(configuration.checkpointFile, 'utf8')),
+  ) as HomeLabA2ACheckpoint;
+  if (
+    saved.runId !== configuration.runId ||
+    saved.task.contextId !== saved.contextId ||
+    saved.task.capabilityId !== scenario.capabilityId ||
+    saved.task.exposureId !== scenario.exposureId ||
+    saved.task.skillId !== scenario.skillId
+  )
+    fail('A2A_CHECKPOINT_AUTHORITY_MISMATCH', 'The checkpoint differs from the frozen scenario.');
+  await preflightAuthority(configuration, scenario, observedAt, request);
+  const client = await createClient(configuration.a2aBaseUrl, clientFactory);
+  const first = await client.getTask({ tenant: '', id: saved.task.taskId });
+  const second = await client.getTask({ tenant: '', id: saved.task.taskId });
+  if (
+    first.status?.state !== TaskState.TASK_STATE_COMPLETED ||
+    canonical(taskSnapshot(first, scenario)) !== canonical(taskSnapshot(second, scenario)) ||
+    sha256(canonical(taskSnapshot(second, scenario))) !== saved.task.a2aTaskHash ||
+    sha256(canonical(structuredOutcome(second, scenario))) !== saved.task.structuredOutcomeHash
+  )
+    fail('A2A_RESTART_GET_TASK_DRIFT', 'Recovered getTask evidence differs from the checkpoint.');
+  const task = await collectCompletedEvidence(
+    configuration,
+    scenario,
+    second,
+    request,
+    () => observedAt,
+  );
+  if (
+    task.goalId !== saved.task.goalId ||
+    task.goalVersion !== saved.task.goalVersion ||
+    task.userGoalPlanId !== saved.task.userGoalPlanId ||
+    task.workflowPlanId !== saved.task.workflowPlanId ||
+    task.terminalOutcomeId !== saved.task.terminalOutcomeId ||
+    task.capabilityBindingHash !== saved.task.capabilityBindingHash
+  )
+    fail(
+      'A2A_RESTART_RUNTIME_AUTHORITY_DRIFT',
+      'Recovered Runtime authority differs from checkpoint.',
+    );
+  return buildReport({
+    mode: 'verify-restart',
+    observedAt,
+    task,
+    configuredProviderCount,
+    restartRecoveryVerified: true,
+    writeGateObserved,
+  });
+}
+
+function buildReport(
+  input: Readonly<{
+    mode: HomeLabA2AReadOnlyReport['mode'];
+    observedAt: string;
+    task: HomeLabA2AReadOnlyTaskReport;
+    configuredProviderCount: number;
+    restartRecoveryVerified: boolean;
+    writeGateObserved: 'closed' | 'open_but_unused';
+  }>,
+): HomeLabA2AReadOnlyReport {
+  const allowedCapabilities: HomeLabA2AReadOnlyReport['safety']['allowedCapabilities'] =
+    Object.freeze([HOME_LAB_A2A_READ_ONLY_SCENARIO.capabilityId]);
+  const allowedOperations: HomeLabA2AReadOnlyReport['safety']['allowedOperations'] = Object.freeze([
+    'light_get_state',
+    'climate_get_state',
+  ]);
+  const report: HomeLabA2AReadOnlyReport = Object.freeze({
+    schemaVersion: 'sdar.home-lab-a2a-read-only/v2',
+    status: 'passed',
+    mode: input.mode,
+    observedAt: input.observedAt,
+    a2aReadOnlyReady: true,
+    restartRecoveryVerified: input.restartRecoveryVerified,
+    contextId: input.task.contextId,
+    task: input.task,
+    modelAuthority: Object.freeze({
+      requiredStages: REQUIRED_MODEL_STAGES,
+      configuredRouteStages: HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES,
+      providerId: HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+      model: HOME_LAB_A2A_MODEL_FIXTURE_MODEL,
+      configuredProviderCount: input.configuredProviderCount,
+      failedInvocationCount: 0,
+      evidenceClass: 'real_a2a_runtime_mcp_ha_with_simulated_local_model_semantics',
+      modelBoundary: HOME_LAB_A2A_MODEL_FIXTURE_BOUNDARY,
+    }),
+    safety: Object.freeze({
+      allowedCapabilities,
+      allowedOperations,
+      writeOperationsInvoked: 0,
+      physicalWritesInvoked: 0,
+      realDeviceWriteGateObserved: input.writeGateObserved,
+    }),
+    redaction: Object.freeze({
+      secretsIncluded: false,
+      endpointsIncluded: false,
+      entityIdsIncluded: false,
+    }),
+  });
+  assertSafeJson(report);
+  return report;
+}
+
+function checkpoint(
+  runId: string,
+  createdAt: string,
+  task: HomeLabA2AReadOnlyTaskReport,
+): HomeLabA2ACheckpoint {
+  return Object.freeze({
+    schemaVersion: 'sdar.home-lab-a2a-checkpoint/v2',
+    runId,
+    createdAt,
+    contextId: task.contextId,
+    task: Object.freeze({
+      taskId: task.taskId,
+      contextId: task.contextId,
+      goalId: task.goalId,
+      goalVersion: task.goalVersion,
+      userGoalPlanId: task.userGoalPlanId,
+      workflowPlanId: task.workflowPlanId,
+      terminalOutcomeId: task.terminalOutcomeId,
+      capabilityId: task.capabilityId,
+      exposureId: task.exposureId,
+      skillId: task.skillId,
+      a2aTaskHash: task.a2aTaskHash,
+      structuredOutcomeHash: task.structuredOutcomeHash,
+      capabilityBindingHash: task.capabilityBindingHash,
+    }),
+  });
+}
+
+async function writeCheckpoint(file: string, value: HomeLabA2ACheckpoint): Promise<void> {
+  assertSafeJson(value);
+  await mkdir(dirname(file), { recursive: true });
+  const temporary = `${file}.${String(process.pid)}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+    encoding: 'utf8',
+    mode: 0o600,
+  });
+  await rename(temporary, file);
+}
+
+function assertResourceState(
+  value: Readonly<Record<string, unknown>>,
+  operation: HomeLabOperation,
+) {
+  if (
+    value['resourceId'] !== operation.resourceId ||
+    typeof value['power'] !== 'string' ||
+    typeof value['reachable'] !== 'boolean' ||
+    typeof value['observedAt'] !== 'string' ||
+    !Number.isFinite(Date.parse(value['observedAt']))
+  )
+    fail('A2A_STRUCTURED_STATE_INVALID', 'A structured state does not match its public resource.');
+  if (
+    operation.kind === 'climate' &&
+    (!Object.hasOwn(value, 'hvacMode') ||
+      !Object.hasOwn(value, 'currentTemperature') ||
+      !Object.hasOwn(value, 'targetTemperature') ||
+      typeof value['temperatureUnit'] !== 'string')
+  )
+    fail('A2A_STRUCTURED_STATE_INVALID', 'The climate state is incomplete.');
+}
+
+function sanitizeState(value: unknown, operation: HomeLabOperation) {
+  const output = record(value, 'A2A_STRUCTURED_STATE_INVALID');
+  const state: Record<string, unknown> = {
+    resourceId: output['resourceId'],
+    power: output['power'],
+    reachable: output['reachable'],
+    observedAt: output['observedAt'],
+  };
+  if (operation.kind === 'light') state['brightnessPercent'] = output['brightnessPercent'];
+  else {
+    state['hvacMode'] = output['hvacMode'];
+    state['currentTemperature'] = output['currentTemperature'];
+    state['targetTemperature'] = output['targetTemperature'];
+    state['temperatureUnit'] = output['temperatureUnit'];
+  }
+  return Object.freeze(state);
+}
+
+function taskSnapshot(task: Task, scenario: HomeLabA2AReadOnlyScenario) {
   const metadata: unknown = task.metadata;
   return Object.freeze({
     id: task.id,
     contextId: task.contextId,
     state: task.status?.state,
     internalPhase: isRecord(metadata) ? metadata['internalPhase'] : undefined,
-    outputHash: sha256(canonical(structuredOutcome(task, turn))),
+    outputHash: sha256(canonical(structuredOutcome(task, scenario))),
   });
 }
 
@@ -1296,9 +1777,9 @@ async function pollTerminalTask(
     const task = await client.getTask({ tenant: '', id: taskId });
     const state = task.status?.state;
     if (state !== undefined && TERMINAL_STATES.has(state)) return task;
-    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, pollIntervalMs));
+    await delay(pollIntervalMs);
   }
-  fail('A2A_TASK_TIMEOUT', 'The read-only A2A Task did not reach a terminal state in time.');
+  fail('A2A_TASK_TIMEOUT', 'The single read-only Task did not reach a terminal state in time.');
 }
 
 async function pollResponseBoundary(
@@ -1315,73 +1796,9 @@ async function pollResponseBoundary(
       (state !== undefined && TERMINAL_STATES.has(state))
     )
       return task;
-    await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, pollIntervalMs));
+    await delay(pollIntervalMs);
   }
-  fail('A2A_TASK_TIMEOUT', 'The read-only A2A Task did not reach a response boundary in time.');
-}
-
-function buildReport(
-  input: Readonly<{
-    mode: HomeLabA2AReadOnlyReport['mode'];
-    observedAt: string;
-    contextId: string;
-    turns: readonly HomeLabA2ATurnReport[];
-    configuredProviderCount: number;
-    restartRecoveryVerified: boolean;
-    writeGateObserved: 'closed' | 'open_but_unused';
-  }>,
-): HomeLabA2AReadOnlyReport {
-  const failedInvocationCount = input.turns.reduce(
-    (total, turn) => total + (turn.modelStages.length === 0 ? 1 : 0),
-    0,
-  );
-  const report: HomeLabA2AReadOnlyReport = Object.freeze({
-    schemaVersion: 'sdar.home-lab-a2a-read-only/v1',
-    status: 'passed',
-    mode: input.mode,
-    observedAt: input.observedAt,
-    a2aReadOnlyReady: true,
-    restartRecoveryVerified: input.restartRecoveryVerified,
-    contextId: input.contextId,
-    turns: Object.freeze([...input.turns]),
-    modelAuthority: Object.freeze({
-      requiredStages: REQUIRED_MODEL_STAGES,
-      configuredProviderCount: input.configuredProviderCount,
-      failedInvocationCount,
-    }),
-    safety: Object.freeze({
-      allowedCapabilities: Object.freeze(input.turns.map((turn) => turn.capabilityId)),
-      allowedOperations: Object.freeze(input.turns.map((turn) => turn.operationName)),
-      writeOperationsInvoked: 0,
-      physicalWritesInvoked: 0,
-      realDeviceWriteGateObserved: input.writeGateObserved,
-    }),
-    redaction: Object.freeze({
-      secretsIncluded: false,
-      endpointsIncluded: false,
-      entityIdsIncluded: false,
-    }),
-  });
-  assertSafeJson(report);
-  return report;
-}
-
-function sanitizeState(value: unknown, turn: HomeLabA2AReadOnlyTurn) {
-  const output = record(value, 'A2A_STRUCTURED_STATE_INVALID');
-  const base: Record<string, unknown> = {
-    resourceId: output['resourceId'],
-    power: output['power'],
-    reachable: output['reachable'],
-    observedAt: output['observedAt'],
-  };
-  if (turn.kind === 'light') base['brightnessPercent'] = output['brightnessPercent'];
-  else {
-    base['hvacMode'] = output['hvacMode'];
-    base['currentTemperature'] = output['currentTemperature'];
-    base['targetTemperature'] = output['targetTemperature'];
-    base['temperatureUnit'] = output['temperatureUnit'];
-  }
-  return Object.freeze(base);
+  fail('A2A_TASK_TIMEOUT', 'The single read-only Task did not reach a response boundary in time.');
 }
 
 type ValidatedConfiguration = Readonly<{
@@ -1436,23 +1853,6 @@ function validateConfiguration(input: HomeLabA2AReadOnlyConfiguration): Validate
   });
 }
 
-export function validateTurns(
-  turns: readonly HomeLabA2AReadOnlyTurn[],
-): readonly HomeLabA2AReadOnlyTurn[] {
-  if (turns.length !== HOME_LAB_A2A_READ_ONLY_TURNS.length)
-    fail('A2A_SCENARIO_NOT_EXACT', 'G08 requires exactly the light and climate read-only turns.');
-  for (const [index, expected] of HOME_LAB_A2A_READ_ONLY_TURNS.entries()) {
-    const actual = turns[index];
-    if (actual === undefined || canonical(actual) !== canonical(expected))
-      fail(
-        'A2A_WRITE_INTENT_FORBIDDEN',
-        'The G08 scenario cannot replace a fixed read-only Capability or operation.',
-      );
-  }
-  assertNoWriteOperations(turns);
-  return Object.freeze(turns.map((turn) => Object.freeze({ ...turn })));
-}
-
 function loopbackUrl(value: string, code: string): string {
   let url: URL;
   try {
@@ -1465,10 +1865,49 @@ function loopbackUrl(value: string, code: string): string {
     url.username !== '' ||
     url.password !== '' ||
     !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
-  ) {
+  )
     fail(code, 'The integration driver accepts only credential-free loopback HTTP URLs.');
-  }
   return url.origin;
+}
+
+function isLoopbackModelV1BaseUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === 'http:' &&
+    url.username === '' &&
+    url.password === '' &&
+    ['127.0.0.1', '[::1]'].includes(url.hostname) &&
+    url.pathname.replace(/\/$/u, '') === '/v1' &&
+    url.search === '' &&
+    url.hash === ''
+  );
+}
+
+function safeHttpEndpoint(value: unknown): string {
+  if (typeof value !== 'string')
+    fail('A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID', 'Binding endpoint is missing.');
+  let endpoint: URL;
+  try {
+    endpoint = new URL(value);
+  } catch {
+    fail('A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID', 'Binding endpoint is invalid.');
+  }
+  if (
+    !['http:', 'https:'].includes(endpoint.protocol) ||
+    endpoint.username !== '' ||
+    endpoint.password !== '' ||
+    endpoint.hash !== ''
+  )
+    fail(
+      'A2A_FROZEN_PROVIDER_BINDING_AUTHORITY_INVALID',
+      'Binding endpoint must be credential-free HTTP(S).',
+    );
+  return endpoint.toString();
 }
 
 async function createClient(
@@ -1479,8 +1918,7 @@ async function createClient(
 }
 
 async function publicGet(baseUrl: string, path: string, request: typeof fetch): Promise<unknown> {
-  const response = await request(`${baseUrl}${path}`, { redirect: 'manual' });
-  return responseJson(response, 200);
+  return responseJson(await request(`${baseUrl}${path}`, { redirect: 'manual' }), 200);
 }
 
 async function runtimeGet(
@@ -1488,10 +1926,10 @@ async function runtimeGet(
   path: string,
   request: typeof fetch,
 ): Promise<unknown> {
-  const response = await request(`${configuration.runtimeManagementBaseUrl}${path}`, {
-    redirect: 'manual',
-  });
-  return responseJson(response, 200);
+  return responseJson(
+    await request(`${configuration.runtimeManagementBaseUrl}${path}`, { redirect: 'manual' }),
+    200,
+  );
 }
 
 async function controlGet(
@@ -1499,8 +1937,7 @@ async function controlGet(
   path: string,
   request: typeof fetch,
 ): Promise<unknown> {
-  const response = await controlResponse(configuration, path, { method: 'GET' }, request);
-  return responseJson(response, 200);
+  return responseJson(await controlResponse(configuration, path, { method: 'GET' }, request), 200);
 }
 
 async function controlMutation(
@@ -1512,21 +1949,23 @@ async function controlMutation(
   expectedStatus = 202,
   ifMatch?: string,
 ): Promise<unknown> {
-  const response = await controlResponse(
-    configuration,
-    path,
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'idempotency-key': idempotencyKey,
-        ...(ifMatch === undefined ? {} : { 'if-match': ifMatch }),
+  return responseJson(
+    await controlResponse(
+      configuration,
+      path,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'idempotency-key': idempotencyKey,
+          ...(ifMatch === undefined ? {} : { 'if-match': ifMatch }),
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    },
-    request,
+      request,
+    ),
+    expectedStatus,
   );
-  return responseJson(response, expectedStatus);
 }
 
 async function controlResponse(
@@ -1554,37 +1993,22 @@ async function responseJson(response: Response, expectedStatus: number): Promise
         .parse(await response.json());
       code = body.code ?? code;
     } catch {
-      // Error payloads are deliberately not reflected to avoid leaking endpoints or credentials.
+      // Error bodies are not reflected because they may contain endpoints or credentials.
     }
     fail(
       'A2A_HTTP_REQUEST_REJECTED',
-      `A required public API request failed with ${code} and status ${String(response.status)}.`,
+      `A required API request failed with ${code} and status ${String(response.status)}.`,
     );
   }
   return response.json();
 }
 
-async function writeCheckpoint(file: string, checkpoint: HomeLabA2ACheckpoint): Promise<void> {
-  assertSafeJson(checkpoint);
-  await mkdir(dirname(file), { recursive: true });
-  const temporary = `${file}.${String(process.pid)}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(checkpoint, null, 2)}\n`, {
-    encoding: 'utf8',
-    mode: 0o600,
-  });
-  await rename(temporary, file);
-}
-
-function providerBindingFor(turn: HomeLabA2AReadOnlyTurn): string {
-  return turn.kind === 'light' ? 'mcp-binding-ha-light-lab' : 'mcp-binding-ha-climate-lab';
+function toolKey(value: Readonly<{ serverId: string; toolName: string }>): string {
+  return `${value.serverId}\u0000${value.toolName}`;
 }
 
 function stableKey(runId: string, operation: string): string {
   return `g08-${sha256(`${runId}:${operation}`).slice(0, 40)}`;
-}
-
-function sanitizeErrorCode(error: unknown): string {
-  return error instanceof HomeLabA2AReadOnlyError ? error.code : 'A2A_DRIVER_FAILED';
 }
 
 function assertSafeJson(value: unknown): void {
@@ -1678,6 +2102,10 @@ function canonical(value: unknown): string {
     .join(',')}}`;
 }
 
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+}
+
 function fail(code: string, message: string): never {
   throw new HomeLabA2AReadOnlyError(code, message);
 }
@@ -1719,7 +2147,10 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   } catch (error: unknown) {
     process.stderr.write(
-      `${JSON.stringify({ status: 'failed', code: sanitizeErrorCode(error) })}\n`,
+      `${JSON.stringify({
+        status: 'failed',
+        code: error instanceof HomeLabA2AReadOnlyError ? error.code : 'A2A_DRIVER_FAILED',
+      })}\n`,
     );
     process.exitCode = 1;
   }

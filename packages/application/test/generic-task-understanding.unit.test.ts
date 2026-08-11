@@ -18,6 +18,19 @@ describe('CognitiveEntryRouter', () => {
       kind: 'generic_task',
     });
   });
+
+  it('preserves the default concrete route while allowing an explicit all-request policy', () => {
+    const request = { requestText: '查询客厅主灯和空调当前状态' };
+
+    expect(new CognitiveEntryRouter().route(request)).toEqual({
+      kind: 'explicit_goal_ready',
+      reason: 'concrete_request',
+    });
+    expect(new CognitiveEntryRouter({ policy: 'all_requests' }).route(request)).toEqual({
+      kind: 'generic_task',
+      reason: 'configured_all_requests',
+    });
+  });
 });
 
 describe('GenericTaskUnderstandingService', () => {

@@ -1,5 +1,6 @@
 import {
   createMcpServer,
+  withMcpToolAdminExecutionSemanticsOverride,
   type McpDependencyWarningReason,
   type McpProtocolDiscoverySnapshot,
   type McpServer,
@@ -132,21 +133,22 @@ export class FrozenMcpRegistryService {
     });
     const headers = this.#cipher.decrypt(record.encryptedCredential);
     const discovered = await this.#discover(server, headers, timestamp);
+    const tools = retainAdminExecutionSemanticsOverrides(previous, discovered.tools);
     const persistedServer = createMcpServer({
       ...server,
       currentProtocolSnapshotId: discovered.snapshot.snapshotId,
     });
-    const changes = compareTools(previous, discovered.tools);
+    const changes = compareTools(previous, tools);
     await this.#repository.saveFrozenServerAndReplaceTools(
       { ...record, server: persistedServer },
-      discovered.tools,
+      tools,
       discovered.snapshot,
       changes,
     );
     return Object.freeze({
       server: persistedServer,
       snapshot: discovered.snapshot,
-      tools: discovered.tools,
+      tools,
       dependencyWarnings: changes,
     });
   }
@@ -164,6 +166,21 @@ export class FrozenMcpRegistryService {
       discoveredAt,
     });
   }
+}
+
+function retainAdminExecutionSemanticsOverrides(
+  previous: readonly McpTool[],
+  discovered: readonly McpTool[],
+): readonly McpTool[] {
+  const previousByName = new Map(previous.map((tool) => [tool.toolName, tool] as const));
+  return Object.freeze(
+    discovered.map((tool) => {
+      const adminOverride = previousByName.get(tool.toolName)?.adminExecutionSemanticsOverride;
+      return adminOverride === undefined
+        ? tool
+        : withMcpToolAdminExecutionSemanticsOverride(tool, adminOverride);
+    }),
+  );
 }
 
 function compareTools(

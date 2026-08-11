@@ -844,7 +844,7 @@ export interface ManagementOperations {
   >;
   readonly prompts: Pick<
     PromptService,
-    'create' | 'disable' | 'effect' | 'listVersions' | 'publish' | 'rollback'
+    'create' | 'disable' | 'effect' | 'findCurrent' | 'listVersions' | 'publish' | 'rollback'
   >;
   readonly workflows: Pick<WorkflowValidator, 'validate'> &
     Pick<WorkflowPlannerService, 'plan'> &
@@ -2335,6 +2335,13 @@ export async function startManagementHttpEndpoint(
       response
         .status(201)
         .json(await options.operations.prompts.create(CreatePromptSchema.parse(request.body)));
+    }),
+  );
+  app.get(
+    '/api/v1/prompts/current/:stage',
+    asyncRoute(async (request, response) => {
+      const stage = ModelStageSchema.parse(pathValue(request, 'stage'));
+      response.json({ item: (await options.operations.prompts.findCurrent(stage)) ?? null });
     }),
   );
   app.get(

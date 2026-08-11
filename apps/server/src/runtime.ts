@@ -85,6 +85,10 @@ import {
   EvolutionPolicyService,
   WorkflowValidator,
   WorkflowPlannerService,
+  HomeLabReadOnlyWorkflowCandidateGuard,
+  assertHomeLabReadOnlyWorkflowContract,
+  HomeLabReadOnlyUserGoalPlanCandidateGuard,
+  verifiedHomeLabReadOnlyOutcomeRefs,
   WorkflowTemplateService,
   WorkflowExecutionService,
   WorkflowControllerService,
@@ -406,6 +410,8 @@ import {
   requireDeterministicToolResult,
   type DeterministicSkillSuccessProjection,
 } from './deterministic-capability-recovery.js';
+import { createHomeLabReadOnlySkillSelectionService } from './home-lab-skill-selection.js';
+import { assertHomeLabReadOnlyRuntimeConfiguration } from './home-lab-task-understanding.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -516,7 +522,10 @@ export interface ServerRuntimeOptions {
   }>;
   readonly capabilityNarrative?: CognitiveStructuredModelStageInvoker;
   readonly taskUnderstanding?: Readonly<{
+    readonly profile?: 'home_lab_read_only';
     readonly taskTypes: readonly TaskTypeDefinition[];
+    readonly entryPolicy?: 'ambiguous_only' | 'all_requests';
+    readonly skillSelectionMode?: 'exact_compatible_only';
     readonly lowRiskUserPreferences?: readonly string[];
     readonly interactiveGoalBudgets?: Readonly<{
       maxClarificationRounds: number;
@@ -640,9 +649,34 @@ const HOME_LAB_READ_ONLY_EXECUTION_CONTRACTS = Object.freeze({
   }),
 });
 
+export function requireHomeLabReadOnlyTerminalPreparation(
+  profile: NonNullable<ServerRuntimeOptions['taskUnderstanding']>['profile'] | undefined,
+  task: Pick<AgentTask, 'temporarySkillId'>,
+  instance: Pick<WorkflowInstance, 'status' | 'errors'>,
+): readonly Readonly<{ code: string; message: string }>[] | undefined {
+  if (profile !== 'home_lab_read_only') return undefined;
+  if (task.temporarySkillId !== undefined)
+    throw new Error('HOME_LAB_READ_ONLY_TEMPORARY_SKILL_FORBIDDEN');
+  if (instance.status !== 'succeeded')
+    throw new Error('HOME_LAB_READ_ONLY_TERMINAL_INSTANCE_NOT_SUCCEEDED');
+  const errors = Object.values(instance.errors);
+  if (errors.length !== 0) throw new Error('HOME_LAB_READ_ONLY_TERMINAL_INSTANCE_ERRORS_PRESENT');
+  return Object.freeze(errors);
+}
+
+export function createA2ACancelReconciliationHandler(
+  tasks: Readonly<{ cancel(taskId: string): Promise<unknown> }>,
+): (taskId: string) => Promise<void> {
+  return async (taskId) => {
+    await tasks.cancel(taskId);
+  };
+}
+
 export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
+  assertHomeLabReadOnlyRuntimeConfiguration(options);
+  const homeLabReadOnlyProfile = options.taskUnderstanding?.profile === 'home_lab_read_only';
   if (options.businessEvents !== undefined && options.frozenMcpTasks === undefined)
     throw new Error('BUSINESS_EVENTS_REQUIRES_FROZEN_MCP_TASKS_RUNTIME');
   // Deployment controls are parsed before opening infrastructure connections so
@@ -1076,6 +1110,8 @@ export async function startServerRuntime(
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
     runtimeProviderBindings: runtimeMcpBindingAuthority,
   });
+  await taskCapabilities.reconcileCanceledAttempts();
+  await taskCapabilities.reconcileFailedAttempts();
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new CompositeModelTransportAdapter(),
@@ -1546,6 +1582,9 @@ export async function startServerRuntime(
           clock,
           nextUnderstandingId: () => `understanding-${randomUUID()}`,
         });
+  const cognitiveEntryRouter = new CognitiveEntryRouter({
+    policy: options.taskUnderstanding?.entryPolicy ?? 'ambiguous_only',
+  });
   const interactiveGoalSessions =
     taskUnderstanding === undefined
       ? undefined
@@ -1978,9 +2017,8 @@ export async function startServerRuntime(
     });
   };
   const skillSelection =
-    options.skillSelection === undefined
-      ? undefined
-      : new SkillSelectionService({
+    options.skillSelection !== undefined
+      ? new SkillSelectionService({
           skills,
           graph: skillGraphRepository,
           records: skillSelectionRepository,
@@ -1999,7 +2037,27 @@ export async function startServerRuntime(
             nextSelectionId: () => `skill-selection-${randomUUID()}`,
             nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
           },
-        });
+        })
+      : homeLabReadOnlyProfile
+        ? createHomeLabReadOnlySkillSelectionService({
+            skills,
+            graph: skillGraphRepository,
+            records: skillSelectionRepository,
+            mcpWarnings: mcpRepository,
+            operations: mcpRepository,
+            availability: mcpRegistry,
+            providerBindings:
+              options.currentMcpProviderBindingAuthorityReader ??
+              (() => {
+                throw new Error('HOME_LAB_READ_ONLY_PROVIDER_BINDING_AUTHORITY_REQUIRED');
+              })(),
+            clock,
+            ids: {
+              nextSelectionId: () => `skill-selection-home-lab-${randomUUID()}`,
+              nextReplacementPlanId: () => `skill-replacement-home-lab-${randomUUID()}`,
+            },
+          })
+        : undefined;
   const workflowPlanner = new WorkflowPlannerService({
     model: modelRuntime,
     validator: workflowValidator,
@@ -2010,6 +2068,9 @@ export async function startServerRuntime(
     composition: skillComposition,
     templates: workflowTemplates,
     memories,
+    ...(homeLabReadOnlyProfile
+      ? { candidateGuard: new HomeLabReadOnlyWorkflowCandidateGuard() }
+      : {}),
     ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
   });
   const remoteTaskRepository =
@@ -2815,6 +2876,9 @@ export async function startServerRuntime(
     repository: userGoalRuntimeRepository,
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
+    ...(homeLabReadOnlyProfile
+      ? { candidateGuard: new HomeLabReadOnlyUserGoalPlanCandidateGuard() }
+      : {}),
   });
   const experiencePlanning = new ExperienceEnrichedUserGoalPlanningService({
     base: userGoalPlanning,
@@ -2837,7 +2901,11 @@ export async function startServerRuntime(
     },
   }).effectiveInjectionMode;
   if (interactiveGoalSessions !== undefined) {
-    const planCandidateValidator = new UserGoalPlanCandidateValidator();
+    const planCandidateValidator = new UserGoalPlanCandidateValidator({
+      ...(homeLabReadOnlyProfile
+        ? { externalGuard: new HomeLabReadOnlyUserGoalPlanCandidateGuard() }
+        : {}),
+    });
     interactivePlanningSessions = new InteractivePlanningSessionService({
       repository: interactivePlanningRepository,
       planner: userGoalPlanning,
@@ -3323,10 +3391,21 @@ export async function startServerRuntime(
         processor.continueUserGoalPlan(taskId, userGoalPlanId),
       async prepareAchieved(taskId, instance) {
         const task = await service.get(taskId);
+        const homeLabReadOnlyErrors = requireHomeLabReadOnlyTerminalPreparation(
+          options.taskUnderstanding?.profile,
+          task,
+          instance,
+        );
+        if (homeLabReadOnlyProfile) {
+          const persistedPlan = await workflowPlans.findPlan(instance.planId);
+          if (persistedPlan?.definition === undefined)
+            throw new Error('HOME_LAB_READ_ONLY_TERMINAL_WORKFLOW_AUTHORITY_REQUIRED');
+          assertHomeLabReadOnlyWorkflowContract(persistedPlan.definition);
+        }
         if (task.temporarySkillId !== undefined) {
           const temporary = await temporarySkillRepository.find(task.temporarySkillId);
           if (temporary?.status !== 'active') throw new Error('TEMPORARY_SKILL_NOT_ACTIVE');
-          return resultProcessing.prepare({
+          const processedResult = await resultProcessing.prepare({
             resultId: `processed-result-terminal-${taskId}`,
             taskId,
             skillId: temporary.temporarySkillId,
@@ -3334,13 +3413,23 @@ export async function startServerRuntime(
             outputInstruction: `Evaluate Temporary Skill ${temporary.name} output.`,
             outputSchema: temporary.outputSchema,
             rawResult: instance.result,
+            ...(homeLabReadOnlyErrors === undefined ? {} : { errors: homeLabReadOnlyErrors }),
+          });
+          const capabilityTerminalProof = await taskCapabilities.assertTerminalSuccess(
+            taskId,
+            processedResult.output.structured,
+            { outputSchemaValid: true },
+          );
+          return Object.freeze({
+            processedResult,
+            ...(capabilityTerminalProof === undefined ? {} : { capabilityTerminalProof }),
           });
         }
         const selected = instance.skillVersions[0];
         if (selected === undefined) throw new Error('TASK_SKILL_VERSION_REQUIRED');
         const skill = await skills.findVersion(selected.skillId, selected.version);
         if (skill?.status !== 'enabled') throw new Error('TASK_SKILL_VERSION_NOT_ENABLED');
-        return resultProcessing.prepare({
+        const processedResult = await resultProcessing.prepare({
           resultId: `processed-result-terminal-${taskId}`,
           taskId,
           skillId: skill.skillId,
@@ -3348,6 +3437,36 @@ export async function startServerRuntime(
           outputInstruction: skill.outputInstruction,
           outputSchema: skill.outputSchema,
           rawResult: instance.result,
+          ...(homeLabReadOnlyErrors === undefined ? {} : { errors: homeLabReadOnlyErrors }),
+        });
+        if (
+          homeLabReadOnlyProfile &&
+          (task.selectedSkillId !== skill.skillId || task.selectedSkillVersion !== skill.version)
+        )
+          throw new Error('HOME_LAB_READ_ONLY_TERMINAL_SKILL_AUTHORITY_MISMATCH');
+        const capabilityTerminalProof = await taskCapabilities.assertTerminalSuccess(
+          taskId,
+          processedResult.output.structured,
+          {
+            outputSchemaValid: true,
+            ...(homeLabReadOnlyProfile
+              ? {
+                  requiredBinding: {
+                    requestedCapabilityId: 'home.living-room.read-state',
+                    capabilityVersion: 1,
+                  },
+                }
+              : {}),
+          },
+        );
+        if (homeLabReadOnlyProfile && capabilityTerminalProof === undefined)
+          throw new Error('HOME_LAB_READ_ONLY_TERMINAL_CAPABILITY_PROOF_REQUIRED');
+        return Object.freeze({
+          processedResult,
+          ...(capabilityTerminalProof === undefined ? {} : { capabilityTerminalProof }),
+          ...(homeLabReadOnlyProfile
+            ? { verifiedOutcomeRefs: verifiedHomeLabReadOnlyOutcomeRefs(skill) }
+            : {}),
         });
       },
       enhanceResultMemory: (processed) => resultProcessing.enhance(processed),
@@ -3790,6 +3909,7 @@ export async function startServerRuntime(
     events,
     clock,
     ids,
+    taskCapabilities,
     decisions: new StructuredTaskDecisionService(modelRuntime, memories),
     goals: goalService,
     skills,
@@ -3851,7 +3971,7 @@ export async function startServerRuntime(
       ? {}
       : {
           taskUnderstanding: {
-            route: (input) => new CognitiveEntryRouter().route(input),
+            route: (input) => cognitiveEntryRouter.route(input),
             understand: (input) =>
               taskUnderstanding.understand({
                 ...input,
@@ -5370,7 +5490,9 @@ export async function startServerRuntime(
             }),
         userGoalRuntime: {
           async current(goalId: string, goalVersion: number) {
-            const current = await userGoalRuntimeRepository.findCurrentPlan(goalId, goalVersion);
+            const current =
+              (await userGoalRuntimeRepository.findCurrentPlan(goalId, goalVersion)) ??
+              (await userGoalRuntimeRepository.findLatestPlan(goalId, goalVersion));
             if (current === undefined) return null;
             return {
               ...current,
@@ -5519,11 +5641,7 @@ export async function startServerRuntime(
       taskStore: new A2AProjectionTaskStore(
         new PostgresExternalTaskProjectionRepository(pool),
         tasks,
-        async (taskId) => {
-          if ((await service.get(taskId)).phase !== 'canceled') {
-            await foregroundAwareTasks.cancel(taskId);
-          }
-        },
+        createA2ACancelReconciliationHandler(foregroundAwareTasks),
         interactiveGoalMetadata,
       ),
       skillProvider: {
@@ -5878,8 +5996,19 @@ function assertDeterministicUsageCandidate(
 async function currentTaskProviderBindingContext(
   task: AgentTask,
   localServerId: string,
-  taskCapabilities: Pick<RuntimeTaskCapabilityService, 'resolveCurrentProviderBindingId'>,
-): Promise<Readonly<{ providerBindingId: string; providerId?: string }> | undefined> {
+  taskCapabilities: Pick<
+    RuntimeTaskCapabilityService,
+    'resolveCurrentProviderBindingId' | 'resolveCurrentCapabilityAttemptId'
+  >,
+): Promise<
+  | Readonly<{
+      providerBindingId?: string;
+      providerId?: string;
+      capabilityAttemptId?: string;
+    }>
+  | undefined
+> {
+  const capabilityAttemptId = await taskCapabilities.resolveCurrentCapabilityAttemptId(task.taskId);
   const deterministic = task.requestMetadata['io.sdar/deterministicCapabilityExecution'];
   if (isRecord(deterministic)) {
     const bindingId = deterministic['mcpProviderBindingId'];
@@ -5893,13 +6022,21 @@ async function currentTaskProviderBindingContext(
       serverId !== localServerId
     )
       throw new Error('TASK_MCP_PROVIDER_BINDING_CONTEXT_INVALID');
-    return Object.freeze({ providerBindingId: bindingId, providerId });
+    return Object.freeze({
+      providerBindingId: bindingId,
+      providerId,
+      ...(capabilityAttemptId === undefined ? {} : { capabilityAttemptId }),
+    });
   }
   const providerBindingId = await taskCapabilities.resolveCurrentProviderBindingId(
     task.taskId,
     localServerId,
   );
-  return providerBindingId === undefined ? undefined : Object.freeze({ providerBindingId });
+  if (providerBindingId === undefined && capabilityAttemptId === undefined) return undefined;
+  return Object.freeze({
+    ...(providerBindingId === undefined ? {} : { providerBindingId }),
+    ...(capabilityAttemptId === undefined ? {} : { capabilityAttemptId }),
+  });
 }
 
 async function requireDeterministicProviderBindingAuthority(

@@ -131,10 +131,13 @@ export async function startNodeControlApi(
     ids: { next: randomUUID },
   });
   const mcpBindingRepository = new PostgresNodeControlMcpProviderBindingRepository(pool);
+  const runtimeMcpCatalogAuthority = new PostgresRuntimeMcpCatalogAuthorityReader(runtimePool);
   const mcpBindingService = new NodeControlMcpProviderBindingService({
     repository: mcpBindingRepository,
     catalog: new NodeControlFrozenMcpCatalogClient(
       (environment.SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST ?? '127.0.0.1,localhost').split(','),
+      undefined,
+      runtimeMcpCatalogAuthority,
     ),
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
@@ -150,7 +153,7 @@ export async function startNodeControlApi(
     repository: new PostgresRuntimeCapabilityReadinessRepository(
       runtimePool,
       mcpBindingRepository,
-      new PostgresRuntimeMcpCatalogAuthorityReader(runtimePool),
+      runtimeMcpCatalogAuthority,
     ),
     clock: { now: () => new Date().toISOString() },
   });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { McpProtocolDiscoverySnapshot, McpServer, McpTool } from '../../domain/src/index.js';
+import {
+  withMcpToolAdminExecutionSemanticsOverride,
+  type McpProtocolDiscoverySnapshot,
+  type McpServer,
+  type McpTool,
+} from '../../domain/src/index.js';
 import {
   FrozenMcpRegistryService,
   type FrozenMcpDiscoveryPort,
@@ -46,6 +51,44 @@ describe('Frozen MCP registry', () => {
       { toolName: 'removed', reason: 'removed' },
       { toolName: 'move_to', reason: 'schema_changed' },
     ]);
+  });
+
+  it('retains the governed admin execution-semantics override across Frozen refresh', async () => {
+    const repository = new MemoryRepository();
+    const service = createService(repository);
+    repository.record = {
+      server: server({ protocolMode: 'frozen_v1', currentProtocolSnapshotId: 'snapshot-0' }),
+      encryptedCredential: 'encrypted',
+    };
+    repository.tools = [
+      withMcpToolAdminExecutionSemanticsOverride(tool('move_to'), {
+        effect: 'side_effecting',
+        execution: 'task_required',
+        cancellation: 'unsupported',
+        idempotency: 'server_managed',
+        replay: 'forbidden',
+        source: 'admin_override',
+      }),
+    ];
+
+    const result = await service.refresh('provider-1');
+
+    expect(result.tools).toEqual([
+      expect.objectContaining({
+        toolName: 'move_to',
+        adminExecutionSemanticsOverride: expect.objectContaining({
+          effect: 'side_effecting',
+          replay: 'forbidden',
+          source: 'admin_override',
+        }),
+        executionSemantics: expect.objectContaining({
+          effect: 'side_effecting',
+          replay: 'forbidden',
+          source: 'admin_override',
+        }),
+      }),
+    ]);
+    expect(repository.tools).toEqual(result.tools);
   });
 
   it('rejects execution-control headers as persisted credentials', async () => {

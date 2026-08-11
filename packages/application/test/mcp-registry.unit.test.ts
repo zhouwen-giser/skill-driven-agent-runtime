@@ -224,6 +224,53 @@ describe('MCP Registry invocation boundary', () => {
     },
   );
 
+  it('persists the exact Capability attempt lineage on a successful invocation', async () => {
+    const fixture = createFixture();
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'light_get_state', {}, undefined, {
+        taskId: 'task-capability-1',
+        contextId: 'context-capability-1',
+        capabilityAttemptId: 'capability-attempt-current',
+      }),
+    ).resolves.toMatchObject({ invocationId: 'invocation-1' });
+
+    expect(fixture.repository.invocations).toEqual([
+      expect.objectContaining({
+        taskId: 'task-capability-1',
+        contextId: 'context-capability-1',
+        capabilityAttemptId: 'capability-attempt-current',
+        status: 'succeeded',
+      }),
+    ]);
+  });
+
+  it('persists the exact Capability attempt lineage on a failed invocation', async () => {
+    const fixture = createFixture({
+      callError: Object.assign(new Error('provider unavailable'), {
+        code: 'PROVIDER_TRANSPORT_FAILED',
+      }),
+    });
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'light_get_state', {}, undefined, {
+        taskId: 'task-capability-1',
+        contextId: 'context-capability-1',
+        capabilityAttemptId: 'capability-attempt-current',
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_TRANSPORT_FAILED' });
+
+    expect(fixture.repository.invocations).toEqual([
+      expect.objectContaining({
+        taskId: 'task-capability-1',
+        contextId: 'context-capability-1',
+        capabilityAttemptId: 'capability-attempt-current',
+        status: 'failed',
+        errorCode: 'PROVIDER_TRANSPORT_FAILED',
+      }),
+    ]);
+  });
+
   it('redacts transport failure messages before persisting the failed invocation', async () => {
     const fixture = createFixture({
       callError: Object.assign(

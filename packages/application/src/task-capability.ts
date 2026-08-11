@@ -4,6 +4,7 @@ import {
   createTaskCapabilityExecutionAttempt,
   type AgentTask,
   type McpInvocation,
+  type RuntimeTaskCapabilityTerminalProof,
   type TaskCapabilityBinding,
   type TaskCapabilityExecutionAttempt,
   type TaskExecutionAttempt,
@@ -60,10 +61,20 @@ export interface TaskCapabilityAcceptanceStore {
     status: Exclude<TaskCapabilityExecutionAttempt['status'], 'prepared'>,
     timestamp: string,
   ): Promise<void>;
+  reconcileCanceledAttempts(): Promise<number>;
+  reconcileFailedAttempts(): Promise<number>;
 }
 
 export interface TaskCapabilityEvidenceSource {
   listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]>;
+}
+
+export interface TaskCapabilityTerminalSuccessContext {
+  readonly outputSchemaValid?: boolean;
+  readonly requiredBinding?: Readonly<{
+    requestedCapabilityId: string;
+    capabilityVersion: number;
+  }>;
 }
 
 export class RuntimeTaskCapabilityService {
@@ -246,6 +257,22 @@ export class RuntimeTaskCapabilityService {
     );
   }
 
+  async resolveCurrentCapabilityAttemptId(taskId: string): Promise<string | undefined> {
+    const binding = await this.#store.findBinding(taskId);
+    if (binding === undefined) return undefined;
+    const latestAttempt = (await this.#store.listAttempts(taskId)).at(-1);
+    if (
+      latestAttempt?.taskId !== taskId ||
+      latestAttempt.capabilityBindingId !== binding.bindingId ||
+      !['prepared', 'running', 'waiting'].includes(latestAttempt.status)
+    )
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID',
+        'MCP invocation requires the latest active Capability execution attempt.',
+      );
+    return latestAttempt.attemptId;
+  }
+
   async appendAttempt(
     taskId: string,
     input: Readonly<{
@@ -274,13 +301,33 @@ export class RuntimeTaskCapabilityService {
   async assertTerminalSuccess(
     taskId: string,
     result: unknown,
-    context: Readonly<{ outputSchemaValid?: boolean }> = {},
-  ): Promise<void> {
+    context: TaskCapabilityTerminalSuccessContext = {},
+  ): Promise<RuntimeTaskCapabilityTerminalProof | undefined> {
     const binding = await this.#store.findBinding(taskId);
-    if (binding === undefined) return;
+    if (binding === undefined) {
+      if (context.requiredBinding !== undefined)
+        terminal('Capability completion requires the exact frozen Task binding.');
+      return undefined;
+    }
+    if (
+      context.requiredBinding !== undefined &&
+      (binding.requestedCapabilityId !== context.requiredBinding.requestedCapabilityId ||
+        binding.capabilityVersion !== context.requiredBinding.capabilityVersion)
+    )
+      terminal('Capability completion binding does not match the expected Capability authority.');
     if (!isRecord(result)) terminal('Capability completion requires a structured result.');
-    const invocations =
+    const latestAttempt = (await this.#store.listAttempts(taskId)).at(-1);
+    if (
+      latestAttempt?.taskId !== taskId ||
+      latestAttempt.capabilityBindingId !== binding.bindingId ||
+      !['prepared', 'running', 'waiting'].includes(latestAttempt.status)
+    )
+      terminal('Capability completion requires the latest active execution attempt.');
+    const taskInvocations =
       this.#evidence === undefined ? [] : await this.#evidence.listInvocationsByTask(taskId);
+    const invocations = taskInvocations.filter(
+      (invocation) => invocation.capabilityAttemptId === latestAttempt.attemptId,
+    );
     for (const criterion of binding.successCriteriaSnapshot) {
       if (!criterionSatisfied(criterion, result, binding, invocations, context))
         terminal('A frozen success criterion is not satisfied.');
@@ -293,6 +340,14 @@ export class RuntimeTaskCapabilityService {
       if (!constraintSatisfied(constraint, result, binding, invocations))
         terminal('A frozen safety or authorization constraint is not satisfied.');
     }
+    return Object.freeze({
+      taskId,
+      bindingId: binding.bindingId,
+      bindingHash: binding.bindingHash,
+      attemptId: latestAttempt.attemptId,
+      requestedCapabilityId: binding.requestedCapabilityId,
+      capabilityVersion: binding.capabilityVersion,
+    });
   }
 
   async markLatestAttempt(
@@ -302,6 +357,14 @@ export class RuntimeTaskCapabilityService {
   ) {
     if ((await this.#store.findBinding(taskId)) === undefined) return;
     await this.#store.updateLatestAttempt(taskId, status, timestamp);
+  }
+
+  reconcileCanceledAttempts(): Promise<number> {
+    return this.#store.reconcileCanceledAttempts();
+  }
+
+  reconcileFailedAttempts(): Promise<number> {
+    return this.#store.reconcileFailedAttempts();
   }
 }
 
@@ -374,7 +437,7 @@ function evidenceSatisfied(
   invocations: readonly McpInvocation[],
 ) {
   if (requirement['type'] === 'provider_result' && typeof requirement['field'] === 'string')
-    return result[requirement['field']] !== undefined;
+    return providerResultEvidenceSatisfied(requirement, result, binding, invocations);
   if (requirement['type'] === 'route_trace') return result['routeTrace'] !== undefined;
   if (
     requirement['type'] === 'required_evidence' &&
@@ -401,6 +464,64 @@ function evidenceSatisfied(
     );
   }
   return false;
+}
+
+function providerResultEvidenceSatisfied(
+  requirement: Readonly<Record<string, unknown>>,
+  result: Readonly<Record<string, unknown>>,
+  binding: TaskCapabilityBinding,
+  invocations: readonly McpInvocation[],
+): boolean {
+  const field = requirement['field'];
+  if (typeof field !== 'string') return false;
+  const governedKeys = [
+    'inputField',
+    'serverId',
+    'toolName',
+    'evidenceType',
+    'required',
+    'hardGate',
+  ] as const;
+  if (!governedKeys.some((key) => Object.hasOwn(requirement, key)))
+    return result[field] !== undefined;
+
+  const inputField = requirement['inputField'];
+  const serverId = requirement['serverId'];
+  const toolName = requirement['toolName'];
+  const evidenceType = requirement['evidenceType'];
+  if (
+    field.trim() === '' ||
+    typeof inputField !== 'string' ||
+    inputField.trim() === '' ||
+    typeof serverId !== 'string' ||
+    serverId.trim() === '' ||
+    typeof toolName !== 'string' ||
+    toolName.trim() === '' ||
+    typeof evidenceType !== 'string' ||
+    evidenceType.trim() === '' ||
+    requirement['required'] !== true ||
+    requirement['hardGate'] !== true ||
+    result[field] === undefined
+  )
+    return false;
+  const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
+  const expectedResourceId = input?.[inputField];
+  if (typeof expectedResourceId !== 'string' || expectedResourceId.trim() === '') return false;
+
+  const matchingInvocations = invocations.filter(
+    (invocation) =>
+      invocation.status === 'succeeded' &&
+      invocation.executionMode === 'live' &&
+      invocation.serverId === serverId &&
+      invocation.toolName === toolName &&
+      invocation.executionSemantics.effect === 'read_only' &&
+      invocation.arguments['resourceId'] === expectedResourceId &&
+      isRecord(invocation.result) &&
+      invocation.result['isError'] === false &&
+      canonical(invocation.result['structuredContent']) === canonical(result[field]) &&
+      providerEvidencePresent(invocation.result['evidence'], evidenceType, true),
+  );
+  return matchingInvocations.length === 1;
 }
 
 function constraintSatisfied(
@@ -602,6 +723,7 @@ export class TaskCapabilityError extends Error {
       | 'TASK_CAPABILITY_INPUT_INVALID'
       | 'TASK_CAPABILITY_PROVIDER_BINDING_NOT_CURRENT'
       | 'TASK_CAPABILITY_PROVIDER_BINDING_CONTEXT_INVALID'
+      | 'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID'
       | 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
     message: string,
   ) {

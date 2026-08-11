@@ -960,6 +960,36 @@ paths:
           '201': { description: Candidate or enabled immutable PromptVersion },
           '400': { $ref: '#/components/responses/Error' },
         }
+  /api/v1/prompts/current/{stage}:
+    parameters: [{ name: stage, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getCurrentPromptAuthority
+      description: Returns the credential-safe current immutable Prompt authority for one Model stage, or null when none is enabled.
+      responses:
+        '200':
+          description: Credential-safe current Prompt authority
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [item]
+                properties:
+                  item:
+                    nullable: true
+                    type: object
+                    additionalProperties: false
+                    required: [promptId, stage, version, content, status, source, createdAt]
+                    properties:
+                      promptId: { type: string, minLength: 1 }
+                      stage: { type: string, minLength: 1 }
+                      version: { type: integer, minimum: 1 }
+                      previousVersion: { type: integer, minimum: 1 }
+                      content: { type: string, minLength: 1 }
+                      status: { enum: [candidate, enabled, disabled] }
+                      source: { enum: [admin, auto_candidate, manual_correction, rollback] }
+                      createdAt: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/prompts/{promptId}/versions:
     get:
       operationId: listPromptVersions

@@ -6,6 +6,7 @@ import {
   createTaskExecutionAttempt,
   type McpInvocation,
   type TaskCapabilityBinding,
+  type TaskCapabilityExecutionAttempt,
 } from '../../domain/src/index.js';
 import {
   RuntimeTaskCapabilityService,
@@ -26,6 +27,7 @@ function fixture(
   }> = {},
 ) {
   let binding: TaskCapabilityBinding | undefined;
+  let capabilityAttempt: TaskCapabilityExecutionAttempt | undefined;
   const resolution: RuntimeCapabilityResolution = options.resolution ?? {
     exposureId: 'device.inspect',
     exposureVersion: 1,
@@ -51,20 +53,34 @@ function fixture(
   const updateLatestAttempt = vi
     .fn<TaskCapabilityAcceptanceStore['updateLatestAttempt']>()
     .mockResolvedValue(undefined);
+  const reconcileCanceledAttempts = vi
+    .fn<TaskCapabilityAcceptanceStore['reconcileCanceledAttempts']>()
+    .mockResolvedValue(0);
+  const reconcileFailedAttempts = vi
+    .fn<TaskCapabilityAcceptanceStore['reconcileFailedAttempts']>()
+    .mockResolvedValue(0);
+  const listAttempts = vi
+    .fn<TaskCapabilityAcceptanceStore['listAttempts']>()
+    .mockImplementation(() =>
+      Promise.resolve(capabilityAttempt === undefined ? [] : [capabilityAttempt]),
+    );
   const store: TaskCapabilityAcceptanceStore = {
     resolveExposure,
     accept: vi.fn<TaskCapabilityAcceptanceStore['accept']>((input) => {
       binding = input.binding;
+      capabilityAttempt = input.capabilityAttempt;
       return Promise.resolve();
     }),
     findBinding: vi
       .fn<TaskCapabilityAcceptanceStore['findBinding']>()
       .mockImplementation(() => Promise.resolve(binding)),
-    listAttempts: vi.fn<TaskCapabilityAcceptanceStore['listAttempts']>().mockResolvedValue([]),
+    listAttempts,
     appendAttempt: vi
       .fn<TaskCapabilityAcceptanceStore['appendAttempt']>()
       .mockRejectedValue(new Error('not used')),
     updateLatestAttempt,
+    reconcileCanceledAttempts,
+    reconcileFailedAttempts,
   };
   const assertRuntimeProviderBindingCurrent = vi.fn<
     RuntimeMcpProviderBindingAdmissionVerifier['assertCurrent']
@@ -140,8 +156,12 @@ function fixture(
   };
   return {
     service,
+    resolution,
     resolveExposure,
     updateLatestAttempt,
+    reconcileCanceledAttempts,
+    reconcileFailedAttempts,
+    listAttempts,
     assertRuntimeProviderBindingCurrent,
     task,
     inputAttempt,
@@ -150,6 +170,230 @@ function fixture(
 }
 
 describe('RuntimeTaskCapabilityService', () => {
+  it('delegates canceled-attempt recovery to the authoritative store', async () => {
+    const { service, reconcileCanceledAttempts } = fixture();
+    reconcileCanceledAttempts.mockResolvedValueOnce(2);
+
+    await expect(service.reconcileCanceledAttempts()).resolves.toBe(2);
+    expect(reconcileCanceledAttempts).toHaveBeenCalledTimes(1);
+  });
+
+  it('delegates failed-attempt recovery to the authoritative store', async () => {
+    const { service, reconcileFailedAttempts } = fixture();
+    reconcileFailedAttempts.mockResolvedValueOnce(3);
+
+    await expect(service.reconcileFailedAttempts()).resolves.toBe(3);
+    expect(reconcileFailedAttempts).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the latest active immutable proof only for an exact required Capability binding', async () => {
+    const resolution: RuntimeCapabilityResolution = {
+      exposureId: 'home-lab-a2a-living-room-read-state',
+      exposureVersion: 1,
+      requestedCapabilityId: 'home.living-room.read-state',
+      capabilityVersion: 1,
+      requestSchema: { type: 'object', additionalProperties: false },
+      successCriteria: [{ type: 'field_equals', field: 'ok', value: true }],
+      requiredEvidence: [],
+      constraints: [],
+      implementationRefs: ['skill:home.living-room.get-state:1'],
+      providerBindingRefs: ['mcp-binding-ha-light-lab', 'mcp-binding-ha-climate-lab'],
+    };
+    const preparedFixture = fixture({ resolution });
+    const prepared = await preparedFixture.service.prepareAcceptance({
+      task: preparedFixture.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: resolution.exposureId,
+          versionConstraint: '1',
+          requestId: 'request-terminal-proof',
+        },
+      },
+      capabilityInput: {},
+      inputAttempt: preparedFixture.inputAttempt,
+      bindingId: 'binding-terminal-proof',
+      capabilityAttemptId: 'capability-attempt-terminal-proof',
+      event: preparedFixture.event,
+    });
+    if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
+    await preparedFixture.service.accept(prepared);
+
+    await expect(
+      preparedFixture.service.assertTerminalSuccess(
+        preparedFixture.task.taskId,
+        { ok: true },
+        {
+          requiredBinding: {
+            requestedCapabilityId: 'home.living-room.read-state',
+            capabilityVersion: 1,
+          },
+        },
+      ),
+    ).resolves.toEqual({
+      taskId: preparedFixture.task.taskId,
+      bindingId: 'binding-terminal-proof',
+      bindingHash: prepared.binding.bindingHash,
+      attemptId: 'capability-attempt-terminal-proof',
+      requestedCapabilityId: 'home.living-room.read-state',
+      capabilityVersion: 1,
+    });
+  });
+
+  it('fails closed when a strict terminal proof has no binding or the wrong Capability', async () => {
+    const noBinding = fixture();
+    await expect(
+      noBinding.service.assertTerminalSuccess(
+        'ordinary-task',
+        {},
+        {
+          requiredBinding: {
+            requestedCapabilityId: 'home.living-room.read-state',
+            capabilityVersion: 1,
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
+
+    const preparedFixture = fixture();
+    const prepared = await preparedFixture.service.prepareAcceptance({
+      task: preparedFixture.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-terminal-proof-mismatch',
+        },
+      },
+      capabilityInput: { deviceId: 'alpha' },
+      inputAttempt: preparedFixture.inputAttempt,
+      bindingId: 'binding-terminal-proof-mismatch',
+      capabilityAttemptId: 'capability-attempt-terminal-proof-mismatch',
+      event: preparedFixture.event,
+    });
+    if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
+    await preparedFixture.service.accept(prepared);
+    await expect(
+      preparedFixture.service.assertTerminalSuccess(
+        preparedFixture.task.taskId,
+        {
+          inspected: true,
+          inspectionEvidence: {},
+          policyEvidence: [{ type: 'authorization', satisfied: true }],
+        },
+        {
+          requiredBinding: {
+            requestedCapabilityId: 'home.living-room.read-state',
+            capabilityVersion: 1,
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
+  });
+
+  it('rejects a strict terminal proof when the latest Capability attempt is no longer active', async () => {
+    const preparedFixture = fixture();
+    const prepared = await preparedFixture.service.prepareAcceptance({
+      task: preparedFixture.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-terminal-proof-terminal-attempt',
+        },
+      },
+      capabilityInput: { deviceId: 'alpha' },
+      inputAttempt: preparedFixture.inputAttempt,
+      bindingId: 'binding-terminal-proof-terminal-attempt',
+      capabilityAttemptId: 'capability-attempt-terminal-proof-terminal-attempt',
+      event: preparedFixture.event,
+    });
+    if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
+    await preparedFixture.service.accept(prepared);
+    vi.mocked(preparedFixture.listAttempts).mockResolvedValueOnce([
+      {
+        ...prepared.capabilityAttempt,
+        status: 'succeeded',
+        startedAt: timestamp,
+        completedAt: timestamp,
+      },
+    ]);
+    await expect(
+      preparedFixture.service.assertTerminalSuccess(
+        preparedFixture.task.taskId,
+        {
+          inspected: true,
+          inspectionEvidence: {},
+          policyEvidence: [{ type: 'authorization', satisfied: true }],
+        },
+        {
+          requiredBinding: {
+            requestedCapabilityId: 'device.inspect.capability',
+            capabilityVersion: 3,
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
+  });
+
+  it.each(['prepared', 'running', 'waiting'] as const)(
+    'resolves the latest %s Capability attempt for MCP invocation lineage',
+    async (status) => {
+      const accepted = await acceptedDefaultCapability();
+      vi.mocked(accepted.listAttempts).mockResolvedValueOnce([
+        withAttemptStatus(accepted.prepared.capabilityAttempt, status),
+      ]);
+
+      await expect(
+        accepted.service.resolveCurrentCapabilityAttemptId(accepted.task.taskId),
+      ).resolves.toBe(accepted.prepared.capabilityAttempt.attemptId);
+    },
+  );
+
+  it('rejects Capability attempt resolution when the bound Task has no attempt', async () => {
+    const accepted = await acceptedDefaultCapability();
+    vi.mocked(accepted.listAttempts).mockResolvedValueOnce([]);
+
+    await expect(
+      accepted.service.resolveCurrentCapabilityAttemptId(accepted.task.taskId),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID' });
+  });
+
+  it('leaves an unbound Task without Capability attempt lineage', async () => {
+    const unbound = fixture();
+
+    await expect(
+      unbound.service.resolveCurrentCapabilityAttemptId(unbound.task.taskId),
+    ).resolves.toBeUndefined();
+  });
+
+  it.each(['succeeded', 'failed', 'canceled', 'superseded'] as const)(
+    'rejects terminal %s Capability attempt resolution',
+    async (status) => {
+      const accepted = await acceptedDefaultCapability();
+      vi.mocked(accepted.listAttempts).mockResolvedValueOnce([
+        withAttemptStatus(accepted.prepared.capabilityAttempt, status),
+      ]);
+
+      await expect(
+        accepted.service.resolveCurrentCapabilityAttemptId(accepted.task.taskId),
+      ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID' });
+    },
+  );
+
+  it.each([
+    ['Task identity', { taskId: 'task-other' }],
+    ['Capability binding identity', { capabilityBindingId: 'binding-other' }],
+  ] as const)('rejects latest-attempt %s mismatch', async (_case, mismatch) => {
+    const accepted = await acceptedDefaultCapability();
+    vi.mocked(accepted.listAttempts).mockResolvedValueOnce([
+      { ...accepted.prepared.capabilityAttempt, ...mismatch },
+    ]);
+
+    await expect(
+      accepted.service.resolveCurrentCapabilityAttemptId(accepted.task.taskId),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID' });
+  });
+
   it('leaves ordinary non-Capability Task terminal transitions untouched', async () => {
     const { service, updateLatestAttempt } = fixture();
     await expect(
@@ -427,7 +671,152 @@ describe('RuntimeTaskCapabilityService', () => {
         inspectionEvidence: { providerRequestId: 'provider-request-1' },
         policyEvidence: [{ type: 'authorization', satisfied: true }],
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ attemptId: 'capability-attempt-terminal' });
+  });
+
+  it('requires exact live Provider proof for both governed provider_result fields', async () => {
+    const result = twoProviderResult();
+
+    await expect(
+      exerciseTwoProviderResult(twoProviderInvocations(result), result),
+    ).resolves.toMatchObject({ attemptId: 'capability-attempt-two-provider-result' });
+  });
+
+  it('accepts strict Provider evidence only from the exact latest Capability attempt', async () => {
+    const result = twoProviderResult();
+    const capabilityAttemptId = 'capability-attempt-two-provider-result';
+
+    await expect(
+      exerciseTwoProviderResult(twoProviderInvocations(result, capabilityAttemptId), result, true),
+    ).resolves.toMatchObject({ attemptId: capabilityAttemptId });
+  });
+
+  it('rejects prior-attempt Provider evidence from an otherwise exact Task-wide result set', async () => {
+    const result = twoProviderResult();
+    const latestCapabilityAttemptId = 'capability-attempt-two-provider-result';
+    const [light, climate] = twoProviderInvocations(result, latestCapabilityAttemptId);
+
+    await expect(
+      exerciseTwoProviderResult(
+        [{ ...light, capabilityAttemptId: 'capability-attempt-prior' }, climate],
+        result,
+        true,
+      ),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
+  });
+
+  it('rejects swapped Provider results', async () => {
+    const result = twoProviderResult();
+    const invocations = [
+      providerResultInvocation({
+        invocationId: 'mcp-invocation-light-swapped',
+        serverId: 'home-lab-light-mcp',
+        toolName: 'light_get_state',
+        resourceId: 'living-room-main-light',
+        structuredContent: result.climate,
+        evidenceType: 'light.state.observation',
+      }),
+      providerResultInvocation({
+        invocationId: 'mcp-invocation-climate-swapped',
+        serverId: 'home-lab-climate-mcp',
+        toolName: 'climate_get_state',
+        resourceId: 'living-room-climate',
+        structuredContent: result.mainLight,
+        evidenceType: 'climate.state.observation',
+      }),
+    ];
+
+    await expect(exerciseTwoProviderResult(invocations, result)).rejects.toMatchObject({
+      code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+    });
+  });
+
+  it.each([
+    [
+      'forged resource identity',
+      (result: ReturnType<typeof twoProviderResult>) => [
+        providerResultInvocation({
+          invocationId: 'mcp-invocation-light-forged-resource',
+          serverId: 'home-lab-light-mcp',
+          toolName: 'light_get_state',
+          resourceId: 'bedroom-light',
+          structuredContent: result.mainLight,
+          evidenceType: 'light.state.observation',
+        }),
+        twoProviderInvocations(result)[1],
+      ],
+    ],
+    [
+      'non-live execution',
+      (result: ReturnType<typeof twoProviderResult>) => [
+        providerResultInvocation({
+          invocationId: 'mcp-invocation-light-simulated',
+          serverId: 'home-lab-light-mcp',
+          toolName: 'light_get_state',
+          resourceId: 'living-room-main-light',
+          structuredContent: result.mainLight,
+          evidenceType: 'light.state.observation',
+          executionMode: 'simulation',
+        }),
+        twoProviderInvocations(result)[1],
+      ],
+    ],
+    [
+      'forged Provider tool',
+      (result: ReturnType<typeof twoProviderResult>) => [
+        providerResultInvocation({
+          invocationId: 'mcp-invocation-light-forged-tool',
+          serverId: 'home-lab-light-mcp',
+          toolName: 'light_set_power',
+          resourceId: 'living-room-main-light',
+          structuredContent: result.mainLight,
+          evidenceType: 'light.state.observation',
+        }),
+        twoProviderInvocations(result)[1],
+      ],
+    ],
+  ] as const)('rejects %s evidence', async (_case, buildInvocations) => {
+    const result = twoProviderResult();
+    await expect(exerciseTwoProviderResult(buildInvocations(result), result)).rejects.toMatchObject(
+      { code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' },
+    );
+  });
+
+  it('rejects missing exact Provider evidence', async () => {
+    const result = twoProviderResult();
+    const invocations = [
+      providerResultInvocation({
+        invocationId: 'mcp-invocation-light-without-evidence',
+        serverId: 'home-lab-light-mcp',
+        toolName: 'light_get_state',
+        resourceId: 'living-room-main-light',
+        structuredContent: result.mainLight,
+        evidenceType: 'light.state.observation',
+        includeEvidence: false,
+      }),
+      twoProviderInvocations(result)[1],
+    ];
+
+    await expect(exerciseTwoProviderResult(invocations, result)).rejects.toMatchObject({
+      code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+    });
+  });
+
+  it('rejects duplicate matching Provider invocation ambiguity', async () => {
+    const result = twoProviderResult();
+    const invocations = twoProviderInvocations(result);
+    const duplicate = providerResultInvocation({
+      invocationId: 'mcp-invocation-light-duplicate',
+      serverId: 'home-lab-light-mcp',
+      toolName: 'light_get_state',
+      resourceId: 'living-room-main-light',
+      structuredContent: result.mainLight,
+      evidenceType: 'light.state.observation',
+    });
+
+    await expect(
+      exerciseTwoProviderResult([...invocations, duplicate], result),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
   });
 
   it('verifies governed read-only terminal semantics against the exact Provider invocation', async () => {
@@ -518,7 +907,7 @@ describe('RuntimeTaskCapabilityService', () => {
 
     await expect(
       service.assertTerminalSuccess(task.taskId, result, { outputSchemaValid: true }),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ attemptId: 'capability-attempt-read-only' });
     await expect(service.assertTerminalSuccess(task.taskId, result)).rejects.toMatchObject({
       code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
     });
@@ -604,13 +993,18 @@ describe('RuntimeTaskCapabilityService', () => {
     });
     await expect(
       exercise(baseResolution, [
-        providerInvocation({ ...result, brightnessPercent: 99 }, evidenceType),
+        providerInvocation(
+          { ...result, brightnessPercent: 99 },
+          evidenceType,
+          'capability-attempt-fail-closed',
+        ),
       ]),
     ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
     const sideEffectingInvocation: McpInvocation = {
-      ...providerInvocation(result, evidenceType),
+      ...providerInvocation(result, evidenceType, 'capability-attempt-fail-closed'),
       executionSemantics: {
-        ...providerInvocation(result, evidenceType).executionSemantics,
+        ...providerInvocation(result, evidenceType, 'capability-attempt-fail-closed')
+          .executionSemantics,
         effect: 'side_effecting',
       },
     };
@@ -627,19 +1021,53 @@ describe('RuntimeTaskCapabilityService', () => {
             { type: 'baseline_restored', required: true },
           ],
         },
-        [providerInvocation(result, evidenceType)],
+        [providerInvocation(result, evidenceType, 'capability-attempt-fail-closed')],
       ),
     ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
   });
 });
 
+async function acceptedDefaultCapability() {
+  const preparedFixture = fixture();
+  const prepared = await preparedFixture.service.prepareAcceptance({
+    task: preparedFixture.task,
+    metadata: {
+      'io.sdar/requestedCapability': {
+        exposureId: preparedFixture.resolution.exposureId,
+        versionConstraint: String(preparedFixture.resolution.exposureVersion),
+        requestId: 'request-capability-attempt-context',
+      },
+    },
+    capabilityInput: { deviceId: 'alpha' },
+    inputAttempt: preparedFixture.inputAttempt,
+    bindingId: 'binding-capability-attempt-context',
+    capabilityAttemptId: 'capability-attempt-context',
+    event: preparedFixture.event,
+  });
+  if (prepared === undefined) throw new Error('Expected a governed Capability binding.');
+  await preparedFixture.service.accept(prepared);
+  return { ...preparedFixture, prepared };
+}
+
+function withAttemptStatus(
+  attempt: TaskCapabilityExecutionAttempt,
+  status: TaskCapabilityExecutionAttempt['status'],
+): TaskCapabilityExecutionAttempt {
+  if (status === 'prepared') return attempt;
+  if (status === 'running' || status === 'waiting')
+    return { ...attempt, status, startedAt: timestamp };
+  return { ...attempt, status, startedAt: timestamp, completedAt: timestamp };
+}
+
 function providerInvocation(
   structuredContent: Readonly<Record<string, unknown>>,
   evidenceType: string,
+  capabilityAttemptId = 'capability-attempt-read-only',
 ): McpInvocation {
   return {
     invocationId: 'mcp-invocation-read-only',
     taskId: 'task-1',
+    capabilityAttemptId,
     contextId: 'context-1',
     executionMode: 'live',
     serverId: 'home-lab-light-mcp',
@@ -671,4 +1099,187 @@ function providerInvocation(
     completedAt: timestamp,
     durationMs: 1,
   };
+}
+
+function twoProviderResult() {
+  return {
+    mainLight: {
+      resourceId: 'living-room-main-light',
+      power: 'on',
+      reachable: true,
+      brightnessPercent: 72,
+      observedAt: timestamp,
+    },
+    climate: {
+      resourceId: 'living-room-climate',
+      hvacMode: 'cool',
+      targetTemperatureCelsius: 24,
+      currentTemperatureCelsius: 27,
+      observedAt: timestamp,
+    },
+  } as const;
+}
+
+function twoProviderResolution(): RuntimeCapabilityResolution {
+  return {
+    exposureId: 'home-lab-a2a-living-room-read-state',
+    exposureVersion: 1,
+    requestedCapabilityId: 'home.living-room.read-state',
+    capabilityVersion: 1,
+    requestSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['mainLightResourceId', 'climateResourceId'],
+      properties: {
+        mainLightResourceId: { const: 'living-room-main-light' },
+        climateResourceId: { const: 'living-room-climate' },
+      },
+    },
+    successCriteria: [{ type: 'required_evidence_complete', required: true }],
+    requiredEvidence: [
+      {
+        type: 'provider_result',
+        field: 'mainLight',
+        inputField: 'mainLightResourceId',
+        serverId: 'home-lab-light-mcp',
+        toolName: 'light_get_state',
+        evidenceType: 'light.state.observation',
+        required: true,
+        hardGate: true,
+      },
+      {
+        type: 'provider_result',
+        field: 'climate',
+        inputField: 'climateResourceId',
+        serverId: 'home-lab-climate-mcp',
+        toolName: 'climate_get_state',
+        evidenceType: 'climate.state.observation',
+        required: true,
+        hardGate: true,
+      },
+    ],
+    constraints: [],
+    implementationRefs: ['skill:home.living-room.get-state:1'],
+    providerBindingRefs: ['mcp-binding-ha-light-lab', 'mcp-binding-ha-climate-lab'],
+  };
+}
+
+function twoProviderInvocations(
+  result: ReturnType<typeof twoProviderResult>,
+  capabilityAttemptId = 'capability-attempt-two-provider-result',
+): readonly [McpInvocation, McpInvocation] {
+  return [
+    providerResultInvocation({
+      invocationId: 'mcp-invocation-light-read-only',
+      serverId: 'home-lab-light-mcp',
+      toolName: 'light_get_state',
+      resourceId: 'living-room-main-light',
+      structuredContent: result.mainLight,
+      evidenceType: 'light.state.observation',
+      capabilityAttemptId,
+    }),
+    providerResultInvocation({
+      invocationId: 'mcp-invocation-climate-read-only',
+      serverId: 'home-lab-climate-mcp',
+      toolName: 'climate_get_state',
+      resourceId: 'living-room-climate',
+      structuredContent: result.climate,
+      evidenceType: 'climate.state.observation',
+      capabilityAttemptId,
+    }),
+  ];
+}
+
+function providerResultInvocation(
+  input: Readonly<{
+    invocationId: string;
+    serverId: string;
+    toolName: string;
+    resourceId: string;
+    structuredContent: Readonly<Record<string, unknown>>;
+    evidenceType: string;
+    capabilityAttemptId?: string;
+    executionMode?: McpInvocation['executionMode'];
+    includeEvidence?: boolean;
+  }>,
+): McpInvocation {
+  return {
+    invocationId: input.invocationId,
+    taskId: 'task-1',
+    contextId: 'context-1',
+    capabilityAttemptId: input.capabilityAttemptId ?? 'capability-attempt-two-provider-result',
+    executionMode: input.executionMode ?? 'live',
+    serverId: input.serverId,
+    toolName: input.toolName,
+    executionSemantics: {
+      effect: 'read_only',
+      execution: 'synchronous',
+      cancellation: 'unsupported',
+      idempotency: 'none',
+      replay: 'allowed',
+      source: 'mcp_declared',
+    },
+    arguments: { resourceId: input.resourceId },
+    result: {
+      content: [],
+      structuredContent: input.structuredContent,
+      isError: false,
+      evidence:
+        input.includeEvidence === false
+          ? []
+          : [
+              {
+                evidenceId: `${input.invocationId}-evidence`,
+                evidenceType: input.evidenceType,
+                observedAt: timestamp,
+                payloadRef: { kind: 'structured_content', jsonPointer: '' },
+              },
+            ],
+    },
+    status: 'succeeded',
+    startedAt: timestamp,
+    completedAt: timestamp,
+    durationMs: 1,
+  };
+}
+
+async function exerciseTwoProviderResult(
+  invocations: readonly McpInvocation[],
+  result: ReturnType<typeof twoProviderResult>,
+  strict = false,
+) {
+  const resolution = twoProviderResolution();
+  const preparedFixture = fixture({ resolution, invocations });
+  const prepared = await preparedFixture.service.prepareAcceptance({
+    task: preparedFixture.task,
+    metadata: {
+      'io.sdar/requestedCapability': {
+        exposureId: resolution.exposureId,
+        versionConstraint: '1',
+        requestId: 'request-two-provider-result',
+      },
+    },
+    capabilityInput: {
+      mainLightResourceId: 'living-room-main-light',
+      climateResourceId: 'living-room-climate',
+    },
+    inputAttempt: preparedFixture.inputAttempt,
+    bindingId: 'binding-two-provider-result',
+    capabilityAttemptId: 'capability-attempt-two-provider-result',
+    event: preparedFixture.event,
+  });
+  if (prepared === undefined) throw new Error('Expected a two-Provider Capability binding.');
+  await preparedFixture.service.accept(prepared);
+  return preparedFixture.service.assertTerminalSuccess(
+    preparedFixture.task.taskId,
+    result,
+    strict
+      ? {
+          requiredBinding: {
+            requestedCapabilityId: resolution.requestedCapabilityId,
+            capabilityVersion: resolution.capabilityVersion,
+          },
+        }
+      : {},
+  );
 }

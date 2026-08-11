@@ -11,6 +11,7 @@ import type {
   RuntimeImplementationReadiness,
   StoredCapabilityReadiness,
 } from '../../runtime-control-application/src/index.js';
+import { parseMcpProviderBindingPolicyOverride } from '../../node-control-domain/src/index.js';
 import type { RuntimeMcpCatalogAuthorityReader } from './runtime-mcp-catalog-authority-reader.js';
 
 interface ReadinessRow {
@@ -288,17 +289,15 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
     const bindingPolicyParts: string[] = [];
     let requiredUnavailable = false;
     let optionalUnavailable = false;
-    const providerBindingPolicy = exactProviderBindingPolicy(providerPolicyOverride);
-    const exactBindingTool =
-      providerBindingPolicy === undefined
-        ? undefined
-        : required.find(
-            (reference) =>
-              reference.serverId === providerBindingPolicy.localServerId &&
-              reference.toolName === providerBindingPolicy.mcpToolName,
-          );
+    const providerBindingPolicy = parseMcpProviderBindingPolicyOverride(providerPolicyOverride);
+    const exactBindingTools = providerBindingPolicy.requirements.map((policy) =>
+      required.find(
+        (reference) =>
+          reference.serverId === policy.localServerId && reference.toolName === policy.mcpToolName,
+      ),
+    );
     for (const reference of [...required, ...optional]) {
-      if (reference === exactBindingTool) continue;
+      if (exactBindingTools.includes(reference)) continue;
       const tool = await this.#pool.query<{
         status: string;
         tool_revision: number;
@@ -333,8 +332,15 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
       }
     }
     if (providerPolicyOverride !== undefined) {
-      const policy = providerBindingPolicy;
-      if (policy === undefined || exactBindingTool === undefined) {
+      const exactRequiredTools =
+        exactBindingTools.every((reference) => reference !== undefined) &&
+        (providerBindingPolicy.mode !== 'required_all' ||
+          (required.length === 2 && optional.length === 0));
+      if (
+        providerBindingPolicy.mode === 'absent' ||
+        providerBindingPolicy.mode === 'invalid' ||
+        !exactRequiredTools
+      ) {
         requiredUnavailable = true;
         reasons.push(
           reason(
@@ -344,13 +350,15 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
           ),
         );
       } else {
-        bindingPolicyParts.push(JSON.stringify(policy));
-        if (this.#providerBindings === undefined) {
-          requiredUnavailable = true;
-          reasons.push(
-            reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
-          );
-        } else {
+        for (const policy of providerBindingPolicy.requirements) {
+          bindingPolicyParts.push(JSON.stringify(policy));
+          if (this.#providerBindings === undefined) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
+            );
+            continue;
+          }
           let authority: Awaited<
             ReturnType<CurrentBindingAuthorityRepository['findCurrentAuthority']>
           >;
@@ -372,7 +380,9 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
             reasons.push(
               reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
             );
-          } else if (this.#runtimeMcp === undefined) {
+            continue;
+          }
+          if (this.#runtimeMcp === undefined) {
             requiredUnavailable = true;
             reasons.push(
               reason(
@@ -381,76 +391,72 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
                 policy.mcpProviderBindingId,
               ),
             );
+            continue;
+          }
+          let runtimeAuthority: Awaited<
+            ReturnType<RuntimeMcpCatalogAuthorityReader['loadCurrentAuthority']>
+          >;
+          try {
+            runtimeAuthority = await this.#runtimeMcp.loadCurrentAuthority(policy.localServerId);
+          } catch {
+            runtimeAuthority = undefined;
+          }
+          if (
+            runtimeAuthority?.status !== 'enabled' ||
+            runtimeAuthority.protocolMode !== 'frozen_v1' ||
+            runtimeAuthority.snapshotToolRevision !== runtimeAuthority.toolRevision
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'MCP_PROVIDER_BINDING_RUNTIME_AUTHORITY_UNAVAILABLE',
+                'blocking',
+                policy.mcpProviderBindingId,
+              ),
+            );
+          } else if (
+            Date.parse(evaluatedAt) - Date.parse(runtimeAuthority.serverUpdatedAt) >
+            ttlMs
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'PROVIDER_AVAILABILITY_EXPIRED',
+                'blocking',
+                `${policy.localServerId}/${policy.mcpToolName}`,
+              ),
+            );
+          } else if (!runtimeAuthority.toolNames.includes(policy.mcpToolName)) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'MCP_TOOL_UNAVAILABLE',
+                'blocking',
+                `${policy.localServerId}/${policy.mcpToolName}`,
+              ),
+            );
+          } else if (runtimeAuthority.endpoint !== authority.binding.endpointRef) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'MCP_PROVIDER_BINDING_ENDPOINT_DRIFT',
+                'blocking',
+                policy.mcpProviderBindingId,
+              ),
+            );
+          } else if (
+            runtimeAuthority.catalogRevision !== authority.binding.catalogRevision ||
+            runtimeAuthority.catalogChecksum !== authority.binding.catalogChecksum ||
+            runtimeAuthority.operationCount !== authority.binding.operationCount
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_CATALOG_DRIFT', 'blocking', policy.mcpProviderBindingId),
+            );
           } else {
-            let runtimeAuthority: Awaited<
-              ReturnType<RuntimeMcpCatalogAuthorityReader['loadCurrentAuthority']>
-            >;
-            try {
-              runtimeAuthority = await this.#runtimeMcp.loadCurrentAuthority(policy.localServerId);
-            } catch {
-              runtimeAuthority = undefined;
-            }
-            if (
-              runtimeAuthority?.status !== 'enabled' ||
-              runtimeAuthority.protocolMode !== 'frozen_v1' ||
-              runtimeAuthority.snapshotToolRevision !== runtimeAuthority.toolRevision
-            ) {
-              requiredUnavailable = true;
-              reasons.push(
-                reason(
-                  'MCP_PROVIDER_BINDING_RUNTIME_AUTHORITY_UNAVAILABLE',
-                  'blocking',
-                  policy.mcpProviderBindingId,
-                ),
-              );
-            } else if (
-              Date.parse(evaluatedAt) - Date.parse(runtimeAuthority.serverUpdatedAt) >
-              ttlMs
-            ) {
-              requiredUnavailable = true;
-              reasons.push(
-                reason(
-                  'PROVIDER_AVAILABILITY_EXPIRED',
-                  'blocking',
-                  `${policy.localServerId}/${policy.mcpToolName}`,
-                ),
-              );
-            } else if (!runtimeAuthority.toolNames.includes(policy.mcpToolName)) {
-              requiredUnavailable = true;
-              reasons.push(
-                reason(
-                  'MCP_TOOL_UNAVAILABLE',
-                  'blocking',
-                  `${policy.localServerId}/${policy.mcpToolName}`,
-                ),
-              );
-            } else if (runtimeAuthority.endpoint !== authority.binding.endpointRef) {
-              requiredUnavailable = true;
-              reasons.push(
-                reason(
-                  'MCP_PROVIDER_BINDING_ENDPOINT_DRIFT',
-                  'blocking',
-                  policy.mcpProviderBindingId,
-                ),
-              );
-            } else if (
-              runtimeAuthority.catalogRevision !== authority.binding.catalogRevision ||
-              runtimeAuthority.catalogChecksum !== authority.binding.catalogChecksum ||
-              runtimeAuthority.operationCount !== authority.binding.operationCount
-            ) {
-              requiredUnavailable = true;
-              reasons.push(
-                reason(
-                  'MCP_PROVIDER_BINDING_CATALOG_DRIFT',
-                  'blocking',
-                  policy.mcpProviderBindingId,
-                ),
-              );
-            } else {
-              catalogParts.push(
-                `binding:${authority.binding.bindingId}:${String(authority.binding.revision)}:${authority.binding.catalogRevision}:${authority.binding.catalogChecksum}:${authority.binding.availabilityValidUntil}`,
-              );
-            }
+            catalogParts.push(
+              `binding:${authority.binding.bindingId}:${String(authority.binding.revision)}:${authority.binding.catalogRevision}:${authority.binding.catalogChecksum}:${authority.binding.availabilityValidUntil}`,
+            );
           }
         }
       }
@@ -555,46 +561,6 @@ function mapRow(row: ReadinessRow): StoredCapabilityReadiness {
     ...(row.candidate_status === null ? {} : { candidateStatus: row.candidate_status }),
     ...(row.candidate_since === null ? {} : { candidateSince: row.candidate_since.toISOString() }),
     input: row.evaluation_input,
-  });
-}
-
-function exactProviderBindingPolicy(value: unknown):
-  | Readonly<{
-      selection: 'required';
-      mcpProviderBindingId: string;
-      localServerId: string;
-      mcpToolName: string;
-      requireActive: true;
-      requireAvailable: true;
-      requireUnexpiredFreshness: true;
-      denyFallback: true;
-    }>
-  | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  const policy = value as Readonly<Record<string, unknown>>;
-  if (
-    policy['selection'] !== 'required' ||
-    typeof policy['mcpProviderBindingId'] !== 'string' ||
-    policy['mcpProviderBindingId'].trim() === '' ||
-    typeof policy['localServerId'] !== 'string' ||
-    policy['localServerId'].trim() === '' ||
-    typeof policy['mcpToolName'] !== 'string' ||
-    policy['mcpToolName'].trim() === '' ||
-    policy['requireActive'] !== true ||
-    policy['requireAvailable'] !== true ||
-    policy['requireUnexpiredFreshness'] !== true ||
-    policy['denyFallback'] !== true
-  )
-    return undefined;
-  return Object.freeze({
-    selection: 'required',
-    mcpProviderBindingId: policy['mcpProviderBindingId'],
-    localServerId: policy['localServerId'],
-    mcpToolName: policy['mcpToolName'],
-    requireActive: true,
-    requireAvailable: true,
-    requireUnexpiredFreshness: true,
-    denyFallback: true,
   });
 }
 

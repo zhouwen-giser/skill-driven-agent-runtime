@@ -123,11 +123,16 @@ export interface UserGoalPlanningRepository {
   ): Promise<Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined>;
 }
 
+export interface UserGoalPlanCandidateGuard {
+  assert(plan: UserGoalPlan, contract: UserGoalCompletionContract): void;
+}
+
 export class UserGoalPlanningService {
   readonly #model: StructuredModelProvider;
   readonly #repository: UserGoalPlanningRepository;
   readonly #now: () => string;
   readonly #nextPlanId: () => string;
+  readonly #candidateGuard: UserGoalPlanCandidateGuard | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -135,17 +140,20 @@ export class UserGoalPlanningService {
       repository: UserGoalPlanningRepository;
       now: () => string;
       nextPlanId: () => string;
+      candidateGuard?: UserGoalPlanCandidateGuard;
     }>,
   ) {
     this.#model = dependencies.model;
     this.#repository = dependencies.repository;
     this.#now = dependencies.now;
     this.#nextPlanId = dependencies.nextPlanId;
+    this.#candidateGuard = dependencies.candidateGuard;
   }
 
   async plan(
     input: Readonly<{
       goal: Goal;
+      taskId?: string;
       revision?: number;
       revisionKind?: UserGoalPlanRevisionKind;
       planningContext?: unknown;
@@ -170,6 +178,7 @@ export class UserGoalPlanningService {
   async generateCandidate(
     input: Readonly<{
       goal: Goal;
+      taskId?: string;
       revision?: number;
       revisionKind?: UserGoalPlanRevisionKind;
       planningContext?: unknown;
@@ -216,6 +225,7 @@ export class UserGoalPlanningService {
             }),
             responseSchema: planCandidateResponseSchema,
             correctionErrors,
+            ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
           }),
         );
         const planId = this.#nextPlanId();
@@ -248,6 +258,7 @@ export class UserGoalPlanningService {
             createdAt,
           }),
         );
+        this.#candidateGuard?.assert(plan, contract);
         return { contract, plan };
       } catch (error) {
         if (error instanceof UserGoalPlanningError) throw error;
@@ -275,6 +286,7 @@ export class UserGoalPlanningService {
     }>,
   ): Promise<void> {
     validateUserGoalPlan(input.contract, input.plan);
+    this.#candidateGuard?.assert(input.plan, input.contract);
     const existing = await this.#repository.findPlan(input.plan.planId);
     if (existing !== undefined) {
       if (existing.contentHash === input.plan.contentHash) return;
@@ -304,6 +316,7 @@ export class UserGoalPlanningService {
     goalId: string,
     goalVersion: number,
   ): Promise<Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined> {
+    if (this.#candidateGuard !== undefined) return Promise.resolve(undefined);
     return this.#repository.findReusablePlan(goalId, goalVersion);
   }
 }

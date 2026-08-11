@@ -111,6 +111,7 @@ import {
   PostgresActiveKnowledgeProjectionInventory,
   PostgresCognitiveManagementActionRepository,
   PostgresUserGoalRuntimeRepository,
+  PostgresTaskCapabilityRepository,
 } from '../src/index.js';
 import {
   bindTaskGoal,
@@ -3514,6 +3515,14 @@ describe('PostgreSQL protocol-domain repositories', () => {
       supportsInputRequired: true,
       idempotency: 'client_request_key' as const,
     };
+    const adminExecutionSemanticsOverride = {
+      effect: 'side_effecting' as const,
+      execution: 'task_required' as const,
+      cancellation: 'unsupported' as const,
+      idempotency: 'server_managed' as const,
+      replay: 'forbidden' as const,
+      source: 'admin_override' as const,
+    };
     const snapshot = {
       snapshotId: 'snapshot.frozen.db.1',
       serverId: 'mcp.frozen.db',
@@ -3552,7 +3561,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
           outputSchema: { type: 'object', required: ['status'] },
           protocolMode: 'frozen_v1',
           taskExecutionProfile: profile,
-          executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+          adminExecutionSemanticsOverride,
+          executionSemantics: adminExecutionSemanticsOverride,
           discoveredAt: '2026-07-18T00:00:00.000Z',
         },
       ],
@@ -3574,6 +3584,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
         protocolMode: 'frozen_v1',
         outputSchema: { type: 'object', required: ['status'] },
         taskExecutionProfile: profile,
+        adminExecutionSemanticsOverride,
+        executionSemantics: adminExecutionSemanticsOverride,
       }),
     ]);
   });
@@ -3959,6 +3971,30 @@ describe('PostgreSQL protocol-domain repositories', () => {
         '2026-07-12T00:01:00.000Z',
       ),
     );
+    const waitBindingHash = createHash('sha256').update('capability-binding.wait.db').digest('hex');
+    await pool.query(
+      `INSERT INTO task_capability_binding(
+         binding_id,task_id,requested_capability_id,capability_version,
+         exposure_id,exposure_version,input_snapshot,success_criteria_snapshot,
+         evidence_requirement_snapshot,constraint_snapshot,initial_implementation_refs,
+         provider_policy_snapshot,binding_hash,bound_at)
+       VALUES('capability-binding.wait.db','task.wait.db','home.wait',1,
+              NULL,NULL,'{}'::jsonb,$1::jsonb,'[]'::jsonb,'[]'::jsonb,$2::jsonb,
+              NULL,$3,'2026-07-12T00:01:00.000Z')`,
+      [
+        JSON.stringify([{ type: 'output_schema_valid', required: true }]),
+        JSON.stringify(['skill:wait:1']),
+        waitBindingHash,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO task_capability_execution_attempt(
+         attempt_id,task_id,capability_binding_id,attempt_no,skill_version_refs,
+         provider_binding_refs,reason,status)
+       VALUES('capability-attempt.wait.db','task.wait.db','capability-binding.wait.db',1,
+              $1::jsonb,'[]'::jsonb,'initial','prepared')`,
+      [JSON.stringify(['skill:wait:1'])],
+    );
     const inputBase = createAgentTask({
       taskId: 'task.wait.input.db',
       contextId: 'context.wait.db',
@@ -4051,6 +4087,21 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(tasks.findById('task.wait.db')).resolves.toMatchObject({
       phase: 'canceled',
       errorCode: 'TASK_WAIT_TIMEOUT',
+    });
+    await expect(
+      pool.query(
+        `SELECT status,started_at,completed_at
+           FROM task_capability_execution_attempt
+          WHERE attempt_id='capability-attempt.wait.db'`,
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'canceled',
+          started_at: new Date('2026-07-12T00:02:00.000Z'),
+          completed_at: new Date('2026-07-12T00:02:00.000Z'),
+        },
+      ],
     });
     await expect(taskInputs.findRequest('input-request.wait.db')).resolves.toMatchObject({
       status: 'expired',
@@ -4224,6 +4275,227 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await fixture.outcomes.recordEnhancementWarning(first.outcomeId, warning);
     await expect(fixture.outcomes.find(first.outcomeId)).resolves.toMatchObject({
       enhancementWarnings: [warning],
+    });
+  });
+
+  it('rolls back every terminal projection when a bound achieved Task omits its Capability proof', async () => {
+    const fixture = await createTerminalOutcomeFixture('capability-proof-required');
+    const proof = await seedTerminalCapabilityProof(fixture, 'required');
+
+    await expect(fixture.outcomes.commitAchieved(fixture.achievedInput)).rejects.toThrow(
+      'RUNTIME_TERMINAL_CAPABILITY_PROOF_REQUIRED',
+    );
+
+    await expect(fixture.outcomes.find(fixture.achievedInput.outcomeId)).resolves.toBeUndefined();
+    await expect(fixture.tasks.findById(fixture.taskId)).resolves.toMatchObject({
+      phase: 'evaluating',
+    });
+    await expect(fixture.goals.findById(fixture.goalId)).resolves.toMatchObject({
+      status: 'active',
+    });
+    await expect(fixture.controls.find(fixture.controlId)).resolves.toMatchObject({
+      status: 'running',
+      roundCount: 0,
+    });
+    await expect(terminalOutcomeCounts(fixture)).resolves.toEqual({
+      outcomes: 0,
+      results: 0,
+      events: 0,
+      rounds: 0,
+    });
+    await expect(
+      pool.query('SELECT status FROM task_capability_execution_attempt WHERE attempt_id=$1', [
+        proof.attemptId,
+      ]),
+    ).resolves.toMatchObject({ rows: [{ status: 'prepared' }] });
+  });
+
+  it('stores and idempotently replays the exact Capability attempt proof while conflicting replays fail', async () => {
+    const fixture = await createTerminalOutcomeFixture('capability-proof-terminal-first');
+    const proof = await seedTerminalCapabilityProof(fixture, 'terminal-first');
+
+    const achievedInput = { ...fixture.achievedInput, capabilityTerminalProof: proof };
+    const first = await fixture.outcomes.commitAchieved(achievedInput);
+    const replayed = await fixture.outcomes.commitAchieved(achievedInput);
+
+    expect(first).toMatchObject({
+      kind: 'achieved',
+      capabilityAttemptId: proof.attemptId,
+    });
+    expect(replayed).toEqual(first);
+    await expect(
+      pool.query('SELECT capability_attempt_id FROM runtime_terminal_outcome WHERE outcome_id=$1', [
+        fixture.achievedInput.outcomeId,
+      ]),
+    ).resolves.toMatchObject({
+      rows: [{ capability_attempt_id: proof.attemptId }],
+    });
+    await expect(fixture.outcomes.commitAchieved(fixture.achievedInput)).rejects.toThrow(
+      'RUNTIME_TERMINAL_OUTCOME_CONFLICT',
+    );
+    await expect(
+      fixture.outcomes.commitAchieved({
+        ...fixture.achievedInput,
+        capabilityTerminalProof: {
+          ...proof,
+          attemptId: `${proof.attemptId}-mismatch`,
+        },
+      }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+    await expect(
+      fixture.outcomes.commitAchieved({
+        ...fixture.achievedInput,
+        capabilityTerminalProof: {
+          ...proof,
+          bindingHash: 'f'.repeat(64),
+        },
+      }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+    await expect(
+      new PostgresTaskCapabilityRepository(pool).appendAttempt({
+        attemptId: 'capability-attempt-terminal-first-late',
+        taskId: fixture.taskId,
+        capabilityBindingId: proof.bindingId,
+        skillVersionRefs: ['skill:home.living-room.get-state:1'],
+        providerBindingRefs: [],
+        reason: 'replan',
+      }),
+    ).rejects.toThrow('TASK_CAPABILITY_ATTEMPT_TASK_TERMINAL');
+    await expect(
+      pool.query('SELECT status FROM task_capability_execution_attempt WHERE attempt_id=$1', [
+        proof.attemptId,
+      ]),
+    ).resolves.toMatchObject({ rows: [{ status: 'succeeded' }] });
+  });
+
+  it('idempotently reconciles active Capability attempts owned by canceled Tasks', async () => {
+    const fixture = await createTerminalOutcomeFixture('capability-attempt-canceled-recovery');
+    const proof = await seedTerminalCapabilityProof(fixture, 'canceled-recovery');
+    const canceledAt = '2026-07-16T00:00:03.500Z';
+    await pool.query(
+      `UPDATE agent_task
+          SET phase='canceled',phase_message='Canceled before attempt projection.',updated_at=$2
+        WHERE task_id=$1`,
+      [fixture.taskId, canceledAt],
+    );
+    const repository = new PostgresTaskCapabilityRepository(pool);
+
+    await expect(repository.reconcileCanceledAttempts()).resolves.toBe(1);
+    await expect(repository.reconcileCanceledAttempts()).resolves.toBe(0);
+    await expect(
+      pool.query(
+        `SELECT status,started_at,completed_at
+           FROM task_capability_execution_attempt WHERE attempt_id=$1`,
+        [proof.attemptId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'canceled',
+          started_at: new Date(canceledAt),
+          completed_at: new Date(canceledAt),
+        },
+      ],
+    });
+  });
+
+  it('idempotently reconciles active Capability attempts owned by failed Tasks', async () => {
+    const fixture = await createTerminalOutcomeFixture('capability-attempt-failed-recovery');
+    const proof = await seedTerminalCapabilityProof(fixture, 'failed-recovery');
+    const failedAt = '2026-07-16T00:00:03.750Z';
+    await pool.query(
+      `UPDATE agent_task
+          SET phase='failed',phase_message='Preparation failed before attempt projection.',updated_at=$2
+        WHERE task_id=$1`,
+      [fixture.taskId, failedAt],
+    );
+    const repository = new PostgresTaskCapabilityRepository(pool);
+
+    await expect(repository.reconcileFailedAttempts()).resolves.toBe(1);
+    await expect(repository.reconcileFailedAttempts()).resolves.toBe(0);
+    await expect(
+      pool.query(
+        `SELECT status,started_at,completed_at
+           FROM task_capability_execution_attempt WHERE attempt_id=$1`,
+        [proof.attemptId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'failed',
+          started_at: new Date(failedAt),
+          completed_at: new Date(failedAt),
+        },
+      ],
+    });
+  });
+
+  it('round-trips MCP Capability-attempt lineage and rejects a cross-Task attempt identity', async () => {
+    const fixture = await createTerminalOutcomeFixture('capability-evidence-lineage');
+    const otherFixture = await createTerminalOutcomeFixture('capability-evidence-lineage-other');
+    const proof = await seedTerminalCapabilityProof(fixture, 'evidence-lineage');
+    const repository = new PostgresMcpRegistryRepository(pool);
+    const invocation = {
+      invocationId: 'mcp-invocation-capability-evidence-lineage',
+      taskId: fixture.taskId,
+      capabilityAttemptId: proof.attemptId,
+      contextId: fixture.contextId,
+      executionMode: 'live' as const,
+      serverId: 'home-lab-light-mcp',
+      toolName: 'light_get_state',
+      executionSemantics: DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+      arguments: { resourceId: 'living-room-main-light' },
+      result: { isError: false, structuredContent: { power: 'on' } },
+      status: 'succeeded' as const,
+      startedAt: '2026-07-16T00:00:02.000Z',
+      completedAt: '2026-07-16T00:00:02.010Z',
+      durationMs: 10,
+    };
+
+    await repository.saveInvocation(invocation);
+
+    await expect(repository.listInvocationsByTask(fixture.taskId)).resolves.toEqual([invocation]);
+    await expect(repository.listInvocations(invocation.serverId)).resolves.toEqual([invocation]);
+    await expect(
+      repository.saveInvocation({
+        ...invocation,
+        invocationId: 'mcp-invocation-capability-evidence-lineage-mismatch',
+        taskId: otherFixture.taskId,
+        contextId: otherFixture.contextId,
+      }),
+    ).rejects.toMatchObject({
+      code: '23503',
+      constraint: 'mcp_invocation_capability_attempt_fk',
+    });
+  });
+
+  it('rejects terminal proof when an appended attempt becomes latest first', async () => {
+    const fixture = await createTerminalOutcomeFixture('capability-proof-append-first');
+    const proof = await seedTerminalCapabilityProof(fixture, 'append-first');
+    await new PostgresTaskCapabilityRepository(pool).appendAttempt({
+      attemptId: 'capability-attempt-append-first-new',
+      taskId: fixture.taskId,
+      capabilityBindingId: proof.bindingId,
+      skillVersionRefs: ['skill:home.living-room.get-state:1'],
+      providerBindingRefs: [],
+      reason: 'replan',
+    });
+
+    await expect(
+      fixture.outcomes.commitAchieved({ ...fixture.achievedInput, capabilityTerminalProof: proof }),
+    ).rejects.toThrow('RUNTIME_TERMINAL_CAPABILITY_PROOF_CONFLICT');
+    await expect(fixture.outcomes.find(fixture.achievedInput.outcomeId)).resolves.toBeUndefined();
+    await expect(
+      pool.query<{ attempt_id: string; status: string }>(
+        `SELECT attempt_id,status FROM task_capability_execution_attempt
+          WHERE task_id=$1 ORDER BY attempt_no`,
+        [fixture.taskId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        { attempt_id: proof.attemptId, status: 'superseded' },
+        { attempt_id: 'capability-attempt-append-first-new', status: 'prepared' },
+      ],
     });
   });
 
@@ -8096,6 +8368,55 @@ async function createTerminalOutcomeFixture(suffix: string) {
       committedAt: '2026-07-16T00:00:04.000Z',
     },
   };
+}
+
+async function seedTerminalCapabilityProof(
+  fixture: Awaited<ReturnType<typeof createTerminalOutcomeFixture>>,
+  suffix: string,
+) {
+  const bindingId = `capability-binding-terminal-${suffix}`;
+  const attemptId = `capability-attempt-terminal-${suffix}`;
+  const bindingHash = createHash('sha256')
+    .update(`terminal-capability-binding:${suffix}`)
+    .digest('hex');
+  await pool.query(
+    `INSERT INTO task_capability_binding(
+       binding_id,task_id,requested_capability_id,capability_version,
+       exposure_id,exposure_version,input_snapshot,success_criteria_snapshot,
+       evidence_requirement_snapshot,constraint_snapshot,initial_implementation_refs,
+       provider_policy_snapshot,binding_hash,bound_at)
+     VALUES($1,$2,$3,1,$4,1,$5::jsonb,$6::jsonb,'[]'::jsonb,'[]'::jsonb,
+            $7::jsonb,NULL,$8,$9)`,
+    [
+      bindingId,
+      fixture.taskId,
+      'home.living-room.read-state',
+      `exposure-terminal-${suffix}`,
+      JSON.stringify({
+        mainLightResourceId: 'living-room-main-light',
+        climateResourceId: 'living-room-air-conditioner',
+      }),
+      JSON.stringify([{ type: 'output_schema_valid', required: true }]),
+      JSON.stringify(['skill:home.living-room.get-state:1']),
+      bindingHash,
+      '2026-07-16T00:00:00.000Z',
+    ],
+  );
+  await pool.query(
+    `INSERT INTO task_capability_execution_attempt(
+       attempt_id,task_id,capability_binding_id,attempt_no,skill_version_refs,
+       provider_binding_refs,reason,status)
+     VALUES($1,$2,$3,1,$4::jsonb,'[]'::jsonb,'initial','prepared')`,
+    [attemptId, fixture.taskId, bindingId, JSON.stringify(['skill:home.living-room.get-state:1'])],
+  );
+  return Object.freeze({
+    taskId: fixture.taskId,
+    bindingId,
+    bindingHash,
+    attemptId,
+    requestedCapabilityId: 'home.living-room.read-state',
+    capabilityVersion: 1,
+  });
 }
 
 async function terminalOutcomeCounts(

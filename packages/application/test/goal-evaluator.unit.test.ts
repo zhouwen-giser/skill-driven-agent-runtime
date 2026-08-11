@@ -32,13 +32,14 @@ describe('structured Goal evaluator', () => {
               score: 0.9,
             },
           ]),
-      }).evaluate(evaluationInput()),
+      }).evaluate({ ...evaluationInput(), taskId: 'task-goal-evaluation' }),
     ).resolves.toEqual({
       decision: 'adjust_plan',
       summary: 'The current result does not satisfy the success criterion.',
       actionInstruction: 'Collect the missing observation.',
     });
     expect(model.input?.stage).toBe('goal_evaluation');
+    expect(model.input?.taskId).toBe('task-goal-evaluation');
     expect(model.input?.instruction).toContain('memory-evaluation');
   });
 

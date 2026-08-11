@@ -55,6 +55,7 @@ beforeAll(async () => {
   provider.configure(providerBaseUrl);
   controlApi = await startNodeControlApi({
     SDAR_CONTROL_DATABASE_URL: controlConnectionString,
+    SDAR_CONTROL_RUNTIME_DATABASE_URL: runtimeConnectionString,
     SDAR_CONTROL_API_HOST: '127.0.0.1',
     SDAR_CONTROL_API_PORT: 0,
     SDAR_CONTROL_API_TOKEN: apiToken,
@@ -307,6 +308,23 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     await expect(
       publicGet('/api/v1/mcp-provider-bindings/binding-smpp?revision=1'),
     ).resolves.toMatchObject({ revision: 1, status: 'active' });
+    const drifted = (await publicGet('/api/v1/mcp-provider-bindings/binding-smpp')) as Record<
+      string,
+      unknown
+    >;
+    expect(drifted).toMatchObject({ revision: 4, status: 'degraded' });
+    const driftedChecksum = String(drifted['catalogChecksum']);
+    expect(driftedChecksum).toMatch(/^[a-f0-9]{64}$/u);
+    await expect(
+      command('/api/v1/mcp-provider-bindings/binding-smpp/refresh', 'p05-approve-drift', {
+        reason: 'Explicitly approve the exact observed Catalog checksum.',
+        expectedRevision: 4,
+        payload: { approval: 'catalog_checksum', catalogChecksum: driftedChecksum },
+      }),
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      result: { revision: 5, status: 'active', resultCode: 'catalog_approved' },
+    });
 
     provider.setCatalog('2.0.0', 'changed-field', 5);
     const expiring = await command('/api/v1/mcp-provider-bindings', 'p05-import-expiring', {
@@ -343,7 +361,7 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       }),
     ).resolves.toEqual(suspended);
     await expect(publicGet('/api/v1/mcp-provider-bindings/binding-smpp')).resolves.toMatchObject({
-      revision: 6,
+      revision: 7,
       status: 'removed',
     });
     await expect(

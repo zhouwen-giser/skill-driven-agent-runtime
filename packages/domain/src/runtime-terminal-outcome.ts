@@ -40,6 +40,16 @@ export interface RuntimeEnhancementWarning {
   readonly occurredAt: string;
 }
 
+/** Immutable authority proven before an achieved terminal commit. */
+export interface RuntimeTaskCapabilityTerminalProof {
+  readonly taskId: string;
+  readonly bindingId: string;
+  readonly bindingHash: string;
+  readonly attemptId: string;
+  readonly requestedCapabilityId: string;
+  readonly capabilityVersion: number;
+}
+
 export interface RuntimeTerminalOutcomeRecord {
   readonly outcomeId: string;
   readonly kind: RuntimeTerminalOutcomeKind;
@@ -51,6 +61,7 @@ export interface RuntimeTerminalOutcomeRecord {
   readonly roundIndex?: number;
   readonly finalInstanceId?: string;
   readonly resultId?: string;
+  readonly capabilityAttemptId?: string;
   readonly summary: string;
   readonly authority?: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
   readonly enhancementWarnings: readonly RuntimeEnhancementWarning[];
@@ -65,6 +76,7 @@ export interface RuntimeAchievedOutcomeInput {
   readonly controlId: string;
   readonly round: WorkflowControlRound;
   readonly processedResult?: ProcessedResultRecord;
+  readonly capabilityTerminalProof?: RuntimeTaskCapabilityTerminalProof;
   readonly summary: string;
   readonly authority?: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
   readonly layeredOutcome?: RuntimeLayeredOutcomeCommit;

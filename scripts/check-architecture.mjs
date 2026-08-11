@@ -39,6 +39,7 @@ const forbiddenApplicationImports = [
   'ajv',
 ];
 
+assertImportDetection();
 await assertImports('packages/domain', forbiddenDomainImports);
 await assertImports('packages/application', forbiddenApplicationImports);
 await assertImports('packages/node-control-domain', forbiddenDomainImports);
@@ -168,11 +169,36 @@ async function assertImports(root, forbidden) {
   for (const file of await collectSourceFiles(root)) {
     const source = await readFile(file, 'utf8');
     for (const dependency of forbidden) {
-      if (source.includes(`'${dependency}`) || source.includes(`"${dependency}`)) {
+      if (importsDependency(source, dependency)) {
         throw new Error(`ARCH_FORBIDDEN_IMPORT: ${normalize(file)} -> ${dependency}`);
       }
     }
   }
+}
+
+function importsDependency(source, dependency) {
+  const escaped = dependency.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  const specifier = `['"]${escaped}(?:/[^'"]*)?['"]`;
+  return [
+    new RegExp(`\\bfrom\\s+${specifier}`, 'u'),
+    new RegExp(`\\bimport\\s*${specifier}`, 'u'),
+    new RegExp(`\\bimport\\s*\\(\\s*${specifier}`, 'u'),
+    new RegExp(`\\brequire\\s*\\(\\s*${specifier}`, 'u'),
+  ].some((pattern) => pattern.test(source));
+}
+
+function assertImportDetection() {
+  const forbidden = 'express';
+  const imports = [
+    "import express from 'express';",
+    'export { Router } from "express/router";',
+    "await import('express');",
+    "require('express');",
+  ];
+  if (imports.some((source) => !importsDependency(source, forbidden)))
+    throw new Error('ARCH_FORBIDDEN_IMPORT_GUARD_REGRESSION');
+  if (importsDependency("const expression = node['expression'];", forbidden))
+    throw new Error('ARCH_FORBIDDEN_IMPORT_FALSE_POSITIVE');
 }
 
 async function assertSingleWorkflowRuntime() {

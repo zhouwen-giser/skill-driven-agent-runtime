@@ -237,7 +237,7 @@ export interface RuntimeTerminalOutcomeRepository {
 
 export interface GoalEvaluator {
   evaluate(
-    input: Readonly<{ goal: Goal; instance: WorkflowInstance }>,
+    input: Readonly<{ goal: Goal; instance: WorkflowInstance; taskId?: string }>,
   ): Promise<GoalEvaluationResult>;
 }
 

@@ -360,8 +360,17 @@ export class InteractivePlanningSessionService {
         compiledPatch = { candidateId: candidate.candidateId, planHash: candidate.planHash };
       }
     } else if (input.action === 'accept') {
-      if (!current.validation.valid) throw new Error('PLAN_CANDIDATE_VALIDATION_REQUIRED');
-      candidate = createUserGoalPlanCandidateSnapshot({ ...current, status: 'confirmed' });
+      const validation = this.#validator.validate(
+        userGoalCompletionContractFor(goal),
+        current.plan,
+        current.confirmationPolicy,
+      );
+      if (!validation.valid) throw new Error(validation.errorCodes.join(','));
+      candidate = createUserGoalPlanCandidateSnapshot({
+        ...current,
+        status: 'confirmed',
+        validation,
+      });
       nextState = 'confirmed';
     } else if (input.action === 'reject') {
       candidate = createUserGoalPlanCandidateSnapshot({ ...current, status: 'rejected' });
@@ -432,7 +441,10 @@ export class InteractivePlanningSessionService {
         goal: input.goal,
       });
     }
-    const generated = await this.#planner.generateCandidate({ goal: input.goal });
+    const generated = await this.#planner.generateCandidate({
+      goal: input.goal,
+      taskId: input.taskId,
+    });
     return {
       ...generated,
       mode: 'off',

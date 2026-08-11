@@ -347,6 +347,7 @@ describe('governed Skill Capability readiness', () => {
                   : runtimeSnapshot.toolRevision,
               catalogRevision: runtimeCatalog.catalogRevision,
               catalogChecksum: runtimeCatalog.catalogChecksum,
+              discoveredCatalogChecksum: runtimeCatalog.catalogChecksum,
               operationCount: runtimeCatalog.operationCount,
               toolNames: state === 'tool-missing' ? [] : [runtimeTool.toolName],
             }),
@@ -446,6 +447,264 @@ describe('governed Skill Capability readiness', () => {
         ]);
     },
   );
+
+  it.each([
+    ['both-current', false, true],
+    ['second-missing', true, false],
+  ] as const)(
+    'requires every Binding in an exact-two required_all policy when %s',
+    async (_case, secondMissing, expectedAvailable) => {
+      const required = [
+        { serverId: 'home-lab-light-mcp', toolName: 'light_get_state' },
+        { serverId: 'home-lab-climate-mcp', toolName: 'climate_get_state' },
+      ];
+      const query = vi.fn((statement: string) => {
+        if (statement.includes('FROM skill_version version'))
+          return Promise.resolve({
+            rows: [
+              {
+                exists: true,
+                enabled: true,
+                validation_passed: true,
+                tool_policy: { required, optional: [] },
+                runtime_policy: { maxLlmCalls: 0 },
+              },
+            ],
+          });
+        if (statement.includes('FROM stage_model_route'))
+          return Promise.resolve({ rows: [{ available: false, fingerprint: 'none' }] });
+        throw new Error('COMPOSITE_READINESS_QUERY_UNEXPECTED');
+      });
+      const findCurrentAuthority = vi.fn(
+        (request: Readonly<{ bindingId?: string; localServerId: string }>) =>
+          Promise.resolve(
+            secondMissing && request.localServerId === 'home-lab-climate-mcp'
+              ? undefined
+              : {
+                  binding: {
+                    bindingId: request.bindingId ?? '',
+                    revision: 7,
+                    localServerId: request.localServerId,
+                    endpointRef: `https://${request.localServerId}.example.test/mcp`,
+                    catalogRevision: `revision-${request.localServerId}`,
+                    catalogChecksum: request.localServerId.includes('light')
+                      ? 'a'.repeat(64)
+                      : 'b'.repeat(64),
+                    operationCount: 1,
+                    availabilityValidUntil: '2026-08-10T13:00:00.000Z',
+                  },
+                },
+          ),
+      );
+      const loadCurrentAuthority = vi.fn((localServerId: string) =>
+        Promise.resolve({
+          endpoint: `https://${localServerId}.example.test/mcp`,
+          status: 'enabled' as const,
+          serverUpdatedAt: '2026-08-10T11:59:30.000Z',
+          toolRevision: 7,
+          protocolMode: 'frozen_v1' as const,
+          snapshotToolRevision: 7,
+          catalogRevision: `revision-${localServerId}`,
+          catalogChecksum: localServerId.includes('light') ? 'a'.repeat(64) : 'b'.repeat(64),
+          discoveredCatalogChecksum: localServerId.includes('light')
+            ? 'a'.repeat(64)
+            : 'b'.repeat(64),
+          operationCount: 1,
+          toolNames: [localServerId.includes('light') ? 'light_get_state' : 'climate_get_state'],
+        }),
+      );
+      const repository = new PostgresRuntimeCapabilityReadinessRepository(
+        { query } as unknown as Pool,
+        { findCurrentAuthority },
+        { loadCurrentAuthority },
+      );
+      const exactRequirement = (bindingId: string, localServerId: string, mcpToolName: string) => ({
+        selection: 'required' as const,
+        mcpProviderBindingId: bindingId,
+        localServerId,
+        mcpToolName,
+        requireActive: true as const,
+        requireAvailable: true as const,
+        requireUnexpiredFreshness: true as const,
+        denyFallback: true as const,
+      });
+      const input = {
+        definition: {
+          capabilityId: 'home.living-room.read-state',
+          version: 1,
+          domain: 'home.living-room',
+          name: 'Read living room state',
+          description: 'Read two allowlisted resources.',
+          inputSchema: { type: 'object' },
+          outputSchema: { type: 'object' },
+          successCriteria: [{ type: 'completed' }],
+          requiredEvidence: [],
+          riskLevel: 'low' as const,
+          status: 'published' as const,
+          definitionHash: 'c'.repeat(64),
+        },
+        implementations: [
+          {
+            bindingId: 'capability-binding-home.living-room.read-state-v1',
+            capabilityId: 'home.living-room.read-state',
+            capabilityVersion: 1,
+            implementationType: 'skill' as const,
+            implementationId: 'home.living-room.get-state',
+            implementationVersion: '1',
+            role: 'primary' as const,
+            priority: 0,
+            providerPolicyOverride: {
+              selection: 'required_all',
+              requirements: [
+                exactRequirement(
+                  'mcp-binding-ha-light-lab',
+                  'home-lab-light-mcp',
+                  'light_get_state',
+                ),
+                exactRequirement(
+                  'mcp-binding-ha-climate-lab',
+                  'home-lab-climate-mcp',
+                  'climate_get_state',
+                ),
+              ],
+            },
+            status: 'active' as const,
+            revision: 1,
+          },
+        ],
+        maintenanceMode: false,
+        killSwitch: false,
+        ttlMs: 60_000,
+        minimumStableWindowMs: 0,
+        trigger: 'exact-two Provider Binding readiness regression',
+      } satisfies RuntimeCapabilityReadinessInput;
+
+      const [assessment] = await repository.assessImplementations(
+        input,
+        '2026-08-10T12:00:00.000Z',
+      );
+
+      expect(assessment?.available).toBe(expectedAvailable);
+      expect(findCurrentAuthority).toHaveBeenCalledTimes(2);
+      expect(loadCurrentAuthority).toHaveBeenCalledTimes(secondMissing ? 1 : 2);
+      expect(assessment?.reasons).toEqual(
+        expectedAvailable
+          ? []
+          : [
+              expect.objectContaining({
+                code: 'MCP_PROVIDER_BINDING_NOT_CURRENT',
+                dependencyRef: 'mcp-binding-ha-climate-lab',
+                severity: 'blocking',
+              }),
+            ],
+      );
+    },
+  );
+
+  it('rejects required_all when the Skill required tool set is not exactly one-to-one', async () => {
+    const query = vi.fn((statement: string) => {
+      if (statement.includes('FROM skill_version version'))
+        return Promise.resolve({
+          rows: [
+            {
+              exists: true,
+              enabled: true,
+              validation_passed: true,
+              tool_policy: {
+                required: [{ serverId: 'home-lab-light-mcp', toolName: 'light_get_state' }],
+                optional: [],
+              },
+              runtime_policy: { maxLlmCalls: 0 },
+            },
+          ],
+        });
+      if (statement.includes('FROM stage_model_route'))
+        return Promise.resolve({ rows: [{ available: false, fingerprint: 'none' }] });
+      throw new Error('COMPOSITE_READINESS_QUERY_UNEXPECTED');
+    });
+    const findCurrentAuthority = vi.fn();
+    const loadCurrentAuthority = vi.fn();
+    const repository = new PostgresRuntimeCapabilityReadinessRepository(
+      { query } as unknown as Pool,
+      { findCurrentAuthority },
+      { loadCurrentAuthority },
+    );
+    const hard = {
+      selection: 'required' as const,
+      requireActive: true as const,
+      requireAvailable: true as const,
+      requireUnexpiredFreshness: true as const,
+      denyFallback: true as const,
+    };
+    const input = {
+      definition: {
+        capabilityId: 'home.living-room.read-state',
+        version: 1,
+        domain: 'home.living-room',
+        name: 'Read living room state',
+        description: 'Read two allowlisted resources.',
+        inputSchema: { type: 'object' },
+        outputSchema: { type: 'object' },
+        successCriteria: [],
+        requiredEvidence: [],
+        riskLevel: 'low' as const,
+        status: 'published' as const,
+        definitionHash: 'c'.repeat(64),
+      },
+      implementations: [
+        {
+          bindingId: 'composite-binding',
+          capabilityId: 'home.living-room.read-state',
+          capabilityVersion: 1,
+          implementationType: 'skill' as const,
+          implementationId: 'home.living-room.get-state',
+          implementationVersion: '1',
+          role: 'primary' as const,
+          priority: 0,
+          providerPolicyOverride: {
+            selection: 'required_all',
+            requirements: [
+              {
+                ...hard,
+                mcpProviderBindingId: 'mcp-binding-ha-light-lab',
+                localServerId: 'home-lab-light-mcp',
+                mcpToolName: 'light_get_state',
+              },
+              {
+                ...hard,
+                mcpProviderBindingId: 'mcp-binding-ha-climate-lab',
+                localServerId: 'home-lab-climate-mcp',
+                mcpToolName: 'climate_get_state',
+              },
+            ],
+          },
+          status: 'active' as const,
+          revision: 1,
+        },
+      ],
+      maintenanceMode: false,
+      killSwitch: false,
+      ttlMs: 60_000,
+      minimumStableWindowMs: 0,
+      trigger: 'required tool mismatch regression',
+    } satisfies RuntimeCapabilityReadinessInput;
+
+    const [assessment] = await repository.assessImplementations(input, '2026-08-10T12:00:00.000Z');
+
+    expect(assessment).toEqual(
+      expect.objectContaining({
+        available: false,
+        reasons: [
+          expect.objectContaining({
+            code: 'MCP_PROVIDER_BINDING_POLICY_INVALID',
+            severity: 'blocking',
+          }),
+        ],
+      }),
+    );
+    expect(findCurrentAuthority).not.toHaveBeenCalled();
+    expect(loadCurrentAuthority).not.toHaveBeenCalled();
+  });
 });
 
 function currentRuntimeServer(): McpServer {

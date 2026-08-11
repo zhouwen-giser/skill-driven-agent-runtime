@@ -19,6 +19,7 @@ const PROVIDER_TOKEN = 'provider-secret-never-report';
 describe('home-lab Catalog materialization driver', () => {
   it('creates both exact Bindings, registers Runtime Catalogs and emits only redacted proof', async () => {
     const api = new FakeHomeLabApis(false);
+    api.runtimeSemanticsUnknown = true;
     const report = await materializeHomeLabCatalog(configuration(), {
       fetch: api.fetch,
       now: () => NOW,
@@ -77,6 +78,42 @@ describe('home-lab Catalog materialization driver', () => {
     );
     expect(api.controlCommands).toEqual(['import:climate', 'import:light']);
     expect(api.runtimeCommands).toEqual(['register:climate', 'register:light']);
+    expect(api.runtimeSemanticsCommands).toEqual([
+      'climate:climate_get_state:read_only',
+      'climate:climate_set_power:side_effecting',
+      'climate:climate_set_hvac_mode:side_effecting',
+      'climate:climate_set_temperature:side_effecting',
+      'light:light_get_state:read_only',
+      'light:light_set_power:side_effecting',
+      'light:light_set_brightness:side_effecting',
+    ]);
+    expect(
+      report.providers.flatMap(({ tools }) =>
+        tools.map(({ toolName, effect, executionSemanticsSource }) => ({
+          toolName,
+          effect,
+          executionSemanticsSource,
+        })),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          toolName: 'light_get_state',
+          effect: 'read_only',
+          executionSemanticsSource: 'admin_override',
+        },
+        {
+          toolName: 'climate_get_state',
+          effect: 'read_only',
+          executionSemanticsSource: 'admin_override',
+        },
+        {
+          toolName: 'light_set_power',
+          effect: 'side_effecting',
+          executionSemanticsSource: 'admin_override',
+        },
+      ]),
+    );
     expect(api.requests.every(({ redirect }) => redirect === 'manual')).toBe(true);
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain(CONTROL_TOKEN);
@@ -119,6 +156,28 @@ describe('home-lab Catalog materialization driver', () => {
       },
     ]);
     expect(api.controlCommands).toEqual(['refresh:climate', 'refresh:light']);
+    expect(api.runtimeCommands).toEqual(['refresh:climate', 'refresh:light']);
+  });
+
+  it('explicitly approves the exact governed checksum when retained admin semantics change Catalog identity', async () => {
+    const api = new FakeHomeLabApis(true);
+    api.runtimeSemanticsUnknown = true;
+
+    const report = await materializeHomeLabCatalog(configuration(), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+
+    expect(
+      report.providers.map(({ bindingRevision, runtimeToolRevision }) => ({
+        bindingRevision,
+        runtimeToolRevision,
+      })),
+    ).toEqual([
+      { bindingRevision: 2, runtimeToolRevision: 2 },
+      { bindingRevision: 2, runtimeToolRevision: 2 },
+    ]);
+    expect(api.controlCommands).toEqual(['approve:climate', 'approve:light']);
     expect(api.runtimeCommands).toEqual(['refresh:climate', 'refresh:light']);
   });
 
@@ -310,12 +369,15 @@ class FakeHomeLabApis {
   readonly requests: { readonly url: string; readonly redirect: RequestInit['redirect'] }[] = [];
   readonly controlCommands: string[] = [];
   readonly runtimeCommands: string[] = [];
+  readonly runtimeSemanticsCommands: string[] = [];
   readonly #bindings = new Map<string, number>();
   readonly #runtimeServers = new Map<string, number>();
   readonly #controlCommandKeys = new Set<string>();
+  readonly #runtimeSemanticsOverrides = new Set<string>();
   bindingLineageChecksum = REGISTRY_CHECKSUM;
   bindingValidUntil = VALID_UNTIL;
   runtimeSnapshotRevisionOffset = 0;
+  runtimeSemanticsUnknown = false;
   candidateItems: unknown[] | undefined;
 
   constructor(
@@ -373,7 +435,13 @@ class FakeHomeLabApis {
       if (!this.#controlCommandKeys.has(key)) {
         this.#controlCommandKeys.add(key);
         this.#bindings.set(bindingKind, (this.#bindings.get(bindingKind) ?? 0) + 1);
-        this.controlCommands.push(`refresh:${bindingKind}`);
+        const body = parsedBody(init);
+        const payload = body['payload'];
+        const approved =
+          typeof payload === 'object' &&
+          payload !== null &&
+          (payload as Record<string, unknown>)['approval'] === 'catalog_checksum';
+        this.controlCommands.push(`${approved ? 'approve' : 'refresh'}:${bindingKind}`);
       }
       return json(202, { status: 'succeeded' });
     }
@@ -388,18 +456,30 @@ class FakeHomeLabApis {
       const kind = String(body['serverId']).includes('climate') ? 'climate' : 'light';
       this.#runtimeServers.set(kind, 1);
       this.runtimeCommands.push(`register:${kind}`);
-      return json(201, runtimeResult(kind, 1, 1 + this.runtimeSnapshotRevisionOffset));
+      return json(201, this.runtimeResult(kind, 1, 1 + this.runtimeSnapshotRevisionOffset));
     }
     const runtimeKind = pathKind(url.pathname);
+    if (
+      runtimeKind !== undefined &&
+      init?.method === 'PUT' &&
+      url.pathname.endsWith('/execution-semantics')
+    ) {
+      const segments = url.pathname.split('/');
+      const toolName = decodeURIComponent(segments.at(-2) ?? '');
+      const body = parsedBody(init);
+      this.#runtimeSemanticsOverrides.add(`${runtimeKind}:${toolName}`);
+      this.runtimeSemanticsCommands.push(`${runtimeKind}:${toolName}:${String(body['effect'])}`);
+      return new Response(null, { status: 204 });
+    }
     if (runtimeKind !== undefined && url.pathname.endsWith('/tools'))
-      return json(200, { items: tools(runtimeKind) });
+      return json(200, { items: this.runtimeTools(runtimeKind) });
     if (runtimeKind !== undefined && url.pathname.endsWith('/refresh')) {
       const revision = (this.#runtimeServers.get(runtimeKind) ?? 0) + 1;
       this.#runtimeServers.set(runtimeKind, revision);
       this.runtimeCommands.push(`refresh:${runtimeKind}`);
       return json(
         200,
-        runtimeResult(runtimeKind, revision, revision + this.runtimeSnapshotRevisionOffset),
+        this.runtimeResult(runtimeKind, revision, revision + this.runtimeSnapshotRevisionOffset),
       );
     }
     return json(500, { code: 'UNEXPECTED_FAKE_ROUTE' });
@@ -417,7 +497,7 @@ class FakeHomeLabApis {
       registryRevision: item.registryRevision,
       registryChecksum: this.bindingLineageChecksum,
       catalogRevision: `1.0.0:${String(revision)}`,
-      catalogChecksum: catalogChecksum(kind),
+      catalogChecksum: catalogChecksum(kind, this.runtimeTools(kind)),
       endpointRef: item.serverEndpoint,
       status: 'active',
       availabilityStatus: 'available',
@@ -426,6 +506,40 @@ class FakeHomeLabApis {
       catalogObservedAt: NOW,
       operationCount: tools(kind).length,
     };
+  }
+
+  private runtimeResult(
+    kind: ProviderKind,
+    toolRevision: number,
+    snapshotToolRevision = toolRevision,
+  ) {
+    return {
+      ...runtimeResult(kind, toolRevision, snapshotToolRevision),
+      tools: this.runtimeTools(kind),
+    };
+  }
+
+  private runtimeTools(kind: ProviderKind) {
+    return tools(kind).map((tool) => {
+      if (this.#runtimeSemanticsOverrides.has(`${kind}:${tool.toolName}`))
+        return {
+          ...tool,
+          executionSemantics: { ...tool.executionSemantics, source: 'admin_override' },
+        };
+      return !this.runtimeSemanticsUnknown
+        ? tool
+        : {
+            ...tool,
+            executionSemantics: {
+              effect: 'unknown',
+              execution: 'unknown',
+              cancellation: 'unknown',
+              idempotency: 'unknown',
+              replay: 'unknown',
+              source: 'default_unknown',
+            },
+          };
+    });
   }
 }
 
@@ -526,8 +640,8 @@ function tools(kind: ProviderKind) {
       effect: toolName.endsWith('get_state') ? 'read_only' : 'side_effecting',
       execution: toolName.endsWith('get_state') ? 'synchronous' : 'task_required',
       cancellation: 'unsupported',
-      idempotency: 'client_request_key',
-      replay: 'forbidden',
+      idempotency: 'server_managed',
+      replay: toolName.endsWith('get_state') ? 'allowed' : 'forbidden',
       source: 'mcp_declared',
     },
     taskExecutionProfile: {
@@ -543,8 +657,8 @@ function tools(kind: ProviderKind) {
   }));
 }
 
-function catalogChecksum(kind: ProviderKind): string {
-  const result = runtimeResult(kind, 1);
+function catalogChecksum(kind: ProviderKind, currentTools = tools(kind)): string {
+  const result = { ...runtimeResult(kind, 1), tools: currentTools };
   return hashConfigurationRequest(
     JSON.parse(
       JSON.stringify({

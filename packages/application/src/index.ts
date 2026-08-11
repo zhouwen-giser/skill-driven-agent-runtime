@@ -39,6 +39,8 @@ export * from './user-goal-plan-controller.js';
 export * from './outcome-judges.js';
 export * from './skill-goal-scheduler.js';
 export * from './workflow-planner.js';
+export * from './home-lab-read-only-workflow-contract.js';
+export * from './home-lab-read-only-user-goal-contract.js';
 export * from './workflow-execution.js';
 export * from './goal-evaluator.js';
 export * from './goal-input-inference.js';

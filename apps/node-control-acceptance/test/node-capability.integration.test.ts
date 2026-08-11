@@ -651,7 +651,7 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
         verified: true,
         policyEvidence: [{ type: 'authorization', satisfied: true }],
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ attemptId: 'capability-attempt-task.p09-4' });
     await expect(
       request('/api/v1/capability-readiness/device.inspect.p06/1/evaluate', {
         method: 'POST',

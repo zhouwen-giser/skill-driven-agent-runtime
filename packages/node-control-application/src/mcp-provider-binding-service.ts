@@ -26,6 +26,11 @@ export interface McpProviderBindingDetail extends McpProviderBinding {
   readonly operationCount: number;
 }
 
+export interface McpBindingCatalogApprovalRequest {
+  readonly expectedRevision: number;
+  readonly expectedCatalogChecksum: string;
+}
+
 export type NodeControlMcpBindingErrorCode =
   | 'MCP_PROVIDER_BINDING_AUTHORITY_AMBIGUOUS'
   | 'MCP_PROVIDER_BINDING_NOT_FOUND'
@@ -152,8 +157,10 @@ export class NodeControlMcpProviderBindingService {
     bindingId: string,
     idempotencyKey: string,
     reason: string,
+    approval?: McpBindingCatalogApprovalRequest,
   ): Promise<ManagementOperation> {
     const prior = await this.requireRecord(bindingId);
+    if (approval !== undefined) return this.approveCatalog(prior, approval, idempotencyKey, reason);
     return this.rediscover(prior, idempotencyKey, reason);
   }
 
@@ -264,6 +271,87 @@ export class NodeControlMcpProviderBindingService {
 
   remove(bindingId: string, idempotencyKey: string, reason: string) {
     return this.transition(bindingId, 'removed', idempotencyKey, reason);
+  }
+
+  private async approveCatalog(
+    prior: McpProviderBindingRecord,
+    approval: McpBindingCatalogApprovalRequest,
+    idempotencyKey: string,
+    reason: string,
+  ): Promise<ManagementOperation> {
+    const request = Object.freeze({
+      bindingId: prior.binding.bindingId,
+      approval: 'catalog_checksum' as const,
+      expectedRevision: approval.expectedRevision,
+      expectedCatalogChecksum: approval.expectedCatalogChecksum,
+    });
+    const context = this.context('mcp-binding:refresh', idempotencyKey, reason, request);
+    const replay = await this.#repository.findCommandReplay('mcp-binding:refresh', context);
+    if (replay !== undefined) return replay;
+    if (prior.binding.revision !== approval.expectedRevision)
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        'MCP Provider Binding revision does not match expectedRevision.',
+      );
+    if (!/^[a-f0-9]{64}$/u.test(approval.expectedCatalogChecksum))
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        'Catalog approval requires one exact lowercase SHA-256 checksum.',
+      );
+    if (prior.binding.status === 'suspended' || prior.binding.status === 'removed')
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        'Suspended or removed MCP Provider Bindings cannot approve Catalog drift.',
+      );
+    const approved = await this.#repository.findLatestActive(prior.binding.bindingId);
+    const nextRevision = prior.binding.revision + 1;
+    const operation = this.operation(
+      'mcp_provider_binding.refresh',
+      prior.binding.bindingId,
+      nextRevision,
+      context,
+    );
+    let discovery: McpCatalogDiscoveryResult;
+    try {
+      discovery = await this.#catalog.discover({
+        localServerId: prior.binding.localServerId,
+        endpointRef: prior.binding.endpointRef,
+        credentialRef: prior.credentialRef,
+        bindingRevision: nextRevision,
+        observedAt: context.occurredAt,
+        snapshotId: this.#ids.next(),
+      });
+    } catch {
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_STALE',
+        'Catalog approval discovery failed; no Binding revision was approved.',
+      );
+    }
+    if (discovery.catalogChecksum !== approval.expectedCatalogChecksum)
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_STALE',
+        'Discovered Catalog checksum does not match the explicitly approved checksum.',
+      );
+    if (approved === undefined || discovery.catalogChecksum === approved.binding.catalogChecksum)
+      throw new NodeControlMcpBindingError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        'Catalog approval requires drift from the latest active Binding authority.',
+      );
+    const record = createMcpProviderBindingRecord({
+      binding: {
+        ...prior.binding,
+        catalogRevision: discovery.catalogRevision,
+        catalogChecksum: discovery.catalogChecksum,
+        status: 'active',
+        availabilityStatus: 'available',
+        revision: nextRevision,
+      },
+      credentialRef: prior.credentialRef,
+      availabilityValidUntil: discovery.availabilityValidUntil,
+      catalogObservedAt: discovery.observedAt,
+      operationCount: discovery.operationCount,
+    });
+    return this.#repository.completeRevision(prior, record, operation, context, 'catalog_approved');
   }
 
   private async rediscover(

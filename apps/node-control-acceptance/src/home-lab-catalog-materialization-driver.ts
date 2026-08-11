@@ -13,23 +13,60 @@ import {
 const CHECKSUM = /^[a-f0-9]{64}$/u;
 const REGISTRY_PROJECTION_CONTRACT = 'sdar-registry-v1' as const;
 const TASK_BEHAVIORS = ['synchronous_only', 'server_directed', 'task_required'] as const;
+const EXECUTION_SEMANTICS_SOURCES = ['mcp_declared', 'admin_override', 'default_unknown'] as const;
+
+interface HomeLabExecutionSemanticsValues {
+  readonly effect: 'read_only' | 'side_effecting';
+  readonly execution: 'synchronous' | 'task_required';
+  readonly cancellation: 'unsupported';
+  readonly idempotency: 'server_managed';
+  readonly replay: 'allowed' | 'forbidden';
+}
+
+interface ExpectedHomeLabTool {
+  readonly taskBehavior: TaskBehavior;
+  readonly executionSemantics: HomeLabExecutionSemanticsValues;
+}
+
+const READ_ONLY_SEMANTICS = Object.freeze({
+  effect: 'read_only',
+  execution: 'synchronous',
+  cancellation: 'unsupported',
+  idempotency: 'server_managed',
+  replay: 'allowed',
+} satisfies HomeLabExecutionSemanticsValues);
+const SIDE_EFFECTING_SEMANTICS = Object.freeze({
+  effect: 'side_effecting',
+  execution: 'task_required',
+  cancellation: 'unsupported',
+  idempotency: 'server_managed',
+  replay: 'forbidden',
+} satisfies HomeLabExecutionSemanticsValues);
+const readTool = Object.freeze({
+  taskBehavior: 'synchronous_only',
+  executionSemantics: READ_ONLY_SEMANTICS,
+} satisfies ExpectedHomeLabTool);
+const writeTool = Object.freeze({
+  taskBehavior: 'task_required',
+  executionSemantics: SIDE_EFFECTING_SEMANTICS,
+} satisfies ExpectedHomeLabTool);
 
 const EXPECTED_PROVIDERS = Object.freeze({
   climate: Object.freeze({
     bindingId: 'mcp-binding-ha-climate-lab',
     tools: Object.freeze({
-      climate_get_state: 'synchronous_only',
-      climate_set_hvac_mode: 'task_required',
-      climate_set_power: 'task_required',
-      climate_set_temperature: 'task_required',
+      climate_get_state: readTool,
+      climate_set_hvac_mode: writeTool,
+      climate_set_power: writeTool,
+      climate_set_temperature: writeTool,
     }),
   }),
   light: Object.freeze({
     bindingId: 'mcp-binding-ha-light-lab',
     tools: Object.freeze({
-      light_get_state: 'synchronous_only',
-      light_set_brightness: 'task_required',
-      light_set_power: 'task_required',
+      light_get_state: readTool,
+      light_set_brightness: writeTool,
+      light_set_power: writeTool,
     }),
   }),
 });
@@ -86,6 +123,8 @@ export interface HomeLabCatalogMaterializationReport {
     tools: readonly Readonly<{
       toolName: string;
       taskBehavior: TaskBehavior;
+      effect: HomeLabExecutionSemanticsValues['effect'];
+      executionSemanticsSource: 'mcp_declared' | 'admin_override';
       inputSchemaSha256: string;
       outputSchemaSha256: string;
     }>[];
@@ -175,6 +214,16 @@ const RuntimeServerSchema = z
   .loose();
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
+const RuntimeExecutionSemanticsSchema = z
+  .object({
+    effect: z.enum(['read_only', 'side_effecting', 'unknown']),
+    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
+    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+    replay: z.enum(['allowed', 'simulation_only', 'forbidden', 'unknown']),
+    source: z.enum(EXECUTION_SEMANTICS_SOURCES),
+  })
+  .strict();
 const RuntimeToolSchema = z
   .object({
     serverId: z.string().min(1),
@@ -184,7 +233,7 @@ const RuntimeToolSchema = z
     inputSchema: JsonSchema,
     outputSchema: JsonSchema.optional(),
     protocolMode: z.literal('frozen_v1'),
-    executionSemantics: z.record(z.string(), z.unknown()),
+    executionSemantics: RuntimeExecutionSemanticsSchema,
     taskExecutionProfile: z
       .object({
         profileVersion: z.literal('1.0'),
@@ -255,6 +304,78 @@ export async function materializeHomeLabCatalog(
 
     const currentBinding = await controlGetBinding(configuration, expected.bindingId, request);
     const action = currentBinding === undefined ? 'created' : 'reconciled';
+    const existingRuntime = runtimeServers.find(
+      (server) => server.serverId === provider.localServerId,
+    );
+    let runtimeAction: HomeLabCatalogMaterializationReport['providers'][number]['runtimeAction'];
+    let runtime: RuntimeRefresh;
+    if (existingRuntime === undefined) {
+      runtimeAction = 'registered';
+      runtime = await runtimeCommand(
+        configuration,
+        '/api/v1/mcp/servers',
+        {
+          serverId: provider.localServerId,
+          name: `Home Lab ${provider.kind}`,
+          endpoint,
+          credentialHeaders:
+            provider.credential.mode === 'bearer'
+              ? { authorization: `Bearer ${provider.credential.token}` }
+              : {},
+        },
+        201,
+        request,
+      );
+    } else {
+      if (safeEndpoint(existingRuntime.endpoint, 'RUNTIME_ENDPOINT_INVALID') !== endpoint)
+        fail(
+          'RUNTIME_ENDPOINT_DRIFT_REQUIRES_GOVERNED_REBIND',
+          `Runtime endpoint drift was detected for ${provider.kind}.`,
+        );
+      runtimeAction = 'reused';
+      runtime = await runtimeReadCurrent(configuration, existingRuntime, request);
+    }
+    if (safeEndpoint(runtime.server.endpoint, 'RUNTIME_ENDPOINT_INVALID') !== endpoint)
+      fail(
+        'RUNTIME_ENDPOINT_DRIFT_REQUIRES_GOVERNED_REBIND',
+        `Runtime endpoint drift was detected for ${provider.kind}.`,
+      );
+    runtime = await reconcileRuntimeToolExecutionSemantics(
+      configuration,
+      provider.kind,
+      provider.localServerId,
+      expected.tools,
+      runtime,
+      request,
+    );
+    if (currentBinding !== undefined) {
+      const revisionDelta = runtime.server.toolRevision - currentBinding.revision;
+      if (revisionDelta === -1) {
+        runtimeAction = 'refreshed';
+        runtime = await runtimeCommand(
+          configuration,
+          `/api/v1/mcp/servers/${encodeURIComponent(provider.localServerId)}/refresh`,
+          undefined,
+          200,
+          request,
+        );
+      } else if (revisionDelta !== 0 && revisionDelta !== 1) {
+        fail(
+          'CATALOG_AUTHORITY_REVISION_GAP',
+          `Binding revision ${String(currentBinding.revision)} cannot be reconciled with Runtime Tool revision ${String(runtime.server.toolRevision)} by one bounded refresh.`,
+        );
+      }
+      if (runtime.snapshot.toolRevision !== runtime.server.toolRevision)
+        fail(
+          'CATALOG_AUTHORITY_REVISION_MISMATCH',
+          'Runtime Server and current Snapshot Tool revisions do not match.',
+        );
+    }
+    const governedCatalogChecksum = runtimeCatalogChecksum(runtime);
+
+    // A Binding must snapshot the already-materialized Runtime authority. In particular, the
+    // home-lab admin semantics overrides are applied before this command so the Binding checksum
+    // cannot authorize default_unknown Tool effects.
     if (currentBinding === undefined) {
       await controlCommand(
         configuration,
@@ -278,11 +399,23 @@ export async function materializeHomeLabCatalog(
       );
     } else {
       assertSameLineage(currentBinding, candidate, provider.localServerId, endpoint);
+      const approveCatalogDrift =
+        currentBinding.status === 'degraded' ||
+        currentBinding.catalogChecksum !== governedCatalogChecksum;
       await controlCommand(
         configuration,
         `/api/v1/mcp-provider-bindings/${encodeURIComponent(expected.bindingId)}/refresh`,
-        `${configuration.runId}-${provider.kind}-refresh`,
-        { reason: `Reconcile the unchanged ${provider.kind} home-lab Source Candidate.` },
+        `${configuration.runId}-${provider.kind}-${approveCatalogDrift ? 'approve-catalog' : 'refresh'}`,
+        approveCatalogDrift
+          ? {
+              reason: `Approve the exact governed ${provider.kind} home-lab Catalog checksum.`,
+              expectedRevision: currentBinding.revision,
+              payload: {
+                approval: 'catalog_checksum',
+                catalogChecksum: governedCatalogChecksum,
+              },
+            }
+          : { reason: `Reconcile the unchanged ${provider.kind} home-lab Source Candidate.` },
         request,
       );
     }
@@ -292,35 +425,8 @@ export async function materializeHomeLabCatalog(
       fail('BINDING_MISSING_AFTER_COMMAND', 'Binding command did not persist.');
     assertSameLineage(binding, candidate, provider.localServerId, endpoint);
 
-    const existingRuntime = runtimeServers.find(
-      (server) => server.serverId === provider.localServerId,
-    );
-    let runtimeAction: HomeLabCatalogMaterializationReport['providers'][number]['runtimeAction'];
-    let runtime: RuntimeRefresh;
-    if (existingRuntime === undefined) {
-      runtimeAction = 'registered';
-      runtime = await runtimeCommand(
-        configuration,
-        '/api/v1/mcp/servers',
-        {
-          serverId: provider.localServerId,
-          name: `Home Lab ${provider.kind}`,
-          endpoint,
-          credentialHeaders:
-            provider.credential.mode === 'bearer'
-              ? { authorization: `Bearer ${provider.credential.token}` }
-              : {},
-        },
-        201,
-        request,
-      );
-    } else if (existingRuntime.toolRevision === binding.revision - 1) {
-      if (safeEndpoint(existingRuntime.endpoint, 'RUNTIME_ENDPOINT_INVALID') !== endpoint)
-        fail(
-          'RUNTIME_ENDPOINT_DRIFT_REQUIRES_GOVERNED_REBIND',
-          `Runtime endpoint drift was detected for ${provider.kind}.`,
-        );
-      runtimeAction = 'refreshed';
+    if (runtime.server.toolRevision === binding.revision - 1) {
+      if (existingRuntime !== undefined) runtimeAction = 'refreshed';
       runtime = await runtimeCommand(
         configuration,
         `/api/v1/mcp/servers/${encodeURIComponent(provider.localServerId)}/refresh`,
@@ -328,18 +434,10 @@ export async function materializeHomeLabCatalog(
         200,
         request,
       );
-    } else if (existingRuntime.toolRevision === binding.revision) {
-      if (safeEndpoint(existingRuntime.endpoint, 'RUNTIME_ENDPOINT_INVALID') !== endpoint)
-        fail(
-          'RUNTIME_ENDPOINT_DRIFT_REQUIRES_GOVERNED_REBIND',
-          `Runtime endpoint drift was detected for ${provider.kind}.`,
-        );
-      runtimeAction = 'reused';
-      runtime = await runtimeReadCurrent(configuration, existingRuntime, request);
-    } else {
+    } else if (runtime.server.toolRevision !== binding.revision) {
       fail(
         'CATALOG_AUTHORITY_REVISION_GAP',
-        `Binding revision ${String(binding.revision)} cannot be reconciled with Runtime Tool revision ${String(existingRuntime.toolRevision)} by one bounded refresh.`,
+        `Binding revision ${String(binding.revision)} cannot be reconciled with Runtime Tool revision ${String(runtime.server.toolRevision)} by one bounded refresh.`,
       );
     }
 
@@ -401,6 +499,9 @@ export async function materializeHomeLabCatalog(
               Object.freeze({
                 toolName: tool.toolName,
                 taskBehavior: tool.taskExecutionProfile.taskBehavior,
+                effect: tool.executionSemantics.effect as HomeLabExecutionSemanticsValues['effect'],
+                executionSemanticsSource: tool.executionSemantics.source as
+                  'mcp_declared' | 'admin_override',
                 inputSchemaSha256: sha256(stableStringify(tool.inputSchema)),
                 outputSchemaSha256: sha256(stableStringify(tool.outputSchema)),
               }),
@@ -642,6 +743,46 @@ async function runtimeReadCurrent(
   return RuntimeRefreshSchema.parse({ server, snapshot: server.currentDiscovery, tools });
 }
 
+async function reconcileRuntimeToolExecutionSemantics(
+  configuration: HomeLabCatalogMaterializationConfiguration,
+  kind: ProviderKind,
+  serverId: string,
+  expected: Readonly<Record<string, ExpectedHomeLabTool>>,
+  runtime: RuntimeRefresh,
+  request: typeof fetch,
+): Promise<RuntimeRefresh> {
+  validateRuntimeCatalogStructure(kind, serverId, expected, runtime);
+  const updates = runtime.tools.filter((tool) => {
+    const contract = expected[tool.toolName];
+    return contract === undefined || !trustedSemanticsEqual(tool.executionSemantics, contract);
+  });
+  for (const tool of updates) {
+    const contract = expected[tool.toolName];
+    if (contract === undefined)
+      fail('CATALOG_TOOL_SET_MISMATCH', `Runtime Tool set mismatch for ${kind}.`);
+    const response = await request(
+      `${configuration.runtimeManagementBaseUrl}/api/v1/mcp/servers/${encodeURIComponent(serverId)}/tools/${encodeURIComponent(tool.toolName)}/execution-semantics`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(contract.executionSemantics),
+        redirect: 'manual',
+      },
+    );
+    if (response.status !== 204)
+      fail(
+        'RUNTIME_TOOL_SEMANTICS_OVERRIDE_REJECTED',
+        `Runtime rejected the governed Tool semantics override for ${tool.toolName}.`,
+      );
+  }
+  if (updates.length === 0) return runtime;
+  return runtimeReadCurrent(
+    configuration,
+    RuntimeServerSchema.parse({ ...runtime.server, currentDiscovery: runtime.snapshot }),
+    request,
+  );
+}
+
 async function requestJson(
   url: string,
   init: RequestInit,
@@ -728,7 +869,25 @@ function assertExactCandidateDirectoryNativeLineage(
 function validateRuntimeCatalog(
   kind: ProviderKind,
   serverId: string,
-  expected: Readonly<Record<string, TaskBehavior>>,
+  expected: Readonly<Record<string, ExpectedHomeLabTool>>,
+  runtime: RuntimeRefresh,
+): void {
+  validateRuntimeCatalogStructure(kind, serverId, expected, runtime);
+  const actual = new Map(runtime.tools.map((tool) => [tool.toolName, tool] as const));
+  for (const [toolName, contract] of Object.entries(expected)) {
+    const tool = actual.get(toolName);
+    if (tool === undefined || !trustedSemanticsEqual(tool.executionSemantics, contract))
+      fail(
+        'CATALOG_TOOL_EXECUTION_SEMANTICS_MISMATCH',
+        `Runtime Tool execution semantics mismatch for ${toolName}.`,
+      );
+  }
+}
+
+function validateRuntimeCatalogStructure(
+  kind: ProviderKind,
+  serverId: string,
+  expected: Readonly<Record<string, ExpectedHomeLabTool>>,
   runtime: RuntimeRefresh,
 ): void {
   if (runtime.server.serverId !== serverId)
@@ -739,11 +898,28 @@ function validateRuntimeCatalog(
     Object.keys(expected).some((toolName) => !actual.has(toolName))
   )
     fail('CATALOG_TOOL_SET_MISMATCH', `Runtime Tool set mismatch for ${kind}.`);
-  for (const [toolName, behavior] of Object.entries(expected)) {
+  for (const [toolName, contract] of Object.entries(expected)) {
     const tool = actual.get(toolName);
-    if (tool?.outputSchema === undefined || tool.taskExecutionProfile.taskBehavior !== behavior)
+    if (
+      tool?.outputSchema === undefined ||
+      tool.taskExecutionProfile.taskBehavior !== contract.taskBehavior
+    )
       fail('CATALOG_TOOL_CONTRACT_MISMATCH', `Runtime Tool contract mismatch for ${toolName}.`);
   }
+}
+
+function trustedSemanticsEqual(
+  actual: z.infer<typeof RuntimeExecutionSemanticsSchema>,
+  expected: ExpectedHomeLabTool,
+): boolean {
+  return (
+    (actual.source === 'mcp_declared' || actual.source === 'admin_override') &&
+    actual.effect === expected.executionSemantics.effect &&
+    actual.execution === expected.executionSemantics.execution &&
+    actual.cancellation === expected.executionSemantics.cancellation &&
+    actual.idempotency === expected.executionSemantics.idempotency &&
+    actual.replay === expected.executionSemantics.replay
+  );
 }
 
 function runtimeCatalogChecksum(runtime: RuntimeRefresh): string {

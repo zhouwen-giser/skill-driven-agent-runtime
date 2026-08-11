@@ -36,6 +36,7 @@ import {
 
 export interface McpCallContext {
   readonly taskId?: string;
+  readonly capabilityAttemptId?: string;
   readonly contextId?: string;
   readonly providerBindingId?: string;
   readonly providerId?: string;
@@ -713,6 +714,9 @@ function invocationRecord(
   return {
     invocationId: input.invocationId,
     ...(input.context.taskId === undefined ? {} : { taskId: input.context.taskId }),
+    ...(input.context.capabilityAttemptId === undefined
+      ? {}
+      : { capabilityAttemptId: input.context.capabilityAttemptId }),
     ...(input.context.contextId === undefined ? {} : { contextId: input.context.contextId }),
     executionMode: executionContext.mode,
     ...(executionContext.simulationId === undefined

@@ -169,6 +169,88 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
     expect(events).toEqual(['candidate', 'discover']);
     expect(repository.completed).toBeUndefined();
   });
+
+  it('activates an explicitly approved drift checksum through one CAS refresh revision', async () => {
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(record(), candidate(), events);
+    const service = createService(repository, events);
+
+    const operation = await service.refresh(
+      'binding-home-lab',
+      'approve-catalog-key',
+      'Approve the exact governed Catalog checksum.',
+      { expectedRevision: 1, expectedCatalogChecksum: CATALOG_CHECKSUM },
+    );
+
+    expect(operation).toMatchObject({
+      status: 'succeeded',
+      operationType: 'mcp_provider_binding.refresh',
+      target: { id: 'binding-home-lab', revision: 2 },
+      result: { revision: 2, status: 'active', resultCode: 'catalog_approved' },
+    });
+    expect(events).toEqual(['discover', 'complete']);
+    expect(repository.completed?.binding).toMatchObject({
+      revision: 2,
+      status: 'active',
+      availabilityStatus: 'available',
+      catalogChecksum: CATALOG_CHECKSUM,
+    });
+  });
+
+  it('rejects stale revision or checksum approval without persisting a Binding revision', async () => {
+    const staleEvents: string[] = [];
+    const staleRepository = new MemoryBindingRepository(record(), candidate(), staleEvents);
+    await expect(
+      createService(staleRepository, staleEvents).refresh(
+        'binding-home-lab',
+        'stale-approval-key',
+        'Reject stale approval revision.',
+        { expectedRevision: 9, expectedCatalogChecksum: CATALOG_CHECKSUM },
+      ),
+    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
+    expect(staleEvents).toEqual([]);
+    expect(staleRepository.completed).toBeUndefined();
+
+    const mismatchEvents: string[] = [];
+    const mismatchRepository = new MemoryBindingRepository(record(), candidate(), mismatchEvents);
+    await expect(
+      createService(mismatchRepository, mismatchEvents).refresh(
+        'binding-home-lab',
+        'mismatch-approval-key',
+        'Reject an unobserved approval checksum.',
+        { expectedRevision: 1, expectedCatalogChecksum: 'd'.repeat(64) },
+      ),
+    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_STALE' });
+    expect(mismatchEvents).toEqual(['discover']);
+    expect(mismatchRepository.completed).toBeUndefined();
+  });
+
+  it('does not treat explicit approval as a substitute for an unchanged refresh', async () => {
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(record(), candidate(), events);
+    const service = new NodeControlMcpProviderBindingService({
+      repository,
+      catalog: {
+        discover: () => {
+          events.push('discover');
+          return Promise.resolve({ ...discovery(), catalogChecksum: OLD_CHECKSUM });
+        },
+      },
+      clock: { now: () => NOW },
+      ids: { next: () => 'operation-or-snapshot' },
+    });
+
+    await expect(
+      service.refresh(
+        'binding-home-lab',
+        'unchanged-approval-key',
+        'Reject approval when no Catalog drift exists.',
+        { expectedRevision: 1, expectedCatalogChecksum: OLD_CHECKSUM },
+      ),
+    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
+    expect(events).toEqual(['discover']);
+    expect(repository.completed).toBeUndefined();
+  });
 });
 
 class MemoryBindingRepository implements NodeControlMcpProviderBindingRepository {

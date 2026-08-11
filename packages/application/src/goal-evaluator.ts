@@ -100,6 +100,7 @@ export class StructuredGoalEvaluator implements GoalEvaluator {
       }),
       responseSchema,
       correctionErrors: [],
+      ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
     });
     const result = GoalEvaluationSchema.parse(raw);
     const planningDecisions = new Set(['adjust_plan', 'replace_skill', 'invoke_additional_skill']);

@@ -1849,6 +1849,43 @@ describe('management HTTP API contract', () => {
     ).resolves.toMatchObject({ items: [{ stage: 'workflow_planning' }] });
   });
 
+  it('returns only credential-safe current Prompt authority for one exact stage', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        prompts: {
+          ...configured.prompts,
+          findCurrent: (stage) =>
+            Promise.resolve({
+              promptId: 'prompt.home-lab-a2a-fixture.workflow_planning',
+              stage,
+              version: 4,
+              content: '{{instruction}}',
+              status: 'enabled',
+              source: 'admin',
+              createdAt: '2026-08-11T00:00:00.000Z',
+            }),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/prompts/current/workflow_planning`);
+    expect(response.status).toBe(200);
+    const value = await response.json();
+    expect(value).toEqual({
+      item: {
+        promptId: 'prompt.home-lab-a2a-fixture.workflow_planning',
+        stage: 'workflow_planning',
+        version: 4,
+        content: '{{instruction}}',
+        status: 'enabled',
+        source: 'admin',
+        createdAt: '2026-08-11T00:00:00.000Z',
+      },
+    });
+    expect(JSON.stringify(value)).not.toMatch(/credential|authorization|bearer|token/iu);
+  });
+
   it('accepts cognitive reflection and Task Type induction model stages at the management boundary', async () => {
     const routedStages: string[] = [];
     const configured = operations();
@@ -4217,6 +4254,7 @@ function operations(failServerList = false): ManagementOperations {
       create: unused,
       disable: unused,
       effect: unused,
+      findCurrent: () => Promise.resolve(undefined),
       listVersions: () => Promise.resolve([]),
       publish: unused,
       rollback: unused,

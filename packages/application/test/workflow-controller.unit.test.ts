@@ -25,7 +25,10 @@ import type {
   WorkflowControlRepository,
   WorkflowPlanRepository,
 } from '../src/ports.js';
-import { WorkflowControllerService } from '../src/workflow-controller.js';
+import {
+  WorkflowControllerService,
+  type WorkflowControllerTaskOutcomes,
+} from '../src/workflow-controller.js';
 import { UserGoalPlanController } from '../src/user-goal-plan-controller.js';
 
 describe('Workflow outer controller', () => {
@@ -144,6 +147,7 @@ describe('Workflow outer controller', () => {
     ).resolves.toMatchObject({ status: 'achieved', roundCount: 1 });
     expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
     expect(fixture.evaluator.inputs).toHaveLength(1);
+    expect(fixture.evaluator.inputs[0]?.taskId).toBe('task-control');
   });
 
   it('projects every fresh child checkpoint after a stale confirmation is invalidated', async () => {
@@ -420,6 +424,46 @@ describe('Workflow outer controller', () => {
     expect(fixture.controls.controls.get('control-1')).toMatchObject({ status: 'failed' });
   });
 
+  it('commits the strict Capability proof through the terminal authority', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Verified.' });
+    fixture.taskOutcomes.prepareAchieved.mockResolvedValueOnce({
+      processedResult: processedResult(),
+      verifiedOutcomeRefs: {
+        effectRefs: ['effect.verified'],
+        evidenceRefs: ['evidence.verified.a', 'evidence.verified.b'],
+        artifactRefs: [],
+      },
+      capabilityTerminalProof: {
+        taskId: 'task-control',
+        bindingId: 'binding-home-lab',
+        bindingHash: 'a'.repeat(64),
+        attemptId: 'capability-attempt-home-lab',
+        requestedCapabilityId: 'home.living-room.read-state',
+        capabilityVersion: 1,
+      },
+    });
+    const commit = fixture.terminalOutcomes.commitAchieved.bind(fixture.terminalOutcomes);
+    const commitSpy = vi
+      .spyOn(fixture.terminalOutcomes, 'commitAchieved')
+      .mockImplementationOnce(async (input) => {
+        return commit(input);
+      });
+
+    await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+      status: 'achieved',
+    });
+    expect(commitSpy.mock.calls[0]?.[0]).toMatchObject({
+      capabilityTerminalProof: {
+        taskId: 'task-control',
+        bindingId: 'binding-home-lab',
+        attemptId: 'capability-attempt-home-lab',
+        requestedCapabilityId: 'home.living-room.read-state',
+        capabilityVersion: 1,
+      },
+    });
+  });
+
   it('never reverses a committed terminal control when an error escapes after commit', async () => {
     const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
     fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Committed.' });
@@ -489,7 +533,9 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
   const evaluator = new SequenceEvaluator();
   const taskOutcomes = {
     reportCapabilityGap: vi.fn(() => Promise.resolve()),
-    prepareAchieved: vi.fn(() => Promise.resolve(processedResult())),
+    prepareAchieved: vi.fn<WorkflowControllerTaskOutcomes['prepareAchieved']>(() =>
+      Promise.resolve({ processedResult: processedResult() }),
+    ),
     enhanceResultMemory: vi.fn(() => Promise.resolve()),
     enhanceTaskQuality: vi.fn(() => Promise.resolve()),
     enhanceTemporarySkill: vi.fn<() => Promise<string | undefined>>(() =>

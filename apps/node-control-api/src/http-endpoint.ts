@@ -799,15 +799,35 @@ export function createNodeControlHttpApp(
                     requiredHeader(request, 'idempotency-key'),
                     command.reason,
                   )
-                : await bindings.rebind(
-                    request.params.bindingId,
-                    {
-                      expectedRevision: z.number().int().positive().parse(command.expectedRevision),
-                      ...McpBindingRebindSchema.parse(command.payload),
-                    },
-                    requiredHeader(request, 'idempotency-key'),
-                    command.reason,
-                  )
+                : catalogApprovalPayload(command.payload)
+                  ? await bindings.refresh(
+                      request.params.bindingId,
+                      requiredHeader(request, 'idempotency-key'),
+                      command.reason,
+                      {
+                        expectedRevision: z
+                          .number()
+                          .int()
+                          .positive()
+                          .parse(command.expectedRevision),
+                        expectedCatalogChecksum: McpBindingCatalogApprovalSchema.parse(
+                          command.payload,
+                        ).catalogChecksum,
+                      },
+                    )
+                  : await bindings.rebind(
+                      request.params.bindingId,
+                      {
+                        expectedRevision: z
+                          .number()
+                          .int()
+                          .positive()
+                          .parse(command.expectedRevision),
+                        ...McpBindingRebindSchema.parse(command.payload),
+                      },
+                      requiredHeader(request, 'idempotency-key'),
+                      command.reason,
+                    )
               : action === 'suspend'
                 ? await bindings.suspend(
                     request.params.bindingId,
@@ -2215,6 +2235,12 @@ const McpBindingRebindSchema = z
     }, 'endpointRef must be a credential-free HTTP(S) URL.'),
   })
   .strict();
+const McpBindingCatalogApprovalSchema = z
+  .object({
+    approval: z.literal('catalog_checksum'),
+    catalogChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict();
 const JsonObjectSchema = z.record(z.string(), z.json());
 const ManagedEvidenceExportConfigurationSchema = z
   .object({
@@ -2470,6 +2496,10 @@ function parseCommand(value: unknown) {
     ...(parsed.payload === undefined ? {} : { payload: parsed.payload }),
     ...(parsed.expectedRevision === undefined ? {} : { expectedRevision: parsed.expectedRevision }),
   });
+}
+
+function catalogApprovalPayload(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && 'approval' in value;
 }
 
 function parseEvidenceOperationsQuery(request: Request) {

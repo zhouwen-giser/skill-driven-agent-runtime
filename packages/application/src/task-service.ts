@@ -300,7 +300,15 @@ export class TaskService {
     const task = await this.#dependencies.tasks.findById(taskId);
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
-    if (isTerminalTaskPhase(task.phase)) return task;
+    if (isTerminalTaskPhase(task.phase)) {
+      if (task.phase === 'canceled')
+        await this.#dependencies.taskCapabilities?.markLatestAttempt(
+          taskId,
+          'canceled',
+          task.updatedAt,
+        );
+      return task;
+    }
     const timestamp = this.#dependencies.clock.now();
     if (
       this.#dependencies.planActions !== undefined &&
@@ -315,10 +323,12 @@ export class TaskService {
           'TASK_RUNTIME_CANCELLATION_INCOMPLETE',
           'Runtime cancellation did not project a canceled Task.',
         );
+      await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
       return committed;
     }
     const canceled = transitionTask(task, 'canceled', 'Task canceled by user.', timestamp);
     await this.#dependencies.tasks.save(canceled);
+    await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
     await this.#dependencies.taskInputs.cancelPending(task.taskId, 'canceled');
     await this.#dependencies.events.publish({
       eventId: this.#dependencies.ids.nextId('event'),
@@ -343,6 +353,11 @@ export class TaskService {
     await this.#withTaskDecisionLock(taskId, async () => {
       const task = await this.get(taskId);
       if (task.phase !== 'canceled' || task.errorCode !== 'TASK_WAIT_TIMEOUT') return;
+      await this.#dependencies.taskCapabilities?.markLatestAttempt(
+        taskId,
+        'canceled',
+        task.updatedAt,
+      );
       if (task.planId !== undefined && this.#dependencies.planActions !== undefined)
         await this.#dependencies.planActions.cancel(task);
     });

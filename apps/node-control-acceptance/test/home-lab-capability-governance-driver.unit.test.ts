@@ -71,7 +71,7 @@ afterEach(async () => {
 
 describe('home-lab Capability and Skill governance driver', () => {
   it(
-    'imports and publishes five exact Skills and five non-physical Capabilities',
+    'imports and publishes the five single-resource and one exact-two composite contracts',
     async () => {
       const root = workspaceRoot();
       const api = new FakeGovernanceApis();
@@ -82,20 +82,40 @@ describe('home-lab Capability and Skill governance driver', () => {
 
       expect(report.capabilityGovernanceReady).toBe(true);
       expect(report.runtimeCapabilityReadiness).toBe('available');
-      expect(report.skills).toHaveLength(5);
-      expect(report.capabilities).toHaveLength(5);
+      expect(report.skills).toHaveLength(6);
+      expect(report.capabilities).toHaveLength(6);
       expect(
-        report.skills.map(({ skillId, taskType, mcpToolName }) => ({
-          skillId,
-          taskType,
-          mcpToolName,
-        })),
+        report.skills
+          .filter(({ mcpToolName }) => mcpToolName !== undefined)
+          .map(({ skillId, taskType, mcpToolName }) => ({
+            skillId,
+            taskType,
+            mcpToolName,
+          })),
       ).toEqual(
         EXPECTED_SKILLS.map(({ skillId, toolName }) => ({
           skillId,
           taskType: toolName,
           mcpToolName: toolName,
         })),
+      );
+      expect(report.skills.find(({ skillId }) => skillId === 'home.living-room.get-state')).toEqual(
+        expect.objectContaining({
+          taskType: 'living_room_read_state',
+          maxMcpCalls: 2,
+          mcpTools: [
+            {
+              mcpToolName: 'light_get_state',
+              mcpProviderBindingId: 'mcp-binding-ha-light-lab',
+              localServerId: 'sdar-ha-light-lab',
+            },
+            {
+              mcpToolName: 'climate_get_state',
+              mcpProviderBindingId: 'mcp-binding-ha-climate-lab',
+              localServerId: 'sdar-ha-climate-lab',
+            },
+          ],
+        }),
       );
       expect(report.resourcePolicy).toEqual({
         identifierAuthority: 'public_resource_id',
@@ -107,13 +127,13 @@ describe('home-lab Capability and Skill governance driver', () => {
         ],
         physicalResourceBindings: 0,
       });
-      expect(api.uniqueMutations('skill-import')).toBe(5);
-      expect(api.uniqueMutations('skill-publish')).toBe(5);
-      expect(api.uniqueMutations('capability-create')).toBe(5);
-      expect(api.uniqueMutations('capability-implementation')).toBe(5);
-      expect(api.uniqueMutations('capability-validate')).toBe(5);
-      expect(api.uniqueMutations('capability-publish')).toBe(5);
-      expect(api.uniqueMutations('capability-readiness')).toBe(5);
+      expect(api.uniqueMutations('skill-import')).toBe(6);
+      expect(api.uniqueMutations('skill-publish')).toBe(6);
+      expect(api.uniqueMutations('capability-create')).toBe(6);
+      expect(api.uniqueMutations('capability-implementation')).toBe(6);
+      expect(api.uniqueMutations('capability-validate')).toBe(6);
+      expect(api.uniqueMutations('capability-publish')).toBe(6);
+      expect(api.uniqueMutations('capability-readiness')).toBe(6);
 
       const packageSchema = JSON.parse(
         await readFile('schemas/skill-package.schema.json', 'utf8'),
@@ -168,6 +188,68 @@ describe('home-lab Capability and Skill governance driver', () => {
           expect.objectContaining({ toolName: expected.toolName }),
         ]);
       }
+      const composite = await importer.import(join(root, 'home.living-room.get-state', 'v1'));
+      expect(composite.skillVersion.capabilities).toEqual(['home.living-room.read-state']);
+      expect(composite.skillVersion.runtimePolicy).toEqual(
+        expect.objectContaining({ maxLlmCalls: 0, maxMcpCalls: 2 }),
+      );
+      expect(composite.skillVersion.toolPolicy.required).toEqual([
+        { serverId: 'sdar-ha-light-lab', toolName: 'light_get_state' },
+        { serverId: 'sdar-ha-climate-lab', toolName: 'climate_get_state' },
+      ]);
+      expect(composite.skillVersion.toolPolicy.optional).toEqual([]);
+      expect(composite.skillVersion.toolPolicy.forbidden).toEqual(
+        expect.arrayContaining([
+          { serverId: 'sdar-ha-light-lab', toolName: 'light_set_power' },
+          { serverId: 'sdar-ha-climate-lab', toolName: 'climate_set_hvac_mode' },
+          { serverId: 'sdar-ha-climate-lab', toolName: 'climate_set_temperature' },
+        ]),
+      );
+      expect(api.implementationFor('home.living-room.read-state')).toEqual(
+        expect.objectContaining({
+          implementationId: 'home.living-room.get-state',
+          providerPolicyOverride: {
+            selection: 'required_all',
+            requirements: [
+              expect.objectContaining({
+                selection: 'required',
+                mcpProviderBindingId: 'mcp-binding-ha-light-lab',
+                localServerId: 'sdar-ha-light-lab',
+                mcpToolName: 'light_get_state',
+                requireActive: true,
+                requireAvailable: true,
+                requireUnexpiredFreshness: true,
+                denyFallback: true,
+              }),
+              expect.objectContaining({
+                selection: 'required',
+                mcpProviderBindingId: 'mcp-binding-ha-climate-lab',
+                localServerId: 'sdar-ha-climate-lab',
+                mcpToolName: 'climate_get_state',
+                requireActive: true,
+                requireAvailable: true,
+                requireUnexpiredFreshness: true,
+                denyFallback: true,
+              }),
+            ],
+          },
+        }),
+      );
+      expect(
+        report.capabilities.find(
+          ({ capabilityId }) => capabilityId === 'home.living-room.read-state',
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          riskLevel: 'low',
+          confirmation: 'not_required',
+          readiness: 'available',
+          providerBindings: [
+            expect.objectContaining({ mcpToolName: 'light_get_state' }),
+            expect.objectContaining({ mcpToolName: 'climate_get_state' }),
+          ],
+        }),
+      );
 
       const serialized = JSON.stringify(report);
       expect(serialized).not.toContain(CONTROL_TOKEN);
@@ -201,11 +283,11 @@ describe('home-lab Capability and Skill governance driver', () => {
       expect(replay.skills.every(({ action }) => action === 'reconciled')).toBe(true);
       expect(replay.resourcePolicy.auxiliaryLightIncluded).toBe(false);
       expect(JSON.stringify(replay)).not.toContain('living-room-aux-light');
-      expect(api.callsFor('skill-import')).toBe(5);
-      expect(api.callsFor('skill-publish')).toBe(10);
-      expect(api.callsFor('capability-create')).toBe(5);
-      expect(api.callsFor('capability-publish')).toBe(5);
-      expect(api.callsFor('capability-readiness')).toBe(10);
+      expect(api.callsFor('skill-import')).toBe(6);
+      expect(api.callsFor('skill-publish')).toBe(12);
+      expect(api.callsFor('capability-create')).toBe(6);
+      expect(api.callsFor('capability-publish')).toBe(6);
+      expect(api.callsFor('capability-readiness')).toBe(12);
     },
     GOVERNANCE_LIFECYCLE_TEST_TIMEOUT_MS,
   );
@@ -229,8 +311,8 @@ describe('home-lab Capability and Skill governance driver', () => {
 
       expect(report.runtimeCapabilityReadiness).toBe('available');
       expect(delays).toEqual([10_250]);
-      expect(api.uniqueMutations('capability-readiness')).toBe(10);
-      expect(api.callsFor('capability-readiness')).toBe(10);
+      expect(api.uniqueMutations('capability-readiness')).toBe(12);
+      expect(api.callsFor('capability-readiness')).toBe(12);
     },
     GOVERNANCE_LIFECYCLE_TEST_TIMEOUT_MS,
   );
@@ -377,6 +459,10 @@ class FakeGovernanceApis {
 
   callsFor(scope: string): number {
     return this.#mutationCalls.filter((key) => key.includes(scope)).length;
+  }
+
+  implementationFor(capabilityId: string): Record<string, unknown> | undefined {
+    return this.#implementations.get(capabilityId)?.[0];
   }
 
   injectPhysicalImplementation(capabilityId: string): void {

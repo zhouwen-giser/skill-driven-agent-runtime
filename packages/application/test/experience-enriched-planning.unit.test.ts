@@ -32,7 +32,10 @@ describe('G14 experience-enriched planning', () => {
     const result = await fixture.service.plan(input('off'));
     expect(result).toMatchObject({ selected: 'base', mode: 'off', usageRecords: [] });
     expect(fixture.contexts.build).not.toHaveBeenCalled();
-    expect(fixture.base.generateCandidate).toHaveBeenCalledTimes(1);
+    expect(fixture.base.generateCandidate).toHaveBeenCalledWith({
+      goal,
+      taskId: 'task.experience.plan',
+    });
   });
 
   it('runs shadow planning without changing the formal base candidate', async () => {
@@ -45,6 +48,14 @@ describe('G14 experience-enriched planning', () => {
       shadow: { planHash: `sha256:${'2'.repeat(64)}` },
     });
     expect(fixture.base.generateCandidate).toHaveBeenCalledTimes(2);
+    expect(fixture.base.generateCandidate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ taskId: 'task.experience.plan' }),
+    );
+    expect(fixture.base.generateCandidate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ taskId: 'task.experience.plan' }),
+    );
     expect(result.usageRecords[0]?.influence).toMatchObject({
       affectedSkillGoalIds: ['skill-goal.enriched'],
     });
@@ -59,6 +70,11 @@ describe('G14 experience-enriched planning', () => {
       requiresManualConfirmation: true,
     });
     expect(result.plan.planId).toBe('plan.enriched.1');
+    expect(fixture.base.generateCandidate).toHaveBeenCalledWith({
+      goal,
+      taskId: 'task.experience.plan',
+      planningContext: expect.anything(),
+    });
   });
 
   it('uses active mode only for low-risk knowledge', async () => {

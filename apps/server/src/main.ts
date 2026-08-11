@@ -4,6 +4,7 @@ import { ConfiguredOperatorIdentityPort } from '../../../packages/application/sr
 import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runtime-control-http-client/src/index.js';
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
+import { homeLabReadOnlyTaskUnderstandingConfiguration } from './home-lab-task-understanding.js';
 import { startServerRuntime } from './runtime.js';
 
 const environment = loadServerEnvironment();
@@ -68,6 +69,9 @@ const runtime = await startServerRuntime({
           maxSubscriptions: environment.BUSINESS_EVENTS_MAX_SUBSCRIPTIONS,
         },
       }
+    : {}),
+  ...(environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only'
+    ? { taskUnderstanding: homeLabReadOnlyTaskUnderstandingConfiguration() }
     : {}),
 });
 

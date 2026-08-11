@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import {
   createMcpToolExecutionSemantics,
+  DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
   deriveFrozenMcpCatalogAuthority,
   type McpServer,
   type McpTaskExecutionProfile,
@@ -18,6 +19,7 @@ export interface RuntimeMcpCatalogAuthority {
   readonly snapshotToolRevision: number;
   readonly catalogRevision: string;
   readonly catalogChecksum: string;
+  readonly discoveredCatalogChecksum: string;
   readonly operationCount: number;
   readonly toolNames: readonly string[];
 }
@@ -49,6 +51,7 @@ interface RuntimeMcpToolAuthorityRow extends QueryResultRow {
   output_schema_json: unknown;
   protocol_mode: NonNullable<McpServer['protocolMode']>;
   execution_semantics_json: unknown;
+  declared_execution_semantics_json: unknown;
   task_execution_json: unknown;
   discovered_at: Date | string;
 }
@@ -109,7 +112,8 @@ export class PostgresRuntimeMcpCatalogAuthorityReader implements RuntimeMcpCatal
       const toolsResult = await client.query<RuntimeMcpToolAuthorityRow>(
         `SELECT tool.server_id,tool.tool_name,tool.title,tool.description,
                 tool.input_schema_json,tool.output_schema_json,server.protocol_mode,
-                tool.execution_semantics_json,tool.task_execution_json,tool.discovered_at
+                tool.execution_semantics_json,tool.declared_execution_semantics_json,
+                tool.task_execution_json,tool.discovered_at
            FROM mcp_tool tool
            JOIN mcp_server server ON server.server_id=tool.server_id
           WHERE tool.server_id=$1
@@ -147,6 +151,14 @@ function mapAuthority(
     tools,
     server.tool_revision,
   );
+  const discoveredCatalog = deriveFrozenMcpCatalogAuthority(
+    {
+      protocolVersion: snapshot.protocol_version,
+      serverInfo: Object.freeze(z.record(z.string(), z.unknown()).parse(snapshot.server_info_json)),
+    },
+    toolRows.map(mapDiscoveredTool),
+    server.tool_revision,
+  );
   return Object.freeze({
     endpoint: server.endpoint,
     status: server.status,
@@ -156,9 +168,21 @@ function mapAuthority(
     snapshotToolRevision: snapshot.tool_revision,
     catalogRevision: catalog.catalogRevision,
     catalogChecksum: catalog.catalogChecksum,
+    discoveredCatalogChecksum: discoveredCatalog.catalogChecksum,
     operationCount: catalog.operationCount,
     toolNames: Object.freeze(tools.map((tool) => tool.toolName)),
   });
+}
+
+function mapDiscoveredTool(row: RuntimeMcpToolAuthorityRow): McpTool {
+  const effective =
+    row.declared_execution_semantics_json === null
+      ? DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS
+      : createMcpToolExecutionSemantics(
+          McpExecutionSemanticsSchema.parse(row.declared_execution_semantics_json),
+          'mcp_declared',
+        );
+  return Object.freeze({ ...mapTool(row), executionSemantics: effective });
 }
 
 function mapTool(row: RuntimeMcpToolAuthorityRow): McpTool {

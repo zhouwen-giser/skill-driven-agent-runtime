@@ -2,11 +2,22 @@ export type CognitiveEntryRoute =
   | Readonly<{ kind: 'explicit_goal_ready'; reason: string }>
   | Readonly<{ kind: 'generic_task'; reason: string }>;
 
+export type CognitiveEntryPolicy = 'ambiguous_only' | 'all_requests';
+
 export class CognitiveEntryRouter {
+  readonly #policy: CognitiveEntryPolicy;
+
+  constructor(options: Readonly<{ policy?: CognitiveEntryPolicy }> = {}) {
+    this.#policy = options.policy ?? 'ambiguous_only';
+  }
+
   route(input: Readonly<{ requestText: string }>): CognitiveEntryRoute {
     const request = input.requestText.trim();
     if (request.length === 0) {
       return { kind: 'generic_task', reason: 'empty_request' };
+    }
+    if (this.#policy === 'all_requests') {
+      return { kind: 'generic_task', reason: 'configured_all_requests' };
     }
 
     const vagueReference = /\b(?:this|that|it|something|anything)\b/iu.test(request);

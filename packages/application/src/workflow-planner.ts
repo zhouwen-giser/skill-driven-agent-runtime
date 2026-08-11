@@ -47,6 +47,23 @@ export interface PlanWorkflowInput {
   readonly deterministicOnly?: boolean;
 }
 
+export interface WorkflowCandidateGuardError {
+  readonly code: string;
+  readonly path: string;
+  readonly message: string;
+}
+
+export interface WorkflowCandidateGuard {
+  validate(
+    input: Readonly<{
+      definition: WorkflowDefinition;
+      taskId?: string;
+      skillUsagePolicy?: SkillUsagePlanPolicy;
+      compositionRoot?: SkillCompositionRoot;
+    }>,
+  ): readonly WorkflowCandidateGuardError[] | Promise<readonly WorkflowCandidateGuardError[]>;
+}
+
 export class WorkflowPlannerService {
   readonly #model: StructuredModelProvider;
   readonly #validator: WorkflowValidator;
@@ -58,6 +75,7 @@ export class WorkflowPlannerService {
   readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
   readonly #composition: Pick<SkillCompositionPlanner, 'compose'> | undefined;
   readonly #readiness: WorkflowCandidateReadinessPolicy | undefined;
+  readonly #candidateGuard: WorkflowCandidateGuard | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -71,6 +89,7 @@ export class WorkflowPlannerService {
       memories?: Pick<MemoryService, 'searchForStage'>;
       composition?: Pick<SkillCompositionPlanner, 'compose'>;
       readiness?: WorkflowCandidateReadinessPolicy;
+      candidateGuard?: WorkflowCandidateGuard;
     }>,
   ) {
     if (!Number.isInteger(dependencies.maxAttempts) || dependencies.maxAttempts < 1)
@@ -88,6 +107,7 @@ export class WorkflowPlannerService {
     this.#memories = dependencies.memories;
     this.#composition = dependencies.composition;
     this.#readiness = dependencies.readiness;
+    this.#candidateGuard = dependencies.candidateGuard;
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
@@ -204,6 +224,7 @@ export class WorkflowPlannerService {
               instruction: planningInstruction,
               responseSchema: this.#schema,
               correctionErrors,
+              ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
             });
       const contractedCandidate = applySkillTaskExecutionContracts(candidate, skillUsagePolicy);
       const validation = await this.#validateExpected(
@@ -347,6 +368,17 @@ export class WorkflowPlannerService {
         path: 'goalId',
         message: 'Generated Workflow must reference the requested Goal version.',
       });
+    if (errors.length === 0 && this.#candidateGuard !== undefined)
+      errors.push(
+        ...(await this.#candidateGuard.validate({
+          definition: result.definition,
+          ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+          ...(skillUsagePolicy === undefined ? {} : { skillUsagePolicy }),
+          ...(input.compositionRoot === undefined
+            ? {}
+            : { compositionRoot: input.compositionRoot }),
+        })),
+      );
     return errors.length === 0 ? result : { valid: false, errors };
   }
 
