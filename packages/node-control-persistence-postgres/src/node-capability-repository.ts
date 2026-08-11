@@ -49,6 +49,7 @@ interface BindingRow extends QueryResultRow {
   priority: number;
   activation_condition: JsonValue | null;
   provider_policy_override: JsonValue | null;
+  has_provider_policy_override: boolean;
   status: CapabilityImplementationBinding['status'];
   revision: string;
 }
@@ -210,7 +211,8 @@ export class PostgresNodeControlCapabilityRepository implements NodeControlCapab
 
   async listImplementations(capabilityId: string, version: number, limit: number) {
     const result = await this.#pool.query<BindingRow>(
-      `SELECT DISTINCT ON (binding_id) *
+      `SELECT DISTINCT ON (binding_id) *,
+              provider_policy_override IS NOT NULL AS has_provider_policy_override
          FROM sdar_control.capability_implementation_binding
         WHERE capability_id=$1 AND capability_version=$2
         ORDER BY binding_id,revision DESC LIMIT $3`,
@@ -397,7 +399,8 @@ async function findBinding(
   revision: number,
 ) {
   const result = await database.query<BindingRow>(
-    `SELECT * FROM sdar_control.capability_implementation_binding
+    `SELECT *,provider_policy_override IS NOT NULL AS has_provider_policy_override
+       FROM sdar_control.capability_implementation_binding
       WHERE binding_id=$1 AND revision=$2`,
     [bindingId, revision],
   );
@@ -439,9 +442,9 @@ function mapBinding(row: BindingRow): CapabilityImplementationBinding {
     role: row.role,
     priority: row.priority,
     ...(row.activation_condition === null ? {} : { activationCondition: row.activation_condition }),
-    ...(row.provider_policy_override === null
-      ? {}
-      : { providerPolicyOverride: row.provider_policy_override }),
+    ...(row.has_provider_policy_override
+      ? { providerPolicyOverride: row.provider_policy_override }
+      : {}),
     status: row.status,
     revision: Number(row.revision),
   });

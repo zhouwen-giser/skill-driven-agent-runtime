@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 
@@ -115,6 +115,44 @@ describe('TaskService', () => {
     ]);
   });
 
+  it('prepares an exact deterministic Task without enqueueing natural-language processing', async () => {
+    const harness = createHarness();
+    const submitted = await harness.service.submitDeterministic({
+      taskId: 'task-deterministic',
+      contextId: 'context-deterministic',
+      messageText: 'deterministic:binding:resource',
+      metadata: {},
+    });
+    expect(harness.operations.some((operation) => operation.startsWith('queue:'))).toBe(false);
+    expect(harness.attempts.values().next().value).toMatchObject({ status: 'completed' });
+
+    const planning = await harness.service.prepareDeterministicExecution(submitted.task.taskId, {
+      goalId: 'goal-deterministic',
+      goalVersion: 1,
+      skillId: 'skill.read-state',
+      skillVersion: 1,
+      selectionId: 'selection-deterministic',
+    });
+    expect(planning).toMatchObject({
+      phase: 'planning',
+      goalId: 'goal-deterministic',
+      goalVersion: 1,
+      selectedSkillId: 'skill.read-state',
+      selectedSkillVersion: 1,
+      skillSelectionId: 'selection-deterministic',
+    });
+    const attached = await harness.service.attachPlan(planning.taskId, {
+      planId: 'plan-deterministic',
+      goalId: 'goal-deterministic',
+      goalVersion: 1,
+      skillInputResolutionId: 'resolution-deterministic',
+    });
+    expect(attached.skillInputResolutionId).toBe('resolution-deterministic');
+    await expect(
+      harness.service.beginDeterministicExecution(planning.taskId),
+    ).resolves.toMatchObject({ phase: 'executing', planId: 'plan-deterministic' });
+  });
+
   it('routes an explicit Capability request through the atomic acceptance store without generic Task writes', async () => {
     let acceptedTask: AgentTask | undefined;
     const taskCapabilities = new RuntimeTaskCapabilityService({
@@ -146,6 +184,8 @@ describe('TaskService', () => {
         listAttempts: () => Promise.resolve([]),
         appendAttempt: () => Promise.reject(new Error('UNUSED')),
         updateLatestAttempt: () => Promise.resolve(),
+        reconcileCanceledAttempts: () => Promise.resolve(0),
+        reconcileFailedAttempts: () => Promise.resolve(0),
       },
     });
     const harness = createHarness('resumed', false, undefined, taskCapabilities);
@@ -419,7 +459,12 @@ describe('TaskService', () => {
   });
 
   it('cancels a queued task and emits a phase event', async () => {
-    const harness = createHarness();
+    const markLatestAttempt = vi.fn(() => Promise.resolve());
+    const taskCapabilities = {
+      prepareAcceptance: () => Promise.resolve(undefined),
+      markLatestAttempt,
+    } as unknown as RuntimeTaskCapabilityService;
+    const harness = createHarness('resumed', false, undefined, taskCapabilities);
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
     harness.operations.length = 0;
 
@@ -429,10 +474,18 @@ describe('TaskService', () => {
       'task.save:task-1:canceled',
       'event:task.phase_changed:task-1',
     ]);
+    expect(markLatestAttempt).toHaveBeenCalledWith('task-1', 'canceled', timestamp);
+    await harness.service.cancel(submitted.task.taskId);
+    expect(markLatestAttempt).toHaveBeenCalledTimes(2);
   });
 
   it('uses an atomic runtime cancellation projection when an active control owns the Task', async () => {
-    const harness = createHarness('resumed', true);
+    const markLatestAttempt = vi.fn(() => Promise.resolve());
+    const taskCapabilities = {
+      prepareAcceptance: () => Promise.resolve(undefined),
+      markLatestAttempt,
+    } as unknown as RuntimeTaskCapabilityService;
+    const harness = createHarness('resumed', true, undefined, taskCapabilities);
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
     let task = submitted.task;
     for (const phase of [
@@ -452,6 +505,7 @@ describe('TaskService', () => {
       phaseMessage: 'Atomically canceled by runtime.',
     });
     expect(harness.operations).toEqual(['runtime.cancel:task-1']);
+    expect(markLatestAttempt).toHaveBeenCalledWith('task-1', 'canceled', timestamp);
   });
 
   it('returns a stable application error for an unknown task', async () => {
@@ -773,7 +827,12 @@ describe('TaskService', () => {
   });
 
   it('releases the nested execution checkpoint after the unified wait timeout cancels a Task', async () => {
-    const harness = createHarness();
+    const markLatestAttempt = vi.fn(() => Promise.resolve());
+    const taskCapabilities = {
+      prepareAcceptance: () => Promise.resolve(undefined),
+      markLatestAttempt,
+    } as unknown as RuntimeTaskCapabilityService;
+    const harness = createHarness('resumed', false, undefined, taskCapabilities);
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
     let task = submitted.task;
     for (const phase of [
@@ -796,6 +855,7 @@ describe('TaskService', () => {
 
     await harness.service.releaseTimedOutWait(task.taskId);
 
+    expect(markLatestAttempt).toHaveBeenCalledWith(task.taskId, 'canceled', task.updatedAt);
     expect(harness.operations).toEqual(['plan.cancel:plan-parent']);
   });
 });

@@ -76,6 +76,10 @@ export class PromptService {
     return this.#repository.listVersions(promptId);
   }
 
+  findCurrent(stage: ModelStage): Promise<PromptVersion | undefined> {
+    return this.#repository.findCurrent(stage);
+  }
+
   async createEvaluationCandidate(stage: ModelStage, content: string): Promise<PromptVersion> {
     const current = await this.#repository.findCurrent(stage);
     return this.create({

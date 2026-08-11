@@ -7,6 +7,7 @@ export * from './skill-evidence-projector.js';
 export * from './mcp-capability-evidence-projector.js';
 export * from './experience-replay-artifact-evidence-projector.js';
 export * from './control-capability-evidence-source.js';
+export * from './current-mcp-provider-binding-authority.js';
 export * from './evidence-projection-pipeline.js';
 export * from './node-control-evidence-projector.js';
 export * from './evidence-coverage-service.js';

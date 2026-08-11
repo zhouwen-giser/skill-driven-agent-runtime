@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "sdar.home-lab-catalog-materialization/v1",
+  "status": "passed",
+  "observedAt": "2026-08-11T05:08:35.057Z",
+  "smppSourceId": "home-lab-smpp",
+  "providers": [
+    {
+      "kind": "climate",
+      "bindingId": "mcp-binding-ha-climate-lab",
+      "action": "reconciled",
+      "runtimeAction": "reused",
+      "externalProviderId": "ha-climate-lab",
+      "externalServerId": "runtime-3ffb9721d7ae-0",
+      "registryRevision": 2,
+      "registryChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+      "nativeRegistryRevision": 2,
+      "nativeRegistryChecksum": "57018a96c6c5dbd9a4713a7cc4fa5ea2730af592ee53593cdb41c59ad429384c",
+      "registryProjectionContract": "sdar-registry-v1",
+      "registryCatalogRevision": "1",
+      "bindingRevision": 16,
+      "catalogRevision": "2.0.0-rc.1:16",
+      "catalogChecksum": "3e5b37b927471e676157f89f84c086d7b0ad02b64bc2c0981ca990bafd1ea6a8",
+      "endpointSha256": "b99ed69aa3992901dbe698f5e939fbf0426d55b8307b4ffe8a7799224e0b7d45",
+      "catalogObservedAt": "2026-08-11T05:08:35.177Z",
+      "availabilityValidUntil": "2026-08-11T06:08:35.177Z",
+      "runtimeToolRevision": 16,
+      "runtimeDiscoveredAt": "2026-08-11T04:51:44.467Z",
+      "runtimeValidUntil": "2026-08-11T05:51:44.467Z",
+      "credentialRotation": "not_performed",
+      "tools": [
+        {
+          "toolName": "climate_get_state",
+          "taskBehavior": "synchronous_only",
+          "inputSchemaSha256": "aa5241690aca5fa6337e1e839c0ab84db188908afed96e26e74d1c9326c6eac8",
+          "outputSchemaSha256": "fb4908b86a7095345e512dc0a23f9b44a7c8a6769f8a5a342a8237461305c509"
+        },
+        {
+          "toolName": "climate_set_hvac_mode",
+          "taskBehavior": "task_required",
+          "inputSchemaSha256": "ca6c4b05960096213df57d71092cf44f52ad45608453931c1c34b2eda5b81f32",
+          "outputSchemaSha256": "d2ba31a37353de2642b03c20873c98c17bd6f8fd283fca3c6ed5284bf31eb5e0"
+        },
+        {
+          "toolName": "climate_set_power",
+          "taskBehavior": "task_required",
+          "inputSchemaSha256": "1a9d2ee6861f7be433bc9e7ee948bfe574e0fc63f2f30f9c76443a0db9d5dba6",
+          "outputSchemaSha256": "6e5499a64d39bc9f71854b46bf71c58038d4e85c4cb160004dd8b7f16d0eb6d9"
+        },
+        {
+          "toolName": "climate_set_temperature",
+          "taskBehavior": "task_required",
+          "inputSchemaSha256": "4365cfa281d1d1c7a891f8296e4bd4eb19c2e8c81cb2441ecb32b5334c4a9361",
+          "outputSchemaSha256": "8d70dcec53a966b9f2a25446d9c8c76d7b62170116118e891cb0b7d3db228200"
+        }
+      ]
+    },
+    {
+      "kind": "light",
+      "bindingId": "mcp-binding-ha-light-lab",
+      "action": "reconciled",
+      "runtimeAction": "reused",
+      "externalProviderId": "ha-light-lab",
+      "externalServerId": "runtime-8e6e163f0b32-0",
+      "registryRevision": 2,
+      "registryChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+      "nativeRegistryRevision": 2,
+      "nativeRegistryChecksum": "57018a96c6c5dbd9a4713a7cc4fa5ea2730af592ee53593cdb41c59ad429384c",
+      "registryProjectionContract": "sdar-registry-v1",
+      "registryCatalogRevision": "1",
+      "bindingRevision": 16,
+      "catalogRevision": "2.0.0-rc.1:16",
+      "catalogChecksum": "a06cde6ed4113e0a28531c7f8ed7663af3d2968fdd0c62352991a4070011cc05",
+      "endpointSha256": "1f4f78e6e89c1ad9091f8239f9d60f1aaf3113488f88d7d321ea48778793e47e",
+      "catalogObservedAt": "2026-08-11T05:08:35.268Z",
+      "availabilityValidUntil": "2026-08-11T06:08:35.268Z",
+      "runtimeToolRevision": 16,
+      "runtimeDiscoveredAt": "2026-08-11T04:51:44.549Z",
+      "runtimeValidUntil": "2026-08-11T05:51:44.549Z",
+      "credentialRotation": "not_performed",
+      "tools": [
+        {
+          "toolName": "light_get_state",
+          "taskBehavior": "synchronous_only",
+          "inputSchemaSha256": "aa5241690aca5fa6337e1e839c0ab84db188908afed96e26e74d1c9326c6eac8",
+          "outputSchemaSha256": "8094d0ac16e399bae6ce0cd8863fc34def976acb13be9a88c211916d6c2172f5"
+        },
+        {
+          "toolName": "light_set_brightness",
+          "taskBehavior": "task_required",
+          "inputSchemaSha256": "6e884b7ac6859f09f57709ef792db1d9908b005c428b6f779fd42d8e63163dd3",
+          "outputSchemaSha256": "de00e66cdce9272e28bcbcc0bfb2b470a31a637278fd7e67a20593ef04dec384"
+        },
+        {
+          "toolName": "light_set_power",
+          "taskBehavior": "task_required",
+          "inputSchemaSha256": "1a9d2ee6861f7be433bc9e7ee948bfe574e0fc63f2f30f9c76443a0db9d5dba6",
+          "outputSchemaSha256": "6e5499a64d39bc9f71854b46bf71c58038d4e85c4cb160004dd8b7f16d0eb6d9"
+        }
+      ]
+    }
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

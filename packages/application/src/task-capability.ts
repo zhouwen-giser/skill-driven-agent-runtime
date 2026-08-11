@@ -3,12 +3,19 @@ import {
   createTaskCapabilityBinding,
   createTaskCapabilityExecutionAttempt,
   type AgentTask,
+  type McpInvocation,
+  type RuntimeTaskCapabilityTerminalProof,
   type TaskCapabilityBinding,
   type TaskCapabilityExecutionAttempt,
   type TaskExecutionAttempt,
 } from '../../domain/src/index.js';
 
-import type { JsonSchemaValidator, RuntimeTaskEvent } from './ports.js';
+import type {
+  CurrentMcpProviderBindingAuthorityPort,
+  JsonSchemaValidator,
+  RuntimeTaskEvent,
+} from './ports.js';
+import type { RuntimeMcpProviderBindingAdmissionVerifier } from './mcp-runtime-binding-authority.js';
 
 export interface RuntimeCapabilityResolution {
   readonly exposureId: string;
@@ -22,6 +29,10 @@ export interface RuntimeCapabilityResolution {
   readonly constraints: readonly Readonly<Record<string, unknown>>[];
   readonly implementationRefs: readonly string[];
   readonly providerBindingRefs: readonly string[];
+  readonly providerBindingRequirements?: readonly Readonly<{
+    bindingId: string;
+    localServerId: string;
+  }>[];
   readonly providerPolicySnapshot?: unknown;
 }
 
@@ -50,17 +61,43 @@ export interface TaskCapabilityAcceptanceStore {
     status: Exclude<TaskCapabilityExecutionAttempt['status'], 'prepared'>,
     timestamp: string,
   ): Promise<void>;
+  reconcileCanceledAttempts(): Promise<number>;
+  reconcileFailedAttempts(): Promise<number>;
+}
+
+export interface TaskCapabilityEvidenceSource {
+  listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]>;
+}
+
+export interface TaskCapabilityTerminalSuccessContext {
+  readonly outputSchemaValid?: boolean;
+  readonly requiredBinding?: Readonly<{
+    requestedCapabilityId: string;
+    capabilityVersion: number;
+  }>;
 }
 
 export class RuntimeTaskCapabilityService {
   readonly #store: TaskCapabilityAcceptanceStore;
   readonly #schemas: JsonSchemaValidator;
+  readonly #evidence: TaskCapabilityEvidenceSource | undefined;
+  readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
+  readonly #runtimeProviderBindings: RuntimeMcpProviderBindingAdmissionVerifier | undefined;
 
   constructor(
-    dependencies: Readonly<{ store: TaskCapabilityAcceptanceStore; schemas: JsonSchemaValidator }>,
+    dependencies: Readonly<{
+      store: TaskCapabilityAcceptanceStore;
+      schemas: JsonSchemaValidator;
+      evidence?: TaskCapabilityEvidenceSource;
+      providerBindings?: CurrentMcpProviderBindingAuthorityPort;
+      runtimeProviderBindings?: RuntimeMcpProviderBindingAdmissionVerifier;
+    }>,
   ) {
     this.#store = dependencies.store;
     this.#schemas = dependencies.schemas;
+    this.#evidence = dependencies.evidence;
+    this.#providerBindings = dependencies.providerBindings;
+    this.#runtimeProviderBindings = dependencies.runtimeProviderBindings;
   }
 
   async prepareAcceptance(
@@ -86,6 +123,7 @@ export class RuntimeTaskCapabilityService {
         'TASK_CAPABILITY_ADMISSION_REJECTED',
         'The requested Exposure is not active, current, or ready.',
       );
+    const currentProviderBindings = await this.#requireCurrentProviderBindings(resolution);
     assertRequester(resolution.requesterPolicy, input.task.userId);
     const validation = this.#schemas.validate(resolution.requestSchema, input.capabilityInput);
     if (!validation.valid)
@@ -105,9 +143,16 @@ export class RuntimeTaskCapabilityService {
       evidenceRequirementSnapshot: resolution.requiredEvidence,
       constraintSnapshot: resolution.constraints,
       initialImplementationRefs: resolution.implementationRefs,
-      ...(resolution.providerPolicySnapshot === undefined
-        ? {}
-        : { providerPolicySnapshot: resolution.providerPolicySnapshot }),
+      ...(currentProviderBindings.length === 0
+        ? resolution.providerPolicySnapshot === undefined
+          ? {}
+          : { providerPolicySnapshot: resolution.providerPolicySnapshot }
+        : {
+            providerPolicySnapshot: Object.freeze({
+              resolution: resolution.providerPolicySnapshot ?? null,
+              currentProviderBindings,
+            }),
+          }),
       boundAt: input.task.createdAt,
     });
     const capabilityAttempt = createTaskCapabilityExecutionAttempt({
@@ -129,6 +174,50 @@ export class RuntimeTaskCapabilityService {
     });
   }
 
+  async #requireCurrentProviderBindings(resolution: RuntimeCapabilityResolution) {
+    const requirements = resolution.providerBindingRequirements ?? [];
+    if (requirements.length === 0) return Object.freeze([]);
+    if (this.#providerBindings === undefined)
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_PROVIDER_BINDING_NOT_CURRENT',
+        'Current MCP Provider Binding authority is unavailable.',
+      );
+    if (this.#runtimeProviderBindings === undefined)
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_PROVIDER_BINDING_NOT_CURRENT',
+        'Runtime MCP Provider Binding authority is unavailable.',
+      );
+    const authorities: Awaited<
+      ReturnType<CurrentMcpProviderBindingAuthorityPort['loadCurrentMcpProviderBinding']>
+    >[] = [];
+    for (const requirement of requirements) {
+      try {
+        const authority = await this.#providerBindings.loadCurrentMcpProviderBinding({
+          bindingId: requirement.bindingId,
+          localServerId: requirement.localServerId,
+        });
+        if (
+          authority.binding.bindingId !== requirement.bindingId ||
+          authority.binding.localServerId !== requirement.localServerId ||
+          Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(authority.observedAt)
+        )
+          throw new Error('MCP_PROVIDER_BINDING_NOT_CURRENT');
+        await this.#runtimeProviderBindings.assertCurrent({
+          authority,
+          bindingId: requirement.bindingId,
+          localServerId: requirement.localServerId,
+        });
+        authorities.push(authority);
+      } catch {
+        throw new TaskCapabilityError(
+          'TASK_CAPABILITY_PROVIDER_BINDING_NOT_CURRENT',
+          'Current MCP Provider Binding authority does not match the admitted Capability.',
+        );
+      }
+    }
+    return Object.freeze(authorities);
+  }
+
   accept(input: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]) {
     return this.#store.accept(input);
   }
@@ -139,6 +228,49 @@ export class RuntimeTaskCapabilityService {
 
   listAttempts(taskId: string) {
     return this.#store.listAttempts(taskId);
+  }
+
+  async resolveCurrentProviderBindingId(
+    taskId: string,
+    localServerId: string,
+  ): Promise<string | undefined> {
+    const binding = await this.#store.findBinding(taskId);
+    if (binding === undefined) return undefined;
+    const frozenAuthorities = currentProviderBindingAuthorities(binding.providerPolicySnapshot);
+    if (frozenAuthorities !== undefined) {
+      const matches = frozenAuthorities.filter(
+        (authority) => authority.localServerId === localServerId,
+      );
+      if (matches.length === 1) return matches[0]?.bindingId;
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_PROVIDER_BINDING_CONTEXT_INVALID',
+        'Frozen MCP Provider Binding authority does not uniquely match the requested Server.',
+      );
+    }
+    const attempts = await this.#store.listAttempts(taskId);
+    const references = attempts.at(-1)?.providerBindingRefs ?? [];
+    if (references.length === 0) return undefined;
+    if (references.length === 1 && references[0]?.trim() !== '') return references[0];
+    throw new TaskCapabilityError(
+      'TASK_CAPABILITY_PROVIDER_BINDING_CONTEXT_INVALID',
+      'Legacy MCP Provider Binding references are ambiguous for the requested Server.',
+    );
+  }
+
+  async resolveCurrentCapabilityAttemptId(taskId: string): Promise<string | undefined> {
+    const binding = await this.#store.findBinding(taskId);
+    if (binding === undefined) return undefined;
+    const latestAttempt = (await this.#store.listAttempts(taskId)).at(-1);
+    if (
+      latestAttempt?.taskId !== taskId ||
+      latestAttempt.capabilityBindingId !== binding.bindingId ||
+      !['prepared', 'running', 'waiting'].includes(latestAttempt.status)
+    )
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID',
+        'MCP invocation requires the latest active Capability execution attempt.',
+      );
+    return latestAttempt.attemptId;
   }
 
   async appendAttempt(
@@ -166,22 +298,56 @@ export class RuntimeTaskCapabilityService {
     });
   }
 
-  async assertTerminalSuccess(taskId: string, result: unknown): Promise<void> {
+  async assertTerminalSuccess(
+    taskId: string,
+    result: unknown,
+    context: TaskCapabilityTerminalSuccessContext = {},
+  ): Promise<RuntimeTaskCapabilityTerminalProof | undefined> {
     const binding = await this.#store.findBinding(taskId);
-    if (binding === undefined) return;
+    if (binding === undefined) {
+      if (context.requiredBinding !== undefined)
+        terminal('Capability completion requires the exact frozen Task binding.');
+      return undefined;
+    }
+    if (
+      context.requiredBinding !== undefined &&
+      (binding.requestedCapabilityId !== context.requiredBinding.requestedCapabilityId ||
+        binding.capabilityVersion !== context.requiredBinding.capabilityVersion)
+    )
+      terminal('Capability completion binding does not match the expected Capability authority.');
     if (!isRecord(result)) terminal('Capability completion requires a structured result.');
+    const latestAttempt = (await this.#store.listAttempts(taskId)).at(-1);
+    if (
+      latestAttempt?.taskId !== taskId ||
+      latestAttempt.capabilityBindingId !== binding.bindingId ||
+      !['prepared', 'running', 'waiting'].includes(latestAttempt.status)
+    )
+      terminal('Capability completion requires the latest active execution attempt.');
+    const taskInvocations =
+      this.#evidence === undefined ? [] : await this.#evidence.listInvocationsByTask(taskId);
+    const invocations = taskInvocations.filter(
+      (invocation) => invocation.capabilityAttemptId === latestAttempt.attemptId,
+    );
     for (const criterion of binding.successCriteriaSnapshot) {
-      if (!criterionSatisfied(criterion, result))
+      if (!criterionSatisfied(criterion, result, binding, invocations, context))
         terminal('A frozen success criterion is not satisfied.');
     }
     for (const requirement of binding.evidenceRequirementSnapshot) {
-      if (!evidenceSatisfied(requirement, result))
+      if (!evidenceSatisfied(requirement, result, binding, invocations))
         terminal('Required Capability evidence is incomplete.');
     }
     for (const constraint of binding.constraintSnapshot) {
-      if (!constraintSatisfied(constraint, result))
+      if (!constraintSatisfied(constraint, result, binding, invocations))
         terminal('A frozen safety or authorization constraint is not satisfied.');
     }
+    return Object.freeze({
+      taskId,
+      bindingId: binding.bindingId,
+      bindingHash: binding.bindingHash,
+      attemptId: latestAttempt.attemptId,
+      requestedCapabilityId: binding.requestedCapabilityId,
+      capabilityVersion: binding.capabilityVersion,
+    });
   }
 
   async markLatestAttempt(
@@ -191,6 +357,14 @@ export class RuntimeTaskCapabilityService {
   ) {
     if ((await this.#store.findBinding(taskId)) === undefined) return;
     await this.#store.updateLatestAttempt(taskId, status, timestamp);
+  }
+
+  reconcileCanceledAttempts(): Promise<number> {
+    return this.#store.reconcileCanceledAttempts();
+  }
+
+  reconcileFailedAttempts(): Promise<number> {
+    return this.#store.reconcileFailedAttempts();
   }
 }
 
@@ -235,36 +409,294 @@ function assertRequester(policy: Readonly<Record<string, unknown>> | undefined, 
 function criterionSatisfied(
   criterion: Readonly<Record<string, unknown>>,
   result: Readonly<Record<string, unknown>>,
+  binding: TaskCapabilityBinding,
+  invocations: readonly McpInvocation[],
+  context: Readonly<{ outputSchemaValid?: boolean }>,
 ) {
   if (criterion['type'] === 'field_equals' && typeof criterion['field'] === 'string')
     return Object.is(result[criterion['field']], criterion['value']);
   if (criterion['type'] === 'coverage' && typeof criterion['minimum'] === 'number')
     return typeof result['coverage'] === 'number' && result['coverage'] >= criterion['minimum'];
+  if (criterion['type'] === 'output_schema_valid' && criterion['required'] === true)
+    return context.outputSchemaValid === true;
+  if (criterion['type'] === 'resource_identity_matches_request' && criterion['required'] === true)
+    return resourceIdentityMatches(binding, result);
+  if (criterion['type'] === 'required_evidence_complete' && criterion['required'] === true)
+    return binding.evidenceRequirementSnapshot.every((requirement) =>
+      evidenceSatisfied(requirement, result, binding, invocations),
+    );
+  // State confirmation and restoration are write-side semantics. They remain
+  // fail-closed until an authoritative write lifecycle supplies those proofs.
   return false;
 }
 
 function evidenceSatisfied(
   requirement: Readonly<Record<string, unknown>>,
   result: Readonly<Record<string, unknown>>,
+  binding: TaskCapabilityBinding,
+  invocations: readonly McpInvocation[],
 ) {
   if (requirement['type'] === 'provider_result' && typeof requirement['field'] === 'string')
-    return result[requirement['field']] !== undefined;
+    return providerResultEvidenceSatisfied(requirement, result, binding, invocations);
   if (requirement['type'] === 'route_trace') return result['routeTrace'] !== undefined;
+  if (
+    requirement['type'] === 'required_evidence' &&
+    typeof requirement['evidenceType'] === 'string' &&
+    requirement['required'] === true
+  ) {
+    const evidenceType = requirement['evidenceType'];
+    const policy = providerBindingPolicy(binding.constraintSnapshot);
+    if (policy === undefined) return false;
+    return invocations.some(
+      (invocation) =>
+        invocation.status === 'succeeded' &&
+        invocation.serverId === policy.serverId &&
+        invocation.toolName === policy.toolName &&
+        invocation.executionSemantics.effect === 'read_only' &&
+        isRecord(invocation.result) &&
+        invocation.result['isError'] === false &&
+        canonical(invocation.result['structuredContent']) === canonical(result) &&
+        providerEvidencePresent(
+          invocation.result['evidence'],
+          evidenceType,
+          requirement['hardGate'] === true,
+        ),
+    );
+  }
   return false;
+}
+
+function providerResultEvidenceSatisfied(
+  requirement: Readonly<Record<string, unknown>>,
+  result: Readonly<Record<string, unknown>>,
+  binding: TaskCapabilityBinding,
+  invocations: readonly McpInvocation[],
+): boolean {
+  const field = requirement['field'];
+  if (typeof field !== 'string') return false;
+  const governedKeys = [
+    'inputField',
+    'serverId',
+    'toolName',
+    'evidenceType',
+    'required',
+    'hardGate',
+  ] as const;
+  if (!governedKeys.some((key) => Object.hasOwn(requirement, key)))
+    return result[field] !== undefined;
+
+  const inputField = requirement['inputField'];
+  const serverId = requirement['serverId'];
+  const toolName = requirement['toolName'];
+  const evidenceType = requirement['evidenceType'];
+  if (
+    field.trim() === '' ||
+    typeof inputField !== 'string' ||
+    inputField.trim() === '' ||
+    typeof serverId !== 'string' ||
+    serverId.trim() === '' ||
+    typeof toolName !== 'string' ||
+    toolName.trim() === '' ||
+    typeof evidenceType !== 'string' ||
+    evidenceType.trim() === '' ||
+    requirement['required'] !== true ||
+    requirement['hardGate'] !== true ||
+    result[field] === undefined
+  )
+    return false;
+  const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
+  const expectedResourceId = input?.[inputField];
+  if (typeof expectedResourceId !== 'string' || expectedResourceId.trim() === '') return false;
+
+  const matchingInvocations = invocations.filter(
+    (invocation) =>
+      invocation.status === 'succeeded' &&
+      invocation.executionMode === 'live' &&
+      invocation.serverId === serverId &&
+      invocation.toolName === toolName &&
+      invocation.executionSemantics.effect === 'read_only' &&
+      invocation.arguments['resourceId'] === expectedResourceId &&
+      isRecord(invocation.result) &&
+      invocation.result['isError'] === false &&
+      canonical(invocation.result['structuredContent']) === canonical(result[field]) &&
+      providerEvidencePresent(invocation.result['evidence'], evidenceType, true),
+  );
+  return matchingInvocations.length === 1;
 }
 
 function constraintSatisfied(
   constraint: Readonly<Record<string, unknown>>,
   result: Readonly<Record<string, unknown>>,
+  binding: TaskCapabilityBinding,
+  invocations: readonly McpInvocation[],
 ) {
-  if (constraint['type'] !== 'authorization' && constraint['type'] !== 'safety') return false;
-  const evidence = result['policyEvidence'];
-  return (
-    Array.isArray(evidence) &&
-    evidence.some(
-      (item) => isRecord(item) && item['type'] === constraint['type'] && item['satisfied'] === true,
-    )
+  if (constraint['type'] === 'authorization' || constraint['type'] === 'safety') {
+    const evidence = result['policyEvidence'];
+    return (
+      Array.isArray(evidence) &&
+      evidence.some(
+        (item) =>
+          isRecord(item) && item['type'] === constraint['type'] && item['satisfied'] === true,
+      )
+    );
+  }
+  if (constraint['type'] === 'resource_policy') {
+    const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
+    const resourceId = input?.['resourceId'];
+    return (
+      constraint['identifierAuthority'] === 'public_resource_id' &&
+      constraint['selection'] === 'request_value' &&
+      constraint['physicalResourceBinding'] === 'forbidden' &&
+      typeof resourceId === 'string' &&
+      Array.isArray(constraint['allowedResourceIds']) &&
+      constraint['allowedResourceIds'].includes(resourceId) &&
+      resourceIdentityMatches(binding, result) &&
+      !containsPhysicalResourceIdentity(result)
+    );
+  }
+  if (constraint['type'] === 'provider_binding_policy') {
+    const policy = providerBindingPolicy([constraint]);
+    if (policy === undefined) return false;
+    return (
+      constraint['requiredStatus'] === 'active' &&
+      constraint['requiredAvailabilityStatus'] === 'available' &&
+      constraint['requiredFreshness'] === 'unexpired' &&
+      constraint['fallback'] === 'deny' &&
+      binding.initialImplementationRefs.some((reference) => reference.startsWith('skill:')) &&
+      invocations.some(
+        (invocation) =>
+          invocation.status === 'succeeded' &&
+          invocation.serverId === policy.serverId &&
+          invocation.toolName === policy.toolName &&
+          invocation.executionSemantics.effect === 'read_only',
+      )
+    );
+  }
+  if (constraint['type'] === 'exact_skill_version') {
+    const skillId = constraint['skillId'];
+    const skillVersion = constraint['skillVersion'];
+    const taskType = constraint['taskType'];
+    return (
+      typeof skillId === 'string' &&
+      Number.isSafeInteger(skillVersion) &&
+      binding.initialImplementationRefs.includes(`skill:${skillId}:${String(skillVersion)}`) &&
+      typeof taskType === 'string' &&
+      invocations.some(
+        (invocation) => invocation.status === 'succeeded' && invocation.toolName === taskType,
+      )
+    );
+  }
+  if (constraint['type'] === 'confirmation_policy')
+    return constraint['required'] === false && constraint['stage'] === 'not_applicable';
+  return false;
+}
+
+function resourceIdentityMatches(
+  binding: TaskCapabilityBinding,
+  result: Readonly<Record<string, unknown>>,
+): boolean {
+  const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
+  return typeof input?.['resourceId'] === 'string' && result['resourceId'] === input['resourceId'];
+}
+
+function providerBindingPolicy(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+): Readonly<{ serverId: string; toolName: string }> | undefined {
+  const policies = constraints.filter(
+    (constraint) => constraint['type'] === 'provider_binding_policy',
   );
+  if (policies.length !== 1) return undefined;
+  const policy = policies[0];
+  if (
+    policy === undefined ||
+    typeof policy['mcpProviderBindingId'] !== 'string' ||
+    policy['mcpProviderBindingId'].trim() === '' ||
+    typeof policy['localServerId'] !== 'string' ||
+    typeof policy['mcpToolName'] !== 'string'
+  )
+    return undefined;
+  return { serverId: policy['localServerId'], toolName: policy['mcpToolName'] };
+}
+
+function providerEvidencePresent(value: unknown, evidenceType: string, hardGate: boolean): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.some((item) => {
+    if (
+      !isRecord(item) ||
+      item['evidenceType'] !== evidenceType ||
+      typeof item['evidenceId'] !== 'string' ||
+      item['evidenceId'].trim() === '' ||
+      typeof item['observedAt'] !== 'string' ||
+      !Number.isFinite(Date.parse(item['observedAt'])) ||
+      !isRecord(item['payloadRef'])
+    )
+      return false;
+    const payload = item['payloadRef'];
+    if (payload['kind'] === 'structured_content') return typeof payload['jsonPointer'] === 'string';
+    if (
+      payload['kind'] !== 'uri' ||
+      typeof payload['uri'] !== 'string' ||
+      payload['uri'].trim() === ''
+    )
+      return false;
+    return (
+      !hardGate ||
+      (typeof payload['sha256'] === 'string' && /^[a-f0-9]{64}$/u.test(payload['sha256']))
+    );
+  });
+}
+
+function containsPhysicalResourceIdentity(value: unknown): boolean {
+  if (
+    typeof value === 'string' &&
+    /^(?:light|climate|sensor|switch|input_boolean)\.[a-z0-9_]+$/iu.test(value)
+  )
+    return true;
+  if (Array.isArray(value)) return value.some(containsPhysicalResourceIdentity);
+  if (!isRecord(value)) return false;
+  return Object.entries(value).some(
+    ([key, item]) =>
+      /^(?:entityId|entity_id|physicalResourceId|physical_resource_id)$/iu.test(key) ||
+      containsPhysicalResourceIdentity(item),
+  );
+}
+
+function canonical(value: unknown): string {
+  if (value === undefined) return 'null';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  const object = value as Readonly<Record<string, unknown>>;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonical(object[key])}`)
+    .join(',')}}`;
+}
+
+function currentProviderBindingAuthorities(
+  value: unknown,
+): readonly Readonly<{ bindingId: string; localServerId: string }>[] | undefined {
+  if (!isRecord(value) || value['currentProviderBindings'] === undefined) return undefined;
+  const current = value['currentProviderBindings'];
+  if (!Array.isArray(current)) return Object.freeze([]);
+  const authorities: Readonly<{ bindingId: string; localServerId: string }>[] = [];
+  for (const item of current) {
+    const authorityBinding = isRecord(item) ? item['binding'] : undefined;
+    if (
+      !isRecord(authorityBinding) ||
+      typeof authorityBinding['bindingId'] !== 'string' ||
+      authorityBinding['bindingId'].trim() === '' ||
+      typeof authorityBinding['localServerId'] !== 'string' ||
+      authorityBinding['localServerId'].trim() === ''
+    )
+      return Object.freeze([]);
+    authorities.push(
+      Object.freeze({
+        bindingId: authorityBinding['bindingId'],
+        localServerId: authorityBinding['localServerId'],
+      }),
+    );
+  }
+  return Object.freeze(authorities);
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -289,6 +721,9 @@ export class TaskCapabilityError extends Error {
       | 'TASK_CAPABILITY_ADMISSION_REJECTED'
       | 'TASK_CAPABILITY_REQUESTER_FORBIDDEN'
       | 'TASK_CAPABILITY_INPUT_INVALID'
+      | 'TASK_CAPABILITY_PROVIDER_BINDING_NOT_CURRENT'
+      | 'TASK_CAPABILITY_PROVIDER_BINDING_CONTEXT_INVALID'
+      | 'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID'
       | 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
     message: string,
   ) {

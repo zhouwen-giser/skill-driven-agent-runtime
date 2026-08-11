@@ -22,10 +22,7 @@
     },
     "originType": {
       "type": "string",
-      "enum": [
-        "direct",
-        "smpp_registry"
-      ]
+      "enum": ["direct", "smpp_registry"]
     },
     "smppSourceId": {
       "type": "string"
@@ -54,23 +51,24 @@
     },
     "status": {
       "type": "string",
-      "enum": [
-        "candidate",
-        "imported",
-        "active",
-        "degraded",
-        "suspended",
-        "removed"
-      ]
+      "enum": ["candidate", "imported", "active", "degraded", "suspended", "removed"]
     },
     "availabilityStatus": {
       "type": "string",
-      "enum": [
-        "unknown",
-        "available",
-        "degraded",
-        "unavailable"
-      ]
+      "enum": ["unknown", "available", "degraded", "unavailable"]
+    },
+    "availabilityValidUntil": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "catalogObservedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operationCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1024
     },
     "revision": {
       "type": "integer",

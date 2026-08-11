@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { linkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
 import { performance } from 'node:perf_hooks';
@@ -18,11 +18,6 @@ import {
 } from '../../../apps/server/test-support/postgres.js';
 import type { RegisterSkillVersionInput } from '../../application/src/index.js';
 import {
-  EnvironmentEvidenceCredentialResolver,
-  HttpEvidenceExportTransport,
-} from '../../evidence-export-adapter/src/index.js';
-import { RuntimeEvidenceExportService } from '../../runtime-control-application/src/index.js';
-import {
   createCatalogEvidenceEnvelope,
   type EvidenceExportConfiguration,
 } from '../../domain/src/index.js';
@@ -30,11 +25,15 @@ import {
   startFrozenMcpTasksMockProvider,
   startMcpLoopbackServer,
 } from '../../mcp-adapter/src/index.js';
+import { PostgresEvidenceStore } from '../../runtime-control-persistence-postgres/src/index.js';
+
 import {
-  EvidencePersistenceError,
-  PostgresEvidenceStore,
-  PostgresRuntimeEvidenceExportStore,
-} from '../../runtime-control-persistence-postgres/src/index.js';
+  phase13MaximumPairwiseDriftPercent,
+  phase13Median,
+  phase13NearestRank,
+  phase13RegressionPercent,
+  phase13Round,
+} from './phase13-performance-statistics.js';
 
 const postgresAdminUrl =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
@@ -6673,7 +6672,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
 
   it(
     'keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds',
-    { timeout: 180_000 },
+    { timeout: 270_000 },
     async () => {
       const skillId = `skill.evidence-performance.${randomUUID()}`;
       await runtime.registerSkill({
@@ -6733,12 +6732,6 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
 
       const evidencePool = createTestPostgresPool(postgresUrl);
       const evidenceStore = new PostgresEvidenceStore(evidencePool);
-      const directEvidenceExport = new RuntimeEvidenceExportService({
-        store: new PostgresRuntimeEvidenceExportStore(evidencePool),
-        transport: new HttpEvidenceExportTransport(new EnvironmentEvidenceCredentialResolver()),
-        clock: { now: () => new Date().toISOString() },
-        actorId: 'phase13-performance-evidence-export',
-      });
       const phase13RecordIds: string[] = [];
       process.env['PHASE13_EVIDENCE_TOKEN'] = 'phase13-local-opaque-token';
       try {
@@ -6755,101 +6748,297 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           );
           appendSamples.push(performance.now() - appendStartedAt);
         }
-
+        const appendP95RawMs = phase13NearestRank(appendSamples, 0.95);
+        const orderedAppendSamples = [...appendSamples].sort((left, right) => left - right);
+        const appendRowCount = await evidencePool.query<{ record_count: string }>(
+          'SELECT count(*)::text AS record_count FROM evidence_outbox',
+        );
+        const forwardReferencePlan = await evidencePool.query<{ 'QUERY PLAN': unknown }>(
+          `EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON)
+           SELECT record_id FROM evidence_outbox WHERE evidence_refs ? $1`,
+          ['phase13-diagnostic-record-id'],
+        );
+        process.stdout.write(
+          `${JSON.stringify({
+            event: 'phase13.performance.append_raw_metrics',
+            appendP95RawMs,
+            appendSamplesMs: appendSamples,
+            appendTailMs: orderedAppendSamples.slice(-10),
+            evidenceOutboxRowCount: appendRowCount.rows[0]?.record_count,
+            forwardReferencePlan: forwardReferencePlan.rows[0]?.['QUERY PLAN'],
+          })}\n`,
+        );
         await evidenceStore.applyConfiguration(
           phase13EvidenceConfiguration(`http://127.0.0.1:${String(sinkAddress.port)}/evidence`),
           new Date().toISOString(),
         );
-        await waitForPhase13EvidenceDrain(
-          directEvidenceExport,
-          evidencePool,
-          phase13RecordIds,
-          () => receivedRecords,
-        );
+        await waitForPhase13EvidenceDrain(evidencePool, phase13RecordIds, () => receivedRecords);
         await setPhase13EvidenceActive(evidencePool, false);
 
         for (let index = 0; index < 10; index += 1) await runTask();
         await setPhase13EvidenceActive(evidencePool, true);
-        await waitForPhase13ExportQuiescence(directEvidenceExport, evidencePool);
+        await waitForPhase13ExportQuiescence(evidencePool);
         await setPhase13EvidenceActive(evidencePool, false);
 
-        const baselineSamples: number[] = [];
-        const enabledSamples: number[] = [];
+        // Equal counts make both nearest-rank P95s use the same finite-sample order statistic.
+        // The earlier 2:1 baseline/enabled design compared the fourth-highest of 72 with the
+        // second-highest of 36, adding asymmetric tail variance unrelated to the frozen threshold.
         const measurementOrders = [
-          ['baseline', 'enabled', 'baseline'],
-          ['enabled', 'baseline', 'baseline'],
-          ['baseline', 'baseline', 'enabled'],
+          ['baseline', 'enabled', 'enabled', 'baseline'],
+          ['enabled', 'baseline', 'baseline', 'enabled'],
         ] as const;
-        for (let index = 0; index < 20; index += 1) {
-          const order = measurementOrders[index % measurementOrders.length];
-          if (order === undefined) throw new Error('P13_PERFORMANCE_ORDER_MISSING');
-          for (const mode of order) {
-            const enabled = mode === 'enabled';
-            await setPhase13EvidenceActive(evidencePool, enabled);
-            const sample = await runTask();
-            if (enabled) enabledSamples.push(sample);
-            else baselineSamples.push(sample);
+        const discardedWarmupWindows = 2;
+        const warmupBlocksPerWindow = 9;
+        const roundsPerWindow = 12;
+        for (let windowIndex = 0; windowIndex < discardedWarmupWindows; windowIndex += 1) {
+          for (let index = 0; index < warmupBlocksPerWindow; index += 1) {
+            const order = measurementOrders[(windowIndex + index) % measurementOrders.length];
+            if (order === undefined) throw new Error('P13_PERFORMANCE_WARMUP_ORDER_MISSING');
+            for (const mode of order) {
+              await setPhase13EvidenceActive(evidencePool, mode === 'enabled');
+              await runTask();
+            }
           }
         }
         await setPhase13EvidenceActive(evidencePool, true);
-        await waitForPhase13EvidenceDrain(
-          directEvidenceExport,
-          evidencePool,
-          phase13RecordIds,
-          () => receivedRecords,
-        );
+        await waitForPhase13ExportQuiescence(evidencePool);
         await setPhase13EvidenceActive(evidencePool, false);
 
-        const baselineP95Ms = phase13Percentile(baselineSamples, 0.95);
-        const evidenceEnabledP95Ms = phase13Percentile(enabledSamples, 0.95);
-        const appendP95Ms = phase13Percentile(appendSamples, 0.95);
-        const baselineBeforeSamples = baselineSamples.slice(0, 20);
-        const baselineAfterSamples = baselineSamples.slice(20);
-        const baselineBeforeMedianMs = phase13Median(baselineBeforeSamples);
-        const baselineAfterMedianMs = phase13Median(baselineAfterSamples);
-        const baselineMedianDriftPercent = phase13Round(
-          (Math.abs(baselineAfterMedianMs - baselineBeforeMedianMs) /
-            ((baselineBeforeMedianMs + baselineAfterMedianMs) / 2)) *
-            100,
+        const measurementWindows: {
+          baselineSamples: number[];
+          enabledSamples: number[];
+          rounds: {
+            order: ('baseline' | 'enabled')[];
+            samples: { mode: 'baseline' | 'enabled'; latencyMs: number }[];
+          }[];
+        }[] = [];
+        const sampleDiagnostics: Phase13SampleDiagnostic[] = [];
+        for (let windowIndex = 0; windowIndex < 3; windowIndex += 1) {
+          const window: (typeof measurementWindows)[number] = {
+            baselineSamples: [],
+            enabledSamples: [],
+            rounds: [],
+          };
+          for (let index = 0; index < roundsPerWindow; index += 1) {
+            const order = measurementOrders[index % measurementOrders.length];
+            if (order === undefined) throw new Error('P13_PERFORMANCE_ORDER_MISSING');
+            const round: (typeof window.rounds)[number] = { order: [...order], samples: [] };
+            for (const [positionIndex, mode] of order.entries()) {
+              const enabled = mode === 'enabled';
+              await setPhase13EvidenceActive(evidencePool, enabled);
+              const startedAtMs = Date.now();
+              const sample = await runTask();
+              const finishedAtMs = Date.now();
+              round.samples.push({ mode, latencyMs: sample });
+              sampleDiagnostics.push({
+                sample: sampleDiagnostics.length + 1,
+                window: windowIndex + 1,
+                block: index + 1,
+                position: positionIndex + 1,
+                order: [...order],
+                mode,
+                latencyMs: sample,
+                startedAt: new Date(startedAtMs).toISOString(),
+                finishedAt: new Date(finishedAtMs).toISOString(),
+                startedAtMs,
+                finishedAtMs,
+                backgroundOverlap: {
+                  primaryLifecycleOverlapCount: 0,
+                  primaryBacklogAtStartCount: 0,
+                  primaryCarryoverAtFinishCount: 0,
+                  primaryCapturedCount: 0,
+                  primarySentCount: 0,
+                  primaryAcknowledgedCount: 0,
+                  observationCapturedCount: 0,
+                  exportBatchCount: 0,
+                  exportBatchRecordCount: 0,
+                  exportAckCount: 0,
+                  acceptedAckCount: 0,
+                  exportCarryoverAtStartCount: 0,
+                  exportCarryoverAtFinishCount: 0,
+                },
+              });
+              if (enabled) window.enabledSamples.push(sample);
+              else window.baselineSamples.push(sample);
+            }
+            window.rounds.push(round);
+          }
+          measurementWindows.push(window);
+        }
+        await setPhase13EvidenceActive(evidencePool, true);
+        await waitForPhase13ExportQuiescence(evidencePool);
+        await setPhase13EvidenceActive(evidencePool, false);
+
+        const firstDiagnostic = sampleDiagnostics[0];
+        const lastDiagnostic = sampleDiagnostics.at(-1);
+        if (firstDiagnostic === undefined || lastDiagnostic === undefined) {
+          throw new Error('P13_PERFORMANCE_DIAGNOSTIC_SAMPLE_MISSING');
+        }
+        const backgroundEvents = await readPhase13BackgroundEvents(
+          evidencePool,
+          firstDiagnostic.startedAt,
+          lastDiagnostic.finishedAt,
         );
-        const regressionPercent = phase13Round(
-          ((evidenceEnabledP95Ms - baselineP95Ms) / baselineP95Ms) * 100,
+        for (const diagnostic of sampleDiagnostics) {
+          diagnostic.backgroundOverlap = phase13BackgroundOverlap(diagnostic, backgroundEvents);
+        }
+
+        const baselineSamples = measurementWindows.flatMap((window) => window.baselineSamples);
+        const enabledSamples = measurementWindows.flatMap((window) => window.enabledSamples);
+        expect(baselineSamples).toHaveLength(72);
+        expect(enabledSamples).toHaveLength(72);
+        expect(appendSamples).toHaveLength(100);
+
+        const baselineP95RawMs = phase13NearestRank(baselineSamples, 0.95);
+        const evidenceEnabledP95RawMs = phase13NearestRank(enabledSamples, 0.95);
+        const regressionRawPercent = phase13RegressionPercent(
+          baselineP95RawMs,
+          evidenceEnabledP95RawMs,
         );
+        const windowMetrics = measurementWindows.map((window, index) => {
+          const baselineP95RawMs = phase13NearestRank(window.baselineSamples, 0.95);
+          const evidenceEnabledP95RawMs = phase13NearestRank(window.enabledSamples, 0.95);
+          const regressionRawPercent = phase13RegressionPercent(
+            baselineP95RawMs,
+            evidenceEnabledP95RawMs,
+          );
+          return Object.freeze({
+            window: index + 1,
+            baselineP95Ms: phase13Round(baselineP95RawMs),
+            evidenceEnabledP95Ms: phase13Round(evidenceEnabledP95RawMs),
+            regressionPercent: phase13Round(regressionRawPercent),
+            baselineMedianMs: phase13Round(phase13Median(window.baselineSamples)),
+            baselineSamplesMs: window.baselineSamples,
+            enabledSamplesMs: window.enabledSamples,
+            rounds: window.rounds,
+          });
+        });
+        const baselineWindowMediansRawMs = measurementWindows.map((window) =>
+          phase13Median(window.baselineSamples),
+        );
+        const baselineMedianDriftRawPercent = phase13MaximumPairwiseDriftPercent(
+          baselineWindowMediansRawMs,
+        );
+        process.stdout.write(
+          `${JSON.stringify({
+            event: 'phase13.performance.raw_metrics',
+            baselineP95RawMs,
+            evidenceEnabledP95RawMs,
+            regressionRawPercent,
+            baselineWindowMediansRawMs,
+            baselineMedianDriftRawPercent,
+            appendP95RawMs,
+            appendSamplesMs: appendSamples,
+            appendTailMs: orderedAppendSamples.slice(-10),
+          })}\n`,
+        );
+        const failedThresholds = [
+          ...(receivedRecords > 0 ? [] : ['Evidence delivery emitted no records']),
+          ...(baselineMedianDriftRawPercent <= 15
+            ? []
+            : ['Baseline median drift exceeded 15 percent']),
+          ...(regressionRawPercent <= 10 ? [] : ['Runtime E2E P95 regression exceeded 10 percent']),
+          ...(appendP95RawMs <= 20 ? [] : ['Evidence append P95 exceeded 20 milliseconds']),
+        ];
+        if (failedThresholds.length > 0) {
+          writeImmutablePhase13FailureDiagnostic({
+            schemaVersion: 1,
+            status: 'failed',
+            result: 'FAILED_PHASE13_PERFORMANCE_DIAGNOSTIC',
+            environment:
+              'local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO',
+            source: {
+              testFile: 'packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts',
+              diagnosticAttempt: 8,
+            },
+            measurementDesign: {
+              discardedWarmupWindows,
+              warmupBlocksPerWindow,
+              roundsPerWindow,
+              measurementWindowCount: measurementWindows.length,
+              order: 'strict alternating ABBA/BAAB blocks with equal baseline and enabled samples',
+              runtimePercentileMethod: 'pooled_raw_nearest_rank',
+              baselineDriftMethod: 'maximum_pairwise_symmetric_window_median',
+              diagnosticCollection:
+                'in-memory sample boundaries only during measurement; outbox lifecycle and phase13 export ledger are read once after measurement',
+              observationGenerationSemantics:
+                'generation 0 is primary canonical evidence; generation 1 is derived export observation evidence',
+            },
+            rawSamples: {
+              baselineMs: baselineSamples,
+              evidenceEnabledMs: enabledSamples,
+              evidenceAppendMs: appendSamples,
+            },
+            metrics: {
+              baselineP95RawMs,
+              evidenceEnabledP95RawMs,
+              regressionRawPercent,
+              baselineWindowMediansRawMs,
+              baselineMedianDriftRawPercent,
+              appendP95RawMs,
+              receivedRecords,
+            },
+            thresholds: {
+              baselineMedianDriftPercentMaximum: 15,
+              runtimeP95RegressionPercentMaximum: 10,
+              evidenceAppendP95MsMaximum: 20,
+              evaluatedBeforeDisplayRounding: true,
+            },
+            failedThresholds,
+            sampleDiagnostics,
+            backgroundEvents,
+          });
+        }
+        expect(receivedRecords).toBeGreaterThan(0);
+        expect(baselineMedianDriftRawPercent).toBeLessThanOrEqual(15);
+        expect(regressionRawPercent).toBeLessThanOrEqual(10);
+        expect(appendP95RawMs).toBeLessThanOrEqual(20);
+
         const report = {
           schemaVersion: 1,
           environment:
             'local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO',
           samples: {
-            runtimeBaselineInterleaved: 40,
-            runtimeEvidenceEnabled: 20,
-            evidenceAppend: 100,
+            runtimeBaselineInterleaved: baselineSamples.length,
+            runtimeEvidenceEnabled: enabledSamples.length,
+            evidenceAppend: appendSamples.length,
           },
-          baselineP95Ms,
-          baselineBeforeMedianMs,
-          baselineAfterMedianMs,
-          baselineMedianDriftPercent,
-          evidenceEnabledP95Ms,
-          regressionPercent,
-          appendP95Ms,
+          measurementDesign: {
+            discardedWarmupWindows,
+            warmupBlocksPerWindow,
+            roundsPerWindow,
+            measurementWindowCount: measurementWindows.length,
+            order: 'strict alternating ABBA/BAAB blocks with equal baseline and enabled samples',
+          },
+          measurementWindows: windowMetrics,
+          rawSamples: {
+            baselineMs: baselineSamples,
+            evidenceEnabledMs: enabledSamples,
+            evidenceAppendMs: appendSamples,
+          },
+          baselineP95Ms: phase13Round(baselineP95RawMs),
+          baselineWindowMediansMs: baselineWindowMediansRawMs.map(phase13Round),
+          baselineMedianDriftPercent: phase13Round(baselineMedianDriftRawPercent),
+          evidenceEnabledP95Ms: phase13Round(evidenceEnabledP95RawMs),
+          regressionPercent: phase13Round(regressionRawPercent),
+          appendP95Ms: phase13Round(appendP95RawMs),
           receivedRecords,
+          thresholds: {
+            baselineMedianDriftPercentMaximum: 15,
+            runtimeP95RegressionPercentMaximum: 10,
+            evidenceAppendP95MsMaximum: 20,
+            evaluatedBeforeDisplayRounding: true,
+          },
           boundaries: {
             runtimeBusinessAuthority: 'real A2A -> Runtime -> PostgreSQL -> LangGraph path',
             evidenceDelivery: 'real local HTTP batch and PostgreSQL ACK',
             providerModel: 'deterministic local test doubles',
             physicalSideEffects: false,
             baselineMethod:
-              'balanced rotating ABA/BAA/AAB order with a combined baseline P95 and first/last baseline median drift gate; pre-existing delivery backlog is drained before measurement',
+              'two fixed discarded 9-block warmup windows followed by three 12-block measurement windows; every block alternates ABBA/BAAB and contains equal baseline and enabled samples; the authoritative regression is pooled nearest-rank P95(enabled)/P95(baseline)-1 across all raw samples, and baseline stability is the maximum pairwise symmetric drift across all window medians; delivery backlog is drained by the production Runtime exporter before measurement',
           },
         };
-        writeFileSync(
-          new URL('../../../reports/v1.4.1-evidence/phase-13-performance.json', import.meta.url),
-          `${JSON.stringify(report, null, 2)}\n`,
-          'utf8',
-        );
-        expect(receivedRecords).toBeGreaterThan(0);
-        expect(baselineMedianDriftPercent).toBeLessThanOrEqual(15);
-        expect(regressionPercent).toBeLessThanOrEqual(10);
-        expect(appendP95Ms).toBeLessThanOrEqual(20);
+        writePhase13Report(report);
       } finally {
         delete process.env['PHASE13_EVIDENCE_TOKEN'];
         await evidencePool.end();
@@ -9367,7 +9556,6 @@ async function appendPhase13Evidence(
 }
 
 async function waitForPhase13EvidenceDrain(
-  service: RuntimeEvidenceExportService,
   pool: TestPostgresPool,
   recordIds: readonly string[],
   receivedRecords: () => number,
@@ -9390,21 +9578,12 @@ async function waitForPhase13EvidenceDrain(
       );
       if (Number(confirmed.rows[0]?.unacknowledged ?? recordIds.length) === 0) return;
     }
-    try {
-      await service.drain(1_000);
-    } catch (error) {
-      if (!(error instanceof EvidencePersistenceError) || error.code !== 'EVIDENCE_LEASE_NOT_OWNED')
-        throw error;
-    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`P13_EVIDENCE_DRAIN_TIMEOUT:${String(lastUnacknowledged)}`);
 }
 
-async function waitForPhase13ExportQuiescence(
-  service: RuntimeEvidenceExportService,
-  pool: TestPostgresPool,
-): Promise<void> {
+async function waitForPhase13ExportQuiescence(pool: TestPostgresPool): Promise<void> {
   const deadline = Date.now() + 30_000;
   let consecutiveEmptyChecks = 0;
   while (Date.now() < deadline) {
@@ -9420,12 +9599,6 @@ async function waitForPhase13ExportQuiescence(
       continue;
     }
     consecutiveEmptyChecks = 0;
-    try {
-      await service.drain(1_000);
-    } catch (error) {
-      if (!(error instanceof EvidencePersistenceError) || error.code !== 'EVIDENCE_LEASE_NOT_OWNED')
-        throw error;
-    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error('P13_EVIDENCE_QUIESCENCE_TIMEOUT');
@@ -9439,25 +9612,252 @@ async function setPhase13EvidenceActive(pool: TestPostgresPool, active: boolean)
   );
 }
 
-function phase13Percentile(samples: readonly number[], quantile: number): number {
-  const ordered = [...samples].sort((left, right) => left - right);
-  const index = Math.min(ordered.length - 1, Math.ceil(ordered.length * quantile) - 1);
-  const value = ordered[index];
-  if (value === undefined) throw new Error('P13_PERFORMANCE_SAMPLES_MISSING');
-  return phase13Round(value);
+interface Phase13BackgroundEvents {
+  readonly exportBatches: readonly {
+    readonly recordedAt: string;
+    readonly recordCount: number;
+    readonly acknowledgedAt?: string;
+    readonly ackDisposition?: 'accepted' | 'partial' | 'rejected';
+  }[];
+  readonly outboxLifecycles: readonly {
+    readonly observationGeneration: 0 | 1;
+    readonly capturedAt: string;
+    readonly sentAt?: string;
+    readonly acknowledgedAt?: string;
+    readonly sentByPhase13: boolean;
+  }[];
 }
 
-function phase13Median(samples: readonly number[]): number {
-  const ordered = [...samples].sort((left, right) => left - right);
-  const middle = Math.floor(ordered.length / 2);
-  const upper = ordered[middle];
-  const lower = ordered[middle - 1];
-  if (upper === undefined || lower === undefined) {
-    throw new Error('P13_PERFORMANCE_MEDIAN_SAMPLES_MISSING');
+interface Phase13SampleDiagnostic {
+  readonly sample: number;
+  readonly window: number;
+  readonly block: number;
+  readonly position: number;
+  readonly order: readonly ('baseline' | 'enabled')[];
+  readonly mode: 'baseline' | 'enabled';
+  readonly latencyMs: number;
+  readonly startedAt: string;
+  readonly finishedAt: string;
+  readonly startedAtMs: number;
+  readonly finishedAtMs: number;
+  backgroundOverlap: {
+    readonly primaryLifecycleOverlapCount: number;
+    readonly primaryBacklogAtStartCount: number;
+    readonly primaryCarryoverAtFinishCount: number;
+    readonly primaryCapturedCount: number;
+    readonly primarySentCount: number;
+    readonly primaryAcknowledgedCount: number;
+    readonly observationCapturedCount: number;
+    readonly exportBatchCount: number;
+    readonly exportBatchRecordCount: number;
+    readonly exportAckCount: number;
+    readonly acceptedAckCount: number;
+    readonly exportCarryoverAtStartCount: number;
+    readonly exportCarryoverAtFinishCount: number;
+  };
+}
+
+async function readPhase13BackgroundEvents(
+  pool: TestPostgresPool,
+  startedAt: string,
+  finishedAt: string,
+): Promise<Phase13BackgroundEvents> {
+  const [batchResult, projectionResult] = await Promise.all([
+    pool.query<{
+      recorded_at: Date | string;
+      record_count: number;
+      acknowledged_at: Date | string | null;
+      ack_disposition: 'accepted' | 'partial' | 'rejected' | null;
+    }>(
+      `SELECT batch.recorded_at,batch.record_count,
+          acknowledgement.acknowledged_at,acknowledgement.ack_disposition
+       FROM evidence_export_batch batch
+       LEFT JOIN evidence_export_ack acknowledgement ON acknowledgement.batch_id=batch.batch_id
+       WHERE batch.export_id='phase13-evidence-performance'
+         AND batch.recorded_at <= $2::timestamptz
+         AND (
+           acknowledgement.acknowledged_at IS NULL
+           OR acknowledgement.acknowledged_at >= $1::timestamptz
+         )
+       ORDER BY batch.recorded_at,batch.ledger_sequence`,
+      [startedAt, finishedAt],
+    ),
+    pool.query<{
+      observation_generation: number;
+      captured_at: Date | string;
+      sent_at: Date | string | null;
+      acknowledged_at: Date | string | null;
+      sent_by_phase13: boolean;
+    }>(
+      `SELECT observation_generation,captured_at,sent_at,acknowledged_at,
+          COALESCE(sent_export_id='phase13-evidence-performance',false) AS sent_by_phase13
+       FROM evidence_outbox
+       WHERE (
+           observation_generation=0
+           AND captured_at <= $2::timestamptz
+           AND (acknowledged_at IS NULL OR acknowledged_at >= $1::timestamptz)
+           AND (sent_export_id IS NULL OR sent_export_id='phase13-evidence-performance')
+         ) OR (
+           observation_generation=1
+           AND captured_at >= $1::timestamptz
+           AND captured_at <= $2::timestamptz
+         )
+       ORDER BY captured_at,sequence`,
+      [startedAt, finishedAt],
+    ),
+  ]);
+  return {
+    exportBatches: batchResult.rows.map((row) => ({
+      recordedAt: phase13Iso(row.recorded_at),
+      recordCount: row.record_count,
+      ...(row.acknowledged_at === null ? {} : { acknowledgedAt: phase13Iso(row.acknowledged_at) }),
+      ...(row.ack_disposition === null ? {} : { ackDisposition: row.ack_disposition }),
+    })),
+    outboxLifecycles: projectionResult.rows.map((row) => {
+      if (row.observation_generation !== 0 && row.observation_generation !== 1) {
+        throw new Error('P13_PERFORMANCE_DIAGNOSTIC_OBSERVATION_GENERATION_INVALID');
+      }
+      return {
+        observationGeneration: row.observation_generation,
+        capturedAt: phase13Iso(row.captured_at),
+        ...(row.sent_at === null ? {} : { sentAt: phase13Iso(row.sent_at) }),
+        ...(row.acknowledged_at === null
+          ? {}
+          : { acknowledgedAt: phase13Iso(row.acknowledged_at) }),
+        sentByPhase13: row.sent_by_phase13,
+      };
+    }),
+  };
+}
+
+function phase13BackgroundOverlap(
+  sample: Phase13SampleDiagnostic,
+  events: Phase13BackgroundEvents,
+): Phase13SampleDiagnostic['backgroundOverlap'] {
+  const primaryLifecycles = events.outboxLifecycles.filter(
+    (event) => event.observationGeneration === 0,
+  );
+  const primaryOverlap = primaryLifecycles.filter((event) => {
+    const capturedAtMs = Date.parse(event.capturedAt);
+    const acknowledgedAtMs =
+      event.acknowledgedAt === undefined ? undefined : Date.parse(event.acknowledgedAt);
+    return (
+      capturedAtMs <= sample.finishedAtMs &&
+      (acknowledgedAtMs === undefined || acknowledgedAtMs >= sample.startedAtMs)
+    );
+  });
+  const primaryCaptured = primaryLifecycles.filter((event) =>
+    phase13TimeWithin(event.capturedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const primarySent = primaryLifecycles.filter(
+    (event) =>
+      event.sentByPhase13 &&
+      event.sentAt !== undefined &&
+      phase13TimeWithin(event.sentAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const primaryAcknowledged = primaryLifecycles.filter(
+    (event) =>
+      event.sentByPhase13 &&
+      event.acknowledgedAt !== undefined &&
+      phase13TimeWithin(event.acknowledgedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const observationCaptured = events.outboxLifecycles.filter(
+    (event) =>
+      event.observationGeneration === 1 &&
+      phase13TimeWithin(event.capturedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  const batches = events.exportBatches.filter((batch) => {
+    const batchStartedAtMs = Date.parse(batch.recordedAt);
+    const batchFinishedAtMs =
+      batch.acknowledgedAt === undefined ? undefined : Date.parse(batch.acknowledgedAt);
+    return (
+      batchStartedAtMs <= sample.finishedAtMs &&
+      (batchFinishedAtMs === undefined || batchFinishedAtMs >= sample.startedAtMs)
+    );
+  });
+  const acknowledgements = batches.filter(
+    (batch) =>
+      batch.acknowledgedAt !== undefined &&
+      phase13TimeWithin(batch.acknowledgedAt, sample.startedAtMs, sample.finishedAtMs),
+  );
+  return {
+    primaryLifecycleOverlapCount: primaryOverlap.length,
+    primaryBacklogAtStartCount: primaryOverlap.filter(
+      (event) => Date.parse(event.capturedAt) < sample.startedAtMs,
+    ).length,
+    primaryCarryoverAtFinishCount: primaryOverlap.filter(
+      (event) =>
+        event.acknowledgedAt === undefined ||
+        Date.parse(event.acknowledgedAt) > sample.finishedAtMs,
+    ).length,
+    primaryCapturedCount: primaryCaptured.length,
+    primarySentCount: primarySent.length,
+    primaryAcknowledgedCount: primaryAcknowledged.length,
+    observationCapturedCount: observationCaptured.length,
+    exportBatchCount: batches.length,
+    exportBatchRecordCount: batches.reduce((total, batch) => total + batch.recordCount, 0),
+    exportAckCount: acknowledgements.length,
+    acceptedAckCount: acknowledgements.filter((batch) => batch.ackDisposition === 'accepted')
+      .length,
+    exportCarryoverAtStartCount: batches.filter(
+      (batch) => Date.parse(batch.recordedAt) < sample.startedAtMs,
+    ).length,
+    exportCarryoverAtFinishCount: batches.filter(
+      (batch) =>
+        batch.acknowledgedAt === undefined ||
+        Date.parse(batch.acknowledgedAt) > sample.finishedAtMs,
+    ).length,
+  };
+}
+
+function phase13TimeWithin(value: string, startedAtMs: number, finishedAtMs: number): boolean {
+  const observedAtMs = Date.parse(value);
+  return observedAtMs >= startedAtMs && observedAtMs <= finishedAtMs;
+}
+
+function phase13Iso(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new Error('P13_PERFORMANCE_DIAGNOSTIC_TIME_INVALID');
+  return date.toISOString();
+}
+
+function writeImmutablePhase13FailureDiagnostic(report: unknown): void {
+  const reportUrl = new URL(
+    '../../../reports/v1.4.1-evidence/failed-attempts/13-performance-attempt-8-diagnostic.json',
+    import.meta.url,
+  );
+  const temporaryUrl = new URL(`${reportUrl.href}.tmp-${String(process.pid)}-${randomUUID()}`);
+  writeFileSync(temporaryUrl, `${JSON.stringify(report, null, 2)}\n`, {
+    encoding: 'utf8',
+    flag: 'wx',
+  });
+  try {
+    try {
+      // A same-directory hard link publishes a complete file and fails atomically if the
+      // immutable attempt path already exists; unlike rename, it cannot replace a prior run.
+      linkSync(temporaryUrl, reportUrl);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+        throw new Error('P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXISTS', { cause: error });
+      }
+      throw error;
+    }
+  } finally {
+    rmSync(temporaryUrl, { force: true });
   }
-  return phase13Round((lower + upper) / 2);
 }
 
-function phase13Round(value: number): number {
-  return Number(value.toFixed(3));
+function writePhase13Report(report: unknown): void {
+  const reportUrl = new URL(
+    '../../../reports/v1.4.1-evidence/phase-13-performance.json',
+    import.meta.url,
+  );
+  const temporaryUrl = new URL(`${reportUrl.href}.tmp-${String(process.pid)}`);
+  rmSync(temporaryUrl, { force: true });
+  writeFileSync(temporaryUrl, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  try {
+    renameSync(temporaryUrl, reportUrl);
+  } finally {
+    rmSync(temporaryUrl, { force: true });
+  }
 }

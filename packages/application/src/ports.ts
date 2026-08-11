@@ -237,7 +237,7 @@ export interface RuntimeTerminalOutcomeRepository {
 
 export interface GoalEvaluator {
   evaluate(
-    input: Readonly<{ goal: Goal; instance: WorkflowInstance }>,
+    input: Readonly<{ goal: Goal; instance: WorkflowInstance; taskId?: string }>,
   ): Promise<GoalEvaluationResult>;
 }
 
@@ -562,6 +562,27 @@ export interface TaskAvailabilityEvidenceRepository {
 export interface McpServerRecord {
   readonly server: McpServer;
   readonly encryptedCredential: string;
+}
+
+export interface CurrentMcpProviderBindingAuthorityPort {
+  loadCurrentMcpProviderBinding(
+    input: Readonly<{ bindingId?: string; localServerId: string }>,
+  ): Promise<
+    Readonly<{
+      observedAt: string;
+      binding: Readonly<{
+        bindingId: string;
+        revision: number;
+        localServerId: string;
+        providerId: string;
+        endpointRef: string;
+        catalogRevision: string;
+        catalogChecksum: string;
+        operationCount: number;
+        availabilityValidUntil: string;
+      }>;
+    }>
+  >;
 }
 
 export interface McpRegistryRepository {

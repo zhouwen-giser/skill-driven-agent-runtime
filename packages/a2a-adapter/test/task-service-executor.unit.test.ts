@@ -12,6 +12,7 @@ import {
   type SubmitTaskCommand,
   type SubmitTaskResult,
   type TaskFollowUpCommand,
+  type TaskStateNotifier,
 } from '../../application/src/index.js';
 import {
   createAgentTask,
@@ -81,7 +82,7 @@ describe('TaskServiceAgentExecutor notification wait', () => {
 
   it('recovers a missed notification through low-frequency safety polling', async () => {
     const tasks = new FakeTasks('executing');
-    const notifier = new InMemoryTaskStateNotifier();
+    const notifier = new ManualSafetyPollNotifier();
     const executor = new TaskServiceAgentExecutor({
       tasks,
       notifier,
@@ -90,18 +91,21 @@ describe('TaskServiceAgentExecutor notification wait', () => {
     });
     const { bus, events } = eventCollector();
     const execution = executor.execute(request('task-missed-notification'), bus);
-    await waitUntil(() => events.some((event) => event.kind === 'task'));
+    await notifier.waitStarted;
     tasks.change('task-missed-notification', 'completed');
-    const startedAt = performance.now();
+    notifier.expireNextWait();
     await execution;
-    const recoveryLatencyMs = performance.now() - startedAt;
 
-    expect(recoveryLatencyMs).toBeGreaterThanOrEqual(50);
-    expect(recoveryLatencyMs).toBeLessThan(500);
-    expect(tasks.getCalls).toBeLessThanOrEqual(2);
+    expect(notifier.waits).toEqual([
+      expect.objectContaining({
+        taskId: 'task-missed-notification',
+        timeoutMs: MIN_A2A_SAFETY_POLL_INTERVAL_MS,
+      }),
+    ]);
+    expect(tasks.getCalls).toBe(1);
     expect(statuses(events).at(-1)).toBe(TaskState.TASK_STATE_COMPLETED);
     process.stdout.write(
-      `${JSON.stringify({ event: 'a2a.wait.missed-notification-recovery', environment: 'vitest-node-local', safetyPollIntervalMs: MIN_A2A_SAFETY_POLL_INTERVAL_MS, databaseReads: tasks.getCalls, recoveryLatencyMs: Math.round(recoveryLatencyMs) })}\n`,
+      `${JSON.stringify({ event: 'a2a.wait.missed-notification-recovery', environment: 'vitest-node-local', safetyPollIntervalMs: notifier.waits[0]?.timeoutMs, databaseReads: tasks.getCalls, deterministicTimeoutRelease: true })}\n`,
     );
     executor.close();
   });
@@ -187,6 +191,49 @@ describe('TaskServiceAgentExecutor notification wait', () => {
     expect(tasks.submitCalls).toBe(0);
   });
 });
+
+class ManualSafetyPollNotifier implements TaskStateNotifier {
+  readonly waits: Readonly<{
+    taskId: string;
+    knownUpdatedAt: string;
+    timeoutMs: number;
+  }>[] = [];
+  readonly #firstWait = deferred<undefined>();
+  readonly #pendingWaits: ((task: AgentTask | undefined) => void)[] = [];
+  #closed = false;
+
+  get waitStarted(): Promise<void> {
+    return this.#firstWait.promise;
+  }
+
+  publish(task: AgentTask): void {
+    // This test double deliberately withholds notifications to exercise safety polling.
+    void task;
+  }
+
+  waitForChange(
+    taskId: string,
+    knownUpdatedAt: string,
+    timeoutMs: number,
+  ): Promise<AgentTask | undefined> {
+    if (this.#closed) return Promise.resolve(undefined);
+    this.waits.push({ taskId, knownUpdatedAt, timeoutMs });
+    this.#firstWait.resolve(undefined);
+    return new Promise((resolve) => this.#pendingWaits.push(resolve));
+  }
+
+  expireNextWait(): void {
+    const resolve = this.#pendingWaits.shift();
+    if (resolve === undefined) throw new Error('MANUAL_SAFETY_POLL_WAIT_MISSING');
+    resolve(undefined);
+  }
+
+  close(): void {
+    if (this.#closed) return;
+    this.#closed = true;
+    for (const resolve of this.#pendingWaits.splice(0)) resolve(undefined);
+  }
+}
 
 class FakeTasks {
   readonly #tasks = new Map<string, AgentTask>();
@@ -302,4 +349,18 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
     if (Date.now() >= deadline) throw new Error('TEST_WAIT_TIMEOUT');
     await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
+}
+
+function deferred<T>(): Readonly<{ promise: Promise<T>; resolve: (value: T) => void }> {
+  let resolvePromise: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return {
+    promise,
+    resolve(value) {
+      if (resolvePromise === undefined) throw new Error('DEFERRED_RESOLVER_MISSING');
+      resolvePromise(value);
+    },
+  };
 }

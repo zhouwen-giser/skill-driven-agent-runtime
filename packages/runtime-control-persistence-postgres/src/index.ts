@@ -14,3 +14,4 @@ export * from './node-control-telemetry-evidence-source.js';
 export * from './evidence-infrastructure-source.js';
 export * from './evidence-operations-repository.js';
 export * from './evidence-quality-source.js';
+export * from './runtime-mcp-catalog-authority-reader.js';

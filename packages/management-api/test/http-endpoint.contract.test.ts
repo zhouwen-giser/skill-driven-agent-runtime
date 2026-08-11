@@ -14,8 +14,15 @@ import {
 import {
   ArtifactManagementCommandService,
   ArtifactManagementQueryService,
+  CognitiveManagementActionGate,
   RuntimeSkillGovernanceService,
   type ArtifactGovernancePort,
+  type CognitiveManagementActionLeaseGuard,
+  type CognitiveManagementActionClaim,
+  type CognitiveManagementActionClaimResult,
+  type CognitiveManagementActionLease,
+  type CognitiveManagementActionRecord,
+  type CognitiveManagementActionRepository,
 } from '../../application/src/index.js';
 
 import {
@@ -62,6 +69,276 @@ describe('management HTTP API contract', () => {
     const uses = await fetch(`${endpoint.baseUrl}/api/v1/workflow-templates/template-1/uses`);
     expect(uses.status).toBe(200);
     await expect(uses.json()).resolves.toEqual({ items: [] });
+  });
+
+  it('exposes the composed deterministic Capability execution with bounded idempotency', async () => {
+    const token = 'deterministic-cognitive-token-000000000000';
+    const execute = vi.fn((input: Readonly<Record<string, unknown>>) =>
+      Promise.resolve({
+        schemaVersion: 'sdar.deterministic-read-only-capability-execution/v1',
+        input,
+      }),
+    );
+    const actions = new CognitiveManagementActionGate({
+      repository: new InMemoryCognitiveManagementActionRepository(),
+      clock: { now: () => '2026-08-11T00:00:00.000Z' },
+    });
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      deterministicCapabilityExecution: {
+        operation: {
+          execute,
+          reconcile: () =>
+            Promise.resolve({
+              disposition: 'orphaned' as const,
+              errorCode: 'DETERMINISTIC_RECOVERY_ORPHANED',
+            }),
+        },
+        authorizer: new BearerCognitiveManagementAuthorizer(token),
+        actions,
+      },
+    });
+    const body = {
+      taskId: 'task-g07-light',
+      contextId: 'context-g07',
+      capabilityBindingId: 'capability-binding-home.light.read-state-v1',
+      capabilityBindingVersion: 1,
+      capabilityId: 'home.light.read-state',
+      capabilityVersion: 1,
+      skillId: 'home.light.get-state',
+      skillVersion: 1,
+      mcpProviderBindingId: 'mcp-binding-ha-light-lab',
+      providerId: 'home-assistant-light-provider',
+      serverId: 'runtime-light-provider',
+      toolName: 'light_get_state',
+      resourceId: 'living-room-main-light',
+    };
+    const unauthorized = await fetch(
+      `${endpoint.baseUrl}/api/v1/capability-executions/deterministic`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': body.taskId },
+        body: JSON.stringify(body),
+      },
+    );
+    expect(unauthorized.status).toBe(401);
+    expect(execute).not.toHaveBeenCalled();
+
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/capability-executions/deterministic`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'idempotency-key': body.taskId,
+      },
+      body: JSON.stringify(body),
+    });
+    expect(response.status).toBe(201);
+    expect(execute).toHaveBeenCalledWith(
+      { ...body, idempotencyKey: body.taskId },
+      expect.objectContaining({
+        assertCurrent: expect.any(Function),
+        enterProviderDispatch: expect.any(Function),
+      }),
+    );
+    const firstResult = await response.json();
+
+    const replay = await fetch(`${endpoint.baseUrl}/api/v1/capability-executions/deterministic`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'idempotency-key': body.taskId,
+      },
+      body: JSON.stringify(body),
+    });
+    expect(replay.status).toBe(201);
+    await expect(replay.json()).resolves.toEqual(firstResult);
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const conflict = await fetch(`${endpoint.baseUrl}/api/v1/capability-executions/deterministic`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'idempotency-key': body.taskId,
+      },
+      body: JSON.stringify({
+        ...body,
+        taskId: 'different-task-with-reused-key',
+        resourceId: 'different-public-resource',
+      }),
+    });
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({
+      error: { code: 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT' },
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const missingKey = await fetch(
+      `${endpoint.baseUrl}/api/v1/capability-executions/deterministic`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+    expect(missingKey.status).toBe(400);
+    await expect(missingKey.json()).resolves.toMatchObject({
+      error: { code: 'IDEMPOTENCY_KEY_REQUIRED' },
+    });
+  });
+
+  it('does not compose the deterministic execution route without its dedicated authority bundle', async () => {
+    endpoint = await startManagementHttpEndpoint({ operations: operations() });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/capability-executions/deterministic`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'not-composed' },
+      body: '{}',
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it('serializes fresh, jsonb replay, and recovered deterministic responses to identical bytes', async () => {
+    const token = 'deterministic-canonical-token-00000000000000';
+    const recoveredTaskId = 'task-g07-canonical-recovered';
+    const repository = new InMemoryCognitiveManagementActionRepository([recoveredTaskId]);
+    const freshResult = {
+      status: 'succeeded',
+      execution: { taskId: 'canonical-task', invocationId: 'canonical-invocation' },
+      result: { state: 'on', resourceId: 'living-room-main-light' },
+      evidence: [{ satisfied: true, requirementId: 'state-observed' }],
+    };
+    const recoveredResult = {
+      evidence: [{ requirementId: 'state-observed', satisfied: true }],
+      result: { resourceId: 'living-room-main-light', state: 'on' },
+      execution: { invocationId: 'canonical-invocation', taskId: 'canonical-task' },
+      status: 'succeeded',
+    };
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      deterministicCapabilityExecution: {
+        operation: {
+          execute: () => Promise.resolve(freshResult),
+          reconcile: () =>
+            Promise.resolve({ disposition: 'completed' as const, result: recoveredResult }),
+        },
+        authorizer: new BearerCognitiveManagementAuthorizer(token),
+        actions: new CognitiveManagementActionGate({
+          repository,
+          clock: { now: () => '2026-08-11T00:00:00.000Z' },
+        }),
+      },
+    });
+    const body = {
+      contextId: 'context-g07',
+      capabilityBindingId: 'capability-binding-home.light.read-state-v1',
+      capabilityBindingVersion: 1,
+      capabilityId: 'home.light.read-state',
+      capabilityVersion: 1,
+      skillId: 'home.light.get-state',
+      skillVersion: 1,
+      mcpProviderBindingId: 'mcp-binding-ha-light-lab',
+      providerId: 'home-assistant-light-provider',
+      serverId: 'runtime-light-provider',
+      toolName: 'light_get_state',
+      resourceId: 'living-room-main-light',
+    };
+    const request = (taskId: string) =>
+      fetch(`${endpoint?.baseUrl ?? ''}/api/v1/capability-executions/deterministic`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          'idempotency-key': taskId,
+        },
+        body: JSON.stringify({ ...body, taskId }),
+      });
+
+    const fresh = await request('task-g07-canonical-fresh');
+    const freshText = await fresh.text();
+    const replay = await request('task-g07-canonical-fresh');
+    const replayText = await replay.text();
+    const recovered = await request(recoveredTaskId);
+    const recoveredText = await recovered.text();
+
+    expect(fresh.status).toBe(201);
+    expect(replay.status).toBe(201);
+    expect(recovered.status).toBe(201);
+    expect(replayText).toBe(freshText);
+    expect(recoveredText).toBe(freshText);
+    expect(JSON.parse(freshText)).toEqual(freshResult);
+  });
+
+  it('returns a conflict and preserves durable pending state after an uncertain Provider dispatch', async () => {
+    const token = 'deterministic-reconciliation-token-000000000000';
+    const actions = new CognitiveManagementActionGate({
+      repository: new InMemoryCognitiveManagementActionRepository(),
+      clock: { now: () => '2026-08-11T00:00:00.000Z' },
+    });
+    const execute = vi.fn(async (_input: unknown, lease: CognitiveManagementActionLeaseGuard) => {
+      await lease.enterProviderDispatch({
+        dispatchId: 'mcp-invocation-uncertain-dispatch',
+        dispatchHash: `sha256:${'a'.repeat(64)}`,
+      });
+      throw Object.assign(new Error('Provider response was not durably observed.'), {
+        code: 'PROVIDER_RESPONSE_UNKNOWN',
+      });
+    });
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      deterministicCapabilityExecution: {
+        operation: {
+          execute,
+          reconcile: () =>
+            Promise.resolve({
+              disposition: 'indeterminate' as const,
+              errorCode: 'DETERMINISTIC_RECOVERY_PROVIDER_DISPATCH_INDETERMINATE',
+            }),
+        },
+        authorizer: new BearerCognitiveManagementAuthorizer(token),
+        actions,
+      },
+    });
+    const body = {
+      taskId: 'task-g07-uncertain',
+      contextId: 'context-g07',
+      capabilityBindingId: 'capability-binding-home.light.read-state-v1',
+      capabilityBindingVersion: 1,
+      capabilityId: 'home.light.read-state',
+      capabilityVersion: 1,
+      skillId: 'home.light.get-state',
+      skillVersion: 1,
+      mcpProviderBindingId: 'mcp-binding-ha-light-lab',
+      providerId: 'home-assistant-light-provider',
+      serverId: 'runtime-light-provider',
+      toolName: 'light_get_state',
+      resourceId: 'living-room-main-light',
+    };
+    const request = () =>
+      fetch(`${endpoint?.baseUrl ?? ''}/api/v1/capability-executions/deterministic`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          'idempotency-key': body.taskId,
+        },
+        body: JSON.stringify(body),
+      });
+
+    const uncertain = await request();
+    expect(uncertain.status).toBe(409);
+    await expect(uncertain.json()).resolves.toMatchObject({
+      error: { code: 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING' },
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const activeReplay = await request();
+    expect(activeReplay.status).toBe(409);
+    await expect(activeReplay.json()).resolves.toMatchObject({
+      error: { code: 'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS' },
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it('exposes authenticated Runtime Control Skill and Plan Template governance adapters', async () => {
@@ -1570,6 +1847,43 @@ describe('management HTTP API contract', () => {
     await expect(
       fetch(`${endpoint.baseUrl}/api/v1/models/routes`).then((response) => response.json()),
     ).resolves.toMatchObject({ items: [{ stage: 'workflow_planning' }] });
+  });
+
+  it('returns only credential-safe current Prompt authority for one exact stage', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        prompts: {
+          ...configured.prompts,
+          findCurrent: (stage) =>
+            Promise.resolve({
+              promptId: 'prompt.home-lab-a2a-fixture.workflow_planning',
+              stage,
+              version: 4,
+              content: '{{instruction}}',
+              status: 'enabled',
+              source: 'admin',
+              createdAt: '2026-08-11T00:00:00.000Z',
+            }),
+        },
+      },
+    });
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/prompts/current/workflow_planning`);
+    expect(response.status).toBe(200);
+    const value = await response.json();
+    expect(value).toEqual({
+      item: {
+        promptId: 'prompt.home-lab-a2a-fixture.workflow_planning',
+        stage: 'workflow_planning',
+        version: 4,
+        content: '{{instruction}}',
+        status: 'enabled',
+        source: 'admin',
+        createdAt: '2026-08-11T00:00:00.000Z',
+      },
+    });
+    expect(JSON.stringify(value)).not.toMatch(/credential|authorization|bearer|token/iu);
   });
 
   it('accepts cognitive reflection and Task Type induction model stages at the management boundary', async () => {
@@ -3940,6 +4254,7 @@ function operations(failServerList = false): ManagementOperations {
       create: unused,
       disable: unused,
       effect: unused,
+      findCurrent: () => Promise.resolve(undefined),
       listVersions: () => Promise.resolve([]),
       publish: unused,
       rollback: unused,
@@ -4104,4 +4419,164 @@ function workflowInstance(planId: string, status: 'paused' | 'succeeded' | 'canc
         }
       : { completedAt: '2026-07-12T00:00:02.000Z' }),
   };
+}
+
+class InMemoryCognitiveManagementActionRepository implements CognitiveManagementActionRepository {
+  readonly #items = new Map<
+    string,
+    Readonly<{
+      claim: CognitiveManagementActionClaim;
+      status: 'pending' | 'completed' | 'failed';
+      lease?: CognitiveManagementActionLease;
+      result?: unknown;
+      errorCode?: string;
+    }>
+  >();
+  readonly #recoverFirstClaims: Set<string>;
+
+  constructor(recoverFirstClaims: readonly string[] = []) {
+    this.#recoverFirstClaims = new Set(recoverFirstClaims);
+  }
+
+  claim(input: CognitiveManagementActionClaim): Promise<CognitiveManagementActionClaimResult> {
+    const key = `${input.operation}:${input.subjectId}:${input.idempotencyKey}`;
+    const existing = this.#items.get(key);
+    if (existing === undefined) {
+      const recovered = this.#recoverFirstClaims.delete(input.idempotencyKey);
+      const lease = recovered
+        ? {
+            ...actionLease(input, 'provider_dispatch'),
+            attempt: 2,
+            providerDispatchId: 'mcp-invocation-recovered',
+            providerDispatchHash: `sha256:${'a'.repeat(64)}`,
+          }
+        : actionLease(input, 'claimed');
+      this.#items.set(key, { claim: input, status: 'pending', lease });
+      return Promise.resolve({ disposition: recovered ? 'recovered' : 'claimed', lease });
+    }
+    if (existing.claim.requestHash !== input.requestHash)
+      return Promise.resolve({ disposition: 'conflict' });
+    if (existing.status === 'completed')
+      return Promise.resolve({ disposition: 'completed', result: existing.result });
+    if (existing.status === 'failed')
+      return Promise.resolve({
+        disposition: 'failed',
+        ...(existing.errorCode === undefined ? {} : { errorCode: existing.errorCode }),
+      });
+    return Promise.resolve({ disposition: 'pending' });
+  }
+
+  renewLease(lease: CognitiveManagementActionLease): Promise<CognitiveManagementActionLease> {
+    this.#current(lease);
+    return Promise.resolve(lease);
+  }
+
+  assertCurrentLease(lease: CognitiveManagementActionLease): Promise<void> {
+    this.#current(lease);
+    return Promise.resolve();
+  }
+
+  runFencedProjection<T>(
+    lease: CognitiveManagementActionLease,
+    projection: () => Promise<T>,
+  ): Promise<T> {
+    this.#current(lease);
+    return projection();
+  }
+
+  startExecution(lease: CognitiveManagementActionLease): Promise<CognitiveManagementActionLease> {
+    this.#current(lease);
+    const next = { ...lease, executionPhase: 'execution_started' as const };
+    this.#replaceLease(lease.actionId, next);
+    return Promise.resolve(next);
+  }
+
+  enterProviderDispatch(
+    lease: CognitiveManagementActionLease,
+    dispatch: Readonly<{ dispatchId: string; dispatchHash: string }>,
+  ): Promise<CognitiveManagementActionLease> {
+    this.#current(lease);
+    const next = {
+      ...lease,
+      executionPhase: 'provider_dispatch' as const,
+      providerDispatchId: dispatch.dispatchId,
+      providerDispatchHash: dispatch.dispatchHash,
+    };
+    this.#replaceLease(lease.actionId, next);
+    return Promise.resolve(next);
+  }
+
+  complete(lease: CognitiveManagementActionLease, result: unknown): Promise<void> {
+    this.#current(lease);
+    for (const [key, item] of this.#items) {
+      if (item.claim.actionId !== lease.actionId) continue;
+      this.#items.set(key, {
+        claim: item.claim,
+        status: 'completed',
+        result: jsonbRoundTrip(result),
+      });
+      return Promise.resolve();
+    }
+    return Promise.reject(new Error('COGNITIVE_MANAGEMENT_ACTION_NOT_FOUND'));
+  }
+
+  fail(lease: CognitiveManagementActionLease, errorCode: string): Promise<void> {
+    this.#current(lease);
+    for (const [key, item] of this.#items) {
+      if (item.claim.actionId !== lease.actionId) continue;
+      this.#items.set(key, { claim: item.claim, status: 'failed', errorCode });
+      return Promise.resolve();
+    }
+    return Promise.reject(new Error('COGNITIVE_MANAGEMENT_ACTION_NOT_FOUND'));
+  }
+
+  list(): Promise<readonly CognitiveManagementActionRecord[]> {
+    return Promise.resolve([]);
+  }
+
+  #current(lease: CognitiveManagementActionLease): void {
+    const item = [...this.#items.values()].find(
+      (candidate) => candidate.claim.actionId === lease.actionId,
+    );
+    if (
+      item?.status !== 'pending' ||
+      item.lease?.owner !== lease.owner ||
+      item.lease.attempt !== lease.attempt ||
+      item.lease.token !== lease.token
+    )
+      throw new Error('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+  }
+
+  #replaceLease(actionId: string, lease: CognitiveManagementActionLease): void {
+    for (const [key, item] of this.#items) {
+      if (item.claim.actionId !== actionId) continue;
+      this.#items.set(key, { ...item, lease });
+      return;
+    }
+    throw new Error('COGNITIVE_MANAGEMENT_ACTION_NOT_FOUND');
+  }
+}
+
+function jsonbRoundTrip(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(jsonbRoundTrip);
+  if (typeof value !== 'object' || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.length - right.length || left.localeCompare(right))
+      .map(([key, item]) => [key, jsonbRoundTrip(item)]),
+  );
+}
+
+function actionLease(
+  input: CognitiveManagementActionClaim,
+  executionPhase: CognitiveManagementActionLease['executionPhase'],
+): CognitiveManagementActionLease {
+  return Object.freeze({
+    actionId: input.actionId,
+    owner: input.leaseOwner,
+    attempt: 1,
+    token: input.leaseToken,
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    executionPhase,
+  });
 }

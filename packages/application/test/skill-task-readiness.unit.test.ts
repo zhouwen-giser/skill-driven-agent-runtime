@@ -202,6 +202,82 @@ describe('FrozenSkillTaskReadinessAdapter', () => {
       ],
     });
   });
+
+  it('keeps unresolved arguments by default and injects only an explicit resolved value', async () => {
+    const observedArguments: unknown[] = [];
+    const operations: SkillTaskOperationCandidateCatalog = {
+      listTaskOperationCandidates: () => Promise.resolve([candidate('provider.exact')]),
+    };
+    const availability: TaskAvailabilityBatchReader = {
+      checkTaskAvailability: (input) => {
+        observedArguments.push(input.requests[0]?.arguments);
+        return Promise.resolve(result('available'));
+      },
+    };
+    const dependencies = {
+      operations,
+      availability,
+      clock: { now: () => now },
+      providerBindings: currentProviderBindings(),
+    };
+
+    await new FrozenSkillTaskReadinessAdapter(dependencies).inspect(
+      inspectInput(binding(dynamicPolicy())),
+    );
+    await new FrozenSkillTaskReadinessAdapter({
+      ...dependencies,
+      resolveArguments: () => ({
+        unresolved: false,
+        value: { resourceId: 'living-room-main-light' },
+      }),
+    }).inspect(inspectInput(binding(dynamicPolicy())));
+
+    expect(observedArguments).toEqual([
+      { unresolved: true, knownArguments: {}, unresolvedPaths: ['$'] },
+      { unresolved: false, value: { resourceId: 'living-room-main-light' } },
+    ]);
+  });
+
+  it('preserves standalone readiness without an authority reader and fails closed before availability when configured', async () => {
+    let availabilityCalls = 0;
+    const operations: SkillTaskOperationCandidateCatalog = {
+      listTaskOperationCandidates: () => Promise.resolve([candidate('provider.exact')]),
+    };
+    const availability: TaskAvailabilityBatchReader = {
+      checkTaskAvailability: () => {
+        availabilityCalls += 1;
+        return Promise.resolve(result('available'));
+      },
+    };
+    const dependencies = { operations, availability, clock: { now: () => now } };
+
+    await expect(
+      new FrozenSkillTaskReadinessAdapter(dependencies).inspect(
+        inspectInput(binding(dynamicPolicy())),
+      ),
+    ).resolves.toMatchObject({ overall: 'ready' });
+    await expect(
+      new FrozenSkillTaskReadinessAdapter({
+        ...dependencies,
+        providerBindings: {
+          loadCurrentMcpProviderBinding: () =>
+            Promise.reject(new Error('MCP_PROVIDER_BINDING_NOT_CURRENT')),
+        },
+      }).inspect(inspectInput(binding(dynamicPolicy()))),
+    ).resolves.toMatchObject({
+      overall: 'unknown',
+      bindings: [
+        {
+          candidates: [
+            expect.objectContaining({
+              reasonCodes: expect.arrayContaining(['MCP_PROVIDER_BINDING_NOT_CURRENT']),
+            }),
+          ],
+        },
+      ],
+    });
+    expect(availabilityCalls).toBe(1);
+  });
 });
 
 function readiness(
@@ -224,7 +300,28 @@ function readiness(
     operations,
     availability,
     clock: { now: () => now },
+    providerBindings: currentProviderBindings(),
   });
+}
+
+function currentProviderBindings() {
+  return {
+    loadCurrentMcpProviderBinding: (input: Readonly<{ localServerId: string }>) =>
+      Promise.resolve({
+        observedAt: now,
+        binding: {
+          bindingId: `binding-${input.localServerId}`,
+          revision: 1,
+          localServerId: input.localServerId,
+          providerId: `external-${input.localServerId}`,
+          endpointRef: 'https://provider.test/mcp',
+          catalogRevision: '1.0.0:1',
+          catalogChecksum: 'a'.repeat(64),
+          operationCount: 1,
+          availabilityValidUntil: '2026-07-17T13:00:00.000Z',
+        },
+      }),
+  };
 }
 
 function candidate(providerId: string): McpTaskOperationCandidate {

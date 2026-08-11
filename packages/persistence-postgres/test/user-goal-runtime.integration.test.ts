@@ -88,6 +88,71 @@ describe('PostgresUserGoalRuntimeRepository', () => {
     expect(results.filter((result) => result === undefined)).toHaveLength(1);
   });
 
+  it('keeps terminal plan revisions readable without making them current for scheduling', async () => {
+    const repository = new PostgresUserGoalRuntimeRepository(pool);
+    await pool.query(
+      `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
+       VALUES('context.v122.terminal','anonymous',$1,$1)`,
+      [timestamp(1)],
+    );
+    await pool.query(
+      `INSERT INTO goal(goal_id,context_id,version,title,description,constraints_json,
+       success_criteria_json,status,created_at,updated_at)
+       VALUES('goal.v122.terminal','context.v122.terminal',1,'Terminal Goal','Terminal plan read',
+         '[]','[]','active',$1,$1)`,
+      [timestamp(1)],
+    );
+    await repository.saveContract(
+      createUserGoalCompletionContract({
+        ...contract(),
+        goalId: 'goal.v122.terminal',
+      }),
+      `sha256:${'c'.repeat(64)}`,
+      timestamp(1),
+    );
+    await repository.createPlan(
+      createUserGoalPlan({
+        ...plan(),
+        planId: 'plan.v122.terminal',
+        goalId: 'goal.v122.terminal',
+        status: 'validated',
+        contractHash: `sha256:${'c'.repeat(64)}`,
+        contentHash: `sha256:${'d'.repeat(64)}`,
+        skillGoals: [
+          {
+            ...plan().skillGoals[0]!,
+            skillGoalId: 'skill-goal.v122.terminal',
+          },
+        ],
+        createdAt: timestamp(1),
+      }),
+    );
+    await expect(
+      repository.compareAndSetPlanStatus({
+        planId: 'plan.v122.terminal',
+        expectedLockVersion: 1,
+        expectedStatus: 'validated',
+        status: 'active',
+        updatedAt: timestamp(2),
+      }),
+    ).resolves.toBe(2);
+    await expect(
+      repository.compareAndSetPlanStatus({
+        planId: 'plan.v122.terminal',
+        expectedLockVersion: 2,
+        expectedStatus: 'active',
+        status: 'completed',
+        updatedAt: timestamp(3),
+      }),
+    ).resolves.toBe(3);
+
+    await expect(repository.findCurrentPlan('goal.v122.terminal', 1)).resolves.toBeUndefined();
+    await expect(repository.findLatestPlan('goal.v122.terminal', 1)).resolves.toMatchObject({
+      lockVersion: 3,
+      plan: { planId: 'plan.v122.terminal', status: 'completed' },
+    });
+  });
+
   it('enforces one active Attempt per Skill Goal under a race', async () => {
     const repository = new PostgresUserGoalRuntimeRepository(pool);
     await expect(repository.listReadySkillGoals('plan.v122.1')).resolves.toMatchObject([

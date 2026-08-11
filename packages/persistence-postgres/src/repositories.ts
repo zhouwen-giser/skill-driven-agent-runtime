@@ -854,6 +854,7 @@ interface McpWarningRow extends QueryResultRow {
 interface McpInvocationRow extends QueryResultRow {
   invocation_id: string;
   task_id: string | null;
+  capability_attempt_id: string | null;
   context_id: string | null;
   execution_mode: McpInvocation['executionMode'];
   simulation_id: string | null;
@@ -1752,6 +1753,7 @@ interface RuntimeTerminalOutcomeRow extends QueryResultRow {
   round_index: number | null;
   final_instance_id: string | null;
   result_id: string | null;
+  capability_attempt_id: string | null;
   summary: string;
   authority: typeof USER_GOAL_PLAN_TERMINAL_AUTHORITY;
   enhancement_warnings_json: unknown;
@@ -1922,6 +1924,43 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       if (existing !== undefined) {
         const mapped = mapRuntimeTerminalOutcome(existing);
         if (matchesTerminalRetry(mapped, kind, controlStatus, input)) {
+          const retryCapabilityProof =
+            kind === 'achieved'
+              ? (input as RuntimeAchievedOutcomeInput).capabilityTerminalProof
+              : undefined;
+          if (mapped.capabilityAttemptId !== undefined) {
+            if (retryCapabilityProof === undefined)
+              throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+            const retryAuthority = (
+              await client.query<{
+                attempt_id: string;
+                task_id: string;
+                binding_id: string;
+                binding_hash: string;
+                requested_capability_id: string;
+                capability_version: number;
+              }>(
+                `SELECT attempt.attempt_id,attempt.task_id,binding.binding_id,binding.binding_hash,
+                        binding.requested_capability_id,binding.capability_version
+                   FROM task_capability_execution_attempt AS attempt
+                   JOIN task_capability_binding AS binding
+                     ON binding.binding_id=attempt.capability_binding_id
+                    AND binding.task_id=attempt.task_id
+                  WHERE attempt.attempt_id=$1 AND attempt.task_id=$2`,
+                [mapped.capabilityAttemptId, input.taskId],
+              )
+            ).rows[0];
+            if (
+              retryAuthority?.attempt_id !== retryCapabilityProof.attemptId ||
+              retryAuthority.task_id !== retryCapabilityProof.taskId ||
+              retryAuthority.binding_id !== retryCapabilityProof.bindingId ||
+              retryAuthority.binding_hash !== retryCapabilityProof.bindingHash ||
+              retryAuthority.requested_capability_id !==
+                retryCapabilityProof.requestedCapabilityId ||
+              retryAuthority.capability_version !== retryCapabilityProof.capabilityVersion
+            )
+              throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+          }
           await client.query('COMMIT');
           return mapped;
         }
@@ -1998,6 +2037,67 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       )
         throw new Error('RUNTIME_TERMINAL_DECISION_MISMATCH');
 
+      const capabilityTerminalProof =
+        kind === 'achieved'
+          ? (input as RuntimeAchievedOutcomeInput).capabilityTerminalProof
+          : undefined;
+      const capabilityBinding =
+        input.taskId === undefined
+          ? undefined
+          : (
+              await client.query<{ binding_id: string }>(
+                'SELECT binding_id FROM task_capability_binding WHERE task_id=$1',
+                [input.taskId],
+              )
+            ).rows[0];
+      if (
+        kind === 'achieved' &&
+        capabilityBinding !== undefined &&
+        capabilityTerminalProof === undefined
+      )
+        throw new Error('RUNTIME_TERMINAL_CAPABILITY_PROOF_REQUIRED');
+      if (
+        capabilityTerminalProof !== undefined &&
+        capabilityBinding?.binding_id !== capabilityTerminalProof.bindingId
+      )
+        throw new Error('RUNTIME_TERMINAL_CAPABILITY_PROOF_BINDING_MISMATCH');
+      if (capabilityTerminalProof !== undefined) {
+        if (capabilityTerminalProof.taskId !== task?.task_id)
+          throw new Error('RUNTIME_TERMINAL_CAPABILITY_PROOF_TASK_MISMATCH');
+        const succeededAttempt = await client.query(
+          `UPDATE task_capability_execution_attempt AS attempt
+              SET status='succeeded',
+                  started_at=COALESCE(attempt.started_at,$7),
+                  completed_at=$7
+             FROM task_capability_binding AS binding
+            WHERE attempt.attempt_id=$1
+              AND attempt.task_id=$2
+              AND attempt.capability_binding_id=$3
+              AND binding.binding_id=$3
+              AND binding.task_id=$2
+              AND binding.requested_capability_id=$4
+              AND binding.capability_version=$5
+              AND binding.binding_hash=$6
+              AND attempt.attempt_no=(
+                SELECT MAX(latest.attempt_no)
+                  FROM task_capability_execution_attempt AS latest
+                 WHERE latest.task_id=$2
+              )
+              AND attempt.status IN ('prepared','running','waiting')`,
+          [
+            capabilityTerminalProof.attemptId,
+            capabilityTerminalProof.taskId,
+            capabilityTerminalProof.bindingId,
+            capabilityTerminalProof.requestedCapabilityId,
+            capabilityTerminalProof.capabilityVersion,
+            capabilityTerminalProof.bindingHash,
+            input.committedAt,
+          ],
+        );
+        if (succeededAttempt.rowCount !== 1)
+          throw new Error('RUNTIME_TERMINAL_CAPABILITY_PROOF_CONFLICT');
+      }
+
       const authority = input.authority ?? USER_GOAL_PLAN_TERMINAL_AUTHORITY;
       const layeredOutcome = 'layeredOutcome' in input ? input.layeredOutcome : undefined;
       if (userGoalPlan !== undefined && kind !== 'canceled') {
@@ -2018,9 +2118,9 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       await client.query(
         `INSERT INTO runtime_terminal_outcome(
            outcome_id,outcome_kind,task_id,goal_id,goal_version,control_id,control_status,
-           round_index,final_instance_id,result_id,summary,authority,
+           round_index,final_instance_id,result_id,capability_attempt_id,summary,authority,
            enhancement_warnings_json,committed_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'[]'::jsonb,$13)`,
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'[]'::jsonb,$14)`,
         [
           input.outcomeId,
           kind,
@@ -2032,6 +2132,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           roundIndex ?? null,
           finalInstanceId ?? null,
           processed?.resultId ?? null,
+          capabilityTerminalProof?.attemptId ?? null,
           input.summary,
           authority,
           input.committedAt,
@@ -2205,6 +2306,9 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         ...(roundIndex === undefined ? {} : { roundIndex }),
         ...(finalInstanceId === undefined ? {} : { finalInstanceId }),
         ...(processed === undefined ? {} : { resultId: processed.resultId }),
+        ...(capabilityTerminalProof === undefined
+          ? {}
+          : { capabilityAttemptId: capabilityTerminalProof.attemptId }),
         summary: input.summary,
         authority,
         enhancementWarnings: [],
@@ -2472,6 +2576,10 @@ function matchesTerminalRetry(
     existing.roundIndex === round?.roundIndex &&
     existing.finalInstanceId === finalInstanceId &&
     existing.resultId === processed?.resultId &&
+    existing.capabilityAttemptId ===
+      (kind === 'achieved'
+        ? (input as RuntimeAchievedOutcomeInput).capabilityTerminalProof?.attemptId
+        : undefined) &&
     existing.summary === input.summary
   );
 }
@@ -2488,6 +2596,9 @@ function mapRuntimeTerminalOutcome(row: RuntimeTerminalOutcomeRow): RuntimeTermi
     ...(row.round_index === null ? {} : { roundIndex: row.round_index }),
     ...(row.final_instance_id === null ? {} : { finalInstanceId: row.final_instance_id }),
     ...(row.result_id === null ? {} : { resultId: row.result_id }),
+    ...(row.capability_attempt_id === null
+      ? {}
+      : { capabilityAttemptId: row.capability_attempt_id }),
     summary: row.summary,
     authority: row.authority,
     enhancementWarnings: RuntimeEnhancementWarningsSchema.parse(row.enhancement_warnings_json),
@@ -3790,8 +3901,16 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
       `WITH expired AS (
          UPDATE agent_task SET phase='canceled',phase_message='Task canceled after the unified wait timeout.',
            error_code='TASK_WAIT_TIMEOUT',updated_at=$2
-         WHERE phase IN ('awaiting_plan_confirmation','awaiting_user_input') AND updated_at <= $1
+       WHERE phase IN ('awaiting_plan_confirmation','awaiting_user_input') AND updated_at <= $1
          RETURNING *
+       ), capability_attempts AS (
+         UPDATE task_capability_execution_attempt AS attempt
+            SET status='canceled',
+                started_at=COALESCE(attempt.started_at,$2),
+                completed_at=$2
+          WHERE attempt.task_id IN (SELECT task_id FROM expired)
+            AND attempt.status IN ('prepared','running','waiting')
+         RETURNING attempt.task_id
        ), input_requests AS (
          UPDATE task_input_request SET status='expired'
          WHERE task_id IN (SELECT task_id FROM expired) AND status='waiting'
@@ -6393,11 +6512,11 @@ export class PostgresMcpRegistryRepository
       for (const tool of tools) {
         await client.query(
           `INSERT INTO mcp_tool
-             (server_id,tool_name,title,description,input_schema_json,output_schema_json,
-              enhancement_json,declared_execution_semantics_json,
-              admin_execution_semantics_override_json,execution_semantics_json,
-              discovered_at,task_execution_json)
-           VALUES($1,$2,$3,$4,$5,$6,NULL,NULL,NULL,$7,$8,$9)`,
+              (server_id,tool_name,title,description,input_schema_json,output_schema_json,
+               enhancement_json,declared_execution_semantics_json,
+               admin_execution_semantics_override_json,execution_semantics_json,
+               discovered_at,task_execution_json)
+            VALUES($1,$2,$3,$4,$5,$6,NULL,$7,$8,$9,$10,$11)`,
           [
             tool.serverId,
             tool.toolName,
@@ -6405,6 +6524,12 @@ export class PostgresMcpRegistryRepository
             tool.description ?? null,
             JSON.stringify(tool.inputSchema),
             JSON.stringify(tool.outputSchema),
+            tool.declaredExecutionSemantics === undefined
+              ? null
+              : JSON.stringify(tool.declaredExecutionSemantics),
+            tool.adminExecutionSemanticsOverride === undefined
+              ? null
+              : JSON.stringify(tool.adminExecutionSemanticsOverride),
             JSON.stringify(tool.executionSemantics),
             tool.discoveredAt,
             JSON.stringify(tool.taskExecutionProfile),
@@ -6491,12 +6616,13 @@ export class PostgresMcpRegistryRepository
   async saveInvocation(invocation: McpInvocation): Promise<void> {
     await this.#pool.query(
       `INSERT INTO mcp_invocation
-         (invocation_id, task_id, context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
+         (invocation_id, task_id, capability_attempt_id, context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
           execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
         invocation.invocationId,
         invocation.taskId ?? null,
+        invocation.capabilityAttemptId ?? null,
         invocation.contextId ?? null,
         invocation.executionMode,
         invocation.simulationId ?? null,
@@ -6517,7 +6643,7 @@ export class PostgresMcpRegistryRepository
 
   async listInvocations(serverId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
-      `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
+      `SELECT invocation_id, task_id, capability_attempt_id, context_id, server_id, tool_name, arguments_json,
               execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
       [serverId],
@@ -6527,7 +6653,7 @@ export class PostgresMcpRegistryRepository
 
   async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
-      `SELECT invocation_id, task_id, context_id, server_id, tool_name, arguments_json,
+      `SELECT invocation_id, task_id, capability_attempt_id, context_id, server_id, tool_name, arguments_json,
               execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
       [taskId],
@@ -7147,6 +7273,9 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
   return {
     invocationId: row.invocation_id,
     ...(row.task_id === null ? {} : { taskId: row.task_id }),
+    ...(row.capability_attempt_id === null
+      ? {}
+      : { capabilityAttemptId: row.capability_attempt_id }),
     ...(row.context_id === null ? {} : { contextId: row.context_id }),
     executionMode: row.execution_mode,
     ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),

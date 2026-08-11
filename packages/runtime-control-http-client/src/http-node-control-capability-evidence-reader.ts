@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type {
   CapabilityAuthorityReader,
   CapabilityAuthoritySnapshot,
+  CurrentMcpProviderBindingAuthorityReader,
+  CurrentMcpProviderBindingAuthoritySnapshot,
 } from '../../runtime-control-application/src/index.js';
 
 const JsonSchema = z.json();
@@ -55,7 +57,101 @@ const BindingListSchema = z
   })
   .strict();
 
-export class HttpNodeControlCapabilityEvidenceReader implements CapabilityAuthorityReader {
+const ChecksumSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+const HttpEndpointSchema = z.url().superRefine((value, context) => {
+  const endpoint = new URL(value);
+  if (
+    (endpoint.protocol !== 'http:' && endpoint.protocol !== 'https:') ||
+    endpoint.username !== '' ||
+    endpoint.password !== ''
+  )
+    context.addIssue({
+      code: 'custom',
+      message: 'Current MCP Binding endpoint must be an HTTP(S) URL without userinfo.',
+    });
+});
+const CurrentMcpProviderBindingAuthoritySchema = z
+  .object({
+    observedAt: z.iso.datetime({ offset: true }),
+    binding: z
+      .object({
+        bindingId: z.string().min(1),
+        revision: z.number().int().positive(),
+        localServerId: z.string().min(1),
+        originType: z.enum(['direct', 'smpp_registry']),
+        providerId: z.string().min(1),
+        externalProviderId: z.string().min(1).optional(),
+        externalServerId: z.string().min(1).optional(),
+        registryRevision: z.number().int().positive().optional(),
+        registryChecksum: ChecksumSchema.optional(),
+        catalogRevision: z.string().min(1),
+        catalogChecksum: ChecksumSchema,
+        endpointRef: HttpEndpointSchema,
+        availabilityValidUntil: z.iso.datetime({ offset: true }),
+        catalogObservedAt: z.iso.datetime({ offset: true }),
+        operationCount: z.number().int().nonnegative().max(1024),
+      })
+      .strict(),
+    sourceCandidateLineage: z
+      .object({
+        smppSourceId: z.string().min(1),
+        externalProviderId: z.string().min(1),
+        externalServerId: z.string().min(1),
+        registryRevision: z.number().int().positive(),
+        registryChecksum: ChecksumSchema,
+        nativeRevision: z.number().int().positive(),
+        nativeChecksum: ChecksumSchema,
+        projectionContract: z.literal('sdar-registry-v1'),
+        candidateEndpoint: HttpEndpointSchema,
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .superRefine((authority, context) => {
+    const smpp = authority.binding.originType === 'smpp_registry';
+    const hasAnySmppLineage =
+      authority.binding.externalProviderId !== undefined ||
+      authority.binding.externalServerId !== undefined ||
+      authority.binding.registryRevision !== undefined ||
+      authority.binding.registryChecksum !== undefined ||
+      authority.sourceCandidateLineage !== undefined;
+    const complete =
+      authority.binding.externalProviderId !== undefined &&
+      authority.binding.externalServerId !== undefined &&
+      authority.binding.registryRevision !== undefined &&
+      authority.binding.registryChecksum !== undefined &&
+      authority.sourceCandidateLineage !== undefined;
+    if ((smpp && !complete) || (!smpp && hasAnySmppLineage))
+      context.addIssue({
+        code: 'custom',
+        message: 'Current SMPP Binding authority requires exact source/candidate lineage.',
+      });
+    const lineage = authority.sourceCandidateLineage;
+    if (
+      smpp &&
+      lineage !== undefined &&
+      (authority.binding.providerId !== authority.binding.externalProviderId ||
+        lineage.externalProviderId !== authority.binding.externalProviderId ||
+        lineage.externalServerId !== authority.binding.externalServerId ||
+        lineage.registryRevision !== authority.binding.registryRevision ||
+        lineage.registryChecksum !== authority.binding.registryChecksum ||
+        lineage.candidateEndpoint !== authority.binding.endpointRef)
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Current SMPP Binding and source/candidate lineage identities differ.',
+      });
+    if (Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(authority.observedAt))
+      context.addIssue({
+        code: 'custom',
+        message: 'Current MCP Binding availability has expired.',
+      });
+  });
+
+export class HttpNodeControlCapabilityEvidenceReader
+  implements CapabilityAuthorityReader, CurrentMcpProviderBindingAuthorityReader
+{
   readonly #baseUrl: string;
   readonly #serviceToken: string;
 
@@ -118,6 +214,49 @@ export class HttpNodeControlCapabilityEvidenceReader implements CapabilityAuthor
           }),
         ),
       ),
+    });
+  }
+
+  async loadCurrentMcpProviderBinding(
+    input: Readonly<{ bindingId?: string; localServerId: string }>,
+  ): Promise<CurrentMcpProviderBindingAuthoritySnapshot> {
+    const query = new URLSearchParams({ localServerId: input.localServerId });
+    if (input.bindingId !== undefined) query.set('bindingId', input.bindingId);
+    const response = await globalThis.fetch(
+      `${this.#baseUrl}/internal/v1/mcp-provider-bindings/current?${query.toString()}`,
+      { headers: this.#headers() },
+    );
+    const authority = CurrentMcpProviderBindingAuthoritySchema.parse(await responseJson(response));
+    return Object.freeze({
+      observedAt: authority.observedAt,
+      binding: Object.freeze({
+        bindingId: authority.binding.bindingId,
+        revision: authority.binding.revision,
+        localServerId: authority.binding.localServerId,
+        originType: authority.binding.originType,
+        providerId: authority.binding.providerId,
+        ...(authority.binding.externalProviderId === undefined
+          ? {}
+          : { externalProviderId: authority.binding.externalProviderId }),
+        ...(authority.binding.externalServerId === undefined
+          ? {}
+          : { externalServerId: authority.binding.externalServerId }),
+        ...(authority.binding.registryRevision === undefined
+          ? {}
+          : { registryRevision: authority.binding.registryRevision }),
+        ...(authority.binding.registryChecksum === undefined
+          ? {}
+          : { registryChecksum: authority.binding.registryChecksum }),
+        catalogRevision: authority.binding.catalogRevision,
+        catalogChecksum: authority.binding.catalogChecksum,
+        endpointRef: authority.binding.endpointRef,
+        availabilityValidUntil: authority.binding.availabilityValidUntil,
+        catalogObservedAt: authority.binding.catalogObservedAt,
+        operationCount: authority.binding.operationCount,
+      }),
+      ...(authority.sourceCandidateLineage === undefined
+        ? {}
+        : { sourceCandidateLineage: Object.freeze(authority.sourceCandidateLineage) }),
     });
   }
 

@@ -6,6 +6,7 @@ import {
   type GoalEvaluationResult,
   type ProcessedResultRecord,
   type RuntimeEnhancementWarning,
+  type RuntimeTaskCapabilityTerminalProof,
   type RuntimeTerminalOutcomeRecord,
   type WorkflowControlRecord,
   type WorkflowDefinition,
@@ -46,7 +47,17 @@ export interface WorkflowControllerTaskOutcomes {
     taskId: string,
     instance: WorkflowInstance,
     evaluation: GoalEvaluationResult,
-  ): Promise<ProcessedResultRecord>;
+  ): Promise<
+    Readonly<{
+      processedResult: ProcessedResultRecord;
+      capabilityTerminalProof?: RuntimeTaskCapabilityTerminalProof;
+      verifiedOutcomeRefs?: Readonly<{
+        effectRefs: readonly string[];
+        evidenceRefs: readonly string[];
+        artifactRefs: readonly string[];
+      }>;
+    }>
+  >;
   enhanceResultMemory(processedResult: ProcessedResultRecord): Promise<void>;
   enhanceTaskQuality(
     taskId: string,
@@ -319,6 +330,7 @@ export class WorkflowControllerService {
       goalId: control.goalId,
       goalVersion: control.goalVersion,
       goalContract: createGoalExecutionContract(goal),
+      taskId: input.taskId,
       ...(sourcePlan.skillGoalId === undefined ? {} : { skillGoalId: sourcePlan.skillGoalId }),
       ...(sourcePlan.skillAttemptId === undefined
         ? {}
@@ -491,7 +503,11 @@ export class WorkflowControllerService {
       if (instance.status === 'waiting_external') return control;
       if (hasWorkflowError(instance, 'WORKFLOW_SKILL_VERSION_STALE'))
         return this.#recoverStaleSkillVersion({ control, plan, goal, instance, instanceId });
-      const evaluation = await this.#evaluator.evaluate({ goal, instance });
+      const evaluation = await this.#evaluator.evaluate({
+        goal,
+        instance,
+        ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
+      });
       const round = {
         controlId: control.controlId,
         roundIndex: control.roundCount,
@@ -502,12 +518,21 @@ export class WorkflowControllerService {
         createdAt: this.#clock.now(),
       } as const;
       const completedRound = control.roundCount + 1;
-      const workflowOutcome = toWorkflowExecutionOutcome(plan.planId, instance, evaluation.summary);
+      let workflowOutcome = toWorkflowExecutionOutcome(plan.planId, instance, evaluation.summary);
       if (evaluation.decision === 'achieved' || evaluation.decision === 'unachievable') {
-        const processed =
+        const prepared =
           evaluation.decision === 'achieved' && control.taskId !== undefined
             ? await this.#prepareAchieved(control.taskId, instance, evaluation)
             : undefined;
+        const processed = prepared?.processedResult;
+        if (prepared?.verifiedOutcomeRefs !== undefined)
+          workflowOutcome = Object.freeze({
+            ...workflowOutcome,
+            effectRefs: Object.freeze([...prepared.verifiedOutcomeRefs.effectRefs]),
+            evidenceRefs: Object.freeze([...prepared.verifiedOutcomeRefs.evidenceRefs]),
+            artifactRefs: Object.freeze([...prepared.verifiedOutcomeRefs.artifactRefs]),
+            confidence: 'high',
+          });
         const outcomeId = terminalOutcomeId(control);
         const outcome =
           evaluation.decision === 'achieved'
@@ -520,6 +545,9 @@ export class WorkflowControllerService {
                 round,
                 workflowOutcome,
                 ...(processed === undefined ? {} : { processedResult: processed }),
+                ...(prepared?.capabilityTerminalProof === undefined
+                  ? {}
+                  : { capabilityTerminalProof: prepared.capabilityTerminalProof }),
                 summary: evaluation.summary,
                 ...(control.taskId === undefined
                   ? {}
@@ -718,6 +746,7 @@ export class WorkflowControllerService {
         goalId: control.goalId,
         goalVersion: control.goalVersion,
         goalContract: createGoalExecutionContract(goal),
+        ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
         ...(plan.skillGoalId === undefined ? {} : { skillGoalId: plan.skillGoalId }),
         ...(plan.skillAttemptId === undefined ? {} : { skillAttemptId: plan.skillAttemptId }),
         sourcePlanId: plan.planId,
@@ -879,6 +908,7 @@ export class WorkflowControllerService {
       goalId: input.control.goalId,
       goalVersion: input.control.goalVersion,
       goalContract: createGoalExecutionContract(input.goal),
+      taskId: input.control.taskId,
       ...(input.plan.skillGoalId === undefined ? {} : { skillGoalId: input.plan.skillGoalId }),
       ...(input.plan.skillAttemptId === undefined
         ? {}
@@ -925,7 +955,7 @@ export class WorkflowControllerService {
     taskId: string,
     instance: WorkflowInstance,
     evaluation: GoalEvaluationResult,
-  ): Promise<ProcessedResultRecord> {
+  ): ReturnType<WorkflowControllerTaskOutcomes['prepareAchieved']> {
     if (this.#taskOutcomes === undefined)
       throw new WorkflowControllerError(
         'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',

@@ -202,6 +202,7 @@ describe('GoalPatchService', () => {
     });
     expect(planning[0]).toMatchObject({
       planId: 'plan-2',
+      taskId: 'task-1',
       goalVersion: 2,
       goalContract: {
         goalId: 'goal-1',
@@ -213,6 +214,7 @@ describe('GoalPatchService', () => {
     });
     expect(JSON.stringify(planning[0])).toContain('always_require_confirmation');
     expect(JSON.stringify(planning[0])).toContain('skill-input-resolution-patch-1');
+    expect(userGoalPlanningInputs[0]).toMatchObject({ taskId: 'task-1' });
     expect(JSON.stringify(planning[0])).toContain('Restore the prior calibration value.');
     expect(userGoalPlanningInputs).toEqual([
       expect.objectContaining({

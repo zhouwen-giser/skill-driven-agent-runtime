@@ -44,6 +44,22 @@ describe('UserGoalPlanCandidateValidator', () => {
       errorCodes: ['USER_GOAL_PLAN_CRITERION_COVERAGE_INCOMPLETE'],
     });
   });
+
+  it('applies an optional external guard after generic validation', () => {
+    const validator = new UserGoalPlanCandidateValidator({
+      externalGuard: {
+        assert() {
+          throw Object.assign(new Error('Profile contract rejected.'), {
+            code: 'HOME_LAB_READ_ONLY_USER_GOAL_PLAN_INVALID',
+          });
+        },
+      },
+    });
+    expect(validator.validate(contract(), plan())).toMatchObject({
+      valid: false,
+      errorCodes: ['HOME_LAB_READ_ONLY_USER_GOAL_PLAN_INVALID'],
+    });
+  });
 });
 
 describe('InteractivePlanPatchService', () => {
@@ -118,6 +134,83 @@ describe('InteractivePlanPatchService', () => {
 });
 
 describe('InteractivePlanningSessionService', () => {
+  it('rejects a guarded materialized candidate before repository persistence', async () => {
+    const repository = new MemoryInteractivePlanningRepository();
+    const validator = rejectingValidator();
+    const service = planningSessions(
+      repository,
+      new Set<string>(),
+      'manual_all',
+      plan,
+      undefined,
+      validator,
+    );
+
+    await expect(
+      service.startWithMaterializedCandidate({
+        ...startInput(goal()),
+        contract: contract(),
+        plan: plan(),
+        requiresManualConfirmation: true,
+      }),
+    ).rejects.toThrow('HOME_LAB_READ_ONLY_USER_GOAL_PLAN_INVALID');
+    expect(repository.session).toBeUndefined();
+    expect(repository.candidates.size).toBe(0);
+  });
+
+  it('revalidates the external guard before an accept mutation is persisted', async () => {
+    const repository = new MemoryInteractivePlanningRepository();
+    let reject = false;
+    const validator = new UserGoalPlanCandidateValidator({
+      externalGuard: {
+        assert() {
+          if (reject)
+            throw Object.assign(new Error('Profile contract rejected.'), {
+              code: 'HOME_LAB_READ_ONLY_USER_GOAL_PLAN_INVALID',
+            });
+        },
+      },
+    });
+    const service = planningSessions(
+      repository,
+      new Set<string>(),
+      'manual_all',
+      plan,
+      undefined,
+      validator,
+    );
+    const started = await service.start(startInput(goal()));
+    reject = true;
+
+    await expect(
+      service.applyAction({
+        sessionId: started.session.sessionId,
+        expectedVersion: 1,
+        idempotencyKey: 'planning-action.accept.rejected-by-profile',
+        actorId: 'user.1',
+        action: 'accept',
+        payload: {},
+      }),
+    ).rejects.toThrow('HOME_LAB_READ_ONLY_USER_GOAL_PLAN_INVALID');
+    expect(repository.turns).toHaveLength(0);
+    expect(repository.session).toMatchObject({ state: 'plan_review', version: 1 });
+  });
+
+  it('forwards the Task identity to the base Goal planner', async () => {
+    const requests: Readonly<{ goal: Goal; taskId?: string }>[] = [];
+    const service = planningSessions(
+      new MemoryInteractivePlanningRepository(),
+      new Set<string>(),
+      'manual_all',
+      plan,
+      requests,
+    );
+
+    await service.start(startInput(goal()));
+
+    expect(requests).toEqual([expect.objectContaining({ taskId: 'task.interactive-plan' })]);
+  });
+
   it('keeps the base plan outside v1.2.2 authority until an idempotent confirmed handoff', async () => {
     const repository = new MemoryInteractivePlanningRepository();
     const committed = new Set<string>();
@@ -331,6 +424,8 @@ function planningSessions(
   committed: Set<string>,
   policy: 'manual_all' | 'auto_validated',
   nextPlan: () => UserGoalPlan = plan,
+  requests?: Readonly<{ goal: Goal; taskId?: string }>[],
+  validator: UserGoalPlanCandidateValidator = new UserGoalPlanCandidateValidator(),
 ) {
   let sessionSequence = 0;
   let turnSequence = 0;
@@ -338,12 +433,15 @@ function planningSessions(
   return new InteractivePlanningSessionService({
     repository,
     planner: {
-      generateCandidate: () => Promise.resolve({ contract: contract(), plan: nextPlan() }),
+      generateCandidate: (input) => {
+        requests?.push(input);
+        return Promise.resolve({ contract: contract(), plan: nextPlan() });
+      },
     },
     patches: {
       compile: () => Promise.reject(new Error('PATCH_NOT_EXPECTED')),
     },
-    validator: new UserGoalPlanCandidateValidator(),
+    validator,
     handoff: {
       commit: (candidate) => {
         committed.add(candidate.plan.planId);
@@ -360,6 +458,18 @@ function planningSessions(
     maxRevisions: 4,
     maxElapsedMs: 900_000,
     defaultConfirmationPolicy: policy,
+  });
+}
+
+function rejectingValidator() {
+  return new UserGoalPlanCandidateValidator({
+    externalGuard: {
+      assert() {
+        throw Object.assign(new Error('Profile contract rejected.'), {
+          code: 'HOME_LAB_READ_ONLY_USER_GOAL_PLAN_INVALID',
+        });
+      },
+    },
   });
 }
 

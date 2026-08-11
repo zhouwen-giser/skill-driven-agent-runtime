@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G11",
+  "status": "failed",
+  "disposition": "real_device_objective_not_stable",
+  "evidenceClass": "real_smpp_runtime_adapter_home_assistant",
+  "observedAt": "2026-08-11T22:09:09.538Z",
+  "scenario": {
+    "mainLight": "Turn on living-room-main-light.",
+    "climate": "Set living-room-air-conditioner to cooling mode and a safe target temperature.",
+    "auxiliaryLight": "Included because living-room-aux-light was reachable."
+  },
+  "fullScenarioReady": false,
+  "failure": {
+    "code": "CLIMATE_OBJECTIVE_STATE_NOT_STABLE",
+    "message": "The Climate Runtime Task confirmed cool, but the real Home Assistant state returned to off within about three seconds. A following temperature Task confirmed 17 degrees Celsius while the HVAC mode remained off."
+  },
+  "workflow": {
+    "crossProviderParallelDispatchObserved": true,
+    "parallelDispatchWindowMs": 546.0089,
+    "parallelTasksCompleted": [
+      "climate_set_hvac_mode",
+      "light_set_power:living-room-main-light",
+      "light_set_power:living-room-aux-light"
+    ],
+    "climateModeBeforeTemperature": true,
+    "temperatureTaskCompleted": true,
+    "objectiveStateStable": false,
+    "sdarFormalPlanCreated": false,
+    "sdarConfirmationRecorded": false,
+    "implicitCompensationUsed": false,
+    "restorationAttempted": true,
+    "restoreStatus": "restored"
+  },
+  "objectiveObservation": {
+    "climate": { "power": "off", "hvacMode": "off", "targetTemperature": 17 },
+    "mainLight": { "power": "on" },
+    "auxiliaryLight": { "power": "on" }
+  },
+  "finalState": {
+    "climate": { "power": "off", "hvacMode": "off", "targetTemperature": 16 },
+    "mainLight": { "power": "off" },
+    "auxiliaryLight": { "power": "off" }
+  },
+  "authoritativeCountsAfterExecution": {
+    "activeSdarTasks": 0,
+    "uncertainSdarTasks": 0,
+    "activeSmppTasks": 0,
+    "uncertainSmppTasks": 0,
+    "writeGateOpen": false
+  },
+  "evidenceReferences": [
+    "reports/sdar-smpp-integration/raw/g11-cross-provider-attempt.redacted.json",
+    "reports/sdar-smpp-integration/raw/g11-cross-provider-final.redacted.json",
+    "reports/sdar-smpp-integration/raw/g11-light-restore.redacted.json"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

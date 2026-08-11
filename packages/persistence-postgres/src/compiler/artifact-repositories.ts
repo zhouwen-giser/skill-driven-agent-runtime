@@ -429,7 +429,6 @@ export class PostgresArtifactRepository implements ArtifactRepository {
           pointerLockVersion: currentVersion + 1,
         },
       });
-      await completeActivationAudit(client, input);
     });
   }
 
@@ -816,11 +815,17 @@ async function claimActivationAudit(
   ]);
   const requestHash = activationRequestHash(input);
   const actionId = activationActionId(requestHash);
+  // This terminal audit row remains provisional inside the enclosing activation
+  // transaction. It becomes visible only if the Artifact, pointer, Outbox, and
+  // audit all commit; every later failure rolls the entire transaction back.
   const inserted = await client.query(
     `INSERT INTO cognitive_management_action(
        action_id,operation,subject_id,expected_version,idempotency_key,actor_id,reason,
-       request_hash,status,claimed_at,updated_at)
-     VALUES($1,'artifact_activate',$2,$3,$4,$5,$6,$7,'pending',$8,$8)
+       request_hash,status,result,claimed_at,completed_at,updated_at,
+       lease_owner,lease_expires_at,lease_attempt,lease_token,execution_phase,
+       provider_dispatch_id,provider_dispatch_hash)
+     VALUES($1,'artifact_activate',$2,$3,$4,$5,$6,$7,'completed',$9::jsonb,$8,$8,$8,
+       NULL,NULL,0,NULL,'terminal',NULL,NULL)
      ON CONFLICT(operation,subject_id,idempotency_key) DO NOTHING`,
     [
       actionId,
@@ -831,6 +836,12 @@ async function claimActivationAudit(
       input.reason,
       requestHash,
       input.activatedAt,
+      JSON.stringify({
+        artifactId: input.artifactId,
+        artifactVersion: input.version,
+        artifactKey: input.artifactKey,
+        status: 'active',
+      }),
     ],
   );
   if (inserted.rowCount === 1) return 'claimed';
@@ -857,34 +868,6 @@ async function claimActivationAudit(
       : 'ARTIFACT_ACTIVATION_IN_PROGRESS',
     'Activation idempotency claim is unavailable.',
   );
-}
-
-async function completeActivationAudit(
-  client: PoolClient,
-  input: ArtifactActivationInput,
-): Promise<void> {
-  const requestHash = activationRequestHash(input);
-  const updated = await client.query(
-    `UPDATE cognitive_management_action
-     SET status='completed',result=$2::jsonb,completed_at=$3,updated_at=$3
-     WHERE action_id=$1 AND status='pending'`,
-    [
-      activationActionId(requestHash),
-      JSON.stringify({
-        artifactId: input.artifactId,
-        artifactVersion: input.version,
-        artifactKey: input.artifactKey,
-        status: 'active',
-      }),
-      input.activatedAt,
-    ],
-  );
-  if (updated.rowCount !== 1) {
-    throw persistenceError(
-      'ARTIFACT_ACTIVATION_AUDIT_CONFLICT',
-      'Activation audit could not complete.',
-    );
-  }
 }
 
 function activationRequestHash(input: ArtifactActivationInput): string {

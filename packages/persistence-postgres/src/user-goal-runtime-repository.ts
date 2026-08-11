@@ -167,6 +167,25 @@ export class PostgresUserGoalRuntimeRepository {
         };
   }
 
+  async findLatestPlan(
+    goalId: string,
+    goalVersion: number,
+  ): Promise<Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined> {
+    const result = await this.#pool.query<CurrentPlanRow>(
+      `SELECT plan_json,lock_version,status FROM user_goal_plan
+       WHERE goal_id=$1 AND goal_version=$2
+       ORDER BY revision DESC LIMIT 1`,
+      [goalId, goalVersion],
+    );
+    const row = result.rows[0];
+    return row === undefined
+      ? undefined
+      : {
+          plan: { ...row.plan_json, status: row.status },
+          lockVersion: Number(row.lock_version),
+        };
+  }
+
   async findReusablePlan(
     goalId: string,
     goalVersion: number,

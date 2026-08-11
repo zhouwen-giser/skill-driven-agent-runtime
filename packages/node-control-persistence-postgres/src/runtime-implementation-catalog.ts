@@ -22,8 +22,21 @@ export class PostgresRuntimeCapabilityImplementationCatalog implements NodeContr
     const result =
       implementationType === 'skill'
         ? await this.#runtimePool.query(
-            `SELECT 1 FROM skill_version
-              WHERE skill_id=$1 AND version=$2 AND status='enabled' AND validation_passed=true
+            `SELECT 1
+               FROM skill_version version
+               LEFT JOIN runtime_skill_version_governance governance
+                 ON governance.skill_id=version.skill_id
+                AND governance.skill_version=version.version
+              WHERE version.skill_id=$1 AND version.version=$2
+                AND version.validation_passed=true
+                AND COALESCE(
+                      governance.lifecycle_status,
+                      CASE version.status
+                        WHEN 'enabled' THEN 'published'
+                        WHEN 'disabled' THEN 'suspended'
+                        ELSE version.status
+                      END
+                    )='published'
               LIMIT 1`,
             [implementationId, version],
           )

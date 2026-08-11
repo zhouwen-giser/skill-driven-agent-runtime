@@ -39,6 +39,7 @@ beforeEach(async () => {
               sdar_control.mcp_provider_catalog_observation,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
+              sdar_control.smpp_registry_snapshot_lineage,
               sdar_control.smpp_provider_candidate,
               sdar_control.smpp_registry_snapshot,
               sdar_control.smpp_registry_source,
@@ -74,6 +75,7 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
       { version: '0007_a2a_exposure_agent_card' },
       { version: '0008_organization_node_events' },
       { version: '0009_canonical_evidence_authority' },
+      { version: '0010_smpp_registry_lineage_revalidation' },
     ]);
     const runtimeLedger = await pool.query<{ exists: boolean }>(
       `SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists`,
@@ -113,35 +115,77 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     ).rejects.toMatchObject({ code: '55000' });
   });
 
-  it('rolls back and reapplies only the latest disposable Control migration', async () => {
+  it('rolls back and reapplies 0010 without fabricating legacy lineage', async () => {
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
-      '0009_canonical_evidence_authority',
+      '0010_smpp_registry_lineage_revalidation',
     );
     const removed = await pool.query<{ value: string | null }>(
-      `SELECT to_regclass('sdar_control.node_control_evidence_observation')::text AS value`,
+      `SELECT to_regclass('sdar_control.smpp_registry_snapshot_lineage')::text AS value`,
     );
     expect(removed.rows[0]?.value).toBeNull();
-    const preserved = await pool.query<{ value: string | null }>(
-      `SELECT to_regclass('sdar_control.node_event_outbox')::text AS value`,
+    const removedColumns = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM information_schema.columns
+        WHERE table_schema='sdar_control'
+          AND (
+            (table_name='smpp_registry_source' AND column_name='active_snapshot_valid_until')
+            OR
+            (table_name='smpp_registry_sync_attempt' AND column_name IN (
+              'observed_native_revision','observed_native_checksum',
+              'observed_projection_contract','observed_valid_until'))
+          )`,
     );
-    expect(preserved.rows[0]?.value).toBe('sdar_control.node_event_outbox');
+    expect(removedColumns.rows).toEqual([{ count: '0' }]);
+    const preserved = await pool.query<{ value: string | null }>(
+      `SELECT to_regclass('sdar_control.node_control_evidence_observation')::text AS value`,
+    );
+    expect(preserved.rows[0]?.value).toBe('sdar_control.node_control_evidence_observation');
     await expect(repository.probe()).resolves.toBe(true);
     await pool.query(
-      `INSERT INTO sdar_control.configuration_revision(
-         configuration_id,target_type,target_id,revision,status,apply_mode,content,checksum,
-         created_by,created_at,published_at)
-       VALUES('telemetry-backfill','telemetry_link','telemetry-backfill',1,'applied','hot_reload',
-         '{}'::jsonb,$1,'integration-test',$2,$3)`,
-      ['b'.repeat(64), '2026-08-09T00:00:00.000Z', '2026-08-09T00:00:01.000Z'],
+      `INSERT INTO sdar_control.smpp_registry_snapshot(
+         smpp_source_id,snapshot_revision,checksum,etag,generated_at,external_expires_at,
+         valid_until,provider_count,applied_at)
+       VALUES('legacy-source',1,$1,$2,$3,$4,$5,0,$3)`,
+      [
+        'd'.repeat(64),
+        `"${'d'.repeat(64)}"`,
+        '2026-08-09T00:00:00.000Z',
+        '2026-08-09T02:00:00.000Z',
+        '2026-08-09T01:00:00.000Z',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO sdar_control.smpp_registry_source(
+         smpp_source_id,revision,registry_endpoint,credential_ref,environment,sync_mode,
+         snapshot_ttl_seconds,lkg_policy,status,active_snapshot_revision,
+         active_snapshot_checksum,active_snapshot_etag,created_at,updated_at)
+       VALUES('legacy-source',1,'https://registry.example.test/latest','secret://env/SMPP_TOKEN',
+         'integration','watch',3600,'allow_unexpired','active',1,$1,$2,$3,$3)`,
+      ['d'.repeat(64), `"${'d'.repeat(64)}"`, '2026-08-09T00:00:00.000Z'],
     );
     await applyControlMigrations(pool);
-    const publication = await pool.query<{ status: string }>(
-      `SELECT authority_payload->>'status' AS status
-         FROM sdar_control.node_control_evidence_observation
-        WHERE record_type='node_control.telemetry_configuration'
-          AND source_record_id='telemetry-backfill:1'`,
+    const legacy = await pool.query<{ active_snapshot_valid_until: Date }>(
+      `SELECT active_snapshot_valid_until
+         FROM sdar_control.smpp_registry_source
+        WHERE smpp_source_id='legacy-source' AND revision=1`,
     );
-    expect(publication.rows).toEqual([{ status: 'published' }]);
+    expect(legacy.rows[0]?.active_snapshot_valid_until.toISOString()).toBe(
+      '2026-08-09T01:00:00.000Z',
+    );
+    const lineage = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count
+         FROM sdar_control.smpp_registry_snapshot_lineage
+        WHERE smpp_source_id='legacy-source'`,
+    );
+    expect(lineage.rows).toEqual([{ count: '0' }]);
+    const attemptColumns = await pool.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema='sdar_control' AND table_name='smpp_registry_sync_attempt'
+          AND column_name IN (
+            'observed_native_revision','observed_native_checksum',
+            'observed_projection_contract','observed_valid_until')
+        ORDER BY column_name`,
+    );
+    expect(attemptColumns.rows).toHaveLength(4);
     await expect(repository.probe()).resolves.toBe(true);
   });
 

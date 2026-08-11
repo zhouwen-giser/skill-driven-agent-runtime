@@ -1,5 +1,29 @@
 # Project Status
 
+SDAR x SMPP Home-Lab Integration is `BLOCKED_DRAFT_PUBLISHED` (2026-08-12) on
+`codex/sdar-smpp-home-lab-integration`. Draft PR #19 contains pushed implementation candidate
+`258c8113bd0523064525dd1f3b15c204e12cfba3`. Goal Run
+`019fca75-f48a-7780-ac5e-942503c6690e` passed G00-G08: exact baseline/isolation, real Home
+Assistant read-only preflight (10/10), live SMPP Climate/Light deployments, byte-identical frozen
+Registry projection, real Source 200/304/LKG/outage/restart behavior, exact revision-17 Provider
+Bindings and live MCP Catalogs, five governed exact-version Skills/Capabilities, and deterministic
+Climate/Light read-only execution plus same-run replay. G08 now passes one real A2A Task and Goal,
+all seven required structured-model stages, an exact two-read Workflow, a combined structured
+Outcome, and same-run Runtime restart recovery; the model boundary is explicitly a simulated local
+structured fixture while Runtime, PostgreSQL, A2A, MCP, SMPP and Home Assistant reads are live.
+G09 and G10 now pass the bounded real SMPP Runtime/Adapter/Home Assistant provider path and restore
+the original light and climate state, but remain partial because the SDAR Goal/Plan/confirmation
+path was not executed. G11 failed because the Climate Task confirmed `cool` but Home Assistant
+returned to `off` within about three seconds; both lights and the climate were restored. G12 lacks
+Required real in-flight restart/fault evidence. The authoritative SDAR
+repository-wide `pnpm verify` passed its first four stages and failed its final E2E stage solely at
+the Phase 13 Runtime P95 regression gate (`39.981096754646735% > 10%`); failed attempts 6 and 7 are
+preserved and the later focused pass is not full-run acceptance evidence. Final active/uncertain
+Task counts are SDAR `0/0` and SMPP `0/0`; device restore is `RESTORED` and all write gates are closed.
+`crossRepositoryIntegrationReady=false`. No merge, tag, release or public deployment has started.
+The living plan is `execplans/EP-SDAR-SMPP-HOME-LAB-INTEGRATION.md`; shared run state is under the
+sibling `.codex-sdar-smpp/` directory.
+
 SDAR v1.4.1 Canonical Evidence Export is `COMPLETED_PR_READY` (2026-08-10) on
 `feature/v1.4.1-canonical-evidence-export`, based on `origin/main` `cc0719f`. Phases 0-13
 have completed their scoped implementation and independent Review; the single Phase 14

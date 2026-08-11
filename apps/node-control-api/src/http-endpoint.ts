@@ -793,11 +793,41 @@ export function createNodeControlHttpApp(
           const bindings = requiredMcpBindings(configuration);
           const operation =
             action === 'refresh'
-              ? await bindings.refresh(
-                  request.params.bindingId,
-                  requiredHeader(request, 'idempotency-key'),
-                  command.reason,
-                )
+              ? command.payload === undefined
+                ? await bindings.refresh(
+                    request.params.bindingId,
+                    requiredHeader(request, 'idempotency-key'),
+                    command.reason,
+                  )
+                : catalogApprovalPayload(command.payload)
+                  ? await bindings.refresh(
+                      request.params.bindingId,
+                      requiredHeader(request, 'idempotency-key'),
+                      command.reason,
+                      {
+                        expectedRevision: z
+                          .number()
+                          .int()
+                          .positive()
+                          .parse(command.expectedRevision),
+                        expectedCatalogChecksum: McpBindingCatalogApprovalSchema.parse(
+                          command.payload,
+                        ).catalogChecksum,
+                      },
+                    )
+                  : await bindings.rebind(
+                      request.params.bindingId,
+                      {
+                        expectedRevision: z
+                          .number()
+                          .int()
+                          .positive()
+                          .parse(command.expectedRevision),
+                        ...McpBindingRebindSchema.parse(command.payload),
+                      },
+                      requiredHeader(request, 'idempotency-key'),
+                      command.reason,
+                    )
               : action === 'suspend'
                 ? await bindings.suspend(
                     request.params.bindingId,
@@ -1496,6 +1526,25 @@ export function createNodeControlHttpApp(
 
   app.use('/internal/v1', bearerAuthentication(configuration.runtimeServiceToken));
 
+  app.get('/internal/v1/mcp-provider-bindings/current', async (request, response, next) => {
+    try {
+      const localServerId = z.string().trim().min(1).max(256).parse(request.query['localServerId']);
+      const bindingIdValue = request.query['bindingId'];
+      const bindingId =
+        bindingIdValue === undefined
+          ? undefined
+          : z.string().trim().min(1).max(256).parse(bindingIdValue);
+      response.status(200).json(
+        await requiredMcpBindings(configuration).getCurrentAuthority({
+          ...(bindingId === undefined ? {} : { bindingId }),
+          localServerId,
+        }),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/internal/v1/tasks/:taskId/capability-binding', async (request, response, next) => {
     try {
       const binding = await requiredTaskCapabilities(configuration).findBinding(
@@ -2169,6 +2218,29 @@ const McpBindingImportSchema = z
       .optional(),
   })
   .strict();
+const McpBindingRebindSchema = z
+  .object({
+    smppSourceId: z.string().trim().min(1).max(256),
+    externalProviderId: z.string().trim().min(1).max(256),
+    externalServerId: z.string().trim().min(1).max(256),
+    registryRevision: z.number().int().positive(),
+    registryChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
+    endpointRef: z.url().refine((value) => {
+      const endpoint = new URL(value);
+      return (
+        ['http:', 'https:'].includes(endpoint.protocol) &&
+        endpoint.username === '' &&
+        endpoint.password === ''
+      );
+    }, 'endpointRef must be a credential-free HTTP(S) URL.'),
+  })
+  .strict();
+const McpBindingCatalogApprovalSchema = z
+  .object({
+    approval: z.literal('catalog_checksum'),
+    catalogChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict();
 const JsonObjectSchema = z.record(z.string(), z.json());
 const ManagedEvidenceExportConfigurationSchema = z
   .object({
@@ -2424,6 +2496,10 @@ function parseCommand(value: unknown) {
     ...(parsed.payload === undefined ? {} : { payload: parsed.payload }),
     ...(parsed.expectedRevision === undefined ? {} : { expectedRevision: parsed.expectedRevision }),
   });
+}
+
+function catalogApprovalPayload(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && 'approval' in value;
 }
 
 function parseEvidenceOperationsQuery(request: Request) {

@@ -10,6 +10,10 @@ import {
   type TaskCapabilityBinding,
   type TaskCapabilityExecutionAttempt,
 } from '../../domain/src/index.js';
+import {
+  parseMcpProviderBindingPolicyOverride,
+  type ExactMcpProviderBindingPolicy,
+} from '../../node-control-domain/src/index.js';
 
 interface ResolutionRow extends QueryResultRow {
   exposure_id: string;
@@ -200,6 +204,14 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `task-capability-attempt:${input.taskId}`,
       ]);
+      const nonterminalTask = await client.query(
+        `SELECT task_id FROM agent_task
+          WHERE task_id=$1
+            AND phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')
+          FOR UPDATE`,
+        [input.taskId],
+      );
+      if (nonterminalTask.rowCount !== 1) throw new Error('TASK_CAPABILITY_ATTEMPT_TASK_TERMINAL');
       await client.query(
         `UPDATE task_capability_execution_attempt
             SET status='superseded',completed_at=clock_timestamp()
@@ -248,6 +260,36 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
       [taskId, status, timestamp],
     );
     if (result.rowCount === 0) throw new Error('TASK_CAPABILITY_ATTEMPT_TRANSITION_INVALID');
+  }
+
+  async reconcileCanceledAttempts() {
+    const result = await this.#pool.query(
+      `UPDATE task_capability_execution_attempt AS attempt
+          SET status='canceled',
+              started_at=COALESCE(attempt.started_at,task.updated_at),
+              completed_at=task.updated_at
+         FROM agent_task AS task
+        WHERE attempt.task_id=task.task_id
+          AND task.phase='canceled'
+          AND attempt.status IN ('prepared','running','waiting')
+        RETURNING attempt.attempt_id`,
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async reconcileFailedAttempts() {
+    const result = await this.#pool.query(
+      `UPDATE task_capability_execution_attempt AS attempt
+          SET status='failed',
+              started_at=COALESCE(attempt.started_at,task.updated_at),
+              completed_at=task.updated_at
+         FROM agent_task AS task
+        WHERE attempt.task_id=task.task_id
+          AND task.phase='failed'
+          AND attempt.status IN ('prepared','running','waiting')
+        RETURNING attempt.attempt_id`,
+    );
+    return result.rowCount ?? 0;
   }
 }
 
@@ -349,6 +391,7 @@ function mapResolution(
   policies: Readonly<{
     implementations: readonly Readonly<Record<string, unknown>>[];
     providerBindingRefs: readonly string[];
+    providerBindingRequirements: readonly Readonly<{ bindingId: string; localServerId: string }>[];
   }>,
 ): RuntimeCapabilityResolution {
   const definition = record(row.evaluation_input['definition']);
@@ -377,6 +420,7 @@ function mapResolution(
     constraints: records(definition['constraints'] ?? []),
     implementationRefs: Object.freeze(implementationRefs),
     providerBindingRefs: policies.providerBindingRefs,
+    providerBindingRequirements: policies.providerBindingRequirements,
     providerPolicySnapshot: Object.freeze({
       catalogHash: row.catalog_hash,
       policyHash: row.policy_hash,
@@ -393,6 +437,7 @@ async function snapshotImplementationPolicies(
   Readonly<{
     implementations: readonly Readonly<Record<string, unknown>>[];
     providerBindingRefs: readonly string[];
+    providerBindingRequirements: readonly Readonly<{ bindingId: string; localServerId: string }>[];
   }>
 > {
   const available = new Set(row.available_implementations);
@@ -400,13 +445,43 @@ async function snapshotImplementationPolicies(
     (binding) => typeof binding['bindingId'] === 'string' && available.has(binding['bindingId']),
   );
   const implementations: Readonly<Record<string, unknown>>[] = [];
-  const providerBindingRefs = new Set<string>();
+  const providerBindingRequirements = new Map<
+    string,
+    Readonly<{ bindingId: string; localServerId: string }>
+  >();
+  const implementationProviderBindingRequirements: (readonly Readonly<{
+    bindingId: string;
+    localServerId: string;
+  }>[])[] = [];
   for (const binding of bindings) {
     const bindingId = text(binding['bindingId'], 'bindingId');
     const implementationType = text(binding['implementationType'], 'implementationType');
     const implementationId = text(binding['implementationId'], 'implementationId');
     const implementationVersion = text(binding['implementationVersion'], 'implementationVersion');
     const implementationRef = `${implementationType}:${implementationId}:${implementationVersion}`;
+    const providerBindingPolicy = parseMcpProviderBindingPolicyOverride(
+      binding['providerPolicyOverride'],
+    );
+    if (providerBindingPolicy.mode === 'invalid')
+      throw new Error('TASK_CAPABILITY_PROVIDER_BINDING_POLICY_INVALID');
+    const frozenProviderBindingRequirements = Object.freeze(
+      providerBindingPolicy.requirements.map((requirement) =>
+        Object.freeze({
+          bindingId: requirement.mcpProviderBindingId,
+          localServerId: requirement.localServerId,
+        }),
+      ),
+    );
+    implementationProviderBindingRequirements.push(frozenProviderBindingRequirements);
+    for (const requirement of frozenProviderBindingRequirements) {
+      const existing = providerBindingRequirements.get(requirement.bindingId);
+      if (existing !== undefined) {
+        if (existing.localServerId !== requirement.localServerId)
+          throw new Error('TASK_CAPABILITY_PROVIDER_BINDING_POLICY_INVALID');
+        continue;
+      }
+      providerBindingRequirements.set(requirement.bindingId, requirement);
+    }
     if (implementationType === 'skill') {
       const result = await pool.query<SkillPolicyRow>(
         `SELECT tool_policy_json AS tool_policy,runtime_policy_json AS runtime_policy
@@ -415,13 +490,26 @@ async function snapshotImplementationPolicies(
       );
       const policy = result.rows[0];
       if (policy === undefined) throw new Error('TASK_CAPABILITY_POLICY_SNAPSHOT_UNAVAILABLE');
-      collectProviderBindingRefs(policy.tool_policy, providerBindingRefs);
+      if (
+        providerBindingPolicy.mode === 'required_all' &&
+        !requiredToolsMatchExactly(policy.tool_policy, providerBindingPolicy.requirements)
+      )
+        throw new Error('TASK_CAPABILITY_PROVIDER_BINDING_POLICY_INVALID');
       implementations.push(
         Object.freeze({
           bindingId,
           implementationRef,
           toolPolicy: structuredClone(policy.tool_policy),
           runtimePolicy: structuredClone(policy.runtime_policy),
+          ...(providerBindingPolicy.mode === 'absent'
+            ? {}
+            : providerBindingPolicy.mode === 'single'
+              ? {
+                  providerBindingRequirement: frozenProviderBindingRequirements[0],
+                }
+              : {
+                  providerBindingRequirements: frozenProviderBindingRequirements,
+                }),
         }),
       );
       continue;
@@ -443,22 +531,41 @@ async function snapshotImplementationPolicies(
       }),
     );
   }
+  for (const requirements of implementationProviderBindingRequirements) {
+    for (const requirement of requirements) {
+      const frozenAuthority = providerBindingRequirements.get(requirement.bindingId);
+      if (frozenAuthority?.localServerId !== requirement.localServerId)
+        throw new Error('TASK_CAPABILITY_PROVIDER_BINDING_POLICY_INVALID');
+    }
+  }
   return Object.freeze({
     implementations: Object.freeze(implementations),
-    providerBindingRefs: Object.freeze([...providerBindingRefs].sort()),
+    providerBindingRefs: Object.freeze([...providerBindingRequirements.keys()].sort()),
+    providerBindingRequirements: Object.freeze(
+      [...providerBindingRequirements.values()].sort((left, right) =>
+        left.bindingId.localeCompare(right.bindingId),
+      ),
+    ),
   });
 }
 
-function collectProviderBindingRefs(policy: unknown, target: Set<string>): void {
-  const value = record(policy);
-  for (const reference of [
-    ...records(value['required'] ?? []),
-    ...records(value['optional'] ?? []),
-  ]) {
-    target.add(
-      `mcp-tool:${text(reference['serverId'], 'serverId')}:${text(reference['toolName'], 'toolName')}`,
-    );
-  }
+function requiredToolsMatchExactly(
+  value: unknown,
+  requirements: readonly ExactMcpProviderBindingPolicy[],
+): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const required = (value as Readonly<Record<string, unknown>>)['required'];
+  if (!Array.isArray(required) || required.length !== requirements.length) return false;
+  const optional = (value as Readonly<Record<string, unknown>>)['optional'];
+  if (!Array.isArray(optional) || optional.length !== 0) return false;
+  const declared = required.map((reference) => {
+    if (typeof reference !== 'object' || reference === null || Array.isArray(reference)) return '';
+    const record = reference as Readonly<Record<string, unknown>>;
+    return `${String(record['serverId'])}\u0000${String(record['toolName'])}`;
+  });
+  return requirements.every((requirement) =>
+    declared.includes(`${requirement.localServerId}\u0000${requirement.mcpToolName}`),
+  );
 }
 
 function mapBinding(row: BindingRow): TaskCapabilityBinding {

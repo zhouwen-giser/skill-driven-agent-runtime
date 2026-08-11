@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "phase": "G09",
+  "status": "passed",
+  "observedAt": "2026-08-11T21:53:54.548Z",
+  "initialState": {
+    "resourceId": "living-room-main-light",
+    "power": "off",
+    "reachable": true,
+    "brightnessPercent": null,
+    "observedAt": "2026-08-11T15:36:47.842457+00:00"
+  },
+  "desiredState": {
+    "resourceId": "living-room-main-light",
+    "power": "on"
+  },
+  "changedState": {
+    "resourceId": "living-room-main-light",
+    "power": "on",
+    "reachable": true,
+    "brightnessPercent": 100,
+    "observedAt": "2026-08-11T21:53:43.845167+00:00"
+  },
+  "restoredState": {
+    "resourceId": "living-room-main-light",
+    "power": "off",
+    "reachable": true,
+    "brightnessPercent": null,
+    "observedAt": "2026-08-11T21:53:49.985675+00:00"
+  },
+  "runtimeTask": {
+    "status": "completed",
+    "runtimeTaskId": "e5a2c765-2dc6-41b0-a4aa-ab5e8d547157",
+    "result": {
+      "status": "completed",
+      "resultType": "complete",
+      "structuredContent": {
+        "power": "on",
+        "confirmed": true,
+        "observedAt": "2026-08-11T21:53:43.845167+00:00",
+        "resourceId": "living-room-main-light"
+      }
+    }
+  },
+  "replay": {
+    "sameArgumentsSameTask": true,
+    "sameKeyDifferentArgumentsRejected": true
+  },
+  "restoreTask": {
+    "status": "completed",
+    "runtimeTaskId": "e857b25d-4502-4377-9478-28e1d38dde64",
+    "result": {
+      "status": "completed",
+      "resultType": "complete",
+      "structuredContent": {
+        "power": "off",
+        "confirmed": true,
+        "observedAt": "2026-08-11T21:53:49.985675+00:00",
+        "resourceId": "living-room-main-light"
+      }
+    }
+  },
+  "active": 0,
+  "uncertain": 0,
+  "deviceWritesObserved": 2,
+  "errors": [],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

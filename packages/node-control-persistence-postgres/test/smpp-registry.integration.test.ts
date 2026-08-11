@@ -43,6 +43,7 @@ beforeAll(async () => {
     `TRUNCATE sdar_control.mcp_provider_catalog_observation,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
+              sdar_control.smpp_registry_snapshot_lineage,
               sdar_control.smpp_provider_candidate,
               sdar_control.smpp_registry_snapshot,
               sdar_control.smpp_registry_source,
@@ -88,6 +89,7 @@ afterAll(async () => {
     `TRUNCATE sdar_control.mcp_provider_catalog_observation,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
+              sdar_control.smpp_registry_snapshot_lineage,
               sdar_control.smpp_provider_candidate,
               sdar_control.smpp_registry_snapshot,
               sdar_control.smpp_registry_source,
@@ -133,11 +135,17 @@ describe('P04 SMPP Registry federation', { concurrent: false }, () => {
         registryRevision: 1,
         registryChecksum: registry.checksum('source-a'),
         registryEtag: registry.etag('source-a'),
+        nativeRegistryRevision: 1,
+        nativeRegistryChecksum: 'e'.repeat(64),
+        registryProjectionContract: 'sdar-registry-v1',
       },
       {
         registryRevision: 1,
         registryChecksum: registry.checksum('source-b'),
         registryEtag: registry.etag('source-b'),
+        nativeRegistryRevision: 1,
+        nativeRegistryChecksum: 'e'.repeat(64),
+        registryProjectionContract: 'sdar-registry-v1',
       },
     ]);
     expect(firstCandidates.every((item) => typeof item['registryValidUntil'] === 'string')).toBe(
@@ -182,7 +190,44 @@ describe('P04 SMPP Registry federation', { concurrent: false }, () => {
     await expect(watchWorker.synchronizeScheduled()).resolves.toEqual({ attempted: 2, failed: 0 });
     await expect(publicGet('/api/v1/smpp-sources/source-a')).resolves.toMatchObject({
       activeSnapshotRevision: 2,
+      activeSnapshotValidUntil: expect.any(String),
     });
+
+    await controlPool.query(`TRUNCATE sdar_control.smpp_registry_snapshot_lineage`);
+    await controlPool.query(
+      `UPDATE sdar_control.smpp_registry_source
+          SET active_snapshot_valid_until=now() - interval '1 second'
+        WHERE smpp_source_id='source-a' AND status='active'`,
+    );
+    expect(await candidates('source-a')).toHaveLength(0);
+    await expect(sync('source-a', 'p04-sync-source-a-legacy-refresh')).resolves.toMatchObject({
+      status: 'succeeded',
+      result: {
+        snapshotRevision: 2,
+        nativeLineage: {
+          nativeRevision: 2,
+          nativeChecksum: 'e'.repeat(64),
+          projectionContract: 'sdar-registry-v1',
+        },
+      },
+    });
+    expect(registry.lastIfNoneMatch('source-a')).toBeUndefined();
+    expect(await candidates('source-a')).toMatchObject([
+      {
+        externalProviderId: 'provider-v2',
+        nativeRegistryRevision: 2,
+        nativeRegistryChecksum: 'e'.repeat(64),
+        registryProjectionContract: 'sdar-registry-v1',
+      },
+    ]);
+    expect((await candidates('source-b'))[0]).not.toHaveProperty('nativeRegistryRevision');
+
+    registry.setMode('source-a', 'lineage_mismatch');
+    await expect(sync('source-a', 'p04-sync-source-a-lineage-mismatch')).resolves.toMatchObject({
+      status: 'failed',
+      errorCode: 'SMPP_SNAPSHOT_LINEAGE_MISMATCH',
+    });
+    registry.setMode('source-a', 'normal');
     registry.setSnapshot('source-a', 1, 'provider-rollback', 'server-rollback');
     await expect(sync('source-a', 'p04-sync-source-a-rollback')).resolves.toMatchObject({
       status: 'failed',
@@ -202,6 +247,15 @@ describe('P04 SMPP Registry federation', { concurrent: false }, () => {
     await expect(sync('source-a', 'p04-sync-source-a-bad-checksum')).resolves.toMatchObject({
       status: 'failed',
       errorCode: 'SMPP_SNAPSHOT_CHECKSUM_MISMATCH',
+    });
+    expect(await candidates('source-a')).toMatchObject([
+      { externalProviderId: 'provider-v2', externalServerId: 'server-v2' },
+    ]);
+
+    registry.setMode('source-a', 'expired');
+    await expect(sync('source-a', 'p04-sync-source-a-expired')).resolves.toMatchObject({
+      status: 'failed',
+      errorCode: 'SMPP_SNAPSHOT_EXPIRED',
     });
     expect(await candidates('source-a')).toMatchObject([
       { externalProviderId: 'provider-v2', externalServerId: 'server-v2' },
@@ -238,9 +292,31 @@ describe('P04 SMPP Registry federation', { concurrent: false }, () => {
     );
     expect(attempts.rows).toEqual([
       { outcome: 'applied', count: '3' },
-      { outcome: 'failed', count: '6' },
-      { outcome: 'not_modified', count: '3' },
+      { outcome: 'failed', count: '8' },
+      { outcome: 'not_modified', count: '4' },
     ]);
+    const durableLineage = await controlPool.query<{
+      observed_native_revision: string | null;
+      observed_native_checksum: string | null;
+      observed_projection_contract: string | null;
+      observed_valid_until: Date | null;
+    }>(
+      `SELECT observed_native_revision::text,observed_native_checksum::text,
+              observed_projection_contract,observed_valid_until
+         FROM sdar_control.smpp_registry_sync_attempt
+        WHERE outcome='not_modified'
+        ORDER BY occurred_at`,
+    );
+    expect(durableLineage.rows).toHaveLength(4);
+    expect(
+      durableLineage.rows.every(
+        (row) =>
+          row.observed_native_revision !== null &&
+          row.observed_native_checksum?.trim() === 'e'.repeat(64) &&
+          row.observed_projection_contract === 'sdar-registry-v1' &&
+          row.observed_valid_until !== null,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -335,8 +411,12 @@ class FakeSmppRegistry {
       checksum: string;
     }>
   >();
-  readonly #modes = new Map<string, 'normal' | 'bad_checksum' | 'unavailable'>();
+  readonly #modes = new Map<
+    string,
+    'normal' | 'bad_checksum' | 'expired' | 'lineage_mismatch' | 'unavailable'
+  >();
   readonly #calls = new Map<string, number>();
+  readonly #lastIfNoneMatch = new Map<string, string | undefined>();
 
   setSnapshot(
     sourceId: string,
@@ -351,8 +431,8 @@ class FakeSmppRegistry {
         externalProviderId,
         externalServerId,
         serverEndpoint: `https://${sourceId}.example.test/mcp`,
-        catalogRevision: `catalog-${String(revision)}`,
-        labels: Object.freeze({ environment: 'integration' }),
+        catalogRevision: String(revision),
+        labels: Object.freeze({ environment: 'integration', protocolMode: 'frozen_v1' }),
       }),
     ]);
     const candidates = providers.map((provider) => candidateFromRaw(sourceId, provider));
@@ -367,7 +447,7 @@ class FakeSmppRegistry {
       sourceId,
       Object.freeze({
         revision,
-        etag: `"${sourceId}-${String(revision)}-${externalProviderId}"`,
+        etag: `"${checksum}"`,
         generatedAt,
         expiresAt,
         providers,
@@ -377,12 +457,19 @@ class FakeSmppRegistry {
     this.#modes.set(sourceId, 'normal');
   }
 
-  setMode(sourceId: string, mode: 'normal' | 'bad_checksum' | 'unavailable'): void {
+  setMode(
+    sourceId: string,
+    mode: 'normal' | 'bad_checksum' | 'expired' | 'lineage_mismatch' | 'unavailable',
+  ): void {
     this.#modes.set(sourceId, mode);
   }
 
   calls(sourceId: string): number {
     return this.#calls.get(sourceId) ?? 0;
+  }
+
+  lastIfNoneMatch(sourceId: string): string | undefined {
+    return this.#lastIfNoneMatch.get(sourceId);
   }
 
   checksum(sourceId: string): string {
@@ -400,6 +487,8 @@ class FakeSmppRegistry {
   respond(request: IncomingMessage, response: ServerResponse): void {
     const sourceId = request.url?.split('/').find((segment) => segment !== '') ?? '';
     this.#calls.set(sourceId, this.calls(sourceId) + 1);
+    const ifNoneMatch = request.headers['if-none-match'];
+    this.#lastIfNoneMatch.set(sourceId, typeof ifNoneMatch === 'string' ? ifNoneMatch : undefined);
     if (request.headers.authorization !== 'Bearer credential-value') {
       response.writeHead(401).end();
       return;
@@ -409,19 +498,46 @@ class FakeSmppRegistry {
       response.writeHead(503).end();
       return;
     }
-    if (request.headers['if-none-match'] === state.etag && this.#modes.get(sourceId) === 'normal') {
-      response.writeHead(304, { etag: state.etag }).end();
+    const mode = this.#modes.get(sourceId);
+    const lineageHeaders = {
+      'x-smpp-native-revision': String(state.revision),
+      'x-smpp-native-checksum': mode === 'lineage_mismatch' ? 'f'.repeat(64) : 'e'.repeat(64),
+      'x-smpp-projection-contract': 'sdar-registry-v1',
+    };
+    if (
+      request.headers['if-none-match'] === state.etag &&
+      (mode === 'normal' || mode === 'lineage_mismatch')
+    ) {
+      response.writeHead(304, { etag: state.etag, ...lineageHeaders }).end();
       return;
     }
-    response.writeHead(200, { 'content-type': 'application/json', etag: state.etag }).end(
-      JSON.stringify({
-        revision: state.revision,
-        checksum: this.#modes.get(sourceId) === 'bad_checksum' ? '0'.repeat(64) : state.checksum,
-        generatedAt: state.generatedAt,
-        expiresAt: state.expiresAt,
-        providers: state.providers,
-      }),
-    );
+    const generatedAt =
+      mode === 'expired' ? new Date(Date.now() - 3_600_000).toISOString() : state.generatedAt;
+    const expiresAt =
+      mode === 'expired' ? new Date(Date.now() - 1_000).toISOString() : state.expiresAt;
+    const projectedChecksum = computeSmppSnapshotChecksum({
+      smppSourceId: sourceId,
+      revision: state.revision,
+      generatedAt,
+      expiresAt,
+      candidates: state.providers.map((provider) => candidateFromRaw(sourceId, provider)),
+    });
+    const responseChecksum = mode === 'bad_checksum' ? '0'.repeat(64) : projectedChecksum;
+    response
+      .writeHead(200, {
+        'content-type': 'application/json',
+        etag: `"${responseChecksum}"`,
+        ...lineageHeaders,
+      })
+      .end(
+        JSON.stringify({
+          revision: state.revision,
+          checksum: responseChecksum,
+          generatedAt,
+          expiresAt,
+          providers: state.providers,
+        }),
+      );
   }
 }
 

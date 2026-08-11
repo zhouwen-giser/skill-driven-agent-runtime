@@ -200,6 +200,7 @@ export class GoalPatchService {
         );
       await this.#userGoalPlanning.plan({
         goal: afterGoal,
+        ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
         revision: sourceUserGoalPlan.plan.revision + 1,
         revisionKind: 'goal_patch',
         sourcePlan: {
@@ -246,6 +247,7 @@ export class GoalPatchService {
       }),
       sourcePlanId: sourcePlan.planId,
       revisionKind: 'replan',
+      ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
       ...(sourcePlan.compositionContext === undefined
         ? {}
         : { compositionContext: sourcePlan.compositionContext }),

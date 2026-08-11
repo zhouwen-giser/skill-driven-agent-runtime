@@ -32,6 +32,7 @@ import type { GoalInputInferenceService } from './goal-input-inference.js';
 import { TaskApplicationError } from './task-service.js';
 import type { SkillInputResolutionService } from './skill-input-resolution.js';
 import { skillInputResolutionQuestion } from './skill-input-resolution.js';
+import type { RuntimeTaskCapabilityService } from './task-capability.js';
 import type { InteractiveActionRouter } from './cognitive/interactive-action-router.js';
 import type {
   CognitiveEntryRoute,
@@ -58,7 +59,10 @@ export interface PlanPreparationProcessorDependencies {
   readonly skillInputs: Pick<SkillInputResolutionService, 'resolve'>;
   readonly userGoalPlanning: Readonly<{
     plan(
-      input: Readonly<{ goal: Awaited<ReturnType<GoalService['get']>> }>,
+      input: Readonly<{
+        goal: Awaited<ReturnType<GoalService['get']>>;
+        taskId: string;
+      }>,
     ): Promise<Readonly<{ plan: { planId: string } }>>;
     findReusablePlan(
       goalId: string,
@@ -112,6 +116,7 @@ export interface PlanPreparationProcessorDependencies {
     TaskInputRepository,
     'findAttempt' | 'findResponseForAttempt' | 'listResponses' | 'updateAttempt'
   >;
+  readonly taskCapabilities?: Pick<RuntimeTaskCapabilityService, 'markLatestAttempt'>;
   readonly closePendingGoalInput?: Readonly<{ close(taskId: string): Promise<void> }>;
   readonly requestTaskInput: (
     taskId: string,
@@ -239,6 +244,7 @@ export class PlanPreparationProcessor {
         errorCode(error),
       );
       const latest = (await this.#dependencies.tasks.findById(task.taskId)) ?? task;
+      let terminalTask = latest;
       if (!['failed', 'canceled', 'completed'].includes(latest.phase)) {
         const message = `Task preparation failed with ${errorCode(error)}: ${errorMessage(error)}`;
         if (error instanceof TaskApplicationError) {
@@ -256,10 +262,17 @@ export class PlanPreparationProcessor {
             timestamp,
             summary: message,
           });
+          terminalTask = failed;
         } else {
-          await this.#transition(latest, 'failed', message);
+          terminalTask = await this.#transition(latest, 'failed', message);
         }
       }
+      if (terminalTask.phase === 'failed')
+        await this.#dependencies.taskCapabilities?.markLatestAttempt(
+          terminalTask.taskId,
+          'failed',
+          terminalTask.updatedAt,
+        );
       throw error;
     }
   }
@@ -690,7 +703,10 @@ export class PlanPreparationProcessor {
       );
       return;
     }
-    const userGoalPlan = await this.#dependencies.userGoalPlanning.plan({ goal });
+    const userGoalPlan = await this.#dependencies.userGoalPlanning.plan({
+      goal,
+      taskId: bound.taskId,
+    });
     await this.#scheduleUserGoalPlan(bound, goal, userGoalPlan.plan.planId);
   }
 
@@ -837,7 +853,7 @@ export class PlanPreparationProcessor {
     });
     const userGoalPlan =
       (await this.#dependencies.userGoalPlanning.findReusablePlan(goal.goalId, goal.version)) ??
-      (await this.#dependencies.userGoalPlanning.plan({ goal }));
+      (await this.#dependencies.userGoalPlanning.plan({ goal, taskId: task.taskId }));
     await this.#scheduleUserGoalPlan(task, goal, userGoalPlan.plan.planId);
   }
 

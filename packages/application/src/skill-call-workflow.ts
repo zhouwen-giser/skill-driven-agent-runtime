@@ -421,6 +421,9 @@ export class SkillCallWorkflowService {
       goalId: input.parentGoalId,
       goalVersion: input.parentGoalVersion,
       goalContract: parentPlan.goalContract,
+      ...(input.continuationAuthority === undefined
+        ? {}
+        : { taskId: input.continuationAuthority.agentTaskId }),
       toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
       compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
       ...(preparedUsage === undefined

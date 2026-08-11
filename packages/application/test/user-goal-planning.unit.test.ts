@@ -9,7 +9,10 @@ describe('UserGoalPlanningService', () => {
   it('persists a validated Skill Goal DAG before any execution capability is selected', async () => {
     const repository = new MemoryPlanningRepository();
     const model = new PlanningModel([validCandidate()]);
-    const result = await service(model, repository).plan({ goal: testGoal() });
+    const result = await service(model, repository).plan({
+      goal: testGoal(),
+      taskId: 'task.goal-planning',
+    });
 
     expect(result.plan).toMatchObject({ status: 'validated', revision: 1 });
     expect(result.plan.skillGoals).toHaveLength(2);
@@ -22,6 +25,7 @@ describe('UserGoalPlanningService', () => {
       /skillId|toolName|providerId|workflowDefinitionId/u,
     );
     expect(model.calls[0]?.['stage']).toBe('goal_planning');
+    expect(model.calls[0]?.['taskId']).toBe('task.goal-planning');
   });
 
   it('uses the second bounded model attempt after deterministic validation rejects a cycle', async () => {
@@ -129,6 +133,28 @@ describe('UserGoalPlanningService', () => {
       status: 'validated',
     });
   });
+
+  it('does not expose a historical reusable plan when an external candidate guard is active', async () => {
+    const repository = new MemoryPlanningRepository();
+    await service(new PlanningModel([validCandidate()]), repository).plan({ goal: testGoal() });
+    if (repository.plan === undefined) throw new Error('TEST_PLAN_REQUIRED');
+    repository.reusable = {
+      plan: { ...repository.plan, skillGoals: [], dependencies: [] },
+      lockVersion: 1,
+    };
+    const guarded = new UserGoalPlanningService({
+      model: new PlanningModel([]),
+      repository,
+      now: () => timestamp,
+      nextPlanId: () => 'user-goal-plan.guarded',
+      candidateGuard: { assert: () => undefined },
+    });
+
+    await expect(
+      guarded.findReusablePlan(testGoal().goalId, testGoal().version),
+    ).resolves.toBeUndefined();
+    expect(repository.findReusableCalls).toBe(0);
+  });
 });
 
 function service(model: PlanningModel, repository: MemoryPlanningRepository) {
@@ -215,6 +241,8 @@ class MemoryPlanningRepository {
   plan: UserGoalPlan | undefined;
   casInput: Record<string, unknown> | undefined;
   casResult: number | undefined;
+  reusable: Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined;
+  findReusableCalls = 0;
 
   findPlan(planId: string): Promise<UserGoalPlan | undefined> {
     return Promise.resolve(this.plan?.planId === planId ? this.plan : undefined);
@@ -241,7 +269,8 @@ class MemoryPlanningRepository {
     return Promise.resolve(this.casResult);
   }
 
-  findReusablePlan(): Promise<undefined> {
-    return Promise.resolve(undefined);
+  findReusablePlan(): Promise<Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined> {
+    this.findReusableCalls += 1;
+    return Promise.resolve(this.reusable);
   }
 }

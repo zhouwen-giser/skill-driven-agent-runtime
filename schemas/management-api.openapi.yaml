@@ -773,6 +773,31 @@ paths:
       responses:
         '200': { description: Continued control after current plan confirmation }
         '400': { $ref: '#/components/responses/Error' }
+  /api/v1/capability-executions/deterministic:
+    post:
+      operationId: executeDeterministicCapability
+      security: [{ CognitiveBearer: [] }]
+      description: Executes one exact admitted deterministic read-only Capability contract. A durable replay of the same bounded Idempotency-Key and request body returns the byte-identical canonical JSON response with status 201 without executing the Capability again.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Collection-scoped key, trimmed before validation; the same key cannot be reused with a different request body.
+          schema: { type: string, minLength: 1, maxLength: 256 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeterministicCapabilityExecutionRequest' }
+      responses:
+        '201':
+          description: Fresh deterministic execution or byte-identical durable replay.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeterministicCapabilityExecutionResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /api/v1/workflows/validate:
     post:
       operationId: validateWorkflowDsl
@@ -935,6 +960,36 @@ paths:
           '201': { description: Candidate or enabled immutable PromptVersion },
           '400': { $ref: '#/components/responses/Error' },
         }
+  /api/v1/prompts/current/{stage}:
+    parameters: [{ name: stage, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: getCurrentPromptAuthority
+      description: Returns the credential-safe current immutable Prompt authority for one Model stage, or null when none is enabled.
+      responses:
+        '200':
+          description: Credential-safe current Prompt authority
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [item]
+                properties:
+                  item:
+                    nullable: true
+                    type: object
+                    additionalProperties: false
+                    required: [promptId, stage, version, content, status, source, createdAt]
+                    properties:
+                      promptId: { type: string, minLength: 1 }
+                      stage: { type: string, minLength: 1 }
+                      version: { type: integer, minimum: 1 }
+                      previousVersion: { type: integer, minimum: 1 }
+                      content: { type: string, minLength: 1 }
+                      status: { enum: [candidate, enabled, disabled] }
+                      source: { enum: [admin, auto_candidate, manual_correction, rollback] }
+                      createdAt: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/Error' }
   /api/v1/prompts/{promptId}/versions:
     get:
       operationId: listPromptVersions
@@ -1980,6 +2035,132 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    DeterministicCapabilityExecutionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          taskId,
+          contextId,
+          capabilityBindingId,
+          capabilityBindingVersion,
+          capabilityId,
+          capabilityVersion,
+          skillId,
+          skillVersion,
+          mcpProviderBindingId,
+          providerId,
+          serverId,
+          toolName,
+          resourceId,
+        ]
+      properties:
+        taskId: { type: string, minLength: 1, maxLength: 512 }
+        contextId: { type: string, minLength: 1, maxLength: 512 }
+        capabilityBindingId: { type: string, minLength: 1, maxLength: 512 }
+        capabilityBindingVersion: { type: integer, minimum: 1 }
+        capabilityId: { type: string, minLength: 1, maxLength: 512 }
+        capabilityVersion: { type: integer, minimum: 1 }
+        skillId: { type: string, minLength: 1, maxLength: 512 }
+        skillVersion: { type: integer, minimum: 1 }
+        mcpProviderBindingId: { type: string, minLength: 1, maxLength: 512 }
+        providerId: { type: string, minLength: 1, maxLength: 512 }
+        serverId: { type: string, minLength: 1, maxLength: 512 }
+        toolName: { type: string, minLength: 1, maxLength: 512 }
+        resourceId:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: Public resource identifier; Provider-private Home Assistant entity IDs are not admitted.
+    DeterministicCapabilityExecutionResponse:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, status, execution, result, evidence, safety]
+      properties:
+        schemaVersion:
+          type: string
+          const: sdar.deterministic-read-only-capability-execution/v1
+        status: { type: string, const: succeeded }
+        execution:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              taskId,
+              capabilityBindingId,
+              capabilityBindingVersion,
+              capabilityId,
+              capabilityVersion,
+              skillId,
+              skillVersion,
+              workflowPlanId,
+              workflowInstanceId,
+              mcpProviderBindingId,
+              mcpInvocationId,
+              providerId,
+              serverId,
+              toolName,
+              resourceId,
+            ]
+          properties:
+            taskId: { type: string, minLength: 1 }
+            capabilityBindingId: { type: string, minLength: 1 }
+            capabilityBindingVersion: { type: integer, minimum: 1 }
+            capabilityId: { type: string, minLength: 1 }
+            capabilityVersion: { type: integer, minimum: 1 }
+            skillId: { type: string, minLength: 1 }
+            skillVersion: { type: integer, minimum: 1 }
+            workflowPlanId: { type: string, minLength: 1 }
+            workflowInstanceId: { type: string, minLength: 1 }
+            mcpProviderBindingId: { type: string, minLength: 1 }
+            mcpInvocationId: { type: string, minLength: 1 }
+            providerId: { type: string, minLength: 1 }
+            serverId: { type: string, minLength: 1 }
+            toolName: { type: string, minLength: 1 }
+            resourceId: { type: string, minLength: 1 }
+        result: {}
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/DeterministicCapabilityEvidenceMatch' }
+        safety:
+          type: object
+          additionalProperties: false
+          required: [executionMode, physicalWrites, modelCalls, mcpCalls, identifierAuthority]
+          properties:
+            executionMode: { type: string, const: live }
+            physicalWrites: { type: integer, const: 0 }
+            modelCalls: { type: integer, const: 0 }
+            mcpCalls: { type: integer, const: 1 }
+            identifierAuthority: { type: string, const: public_resource_id }
+    DeterministicCapabilityEvidenceMatch:
+      type: object
+      additionalProperties: false
+      required: [requirementId, evidenceType, required, hardGate, satisfied]
+      properties:
+        requirementId: { type: string, minLength: 1 }
+        evidenceType: { type: string, minLength: 1 }
+        required: { type: boolean }
+        hardGate: { type: boolean }
+        satisfied: { type: boolean }
+        evidenceId: { type: string, minLength: 1 }
+        observedAt: { type: string, format: date-time }
+        payloadRef: { $ref: '#/components/schemas/ProviderEvidencePayloadRef' }
+    ProviderEvidencePayloadRef:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind, jsonPointer]
+          properties:
+            kind: { type: string, const: structured_content }
+            jsonPointer: { type: string }
+        - type: object
+          additionalProperties: false
+          required: [kind, uri]
+          properties:
+            kind: { type: string, const: uri }
+            uri: { type: string, minLength: 1 }
+            mediaType: { type: string }
+            sha256: { type: string }
     CognitiveWriteAction:
       type: object
       additionalProperties: false

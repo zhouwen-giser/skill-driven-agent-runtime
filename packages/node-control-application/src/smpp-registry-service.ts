@@ -4,6 +4,7 @@ import {
   createManagementOperation,
   createSmppRegistrySnapshot,
   createSmppRegistrySource,
+  effectiveSmppRevalidatedValidUntil,
   effectiveSmppSnapshotValidUntil,
   hashConfigurationRequest,
   type JsonObject,
@@ -17,6 +18,9 @@ import type {
   NodeControlIdGenerator,
   NodeControlSmppRegistryRepository,
   SmppRegistryClient,
+  SmppRegistryResponseLineage,
+  SmppRegistrySyncObservation,
+  SmppSnapshotHead,
 } from './ports.js';
 
 export type NodeControlSmppRegistryErrorCode =
@@ -116,11 +120,69 @@ export class NodeControlSmppRegistryService {
       },
       context.occurredAt,
     );
+    let observation: SmppRegistrySyncObservation | undefined;
     try {
       const active = await this.#repository.findActiveSnapshot(sourceId);
-      const fetched = await this.#client.fetchLatest(source, active?.etag);
-      if (fetched.status === 'not_modified')
-        return await this.#repository.recordNotModified(source, fetched.etag, operation, context);
+      const fetched = await this.#client.fetchLatest(
+        source,
+        isConditionallyReusable(active, context.occurredAt) ? active.etag : undefined,
+      );
+      if (fetched.status === 'not_modified') {
+        if (active === undefined)
+          return await this.#repository.recordSyncFailure(
+            source,
+            'SMPP_SOURCE_UNAVAILABLE',
+            operation,
+            context,
+          );
+        const validUntil = effectiveSmppRevalidatedValidUntil(
+          source,
+          active.externalExpiresAt,
+          context.occurredAt,
+        );
+        observation = observationFromHead(
+          { ...active, etag: fetched.etag },
+          fetched.nativeLineage,
+          validUntil,
+        );
+        if (
+          !isFresh(active.validUntil, context.occurredAt) ||
+          !isFresh(active.externalExpiresAt, context.occurredAt)
+        )
+          return await this.#repository.recordSyncFailure(
+            source,
+            'SMPP_SNAPSHOT_EXPIRED',
+            operation,
+            context,
+            observation,
+          );
+        if (
+          fetched.etag !== active.etag ||
+          active.nativeLineage === undefined ||
+          !sameLineage(active.nativeLineage, fetched.nativeLineage)
+        )
+          return await this.#repository.recordSyncFailure(
+            source,
+            'SMPP_SNAPSHOT_LINEAGE_MISMATCH',
+            operation,
+            context,
+            observation,
+          );
+        return await this.#repository.recordNotModified(
+          source,
+          active,
+          fetched.nativeLineage,
+          validUntil,
+          operation,
+          context,
+        );
+      }
+      observation = Object.freeze({
+        revision: fetched.snapshot.revision,
+        checksum: fetched.snapshot.checksum,
+        etag: fetched.snapshot.etag,
+        nativeLineage: fetched.nativeLineage,
+      });
       const snapshot = createSmppRegistrySnapshot(fetched.snapshot);
       if (snapshot.smppSourceId !== sourceId)
         return await this.#repository.recordSyncFailure(
@@ -128,18 +190,23 @@ export class NodeControlSmppRegistryService {
           'SMPP_SNAPSHOT_SOURCE_MISMATCH',
           operation,
           context,
+          observation,
         );
+      const validUntil = effectiveSmppSnapshotValidUntil(source, snapshot, context.occurredAt);
+      observation = Object.freeze({ ...observation, validUntil });
       if (Date.parse(snapshot.expiresAt) <= Date.parse(context.occurredAt))
         return await this.#repository.recordSyncFailure(
           source,
           'SMPP_SNAPSHOT_EXPIRED',
           operation,
           context,
+          observation,
         );
       return await this.#repository.applySnapshot(
         source,
         snapshot,
-        effectiveSmppSnapshotValidUntil(source, snapshot, context.occurredAt),
+        validUntil,
+        fetched.nativeLineage,
         operation,
         context,
       );
@@ -149,6 +216,7 @@ export class NodeControlSmppRegistryService {
         safeSyncErrorCode(error),
         operation,
         context,
+        observation,
       );
     }
   }
@@ -196,6 +264,44 @@ export class NodeControlSmppRegistryService {
       occurredAt: this.#clock.now(),
     });
   }
+}
+
+function isConditionallyReusable(
+  active: SmppSnapshotHead | undefined,
+  observedAt: string,
+): active is SmppSnapshotHead & { readonly nativeLineage: SmppRegistryResponseLineage } {
+  return (
+    active?.nativeLineage !== undefined &&
+    isFresh(active.validUntil, observedAt) &&
+    isFresh(active.externalExpiresAt, observedAt)
+  );
+}
+
+function isFresh(expiresAt: string, observedAt: string): boolean {
+  return Date.parse(expiresAt) > Date.parse(observedAt);
+}
+
+function sameLineage(
+  left: SmppRegistryResponseLineage,
+  right: SmppRegistryResponseLineage,
+): boolean {
+  return (
+    left.nativeRevision === right.nativeRevision && left.nativeChecksum === right.nativeChecksum
+  );
+}
+
+function observationFromHead(
+  active: SmppSnapshotHead,
+  nativeLineage: SmppRegistryResponseLineage,
+  validUntil: string,
+): SmppRegistrySyncObservation {
+  return Object.freeze({
+    revision: active.revision,
+    checksum: active.checksum,
+    etag: active.etag,
+    validUntil,
+    nativeLineage,
+  });
 }
 
 function sourceRequest(value: SmppRegistrySource): JsonObject {

@@ -153,6 +153,13 @@ describe('P02 PostgreSQL Artifact authority', () => {
         validationSummaryHash,
       }),
     ).rejects.toMatchObject({ code: 'ARTIFACT_APPROVAL_REQUIRED' });
+    const rolledBackAudit = await pool.query<{ count: number }>(
+      `SELECT count(*)::integer AS count
+         FROM cognitive_management_action
+        WHERE operation='artifact_activate' AND idempotency_key=$1`,
+      [commandBase(candidate.artifact).idempotencyKey],
+    );
+    expect(rolledBackAudit.rows).toEqual([{ count: 0 }]);
 
     await governance.recordApproval({
       ...commandBase(candidate.artifact),
@@ -187,11 +194,44 @@ describe('P02 PostgreSQL Artifact authority', () => {
         pointerLockVersion: 1,
       }),
     ]);
-    const evidence = await pool.query<{ operation: string; status: string }>(
-      `SELECT operation,status FROM cognitive_management_action
+    const evidence = await pool.query<{
+      operation: string;
+      status: string;
+      result: unknown;
+      error_code: string | null;
+      lease_owner: string | null;
+      lease_expires_at: Date | null;
+      lease_attempt: number;
+      lease_token: string | null;
+      execution_phase: string;
+      provider_dispatch_id: string | null;
+      provider_dispatch_hash: string | null;
+    }>(
+      `SELECT operation,status,result,error_code,lease_owner,lease_expires_at,lease_attempt,
+              lease_token,execution_phase,provider_dispatch_id,provider_dispatch_hash
+         FROM cognitive_management_action
        WHERE operation='artifact_activate'`,
     );
-    expect(evidence.rows).toEqual([{ operation: 'artifact_activate', status: 'completed' }]);
+    expect(evidence.rows).toEqual([
+      {
+        operation: 'artifact_activate',
+        status: 'completed',
+        result: {
+          artifactId: candidate.artifact.artifactId,
+          artifactVersion: candidate.artifact.version,
+          artifactKey: candidate.artifact.artifactKey,
+          status: 'active',
+        },
+        error_code: null,
+        lease_owner: null,
+        lease_expires_at: null,
+        lease_attempt: 0,
+        lease_token: null,
+        execution_phase: 'terminal',
+        provider_dispatch_id: null,
+        provider_dispatch_hash: null,
+      },
+    ]);
     const outbox = await pool.query<{ event_type: string }>(
       `SELECT event_type FROM cognitive_runtime_outbox ORDER BY event_type`,
     );
@@ -690,7 +730,10 @@ describe('P02 PostgreSQL Artifact authority', () => {
       try {
         return await startServerRuntime({
           postgresUrl: connectionString,
-          redis: { host: '127.0.0.1', port: 56379 },
+          redis: {
+            host: '127.0.0.1',
+            port: Number(process.env['SDAR_REDIS_PORT'] ?? '56379'),
+          },
           masterKeyBase64: randomBytes(32).toString('base64'),
           queueName: `artifact-startup-${randomUUID()}`,
           applyMigrations: false,

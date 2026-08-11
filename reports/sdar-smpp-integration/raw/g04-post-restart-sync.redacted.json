@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G04",
+  "status": "passed",
+  "runId": "019fca75-f48a-7780-ac5e-942503c6690e-g04-post-restart",
+  "operation": {
+    "operationId": "f2fa8826-ca25-469a-910e-474a346eaf4d",
+    "operationType": "smpp_source.sync",
+    "status": "succeeded",
+    "createdAt": "2026-08-11T04:45:52.038Z",
+    "startedAt": "2026-08-11T04:45:52.038Z",
+    "completedAt": "2026-08-11T04:45:52.038Z",
+    "replayOperationIdEqual": true
+  },
+  "source": {
+    "smppSourceId": "home-lab-smpp",
+    "environment": "home-lab",
+    "syncMode": "poll",
+    "lkgPolicy": "allow_unexpired",
+    "status": "active",
+    "revision": 1,
+    "activeSnapshotRevision": 2,
+    "activeSnapshotChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+    "activeSnapshotValidUntil": "2026-09-09T14:12:37.383Z",
+    "lastSyncAt": "2026-08-11T04:46:25.145Z"
+  },
+  "candidateCount": 2,
+  "candidates": [
+    {
+      "externalProviderId": "ha-climate-lab",
+      "externalServerId": "runtime-3ffb9721d7ae-0",
+      "catalogRevision": "1",
+      "registryRevision": 2,
+      "registryChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+      "registryEtag": "\"5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5\"",
+      "registryValidUntil": "2026-09-09T14:12:37.383Z",
+      "nativeRegistryRevision": 2,
+      "nativeRegistryChecksum": "57018a96c6c5dbd9a4713a7cc4fa5ea2730af592ee53593cdb41c59ad429384c",
+      "registryProjectionContract": "sdar-registry-v1"
+    },
+    {
+      "externalProviderId": "ha-light-lab",
+      "externalServerId": "runtime-8e6e163f0b32-0",
+      "catalogRevision": "1",
+      "registryRevision": 2,
+      "registryChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+      "registryEtag": "\"5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5\"",
+      "registryValidUntil": "2026-09-09T14:12:37.383Z",
+      "nativeRegistryRevision": 2,
+      "nativeRegistryChecksum": "57018a96c6c5dbd9a4713a7cc4fa5ea2730af592ee53593cdb41c59ad429384c",
+      "registryProjectionContract": "sdar-registry-v1"
+    }
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

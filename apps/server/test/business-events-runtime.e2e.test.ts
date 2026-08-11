@@ -25,7 +25,10 @@ beforeAll(async () => {
   provider = await startFrozenBusinessEventsMockProvider({ scenario: 'task_event' });
   runtime = await startServerRuntime({
     postgresUrl,
-    redis: { host: '127.0.0.1', port: 56379 },
+    redis: {
+      host: '127.0.0.1',
+      port: Number(process.env['SDAR_REDIS_PORT'] ?? '56379'),
+    },
     masterKeyBase64: randomBytes(32).toString('base64'),
     queueName: `business-events-e2e-${randomUUID()}`,
     applyMigrations: true,

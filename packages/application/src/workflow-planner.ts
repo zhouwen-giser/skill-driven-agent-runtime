@@ -43,6 +43,25 @@ export interface PlanWorkflowInput {
   readonly executionContext?: RuntimeExecutionContext;
   readonly skillUsagePolicy?: SkillUsagePlanPolicy;
   readonly deterministicDefinition?: WorkflowDefinition;
+  /** Reject invalid deterministic plans without invoking the planning model. */
+  readonly deterministicOnly?: boolean;
+}
+
+export interface WorkflowCandidateGuardError {
+  readonly code: string;
+  readonly path: string;
+  readonly message: string;
+}
+
+export interface WorkflowCandidateGuard {
+  validate(
+    input: Readonly<{
+      definition: WorkflowDefinition;
+      taskId?: string;
+      skillUsagePolicy?: SkillUsagePlanPolicy;
+      compositionRoot?: SkillCompositionRoot;
+    }>,
+  ): readonly WorkflowCandidateGuardError[] | Promise<readonly WorkflowCandidateGuardError[]>;
 }
 
 export class WorkflowPlannerService {
@@ -56,6 +75,7 @@ export class WorkflowPlannerService {
   readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
   readonly #composition: Pick<SkillCompositionPlanner, 'compose'> | undefined;
   readonly #readiness: WorkflowCandidateReadinessPolicy | undefined;
+  readonly #candidateGuard: WorkflowCandidateGuard | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -69,6 +89,7 @@ export class WorkflowPlannerService {
       memories?: Pick<MemoryService, 'searchForStage'>;
       composition?: Pick<SkillCompositionPlanner, 'compose'>;
       readiness?: WorkflowCandidateReadinessPolicy;
+      candidateGuard?: WorkflowCandidateGuard;
     }>,
   ) {
     if (!Number.isInteger(dependencies.maxAttempts) || dependencies.maxAttempts < 1)
@@ -86,9 +107,15 @@ export class WorkflowPlannerService {
     this.#memories = dependencies.memories;
     this.#composition = dependencies.composition;
     this.#readiness = dependencies.readiness;
+    this.#candidateGuard = dependencies.candidateGuard;
   }
 
   async plan(input: PlanWorkflowInput): Promise<WorkflowPlanRecord> {
+    if (input.deterministicOnly === true && input.deterministicDefinition === undefined)
+      throw new WorkflowPlannerError(
+        'WORKFLOW_DETERMINISTIC_DEFINITION_REQUIRED',
+        'Deterministic-only planning requires one authoritative Workflow definition.',
+      );
     let goalContract: GoalExecutionContract;
     try {
       goalContract = snapshotGoalExecutionContract(input.goalContract);
@@ -163,13 +190,16 @@ export class WorkflowPlannerService {
         'Repair source confirmation belongs to different Skill composition authority.',
       );
     const preferredTemplate =
-      input.templateQuery === undefined
+      input.deterministicOnly === true || input.templateQuery === undefined
         ? undefined
         : await this.#templates?.findPreferred(input.templateQuery);
-    const memoryContext = await this.#memories?.searchForStage(
-      'workflow_generation',
-      input.templateQuery ?? input.planningInstruction,
-    );
+    const memoryContext =
+      input.deterministicOnly === true
+        ? undefined
+        : await this.#memories?.searchForStage(
+            'workflow_generation',
+            input.templateQuery ?? input.planningInstruction,
+          );
     const withContract = addPlanningContracts(
       input.planningInstruction,
       goalContract,
@@ -184,7 +214,8 @@ export class WorkflowPlannerService {
         ? withMemory
         : addPreferredTemplate(withMemory, preferredTemplate);
     let correctionErrors: readonly string[] = [];
-    for (let attempt = 1; attempt <= this.#maxAttempts; attempt += 1) {
+    const maxAttempts = input.deterministicOnly === true ? 1 : this.#maxAttempts;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const candidate =
         attempt === 1 && input.deterministicDefinition !== undefined
           ? input.deterministicDefinition
@@ -193,6 +224,7 @@ export class WorkflowPlannerService {
               instruction: planningInstruction,
               responseSchema: this.#schema,
               correctionErrors,
+              ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
             });
       const contractedCandidate = applySkillTaskExecutionContracts(candidate, skillUsagePolicy);
       const validation = await this.#validateExpected(
@@ -292,7 +324,7 @@ export class WorkflowPlannerService {
         ? {}
         : { sourceConfirmedPlanId: input.sourceConfirmedPlanId }),
       confirmationStatus: 'failed',
-      attemptCount: this.#maxAttempts,
+      attemptCount: maxAttempts,
       createdAt: this.#clock.now(),
     });
     throw new WorkflowPlannerError(
@@ -336,6 +368,17 @@ export class WorkflowPlannerService {
         path: 'goalId',
         message: 'Generated Workflow must reference the requested Goal version.',
       });
+    if (errors.length === 0 && this.#candidateGuard !== undefined)
+      errors.push(
+        ...(await this.#candidateGuard.validate({
+          definition: result.definition,
+          ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+          ...(skillUsagePolicy === undefined ? {} : { skillUsagePolicy }),
+          ...(input.compositionRoot === undefined
+            ? {}
+            : { compositionRoot: input.compositionRoot }),
+        })),
+      );
     return errors.length === 0 ? result : { valid: false, errors };
   }
 
@@ -481,6 +524,17 @@ function applySkillTaskExecutionContracts(
         (item) => item.providerId === tool['serverId'] && item.operationName === tool['toolName'],
       );
       if (operation === undefined) return node;
+      const synchronousOnly = policy.readiness.bindings
+        .find((binding) => binding.bindingId === operation.bindingId)
+        ?.candidates?.some(
+          (candidate) =>
+            candidate.selected && candidate.attributes.includes('task_behavior:synchronous_only'),
+        );
+      if (synchronousOnly) {
+        const withoutTaskExecution = { ...node };
+        delete withoutTaskExecution['taskExecution'];
+        return withoutTaskExecution;
+      }
       return {
         ...node,
         taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
@@ -530,6 +584,7 @@ function requiresSkillUsagePlanConfirmation(policy: SkillUsagePlanPolicy | undef
 }
 
 export type WorkflowPlannerErrorCode =
+  | 'WORKFLOW_DETERMINISTIC_DEFINITION_REQUIRED'
   | 'WORKFLOW_PLANNER_ATTEMPTS_INVALID'
   | 'WORKFLOW_PLANNING_FAILED'
   | 'WORKFLOW_GOAL_CONTRACT_MISMATCH'

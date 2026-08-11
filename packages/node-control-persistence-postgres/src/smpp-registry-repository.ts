@@ -4,6 +4,8 @@ import {
   NodeControlSmppRegistryError,
   type ConfigurationMutationContext,
   type NodeControlSmppRegistryRepository,
+  type SmppRegistryResponseLineage,
+  type SmppRegistrySyncObservation,
   type SmppSnapshotHead,
 } from '../../node-control-application/src/index.js';
 import {
@@ -31,6 +33,7 @@ interface SourceRow extends QueryResultRow {
   status: SmppRegistrySource['status'];
   active_snapshot_revision: string | null;
   active_snapshot_checksum: string | null;
+  active_snapshot_valid_until: Date | null;
   last_sync_at: Date | null;
   last_error_code: string | null;
 }
@@ -39,7 +42,11 @@ interface SnapshotHeadRow extends QueryResultRow {
   snapshot_revision: string;
   checksum: string;
   etag: string;
+  external_expires_at: Date;
   valid_until: Date;
+  native_revision: string | null;
+  native_checksum: string | null;
+  projection_contract: string | null;
 }
 
 interface CandidateRow extends QueryResultRow {
@@ -55,6 +62,9 @@ interface CandidateRow extends QueryResultRow {
   checksum: string;
   etag: string;
   valid_until: Date;
+  native_revision: string | null;
+  native_checksum: string | null;
+  projection_contract: string | null;
 }
 
 interface ReceiptRow extends QueryResultRow {
@@ -192,14 +202,19 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
 
   async findActiveSnapshot(sourceId: string): Promise<SmppSnapshotHead | undefined> {
     const result = await this.#pool.query<SnapshotHeadRow>(
-      `SELECT snapshot_revision::text,checksum::text,etag,valid_until
-         FROM sdar_control.smpp_registry_snapshot snapshot
-        WHERE smpp_source_id=$1 AND snapshot_revision=(
-          SELECT active_snapshot_revision
-            FROM sdar_control.smpp_registry_source
-           WHERE smpp_source_id=$1 AND active_snapshot_revision IS NOT NULL
-           ORDER BY revision DESC LIMIT 1
-        )`,
+      `SELECT snapshot.snapshot_revision::text,snapshot.checksum::text,snapshot.etag,
+              snapshot.external_expires_at,source.active_snapshot_valid_until AS valid_until,
+              lineage.native_revision::text,lineage.native_checksum::text,
+              lineage.projection_contract
+         FROM sdar_control.smpp_registry_source source
+         JOIN sdar_control.smpp_registry_snapshot snapshot
+           ON snapshot.smpp_source_id=source.smpp_source_id
+          AND snapshot.snapshot_revision=source.active_snapshot_revision
+         LEFT JOIN sdar_control.smpp_registry_snapshot_lineage lineage
+           ON lineage.smpp_source_id=snapshot.smpp_source_id
+          AND lineage.snapshot_revision=snapshot.snapshot_revision
+        WHERE source.smpp_source_id=$1 AND source.active_snapshot_revision IS NOT NULL
+        ORDER BY source.revision DESC LIMIT 1`,
       [sourceId],
     );
     return mapSnapshotHead(result.rows[0]);
@@ -219,26 +234,54 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
     source: SmppRegistrySource,
     snapshot: SmppRegistrySnapshot,
     validUntil: string,
+    nativeLineage: SmppRegistryResponseLineage,
     operation: ManagementOperation,
     context: ConfigurationMutationContext,
   ): Promise<ManagementOperation> {
     return this.completeSync(source, operation, context, async (client) => {
+      if (
+        Date.parse(validUntil) <= Date.parse(context.occurredAt) ||
+        Date.parse(validUntil) > Date.parse(snapshot.expiresAt)
+      )
+        return failedOutcome(
+          'SMPP_SNAPSHOT_EXPIRED',
+          observationFromSnapshot(snapshot, nativeLineage, validUntil),
+        );
       const active = await activeSnapshotForUpdate(client, source.smppSourceId);
       if (active !== undefined && snapshot.revision < Number(active.snapshot_revision))
-        return failedOutcome('SMPP_SNAPSHOT_ROLLBACK_REJECTED', snapshot);
+        return failedOutcome(
+          'SMPP_SNAPSHOT_ROLLBACK_REJECTED',
+          observationFromSnapshot(snapshot, nativeLineage, validUntil),
+        );
       if (
         active !== undefined &&
         snapshot.revision === Number(active.snapshot_revision) &&
         snapshot.checksum !== active.checksum.trim()
       )
-        return failedOutcome('SMPP_SNAPSHOT_DRIFT_REJECTED', snapshot);
+        return failedOutcome(
+          'SMPP_SNAPSHOT_DRIFT_REJECTED',
+          observationFromSnapshot(snapshot, nativeLineage, validUntil),
+        );
       if (
         active !== undefined &&
         snapshot.revision === Number(active.snapshot_revision) &&
         snapshot.checksum === active.checksum.trim()
       ) {
-        await activateSourceRevision(client, source, active, context.occurredAt);
-        return successOutcome('not_modified', active);
+        const lineageAccepted = await insertOrVerifySnapshotLineage(
+          client,
+          snapshot.smppSourceId,
+          snapshot.revision,
+          nativeLineage,
+          context.occurredAt,
+        );
+        if (!lineageAccepted)
+          return failedOutcome(
+            'SMPP_SNAPSHOT_LINEAGE_MISMATCH',
+            observationFromSnapshot(snapshot, nativeLineage, validUntil),
+          );
+        const refreshed = snapshotHeadWithLineage(active, nativeLineage, validUntil);
+        await activateSourceRevision(client, source, refreshed, context.occurredAt);
+        return successOutcome('not_modified', refreshed);
       }
 
       await client.query(
@@ -260,6 +303,13 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
       );
       for (const candidate of snapshot.candidates)
         await insertCandidate(client, snapshot, candidate);
+      await insertSnapshotLineage(
+        client,
+        snapshot.smppSourceId,
+        snapshot.revision,
+        nativeLineage,
+        context.occurredAt,
+      );
       await activateSourceRevision(
         client,
         source,
@@ -267,7 +317,11 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
           snapshot_revision: String(snapshot.revision),
           checksum: snapshot.checksum,
           etag: snapshot.etag,
+          external_expires_at: new Date(snapshot.expiresAt),
           valid_until: new Date(validUntil),
+          native_revision: String(nativeLineage.nativeRevision),
+          native_checksum: nativeLineage.nativeChecksum,
+          projection_contract: nativeLineage.projectionContract,
         },
         context.occurredAt,
       );
@@ -280,24 +334,47 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
           etag: snapshot.etag,
           validUntil,
           candidateCount: snapshot.candidates.length,
+          nativeLineage,
           authority: 'candidate_directory_only',
         }),
-        snapshot,
+        observation: observationFromSnapshot(snapshot, nativeLineage, validUntil),
       });
     });
   }
 
   recordNotModified(
     source: SmppRegistrySource,
-    etag: string,
+    expected: SmppSnapshotHead,
+    nativeLineage: SmppRegistryResponseLineage,
+    validUntil: string,
     operation: ManagementOperation,
     context: ConfigurationMutationContext,
   ): Promise<ManagementOperation> {
     return this.completeSync(source, operation, context, async (client) => {
       const active = await activeSnapshotForUpdate(client, source.smppSourceId);
       if (active === undefined) return failedOutcome('SMPP_SOURCE_UNAVAILABLE');
-      await activateSourceRevision(client, source, { ...active, etag }, context.occurredAt);
-      return successOutcome('not_modified', { ...active, etag });
+      const observation = observationFromHead(expected, nativeLineage, validUntil);
+      if (
+        !sameSnapshotHead(active, expected) ||
+        !rowHasLineage(active, nativeLineage) ||
+        Date.parse(active.valid_until.toISOString()) <= Date.parse(context.occurredAt) ||
+        Date.parse(active.external_expires_at.toISOString()) <= Date.parse(context.occurredAt) ||
+        Date.parse(validUntil) <= Date.parse(context.occurredAt) ||
+        Date.parse(validUntil) > Date.parse(active.external_expires_at.toISOString())
+      )
+        return failedOutcome(
+          Date.parse(active.valid_until.toISOString()) <= Date.parse(context.occurredAt) ||
+            Date.parse(active.external_expires_at.toISOString()) <=
+              Date.parse(context.occurredAt) ||
+            Date.parse(validUntil) <= Date.parse(context.occurredAt) ||
+            Date.parse(validUntil) > Date.parse(active.external_expires_at.toISOString())
+            ? 'SMPP_SNAPSHOT_EXPIRED'
+            : 'SMPP_SNAPSHOT_LINEAGE_MISMATCH',
+          observation,
+        );
+      const refreshed = snapshotHeadWithLineage(active, nativeLineage, validUntil);
+      await activateSourceRevision(client, source, refreshed, context.occurredAt);
+      return successOutcome('not_modified', refreshed);
     });
   }
 
@@ -306,6 +383,7 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
     errorCode: string,
     operation: ManagementOperation,
     context: ConfigurationMutationContext,
+    observation?: SmppRegistrySyncObservation,
   ): Promise<ManagementOperation> {
     return this.completeSync(source, operation, context, async (client) => {
       await client.query(
@@ -314,7 +392,7 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
           WHERE smpp_source_id=$1 AND revision=$4`,
         [source.smppSourceId, context.occurredAt, errorCode, source.revision],
       );
-      return failedOutcome(errorCode);
+      return failedOutcome(errorCode, observation);
     });
   }
 
@@ -332,15 +410,20 @@ export class PostgresNodeControlSmppRegistryRepository implements NodeControlSmp
               candidate.external_server_id,candidate.composite_identity,
                candidate.server_endpoint,candidate.display_name,candidate.catalog_revision,
                candidate.labels,snapshot.snapshot_revision::text,snapshot.checksum::text,
-               snapshot.etag,snapshot.valid_until
+               snapshot.etag,source.active_snapshot_valid_until AS valid_until,
+               lineage.native_revision::text,lineage.native_checksum::text,
+               lineage.projection_contract
          FROM latest_source source
          JOIN sdar_control.smpp_registry_snapshot snapshot
            ON snapshot.smpp_source_id=source.smpp_source_id
           AND snapshot.snapshot_revision=source.active_snapshot_revision
          JOIN sdar_control.smpp_provider_candidate candidate
            ON candidate.smpp_source_id=snapshot.smpp_source_id
-          AND candidate.snapshot_revision=snapshot.snapshot_revision
-        WHERE snapshot.valid_until > $1
+           AND candidate.snapshot_revision=snapshot.snapshot_revision
+         LEFT JOIN sdar_control.smpp_registry_snapshot_lineage lineage
+           ON lineage.smpp_source_id=snapshot.smpp_source_id
+          AND lineage.snapshot_revision=snapshot.snapshot_revision
+        WHERE source.active_snapshot_valid_until > $1
           AND ($2::text IS NULL OR source.smpp_source_id=$2)
           AND (source.lkg_policy='allow_unexpired' OR source.last_error_code IS NULL)
         ORDER BY candidate.smpp_source_id,candidate.external_provider_id,candidate.external_server_id
@@ -424,28 +507,27 @@ type SyncOutcome =
       status: 'succeeded';
       outcome: 'applied' | 'not_modified';
       result: Readonly<Record<string, unknown>>;
-      snapshot?: SmppRegistrySnapshot;
+      observation: SmppRegistrySyncObservation;
     }>
   | Readonly<{
       status: 'failed';
       outcome: 'failed';
       errorCode: string;
-      snapshot?: SmppRegistrySnapshot;
+      observation?: SmppRegistrySyncObservation;
     }>;
 
-function failedOutcome(errorCode: string, snapshot?: SmppRegistrySnapshot): SyncOutcome {
+function failedOutcome(errorCode: string, observation?: SmppRegistrySyncObservation): SyncOutcome {
   return Object.freeze({
     status: 'failed',
     outcome: 'failed',
     errorCode,
-    ...(snapshot === undefined ? {} : { snapshot }),
+    ...(observation === undefined ? {} : { observation }),
   });
 }
 
-function successOutcome(
-  outcome: 'not_modified',
-  head: Readonly<{ snapshot_revision: string; checksum: string; etag: string; valid_until: Date }>,
-): SyncOutcome {
+function successOutcome(outcome: 'not_modified', head: SnapshotHeadRow): SyncOutcome {
+  const nativeLineage = lineageFromRow(head);
+  if (nativeLineage === undefined) throw new Error('CONTROL_SMPP_SNAPSHOT_LINEAGE_MISSING');
   return Object.freeze({
     status: 'succeeded',
     outcome,
@@ -454,8 +536,10 @@ function successOutcome(
       checksum: head.checksum.trim(),
       etag: head.etag,
       validUntil: head.valid_until.toISOString(),
+      nativeLineage,
       authority: 'candidate_directory_only',
     }),
+    observation: observationFromRow(head),
   });
 }
 
@@ -478,11 +562,17 @@ async function activeSnapshotForUpdate(
   sourceId: string,
 ): Promise<SnapshotHeadRow | undefined> {
   const result = await client.query<SnapshotHeadRow>(
-    `SELECT snapshot.snapshot_revision::text,snapshot.checksum::text,snapshot.etag,snapshot.valid_until
+    `SELECT snapshot.snapshot_revision::text,snapshot.checksum::text,snapshot.etag,
+            snapshot.external_expires_at,source.active_snapshot_valid_until AS valid_until,
+            lineage.native_revision::text,lineage.native_checksum::text,
+            lineage.projection_contract
        FROM sdar_control.smpp_registry_source source
        JOIN sdar_control.smpp_registry_snapshot snapshot
          ON snapshot.smpp_source_id=source.smpp_source_id
         AND snapshot.snapshot_revision=source.active_snapshot_revision
+       LEFT JOIN sdar_control.smpp_registry_snapshot_lineage lineage
+         ON lineage.smpp_source_id=snapshot.smpp_source_id
+        AND lineage.snapshot_revision=snapshot.snapshot_revision
       WHERE source.smpp_source_id=$1
       ORDER BY source.revision DESC LIMIT 1
       FOR UPDATE OF source`,
@@ -506,7 +596,8 @@ async function activateSourceRevision(
   const updated = await client.query(
     `UPDATE sdar_control.smpp_registry_source
         SET status='active',active_snapshot_revision=$3,active_snapshot_checksum=$4,
-            active_snapshot_etag=$5,last_sync_at=$6,last_error_code=NULL,updated_at=$6
+            active_snapshot_etag=$5,active_snapshot_valid_until=$6,last_sync_at=$7,
+            last_error_code=NULL,updated_at=$7
       WHERE smpp_source_id=$1 AND revision=$2`,
     [
       source.smppSourceId,
@@ -514,6 +605,7 @@ async function activateSourceRevision(
       Number(snapshot.snapshot_revision),
       snapshot.checksum.trim(),
       snapshot.etag,
+      snapshot.valid_until.toISOString(),
       occurredAt,
     ],
   );
@@ -630,6 +722,59 @@ function insertCandidate(
   );
 }
 
+function insertSnapshotLineage(
+  client: PoolClient,
+  sourceId: string,
+  snapshotRevision: number,
+  lineage: SmppRegistryResponseLineage,
+  observedAt: string,
+): Promise<unknown> {
+  return client.query(
+    `INSERT INTO sdar_control.smpp_registry_snapshot_lineage(
+       smpp_source_id,snapshot_revision,native_revision,native_checksum,
+       projection_contract,observed_at)
+     VALUES($1,$2,$3,$4,$5,$6)`,
+    [
+      sourceId,
+      snapshotRevision,
+      lineage.nativeRevision,
+      lineage.nativeChecksum,
+      lineage.projectionContract,
+      observedAt,
+    ],
+  );
+}
+
+async function insertOrVerifySnapshotLineage(
+  client: PoolClient,
+  sourceId: string,
+  snapshotRevision: number,
+  lineage: SmppRegistryResponseLineage,
+  observedAt: string,
+): Promise<boolean> {
+  const existing = await client.query<
+    QueryResultRow & {
+      native_revision: string;
+      native_checksum: string;
+      projection_contract: string;
+    }
+  >(
+    `SELECT native_revision::text,native_checksum::text,projection_contract
+       FROM sdar_control.smpp_registry_snapshot_lineage
+      WHERE smpp_source_id=$1 AND snapshot_revision=$2`,
+    [sourceId, snapshotRevision],
+  );
+  const row = existing.rows[0];
+  if (row !== undefined)
+    return (
+      Number(row.native_revision) === lineage.nativeRevision &&
+      row.native_checksum.trim() === lineage.nativeChecksum &&
+      row.projection_contract === lineage.projectionContract
+    );
+  await insertSnapshotLineage(client, sourceId, snapshotRevision, lineage, observedAt);
+  return true;
+}
+
 function insertAttempt(
   client: PoolClient,
   source: SmppRegistrySource,
@@ -640,16 +785,22 @@ function insertAttempt(
   return client.query(
     `INSERT INTO sdar_control.smpp_registry_sync_attempt(
        attempt_id,operation_id,smpp_source_id,source_revision,outcome,
-       observed_snapshot_revision,observed_checksum,observed_etag,error_code,occurred_at)
-     VALUES(gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+       observed_snapshot_revision,observed_checksum,observed_etag,observed_native_revision,
+       observed_native_checksum,observed_projection_contract,observed_valid_until,
+       error_code,occurred_at)
+     VALUES(gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
     [
       operation.operationId,
       source.smppSourceId,
       source.revision,
       outcome.outcome,
-      outcome.snapshot?.revision ?? null,
-      outcome.snapshot?.checksum ?? null,
-      outcome.snapshot?.etag ?? null,
+      outcome.observation?.revision ?? null,
+      outcome.observation?.checksum ?? null,
+      outcome.observation?.etag ?? null,
+      outcome.observation?.nativeLineage.nativeRevision ?? null,
+      outcome.observation?.nativeLineage.nativeChecksum ?? null,
+      outcome.observation?.nativeLineage.projectionContract ?? null,
+      outcome.observation?.validUntil ?? null,
       outcome.status === 'failed' ? outcome.errorCode : null,
       context.occurredAt,
     ],
@@ -682,7 +833,10 @@ function insertAudit(
 }
 
 function mapSource(row: SourceRow): SmppRegistrySource {
-  if (row.active_snapshot_revision !== null && row.active_snapshot_checksum === null)
+  if (
+    row.active_snapshot_revision !== null &&
+    (row.active_snapshot_checksum === null || row.active_snapshot_valid_until === null)
+  )
     throw new Error('CONTROL_SMPP_SOURCE_ACTIVE_POINTER_INCOMPLETE');
   return rehydrateSmppRegistrySource({
     smppSourceId: row.smpp_source_id,
@@ -701,6 +855,7 @@ function mapSource(row: SourceRow): SmppRegistrySource {
       : {
           activeSnapshotRevision: Number(row.active_snapshot_revision),
           activeSnapshotChecksum: requiredActiveChecksum(row),
+          activeSnapshotValidUntil: requiredActiveValidUntil(row),
         }),
     ...(row.last_sync_at === null ? {} : { lastSyncAt: row.last_sync_at.toISOString() }),
     ...(row.last_error_code === null ? {} : { lastErrorCode: row.last_error_code }),
@@ -714,15 +869,131 @@ function requiredActiveChecksum(row: SourceRow): string {
   return row.active_snapshot_checksum.trim();
 }
 
-function mapSnapshotHead(row: SnapshotHeadRow | undefined): SmppSnapshotHead | undefined {
-  return row === undefined
+function requiredActiveValidUntil(row: SourceRow): string {
+  if (row.active_snapshot_valid_until === null)
+    throw new Error('CONTROL_SMPP_SOURCE_ACTIVE_POINTER_INCOMPLETE');
+  return row.active_snapshot_valid_until.toISOString();
+}
+
+function lineageFromRow(
+  row: Pick<SnapshotHeadRow, 'native_revision' | 'native_checksum' | 'projection_contract'>,
+): SmppRegistryResponseLineage | undefined {
+  if (
+    row.native_revision === null ||
+    row.native_checksum === null ||
+    row.projection_contract === null
+  )
+    return undefined;
+  if (row.projection_contract !== 'sdar-registry-v1')
+    throw new Error('CONTROL_SMPP_SNAPSHOT_LINEAGE_INVALID');
+  return Object.freeze({
+    nativeRevision: Number(row.native_revision),
+    nativeChecksum: row.native_checksum.trim(),
+    projectionContract: row.projection_contract,
+  });
+}
+
+function candidateLineage(row: CandidateRow):
+  | Readonly<{
+      nativeRegistryRevision: number;
+      nativeRegistryChecksum: string;
+      registryProjectionContract: 'sdar-registry-v1';
+    }>
+  | undefined {
+  const lineage = lineageFromRow(row);
+  return lineage === undefined
     ? undefined
     : Object.freeze({
-        revision: Number(row.snapshot_revision),
-        checksum: row.checksum.trim(),
-        etag: row.etag,
-        validUntil: row.valid_until.toISOString(),
+        nativeRegistryRevision: lineage.nativeRevision,
+        nativeRegistryChecksum: lineage.nativeChecksum,
+        registryProjectionContract: lineage.projectionContract,
       });
+}
+
+function observationFromSnapshot(
+  snapshot: SmppRegistrySnapshot,
+  nativeLineage: SmppRegistryResponseLineage,
+  validUntil: string,
+): SmppRegistrySyncObservation {
+  return Object.freeze({
+    revision: snapshot.revision,
+    checksum: snapshot.checksum,
+    etag: snapshot.etag,
+    validUntil,
+    nativeLineage,
+  });
+}
+
+function observationFromHead(
+  head: SmppSnapshotHead,
+  nativeLineage: SmppRegistryResponseLineage,
+  validUntil: string,
+): SmppRegistrySyncObservation {
+  return Object.freeze({
+    revision: head.revision,
+    checksum: head.checksum,
+    etag: head.etag,
+    validUntil,
+    nativeLineage,
+  });
+}
+
+function observationFromRow(head: SnapshotHeadRow): SmppRegistrySyncObservation {
+  const nativeLineage = lineageFromRow(head);
+  if (nativeLineage === undefined) throw new Error('CONTROL_SMPP_SNAPSHOT_LINEAGE_MISSING');
+  return Object.freeze({
+    revision: Number(head.snapshot_revision),
+    checksum: head.checksum.trim(),
+    etag: head.etag,
+    validUntil: head.valid_until.toISOString(),
+    nativeLineage,
+  });
+}
+
+function snapshotHeadWithLineage(
+  head: SnapshotHeadRow,
+  nativeLineage: SmppRegistryResponseLineage,
+  validUntil: string,
+): SnapshotHeadRow {
+  return {
+    ...head,
+    valid_until: new Date(validUntil),
+    native_revision: String(nativeLineage.nativeRevision),
+    native_checksum: nativeLineage.nativeChecksum,
+    projection_contract: nativeLineage.projectionContract,
+  };
+}
+
+function rowHasLineage(head: SnapshotHeadRow, expected: SmppRegistryResponseLineage): boolean {
+  const stored = lineageFromRow(head);
+  return (
+    stored?.nativeRevision === expected.nativeRevision &&
+    stored.nativeChecksum === expected.nativeChecksum
+  );
+}
+
+function sameSnapshotHead(stored: SnapshotHeadRow, expected: SmppSnapshotHead): boolean {
+  return (
+    Number(stored.snapshot_revision) === expected.revision &&
+    stored.checksum.trim() === expected.checksum &&
+    stored.etag === expected.etag &&
+    stored.external_expires_at.toISOString() === expected.externalExpiresAt &&
+    expected.nativeLineage !== undefined &&
+    rowHasLineage(stored, expected.nativeLineage)
+  );
+}
+
+function mapSnapshotHead(row: SnapshotHeadRow | undefined): SmppSnapshotHead | undefined {
+  if (row === undefined) return undefined;
+  const nativeLineage = lineageFromRow(row);
+  return Object.freeze({
+    revision: Number(row.snapshot_revision),
+    checksum: row.checksum.trim(),
+    etag: row.etag,
+    externalExpiresAt: row.external_expires_at.toISOString(),
+    validUntil: row.valid_until.toISOString(),
+    ...(nativeLineage === undefined ? {} : { nativeLineage }),
+  });
 }
 
 function mapCandidate(row: CandidateRow): SmppProviderCandidateDirectoryEntry {
@@ -739,6 +1010,7 @@ function mapCandidate(row: CandidateRow): SmppProviderCandidateDirectoryEntry {
     registryChecksum: row.checksum.trim(),
     registryEtag: row.etag,
     registryValidUntil: row.valid_until.toISOString(),
+    ...(candidateLineage(row) ?? {}),
   });
 }
 

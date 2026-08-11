@@ -1088,3 +1088,25 @@ release verification run.
 | V141-EVIDENCE-PHASE14-GATE-001     | verified | the exact dirty implementation tree passed the single repository-wide release gate before publication                                                              | `pnpm verify`: 10/10 stages, 1,305 static assertions, 175 Integration, 73 E2E, TCK, demo and smokes |
 | V141-EVIDENCE-PHASE14-HANDOFF-001  | verified | downstream bundle freezes contract, catalog, schema hashes, source mapping, deterministic samples, readiness and limitations; no ClickHouse product implementation | `reports/v1.4.1-evidence/clickhouse-handoff/`; `fullVerify=passed`                                  |
 | V141-EVIDENCE-PHASE14-REVIEW-001   | verified | final acceptance has no Required blocker and preserves merge/tag/release/deploy as separate unauthorized actions                                                   | `reports/v1.4.1-evidence/14-final-acceptance.{md,json}`                                             |
+
+## SDAR × SMPP Home-Lab Integration Addendum (2026-08-11)
+
+This addendum tracks Goal Run `019fca75-f48a-7780-ac5e-942503c6690e`. It does not rewrite or revoke
+the exact-commit v1.4.1 evidence above: the current integration candidate is a separate dirty
+worktree whose repository-wide verification is blocked. Status vocabulary follows this document's
+required set (`已验证` or `阻塞` here).
+
+| 需求编号 | 阶段 | 状态 | 实现/边界 | 验证证据 |
+| --- | --- | --- | --- | --- |
+| SDAR-SMPP-G01-G03 | G01-G03 | 已验证 | Byte-identical frozen consumer contract; strict SDAR ingress; SMPP native Registry remains authoritative and unchanged | `reports/sdar-smpp-integration/projection-contract-lock.json`; cross-repository verifier; latest/304/bootstrap/watch producer evidence |
+| SDAR-SMPP-G04 | G04 | 已验证 | Authenticated `home-lab-smpp` Source, strict checksum/expiry, immutable Snapshot, unexpired LKG and non-callable Candidates | `reports/sdar-smpp-integration/source-sync.json`; `reports/sdar-smpp-integration/registry-lineage.json`; latest post-restart same-key replay |
+| SDAR-SMPP-G05 | G05 | 已验证 | Governed Climate/Light Bindings; live `server/discover` and `tools/list`; Runtime refresh catch-up/reuse is revision-safe and fails closed on other gaps | `reports/sdar-smpp-integration/provider-bindings.json`; `reports/sdar-smpp-integration/provider-catalog.json`; both Binding and Runtime revisions 17 |
+| SDAR-SMPP-G06 | G06 | 已验证 | Exactly five governed Skills and five Capabilities; Runtime readiness `available` at observation/admission only; same-run replay is idempotent | `reports/sdar-smpp-integration/capability-map.json`; `reports/sdar-smpp-integration/skill-map.json` |
+| SDAR-SMPP-G07 | G07 | 已验证 | Deterministic main-light/climate read path with complete Task-to-MCP lineage, objective evidence, zero model calls and zero physical writes | `reports/sdar-smpp-integration/readonly-execution.json`; post-restart live run and same-run replay |
+| SDAR-SMPP-G08 | G08 | 已验证 | One real A2A Task/Goal traverses Task Understanding, Goal planning, exact composite Workflow, two live read-only SMPP MCP calls, combined Outcome and same-run Runtime restart recovery; model semantics are explicitly a simulated local structured fixture | `reports/sdar-smpp-integration/a2a-readonly.json`; exact execute/restart raw reports; `a2aReadOnlyReady=true` |
+| SDAR-SMPP-G09-G11 | G09-G11 | 阻塞 | G09/G10 real SMPP provider paths and restoration passed but SDAR Goal/Plan lineage was not executed; G11 real cross-provider tasks completed but Climate reverted from `cool` to `off`, so the objective failed; all devices restored and gates closed | `reports/sdar-smpp-integration/light-control.json`; `climate-control.json`; `composite-scenario.json`; exact redacted raw reports |
+| SDAR-SMPP-G12 | G12 | 阻塞 | Deterministic and same-Goal read-only recovery coverage passed; Required real in-flight restart/outage/unchanged-state/corrupt-state evidence not executed | `reports/sdar-smpp-integration/recovery.json`; `resilienceIntegrationReady=false` |
+| SDAR-SMPP-G13 | G13 | 阻塞 | Authoritative full run passed its first four stages and failed final E2E solely at Phase 13 Runtime P95 regression `39.981096754646735% > 10%`; later focused pass is non-authoritative | `reports/verification/summary.json`; immutable `reports/v1.4.1-evidence/failed-attempts/13-performance-attempt-6.json` and `13-performance-attempt-7.json` |
+| SDAR-SMPP-SAFETY | closeout | 已验证 | Active/uncertain SDAR Tasks `0/0`; active/uncertain SMPP Tasks `0/0`; bounded physical writes completed; all devices restored; write gates closed | G09-G11 final authoritative queries and restoration reports |
+| SDAR-SMPP-G14-G15 | G14-G15 | 已验证 | Tested candidates published independently as blocked Draft PRs; no merge, tag, release or deployment | SDAR PR #19 at `af887618`; SMPP PR #10 at `5b17f12`; final handoffs |
+| SDAR-SMPP-OVERALL | G00-G15 | 阻塞 | G01-G07 passed, but not every Required readiness field is true; publication is not merge authorization | `crossRepositoryIntegrationReady=false`; `execplans/EP-SDAR-SMPP-HOME-LAB-INTEGRATION.md` |

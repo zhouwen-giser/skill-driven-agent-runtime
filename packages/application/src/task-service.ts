@@ -1,6 +1,8 @@
 import {
   ANONYMOUS_USER_ID,
   bindTaskPlan,
+  bindTaskGoal,
+  bindTaskSkill,
   bindTaskReplacement,
   createAgentTask,
   createConversationContext,
@@ -118,6 +120,19 @@ export class TaskService {
   }
 
   async submit(command: SubmitTaskCommand): Promise<SubmitTaskResult> {
+    return this.#submit(command, true);
+  }
+
+  /**
+   * Accepts a Task whose execution authority is supplied by a deterministic
+   * management operation. The initial input attempt is closed locally and is
+   * deliberately not placed on the natural-language preparation queue.
+   */
+  async submitDeterministic(command: SubmitTaskCommand): Promise<SubmitTaskResult> {
+    return this.#submit(command, false);
+  }
+
+  async #submit(command: SubmitTaskCommand, enqueue: boolean): Promise<SubmitTaskResult> {
     const timestamp = this.#dependencies.clock.now();
     const requestedContextId = command.contextId?.trim();
     const contextId =
@@ -199,14 +214,82 @@ export class TaskService {
         }),
       );
     }
-    await this.#dependencies.queue.enqueue({
-      taskId: task.taskId,
-      contextId: task.contextId,
-      attemptId: attempt.attemptId,
-      mode: 'initial',
-    });
+    if (enqueue) {
+      await this.#dependencies.queue.enqueue({
+        taskId: task.taskId,
+        contextId: task.contextId,
+        attemptId: attempt.attemptId,
+        mode: 'initial',
+      });
+    } else {
+      await this.#dependencies.taskInputs.updateAttempt(attempt.attemptId, 'running', timestamp);
+      await this.#dependencies.taskInputs.updateAttempt(attempt.attemptId, 'completed', timestamp);
+    }
 
     return { task, context, createdContext: existing === undefined };
+  }
+
+  /**
+   * Binds already-validated Goal and exact Skill authority without invoking
+   * Task Understanding, Goal formulation, Skill selection, or Workflow
+   * planning models. The caller must persist the referenced Goal and exact
+   * Skill selection before this transition.
+   */
+  async prepareDeterministicExecution(
+    taskId: string,
+    input: Readonly<{
+      goalId: string;
+      goalVersion: number;
+      skillId: string;
+      skillVersion: number;
+      selectionId: string;
+    }>,
+  ): Promise<AgentTask> {
+    let task = await this.get(taskId);
+    if (task.phase !== 'queued')
+      throw new TaskApplicationError(
+        'TASK_DETERMINISTIC_PREPARATION_INVALID',
+        'Deterministic execution requires a newly accepted queued Task.',
+      );
+    task = await this.#saveTransition(task, 'context_loading', 'Deterministic context loaded.');
+    task = await this.#saveTransition(
+      task,
+      'goal_deliberation',
+      'Deterministic Goal authority selected.',
+    );
+    task = bindTaskGoal(task, {
+      goalId: input.goalId,
+      goalVersion: input.goalVersion,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(task);
+    task = await this.#saveTransition(
+      task,
+      'skill_resolution',
+      `Exact Skill ${input.skillId}@${String(input.skillVersion)} selected deterministically.`,
+    );
+    task = bindTaskSkill(task, {
+      skillId: input.skillId,
+      skillVersion: input.skillVersion,
+      selectionId: input.selectionId,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(task);
+    return this.#saveTransition(
+      task,
+      'planning',
+      'Deterministic Workflow materialization started.',
+    );
+  }
+
+  async beginDeterministicExecution(taskId: string): Promise<AgentTask> {
+    const task = await this.get(taskId);
+    if (task.phase !== 'planning' || task.planId === undefined)
+      throw new TaskApplicationError(
+        'TASK_DETERMINISTIC_PREPARATION_INVALID',
+        'Deterministic execution requires an attached validated plan.',
+      );
+    return this.#saveTransition(task, 'executing', 'Deterministic read-only execution started.');
   }
 
   async cancel(taskId: string): Promise<AgentTask> {
@@ -217,7 +300,15 @@ export class TaskService {
     const task = await this.#dependencies.tasks.findById(taskId);
     if (task === undefined)
       throw new TaskApplicationError('TASK_NOT_FOUND', `Task ${taskId} was not found.`);
-    if (isTerminalTaskPhase(task.phase)) return task;
+    if (isTerminalTaskPhase(task.phase)) {
+      if (task.phase === 'canceled')
+        await this.#dependencies.taskCapabilities?.markLatestAttempt(
+          taskId,
+          'canceled',
+          task.updatedAt,
+        );
+      return task;
+    }
     const timestamp = this.#dependencies.clock.now();
     if (
       this.#dependencies.planActions !== undefined &&
@@ -232,10 +323,12 @@ export class TaskService {
           'TASK_RUNTIME_CANCELLATION_INCOMPLETE',
           'Runtime cancellation did not project a canceled Task.',
         );
+      await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
       return committed;
     }
     const canceled = transitionTask(task, 'canceled', 'Task canceled by user.', timestamp);
     await this.#dependencies.tasks.save(canceled);
+    await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
     await this.#dependencies.taskInputs.cancelPending(task.taskId, 'canceled');
     await this.#dependencies.events.publish({
       eventId: this.#dependencies.ids.nextId('event'),
@@ -260,6 +353,11 @@ export class TaskService {
     await this.#withTaskDecisionLock(taskId, async () => {
       const task = await this.get(taskId);
       if (task.phase !== 'canceled' || task.errorCode !== 'TASK_WAIT_TIMEOUT') return;
+      await this.#dependencies.taskCapabilities?.markLatestAttempt(
+        taskId,
+        'canceled',
+        task.updatedAt,
+      );
       if (task.planId !== undefined && this.#dependencies.planActions !== undefined)
         await this.#dependencies.planActions.cancel(task);
     });
@@ -460,7 +558,12 @@ export class TaskService {
 
   async attachPlan(
     taskId: string,
-    input: Readonly<{ planId: string; goalId: string; goalVersion: number }>,
+    input: Readonly<{
+      planId: string;
+      goalId: string;
+      goalVersion: number;
+      skillInputResolutionId?: string;
+    }>,
   ): Promise<AgentTask> {
     const task = bindTaskPlan(await this.get(taskId), {
       ...input,
@@ -694,7 +797,11 @@ export class TaskService {
     processor: ResultProcessor,
   ): Promise<AgentTask> {
     const output = processor.process(candidate);
-    await this.#dependencies.taskCapabilities?.assertTerminalSuccess(taskId, output.structured);
+    await this.#dependencies.taskCapabilities?.assertTerminalSuccess(taskId, output.structured, {
+      // ResultProcessor has already validated candidate.structured against the
+      // selected immutable Skill output Schema immediately above.
+      outputSchemaValid: true,
+    });
     let task = await this.get(taskId);
     if (task.phase === 'executing') {
       task = await this.#saveTransition(task, 'evaluating', 'Result validation completed.');
@@ -835,6 +942,7 @@ export type TaskApplicationErrorCode =
   | 'GATEWAY_DENIED'
   | 'GATEWAY_FORMAL_HANDOFF_INCOMPLETE'
   | 'TASK_CAPABILITY_GAP_EVIDENCE_INVALID'
+  | 'TASK_DETERMINISTIC_PREPARATION_INVALID'
   | 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN'
   | 'TASK_NOT_FOUND'
   | 'TASK_SKILL_INPUT_NOT_RESOLVED'

@@ -4,6 +4,7 @@ import { ConfiguredOperatorIdentityPort } from '../../../packages/application/sr
 import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runtime-control-http-client/src/index.js';
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
+import { homeLabReadOnlyTaskUnderstandingConfiguration } from './home-lab-task-understanding.js';
 import { startServerRuntime } from './runtime.js';
 
 const environment = loadServerEnvironment();
@@ -11,19 +12,24 @@ const artifactManagementIdentity = createArtifactManagementIdentity();
 const runtimeControlArtifactIdentity = createArtifactManagementIdentity(
   environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN,
 );
+const nodeControlAuthorityReader =
+  environment.SDAR_NODE_CONTROL_BASE_URL === undefined ||
+  environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN === undefined
+    ? undefined
+    : new HttpNodeControlCapabilityEvidenceReader({
+        baseUrl: environment.SDAR_NODE_CONTROL_BASE_URL,
+        serviceToken: environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN,
+      });
 const runtime = await startServerRuntime({
   postgresUrl: environment.SDAR_POSTGRES_URL,
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
   applyMigrations: true,
-  ...(environment.SDAR_NODE_CONTROL_BASE_URL === undefined ||
-  environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN === undefined
+  ...(nodeControlAuthorityReader === undefined
     ? {}
     : {
-        capabilityAuthorityReader: new HttpNodeControlCapabilityEvidenceReader({
-          baseUrl: environment.SDAR_NODE_CONTROL_BASE_URL,
-          serviceToken: environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN,
-        }),
+        capabilityAuthorityReader: nodeControlAuthorityReader,
+        currentMcpProviderBindingAuthorityReader: nodeControlAuthorityReader,
       }),
   a2aHost: environment.SDAR_A2A_HOST,
   a2aPort: environment.SDAR_A2A_PORT,
@@ -63,6 +69,9 @@ const runtime = await startServerRuntime({
           maxSubscriptions: environment.BUSINESS_EVENTS_MAX_SUBSCRIPTIONS,
         },
       }
+    : {}),
+  ...(environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only'
+    ? { taskUnderstanding: homeLabReadOnlyTaskUnderstandingConfiguration() }
     : {}),
 });
 

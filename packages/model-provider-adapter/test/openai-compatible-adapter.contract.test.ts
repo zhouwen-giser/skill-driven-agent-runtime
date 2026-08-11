@@ -58,6 +58,42 @@ describe('OpenAI-compatible Model adapter', () => {
       }),
     ).resolves.toMatchObject({ vector: [1, 0, 0], inputTokens: 3 });
   });
+
+  it('does not forward chat credentials across an upstream redirect', async () => {
+    const server = await redirectingLoopback();
+    close = server.close;
+    await expect(
+      new OpenAiCompatibleModelAdapter().generateStructured({
+        configuration: configuration(server.baseUrl),
+        credentialHeaders: { Authorization: 'Bearer local-test' },
+        instruction: 'Return an answer.',
+        responseSchema: { type: 'object' },
+        correctionErrors: [],
+        signal: AbortSignal.timeout(1000),
+      }),
+    ).rejects.toMatchObject({
+      code: 'MODEL_UPSTREAM_ERROR',
+      message: 'Model endpoint returned HTTP 307.',
+    });
+    expect(server.forwardedRequests()).toBe(0);
+  });
+
+  it('does not forward embedding credentials across an upstream redirect', async () => {
+    const server = await redirectingLoopback();
+    close = server.close;
+    await expect(
+      new OpenAiCompatibleModelAdapter().embed({
+        configuration: configuration(server.baseUrl),
+        credentialHeaders: { Authorization: 'Bearer local-test' },
+        text: 'device',
+        signal: AbortSignal.timeout(1000),
+      }),
+    ).rejects.toMatchObject({
+      code: 'MODEL_UPSTREAM_ERROR',
+      message: 'Model endpoint returned HTTP 307.',
+    });
+    expect(server.forwardedRequests()).toBe(0);
+  });
 });
 
 function configuration(baseUrl: string) {
@@ -105,6 +141,42 @@ async function loopback(
     close: async () => {
       server.close();
       await once(server, 'close');
+    },
+  };
+}
+
+async function redirectingLoopback() {
+  let forwardedRequests = 0;
+  const target = createServer((_request, response) => {
+    forwardedRequests += 1;
+    response.setHeader('content-type', 'application/json');
+    response.end(JSON.stringify({ data: [{ embedding: [1] }] }));
+  });
+  target.listen(0, '127.0.0.1');
+  await once(target, 'listening');
+  const targetAddress = target.address();
+  if (targetAddress === null || typeof targetAddress === 'string')
+    throw new Error('REDIRECT_TARGET_ADDRESS_UNAVAILABLE');
+
+  const source = createServer((_request, response) => {
+    response.statusCode = 307;
+    response.setHeader('location', `http://127.0.0.1:${String(targetAddress.port)}/redirected`);
+    response.end();
+  });
+  source.listen(0, '127.0.0.1');
+  await once(source, 'listening');
+  const sourceAddress = source.address();
+  if (sourceAddress === null || typeof sourceAddress === 'string')
+    throw new Error('REDIRECT_SOURCE_ADDRESS_UNAVAILABLE');
+
+  return {
+    baseUrl: `http://127.0.0.1:${String(sourceAddress.port)}/v1`,
+    forwardedRequests: () => forwardedRequests,
+    close: async () => {
+      source.close();
+      await once(source, 'close');
+      target.close();
+      await once(target, 'close');
     },
   };
 }

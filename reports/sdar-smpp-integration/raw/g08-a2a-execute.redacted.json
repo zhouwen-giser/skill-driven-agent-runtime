@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "sdar.home-lab-a2a-read-only/v2",
+  "status": "passed",
+  "mode": "execute",
+  "observedAt": "2026-08-11T18:22:25.114Z",
+  "a2aReadOnlyReady": true,
+  "restartRecoveryVerified": false,
+  "contextId": "cd895ab7-82e9-429d-a7e8-0421107f7c59",
+  "task": {
+    "taskId": "306a68ce-b2ed-45af-9160-124fdd5562b8",
+    "contextId": "cd895ab7-82e9-429d-a7e8-0421107f7c59",
+    "goalId": "goal-1674ba39-5d4f-4fda-8b03-a574217a9c7d",
+    "goalVersion": 1,
+    "userGoalPlanId": "user-goal-plan-508d2171-a3f5-4373-8911-af6181cc42f0",
+    "workflowPlanId": "plan-task-306a68ce-b2ed-45af-9160-124fdd5562b8-c204d9d3-b1ea-499c-a6fd-447619343bd7",
+    "terminalOutcomeId": "terminal-outcome-task-306a68ce-b2ed-45af-9160-124fdd5562b8",
+    "capabilityId": "home.living-room.read-state",
+    "capabilityVersion": 1,
+    "exposureId": "home-lab-a2a-living-room-read-state",
+    "exposureVersion": 1,
+    "skillId": "home.living-room.get-state",
+    "skillVersion": 1,
+    "states": {
+      "mainLight": {
+        "resourceId": "living-room-main-light",
+        "power": "off",
+        "reachable": true,
+        "observedAt": "2026-08-11T15:36:47.842457+00:00",
+        "brightnessPercent": null
+      },
+      "climate": {
+        "resourceId": "living-room-air-conditioner",
+        "power": "off",
+        "reachable": true,
+        "observedAt": "2026-08-11T15:33:54.603540+00:00",
+        "hvacMode": "off",
+        "currentTemperature": null,
+        "targetTemperature": 16,
+        "temperatureUnit": "°C"
+      }
+    },
+    "operations": [
+      {
+        "serverId": "home-lab-light-mcp",
+        "operationName": "light_get_state",
+        "resourceId": "living-room-main-light",
+        "evidenceType": "light.state.observation"
+      },
+      {
+        "serverId": "home-lab-climate-mcp",
+        "operationName": "climate_get_state",
+        "resourceId": "living-room-air-conditioner",
+        "evidenceType": "climate.state.observation"
+      }
+    ],
+    "a2aTaskHash": "3fbd537548511a0e560bfea226517eb5b38605857519718246d6d5a637bf6cbc",
+    "structuredOutcomeHash": "ea4b97b61ad89acda1a4dec855b511bb66f7b1e88b2ca9b9f8ea00b54c3228c6",
+    "capabilityBindingHash": "2015a0ecbabc33fec7ad11aa37c740a25e62591aca8975ec2e12173ab469998c",
+    "eventCount": 13,
+    "modelStages": [
+      "goal_contract_generation",
+      "goal_evaluation",
+      "goal_planning",
+      "result_processing",
+      "skill_input_resolution",
+      "task_understanding",
+      "workflow_planning"
+    ],
+    "evidenceQueries": [
+      "a2a.getTask",
+      "runtime.task",
+      "runtime.task-understanding",
+      "runtime.goal",
+      "runtime.user-goal-plan",
+      "runtime.workflow-plan",
+      "runtime.workflow-trace",
+      "runtime.events",
+      "runtime.mcp-invocations",
+      "runtime.model-invocations",
+      "runtime.terminal-outcome",
+      "node-control.task",
+      "node-control.capability-binding",
+      "node-control.provider-bindings"
+    ]
+  },
+  "modelAuthority": {
+    "requiredStages": [
+      "task_understanding",
+      "goal_contract_generation",
+      "goal_planning",
+      "skill_input_resolution",
+      "workflow_planning",
+      "result_processing",
+      "goal_evaluation"
+    ],
+    "configuredRouteStages": [
+      "task_understanding",
+      "goal_contract_generation",
+      "goal_planning",
+      "skill_input_resolution",
+      "workflow_planning",
+      "result_processing",
+      "goal_evaluation",
+      "goal",
+      "evaluation",
+      "experience_observation",
+      "experience_reflection"
+    ],
+    "providerId": "provider.home-lab-a2a-structured-fixture",
+    "model": "home-lab-a2a-structured-fixture-v1",
+    "configuredProviderCount": 1,
+    "failedInvocationCount": 0,
+    "evidenceClass": "real_a2a_runtime_mcp_ha_with_simulated_local_model_semantics",
+    "modelBoundary": "simulated_local_structured_fixture"
+  },
+  "safety": {
+    "allowedCapabilities": [
+      "home.living-room.read-state"
+    ],
+    "allowedOperations": [
+      "light_get_state",
+      "climate_get_state"
+    ],
+    "writeOperationsInvoked": 0,
+    "physicalWritesInvoked": 0,
+    "realDeviceWriteGateObserved": "closed"
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

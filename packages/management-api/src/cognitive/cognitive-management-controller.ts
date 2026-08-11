@@ -2,6 +2,8 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 
 import type {
   CognitiveManagementActionGate,
+  CognitiveManagementActionLeaseGuard,
+  CognitiveManagementActionRecoveryResult,
   CognitiveManagementOperation,
   InteractiveGoalActionInput,
   InteractiveGoalSessionService,
@@ -101,16 +103,22 @@ export class CognitiveManagementController {
       expectedVersion: number;
       idempotencyKey: string;
       reason: string;
+      requestFingerprint?: string;
     }>,
     authorization: string | undefined,
-    action: () => Promise<T>,
+    action: (lease: CognitiveManagementActionLeaseGuard) => Promise<T>,
+    recover?: (
+      lease: CognitiveManagementActionLeaseGuard,
+    ) => Promise<CognitiveManagementActionRecoveryResult<T>>,
   ): Promise<T> {
     await this.#authorizer.authorize({
       authorization,
       actorId: input.actorId,
       operation: input.operation,
     });
-    return this.#actions === undefined ? action() : this.#actions.execute(input, action);
+    return this.#actions === undefined
+      ? action(NOOP_ACTION_LEASE)
+      : this.#actions.execute(input, action, recover);
   }
 
   async applyGoalAction(
@@ -175,6 +183,15 @@ export class CognitiveManagementController {
     );
   }
 }
+
+const NOOP_ACTION_LEASE: CognitiveManagementActionLeaseGuard = Object.freeze({
+  assertCurrent: () => Promise.resolve(),
+  runFencedProjection: <T>(projection: () => Promise<T>) => projection(),
+  enterProviderDispatch: () => Promise.resolve(),
+  executionPhase: () => 'execution_started',
+  providerDispatchIdentity: () => undefined,
+  signal: new AbortController().signal,
+});
 
 export class CognitiveManagementAuthorizationError extends Error {
   readonly code = 'COGNITIVE_MANAGEMENT_UNAUTHORIZED';

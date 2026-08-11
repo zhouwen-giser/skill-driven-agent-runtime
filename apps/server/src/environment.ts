@@ -43,7 +43,12 @@ const EnvironmentSchema = z
     SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
     SDAR_NODE_CONTROL_BASE_URL: z.url().optional(),
     SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
-    SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z.string().min(32).optional(),
+    SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z
+      .string()
+      .min(32)
+      .max(4_096)
+      .regex(/^\S+$/u, 'Cognitive management bearer token must not contain whitespace.')
+      .optional(),
     SDAR_ARTIFACT_MANAGEMENT_BEARER_TOKEN: z
       .string()
       .min(32)
@@ -59,6 +64,7 @@ const EnvironmentSchema = z
     BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY: z.enum(['true', 'false']).default('false'),
     BUSINESS_EVENTS_POLL_INTERVAL_MS: z.coerce.number().int().min(100).max(10_000).default(500),
     BUSINESS_EVENTS_MAX_SUBSCRIPTIONS: z.coerce.number().int().min(1).max(10_000).default(256),
+    SDAR_TASK_UNDERSTANDING_PROFILE: z.enum(['off', 'home_lab_read_only']).default('off'),
   })
   .superRefine((environment, context) => {
     const artifactManagementConfigured =
@@ -73,6 +79,17 @@ const EnvironmentSchema = z
         code: 'custom',
         path: ['SDAR_NODE_CONTROL_BASE_URL'],
         message: 'Node Control Capability Evidence requires both base URL and service token.',
+      });
+    }
+    if (
+      environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only' &&
+      environment.SDAR_NODE_CONTROL_BASE_URL === undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_NODE_CONTROL_BASE_URL'],
+        message:
+          'The home-lab read-only profile requires authenticated Node Control Capability and current Binding authority.',
       });
     }
     if (

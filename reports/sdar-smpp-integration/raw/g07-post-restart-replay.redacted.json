@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "sdar.home-lab-read-only-execution/v1",
+  "status": "passed",
+  "observedAt": "2026-08-11T05:09:53.330Z",
+  "readOnlyExecutionPlaneReady": true,
+  "executions": [
+    {
+      "kind": "main_light",
+      "taskId": "task-g07-main_light-8f228c869cdbfdf34b110dd2",
+      "contextId": "context-g07-main_light-e8d66a3391cd522bf0ff7257",
+      "goalId": "goal-deterministic-49807703d95cffdd229bc47f3920ad55",
+      "goalVersion": 1,
+      "capabilityBindingId": "capability-binding-home.light.read-state-v1",
+      "capabilityBindingVersion": 1,
+      "capabilityBindingHash": "e0fb9d4bf16e751006163e4a53f66bad7bac0341a120d5af2280ac4eb69c5cc6",
+      "capabilityId": "home.light.read-state",
+      "capabilityVersion": 1,
+      "skillId": "home.light.get-state",
+      "skillVersion": 1,
+      "workflowPlanId": "plan-deterministic-49807703d95cffdd229bc47f3920ad55",
+      "workflowInstanceId": "workflow-instance-deterministic-49807703d95cffdd229bc47f3920ad55",
+      "skillExecutionId": "skill-execution-deterministic-49807703d95cffdd229bc47f3920ad55",
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "mcpProviderBindingRevision": 17,
+      "mcpInvocationId": "mcp-invocation-deterministic-49807703d95cffdd229bc47f3920ad55",
+      "providerId": "ha-light-lab",
+      "localServerId": "home-lab-light-mcp",
+      "toolName": "light_get_state",
+      "resourceId": "living-room-main-light",
+      "result": {
+        "brightnessPercent": null,
+        "observedAt": "2026-08-10T15:15:27.233227+00:00",
+        "power": "off",
+        "reachable": true,
+        "resourceId": "living-room-main-light"
+      },
+      "evidence": [
+        {
+          "evidenceId": "home-assistant-light-state-living-room-main-light-2026-08-10T15:15:27.233227+00:00",
+          "evidenceType": "light.state.observation",
+          "observedAt": "2026-08-10T15:15:27.233227+00:00",
+          "subjectRef": "resource:living-room-main-light",
+          "producer": ["ha-light-lab", "home-assistant"],
+          "payloadRef": { "kind": "structured_content", "jsonPointer": "/power" }
+        }
+      ],
+      "lineage": {
+        "smppSourceId": "home-lab-smpp",
+        "externalServerId": "runtime-8e6e163f0b32-0",
+        "registryRevision": 2,
+        "registryChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+        "catalogRevision": "2.0.0-rc.1:17",
+        "catalogChecksum": "a06cde6ed4113e0a28531c7f8ed7663af3d2968fdd0c62352991a4070011cc05"
+      }
+    },
+    {
+      "kind": "climate",
+      "taskId": "task-g07-climate-dbf79f7ddf27009dec308d80",
+      "contextId": "context-g07-climate-2cce8f8d5f43f9c679a6b82b",
+      "goalId": "goal-deterministic-a295af1f029157f1a1cc8bd6f02e32bb",
+      "goalVersion": 1,
+      "capabilityBindingId": "capability-binding-home.climate.read-state-v1",
+      "capabilityBindingVersion": 1,
+      "capabilityBindingHash": "1aeb2136a34141bb125dc91704e9e3fcf2498ab2fd5225d9ddbcd0cf9e0d06e3",
+      "capabilityId": "home.climate.read-state",
+      "capabilityVersion": 1,
+      "skillId": "home.climate.get-state",
+      "skillVersion": 1,
+      "workflowPlanId": "plan-deterministic-a295af1f029157f1a1cc8bd6f02e32bb",
+      "workflowInstanceId": "workflow-instance-deterministic-a295af1f029157f1a1cc8bd6f02e32bb",
+      "skillExecutionId": "skill-execution-deterministic-a295af1f029157f1a1cc8bd6f02e32bb",
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "mcpProviderBindingRevision": 17,
+      "mcpInvocationId": "mcp-invocation-deterministic-a295af1f029157f1a1cc8bd6f02e32bb",
+      "providerId": "ha-climate-lab",
+      "localServerId": "home-lab-climate-mcp",
+      "toolName": "climate_get_state",
+      "resourceId": "living-room-air-conditioner",
+      "result": {
+        "currentTemperature": null,
+        "hvacMode": "off",
+        "observedAt": "2026-08-10T15:56:47.798683+00:00",
+        "power": "off",
+        "reachable": true,
+        "resourceId": "living-room-air-conditioner",
+        "targetTemperature": 16,
+        "temperatureUnit": "°C"
+      },
+      "evidence": [
+        {
+          "evidenceId": "home-assistant-climate-state-living-room-air-conditioner-2026-08-10T15:56:47.798683+00:00",
+          "evidenceType": "climate.state.observation",
+          "observedAt": "2026-08-10T15:56:47.798683+00:00",
+          "subjectRef": "resource:living-room-air-conditioner",
+          "producer": ["ha-climate-lab", "home-assistant"],
+          "payloadRef": { "kind": "structured_content", "jsonPointer": "/hvacMode" }
+        }
+      ],
+      "lineage": {
+        "smppSourceId": "home-lab-smpp",
+        "externalServerId": "runtime-3ffb9721d7ae-0",
+        "registryRevision": 2,
+        "registryChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+        "catalogRevision": "2.0.0-rc.1:17",
+        "catalogChecksum": "3e5b37b927471e676157f89f84c086d7b0ad02b64bc2c0981ca990bafd1ea6a8"
+      }
+    }
+  ],
+  "safety": { "physicalWrites": 0, "modelCalls": 0, "mcpCalls": 2, "onlyReadTools": true },
+  "redaction": { "secretsIncluded": false, "endpointsIncluded": false, "entityIdsIncluded": false }
+}

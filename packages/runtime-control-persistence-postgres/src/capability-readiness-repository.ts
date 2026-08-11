@@ -11,6 +11,8 @@ import type {
   RuntimeImplementationReadiness,
   StoredCapabilityReadiness,
 } from '../../runtime-control-application/src/index.js';
+import { parseMcpProviderBindingPolicyOverride } from '../../node-control-domain/src/index.js';
+import type { RuntimeMcpCatalogAuthorityReader } from './runtime-mcp-catalog-authority-reader.js';
 
 interface ReadinessRow {
   capability_id: string;
@@ -42,10 +44,38 @@ interface SkillDependencyRow {
   runtime_policy: unknown;
 }
 
+interface CurrentBindingAuthorityRepository {
+  findCurrentAuthority(
+    input: Readonly<{ bindingId?: string; localServerId: string; observedAt: string }>,
+  ): Promise<
+    | Readonly<{
+        binding: Readonly<{
+          bindingId: string;
+          revision: number;
+          localServerId: string;
+          endpointRef: string;
+          catalogRevision: string;
+          catalogChecksum: string;
+          operationCount: number;
+          availabilityValidUntil: string;
+        }>;
+      }>
+    | undefined
+  >;
+}
+
 export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapabilityReadinessRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #providerBindings: CurrentBindingAuthorityRepository | undefined;
+  readonly #runtimeMcp: RuntimeMcpCatalogAuthorityReader | undefined;
+  constructor(
+    pool: Pool,
+    providerBindings?: CurrentBindingAuthorityRepository,
+    runtimeMcp?: RuntimeMcpCatalogAuthorityReader,
+  ) {
     this.#pool = pool;
+    this.#providerBindings = providerBindings;
+    this.#runtimeMcp = runtimeMcp;
   }
 
   async findLatest(capabilityId: string, capabilityVersion: number) {
@@ -103,6 +133,7 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
               binding.bindingId,
               binding.implementationId,
               binding.implementationVersion,
+              binding.providerPolicyOverride,
               evaluatedAt,
               input.ttlMs,
             )
@@ -110,6 +141,7 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
               binding.bindingId,
               binding.implementationId,
               binding.implementationVersion,
+              binding.providerPolicyOverride,
             ),
       );
     }
@@ -220,13 +252,28 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
     bindingId: string,
     skillId: string,
     implementationVersion: string,
+    providerPolicyOverride: unknown,
     evaluatedAt: string,
     ttlMs: number,
   ): Promise<RuntimeImplementationReadiness> {
     const result = await this.#pool.query<SkillDependencyRow>(
-      `SELECT true AS exists,status='enabled' AS enabled,validation_passed,
-              tool_policy_json AS tool_policy,runtime_policy_json AS runtime_policy
-         FROM skill_version WHERE skill_id=$1 AND version=$2`,
+      `SELECT true AS exists,
+              COALESCE(
+                governance.lifecycle_status,
+                CASE version.status
+                  WHEN 'enabled' THEN 'published'
+                  WHEN 'disabled' THEN 'suspended'
+                  ELSE version.status
+                END
+              )='published' AS enabled,
+              version.validation_passed,
+              version.tool_policy_json AS tool_policy,
+              version.runtime_policy_json AS runtime_policy
+         FROM skill_version version
+         LEFT JOIN runtime_skill_version_governance governance
+           ON governance.skill_id=version.skill_id
+          AND governance.skill_version=version.version
+        WHERE version.skill_id=$1 AND version.version=$2`,
       [skillId, Number(implementationVersion)],
     );
     const row = result.rows[0];
@@ -239,9 +286,18 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
     const required = toolPolicy?.required ?? [];
     const optional = toolPolicy?.optional ?? [];
     const catalogParts: string[] = [];
+    const bindingPolicyParts: string[] = [];
     let requiredUnavailable = false;
     let optionalUnavailable = false;
+    const providerBindingPolicy = parseMcpProviderBindingPolicyOverride(providerPolicyOverride);
+    const exactBindingTools = providerBindingPolicy.requirements.map((policy) =>
+      required.find(
+        (reference) =>
+          reference.serverId === policy.localServerId && reference.toolName === policy.mcpToolName,
+      ),
+    );
     for (const reference of [...required, ...optional]) {
+      if (exactBindingTools.includes(reference)) continue;
       const tool = await this.#pool.query<{
         status: string;
         tool_revision: number;
@@ -275,6 +331,136 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
         );
       }
     }
+    if (providerPolicyOverride !== undefined) {
+      const exactRequiredTools =
+        exactBindingTools.every((reference) => reference !== undefined) &&
+        (providerBindingPolicy.mode !== 'required_all' ||
+          (required.length === 2 && optional.length === 0));
+      if (
+        providerBindingPolicy.mode === 'absent' ||
+        providerBindingPolicy.mode === 'invalid' ||
+        !exactRequiredTools
+      ) {
+        requiredUnavailable = true;
+        reasons.push(
+          reason(
+            'MCP_PROVIDER_BINDING_POLICY_INVALID',
+            'blocking',
+            `${skillId}@${implementationVersion}`,
+          ),
+        );
+      } else {
+        for (const policy of providerBindingPolicy.requirements) {
+          bindingPolicyParts.push(JSON.stringify(policy));
+          if (this.#providerBindings === undefined) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
+            );
+            continue;
+          }
+          let authority: Awaited<
+            ReturnType<CurrentBindingAuthorityRepository['findCurrentAuthority']>
+          >;
+          try {
+            authority = await this.#providerBindings.findCurrentAuthority({
+              bindingId: policy.mcpProviderBindingId,
+              localServerId: policy.localServerId,
+              observedAt: evaluatedAt,
+            });
+          } catch {
+            authority = undefined;
+          }
+          if (
+            authority?.binding.bindingId !== policy.mcpProviderBindingId ||
+            authority.binding.localServerId !== policy.localServerId ||
+            Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(evaluatedAt)
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
+            );
+            continue;
+          }
+          if (this.#runtimeMcp === undefined) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'MCP_PROVIDER_BINDING_RUNTIME_AUTHORITY_UNAVAILABLE',
+                'blocking',
+                policy.mcpProviderBindingId,
+              ),
+            );
+            continue;
+          }
+          let runtimeAuthority: Awaited<
+            ReturnType<RuntimeMcpCatalogAuthorityReader['loadCurrentAuthority']>
+          >;
+          try {
+            runtimeAuthority = await this.#runtimeMcp.loadCurrentAuthority(policy.localServerId);
+          } catch {
+            runtimeAuthority = undefined;
+          }
+          if (
+            runtimeAuthority?.status !== 'enabled' ||
+            runtimeAuthority.protocolMode !== 'frozen_v1' ||
+            runtimeAuthority.snapshotToolRevision !== runtimeAuthority.toolRevision
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'MCP_PROVIDER_BINDING_RUNTIME_AUTHORITY_UNAVAILABLE',
+                'blocking',
+                policy.mcpProviderBindingId,
+              ),
+            );
+          } else if (
+            Date.parse(evaluatedAt) - Date.parse(runtimeAuthority.serverUpdatedAt) >
+            ttlMs
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'PROVIDER_AVAILABILITY_EXPIRED',
+                'blocking',
+                `${policy.localServerId}/${policy.mcpToolName}`,
+              ),
+            );
+          } else if (!runtimeAuthority.toolNames.includes(policy.mcpToolName)) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'MCP_TOOL_UNAVAILABLE',
+                'blocking',
+                `${policy.localServerId}/${policy.mcpToolName}`,
+              ),
+            );
+          } else if (runtimeAuthority.endpoint !== authority.binding.endpointRef) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason(
+                'MCP_PROVIDER_BINDING_ENDPOINT_DRIFT',
+                'blocking',
+                policy.mcpProviderBindingId,
+              ),
+            );
+          } else if (
+            runtimeAuthority.catalogRevision !== authority.binding.catalogRevision ||
+            runtimeAuthority.catalogChecksum !== authority.binding.catalogChecksum ||
+            runtimeAuthority.operationCount !== authority.binding.operationCount
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_CATALOG_DRIFT', 'blocking', policy.mcpProviderBindingId),
+            );
+          } else {
+            catalogParts.push(
+              `binding:${authority.binding.bindingId}:${String(authority.binding.revision)}:${authority.binding.catalogRevision}:${authority.binding.catalogChecksum}:${authority.binding.availabilityValidUntil}`,
+            );
+          }
+        }
+      }
+    }
     const model = await this.#pool.query<{ available: boolean; fingerprint: string }>(
       `SELECT COUNT(*) > 0 AS available,
               COALESCE(string_agg(route.stage||':'||provider.provider_id||':'||provider.model,','
@@ -284,14 +470,18 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
         WHERE provider.enabled`,
     );
     const modelAvailable = model.rows[0]?.available === true;
-    if (!modelAvailable)
+    const modelRequired = !hasZeroLlmBudget(row?.runtime_policy);
+    if (modelRequired && !modelAvailable)
       reasons.push(reason('MODEL_ROUTE_UNAVAILABLE', 'warning', 'runtime-model-catalog'));
     return Object.freeze({
       bindingId,
       available: row !== undefined && row.enabled && row.validation_passed && !requiredUnavailable,
-      degraded: optionalUnavailable || !modelAvailable,
+      degraded: optionalUnavailable || (modelRequired && !modelAvailable),
       catalogParts: Object.freeze([...catalogParts, model.rows[0]?.fingerprint ?? 'none']),
-      policyParts: Object.freeze([JSON.stringify(row?.runtime_policy ?? null)]),
+      policyParts: Object.freeze([
+        JSON.stringify(row?.runtime_policy ?? null),
+        ...bindingPolicyParts,
+      ]),
       reasons: Object.freeze(reasons),
     });
   }
@@ -300,7 +490,19 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
     bindingId: string,
     artifactId: string,
     implementationVersion: string,
+    providerPolicyOverride: unknown,
   ): Promise<RuntimeImplementationReadiness> {
+    if (providerPolicyOverride !== undefined)
+      return Object.freeze({
+        bindingId,
+        available: false,
+        degraded: false,
+        catalogParts: Object.freeze([]),
+        policyParts: Object.freeze([JSON.stringify(providerPolicyOverride)]),
+        reasons: Object.freeze([
+          reason('MCP_PROVIDER_BINDING_POLICY_INVALID', 'blocking', bindingId),
+        ]),
+      });
     const result = await this.#pool.query<{ content_hash: string; dependency_snapshot: unknown }>(
       `SELECT artifact.content_hash,artifact.dependency_snapshot
          FROM compiled_artifact artifact
@@ -360,6 +562,12 @@ function mapRow(row: ReadinessRow): StoredCapabilityReadiness {
     ...(row.candidate_since === null ? {} : { candidateSince: row.candidate_since.toISOString() }),
     input: row.evaluation_input,
   });
+}
+
+function hasZeroLlmBudget(value: unknown): boolean {
+  return (
+    typeof value === 'object' && value !== null && 'maxLlmCalls' in value && value.maxLlmCalls === 0
+  );
 }
 
 function reason(

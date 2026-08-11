@@ -16,6 +16,7 @@ import {
   type SkillRepository,
   type StructuredModelProvider,
   type WorkflowCandidateReadinessPolicy,
+  type WorkflowCandidateGuard,
   type WorkflowPlanRepository,
 } from '../src/index.js';
 
@@ -40,12 +41,38 @@ describe('WorkflowPlannerService', () => {
     });
     expect(repaired.attemptCount).toBe(2);
     expect(repairModel.calls[0]?.correctionErrors.join(' ')).toContain('WORKFLOW_SCHEMA_INVALID');
+
+    const closedRepository = new MemoryPlanRepository();
+    const closedModel = new SequenceModel([validDefinition()]);
+    await expect(
+      planner(closedRepository, closedModel).plan({
+        ...input(),
+        deterministicDefinition: { invalid: true } as unknown as WorkflowDefinition,
+        deterministicOnly: true,
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_PLANNING_FAILED' });
+    expect(closedModel.calls).toHaveLength(0);
+    expect(closedRepository.attempts).toHaveLength(1);
+    expect(closedRepository.plans.get('plan-1')).toMatchObject({ attemptCount: 1 });
+  });
+
+  it('requires a definition for deterministic-only planning before model or repository work', async () => {
+    const repository = new MemoryPlanRepository();
+    const model = new SequenceModel([validDefinition()]);
+    await expect(
+      planner(repository, model).plan({ ...input(), deterministicOnly: true }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_DETERMINISTIC_DEFINITION_REQUIRED' });
+    expect(model.calls).toHaveLength(0);
+    expect(repository.attempts).toHaveLength(0);
   });
 
   it('feeds structured validation errors back and saves every candidate', async () => {
     const repository = new MemoryPlanRepository();
     const model = new SequenceModel([{ nodes: [{ type: 'javascript' }] }, validDefinition()]);
-    const plan = await planner(repository, model).plan(input());
+    const plan = await planner(repository, model).plan({
+      ...input(),
+      taskId: 'task-workflow-planning',
+    });
     expect(plan).toMatchObject({ confirmationStatus: 'awaiting_confirmation', attemptCount: 2 });
     expect(repository.attempts).toHaveLength(2);
     expect(repository.attempts[0]).toMatchObject({
@@ -55,6 +82,46 @@ describe('WorkflowPlannerService', () => {
       ]),
     });
     expect(model.calls[1]?.correctionErrors.join(' ')).toContain('WORKFLOW_SCHEMA_INVALID');
+    expect(model.calls.map((call) => call.taskId)).toEqual([
+      'task-workflow-planning',
+      'task-workflow-planning',
+    ]);
+  });
+  it('applies a production candidate guard before readiness or confirmation persistence', async () => {
+    const repository = new MemoryPlanRepository();
+    let readinessCalls = 0;
+    const readiness: WorkflowCandidateReadinessPolicy = {
+      assess: () => {
+        readinessCalls += 1;
+        return Promise.resolve({ accepted: true, readiness: readinessRecord('ready') });
+      },
+    };
+    const guard: WorkflowCandidateGuard = {
+      validate: () => [
+        {
+          code: 'PROFILE_WORKFLOW_CONTRACT_INVALID',
+          path: 'definition',
+          message: 'The profile contract rejected this candidate.',
+        },
+      ],
+    };
+    await expect(
+      planner(
+        repository,
+        new SequenceModel([validDefinition(), validDefinition()]),
+        undefined,
+        undefined,
+        emptySkills(),
+        readiness,
+        guard,
+      ).plan(input()),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_PLANNING_FAILED' });
+    expect(readinessCalls).toBe(0);
+    expect(repository.attempts).toHaveLength(2);
+    expect(repository.attempts[0]?.validationErrors).toContainEqual(
+      expect.objectContaining({ code: 'PROFILE_WORKFLOW_CONTRACT_INVALID' }),
+    );
+    expect(repository.plans.get('plan-1')).toMatchObject({ confirmationStatus: 'failed' });
   });
   it('persists a failed plan after the configured attempt limit', async () => {
     const repository = new MemoryPlanRepository();
@@ -484,6 +551,7 @@ function planner(
   memories?: ConstructorParameters<typeof WorkflowPlannerService>[0]['memories'],
   skills: SkillRepository = emptySkills(),
   readiness?: WorkflowCandidateReadinessPolicy,
+  candidateGuard?: WorkflowCandidateGuard,
 ) {
   return new WorkflowPlannerService({
     model,
@@ -494,6 +562,7 @@ function planner(
     ...(templates === undefined ? {} : { templates }),
     ...(memories === undefined ? {} : { memories }),
     ...(readiness === undefined ? {} : { readiness }),
+    ...(candidateGuard === undefined ? {} : { candidateGuard }),
     validator: new WorkflowValidator({
       tools: {
         exists: () => Promise.resolve(false),

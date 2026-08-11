@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   GoalExecutionContract,
+  McpTaskOperationCandidate,
   Skill,
   SkillPerformanceMetrics,
   SkillRelation,
@@ -11,6 +12,7 @@ import type {
   SkillVersion,
 } from '../../domain/src/index.js';
 import {
+  FrozenSkillTaskReadinessAdapter,
   SkillApplicabilityAssessor,
   SkillContextRequirementResolver,
   SkillModeSelector,
@@ -261,6 +263,112 @@ describe('SkillSelectionService', () => {
       candidates: [{ skillId: 'skill.b' }],
     });
   });
+
+  it('keeps the exact G07 procedure candidate when availability sees its public resource', async () => {
+    const availabilityArguments: unknown[] = [];
+    const readiness = new FrozenSkillTaskReadinessAdapter({
+      operations: {
+        listTaskOperationCandidates: () => Promise.resolve([g07OperationCandidate()]),
+      },
+      availability: {
+        checkTaskAvailability: (input) => {
+          availabilityArguments.push(input.requests[0]?.arguments);
+          return Promise.resolve({
+            kind: 'results' as const,
+            protocolRevision: '2026-01-26',
+            availabilitySchemaRevision: '1.0',
+            results: [
+              {
+                nodeId: 'task-binding-home.light.get-state-v1',
+                operationName: 'light_get_state',
+                availability: 'available' as const,
+                riskLevel: 'low' as const,
+                validUntil: '2026-07-11T10:01:00.000Z',
+                nextAvailableWindows: [],
+                reservationMode: 'none' as const,
+                possibleEffects: [],
+              },
+            ],
+          });
+        },
+      },
+      clock: { now: () => '2026-07-11T10:00:00.000Z' },
+      providerBindings: {
+        loadCurrentMcpProviderBinding: (input) =>
+          Promise.resolve({
+            observedAt: '2026-07-11T10:00:00.000Z',
+            binding: {
+              bindingId: 'mcp-binding-ha-light-lab',
+              revision: 1,
+              localServerId: input.localServerId,
+              providerId: 'ha-light-lab',
+              endpointRef: 'https://provider.test/mcp',
+              catalogRevision: '1.0.0:1',
+              catalogChecksum: 'a'.repeat(64),
+              operationCount: 1,
+              availabilityValidUntil: '2026-07-11T11:00:00.000Z',
+            },
+          }),
+      },
+      resolveArguments: (binding) => {
+        expect(binding.taskType).toBe('light_get_state');
+        return {
+          unresolved: false,
+          value: { resourceId: 'living-room-main-light' },
+        };
+      },
+    });
+    const usage = new SkillUsageCandidateAssessor({
+      applicability: new SkillApplicabilityAssessor({
+        contexts: new SkillContextRequirementResolver(),
+        readiness,
+      }),
+      modes: new SkillModeSelector(),
+    });
+    const service = createService(new MemorySelectionRepository(), [], 'home.light.get-state', {
+      usage,
+    });
+
+    const selection = await service.selectFromCandidates(goalContract, [g07Skill()], {
+      observations: [
+        {
+          requirementId: 'public-resource-id',
+          source: 'authoritative_context',
+          status: 'available',
+          evidenceRef: 'public-resource:living-room-main-light',
+        },
+        {
+          requirementId: 'provider-binding-freshness',
+          source: 'authoritative_context',
+          status: 'available',
+          evidenceRef: 'node-control-provider-binding:mcp-binding-ha-light-lab',
+        },
+      ],
+      risk: 'low',
+      humanConfirmation: 'confirmed',
+      systemPolicy: {
+        allowedModes: ['procedure'],
+        preferredMode: 'procedure',
+        requireProcedureForHighRisk: true,
+        allowGuidanceWithIncompleteContext: false,
+      },
+    });
+
+    expect(selection).toMatchObject({
+      selectedSkillId: 'home.light.get-state',
+      candidates: [
+        {
+          usageCandidate: {
+            applicability: { status: 'satisfied', readiness: { overall: 'ready' } },
+            modeDecision: { decision: 'selected', mode: 'procedure' },
+          },
+        },
+      ],
+    });
+    expect(availabilityArguments).toEqual([
+      { unresolved: false, value: { resourceId: 'living-room-main-light' } },
+    ]);
+  });
 });
 
 const goalContract = {
@@ -271,6 +379,97 @@ const goalContract = {
   constraints: ['read-only'],
   successCriteria: ['status returned'],
 } as const;
+
+function g07OperationCandidate(): McpTaskOperationCandidate {
+  return {
+    providerId: 'home-lab-light-mcp',
+    operationName: 'light_get_state',
+    protocolMode: 'frozen_v1',
+    taskExecutionProfile: {
+      profileVersion: '1.0',
+      taskBehavior: 'synchronous_only',
+      availability: 'dynamic',
+      supportsScheduling: false,
+      supportsMaxElapsed: false,
+      supportsObservations: false,
+      supportsInputRequired: false,
+      idempotency: 'server_managed',
+    },
+    taskNotifications: false,
+    attributes: ['task_behavior:synchronous_only', 'availability:dynamic'],
+  };
+}
+
+function g07Skill(): SkillVersion {
+  return {
+    ...skillVersion('home.light.get-state'),
+    capabilities: ['home.light.read-state'],
+    toolPolicy: {
+      required: [{ serverId: 'home-lab-light-mcp', toolName: 'light_get_state' }],
+      optional: [],
+      forbidden: [],
+    },
+    runtimePolicy: { autoConfirmPlan: false, maxLlmCalls: 0, maxMcpCalls: 1 },
+    usageSpecification: {
+      apiVersion: 'sdar.io/v1alpha1',
+      visibility: { userSelectable: true, composable: true, internalOnly: false },
+      normative: {
+        constraints: ['Use the exact public resource.'],
+        forbiddenActions: ['Do not resolve an HA entity ID.'],
+        requiredConfirmations: [],
+        noApplicableSkill: 'reject',
+      },
+      contextRequirements: [
+        {
+          requirementId: 'public-resource-id',
+          description: 'Exact public resource.',
+          required: true,
+          sourceOrder: ['authoritative_context'],
+        },
+        {
+          requirementId: 'provider-binding-freshness',
+          description: 'Fresh exact Provider Binding.',
+          required: true,
+          sourceOrder: ['authoritative_context'],
+        },
+      ],
+      taskBindings: [
+        {
+          bindingId: 'task-binding-home.light.get-state-v1',
+          taskType: 'light_get_state',
+          providerPolicy: {
+            selection: 'required',
+            preferredProviderIds: [],
+            requiredProviderId: 'home-lab-light-mcp',
+            forbiddenProviderIds: [],
+            requiredAttributes: ['task_behavior:synchronous_only'],
+          },
+        },
+      ],
+      adaptive: {
+        instructions: ['Preserve exact Provider authority.'],
+        optimizationHints: [],
+        allowPreferredProviderFallback: false,
+      },
+      modes: {
+        supported: ['procedure'],
+        defaultMode: 'procedure',
+        procedure: { summary: 'Exact read.', instructions: ['Read once.'] },
+      },
+      evidencePolicy: {
+        requirements: [
+          {
+            requirementId: 'evidence-1',
+            evidenceType: 'light.state.observation',
+            required: true,
+            hardGate: true,
+          },
+        ],
+        rejectSuccessWithoutRequiredEvidence: true,
+      },
+    },
+  };
+}
 
 function createService(
   records: SkillSelectionRepository,

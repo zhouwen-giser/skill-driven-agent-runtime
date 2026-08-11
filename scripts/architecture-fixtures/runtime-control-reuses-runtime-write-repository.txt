@@ -1,0 +1,3 @@
+import { PostgresMcpRegistryRepository } from '../../persistence-postgres/src/index.js';
+
+export const hiddenWriter = new PostgresMcpRegistryRepository(runtimePool);

@@ -162,9 +162,23 @@ export interface NodeControlLlmGovernanceRepository {
   listRoutes(limit: number): Promise<readonly ModelRouteDefinition[]>;
 }
 
+export interface SmppRegistryResponseLineage {
+  readonly nativeRevision: number;
+  readonly nativeChecksum: string;
+  readonly projectionContract: 'sdar-registry-v1';
+}
+
 export type SmppRegistryFetchResult =
-  | Readonly<{ status: 'not_modified'; etag: string }>
-  | Readonly<{ status: 'snapshot'; snapshot: SmppRegistrySnapshot }>;
+  | Readonly<{
+      status: 'not_modified';
+      etag: string;
+      nativeLineage: SmppRegistryResponseLineage;
+    }>
+  | Readonly<{
+      status: 'snapshot';
+      snapshot: SmppRegistrySnapshot;
+      nativeLineage: SmppRegistryResponseLineage;
+    }>;
 
 export interface SmppRegistryClient {
   fetchLatest(source: SmppRegistrySource, ifNoneMatch?: string): Promise<SmppRegistryFetchResult>;
@@ -174,7 +188,17 @@ export interface SmppSnapshotHead {
   readonly revision: number;
   readonly checksum: string;
   readonly etag: string;
+  readonly externalExpiresAt: string;
   readonly validUntil: string;
+  readonly nativeLineage?: SmppRegistryResponseLineage;
+}
+
+export interface SmppRegistrySyncObservation {
+  readonly revision: number;
+  readonly checksum: string;
+  readonly etag: string;
+  readonly validUntil?: string;
+  readonly nativeLineage: SmppRegistryResponseLineage;
 }
 
 export interface NodeControlSmppRegistryRepository {
@@ -191,12 +215,15 @@ export interface NodeControlSmppRegistryRepository {
     source: SmppRegistrySource,
     snapshot: SmppRegistrySnapshot,
     validUntil: string,
+    nativeLineage: SmppRegistryResponseLineage,
     operation: ManagementOperation,
     context: ConfigurationMutationContext,
   ): Promise<ManagementOperation>;
   recordNotModified(
     source: SmppRegistrySource,
-    etag: string,
+    active: SmppSnapshotHead,
+    nativeLineage: SmppRegistryResponseLineage,
+    validUntil: string,
     operation: ManagementOperation,
     context: ConfigurationMutationContext,
   ): Promise<ManagementOperation>;
@@ -205,6 +232,7 @@ export interface NodeControlSmppRegistryRepository {
     errorCode: string,
     operation: ManagementOperation,
     context: ConfigurationMutationContext,
+    observation?: SmppRegistrySyncObservation,
   ): Promise<ManagementOperation>;
   listCandidates(
     filter: Readonly<{ sourceId?: string; observedAt: string; limit: number }>,
@@ -246,6 +274,48 @@ export interface McpBindingImportRequest {
   readonly registryChecksum?: string;
 }
 
+export interface McpBindingRebindRequest {
+  readonly expectedRevision: number;
+  readonly smppSourceId: string;
+  readonly externalProviderId: string;
+  readonly externalServerId: string;
+  readonly registryRevision: number;
+  readonly registryChecksum: string;
+  readonly endpointRef: string;
+}
+
+export interface CurrentMcpProviderBindingAuthority {
+  readonly observedAt: string;
+  readonly binding: Readonly<{
+    bindingId: string;
+    revision: number;
+    localServerId: string;
+    originType: 'direct' | 'smpp_registry';
+    providerId: string;
+    externalProviderId?: string;
+    externalServerId?: string;
+    registryRevision?: number;
+    registryChecksum?: string;
+    catalogRevision: string;
+    catalogChecksum: string;
+    endpointRef: string;
+    availabilityValidUntil: string;
+    catalogObservedAt: string;
+    operationCount: number;
+  }>;
+  readonly sourceCandidateLineage?: Readonly<{
+    smppSourceId: string;
+    externalProviderId: string;
+    externalServerId: string;
+    registryRevision: number;
+    registryChecksum: string;
+    nativeRevision: number;
+    nativeChecksum: string;
+    projectionContract: 'sdar-registry-v1';
+    candidateEndpoint: string;
+  }>;
+}
+
 export interface NodeControlMcpProviderBindingRepository {
   find(bindingId: string, revision?: number): Promise<McpProviderBindingRecord | undefined>;
   findLatestActive(bindingId: string): Promise<McpProviderBindingRecord | undefined>;
@@ -254,6 +324,9 @@ export interface NodeControlMcpProviderBindingRepository {
     localServerId: string,
     observedAt: string,
   ): Promise<McpProviderBinding | undefined>;
+  findCurrentAuthority(
+    input: Readonly<{ bindingId?: string; localServerId: string; observedAt: string }>,
+  ): Promise<CurrentMcpProviderBindingAuthority | undefined>;
   findSmppCandidate(
     input: Readonly<{
       smppSourceId: string;

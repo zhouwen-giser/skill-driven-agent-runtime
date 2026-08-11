@@ -93,6 +93,7 @@ export type McpInvocationStatus = 'succeeded' | 'failed' | 'canceled';
 export interface McpInvocation {
   readonly invocationId: string;
   readonly taskId?: string;
+  readonly capabilityAttemptId?: string;
   readonly contextId?: string;
   readonly executionMode: RuntimeExecutionMode;
   readonly simulationId?: string;

@@ -77,6 +77,127 @@ describe('Skill Usage Workflow planning', () => {
     },
   );
 
+  it('gates direct synchronous Provider evidence by evidenceType without MCP Task planning', () => {
+    const base = candidate('procedure');
+    const directCandidate: SkillUsageCandidateSnapshot = {
+      ...base,
+      applicability: {
+        ...base.applicability,
+        readiness: {
+          overall: 'ready',
+          bindings: [
+            {
+              bindingId: 'move',
+              taskType: 'embodied.move',
+              disposition: 'ready',
+              confirmationRequired: false,
+              reasonCodes: [],
+              selectedProviderId: 'provider.motion',
+              selectedOperationName: 'embodied.move',
+              selectedProtocolMode: 'frozen_v1',
+              candidates: [
+                {
+                  providerId: 'provider.motion',
+                  operationName: 'embodied.move',
+                  protocolMode: 'frozen_v1',
+                  attributes: ['task_behavior:synchronous_only'],
+                  disposition: 'ready',
+                  riskLevel: 'low',
+                  nextAvailableWindows: [],
+                  reservationMode: 'none',
+                  possibleEffects: [],
+                  selected: true,
+                  reasonCodes: [],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    };
+    const procedure = interpretation('procedure');
+    if (procedure.kind !== 'procedure') throw new Error('PROCEDURE_EXPECTED');
+    const prepared = prepareSkillUsagePlan({
+      ...planningInput('procedure'),
+      candidate: directCandidate,
+      interpretation: { ...procedure, composition: directComposition },
+    });
+    const definition = prepared.deterministicDefinition;
+    if (definition === undefined) throw new Error('DETERMINISTIC_DEFINITION_EXPECTED');
+
+    expect(definition.nodes.find((node) => node.nodeId === 'usage_evidence_0')).toMatchObject({
+      expression: { op: 'exists', path: ['evidence', 'position.observation'] },
+    });
+    expect(definition.nodes.find((node) => node.nodeId === 'usage_task_0')).not.toHaveProperty(
+      'taskExecution',
+    );
+    expect(checkSkillUsagePlanCompliance(definition, prepared.policy)).toEqual({
+      compliant: true,
+      errors: [],
+    });
+  });
+
+  it('preserves requirementId evidence gates for non-synchronous MCP Task operations', () => {
+    const base = candidate('procedure');
+    const taskCandidate: SkillUsageCandidateSnapshot = {
+      ...base,
+      applicability: {
+        ...base.applicability,
+        readiness: {
+          overall: 'ready',
+          bindings: [
+            {
+              bindingId: 'move',
+              taskType: 'embodied.move',
+              disposition: 'ready',
+              confirmationRequired: false,
+              reasonCodes: [],
+              selectedProviderId: 'provider.motion',
+              selectedOperationName: 'embodied.move',
+              selectedProtocolMode: 'frozen_v1',
+              candidates: [
+                {
+                  providerId: 'provider.motion',
+                  operationName: 'embodied.move',
+                  protocolMode: 'frozen_v1',
+                  attributes: ['task_behavior:task_required'],
+                  disposition: 'ready',
+                  riskLevel: 'low',
+                  nextAvailableWindows: [],
+                  reservationMode: 'none',
+                  possibleEffects: [],
+                  selected: true,
+                  reasonCodes: [],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    };
+    const procedure = interpretation('procedure');
+    if (procedure.kind !== 'procedure') throw new Error('PROCEDURE_EXPECTED');
+    const prepared = prepareSkillUsagePlan({
+      ...planningInput('procedure'),
+      candidate: taskCandidate,
+      interpretation: { ...procedure, composition: directComposition },
+    });
+    const definition = prepared.deterministicDefinition;
+    if (definition === undefined) throw new Error('DETERMINISTIC_DEFINITION_EXPECTED');
+
+    expect(definition.nodes.find((node) => node.nodeId === 'usage_evidence_0')).toMatchObject({
+      expression: { op: 'ref', path: ['evidence', 'final-position'] },
+    });
+    expect(definition.nodes.find((node) => node.nodeId === 'usage_task_0')).toHaveProperty(
+      'taskExecution',
+      { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
+    );
+    expect(checkSkillUsagePlanCompliance(definition, prepared.policy)).toEqual({
+      compliant: true,
+      errors: [],
+    });
+  });
+
   it('rejects provider, confirmation, failure-policy, recursion and evidence violations structurally', () => {
     const prepared = prepareSkillUsagePlan({
       ...planningInput('procedure'),
@@ -224,6 +345,16 @@ const composition = snapshotSkillUsageCompositionPlan({
   consumedDepth: 1,
   consumedSkills: 2,
   consumedNodes: 1,
+});
+
+const directComposition = snapshotSkillUsageCompositionPlan({
+  root: { skillId: 'skill.root', skillVersion: 1 },
+  expandedSkills: [{ skillId: 'skill.root', skillVersion: 1 }],
+  edges: [],
+  maxDepth: 3,
+  consumedDepth: 0,
+  consumedSkills: 1,
+  consumedNodes: 0,
 });
 
 const usage = createSkillUsageSpecification({

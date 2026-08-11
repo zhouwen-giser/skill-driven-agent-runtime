@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G09",
+  "status": "partial",
+  "disposition": "real_provider_path_passed_sdar_task_plan_not_executed",
+  "evidenceClass": "real_smpp_runtime_adapter_home_assistant",
+  "observedAt": "2026-08-11T21:53:54.548Z",
+  "scenario": "Toggle living-room-main-light to the opposite power state and restore its original state.",
+  "realLightControlReady": false,
+  "blocker": {
+    "code": "SDAR_GOVERNED_WRITE_PATH_NOT_EXECUTED",
+    "message": "The real SMPP Runtime/Adapter/Home Assistant path passed, but this run did not create an SDAR Goal, Plan, confirmation, Remote Task Binding or SDAR MCP invocation."
+  },
+  "gateObservation": {
+    "writeAuthorityOpenedForRun": true,
+    "writeAuthorityClosedAfterRun": true,
+    "climatePowerGateApplicable": false
+  },
+  "execution": {
+    "initialPower": "off",
+    "desiredPower": "on",
+    "changedPower": "on",
+    "restoredPower": "off",
+    "providerTasksCompleted": 2,
+    "physicalWritesObserved": 2,
+    "sameArgumentsSameTask": true,
+    "sameKeyDifferentArgumentsRejected": true,
+    "sdarGoalAndPlanCreated": false,
+    "sdarConfirmationRecorded": false,
+    "restoreStatus": "restored"
+  },
+  "requiredChecks": {
+    "singleToolsCall": "passed_for_primary_runtime_task",
+    "sameTaskRetryNoDuplicateSideEffect": "passed",
+    "remoteTaskBindingPersistence": "not_run_without_sdar_task",
+    "notificationMatchesTasksGet": "tasks_get_terminal_confirmed_notification_not_captured",
+    "runtimeRestartDoesNotReplayCall": "not_run",
+    "finalStateMatchesEvidence": "passed",
+    "restorationSucceeded": "passed"
+  },
+  "authoritativeCountsAfterExecution": {
+    "activeSdarTasks": 0,
+    "uncertainSdarTasks": 0,
+    "activeSmppTasks": 0,
+    "uncertainSmppTasks": 0
+  },
+  "evidenceReferences": [
+    "reports/sdar-smpp-integration/raw/g09-main-light-real.redacted.json"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

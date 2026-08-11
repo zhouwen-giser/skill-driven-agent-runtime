@@ -16,7 +16,10 @@ const postgresAdminUrl =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const databaseName = 'sdar_v13_p10_gateway_e2e';
 const postgresUrl = isolatedDatabaseUrl(postgresAdminUrl, databaseName);
-const redis = { host: '127.0.0.1', port: 56379 };
+const redis = {
+  host: '127.0.0.1',
+  port: Number(process.env['SDAR_REDIS_PORT'] ?? '56379'),
+};
 let runtime: ServerRuntimeHandle;
 
 beforeAll(async () => {

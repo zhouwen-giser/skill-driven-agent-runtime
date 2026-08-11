@@ -44,7 +44,32 @@ describe('server environment', () => {
       SDAR_REDIS_PORT: 56379,
       SDAR_A2A_PORT: 9999,
       SDAR_MANAGEMENT_PORT: 9998,
+      SDAR_TASK_UNDERSTANDING_PROFILE: 'off',
     });
+  });
+
+  it('accepts only the explicit home-lab Task Understanding profile', () => {
+    const masterKey = randomBytes(32).toString('base64');
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_TASK_UNDERSTANDING_PROFILE: 'home_lab_read_only',
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+        SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+      }),
+    ).toMatchObject({ SDAR_TASK_UNDERSTANDING_PROFILE: 'home_lab_read_only' });
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_TASK_UNDERSTANDING_PROFILE: 'home_lab_read_only',
+      }),
+    ).toThrow('requires authenticated Node Control');
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_TASK_UNDERSTANDING_PROFILE: 'always_on',
+      }),
+    ).toThrow();
   });
 
   it('rejects accidental non-loopback unauthenticated bindings', () => {
@@ -175,5 +200,21 @@ describe('server environment', () => {
       SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
       SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
     });
+  });
+
+  it('accepts only a bounded whitespace-free dedicated cognitive bearer', () => {
+    const masterKey = randomBytes(32).toString('base64');
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: 'c'.repeat(32),
+      }),
+    ).toMatchObject({ SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: 'c'.repeat(32) });
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: `${'c'.repeat(32)} `,
+      }),
+    ).toThrow('must not contain whitespace');
   });
 });

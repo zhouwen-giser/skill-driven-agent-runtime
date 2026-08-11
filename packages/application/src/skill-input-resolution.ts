@@ -187,6 +187,51 @@ export class SkillInputResolutionService {
     }
   }
 
+  /**
+   * Persists caller-supplied structured input after exact Skill-schema
+   * validation. This path is reserved for deterministic execution surfaces
+   * that have already resolved their public input authority and must not call
+   * a model merely to copy that value.
+   */
+  async resolveExact(
+    input: ResolveTopLevelSkillInput & Readonly<{ structuredInput: unknown; sourceRef: string }>,
+  ): Promise<SkillInputResolutionRecord> {
+    if (input.skill.status !== 'enabled')
+      throw new SkillInputResolutionError(
+        'SKILL_INPUT_SKILL_NOT_ENABLED',
+        'Top-level input can be resolved only for an enabled Skill version.',
+      );
+    const validation = this.#schemas.validate(input.skill.inputSchema, input.structuredInput);
+    if (!validation.valid)
+      throw new SkillInputResolutionError(
+        'SKILL_INPUT_EXACT_SCHEMA_MISMATCH',
+        'Deterministic structured input does not match the exact Skill input schema.',
+        validation.errors,
+      );
+    const sourceRef = input.sourceRef.trim();
+    if (sourceRef === '' || sourceRef.length > 512)
+      throw new SkillInputResolutionError(
+        'SKILL_INPUT_EXACT_SOURCE_INVALID',
+        'Deterministic input requires one bounded public source reference.',
+      );
+    const record = createSkillInputResolutionRecord({
+      resolutionId: this.#nextId(),
+      taskId: input.task.taskId,
+      goalId: input.goal.goalId,
+      goalVersion: input.goal.version,
+      skillId: input.skill.skillId,
+      skillVersion: input.skill.version,
+      structuredInput: structuredClone(input.structuredInput),
+      unresolvedFields: [],
+      sourceRefs: [sourceRef],
+      decisionSummary: 'Exact structured input was validated without model inference.',
+      status: 'resolved',
+      createdAt: this.#clock.now(),
+    });
+    await this.#records.save(record);
+    return record;
+  }
+
   get(resolutionId: string): Promise<SkillInputResolutionRecord | undefined> {
     return this.#records.find(resolutionId);
   }
@@ -343,7 +388,10 @@ function errorCode(error: unknown): string {
 }
 
 export type SkillInputResolutionErrorCode =
-  'SKILL_INPUT_RESOLUTION_FAILED' | 'SKILL_INPUT_SKILL_NOT_ENABLED';
+  | 'SKILL_INPUT_RESOLUTION_FAILED'
+  | 'SKILL_INPUT_SKILL_NOT_ENABLED'
+  | 'SKILL_INPUT_EXACT_SCHEMA_MISMATCH'
+  | 'SKILL_INPUT_EXACT_SOURCE_INVALID';
 
 export class SkillInputResolutionError extends Error {
   readonly code: SkillInputResolutionErrorCode;

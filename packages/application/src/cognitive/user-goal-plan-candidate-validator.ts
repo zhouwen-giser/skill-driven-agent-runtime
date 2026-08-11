@@ -16,7 +16,17 @@ const checkNames = [
   'no_replay',
 ] as const;
 
+export interface ExternalUserGoalPlanCandidateGuard {
+  assert(plan: UserGoalPlan, contract: UserGoalCompletionContract): void;
+}
+
 export class UserGoalPlanCandidateValidator {
+  readonly #externalGuard: ExternalUserGoalPlanCandidateGuard | undefined;
+
+  constructor(dependencies: Readonly<{ externalGuard?: ExternalUserGoalPlanCandidateGuard }> = {}) {
+    this.#externalGuard = dependencies.externalGuard;
+  }
+
   validate(
     contract: UserGoalCompletionContract,
     candidate: UserGoalPlan,
@@ -36,6 +46,13 @@ export class UserGoalPlanCandidateValidator {
     if (errorCode === undefined) {
       try {
         validateUserGoalPlan(contract, candidate);
+      } catch (error: unknown) {
+        errorCode = errorCodeOf(error);
+      }
+    }
+    if (errorCode === undefined && this.#externalGuard !== undefined) {
+      try {
+        this.#externalGuard.assert(candidate, contract);
       } catch (error: unknown) {
         errorCode = errorCodeOf(error);
       }

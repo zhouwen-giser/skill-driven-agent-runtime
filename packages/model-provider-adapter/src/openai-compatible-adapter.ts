@@ -129,6 +129,7 @@ async function requestJson(
       headers: { ...headers, 'content-type': 'application/json' },
       body: JSON.stringify(body),
       signal,
+      redirect: 'manual',
     });
   } catch (error: unknown) {
     throw new ModelAdapterError(
