@@ -4,22 +4,27 @@ Goal Run ID: `019fca75-f48a-7780-ac5e-942503c6690e`
 
 ## Publication
 
-- SDAR tested candidate: `af88761891f6204bf6625bd423f382f025f59ba3`
+- SDAR tested implementation candidate: `93889e87088072ab12fe1a1c574d734d2fa629a7`
+- SDAR local evidence head: `03bf7d84a12f27b3e05e87ff6a334544ac75e492`
 - SMPP tested candidate: `5b17f12ff7312449cc7e3376795ff24c0375b9d9`
 - SDAR Draft PR: <https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/19>
 - SMPP Draft PR: <https://github.com/zhouwen-giser/sdar-mcp-provider-platform/pull/10>
 - Merge, tag, release, and public deployment: not authorized
+- Local commits are not yet pushed; explicit destination/payload authorization is pending.
 
 The candidate SHAs identify the tested implementation and frozen contract. This report and the
 final handoff are published in a later evidence-only commit on each Draft PR branch.
 
 ## Qualified result
 
-G01 through G07 passed. The native SMPP Registry remained unchanged, the additive projection
+G01 through G08 passed. The native SMPP Registry remained unchanged, the additive projection
 contract stayed byte-identical across repositories, Source synchronization and lineage persistence
 passed, both provider bindings and revision-17 catalogs aligned, five governed Capabilities/Skills
 were admitted, and the final deterministic main-light and climate reads replayed without a second
-provider call.
+provider call. G08 then completed one real A2A Task and Goal through all seven required structured
+model stages, an exact two-read Workflow, a combined structured Outcome, and same-run Runtime
+restart recovery. Model semantics came from the explicitly identified local simulated structured
+fixture; A2A, Runtime, PostgreSQL, MCP, SMPP, Provider evidence and Home Assistant reads were live.
 
 The final qualified allowlist contains only `living-room-main-light` and
 `living-room-air-conditioner`, with operations `light_get_state` and `climate_get_state`.
@@ -34,8 +39,6 @@ device restore disposition is `RESTORED`.
 
 ## Remaining blockers
 
-- G08: zero configured model providers/routes and no Task Understanding composition in the
-  standard Runtime entrypoint.
 - G09-G11: physical write scenarios were `deferred_by_safety`.
 - G12: required real in-flight restart, outage, corrupt-state, and failpoint evidence is absent.
 - G13: the authoritative full SDAR verification failed Runtime P95 regression at
