@@ -80,8 +80,10 @@ explicitly allowlisted, stale availability, drift, and missing credentials fail 
       Complete Task/Context/Goal/Plan/Workflow/Skill/Binding/MCP Invocation lineage, structured results
       and evidence remained identical; provider calls were not replayed; model calls and physical
       writes were zero.
-- [ ] G08 is blocked before request submission by zero enabled model providers/routes and missing
-      Task Understanding composition in the standard Runtime entrypoint.
+- [x] 2026-08-12 completed G08 with one real A2A Task/Goal, the exact composite Capability/Skill,
+      all seven task-linked structured-model stages, two live read-only MCP invocations, a combined
+      structured Outcome, complete queryable authority lineage, and same-run Runtime restart
+      recovery. Model semantics are explicitly supplied by a local simulated structured fixture.
 - [ ] G09-G11 are `deferred_by_safety`: required real-device write gates are absent at Process, User
       and Machine scopes, so no main-light, climate or cross-provider write scenario was attempted.
 - [ ] G12 is blocked: deterministic/same-Goal read-only recovery evidence exists, but the Required
@@ -186,8 +188,8 @@ Final Draft-publication outcome:
   governance and deterministic read-only execution.
 - Readiness false: A2A read-only, real light control, real climate control, cross-provider scenario,
   resilience integration and overall cross-repository integration.
-- Code/configuration blockers: no enabled model provider/routes; Task Understanding is not composed
-  by the standard Runtime entrypoint.
+- G08 code/configuration blockers are closed; the standard Runtime composes the explicit
+  `home_lab_read_only` profile and the exact local structured-model routes.
 - External/safety blockers: real-device write gates and real-fault injection gates are absent.
 - Verification blocker: authoritative SDAR full verification failed the Phase 13 Runtime P95 gate.
 - Safety closeout: active/uncertain SDAR Tasks `0/0`, active/uncertain SMPP Tasks `0/0`, physical

@@ -1,14 +1,16 @@
 # Project Status
 
-SDAR x SMPP Home-Lab Integration is `BLOCKED_DRAFT_PUBLISHED` (2026-08-11) on
-`codex/sdar-smpp-home-lab-integration`, with tested candidate
-`af88761891f6204bf6625bd423f382f025f59ba3` in Draft PR #19. Goal Run
-`019fca75-f48a-7780-ac5e-942503c6690e` passed G00-G07: exact baseline/isolation, real Home
+SDAR x SMPP Home-Lab Integration is `BLOCKED_DRAFT_PUBLISHED` (2026-08-12) on
+`codex/sdar-smpp-home-lab-integration`. Draft PR #19 contains the previously published evidence
+head; tested local candidate `93889e87088072ab12fe1a1c574d734d2fa629a7` awaits explicit push
+authorization. Goal Run `019fca75-f48a-7780-ac5e-942503c6690e` passed G00-G08: exact baseline/isolation, real Home
 Assistant read-only preflight (10/10), live SMPP Climate/Light deployments, byte-identical frozen
 Registry projection, real Source 200/304/LKG/outage/restart behavior, exact revision-17 Provider
 Bindings and live MCP Catalogs, five governed exact-version Skills/Capabilities, and deterministic
-Climate/Light read-only execution plus same-run replay. G08 is blocked by zero enabled model
-providers/routes and missing standard Task Understanding composition. G09-G11 are
+Climate/Light read-only execution plus same-run replay. G08 now passes one real A2A Task and Goal,
+all seven required structured-model stages, an exact two-read Workflow, a combined structured
+Outcome, and same-run Runtime restart recovery; the model boundary is explicitly a simulated local
+structured fixture while Runtime, PostgreSQL, A2A, MCP, SMPP and Home Assistant reads are live. G09-G11 are
 `deferred_by_safety` because the required real-device write gates are absent; no physical write was
 attempted. G12 lacks Required real in-flight restart/fault evidence. The authoritative SDAR
 repository-wide `pnpm verify` passed its first four stages and failed its final E2E stage solely at

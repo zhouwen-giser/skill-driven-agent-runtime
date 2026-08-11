@@ -1,73 +1,85 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
   "phase": "G08",
-  "status": "blocked",
-  "evidenceClass": "real_live_read_only_preflight_plus_repository_composition_audit",
-  "observedAt": "2026-08-10T16:22:14.664Z",
+  "status": "passed",
+  "observedAt": "2026-08-11T18:24:19.134Z",
+  "candidateCommit": "93889e87088072ab12fe1a1c574d734d2fa629a7",
+  "evidenceClass": "real_a2a_runtime_mcp_home_assistant_with_simulated_local_model_semantics",
+  "modelBoundary": "simulated_local_structured_fixture",
+  "a2aReadOnlyReady": true,
   "request": "查询客厅主灯和空调当前状态",
-  "a2aReadOnlyReady": false,
-  "blockers": [
+  "execution": {
+    "singleA2aTask": true,
+    "singleGoal": true,
+    "singleCompositeCapability": "home.living-room.read-state",
+    "singleCompositeSkill": "home.living-room.get-state",
+    "workflowNodeCount": 6,
+    "mcpInvocationCount": 2,
+    "modelInvocationFailureCount": 0,
+    "eventCount": 13,
+    "terminalStatus": "completed",
+    "structuredOutcome": ["mainLight", "climate"],
+    "taskSnapshotSha256": "3fbd537548511a0e560bfea226517eb5b38605857519718246d6d5a637bf6cbc",
+    "structuredOutcomeSha256": "ea4b97b61ad89acda1a4dec855b511bb66f7b1e88b2ca9b9f8ea00b54c3228c6",
+    "capabilityBindingSha256": "2015a0ecbabc33fec7ad11aa37c740a25e62591aca8975ec2e12173ab469998c"
+  },
+  "requiredModelStages": [
+    "task_understanding",
+    "goal_contract_generation",
+    "goal_planning",
+    "skill_input_resolution",
+    "workflow_planning",
+    "result_processing",
+    "goal_evaluation"
+  ],
+  "operations": [
     {
-      "code": "A2A_MODEL_RUNTIME_NOT_CONFIGURED",
-      "authority": "runtime_model_authority",
-      "evidence": {
-        "runtimeHealth": "ok",
-        "enabledModelProviderCount": 0,
-        "modelRouteCount": 0,
-        "requiredModelStages": [
-          "task_understanding",
-          "goal_contract_generation",
-          "goal_planning",
-          "skill_input_resolution",
-          "workflow_planning",
-          "result_processing",
-          "goal_evaluation"
-        ]
-      },
-      "effect": "The driver stopped before publishing an A2A exposure or submitting an A2A request."
+      "serverId": "home-lab-light-mcp",
+      "toolName": "light_get_state",
+      "executionMode": "live",
+      "effect": "read_only",
+      "status": "succeeded",
+      "evidenceType": "light.state.observation"
     },
     {
-      "code": "A2A_TASK_UNDERSTANDING_NOT_COMPOSED",
-      "authority": "standard_runtime_composition",
-      "evidence": {
-        "runtimeSupportsOptionalTaskUnderstanding": true,
-        "standardEntrypointSuppliesTaskUnderstanding": false,
-        "inspectedSource": "apps/server/src/main.ts"
-      },
-      "effect": "The required A2A to Task Understanding chain is not composed by the running standard entrypoint."
+      "serverId": "home-lab-climate-mcp",
+      "toolName": "climate_get_state",
+      "executionMode": "live",
+      "effect": "read_only",
+      "status": "succeeded",
+      "evidenceType": "climate.state.observation"
     }
   ],
-  "driverObservation": {
-    "mode": "execute",
-    "result": "failed_closed_before_mutation",
-    "errorCode": "A2A_MODEL_RUNTIME_NOT_CONFIGURED",
-    "a2aRequestSubmitted": false,
-    "nodeControlMutationAttempted": false,
-    "deviceReadAttempted": false,
-    "deviceWriteAttempted": false
+  "authorityChain": {
+    "taskUnderstanding": "queryable",
+    "taskGoalAndUserGoalPlan": "queryable",
+    "workflowPlanAndTrace": "queryable",
+    "capabilityBindingAndAttempt": "queryable",
+    "mcpAndModelInvocations": "queryable",
+    "terminalOutcome": "queryable"
   },
-  "authoritativeCountsAfterDriver": {
-    "agentTask": 0,
-    "modelProvider": 0,
-    "stageModelRoute": 0,
-    "persistedA2aExposureVersion": 0,
-    "externalTaskProjection": 0,
-    "remoteTaskBinding": 0,
-    "taskExecutionAttempt": 0,
-    "mcpInvocation": 0
+  "restartRecovery": {
+    "status": "passed",
+    "sameRunId": true,
+    "sameTaskSnapshotHash": true,
+    "sameStructuredOutcomeHash": true,
+    "sameCapabilityBindingHash": true,
+    "restartRecoveryVerified": true
   },
-  "requiredChain": {
-    "a2aTaskAndGoalLinked": "not_run_blocked_before_a2a_request",
-    "allowedCapabilityOnlyPlan": "not_run_blocked_before_plan",
-    "unqualifiedOperationExcluded": "not_run_blocked_before_plan",
-    "deviceWriteOperations": 0,
-    "structuredGoalOutcome": "not_run_blocked_before_goal",
-    "identifierChainQueryable": "not_run_no_chain_created"
-  },
+  "evidenceFiles": [
+    {
+      "path": "reports/sdar-smpp-integration/raw/g08-a2a-execute.redacted.json",
+      "sha256": "5af656138af84a6089736d95a079ab395a81b58a4d4488aea0e4d8f36901254d"
+    },
+    {
+      "path": "reports/sdar-smpp-integration/raw/g08-a2a-verify-restart.redacted.json",
+      "sha256": "624b5223c60c628b3f958a75bc6d199d051864f5b9b80c81b1a0ae2ae5f71b8d"
+    }
+  ],
   "safety": {
-    "allowedReadOperations": ["light_get_state", "climate_get_state"],
-    "operationsInvoked": [],
+    "allowedCapabilities": ["home.living-room.read-state"],
+    "allowedOperations": ["light_get_state", "climate_get_state"],
     "writeOperationsInvoked": 0,
     "physicalWritesInvoked": 0,
     "realDeviceWriteAuthority": "closed"
