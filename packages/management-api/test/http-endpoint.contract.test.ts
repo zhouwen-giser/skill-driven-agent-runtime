@@ -4326,6 +4326,38 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('retains the frozen 400 response for a stale Task plan decision', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: {
+          ...configured.tasks,
+          followUp: () =>
+            Promise.reject(
+              Object.assign(new Error('Only an awaiting plan may receive a decision.'), {
+                code: 'TASK_PLAN_DECISION_NOT_AWAITING',
+              }),
+            ),
+        },
+      },
+    });
+
+    const staleDecision = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-canceled/actions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'confirm_plan',
+        messageText: 'Attempt a stale confirmation.',
+      }),
+    });
+
+    expect(staleDecision.status).toBe(400);
+    await expect(staleDecision.json()).resolves.toMatchObject({
+      error: { code: 'TASK_PLAN_DECISION_NOT_AWAITING' },
+    });
+  });
+
   it('creates and semantically searches source-traceable global memories', async () => {
     const configured = operations();
     const item = {

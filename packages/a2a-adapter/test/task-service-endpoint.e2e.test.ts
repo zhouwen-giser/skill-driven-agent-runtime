@@ -246,7 +246,10 @@ beforeAll(async () => {
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ providerId: 'provider.e2e' }),
+      body: JSON.stringify({
+        providerId: 'provider.e2e',
+        operation: 'structured_generation',
+      }),
     },
   );
   if (routeResponse.status !== 204) throw new Error('MODEL_ROUTE_SETUP_FAILED');
@@ -258,7 +261,10 @@ beforeAll(async () => {
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ providerId: 'provider.e2e' }),
+      body: JSON.stringify({
+        providerId: 'provider.e2e',
+        operation: 'structured_generation',
+      }),
     },
   );
   if (workflowRoute.status !== 204) throw new Error('WORKFLOW_MODEL_ROUTE_SETUP_FAILED');
@@ -268,7 +274,10 @@ beforeAll(async () => {
     {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ providerId: 'provider.e2e' }),
+      body: JSON.stringify({
+        providerId: 'provider.e2e',
+        operation: 'structured_generation',
+      }),
     },
   );
   if (evaluationRoute.status !== 204) throw new Error('GOAL_EVALUATION_ROUTE_SETUP_FAILED');
@@ -290,12 +299,15 @@ beforeAll(async () => {
     'experience_observation',
     'experience_reflection',
   ] as const) {
-    const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ providerId: 'provider.e2e' }),
-    });
-    if (route.status !== 204) throw new Error(`TASK_DECISION_ROUTE_SETUP_FAILED:${stage}`);
+    for (const operation of ['structured_generation', 'embedding'] as const) {
+      const route = await fetch(`${runtime.management.baseUrl}/api/v1/models/routes/${stage}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ providerId: 'provider.e2e', operation }),
+      });
+      if (route.status !== 204)
+        throw new Error(`TASK_DECISION_ROUTE_SETUP_FAILED:${stage}:${operation}`);
+    }
     await configurePrompt(stage, `Structured ${stage} decision. {{instruction}}`);
   }
   const baselineSkill = await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {

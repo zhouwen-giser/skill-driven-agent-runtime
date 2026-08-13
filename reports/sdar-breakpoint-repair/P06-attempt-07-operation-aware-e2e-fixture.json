@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 7,
+  "candidateSha": "b99ce47291224d546f540baa2429e928075f687e",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T04:50:37.392Z",
+  "finishedAt": "2026-08-13T04:57:53.877Z",
+  "command": "pnpm verify",
+  "infrastructureMode": "operator-managed using Goal-owned disposable containers",
+  "status": "FAILED_E2E_FIXTURE_AUTHORITY",
+  "durationMs": 436485,
+  "passedSteps": [
+    {
+      "name": "static-unit-contract-build",
+      "durationMs": 181963,
+      "testFiles": 257,
+      "tests": 1849,
+      "openapiOperations": 167,
+      "outputSha256": "3d0c3122cfd14d71870982702debaa3f3fd1afbde3493c58ed325b40b404ccee"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "durationMs": 828,
+      "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "durationMs": 22417,
+      "migrationCount": 50,
+      "outputSha256": "f52c6ebbbc87ca3ffca5ff4d92745bbc0a7abd7b4e7d4c695c7c5dfbf688a4c9"
+    },
+    {
+      "name": "postgres-redis-integration",
+      "durationMs": 187294,
+      "testFiles": 34,
+      "tests": 197,
+      "outputSha256": "46ce326c28d7be074367c0d15324d7a56fe45180c8c51c6bcda864e24e602ad6"
+    }
+  ],
+  "failedStep": {
+    "name": "postgres-redis-model-mcp-e2e",
+    "durationMs": 43979,
+    "testFilesPassed": 5,
+    "testFilesFailed": 1,
+    "testsPassed": 23,
+    "testsFailed": 49,
+    "testsSkipped": 1,
+    "outputSha256": "5f43cbdb58233fdd0c6b4aaf26930aafe2c0d27f904e0ad2043ca81e498ba298",
+    "test": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "diagnostic": "Migration 0155 made model routes operation-aware. The E2E fixture configured only structured_generation, so Runtime goal embeddings failed closed with MODEL_STAGE_NOT_CONFIGURED and cascaded across Task preparation. Independently, the frozen-protocol branch of the MCP loopback omitted its read-only execution semantics and was correctly rejected by the P04 transport gate."
+  },
+  "interpretation": "Both failures are deterministic test-composition gaps. The repair explicitly configures structured_generation and embedding routes and gives the frozen loopback the same read-only semantics already declared by its SDK branch. Production operation-aware routing and fail-closed MCP authority remain unchanged."
+}

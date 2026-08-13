@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "failed",
-  "commit": "9df1c22a4debfbb30d6cb5e0c072f2f0e5c3f780",
+  "commit": "b99ce47291224d546f540baa2429e928075f687e",
   "dirty": false,
   "environment": {
     "node": "v22.14.0",
@@ -9,19 +9,19 @@
     "architecture": "x64",
     "infrastructureMode": "operator-managed"
   },
-  "startedAt": "2026-08-13T04:34:07.194Z",
-  "finishedAt": "2026-08-13T04:41:05.214Z",
-  "durationMs": 418020,
+  "startedAt": "2026-08-13T04:50:37.392Z",
+  "finishedAt": "2026-08-13T04:57:53.877Z",
+  "durationMs": 436485,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "passed",
-      "startedAt": "2026-08-13T04:34:07.195Z",
-      "finishedAt": "2026-08-13T04:37:06.635Z",
-      "durationMs": 179440,
+      "startedAt": "2026-08-13T04:50:37.393Z",
+      "finishedAt": "2026-08-13T04:53:39.356Z",
+      "durationMs": 181963,
       "logPath": "reports/verification/raw/static-unit-contract-build.log",
-      "outputSha256": "30c02b7cf9aba5634137e5ac9d3afef80c50da9f59b3226e391d44e30f0ec667",
+      "outputSha256": "3d0c3122cfd14d71870982702debaa3f3fd1afbde3493c58ed325b40b404ccee",
       "metrics": {
         "testFiles": 257,
         "tests": 1849,
@@ -33,9 +33,9 @@
       "name": "cognitive-replay-no-physical-provider",
       "command": "pnpm verify:cognitive-replay",
       "status": "passed",
-      "startedAt": "2026-08-13T04:37:06.637Z",
-      "finishedAt": "2026-08-13T04:37:07.381Z",
-      "durationMs": 744,
+      "startedAt": "2026-08-13T04:53:39.359Z",
+      "finishedAt": "2026-08-13T04:53:40.187Z",
+      "durationMs": 828,
       "logPath": "reports/verification/raw/cognitive-replay-no-physical-provider.log",
       "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3",
       "metrics": {},
@@ -45,9 +45,9 @@
       "name": "clean-baseline-reset-seed",
       "command": "pnpm verify:migrations",
       "status": "passed",
-      "startedAt": "2026-08-13T04:37:07.381Z",
-      "finishedAt": "2026-08-13T04:37:29.311Z",
-      "durationMs": 21930,
+      "startedAt": "2026-08-13T04:53:40.187Z",
+      "finishedAt": "2026-08-13T04:54:02.604Z",
+      "durationMs": 22417,
       "logPath": "reports/verification/raw/clean-baseline-reset-seed.log",
       "outputSha256": "f52c6ebbbc87ca3ffca5ff4d92745bbc0a7abd7b4e7d4c695c7c5dfbf688a4c9",
       "metrics": {
@@ -59,11 +59,11 @@
       "name": "postgres-redis-integration",
       "command": "pnpm test:integration",
       "status": "passed",
-      "startedAt": "2026-08-13T04:37:29.311Z",
-      "finishedAt": "2026-08-13T04:40:36.303Z",
-      "durationMs": 186992,
+      "startedAt": "2026-08-13T04:54:02.604Z",
+      "finishedAt": "2026-08-13T04:57:09.898Z",
+      "durationMs": 187294,
       "logPath": "reports/verification/raw/postgres-redis-integration.log",
-      "outputSha256": "5bac74c5ac66046ca19badc97ef87cfc9b3b8f1d23f467702da75fa8294e2ee0",
+      "outputSha256": "46ce326c28d7be074367c0d15324d7a56fe45180c8c51c6bcda864e24e602ad6",
       "metrics": {
         "testFiles": 34,
         "tests": 197
@@ -74,14 +74,12 @@
       "name": "postgres-redis-model-mcp-e2e",
       "command": "pnpm test:e2e",
       "status": "failed",
-      "startedAt": "2026-08-13T04:40:36.303Z",
-      "finishedAt": "2026-08-13T04:41:05.214Z",
-      "durationMs": 28911,
+      "startedAt": "2026-08-13T04:57:09.898Z",
+      "finishedAt": "2026-08-13T04:57:53.877Z",
+      "durationMs": 43979,
       "logPath": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
-      "outputSha256": "c202b7091a0999f2c3bb44e097bb5652aacc855ba52d2c0314b29368e7f03578",
-      "metrics": {
-        "tests": 11
-      },
+      "outputSha256": "5f43cbdb58233fdd0c6b4aaf26930aafe2c0d27f904e0ad2043ca81e498ba298",
+      "metrics": {},
       "exitCode": 1
     }
   ]

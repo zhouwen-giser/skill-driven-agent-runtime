@@ -4762,7 +4762,6 @@ function normalizeHttpError(error: unknown): Readonly<{
     code === 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT' ||
     code === 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN' ||
     code === 'TASK_PHASE_TRANSITION_INVALID' ||
-    code === 'TASK_PLAN_DECISION_NOT_AWAITING' ||
     code === 'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE'
   ) {
     return {
