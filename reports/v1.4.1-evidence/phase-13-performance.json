@@ -2,23 +2,1412 @@
   "schemaVersion": 1,
   "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
   "samples": {
-    "runtimeBaselineInterleaved": 40,
-    "runtimeEvidenceEnabled": 20,
+    "runtimeBaselineInterleaved": 72,
+    "runtimeEvidenceEnabled": 72,
     "evidenceAppend": 100
   },
-  "baselineP95Ms": 805.957,
-  "baselineBeforeMedianMs": 546.711,
-  "baselineAfterMedianMs": 634.236,
-  "baselineMedianDriftPercent": 14.823,
-  "evidenceEnabledP95Ms": 880.984,
-  "regressionPercent": 9.309,
-  "appendP95Ms": 15.576,
-  "receivedRecords": 111,
+  "measurementDesign": {
+    "discardedWarmupWindows": 2,
+    "warmupBlocksPerWindow": 9,
+    "roundsPerWindow": 12,
+    "measurementWindowCount": 3,
+    "order": "strict alternating ABBA/BAAB blocks with equal baseline and enabled samples"
+  },
+  "measurementWindows": [
+    {
+      "window": 1,
+      "baselineP95Ms": 509.063,
+      "evidenceEnabledP95Ms": 505.861,
+      "regressionPercent": -0.629,
+      "baselineMedianMs": 387.189,
+      "baselineSamplesMs": [
+        402.1621000000014,
+        321.2983999999997,
+        276.38559999999416,
+        387.30569999999716,
+        378.5338999999949,
+        490.5717000000004,
+        458.22409999999945,
+        423.8680999999997,
+        533.8556000000026,
+        396.01060000000143,
+        509.0625999999975,
+        480.93389999999636,
+        361.33490000000165,
+        394.75069999999687,
+        415.16389999999956,
+        377.7620999999999,
+        302.76250000000437,
+        376.8741999999984,
+        327.77900000000227,
+        379.6837000000014,
+        387.07160000000295,
+        374.9109000000026,
+        278.57860000000073,
+        467.92259999999806
+      ],
+      "enabledSamplesMs": [
+        281.4004999999961,
+        342.053700000004,
+        325.031799999997,
+        402.5141999999978,
+        365.16479999999865,
+        387.0083000000013,
+        467.2286000000022,
+        472.37130000000616,
+        694.7578000000067,
+        455.24810000000434,
+        419.45679999999993,
+        369.417300000001,
+        431.2358000000022,
+        505.8606,
+        464.7338000000018,
+        368.1255999999994,
+        336.6513999999952,
+        394.8119000000006,
+        355.8715000000011,
+        315.47269999999844,
+        405.4892000000036,
+        496.3361999999979,
+        364.7955000000002,
+        407.6522000000041
+      ],
+      "rounds": [
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 402.1621000000014
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 281.4004999999961
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 342.053700000004
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 321.2983999999997
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 325.031799999997
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 276.38559999999416
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 387.30569999999716
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 402.5141999999978
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 378.5338999999949
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 365.16479999999865
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 387.0083000000013
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 490.5717000000004
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 467.2286000000022
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 458.22409999999945
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 423.8680999999997
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 472.37130000000616
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 533.8556000000026
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 694.7578000000067
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 455.24810000000434
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 396.01060000000143
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 419.45679999999993
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 509.0625999999975
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 480.93389999999636
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 369.417300000001
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 361.33490000000165
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 431.2358000000022
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 505.8606
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 394.75069999999687
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 464.7338000000018
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 415.16389999999956
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 377.7620999999999
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 368.1255999999994
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 302.76250000000437
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 336.6513999999952
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 394.8119000000006
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 376.8741999999984
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 355.8715000000011
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 327.77900000000227
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 379.6837000000014
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 315.47269999999844
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 387.07160000000295
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 405.4892000000036
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 496.3361999999979
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 374.9109000000026
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 364.7955000000002
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 278.57860000000073
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 467.92259999999806
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 407.6522000000041
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "window": 2,
+      "baselineP95Ms": 422.779,
+      "evidenceEnabledP95Ms": 441.217,
+      "regressionPercent": 4.361,
+      "baselineMedianMs": 360.938,
+      "baselineSamplesMs": [
+        335.7303000000029,
+        367.83989999999903,
+        390.7462999999989,
+        261.9002000000037,
+        375.4612000000052,
+        334.6284999999916,
+        388.8652000000002,
+        392.68550000000687,
+        323.5274999999965,
+        289.11919999998645,
+        368.68330000000424,
+        406.27330000000075,
+        422.77880000000005,
+        260.67059999999765,
+        406.57910000000265,
+        424.4710999999952,
+        317.2728999999963,
+        320.52760000000126,
+        367.82500000001164,
+        354.0506000000023,
+        338.349000000002,
+        298.01789999999164,
+        396.1107999999949,
+        325.84619999999995
+      ],
+      "enabledSamplesMs": [
+        258.7681999999986,
+        406.29439999999886,
+        441.216600000007,
+        370.55860000000393,
+        324.95209999999497,
+        371.88400000000547,
+        317.43120000000636,
+        302.44409999999334,
+        404.65260000000126,
+        437.53830000000016,
+        418.4603000000061,
+        272.03609999999753,
+        391.9412000000011,
+        412.1886999999988,
+        448.66300000000047,
+        367.4253999999928,
+        364.80779999999504,
+        332.309500000003,
+        365.22600000000966,
+        417.5112999999983,
+        362.43769999999495,
+        359.4383999999991,
+        378.02390000000014,
+        395.8255999999965
+      ],
+      "rounds": [
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 335.7303000000029
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 258.7681999999986
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 406.29439999999886
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 367.83989999999903
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 441.216600000007
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 390.7462999999989
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 261.9002000000037
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 370.55860000000393
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 375.4612000000052
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 324.95209999999497
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 371.88400000000547
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 334.6284999999916
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 317.43120000000636
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 388.8652000000002
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 392.68550000000687
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 302.44409999999334
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 323.5274999999965
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 404.65260000000126
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 437.53830000000016
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 289.11919999998645
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 418.4603000000061
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 368.68330000000424
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 406.27330000000075
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 272.03609999999753
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 422.77880000000005
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 391.9412000000011
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 412.1886999999988
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 260.67059999999765
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 448.66300000000047
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 406.57910000000265
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 424.4710999999952
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 367.4253999999928
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 317.2728999999963
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 364.80779999999504
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 332.309500000003
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 320.52760000000126
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 365.22600000000966
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 367.82500000001164
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 354.0506000000023
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 417.5112999999983
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 338.349000000002
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 362.43769999999495
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 359.4383999999991
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 298.01789999999164
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 378.02390000000014
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 396.1107999999949
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 325.84619999999995
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 395.8255999999965
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "window": 3,
+      "baselineP95Ms": 480.765,
+      "evidenceEnabledP95Ms": 462.726,
+      "regressionPercent": -3.752,
+      "baselineMedianMs": 374.921,
+      "baselineSamplesMs": [
+        372.9418999999907,
+        513.814200000008,
+        447.9232999999949,
+        362.0963000000047,
+        480.76549999999406,
+        296.2470999999932,
+        353.60259999999835,
+        416.5786999999982,
+        383.26510000000417,
+        397.60460000000603,
+        336.954899999997,
+        306.79709999999614,
+        386.7728000000061,
+        330.30349999999453,
+        418.7317000000039,
+        339.1169000000082,
+        325.0332999999955,
+        340.13580000000366,
+        383.4847000000009,
+        419.6848000000027,
+        279.89420000000973,
+        301.69160000000556,
+        376.9005000000034,
+        418.4174999999959
+      ],
+      "enabledSamplesMs": [
+        260.66350000000966,
+        453.3523000000132,
+        367.79790000000503,
+        339.64130000000296,
+        462.7256000000052,
+        423.38430000000517,
+        376.59249999999884,
+        405.88640000000305,
+        315.0372999999963,
+        360.0005000000092,
+        338.5771999999997,
+        392.39420000000973,
+        311.5243000000046,
+        440.1045999999915,
+        324.5746000000072,
+        484.6392999999953,
+        364.8993000000046,
+        414.82470000001194,
+        382.0185999999958,
+        377.4945000000007,
+        366.5954000000056,
+        346.32459999999264,
+        402.66879999999946,
+        259.97239999999874
+      ],
+      "rounds": [
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 372.9418999999907
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 260.66350000000966
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 453.3523000000132
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 513.814200000008
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 367.79790000000503
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 447.9232999999949
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 362.0963000000047
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 339.64130000000296
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 480.76549999999406
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 462.7256000000052
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 423.38430000000517
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 296.2470999999932
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 376.59249999999884
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 353.60259999999835
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 416.5786999999982
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 405.88640000000305
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 383.26510000000417
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 315.0372999999963
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 360.0005000000092
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 397.60460000000603
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 338.5771999999997
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 336.954899999997
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 306.79709999999614
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 392.39420000000973
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 386.7728000000061
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 311.5243000000046
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 440.1045999999915
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 330.30349999999453
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 324.5746000000072
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 418.7317000000039
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 339.1169000000082
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 484.6392999999953
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 325.0332999999955
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 364.8993000000046
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 414.82470000001194
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 340.13580000000366
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 382.0185999999958
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 383.4847000000009
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 419.6848000000027
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 377.4945000000007
+            }
+          ]
+        },
+        {
+          "order": [
+            "baseline",
+            "enabled",
+            "enabled",
+            "baseline"
+          ],
+          "samples": [
+            {
+              "mode": "baseline",
+              "latencyMs": 279.89420000000973
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 366.5954000000056
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 346.32459999999264
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 301.69160000000556
+            }
+          ]
+        },
+        {
+          "order": [
+            "enabled",
+            "baseline",
+            "baseline",
+            "enabled"
+          ],
+          "samples": [
+            {
+              "mode": "enabled",
+              "latencyMs": 402.66879999999946
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 376.9005000000034
+            },
+            {
+              "mode": "baseline",
+              "latencyMs": 418.4174999999959
+            },
+            {
+              "mode": "enabled",
+              "latencyMs": 259.97239999999874
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "rawSamples": {
+    "baselineMs": [
+      402.1621000000014,
+      321.2983999999997,
+      276.38559999999416,
+      387.30569999999716,
+      378.5338999999949,
+      490.5717000000004,
+      458.22409999999945,
+      423.8680999999997,
+      533.8556000000026,
+      396.01060000000143,
+      509.0625999999975,
+      480.93389999999636,
+      361.33490000000165,
+      394.75069999999687,
+      415.16389999999956,
+      377.7620999999999,
+      302.76250000000437,
+      376.8741999999984,
+      327.77900000000227,
+      379.6837000000014,
+      387.07160000000295,
+      374.9109000000026,
+      278.57860000000073,
+      467.92259999999806,
+      335.7303000000029,
+      367.83989999999903,
+      390.7462999999989,
+      261.9002000000037,
+      375.4612000000052,
+      334.6284999999916,
+      388.8652000000002,
+      392.68550000000687,
+      323.5274999999965,
+      289.11919999998645,
+      368.68330000000424,
+      406.27330000000075,
+      422.77880000000005,
+      260.67059999999765,
+      406.57910000000265,
+      424.4710999999952,
+      317.2728999999963,
+      320.52760000000126,
+      367.82500000001164,
+      354.0506000000023,
+      338.349000000002,
+      298.01789999999164,
+      396.1107999999949,
+      325.84619999999995,
+      372.9418999999907,
+      513.814200000008,
+      447.9232999999949,
+      362.0963000000047,
+      480.76549999999406,
+      296.2470999999932,
+      353.60259999999835,
+      416.5786999999982,
+      383.26510000000417,
+      397.60460000000603,
+      336.954899999997,
+      306.79709999999614,
+      386.7728000000061,
+      330.30349999999453,
+      418.7317000000039,
+      339.1169000000082,
+      325.0332999999955,
+      340.13580000000366,
+      383.4847000000009,
+      419.6848000000027,
+      279.89420000000973,
+      301.69160000000556,
+      376.9005000000034,
+      418.4174999999959
+    ],
+    "evidenceEnabledMs": [
+      281.4004999999961,
+      342.053700000004,
+      325.031799999997,
+      402.5141999999978,
+      365.16479999999865,
+      387.0083000000013,
+      467.2286000000022,
+      472.37130000000616,
+      694.7578000000067,
+      455.24810000000434,
+      419.45679999999993,
+      369.417300000001,
+      431.2358000000022,
+      505.8606,
+      464.7338000000018,
+      368.1255999999994,
+      336.6513999999952,
+      394.8119000000006,
+      355.8715000000011,
+      315.47269999999844,
+      405.4892000000036,
+      496.3361999999979,
+      364.7955000000002,
+      407.6522000000041,
+      258.7681999999986,
+      406.29439999999886,
+      441.216600000007,
+      370.55860000000393,
+      324.95209999999497,
+      371.88400000000547,
+      317.43120000000636,
+      302.44409999999334,
+      404.65260000000126,
+      437.53830000000016,
+      418.4603000000061,
+      272.03609999999753,
+      391.9412000000011,
+      412.1886999999988,
+      448.66300000000047,
+      367.4253999999928,
+      364.80779999999504,
+      332.309500000003,
+      365.22600000000966,
+      417.5112999999983,
+      362.43769999999495,
+      359.4383999999991,
+      378.02390000000014,
+      395.8255999999965,
+      260.66350000000966,
+      453.3523000000132,
+      367.79790000000503,
+      339.64130000000296,
+      462.7256000000052,
+      423.38430000000517,
+      376.59249999999884,
+      405.88640000000305,
+      315.0372999999963,
+      360.0005000000092,
+      338.5771999999997,
+      392.39420000000973,
+      311.5243000000046,
+      440.1045999999915,
+      324.5746000000072,
+      484.6392999999953,
+      364.8993000000046,
+      414.82470000001194,
+      382.0185999999958,
+      377.4945000000007,
+      366.5954000000056,
+      346.32459999999264,
+      402.66879999999946,
+      259.97239999999874
+    ],
+    "evidenceAppendMs": [
+      4.466099999999642,
+      4.490499999999884,
+      4.97229999999945,
+      4.0187000000005355,
+      4.17029999999977,
+      5.319999999999709,
+      4.335500000001048,
+      4.780899999999747,
+      6.080400000000736,
+      6.344600000000355,
+      6.120700000001307,
+      6.032199999999648,
+      6.180199999998877,
+      6.109300000000076,
+      5.448699999999008,
+      4.763699999999517,
+      6.700400000001537,
+      6.713799999999537,
+      8.245999999999185,
+      5.218399999999747,
+      4.366500000000087,
+      4.8148999999993976,
+      4.517700000000332,
+      3.792600000000675,
+      4.022000000000844,
+      5.262199999999211,
+      4.673500000000786,
+      4.294399999998859,
+      4.456500000000233,
+      4.409200000000055,
+      4.233200000000579,
+      4.221099999998842,
+      5.157100000000355,
+      5.25879999999961,
+      5.0120999999999185,
+      4.5539000000007945,
+      4.24120000000039,
+      4.054200000000492,
+      4.259200000000419,
+      3.9148999999997613,
+      3.645599999999831,
+      3.7564000000002125,
+      4.8739000000005035,
+      5.207700000000841,
+      5.020800000000236,
+      5.587899999998626,
+      4.6656999999995605,
+      4.708199999999124,
+      4.828300000001036,
+      4.833599999999933,
+      5.2731000000003405,
+      6.255299999998897,
+      4.585499999999229,
+      4.57760000000053,
+      4.821399999998903,
+      5.4372999999995955,
+      4.90270000000055,
+      5.167100000000573,
+      5.2193999999999505,
+      5.51720000000023,
+      5.557099999999991,
+      5.539699999999357,
+      4.953799999999319,
+      4.987800000000789,
+      5.031100000000151,
+      4.75669999999991,
+      5.116500000000087,
+      5.693199999999706,
+      5.012800000000425,
+      4.305000000000291,
+      3.7754000000004453,
+      3.808899999999994,
+      3.8775000000005093,
+      4.226699999999255,
+      3.782499999999345,
+      8.78650000000016,
+      4.839400000000751,
+      4.103500000001077,
+      3.460800000000745,
+      4.111000000000786,
+      4.4200999999993655,
+      4.296500000000378,
+      4.002599999999802,
+      4.3060999999997875,
+      4.578900000000431,
+      6.262300000000323,
+      4.608200000000579,
+      4.580900000000838,
+      4.470600000000559,
+      4.895500000000538,
+      4.2523999999993976,
+      3.5274000000008527,
+      3.5732000000007247,
+      4.319399999998495,
+      4.134500000000116,
+      3.9893000000010943,
+      4.456100000001243,
+      4.5402999999987514,
+      4.610199999999168,
+      4.381599999998798
+    ]
+  },
+  "baselineP95Ms": 490.572,
+  "baselineWindowMediansMs": [
+    387.189,
+    360.938,
+    374.921
+  ],
+  "baselineMedianDriftPercent": 7.018,
+  "evidenceEnabledP95Ms": 484.639,
+  "regressionPercent": -1.209,
+  "appendP95Ms": 6.262,
+  "receivedRecords": 819,
+  "thresholds": {
+    "baselineMedianDriftPercentMaximum": 15,
+    "runtimeP95RegressionPercentMaximum": 10,
+    "evidenceAppendP95MsMaximum": 20,
+    "evaluatedBeforeDisplayRounding": true
+  },
   "boundaries": {
     "runtimeBusinessAuthority": "real A2A -> Runtime -> PostgreSQL -> LangGraph path",
     "evidenceDelivery": "real local HTTP batch and PostgreSQL ACK",
     "providerModel": "deterministic local test doubles",
     "physicalSideEffects": false,
-    "baselineMethod": "balanced rotating ABA/BAA/AAB order with a combined baseline P95 and first/last baseline median drift gate; pre-existing delivery backlog is drained before measurement"
+    "baselineMethod": "two fixed discarded 9-block warmup windows followed by three 12-block measurement windows; every block alternates ABBA/BAAB and contains equal baseline and enabled samples; the authoritative regression is pooled nearest-rank P95(enabled)/P95(baseline)-1 across all raw samples, and baseline stability is the maximum pairwise symmetric drift across all window medians; delivery backlog is drained by the production Runtime exporter before measurement"
   }
 }
