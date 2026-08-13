@@ -1,16 +1,17 @@
 # Verification Summary
 
 - Status: **failed**
-- Commit: `3eb04437c1f2f8d2269866a03bf1f25f8975ee22`
-- Started: 2026-08-13T14:22:27.328Z
-- Finished: 2026-08-13T14:27:16.565Z
-- Duration: 289237 ms
+- Commit: `48263487651cabf29ee7e4667a8a6ddb6eeac2fe`
+- Started: 2026-08-13T14:41:24.087Z
+- Finished: 2026-08-13T14:49:38.543Z
+- Duration: 494456 ms
 - Environment: Node v22.14.0, win32/x64
-- Infrastructure mode: self-managed-compose
+- Infrastructure mode: operator-managed
 
 | Gate | Command | Result | Duration |
 | --- | --- | --- | ---: |
-| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 190355 ms |
-| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 811 ms |
-| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 22516 ms |
-| postgres-redis-integration | `pnpm test:integration` | failed | 75551 ms |
+| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 197759 ms |
+| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 868 ms |
+| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 26175 ms |
+| postgres-redis-integration | `pnpm test:integration` | passed | 208271 ms |
+| postgres-redis-model-mcp-e2e | `pnpm test:e2e` | failed | 61379 ms |
