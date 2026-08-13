@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 2,
+  "candidateSha": "fb8d224d2824b0d6ebb54fb35c0910c4f0652b99",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T03:59:01.842Z",
+  "finishedAt": "2026-08-13T04:01:22.703Z",
+  "command": "pnpm verify",
+  "status": "FAILED_BOOTSTRAP_UNIT",
+  "failedStep": "static-unit-contract-build",
+  "failedCommand": "pnpm verify:bootstrap",
+  "durationMs": 140861,
+  "outputSha256": "c461c700733cad0a1f28a0edf60ab8ae3b2c9c5cad603e4cdb303dc6b7ed1e15",
+  "testSummary": {
+    "testFilesPassed": 213,
+    "testFilesFailed": 1,
+    "testsPassed": 1543,
+    "testsFailed": 1
+  },
+  "failure": {
+    "file": "apps/node-control-acceptance/test/ugv-smpp-driver-command.unit.test.ts",
+    "case": "runs the non-mutating bootstrap wrapper without package-manager installation side effects",
+    "diagnostic": "Unexpected end of JSON input because the Windows WSL bash launcher failed with E_ACCESSDENIED and emitted no stderr before the repository wrapper ran"
+  },
+  "interpretation": "The UGV driver itself returns the expected blocked JSON when invoked directly. The repair selects Git for Windows bash explicitly on Windows while retaining bash on other platforms; it does not weaken the JSON assertion or skip the wrapper test."
+}

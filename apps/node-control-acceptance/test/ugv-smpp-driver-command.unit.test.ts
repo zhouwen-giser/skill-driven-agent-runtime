@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,7 +65,7 @@ describe('UGV SMPP package-driver orchestration', () => {
   });
 
   it('runs the non-mutating bootstrap wrapper without package-manager installation side effects', async () => {
-    const result = await runScript('bash', [BOOTSTRAP_WRAPPER], integrationEnvironment());
+    const result = await runBashScript(BOOTSTRAP_WRAPPER, integrationEnvironment());
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stderr)).toMatchObject({
@@ -254,6 +254,16 @@ interface ScriptResult {
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
+}
+
+function runBashScript(script: string, environment: NodeJS.ProcessEnv): Promise<ScriptResult> {
+  if (process.platform !== 'win32') return runScript('bash', [script], environment);
+  const gitExecPath = execFileSync('git', ['--exec-path'], {
+    cwd: REPOSITORY_ROOT,
+    encoding: 'utf8',
+  }).trim();
+  const bash = resolve(gitExecPath, '../../..', 'usr/bin/bash.exe');
+  return runScript(bash, ['-lc', 'exec "$1"', 'bash', script], environment);
 }
 
 function runDriver(phase: string, environment: NodeJS.ProcessEnv): Promise<ScriptResult> {

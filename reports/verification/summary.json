@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "failed",
-  "commit": "01be490985fdd410e917a35b6791b2b029fd63a9",
+  "commit": "fb8d224d2824b0d6ebb54fb35c0910c4f0652b99",
   "dirty": false,
   "environment": {
     "node": "v22.14.0",
@@ -9,19 +9,19 @@
     "architecture": "x64",
     "infrastructureMode": "self-managed-compose"
   },
-  "startedAt": "2026-08-13T03:52:50.496Z",
-  "finishedAt": "2026-08-13T03:54:39.714Z",
-  "durationMs": 109218,
+  "startedAt": "2026-08-13T03:59:01.842Z",
+  "finishedAt": "2026-08-13T04:01:22.703Z",
+  "durationMs": 140861,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "failed",
-      "startedAt": "2026-08-13T03:52:50.497Z",
-      "finishedAt": "2026-08-13T03:54:39.712Z",
-      "durationMs": 109215,
+      "startedAt": "2026-08-13T03:59:01.843Z",
+      "finishedAt": "2026-08-13T04:01:22.702Z",
+      "durationMs": 140859,
       "logPath": "reports/verification/raw/static-unit-contract-build.log",
-      "outputSha256": "4401393d81ee17f8ea5359b1408e1d62264363edc44bbc90fe71c01d346e1cd8",
+      "outputSha256": "c461c700733cad0a1f28a0edf60ab8ae3b2c9c5cad603e4cdb303dc6b7ed1e15",
       "metrics": {},
       "exitCode": 1
     }
