@@ -3621,19 +3621,23 @@ export async function startServerRuntime(
       },
       async pause(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
+        const command = taskCommands.current();
+        if (command !== undefined && command.taskId !== task.taskId)
+          throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
         // A running executor may have been created before this command's ALS
         // scope, so its paused save cannot be assumed to record command
         // evidence. Persist the same payload as the repository; a same-scope
         // save is exact-idempotent and a background save gets its missing proof.
         const paused = await workflowExecution.pauseForPlan(task.planId);
-        await taskCommands.recordEffect('workflow_paused', paused.instanceId, {
-          instanceId: paused.instanceId,
-          planId: paused.planId,
-          goalId: paused.goalId,
-          goalVersion: paused.goalVersion,
-          status: paused.status,
-          pendingConfirmation: paused.pendingConfirmation,
-        });
+        if (command !== undefined)
+          await taskCommands.recordEffect('workflow_paused', paused.instanceId, {
+            instanceId: paused.instanceId,
+            planId: paused.planId,
+            goalId: paused.goalId,
+            goalVersion: paused.goalVersion,
+            status: paused.status,
+            pendingConfirmation: paused.pendingConfirmation,
+          });
       },
       async commitRuntimeCancellation(task, reason) {
         if (

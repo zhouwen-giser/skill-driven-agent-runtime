@@ -2386,13 +2386,13 @@ async function seedMcpCapabilityFacts(): Promise<void> {
        workflow_instance_id,workflow_node_id,workflow_node_run_id,mcp_invocation_id,
        protocol_status,protocol_revision,tasks_schema_revision,last_provider_updated_at,
        local_state,execution_mode,credential_revision,session_revision,poll_interval_ms,
-       created_at,updated_at,task_behavior,runtime_revision)
+       created_at,updated_at,task_behavior,task_cancellation,runtime_revision)
      VALUES('remote-v141-runtime-core','server-v141-runtime-core','inspect_runtime',
        'provider-task-v141','task-v141-runtime-core','context-v141-runtime-core',
        'goal-v141-runtime-core',2,'plan-v141-runtime-core','workflow-v141-runtime-core',1,
        'instance-v141-runtime-core','node-v141-runtime-core','node-run-v141',
        'invocation-v141-runtime-core','working','2026-07-28','2026-07-28',$1,'polling',
-       'live','credential-1','session-1',1000,$1,$1,'task_required','2')`,
+       'live','credential-1','session-1',1000,$1,$1,'task_required','task_cancel','2')`,
     [at],
   );
   await pool.query(
