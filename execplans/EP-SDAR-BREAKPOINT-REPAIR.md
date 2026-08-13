@@ -75,9 +75,11 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       issue/revoke, exact one-dispatch confirmation consumption, compatible UGV policy, PostgreSQL
       plus loopback Provider positive chain 2/2, ungoverned A2A rejection 8/8, and
       `physicalDeviceWrites=0`. Exit: `GOVERNED_CONTROL_AUTHORITY_PASSED`.
-- [ ] P05 partially implemented: cancel uncertainty, continuation reclaim, TTL, and explicit remote
-      failure are repaired, while remote creation-to-admission and complete callback idempotence
-      remain blocked.
+- [x] 2026-08-13 completed P05 remote/in-flight recovery: pre-dispatch admission journal, atomic
+      receipt/invocation/continuation checkpoint, no-replay uncertainty, hierarchy re-entry,
+      terminal CapabilityAttempt closure, failed Redis wake reconstruction, and exact Runtime/SMPP
+      Provider polling authority. Real PostgreSQL recovery passed 2/2, isolated Redis recovery
+      passed 7/7, and `physicalDeviceWrites=0`. Exit: `REMOTE_IN_FLIGHT_RECOVERY_PASSED`.
 - [ ] Complete P06 aggregate verification/performance.
 - [ ] Complete P07 read-only SMPP and Console regression.
 - [ ] Complete P08 release qualification.
@@ -110,9 +112,13 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - P04 required both directions of proof: ungoverned discovery/Plan paths fail before Provider
   transport, while an exact trusted-human authority reaches one loopback Provider dispatch and
   durable `position.observation` terminal evidence. A second dispatch is rejected before transport.
-- P05 can fence known cancel and continuation replay windows, but the remote Task may be created
-  before SDAR durably learns its identity. Replaying that call would risk a duplicate external side
-  effect, so this gap remains explicit rather than being hidden behind a retry.
+- P05 required a journal before Provider transport and an atomic receipt/invocation/continuation
+  commit after it. A crash before that commit is explicit uncertainty with no replay; a crash after
+  it reconstructs the same remote binding and Workflow wait. Redis failed jobs are wake records,
+  not dead-letter outcome authority.
+- Long-running `tasks/get` must retain the admitted remote Provider identity, not merely its local
+  endpoint and Catalog. The frozen authority now includes Binding origin, external Server, and SMPP
+  source lineage while allowing a normal readiness revision refresh with stable identity.
 - The P03 PostgreSQL 75/75 run predates the final keyset-pagination refinement. Unit and TypeScript
   coverage passed for that refinement; exact-final PostgreSQL evidence remains pending an isolated
   database environment.
@@ -138,8 +144,10 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   actor and exact authority scope server-side, confirmation consumption became one-dispatch, and a
   PostgreSQL/loopback Provider positive chain proved terminal evidence. Do not trust actor/scope
   fields from request bodies or reuse artifact-approval authority.
-- 2026-08-13: Keep P05 at `PARTIALLY_FIXED`. Never replay an external creation call when its result
-  may exist but its local admission identity was not durably captured.
+- 2026-08-13: Close P05 as `FIXED` only after the pre-dispatch journal, atomic remote receipt,
+  continuation activation order, hierarchy re-entry, failed-wake reconstruction, terminal attempt
+  closure, and stale polling authority all passed focused real persistence gates and independent
+  review. Never replay an external creation call whose durable receipt is absent.
 
 ## Implementation Steps
 
@@ -212,7 +220,9 @@ P01/P02 cancellation changes. P04 is `FIXED`: trusted-human management/authority
 150/150, UGV regressions passed 19/19, the PostgreSQL plus loopback Provider positive/restart suite
 passed 2/2, and ungoverned A2A regressions passed 8/8. It proves exactly one governed Provider
 dispatch with terminal `position.observation` evidence and zero transport for ungoverned controls;
-`physicalDeviceWrites=0`. P05 has bounded uncertainty/reclaim repairs (56/56 focused tests) but
-remains `PARTIALLY_FIXED` for its documented blockers. The exact-final P03 PostgreSQL tree remains
-unexecuted in the current environment. P05-P09 are not complete, and no final candidate or
+`physicalDeviceWrites=0`. P05 is `FIXED`: current focused recovery/authority gates passed 123/123
+and 69/69, real PostgreSQL recovery passed 2/2, isolated Redis failed-wake reconstruction passed
+7/7, and migrations passed through 0160. A single monolithic Runtime A-to-B drill remains
+transparently `NOT RUN`; the same boundaries were exercised separately and two independent final
+audits found no remaining P05 P0/P1. P06-P09 are not complete, and no final candidate or
 protected-review readiness is claimed.

@@ -77,12 +77,14 @@
     },
     {
       "id": "BP-SDAR-005",
-      "status": "PARTIALLY_FIXED",
+      "status": "FIXED",
       "evidence": [
-        "Cancel delivery is durably uncertain before outbound delivery, continuation callback failure is reclaimable without graph replay, TTL is enforced before Provider read, and invalid frozen contracts close explicitly.",
-        "The remote tools/call creation to local binding-admission crash window and complete callback hierarchy idempotence remain unresolved.",
-        "Focused recovery tests passed 56/56; the new PostgreSQL recovery assertions were not dynamically executed in the current environment.",
-        "PostgreSQL remains authoritative, Redis remains wake-only, and physicalDeviceWrites=0."
+        "A pre-dispatch PostgreSQL admission journal atomically records the MCP invocation, remote receipt, and recoverable Workflow continuation; recovery never replays an uncertain external creation.",
+        "Nested continuation re-entry, explicit uncertainty, failed Redis wake reconstruction, TTL, cancellation uncertainty, and achieved/failed/canceled CapabilityAttempt closure are fail-closed and idempotent.",
+        "Remote tasks/get freezes and revalidates Runtime catalog, Provider Binding origin, external Server, SMPP source lineage, endpoint, checksum, operation count, and current availability before zero-or-one Provider transport.",
+        "Current focused gates passed 123/123 and 69/69; real PostgreSQL recovery passed 2/2, repository terminal lineage passed 78/78 at its phase gate, isolated Redis recovery passed 7/7, and migrations passed through 0160.",
+        "Two independent final code audits found no remaining P05 P0/P1; PostgreSQL remains authoritative, Redis remains wake-only, and physicalDeviceWrites=0.",
+        "Exit criterion REMOTE_IN_FLIGHT_RECOVERY_PASSED is asserted; a monolithic Runtime A-to-B drill is transparently recorded as NOT RUN rather than treated as production evidence."
       ]
     },
     {
