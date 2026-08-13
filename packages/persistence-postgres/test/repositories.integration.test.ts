@@ -30,6 +30,7 @@ import {
   KnowledgeRelationExpander,
   MemoryActiveKnowledgeProjectionRepository,
   MemoryService,
+  ModelRuntimeBootstrapService,
   PlanningContextBudget,
   PlanningHeuristicPromotionTarget,
   PlanningKnowledgeRetriever,
@@ -50,6 +51,7 @@ import {
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
+  PostgresModelRuntimeBootstrapRepository,
   PostgresMemoryRepository,
   PostgresMemoryRetentionPolicyRepository,
   PostgresPromptRepository,
@@ -157,9 +159,11 @@ import {
   createTaskTypeInductionExample,
   createCapabilityPatternInductionExample,
   createUserGoalCompletionContract,
+  deriveFrozenMcpCatalogAuthority,
   createExperienceTrace,
   EXPERIENCE_COMPILATION_CONTRACT_VERSION,
   EXPERIENCE_NORMALIZER_VERSION,
+  MODEL_STAGES,
   type ExperienceActivityKind,
   type ExperienceTraceEvent,
   type ExperienceTraceEventType,
@@ -2577,6 +2581,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await repository.saveProvider({ configuration, encryptedCredential });
     await repository.saveStageRoute(
       'tool_enhancement',
+      'structured_generation',
       configuration.providerId,
       configuration.updatedAt,
     );
@@ -2598,7 +2603,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       createdAt: configuration.createdAt,
     });
 
-    await expect(repository.findProviderForStage('tool_enhancement')).resolves.toEqual({
+    await expect(
+      repository.findProviderForStage('tool_enhancement', 'structured_generation'),
+    ).resolves.toEqual({
       configuration,
       encryptedCredential,
     });
@@ -2606,6 +2613,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(repository.listStageRoutes()).resolves.toEqual([
       {
         stage: 'tool_enhancement',
+        operation: 'structured_generation',
         providerId: configuration.providerId,
         updatedAt: configuration.updatedAt,
       },
@@ -2625,6 +2633,67 @@ describe('PostgreSQL protocol-domain repositories', () => {
     );
     expect(raw.rows[0]?.encrypted_credential).not.toContain('model-db-secret');
     expect(cipher.decrypt(raw.rows[0]?.encrypted_credential ?? '')).toEqual(modelCredential);
+  });
+  it('atomically bootstraps structured and embedding Providers with operation routes only once', async () => {
+    const cipher = new Aes256GcmSecretCipher(randomBytes(32).toString('base64'));
+    const bootstrap = () =>
+      new ModelRuntimeBootstrapService({
+        repository: new PostgresModelRuntimeBootstrapRepository(pool),
+        cipher,
+        clock: { now: () => '2026-08-12T08:00:00.000Z' },
+      }).reconcile({
+        providerId: 'provider.bootstrap.db',
+        name: 'Bootstrap DB Provider',
+        kind: 'openai_compatible',
+        apiStyle: 'openai_chat_completions',
+        baseUrl: 'https://models.example.test/v1',
+        model: 'model-bootstrap',
+        enabled: true,
+        timeoutMs: 30_000,
+        credentialHeaders: { Authorization: 'Bearer bootstrap-db-secret' },
+        embeddingProvider: {
+          providerId: 'provider.bootstrap.db-embedding',
+          name: 'Bootstrap DB Embedding Provider',
+          kind: 'openai_compatible',
+          apiStyle: 'openai_chat_completions',
+          baseUrl: 'https://models.example.test/v1',
+          model: 'model-bootstrap-embedding',
+          enabled: true,
+          timeoutMs: 30_000,
+          credentialHeaders: { Authorization: 'Bearer bootstrap-db-secret' },
+        },
+      });
+
+    const results = await Promise.all([bootstrap(), bootstrap()]);
+    expect(results.filter((result) => result.providerRegistered)).toHaveLength(1);
+    const providers = await pool.query<{
+      provider_id: string;
+      encrypted_credential: string;
+      updated_at: Date;
+    }>('SELECT provider_id,encrypted_credential,updated_at FROM model_provider');
+    expect(providers.rows).toHaveLength(2);
+    const provider = providers.rows.find((item) => item.provider_id === 'provider.bootstrap.db');
+    if (provider === undefined) throw new Error('BOOTSTRAP_PROVIDER_MISSING');
+    for (const item of providers.rows) {
+      expect(item.encrypted_credential).not.toContain('bootstrap-db-secret');
+      expect(cipher.decrypt(item.encrypted_credential)).toEqual({
+        Authorization: 'Bearer bootstrap-db-secret',
+      });
+    }
+    const routes = await new PostgresModelRuntimeRepository(pool).listStageRoutes();
+    expect(routes).toHaveLength(MODEL_STAGES.length * 2);
+    expect(new Set(routes.map((route) => route.stage))).toEqual(new Set(MODEL_STAGES));
+    expect(new Set(routes.map((route) => route.operation))).toEqual(
+      new Set(['structured_generation', 'embedding']),
+    );
+
+    const updatedAt = provider.updated_at.toISOString();
+    await expect(bootstrap()).resolves.toMatchObject({ providerRegistered: false });
+    const unchanged = await pool.query<{ updated_at: Date }>(
+      'SELECT updated_at FROM model_provider WHERE provider_id=$1',
+      ['provider.bootstrap.db'],
+    );
+    expect(unchanged.rows[0]?.updated_at.toISOString()).toBe(updatedAt);
   });
   it('stores rebuildable Skill vectors and scores only matching provider dimensions with pgvector', async () => {
     const skills = new PostgresSkillRepository(pool);
@@ -3424,6 +3493,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
       server: { toolRevision: 2 },
       encryptedCredential: record.encryptedCredential,
     });
+    const rotatedAt = '2026-07-11T10:05:00.000Z';
+    const rotatedCredentialHeaders = { Authorization: 'Bearer rotated-secret' };
+    const rotatedCredential = cipher.encrypt(rotatedCredentialHeaders);
+    await expect(
+      repository.replaceEncryptedCredential('mcp.devices', rotatedCredential, rotatedAt),
+    ).resolves.toBe(true);
+    await expect(
+      repository.replaceEncryptedCredential('mcp.missing', rotatedCredential, rotatedAt),
+    ).resolves.toBe(false);
+    await expect(repository.findServer('mcp.devices')).resolves.toMatchObject({
+      server: { toolRevision: 2, updatedAt: rotatedAt },
+      encryptedCredential: rotatedCredential,
+    });
     await expect(repository.listTools('mcp.devices')).resolves.toEqual([
       expect.objectContaining({
         toolName: 'inspect',
@@ -3441,7 +3523,9 @@ describe('PostgreSQL protocol-domain repositories', () => {
       ['mcp.devices'],
     );
     expect(raw.rows[0]?.encrypted_credential).not.toContain('Bearer');
-    expect(cipher.decrypt(raw.rows[0]?.encrypted_credential ?? '')).toEqual(mcpCredential);
+    expect(cipher.decrypt(raw.rows[0]?.encrypted_credential ?? '')).toEqual(
+      rotatedCredentialHeaders,
+    );
     await expect(repository.listDependencyWarnings('mcp.devices')).resolves.toEqual([
       expect.objectContaining({
         toolName: 'status',
@@ -3537,6 +3621,17 @@ describe('PostgreSQL protocol-domain repositories', () => {
       validUntil: '2026-07-18T01:00:00.000Z',
       toolRevision: 1,
     };
+    const frozenTool = {
+      serverId: 'mcp.frozen.db',
+      toolName: 'embodied.move',
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'object', required: ['status'] },
+      protocolMode: 'frozen_v1' as const,
+      taskExecutionProfile: profile,
+      adminExecutionSemanticsOverride,
+      executionSemantics: adminExecutionSemanticsOverride,
+      discoveredAt: '2026-07-18T00:00:00.000Z',
+    };
     await repository.saveFrozenServerAndReplaceTools(
       {
         server: {
@@ -3553,19 +3648,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
         },
         encryptedCredential: 'encrypted-frozen-credential',
       },
-      [
-        {
-          serverId: 'mcp.frozen.db',
-          toolName: 'embodied.move',
-          inputSchema: { type: 'object' },
-          outputSchema: { type: 'object', required: ['status'] },
-          protocolMode: 'frozen_v1',
-          taskExecutionProfile: profile,
-          adminExecutionSemanticsOverride,
-          executionSemantics: adminExecutionSemanticsOverride,
-          discoveredAt: '2026-07-18T00:00:00.000Z',
-        },
-      ],
+      [frozenTool],
       snapshot,
     );
 
@@ -3586,6 +3669,19 @@ describe('PostgreSQL protocol-domain repositories', () => {
         taskExecutionProfile: profile,
         adminExecutionSemanticsOverride,
         executionSemantics: adminExecutionSemanticsOverride,
+      }),
+    ]);
+    const catalog = deriveFrozenMcpCatalogAuthority(snapshot, [frozenTool], 1);
+    await expect(repository.listTaskOperationCandidates('embodied.move')).resolves.toEqual([
+      expect.objectContaining({
+        providerId: 'mcp.frozen.db',
+        operationName: 'embodied.move',
+        attributes: expect.arrayContaining([
+          'task_behavior:task_required',
+          'effect:side_effecting',
+          'execution:task_required',
+          `catalog_checksum:${catalog.catalogChecksum}`,
+        ]),
       }),
     ]);
   });

@@ -1,5 +1,4 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { isIP } from 'node:net';
 
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { z, ZodError } from 'zod';
@@ -48,6 +47,7 @@ import type {
 } from '../../../packages/runtime-control-application/src/index.js';
 import { RevisionHintBroker } from './revision-hint-broker.js';
 import type { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
+import { assertOutboundEndpoint } from './outbound-endpoint-policy.js';
 
 export interface NodeControlHttpConfiguration {
   readonly bearerToken: string;
@@ -59,6 +59,8 @@ export interface NodeControlHttpConfiguration {
   readonly rateLimitPerMinute?: number;
   readonly requestBodyLimitKb?: number;
   readonly providerEndpointAllowlist?: readonly string[];
+  readonly privateHttpEndpointAllowlist?: readonly string[];
+  readonly unsafeTestOpenOutbound?: boolean;
   readonly runtimeServiceToken: string;
   readonly nodeControlApiUrl: string;
   readonly nodeEventsUrl: string;
@@ -542,7 +544,11 @@ export function createNodeControlHttpApp(
   app.post('/api/v1/llm-providers', async (request, response, next) => {
     try {
       const input = LlmProviderSchema.parse(request.body);
-      assertOutboundEndpoint(input.baseUrl, configuration.providerEndpointAllowlist);
+      assertOutboundEndpoint(input.baseUrl, {
+        allowedAuthorities: configuration.providerEndpointAllowlist,
+        privateHttpAuthorities: configuration.privateHttpEndpointAllowlist,
+        unsafeTestOpen: configuration.unsafeTestOpenOutbound,
+      });
       response.status(201).json(
         await requiredLlmGovernance(configuration).createProvider(
           {
@@ -652,7 +658,11 @@ export function createNodeControlHttpApp(
   app.post('/api/v1/smpp-sources', async (request, response, next) => {
     try {
       const input = SmppSourceSchema.parse(request.body);
-      assertOutboundEndpoint(input.registryEndpoint, configuration.providerEndpointAllowlist);
+      assertOutboundEndpoint(input.registryEndpoint, {
+        allowedAuthorities: configuration.providerEndpointAllowlist,
+        privateHttpAuthorities: configuration.privateHttpEndpointAllowlist,
+        unsafeTestOpen: configuration.unsafeTestOpenOutbound,
+      });
       const source = await requiredSmppRegistry(configuration).createSource(
         {
           smppSourceId: input.smppSourceId,
@@ -2821,61 +2831,12 @@ function roleOperationAllowed(role: PublicApiRole, method: string, originalUrl: 
   return evidenceRead || /^\/api\/v1\/audit-events$/u.test(path);
 }
 
-function assertOutboundEndpoint(value: string, configured?: readonly string[]): void {
-  const endpoint = new URL(value);
-  const hostname = endpoint.hostname.toLowerCase().replace(/^\[|\]$/gu, '');
-  const allowed = configured ?? ['127.0.0.1', 'localhost'];
-  const authorityAllowed = allowed.some((entry) => {
-    const normalized = entry.trim().toLowerCase();
-    return (
-      normalized === hostname ||
-      normalized === endpoint.host.toLowerCase() ||
-      (isIP(hostname) === 4 && ipv4CidrContains(normalized, hostname))
-    );
-  });
-  const loopback =
-    hostname === 'localhost' ||
-    hostname === '::1' ||
-    (isIP(hostname) === 4 && hostname.startsWith('127.'));
-  if (
-    endpoint.username !== '' ||
-    endpoint.password !== '' ||
-    !authorityAllowed ||
-    (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && loopback))
-  )
-    throw Object.assign(
-      new Error('Outbound endpoint violates the configured allowlist/TLS policy.'),
-      {
-        code: 'ENDPOINT_NOT_ALLOWED',
-        status: 422,
-      },
-    );
-}
-
-function ipv4CidrContains(cidr: string, address: string): boolean {
-  const match = /^(\d{1,3}(?:\.\d{1,3}){3})\/(\d|[12]\d|3[0-2])$/u.exec(cidr);
-  if (match === null) return false;
-  const base = ipv4Number(match[1] ?? '');
-  const candidate = ipv4Number(address);
-  if (base === undefined || candidate === undefined) return false;
-  const bits = Number(match[2]);
-  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
-  return (base & mask) === (candidate & mask);
-}
-
-function ipv4Number(value: string): number | undefined {
-  const parts = value.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
-    return undefined;
-  return parts.reduce((result, part) => ((result << 8) | part) >>> 0, 0);
-}
-
 function organizationOperationAllowed(method: string, originalUrl: string): boolean {
   if (method !== 'GET') return false;
   const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
   return [
     /^\/api\/v1\/node(?:\/health)?$/u,
-    /^\/api\/v1\/node-capabilities(?:\/[^/]+\/versions\/\d+)?$/u,
+    /^\/api\/v1\/node-capabilities(?:\/[^/]+\/versions\/\d+(?:\/implementations)?)?$/u,
     /^\/api\/v1\/capability-readiness(?:\/[^/]+\/versions\/\d+)?$/u,
     /^\/api\/v1\/a2a-exposures(?:\/[^/]+\/versions\/\d+)?$/u,
     /^\/api\/v1\/a2a-agent-card-revisions\/\d+$/u,

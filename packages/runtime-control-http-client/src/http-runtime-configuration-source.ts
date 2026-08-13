@@ -76,7 +76,7 @@ export class HttpRuntimeConfigurationSource implements RuntimeConfigurationSourc
     url.searchParams.set('targetId', target.targetId);
     if (currentRevision !== undefined)
       url.searchParams.set('currentRevision', String(currentRevision));
-    const response = await globalThis.fetch(url, { headers: this.headers() });
+    const response = await globalThis.fetch(url, { headers: this.headers(), redirect: 'manual' });
     if (response.status === 304 || response.status === 404) return undefined;
     if (!response.ok) throw new Error(`RUNTIME_CONTROL_LATEST_FAILED:${String(response.status)}`);
     return parseRevision(await response.json());
@@ -87,6 +87,7 @@ export class HttpRuntimeConfigurationSource implements RuntimeConfigurationSourc
       method: 'POST',
       headers: { ...this.headers(), 'content-type': 'application/json' },
       body: JSON.stringify(acknowledgement),
+      redirect: 'manual',
     });
     if (response.status !== 202)
       throw new Error(`RUNTIME_CONTROL_ACK_FAILED:${String(response.status)}`);
@@ -95,6 +96,7 @@ export class HttpRuntimeConfigurationSource implements RuntimeConfigurationSourc
   async bootstrap(): Promise<unknown> {
     const response = await globalThis.fetch(`${this.#baseUrl}/internal/v1/bootstrap`, {
       headers: this.headers(),
+      redirect: 'manual',
     });
     if (!response.ok)
       throw new Error(`RUNTIME_CONTROL_BOOTSTRAP_FAILED:${String(response.status)}`);
@@ -113,6 +115,7 @@ export class HttpRuntimeConfigurationSource implements RuntimeConfigurationSourc
         ...(lastEventId === undefined ? {} : { 'last-event-id': lastEventId }),
       },
       signal,
+      redirect: 'manual',
     });
     if (!response.ok || response.body === null)
       throw new Error(`RUNTIME_CONTROL_WATCH_FAILED:${String(response.status)}`);

@@ -62,6 +62,29 @@ describe('sdar.evidence/v1 HTTP transport', () => {
     ).rejects.toMatchObject({ code: 'EVIDENCE_ENDPOINT_TLS_REQUIRED' });
   });
 
+  it('admits non-loopback plaintext only when the composition root enables unsafe test mode', async () => {
+    process.env['TEST_EVIDENCE_TOKEN'] = 'opaque-token';
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(undefined, { status: 204 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const endpointRef = 'http://192.168.1.7:4318/evidence';
+    await expect(
+      new HttpEvidenceExportTransport(new EnvironmentEvidenceCredentialResolver()).probe(
+        configuration({ endpointRef }),
+      ),
+    ).rejects.toMatchObject({ code: 'EVIDENCE_ENDPOINT_TLS_REQUIRED' });
+    await expect(
+      new HttpEvidenceExportTransport(
+        new EnvironmentEvidenceCredentialResolver(),
+        5_000,
+        true,
+      ).probe(configuration({ endpointRef })),
+    ).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL(endpointRef),
+      expect.objectContaining({ method: 'HEAD', redirect: 'error' }),
+    );
+  });
+
   it.each([
     [new Response(undefined, { status: 204 }), 'EVIDENCE_ACK_INVALID'],
     [

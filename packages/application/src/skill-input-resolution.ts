@@ -45,6 +45,14 @@ export interface ResolveTopLevelSkillInput {
   readonly supplementaryInputs: readonly TaskInputResponse[];
 }
 
+export interface SkillInputResolutionPolicy {
+  /**
+   * Multi-resource enumerations are user authority: the model may copy an exact value but may not
+   * choose one. A single declared resource remains deterministic and needs no clarification.
+   */
+  readonly resourceEnumeration: 'model_allowed' | 'explicit_or_exact_text';
+}
+
 export class SkillInputResolutionService {
   readonly #model: StructuredModelProvider;
   readonly #schemas: JsonSchemaValidator;
@@ -52,6 +60,7 @@ export class SkillInputResolutionService {
   readonly #memories: Pick<MemoryService, 'searchForStage'> | undefined;
   readonly #clock: Clock;
   readonly #nextId: () => string;
+  readonly #policy: SkillInputResolutionPolicy;
 
   constructor(
     dependencies: Readonly<{
@@ -61,6 +70,7 @@ export class SkillInputResolutionService {
       memories?: Pick<MemoryService, 'searchForStage'>;
       clock: Clock;
       nextId: () => string;
+      policy?: SkillInputResolutionPolicy;
     }>,
   ) {
     this.#model = dependencies.model;
@@ -69,6 +79,7 @@ export class SkillInputResolutionService {
     this.#memories = dependencies.memories;
     this.#clock = dependencies.clock;
     this.#nextId = dependencies.nextId;
+    this.#policy = dependencies.policy ?? { resourceEnumeration: 'model_allowed' };
   }
 
   async resolve(input: ResolveTopLevelSkillInput): Promise<SkillInputResolutionRecord> {
@@ -123,10 +134,21 @@ export class SkillInputResolutionService {
           correctionErrors: [],
         }),
       );
-      const candidate = overlayExplicit(decision.structuredInput ?? {}, explicit?.value);
+      const overlaidCandidate = overlayExplicit(decision.structuredInput ?? {}, explicit?.value);
+      const resourceResolution = applyResourceEnumerationPolicy({
+        schema: input.skill.inputSchema,
+        candidate: overlaidCandidate,
+        explicitValue: explicit?.value,
+        taskId: input.task.taskId,
+        requestText: input.task.requestText,
+        supplementaryInputs: input.supplementaryInputs,
+        policy: this.#policy,
+      });
+      const candidate = resourceResolution.candidate;
       const validation = this.#schemas.validate(input.skill.inputSchema, candidate);
       const unresolvedFields = normalizeStrings([
         ...decision.unresolvedFields.filter((field) => !hasResolvedField(candidate, field)),
+        ...resourceResolution.unresolvedFields,
         ...missingRequiredFields(input.skill.inputSchema, candidate),
         ...validationErrorFields(validation.errors),
       ]);
@@ -136,6 +158,7 @@ export class SkillInputResolutionService {
       const sourceRefs = normalizeStrings([
         ...decision.sourceRefs.filter((sourceRef) => allowedRefs.has(sourceRef)),
         ...(explicit === undefined ? [] : [explicit.sourceRef]),
+        ...resourceResolution.sourceRefs,
       ]);
       const record = createSkillInputResolutionRecord({
         resolutionId,
@@ -342,6 +365,130 @@ function overlayExplicit(modelValue: unknown, explicitValue: unknown): unknown {
     merged[key] =
       isRecord(merged[key]) && isRecord(value) ? overlayExplicit(merged[key], value) : value;
   return merged;
+}
+
+function applyResourceEnumerationPolicy(
+  input: Readonly<{
+    schema: unknown;
+    candidate: unknown;
+    explicitValue: unknown;
+    taskId: string;
+    requestText: string;
+    supplementaryInputs: readonly TaskInputResponse[];
+    policy: SkillInputResolutionPolicy;
+  }>,
+): Readonly<{
+  candidate: unknown;
+  unresolvedFields: readonly string[];
+  sourceRefs: readonly string[];
+}> {
+  if (input.policy.resourceEnumeration !== 'explicit_or_exact_text') {
+    return { candidate: input.candidate, unresolvedFields: [], sourceRefs: [] };
+  }
+  const resourceEnums = topLevelResourceEnumerations(input.schema);
+  if (resourceEnums.length === 0) {
+    return { candidate: input.candidate, unresolvedFields: [], sourceRefs: [] };
+  }
+  const candidate = isRecord(input.candidate) ? { ...input.candidate } : {};
+  const explicit = isRecord(input.explicitValue) ? input.explicitValue : undefined;
+  const unresolvedFields: string[] = [];
+  const sourceRefs: string[] = [];
+  const textSources = [
+    { sourceRef: `task:${input.taskId}:request-text`, value: input.requestText },
+    ...input.supplementaryInputs.map((response) => ({
+      sourceRef: `task-input-response:${response.inputResponseId}`,
+      value: userText(response.content),
+    })),
+  ];
+
+  for (const resource of resourceEnums) {
+    const explicitValue = explicit?.[resource.field];
+    if (explicitValue !== undefined) {
+      // Preserve invalid explicit input so the authoritative Skill schema rejects it visibly.
+      candidate[resource.field] = explicitValue;
+      if (typeof explicitValue !== 'string' || !resource.allowedValues.includes(explicitValue)) {
+        unresolvedFields.push(resource.field);
+      }
+      continue;
+    }
+    if (resource.allowedValues.length === 1) {
+      candidate[resource.field] = resource.allowedValues[0];
+      continue;
+    }
+    const matches = textSources.flatMap((source) =>
+      resource.allowedValues
+        .filter((value) => containsExactIdentifier(source.value, value))
+        .map((value) => ({ value, sourceRef: source.sourceRef })),
+    );
+    const values = [...new Set(matches.map((match) => match.value))];
+    if (values.length === 1) {
+      candidate[resource.field] = values[0];
+      for (const match of matches) {
+        if (match.value === values[0]) sourceRefs.push(match.sourceRef);
+      }
+      continue;
+    }
+    Reflect.deleteProperty(candidate, resource.field);
+    unresolvedFields.push(resource.field);
+  }
+  return {
+    candidate,
+    unresolvedFields: normalizeStrings(unresolvedFields),
+    sourceRefs: normalizeStrings(sourceRefs),
+  };
+}
+
+function topLevelResourceEnumerations(
+  schema: unknown,
+): readonly Readonly<{ field: string; allowedValues: readonly string[] }>[] {
+  if (!isRecord(schema) || !isRecord(schema['properties'])) return [];
+  return Object.entries(schema['properties']).flatMap(([field, definition]) => {
+    if (!isResourceField(field) || !isRecord(definition)) return [];
+    const declaredValues = Array.isArray(definition['enum'])
+      ? definition['enum']
+      : typeof definition['const'] === 'string'
+        ? [definition['const']]
+        : [];
+    const allowedValues = [
+      ...new Set(
+        declaredValues.filter(
+          (value): value is string => typeof value === 'string' && value.trim() !== '',
+        ),
+      ),
+    ];
+    return allowedValues.length === 0 ? [] : [{ field, allowedValues }];
+  });
+}
+
+function isResourceField(field: string): boolean {
+  const normalized = field.replaceAll(/[_-]/gu, '').toLocaleLowerCase();
+  return normalized === 'resource' || normalized.endsWith('resourceid');
+}
+
+function userText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '';
+  }
+}
+
+function containsExactIdentifier(text: string, identifier: string): boolean {
+  let offset = 0;
+  while (offset <= text.length - identifier.length) {
+    const index = text.indexOf(identifier, offset);
+    if (index === -1) return false;
+    const before = index === 0 ? '' : (text[index - 1] ?? '');
+    const after = text[index + identifier.length] ?? '';
+    if (!isIdentifierContinuation(before) && !isIdentifierContinuation(after)) return true;
+    offset = index + 1;
+  }
+  return false;
+}
+
+function isIdentifierContinuation(value: string): boolean {
+  return value !== '' && /[\p{L}\p{N}_:/-]/u.test(value);
 }
 
 function missingRequiredFields(schema: unknown, value: unknown): readonly string[] {

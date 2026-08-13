@@ -318,6 +318,49 @@ describe('P04 SMPP Registry federation', { concurrent: false }, () => {
       ),
     ).toBe(true);
   });
+
+  it('persists and synchronizes the exact explicit unauthenticated Source through the repository', async () => {
+    const sourceId = 'source-explicit-unauthenticated';
+    registry.setSnapshot(sourceId, 1, 'provider-unauthenticated', 'server-unauthenticated');
+    registry.allowUnauthenticated(sourceId);
+    const created = await fetch(`${requireControlApi().baseUrl}/api/v1/smpp-sources`, {
+      method: 'POST',
+      headers: publicHeaders('p04-create-explicit-unauthenticated-source'),
+      body: JSON.stringify({
+        smppSourceId: sourceId,
+        registryEndpoint: `${registryBaseUrl}/${sourceId}`,
+        credentialRef: 'unauthenticated://none',
+        environment: 'integration',
+        syncMode: 'poll',
+        snapshotTtlSeconds: 3_600,
+        lkgPolicy: 'allow_unexpired',
+        status: 'draft',
+        revision: 1,
+      }),
+    });
+    expect(created.status).toBe(201);
+    await expect(sync(sourceId, 'p04-sync-explicit-unauthenticated-source')).resolves.toMatchObject(
+      {
+        status: 'succeeded',
+        result: { snapshotRevision: 1 },
+      },
+    );
+    expect(registry.lastAuthorization(sourceId)).toBeUndefined();
+
+    const repository = new PostgresNodeControlSmppRegistryRepository(controlPool);
+    await expect(repository.findSource(sourceId)).resolves.toMatchObject({
+      smppSourceId: sourceId,
+      credentialRef: 'unauthenticated://none',
+      syncMode: 'poll',
+      status: 'active',
+    });
+    const stored = await controlPool.query<{ credential_ref: string }>(
+      `SELECT credential_ref FROM sdar_control.smpp_registry_source
+        WHERE smpp_source_id=$1 AND revision=1`,
+      [sourceId],
+    );
+    expect(stored.rows).toEqual([{ credential_ref: 'unauthenticated://none' }]);
+  });
 });
 
 async function createSource(
@@ -417,6 +460,8 @@ class FakeSmppRegistry {
   >();
   readonly #calls = new Map<string, number>();
   readonly #lastIfNoneMatch = new Map<string, string | undefined>();
+  readonly #lastAuthorization = new Map<string, string | undefined>();
+  readonly #unauthenticatedSources = new Set<string>();
 
   setSnapshot(
     sourceId: string,
@@ -464,12 +509,20 @@ class FakeSmppRegistry {
     this.#modes.set(sourceId, mode);
   }
 
+  allowUnauthenticated(sourceId: string): void {
+    this.#unauthenticatedSources.add(sourceId);
+  }
+
   calls(sourceId: string): number {
     return this.#calls.get(sourceId) ?? 0;
   }
 
   lastIfNoneMatch(sourceId: string): string | undefined {
     return this.#lastIfNoneMatch.get(sourceId);
+  }
+
+  lastAuthorization(sourceId: string): string | undefined {
+    return this.#lastAuthorization.get(sourceId);
   }
 
   checksum(sourceId: string): string {
@@ -489,7 +542,12 @@ class FakeSmppRegistry {
     this.#calls.set(sourceId, this.calls(sourceId) + 1);
     const ifNoneMatch = request.headers['if-none-match'];
     this.#lastIfNoneMatch.set(sourceId, typeof ifNoneMatch === 'string' ? ifNoneMatch : undefined);
-    if (request.headers.authorization !== 'Bearer credential-value') {
+    this.#lastAuthorization.set(sourceId, request.headers.authorization);
+    if (
+      (this.#unauthenticatedSources.has(sourceId) && request.headers.authorization !== undefined) ||
+      (!this.#unauthenticatedSources.has(sourceId) &&
+        request.headers.authorization !== 'Bearer credential-value')
+    ) {
       response.writeHead(401).end();
       return;
     }

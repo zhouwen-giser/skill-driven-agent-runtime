@@ -5,9 +5,12 @@ import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runti
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
 import { homeLabReadOnlyTaskUnderstandingConfiguration } from './home-lab-task-understanding.js';
+import { managedCapabilityTaskUnderstandingConfiguration } from './managed-capability-task-understanding.js';
+import { modelRuntimeBootstrapConfiguration } from './model-runtime-bootstrap-configuration.js';
 import { startServerRuntime } from './runtime.js';
 
 const environment = loadServerEnvironment();
+const modelBootstrap = await modelRuntimeBootstrapConfiguration(environment);
 const artifactManagementIdentity = createArtifactManagementIdentity();
 const runtimeControlArtifactIdentity = createArtifactManagementIdentity(
   environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN,
@@ -19,12 +22,21 @@ const nodeControlAuthorityReader =
     : new HttpNodeControlCapabilityEvidenceReader({
         baseUrl: environment.SDAR_NODE_CONTROL_BASE_URL,
         serviceToken: environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN,
+        unsafeTestOpen: environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
       });
 const runtime = await startServerRuntime({
   postgresUrl: environment.SDAR_POSTGRES_URL,
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
   applyMigrations: true,
+  ...(modelBootstrap === undefined ? {} : { modelBootstrap }),
+  outboundEndpointPolicy: {
+    unsafeTestOpen: environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
+    mcpAllowedAuthorities: splitAllowlist(environment.SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST),
+    providerAllowedAuthorities: splitAllowlist(
+      environment.SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST,
+    ),
+  },
   ...(nodeControlAuthorityReader === undefined
     ? {}
     : {
@@ -58,21 +70,33 @@ const runtime = await startServerRuntime({
         }),
         artifactManagementPrincipalResolver: artifactManagementIdentity.managementPrincipalResolver,
       }),
-  ...(environment.BUSINESS_EVENTS_ENABLED === 'true'
+  ...(environment.BUSINESS_EVENTS_ENABLED === 'true' ||
+  environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
     ? {
         frozenMcpTasks: { isolationAcknowledged: true as const },
-        businessEvents: {
-          enabled: true as const,
-          requiredForRuntimeReady:
-            environment.BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY === 'true',
-          processingIntervalMs: environment.BUSINESS_EVENTS_POLL_INTERVAL_MS,
-          maxSubscriptions: environment.BUSINESS_EVENTS_MAX_SUBSCRIPTIONS,
-        },
+        ...(environment.BUSINESS_EVENTS_ENABLED !== 'true'
+          ? {}
+          : {
+              businessEvents: {
+                enabled: true as const,
+                requiredForRuntimeReady:
+                  environment.BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY === 'true',
+                processingIntervalMs: environment.BUSINESS_EVENTS_POLL_INTERVAL_MS,
+                maxSubscriptions: environment.BUSINESS_EVENTS_MAX_SUBSCRIPTIONS,
+              },
+            }),
       }
     : {}),
   ...(environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only'
     ? { taskUnderstanding: homeLabReadOnlyTaskUnderstandingConfiguration() }
-    : {}),
+    : environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
+      ? {
+          taskUnderstanding: {
+            ...managedCapabilityTaskUnderstandingConfiguration(),
+            modelTimeoutMs: environment.SDAR_UGV_MODEL_TIMEOUT_MS,
+          },
+        }
+      : {}),
 });
 
 process.stdout.write(
@@ -108,4 +132,13 @@ function createArtifactManagementIdentity(
     kind: environment.SDAR_ARTIFACT_MANAGEMENT_KIND,
     roles,
   });
+}
+
+function splitAllowlist(value: string): readonly string[] {
+  return Object.freeze(
+    value
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter((entry) => entry !== ''),
+  );
 }

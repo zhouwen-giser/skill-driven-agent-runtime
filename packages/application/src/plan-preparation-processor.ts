@@ -164,7 +164,8 @@ export interface PlanPreparationProcessorDependencies {
   readonly taskUnderstanding?: Readonly<{
     route(input: Readonly<{ requestText: string }>): CognitiveEntryRoute;
     understand(
-      input: Pick<UnderstandGenericTaskInput, 'taskId' | 'contextId' | 'requestText'>,
+      input: Pick<UnderstandGenericTaskInput, 'taskId' | 'contextId' | 'requestText'> &
+        Readonly<{ requestMetadata: Readonly<Record<string, unknown>> }>,
     ): ReturnType<GenericTaskUnderstandingService['understand']>;
   }>;
   readonly goalSessions?: Pick<
@@ -374,6 +375,7 @@ export class PlanPreparationProcessor {
         taskId: task.taskId,
         contextId: task.contextId,
         requestText,
+        requestMetadata: task.requestMetadata,
       });
       task = await this.#transition(
         task,

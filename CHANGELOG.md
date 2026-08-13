@@ -2,6 +2,66 @@
 
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
+## SDAR × UGV SMPP Integration (blocked handoff)
+
+- Added explicit credential-free Source authority, generic Provider materialization, exact
+  Provider Binding/catalog reconciliation and redacted lineage reports for one real UGV-only SMPP
+  projection. The latest observed authority is Source revision 1, Provider Binding revision 2,
+  Runtime tool revision 2 and Catalog `2.0.0-rc.1:2` with 11 discovered operations.
+- Added five published read-only Skills at version 4 and five read Capabilities at version 2;
+  staged five control authorities Draft/non-selectable without implementation bindings. Fire
+  receives no Capability or Skill.
+- Added create-on-empty Runtime model bootstrap from explicit deployment configuration. PostgreSQL
+  remains authoritative: any existing Provider makes startup a strict no-op; a clean database can
+  atomically create one structured Provider, an optional separate embedding Provider, 21 routes per
+  configured operation, and 21 immutable current default Prompts without exposing credentials.
+- Added operation-aware `(stage, operation)` routing and a real-provider conformance driver. The
+  deployed database has two Providers, 21 structured routes, 21 embedding routes and 21 current
+  Prompts. Real conformance passed nine structured stages, Workflow application-schema rejection
+  and correction, plus finite 1024-dimensional `goal` and `skill_selection` embeddings; evidence is
+  redacted in `reports/sdar-ugv-smpp-integration/model-stage-conformance.json`.
+- Added the generic `managed_capability` Task Understanding path and deterministic admission guards;
+  the external deterministic-read attempt established a fail-closed blocker rather than a pass.
+  The adapter rejected the sole SDAR live read invocation as
+  `UGV_EXECUTION_MODE_UNSUPPORTED`; simulation readiness returned
+  `UGV_DEVICE_MCP_UNAVAILABLE` before invocation, and a direct simulation compatibility probe
+  returned `UGV_ADAPTER_INTERNAL_ERROR`.
+- Executed real A2A read-only `run016` through Task/Goal/User Goal Plan, exact
+  `ugv.get-state@4`, `vehicle.ugv.read-state@2`, Exposure v2 and live MCP invocation
+  `mcp-invocation-fb54fcdb-dabf-42ee-85d6-eebcb7aa8717`. The adapter returned
+  `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`; corrected Goal Evaluation did not
+  reproduce the earlier shape crash, but the bounded replan budget exhausted and the Task failed
+  `GOAL_UNACHIEVABLE`. No successful `result_processing` exists. Runtime restart reconciliation
+  closed the initially `prepared` CapabilityAttempt to `failed`; the terminal outcome's direct
+  `capability_attempt_id` remains null and the A2A projection remained `TASK_STATE_WORKING`, so A2A stays blocked.
+  `a2a-readonly.json` records the real failed run; detailed lineage is preserved separately under
+  `reports/sdar-ugv-smpp-integration/failed-attempts/`.
+- Deterministic restart, control and Production qualification remain blocked, with zero
+  physical/control/fire calls. Catalog execution semantics are operator `admin_override`, and a
+  Runtime fire hard deny is not yet proven.
+- Added the explicit non-production `unsafe_test_open` outbound profile requested for the trusted
+  integration network. It relaxes HTTPS-required and outbound-authority membership checks only;
+  certificate validation remains enabled, secure defaults remain intact and Production rejects it.
+- Added a standalone one-time control-authority remediation driver that uses only public Node
+  Control/Runtime management APIs, dynamically reads Skill governance revisions and Capability
+  ETags, suspends only the exact five enabled/published control authorities, and verifies disabled
+  Runtime Skills plus suspended governance, Capabilities and blocking readiness.
+- The remediation preflights every exact authority and fire absence before mutation, is idempotent
+  for an already-suspended deployment, emits an atomic redacted report, and never calls MCP or a
+  device. Focused Unit, package-entry, format, lint and TypeScript checks pass; real remediation
+  execution remains separate evidence.
+- Final acceptance classifies only Discovery readiness as true. Source restart/outage/LKG expiry/
+  bad-checksum behavior, aggregate bootstrap and the failed invocation's complete queryable lineage
+  remain unproven; real model conformance passed and real A2A ran but failed, while all
+  control/lifecycle/emergency/recovery phases were not run.
+- Regenerated the secret-scanned delivery ZIP/SHA/patch from the final evidence and code state,
+  excluding `.gitignore`, `.codex/**`, actual secrets, checkpoints and delivery outputs themselves.
+- The repository gate remains failed. Main Integration passed 189/189, but the aggregate isolated
+  P11 export case timed out before an unchanged standalone 1/1 pass. Main E2E passed 72/72 with one
+  skip before Phase 13 baseline drift failed at `22.939% > 15%`; Runtime regression (`1.7548%`),
+  append P95 (`3.410 ms`), evidence demo 44/44 and all three smokes passed. The official A2A TCK did
+  not start because the host lacks `python3-venv`.
+
 ## SDAR v1.4.1 Canonical Evidence Export (completed; PR Ready)
 
 - Passed the final ten-stage `pnpm verify` in 1,213,445 ms: 1,305 static Unit/performance/Contract

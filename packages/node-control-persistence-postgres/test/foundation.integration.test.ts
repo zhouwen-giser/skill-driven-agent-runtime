@@ -76,6 +76,7 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
       { version: '0008_organization_node_events' },
       { version: '0009_canonical_evidence_authority' },
       { version: '0010_smpp_registry_lineage_revalidation' },
+      { version: '0011_explicit_unauthenticated_credentials' },
     ]);
     const runtimeLedger = await pool.query<{ exists: boolean }>(
       `SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists`,
@@ -115,7 +116,99 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     ).rejects.toMatchObject({ code: '55000' });
   });
 
+  it('migrates both credential authorities to the one explicit unauthenticated sentinel', async () => {
+    const constraints = await credentialConstraintDefinitions();
+    expect(constraints).toEqual([
+      expect.objectContaining({
+        constraint_name: 'mcp_provider_binding_credential_ref_check',
+        definition: expect.stringContaining("'unauthenticated://none'"),
+      }),
+      expect.objectContaining({
+        constraint_name: 'smpp_registry_source_credential_ref_check',
+        definition: expect.stringContaining("'unauthenticated://none'"),
+      }),
+    ]);
+
+    await expect(
+      insertCredentialConstraintSource(
+        'credential-source-unauthenticated',
+        'unauthenticated://none',
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      insertCredentialConstraintBinding(
+        'credential-binding-unauthenticated',
+        'unauthenticated://none',
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      insertCredentialConstraintSource(
+        'credential-source-invalid-unauthenticated',
+        'unauthenticated://fallback',
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'smpp_registry_source_credential_ref_check',
+    });
+    await expect(
+      insertCredentialConstraintBinding(
+        'credential-binding-invalid-unauthenticated',
+        'unauthenticated://fallback',
+      ),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'mcp_provider_binding_credential_ref_check',
+    });
+
+    await expect(rollbackLatestControlMigration(pool)).rejects.toMatchObject({
+      code: '55000',
+      message: expect.stringContaining(
+        'CONTROL_UNAUTHENTICATED_CREDENTIAL_ROWS_REQUIRE_RECONFIGURATION',
+      ),
+    });
+    const preserved = await pool.query<{ source_count: string; binding_count: string }>(
+      `SELECT
+         (SELECT count(*)::text FROM sdar_control.smpp_registry_source
+           WHERE credential_ref='unauthenticated://none') AS source_count,
+         (SELECT count(*)::text FROM sdar_control.mcp_provider_binding
+           WHERE credential_ref='unauthenticated://none') AS binding_count`,
+    );
+    expect(preserved.rows).toEqual([{ source_count: '1', binding_count: '1' }]);
+
+    await pool.query(
+      `TRUNCATE sdar_control.mcp_provider_catalog_observation,
+                sdar_control.mcp_provider_binding,
+                sdar_control.smpp_registry_sync_attempt,
+                sdar_control.smpp_registry_snapshot_lineage,
+                sdar_control.smpp_provider_candidate,
+                sdar_control.smpp_registry_snapshot,
+                sdar_control.smpp_registry_source`,
+    );
+    await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
+      '0011_explicit_unauthenticated_credentials',
+    );
+    const rolledBack = await credentialConstraintDefinitions();
+    expect(rolledBack).toHaveLength(2);
+    expect(rolledBack.every(({ definition }) => !definition.includes('unauthenticated://'))).toBe(
+      true,
+    );
+    await expect(
+      insertCredentialConstraintSource('credential-source-rolled-back', 'unauthenticated://none'),
+    ).rejects.toMatchObject({
+      code: '23514',
+      constraint: 'smpp_registry_source_credential_ref_check',
+    });
+
+    await applyControlMigrations(pool);
+    await expect(
+      insertCredentialConstraintSource('credential-source-reapplied', 'unauthenticated://none'),
+    ).resolves.toBeUndefined();
+  });
+
   it('rolls back and reapplies 0010 without fabricating legacy lineage', async () => {
+    await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
+      '0011_explicit_unauthenticated_credentials',
+    );
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
       '0010_smpp_registry_lineage_revalidation',
     );
@@ -586,6 +679,52 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     }
   });
 });
+
+async function credentialConstraintDefinitions(): Promise<
+  readonly Readonly<{ constraint_name: string; definition: string }>[]
+> {
+  const result = await pool.query<{ constraint_name: string; definition: string }>(
+    `SELECT conname AS constraint_name,pg_get_constraintdef(oid) AS definition
+       FROM pg_constraint
+      WHERE connamespace='sdar_control'::regnamespace
+        AND conname IN (
+          'smpp_registry_source_credential_ref_check',
+          'mcp_provider_binding_credential_ref_check'
+        )
+      ORDER BY conname`,
+  );
+  return result.rows;
+}
+
+async function insertCredentialConstraintSource(sourceId: string, credentialRef: string) {
+  await pool.query(
+    `INSERT INTO sdar_control.smpp_registry_source(
+       smpp_source_id,revision,registry_endpoint,credential_ref,environment,sync_mode,
+       snapshot_ttl_seconds,lkg_policy,status,created_at,updated_at)
+     VALUES($1,1,'https://registry.example.test/latest',$2,'integration','manual',300,
+            'allow_unexpired','draft',$3,$3)`,
+    [sourceId, credentialRef, '2026-08-12T02:00:00.000Z'],
+  );
+}
+
+async function insertCredentialConstraintBinding(bindingId: string, credentialRef: string) {
+  await pool.query(
+    `INSERT INTO sdar_control.mcp_provider_binding(
+       binding_id,revision,local_server_id,origin_type,catalog_revision,catalog_checksum,
+       endpoint_ref,credential_ref,status,availability_status,availability_valid_until,
+       catalog_observed_at,operation_count,created_at)
+     VALUES($1,1,$2,'direct','1',$3,'https://runtime.example.test/mcp',$4,'active',
+            'available',$5,$6,0,$6)`,
+    [
+      bindingId,
+      `${bindingId}-server`,
+      'a'.repeat(64),
+      credentialRef,
+      '2026-08-12T03:00:00.000Z',
+      '2026-08-12T02:00:00.000Z',
+    ],
+  );
+}
 
 function context(idempotency: string, request: string, occurredAt: string) {
   return Object.freeze({

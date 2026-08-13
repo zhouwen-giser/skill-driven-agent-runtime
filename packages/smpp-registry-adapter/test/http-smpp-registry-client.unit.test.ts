@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  SMPP_UNAUTHENTICATED_CREDENTIAL_REF,
   computeSmppSnapshotChecksum,
   createSmppRegistrySnapshot,
   createSmppRegistrySource,
@@ -46,6 +47,30 @@ describe('SMPP Registry projection HTTP client', () => {
     expect(request?.init?.redirect).toBe('manual');
     expect(new Headers(request?.init?.headers).get('authorization')).toBe('Bearer registry-token');
     expect(new Headers(request?.init?.headers).get('accept')).toBe('application/json');
+  });
+
+  it('supports the explicit unauthenticated authority without resolving or sending a credential', async () => {
+    const stub = stubFetch(jsonResponse(snapshotBody()));
+    let resolverCalled = false;
+    const client = new HttpSmppRegistryClient(
+      {
+        resolve: () => {
+          resolverCalled = true;
+          return Promise.resolve('must-not-be-used');
+        },
+      },
+      { fetch: stub.fetch },
+    );
+
+    const result = await client.fetchLatest({
+      ...source(),
+      credentialRef: SMPP_UNAUTHENTICATED_CREDENTIAL_REF,
+    });
+
+    expect(result.status).toBe('snapshot');
+    expect(resolverCalled).toBe(false);
+    expect(new Headers(stub.calls[0]?.init?.headers).has('authorization')).toBe(false);
+    expect(stub.calls[0]?.init?.redirect).toBe('manual');
   });
 
   it('returns an explicit 304 result and sends If-None-Match', async () => {

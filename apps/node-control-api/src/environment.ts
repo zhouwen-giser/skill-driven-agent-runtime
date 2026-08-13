@@ -3,8 +3,11 @@ import { isIP } from 'node:net';
 
 import { z } from 'zod';
 
+import { assertPrivateHttpDeploymentAcknowledgement } from './outbound-endpoint-policy.js';
+
 const EnvironmentSchema = z
   .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
     SDAR_CONTROL_DATABASE_URL: z
       .string()
       .min(1)
@@ -34,6 +37,9 @@ const EnvironmentSchema = z
       .default('http://127.0.0.1:9999/.well-known/agent-card.json'),
     SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
     SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
+    SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST: z.string().optional(),
+    SDAR_CONTROL_ACKNOWLEDGE_PRIVATE_HTTP_ENDPOINTS: z.enum(['NO', 'YES']).default('NO'),
+    SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: z.enum(['safe', 'unsafe_test_open']).default('safe'),
     SDAR_CONTROL_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(10).max(100_000).default(1_200),
     SDAR_CONTROL_REQUEST_BODY_LIMIT_KB: z.coerce.number().int().min(1).max(1_024).default(64),
   })
@@ -58,7 +64,21 @@ const EnvironmentSchema = z
       'SDAR_CONTROL_A2A_AGENT_CARD_URL',
     ] as const) {
       const endpoint = new URL(environment[field]);
-      if (endpoint.protocol !== 'https:' && !isLoopback(endpoint.hostname))
+      if (
+        !['http:', 'https:'].includes(endpoint.protocol) ||
+        endpoint.username !== '' ||
+        endpoint.password !== ''
+      )
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'Control endpoints must be credential-free HTTP(S) URLs.',
+        });
+      else if (
+        environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY !== 'unsafe_test_open' &&
+        endpoint.protocol !== 'https:' &&
+        !isLoopback(endpoint.hostname)
+      )
         context.addIssue({
           code: 'custom',
           path: [field],
@@ -74,6 +94,30 @@ const EnvironmentSchema = z
         path: ['SDAR_CONTROL_ORGANIZATION_TENANT_ID'],
         message: 'Organization tenant identity requires an organization service credential.',
       });
+    try {
+      assertPrivateHttpDeploymentAcknowledgement({
+        acknowledgement: environment.SDAR_CONTROL_ACKNOWLEDGE_PRIVATE_HTTP_ENDPOINTS,
+        authorities: environment.SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST,
+        providerAuthorities: environment.SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST,
+        mcpAuthorities: environment.SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST,
+      });
+    } catch (error) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST'],
+        message: error instanceof Error ? error.message : 'Private HTTP policy is invalid.',
+      });
+    }
+    if (
+      environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open' &&
+      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+        !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY'],
+        message: 'unsafe_test_open is forbidden outside an explicit non-production environment.',
+      });
   });
 
 type ParsedNodeControlApiEnvironment = z.infer<typeof EnvironmentSchema>;
@@ -82,6 +126,8 @@ export type NodeControlApiEnvironment = Omit<
   | 'SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST'
   | 'SDAR_CONTROL_RUNTIME_DATABASE_URL'
   | 'SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST'
+  | 'SDAR_CONTROL_ACKNOWLEDGE_PRIVATE_HTTP_ENDPOINTS'
+  | 'SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY'
   | 'SDAR_CONTROL_RATE_LIMIT_PER_MINUTE'
   | 'SDAR_CONTROL_REQUEST_BODY_LIMIT_KB'
 > &
@@ -89,6 +135,8 @@ export type NodeControlApiEnvironment = Omit<
     SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST?: string;
     SDAR_CONTROL_RUNTIME_DATABASE_URL?: string;
     SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST?: string;
+    SDAR_CONTROL_ACKNOWLEDGE_PRIVATE_HTTP_ENDPOINTS?: 'NO' | 'YES';
+    SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY?: 'safe' | 'unsafe_test_open';
     SDAR_CONTROL_RATE_LIMIT_PER_MINUTE?: number;
     SDAR_CONTROL_REQUEST_BODY_LIMIT_KB?: number;
   }>;

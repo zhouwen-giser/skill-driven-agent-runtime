@@ -14,3 +14,4 @@ export * from './bounded-sse-json.js';
 export * from './business-events-client.js';
 export * from './frozen-business-events-mock-provider.js';
 export * from './business-events-runtime-adapter.js';
+export * from './outbound-endpoint-policy.js';

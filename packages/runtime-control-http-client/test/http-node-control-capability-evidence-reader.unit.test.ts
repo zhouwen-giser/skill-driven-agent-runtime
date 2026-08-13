@@ -66,6 +66,63 @@ describe('HttpNodeControlCapabilityEvidenceReader', () => {
       expect(call[1]?.headers).toMatchObject({ authorization: `Bearer ${'s'.repeat(32)}` });
   });
 
+  it('maps current Node Control payloads that omit non-contract update and binding timestamps', async () => {
+    const observedAt = '2026-08-12T06:20:17.275Z';
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          capabilityId: 'vehicle.ugv.read-state',
+          version: 1,
+          domain: 'vehicle.ugv',
+          name: 'Read UGV state',
+          description: 'Read one UGV state.',
+          inputSchema: { type: 'object' },
+          outputSchema: { type: 'object' },
+          successCriteria: [],
+          requiredEvidence: [],
+          effects: [],
+          artifacts: [],
+          constraints: [],
+          supportedModes: ['deterministic'],
+          riskLevel: 'low',
+          status: 'published',
+          definitionHash: 'a'.repeat(64),
+          createdAt: '2026-08-12T00:00:00.000Z',
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          items: [
+            {
+              bindingId: 'capability-binding-vehicle.ugv.read-state-v1',
+              revision: 1,
+              capabilityId: 'vehicle.ugv.read-state',
+              capabilityVersion: 1,
+              implementationType: 'skill',
+              implementationId: 'ugv.get-state',
+              implementationVersion: '1',
+              role: 'primary',
+              priority: 0,
+              status: 'active',
+            },
+          ],
+          totalEstimate: 1,
+          asOf: observedAt,
+        }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    const reader = new HttpNodeControlCapabilityEvidenceReader({
+      baseUrl: 'http://127.0.0.1:10081',
+      serviceToken: 's'.repeat(32),
+    });
+
+    await expect(reader.load('vehicle.ugv.read-state', 1)).resolves.toMatchObject({
+      definition: { updated_at: '2026-08-12T00:00:00.000Z' },
+      implementationBindings: [{ created_at: observedAt }],
+    });
+  });
+
   it('loads exact current secret-free MCP Binding and source/candidate lineage', async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
@@ -92,8 +149,34 @@ describe('HttpNodeControlCapabilityEvidenceReader', () => {
     });
     expect(fetch).toHaveBeenCalledWith(
       'https://control.example.test/internal/v1/mcp-provider-bindings/current?localServerId=home-lab-light-mcp&bindingId=binding-light',
-      { headers: { authorization: `Bearer ${token}` } },
+      { headers: { authorization: `Bearer ${token}` }, redirect: 'manual' },
     );
+  });
+
+  it('requires the unsafe test switch for plaintext non-loopback Control and still rejects URL credentials', () => {
+    expect(
+      () =>
+        new HttpNodeControlCapabilityEvidenceReader({
+          baseUrl: 'http://192.168.1.7:10080',
+          serviceToken: 'r'.repeat(32),
+        }),
+    ).toThrow('NODE_CONTROL_ENDPOINT_NOT_ALLOWED');
+    expect(
+      () =>
+        new HttpNodeControlCapabilityEvidenceReader({
+          baseUrl: 'http://192.168.1.7:10080',
+          serviceToken: 'r'.repeat(32),
+          unsafeTestOpen: true,
+        }),
+    ).not.toThrow();
+    expect(
+      () =>
+        new HttpNodeControlCapabilityEvidenceReader({
+          baseUrl: 'http://user:secret@192.168.1.7:10080',
+          serviceToken: 'r'.repeat(32),
+          unsafeTestOpen: true,
+        }),
+    ).toThrow('NODE_CONTROL_ENDPOINT_NOT_ALLOWED');
   });
 
   it('rejects drift between the current Binding and source Candidate lineage', async () => {

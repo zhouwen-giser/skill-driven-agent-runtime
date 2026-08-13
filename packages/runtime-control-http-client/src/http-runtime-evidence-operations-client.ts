@@ -360,6 +360,7 @@ export class HttpRuntimeEvidenceOperationsClient implements NodeControlRuntimeEv
       method: 'POST',
       headers: this.#headers({ 'content-type': 'application/json' }),
       body: JSON.stringify(body),
+      redirect: 'manual',
     });
     return Object.freeze(
       RecoveryRunSchema.parse(await responseJson(response)),
@@ -369,7 +370,7 @@ export class HttpRuntimeEvidenceOperationsClient implements NodeControlRuntimeEv
   async #get(path: string | URL): Promise<unknown> {
     const response = await globalThis.fetch(
       typeof path === 'string' ? `${this.#baseUrl}${path}` : path,
-      { headers: this.#headers() },
+      { headers: this.#headers(), redirect: 'manual' },
     );
     return responseJson(response);
   }

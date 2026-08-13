@@ -5,6 +5,7 @@ import {
   type AgentTask,
   type McpInvocation,
   type RuntimeTaskCapabilityTerminalProof,
+  type SkillUsageSelectionContext,
   type TaskCapabilityBinding,
   type TaskCapabilityExecutionAttempt,
   type TaskExecutionAttempt,
@@ -75,6 +76,12 @@ export interface TaskCapabilityTerminalSuccessContext {
     requestedCapabilityId: string;
     capabilityVersion: number;
   }>;
+}
+
+export interface TaskCapabilitySkillUsageAuthority {
+  readonly skillId: string;
+  readonly skillVersion: number;
+  readonly context: SkillUsageSelectionContext;
 }
 
 export class RuntimeTaskCapabilityService {
@@ -224,6 +231,119 @@ export class RuntimeTaskCapabilityService {
 
   findBinding(taskId: string) {
     return this.#store.findBinding(taskId);
+  }
+
+  /**
+   * Projects only context evidence already frozen by Capability admission. The
+   * current Provider Binding is re-verified on both Control and Runtime sides;
+   * request text and mutable request metadata never become authority here.
+   */
+  async resolveSkillUsageAuthority(
+    taskId: string,
+  ): Promise<TaskCapabilitySkillUsageAuthority | undefined> {
+    const binding = await this.#store.findBinding(taskId);
+    if (binding === undefined) return undefined;
+    const skillReference = exactlyOneSkillReference(binding.initialImplementationRefs);
+    const exactSkill = exactlyOneConstraint(binding.constraintSnapshot, 'exact_skill_version');
+    const resourcePolicy = exactlyOneConstraint(binding.constraintSnapshot, 'resource_policy');
+    const providerPolicy = exactlyOneConstraint(
+      binding.constraintSnapshot,
+      'provider_binding_policy',
+    );
+    const confirmationPolicy = exactlyOneConstraint(
+      binding.constraintSnapshot,
+      'confirmation_policy',
+    );
+    const sideEffectPolicy = exactlyOneConstraint(binding.constraintSnapshot, 'side_effect_policy');
+    const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
+    const resourceId = input?.['resourceId'];
+    const allowedResourceIds = resourcePolicy['allowedResourceIds'];
+    const localServerId = providerPolicy['localServerId'];
+    const providerBindingId = providerPolicy['mcpProviderBindingId'];
+    if (
+      exactSkill['skillId'] !== skillReference.skillId ||
+      exactSkill['skillVersion'] !== skillReference.skillVersion ||
+      typeof resourceId !== 'string' ||
+      resourceId.trim() === '' ||
+      !Array.isArray(allowedResourceIds) ||
+      !allowedResourceIds.includes(resourceId) ||
+      typeof localServerId !== 'string' ||
+      localServerId.trim() === '' ||
+      typeof providerBindingId !== 'string' ||
+      providerBindingId.trim() === '' ||
+      providerPolicy['requiredStatus'] !== 'active' ||
+      providerPolicy['requiredAvailabilityStatus'] !== 'available' ||
+      providerPolicy['requiredFreshness'] !== 'unexpired' ||
+      providerPolicy['fallback'] !== 'deny' ||
+      typeof confirmationPolicy['required'] !== 'boolean' ||
+      typeof sideEffectPolicy['sideEffecting'] !== 'boolean' ||
+      (sideEffectPolicy['sideEffecting'] && !confirmationPolicy['required'])
+    )
+      skillUsageAuthorityInvalid('The frozen Task Capability usage policy is incomplete.');
+    if (this.#providerBindings === undefined || this.#runtimeProviderBindings === undefined)
+      skillUsageAuthorityInvalid('Current Provider Binding authority is unavailable.');
+
+    const resolvedBindingId = await this.resolveCurrentProviderBindingId(taskId, localServerId);
+    if (resolvedBindingId !== providerBindingId)
+      skillUsageAuthorityInvalid('The frozen Provider Binding identity is not current.');
+    try {
+      const authority = await this.#providerBindings.loadCurrentMcpProviderBinding({
+        bindingId: providerBindingId,
+        localServerId,
+      });
+      if (
+        authority.binding.bindingId !== providerBindingId ||
+        authority.binding.localServerId !== localServerId ||
+        (typeof providerPolicy['bindingRevision'] === 'number' &&
+          authority.binding.revision !== providerPolicy['bindingRevision']) ||
+        (typeof providerPolicy['catalogRevision'] === 'string' &&
+          authority.binding.catalogRevision !== providerPolicy['catalogRevision']) ||
+        (typeof providerPolicy['catalogChecksum'] === 'string' &&
+          authority.binding.catalogChecksum !== providerPolicy['catalogChecksum'])
+      )
+        throw new Error('MCP_PROVIDER_BINDING_NOT_CURRENT');
+      await this.#runtimeProviderBindings.assertCurrent({
+        authority,
+        bindingId: providerBindingId,
+        localServerId,
+      });
+      return Object.freeze({
+        skillId: skillReference.skillId,
+        skillVersion: skillReference.skillVersion,
+        context: Object.freeze({
+          observations: Object.freeze([
+            Object.freeze({
+              requirementId: 'public-resource-id',
+              source: 'authoritative_context' as const,
+              status: 'available' as const,
+              evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}`,
+            }),
+            Object.freeze({
+              requirementId: 'provider-binding-freshness',
+              source: 'authoritative_context' as const,
+              status: 'available' as const,
+              evidenceRef: `node-control-provider-binding:${providerBindingId}:revision:${String(authority.binding.revision)}:observed-at:${authority.observedAt}`,
+            }),
+          ]),
+          risk: !sideEffectPolicy['sideEffecting'] ? ('low' as const) : ('high' as const),
+          humanConfirmation: confirmationPolicy['required']
+            ? ('pending' as const)
+            : ('not_requested' as const),
+          systemPolicy: Object.freeze({
+            allowedModes: Object.freeze(['guidance', 'template', 'procedure'] as const),
+            requireProcedureForHighRisk: true,
+            allowGuidanceWithIncompleteContext: false,
+          }),
+        }),
+      });
+    } catch (error) {
+      if (
+        error instanceof TaskCapabilityError &&
+        error.code === 'TASK_CAPABILITY_SKILL_USAGE_AUTHORITY_INVALID'
+      )
+        throw error;
+      skillUsageAuthorityInvalid('The current Provider Binding could not be verified.');
+    }
   }
 
   listAttempts(taskId: string) {
@@ -699,6 +819,33 @@ function currentProviderBindingAuthorities(
   return Object.freeze(authorities);
 }
 
+function exactlyOneSkillReference(references: readonly string[]) {
+  const parsed = references.map((reference) => {
+    const match = /^skill:([^:]+):([1-9]\d*)$/u.exec(reference);
+    if (match === null) return undefined;
+    const skillId = match[1];
+    const skillVersion = Number(match[2]);
+    return skillId === undefined || !Number.isSafeInteger(skillVersion)
+      ? undefined
+      : Object.freeze({ skillId, skillVersion });
+  });
+  const reference = parsed[0];
+  if (parsed.length !== 1 || reference === undefined)
+    skillUsageAuthorityInvalid('The Task Capability must freeze exactly one Skill version.');
+  return reference;
+}
+
+function exactlyOneConstraint(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+  type: string,
+) {
+  const matches = constraints.filter((constraint) => constraint['type'] === type);
+  const match = matches[0];
+  if (matches.length !== 1 || match === undefined)
+    skillUsageAuthorityInvalid(`The Task Capability requires one ${type} constraint.`);
+  return match;
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -708,6 +855,10 @@ function invalidRequest(): never {
     'TASK_CAPABILITY_REQUEST_INVALID',
     'io.sdar/requestedCapability requires an Exposure id, exact positive version, and request id.',
   );
+}
+
+function skillUsageAuthorityInvalid(message: string): never {
+  throw new TaskCapabilityError('TASK_CAPABILITY_SKILL_USAGE_AUTHORITY_INVALID', message);
 }
 
 function terminal(message: string): never {
@@ -723,6 +874,7 @@ export class TaskCapabilityError extends Error {
       | 'TASK_CAPABILITY_INPUT_INVALID'
       | 'TASK_CAPABILITY_PROVIDER_BINDING_NOT_CURRENT'
       | 'TASK_CAPABILITY_PROVIDER_BINDING_CONTEXT_INVALID'
+      | 'TASK_CAPABILITY_SKILL_USAGE_AUTHORITY_INVALID'
       | 'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID'
       | 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
     message: string,

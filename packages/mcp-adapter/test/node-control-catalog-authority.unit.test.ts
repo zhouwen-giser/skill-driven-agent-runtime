@@ -9,7 +9,11 @@ import {
   type McpProtocolDiscoverySnapshot,
   type McpTool,
 } from '../../domain/src/index.js';
-import { hashConfigurationRequest, type JsonValue } from '../../node-control-domain/src/index.js';
+import {
+  MCP_UNAUTHENTICATED_CREDENTIAL_REF,
+  hashConfigurationRequest,
+  type JsonValue,
+} from '../../node-control-domain/src/index.js';
 import { NodeControlFrozenMcpCatalogClient } from '../src/index.js';
 import type { FrozenV1RegistryAdapter } from '../src/index.js';
 
@@ -51,6 +55,50 @@ describe('Frozen MCP Catalog canonical authority', () => {
 });
 
 describe('NodeControlFrozenMcpCatalogClient governed Runtime authority', () => {
+  it('omits Authorization for the one explicit unauthenticated Runtime authority', async () => {
+    const snapshot = protocolSnapshot();
+    const discover = vi.fn(() =>
+      Promise.resolve({ snapshot, tools: Object.freeze([defaultTool()]) }),
+    );
+    const client = new NodeControlFrozenMcpCatalogClient(['provider.example.test'], {
+      discover,
+    } as unknown as FrozenV1RegistryAdapter);
+
+    await expect(
+      client.discover({
+        localServerId: 'provider-1',
+        endpointRef: 'https://provider.example.test/mcp',
+        credentialRef: MCP_UNAUTHENTICATED_CREDENTIAL_REF,
+        bindingRevision: 1,
+        observedAt: timestamp,
+        snapshotId: 'binding-snapshot-unauthenticated',
+      }),
+    ).resolves.toMatchObject({ operationCount: 1 });
+    expect(discover).toHaveBeenCalledWith(expect.objectContaining({ headers: {} }));
+  });
+
+  it('opens plaintext non-loopback discovery only for the explicit unsafe test policy', async () => {
+    vi.stubEnv('MCP_HOME_LAB_TOKEN', 'home-lab-provider-secret');
+    const snapshot = protocolSnapshot();
+    const registry = {
+      discover: vi.fn(() => Promise.resolve({ snapshot, tools: Object.freeze([defaultTool()]) })),
+    } as unknown as FrozenV1RegistryAdapter;
+    const input = {
+      localServerId: 'provider-1',
+      endpointRef: 'http://192.168.1.7:19100/mcp',
+      credentialRef: 'secret://env/MCP_HOME_LAB_TOKEN',
+      bindingRevision: 1,
+      observedAt: timestamp,
+      snapshotId: 'binding-snapshot-1',
+    };
+    await expect(
+      new NodeControlFrozenMcpCatalogClient([], registry).discover(input),
+    ).rejects.toThrow('SSRF allowlist');
+    await expect(
+      new NodeControlFrozenMcpCatalogClient([], registry, undefined, [], true).discover(input),
+    ).resolves.toMatchObject({ operationCount: 1 });
+  });
+
   it('keeps real remote discovery while returning the exact governed Runtime checksum', async () => {
     vi.stubEnv('MCP_HOME_LAB_TOKEN', 'home-lab-provider-secret');
     const snapshot = {

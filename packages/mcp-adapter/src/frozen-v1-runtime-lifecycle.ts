@@ -17,8 +17,8 @@ export class FrozenV1RuntimeLifecycleAdapter implements FrozenTaskLifecycleRunti
   readonly #clients = new Map<string, FrozenTaskLifecycleClient>();
   readonly #now: () => string;
 
-  constructor(input: Readonly<{ now?: () => string }> = {}) {
-    this.#transport = new FrozenV1McpClient();
+  constructor(input: Readonly<{ now?: () => string; client?: FrozenV1McpClient }> = {}) {
+    this.#transport = input.client ?? new FrozenV1McpClient();
     this.#now = input.now ?? (() => new Date().toISOString());
   }
 

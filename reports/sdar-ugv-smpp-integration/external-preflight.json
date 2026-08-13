@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "capturedAt": "2026-08-12T13:05:22+08:00",
+  "evidenceClass": "real",
+  "externalDependencyReadOnly": true,
+  "status": "guard_checks_passed_pending_sdar_adapter_catalog",
+  "pmsProxy": {
+    "webBaseUrl": "http://192.168.1.7:18088/",
+    "apiBaseUrl": "http://192.168.1.7:18088/api/",
+    "consumerProjectionStatus": 200,
+    "authenticationMode": "none"
+  },
+  "registryProjection": {
+    "sourceId": "ugv-smpp",
+    "environment": "production",
+    "revision": 1,
+    "checksum": "5efefbcdbf4f4d44bc9e8fb89dca1b10f9a3b150f9bae28a22ffafbb0f1fb6c1",
+    "etag": "\"5efefbcdbf4f4d44bc9e8fb89dca1b10f9a3b150f9bae28a22ffafbb0f1fb6c1\"",
+    "projectionContract": "sdar-registry-v1",
+    "generatedAt": "2026-08-12T04:21:57.119Z",
+    "expiresAt": "2026-09-11T04:21:57.119Z",
+    "nativeRevision": 1,
+    "nativeChecksum": "72a880d6415d318919f821379007af9f59b5f611ac8560a5833b3b134603c218",
+    "conditionalRevalidationStatus": 304,
+    "candidateCount": 1,
+    "exactCandidateSelected": true,
+    "externalProviderId": "isr.vehicle.ugv.ugv1",
+    "externalServerId": "production-ugv-direct-1",
+    "catalogRevision": "1",
+    "protocolMode": "frozen_v1",
+    "projectedMcpEndpoint": "http://192.168.1.7:19100/mcp"
+  },
+  "runtime": {
+    "baseUrl": "http://192.168.1.7:19100/",
+    "mcpPath": "/mcp",
+    "healthPath": "/health/ready",
+    "healthStatus": 200,
+    "authenticationMode": "none",
+    "projectionEndpointAligned": true,
+    "directMcpCallPerformed": false,
+    "catalogAuthority": "pending_existing_sdar_adapter"
+  },
+  "discoveredCatalogSummary": {
+    "source": "pms_native_discovery_only",
+    "operationCount": 11,
+    "publicResourceId": "vehicle:ugv1",
+    "acceptedAsRuntimeCatalogAuthority": false
+  },
+  "outboundPolicy": {
+    "mode": "unsafe_test_open",
+    "scope": "explicit_development_test_integration_only",
+    "plaintextHttpAllowed": true,
+    "ssrfAuthorityMembershipBypassed": true,
+    "httpsCertificateVerificationDisabled": false,
+    "productionEligible": false
+  },
+  "realModel": {
+    "enabled": false,
+    "connectivityAuthority": "not_configured"
+  },
+  "writeGates": "closed",
+  "requiredDriverChecks": [
+    "sdar_postgres_reachable",
+    "sdar_redis_reachable",
+    "node_control_reachable",
+    "runtime_catalog_reachable_through_existing_adapter"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "secretFilePathsIncluded": false,
+    "authorizationValuesIncluded": false
+  }
+}

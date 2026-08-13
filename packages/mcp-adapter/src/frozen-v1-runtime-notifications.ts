@@ -12,13 +12,15 @@ import { FrozenRemoteTaskSubscriptionManager } from './frozen-v1-task-subscripti
 
 export class FrozenV1RuntimeNotificationAdapter implements FrozenTaskNotificationRuntimePort {
   readonly #now: () => string;
+  readonly #client: FrozenV1McpClient;
 
-  constructor(input: Readonly<{ now?: () => string }> = {}) {
+  constructor(input: Readonly<{ now?: () => string; client?: FrozenV1McpClient }> = {}) {
     this.#now = input.now ?? (() => new Date().toISOString());
+    this.#client = input.client ?? new FrozenV1McpClient();
   }
 
   async run(input: Parameters<FrozenTaskNotificationRuntimePort['run']>[0]): Promise<void> {
-    const transport = new FrozenV1McpClient();
+    const transport = this.#client;
     const lifecycle = new FrozenTaskLifecycleClient({
       client: transport,
       endpoint: input.endpoint,

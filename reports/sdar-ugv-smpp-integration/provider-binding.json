@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-provider-binding/v1",
+  "status": "passed",
+  "evidenceClass": "derived_from_real_sdar_binding_and_runtime_catalog_authority",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/provider-materialization.redacted.json",
+    "reports/sdar-ugv-smpp-integration/capability-skill-governance.redacted.json"
+  ],
+  "observedAt": "2026-08-12T12:04:40.777Z",
+  "binding": {
+    "bindingId": "mcp-binding-ugv-smpp",
+    "revision": 2,
+    "externalProviderId": "isr.vehicle.ugv.ugv1",
+    "externalServerId": "production-ugv-direct-1",
+    "registryRevision": 1,
+    "registryChecksum": "fd1ba955d175398b33231c8af26205b043c632a5702040c31f305ecd9c9d1d06",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62",
+    "operationCount": 11,
+    "materializationAction": "reconciled",
+    "runtimeAction": "refreshed",
+    "runtimeToolRevision": 2
+  },
+  "checks": {
+    "exactTuple": "passed",
+    "successorRevisionReconciled": "passed",
+    "catalogAndBindingSeparateFromRegistry": "passed",
+    "currentAtObservation": "passed"
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "credentialReferencesIncluded": false
+  }
+}

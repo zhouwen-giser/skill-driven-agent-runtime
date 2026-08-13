@@ -5,6 +5,9 @@ export type McpBindingStatus =
   'candidate' | 'imported' | 'active' | 'degraded' | 'suspended' | 'removed';
 export type McpBindingAvailabilityStatus = 'unknown' | 'available' | 'degraded' | 'unavailable';
 
+/** Explicit authority for a credential-free MCP Runtime. Missing SecretRefs never fall back here. */
+export const MCP_UNAUTHENTICATED_CREDENTIAL_REF = 'unauthenticated://none' as const;
+
 export interface McpProviderBinding {
   readonly bindingId: string;
   readonly localServerId: string;
@@ -107,8 +110,11 @@ export function createMcpProviderBindingRecord(
 
 export function validateMcpCredentialRef(value: string): string {
   const normalized = required(value, 'credentialRef');
-  if (!/^secret:\/\/[A-Za-z0-9._~:/-]+$/u.test(normalized))
-    invalid('credentialRef must be an opaque SecretRef.');
+  if (
+    normalized !== MCP_UNAUTHENTICATED_CREDENTIAL_REF &&
+    !/^secret:\/\/[A-Za-z0-9._~:/-]+$/u.test(normalized)
+  )
+    invalid(`credentialRef must be an opaque SecretRef or ${MCP_UNAUTHENTICATED_CREDENTIAL_REF}.`);
   return normalized;
 }
 

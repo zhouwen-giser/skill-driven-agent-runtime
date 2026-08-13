@@ -225,6 +225,146 @@ describe('SkillInputResolutionService', () => {
     expect(JSON.stringify(model.calls[0])).toContain('non_authoritative_evidence');
     expect(JSON.stringify(model.calls[0])).toContain('processed-result:prior');
   });
+
+  it('does not let the model choose among multiple governed resource identifiers', async () => {
+    const service = managedResourceResolutionService(
+      new DecisionModel({
+        structuredInput: { resourceId: 'vehicle:ugv-a' },
+        unresolvedFields: [],
+        sourceRefs: ['task:task-1:request-text'],
+        decisionSummary: 'The model guessed one of two resources.',
+      }),
+    );
+
+    await expect(
+      service.resolve({
+        task: task({}, 'Read the current vehicle state.'),
+        goal,
+        skill: managedResourceSkill(['vehicle:ugv-a', 'vehicle:ugv-b']),
+        supplementaryInputs: [],
+      }),
+    ).resolves.toMatchObject({
+      status: 'input_required',
+      structuredInput: {},
+      unresolvedFields: ['resourceId'],
+    });
+  });
+
+  it('resolves a multi-resource enum only from an exact user value or structured input', async () => {
+    const skillWithResources = managedResourceSkill(['vehicle:ugv-a', 'vehicle:ugv-b']);
+    const fromText = await managedResourceResolutionService(
+      new DecisionModel({
+        structuredInput: { resourceId: 'vehicle:ugv-a' },
+        unresolvedFields: [],
+        sourceRefs: [],
+        decisionSummary: 'Copied the exact requested resource.',
+      }),
+    ).resolve({
+      task: task({}, 'Read state for vehicle:ugv-b.'),
+      goal,
+      skill: skillWithResources,
+      supplementaryInputs: [],
+    });
+    expect(fromText).toMatchObject({
+      status: 'resolved',
+      structuredInput: { resourceId: 'vehicle:ugv-b' },
+      sourceRefs: ['task:task-1:request-text'],
+    });
+
+    const fromMetadata = await managedResourceResolutionService(
+      new DecisionModel({
+        structuredInput: { resourceId: 'vehicle:ugv-a' },
+        unresolvedFields: [],
+        sourceRefs: [],
+        decisionSummary: 'Structured input is authoritative.',
+      }),
+    ).resolve({
+      task: task({ structured_input: { resourceId: 'vehicle:ugv-b' } }, 'Read the vehicle state.'),
+      goal,
+      skill: skillWithResources,
+      supplementaryInputs: [],
+    });
+    expect(fromMetadata).toMatchObject({
+      status: 'resolved',
+      structuredInput: { resourceId: 'vehicle:ugv-b' },
+      sourceRefs: ['a2a-metadata:structured_input'],
+    });
+  });
+
+  it('selects the sole governed resource without asking the model to invent identity', async () => {
+    await expect(
+      managedResourceResolutionService(
+        new DecisionModel({
+          structuredInput: {},
+          unresolvedFields: [],
+          sourceRefs: [],
+          decisionSummary: 'No resource was inferred.',
+        }),
+      ).resolve({
+        task: task({}, 'Read the current vehicle state.'),
+        goal,
+        skill: managedResourceSkill(['vehicle:ugv-only']),
+        supplementaryInputs: [],
+      }),
+    ).resolves.toMatchObject({
+      status: 'resolved',
+      structuredInput: { resourceId: 'vehicle:ugv-only' },
+    });
+  });
+
+  it('treats a schema const as the sole governed resource', async () => {
+    const constSkill = managedResourceSkill(['vehicle:ugv-only']);
+    const inputSchema = constSkill.inputSchema as Readonly<Record<string, unknown>>;
+    await expect(
+      managedResourceResolutionService(
+        new DecisionModel({
+          structuredInput: {},
+          unresolvedFields: [],
+          sourceRefs: [],
+          decisionSummary: 'No resource was inferred.',
+        }),
+      ).resolve({
+        task: task({}, 'Read current state.'),
+        goal,
+        skill: {
+          ...constSkill,
+          inputSchema: {
+            ...inputSchema,
+            properties: { resourceId: { type: 'string', const: 'vehicle:ugv-only' } },
+          },
+        },
+        supplementaryInputs: [],
+      }),
+    ).resolves.toMatchObject({
+      status: 'resolved',
+      structuredInput: { resourceId: 'vehicle:ugv-only' },
+    });
+  });
+
+  it('does not replace an invalid explicit resource with the sole schema value', async () => {
+    await expect(
+      managedResourceResolutionService(
+        new DecisionModel({
+          structuredInput: {},
+          unresolvedFields: [],
+          sourceRefs: [],
+          decisionSummary: 'Structured input is authoritative even when invalid.',
+        }),
+      ).resolve({
+        task: task(
+          { structured_input: { resourceId: 'vehicle:outside-authority' } },
+          'Read current state.',
+        ),
+        goal,
+        skill: managedResourceSkill(['vehicle:ugv-only']),
+        supplementaryInputs: [],
+      }),
+    ).resolves.toMatchObject({
+      status: 'input_required',
+      structuredInput: { resourceId: 'vehicle:outside-authority' },
+      unresolvedFields: ['resourceId'],
+    });
+  });
 });
 
 function resolutionService(repository: MemoryRepository, model: DecisionModel) {
@@ -234,6 +374,17 @@ function resolutionService(repository: MemoryRepository, model: DecisionModel) {
     records: repository,
     clock: { now: () => timestamp },
     nextId: () => `resolution-${String(repository.records.length + 1)}`,
+  });
+}
+
+function managedResourceResolutionService(model: DecisionModel) {
+  return new SkillInputResolutionService({
+    model,
+    schemas: enumeratedResourceSchemaValidator,
+    records: new MemoryRepository(),
+    clock: { now: () => timestamp },
+    nextId: () => 'resolution-managed-resource',
+    policy: { resourceEnumeration: 'explicit_or_exact_text' },
   });
 }
 
@@ -252,6 +403,31 @@ const deviceSchemaValidator = {
             deviceId === undefined
               ? '/ must have required property deviceId'
               : '/deviceId must be string',
+          ],
+        };
+  },
+};
+
+const enumeratedResourceSchemaValidator = {
+  checkSchema: (): JsonSchemaValidationResult => ({ valid: true, errors: [] }),
+  validate: (schema: unknown, value: unknown): JsonSchemaValidationResult => {
+    const schemaRecord = isRecord(schema) ? schema : {};
+    const properties = isRecord(schemaRecord['properties']) ? schemaRecord['properties'] : {};
+    const resourceDefinition = isRecord(properties['resourceId']) ? properties['resourceId'] : {};
+    const allowed = Array.isArray(resourceDefinition['enum'])
+      ? resourceDefinition['enum']
+      : typeof resourceDefinition['const'] === 'string'
+        ? [resourceDefinition['const']]
+        : [];
+    const resourceId = isRecord(value) ? value['resourceId'] : undefined;
+    return typeof resourceId === 'string' && allowed.includes(resourceId)
+      ? { valid: true, errors: [] }
+      : {
+          valid: false,
+          errors: [
+            resourceId === undefined
+              ? "/ must have required property 'resourceId'"
+              : '/resourceId must be equal to one of the allowed values',
           ],
         };
   },
@@ -346,12 +522,15 @@ const skill: SkillVersion = {
   createdAt: timestamp,
 };
 
-function task(metadata: Readonly<Record<string, unknown>> = {}): AgentTask {
+function task(
+  metadata: Readonly<Record<string, unknown>> = {},
+  requestText = 'Inspect device-17.',
+): AgentTask {
   return {
     taskId: 'task-1',
     contextId: 'context-1',
     userId: 'operator',
-    requestText: 'Inspect device-17.',
+    requestText,
     requestMetadata: metadata,
     phase: 'skill_resolution',
     phaseMessage: 'Skill selected.',
@@ -363,4 +542,24 @@ function task(metadata: Readonly<Record<string, unknown>> = {}): AgentTask {
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+}
+
+function managedResourceSkill(resources: readonly string[]): SkillVersion {
+  return {
+    ...skill,
+    skillId: 'skill.vehicle.read-state',
+    capabilities: ['vehicle.ugv.read-state'],
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId'],
+      properties: {
+        resourceId: { type: 'string', enum: [...resources] },
+      },
+    },
+  };
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

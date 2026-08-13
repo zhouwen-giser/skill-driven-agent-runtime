@@ -1,0 +1,342 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-final-handoff/v1",
+  "generatedAt": "2026-08-12T13:04:19.555Z",
+  "finalQualification": "SDAR_UGV_INTEGRATION_BLOCKED",
+  "qualificationRationale": "Discovery, governance and real-model conformance are proven. The latest real A2A read reached the exact governed Skill and live MCP boundary, but the external adapter returned UGV_EXECUTION_MODE_UNSUPPORTED and the Goal exhausted its replan budget. Runtime restart reconciliation closed the failed CapabilityAttempt; the terminal outcome lacks a direct CapabilityAttempt FK and no terminal A2A failure projection was observed.",
+  "git": {
+    "branch": "codex/sdar-ugv-smpp-integration",
+    "baseSha": "b8fc6c20b95114007eab86305aa4e34863f1334d",
+    "finalHeadSha": "b8fc6c20b95114007eab86305aa4e34863f1334d",
+    "worktreeDirty": true,
+    "implementationCommitted": false,
+    "pushPerformed": false,
+    "pullRequestCreated": false,
+    "mergePerformed": false,
+    "tagCreated": false,
+    "releasePerformed": false,
+    "unrelatedGitignoreChangeExcluded": true
+  },
+  "source": {
+    "smppSourceId": "ugv-smpp",
+    "revision": 1,
+    "snapshotRevision": 1,
+    "statusAtObservation": "active",
+    "syncMode": "poll",
+    "authenticationMode": "explicit_unauthenticated",
+    "projection200Observed": true,
+    "conditional304Observed": true,
+    "restartOutageLkgExpiryAndBadChecksumQualificationExecuted": false
+  },
+  "registryLineage": {
+    "projectionContract": "sdar-registry-v1",
+    "registryRevision": 1,
+    "nativeRevision": 1,
+    "nativeChecksum": "72a880d6415d318919f821379007af9f59b5f611ac8560a5833b3b134603c218",
+    "conditionalRevalidationStatus": 304,
+    "candidateCount": 1
+  },
+  "providerAuthority": {
+    "externalProviderId": "isr.vehicle.ugv.ugv1",
+    "externalServerId": "production-ugv-direct-1",
+    "localServerId": "ugv-smpp-runtime-ugv6",
+    "protocolMode": "frozen_v1",
+    "publicResourceId": "vehicle:ugv1"
+  },
+  "bindingAuthority": {
+    "bindingId": "mcp-binding-ugv-smpp",
+    "revision": 2,
+    "registryRevision": 1,
+    "registryChecksum": "fd1ba955d175398b33231c8af26205b043c632a5702040c31f305ecd9c9d1d06",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62",
+    "runtimeToolRevision": 2,
+    "currentAtRecordedObservation": true,
+    "currentLivenessClaimedAtHandoff": false
+  },
+  "catalogAuthority": {
+    "operationCount": 11,
+    "readOnlyOperationCount": 5,
+    "controlOperationCount": 5,
+    "forbiddenFireOperationCount": 1,
+    "executionSemanticsSource": "admin_override",
+    "runtimeDeclaredSemanticsProven": false,
+    "realPhysicalUgvProven": false
+  },
+  "governance": {
+    "publishedReadOnlySkills": 5,
+    "publishedReadOnlySkillVersion": 4,
+    "publishedReadOnlyCapabilities": 5,
+    "publishedReadOnlyCapabilityVersion": 2,
+    "stagedNonSelectableControlSkills": 5,
+    "stagedDraftControlCapabilities": 5,
+    "persistedControlImplementationBindings": 0,
+    "fireSkills": 0,
+    "fireCapabilities": 0,
+    "fireInvocations": 0,
+    "runtimeFireHardDenyProven": false
+  },
+  "modelBootstrap": {
+    "implementationStatus": "implemented",
+    "createOnEmptyOnly": true,
+    "existingProviderMakesStartupNoOp": true,
+    "postgresqlAuthoritative": true,
+    "realDatabaseObservation": {
+      "providerCount": 2,
+      "structuredGenerationRouteCount": 21,
+      "embeddingRouteCount": 21,
+      "operationRouteCount": 42,
+      "currentDefaultPromptCount": 21,
+      "promptVersionStatus": "enabled"
+    }
+  },
+  "realModel": {
+    "configured": true,
+    "connectivityVerified": true,
+    "stageConformanceExecuted": true,
+    "stageConformancePassed": true,
+    "structuredStageCount": 9,
+    "workflowCorrectionPathPassed": true,
+    "embeddingStages": [
+      {
+        "stage": "goal",
+        "dimensions": 1024,
+        "status": "passed"
+      },
+      {
+        "stage": "skill_selection",
+        "dimensions": 1024,
+        "status": "passed"
+      }
+    ],
+    "fixtureAcceptedAsFinalAuthority": false,
+    "report": "reports/sdar-ugv-smpp-integration/model-stage-conformance.json"
+  },
+  "deterministicReadOnly": {
+    "status": "blocked",
+    "completedReadOperations": 0,
+    "requiredReadOperations": 5,
+    "historicalLiveFailure": {
+      "operationName": "vehicle_get_state",
+      "status": "failed",
+      "errorCode": "MCP_TOOL_BUSINESS_REJECTION",
+      "reasonCode": "UGV_EXECUTION_MODE_UNSUPPORTED"
+    },
+    "historicalSimulationFailure": {
+      "status": "blocked_before_invocation",
+      "reasonCode": "UGV_DEVICE_MCP_UNAVAILABLE"
+    },
+    "restartReplayVerified": false
+  },
+  "latestA2AReadOnly": {
+    "runLabel": "run016",
+    "status": "failed",
+    "a2aReadOnlyReady": false,
+    "failedAttemptReport": "reports/sdar-ugv-smpp-integration/failed-attempts/a2a-readonly-run016.redacted.json",
+    "primaryReport": "reports/sdar-ugv-smpp-integration/a2a-readonly.json",
+    "task": {
+      "taskId": "7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+      "contextId": "87882cbf-4ad5-4912-9095-df81b1b06c20",
+      "phase": "failed",
+      "errorCode": "GOAL_UNACHIEVABLE",
+      "phaseMessage": "Goal replan budget exhausted.",
+      "goalId": "goal-113fdcb2-8577-4107-8562-172ba4e38c5b",
+      "goalStatus": "unachievable",
+      "userGoalPlanId": "user-goal-plan-b72790fb-63d4-46de-831c-25073124e797",
+      "skillGoalId": "user-goal-plan-b72790fb-63d4-46de-831c-25073124e797:skill-goal:1",
+      "skillAttemptId": "skill-attempt-ed58f54a-3abe-44d4-962f-4706c3226122"
+    },
+    "authority": {
+      "taskCapabilityBindingId": "binding-7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+      "capabilityId": "vehicle.ugv.read-state",
+      "capabilityVersion": 2,
+      "exposureId": "a2a.vehicle.ugv.read-state",
+      "exposureVersion": 2,
+      "skillId": "ugv.get-state",
+      "skillVersion": 4
+    },
+    "modelPath": {
+      "successfulTaskStages": [
+        "task_understanding",
+        "goal_contract_generation",
+        "goal_planning",
+        "skill_input_resolution",
+        "goal_evaluation"
+      ],
+      "successfulExperienceObservationCountCapturedByRun": 3,
+      "successfulResultProcessingCount": 0,
+      "priorGoalEvaluationShapeCrashReproduced": false,
+      "boundedGoalEvaluationCorrectionImplemented": true
+    },
+    "mcpInvocation": {
+      "invocationId": "mcp-invocation-fb54fcdb-dabf-42ee-85d6-eebcb7aa8717",
+      "serverId": "ugv-smpp-runtime-ugv6",
+      "toolName": "vehicle_get_state",
+      "executionMode": "live",
+      "status": "failed",
+      "errorCode": "MCP_TOOL_BUSINESS_REJECTION",
+      "reasonCode": "UGV_EXECUTION_MODE_UNSUPPORTED"
+    },
+    "capabilityAttempt": {
+      "attemptId": "capability-attempt-7dcb57de-a1f1-4df1-b19e-7227e3a253d0-1",
+      "mcpInvocationLinked": true,
+      "databaseStatusAtInitialFailureObservation": "prepared",
+      "databaseStatusAfterRuntimeRestartReconciliation": "failed",
+      "startedAt": "2026-08-12T12:48:48.416Z",
+      "completedAt": "2026-08-12T12:48:48.416Z",
+      "restartReconciliationVerified": true
+    },
+    "terminalOutcome": {
+      "outcomeId": "terminal-outcome-task-7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+      "outcomeKind": "unachievable",
+      "authority": "user_goal_plan_controller",
+      "controlStatus": "replan_budget_exhausted",
+      "finalInstanceId": "instance-control-task-7dcb57de-a1f1-4df1-b19e-7227e3a253d0-0-c5279880-10ee-420b-8bbe-5bf2356d59d8",
+      "committedAt": "2026-08-12T12:48:48.416Z",
+      "capabilityAttemptId": null,
+      "taskIdAssociationToFailedCapabilityAttempt": true,
+      "directCapabilityAttemptForeignKeyGap": true
+    },
+    "a2aProjection": {
+      "lastObservedState": "TASK_STATE_WORKING",
+      "runtimeTaskTerminalFailureObserved": true,
+      "terminalFailureProjectionObserved": false,
+      "projectionGap": true
+    }
+  },
+  "invocationLineage": {
+    "latestFailedA2AInvocationLinkedToCapabilityAttempt": true,
+    "queryableLineageComplete": false,
+    "noSyntheticIdentifiers": true,
+    "remainingGaps": [
+      "TERMINAL_OUTCOME_DIRECT_CAPABILITY_ATTEMPT_ID_NULL",
+      "A2A_TERMINAL_FAILURE_PROJECTION_NOT_OBSERVED",
+      "SUCCESSFUL_RESULT_PROCESSING_NOT_OBSERVED",
+      "SUCCESSFUL_TERMINAL_UGV_OBSERVATION_NOT_AVAILABLE"
+    ]
+  },
+  "managedTaskUnderstanding": {
+    "profile": "managed_capability",
+    "implementationStatus": "implemented",
+    "realModelQualified": true,
+    "ugvSpecificHardCodedSelectorAdded": false,
+    "homeLabRegressionPreserved": true
+  },
+  "physicalAndRecoveryPhases": {
+    "movement": "unexecuted",
+    "pauseResumeCancel": "unexecuted",
+    "emergencyStop": "unexecuted",
+    "reconWorkflow": "unexecuted",
+    "failedCapabilityAttemptRestartReconciliation": "verified",
+    "broaderRestartAndRecovery": "unexecuted",
+    "reason": "Read/A2A qualification remains blocked and physical-write gates remained closed."
+  },
+  "security": {
+    "outboundMode": "unsafe_test_open",
+    "developmentTestIntegrationOnly": true,
+    "plaintextHttpAllowed": true,
+    "ssrfAuthorityMembershipBypassed": true,
+    "tlsCertificateVerificationDisabled": false,
+    "productionEligible": false
+  },
+  "safetyCounters": {
+    "physicalWrites": 0,
+    "controlCalls": 0,
+    "fireCalls": 0
+  },
+  "regression": {
+    "status": "failed",
+    "fullVerifyPassed": false,
+    "historicalAggregateFailurePreserved": true,
+    "report": "reports/sdar-ugv-smpp-integration/regression.json"
+  },
+  "layeredReadiness": {
+    "SDAR_UGV_DISCOVERY_READY": true,
+    "SDAR_UGV_READ_READY": false,
+    "SDAR_UGV_A2A_READY": false,
+    "SDAR_UGV_CONTROL_READY": false,
+    "SDAR_UGV_WORKFLOW_READY": false,
+    "SDAR_UGV_RESILIENCE_READY": false,
+    "SDAR_UGV_PRODUCTION_READY": false
+  },
+  "acceptanceGates": {
+    "A_DISCOVERY": "verified_at_observation",
+    "B_BINDING": "verified_at_observation_revision_2",
+    "C_CAPABILITY_SKILL": "read_skill_v4_capability_v2_verified_controls_staged_non_executable",
+    "D_DETERMINISTIC_READ_ONLY": "blocked",
+    "E_GENERIC_COGNITIVE_PATH": "implemented_and_real_a2a_exercised",
+    "F_REAL_LLM": "verified",
+    "G_A2A_READ_ONLY": "real_executed_failed",
+    "H_REAL_MOTION": "not_executed",
+    "I_LIFECYCLE": "not_executed",
+    "J_EMERGENCY_STOP": "not_executed",
+    "K_RECOVERY": "not_executed",
+    "L_SECURITY": "trusted_test_profile_only_production_blocked"
+  },
+  "blockers": {
+    "external": [
+      "UGV_EXECUTION_MODE_UNSUPPORTED",
+      "SUCCESSFUL_UGV_READ_NOT_OBSERVED",
+      "REAL_PHYSICAL_UGV_NOT_PROVEN"
+    ],
+    "runtimeAndLineage": [
+      "GOAL_REPLAN_BUDGET_EXHAUSTED",
+      "TERMINAL_OUTCOME_DIRECT_CAPABILITY_ATTEMPT_ID_NULL",
+      "A2A_TERMINAL_FAILURE_PROJECTION_NOT_OBSERVED",
+      "SUCCESSFUL_RESULT_PROCESSING_NOT_OBSERVED",
+      "RUNTIME_FIRE_HARD_DENY_NOT_PROVEN"
+    ],
+    "controlAndRecovery": [
+      "CONTROL_TRANSPORT_GATE_NOT_IMPLEMENTED",
+      "PHYSICAL_WRITE_INPUTS_AND_GATES_NOT_SUPPLIED",
+      "SOURCE_AND_RUNTIME_RECOVERY_NOT_QUALIFIED"
+    ],
+    "nonfunctionalAndTestEnvironment": [
+      "FULL_VERIFY_P11_TRANSIENT_TIMEOUT",
+      "PHASE13_BASELINE_STABILITY_FAILED",
+      "PHASE13_DIAGNOSTIC_ATTEMPT_ALLOCATION_DEFECT",
+      "OFFICIAL_A2A_TCK_HOST_PYTHON_VENV_UNAVAILABLE"
+    ],
+    "productionSecurity": [
+      "UNSAFE_TEST_OPEN_NON_PRODUCTION_ONLY"
+    ]
+  },
+  "deployment": {
+    "profilePath": "deploy/ugv-smpp-integration",
+    "profileStatus": "repeatable_test_profile_implemented_not_production_qualified",
+    "aggregateBootstrapStatus": "blocked",
+    "driverStatus": {
+      "sourceBootstrap": "executed_real",
+      "providerMaterialization": "executed_real_revision_2",
+      "capabilityGovernance": "executed_real_skill_v4_capability_v2",
+      "deterministicReadOnly": "executed_real_blocked",
+      "modelConformance": "executed_real_passed",
+      "a2aReadOnly": "executed_real_failed",
+      "controlQualification": "not_executed"
+    }
+  },
+  "delivery": {
+    "status": "current_worktree_bundle_generated",
+    "artifactsGeneratedForCurrentWorktree": true,
+    "artifacts": [
+      "reports/sdar-ugv-smpp-integration/delivery/sdar-ugv-smpp-integration-delivery.zip",
+      "reports/sdar-ugv-smpp-integration/delivery/sdar-ugv-smpp-integration-delivery.zip.sha256",
+      "reports/sdar-ugv-smpp-integration/delivery/sdar-ugv-smpp-integration.patch"
+    ],
+    "checksumAuthority": "sdar-ugv-smpp-integration-delivery.zip.sha256",
+    "unrelatedGitignoreExcluded": true
+  },
+  "knownLimitations": "reports/sdar-ugv-smpp-integration/known-limitations.md",
+  "intentionallyAbsentUnexecutedPhaseReports": [
+    "movement-control.json",
+    "pause-resume-cancel.json",
+    "emergency-stop.json",
+    "recon-workflow.json",
+    "recovery.json"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "tokensIncluded": false,
+    "databaseUrlsIncluded": false,
+    "privateCredentialReferencesIncluded": false
+  }
+}

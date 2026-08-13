@@ -110,6 +110,10 @@ describe('PostgresUserGoalRuntimeRepository', () => {
       `sha256:${'c'.repeat(64)}`,
       timestamp(1),
     );
+    const [firstSkillGoal] = plan().skillGoals;
+    if (firstSkillGoal === undefined) {
+      throw new Error('Expected the test plan fixture to include one Skill Goal.');
+    }
     await repository.createPlan(
       createUserGoalPlan({
         ...plan(),
@@ -120,7 +124,7 @@ describe('PostgresUserGoalRuntimeRepository', () => {
         contentHash: `sha256:${'d'.repeat(64)}`,
         skillGoals: [
           {
-            ...plan().skillGoals[0]!,
+            ...firstSkillGoal,
             skillGoalId: 'skill-goal.v122.terminal',
           },
         ],

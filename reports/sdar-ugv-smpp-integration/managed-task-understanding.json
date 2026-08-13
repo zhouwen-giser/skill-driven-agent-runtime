@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-managed-task-understanding/v1",
+  "status": "implemented_focused_unit_verified_not_real_model_qualified",
+  "evidenceClass": "implementation_and_focused_unit_evidence",
+  "derivedFrom": [
+    "apps/server/src/managed-capability-task-understanding.ts",
+    "apps/server/src/managed-deterministic-capability-admission.ts",
+    "apps/server/test/managed-capability-task-understanding.unit.test.ts",
+    "apps/server/test/managed-deterministic-capability-admission.unit.test.ts"
+  ],
+  "profile": "managed_capability",
+  "genericPath": {
+    "ugvSpecificSelectorAdded": false,
+    "homeLabExactSelectorUsed": false,
+    "capabilityAuthorityRequired": true,
+    "currentProviderBindingAuthorityRequired": true,
+    "resourceAmbiguityFailsClosed": true,
+    "movementRequiresExplicitPlanConfirmation": true,
+    "ambiguousEmergencyStopRejected": true
+  },
+  "taskTypeCount": 8,
+  "configuredTaskTypes": [
+    "task-type.vehicle.read-state",
+    "task-type.vehicle.read-capabilities",
+    "task-type.vehicle.read-targets",
+    "task-type.vehicle.navigate",
+    "task-type.vehicle.recon",
+    "task-type.vehicle.track-target",
+    "task-type.vehicle.control-gimbal",
+    "task-type.vehicle.emergency-stop"
+  ],
+  "qualification": {
+    "realModelInvocations": 0,
+    "realA2ATasks": 0,
+    "a2aReady": false,
+    "reasonCode": "UGV_REAL_MODEL_REQUIRED"
+  }
+}

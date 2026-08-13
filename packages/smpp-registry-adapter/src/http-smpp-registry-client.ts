@@ -7,6 +7,7 @@ import type {
   SmppRegistryFetchResult,
 } from '../../node-control-application/src/index.js';
 import {
+  SMPP_UNAUTHENTICATED_CREDENTIAL_REF,
   smppCandidateIdentity,
   type SmppRegistrySource,
 } from '../../node-control-domain/src/index.js';
@@ -40,8 +41,11 @@ export class HttpSmppRegistryClient implements SmppRegistryClient {
     source: SmppRegistrySource,
     ifNoneMatch?: string,
   ): Promise<SmppRegistryFetchResult> {
-    const credential = await this.#credentials.resolve(source.credentialRef);
-    if (credential === undefined) throw unavailable();
+    const unauthenticated = source.credentialRef === SMPP_UNAUTHENTICATED_CREDENTIAL_REF;
+    const credential = unauthenticated
+      ? undefined
+      : await this.#credentials.resolve(source.credentialRef);
+    if (!unauthenticated && credential === undefined) throw unavailable();
     let response: Response;
     try {
       response = await this.#fetch(source.registryEndpoint, {
@@ -49,7 +53,7 @@ export class HttpSmppRegistryClient implements SmppRegistryClient {
         redirect: 'manual',
         headers: {
           accept: 'application/json',
-          authorization: `Bearer ${credential}`,
+          ...(credential === undefined ? {} : { authorization: `Bearer ${credential}` }),
           ...(ifNoneMatch === undefined ? {} : { 'if-none-match': ifNoneMatch }),
         },
         signal: AbortSignal.timeout(this.#timeoutMs),

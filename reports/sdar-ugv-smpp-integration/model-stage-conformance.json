@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-model-stage-conformance/v1",
+  "status": "passed",
+  "evidenceClass": "real_model_provider",
+  "observedAt": "2026-08-12T09:59:21.618Z",
+  "provider": {
+    "providerId": "ugv-real-model",
+    "model": "qwen3.7-max",
+    "apiStyle": "openai_chat_completions",
+    "connectivity": "passed",
+    "credentialsRedacted": true
+  },
+  "embeddingPrerequisite": {
+    "status": "passed",
+    "provider": {
+      "providerId": "ugv-real-model-embedding",
+      "model": "text-embedding-v4",
+      "apiStyle": "openai_chat_completions",
+      "connectivity": "passed",
+      "credentialsRedacted": true
+    },
+    "stages": [
+      {
+        "stage": "goal",
+        "status": "passed",
+        "finiteVectorValidated": true,
+        "dimensions": 1024,
+        "boundedTimeout": true
+      },
+      {
+        "stage": "skill_selection",
+        "status": "passed",
+        "finiteVectorValidated": true,
+        "dimensions": 1024,
+        "boundedTimeout": true
+      }
+    ]
+  },
+  "correctionPath": {
+    "exercised": true,
+    "invalidFirstResponseRejected": true,
+    "rejectionKind": "application_schema_validation",
+    "correctedStructuredResponseValidated": true
+  },
+  "stages": [
+    {
+      "stage": "task_understanding",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "goal_contract_generation",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "goal_planning",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "skill_selection",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "skill_input_resolution",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "workflow_planning",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "result_processing",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "goal_evaluation",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    },
+    {
+      "stage": "evaluation",
+      "status": "passed",
+      "structuredOutputValidated": true,
+      "boundedTimeout": true,
+      "promptPublished": true
+    }
+  ]
+}

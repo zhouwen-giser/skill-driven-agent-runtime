@@ -108,6 +108,13 @@ export interface TaskTypeIndexSource {
   ): Promise<readonly TaskTypeDefinition[]>;
 }
 
+export interface TaskTypeAdmissionPolicy {
+  /** A model decision without at least one supplied, exact Task Type cannot enter Goal planning. */
+  readonly requireKnownMatch: boolean;
+  /** Only Task Types backed by a current public Capability/Skill summary are supplied to the model. */
+  readonly requirePublicCapabilitySupport: boolean;
+}
+
 export class StaticTaskTypeIndexSource implements TaskTypeIndexSource {
   readonly #definitions: readonly TaskTypeDefinition[];
 
@@ -166,6 +173,8 @@ export class GenericTaskUnderstandingService {
   readonly #policyVersion: string;
   readonly #clock: Readonly<{ now(): string }>;
   readonly #nextUnderstandingId: () => string;
+  readonly #taskTypeAdmission: TaskTypeAdmissionPolicy;
+  readonly #modelTimeoutMs: number;
 
   constructor(
     dependencies: Readonly<{
@@ -176,6 +185,8 @@ export class GenericTaskUnderstandingService {
       policyVersion: string;
       clock: Readonly<{ now(): string }>;
       nextUnderstandingId(): string;
+      taskTypeAdmission?: TaskTypeAdmissionPolicy;
+      modelTimeoutMs?: number;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -185,14 +196,30 @@ export class GenericTaskUnderstandingService {
     this.#policyVersion = dependencies.policyVersion;
     this.#clock = dependencies.clock;
     this.#nextUnderstandingId = dependencies.nextUnderstandingId;
+    this.#taskTypeAdmission = dependencies.taskTypeAdmission ?? {
+      requireKnownMatch: false,
+      requirePublicCapabilitySupport: false,
+    };
+    this.#modelTimeoutMs = dependencies.modelTimeoutMs ?? 30_000;
+    if (
+      !Number.isSafeInteger(this.#modelTimeoutMs) ||
+      this.#modelTimeoutMs < 1 ||
+      this.#modelTimeoutMs > 300_000
+    )
+      throw new Error('TASK_UNDERSTANDING_MODEL_TIMEOUT_INVALID');
   }
 
   async understand(input: UnderstandGenericTaskInput): Promise<GenericTaskUnderstandingRevision> {
-    const [current, capabilityView, taskTypes] = await Promise.all([
+    const [current, capabilityView, indexedTaskTypes] = await Promise.all([
       this.#repository.findCurrent(input.taskId),
       this.#capabilities.getSummary(),
       this.#taskTypes.search({ requestText: input.requestText, limit: 8 }),
     ]);
+    const taskTypes = admitTaskTypes(
+      indexedTaskTypes,
+      capabilityView?.summary,
+      this.#taskTypeAdmission,
+    );
     const instruction = JSON.stringify({
       policy: {
         version: this.#policyVersion,
@@ -219,10 +246,13 @@ export class GenericTaskUnderstandingService {
     const knownKinds = new Set(knownDimensions.map((dimension) => dimension.kind));
     const matchingTaskTypes = selectKnownTaskTypes(generated.output.taskTypeCandidates, taskTypes);
     const matchingTaskTypeDefinitions = definitionsForCandidates(matchingTaskTypes, taskTypes);
+    const missingKnownTaskType =
+      this.#taskTypeAdmission.requireKnownMatch && matchingTaskTypes.length === 0;
     const missingDimensions = buildMissingDimensions(
       generated.output,
       matchingTaskTypeDefinitions,
       knownKinds,
+      missingKnownTaskType,
     );
     const availableCapabilities = new Set(
       capabilityView?.summary.items
@@ -252,7 +282,9 @@ export class GenericTaskUnderstandingService {
               dimensionKind: assumption.dimensionKind,
             },
       );
-    const disposition = dispositionFor(missingDimensions, capabilityRequirements);
+    const disposition = missingKnownTaskType
+      ? 'clarification_required'
+      : dispositionFor(missingDimensions, capabilityRequirements);
     const createdAt = this.#clock.now();
     const revision = (current?.revision ?? 0) + 1;
     const sourceRefs = buildSourceRefs(
@@ -318,7 +350,7 @@ export class GenericTaskUnderstandingService {
         responseSchema: modelOutputSchema.toJSONSchema(),
         sourceRefs,
         maxAttempts: 1,
-        timeoutMs: 30_000,
+        timeoutMs: this.#modelTimeoutMs,
         taskId: taskSource.replace(/^task_request:/u, ''),
       });
       const parsed = modelOutputSchema.safeParse(response.structuredResult);
@@ -349,6 +381,7 @@ function buildMissingDimensions(
   output: ModelOutput,
   taskTypes: readonly TaskTypeDefinition[],
   knownKinds: ReadonlySet<MissingDimensionKind>,
+  requireKnownTaskTypeClarification = false,
 ): readonly MissingDimension[] {
   const modelQuestions = new Map(
     output.missingDimensions.map((item) => [item.kind, item.question]),
@@ -356,6 +389,18 @@ function buildMissingDimensions(
   const required = new Set<MissingDimensionKind>(modelQuestions.keys());
   for (const taskType of taskTypes) {
     for (const kind of taskType.requiredDimensions) required.add(kind);
+  }
+  if (requireKnownTaskTypeClarification) {
+    const clarificationKind = (['target', 'scope', 'criteria'] as const).find(
+      (kind) => !knownKinds.has(kind),
+    );
+    if (clarificationKind !== undefined) {
+      required.add(clarificationKind);
+      modelQuestions.set(
+        clarificationKind,
+        'Please identify one currently supported Task Type and its exact target.',
+      );
+    }
   }
   return [...required]
     .filter((kind) => !knownKinds.has(kind))
@@ -393,16 +438,34 @@ function mergeCapabilityRequirements(
   const merged = new Map(modelRequirements.map((item) => [item.capabilityId, item]));
   for (const taskType of taskTypes) {
     for (const capabilityId of taskType.capabilityRequirements) {
-      if (!merged.has(capabilityId)) {
-        merged.set(capabilityId, {
-          capabilityId,
-          description: `Required by Task Type ${taskType.taskTypeId}.`,
-          required: true,
-        });
-      }
+      const proposed = merged.get(capabilityId);
+      merged.set(capabilityId, {
+        capabilityId,
+        description: proposed?.description ?? `Required by Task Type ${taskType.taskTypeId}.`,
+        // A model may describe a requirement but cannot downgrade Task Type authority.
+        required: true,
+      });
     }
   }
   return [...merged.values()];
+}
+
+function admitTaskTypes(
+  definitions: readonly TaskTypeDefinition[],
+  capabilitySummary: RuntimeCapabilitySummarySnapshot | undefined,
+  policy: TaskTypeAdmissionPolicy,
+): readonly TaskTypeDefinition[] {
+  if (!policy.requirePublicCapabilitySupport) return definitions;
+  const supported = new Set(
+    capabilitySummary?.items
+      .filter((item) => item.public && item.exactSkillVersionRefs.length > 0)
+      .map((item) => item.capabilityId) ?? [],
+  );
+  return definitions.filter(
+    (definition) =>
+      definition.capabilityRequirements.length > 0 &&
+      definition.capabilityRequirements.every((capabilityId) => supported.has(capabilityId)),
+  );
 }
 
 function uniqueByKind(values: readonly TaskDimensionValue[]): readonly TaskDimensionValue[] {

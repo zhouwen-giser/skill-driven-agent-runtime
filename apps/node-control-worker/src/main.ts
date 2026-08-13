@@ -16,6 +16,7 @@ import {
   HttpSmppRegistryClient,
 } from '../../../packages/smpp-registry-adapter/src/index.js';
 import { loadNodeControlWorkerEnvironment } from './environment.js';
+import { assertOutboundEndpoint } from '../../node-control-api/src/outbound-endpoint-policy.js';
 
 const environment = loadNodeControlWorkerEnvironment();
 const pool = new Pool({ connectionString: environment.SDAR_CONTROL_DATABASE_URL, max: 4 });
@@ -24,7 +25,9 @@ await repository.migrate();
 const clock = { now: () => new Date().toISOString() };
 const smppRegistry = new NodeControlSmppRegistryService({
   repository: new PostgresNodeControlSmppRegistryRepository(pool),
-  client: new HttpSmppRegistryClient(new EnvironmentSmppCredentialResolver()),
+  client: new HttpSmppRegistryClient(new EnvironmentSmppCredentialResolver(), {
+    fetch: governedSmppFetch(),
+  }),
   clock,
   ids: { next: randomUUID },
 });
@@ -61,4 +64,23 @@ if (environment.SDAR_CONTROL_WORKER_ONCE === 'true') {
 
 function summarize(error: unknown): string {
   return error instanceof Error ? error.message : 'UNKNOWN_WORKER_ERROR';
+}
+
+function governedSmppFetch(): typeof fetch {
+  return (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    assertOutboundEndpoint(input instanceof Request ? input.url : input.toString(), {
+      allowedAuthorities: splitAllowlist(environment.SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST),
+      unsafeTestOpen: environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
+    });
+    return globalThis.fetch(input, { ...init, redirect: 'manual' });
+  };
+}
+
+function splitAllowlist(value: string): readonly string[] {
+  return Object.freeze(
+    value
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter((entry) => entry !== ''),
+  );
 }

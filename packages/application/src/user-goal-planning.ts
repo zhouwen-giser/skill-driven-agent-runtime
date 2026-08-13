@@ -127,12 +127,24 @@ export interface UserGoalPlanCandidateGuard {
   assert(plan: UserGoalPlan, contract: UserGoalCompletionContract): void;
 }
 
+export interface UserGoalPlanCandidateAuthority {
+  readonly capabilityNeeds: readonly string[];
+  readonly requiredEffectRefs: readonly string[];
+  readonly evidenceRequirements: readonly string[];
+  readonly artifactRequirements: readonly string[];
+}
+
+export interface UserGoalPlanCandidateAuthorityResolver {
+  resolve(taskId: string): Promise<UserGoalPlanCandidateAuthority | undefined>;
+}
+
 export class UserGoalPlanningService {
   readonly #model: StructuredModelProvider;
   readonly #repository: UserGoalPlanningRepository;
   readonly #now: () => string;
   readonly #nextPlanId: () => string;
   readonly #candidateGuard: UserGoalPlanCandidateGuard | undefined;
+  readonly #candidateAuthority: UserGoalPlanCandidateAuthorityResolver | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -141,6 +153,7 @@ export class UserGoalPlanningService {
       now: () => string;
       nextPlanId: () => string;
       candidateGuard?: UserGoalPlanCandidateGuard;
+      candidateAuthority?: UserGoalPlanCandidateAuthorityResolver;
     }>,
   ) {
     this.#model = dependencies.model;
@@ -148,6 +161,7 @@ export class UserGoalPlanningService {
     this.#now = dependencies.now;
     this.#nextPlanId = dependencies.nextPlanId;
     this.#candidateGuard = dependencies.candidateGuard;
+    this.#candidateAuthority = dependencies.candidateAuthority;
   }
 
   async plan(
@@ -195,6 +209,10 @@ export class UserGoalPlanningService {
     const createdAt = this.#now();
     const contract = userGoalCompletionContractFor(input.goal);
     const contractHash = hashJson(contract);
+    const candidateAuthority =
+      input.taskId === undefined
+        ? undefined
+        : await this.#candidateAuthority?.resolve(input.taskId);
     const correctionErrors: string[] = [];
     for (let attempt = 1; attempt <= contract.policy.maxPlanningModelAttempts; attempt += 1) {
       try {
@@ -211,6 +229,13 @@ export class UserGoalPlanningService {
                 'Provider/MCP operation',
                 'Workflow/model provider',
               ],
+              ...(candidateAuthority === undefined
+                ? {}
+                : {
+                    taskCapabilityPlanAuthority: candidateAuthority,
+                    taskCapabilityPlanAuthorityPolicy:
+                      'Produce exactly one Skill Goal and no dependencies. Runtime deterministically owns the four reference arrays and required criterion coverage.',
+                  }),
               ...(input.planningContext === undefined
                 ? {}
                 : {
@@ -229,6 +254,11 @@ export class UserGoalPlanningService {
           }),
         );
         const planId = this.#nextPlanId();
+        const authoritativeCandidate =
+          candidateAuthority === undefined
+            ? candidate
+            : applyCandidateAuthority(candidate, candidateAuthority, contract);
+        const normalizedCandidate = normalizeCandidateIdentifiers(authoritativeCandidate, planId);
         const revision =
           input.revision ?? (input.sourcePlan === undefined ? 1 : input.sourcePlan.revision + 1);
         const plan = validateUserGoalPlan(
@@ -248,16 +278,20 @@ export class UserGoalPlanningService {
               goalId: contract.goalId,
               goalVersion: contract.goalVersion,
               revision,
-              skillGoals: candidate.skillGoals,
-              dependencies: candidate.dependencies,
+              skillGoals: normalizedCandidate.skillGoals,
+              dependencies: normalizedCandidate.dependencies,
             }),
-            skillGoals: candidate.skillGoals.map((goal) => ({ ...goal, status: 'pending' })),
-            dependencies: candidate.dependencies,
+            skillGoals: normalizedCandidate.skillGoals.map((goal) => ({
+              ...goal,
+              status: 'pending',
+            })),
+            dependencies: normalizedCandidate.dependencies,
             inheritedCompletedEffectIds: input.sourcePlan?.inheritedCompletedEffectIds ?? [],
             forbiddenReplayFingerprints: input.sourcePlan?.forbiddenReplayFingerprints ?? [],
             createdAt,
           }),
         );
+        if (candidateAuthority !== undefined) assertCandidateAuthority(plan, candidateAuthority);
         this.#candidateGuard?.assert(plan, contract);
         return { contract, plan };
       } catch (error) {
@@ -316,9 +350,93 @@ export class UserGoalPlanningService {
     goalId: string,
     goalVersion: number,
   ): Promise<Readonly<{ plan: UserGoalPlan; lockVersion: number }> | undefined> {
-    if (this.#candidateGuard !== undefined) return Promise.resolve(undefined);
+    if (this.#candidateGuard !== undefined || this.#candidateAuthority !== undefined)
+      return Promise.resolve(undefined);
     return this.#repository.findReusablePlan(goalId, goalVersion);
   }
+}
+
+function applyCandidateAuthority(
+  candidate: z.infer<typeof PlanCandidateSchema>,
+  authority: UserGoalPlanCandidateAuthority,
+  contract: UserGoalCompletionContract,
+): z.infer<typeof PlanCandidateSchema> {
+  const skillGoal = candidate.skillGoals[0];
+  if (candidate.skillGoals.length !== 1 || skillGoal === undefined || candidate.dependencies.length)
+    return candidate;
+  return {
+    skillGoals: [
+      {
+        ...skillGoal,
+        capabilityNeeds: [...authority.capabilityNeeds],
+        coveredCriterionIds: contract.criteria
+          .filter((criterion) => criterion.required)
+          .map((criterion) => criterion.criterionId),
+        requiredEffectRefs: [...authority.requiredEffectRefs],
+        evidenceRequirements: [...authority.evidenceRequirements],
+        artifactRequirements: [...authority.artifactRequirements],
+      },
+    ],
+    dependencies: [],
+  };
+}
+
+function assertCandidateAuthority(
+  plan: UserGoalPlan,
+  authority: UserGoalPlanCandidateAuthority,
+): void {
+  const skillGoal = plan.skillGoals[0];
+  if (
+    plan.skillGoals.length !== 1 ||
+    skillGoal === undefined ||
+    plan.dependencies.length !== 0 ||
+    canonicalJson(skillGoal.capabilityNeeds) !== canonicalJson(authority.capabilityNeeds) ||
+    canonicalJson(skillGoal.requiredEffectRefs) !== canonicalJson(authority.requiredEffectRefs) ||
+    canonicalJson(skillGoal.evidenceRequirements) !==
+      canonicalJson(authority.evidenceRequirements) ||
+    canonicalJson(skillGoal.artifactRequirements) !== canonicalJson(authority.artifactRequirements)
+  )
+    throw Object.assign(
+      new Error('The User Goal Plan does not match the immutable Task Capability authority.'),
+      { code: 'USER_GOAL_PLAN_TASK_CAPABILITY_AUTHORITY_INVALID' as const },
+    );
+}
+
+function normalizeCandidateIdentifiers(
+  candidate: z.infer<typeof PlanCandidateSchema>,
+  planId: string,
+): z.infer<typeof PlanCandidateSchema> {
+  const originalIds = candidate.skillGoals.map((goal) => goal.skillGoalId);
+  if (new Set(originalIds).size !== originalIds.length)
+    throw Object.assign(new Error('Skill Goal candidate identifiers must be unique.'), {
+      code: 'USER_GOAL_PLAN_CANDIDATE_ID_INVALID' as const,
+    });
+  const mapped = new Map(
+    originalIds.map((originalId, index) => [
+      originalId,
+      `${planId}:skill-goal:${String(index + 1)}`,
+    ]),
+  );
+  return {
+    skillGoals: candidate.skillGoals.map((goal, index) => ({
+      ...goal,
+      skillGoalId: `${planId}:skill-goal:${String(index + 1)}`,
+    })),
+    dependencies: candidate.dependencies.map((dependency, index) => {
+      const predecessorSkillGoalId = mapped.get(dependency.predecessorSkillGoalId);
+      const successorSkillGoalId = mapped.get(dependency.successorSkillGoalId);
+      if (predecessorSkillGoalId === undefined || successorSkillGoalId === undefined)
+        throw Object.assign(new Error('Skill Goal dependency references an unknown candidate.'), {
+          code: 'USER_GOAL_PLAN_CANDIDATE_ID_INVALID' as const,
+        });
+      return {
+        ...dependency,
+        dependencyId: `${planId}:dependency:${String(index + 1)}`,
+        predecessorSkillGoalId,
+        successorSkillGoalId,
+      };
+    }),
+  };
 }
 
 export class UserGoalPlanningError extends Error {

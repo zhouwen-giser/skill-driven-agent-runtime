@@ -59,6 +59,7 @@ import {
 import { NodeControlCapabilityReadinessCoordinator } from './capability-readiness-coordinator.js';
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
+import { assertOutboundEndpoint, type OutboundEndpointPolicy } from './outbound-endpoint-policy.js';
 
 export interface NodeControlApiRuntime {
   readonly baseUrl: string;
@@ -68,6 +69,15 @@ export interface NodeControlApiRuntime {
 export async function startNodeControlApi(
   environment: NodeControlApiEnvironment,
 ): Promise<NodeControlApiRuntime> {
+  const outboundPolicy: OutboundEndpointPolicy = {
+    allowedAuthorities: splitAllowlist(
+      environment.SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST ?? '127.0.0.1,localhost',
+    ),
+    privateHttpAuthorities: splitAllowlist(
+      environment.SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST ?? '',
+    ),
+    unsafeTestOpen: environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
+  };
   const pool = new Pool({ connectionString: environment.SDAR_CONTROL_DATABASE_URL, max: 10 });
   const runtimePool = new Pool({
     connectionString:
@@ -126,7 +136,9 @@ export async function startNodeControlApi(
   });
   const smppRegistryService = new NodeControlSmppRegistryService({
     repository: new PostgresNodeControlSmppRegistryRepository(pool),
-    client: new HttpSmppRegistryClient(new EnvironmentSmppCredentialResolver()),
+    client: new HttpSmppRegistryClient(new EnvironmentSmppCredentialResolver(), {
+      fetch: governedOutboundFetch(outboundPolicy),
+    }),
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
   });
@@ -138,6 +150,8 @@ export async function startNodeControlApi(
       (environment.SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST ?? '127.0.0.1,localhost').split(','),
       undefined,
       runtimeMcpCatalogAuthority,
+      splitAllowlist(environment.SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST ?? ''),
+      environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
     ),
     clock: { now: () => new Date().toISOString() },
     ids: { next: randomUUID },
@@ -315,6 +329,11 @@ export async function startNodeControlApi(
       providerEndpointAllowlist: splitAllowlist(
         environment.SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST ?? '127.0.0.1,localhost',
       ),
+      privateHttpEndpointAllowlist: splitAllowlist(
+        environment.SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST ?? '',
+      ),
+      unsafeTestOpenOutbound:
+        environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
       runtimeServiceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
       nodeControlApiUrl: environment.SDAR_CONTROL_PUBLIC_URL,
       nodeEventsUrl: environment.SDAR_CONTROL_NODE_EVENTS_URL,
@@ -422,4 +441,12 @@ function splitAllowlist(value: string): readonly string[] {
       .map((entry) => entry.trim().toLowerCase())
       .filter((entry) => entry !== ''),
   );
+}
+
+function governedOutboundFetch(policy: OutboundEndpointPolicy): typeof fetch {
+  return (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const endpoint = input instanceof Request ? input.url : input.toString();
+    assertOutboundEndpoint(endpoint, policy);
+    return globalThis.fetch(input, { ...init, redirect: 'manual' });
+  };
 }

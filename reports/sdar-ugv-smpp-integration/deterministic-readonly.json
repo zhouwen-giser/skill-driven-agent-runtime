@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-deterministic-read-only/v1",
+  "status": "blocked",
+  "evidenceClass": "real_external_runtime_failure_observation",
+  "observedAt": "2026-08-12T07:10:33.753Z",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/provider-binding.json",
+    "reports/sdar-ugv-smpp-integration/live-catalog.redacted.json",
+    "reports/sdar-ugv-smpp-integration/capability-skill-governance.redacted.json"
+  ],
+  "externalAdapter": {
+    "supportedExecutionModes": [
+      "simulation"
+    ],
+    "livePhysicalUGVProven": false
+  },
+  "attempts": {
+    "sdarLive": {
+      "status": "failed",
+      "operationName": "vehicle_get_state",
+      "readOnly": true,
+      "invocationCount": 1,
+      "errorCode": "MCP_TOOL_BUSINESS_REJECTION",
+      "reasonCode": "UGV_EXECUTION_MODE_UNSUPPORTED"
+    },
+    "sdarSimulation": {
+      "status": "blocked_before_invocation",
+      "readiness": "unknown",
+      "readinessReasonCode": "UGV_DEVICE_MCP_UNAVAILABLE",
+      "invocationCount": 0,
+      "failClosed": true
+    },
+    "directAdapterCompatibilityProbe": {
+      "status": "failed",
+      "executionMode": "simulation",
+      "reasonCode": "UGV_ADAPTER_INTERNAL_ERROR",
+      "includedInSdarInvocationCount": false
+    }
+  },
+  "operations": [
+    {
+      "operationName": "vehicle_get_state",
+      "status": "blocked",
+      "reason": "LIVE_MODE_UNSUPPORTED_AND_SIMULATION_DEPENDENCY_UNAVAILABLE"
+    },
+    {
+      "operationName": "vehicle_get_capabilities",
+      "status": "not_executed",
+      "reason": "FIRST_READ_OPERATION_BLOCKED"
+    },
+    {
+      "operationName": "vehicle_get_payload_status",
+      "status": "not_executed",
+      "reason": "FIRST_READ_OPERATION_BLOCKED"
+    },
+    {
+      "operationName": "vehicle_get_targets",
+      "status": "not_executed",
+      "reason": "FIRST_READ_OPERATION_BLOCKED"
+    },
+    {
+      "operationName": "vehicle_laser_range",
+      "status": "not_executed",
+      "reason": "FIRST_READ_OPERATION_BLOCKED"
+    }
+  ],
+  "deterministicReadOnlyReady": false,
+  "restartRecoveryVerified": false,
+  "qualification": {
+    "deterministicReadOnly": "blocked",
+    "restartRecovery": "blocked",
+    "a2aReadOnly": "blocked",
+    "physicalControl": "blocked",
+    "production": "blocked"
+  },
+  "safety": {
+    "sdarLiveReadOnlyInvocations": 1,
+    "sdarSimulationInvocations": 0,
+    "modelCalls": 0,
+    "physicalWrites": 0,
+    "controlCalls": 0,
+    "fireCalls": 0
+  },
+  "blockingReasons": [
+    "EXTERNAL_ADAPTER_SIMULATION_ONLY",
+    "UGV_DEVICE_MCP_UNAVAILABLE",
+    "UGV_ADAPTER_INTERNAL_ERROR"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "tokensIncluded": false,
+    "credentialReferencesIncluded": false
+  }
+}

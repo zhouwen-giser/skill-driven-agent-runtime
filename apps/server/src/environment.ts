@@ -12,6 +12,16 @@ const ManagementRoleSchema = z.enum([
   'security_operator',
 ]);
 
+const OptionalNonBlankStringSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().trim().min(1).optional(),
+);
+
+const OptionalSecretSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().min(1).regex(/^\S+$/u, 'Model API key must not contain whitespace.').optional(),
+);
+
 const ArtifactManagementRolesSchema = z.preprocess(
   (value) => (typeof value === 'string' ? value.split(',').map((role) => role.trim()) : value),
   z
@@ -30,6 +40,7 @@ const ArtifactManagementRolesSchema = z.preprocess(
 
 const EnvironmentSchema = z
   .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
     SDAR_POSTGRES_URL: z
       .string()
       .min(1)
@@ -43,6 +54,10 @@ const EnvironmentSchema = z
     SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
     SDAR_NODE_CONTROL_BASE_URL: z.url().optional(),
     SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
+    SDAR_CONTROL_ENVIRONMENT: z.string().trim().min(1).max(128).default('development'),
+    SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: z.enum(['safe', 'unsafe_test_open']).default('safe'),
+    SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
+    SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
     SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z
       .string()
       .min(32)
@@ -64,9 +79,102 @@ const EnvironmentSchema = z
     BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY: z.enum(['true', 'false']).default('false'),
     BUSINESS_EVENTS_POLL_INTERVAL_MS: z.coerce.number().int().min(100).max(10_000).default(500),
     BUSINESS_EVENTS_MAX_SUBSCRIPTIONS: z.coerce.number().int().min(1).max(10_000).default(256),
-    SDAR_TASK_UNDERSTANDING_PROFILE: z.enum(['off', 'home_lab_read_only']).default('off'),
+    SDAR_UGV_REAL_MODEL_ENABLED: z.enum(['YES', 'NO']).default('NO'),
+    SDAR_UGV_MODEL_PROVIDER_ID: OptionalNonBlankStringSchema,
+    SDAR_UGV_MODEL_BASE_URL: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.url().optional(),
+    ),
+    SDAR_UGV_MODEL_NAME: OptionalNonBlankStringSchema,
+    SDAR_UGV_MODEL_EMBEDDING_NAME: OptionalNonBlankStringSchema,
+    SDAR_UGV_MODEL_EMBEDDING_PROVIDER_ID: OptionalNonBlankStringSchema,
+    SDAR_UGV_MODEL_EMBEDDING_BASE_URL: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.url().optional(),
+    ),
+    SDAR_UGV_MODEL_API_STYLE: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.enum(['openai_chat_completions', 'anthropic_messages']).optional(),
+    ),
+    SDAR_UGV_MODEL_API_KEY: OptionalSecretSchema,
+    SDAR_UGV_MODEL_API_KEY_FILE: OptionalNonBlankStringSchema,
+    SDAR_UGV_MODEL_TIMEOUT_MS: z.coerce.number().int().positive().max(300_000).default(30_000),
+    SDAR_TASK_UNDERSTANDING_PROFILE: z
+      .enum(['off', 'home_lab_read_only', 'managed_capability'])
+      .default('off'),
   })
   .superRefine((environment, context) => {
+    if (environment.SDAR_UGV_REAL_MODEL_ENABLED === 'YES') {
+      for (const [key, value] of [
+        ['SDAR_UGV_MODEL_PROVIDER_ID', environment.SDAR_UGV_MODEL_PROVIDER_ID],
+        ['SDAR_UGV_MODEL_BASE_URL', environment.SDAR_UGV_MODEL_BASE_URL],
+        ['SDAR_UGV_MODEL_NAME', environment.SDAR_UGV_MODEL_NAME],
+        ['SDAR_UGV_MODEL_API_STYLE', environment.SDAR_UGV_MODEL_API_STYLE],
+      ] as const) {
+        if (value === undefined)
+          context.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is required when real-model bootstrap is enabled.`,
+          });
+      }
+      if (
+        (environment.SDAR_UGV_MODEL_API_KEY === undefined) ===
+        (environment.SDAR_UGV_MODEL_API_KEY_FILE === undefined)
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['SDAR_UGV_MODEL_API_KEY'],
+          message:
+            'Exactly one of SDAR_UGV_MODEL_API_KEY or SDAR_UGV_MODEL_API_KEY_FILE is required.',
+        });
+      if (
+        (environment.SDAR_UGV_MODEL_EMBEDDING_PROVIDER_ID !== undefined ||
+          environment.SDAR_UGV_MODEL_EMBEDDING_BASE_URL !== undefined) &&
+        environment.SDAR_UGV_MODEL_EMBEDDING_NAME === undefined
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['SDAR_UGV_MODEL_EMBEDDING_NAME'],
+          message:
+            'SDAR_UGV_MODEL_EMBEDDING_NAME is required when an embedding Provider ID is configured.',
+        });
+      if (
+        environment.SDAR_UGV_MODEL_EMBEDDING_NAME !== undefined &&
+        environment.SDAR_UGV_MODEL_API_STYLE !== 'openai_chat_completions'
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['SDAR_UGV_MODEL_EMBEDDING_NAME'],
+          message: 'Embedding bootstrap requires an OpenAI-compatible Provider.',
+        });
+      if (
+        environment.SDAR_UGV_MODEL_EMBEDDING_NAME !== undefined &&
+        environment.SDAR_UGV_MODEL_EMBEDDING_PROVIDER_ID === environment.SDAR_UGV_MODEL_PROVIDER_ID
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['SDAR_UGV_MODEL_EMBEDDING_PROVIDER_ID'],
+          message: 'Embedding and structured-generation Provider IDs must be different.',
+        });
+    }
+    for (const [key, value] of [
+      ['SDAR_UGV_MODEL_BASE_URL', environment.SDAR_UGV_MODEL_BASE_URL],
+      ['SDAR_UGV_MODEL_EMBEDDING_BASE_URL', environment.SDAR_UGV_MODEL_EMBEDDING_BASE_URL],
+    ] as const) {
+      if (value === undefined) continue;
+      const endpoint = new URL(value);
+      if (
+        !['http:', 'https:'].includes(endpoint.protocol) ||
+        endpoint.username !== '' ||
+        endpoint.password !== ''
+      )
+        context.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'Model base URL must be a credential-free HTTP(S) URL.',
+        });
+    }
     const artifactManagementConfigured =
       environment.SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID !== undefined ||
       environment.SDAR_ARTIFACT_MANAGEMENT_TENANT_ID !== undefined ||
@@ -81,15 +189,49 @@ const EnvironmentSchema = z
         message: 'Node Control Capability Evidence requires both base URL and service token.',
       });
     }
+    if (environment.SDAR_NODE_CONTROL_BASE_URL !== undefined) {
+      const endpoint = new URL(environment.SDAR_NODE_CONTROL_BASE_URL);
+      if (
+        !['http:', 'https:'].includes(endpoint.protocol) ||
+        endpoint.username !== '' ||
+        endpoint.password !== ''
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['SDAR_NODE_CONTROL_BASE_URL'],
+          message: 'Node Control base URL must be a credential-free HTTP(S) URL.',
+        });
+      else if (
+        environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY !== 'unsafe_test_open' &&
+        endpoint.protocol !== 'https:' &&
+        !isLoopbackHost(endpoint.hostname)
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['SDAR_NODE_CONTROL_BASE_URL'],
+          message: 'Non-loopback Node Control endpoints must use HTTPS.',
+        });
+    }
     if (
-      environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only' &&
+      environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open' &&
+      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+        !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY'],
+        message: 'unsafe_test_open is forbidden outside an explicit non-production environment.',
+      });
+    if (
+      (environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only' ||
+        environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability') &&
       environment.SDAR_NODE_CONTROL_BASE_URL === undefined
     ) {
       context.addIssue({
         code: 'custom',
         path: ['SDAR_NODE_CONTROL_BASE_URL'],
         message:
-          'The home-lab read-only profile requires authenticated Node Control Capability and current Binding authority.',
+          'The selected Task Understanding profile requires authenticated Node Control Capability and current Binding authority.',
       });
     }
     if (

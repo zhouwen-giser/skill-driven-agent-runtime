@@ -1,0 +1,265 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-regression/v1",
+  "generatedAt": "2026-08-12T08:12:06.073Z",
+  "status": "failed",
+  "evidenceClass": "repository_gate_and_subsequent_individual_gate_observations",
+  "regressionPassed": false,
+  "fullVerifyPassed": false,
+  "thresholdsWeakened": false,
+  "assertionsNotWeakened": true,
+  "assertionsSkippedOrRelaxed": false,
+  "environment": {
+    "node": "v22.23.1",
+    "pnpm": "11.7.0",
+    "infrastructureMode": "isolated_ephemeral_postgres_with_operator_managed_redis",
+    "temporaryPostgresCleanedUp": true,
+    "operatorDatabaseMutationPerformed": false
+  },
+  "commandMatrix": [
+    {
+      "name": "authoritative_repository_wide_verification",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
+      "startedAt": "2026-08-12T07:44:41.768Z",
+      "completedAt": "2026-08-12T07:52:33.828Z",
+      "exitCode": 1,
+      "status": "failed",
+      "classification": "authoritative_full_gate",
+      "failure": {
+        "stage": "postgres_redis_integration",
+        "suite": "evidence_export_v141_isolated",
+        "code": "P11_WAIT_TIMEOUT"
+      }
+    },
+    {
+      "name": "isolated_evidence_export_rerun",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true node scripts/test-integration.mjs apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed_1_of_1",
+      "classification": "focused_non_authoritative_rerun"
+    },
+    {
+      "name": "end_to_end_and_phase13",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm test:e2e",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 1,
+      "status": "failed",
+      "classification": "subsequent_individual_gate",
+      "failure": {
+        "stage": "phase13_performance",
+        "code": "P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXISTS",
+        "underlyingGate": "baseline_stability"
+      }
+    },
+    {
+      "name": "official_a2a_tck",
+      "command": "pnpm test:a2a-tck",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 1,
+      "status": "environment_blocked_before_tests",
+      "classification": "subsequent_individual_gate"
+    },
+    {
+      "name": "evidence_e2e_demo",
+      "command": "pnpm demo:evidence-e2e",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed_44_of_44",
+      "classification": "subsequent_individual_gate"
+    },
+    {
+      "name": "infrastructure_smoke",
+      "command": "pnpm smoke:infra",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed",
+      "classification": "subsequent_individual_gate"
+    },
+    {
+      "name": "server_smoke",
+      "command": "pnpm smoke:server",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed",
+      "classification": "subsequent_individual_gate"
+    },
+    {
+      "name": "node_control_smoke",
+      "command": "pnpm smoke:node-control",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed",
+      "classification": "subsequent_individual_gate"
+    }
+  ],
+  "repositoryWideVerification": {
+    "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
+    "status": "failed",
+    "startedAt": "2026-08-12T07:44:41.768Z",
+    "finishedAt": "2026-08-12T07:52:33.828Z",
+    "steps": {
+      "staticUnitContractBuild": {
+        "status": "passed",
+        "testFiles": 243,
+        "tests": 1753,
+        "openapiOperations": 166,
+        "includes": [
+          "format_check",
+          "lint",
+          "typescript_typecheck",
+          "unit_tests",
+          "contract_tests",
+          "architecture_gate",
+          "production_build"
+        ]
+      },
+      "cognitiveReplayNoPhysicalProvider": {
+        "status": "passed"
+      },
+      "migrations": {
+        "status": "passed",
+        "runtimeMigrationCount": 45,
+        "controlMigrationCount": 11
+      },
+      "postgresRedisIntegration": {
+        "status": "failed",
+        "mainSuite": {
+          "status": "passed",
+          "testFiles": 32,
+          "tests": 189
+        },
+        "isolatedEvidenceExport": {
+          "status": "failed",
+          "errorCode": "P11_WAIT_TIMEOUT",
+          "failurePoint": "first task acknowledged; Node Control evidence-export status did not become healthy with zero pending records within the protected ten-second wait",
+          "classification": "transient_full_run_drain_or_backlog_not_reproduced_in_isolation"
+        }
+      }
+    },
+    "authoritativeSummary": "reports/verification/summary.json"
+  },
+  "focusedFollowUp": {
+    "isolatedEvidenceExportRerun": {
+      "command": "SDAR_REUSE_EXISTING_INFRA=true node scripts/test-integration.mjs apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts",
+      "status": "passed",
+      "testFiles": 1,
+      "tests": 1,
+      "timeoutOrAssertionChanged": false
+    },
+    "nodeCapabilityCleanupRegression": {
+      "status": "passed",
+      "testFiles": 1,
+      "tests": 2
+    },
+    "homeLabMaterializerRegression": {
+      "status": "passed",
+      "testFiles": 1,
+      "tests": 20
+    }
+  },
+  "endToEnd": {
+    "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm test:e2e",
+    "status": "failed",
+    "mainE2eSuite": {
+      "status": "passed",
+      "testFiles": 6,
+      "passedTests": 72,
+      "skippedTests": 1
+    },
+    "phase13Performance": {
+      "status": "failed_baseline_stability",
+      "runtimeP95BaselineMs": 414.1570700000011,
+      "runtimeP95EvidenceEnabledMs": 421.4246970000022,
+      "runtimeP95RegressionPercent": 1.754799694715115,
+      "runtimeP95MaximumPercent": 10,
+      "runtimeP95RegressionGatePassed": true,
+      "evidenceAppendP95Ms": 3.4100659999994605,
+      "evidenceAppendMaximumMs": 20,
+      "evidenceAppendGatePassed": true,
+      "baselineWindowMediansMs": [
+        299.14680899999803,
+        259.8442744999993,
+        237.58592849999695
+      ],
+      "baselineMedianDriftPercent": 22.939118931608547,
+      "baselineMedianDriftMaximumPercent": 15,
+      "baselineStabilityGatePassed": false,
+      "diagnosticWriteError": "P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXISTS",
+      "diagnosticWriteRootCause": "the failure writer uses immutable attempt 8, which already exists from a different historical run",
+      "newImmutableDiagnosticWritten": false,
+      "classification": "nonfunctional_measurement_stability_blocker_and_diagnostic_attempt_allocation_defect",
+      "ugvChangeCausalityProven": false
+    },
+    "historicalBaselineEvidence": {
+      "runtimeP95RegressionPercent": 39.981096754646735,
+      "maximumPercent": 10,
+      "sameRunAsCurrentMetrics": false,
+      "note": "This is the reviewed baseline failure recorded before this Goal and is not the current Phase 13 sample."
+    }
+  },
+  "additionalGates": {
+    "officialA2aTck": {
+      "command": "pnpm test:a2a-tck",
+      "status": "environment_blocked_before_tests",
+      "reason": "python3-venv ensurepip is unavailable on the host",
+      "systemPackageInstalledOrModified": false
+    },
+    "evidenceE2eDemo": {
+      "command": "pnpm demo:evidence-e2e",
+      "status": "passed",
+      "scenarios": 44,
+      "sharedSuites": 25
+    },
+    "infrastructureSmoke": {
+      "command": "pnpm smoke:infra",
+      "status": "passed",
+      "pgvectorVersion": "0.8.5",
+      "redis": "PONG"
+    },
+    "serverSmoke": {
+      "command": "pnpm smoke:server",
+      "status": "passed"
+    },
+    "nodeControlSmoke": {
+      "command": "pnpm smoke:node-control",
+      "status": "passed",
+      "note": "The command exited zero after its explicit pass result; PostgreSQL connection termination output occurred only while its self-created Runtime containers were being stopped."
+    }
+  },
+  "preExistingOperatorDatabaseIssue": {
+    "status": "worked_around_without_mutation",
+    "reason": "the operator PostgreSQL template1 collation metadata referenced a libc version unavailable on the host",
+    "safeRefreshAttempt": "rejected_by_postgresql_invalid_collation_version_change",
+    "resolution": "repository verification used a temporary PostgreSQL 17 plus pgvector 0.8.5 container on tmpfs",
+    "operatorDatabaseChanged": false
+  },
+  "productionEligible": false,
+  "result": {
+    "fullVerifyPassed": false,
+    "productionGatePassed": false,
+    "focusedRerunRetroactivelyChangesFullGate": false
+  },
+  "cleanup": {
+    "temporaryPostgresContainerStoppedAndRemoved": true,
+    "temporaryPostgresStorage": "tmpfs",
+    "operatorManagedRedisLifecycleChanged": false
+  },
+  "blockingReasons": [
+    "FULL_VERIFY_P11_TRANSIENT_TIMEOUT",
+    "PHASE13_BASELINE_STABILITY_FAILED",
+    "PHASE13_DIAGNOSTIC_ATTEMPT_ALLOCATION_DEFECT",
+    "OFFICIAL_A2A_TCK_HOST_PYTHON_VENV_UNAVAILABLE"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "databaseUrlsIncluded": false,
+    "authorizationValuesIncluded": false
+  }
+}

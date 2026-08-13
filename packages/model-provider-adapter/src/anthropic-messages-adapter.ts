@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
 import type { ModelTransportAdapter } from '../../application/src/index.js';
-import { ModelAdapterError } from './openai-compatible-adapter.js';
+import {
+  assertModelOutboundEndpoint,
+  ModelAdapterError,
+  type ModelOutboundEndpointPolicy,
+} from './openai-compatible-adapter.js';
 
 const MessagesResponseSchema = z.object({
   id: z.string().optional(),
@@ -17,9 +21,18 @@ const MessagesResponseSchema = z.object({
 const DisplayableTextBlockSchema = z.object({ type: z.literal('text'), text: z.string() });
 
 export class AnthropicMessagesModelAdapter implements ModelTransportAdapter {
+  readonly #endpointPolicy: ModelOutboundEndpointPolicy;
+
+  constructor(endpointPolicy: ModelOutboundEndpointPolicy = {}) {
+    this.#endpointPolicy = endpointPolicy;
+  }
+
   async generateStructured(input: Parameters<ModelTransportAdapter['generateStructured']>[0]) {
     const response = await requestJson(
-      new URL(`${input.configuration.baseUrl.replace(/\/$/u, '')}/messages`),
+      assertModelOutboundEndpoint(
+        `${input.configuration.baseUrl.replace(/\/$/u, '')}/messages`,
+        this.#endpointPolicy,
+      ),
       input.credentialHeaders,
       {
         model: input.configuration.model,
@@ -105,6 +118,7 @@ async function requestJson(
       },
       body: JSON.stringify(body),
       signal,
+      redirect: 'manual',
     });
   } catch (error: unknown) {
     throw new ModelAdapterError(

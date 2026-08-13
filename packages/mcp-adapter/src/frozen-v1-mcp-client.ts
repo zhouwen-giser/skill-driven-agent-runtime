@@ -111,6 +111,7 @@ export class FrozenV1McpClient {
         headers,
         body: JSON.stringify(body),
         ...(input.signal === undefined ? {} : { signal: input.signal }),
+        redirect: 'manual',
       });
     } catch (error: unknown) {
       throw new FrozenMcpProtocolError(
@@ -180,6 +181,7 @@ export class FrozenV1McpClient {
         },
         body: JSON.stringify(body),
         ...(input.signal === undefined ? {} : { signal: input.signal }),
+        redirect: 'manual',
       });
     } catch (error: unknown) {
       throw new FrozenMcpProtocolError(

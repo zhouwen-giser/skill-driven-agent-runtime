@@ -8,12 +8,14 @@ import {
 } from '../../../packages/application/src/index.js';
 import type { DeterministicCapabilityExecutionInput } from '../../../packages/management-api/src/index.js';
 import {
+  createRuntimeExecutionContext,
   isTerminalSkillExecutionStatus,
   isTerminalTaskPhase,
   resolveWorkflowBudgetLimits,
   type AgentTask,
   type InternalToolResult,
   type McpInvocation,
+  type RuntimeExecutionContext,
   type SkillEvidenceMatch,
   type SkillExecutionView,
   type SkillVersion,
@@ -296,6 +298,15 @@ export function deterministicExecutionIdentity(
   });
 }
 
+export function deterministicRuntimeExecutionContext(
+  input: DeterministicCapabilityExecutionInput,
+): RuntimeExecutionContext {
+  return createRuntimeExecutionContext({
+    mode: input.executionMode ?? 'live',
+    ...(input.simulationId === undefined ? {} : { simulationId: input.simulationId }),
+  });
+}
+
 export function requireDeterministicToolResult(value: unknown): InternalToolResult {
   if (
     !isRecord(value) ||
@@ -321,6 +332,7 @@ export function deterministicCapabilityExecutionResponse(
   invocationId: string,
   evidence: readonly SkillEvidenceMatch[],
 ) {
+  const executionContext = deterministicRuntimeExecutionContext(input);
   return Object.freeze({
     schemaVersion: 'sdar.deterministic-read-only-capability-execution/v1' as const,
     status: 'succeeded' as const,
@@ -357,7 +369,10 @@ export function deterministicCapabilityExecutionResponse(
       ),
     ),
     safety: Object.freeze({
-      executionMode: 'live' as const,
+      executionMode: executionContext.mode,
+      ...(executionContext.simulationId === undefined
+        ? {}
+        : { simulationId: executionContext.simulationId }),
       physicalWrites: 0 as const,
       modelCalls: instance.budgetUsage.llmCalls,
       mcpCalls: instance.budgetUsage.mcpCalls,
@@ -526,6 +541,7 @@ function exactTaskAuthority(
   identity: DeterministicCapabilityExecutionIdentity,
 ): boolean {
   const metadata = task.requestMetadata['io.sdar/deterministicCapabilityExecution'];
+  const executionContext = deterministicRuntimeExecutionContext(input);
   return (
     task.taskId === input.taskId &&
     task.contextId === input.contextId &&
@@ -549,7 +565,9 @@ function exactTaskAuthority(
     metadata['providerId'] === input.providerId &&
     metadata['serverId'] === input.serverId &&
     metadata['toolName'] === input.toolName &&
-    metadata['resourceId'] === input.resourceId
+    metadata['resourceId'] === input.resourceId &&
+    (metadata['executionMode'] ?? 'live') === executionContext.mode &&
+    metadata['simulationId'] === executionContext.simulationId
   );
 }
 
@@ -581,13 +599,15 @@ function exactInvocationIdentity(
   input: DeterministicCapabilityExecutionInput,
   identity: DeterministicCapabilityExecutionIdentity,
 ): boolean {
+  const executionContext = deterministicRuntimeExecutionContext(input);
   return (
     invocation.invocationId === identity.mcpInvocationId &&
     invocation.taskId === input.taskId &&
     invocation.contextId === input.contextId &&
     invocation.serverId === input.serverId &&
     invocation.toolName === input.toolName &&
-    invocation.executionMode === 'live' &&
+    invocation.executionMode === executionContext.mode &&
+    invocation.simulationId === executionContext.simulationId &&
     canonicalJson(invocation.arguments) === canonicalJson({ resourceId: input.resourceId })
   );
 }

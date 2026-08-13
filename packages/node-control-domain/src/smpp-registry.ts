@@ -5,6 +5,12 @@ export type SmppSourceSyncMode = 'manual' | 'poll' | 'watch';
 export type SmppSourceLkgPolicy = 'allow_unexpired' | 'deny_when_unavailable';
 export type SmppSourceStatus = 'draft' | 'active' | 'suspended' | 'retired';
 
+/**
+ * The only supported explicit no-credential authority for an SMPP Registry Source. This is not a
+ * fallback: operators must choose it deliberately instead of supplying a SecretRef.
+ */
+export const SMPP_UNAUTHENTICATED_CREDENTIAL_REF = 'unauthenticated://none' as const;
+
 export interface SmppRegistrySource {
   readonly smppSourceId: string;
   readonly name?: string;
@@ -299,8 +305,13 @@ function safeHttpUrl(value: string, field: string, fail: (message: string) => ne
 
 function secretReference(value: string): string {
   const normalized = required(value, 'credentialRef');
-  if (!/^secret:\/\/[A-Za-z0-9._~:/-]+$/u.test(normalized))
-    sourceInvalid('credentialRef must be an opaque SecretRef, not credential material.');
+  if (
+    normalized !== SMPP_UNAUTHENTICATED_CREDENTIAL_REF &&
+    !/^secret:\/\/[A-Za-z0-9._~:/-]+$/u.test(normalized)
+  )
+    sourceInvalid(
+      `credentialRef must be an opaque SecretRef or ${SMPP_UNAUTHENTICATED_CREDENTIAL_REF}.`,
+    );
   return normalized;
 }
 

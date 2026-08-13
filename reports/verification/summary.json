@@ -1,31 +1,31 @@
 {
   "schemaVersion": 1,
   "status": "failed",
-  "commit": "a9957c82c17ca01e77528f3817c03d86224aaf88",
+  "commit": "b8fc6c20b95114007eab86305aa4e34863f1334d",
   "dirty": true,
   "environment": {
-    "node": "v22.14.0",
-    "platform": "win32",
+    "node": "v22.23.1",
+    "platform": "linux",
     "architecture": "x64",
     "infrastructureMode": "operator-managed"
   },
-  "startedAt": "2026-08-11T04:21:11.197Z",
-  "finishedAt": "2026-08-11T04:41:19.158Z",
-  "durationMs": 1207961,
+  "startedAt": "2026-08-12T07:44:41.768Z",
+  "finishedAt": "2026-08-12T07:52:33.828Z",
+  "durationMs": 472060,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "passed",
-      "startedAt": "2026-08-11T04:21:11.198Z",
-      "finishedAt": "2026-08-11T04:28:00.767Z",
-      "durationMs": 409569,
+      "startedAt": "2026-08-12T07:44:41.770Z",
+      "finishedAt": "2026-08-12T07:48:50.087Z",
+      "durationMs": 248317,
       "logPath": "reports/verification/raw/static-unit-contract-build.log",
-      "outputSha256": "cbf41631b95dc349ce7cbd401fb5185c3cc8d173dae0cf82e67816130a1207f7",
+      "outputSha256": "199487a461dc70e5978107b8f8964a7ec1fb52e9b3f87d49f631905386c93010",
       "metrics": {
-        "testFiles": 218,
-        "tests": 1514,
-        "openapiOperations": 165
+        "testFiles": 243,
+        "tests": 1753,
+        "openapiOperations": 166
       },
       "exitCode": 0
     },
@@ -33,9 +33,9 @@
       "name": "cognitive-replay-no-physical-provider",
       "command": "pnpm verify:cognitive-replay",
       "status": "passed",
-      "startedAt": "2026-08-11T04:28:00.770Z",
-      "finishedAt": "2026-08-11T04:28:02.532Z",
-      "durationMs": 1762,
+      "startedAt": "2026-08-12T07:48:50.088Z",
+      "finishedAt": "2026-08-12T07:48:50.839Z",
+      "durationMs": 751,
       "logPath": "reports/verification/raw/cognitive-replay-no-physical-provider.log",
       "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3",
       "metrics": {},
@@ -45,43 +45,28 @@
       "name": "clean-baseline-reset-seed",
       "command": "pnpm verify:migrations",
       "status": "passed",
-      "startedAt": "2026-08-11T04:28:02.533Z",
-      "finishedAt": "2026-08-11T04:28:48.219Z",
-      "durationMs": 45686,
+      "startedAt": "2026-08-12T07:48:50.839Z",
+      "finishedAt": "2026-08-12T07:49:37.723Z",
+      "durationMs": 46884,
       "logPath": "reports/verification/raw/clean-baseline-reset-seed.log",
-      "outputSha256": "123fb8e671ecf83d503f0b7baf185a83fefba808e38c0f26240365f36140b28f",
+      "outputSha256": "8e7ac922113abfcbb5372511193749890c7e38c8e15d97bdde4264a9af9cdf97",
       "metrics": {
-        "migrationCount": 43
+        "migrationCount": 45
       },
       "exitCode": 0
     },
     {
       "name": "postgres-redis-integration",
       "command": "pnpm test:integration",
-      "status": "passed",
-      "startedAt": "2026-08-11T04:28:48.219Z",
-      "finishedAt": "2026-08-11T04:35:23.220Z",
-      "durationMs": 395001,
-      "logPath": "reports/verification/raw/postgres-redis-integration.log",
-      "outputSha256": "c2985f9af3ae14159e6e3b8ed87eb3c7e9e5ec6d8ff83d941b085a6c3dd40c58",
-      "metrics": {
-        "testFiles": 33,
-        "tests": 180
-      },
-      "exitCode": 0
-    },
-    {
-      "name": "postgres-redis-model-mcp-e2e",
-      "command": "pnpm test:e2e",
       "status": "failed",
-      "startedAt": "2026-08-11T04:35:23.220Z",
-      "finishedAt": "2026-08-11T04:41:19.158Z",
-      "durationMs": 355938,
-      "logPath": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
-      "outputSha256": "039c743869e405927b5526a6bb75118fd2067ff2bfd2b4d4931bc025462e7813",
+      "startedAt": "2026-08-12T07:49:37.723Z",
+      "finishedAt": "2026-08-12T07:52:33.828Z",
+      "durationMs": 176105,
+      "logPath": "reports/verification/raw/postgres-redis-integration.log",
+      "outputSha256": "b2d307a00e7021fc39e8c95a017ce487159a9c5129545e008e02fd181837a8b6",
       "metrics": {
-        "testFiles": 6,
-        "tests": 72
+        "testFiles": 32,
+        "tests": 189
       },
       "exitCode": 1
     }

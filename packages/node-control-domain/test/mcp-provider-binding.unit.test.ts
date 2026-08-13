@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  MCP_UNAUTHENTICATED_CREDENTIAL_REF,
   createMcpProviderBindingRecord,
   mcpBindingSelectable,
   type McpProviderBinding,
@@ -49,7 +50,19 @@ describe('P05 MCP Provider Binding domain', () => {
     ).toThrow(/cannot contain credentials/u);
     expect(() =>
       createMcpProviderBindingRecord({ ...record, credentialRef: 'plain-token' }),
-    ).toThrow(/opaque SecretRef/u);
+    ).toThrow(/opaque SecretRef|unauthenticated/u);
+    expect(
+      createMcpProviderBindingRecord({
+        ...record,
+        credentialRef: MCP_UNAUTHENTICATED_CREDENTIAL_REF,
+      }),
+    ).toMatchObject({ credentialRef: MCP_UNAUTHENTICATED_CREDENTIAL_REF });
+    expect(() =>
+      createMcpProviderBindingRecord({
+        ...record,
+        credentialRef: 'unauthenticated://fallback',
+      }),
+    ).toThrow(/unauthenticated:\/\/none/u);
   });
 
   it('rejects partial lineage, malformed hashes and non-forward availability windows', () => {

@@ -44,7 +44,8 @@ describe('GoalContractCandidateFactory', () => {
 describe('InteractiveGoalSessionService', () => {
   it('persists answer/candidate/confirmation revisions and makes duplicate actions harmless', async () => {
     const repository = new MemoryInteractiveGoalRepository();
-    const service = sessionService(repository);
+    const modelTimeouts: number[] = [];
+    const service = sessionService(repository, 90_000, modelTimeouts);
     const started = await service.start({ taskId: 'task.interactive' });
     expect(started.session.state).toBe('understand');
     expect(started.question?.dimensionId).toBe('dimension.target');
@@ -59,6 +60,7 @@ describe('InteractiveGoalSessionService', () => {
     });
     expect(reviewed.session).toMatchObject({ state: 'goal_review', version: 2 });
     expect(reviewed.candidate?.contract.title).toBe('Inspect pump-17');
+    expect(modelTimeouts).toEqual([90_000]);
 
     const duplicate = await service.applyAction({
       sessionId: started.session.sessionId,
@@ -84,7 +86,11 @@ describe('InteractiveGoalSessionService', () => {
   });
 });
 
-function sessionService(repository: MemoryInteractiveGoalRepository) {
+function sessionService(
+  repository: MemoryInteractiveGoalRepository,
+  modelTimeoutMs?: number,
+  modelTimeouts: number[] = [],
+) {
   let revised = false;
   return new InteractiveGoalSessionService({
     repository,
@@ -99,8 +105,9 @@ function sessionService(repository: MemoryInteractiveGoalRepository) {
       return Promise.resolve(understanding('contract_candidate'));
     },
     model: {
-      generate: () =>
-        Promise.resolve({
+      generate: (input) => {
+        modelTimeouts.push(input.timeoutMs);
+        return Promise.resolve({
           invocationId: 'model-invocation.goal-contract.1',
           structuredResult: {
             title: 'Inspect pump-17',
@@ -108,7 +115,8 @@ function sessionService(repository: MemoryInteractiveGoalRepository) {
             constraints: ['Read only.'],
             successCriteria: ['Return verified status.'],
           },
-        }),
+        });
+      },
     },
     clock: { now: () => '2026-07-23T04:00:00.000Z' },
     ids: {
@@ -117,6 +125,7 @@ function sessionService(repository: MemoryInteractiveGoalRepository) {
       nextCandidateId: () => 'candidate.interactive',
     },
     budgets: { maxClarificationRounds: 4, maxContractRevisions: 4, maxElapsedMs: 300_000 },
+    ...(modelTimeoutMs === undefined ? {} : { modelTimeoutMs }),
   });
 }
 

@@ -64,6 +64,7 @@ export class HttpRuntimeEvidenceExportClient implements NodeControlRuntimeEviden
       method: 'POST',
       headers: this.#headers({ 'content-type': 'application/json' }),
       body: JSON.stringify(configuration),
+      redirect: 'manual',
     });
     const input = OperationSchema.parse(await responseJson(response));
     return Object.freeze({
@@ -91,6 +92,7 @@ export class HttpRuntimeEvidenceExportClient implements NodeControlRuntimeEviden
   async status(): Promise<EvidenceExportStatus> {
     const response = await globalThis.fetch(`${this.#baseUrl}/internal/v1/evidence-export/status`, {
       headers: this.#headers(),
+      redirect: 'manual',
     });
     const input = StatusSchema.parse(await responseJson(response));
     return Object.freeze({

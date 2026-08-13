@@ -101,6 +101,44 @@ describe('Frozen MCP registry', () => {
       }),
     ).rejects.toMatchObject({ code: 'MCP_RESERVED_HEADER_FORBIDDEN' });
   });
+
+  it('replaces an unreadable stored credential without discovery or old-value decryption', async () => {
+    const repository = new MemoryRepository();
+    repository.record = {
+      server: server({ protocolMode: 'frozen_v1' }),
+      encryptedCredential: 'encrypted-with-previous-key',
+    };
+    let discoveries = 0;
+    let decryptions = 0;
+    const service = createService(repository, {
+      onDiscover: () => {
+        discoveries += 1;
+      },
+      onDecrypt: () => {
+        decryptions += 1;
+      },
+    });
+
+    await service.replaceCredentials('provider-1', { Authorization: 'Bearer replacement' });
+
+    expect(repository.record).toMatchObject({
+      encryptedCredential: 'encrypted',
+      server: { updatedAt: timestamp, toolRevision: 1 },
+    });
+    expect(discoveries).toBe(0);
+    expect(decryptions).toBe(0);
+  });
+
+  it('rejects reserved replacement headers and reports a missing Server deterministically', async () => {
+    const service = createService(new MemoryRepository());
+
+    await expect(
+      service.replaceCredentials('provider-1', { 'x-sdar-simulation-id': 'operator-value' }),
+    ).rejects.toMatchObject({ code: 'MCP_RESERVED_HEADER_FORBIDDEN' });
+    await expect(
+      service.replaceCredentials('provider-1', { Authorization: 'Bearer replacement' }),
+    ).rejects.toMatchObject({ code: 'MCP_SERVER_NOT_FOUND' });
+  });
 });
 
 class MemoryRepository implements FrozenMcpRegistryRepository {
@@ -114,6 +152,14 @@ class MemoryRepository implements FrozenMcpRegistryRepository {
   }
   listTools() {
     return Promise.resolve(this.tools);
+  }
+  replaceEncryptedCredential(_serverId: string, encryptedCredential: string, updatedAt: string) {
+    if (this.record === undefined) return Promise.resolve(false);
+    this.record = {
+      server: { ...this.record.server, updatedAt },
+      encryptedCredential,
+    };
+    return Promise.resolve(true);
   }
   saveFrozenServerAndReplaceTools(
     record: McpServerRecord,
@@ -129,20 +175,28 @@ class MemoryRepository implements FrozenMcpRegistryRepository {
   }
 }
 
-function createService(repository: MemoryRepository) {
+function createService(
+  repository: MemoryRepository,
+  hooks: Readonly<{ onDiscover?: () => void; onDecrypt?: () => void }> = {},
+) {
   const discovery: FrozenMcpDiscoveryPort = {
-    discover: (input) =>
-      Promise.resolve({
+    discover: (input) => {
+      hooks.onDiscover?.();
+      return Promise.resolve({
         snapshot: snapshot(input.server.toolRevision, input.snapshotId),
         tools: [tool('move_to')],
-      }),
+      });
+    },
   };
   return new FrozenMcpRegistryService({
     repository,
     discovery,
     cipher: {
       encrypt: () => 'encrypted',
-      decrypt: () => ({ Authorization: 'Bearer secret' }),
+      decrypt: () => {
+        hooks.onDecrypt?.();
+        return { Authorization: 'Bearer secret' };
+      },
     },
     clock: { now: () => timestamp },
     nextSnapshotId: () => 'snapshot-1',

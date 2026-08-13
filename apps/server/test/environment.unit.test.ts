@@ -48,7 +48,7 @@ describe('server environment', () => {
     });
   });
 
-  it('accepts only the explicit home-lab Task Understanding profile', () => {
+  it('accepts only explicit governed Task Understanding profiles', () => {
     const masterKey = randomBytes(32).toString('base64');
     expect(
       parseServerEnvironment({
@@ -58,10 +58,24 @@ describe('server environment', () => {
         SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
       }),
     ).toMatchObject({ SDAR_TASK_UNDERSTANDING_PROFILE: 'home_lab_read_only' });
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_TASK_UNDERSTANDING_PROFILE: 'managed_capability',
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+        SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+      }),
+    ).toMatchObject({ SDAR_TASK_UNDERSTANDING_PROFILE: 'managed_capability' });
     expect(() =>
       parseServerEnvironment({
         SDAR_MASTER_KEY_BASE64: masterKey,
         SDAR_TASK_UNDERSTANDING_PROFILE: 'home_lab_read_only',
+      }),
+    ).toThrow('requires authenticated Node Control');
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_TASK_UNDERSTANDING_PROFILE: 'managed_capability',
       }),
     ).toThrow('requires authenticated Node Control');
     expect(() =>
@@ -202,6 +216,41 @@ describe('server environment', () => {
     });
   });
 
+  it('opens the Node Control outbound endpoint only under the explicit dual non-production gate', () => {
+    const base = {
+      SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+      SDAR_NODE_CONTROL_BASE_URL: 'http://192.168.1.7:10080',
+      SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+      SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open',
+      SDAR_CONTROL_ENVIRONMENT: 'integration',
+    };
+    expect(parseServerEnvironment({ ...base, NODE_ENV: 'test' })).toMatchObject({
+      SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open',
+      SDAR_NODE_CONTROL_BASE_URL: 'http://192.168.1.7:10080',
+    });
+    expect(() => parseServerEnvironment(base)).toThrow('forbidden outside');
+    expect(() => parseServerEnvironment({ ...base, NODE_ENV: 'production' })).toThrow(
+      'forbidden outside',
+    );
+    expect(() =>
+      parseServerEnvironment({ ...base, NODE_ENV: 'test', SDAR_CONTROL_ENVIRONMENT: 'production' }),
+    ).toThrow('forbidden outside');
+    expect(() =>
+      parseServerEnvironment({
+        ...base,
+        NODE_ENV: 'test',
+        SDAR_NODE_CONTROL_BASE_URL: 'file:///tmp/node-control.sock',
+      }),
+    ).toThrow('credential-free HTTP(S)');
+    expect(() =>
+      parseServerEnvironment({
+        ...base,
+        NODE_ENV: 'test',
+        SDAR_NODE_CONTROL_BASE_URL: 'http://user:secret@192.168.1.7:10080',
+      }),
+    ).toThrow('credential-free HTTP(S)');
+  });
+
   it('accepts only a bounded whitespace-free dedicated cognitive bearer', () => {
     const masterKey = randomBytes(32).toString('base64');
     expect(
@@ -216,5 +265,76 @@ describe('server environment', () => {
         SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: `${'c'.repeat(32)} `,
       }),
     ).toThrow('must not contain whitespace');
+  });
+
+  it('accepts a complete real-model bootstrap environment', () => {
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+        SDAR_UGV_REAL_MODEL_ENABLED: 'YES',
+        SDAR_UGV_MODEL_PROVIDER_ID: 'provider-real',
+        SDAR_UGV_MODEL_BASE_URL: 'https://models.example.test/v1',
+        SDAR_UGV_MODEL_NAME: 'model-real',
+        SDAR_UGV_MODEL_EMBEDDING_NAME: 'embedding-real',
+        SDAR_UGV_MODEL_API_STYLE: 'openai_chat_completions',
+        SDAR_UGV_MODEL_API_KEY: 'model-secret',
+      }),
+    ).toMatchObject({
+      SDAR_UGV_REAL_MODEL_ENABLED: 'YES',
+      SDAR_UGV_MODEL_PROVIDER_ID: 'provider-real',
+      SDAR_UGV_MODEL_BASE_URL: 'https://models.example.test/v1',
+      SDAR_UGV_MODEL_NAME: 'model-real',
+      SDAR_UGV_MODEL_EMBEDDING_NAME: 'embedding-real',
+      SDAR_UGV_MODEL_API_STYLE: 'openai_chat_completions',
+      SDAR_UGV_MODEL_API_KEY: 'model-secret',
+      SDAR_UGV_MODEL_TIMEOUT_MS: 30_000,
+    });
+  });
+
+  it('rejects an incomplete enabled real-model bootstrap environment', () => {
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+        SDAR_UGV_REAL_MODEL_ENABLED: 'YES',
+        SDAR_UGV_MODEL_API_KEY: 'model-secret',
+      }),
+    ).toThrow('is required when real-model bootstrap is enabled');
+  });
+
+  it('requires exactly one real-model API key source', () => {
+    const completeEnvironment = {
+      SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+      SDAR_UGV_REAL_MODEL_ENABLED: 'YES',
+      SDAR_UGV_MODEL_PROVIDER_ID: 'provider-real',
+      SDAR_UGV_MODEL_BASE_URL: 'https://models.example.test/v1',
+      SDAR_UGV_MODEL_NAME: 'model-real',
+      SDAR_UGV_MODEL_API_STYLE: 'openai_chat_completions',
+    } as const;
+
+    expect(() => parseServerEnvironment(completeEnvironment)).toThrow(
+      'Exactly one of SDAR_UGV_MODEL_API_KEY or SDAR_UGV_MODEL_API_KEY_FILE is required.',
+    );
+    expect(() =>
+      parseServerEnvironment({
+        ...completeEnvironment,
+        SDAR_UGV_MODEL_API_KEY: 'inline-secret',
+        SDAR_UGV_MODEL_API_KEY_FILE: '/run/secrets/model-api-key',
+      }),
+    ).toThrow('Exactly one of SDAR_UGV_MODEL_API_KEY or SDAR_UGV_MODEL_API_KEY_FILE is required.');
+  });
+
+  it('rejects embedding bootstrap for an Anthropic Provider', () => {
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+        SDAR_UGV_REAL_MODEL_ENABLED: 'YES',
+        SDAR_UGV_MODEL_PROVIDER_ID: 'provider-real',
+        SDAR_UGV_MODEL_BASE_URL: 'https://models.example.test/v1',
+        SDAR_UGV_MODEL_NAME: 'model-real',
+        SDAR_UGV_MODEL_EMBEDDING_NAME: 'embedding-real',
+        SDAR_UGV_MODEL_API_STYLE: 'anthropic_messages',
+        SDAR_UGV_MODEL_API_KEY: 'model-secret',
+      }),
+    ).toThrow('Embedding bootstrap requires an OpenAI-compatible Provider.');
   });
 });
