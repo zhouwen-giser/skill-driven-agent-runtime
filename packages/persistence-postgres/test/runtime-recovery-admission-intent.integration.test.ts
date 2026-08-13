@@ -278,6 +278,20 @@ async function seedReceiptRecordedIntent(database: Pool): Promise<void> {
     invocationId,
     JSON.stringify({
       remoteTask: { remoteTaskId: 'provider-task-receipt' },
+      authoritySnapshot: {
+        schemaVersion: '1.0',
+        capturedAt: observedAt,
+        runtime: {
+          serverId: envelope.serverId,
+          endpoint: 'http://127.0.0.1/never-called',
+          serverUpdatedAt: observedAt,
+          toolRevision: 1,
+          protocolSnapshotId: 'startup-recovery-protocol-snapshot',
+          catalogRevision: 'startup-recovery-catalog:1',
+          catalogChecksum: '9'.repeat(64),
+          operationCount: 1,
+        },
+      },
       continuation: { snapshot: continuation, completeness: 'exact_single' },
     }),
     observedAt,
