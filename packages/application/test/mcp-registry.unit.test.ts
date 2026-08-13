@@ -28,6 +28,47 @@ import type { McpRegistryRepository, McpServerRecord } from '../src/ports.js';
 const timestamp = '2026-08-11T01:00:00.000Z';
 
 describe('MCP Registry invocation boundary', () => {
+  it('journals a remote receipt atomically instead of saving the invocation separately', async () => {
+    const outcome: McpInvocationOutcome = {
+      kind: 'remote_task',
+      task: {
+        protocolMode: 'frozen_v1',
+        remoteTaskId: 'remote-task-journal-1',
+        status: 'working',
+        createdAt: '2026-08-13T00:00:00.000Z',
+        lastUpdatedAt: '2026-08-13T00:00:00.000Z',
+        ttlMs: 60_000,
+        protocolRevision: '2026-07-28',
+        tasksSchemaRevision: 'tasks-v1',
+        runtimeRevision: 'runtime-1',
+      },
+    };
+    const markDispatching = vi.fn().mockResolvedValue(undefined);
+    const recordRemoteReceipt = vi.fn().mockResolvedValue(undefined);
+    const close = vi.fn().mockResolvedValue(undefined);
+    const markUncertain = vi.fn().mockResolvedValue(undefined);
+    const fixture = createFixture({ outcome, toolName: 'task_success' });
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'task_success', {}, undefined, {
+        remoteAdmissionJournal: {
+          invocationId: 'invocation-remote-journal',
+          markDispatching,
+          recordRemoteReceipt,
+          close,
+          markUncertain,
+        },
+      }),
+    ).resolves.toMatchObject({
+      invocationId: 'invocation-remote-journal',
+      outcome: { kind: 'remote_task', task: { remoteTaskId: 'remote-task-journal-1' } },
+    });
+    expect(markDispatching).toHaveBeenCalledOnce();
+    expect(recordRemoteReceipt).toHaveBeenCalledOnce();
+    expect(fixture.repository.invocations).toEqual([]);
+    expect(close).not.toHaveBeenCalled();
+    expect(markUncertain).not.toHaveBeenCalled();
+  });
   it('rejects a discovered side-effecting Tool without governed Task authority', async () => {
     const fixture = createFixture({ toolEffect: 'side_effecting' });
 

@@ -52,6 +52,41 @@ export interface McpCallContext {
     signal: AbortSignal;
     enter(input: Readonly<{ dispatchId: string; dispatchHash: string }>): Promise<void>;
   }>;
+  /**
+   * Durable journal for a Provider call that may create a remote Task. The journal owns the
+   * invocation write for a remote receipt so the receipt and its audit record commit together.
+   */
+  readonly remoteAdmissionJournal?: Readonly<{
+    invocationId: string;
+    markDispatching(
+      input: Readonly<{ invocationId: string; dispatchHash: string; at: string }>,
+    ): Promise<void>;
+    recordRemoteReceipt(
+      input: Readonly<{
+        invocation: McpInvocation;
+        outcome: Extract<McpInvocationOutcome, { kind: 'remote_task' }>;
+        credentialRevision: string;
+        sessionRevision: string;
+        protocolContract: McpProtocolContractSnapshot;
+        taskBehavior: McpTaskBehavior;
+        at: string;
+      }>,
+    ): Promise<void>;
+    close(
+      input: Readonly<{
+        invocationId: string;
+        reasonCode: string;
+        at: string;
+      }>,
+    ): Promise<void>;
+    markUncertain(
+      input: Readonly<{
+        invocationId: string;
+        reasonCode: string;
+        at: string;
+      }>,
+    ): Promise<void>;
+  }>;
 }
 
 export interface RecordedMcpInvocationOutcome {
@@ -202,7 +237,19 @@ export class McpRegistryService {
       context.providerBindingId,
       context.providerId,
     );
-    const invocationId = context.preTransportFence?.invocationId ?? this.#ids.nextInvocationId();
+    const invocationId =
+      context.remoteAdmissionJournal?.invocationId ??
+      context.preTransportFence?.invocationId ??
+      this.#ids.nextInvocationId();
+    if (
+      context.remoteAdmissionJournal !== undefined &&
+      context.preTransportFence !== undefined &&
+      context.remoteAdmissionJournal.invocationId !== context.preTransportFence.invocationId
+    )
+      throw new McpRegistryError(
+        'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT',
+        'Remote admission and deterministic dispatch must share one invocation identity.',
+      );
     const startedAt = this.#clock.now();
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
@@ -242,21 +289,37 @@ export class McpRegistryService {
     // Acquire deterministic ownership before consuming the one-shot human confirmation. A
     // rejected or already-aborted fence must leave the confirmation reusable by the owner that
     // actually obtained dispatch authority.
-    throwIfAborted(transportSignal);
-    if (context.preTransportFence !== undefined) {
-      await context.preTransportFence.enter({
-        dispatchId: invocationId,
+    let controlAuthority: GovernedControlDispatchReceipt | undefined;
+    try {
+      throwIfAborted(transportSignal);
+      if (context.preTransportFence !== undefined) {
+        await context.preTransportFence.enter({
+          dispatchId: invocationId,
+          dispatchHash,
+        });
+      }
+      throwIfAborted(transportSignal);
+      controlAuthority = await this.#assertControlAuthority(
+        tool,
+        arguments_,
+        context,
+        invocationId,
         dispatchHash,
+      );
+      if (context.remoteAdmissionJournal !== undefined)
+        await context.remoteAdmissionJournal.markDispatching({
+          invocationId,
+          dispatchHash,
+          at: this.#clock.now(),
+        });
+    } catch (error: unknown) {
+      await context.remoteAdmissionJournal?.close({
+        invocationId,
+        reasonCode: stableErrorCode(error) ?? 'MCP_REMOTE_ADMISSION_PRETRANSPORT_REJECTED',
+        at: this.#clock.now(),
       });
+      throw error;
     }
-    throwIfAborted(transportSignal);
-    const controlAuthority = await this.#assertControlAuthority(
-      tool,
-      arguments_,
-      context,
-      invocationId,
-      dispatchHash,
-    );
     try {
       throwIfAborted(transportSignal);
       outcome = await lifecycle.call(transportInput);
@@ -264,30 +327,7 @@ export class McpRegistryService {
     } catch (error: unknown) {
       const completedAt = this.#clock.now();
       const canceled = transportSignal?.aborted === true;
-      await this.#repository.saveInvocation(
-        invocationRecord({
-          invocationId,
-          context,
-          ...(controlAuthority === undefined ? {} : { controlAuthority }),
-          serverId,
-          toolName,
-          executionSemantics: tool.executionSemantics,
-          arguments: arguments_,
-          status: canceled ? 'canceled' : 'failed',
-          errorCode: canceled ? 'MCP_CALL_CANCELED' : (stableErrorCode(error) ?? 'MCP_CALL_FAILED'),
-          errorMessage: canceled ? 'MCP Tool call was canceled.' : 'MCP Tool call failed.',
-          startedAt,
-          completedAt,
-        }),
-      );
-      throw error;
-    }
-    const completedAt = this.#clock.now();
-    const invocationResult =
-      outcome.kind === 'immediate' ? outcome.result : { remoteTask: outcome.task };
-    const businessRejected = outcome.kind === 'immediate' && outcome.result.isError;
-    await this.#repository.saveInvocation(
-      invocationRecord({
+      const invocation = invocationRecord({
         invocationId,
         context,
         ...(controlAuthority === undefined ? {} : { controlAuthority }),
@@ -295,18 +335,61 @@ export class McpRegistryService {
         toolName,
         executionSemantics: tool.executionSemantics,
         arguments: arguments_,
-        result: invocationResult,
-        status: businessRejected ? 'failed' : 'succeeded',
-        ...(businessRejected
-          ? {
-              errorCode: 'MCP_TOOL_BUSINESS_REJECTION',
-              errorMessage: 'MCP Tool returned an immediate isError result.',
-            }
-          : {}),
+        status: canceled ? 'canceled' : 'failed',
+        errorCode: canceled ? 'MCP_CALL_CANCELED' : (stableErrorCode(error) ?? 'MCP_CALL_FAILED'),
+        errorMessage: canceled ? 'MCP Tool call was canceled.' : 'MCP Tool call failed.',
         startedAt,
         completedAt,
-      }),
-    );
+      });
+      await this.#repository.saveInvocation(invocation);
+      await context.remoteAdmissionJournal?.markUncertain({
+        invocationId,
+        reasonCode: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+        at: completedAt,
+      });
+      throw error;
+    }
+    const completedAt = this.#clock.now();
+    const invocationResult =
+      outcome.kind === 'immediate' ? outcome.result : { remoteTask: outcome.task };
+    const businessRejected = outcome.kind === 'immediate' && outcome.result.isError;
+    const invocation = invocationRecord({
+      invocationId,
+      context,
+      ...(controlAuthority === undefined ? {} : { controlAuthority }),
+      serverId,
+      toolName,
+      executionSemantics: tool.executionSemantics,
+      arguments: arguments_,
+      result: invocationResult,
+      status: businessRejected ? 'failed' : 'succeeded',
+      ...(businessRejected
+        ? {
+            errorCode: 'MCP_TOOL_BUSINESS_REJECTION',
+            errorMessage: 'MCP Tool returned an immediate isError result.',
+          }
+        : {}),
+      startedAt,
+      completedAt,
+    });
+    if (outcome.kind === 'remote_task' && context.remoteAdmissionJournal !== undefined) {
+      await context.remoteAdmissionJournal.recordRemoteReceipt({
+        invocation,
+        outcome,
+        credentialRevision: record.server.updatedAt,
+        sessionRevision: `${outcome.task.protocolRevision}/${outcome.task.tasksSchemaRevision}`,
+        protocolContract: frozenAuthority.protocolContract,
+        taskBehavior: frozenAuthority.taskBehavior,
+        at: completedAt,
+      });
+    } else {
+      await this.#repository.saveInvocation(invocation);
+      await context.remoteAdmissionJournal?.close({
+        invocationId,
+        reasonCode: 'MCP_REMOTE_ADMISSION_NOT_REQUIRED',
+        at: completedAt,
+      });
+    }
     return {
       invocationId,
       outcome,
@@ -893,6 +976,7 @@ export type McpRegistryErrorCode =
   | 'MCP_PROVIDER_RESULT_TOO_COMPLEX'
   | 'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE'
   | 'MCP_PROVIDER_BINDING_NOT_CURRENT'
+  | 'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT'
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_ENABLED'
   | 'MCP_SERVER_NOT_FOUND'

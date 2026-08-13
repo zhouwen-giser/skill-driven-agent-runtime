@@ -9,10 +9,12 @@ import {
   GovernedControlManagementService,
   McpRegistryService,
   RemoteTaskAdmissionService,
+  RemoteTaskAdmissionRecoveryService,
   governedControlSnapshotHash,
   type CurrentGovernedCapabilityAuthority,
   type GovernedControlConfirmation,
   type FrozenMcpRefreshResult,
+  type McpCallContext,
   type RemoteTaskPollQueue,
 } from '../../application/src/index.js';
 import { deriveFrozenMcpCatalogAuthority } from '../../domain/src/index.js';
@@ -28,7 +30,9 @@ import {
   PostgresGovernedControlAuthorityRepository,
   PostgresGovernedControlManagementAuthorityReader,
   PostgresMcpRegistryRepository,
+  PostgresRemoteTaskAdmissionIntentStore,
   PostgresRemoteTaskRepository,
+  PostgresWorkflowContinuationRepository,
 } from '../src/index.js';
 
 const databaseName = 'sdar_v14_governed_control_authority_integration';
@@ -68,6 +72,62 @@ const planDefinition = Object.freeze({
 const planHash = governedControlSnapshotHash(planDefinition);
 const argumentsHash = governedControlSnapshotHash(arguments_);
 const constraints = Object.freeze(controlConstraints());
+
+function continuationCapsule(remoteBindingId: string, state: 'waiting' | 'awaiting_input') {
+  return {
+    completeness: 'exact_single' as const,
+    snapshot: {
+      schemaVersion: '1.0' as const,
+      snapshotId: 'workflow-continuation-snapshot-governed-control',
+      continuationId: 'workflow-continuation-governed-control',
+      stateVersion: 1,
+      lifecycle: 'active' as const,
+      agentTaskId: taskId,
+      contextId: 'context-governed-control',
+      workflowControlId: 'workflow-control-governed-control',
+      goalId: 'goal-governed-control',
+      goalVersion: 1,
+      workflowPlanId: planId,
+      workflowDefinitionId: 'workflow-governed-control',
+      workflowDefinitionVersion: 1,
+      workflowDefinitionHash: planHash,
+      inputHash: governedControlSnapshotHash(arguments_),
+      workflowInstanceId: 'workflow-instance-governed-control',
+      input: arguments_,
+      waitingNodeRuns: [
+        {
+          waitId: remoteBindingId,
+          kind: 'remote_task' as const,
+          sourceId: remoteBindingId,
+          nodeId: 'move-ugv',
+          nodeRunId: 'move-ugv:1',
+          state,
+        },
+      ],
+      runnableFrontier: [],
+      completedNodeRunIds: [],
+      nodeRunCounts: { 'move-ugv': 1 },
+      outputs: {},
+      errors: {},
+      routes: { 'move-ugv': '__end__' },
+      loopCounts: {},
+      recoveryCounts: {},
+      parallelJoinState: [],
+      failed: false,
+      executionContext: { mode: 'simulation' as const, simulationId: 'p05-no-device-write' },
+      budgetLimits: {
+        maxReplans: 1,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 1,
+        maxMcpCalls: 2,
+        maxCost: 1,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 1, cost: 0 },
+      createdAt: '2026-08-13T01:01:00.000Z',
+      updatedAt: '2026-08-13T01:01:00.000Z',
+    },
+  };
+}
 
 let pool: Pool;
 let poolOpened = false;
@@ -233,13 +293,95 @@ describe('PostgreSQL governed physical-control authority', () => {
       providerBindingId,
       providerId,
     } as const;
-    const receipt = await registry.callDetailed(
+    const admissionIntents = new PostgresRemoteTaskAdmissionIntentStore(pool);
+    const admissionIntentId = 'remote-admission-intent-governed-control';
+    const remoteBindingId = 'remote-binding-governed-control';
+    const remoteInvocationId = 'invocation-governed-positive-1';
+    await admissionIntents.prepare({
+      intentId: admissionIntentId,
+      invocationId: remoteInvocationId,
+      taskId,
+      capabilityAttemptId: attemptId,
+      contextId: 'context-governed-control',
       serverId,
-      toolName,
-      arguments_,
-      undefined,
-      callContext,
-    );
+      operationName: toolName,
+      argumentsHash,
+      envelope: {
+        bindingId: remoteBindingId,
+        serverId,
+        operationName: toolName,
+        agentTaskId: taskId,
+        contextId: 'context-governed-control',
+        goalId: 'goal-governed-control',
+        goalVersion: 1,
+        workflowPlanId: planId,
+        workflowDefinitionId: 'workflow-governed-control',
+        workflowDefinitionVersion: 1,
+        workflowInstanceId: 'workflow-instance-governed-control',
+        workflowNodeId: 'move-ugv',
+        workflowNodeRunId: 'move-ugv:1',
+        mcpInvocationId: remoteInvocationId,
+        executionContext: { mode: 'live' },
+        createdAt: '2026-08-13T01:01:00.000Z',
+      },
+      status: 'prepared',
+      createdAt: '2026-08-13T01:01:00.000Z',
+      updatedAt: '2026-08-13T01:01:00.000Z',
+      version: 1,
+    });
+    const journal = {
+      invocationId: remoteInvocationId,
+      async markDispatching(input: { invocationId: string; dispatchHash: string; at: string }) {
+        const mutation = await admissionIntents.markDispatching({
+          intentId: admissionIntentId,
+          ...input,
+        });
+        if (!mutation.applied) throw new Error(`REMOTE_ADMISSION_MARK_${mutation.reason}`);
+      },
+      async recordRemoteReceipt(
+        input: Parameters<
+          NonNullable<McpCallContext['remoteAdmissionJournal']>['recordRemoteReceipt']
+        >[0],
+      ) {
+        const remoteSnapshot = input.outcome.reconciledTask ?? input.outcome.task;
+        const continuation = continuationCapsule(
+          remoteBindingId,
+          remoteSnapshot.status === 'input_required' ? 'awaiting_input' : 'waiting',
+        );
+        const mutation = await admissionIntents.recordRemoteReceiptAndInvocation(
+          admissionIntentId,
+          input.invocation,
+          {
+            remoteTask: input.outcome.task,
+            ...(input.outcome.reconciledTask === undefined
+              ? {}
+              : { reconciledTask: input.outcome.reconciledTask }),
+            credentialRevision: input.credentialRevision,
+            sessionRevision: input.sessionRevision,
+            protocolContract: input.protocolContract,
+            taskBehavior: input.taskBehavior,
+            continuation,
+          },
+          input.at,
+        );
+        if (!mutation.applied) throw new Error(`REMOTE_ADMISSION_RECEIPT_${mutation.reason}`);
+      },
+      async close(input: { invocationId: string; reasonCode: string; at: string }) {
+        const mutation = await admissionIntents.close({ intentId: admissionIntentId, ...input });
+        if (!mutation.applied) throw new Error(`REMOTE_ADMISSION_CLOSE_${mutation.reason}`);
+      },
+      async markUncertain(input: { invocationId: string; reasonCode: string; at: string }) {
+        const mutation = await admissionIntents.markUncertain({
+          intentId: admissionIntentId,
+          ...input,
+        });
+        if (!mutation.applied) throw new Error(`REMOTE_ADMISSION_UNCERTAIN_${mutation.reason}`);
+      },
+    };
+    const receipt = await registry.callDetailed(serverId, toolName, arguments_, undefined, {
+      ...callContext,
+      remoteAdmissionJournal: journal,
+    });
     expect(receipt).toMatchObject({
       invocationId: 'invocation-governed-positive-1',
       outcome: {
@@ -276,6 +418,23 @@ describe('PostgreSQL governed physical-control authority', () => {
         status: 'succeeded',
       }),
     ]);
+    await expect(
+      pool.query(
+        `SELECT status,recorded_invocation_id,materialized_binding_id,
+                remote_receipt_json->'continuation'->>'completeness' AS continuation_completeness
+           FROM remote_task_admission_intent WHERE intent_id=$1`,
+        [admissionIntentId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'receipt_recorded',
+          recorded_invocation_id: remoteInvocationId,
+          materialized_binding_id: null,
+          continuation_completeness: 'exact_single',
+        },
+      ],
+    });
 
     await expect(
       registry.callDetailed(serverId, toolName, arguments_, undefined, callContext),
@@ -289,11 +448,6 @@ describe('PostgreSQL governed physical-control authority', () => {
       receipt.taskBehavior === undefined
     )
       throw new Error('GOVERNED_CONTROL_REMOTE_TERMINAL_AUTHORITY_MISSING');
-    const remote = receipt.outcome.task;
-    const reconciled = receipt.outcome.reconciledTask;
-    const runtimeRevision = remote.runtimeRevision;
-    if (runtimeRevision === undefined)
-      throw new Error('GOVERNED_CONTROL_REMOTE_RUNTIME_REVISION_MISSING');
     const remoteTasks = new PostgresRemoteTaskRepository(pool);
     const scheduledPolls: { bindingId: string; expectedVersion: number }[] = [];
     const pollQueue: RemoteTaskPollQueue = {
@@ -305,102 +459,191 @@ describe('PostgreSQL governed physical-control authority', () => {
       listDeadLetters: () => Promise.resolve([]),
       retryDeadLetter: () => Promise.resolve(),
     };
-    const admission = await new RemoteTaskAdmissionService({
+    const admissionService = new RemoteTaskAdmissionService({
       repository: remoteTasks,
       queue: pollQueue,
       nextObservationId: () => 'observation-governed-admission',
-    }).admit({
-      bindingId: 'remote-binding-governed-control',
-      serverId,
-      operationName: toolName,
-      remoteTaskId: remote.remoteTaskId,
-      agentTaskId: taskId,
-      contextId: 'context-governed-control',
-      goalId: 'goal-governed-control',
-      goalVersion: 1,
-      workflowPlanId: planId,
-      workflowDefinitionId: 'workflow-governed-control',
-      workflowDefinitionVersion: 1,
-      workflowInstanceId: 'workflow-instance-governed-control',
-      workflowNodeId: 'move-ugv',
-      workflowNodeRunId: 'move-ugv:1',
-      mcpInvocationId: receipt.invocationId,
-      protocolStatus: remote.status,
-      protocolRevision: remote.protocolRevision,
-      tasksSchemaRevision: remote.tasksSchemaRevision,
-      protocolContract: receipt.protocolContract,
-      taskBehavior: receipt.taskBehavior,
-      runtimeRevision,
-      ...(remote.providerRevision === undefined
-        ? {}
-        : { providerRevision: remote.providerRevision }),
-      ...(remote.ttlMs === null
-        ? {}
-        : {
-            taskTtlMs: remote.ttlMs,
-            taskExpiresAt:
-              remote.expiresAt ??
-              new Date(Date.parse(remote.createdAt) + remote.ttlMs).toISOString(),
-          }),
-      ...(remote.providerObservation?.substate === undefined
-        ? {}
-        : { providerSubstate: remote.providerObservation.substate }),
-      ...(remote.providerObservation?.remoteRevision === undefined
-        ? {}
-        : { remoteRevision: remote.providerObservation.remoteRevision }),
-      executionContext: { mode: 'live' },
-      credentialRevision: receipt.credentialRevision,
-      sessionRevision: receipt.sessionRevision,
-      lastProviderUpdatedAt: remote.lastUpdatedAt,
-      pollIntervalMs: Math.max(100, remote.pollIntervalMs ?? 1_000),
-      createdAt: '2026-08-13T01:01:00.000Z',
     });
-    expect(admission).toMatchObject({ created: true, pollScheduled: true });
-    expect(scheduledPolls).toEqual([
-      { bindingId: 'remote-binding-governed-control', expectedVersion: 1 },
-    ]);
-    const reconciliation = await remoteTasks.recordExternalSnapshot({
-      bindingId: admission.binding.bindingId,
-      expectedVersion: admission.binding.version,
-      snapshot: reconciled,
-      observationId: 'observation-governed-reconciliation',
-      source: 'reconciliation',
-      controlEventId: 'control-event-governed-completed',
-      resultHash: governedControlSnapshotHash(reconciled),
-      observedAt: '2026-08-13T01:01:01.000Z',
-    });
-    expect(reconciliation).toMatchObject({
-      applied: true,
-      binding: {
-        localState: 'terminal_event_pending',
-        protocolStatus: 'completed',
-        resultSnapshot: {
-          isError: false,
-          structuredContent: {
-            resourceId: 'ugv-1',
-            status: 'completed',
-            finalPosition: { x: 12, y: 8, frame: 'map' },
-          },
-          evidence: [expect.objectContaining({ evidenceType: 'position.observation' })],
+    const failedAdmissions: { taskId: string; errorCode: string; summary: string }[] = [];
+    let recoveryObservationSequence = 0;
+    let recoveryControlSequence = 0;
+    const restartedRecovery = () =>
+      new RemoteTaskAdmissionRecoveryService({
+        store: new PostgresRemoteTaskAdmissionIntentStore(pool),
+        admission: admissionService,
+        remoteTasks: new PostgresRemoteTaskRepository(pool),
+        continuations: new PostgresWorkflowContinuationRepository(pool),
+        clock: { now: () => '2026-08-13T01:02:00.000Z' },
+        failTask(taskId_, errorCode, summary) {
+          failedAdmissions.push({ taskId: taskId_, errorCode, summary });
+          return Promise.resolve();
         },
-      },
-      controlEvent: {
-        eventId: 'control-event-governed-completed',
-        type: 'task.completed',
-        status: 'pending',
+        nextObservationId: () =>
+          `observation-governed-recovery-${String(++recoveryObservationSequence)}`,
+        nextControlEventId: () =>
+          `control-event-governed-recovery-${String(++recoveryControlSequence)}`,
+      });
+
+    await expect(restartedRecovery().reconcile()).resolves.toEqual({
+      examined: 1,
+      materialized: 1,
+      uncertain: 0,
+      closedPrepared: 0,
+    });
+    const recoveredBinding = await remoteTasks.findById(remoteBindingId);
+    expect(recoveredBinding).toMatchObject({
+      bindingId: remoteBindingId,
+      mcpInvocationId: receipt.invocationId,
+      localState: 'terminal_event_pending',
+      protocolStatus: 'completed',
+      resultSnapshot: {
+        isError: false,
+        structuredContent: {
+          resourceId: 'ugv-1',
+          status: 'completed',
+          finalPosition: { x: 12, y: 8, frame: 'map' },
+        },
+        evidence: [expect.objectContaining({ evidenceType: 'position.observation' })],
       },
     });
-    await expect(remoteTasks.listObservations(admission.binding.bindingId)).resolves.toEqual([
+    expect(scheduledPolls).toEqual([{ bindingId: remoteBindingId, expectedVersion: 1 }]);
+    await expect(
+      pool.query(
+        `SELECT status FROM workflow_instance
+          WHERE instance_id='workflow-instance-governed-control'`,
+      ),
+    ).resolves.toMatchObject({ rows: [{ status: 'waiting_external' }] });
+    await expect(
+      pool.query(
+        `SELECT snapshot_id,lifecycle FROM workflow_continuation_snapshot
+          WHERE workflow_instance_id='workflow-instance-governed-control'`,
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          snapshot_id: 'workflow-continuation-snapshot-governed-control',
+          lifecycle: 'active',
+        },
+      ],
+    });
+    await expect(remoteTasks.listObservations(remoteBindingId)).resolves.toEqual([
       expect.objectContaining({ source: 'admission', accepted: true }),
       expect.objectContaining({ source: 'reconciliation', accepted: true }),
     ]);
-    await expect(remoteTasks.listControlEvents(admission.binding.bindingId)).resolves.toEqual([
+    await expect(remoteTasks.listControlEvents(remoteBindingId)).resolves.toEqual([
       expect.objectContaining({
-        eventId: 'control-event-governed-completed',
+        eventId: 'control-event-governed-recovery-1',
         type: 'task.completed',
         status: 'pending',
       }),
     ]);
+
+    // C3: the binding transaction committed, but the journal materialization marker did not.
+    // Recreate that durable crash state and prove restart recovery reuses the exact binding.
+    await pool.query(
+      `UPDATE remote_task_admission_intent
+          SET status='receipt_recorded',materialized_binding_id=NULL,
+              materialized_snapshot_id=NULL,materialized_at=NULL,
+              closed_at=NULL,updated_at='2026-08-13T01:01:02.000Z',version=version+1
+        WHERE intent_id=$1`,
+      [admissionIntentId],
+    );
+    await expect(restartedRecovery().reconcile()).resolves.toEqual({
+      examined: 1,
+      materialized: 1,
+      uncertain: 0,
+      closedPrepared: 0,
+    });
+    await expect(
+      pool.query(`SELECT count(*)::int AS count FROM remote_task_binding WHERE binding_id=$1`, [
+        remoteBindingId,
+      ]),
+    ).resolves.toMatchObject({ rows: [{ count: 1 }] });
+    await expect(remoteTasks.listObservations(remoteBindingId)).resolves.toHaveLength(2);
+    await expect(
+      pool.query(
+        `SELECT status,materialized_binding_id,materialized_snapshot_id
+           FROM remote_task_admission_intent WHERE intent_id=$1`,
+        [admissionIntentId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'materialized',
+          materialized_binding_id: remoteBindingId,
+          materialized_snapshot_id: 'workflow-continuation-snapshot-governed-control',
+        },
+      ],
+    });
+    expect(fakeProvider.toolCallCount).toBe(1);
+
+    const uncertainIntentId = 'remote-admission-intent-governed-uncertain';
+    const uncertainInvocationId = 'invocation-governed-uncertain';
+    await admissionIntents.prepare({
+      intentId: uncertainIntentId,
+      invocationId: uncertainInvocationId,
+      taskId,
+      capabilityAttemptId: attemptId,
+      contextId: 'context-governed-control',
+      serverId,
+      operationName: toolName,
+      argumentsHash,
+      envelope: {
+        bindingId: 'remote-binding-governed-uncertain',
+        serverId,
+        operationName: toolName,
+        agentTaskId: taskId,
+        contextId: 'context-governed-control',
+        goalId: 'goal-governed-control',
+        goalVersion: 1,
+        workflowPlanId: planId,
+        workflowDefinitionId: 'workflow-governed-control',
+        workflowDefinitionVersion: 1,
+        workflowInstanceId: 'workflow-instance-governed-control',
+        workflowNodeId: 'move-ugv',
+        workflowNodeRunId: 'move-ugv:1',
+        mcpInvocationId: uncertainInvocationId,
+        executionContext: { mode: 'live' },
+        createdAt: '2026-08-13T01:01:03.000Z',
+      },
+      status: 'prepared',
+      createdAt: '2026-08-13T01:01:03.000Z',
+      updatedAt: '2026-08-13T01:01:03.000Z',
+      version: 1,
+    });
+    await expect(
+      admissionIntents.markDispatching({
+        intentId: uncertainIntentId,
+        invocationId: uncertainInvocationId,
+        dispatchHash: `sha256:${'b'.repeat(64)}`,
+        at: '2026-08-13T01:01:03.000Z',
+      }),
+    ).resolves.toMatchObject({ applied: true, intent: { status: 'dispatching' } });
+    await expect(restartedRecovery().reconcile()).resolves.toEqual({
+      examined: 1,
+      materialized: 0,
+      uncertain: 1,
+      closedPrepared: 0,
+    });
+    expect(failedAdmissions).toEqual([
+      expect.objectContaining({
+        taskId,
+        errorCode: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+      }),
+    ]);
+    await expect(
+      pool.query(`SELECT status,reason_code FROM remote_task_admission_intent WHERE intent_id=$1`, [
+        uncertainIntentId,
+      ]),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'uncertain',
+          reason_code: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+        },
+      ],
+    });
+    expect(fakeProvider.toolCallCount).toBe(1);
     physicalDeviceWrites += 0;
     expect(physicalDeviceWrites).toBe(0);
   }, 30_000);
@@ -890,6 +1133,16 @@ async function seedExactAuthority(): Promise<void> {
             '{}'::jsonb,'executing','Executing governed control.','goal-governed-control',1,
             $2,$3,$4,'2026-08-13T01:00:00.000Z','2026-08-13T01:00:00.000Z')`,
     [taskId, planId, skillId, skillVersion],
+  );
+  await pool.query(
+    `INSERT INTO workflow_control(
+       control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,input_json,
+       skill_ids_json,planning_instruction,round_count,replan_count,created_at,updated_at)
+     VALUES('workflow-control-governed-control','context-governed-control',
+            'goal-governed-control',1,$1,'running',$2,$3::jsonb,$4::jsonb,
+            'Run the bounded governed-control fixture.',0,0,
+            '2026-08-13T01:00:00.000Z','2026-08-13T01:00:00.000Z')`,
+    [taskId, planId, JSON.stringify(arguments_), JSON.stringify([skillId])],
   );
   await pool.query(
     `INSERT INTO workflow_instance(

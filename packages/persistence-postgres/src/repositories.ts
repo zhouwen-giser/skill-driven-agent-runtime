@@ -965,6 +965,12 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
                'polling','cancel_observing','awaiting_input',
                'terminal_event_pending','terminal_event_claimed'
              )
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM remote_task_admission_intent admission
+           WHERE admission.task_id=task.task_id
+             AND admission.status='receipt_recorded'
          )`
              : ''
          }
@@ -972,12 +978,22 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
         [timestamp],
       );
       const instances = await client.query(
-        `UPDATE workflow_instance
+        `UPDATE workflow_instance instance
          SET status='failed',
              errors_json=jsonb_set(errors_json,'{runtime}',
                '{"code":"PROCESS_EXECUTION_LOST","message":"Process stopped during execution; V1 does not recover or retry."}'::jsonb,true),
              pending_confirmation_json=NULL, completed_at=$1
-         WHERE status IN ('running','paused')`,
+         WHERE status IN ('running','paused')
+         ${
+           this.#preserveRemoteWaits
+             ? `AND NOT EXISTS (
+           SELECT 1
+           FROM remote_task_admission_intent admission
+           WHERE admission.status='receipt_recorded'
+             AND admission.local_envelope_json->>'workflowInstanceId'=instance.instance_id
+         )`
+             : ''
+         }`,
         [timestamp],
       );
       const attempts = await client.query(
@@ -1005,6 +1021,12 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
                'polling','cancel_observing','awaiting_input',
                'terminal_event_pending','terminal_event_claimed'
              )
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM remote_task_admission_intent admission
+           WHERE admission.task_id=task_execution_attempt.task_id
+             AND admission.status='receipt_recorded'
          )`
              : ''
          }`,

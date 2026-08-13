@@ -7,6 +7,7 @@ export * from './result-processing-service.js';
 export * from './runtime-recovery.js';
 export * from './progress-recovery.js';
 export * from './remote-task-polling.js';
+export * from './remote-task-admission-recovery.js';
 export * from './remote-task-continuation.js';
 export * from './remote-task-cancellation.js';
 export * from './remote-task-input.js';

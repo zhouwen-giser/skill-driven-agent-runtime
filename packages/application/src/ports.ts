@@ -1108,6 +1108,23 @@ export interface WorkflowExecutionRepository {
   saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;
 }
 
+export type WorkflowExternalWaitCheckpointCompleteness =
+  'exact_single' | 'requires_graph_merge' | 'exact_final';
+
+export interface WorkflowExternalWaitPreparedSnapshot {
+  readonly snapshot: WorkflowContinuationSnapshot;
+  readonly completeness: WorkflowExternalWaitCheckpointCompleteness;
+}
+
+export interface WorkflowExternalWaitPreparation {
+  readonly continuation: WorkflowRuntimeContinuationState;
+  readonly completeness: WorkflowExternalWaitCheckpointCompleteness;
+}
+
+export type WorkflowExternalWaitSnapshotPreparer = (
+  input: WorkflowExternalWaitPreparation,
+) => Promise<WorkflowExternalWaitPreparedSnapshot>;
+
 export interface SkillCallWorkflowRepository {
   save(record: SkillCallWorkflowRecord): Promise<void>;
   find(
@@ -1126,6 +1143,7 @@ export interface WorkflowExecutor {
     signal?: AbortSignal,
     executionId?: string,
     executionContext?: RuntimeExecutionContext,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): Promise<
     Readonly<{
       status: 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled';
@@ -1151,11 +1169,13 @@ export interface WorkflowExecutor {
     resolution: WorkflowExternalWaitResolution,
     continuationAttemptId: string,
     signal?: AbortSignal,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): ReturnType<WorkflowExecutor['execute']>;
   resumeHumanConfirmation?(
     executionId: string,
     confirmed: WorkflowConfirmationResume,
     signal?: AbortSignal,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): ReturnType<WorkflowExecutor['execute']>;
   requestPause?(executionId: string): boolean;
   requestCancel?(executionId: string, interruptCurrent: boolean): boolean;

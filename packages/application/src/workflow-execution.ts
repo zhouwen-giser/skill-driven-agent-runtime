@@ -19,6 +19,8 @@ import type {
   WorkflowExecutor,
   WorkflowPlanRepository,
   WorkflowContinuationRepository,
+  WorkflowExternalWaitPreparedSnapshot,
+  WorkflowExternalWaitSnapshotPreparer,
 } from './ports.js';
 import type { WorkflowValidator } from './workflow-validator.js';
 import { validateSkillToolPolicies } from './skill-tool-policy.js';
@@ -46,6 +48,10 @@ export class WorkflowExecutionService {
         }>,
       ) => Promise<void>)
     | undefined;
+  readonly #onExternalWaitPrepared:
+    ((prepared: WorkflowExternalWaitPreparedSnapshot) => Promise<void>) | undefined;
+  readonly #onExternalWaitActivated:
+    ((snapshot: WorkflowContinuationSnapshot) => Promise<void>) | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -66,6 +72,8 @@ export class WorkflowExecutionService {
           error: unknown;
         }>,
       ) => Promise<void>;
+      onExternalWaitPrepared?: (prepared: WorkflowExternalWaitPreparedSnapshot) => Promise<void>;
+      onExternalWaitActivated?: (snapshot: WorkflowContinuationSnapshot) => Promise<void>;
       skills: SkillRepository;
       systemBudgetDefaults: WorkflowBudgetLimits;
     }>,
@@ -81,6 +89,8 @@ export class WorkflowExecutionService {
     this.#continuations = dependencies.continuations;
     this.#continuationIds = dependencies.continuationIds;
     this.#onContinuationActivationFailure = dependencies.onContinuationActivationFailure;
+    this.#onExternalWaitPrepared = dependencies.onExternalWaitPrepared;
+    this.#onExternalWaitActivated = dependencies.onExternalWaitActivated;
   }
 
   async confirm(planId: string, taskId?: string): Promise<WorkflowPlanRecord> {
@@ -184,6 +194,7 @@ export class WorkflowExecutionService {
         'WORKFLOW_PLAN_REVALIDATION_FAILED',
         'Persisted plan no longer validates against current Tool and Skill catalogs.',
       );
+    const executableDefinition = validation.definition;
     const { skillVersions, governingSkillVersions } = await this.#resolveSkillVersions(
       validation.definition,
       input.skillIds,
@@ -232,6 +243,40 @@ export class WorkflowExecutionService {
     await this.#instances.saveInstance(running);
     try {
       await input.onStarted?.(running);
+      const preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[] = [];
+      const prepareExternalWait: WorkflowExternalWaitSnapshotPreparer = (preparation) => {
+        if (input.continuationAuthority === undefined)
+          throw new WorkflowExecutionError(
+            'WORKFLOW_CONTINUATION_AUTHORITY_REQUIRED',
+            'External Workflow waits require persisted Task, Context and control authority.',
+          );
+        const timestamp = this.#clock.now();
+        const snapshot = createWorkflowContinuationSnapshot({
+          schemaVersion: '1.0',
+          snapshotId: this.#continuationIds.nextSnapshotId(),
+          continuationId: this.#continuationIds.nextContinuationId(),
+          stateVersion: 1,
+          lifecycle: 'active',
+          agentTaskId: input.continuationAuthority.agentTaskId,
+          contextId: input.continuationAuthority.contextId,
+          workflowControlId: input.continuationAuthority.workflowControlId,
+          goalId: plan.goalId,
+          goalVersion: plan.goalVersion,
+          workflowPlanId: plan.planId,
+          workflowDefinitionId: executableDefinition.workflowDefinitionId,
+          workflowDefinitionVersion: executableDefinition.version,
+          workflowDefinitionHash: canonicalHash(executableDefinition),
+          inputHash: canonicalHash(executionInput),
+          workflowInstanceId: input.instanceId,
+          ...preparation.continuation,
+          budgetUsage: { ...preparation.continuation.budgetUsage, replanCount },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        const prepared = { snapshot, completeness: preparation.completeness } as const;
+        preparedExternalWaits.push(prepared);
+        return this.#notifyExternalWaitPrepared(prepared);
+      };
       const outcome =
         input.executionContext === undefined
           ? await this.#executor.execute(
@@ -240,6 +285,8 @@ export class WorkflowExecutionService {
               budgetLimits,
               input.signal,
               input.instanceId,
+              undefined,
+              prepareExternalWait,
             )
           : await this.#executor.execute(
               validation.definition,
@@ -248,15 +295,17 @@ export class WorkflowExecutionService {
               input.signal,
               input.instanceId,
               input.executionContext,
+              prepareExternalWait,
             );
       await this.#instances.saveNodeEvents(this.#events(input.instanceId, outcome.events, 1));
+      let activatedSnapshot: WorkflowContinuationSnapshot | undefined;
       if (outcome.status === 'waiting_external') {
         if (outcome.continuation === undefined || input.continuationAuthority === undefined)
           throw new WorkflowExecutionError(
             'WORKFLOW_CONTINUATION_AUTHORITY_REQUIRED',
             'External Workflow waits require persisted Task, Context and control authority.',
           );
-        const snapshot = createWorkflowContinuationSnapshot({
+        const fallbackSnapshot = createWorkflowContinuationSnapshot({
           schemaVersion: '1.0',
           snapshotId: this.#continuationIds.nextSnapshotId(),
           continuationId: this.#continuationIds.nextContinuationId(),
@@ -278,23 +327,10 @@ export class WorkflowExecutionService {
           createdAt: this.#clock.now(),
           updatedAt: this.#clock.now(),
         });
-        try {
-          await this.#continuations.saveSnapshot(snapshot);
-        } catch (activationError: unknown) {
-          try {
-            await this.#onContinuationActivationFailure?.({
-              snapshot,
-              error: activationError,
-            });
-          } catch (compensationError: unknown) {
-            throw new AggregateError(
-              [activationError, compensationError],
-              'Workflow continuation activation and remote Task compensation both failed.',
-              { cause: compensationError },
-            );
-          }
-          throw activationError;
-        }
+        activatedSnapshot = await this.#persistExternalWait(
+          preparedExternalWaits,
+          fallbackSnapshot,
+        );
       }
       const completed: WorkflowInstance = {
         ...running,
@@ -313,6 +349,8 @@ export class WorkflowExecutionService {
           : { terminationReason: outcome.terminationReason }),
       };
       await this.#instances.saveInstance(completed);
+      if (activatedSnapshot !== undefined)
+        await this.#notifyExternalWaitActivated(activatedSnapshot);
       return completed;
     } catch (error: unknown) {
       const completedAt = this.#clock.now();
@@ -361,6 +399,7 @@ export class WorkflowExecutionService {
         'WORKFLOW_PLAN_NOT_CONFIRMED',
         'The immutable plan is no longer confirmed and cannot resume.',
       );
+    const executableDefinition = plan.definition;
     if (this.#executor.resumeHumanConfirmation === undefined)
       throw new WorkflowExecutionError(
         'WORKFLOW_RESUME_UNAVAILABLE',
@@ -368,6 +407,43 @@ export class WorkflowExecutionService {
       );
     const instanceWithoutPending = withoutPendingConfirmation(instance);
     try {
+      const preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[] = [];
+      const prepareExternalWait: WorkflowExternalWaitSnapshotPreparer = (preparation) => {
+        if (input.continuationAuthority === undefined)
+          throw new WorkflowExecutionError(
+            'WORKFLOW_CONTINUATION_AUTHORITY_REQUIRED',
+            'External Workflow waits require persisted Task, Context and control authority.',
+          );
+        const timestamp = this.#clock.now();
+        const snapshot = createWorkflowContinuationSnapshot({
+          schemaVersion: '1.0',
+          snapshotId: this.#continuationIds.nextSnapshotId(),
+          continuationId: this.#continuationIds.nextContinuationId(),
+          stateVersion: 1,
+          lifecycle: 'active',
+          agentTaskId: input.continuationAuthority.agentTaskId,
+          contextId: input.continuationAuthority.contextId,
+          workflowControlId: input.continuationAuthority.workflowControlId,
+          goalId: plan.goalId,
+          goalVersion: plan.goalVersion,
+          workflowPlanId: plan.planId,
+          workflowDefinitionId: executableDefinition.workflowDefinitionId,
+          workflowDefinitionVersion: executableDefinition.version,
+          workflowDefinitionHash: canonicalHash(executableDefinition),
+          inputHash: canonicalHash(instance.input),
+          workflowInstanceId: instance.instanceId,
+          ...preparation.continuation,
+          budgetUsage: {
+            ...preparation.continuation.budgetUsage,
+            replanCount: instance.budgetUsage.replanCount,
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        const prepared = { snapshot, completeness: preparation.completeness } as const;
+        preparedExternalWaits.push(prepared);
+        return this.#notifyExternalWaitPrepared(prepared);
+      };
       const confirmationResume =
         instance.pendingConfirmation.kind === 'skill_confirmation' &&
         instance.pendingConfirmation.childPlanId !== undefined &&
@@ -384,18 +460,20 @@ export class WorkflowExecutionService {
         instance.instanceId,
         confirmationResume,
         input.signal,
+        prepareExternalWait,
       );
       const eventCount = await this.#instances.countNodeEvents(instance.instanceId);
       await this.#instances.saveNodeEvents(
         this.#events(instance.instanceId, outcome.events, eventCount + 1),
       );
+      let activatedSnapshot: WorkflowContinuationSnapshot | undefined;
       if (outcome.status === 'waiting_external') {
         if (outcome.continuation === undefined || input.continuationAuthority === undefined)
           throw new WorkflowExecutionError(
             'WORKFLOW_CONTINUATION_AUTHORITY_REQUIRED',
             'External Workflow waits require persisted Task, Context and control authority.',
           );
-        const snapshot = createWorkflowContinuationSnapshot({
+        const fallbackSnapshot = createWorkflowContinuationSnapshot({
           schemaVersion: '1.0',
           snapshotId: this.#continuationIds.nextSnapshotId(),
           continuationId: this.#continuationIds.nextContinuationId(),
@@ -420,23 +498,10 @@ export class WorkflowExecutionService {
           createdAt: this.#clock.now(),
           updatedAt: this.#clock.now(),
         });
-        try {
-          await this.#continuations.saveSnapshot(snapshot);
-        } catch (activationError: unknown) {
-          try {
-            await this.#onContinuationActivationFailure?.({
-              snapshot,
-              error: activationError,
-            });
-          } catch (compensationError: unknown) {
-            throw new AggregateError(
-              [activationError, compensationError],
-              'Workflow continuation activation and remote Task compensation both failed.',
-              { cause: compensationError },
-            );
-          }
-          throw activationError;
-        }
+        activatedSnapshot = await this.#persistExternalWait(
+          preparedExternalWaits,
+          fallbackSnapshot,
+        );
       }
       const resumed: WorkflowInstance = {
         ...instanceWithoutPending,
@@ -455,6 +520,8 @@ export class WorkflowExecutionService {
           : { terminationReason: outcome.terminationReason }),
       };
       await this.#instances.saveInstance(resumed);
+      if (activatedSnapshot !== undefined)
+        await this.#notifyExternalWaitActivated(activatedSnapshot);
       return resumed;
     } catch (error: unknown) {
       const failed: WorkflowInstance = {
@@ -517,6 +584,30 @@ export class WorkflowExecutionService {
         'The Workflow runtime does not support external continuation.',
       );
     try {
+      const preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[] = [];
+      const prepareExternalWait: WorkflowExternalWaitSnapshotPreparer = (preparation) => {
+        const timestamp = this.#clock.now();
+        const preparedSnapshot = createWorkflowContinuationSnapshot({
+          ...snapshot,
+          snapshotId: this.#continuationIds.nextSnapshotId(),
+          stateVersion: snapshot.stateVersion + 1,
+          predecessorSnapshotId: snapshot.snapshotId,
+          lifecycle: 'active',
+          ...preparation.continuation,
+          budgetUsage: {
+            ...preparation.continuation.budgetUsage,
+            replanCount: instance.budgetUsage.replanCount,
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        const prepared = {
+          snapshot: preparedSnapshot,
+          completeness: preparation.completeness,
+        } as const;
+        preparedExternalWaits.push(prepared);
+        return this.#notifyExternalWaitPrepared(prepared);
+      };
       const outcome = await this.#executor.continueExternal(
         plan.definition,
         instance.instanceId,
@@ -524,33 +615,37 @@ export class WorkflowExecutionService {
         input.resolution,
         input.continuationAttemptId,
         input.signal,
+        prepareExternalWait,
       );
       const eventCount = await this.#instances.countNodeEvents(instance.instanceId);
       await this.#instances.saveNodeEvents(
         this.#events(instance.instanceId, outcome.events, eventCount + 1),
       );
       const timestamp = this.#clock.now();
+      let activatedSnapshot: WorkflowContinuationSnapshot | undefined;
       if (outcome.status === 'waiting_external') {
         if (outcome.continuation === undefined)
           throw new WorkflowExecutionError(
             'WORKFLOW_CONTINUATION_STATE_REQUIRED',
             'The Workflow runtime omitted required external continuation state.',
           );
-        await this.#continuations.saveSnapshot(
-          createWorkflowContinuationSnapshot({
-            ...snapshot,
-            snapshotId: this.#continuationIds.nextSnapshotId(),
-            stateVersion: snapshot.stateVersion + 1,
-            predecessorSnapshotId: snapshot.snapshotId,
-            lifecycle: 'active',
-            ...outcome.continuation,
-            budgetUsage: {
-              ...outcome.continuation.budgetUsage,
-              replanCount: instance.budgetUsage.replanCount,
-            },
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          }),
+        const fallbackSnapshot = createWorkflowContinuationSnapshot({
+          ...snapshot,
+          snapshotId: this.#continuationIds.nextSnapshotId(),
+          stateVersion: snapshot.stateVersion + 1,
+          predecessorSnapshotId: snapshot.snapshotId,
+          lifecycle: 'active',
+          ...outcome.continuation,
+          budgetUsage: {
+            ...outcome.continuation.budgetUsage,
+            replanCount: instance.budgetUsage.replanCount,
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        activatedSnapshot = await this.#persistExternalWait(
+          preparedExternalWaits,
+          fallbackSnapshot,
         );
       } else {
         await this.#continuations.transitionLifecycle(
@@ -580,6 +675,8 @@ export class WorkflowExecutionService {
           : { terminationReason: outcome.terminationReason }),
       };
       await this.#instances.saveInstance(continued);
+      if (activatedSnapshot !== undefined)
+        await this.#notifyExternalWaitActivated(activatedSnapshot);
       return continued;
     } catch (error: unknown) {
       const timestamp = this.#clock.now();
@@ -839,6 +936,62 @@ export class WorkflowExecutionService {
       );
     }
     return plan;
+  }
+
+  async #persistExternalWait(
+    prepared: readonly WorkflowExternalWaitPreparedSnapshot[],
+    fallback: WorkflowContinuationSnapshot,
+  ): Promise<WorkflowContinuationSnapshot> {
+    const exactFinal = prepared
+      .filter((candidate) => candidate.completeness === 'exact_final')
+      .at(-1);
+    const exactSingles = prepared.filter((candidate) => candidate.completeness === 'exact_single');
+    const hasPartial = prepared.some(
+      (candidate) => candidate.completeness === 'requires_graph_merge',
+    );
+    const selected =
+      exactFinal?.snapshot ??
+      (!hasPartial && exactSingles.length === 1 ? exactSingles[0]?.snapshot : undefined);
+    if (selected === undefined && prepared.length > 0)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_CONTINUATION_STATE_REQUIRED',
+        'Prepared external waits require one exact final graph snapshot before activation.',
+      );
+    const snapshot = selected ?? fallback;
+    if (prepared.length === 0)
+      await this.#onExternalWaitPrepared?.({ snapshot, completeness: 'exact_final' });
+    try {
+      await this.#continuations.saveSnapshot(snapshot);
+    } catch (activationError: unknown) {
+      try {
+        await this.#onContinuationActivationFailure?.({ snapshot, error: activationError });
+      } catch (compensationError: unknown) {
+        throw new AggregateError(
+          [activationError, compensationError],
+          'Workflow continuation activation and remote Task compensation both failed.',
+          { cause: compensationError },
+        );
+      }
+      throw activationError;
+    }
+    return snapshot;
+  }
+
+  async #notifyExternalWaitActivated(snapshot: WorkflowContinuationSnapshot): Promise<void> {
+    try {
+      await this.#onExternalWaitActivated?.(snapshot);
+    } catch (error: unknown) {
+      // The snapshot and waiting instance are already authoritative. A journal-backed hook may
+      // retry activation from that durable state; notification failure must not rewrite it failed.
+      void error;
+    }
+  }
+
+  async #notifyExternalWaitPrepared(
+    prepared: WorkflowExternalWaitPreparedSnapshot,
+  ): Promise<WorkflowExternalWaitPreparedSnapshot> {
+    await this.#onExternalWaitPrepared?.(prepared);
+    return prepared;
   }
 
   #events(

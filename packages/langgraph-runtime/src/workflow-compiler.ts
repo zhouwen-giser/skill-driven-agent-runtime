@@ -38,6 +38,10 @@ import type {
 import { resolveWorkflowBoundValue } from './bound-value-resolver.js';
 import { resolveMcpTaskExecution } from './mcp-task-execution-resolver.js';
 import { evaluateWorkflowExpression } from './expression-interpreter.js';
+import type {
+  WorkflowExternalWaitPreparedSnapshot,
+  WorkflowExternalWaitSnapshotPreparer,
+} from '../../application/src/ports.js';
 
 export interface WorkflowExecutionEvent {
   readonly nodeId: string;
@@ -68,6 +72,9 @@ export interface WorkflowRuntimePorts {
       taskExecution?: ResolvedMcpTaskExecution;
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
+      prepareExternalWait: (
+        wait: WorkflowExternalWaitRef,
+      ) => Promise<WorkflowExternalWaitPreparedSnapshot>;
     }>,
   ) => Promise<WorkflowMcpCallOutcome>;
   readonly executeSkill: (
@@ -228,11 +235,13 @@ export interface CompiledWorkflow {
     signal?: AbortSignal,
     executionId?: string,
     executionContext?: RuntimeExecutionContext,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): Promise<WorkflowExecutionResult>;
   resume(
     executionId: string,
     confirmed: WorkflowConfirmationResume,
     signal?: AbortSignal,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): Promise<WorkflowExecutionResult>;
   continueExternal(
     executionId: string,
@@ -241,6 +250,7 @@ export interface CompiledWorkflow {
     callCosts: WorkflowCallCosts,
     signal?: AbortSignal,
     continuationAttemptId?: string,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): Promise<WorkflowExecutionResult>;
   requestPause(executionId: string): boolean;
   requestCancel(executionId: string, interruptCurrent: boolean): boolean;
@@ -272,6 +282,8 @@ export function compileWorkflow(
       control: ExecutionControl;
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
+      prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer;
+      preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[];
     }>
   >();
   const handlers = new Map(
@@ -441,7 +453,15 @@ export function compileWorkflow(
   };
   return {
     definition: immutableDefinition,
-    async invoke(input, budgetLimits, callCosts, signal, executionId, executionContext) {
+    async invoke(
+      input,
+      budgetLimits,
+      callCosts,
+      signal,
+      executionId,
+      executionContext,
+      prepareExternalWait,
+    ) {
       const budgetMeter = new WorkflowBudgetMeter(budgetLimits, callCosts, ports.nowMilliseconds);
       const runId = executionId ?? immutableDefinition.workflowDefinitionId;
       runtimeContexts.set(runId, {
@@ -454,6 +474,8 @@ export function compileWorkflow(
         },
         ...(signal === undefined ? {} : { signal }),
         executionContext: executionContext ?? { mode: 'live' },
+        ...(prepareExternalWait === undefined ? {} : { prepareExternalWait }),
+        preparedExternalWaits: [],
       });
       try {
         const state = await executable.invoke(
@@ -476,6 +498,11 @@ export function compileWorkflow(
             configurable: { thread_id: runId },
             ...(signal === undefined ? {} : { signal }),
           },
+        );
+        await prepareFinalExternalWaitIfRequired(
+          state,
+          budgetLimits,
+          requiredRuntimeContext(runtimeContexts, runId),
         );
         return resultFromState(state, budgetLimits);
       } catch (error: unknown) {
@@ -515,7 +542,7 @@ export function compileWorkflow(
         };
       }
     },
-    async resume(executionId, confirmed, signal) {
+    async resume(executionId, confirmed, signal, prepareExternalWait) {
       const existingContext = runtimeContexts.get(executionId);
       if (existingContext === undefined)
         throw new WorkflowCompilerError(
@@ -531,11 +558,18 @@ export function compileWorkflow(
         control: existingContext.control,
         ...(signal === undefined ? {} : { signal }),
         executionContext: existingContext.executionContext,
+        ...(prepareExternalWait === undefined ? {} : { prepareExternalWait }),
+        preparedExternalWaits: [],
       });
       existingContext.budgetMeter.resume();
       const before = await executable.getState(config);
       const previousEventCount = workflowEventCount(before.values);
       const state = await executable.invoke(new Command({ resume: confirmed }), config);
+      await prepareFinalExternalWaitIfRequired(
+        state,
+        existingContext.budgetMeter.limits,
+        requiredRuntimeContext(runtimeContexts, executionId),
+      );
       const result = resultFromState(state, existingContext.budgetMeter.limits, previousEventCount);
       if (result.status !== 'paused') runtimeContexts.delete(executionId);
       return result;
@@ -547,6 +581,7 @@ export function compileWorkflow(
       callCosts,
       signal,
       continuationAttemptId,
+      prepareExternalWait,
     ) {
       const restored = restoreExternalResolution(
         executionId,
@@ -573,6 +608,8 @@ export function compileWorkflow(
         },
         ...(signal === undefined ? {} : { signal }),
         executionContext: continuation.executionContext,
+        ...(prepareExternalWait === undefined ? {} : { prepareExternalWait }),
+        preparedExternalWaits: [],
       });
       const continuationExecutable = buildExecutable(restored.state.parallelJoinState);
       if (restored.frontier.length === 0) {
@@ -595,6 +632,11 @@ export function compileWorkflow(
             configurable: { thread_id: threadId },
             ...(signal === undefined ? {} : { signal }),
           },
+        );
+        await prepareFinalExternalWaitIfRequired(
+          state,
+          continuation.budgetLimits,
+          requiredRuntimeContext(runtimeContexts, executionId),
         );
         return resultFromState(state, continuation.budgetLimits);
       } finally {
@@ -772,6 +814,8 @@ function createNodeAction(
     control: ExecutionControl;
     signal?: AbortSignal;
     executionContext: RuntimeExecutionContext;
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer;
+    preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[];
   }>,
 ): NodeAction {
   return async (state) => {
@@ -806,7 +850,15 @@ function createNodeAction(
     };
     try {
       const nodeRunId = workflowNodeRunId(state, node.nodeId);
-      const update = await executeNode(node, state, definition, ports, context, nodeRunId);
+      const update = await executeNode(
+        node,
+        state,
+        definition,
+        parallelJoins,
+        ports,
+        context,
+        nodeRunId,
+      );
       if (update.waitingNodeRuns?.[nodeRunId] !== undefined)
         return {
           ...update,
@@ -871,12 +923,18 @@ async function executeNode(
   node: WorkflowNode,
   state: WorkflowExecutionState,
   definition: WorkflowDefinition,
+  parallelJoins: readonly Readonly<{
+    predecessorNodeIds: readonly string[];
+    joinNodeId: string;
+  }>[],
   ports: WorkflowRuntimePorts,
   runtimeContext: Readonly<{
     budgetMeter: WorkflowBudgetMeter;
     control: ExecutionControl;
     signal?: AbortSignal;
     executionContext: RuntimeExecutionContext;
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer;
+    preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[];
   }>,
   workflowNodeRunId: string,
 ): Promise<StateUpdate> {
@@ -919,6 +977,45 @@ async function executeNode(
         ...(taskExecution === undefined ? {} : { taskExecution }),
         signal: callSignal,
         executionContext: runtimeContext.executionContext,
+        prepareExternalWait: async (wait) => {
+          if (runtimeContext.prepareExternalWait === undefined)
+            throw new WorkflowCompilerError(
+              'WORKFLOW_EXTERNAL_WAIT_PREPARATION_UNAVAILABLE',
+              'External wait preparation is not connected to durable Workflow authority.',
+            );
+          if (
+            wait.nodeId !== node.nodeId ||
+            wait.nodeRunId !== workflowNodeRunId ||
+            wait.kind !== 'remote_task'
+          )
+            throw new WorkflowCompilerError(
+              'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID',
+              'Prepared external wait identity does not match the active Workflow node run.',
+            );
+          const candidateState: WorkflowExecutionState = {
+            ...state,
+            waitingNodeRuns: { ...state.waitingNodeRuns, [workflowNodeRunId]: wait },
+            routes: { ...state.routes, [node.nodeId]: END },
+            nodeRunCounts: {
+              ...state.nodeRunCounts,
+              [node.nodeId]: (state.nodeRunCounts[node.nodeId] ?? 0) + 1,
+            },
+          };
+          const completeness = isInsideParallelBranch(node.nodeId, definition)
+            ? 'requires_graph_merge'
+            : 'exact_single';
+          const prepared = await runtimeContext.prepareExternalWait({
+            continuation: runtimeContinuationState(
+              candidateState,
+              runtimeContext.budgetMeter.limits,
+              runtimeContext.budgetMeter.snapshot(),
+              runtimeContext.executionContext,
+            ),
+            completeness,
+          });
+          runtimeContext.preparedExternalWaits.push(prepared);
+          return prepared;
+        },
       });
       budgetMeter.assertDuration();
       if (outcome.kind === 'waiting_external') {
@@ -1176,6 +1273,38 @@ async function executeNode(
   }
 }
 
+function isInsideParallelBranch(nodeId: string, definition: WorkflowDefinition): boolean {
+  for (const parallel of definition.nodes.filter(
+    (candidate): candidate is Extract<WorkflowNode, { type: 'parallel' }> =>
+      candidate.type === 'parallel',
+  )) {
+    const distances = parallel.branchEntryNodeIds.map((entry) =>
+      graphDistances(entry, definition.edges),
+    );
+    const joinNodeId = [...(distances[0]?.keys() ?? [])]
+      .filter((candidate) => distances.every((items) => items.has(candidate)))
+      .sort((left, right) => {
+        const leftDistances = distances.map((items) => requiredDistance(items, left));
+        const rightDistances = distances.map((items) => requiredDistance(items, right));
+        return (
+          Math.max(...leftDistances) - Math.max(...rightDistances) ||
+          leftDistances.reduce((sum, value) => sum + value, 0) -
+            rightDistances.reduce((sum, value) => sum + value, 0)
+        );
+      })[0];
+    if (joinNodeId === undefined || nodeId === joinNodeId) continue;
+    if (
+      distances.some((items) => {
+        return (
+          items.has(nodeId) && requiredDistance(items, nodeId) < requiredDistance(items, joinNodeId)
+        );
+      })
+    )
+      return true;
+  }
+  return false;
+}
+
 function workflowNodeRunId(state: WorkflowExecutionState, nodeId: string): string {
   const nextRunOrdinal = (state.nodeRunCounts[nodeId] ?? 0) + 1;
   return `${state.executionId}~${encodeURIComponent(nodeId)}~${String(nextRunOrdinal)}`;
@@ -1286,6 +1415,39 @@ function runtimeContinuationState(
     budgetLimits,
     budgetUsage,
   };
+}
+
+async function prepareFinalExternalWaitIfRequired(
+  state: WorkflowExecutionState,
+  budgetLimits: WorkflowBudgetLimits,
+  runtimeContext: Readonly<{
+    budgetMeter: WorkflowBudgetMeter;
+    executionContext: RuntimeExecutionContext;
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer;
+    preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[];
+  }>,
+): Promise<void> {
+  if (
+    runtimeContext.prepareExternalWait === undefined ||
+    state.failed ||
+    Object.keys(state.waitingNodeRuns).length === 0
+  )
+    return;
+  if (
+    runtimeContext.preparedExternalWaits.length === 1 &&
+    runtimeContext.preparedExternalWaits[0]?.completeness === 'exact_single'
+  )
+    return;
+  const prepared = await runtimeContext.prepareExternalWait({
+    continuation: runtimeContinuationState(
+      state,
+      budgetLimits,
+      runtimeContext.budgetMeter.snapshot(),
+      runtimeContext.executionContext,
+    ),
+    completeness: 'exact_final',
+  });
+  runtimeContext.preparedExternalWaits.push(prepared);
 }
 
 function restoreExternalResolution(
@@ -1760,6 +1922,7 @@ export type WorkflowCompilerErrorCode =
   | 'WORKFLOW_SKILL_CONFIRMATION_STALE'
   | 'WORKFLOW_SKILL_OUTPUT_MAPPING_INVALID'
   | 'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID'
+  | 'WORKFLOW_EXTERNAL_WAIT_PREPARATION_UNAVAILABLE'
   | 'WORKFLOW_EXTERNAL_CONTINUATION_INVALID'
   | 'WORKFLOW_BUDGET_CONFIGURATION_INVALID'
   | 'WORKFLOW_CHECKPOINT_NOT_AVAILABLE';
