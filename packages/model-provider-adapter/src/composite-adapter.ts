@@ -1,10 +1,19 @@
 import type { ModelTransportAdapter } from '../../application/src/index.js';
 import { AnthropicMessagesModelAdapter } from './anthropic-messages-adapter.js';
-import { ModelAdapterError, OpenAiCompatibleModelAdapter } from './openai-compatible-adapter.js';
+import {
+  ModelAdapterError,
+  OpenAiCompatibleModelAdapter,
+  type ModelOutboundEndpointPolicy,
+} from './openai-compatible-adapter.js';
 
 export class CompositeModelTransportAdapter implements ModelTransportAdapter {
-  readonly #openAi = new OpenAiCompatibleModelAdapter();
-  readonly #anthropic = new AnthropicMessagesModelAdapter();
+  readonly #openAi: OpenAiCompatibleModelAdapter;
+  readonly #anthropic: AnthropicMessagesModelAdapter;
+
+  constructor(endpointPolicy: ModelOutboundEndpointPolicy = {}) {
+    this.#openAi = new OpenAiCompatibleModelAdapter(endpointPolicy);
+    this.#anthropic = new AnthropicMessagesModelAdapter(endpointPolicy);
+  }
 
   generateStructured(input: Parameters<ModelTransportAdapter['generateStructured']>[0]) {
     return this.#adapter(input.configuration.apiStyle).generateStructured(input);

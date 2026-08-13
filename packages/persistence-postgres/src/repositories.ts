@@ -12,6 +12,7 @@ import type {
   McpServerRecord,
   ModelProviderRecord,
   ModelRuntimeRepository,
+  ModelRuntimeBootstrapRepository,
   PromptRepository,
   WorkflowPlanRepository,
   WorkflowTemplateRepository,
@@ -49,6 +50,7 @@ import {
   createMemoryItem,
   createMcpTool,
   createMcpToolExecutionSemantics,
+  deriveFrozenMcpCatalogAuthority,
   frozenTaskReadinessAttributes,
   createSkillVersion,
   DomainError,
@@ -4592,6 +4594,7 @@ interface ModelInvocationRow extends QueryResultRow {
 
 interface StageModelRouteRow extends QueryResultRow {
   stage: ModelStage;
+  operation: ModelInvocationRecord['operation'];
   provider_id: string;
   updated_at: Date | string;
 }
@@ -4610,12 +4613,15 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
     return result.rows[0] === undefined ? undefined : mapModelProviderRow(result.rows[0]);
   }
 
-  async findProviderForStage(stage: ModelStage): Promise<ModelProviderRecord | undefined> {
+  async findProviderForStage(
+    stage: ModelStage,
+    operation: ModelInvocationRecord['operation'],
+  ): Promise<ModelProviderRecord | undefined> {
     const result = await this.#pool.query<ModelProviderRow>(
       `SELECT p.* FROM stage_model_route r
        JOIN model_provider p ON p.provider_id = r.provider_id
-       WHERE r.stage = $1`,
-      [stage],
+       WHERE r.stage = $1 AND r.operation = $2`,
+      [stage, operation],
     );
     return result.rows[0] === undefined ? undefined : mapModelProviderRow(result.rows[0]);
   }
@@ -4629,10 +4635,11 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
 
   async listStageRoutes(): Promise<readonly StageModelRoute[]> {
     const result = await this.#pool.query<StageModelRouteRow>(
-      'SELECT stage,provider_id,updated_at FROM stage_model_route ORDER BY stage',
+      'SELECT stage,operation,provider_id,updated_at FROM stage_model_route ORDER BY stage,operation',
     );
     return result.rows.map((row) => ({
       stage: row.stage,
+      operation: row.operation,
       providerId: row.provider_id,
       updatedAt: toIsoString(row.updated_at),
     }));
@@ -4664,11 +4671,16 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
     );
   }
 
-  async saveStageRoute(stage: ModelStage, providerId: string, updatedAt: string): Promise<void> {
+  async saveStageRoute(
+    stage: ModelStage,
+    operation: ModelInvocationRecord['operation'],
+    providerId: string,
+    updatedAt: string,
+  ): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO stage_model_route(stage,provider_id,updated_at) VALUES ($1,$2,$3)
-       ON CONFLICT(stage) DO UPDATE SET provider_id=EXCLUDED.provider_id, updated_at=EXCLUDED.updated_at`,
-      [stage, providerId, updatedAt],
+      `INSERT INTO stage_model_route(stage,operation,provider_id,updated_at) VALUES ($1,$2,$3,$4)
+       ON CONFLICT(stage,operation) DO UPDATE SET provider_id=EXCLUDED.provider_id, updated_at=EXCLUDED.updated_at`,
+      [stage, operation, providerId, updatedAt],
     );
   }
 
@@ -4722,6 +4734,66 @@ export class PostgresModelRuntimeRepository implements ModelRuntimeRepository {
 
   async findActivePromptForStage(stage: ModelStage): Promise<PromptVersion | undefined> {
     return findActivePrompt(this.#pool, stage);
+  }
+}
+
+export class PostgresModelRuntimeBootstrapRepository implements ModelRuntimeBootstrapRepository {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async createProvidersAndRoutesIfEmpty(
+    input: Parameters<ModelRuntimeBootstrapRepository['createProvidersAndRoutesIfEmpty']>[0],
+  ): Promise<boolean> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('sdar.model-runtime-bootstrap'))");
+      const providerCount = await client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM model_provider',
+      );
+      if (providerCount.rows[0]?.count !== '0') {
+        await client.query('COMMIT');
+        return false;
+      }
+
+      for (const provider of input.providers) {
+        const value = provider.configuration;
+        await client.query(
+          `INSERT INTO model_provider
+           (provider_id,name,kind,api_style,base_url,model,enabled,timeout_ms,encrypted_credential,created_at,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            value.providerId,
+            value.name,
+            value.kind,
+            value.apiStyle,
+            value.baseUrl,
+            value.model,
+            value.enabled,
+            value.timeoutMs,
+            provider.encryptedCredential,
+            value.createdAt,
+            value.updatedAt,
+          ],
+        );
+      }
+      for (const route of input.routes) {
+        await client.query(
+          'INSERT INTO stage_model_route(stage,operation,provider_id,updated_at) VALUES ($1,$2,$3,$4)',
+          [route.stage, route.operation, route.providerId, input.routedAt],
+        );
+      }
+      await client.query('COMMIT');
+      return true;
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -6239,6 +6311,20 @@ export class PostgresMcpRegistryRepository
     return result.rows.map(mapMcpToolRow);
   }
 
+  async replaceEncryptedCredential(
+    serverId: string,
+    encryptedCredential: string,
+    updatedAt: string,
+  ): Promise<boolean> {
+    const result = await this.#pool.query(
+      `UPDATE mcp_server
+       SET encrypted_credential = $2, updated_at = $3
+       WHERE server_id = $1`,
+      [serverId, encryptedCredential, updatedAt],
+    );
+    return result.rowCount === 1;
+  }
+
   async findCurrentProtocolSnapshot(
     serverId: string,
   ): Promise<McpProtocolDiscoverySnapshot | undefined> {
@@ -6342,27 +6428,46 @@ export class PostgresMcpRegistryRepository
     const result = await this.#pool.query<{
       server_id: string;
       task_execution_json: unknown;
+      execution_semantics_json: unknown;
+      tool_revision: number;
       protocol_mode: 'frozen_v1';
       task_notifications: boolean | null;
     }>(
-      `SELECT t.server_id,t.task_execution_json,s.protocol_mode,p.task_notifications FROM mcp_tool t
+      `SELECT t.server_id,t.task_execution_json,t.execution_semantics_json,
+              s.tool_revision,s.protocol_mode,p.task_notifications FROM mcp_tool t
        JOIN mcp_server s ON s.server_id=t.server_id
        LEFT JOIN mcp_protocol_snapshot p ON p.snapshot_id=s.current_protocol_snapshot_id
        WHERE t.tool_name=$1 AND s.status='enabled' AND t.task_execution_json IS NOT NULL
        ORDER BY t.server_id`,
       [taskType],
     );
-    return result.rows.map((row) => {
-      const profile = McpTaskExecutionProfileSchema.parse(row.task_execution_json);
-      return Object.freeze({
-        providerId: row.server_id,
-        operationName: taskType,
-        protocolMode: 'frozen_v1' as const,
-        taskExecutionProfile: profile,
-        taskNotifications: row.task_notifications === true,
-        attributes: frozenTaskReadinessAttributes(profile, row.task_notifications === true),
-      });
-    });
+    return Promise.all(
+      result.rows.map(async (row) => {
+        const profile = McpTaskExecutionProfileSchema.parse(row.task_execution_json);
+        const semantics = parseMcpExecutionSemantics(row.execution_semantics_json);
+        const [snapshot, tools] = await Promise.all([
+          this.findCurrentProtocolSnapshot(row.server_id),
+          this.listTools(row.server_id),
+        ]);
+        const catalogChecksum =
+          snapshot === undefined
+            ? undefined
+            : deriveFrozenMcpCatalogAuthority(snapshot, tools, row.tool_revision).catalogChecksum;
+        return Object.freeze({
+          providerId: row.server_id,
+          operationName: taskType,
+          protocolMode: 'frozen_v1' as const,
+          taskExecutionProfile: profile,
+          taskNotifications: row.task_notifications === true,
+          attributes: Object.freeze([
+            ...frozenTaskReadinessAttributes(profile, row.task_notifications === true),
+            `effect:${semantics.effect}`,
+            `execution:${semantics.execution}`,
+            ...(catalogChecksum === undefined ? [] : [`catalog_checksum:${catalogChecksum}`]),
+          ]),
+        });
+      }),
+    );
   }
 
   async saveServerAndReplaceTools(

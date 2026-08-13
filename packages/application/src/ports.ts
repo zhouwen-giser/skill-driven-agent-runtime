@@ -1167,15 +1167,37 @@ export interface ControlledModelRouteResolver {
 
 export interface ModelRuntimeRepository {
   findProvider(providerId: string): Promise<ModelProviderRecord | undefined>;
-  findProviderForStage(stage: ModelStage): Promise<ModelProviderRecord | undefined>;
+  findProviderForStage(
+    stage: ModelStage,
+    operation: ModelInvocationRecord['operation'],
+  ): Promise<ModelProviderRecord | undefined>;
   listProviders(): Promise<readonly ModelProviderConfiguration[]>;
   listStageRoutes(): Promise<readonly StageModelRoute[]>;
   saveProvider(record: ModelProviderRecord): Promise<void>;
-  saveStageRoute(stage: ModelStage, providerId: string, updatedAt: string): Promise<void>;
+  saveStageRoute(
+    stage: ModelStage,
+    operation: ModelInvocationRecord['operation'],
+    providerId: string,
+    updatedAt: string,
+  ): Promise<void>;
   saveInvocation(invocation: ModelInvocationRecord): Promise<void>;
   listInvocations(stage?: ModelStage): Promise<readonly ModelInvocationRecord[]>;
   listInvocationsByTask(taskId: string): Promise<readonly ModelInvocationRecord[]>;
   findActivePromptForStage(stage: ModelStage): Promise<PromptVersion | undefined>;
+}
+
+export interface ModelRuntimeBootstrapRepository {
+  createProvidersAndRoutesIfEmpty(
+    input: Readonly<{
+      providers: readonly ModelProviderRecord[];
+      routes: readonly Readonly<{
+        stage: ModelStage;
+        operation: ModelInvocationRecord['operation'];
+        providerId: string;
+      }>[];
+      routedAt: string;
+    }>,
+  ): Promise<boolean>;
 }
 
 export interface PromptRepository {

@@ -412,6 +412,33 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     expect(audit.rows[0]?.payload).not.toContain(smppCredential);
   });
 
+  it('imports an explicit unauthenticated Runtime without sending Authorization', async () => {
+    provider.setCatalog('3.0.0', 'destination', 300_000);
+    const imported = await command(
+      '/api/v1/mcp-provider-bindings',
+      'p05-import-explicit-unauthenticated',
+      {
+        reason: 'Import the explicitly credential-free Runtime without a dummy bearer value.',
+        payload: {
+          bindingId: 'binding-explicit-unauthenticated',
+          localServerId: 'catalog-explicit-unauthenticated',
+          originType: 'direct',
+          credentialRef: 'unauthenticated://none',
+          endpointRef: `${providerBaseUrl}/mcp-unauthenticated`,
+        },
+      },
+    );
+    expect(imported).toMatchObject({ status: 'succeeded', result: { status: 'active' } });
+    expect(provider.unauthenticatedAuthorizationHeaders()).toEqual([undefined, undefined]);
+    await expect(repository.find('binding-explicit-unauthenticated')).resolves.toMatchObject({
+      credentialRef: 'unauthenticated://none',
+      binding: {
+        localServerId: 'catalog-explicit-unauthenticated',
+        status: 'active',
+      },
+    });
+  });
+
   it('projects only exact current secret-free Binding authority and native lineage', async () => {
     const observedAt = new Date().toISOString();
     await seedSmppAuthority('current', observedAt, { immutableSnapshotExpired: true });
@@ -824,6 +851,7 @@ class FakeRegistryAndMcpProvider {
   #externalServerId = 'server-p05';
   #mcpPath = '/mcp';
   readonly #methods: string[] = [];
+  readonly #unauthenticatedAuthorizationHeaders: (string | undefined)[] = [];
 
   configure(baseUrl: string): void {
     this.#baseUrl = baseUrl;
@@ -845,6 +873,10 @@ class FakeRegistryAndMcpProvider {
     return [...this.#methods];
   }
 
+  unauthenticatedAuthorizationHeaders(): readonly (string | undefined)[] {
+    return [...this.#unauthenticatedAuthorizationHeaders];
+  }
+
   async respond(request: IncomingMessage, response: ServerResponse): Promise<void> {
     if (request.url === '/registry' && request.method === 'GET') {
       this.respondRegistry(request, response);
@@ -852,6 +884,10 @@ class FakeRegistryAndMcpProvider {
     }
     if (['/mcp', '/mcp-v2'].includes(request.url ?? '') && request.method === 'POST') {
       await this.respondMcp(request, response);
+      return;
+    }
+    if (request.url === '/mcp-unauthenticated' && request.method === 'POST') {
+      await this.respondMcp(request, response, true);
       return;
     }
     if (request.url === '/redirect' && request.method === 'POST') {
@@ -902,8 +938,17 @@ class FakeRegistryAndMcpProvider {
       );
   }
 
-  private async respondMcp(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    if (request.headers.authorization !== `Bearer ${mcpCredential}`) {
+  private async respondMcp(
+    request: IncomingMessage,
+    response: ServerResponse,
+    unauthenticated = false,
+  ): Promise<void> {
+    if (unauthenticated)
+      this.#unauthenticatedAuthorizationHeaders.push(request.headers.authorization);
+    if (
+      (unauthenticated && request.headers.authorization !== undefined) ||
+      (!unauthenticated && request.headers.authorization !== `Bearer ${mcpCredential}`)
+    ) {
       response.writeHead(401).end();
       return;
     }

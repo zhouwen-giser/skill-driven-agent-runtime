@@ -49,7 +49,11 @@ export type SkillGoalDispatch =
 export class SkillGoalScheduler {
   readonly #repository: SkillGoalDispatchRepository;
   readonly #candidates: Readonly<{
-    list(skillGoal: SkillGoal, planId: string): Promise<readonly SkillVersion[]>;
+    list(
+      skillGoal: SkillGoal,
+      planId: string,
+      agentTaskId?: string,
+    ): Promise<readonly SkillVersion[]>;
     selectionRecordId?(skillGoal: SkillGoal, skill: SkillVersion): Promise<string | undefined>;
   }>;
   readonly #now: () => string;
@@ -60,7 +64,11 @@ export class SkillGoalScheduler {
     dependencies: Readonly<{
       repository: SkillGoalDispatchRepository;
       candidates: Readonly<{
-        list(skillGoal: SkillGoal, planId: string): Promise<readonly SkillVersion[]>;
+        list(
+          skillGoal: SkillGoal,
+          planId: string,
+          agentTaskId?: string,
+        ): Promise<readonly SkillVersion[]>;
         selectionRecordId?(skillGoal: SkillGoal, skill: SkillVersion): Promise<string | undefined>;
       }>;
       now: () => string;
@@ -109,7 +117,7 @@ export class SkillGoalScheduler {
     return Promise.all(
       claims.map(async ({ skillGoal, attempt }) => {
         try {
-          const candidates = await this.#candidates.list(skillGoal, planId);
+          const candidates = await this.#candidates.list(skillGoal, planId, agentTaskId);
           const skill = candidates.find((candidate) => isSkillGoalCompatible(skillGoal, candidate));
           const selecting: SkillAttempt = Object.freeze({
             ...attempt,

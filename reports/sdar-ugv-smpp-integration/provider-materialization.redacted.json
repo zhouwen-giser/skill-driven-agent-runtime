@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-provider-materialization/v1",
+  "status": "passed",
+  "observedAt": "2026-08-12T12:04:40.604Z",
+  "provider": {
+    "providerKey": "ugv",
+    "bindingId": "mcp-binding-ugv-smpp",
+    "action": "reconciled",
+    "runtimeAction": "refreshed",
+    "externalProviderId": "isr.vehicle.ugv.ugv1",
+    "externalServerId": "production-ugv-direct-1",
+    "registryRevision": 1,
+    "registryChecksum": "fd1ba955d175398b33231c8af26205b043c632a5702040c31f305ecd9c9d1d06",
+    "nativeRegistryRevision": 1,
+    "nativeRegistryChecksum": "72a880d6415d318919f821379007af9f59b5f611ac8560a5833b3b134603c218",
+    "registryProjectionContract": "sdar-registry-v1",
+    "registryCatalogRevision": "1",
+    "bindingRevision": 2,
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62",
+    "endpointSha256": "4ab6d1552c621e2c421c917e0883f7cc111a747c818ab5a279f8f36c8e9e8076",
+    "catalogObservedAt": "2026-08-12T12:04:40.704Z",
+    "availabilityValidUntil": "2026-08-12T13:04:40.704Z",
+    "runtimeToolRevision": 2,
+    "runtimeDiscoveredAt": "2026-08-12T12:04:40.777Z",
+    "runtimeValidUntil": "2026-08-12T13:04:40.777Z",
+    "credentialRotation": "not_applicable",
+    "tools": [
+      {
+        "toolName": "vehicle_area_recon",
+        "taskBehavior": "task_required",
+        "effect": "side_effecting",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "6061b0d006d934ee0078e3556291d2c1b9df08b5c3108630c1d6b18f2d1c6757",
+        "outputSchemaSha256": "57fb2eb9c750fd01d17f3ec33fef57f12c59ca776ef21655b900c6d3929f7490"
+      },
+      {
+        "toolName": "vehicle_control_gimbal",
+        "taskBehavior": "task_required",
+        "effect": "side_effecting",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "553873e6e4e6207747ffaff7fd8faff33391300472c0d5e2630059fdcbd39514",
+        "outputSchemaSha256": "20c3a17c515fc25702fd1382385c441ef5cff87b5e570acb530ad384c3c36210"
+      },
+      {
+        "toolName": "vehicle_emergency_stop",
+        "taskBehavior": "task_required",
+        "effect": "side_effecting",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+        "outputSchemaSha256": "ec8bd6f267c13269c2ecc969c032a75de6b1ef8884582c9b0b569219911a7c0b"
+      },
+      {
+        "toolName": "vehicle_fire_weapon",
+        "taskBehavior": "task_required",
+        "effect": "side_effecting",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "498c3b43ca943303f33ae8bba713aac96cca8ee7b32ac007bbb61e0cee788cca",
+        "outputSchemaSha256": "c9ed9bb13bf9491dacdb30954dcc59bac2b440f19255f225436ca5747404905d"
+      },
+      {
+        "toolName": "vehicle_get_capabilities",
+        "taskBehavior": "synchronous_only",
+        "effect": "read_only",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+        "outputSchemaSha256": "34069b152b11edf82b0c3301a41db6e764ba90790b9fe4e8f08604a29caf97ea"
+      },
+      {
+        "toolName": "vehicle_get_payload_status",
+        "taskBehavior": "synchronous_only",
+        "effect": "read_only",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+        "outputSchemaSha256": "34069b152b11edf82b0c3301a41db6e764ba90790b9fe4e8f08604a29caf97ea"
+      },
+      {
+        "toolName": "vehicle_get_state",
+        "taskBehavior": "synchronous_only",
+        "effect": "read_only",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "fa04af3d483adbb10b242ba4593cd86eb44bddcb51246968291bc9194c084c65",
+        "outputSchemaSha256": "34069b152b11edf82b0c3301a41db6e764ba90790b9fe4e8f08604a29caf97ea"
+      },
+      {
+        "toolName": "vehicle_get_targets",
+        "taskBehavior": "synchronous_only",
+        "effect": "read_only",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+        "outputSchemaSha256": "bcb3a439212cc2c6b074f207e1ebbba466a1b772effb6eff23ef91c58732172f"
+      },
+      {
+        "toolName": "vehicle_laser_range",
+        "taskBehavior": "synchronous_only",
+        "effect": "read_only",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+        "outputSchemaSha256": "85e2d9f658d9c6e0275af35240527d72c5522b64e9c3ac3d88ea63af4a8ee7be"
+      },
+      {
+        "toolName": "vehicle_navigate",
+        "taskBehavior": "task_required",
+        "effect": "side_effecting",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "ae33c7317c8689ad174ba7d685df4ebed531e1cdf76c5a63ca68d7d04b30fa32",
+        "outputSchemaSha256": "20c3a17c515fc25702fd1382385c441ef5cff87b5e570acb530ad384c3c36210"
+      },
+      {
+        "toolName": "vehicle_track_target",
+        "taskBehavior": "task_required",
+        "effect": "side_effecting",
+        "executionSemanticsSource": "admin_override",
+        "inputSchemaSha256": "d21a34fc62d1aff8b69495afb4aed59558121a11adaea125cc1474a06b855c76",
+        "outputSchemaSha256": "b7c000f519115c6af9d56b81b20a149d671219f6f10f3f8056d793d980d9e235"
+      }
+    ]
+  },
+  "catalog": {
+    "expectedToolCount": 11,
+    "materializedToolCount": 11,
+    "reviewedToolPolicy": true,
+    "allExecutionSemanticsExplicit": true,
+    "physicalToolInvocationCount": 0
+  },
+  "firePolicy": {
+    "toolName": "vehicle_fire_weapon",
+    "discoveredAndClassified": true,
+    "executionAuthorized": false,
+    "capabilityCreationAuthority": "none"
+  },
+  "authentication": {
+    "runtimeMode": "none",
+    "implicitFallback": false
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "credentialReferencesIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": true
+  }
+}

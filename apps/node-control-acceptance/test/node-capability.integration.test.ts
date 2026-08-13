@@ -67,8 +67,8 @@ beforeAll(async () => {
             'encrypted-test-value',clock_timestamp(),clock_timestamp())`,
   );
   await runtimePool.query(
-    `INSERT INTO stage_model_route(stage,provider_id,updated_at)
-     VALUES('skill_selection','model.p07',clock_timestamp())`,
+    `INSERT INTO stage_model_route(stage,operation,provider_id,updated_at)
+     VALUES('skill_selection','structured_generation','model.p07',clock_timestamp())`,
   );
   controlApi = await startTestApi();
 });
@@ -880,7 +880,27 @@ async function cleanup() {
   await runtimePool.query(
     'TRUNCATE capability_readiness_command_receipt,capability_readiness_snapshot',
   );
-  await runtimePool.query('TRUNCATE task_capability_execution_attempt,task_capability_binding');
+  const cleanupClient = await runtimePool.connect();
+  try {
+    await cleanupClient.query('BEGIN');
+    await cleanupClient.query("DELETE FROM mcp_invocation WHERE task_id='task.p09.capability'");
+    await cleanupClient.query(
+      "DELETE FROM runtime_terminal_outcome WHERE task_id='task.p09.capability'",
+    );
+    await cleanupClient.query(
+      "DELETE FROM task_capability_execution_attempt WHERE task_id='task.p09.capability'",
+    );
+    await cleanupClient.query('SET LOCAL session_replication_role=replica');
+    await cleanupClient.query(
+      "DELETE FROM task_capability_binding WHERE task_id='task.p09.capability'",
+    );
+    await cleanupClient.query('COMMIT');
+  } catch (error) {
+    await cleanupClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    cleanupClient.release();
+  }
   await runtimePool.query("DELETE FROM task_execution_attempt WHERE task_id='task.p09.capability'");
   await runtimePool.query("DELETE FROM runtime_event WHERE task_id='task.p09.capability'");
   await runtimePool.query("DELETE FROM agent_task WHERE task_id='task.p09.capability'");

@@ -133,6 +133,40 @@ describe('ModelRuntimeService', () => {
     expect(transport.providerIds).toHaveLength(0);
   });
 
+  it('routes structured generation and embedding independently for the same stage', async () => {
+    const repository = new MemoryModelRepository();
+    const transport = new FakeTransport();
+    const service = createService(repository, transport);
+    await service.configureProvider(configuration('provider-structured'), {});
+    await service.configureProvider(configuration('provider-embedding'), {});
+    await service.route('goal', 'provider-structured', 'structured_generation');
+    await service.route('goal', 'provider-embedding', 'embedding');
+
+    await service.generateStructured({
+      stage: 'goal',
+      instruction: 'Create a Goal.',
+      responseSchema: { type: 'object' },
+      correctionErrors: [],
+    });
+    await service.embed('goal', 'Embed this Goal.');
+
+    expect(transport.providerIds).toEqual(['provider-structured', 'provider-embedding']);
+    await expect(service.listStageRoutes()).resolves.toEqual([
+      {
+        stage: 'goal',
+        operation: 'structured_generation',
+        providerId: 'provider-structured',
+        updatedAt: '2026-07-11T10:00:00.000Z',
+      },
+      {
+        stage: 'goal',
+        operation: 'embedding',
+        providerId: 'provider-embedding',
+        updatedAt: '2026-07-11T10:00:00.000Z',
+      },
+    ]);
+  });
+
   it('uses a controlled fallback chain, keeps task context and redacts upstream errors', async () => {
     const repository = new MemoryModelRepository();
     const transport = new ProviderSelectiveTransport('provider-primary');
@@ -282,33 +316,40 @@ function record(providerId: string): ModelProviderRecord {
 
 class MemoryModelRepository implements ModelRuntimeRepository {
   readonly providers = new Map<string, ModelProviderRecord>();
-  readonly routes = new Map<ModelStage, string>();
+  readonly routes = new Map<
+    string,
+    Readonly<{
+      stage: ModelStage;
+      operation: ModelInvocationRecord['operation'];
+      providerId: string;
+      updatedAt: string;
+    }>
+  >();
   invocations: readonly ModelInvocationRecord[] = [];
   findProvider(providerId: string) {
     return Promise.resolve(this.providers.get(providerId));
   }
-  findProviderForStage(stage: ModelStage) {
-    const id = this.routes.get(stage);
-    return Promise.resolve(id === undefined ? undefined : this.providers.get(id));
+  findProviderForStage(stage: ModelStage, operation: ModelInvocationRecord['operation']) {
+    const route = this.routes.get(`${stage}:${operation}`);
+    return Promise.resolve(route === undefined ? undefined : this.providers.get(route.providerId));
   }
   listProviders() {
     return Promise.resolve([...this.providers.values()].map((item) => item.configuration));
   }
   listStageRoutes() {
-    return Promise.resolve(
-      [...this.routes].map(([stage, providerId]) => ({
-        stage,
-        providerId,
-        updatedAt: '2026-07-11T10:00:00.000Z',
-      })),
-    );
+    return Promise.resolve([...this.routes.values()]);
   }
   saveProvider(record: ModelProviderRecord) {
     this.providers.set(record.configuration.providerId, record);
     return Promise.resolve();
   }
-  saveStageRoute(stage: ModelStage, providerId: string) {
-    this.routes.set(stage, providerId);
+  saveStageRoute(
+    stage: ModelStage,
+    operation: ModelInvocationRecord['operation'],
+    providerId: string,
+    updatedAt: string,
+  ) {
+    this.routes.set(`${stage}:${operation}`, { stage, operation, providerId, updatedAt });
     return Promise.resolve();
   }
   saveInvocation(invocation: ModelInvocationRecord) {

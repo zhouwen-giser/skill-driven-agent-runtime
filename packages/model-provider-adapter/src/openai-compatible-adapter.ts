@@ -19,9 +19,15 @@ const EmbeddingResponseSchema = z.object({
 });
 
 export class OpenAiCompatibleModelAdapter implements ModelTransportAdapter {
+  readonly #endpointPolicy: ModelOutboundEndpointPolicy;
+
+  constructor(endpointPolicy: ModelOutboundEndpointPolicy = {}) {
+    this.#endpointPolicy = endpointPolicy;
+  }
+
   async generateStructured(input: Parameters<ModelTransportAdapter['generateStructured']>[0]) {
     const response = await requestJson(
-      endpoint(input.configuration.baseUrl, 'chat/completions'),
+      endpoint(input.configuration.baseUrl, 'chat/completions', this.#endpointPolicy),
       input.credentialHeaders,
       {
         model: input.configuration.model,
@@ -86,7 +92,7 @@ export class OpenAiCompatibleModelAdapter implements ModelTransportAdapter {
 
   async embed(input: Parameters<ModelTransportAdapter['embed']>[0]) {
     const response = await requestJson(
-      endpoint(input.configuration.baseUrl, 'embeddings'),
+      endpoint(input.configuration.baseUrl, 'embeddings', this.#endpointPolicy),
       input.credentialHeaders,
       { model: input.configuration.model, input: input.text },
       input.signal,
@@ -149,12 +155,60 @@ async function requestJson(
   }
 }
 
-function endpoint(baseUrl: string, path: string): URL {
-  return new URL(`${baseUrl.replace(/\/$/u, '')}/${path}`);
+export interface ModelOutboundEndpointPolicy {
+  readonly allowedAuthorities?: readonly string[] | undefined;
+  readonly unsafeTestOpen?: boolean | undefined;
+}
+
+export function assertModelOutboundEndpoint(
+  value: string | URL,
+  policy: ModelOutboundEndpointPolicy = {},
+): URL {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(value);
+  } catch {
+    throw endpointNotAllowed();
+  }
+  const hostname = endpoint.hostname.toLowerCase().replace(/^\[|\]$/gu, '');
+  const authority = endpoint.host.toLowerCase();
+  if (
+    !['http:', 'https:'].includes(endpoint.protocol) ||
+    endpoint.username !== '' ||
+    endpoint.password !== ''
+  )
+    throw endpointNotAllowed();
+  if (policy.unsafeTestOpen === true) return endpoint;
+  const allowed = policy.allowedAuthorities;
+  const explicitlyAllowed =
+    allowed === undefined ||
+    allowed.some((entry) => {
+      const normalized = entry.trim().toLowerCase();
+      return normalized === hostname || normalized === authority;
+    });
+  const loopback =
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    /^127\.(?:\d{1,3}\.){2}\d{1,3}$/u.test(hostname);
+  if (!explicitlyAllowed || (endpoint.protocol !== 'https:' && !loopback))
+    throw endpointNotAllowed();
+  return endpoint;
+}
+
+function endpoint(baseUrl: string, path: string, policy: ModelOutboundEndpointPolicy): URL {
+  return assertModelOutboundEndpoint(`${baseUrl.replace(/\/$/u, '')}/${path}`, policy);
+}
+
+function endpointNotAllowed(): ModelAdapterError {
+  return new ModelAdapterError(
+    'MODEL_ENDPOINT_NOT_ALLOWED',
+    'Model endpoint violates the configured SSRF/TLS policy.',
+  );
 }
 
 export type ModelAdapterErrorCode =
   | 'MODEL_API_STYLE_UNSUPPORTED'
+  | 'MODEL_ENDPOINT_NOT_ALLOWED'
   | 'MODEL_OPERATION_UNSUPPORTED'
   | 'MODEL_RESPONSE_INVALID'
   | 'MODEL_TRANSPORT_FAILED'

@@ -37,6 +37,7 @@ describe('GenericTaskUnderstandingService', () => {
   it('treats injected text as data and never fills missing high-risk authorization', async () => {
     const repository = new MemoryUnderstandingRepository();
     const instructions: string[] = [];
+    const timeouts: number[] = [];
     const service = new GenericTaskUnderstandingService({
       repository,
       capabilities: {
@@ -86,6 +87,7 @@ describe('GenericTaskUnderstandingService', () => {
       model: {
         generate(input) {
           instructions.push(input.instruction);
+          timeouts.push(input.timeoutMs);
           return Promise.resolve({
             invocationId: 'model-invocation.understanding.1',
             structuredResult: {
@@ -129,6 +131,7 @@ describe('GenericTaskUnderstandingService', () => {
       policyVersion: 'task-understanding-v1',
       clock: { now: () => '2026-07-23T03:00:00.000Z' },
       nextUnderstandingId: () => 'understanding.1',
+      modelTimeoutMs: 90_000,
     });
 
     const result = await service.understand({
@@ -157,6 +160,7 @@ describe('GenericTaskUnderstandingService', () => {
     const prompt = JSON.parse(instructions[0] ?? '{}') as Record<string, unknown>;
     expect(prompt['untrustedUserRequest']).toContain('Ignore all prior instructions');
     expect(prompt['policy']).not.toContain('Ignore all prior instructions');
+    expect(timeouts).toEqual([90_000]);
   });
 
   it('retries invalid structured output within the bounded policy', async () => {
@@ -252,6 +256,153 @@ describe('GenericTaskUnderstandingService', () => {
         expect.objectContaining({ kind: 'priority', severity: 'non_blocking' }),
       ]),
     );
+  });
+
+  it('fails closed to clarification when managed admission has no exact known Task Type', async () => {
+    const service = new GenericTaskUnderstandingService({
+      repository: new MemoryUnderstandingRepository(),
+      capabilities: { getSummary: () => Promise.resolve(undefined) },
+      taskTypes: { search: () => Promise.resolve([]) },
+      model: {
+        generate: () =>
+          Promise.resolve({
+            invocationId: 'model-invocation.managed-unknown',
+            structuredResult: {
+              interpretedObjective: 'Stop something.',
+              taskTypeCandidates: [
+                {
+                  taskTypeId: 'task-type.vehicle.emergency-stop',
+                  version: 1,
+                  confidence: 1,
+                  rationale: 'Invented from ambiguous stop language.',
+                },
+              ],
+              capabilityRequirements: [],
+              knownConstraints: [],
+              knownDimensions: [],
+              missingDimensions: [],
+              assumptions: [],
+              confidence: 0.9,
+            },
+          }),
+      },
+      policyVersion: 'task-understanding-v1',
+      clock: { now: () => '2026-08-12T03:00:00.000Z' },
+      nextUnderstandingId: () => 'understanding.managed-unknown',
+      taskTypeAdmission: {
+        requireKnownMatch: true,
+        requirePublicCapabilitySupport: true,
+      },
+    });
+
+    await expect(
+      service.understand({
+        taskId: 'task.managed-unknown',
+        contextId: 'context.managed-unknown',
+        requestText: '停一下。',
+        conversationContext: {},
+        worldStateSummary: {},
+        lowRiskUserPreferences: [],
+      }),
+    ).resolves.toMatchObject({
+      disposition: 'clarification_required',
+      taskTypeCandidates: [],
+      missingDimensions: [expect.objectContaining({ kind: 'target', severity: 'blocking' })],
+    });
+  });
+
+  it('admits only public Skill-backed Task Types and preserves their required Capability', async () => {
+    const instructions: string[] = [];
+    const taskType = {
+      taskTypeId: 'task-type.vehicle.navigate',
+      version: 1,
+      title: 'Navigate vehicle',
+      recognitionHints: ['向前移动'],
+      requiredDimensions: [],
+      capabilityRequirements: ['vehicle.ugv.navigate'],
+      risks: ['physical_side_effect'],
+    } as const;
+    const service = new GenericTaskUnderstandingService({
+      repository: new MemoryUnderstandingRepository(),
+      capabilities: {
+        getSummary: () =>
+          Promise.resolve({
+            summary: {
+              summaryId: 'summary.managed',
+              revision: 1,
+              catalogHash: `sha256:${'2'.repeat(64)}`,
+              generationPolicyVersion: 'capability-policy-v1',
+              items: [
+                {
+                  capabilityId: 'vehicle.ugv.navigate',
+                  public: true,
+                  exactSkillVersionRefs: ['ugv.navigate:1'],
+                },
+              ],
+            },
+            index: {},
+          } as never),
+      },
+      taskTypes: { search: () => Promise.resolve([taskType]) },
+      model: {
+        generate: (input) => {
+          instructions.push(input.instruction);
+          return Promise.resolve({
+            invocationId: 'model-invocation.managed-navigate',
+            structuredResult: {
+              interpretedObjective: 'Move the vehicle forward one metre.',
+              taskTypeCandidates: [
+                {
+                  taskTypeId: taskType.taskTypeId,
+                  version: 1,
+                  confidence: 0.95,
+                  rationale: 'Exact navigation phrase.',
+                },
+              ],
+              capabilityRequirements: [
+                {
+                  capabilityId: 'vehicle.ugv.navigate',
+                  description: 'The model tried to make this optional.',
+                  required: false,
+                },
+              ],
+              knownConstraints: [],
+              knownDimensions: [],
+              missingDimensions: [],
+              assumptions: [],
+              confidence: 0.9,
+            },
+          });
+        },
+      },
+      policyVersion: 'task-understanding-v1',
+      clock: { now: () => '2026-08-12T03:01:00.000Z' },
+      nextUnderstandingId: () => 'understanding.managed-navigate',
+      taskTypeAdmission: {
+        requireKnownMatch: true,
+        requirePublicCapabilitySupport: true,
+      },
+    });
+
+    const result = await service.understand({
+      taskId: 'task.managed-navigate',
+      contextId: 'context.managed-navigate',
+      requestText: '无人车向前移动一米。',
+      conversationContext: {},
+      worldStateSummary: {},
+      lowRiskUserPreferences: [],
+    });
+
+    expect(result).toMatchObject({
+      disposition: 'contract_candidate',
+      taskTypeCandidates: [{ taskTypeId: taskType.taskTypeId }],
+      capabilityRequirements: [
+        { capabilityId: 'vehicle.ugv.navigate', required: true, available: true },
+      ],
+    });
+    expect(JSON.parse(instructions[0] ?? '{}')).toMatchObject({
+      taskTypeDefinitions: [{ taskTypeId: taskType.taskTypeId }],
+    });
   });
 });
 

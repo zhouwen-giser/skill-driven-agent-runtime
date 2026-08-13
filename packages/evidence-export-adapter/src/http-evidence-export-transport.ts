@@ -28,14 +28,16 @@ export class EnvironmentEvidenceCredentialResolver implements EvidenceCredential
 export class HttpEvidenceExportTransport implements EvidenceExportTransport {
   readonly #credentials: EvidenceCredentialResolver;
   readonly #timeoutMs: number;
+  readonly #unsafeTestOpen: boolean;
 
-  constructor(credentials: EvidenceCredentialResolver, timeoutMs = 5_000) {
+  constructor(credentials: EvidenceCredentialResolver, timeoutMs = 5_000, unsafeTestOpen = false) {
     this.#credentials = credentials;
     this.#timeoutMs = timeoutMs;
+    this.#unsafeTestOpen = unsafeTestOpen;
   }
 
   async probe(configuration: ManagedEvidenceExportConfiguration): Promise<void> {
-    const endpoint = safeEvidenceEndpoint(configuration.endpointRef);
+    const endpoint = safeEvidenceEndpoint(configuration.endpointRef, this.#unsafeTestOpen);
     const credential = await this.#credentials.resolve(configuration.credentialRef);
     await request(
       endpoint,
@@ -57,7 +59,7 @@ export class HttpEvidenceExportTransport implements EvidenceExportTransport {
     const body = canonicalizeEvidenceJson(batch);
     if (Buffer.byteLength(body, 'utf8') > configuration.batchPolicy.maxBytes)
       throw exportError('EVIDENCE_BATCH_TOO_LARGE');
-    const endpoint = safeEvidenceEndpoint(configuration.endpointRef);
+    const endpoint = safeEvidenceEndpoint(configuration.endpointRef, this.#unsafeTestOpen);
     const credential = await this.#credentials.resolve(configuration.credentialRef);
     const response = await request(
       endpoint,
@@ -156,10 +158,13 @@ function assertBatchHash(batch: EvidenceBatchRequest): void {
     throw exportError('EVIDENCE_BATCH_HASH_INVALID');
 }
 
-function safeEvidenceEndpoint(value: string): URL {
+function safeEvidenceEndpoint(value: string, unsafeTestOpen: boolean): URL {
   const endpoint = new URL(value);
   if (endpoint.username !== '' || endpoint.password !== '')
     throw exportError('EVIDENCE_ENDPOINT_CREDENTIALS_FORBIDDEN');
+  if (!['http:', 'https:'].includes(endpoint.protocol))
+    throw exportError('EVIDENCE_ENDPOINT_TLS_REQUIRED');
+  if (unsafeTestOpen) return endpoint;
   if (endpoint.protocol === 'https:') return endpoint;
   if (endpoint.protocol === 'http:' && isLoopbackHostname(endpoint.hostname)) return endpoint;
   throw exportError('EVIDENCE_ENDPOINT_TLS_REQUIRED');

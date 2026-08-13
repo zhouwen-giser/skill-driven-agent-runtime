@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  SMPP_UNAUTHENTICATED_CREDENTIAL_REF,
   computeSmppSnapshotChecksum,
   createSmppRegistrySnapshot,
   createSmppRegistrySource,
@@ -36,8 +37,17 @@ describe('P04 SMPP Registry domain', () => {
       }),
     ).toThrow(/cannot contain credentials/u);
     expect(() => createSmppRegistrySource({ ...source, credentialRef: 'plaintext-token' })).toThrow(
-      /SecretRef/u,
+      /SecretRef|unauthenticated/u,
     );
+    expect(
+      createSmppRegistrySource({
+        ...source,
+        credentialRef: SMPP_UNAUTHENTICATED_CREDENTIAL_REF,
+      }),
+    ).toMatchObject({ credentialRef: SMPP_UNAUTHENTICATED_CREDENTIAL_REF });
+    expect(() =>
+      createSmppRegistrySource({ ...source, credentialRef: 'unauthenticated://fallback' }),
+    ).toThrow(/unauthenticated:\/\/none/u);
   });
 
   it('uses source/provider/server composite identity and verifies canonical checksums', () => {

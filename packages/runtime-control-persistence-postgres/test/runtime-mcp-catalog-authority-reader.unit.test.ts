@@ -30,6 +30,7 @@ describe('PostgresRuntimeMcpCatalogAuthorityReader', () => {
               protocol_version: '2026-07-28',
               server_info_json: { name: 'Home Lab Light', version: '2.0.0' },
               tool_revision: 11,
+              valid_until: new Date('2026-08-10T12:05:00.000Z'),
             },
           ],
         });
@@ -83,6 +84,7 @@ describe('PostgresRuntimeMcpCatalogAuthorityReader', () => {
       endpoint: 'https://provider.example.test/mcp',
       status: 'enabled',
       serverUpdatedAt: '2026-08-10T11:59:30.000Z',
+      snapshotValidUntil: '2026-08-10T12:05:00.000Z',
       toolRevision: 11,
       protocolMode: 'frozen_v1',
       snapshotToolRevision: 11,

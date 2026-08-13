@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-live-catalog/v1",
+  "status": "passed_with_semantics_limitation",
+  "evidenceClass": "derived_from_real_sdar_mcp_adapter_catalog",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/provider-materialization.redacted.json"
+  ],
+  "observedAt": "2026-08-12T12:04:40.777Z",
+  "catalog": {
+    "revision": "2.0.0-rc.1:2",
+    "checksum": "1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62",
+    "operationCount": 11,
+    "runtimeToolRevision": 2,
+    "publicResourceId": "vehicle:ugv1",
+    "readOnlyOperationCount": 5,
+    "controlOperationCount": 5,
+    "forbiddenFireOperationCount": 1,
+    "operationNames": [
+      "vehicle_area_recon",
+      "vehicle_control_gimbal",
+      "vehicle_emergency_stop",
+      "vehicle_fire_weapon",
+      "vehicle_get_capabilities",
+      "vehicle_get_payload_status",
+      "vehicle_get_state",
+      "vehicle_get_targets",
+      "vehicle_laser_range",
+      "vehicle_navigate",
+      "vehicle_track_target"
+    ]
+  },
+  "semantics": {
+    "source": "admin_override",
+    "runtimeDeclaredSemanticsAvailable": false,
+    "qualificationLimitation": "Tool effect and task behavior are operator-reviewed overrides rather than external runtime-declared semantics."
+  },
+  "externalBoundary": {
+    "downstreamAdapterMode": "simulation_only",
+    "realPhysicalUGVProven": false
+  },
+  "firePolicy": {
+    "discovered": true,
+    "capabilityCreated": false,
+    "skillCreated": false,
+    "invocationCount": 0,
+    "runtimeHardDenyProven": false
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "schemasReplacedByHashesInSourceEvidence": true
+  }
+}

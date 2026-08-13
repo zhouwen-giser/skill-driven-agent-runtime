@@ -24,7 +24,7 @@ import { BusinessEventsPanel } from './BusinessEventsPanel.js';
 import { PromptPanel } from './PromptPanel.js';
 import { MemoryPanel, MemorySourceNavigation } from './MemoryPanel.js';
 import { McpPanel } from './McpPanel.js';
-import { SystemPanel } from './SystemPanel.js';
+import { buildStageRouteUpdateBody, SystemPanel } from './SystemPanel.js';
 import { EvaluationPanel, OperationsDashboard } from './EvaluationPanel.js';
 import { SkillStudio } from './SkillStudio.js';
 import {
@@ -533,7 +533,21 @@ describe('operational console static accessibility contract', () => {
     expect(markup).toContain('Automatic archive and delete remain disabled');
     expect(markup).toContain('SANITIZED MODEL INVOCATIONS');
     expect(markup).toContain('skill_input_resolution');
+    expect(markup).toContain('structured_generation');
+    expect(markup).toContain('embedding');
     expect(markup).not.toContain('Bearer fixture');
+  });
+
+  it('submits the selected model operation and preserves structured generation as the default', () => {
+    const markup = renderToStaticMarkup(<SystemPanel />);
+    expect(markup).toContain('<option selected="">structured_generation</option>');
+    expect(
+      buildStageRouteUpdateBody({
+        stage: 'goal',
+        providerId: 'provider.embedding',
+        operation: 'embedding',
+      }),
+    ).toEqual({ providerId: 'provider.embedding', operation: 'embedding' });
   });
 
   it('renders operational evaluation KPIs, failure bars, stability, and quality trend', () => {

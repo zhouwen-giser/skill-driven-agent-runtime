@@ -9,6 +9,7 @@ import {
   NodeControlEventService,
   NodeControlRuntimeGovernanceService,
   type NodeControlMcpProviderBindingService,
+  type NodeControlCapabilityService,
   type NodeControlEvidenceExportService,
   type ConfigurationReference,
   type NodeControlConfigurationRepository,
@@ -488,6 +489,9 @@ describe('Node Control HTTP frozen contract', () => {
       nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
       a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
       nodeEvents,
+      capabilities: {
+        listImplementations: () => Promise.resolve([]),
+      } as unknown as NodeControlCapabilityService,
       taskSummaries: {
         list: () =>
           Promise.resolve([
@@ -627,6 +631,14 @@ describe('Node Control HTTP frozen contract', () => {
     expect(securityWrite.status).toBe(403);
     const viewerHeaders = { authorization: `Bearer ${viewerToken}` };
     expect((await fetch(`${baseUrl}/api/v1/node`, { headers: viewerHeaders })).status).toBe(200);
+    expect(
+      (
+        await fetch(
+          `${baseUrl}/api/v1/node-capabilities/vehicle.ugv.read-state/versions/1/implementations`,
+          { headers: viewerHeaders },
+        )
+      ).status,
+    ).toBe(200);
     expect((await fetch(`${baseUrl}/api/v1/audit-events`, { headers: viewerHeaders })).status).toBe(
       403,
     );

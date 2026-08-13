@@ -348,6 +348,7 @@ export class FrozenBusinessEventsClient {
         },
         body: JSON.stringify({ jsonrpc: '2.0', id: requestId, method, params }),
         ...(input.signal === undefined ? {} : { signal: input.signal }),
+        redirect: 'manual',
       });
     } catch (error: unknown) {
       throw new BusinessEventsProtocolError(

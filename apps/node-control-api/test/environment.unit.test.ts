@@ -56,4 +56,82 @@ describe('Node Control API environment', () => {
       }),
     ).toThrow('must use HTTPS');
   });
+
+  it('permits the global outbound relaxation only for an explicit non-production profile', () => {
+    const base = {
+      SDAR_CONTROL_API_TOKEN: 'a'.repeat(32),
+      SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: 'b'.repeat(32),
+      SDAR_CONTROL_NODE_ID: 'node-ugv-integration',
+      SDAR_CONTROL_NODE_DISPLAY_NAME: 'UGV Integration Node',
+      SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open',
+    };
+    expect(
+      parseNodeControlApiEnvironment({
+        ...base,
+        NODE_ENV: 'test',
+        SDAR_CONTROL_ENVIRONMENT: 'integration',
+        SDAR_CONTROL_RUNTIME_ENDPOINT_REF: 'http://192.168.1.7:9998',
+        SDAR_CONTROL_A2A_AGENT_CARD_URL: 'http://192.168.1.7:9999/.well-known/agent-card.json',
+      }),
+    ).toMatchObject({ SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open' });
+    expect(() =>
+      parseNodeControlApiEnvironment({
+        ...base,
+        SDAR_CONTROL_ENVIRONMENT: 'integration',
+      }),
+    ).toThrow('forbidden outside');
+    expect(() =>
+      parseNodeControlApiEnvironment({
+        ...base,
+        NODE_ENV: 'production',
+        SDAR_CONTROL_ENVIRONMENT: 'integration',
+      }),
+    ).toThrow('forbidden outside');
+    expect(() =>
+      parseNodeControlApiEnvironment({
+        ...base,
+        NODE_ENV: 'test',
+        SDAR_CONTROL_ENVIRONMENT: 'production',
+      }),
+    ).toThrow('forbidden outside');
+    expect(() =>
+      parseNodeControlApiEnvironment({
+        ...base,
+        NODE_ENV: 'test',
+        SDAR_CONTROL_ENVIRONMENT: 'integration',
+        SDAR_CONTROL_RUNTIME_ENDPOINT_REF: 'http://user:secret@192.168.1.7:9998',
+      }),
+    ).toThrow('credential-free HTTP(S)');
+    expect(() =>
+      parseNodeControlApiEnvironment({
+        ...base,
+        NODE_ENV: 'test',
+        SDAR_CONTROL_ENVIRONMENT: 'integration',
+        SDAR_CONTROL_RUNTIME_ENDPOINT_REF: 'file:///tmp/runtime.sock',
+      }),
+    ).toThrow('credential-free HTTP(S)');
+  });
+
+  it('requires exact dual allowlisting for the safer private HTTP acknowledgement', () => {
+    const parsed = parseNodeControlApiEnvironment({
+      SDAR_CONTROL_API_TOKEN: 'a'.repeat(32),
+      SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: 'b'.repeat(32),
+      SDAR_CONTROL_NODE_ID: 'node-ugv-private-http',
+      SDAR_CONTROL_NODE_DISPLAY_NAME: 'UGV Private HTTP Node',
+      SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: '192.168.1.7:18088',
+      SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST: '192.168.1.7:19100',
+      SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST: '192.168.1.7:18088,192.168.1.7:19100',
+      SDAR_CONTROL_ACKNOWLEDGE_PRIVATE_HTTP_ENDPOINTS: 'YES',
+    });
+    expect(parsed.SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST).toContain('192.168.1.7');
+    expect(() =>
+      parseNodeControlApiEnvironment({
+        SDAR_CONTROL_API_TOKEN: 'a'.repeat(32),
+        SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: 'b'.repeat(32),
+        SDAR_CONTROL_NODE_ID: 'node-ugv-private-http',
+        SDAR_CONTROL_NODE_DISPLAY_NAME: 'UGV Private HTTP Node',
+        SDAR_CONTROL_PRIVATE_HTTP_ENDPOINT_ALLOWLIST: '192.168.1.7:19100',
+      }),
+    ).toThrow('explicit deployment acknowledgement');
+  });
 });

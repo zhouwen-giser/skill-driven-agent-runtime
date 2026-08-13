@@ -95,6 +95,40 @@ describe('structured Goal evaluator', () => {
       ).evaluate(evaluationInput()),
     ).resolves.toMatchObject({ decision: 'capability_gap' });
   });
+
+  it('uses one bounded correction for conflicting decision-specific fields', async () => {
+    const model = new SequenceModel([
+      {
+        decision: 'replace_skill',
+        summary: 'The provider rejected the current execution mode.',
+        missingCapability: 'A compatible read-state capability.',
+        suggestedToolContract: {
+          name: 'read_state',
+          description: 'Read the current state.',
+          inputSchema: { type: 'object' },
+        },
+      },
+      {
+        decision: 'capability_gap',
+        summary: 'The provider rejected the current execution mode.',
+        missingCapability: 'A compatible read-state capability.',
+        suggestedToolContract: {
+          name: 'read_state',
+          description: 'Read the current state.',
+          inputSchema: { type: 'object' },
+        },
+      },
+    ]);
+
+    await expect(
+      new StructuredGoalEvaluator(model).evaluate(evaluationInput()),
+    ).resolves.toMatchObject({ decision: 'capability_gap' });
+    expect(model.inputs).toHaveLength(2);
+    expect(model.inputs[1]?.correctionErrors).toEqual([
+      'GOAL_EVALUATION_ACTION_INSTRUCTION_REQUIRED',
+      'GOAL_EVALUATION_CAPABILITY_EVIDENCE_FORBIDDEN',
+    ]);
+  });
 });
 
 function evaluationInput() {
@@ -146,5 +180,17 @@ class FixedModel implements StructuredModelProvider {
   generateStructured(input: Parameters<StructuredModelProvider['generateStructured']>[0]) {
     this.input = input;
     return Promise.resolve(this.#output);
+  }
+}
+
+class SequenceModel implements StructuredModelProvider {
+  readonly inputs: Parameters<StructuredModelProvider['generateStructured']>[0][] = [];
+  readonly #outputs: unknown[];
+  constructor(outputs: unknown[]) {
+    this.#outputs = outputs;
+  }
+  generateStructured(input: Parameters<StructuredModelProvider['generateStructured']>[0]) {
+    this.inputs.push(input);
+    return Promise.resolve(this.#outputs.shift());
   }
 }

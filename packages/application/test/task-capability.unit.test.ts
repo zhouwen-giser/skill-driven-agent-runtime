@@ -170,6 +170,111 @@ function fixture(
 }
 
 describe('RuntimeTaskCapabilityService', () => {
+  it('projects exact frozen Task Capability authority into Skill usage context', async () => {
+    const resolution: RuntimeCapabilityResolution = {
+      exposureId: 'resource.read',
+      exposureVersion: 1,
+      requestedCapabilityId: 'resource.read.capability',
+      capabilityVersion: 2,
+      requestSchema: {
+        type: 'object',
+        required: ['resourceId'],
+        properties: { resourceId: { const: 'resource:42' } },
+        additionalProperties: false,
+      },
+      successCriteria: [{ type: 'output_schema_valid', required: true }],
+      requiredEvidence: [
+        {
+          type: 'required_evidence',
+          evidenceType: 'resource.state.observation',
+          required: true,
+          hardGate: true,
+        },
+      ],
+      constraints: [
+        {
+          type: 'resource_policy',
+          selection: 'exact_value',
+          allowedResourceIds: ['resource:42'],
+        },
+        {
+          type: 'provider_binding_policy',
+          mcpProviderBindingId: 'binding-current',
+          localServerId: 'server.example',
+          bindingRevision: 1,
+          catalogRevision: '1.0.0:1',
+          catalogChecksum: 'a'.repeat(64),
+          requiredStatus: 'active',
+          requiredAvailabilityStatus: 'available',
+          requiredFreshness: 'unexpired',
+          fallback: 'deny',
+        },
+        {
+          type: 'exact_skill_version',
+          skillId: 'resource.read',
+          skillVersion: 2,
+        },
+        { type: 'confirmation_policy', required: false },
+        { type: 'side_effect_policy', sideEffecting: false },
+      ],
+      implementationRefs: ['skill:resource.read:2'],
+      providerBindingRefs: ['binding-current'],
+      providerBindingRequirements: [
+        { bindingId: 'binding-current', localServerId: 'server.example' },
+      ],
+    };
+    const accepted = fixture({ resolution });
+    const prepared = await accepted.service.prepareAcceptance({
+      task: accepted.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: resolution.exposureId,
+          versionConstraint: '1',
+          requestId: 'request-skill-usage-authority',
+        },
+      },
+      capabilityInput: { resourceId: 'resource:42' },
+      inputAttempt: accepted.inputAttempt,
+      bindingId: 'task-capability-binding',
+      capabilityAttemptId: 'capability-attempt-skill-usage',
+      event: accepted.event,
+    });
+    if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
+    await accepted.service.accept(prepared);
+
+    await expect(
+      accepted.service.resolveSkillUsageAuthority(accepted.task.taskId),
+    ).resolves.toEqual({
+      skillId: 'resource.read',
+      skillVersion: 2,
+      context: {
+        observations: [
+          {
+            requirementId: 'public-resource-id',
+            source: 'authoritative_context',
+            status: 'available',
+            evidenceRef: `task-capability-binding:task-capability-binding:hash:${prepared.binding.bindingHash}`,
+          },
+          {
+            requirementId: 'provider-binding-freshness',
+            source: 'authoritative_context',
+            status: 'available',
+            evidenceRef:
+              'node-control-provider-binding:binding-current:revision:1:observed-at:2026-08-02T00:00:00.000Z',
+          },
+        ],
+        risk: 'low',
+        humanConfirmation: 'not_requested',
+        systemPolicy: {
+          allowedModes: ['guidance', 'template', 'procedure'],
+          requireProcedureForHighRisk: true,
+          allowGuidanceWithIncompleteContext: false,
+        },
+      },
+    });
+    expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledTimes(2);
+  });
+
   it('delegates canceled-attempt recovery to the authoritative store', async () => {
     const { service, reconcileCanceledAttempts } = fixture();
     reconcileCanceledAttempts.mockResolvedValueOnce(2);

@@ -88,7 +88,11 @@ import type {
   ManagementPrincipalResolver,
   RuntimeSkillGovernanceService,
 } from '../../application/src/index.js';
-import type { SkillExecutionView, SkillUsageSpecification } from '../../domain/src/index.js';
+import {
+  MODEL_STAGES,
+  type SkillExecutionView,
+  type SkillUsageSpecification,
+} from '../../domain/src/index.js';
 
 const TaskWaitPolicySchema = z.object({ timeoutSeconds: z.number().int().positive() });
 const AgentTaskPhaseSchema = z.enum([
@@ -207,6 +211,9 @@ const RegisterMcpServerSchema = z.object({
   endpoint: z.url(),
   credentialHeaders: z.record(z.string(), z.string()),
 });
+const ReplaceMcpServerCredentialsSchema = z
+  .object({ credentialHeaders: z.record(z.string(), z.string()) })
+  .strict();
 const ToolEnhancementSchema = z.object({
   purpose: z.string(),
   scenarios: z.array(z.string()),
@@ -372,29 +379,7 @@ const SkillQualityObservationSchema = z.object({
   score: z.number().min(0).max(1),
   successful: z.boolean(),
 });
-const ModelStageSchema = z.enum([
-  'intent',
-  'goal',
-  'tool_enhancement',
-  'skill_authoring',
-  'goal_planning',
-  'skill_selection',
-  'skill_input_resolution',
-  'workflow_planning',
-  'execution_decision',
-  'goal_evaluation',
-  'evaluation',
-  'result_processing',
-  'task_understanding',
-  'task_clarification',
-  'goal_contract_generation',
-  'interactive_plan_patch',
-  'experience_observation',
-  'experience_reflection',
-  'task_type_induction',
-  'capability_pattern_induction',
-  'knowledge_promotion_assessment',
-]);
+const ModelStageSchema = z.enum(MODEL_STAGES);
 const ConfigureModelProviderSchema = z.object({
   providerId: z.string().min(1),
   name: z.string().min(1),
@@ -406,7 +391,10 @@ const ConfigureModelProviderSchema = z.object({
   timeoutMs: z.number().int().positive(),
   credentialHeaders: z.record(z.string(), z.string()),
 });
-const RouteModelStageSchema = z.object({ providerId: z.string().min(1) });
+const RouteModelStageSchema = z.object({
+  providerId: z.string().min(1),
+  operation: z.enum(['structured_generation', 'embedding']).default('structured_generation'),
+});
 const CreatePromptSchema = z.object({
   promptId: z.string().min(1),
   stage: ModelStageSchema,
@@ -451,8 +439,31 @@ const ExecuteDeterministicCapabilitySchema = z
     serverId: z.string().trim().min(1).max(512),
     toolName: z.string().trim().min(1).max(512),
     resourceId: z.string().trim().min(1).max(512),
+    executionMode: z.enum(['live', 'simulation']).optional(),
+    simulationId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(256)
+      .regex(/^[\x21-\x7e]+$/u)
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    const executionMode = input.executionMode ?? 'live';
+    if (executionMode === 'simulation' && input.simulationId === undefined)
+      context.addIssue({
+        code: 'custom',
+        path: ['simulationId'],
+        message: 'Simulation execution requires a stable simulation identity.',
+      });
+    if (executionMode === 'live' && input.simulationId !== undefined)
+      context.addIssue({
+        code: 'custom',
+        path: ['simulationId'],
+        message: 'Live execution cannot carry a simulation identity.',
+      });
+  });
 const ResumeHumanConfirmationSchema = z.object({ confirmed: z.boolean() });
 const CreateGoalSchema = z.object({
   goalId: z.string().min(1),
@@ -765,7 +776,10 @@ export interface ManagementOperations {
     McpProtocolOperationsService,
     'auditBaseline' | 'diagnose' | 'listProviders'
   >;
-  readonly frozenMcp?: Pick<FrozenMcpRegistryService, 'refresh' | 'register'>;
+  readonly frozenMcp?: Pick<
+    FrozenMcpRegistryService,
+    'refresh' | 'register' | 'replaceCredentials'
+  >;
   readonly frozenMcpNotifications?: Readonly<{
     reconnect(serverId: string): Promise<
       Readonly<{
@@ -2302,7 +2316,7 @@ export async function startManagementHttpEndpoint(
     asyncRoute(async (request, response) => {
       const stage = ModelStageSchema.parse(pathValue(request, 'stage'));
       const input = RouteModelStageSchema.parse(request.body);
-      await options.operations.models.route(stage, input.providerId);
+      await options.operations.models.route(stage, input.providerId, input.operation);
       response.status(204).end();
     }),
   );
@@ -2524,6 +2538,22 @@ export async function startManagementHttpEndpoint(
           'Frozen MCP refresh is not composed in this runtime.',
         );
       response.json(await options.operations.frozenMcp.refresh(pathValue(request, 'serverId')));
+    }),
+  );
+  app.put(
+    '/api/v1/mcp/servers/:serverId/credentials',
+    asyncRoute(async (request, response) => {
+      if (options.operations.frozenMcp === undefined)
+        throw new HttpInputError(
+          'FROZEN_MCP_REGISTRY_UNAVAILABLE',
+          'Frozen MCP credential replacement is not composed in this runtime.',
+        );
+      const input = ReplaceMcpServerCredentialsSchema.parse(request.body);
+      await options.operations.frozenMcp.replaceCredentials(
+        pathValue(request, 'serverId'),
+        input.credentialHeaders,
+      );
+      response.status(204).end();
     }),
   );
   app.put(

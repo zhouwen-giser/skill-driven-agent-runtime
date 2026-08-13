@@ -163,6 +163,7 @@ export class HttpRuntimeGovernanceClient implements NodeControlRuntimeGovernance
       typeof path === 'string' ? `${this.#baseUrl}${path}` : path,
       {
         headers: this.#headers(),
+        redirect: 'manual',
       },
     );
     return responseJson(response);
@@ -183,6 +184,7 @@ export class HttpRuntimeGovernanceClient implements NodeControlRuntimeGovernance
           ? {}
           : { expectedRevision: command.expectedRevision }),
       }),
+      redirect: 'manual',
     });
     return projectManagementOperation(
       ManagementOperationSchema.parse(await responseJson(response)),

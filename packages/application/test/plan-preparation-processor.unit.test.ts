@@ -118,11 +118,17 @@ describe('PlanPreparationProcessor LLM decisions', () => {
 
   it('routes an ambiguous task through Understanding and stops at its blocking question', async () => {
     const tasks = new MemoryTasks();
-    tasks.value = { ...task(), requestText: 'Help me with this.' };
+    const understandingInputs: unknown[] = [];
+    tasks.value = {
+      ...task(),
+      requestText: 'Help me with this.',
+      requestMetadata: { structured_input: { resourceId: 'device:17' } },
+    };
     await processorWith(tasks, false, 'none', undefined, {
       route: () => ({ kind: 'generic_task', reason: 'underspecified_request' }),
-      understand: () =>
-        Promise.resolve({
+      understand: (input) => {
+        understandingInputs.push(input);
+        return Promise.resolve({
           schemaVersion: '1.0',
           understandingId: 'understanding-1',
           taskId: 'task-1',
@@ -151,7 +157,8 @@ describe('PlanPreparationProcessor LLM decisions', () => {
           policyVersion: 'task-understanding-v1',
           stateHash: `sha256:${'a'.repeat(64)}`,
           createdAt: timestamp,
-        }),
+        });
+      },
     }).process(initialJob);
 
     expect(tasks.value).toMatchObject({
@@ -160,6 +167,11 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     });
     expect(tasks.goalFormulations).toBe(0);
     expect(tasks.planningInput).toBeUndefined();
+    expect(understandingInputs).toEqual([
+      expect.objectContaining({
+        requestMetadata: { structured_input: { resourceId: 'device:17' } },
+      }),
+    ]);
   });
 
   it('binds the User Goal Plan scheduled Skill before Workflow planning', async () => {

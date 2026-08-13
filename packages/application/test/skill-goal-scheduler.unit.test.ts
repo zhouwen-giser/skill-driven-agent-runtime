@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createSkillVersion, type SkillAttempt, type SkillGoal } from '../../domain/src/index.js';
 import { isSkillGoalCompatible, SkillGoalScheduler } from '../src/index.js';
@@ -116,11 +116,27 @@ describe('SkillGoalScheduler', () => {
     ]);
     expect(left.length + right.length).toBe(1);
   });
+
+  it('forwards the Agent Task identity to candidate authority resolution', async () => {
+    const repository = new MemoryDispatchRepository([skillGoal('goal.task', 'effect.task')]);
+    const list = vi.fn((goal: SkillGoal) =>
+      Promise.resolve([skill(goal.skillGoalId, 'effect.task')]),
+    );
+    const scheduler = createScheduler(repository, list);
+
+    await scheduler.dispatchReady('plan.task', 'task.authority');
+
+    expect(list).toHaveBeenCalledWith(expect.anything(), 'plan.task', 'task.authority');
+  });
 });
 
 function createScheduler(
   repository: MemoryDispatchRepository,
-  list: (goal: SkillGoal) => Promise<readonly ReturnType<typeof skill>[]>,
+  list: (
+    goal: SkillGoal,
+    planId?: string,
+    agentTaskId?: string,
+  ) => Promise<readonly ReturnType<typeof skill>[]>,
 ) {
   let attempt = 0;
   let contract = 0;

@@ -23,6 +23,7 @@ import {
   isSkillGoalCompatible,
   ResultProcessor,
   RuntimeTaskCapabilityService,
+  TaskCapabilityUserGoalPlanAuthorityResolver,
   ResultProcessingService,
   MemoryService,
   MemoryRetentionPolicyService,
@@ -53,6 +54,8 @@ import {
   buildMcpToolPlanningMetadata,
   snapshotMcpToolPlanningExecutionSemantics,
   ModelRuntimeService,
+  ModelRuntimeBootstrapService,
+  type InitialModelProviderConfiguration,
   PromptService,
   SkillGraphService,
   SkillCompositionPlanner,
@@ -237,6 +240,7 @@ import {
   DEFAULT_COGNITIVE_RUNTIME_FEATURE_FLAGS,
   createCognitiveSourceRef,
   deriveFrozenMcpCatalogAuthority,
+  createRuntimeExecutionContext,
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
@@ -299,6 +303,9 @@ import {
   FrozenV1RuntimeLifecycleAdapter,
   FrozenV1RuntimeNotificationAdapter,
   FrozenBusinessEventsRuntimeAdapter,
+  FrozenBusinessEventsClient,
+  FrozenV1McpClient,
+  createMcpOutboundFetch,
 } from '../../../packages/mcp-adapter/src/index.js';
 import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import { CompositeModelTransportAdapter } from '../../../packages/model-provider-adapter/src/index.js';
@@ -322,6 +329,7 @@ import {
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
   PostgresModelRuntimeRepository,
+  PostgresModelRuntimeBootstrapRepository,
   PostgresPromptRepository,
   PostgresRuntimeEventPublisher,
   PostgresRuntimeRecoveryRepository,
@@ -410,8 +418,13 @@ import {
   requireDeterministicToolResult,
   type DeterministicSkillSuccessProjection,
 } from './deterministic-capability-recovery.js';
+import {
+  admitManagedDeterministicReadOnlyCapability,
+  type ManagedDeterministicReadOnlyAdmission,
+} from './managed-deterministic-capability-admission.js';
 import { createHomeLabReadOnlySkillSelectionService } from './home-lab-skill-selection.js';
 import { assertHomeLabReadOnlyRuntimeConfiguration } from './home-lab-task-understanding.js';
+import { assertManagedCapabilityRuntimeConfiguration } from './managed-capability-task-understanding.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -445,6 +458,8 @@ export interface ServerRuntimeOptions {
   readonly postgresUrl: string;
   readonly redis: RedisConnectionConfig;
   readonly masterKeyBase64: string;
+  /** Optional startup-only seed; persisted Provider/Prompt/route rows remain authoritative. */
+  readonly modelBootstrap?: InitialModelProviderConfiguration;
   readonly evidenceEnvironment?: string;
   /** Authenticated full-state reader for Control-owned Capability definitions and bindings. */
   readonly capabilityAuthorityReader?: CapabilityAuthorityReader;
@@ -522,11 +537,12 @@ export interface ServerRuntimeOptions {
   }>;
   readonly capabilityNarrative?: CognitiveStructuredModelStageInvoker;
   readonly taskUnderstanding?: Readonly<{
-    readonly profile?: 'home_lab_read_only';
+    readonly profile?: 'home_lab_read_only' | 'managed_capability';
     readonly taskTypes: readonly TaskTypeDefinition[];
     readonly entryPolicy?: 'ambiguous_only' | 'all_requests';
-    readonly skillSelectionMode?: 'exact_compatible_only';
+    readonly skillSelectionMode?: 'exact_compatible_only' | 'model_ranked';
     readonly lowRiskUserPreferences?: readonly string[];
+    readonly modelTimeoutMs?: number;
     readonly interactiveGoalBudgets?: Readonly<{
       maxClarificationRounds: number;
       maxContractRevisions: number;
@@ -552,6 +568,11 @@ export interface ServerRuntimeOptions {
     readonly reconnectDelayMs?: number;
     readonly processingIntervalMs?: number;
     readonly maxSubscriptions?: number;
+  }>;
+  readonly outboundEndpointPolicy?: Readonly<{
+    readonly unsafeTestOpen: boolean;
+    readonly mcpAllowedAuthorities: readonly string[];
+    readonly providerAllowedAuthorities: readonly string[];
   }>;
   readonly a2aWaitTimeoutMs?: number;
   readonly a2aSafetyPollIntervalMs?: number;
@@ -676,7 +697,14 @@ export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
   assertHomeLabReadOnlyRuntimeConfiguration(options);
+  assertManagedCapabilityRuntimeConfiguration(options);
   const homeLabReadOnlyProfile = options.taskUnderstanding?.profile === 'home_lab_read_only';
+  const managedCapabilityProfile = options.taskUnderstanding?.profile === 'managed_capability';
+  const mcpOutboundFetch = createMcpOutboundFetch({
+    allowedAuthorities: options.outboundEndpointPolicy?.mcpAllowedAuthorities,
+    unsafeTestOpen: options.outboundEndpointPolicy?.unsafeTestOpen === true,
+  });
+  const frozenMcpClient = new FrozenV1McpClient(mcpOutboundFetch);
   if (options.businessEvents !== undefined && options.frozenMcpTasks === undefined)
     throw new Error('BUSINESS_EVENTS_REQUIRES_FROZEN_MCP_TASKS_RUNTIME');
   // Deployment controls are parsed before opening infrastructure connections so
@@ -691,6 +719,23 @@ export async function startServerRuntime(
     await applyRuntimeMigrations(pool);
   } else if (options.frozenMcpTasks !== undefined) {
     await assertV122RuntimeReady(pool);
+  }
+  const clock = { now: () => new Date().toISOString() };
+  const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
+  if (options.modelBootstrap !== undefined) {
+    const report = await new ModelRuntimeBootstrapService({
+      repository: new PostgresModelRuntimeBootstrapRepository(pool),
+      cipher: secretCipher,
+      clock,
+    }).reconcile(options.modelBootstrap);
+    process.stdout.write(
+      `${JSON.stringify({
+        event: 'model_runtime.bootstrap_reconciled',
+        providerId: report.providerId,
+        providerRegistered: report.providerRegistered,
+        routeCountCreated: report.routesCreated.length,
+      })}\n`,
+    );
   }
   const artifactAuthorityReady = await pool.query<{ installed: boolean }>(
     `SELECT EXISTS(
@@ -781,10 +826,13 @@ export async function startServerRuntime(
   const queue = new BullMqContextTaskQueue({ connection: options.redis, queueName });
   const contextSerial = new ContextSerialExecutor();
   const ids = { nextId: (kind: 'context' | 'task' | 'event') => `${kind}-${randomUUID()}` };
-  const clock = { now: () => new Date().toISOString() };
   const evidenceExport = new RuntimeEvidenceExportService({
     store: new PostgresRuntimeEvidenceExportStore(pool),
-    transport: new HttpEvidenceExportTransport(new EnvironmentEvidenceCredentialResolver()),
+    transport: new HttpEvidenceExportTransport(
+      new EnvironmentEvidenceCredentialResolver(),
+      5_000,
+      options.outboundEndpointPolicy?.unsafeTestOpen === true,
+    ),
     clock,
     actorId: 'sdar-runtime',
   });
@@ -1048,7 +1096,6 @@ export async function startServerRuntime(
       );
     }
   };
-  const secretCipher = new Aes256GcmSecretCipher(options.masterKeyBase64);
   const implicitFeedback = new ImplicitFeedbackService({
     repository: new PostgresImplicitFeedbackRepository(pool),
     clock,
@@ -1114,7 +1161,10 @@ export async function startServerRuntime(
   await taskCapabilities.reconcileFailedAttempts();
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
-    transport: new CompositeModelTransportAdapter(),
+    transport: new CompositeModelTransportAdapter({
+      allowedAuthorities: options.outboundEndpointPolicy?.providerAllowedAuthorities,
+      unsafeTestOpen: options.outboundEndpointPolicy?.unsafeTestOpen === true,
+    }),
     cipher: secretCipher,
     clock,
     ids: { nextInvocationId: () => `model-invocation-${randomUUID()}` },
@@ -1581,6 +1631,17 @@ export async function startServerRuntime(
           policyVersion: 'task-understanding-v1',
           clock,
           nextUnderstandingId: () => `understanding-${randomUUID()}`,
+          ...(options.taskUnderstanding.modelTimeoutMs === undefined
+            ? {}
+            : { modelTimeoutMs: options.taskUnderstanding.modelTimeoutMs }),
+          ...(managedCapabilityProfile
+            ? {
+                taskTypeAdmission: {
+                  requireKnownMatch: true,
+                  requirePublicCapabilitySupport: true,
+                },
+              }
+            : {}),
         });
   const cognitiveEntryRouter = new CognitiveEntryRouter({
     policy: options.taskUnderstanding?.entryPolicy ?? 'ambiguous_only',
@@ -1610,7 +1671,7 @@ export async function startServerRuntime(
                 responseSchema: schema.toJSONSchema(),
                 sourceRefs: input.current.sourceRefs.map((source) => source.sourceRefId),
                 maxAttempts: 1,
-                timeoutMs: 30_000,
+                timeoutMs: options.taskUnderstanding?.modelTimeoutMs ?? 30_000,
                 taskId: input.current.taskId,
               });
               const parsed = schema.safeParse(response.structuredResult);
@@ -1659,6 +1720,9 @@ export async function startServerRuntime(
             maxContractRevisions: 4,
             maxElapsedMs: 900_000,
           },
+          ...(options.taskUnderstanding?.modelTimeoutMs === undefined
+            ? {}
+            : { modelTimeoutMs: options.taskUnderstanding.modelTimeoutMs }),
           interactions: planningCorrectionObserver,
         });
   let interactivePlanningSessions: InteractivePlanningSessionService | undefined;
@@ -1886,13 +1950,19 @@ export async function startServerRuntime(
     memories,
     clock,
     nextId: () => `skill-input-resolution-${randomUUID()}`,
+    ...(managedCapabilityProfile
+      ? { policy: { resourceEnumeration: 'explicit_or_exact_text' as const } }
+      : {}),
   });
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
     cipher: secretCipher,
     schemas: schemaValidator,
-    frozenAvailability: new FrozenV1RuntimeAvailabilityAdapter(),
-    frozenLifecycle: new FrozenV1RuntimeLifecycleAdapter({ now: clock.now }),
+    frozenAvailability: new FrozenV1RuntimeAvailabilityAdapter(frozenMcpClient),
+    frozenLifecycle: new FrozenV1RuntimeLifecycleAdapter({
+      now: clock.now,
+      client: frozenMcpClient,
+    }),
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
@@ -1910,7 +1980,7 @@ export async function startServerRuntime(
   });
   const frozenMcpRegistry = new FrozenMcpRegistryService({
     repository: mcpRepository,
-    discovery: new FrozenV1RegistryAdapter(),
+    discovery: new FrozenV1RegistryAdapter(frozenMcpClient),
     cipher: secretCipher,
     clock,
     nextSnapshotId: () => `mcp-protocol-snapshot-${randomUUID()}`,
@@ -1949,14 +2019,47 @@ export async function startServerRuntime(
     }),
     modes: new SkillModeSelector(),
   });
-  const createDeterministicSkillSelection = (input: DeterministicCapabilityExecutionInput) => {
+  const createDeterministicSkillSelection = (
+    input: DeterministicCapabilityExecutionInput,
+    contract: Pick<ManagedDeterministicReadOnlyAdmission, 'readinessAttributes'>,
+    providerBinding: CurrentMcpProviderBindingAuthoritySnapshot,
+  ) => {
     const exactReadiness = new FrozenSkillTaskReadinessAdapter({
-      operations: mcpRepository,
+      operations: {
+        async listTaskOperationCandidates(taskType) {
+          const candidates = await mcpRepository.listTaskOperationCandidates(taskType);
+          return Object.freeze(
+            candidates.map((candidate) =>
+              candidate.providerId === input.serverId && candidate.operationName === input.toolName
+                ? Object.freeze({
+                    ...candidate,
+                    attributes: Object.freeze([
+                      ...new Set([...candidate.attributes, ...contract.readinessAttributes]),
+                    ]),
+                  })
+                : candidate,
+            ),
+          );
+        },
+      },
       availability: mcpRegistry,
       clock,
-      ...(options.currentMcpProviderBindingAuthorityReader === undefined
-        ? {}
-        : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
+      providerBindings: {
+        loadCurrentMcpProviderBinding(authorityInput) {
+          if (
+            authorityInput.localServerId !== input.serverId ||
+            (authorityInput.bindingId !== undefined &&
+              authorityInput.bindingId !== input.mcpProviderBindingId) ||
+            providerBinding.binding.bindingId !== input.mcpProviderBindingId ||
+            providerBinding.binding.localServerId !== input.serverId
+          )
+            throw deterministicExecutionError(
+              'DETERMINISTIC_PROVIDER_BINDING_NOT_CURRENT',
+              'Readiness requires the exact already admitted current Provider Binding.',
+            );
+          return Promise.resolve(providerBinding);
+        },
+      },
       resolveArguments: (binding) => {
         if (
           binding.taskType !== input.toolName ||
@@ -2017,18 +2120,22 @@ export async function startServerRuntime(
     });
   };
   const skillSelection =
-    options.skillSelection !== undefined
+    options.skillSelection !== undefined || managedCapabilityProfile
       ? new SkillSelectionService({
           skills,
           graph: skillGraphRepository,
           records: skillSelectionRepository,
           retriever: new PersistedSkillSemanticRetriever({
-            embeddings: options.skillSelection.embeddings,
+            embeddings:
+              options.skillSelection?.embeddings ??
+              Object.freeze({
+                embed: (text: string) => modelRuntime.embed('skill_selection', text),
+              }),
             repository: new PostgresSkillEmbeddingRepository(pool),
             clock,
           }),
           decider:
-            options.skillSelection.decider ??
+            options.skillSelection?.decider ??
             new StructuredSkillSelectionDecider(modelRuntime, memories),
           mcpWarnings: mcpRepository,
           usage: skillUsage,
@@ -2082,7 +2189,10 @@ export async function startServerRuntime(
           registry: mcpRepository,
           remoteTasks: remoteTaskRepository,
           cipher: secretCipher,
-          runtime: new FrozenV1RuntimeNotificationAdapter({ now: clock.now }),
+          runtime: new FrozenV1RuntimeNotificationAdapter({
+            now: clock.now,
+            client: frozenMcpClient,
+          }),
           schemas: schemaValidator,
           serial: contextSerial,
           clock,
@@ -2876,6 +2986,14 @@ export async function startServerRuntime(
     repository: userGoalRuntimeRepository,
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
+    ...(managedCapabilityProfile
+      ? {
+          candidateAuthority: new TaskCapabilityUserGoalPlanAuthorityResolver({
+            bindings: taskCapabilities,
+            skills,
+          }),
+        }
+      : {}),
     ...(homeLabReadOnlyProfile
       ? { candidateGuard: new HomeLabReadOnlyUserGoalPlanCandidateGuard() }
       : {}),
@@ -3918,7 +4036,7 @@ export async function startServerRuntime(
     skillGoalScheduler: new SkillGoalScheduler({
       repository: userGoalRuntimeRepository,
       candidates: {
-        async list(skillGoal, planId) {
+        async list(skillGoal, planId, agentTaskId) {
           if (skillGoal.requiredResult.includes('TEMPORARY_SKILL_GOAL:')) return [];
           if (skillSelection === undefined) return skills.listEnabledVersions();
           const userGoalPlan = await userGoalRuntimeRepository.findPlan(planId);
@@ -3930,10 +4048,23 @@ export async function startServerRuntime(
           const compatible = (await skills.listEnabledVersions()).filter((candidate) =>
             isSkillGoalCompatible(skillGoal, candidate),
           );
+          const task = agentTaskId === undefined ? undefined : await tasks.findById(agentTaskId);
+          const taskCapabilityUsage =
+            !managedCapabilityProfile || agentTaskId === undefined
+              ? undefined
+              : await taskCapabilities.resolveSkillUsageAuthority(agentTaskId);
+          const admitted =
+            taskCapabilityUsage === undefined
+              ? compatible
+              : compatible.filter(
+                  (candidate) =>
+                    candidate.skillId === taskCapabilityUsage.skillId &&
+                    candidate.version === taskCapabilityUsage.skillVersion,
+                );
           const selected = await skillSelection.selectFromCandidates(
             goalContract,
-            compatible,
-            await resolveSkillUsageContext(goalContract),
+            admitted,
+            taskCapabilityUsage?.context ?? (await resolveSkillUsageContext(goalContract, task)),
           );
           skillGoalSelectionRecords.set(skillGoal.skillGoalId, selected.selectionId);
           const exact = await skills.findVersion(
@@ -3975,7 +4106,7 @@ export async function startServerRuntime(
             understand: (input) =>
               taskUnderstanding.understand({
                 ...input,
-                conversationContext: {},
+                conversationContext: { requestMetadata: input.requestMetadata },
                 worldStateSummary: {},
                 lowRiskUserPreferences: options.taskUnderstanding?.lowRiskUserPreferences ?? [],
               }),
@@ -4259,7 +4390,11 @@ export async function startServerRuntime(
   const businessEventRepository =
     options.businessEvents === undefined ? undefined : userGoalRuntimeRepository;
   const businessEventRuntime =
-    options.businessEvents === undefined ? undefined : new FrozenBusinessEventsRuntimeAdapter();
+    options.businessEvents === undefined
+      ? undefined
+      : new FrozenBusinessEventsRuntimeAdapter({
+          client: new FrozenBusinessEventsClient(mcpOutboundFetch),
+        });
   const continuityImpact =
     businessEventRepository === undefined
       ? undefined
@@ -4998,7 +5133,14 @@ export async function startServerRuntime(
   const deterministicCapabilityExecutions: DeterministicCapabilityExecutionOperation = {
     async execute(input, lease) {
       return deterministicCapabilityLease.run({ input, lease }, async () => {
-        const contract = requireHomeLabReadOnlyExecutionContract(input);
+        const executionContext = createRuntimeExecutionContext({
+          mode: input.executionMode ?? 'live',
+          ...(input.simulationId === undefined ? {} : { simulationId: input.simulationId }),
+        });
+        const homeLabContract = managedCapabilityProfile
+          ? undefined
+          : requireHomeLabReadOnlyExecutionContract(input);
+        if (managedCapabilityProfile) assertDeterministicExecutionRequestIdentity(input);
         let acceptedTask = false;
         let workflowPlanId: string | undefined;
         try {
@@ -5006,17 +5148,17 @@ export async function startServerRuntime(
             input,
             options.currentMcpProviderBindingAuthorityReader,
           );
-          const skill = await skills.findVersion(input.skillId, input.skillVersion);
+          const [skill, runtimeServer, runtimeTools, runtimeSnapshot] = await Promise.all([
+            skills.findVersion(input.skillId, input.skillVersion),
+            mcpRepository.findServer(input.serverId),
+            mcpRepository.listTools(input.serverId),
+            mcpRepository.findCurrentProtocolSnapshot(input.serverId),
+          ]);
           if (skill?.status !== 'enabled')
             throw deterministicExecutionError(
               'DETERMINISTIC_SKILL_NOT_ENABLED',
               'The exact governed Skill version is not enabled.',
             );
-          assertDeterministicReadOnlySkill(skill, input, contract.evidenceType);
-
-          const runtimeServer = await mcpRepository.findServer(input.serverId);
-          const runtimeTools = await mcpRepository.listTools(input.serverId);
-          const runtimeSnapshot = await mcpRepository.findCurrentProtocolSnapshot(input.serverId);
           const tool = runtimeTools.find((candidate) => candidate.toolName === input.toolName);
           if (
             runtimeServer?.server.status !== 'enabled' ||
@@ -5045,6 +5187,41 @@ export async function startServerRuntime(
               'DETERMINISTIC_PROVIDER_CATALOG_NOT_CURRENT',
               'Runtime frozen MCP Catalog differs from current Node Control Binding authority.',
             );
+          const contract: ManagedDeterministicReadOnlyAdmission = managedCapabilityProfile
+            ? admitManagedDeterministicReadOnlyCapability({
+                request: input,
+                capability: await requireManagedDeterministicCapabilityAuthority(
+                  input,
+                  options.capabilityAuthorityReader,
+                ),
+                providerBinding: currentProviderBinding,
+                skill,
+                runtimeServer: runtimeServer.server,
+                runtimeTools,
+                runtimeSnapshot,
+                now: clock.now(),
+              })
+            : Object.freeze({
+                evidenceTypes: Object.freeze([homeLabContract?.evidenceType ?? '']),
+                readinessAttributes: Object.freeze(['task_behavior:synchronous_only']),
+                goalConstraints: Object.freeze([
+                  'Use the exact published Capability implementation and exact enabled Skill version.',
+                  'Invoke exactly one synchronous get-state Tool and perform no physical write.',
+                ]),
+                goalSuccessCriteria: Object.freeze([
+                  'The Skill output schema and public resource identity are valid.',
+                  'Required Provider evidence is present and validated.',
+                ]),
+              });
+          if (!managedCapabilityProfile) {
+            const evidenceType = homeLabContract?.evidenceType;
+            if (evidenceType === undefined)
+              throw deterministicExecutionError(
+                'DETERMINISTIC_READ_ONLY_CONTRACT_NOT_EXACT',
+                'The home-lab deterministic contract is missing.',
+              );
+            assertDeterministicReadOnlySkill(skill, input, evidenceType);
+          }
           const toolPlanningMetadata = await buildMcpToolPlanningMetadata(
             skill.toolPolicy,
             async (reference) =>
@@ -5085,6 +5262,10 @@ export async function startServerRuntime(
                 serverId: input.serverId,
                 toolName: input.toolName,
                 resourceId: input.resourceId,
+                executionMode: executionContext.mode,
+                ...(executionContext.simulationId === undefined
+                  ? {}
+                  : { simulationId: executionContext.simulationId }),
               },
             },
           });
@@ -5095,18 +5276,16 @@ export async function startServerRuntime(
             contextId: submitted.context.contextId,
             title: 'Deterministic governed read-only execution',
             description: `Execute ${input.capabilityId}@${String(input.capabilityVersion)} for the admitted public resource.`,
-            constraints: [
-              'Use the exact published Capability implementation and exact enabled Skill version.',
-              'Invoke exactly one synchronous get-state Tool and perform no physical write.',
-            ],
-            successCriteria: [
-              'The Skill output schema and public resource identity are valid.',
-              'Required Provider evidence is present and validated.',
-            ],
+            constraints: contract.goalConstraints,
+            successCriteria: contract.goalSuccessCriteria,
           });
           const goalContract = createGoalExecutionContract(goal);
           await lease.assertCurrent();
-          const selection = await createDeterministicSkillSelection(input).selectFromCandidates(
+          const selection = await createDeterministicSkillSelection(
+            input,
+            contract,
+            currentProviderBinding,
+          ).selectFromCandidates(
             goalContract,
             [skill],
             deterministicSkillUsageContext(input, currentProviderBinding),
@@ -5120,7 +5299,7 @@ export async function startServerRuntime(
               'Persisted Skill selection differs from the requested exact version.',
             );
           const usageCandidate = selection.candidates[0]?.usageCandidate;
-          assertDeterministicUsageCandidate(usageCandidate, input);
+          assertDeterministicUsageCandidate(usageCandidate, input, contract.readinessAttributes);
 
           const preparedTask = await service.prepareDeterministicExecution(input.taskId, {
             goalId: goal.goalId,
@@ -5185,6 +5364,7 @@ export async function startServerRuntime(
             compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
             toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
             taskId: input.taskId,
+            executionContext,
             skillUsagePolicy: preparedUsage.policy,
             deterministicDefinition: preparedUsage.deterministicDefinition,
             deterministicOnly: true,
@@ -5196,6 +5376,10 @@ export async function startServerRuntime(
               skillVersion: input.skillVersion,
               providerBindingId: input.mcpProviderBindingId,
               resourceId: input.resourceId,
+              executionMode: executionContext.mode,
+              ...(executionContext.simulationId === undefined
+                ? {}
+                : { simulationId: executionContext.simulationId }),
             }),
           });
           if (plan.definition === undefined)
@@ -5238,6 +5422,7 @@ export async function startServerRuntime(
             planId: plan.planId,
             input: resolution.structuredInput,
             skillIds: [skill.skillId],
+            executionContext,
           });
           if (
             instance.status !== 'succeeded' ||
@@ -5261,7 +5446,8 @@ export async function startServerRuntime(
             invocation.serverId !== input.serverId ||
             invocation.toolName !== input.toolName ||
             invocation.status !== 'succeeded' ||
-            invocation.executionMode !== 'live' ||
+            invocation.executionMode !== executionContext.mode ||
+            invocation.simulationId !== executionContext.simulationId ||
             invocation.arguments['resourceId'] !== input.resourceId
           )
             throw deterministicExecutionError(
@@ -5468,6 +5654,7 @@ export async function startServerRuntime(
             if (businessEventCoordinator !== undefined) await startBusinessEventsProvider(serverId);
             return refreshed;
           },
+          replaceCredentials: frozenMcpRegistry.replaceCredentials.bind(frozenMcpRegistry),
         },
         ...(frozenTaskNotifications === undefined
           ? {}
@@ -5895,12 +6082,7 @@ function conservativeSkillUsageSelectionContext() {
 }
 
 function requireHomeLabReadOnlyExecutionContract(input: DeterministicCapabilityExecutionInput) {
-  if (input.idempotencyKey !== input.taskId)
-    throw deterministicExecutionError(
-      'DETERMINISTIC_IDEMPOTENCY_IDENTITY_MISMATCH',
-      'Idempotency-Key must equal the deterministic Task ID.',
-    );
-  assertNoHomeAssistantEntityId(input);
+  assertDeterministicExecutionRequestIdentity(input);
   const contract = Object.entries(HOME_LAB_READ_ONLY_EXECUTION_CONTRACTS).find(
     ([capabilityId]) => capabilityId === input.capabilityId,
   )?.[1];
@@ -5919,6 +6101,17 @@ function requireHomeLabReadOnlyExecutionContract(input: DeterministicCapabilityE
       'Execution authority does not match one supported home-lab read-only contract.',
     );
   return contract;
+}
+
+function assertDeterministicExecutionRequestIdentity(
+  input: DeterministicCapabilityExecutionInput,
+): void {
+  if (input.idempotencyKey !== input.taskId)
+    throw deterministicExecutionError(
+      'DETERMINISTIC_IDEMPOTENCY_IDENTITY_MISMATCH',
+      'Idempotency-Key must equal the deterministic Task ID.',
+    );
+  assertNoHomeAssistantEntityId(input);
 }
 
 function assertDeterministicReadOnlySkill(
@@ -5966,6 +6159,7 @@ function assertDeterministicReadOnlySkill(
 function assertDeterministicUsageCandidate(
   candidate: SkillUsageCandidateSnapshot | undefined,
   input: DeterministicCapabilityExecutionInput,
+  requiredReadinessAttributes: readonly string[],
 ): asserts candidate is SkillUsageCandidateSnapshot &
   Readonly<{
     modeDecision: Extract<SkillUsageCandidateSnapshot['modeDecision'], { decision: 'selected' }>;
@@ -5985,7 +6179,9 @@ function assertDeterministicUsageCandidate(
     binding.selectedOperationName !== input.toolName ||
     selectedProvider?.providerId !== input.serverId ||
     selectedProvider.operationName !== input.toolName ||
-    !selectedProvider.attributes.includes('task_behavior:synchronous_only')
+    !requiredReadinessAttributes.every((attribute) =>
+      selectedProvider.attributes.includes(attribute),
+    )
   )
     throw deterministicExecutionError(
       'DETERMINISTIC_SKILL_USAGE_NOT_READY',
@@ -6065,6 +6261,25 @@ async function requireDeterministicProviderBindingAuthority(
     throw deterministicExecutionError(
       'DETERMINISTIC_PROVIDER_BINDING_NOT_CURRENT',
       'Current Node Control MCP Provider Binding authority does not match the request.',
+    );
+  }
+}
+
+async function requireManagedDeterministicCapabilityAuthority(
+  input: DeterministicCapabilityExecutionInput,
+  reader: CapabilityAuthorityReader | undefined,
+) {
+  if (reader === undefined)
+    throw deterministicExecutionError(
+      'DETERMINISTIC_CAPABILITY_AUTHORITY_UNAVAILABLE',
+      'Current Node Control Capability authority is required.',
+    );
+  try {
+    return await reader.load(input.capabilityId, input.capabilityVersion);
+  } catch {
+    throw deterministicExecutionError(
+      'DETERMINISTIC_CAPABILITY_AUTHORITY_NOT_CURRENT',
+      'Current Node Control Capability authority does not match the request.',
     );
   }
 }

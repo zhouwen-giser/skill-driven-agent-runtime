@@ -86,6 +86,7 @@ export class InteractiveGoalSessionService {
     maxElapsedMs: number;
   }>;
   readonly #interactions: PlanningCorrectionObserver | undefined;
+  readonly #modelTimeoutMs: number;
 
   constructor(
     dependencies: Readonly<{
@@ -113,6 +114,7 @@ export class InteractiveGoalSessionService {
         maxElapsedMs: number;
       }>;
       interactions?: PlanningCorrectionObserver;
+      modelTimeoutMs?: number;
     }>,
   ) {
     this.#repository = dependencies.repository;
@@ -125,6 +127,13 @@ export class InteractiveGoalSessionService {
     this.#ids = dependencies.ids;
     this.#budgets = dependencies.budgets;
     this.#interactions = dependencies.interactions;
+    this.#modelTimeoutMs = dependencies.modelTimeoutMs ?? 30_000;
+    if (
+      !Number.isSafeInteger(this.#modelTimeoutMs) ||
+      this.#modelTimeoutMs < 1 ||
+      this.#modelTimeoutMs > 300_000
+    )
+      throw new Error('GOAL_CONTRACT_MODEL_TIMEOUT_INVALID');
   }
 
   async start(input: Readonly<{ taskId: string }>): Promise<InteractiveGoalSessionView> {
@@ -356,7 +365,7 @@ export class InteractiveGoalSessionService {
         responseSchema: ContractOutputSchema.toJSONSchema(),
         sourceRefs: understanding.sourceRefs.map((source) => source.sourceRefId),
         maxAttempts: 1,
-        timeoutMs: 30_000,
+        timeoutMs: this.#modelTimeoutMs,
         taskId: understanding.taskId,
       });
       const parsed = ContractOutputSchema.safeParse(response.structuredResult);

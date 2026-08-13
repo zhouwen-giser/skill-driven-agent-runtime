@@ -14,6 +14,7 @@ export interface RuntimeMcpCatalogAuthority {
   readonly endpoint: string;
   readonly status: McpServer['status'];
   readonly serverUpdatedAt: string;
+  readonly snapshotValidUntil: string | undefined;
   readonly toolRevision: number;
   readonly protocolMode: string;
   readonly snapshotToolRevision: number;
@@ -40,6 +41,7 @@ interface RuntimeMcpSnapshotAuthorityRow extends QueryResultRow {
   protocol_version: string;
   server_info_json: unknown;
   tool_revision: number;
+  valid_until: Date | string | null;
 }
 
 interface RuntimeMcpToolAuthorityRow extends QueryResultRow {
@@ -102,7 +104,7 @@ export class PostgresRuntimeMcpCatalogAuthorityReader implements RuntimeMcpCatal
       );
       const snapshotResult = await client.query<RuntimeMcpSnapshotAuthorityRow>(
         `SELECT snapshot.protocol_mode,snapshot.protocol_version,
-                snapshot.server_info_json,snapshot.tool_revision
+                snapshot.server_info_json,snapshot.tool_revision,snapshot.valid_until
            FROM mcp_server server
            JOIN mcp_protocol_snapshot snapshot
              ON snapshot.snapshot_id=server.current_protocol_snapshot_id
@@ -163,6 +165,8 @@ function mapAuthority(
     endpoint: server.endpoint,
     status: server.status,
     serverUpdatedAt: toIsoString(server.updated_at),
+    snapshotValidUntil:
+      snapshot.valid_until === null ? undefined : toIsoString(snapshot.valid_until),
     toolRevision: server.tool_revision,
     protocolMode: snapshot.protocol_mode,
     snapshotToolRevision: snapshot.tool_revision,

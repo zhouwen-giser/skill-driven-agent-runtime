@@ -23,6 +23,13 @@ const stages = [
   'experience_observation',
   'experience_reflection',
 ] as const;
+const modelOperations = ['structured_generation', 'embedding'] as const;
+type ModelOperation = (typeof modelOperations)[number];
+interface StageRouteDraft {
+  readonly stage: string;
+  readonly providerId: string;
+  readonly operation: ModelOperation;
+}
 interface Inventory<T> {
   readonly items: readonly T[];
 }
@@ -51,6 +58,13 @@ interface MemoryRetentionPolicy {
 interface EvolutionPolicy {
   readonly successThreshold: number;
   readonly updatedAt: string;
+}
+
+export function buildStageRouteUpdateBody(route: StageRouteDraft) {
+  return {
+    providerId: route.providerId,
+    operation: route.operation,
+  };
 }
 
 export function SystemPanel({
@@ -85,7 +99,11 @@ export function SystemPanel({
     timeoutMs: '30000',
     credentialHeaders: '{}',
   });
-  const [route, setRoute] = useState({ stage: 'workflow_planning', providerId: '' });
+  const [route, setRoute] = useState<StageRouteDraft>({
+    stage: 'workflow_planning',
+    providerId: '',
+    operation: 'structured_generation',
+  });
 
   async function refresh() {
     try {
@@ -149,7 +167,7 @@ export function SystemPanel({
     try {
       await managementRequest(`/api/v1/models/routes/${route.stage}`, {
         method: 'PUT',
-        body: JSON.stringify({ providerId: route.providerId }),
+        body: JSON.stringify(buildStageRouteUpdateBody(route)),
       });
       await refresh();
       setMessage('Fixed stage route updated. Runtime fallback remains disabled.');
@@ -273,6 +291,19 @@ export function SystemPanel({
             >
               {stages.map((stage) => (
                 <option key={stage}>{stage}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            operation
+            <select
+              value={route.operation}
+              onChange={(event) => {
+                setRoute({ ...route, operation: event.target.value as ModelOperation });
+              }}
+            >
+              {modelOperations.map((operation) => (
+                <option key={operation}>{operation}</option>
               ))}
             </select>
           </label>

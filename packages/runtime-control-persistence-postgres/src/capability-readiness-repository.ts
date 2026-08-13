@@ -415,8 +415,9 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
               ),
             );
           } else if (
-            Date.parse(evaluatedAt) - Date.parse(runtimeAuthority.serverUpdatedAt) >
-            ttlMs
+            runtimeAuthority.snapshotValidUntil === undefined ||
+            !Number.isFinite(Date.parse(runtimeAuthority.snapshotValidUntil)) ||
+            Date.parse(runtimeAuthority.snapshotValidUntil) <= Date.parse(evaluatedAt)
           ) {
             requiredUnavailable = true;
             reasons.push(
@@ -463,8 +464,8 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
     }
     const model = await this.#pool.query<{ available: boolean; fingerprint: string }>(
       `SELECT COUNT(*) > 0 AS available,
-              COALESCE(string_agg(route.stage||':'||provider.provider_id||':'||provider.model,','
-                ORDER BY route.stage,provider.provider_id),'none') AS fingerprint
+              COALESCE(string_agg(route.stage||':'||route.operation||':'||provider.provider_id||':'||provider.model,','
+                ORDER BY route.stage,route.operation,provider.provider_id),'none') AS fingerprint
          FROM stage_model_route route
          JOIN model_provider provider ON provider.provider_id=route.provider_id
         WHERE provider.enabled`,

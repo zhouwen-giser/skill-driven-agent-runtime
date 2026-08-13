@@ -51,6 +51,7 @@ const controlMigrationVersions = controlMigrationFiles.map((file) =>
 const requiredRuntimeEvidenceLedgerMigration = '0146_v14_evidence_export_observation_ledger.up.sql';
 const requiredControlEvidenceAuthorityMigration = '0009_canonical_evidence_authority.up.sql';
 const requiredControlLineageMigration = '0010_smpp_registry_lineage_revalidation.up.sql';
+const requiredControlCredentialMigration = '0011_explicit_unauthenticated_credentials.up.sql';
 if (!postBaselineMigrationFiles.includes(requiredRuntimeEvidenceLedgerMigration)) {
   throw new Error(`V141_RUNTIME_EVIDENCE_LEDGER_MIGRATION_MISSING`);
 }
@@ -60,6 +61,9 @@ if (!controlMigrationFiles.includes(requiredControlEvidenceAuthorityMigration)) 
 if (!controlMigrationFiles.includes(requiredControlLineageMigration)) {
   throw new Error(`V141_CONTROL_LINEAGE_MIGRATION_MISSING`);
 }
+if (!controlMigrationFiles.includes(requiredControlCredentialMigration)) {
+  throw new Error(`UGV_CONTROL_CREDENTIAL_MIGRATION_MISSING`);
+}
 await assertMigrationFilePairs(migrationDirectory, postBaselineMigrationFiles, 'V13');
 await assertMigrationFilePairs(controlMigrationDirectory, controlMigrationFiles, 'V14_CONTROL');
 assertContiguousControlMigrationVersions(controlMigrationVersions);
@@ -68,11 +72,12 @@ const controlEvidenceAuthorityVersion = requiredControlEvidenceAuthorityMigratio
   -'.up.sql'.length,
 );
 const controlLineageVersion = requiredControlLineageMigration.slice(0, -'.up.sql'.length);
+const controlCredentialVersion = requiredControlCredentialMigration.slice(0, -'.up.sql'.length);
 if (
-  JSON.stringify(controlMigrationVersions.slice(-2)) !==
-  JSON.stringify([controlEvidenceAuthorityVersion, controlLineageVersion])
+  JSON.stringify(controlMigrationVersions.slice(-3)) !==
+  JSON.stringify([controlEvidenceAuthorityVersion, controlLineageVersion, controlCredentialVersion])
 ) {
-  throw new Error('V141_CONTROL_EVIDENCE_LINEAGE_ORDER_INVALID');
+  throw new Error('UGV_CONTROL_CREDENTIAL_MIGRATION_ORDER_INVALID');
 }
 const expectedVersions = [
   'v1.2.2_clean_slate_baseline',
@@ -178,6 +183,16 @@ try {
     await verifyControlBaseline(controlPool);
     await applyControlMigrations(controlPool, controlMigrationDirectory);
     await verifyControlBaseline(controlPool);
+    const rolledBackCredential = await rollbackLatestControlMigration(
+      controlPool,
+      controlMigrationDirectory,
+    );
+    if (rolledBackCredential !== controlCredentialVersion) {
+      throw new Error(
+        `UGV_CONTROL_CREDENTIAL_ROLLBACK_HEAD_INVALID:${String(rolledBackCredential)}:${controlCredentialVersion}`,
+      );
+    }
+    await verifyControlCredentialMigrationRolledBack(controlPool);
     const rolledBackLineage = await rollbackLatestControlMigration(
       controlPool,
       controlMigrationDirectory,
@@ -485,6 +500,62 @@ async function verifyControlBaseline(pool) {
   ) {
     throw new Error(`V141_CONTROL_LINEAGE_AUTHORITY_INVALID:${JSON.stringify(lineageRow)}`);
   }
+
+  const credentialConstraints = await pool.query(
+    `SELECT conname AS constraint_name,pg_get_constraintdef(oid) AS definition
+       FROM pg_constraint
+      WHERE connamespace='sdar_control'::regnamespace
+        AND conname IN (
+          'smpp_registry_source_credential_ref_check',
+          'mcp_provider_binding_credential_ref_check'
+        )
+      ORDER BY conname`,
+  );
+  if (
+    credentialConstraints.rows.length !== 2 ||
+    credentialConstraints.rows.some(
+      ({ definition }) =>
+        typeof definition !== 'string' || !definition.includes("'unauthenticated://none'"),
+    )
+  ) {
+    throw new Error(
+      `UGV_CONTROL_CREDENTIAL_CONSTRAINTS_INVALID:${JSON.stringify(credentialConstraints.rows)}`,
+    );
+  }
+}
+
+async function verifyControlCredentialMigrationRolledBack(pool) {
+  const ledger = await pool.query(
+    `SELECT array_agg(version ORDER BY version) AS versions
+       FROM sdar_control.control_schema_migration`,
+  );
+  if (
+    JSON.stringify(ledger.rows[0]?.versions) !==
+    JSON.stringify(controlMigrationVersions.slice(0, -1))
+  ) {
+    throw new Error('UGV_CONTROL_CREDENTIAL_ROLLBACK_MARKERS_INVALID');
+  }
+  const constraints = await pool.query(
+    `SELECT conname AS constraint_name,pg_get_constraintdef(oid) AS definition
+       FROM pg_constraint
+      WHERE connamespace='sdar_control'::regnamespace
+        AND conname IN (
+          'smpp_registry_source_credential_ref_check',
+          'mcp_provider_binding_credential_ref_check'
+        )
+      ORDER BY conname`,
+  );
+  if (
+    constraints.rows.length !== 2 ||
+    constraints.rows.some(
+      ({ definition }) =>
+        typeof definition !== 'string' || definition.includes('unauthenticated://'),
+    )
+  ) {
+    throw new Error(
+      `UGV_CONTROL_CREDENTIAL_ROLLBACK_INCOMPLETE:${JSON.stringify(constraints.rows)}`,
+    );
+  }
 }
 
 async function verifyControlLineageMigrationRolledBack(pool) {
@@ -494,7 +565,7 @@ async function verifyControlLineageMigrationRolledBack(pool) {
   );
   if (
     JSON.stringify(ledger.rows[0]?.versions) !==
-    JSON.stringify(controlMigrationVersions.slice(0, -1))
+    JSON.stringify(controlMigrationVersions.slice(0, -2))
   ) {
     throw new Error('V141_CONTROL_LINEAGE_ROLLBACK_MARKERS_INVALID');
   }
@@ -566,7 +637,7 @@ async function verifyControlEvidenceMigrationRolledBack(pool) {
   );
   if (
     JSON.stringify(ledger.rows[0]?.versions) !==
-    JSON.stringify(controlMigrationVersions.slice(0, -2))
+    JSON.stringify(controlMigrationVersions.slice(0, -3))
   ) {
     throw new Error('V141_CONTROL_EVIDENCE_ROLLBACK_MARKERS_INVALID');
   }

@@ -1832,6 +1832,7 @@ describe('management HTTP API contract', () => {
             Promise.resolve([
               {
                 stage: 'workflow_planning' as const,
+                operation: 'structured_generation' as const,
                 providerId: 'provider.local',
                 updatedAt: '2026-07-13T00:00:00.000Z',
               },
@@ -1846,7 +1847,9 @@ describe('management HTTP API contract', () => {
     expect(JSON.stringify(providers)).not.toContain('credential');
     await expect(
       fetch(`${endpoint.baseUrl}/api/v1/models/routes`).then((response) => response.json()),
-    ).resolves.toMatchObject({ items: [{ stage: 'workflow_planning' }] });
+    ).resolves.toMatchObject({
+      items: [{ stage: 'workflow_planning', operation: 'structured_generation' }],
+    });
   });
 
   it('returns only credential-safe current Prompt authority for one exact stage', async () => {
@@ -1887,15 +1890,15 @@ describe('management HTTP API contract', () => {
   });
 
   it('accepts cognitive reflection and Task Type induction model stages at the management boundary', async () => {
-    const routedStages: string[] = [];
+    const routedStages: Readonly<{ stage: string; operation: string | undefined }>[] = [];
     const configured = operations();
     endpoint = await startManagementHttpEndpoint({
       operations: {
         ...configured,
         models: {
           ...configured.models,
-          route: (stage) => {
-            routedStages.push(stage);
+          route: (stage, _providerId, operation) => {
+            routedStages.push({ stage, operation });
             return Promise.resolve();
           },
         },
@@ -1916,11 +1919,31 @@ describe('management HTTP API contract', () => {
       expect(response.status).toBe(204);
     }
     expect(routedStages).toEqual([
-      'experience_reflection',
-      'task_type_induction',
-      'capability_pattern_induction',
-      'knowledge_promotion_assessment',
+      { stage: 'experience_reflection', operation: 'structured_generation' },
+      { stage: 'task_type_induction', operation: 'structured_generation' },
+      { stage: 'capability_pattern_induction', operation: 'structured_generation' },
+      { stage: 'knowledge_promotion_assessment', operation: 'structured_generation' },
     ]);
+  });
+
+  it('accepts an explicit embedding route operation at the management boundary', async () => {
+    const route = vi.fn().mockResolvedValue(undefined);
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        models: { ...configured.models, route },
+      },
+    });
+
+    const response = await fetch(`${endpoint.baseUrl}/api/v1/models/routes/goal`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ providerId: 'provider.embedding', operation: 'embedding' }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(route).toHaveBeenCalledWith('goal', 'provider.embedding', 'embedding');
   });
 
   it('lists versioned Candidate Task Types without exposing them as active knowledge', async () => {
@@ -2627,6 +2650,18 @@ describe('management HTTP API contract', () => {
             frozenCalls.push(`refresh:${serverId}`);
             return Promise.resolve({ server: { serverId } } as never);
           },
+          replaceCredentials: (serverId, credentialHeaders) => {
+            if (serverId === 'missing-provider')
+              return Promise.reject(
+                Object.assign(new Error('MCP Server was not found.'), {
+                  code: 'MCP_SERVER_NOT_FOUND',
+                }),
+              );
+            frozenCalls.push(
+              `credentials:${serverId}:${Object.keys(credentialHeaders).sort().join(',')}`,
+            );
+            return Promise.resolve();
+          },
         },
         frozenMcpNotifications: {
           reconnect: (serverId) => {
@@ -2676,6 +2711,27 @@ describe('management HTTP API contract', () => {
       { method: 'POST' },
     );
     expect(refresh.status).toBe(200);
+    const credentials = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/servers/${server.serverId}/credentials`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ credentialHeaders: { Authorization: 'Bearer replacement' } }),
+      },
+    );
+    expect(credentials.status).toBe(204);
+    const missingCredentials = await fetch(
+      `${endpoint.baseUrl}/api/v1/mcp/servers/missing-provider/credentials`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ credentialHeaders: { Authorization: 'Bearer replacement' } }),
+      },
+    );
+    expect(missingCredentials.status).toBe(404);
+    await expect(missingCredentials.json()).resolves.toMatchObject({
+      error: { code: 'MCP_SERVER_NOT_FOUND' },
+    });
     const reconnect = await fetch(
       `${endpoint.baseUrl}/api/v1/mcp/servers/${server.serverId}/notifications/reconnect`,
       { method: 'POST' },
@@ -2685,6 +2741,7 @@ describe('management HTTP API contract', () => {
     expect(frozenCalls).toEqual([
       'register:provider-new',
       `refresh:${server.serverId}`,
+      `credentials:${server.serverId}:Authorization`,
       `reconnect:${server.serverId}`,
     ]);
   });

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-capability-map/v1",
+  "status": "passed_read_only_control_staged",
+  "evidenceClass": "derived_from_real_node_control_governance_authority",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/capability-skill-governance.redacted.json"
+  ],
+  "observedAt": "2026-08-12T12:46:26.190Z",
+  "resourcePolicy": {
+    "identifierAuthority": "public_smpp_tool_schema",
+    "resourceId": "vehicle:ugv1"
+  },
+  "counts": {
+    "publishedReadOnly": 5,
+    "stagedControl": 5,
+    "fire": 0
+  },
+  "readOnlyCapabilities": [
+    {"capabilityId":"vehicle.ugv.read-state","version":2,"toolName":"vehicle_get_state","riskLevel":"low","confirmation":"not_required","status":"published","readinessAtObservation":"available"},
+    {"capabilityId":"vehicle.ugv.read-capabilities","version":2,"toolName":"vehicle_get_capabilities","riskLevel":"low","confirmation":"not_required","status":"published","readinessAtObservation":"available"},
+    {"capabilityId":"vehicle.ugv.read-payload","version":2,"toolName":"vehicle_get_payload_status","riskLevel":"low","confirmation":"not_required","status":"published","readinessAtObservation":"available"},
+    {"capabilityId":"vehicle.ugv.read-targets","version":2,"toolName":"vehicle_get_targets","riskLevel":"low","confirmation":"not_required","status":"published","readinessAtObservation":"available"},
+    {"capabilityId":"vehicle.ugv.laser-range","version":2,"toolName":"vehicle_laser_range","riskLevel":"low","confirmation":"not_required","status":"published","readinessAtObservation":"available"}
+  ],
+  "stagedControlCapabilities": [
+    {"capabilityId":"vehicle.ugv.navigate","toolName":"vehicle_navigate","riskLevel":"medium","confirmation":"required","status":"draft","implementationPersisted":false,"executionAuthorized":false},
+    {"capabilityId":"vehicle.ugv.recon","toolName":"vehicle_area_recon","riskLevel":"medium","confirmation":"required","status":"draft","implementationPersisted":false,"executionAuthorized":false},
+    {"capabilityId":"vehicle.ugv.track-target","toolName":"vehicle_track_target","riskLevel":"medium","confirmation":"required","status":"draft","implementationPersisted":false,"executionAuthorized":false},
+    {"capabilityId":"vehicle.ugv.control-gimbal","toolName":"vehicle_control_gimbal","riskLevel":"medium","confirmation":"required","status":"draft","implementationPersisted":false,"executionAuthorized":false},
+    {"capabilityId":"vehicle.ugv.emergency-stop","toolName":"vehicle_emergency_stop","riskLevel":"high","confirmation":"required","status":"draft","implementationPersisted":false,"executionAuthorized":false}
+  ],
+  "firePolicy": {
+    "capabilityCreated": false,
+    "runtimeHardDenyProven": false
+  },
+  "readinessEvidenceScope": "available at the recorded observation; not asserted as current liveness"
+}

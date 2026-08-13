@@ -1079,7 +1079,16 @@ paths:
                     {
                       type: object,
                       required: [providerId],
-                      properties: { providerId: { type: string } },
+                      properties:
+                        {
+                          providerId: { type: string },
+                          operation:
+                            {
+                              type: string,
+                              enum: [structured_generation, embedding],
+                              default: structured_generation,
+                            },
+                        },
                     },
                 },
             },
@@ -1148,6 +1157,20 @@ paths:
       operationId: refreshMcpServer
       responses:
         '200': { description: Refreshed Tools and dependency changes }
+  /api/v1/mcp/servers/{serverId}/credentials:
+    parameters: [{ $ref: '#/components/parameters/ServerId' }]
+    put:
+      operationId: replaceMcpServerCredentials
+      description: Replaces the AES-256-GCM encrypted credential without decrypting the previous value, discovering Tools, or calling the Provider.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReplaceMcpServerCredentials' }
+      responses:
+        '204': { description: Credential replaced }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /api/v1/mcp/servers/{serverId}/protocol:
     parameters: [{ $ref: '#/components/parameters/ServerId' }]
     get:
@@ -3489,6 +3512,12 @@ components:
         serverId: { type: string, minLength: 1 }
         name: { type: string, minLength: 1 }
         endpoint: { type: string, format: uri }
+        credentialHeaders: { type: object, additionalProperties: { type: string } }
+    ReplaceMcpServerCredentials:
+      type: object
+      additionalProperties: false
+      required: [credentialHeaders]
+      properties:
         credentialHeaders: { type: object, additionalProperties: { type: string } }
     ToolEnhancement:
       type: object

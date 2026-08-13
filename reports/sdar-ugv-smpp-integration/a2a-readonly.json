@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-a2a-read-only/v1",
+  "status": "failed",
+  "evidenceClass": "real_a2a_attempt_failed",
+  "observedAt": "2026-08-12T12:48:48.416Z",
+  "reasonCode": "UGV_A2A_TASK_NOT_COMPLETED",
+  "a2aReadOnlyReady": false,
+  "execution": {
+    "taskId": "7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+    "operationName": "vehicle_get_state",
+    "mcpCalls": 1,
+    "physicalWrites": 0
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false
+  }
+}

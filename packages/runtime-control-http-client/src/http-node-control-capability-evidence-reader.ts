@@ -29,7 +29,7 @@ const DefinitionSchema = z
     previousVersion: z.number().int().positive().optional(),
     createdBy: z.string().optional(),
     createdAt: z.iso.datetime({ offset: true }).optional(),
-    updatedAt: z.iso.datetime({ offset: true }),
+    updatedAt: z.iso.datetime({ offset: true }).optional(),
   })
   .strict();
 const BindingSchema = z
@@ -46,7 +46,7 @@ const BindingSchema = z
     activationCondition: JsonSchema.optional(),
     providerPolicyOverride: JsonSchema.optional(),
     status: z.enum(['draft', 'active', 'suspended', 'retired']),
-    createdAt: z.iso.datetime({ offset: true }),
+    createdAt: z.iso.datetime({ offset: true }).optional(),
   })
   .strict();
 const BindingListSchema = z
@@ -155,17 +155,23 @@ export class HttpNodeControlCapabilityEvidenceReader
   readonly #baseUrl: string;
   readonly #serviceToken: string;
 
-  constructor(input: Readonly<{ baseUrl: string; serviceToken: string }>) {
-    this.#baseUrl = input.baseUrl.replace(/\/+$/u, '');
+  constructor(
+    input: Readonly<{ baseUrl: string; serviceToken: string; unsafeTestOpen?: boolean }>,
+  ) {
+    this.#baseUrl = admittedControlBaseUrl(input.baseUrl, input.unsafeTestOpen === true);
     this.#serviceToken = input.serviceToken;
   }
 
   async load(capabilityId: string, version: number): Promise<CapabilityAuthoritySnapshot> {
     const path = `/api/v1/node-capabilities/${encodeURIComponent(capabilityId)}/versions/${String(version)}`;
     const [definitionResponse, bindingsResponse] = await Promise.all([
-      globalThis.fetch(`${this.#baseUrl}${path}`, { headers: this.#headers() }),
+      globalThis.fetch(`${this.#baseUrl}${path}`, {
+        headers: this.#headers(),
+        redirect: 'manual',
+      }),
       globalThis.fetch(`${this.#baseUrl}${path}/implementations?pageSize=200`, {
         headers: this.#headers(),
+        redirect: 'manual',
       }),
     ]);
     const definition = DefinitionSchema.parse(await responseJson(definitionResponse));
@@ -193,7 +199,7 @@ export class HttpNodeControlCapabilityEvidenceReader
         previous_version: definition.previousVersion ?? null,
         created_by: definition.createdBy ?? null,
         created_at: definition.createdAt ?? null,
-        updated_at: definition.updatedAt,
+        updated_at: definition.updatedAt ?? definition.createdAt ?? bindings.asOf,
       }),
       implementationBindings: Object.freeze(
         bindings.items.map((binding) =>
@@ -210,7 +216,7 @@ export class HttpNodeControlCapabilityEvidenceReader
             activation_condition: binding.activationCondition ?? null,
             provider_policy_override: binding.providerPolicyOverride ?? null,
             status: binding.status,
-            created_at: binding.createdAt,
+            created_at: binding.createdAt ?? bindings.asOf,
           }),
         ),
       ),
@@ -224,7 +230,7 @@ export class HttpNodeControlCapabilityEvidenceReader
     if (input.bindingId !== undefined) query.set('bindingId', input.bindingId);
     const response = await globalThis.fetch(
       `${this.#baseUrl}/internal/v1/mcp-provider-bindings/current?${query.toString()}`,
-      { headers: this.#headers() },
+      { headers: this.#headers(), redirect: 'manual' },
     );
     const authority = CurrentMcpProviderBindingAuthoritySchema.parse(await responseJson(response));
     return Object.freeze({
@@ -263,6 +269,25 @@ export class HttpNodeControlCapabilityEvidenceReader
   #headers(): Readonly<Record<string, string>> {
     return Object.freeze({ authorization: `Bearer ${this.#serviceToken}` });
   }
+}
+
+function admittedControlBaseUrl(value: string, unsafeTestOpen: boolean): string {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(value);
+  } catch {
+    throw new Error('NODE_CONTROL_ENDPOINT_NOT_ALLOWED');
+  }
+  const hostname = endpoint.hostname.toLowerCase().replace(/^\[|\]$/gu, '');
+  const loopback = hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.');
+  if (
+    !['http:', 'https:'].includes(endpoint.protocol) ||
+    endpoint.username !== '' ||
+    endpoint.password !== '' ||
+    (!unsafeTestOpen && endpoint.protocol !== 'https:' && !loopback)
+  )
+    throw new Error('NODE_CONTROL_ENDPOINT_NOT_ALLOWED');
+  return endpoint.toString().replace(/\/+$/u, '');
 }
 
 async function responseJson(response: Response): Promise<unknown> {

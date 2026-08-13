@@ -17,6 +17,15 @@ describe('UserGoalPlanningService', () => {
     expect(result.plan).toMatchObject({ status: 'validated', revision: 1 });
     expect(result.plan.skillGoals).toHaveLength(2);
     expect(result.plan.dependencies).toHaveLength(1);
+    expect(result.plan.skillGoals.map((goal) => goal.skillGoalId)).toEqual([
+      'user-goal-plan.1:skill-goal:1',
+      'user-goal-plan.1:skill-goal:2',
+    ]);
+    expect(result.plan.dependencies[0]).toMatchObject({
+      dependencyId: 'user-goal-plan.1:dependency:1',
+      predecessorSkillGoalId: 'user-goal-plan.1:skill-goal:1',
+      successorSkillGoalId: 'user-goal-plan.1:skill-goal:2',
+    });
     expect(repository.contract?.criteria.map((criterion) => criterion.criterionId)).toEqual([
       'criterion-1',
       'criterion-2',
@@ -154,6 +163,92 @@ describe('UserGoalPlanningService', () => {
       guarded.findReusablePlan(testGoal().goalId, testGoal().version),
     ).resolves.toBeUndefined();
     expect(repository.findReusableCalls).toBe(0);
+  });
+
+  it('makes explicit Task Capability authority immutable across model correction', async () => {
+    const authority = {
+      capabilityNeeds: ['vehicle.ugv.read-state'],
+      requiredEffectRefs: ['effect.vehicle.ugv.read-state.observed'],
+      evidenceRequirements: ['vehicle.state.observation'],
+      artifactRequirements: [],
+    } as const;
+    const exact = {
+      skillGoals: [
+        {
+          skillGoalId: 'goal.read-state',
+          requiredResult: 'Read the exact vehicle state.',
+          ...authority,
+          coveredCriterionIds: ['criterion-1', 'criterion-2'],
+          assumptions: [],
+          constraints: [],
+        },
+      ],
+      dependencies: [],
+    };
+    const model = new PlanningModel([validCandidate(), exact]);
+    const planner = new UserGoalPlanningService({
+      model,
+      repository: new MemoryPlanningRepository(),
+      now: () => timestamp,
+      nextPlanId: () => 'user-goal-plan.capability',
+      candidateAuthority: { resolve: () => Promise.resolve(authority) },
+    });
+
+    const result = await planner.plan({ goal: testGoal(), taskId: 'task.capability' });
+
+    expect(result.plan.skillGoals).toEqual([expect.objectContaining(authority)]);
+    expect(model.calls).toHaveLength(2);
+    expect(model.calls[1]?.['correctionErrors']).toContain(
+      'USER_GOAL_PLAN_TASK_CAPABILITY_AUTHORITY_INVALID',
+    );
+    const instruction = JSON.parse(String(model.calls[0]?.['instruction'])) as Record<
+      string,
+      unknown
+    >;
+    expect(instruction['taskCapabilityPlanAuthority']).toEqual(authority);
+  });
+
+  it('projects Task Capability references and required criterion coverage from authority', async () => {
+    const authority = {
+      capabilityNeeds: ['vehicle.ugv.read-state'],
+      requiredEffectRefs: ['effect.vehicle.ugv.read-state.observed'],
+      evidenceRequirements: ['vehicle.state.observation'],
+      artifactRequirements: [],
+    } as const;
+    const candidate = {
+      skillGoals: [
+        {
+          skillGoalId: 'goal.read-state',
+          requiredResult: 'Read the exact vehicle state.',
+          capabilityNeeds: [],
+          coveredCriterionIds: [],
+          requiredEffectRefs: ['effect-placeholder'],
+          evidenceRequirements: ['evidence-placeholder'],
+          artifactRequirements: ['artifact-placeholder'],
+          assumptions: [],
+          constraints: [],
+        },
+      ],
+      dependencies: [],
+    };
+    const model = new PlanningModel([candidate]);
+    const planner = new UserGoalPlanningService({
+      model,
+      repository: new MemoryPlanningRepository(),
+      now: () => timestamp,
+      nextPlanId: () => 'user-goal-plan.authoritative',
+      candidateAuthority: { resolve: () => Promise.resolve(authority) },
+    });
+
+    const result = await planner.plan({ goal: testGoal(), taskId: 'task.capability' });
+
+    expect(result.plan.skillGoals).toEqual([
+      expect.objectContaining({
+        ...authority,
+        coveredCriterionIds: ['criterion-1', 'criterion-2'],
+      }),
+    ]);
+    expect(model.calls).toHaveLength(1);
   });
 });
 

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-skill-map/v1",
+  "status": "passed_read_only_control_staged",
+  "evidenceClass": "derived_from_real_runtime_and_node_control_governance_authority",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/capability-skill-governance.redacted.json"
+  ],
+  "observedAt": "2026-08-12T12:46:26.190Z",
+  "counts": {
+    "publishedReadOnly": 5,
+    "stagedControl": 5,
+    "fire": 0
+  },
+  "readOnlySkills": [
+    {"skillId":"ugv.get-state","version":4,"capabilityId":"vehicle.ugv.read-state","toolName":"vehicle_get_state","status":"published"},
+    {"skillId":"ugv.get-capabilities","version":4,"capabilityId":"vehicle.ugv.read-capabilities","toolName":"vehicle_get_capabilities","status":"published"},
+    {"skillId":"ugv.get-payload-status","version":4,"capabilityId":"vehicle.ugv.read-payload","toolName":"vehicle_get_payload_status","status":"published"},
+    {"skillId":"ugv.get-targets","version":4,"capabilityId":"vehicle.ugv.read-targets","toolName":"vehicle_get_targets","status":"published"},
+    {"skillId":"ugv.laser-range","version":4,"capabilityId":"vehicle.ugv.laser-range","toolName":"vehicle_laser_range","status":"published"}
+  ],
+  "stagedControlSkills": [
+    {"skillId":"ugv.navigate","capabilityId":"vehicle.ugv.navigate","toolName":"vehicle_navigate","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},
+    {"skillId":"ugv.area-recon","capabilityId":"vehicle.ugv.recon","toolName":"vehicle_area_recon","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},
+    {"skillId":"ugv.track-target","capabilityId":"vehicle.ugv.track-target","toolName":"vehicle_track_target","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},
+    {"skillId":"ugv.control-gimbal","capabilityId":"vehicle.ugv.control-gimbal","toolName":"vehicle_control_gimbal","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},
+    {"skillId":"ugv.emergency-stop","capabilityId":"vehicle.ugv.emergency-stop","toolName":"vehicle_emergency_stop","runtimeStatus":"draft","governanceStatus":"validated","selectable":false}
+  ],
+  "firePolicy": {
+    "skillCreated": false,
+    "runtimeHardDenyProven": false
+  }
+}

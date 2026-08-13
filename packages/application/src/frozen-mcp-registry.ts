@@ -30,6 +30,11 @@ export interface FrozenMcpDiscoveryPort {
 export interface FrozenMcpRegistryRepository {
   findServer(serverId: string): Promise<McpServerRecord | undefined>;
   listTools(serverId: string): Promise<readonly McpTool[]>;
+  replaceEncryptedCredential(
+    serverId: string,
+    encryptedCredential: string,
+    updatedAt: string,
+  ): Promise<boolean>;
   saveFrozenServerAndReplaceTools(
     record: McpServerRecord,
     tools: readonly McpTool[],
@@ -151,6 +156,19 @@ export class FrozenMcpRegistryService {
       tools,
       dependencyWarnings: changes,
     });
+  }
+
+  async replaceCredentials(
+    serverId: string,
+    credentialHeaders: Readonly<Record<string, string>>,
+  ): Promise<void> {
+    assertCredentialHeaders(credentialHeaders);
+    const updated = await this.#repository.replaceEncryptedCredential(
+      serverId,
+      this.#cipher.encrypt(credentialHeaders),
+      this.#clock.now(),
+    );
+    if (!updated) throw registryError('MCP_SERVER_NOT_FOUND', 'MCP Server was not found.');
   }
 
   async #discover(

@@ -338,7 +338,9 @@ describe('governed Skill Capability readiness', () => {
               endpoint: runtimeServer.endpoint,
               status: runtimeServer.status,
               serverUpdatedAt:
-                state === 'stale' ? '2026-08-10T11:58:00.000Z' : runtimeServer.updatedAt,
+                state === 'current' ? '2026-08-10T00:00:00.000Z' : runtimeServer.updatedAt,
+              snapshotValidUntil:
+                state === 'stale' ? '2026-08-10T11:59:59.999Z' : '2026-08-10T13:00:00.000Z',
               toolRevision: runtimeServer.toolRevision,
               protocolMode: runtimeSnapshot.protocolMode,
               snapshotToolRevision:
@@ -501,6 +503,7 @@ describe('governed Skill Capability readiness', () => {
           endpoint: `https://${localServerId}.example.test/mcp`,
           status: 'enabled' as const,
           serverUpdatedAt: '2026-08-10T11:59:30.000Z',
+          snapshotValidUntil: '2026-08-10T13:00:00.000Z',
           toolRevision: 7,
           protocolMode: 'frozen_v1' as const,
           snapshotToolRevision: 7,

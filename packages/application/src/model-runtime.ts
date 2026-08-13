@@ -74,7 +74,11 @@ export class ModelRuntimeService {
     });
   }
 
-  async route(stage: ModelStage, providerId: string): Promise<void> {
+  async route(
+    stage: ModelStage,
+    providerId: string,
+    operation: ModelInvocationRecord['operation'] = 'structured_generation',
+  ): Promise<void> {
     const provider = await this.#repository.findProvider(providerId);
     if (provider?.configuration.enabled !== true) {
       throw new ModelRuntimeError(
@@ -82,7 +86,7 @@ export class ModelRuntimeService {
         'Enabled provider was not found.',
       );
     }
-    await this.#repository.saveStageRoute(stage, providerId, this.#clock.now());
+    await this.#repository.saveStageRoute(stage, operation, providerId, this.#clock.now());
   }
 
   listProviders(): Promise<readonly ModelProviderConfiguration[]> {
@@ -329,7 +333,7 @@ export class ModelRuntimeService {
         fallbackOn: controlled.fallbackOn,
       });
     }
-    const provider = await this.#requiredProvider(stage);
+    const provider = await this.#requiredProvider(stage, operation);
     return Object.freeze({
       providers: Object.freeze([provider]),
       timeoutMs: provider.configuration.timeoutMs,
@@ -337,8 +341,8 @@ export class ModelRuntimeService {
     });
   }
 
-  async #requiredProvider(stage: ModelStage) {
-    const provider = await this.#repository.findProviderForStage(stage);
+  async #requiredProvider(stage: ModelStage, operation: ModelInvocationRecord['operation']) {
+    const provider = await this.#repository.findProviderForStage(stage, operation);
     if (provider?.configuration.enabled !== true) {
       throw new ModelRuntimeError(
         'MODEL_STAGE_NOT_CONFIGURED',

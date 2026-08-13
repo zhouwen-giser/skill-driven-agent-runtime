@@ -1,5 +1,50 @@
 # Project Status
 
+SDAR × UGV SMPP integration is `SDAR_UGV_INTEGRATION_BLOCKED` (2026-08-12). Discovery readiness is
+`true`; Read, A2A, Control, Workflow, Resilience and Production readiness are all `false`. Real
+projection 200/304 and native lineage, credential-free Source revision 1, exact Provider/Server,
+Provider Binding revision 2, Runtime tool revision 2 and Catalog `2.0.0-rc.1:2` with 11 operations
+are proven at their observation times. Five read Skills are published at version 4 and five read
+Capabilities at version 2; five controls remain Draft/non-selectable without implementation
+bindings; fire has zero Capability/Skill and zero invocation authority.
+
+Runtime's create-on-empty model bootstrap is implemented and verified. Existing Provider state makes
+startup a strict no-op, while a clean database can atomically create the explicitly configured
+structured and optional embedding Providers and operation routes. The real database contains two
+Providers, 21 `structured_generation` routes, 21 `embedding` routes and 21 enabled current default
+Prompts. Real conformance passed nine structured stages, Workflow application-schema
+rejection/correction, and finite 1024-dimensional `goal`/`skill_selection` embeddings.
+
+Real A2A read-only was executed and failed; it is no longer classified as unexecuted. Latest
+`run016` created Task `7dcb57de-a1f1-4df1-b19e-7227e3a253d0`, Goal
+`goal-113fdcb2-8577-4107-8562-172ba4e38c5b`, User Goal Plan
+`user-goal-plan-b72790fb-63d4-46de-831c-25073124e797`, selected exact Skill
+`ugv.get-state@4` through Capability `vehicle.ugv.read-state@2`/Exposure v2, and made live MCP
+invocation `mcp-invocation-fb54fcdb-dabf-42ee-85d6-eebcb7aa8717`. The external adapter returned
+`MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`. Goal Evaluation no longer reproduced
+the earlier shape crash, but the bounded replan budget exhausted and the Goal ended unachievable;
+the Task failed with `GOAL_UNACHIEVABLE`. No successful `result_processing` exists. Runtime restart
+reconciliation closed the initially `prepared` CapabilityAttempt to `failed` with durable
+timestamps. The terminal outcome is Task-linked but has a null direct `capability_attempt_id`, and
+the last A2A projection remained `TASK_STATE_WORKING`, so complete direct/terminal lineage is not
+proven. `a2a-readonly.json` is the primary real
+run016 failure report; detailed lineage is under `failed-attempts/a2a-readonly-run016.redacted.json`.
+Physical writes, control calls and fire calls remain zero.
+
+Source restart/outage/LKG-expiry/bad-checksum cases, successful reads, aggregate bootstrap and all
+control/lifecycle/emergency/recovery cases remain unqualified. Execution semantics remain
+`admin_override`, an unconditional Runtime fire hard deny is not proven, and the non-production
+`unsafe_test_open` profile relaxes plaintext/authority-membership checks without disabling HTTPS
+certificate validation.
+
+The repository gate remains failed: the main Integration suite passed 189/189, but the aggregate
+run's isolated P11 evidence-export case timed out before an unchanged standalone rerun passed 1/1.
+Main E2E passed 72/72 with one skip, then Phase 13 baseline drift failed at `22.939% > 15%` while
+Runtime regression (`1.7548%`) and append P95 (`3.410 ms`) passed. The official A2A TCK did not start
+because the host lacks `python3-venv`; evidence demo 44/44 and infra, Server and Node Control smokes
+passed. These historical failures remain authoritative; later focused work and the real A2A attempt
+do not rewrite the aggregate verification outcome.
+
 SDAR x SMPP Home-Lab Integration is `BLOCKED_DRAFT_PUBLISHED` (2026-08-12) on
 `codex/sdar-smpp-home-lab-integration`. Draft PR #19 contains pushed implementation candidate
 `258c8113bd0523064525dd1f3b15c204e12cfba3`. Goal Run

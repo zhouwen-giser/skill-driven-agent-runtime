@@ -1,25 +1,30 @@
-export type ModelStage =
-  | 'intent'
-  | 'goal'
-  | 'goal_planning'
-  | 'tool_enhancement'
-  | 'skill_authoring'
-  | 'skill_selection'
-  | 'skill_input_resolution'
-  | 'workflow_planning'
-  | 'execution_decision'
-  | 'goal_evaluation'
-  | 'evaluation'
-  | 'result_processing'
-  | 'task_understanding'
-  | 'task_clarification'
-  | 'goal_contract_generation'
-  | 'interactive_plan_patch'
-  | 'experience_observation'
-  | 'experience_reflection'
-  | 'task_type_induction'
-  | 'capability_pattern_induction'
-  | 'knowledge_promotion_assessment';
+export const MODEL_STAGES = Object.freeze([
+  'intent',
+  'goal',
+  'goal_planning',
+  'tool_enhancement',
+  'skill_authoring',
+  'skill_selection',
+  'skill_input_resolution',
+  'workflow_planning',
+  'execution_decision',
+  'goal_evaluation',
+  'evaluation',
+  'result_processing',
+  'task_understanding',
+  'task_clarification',
+  'goal_contract_generation',
+  'interactive_plan_patch',
+  'experience_observation',
+  'experience_reflection',
+  'task_type_induction',
+  'capability_pattern_induction',
+  'knowledge_promotion_assessment',
+] as const);
+
+export type ModelStage = (typeof MODEL_STAGES)[number];
+
+export type ModelOperation = 'structured_generation' | 'embedding';
 
 export interface ModelProviderConfiguration {
   readonly providerId: string;
@@ -36,6 +41,7 @@ export interface ModelProviderConfiguration {
 
 export interface StageModelRoute {
   readonly stage: ModelStage;
+  readonly operation: ModelOperation;
   readonly providerId: string;
   readonly updatedAt: string;
 }
