@@ -97,7 +97,12 @@
       "status": "ALREADY_FIXED_ON_MAIN",
       "evidence": [
         "PR 20 is merged into the locked baseline.",
-        "Explicit unauthenticated SMPP credentials and exact allowlisted private HTTP are implemented and tested."
+        "Explicit unauthenticated SMPP credentials and exact allowlisted private HTTP are implemented and tested.",
+        "Current canonical verification passed 6 shared Registry assets and 10 checksum vectors with canonicalByteIdentical=true and smppNativeAuthorityVerified=true; SMPP projection tests passed 3 files/18 tests and SDAR credential-free/private-HTTP tests passed 3 files/34 tests.",
+        "Current deterministic Binding/Catalog/read-only and remote-terminal compatibility passed: SDAR 3 files/54 tests plus 2 files/29 tests, and SMPP 5 files/35 tests.",
+        "Console compatibility passed its 94-operation/29-schema contract check, 8 Task-command mapping tests, 10 BFF tests, and 19 resource/status mapping tests; candidate SDAR production conformance passed 131 operations and 455 RBAC decisions.",
+        "The database-backed controlled SDAR consumer was not collected because TEST_DATABASE_URL is unset, and the available Console live SUT predates this candidate; status is PARTIALLY_VERIFIED / BLOCKED_LIVE_CANDIDATE_SUT_AND_TEST_DATABASE.",
+        "External refs are the observed local origin/main SHAs only because P07 did not fetch: SMPP 340abeeff75cd811b40e1bfd9d5a26f5a62f2c45 and Console e7fa2348f7d574a0e9363bdf33598f33144a909c; physicalDeviceWrites=0."
       ]
     }
   ]

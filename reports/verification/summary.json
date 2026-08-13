@@ -1,73 +1,28 @@
 {
   "schemaVersion": 1,
   "status": "failed",
-  "commit": "b8fc6c20b95114007eab86305aa4e34863f1334d",
-  "dirty": true,
+  "commit": "01be490985fdd410e917a35b6791b2b029fd63a9",
+  "dirty": false,
   "environment": {
-    "node": "v22.23.1",
-    "platform": "linux",
+    "node": "v22.14.0",
+    "platform": "win32",
     "architecture": "x64",
-    "infrastructureMode": "operator-managed"
+    "infrastructureMode": "self-managed-compose"
   },
-  "startedAt": "2026-08-12T07:44:41.768Z",
-  "finishedAt": "2026-08-12T07:52:33.828Z",
-  "durationMs": 472060,
+  "startedAt": "2026-08-13T03:52:50.496Z",
+  "finishedAt": "2026-08-13T03:54:39.714Z",
+  "durationMs": 109218,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
-      "status": "passed",
-      "startedAt": "2026-08-12T07:44:41.770Z",
-      "finishedAt": "2026-08-12T07:48:50.087Z",
-      "durationMs": 248317,
-      "logPath": "reports/verification/raw/static-unit-contract-build.log",
-      "outputSha256": "199487a461dc70e5978107b8f8964a7ec1fb52e9b3f87d49f631905386c93010",
-      "metrics": {
-        "testFiles": 243,
-        "tests": 1753,
-        "openapiOperations": 166
-      },
-      "exitCode": 0
-    },
-    {
-      "name": "cognitive-replay-no-physical-provider",
-      "command": "pnpm verify:cognitive-replay",
-      "status": "passed",
-      "startedAt": "2026-08-12T07:48:50.088Z",
-      "finishedAt": "2026-08-12T07:48:50.839Z",
-      "durationMs": 751,
-      "logPath": "reports/verification/raw/cognitive-replay-no-physical-provider.log",
-      "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3",
-      "metrics": {},
-      "exitCode": 0
-    },
-    {
-      "name": "clean-baseline-reset-seed",
-      "command": "pnpm verify:migrations",
-      "status": "passed",
-      "startedAt": "2026-08-12T07:48:50.839Z",
-      "finishedAt": "2026-08-12T07:49:37.723Z",
-      "durationMs": 46884,
-      "logPath": "reports/verification/raw/clean-baseline-reset-seed.log",
-      "outputSha256": "8e7ac922113abfcbb5372511193749890c7e38c8e15d97bdde4264a9af9cdf97",
-      "metrics": {
-        "migrationCount": 45
-      },
-      "exitCode": 0
-    },
-    {
-      "name": "postgres-redis-integration",
-      "command": "pnpm test:integration",
       "status": "failed",
-      "startedAt": "2026-08-12T07:49:37.723Z",
-      "finishedAt": "2026-08-12T07:52:33.828Z",
-      "durationMs": 176105,
-      "logPath": "reports/verification/raw/postgres-redis-integration.log",
-      "outputSha256": "b2d307a00e7021fc39e8c95a017ce487159a9c5129545e008e02fd181837a8b6",
-      "metrics": {
-        "testFiles": 32,
-        "tests": 189
-      },
+      "startedAt": "2026-08-13T03:52:50.497Z",
+      "finishedAt": "2026-08-13T03:54:39.712Z",
+      "durationMs": 109215,
+      "logPath": "reports/verification/raw/static-unit-contract-build.log",
+      "outputSha256": "4401393d81ee17f8ea5359b1408e1d62264363edc44bbc90fe71c01d346e1cd8",
+      "metrics": {},
       "exitCode": 1
     }
   ]

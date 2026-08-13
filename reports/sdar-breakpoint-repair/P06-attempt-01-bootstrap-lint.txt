@@ -1,0 +1,24 @@
+Command: pnpm verify
+Candidate: 01be490985fdd410e917a35b6791b2b029fd63a9
+Working tree clean at start: true
+Started: 2026-08-13T03:52:50.496Z
+Finished: 2026-08-13T03:54:39.714Z
+Physical device writes: 0
+
+First failed aggregate step:
+  name: static-unit-contract-build
+  command: pnpm verify:bootstrap
+  durationMs: 109215
+  outputSha256: 4401393d81ee17f8ea5359b1408e1d62264363edc44bbc90fe71c01d346e1cd8
+
+Diagnostic:
+  apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts
+    2203:10 error 'stableKey' is defined but never used
+    @typescript-eslint/no-unused-vars
+
+Result:
+  FAILED_BOOTSTRAP_LINT
+
+The aggregate stopped at its first failure. Integration, E2E, A2A TCK, smoke, and Phase 13
+performance were not executed by this attempt. The repair removes only the unreferenced helper and
+does not change a verification threshold, sample, protocol, authority decision, or runtime behavior.
