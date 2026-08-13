@@ -3440,14 +3440,14 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it.each([
-    ['guidance', 'immediate_success', false, true],
-    ['template', 'remote_success', true, true],
-    ['template', 'remote_notification_success', true, true],
-    ['procedure', 'remote_success', true, true],
-    ['template', 'remote_missing_evidence', true, false],
+    ['guidance', 'immediate_success'],
+    ['template', 'remote_success'],
+    ['template', 'remote_notification_success'],
+    ['procedure', 'remote_success'],
+    ['template', 'remote_missing_evidence'],
   ] as const)(
-    'runs embodied.move_to in %s mode with %s through the existing Skill, Workflow, Provider and evidence authorities',
-    async (mode, outcome, expectsRemoteTask, expectsCompletion) => {
+    'rejects ungoverned embodied.move_to in %s mode with %s before the Provider boundary',
+    async (mode, outcome) => {
       const provider = await startFrozenMcpTasksMockProvider({ moveTo: { outcome } });
       const serverId = `mcp.move-to.${mode}.${randomUUID()}`;
       try {
@@ -3548,192 +3548,36 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           `Confirm the ${mode} move-to plan.`,
         );
         expectTaskState(confirmed, TaskState.TASK_STATE_WORKING);
-        if (outcome === 'remote_notification_success') {
-          let disposition: string | undefined;
-          for (let attempt = 0; attempt < 100; attempt += 1) {
-            const reconnect = await fetch(
-              `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodeURIComponent(serverId)}/notifications/reconnect`,
-              { method: 'POST' },
-            );
-            const reconnectBody = await reconnect.text();
-            expect(reconnect.status, reconnectBody).toBe(202);
-            disposition = z
-              .object({ disposition: z.string() })
-              .parse(JSON.parse(reconnectBody) as unknown).disposition;
-            if (disposition === 'started' || disposition === 'already_running') break;
-            await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
-          }
-          expect(['started', 'already_running']).toContain(disposition);
-        }
-        if (expectsRemoteTask) {
-          const expectedTaskReads = outcome === 'remote_notification_success' ? 2 : 1;
-          for (let attempt = 0; attempt < 100; attempt += 1) {
-            if (
-              provider.requests.filter((request) => request.method === 'tasks/get').length >=
-              expectedTaskReads
-            )
-              break;
-            await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
-          }
-        }
-        const terminal = expectsCompletion
-          ? await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED)
-          : await runtime.a2a.client.getTask({ tenant: '', id: submitted.id });
-        if (expectsCompletion) {
-          expect(terminal.artifacts[0]?.parts[1]?.content).toMatchObject({
-            $case: 'data',
-            value: {
-              resourceId: 'robot-17',
-              status: 'completed',
-              finalPosition: { x: 12, y: 8, frame: 'map' },
-            },
-          });
-        } else expect(terminal.status?.state).not.toBe(TaskState.TASK_STATE_COMPLETED);
-        let invocations = await runtime.listMcpInvocations(serverId);
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          if (invocations.some((invocation) => invocation.status === 'succeeded')) break;
-          await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
-          invocations = await runtime.listMcpInvocations(serverId);
-        }
-        expect(invocations).toEqual([
-          expect.objectContaining({
-            taskId: submitted.id,
-            toolName: 'embodied.move',
-            arguments: {
-              resourceId: 'robot-17',
-              target: { x: 12, y: 8, frame: 'map' },
-            },
-            status: 'succeeded',
-          }),
-        ]);
-        expect(provider.requests.some((request) => request.method === 'tasks/get')).toBe(
-          expectsRemoteTask,
-        );
-        if (expectsRemoteTask) {
-          const lifecycleSchema = z.object({
-            items: z
-              .array(
-                z.object({
-                  binding: z.object({
-                    protocolContract: z.object({
-                      mode: z.literal('frozen_v1'),
-                      protocolVersion: z.literal('2026-07-28'),
-                      baselineSha256: z.string().regex(/^[0-9a-f]{64}$/u),
-                      taskExecutionProfileVersion: z.literal('1.0'),
-                      evidenceProfileVersion: z.literal('1.0'),
-                      serverDiscoverySnapshotId: z.string().min(1),
-                    }),
-                    taskBehavior: z.enum(['server_directed', 'task_required']),
-                    runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
-                    taskTtlMs: z.number().int().positive(),
-                    taskExpiresAt: z.iso.datetime({ offset: true }),
-                  }),
-                  observations: z
-                    .array(
-                      z.object({
-                        source: z.enum(['admission', 'poll', 'notification', 'reconciliation']),
-                        runtimeRevision: z
-                          .string()
-                          .regex(/^(?:0|[1-9][0-9]*)$/u)
-                          .optional(),
-                      }),
-                    )
-                    .min(2),
-                  protocol: z.object({
-                    ttlMs: z.number().int().positive(),
-                    expiresAt: z.iso.datetime({ offset: true }),
-                    runtimeRevision: z.string().regex(/^(?:0|[1-9][0-9]*)$/u),
-                    latestObservationSource: z.literal(
-                      outcome === 'remote_notification_success' ? 'notification' : 'reconciliation',
-                    ),
-                  }),
-                }),
-              )
-              .length(1),
-          });
-          let lifecycle: z.infer<typeof lifecycleSchema> | undefined;
-          let lastLifecycle: unknown;
-          for (let attempt = 0; attempt < 100; attempt += 1) {
-            lastLifecycle = await fetch(
-              `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}/remote-task-lifecycle`,
-            ).then((response) => response.json());
-            const parsed = lifecycleSchema.safeParse(lastLifecycle);
-            if (parsed.success) {
-              lifecycle = parsed.data;
-              break;
-            }
-            await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
-          }
-          if (lifecycle === undefined)
-            throw new Error(
-              `REMOTE_TASK_RECONCILIATION_NOT_OBSERVED:${JSON.stringify(lastLifecycle)}`,
-            );
-          expect(lifecycle.items).toHaveLength(1);
-          expect(lifecycle.items[0]?.observations.map((item) => item.source)).toEqual(
-            expect.arrayContaining([
-              'admission',
-              ...(outcome === 'remote_notification_success'
-                ? (['reconciliation', 'notification'] as const)
-                : (['reconciliation'] as const)),
-            ]),
-          );
-        }
-
-        const executionCollectionSchema = z.object({
-          items: z.array(
-            z.object({
-              skillId: z.string(),
-              skillVersion: z.number(),
-              status: z.string(),
-              usagePolicy: z.object({ mode: z.string() }).loose(),
-              events: z.array(z.object({ eventType: z.string() }).loose()),
-              taskProviderReferences: z.array(
-                z.object({ kind: z.string(), referenceId: z.string() }).loose(),
-              ),
-              hardGates: z.array(z.object({ referenceId: z.string() }).loose()),
-              evidenceReferences: z.array(z.object({ kind: z.string() }).loose()),
-            }),
+        const terminal = await waitForTaskState(submitted.id, TaskState.TASK_STATE_FAILED);
+        expect(terminal.status?.state).toBe(TaskState.TASK_STATE_FAILED);
+        await expect(
+          fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+            response.json(),
           ),
+        ).resolves.toMatchObject({
+          phase: 'failed',
+          errorCode: 'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
         });
-        let executions: z.infer<typeof executionCollectionSchema> | undefined;
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          executions = executionCollectionSchema.parse(
-            await fetch(
-              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-executions`,
-            ).then((response) => response.json()),
-          );
-          if (executions.items.some((execution) => execution.status === 'completed')) break;
-          if (!expectsCompletion && executions.items.length > 0) break;
-          await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
-        }
-        if (executions === undefined) throw new Error('MOVE_TO_EXECUTION_RECORD_NOT_FOUND');
-        const moveExecution = executions.items.find(
-          (execution) => execution.skillId === 'embodied.move_to',
-        );
-        expect(moveExecution).toEqual(
-          expect.objectContaining({
-            skillId: 'embodied.move_to',
-            skillVersion: task.selectedSkillVersion,
-            usagePolicy: expect.objectContaining({ mode }),
-            events: expect.arrayContaining([
-              expect.objectContaining({ eventType: 'skill.plan_compliance_passed' }),
-              ...(expectsCompletion
-                ? [expect.objectContaining({ eventType: 'skill.execution_completed' })]
-                : [expect.objectContaining({ eventType: 'skill.hard_gate_triggered' })]),
-            ]),
-            taskProviderReferences: expect.arrayContaining([
-              expect.objectContaining({ kind: 'provider', referenceId: serverId }),
-              expect.objectContaining({ kind: 'resource' }),
-            ]),
-            hardGates: [expect.objectContaining({ referenceId: 'final-position' })],
-            evidenceReferences: expect.arrayContaining([
-              expect.objectContaining({ kind: 'evidence' }),
-              ...(expectsCompletion ? [expect.objectContaining({ kind: 'outcome' })] : []),
-            ]),
-          }),
-        );
-        if (expectsCompletion) expect(moveExecution?.status).toBe('completed');
-        else expect(moveExecution?.status).not.toBe('completed');
+
+        await expect(
+          fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}/trace`,
+          ).then((response) => response.json()),
+        ).resolves.toMatchObject({
+          instance: {
+            status: 'failed',
+            budgetUsage: { mcpCalls: 0 },
+            errors: {
+              runtime: {
+                code: 'MCP_CONTROL_AUTHORITY_REQUIRED',
+                message: 'Side-effecting Tool invocation requires exact governed Task authority.',
+              },
+            },
+          },
+        });
+        expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+        expect(provider.requests.some((request) => request.method === 'tasks/get')).toBe(false);
+        await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([]);
       } finally {
         await runtime.deleteMcpServer(serverId).catch(() => undefined);
         await provider.close();
@@ -3741,12 +3585,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     },
   );
 
-  it.each([
-    ['remote_success', 'completed', 'completed'],
-    ['remote_degraded', 'degraded', 'degraded'],
-  ] as const)(
-    'runs recursive embodied.area_patrol with exact child versions and a %s terminal projection',
-    async (outcome, resultStatus, executionStatus) => {
+  it.each([['remote_success'], ['remote_degraded']] as const)(
+    'rejects ungoverned recursive embodied.area_patrol with %s before the Provider boundary',
+    async (outcome) => {
       const provider = await startFrozenMcpTasksMockProvider({
         moveTo: { outcome: 'remote_success' },
         areaPatrol: { outcome },
@@ -4031,113 +3872,35 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           'confirm_plan',
           'Confirm the exact move-to child plan.',
         );
-        const terminal = await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
-        expect(terminal.artifacts[0]?.parts[1]?.content).toMatchObject({
-          $case: 'data',
-          value: expect.objectContaining({ status: resultStatus }),
+        const terminal = await waitForTaskState(submitted.id, TaskState.TASK_STATE_FAILED);
+        expect(terminal.status?.state).toBe(TaskState.TASK_STATE_FAILED);
+        await expect(
+          fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then((response) =>
+            response.json(),
+          ),
+        ).resolves.toMatchObject({
+          phase: 'failed',
+          errorCode: 'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
         });
 
-        const toolCalls = provider.requests.filter((request) => request.method === 'tools/call');
-        expect(toolCalls.map((request) => request.params['name'])).toEqual([
-          'embodied.move',
-          'embodied.inspect_area',
-          'embodied.area_patrol',
-        ]);
-        expect(toolCalls[0]?.params['arguments']).toEqual({
-          resourceId: 'robot-17',
-          target: { x: 4, y: 6, frame: 'map' },
+        await expect(
+          fetch(
+            `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}/trace`,
+          ).then((response) => response.json()),
+        ).resolves.toMatchObject({
+          instance: {
+            budgetUsage: { mcpCalls: 0 },
+            errors: {
+              usage_child_0: {
+                code: 'MCP_CONTROL_AUTHORITY_REQUIRED',
+                message: 'Side-effecting Tool invocation requires exact governed Task authority.',
+              },
+            },
+          },
         });
-
-        const executionSchema = z.object({
-          items: z.array(
-            z.object({
-              executionId: z.string(),
-              parentExecutionId: z.string().optional(),
-              skillId: z.string(),
-              skillVersion: z.number(),
-              status: z.string(),
-              events: z.array(z.object({ eventType: z.string() }).loose()),
-              evidenceReferences: z.array(z.object({ kind: z.string() }).loose()),
-            }),
-          ),
-          tree: z.array(
-            z.object({
-              item: z.object({ executionId: z.string(), skillId: z.string() }).loose(),
-              children: z.array(
-                z.object({ item: z.object({ skillId: z.string() }).loose() }).loose(),
-              ),
-            }),
-          ),
-        });
-        let executions: z.infer<typeof executionSchema> | undefined;
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          executions = executionSchema.parse(
-            await fetch(
-              `${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}/skill-executions`,
-            ).then((response) => response.json()),
-          );
-          if (
-            executions.items.length === 3 &&
-            executions.items.some(
-              (execution) =>
-                execution.skillId === 'embodied.area_patrol' &&
-                execution.status === executionStatus,
-            )
-          )
-            break;
-          await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
-        }
-        if (executions === undefined) throw new Error('AREA_PATROL_EXECUTIONS_NOT_OBSERVED');
-        const root = executions.items.find(
-          (execution) => execution.skillId === 'embodied.area_patrol',
-        );
-        expect(root).toEqual(
-          expect.objectContaining({
-            skillVersion: task.selectedSkillVersion,
-            status: executionStatus,
-            events: expect.arrayContaining([
-              expect.objectContaining({
-                eventType:
-                  executionStatus === 'degraded'
-                    ? 'skill.execution_degraded'
-                    : 'skill.execution_completed',
-              }),
-            ]),
-            evidenceReferences: expect.arrayContaining([
-              expect.objectContaining({ kind: 'outcome' }),
-            ]),
-          }),
-        );
-        const children = executions.items.filter(
-          (execution) => execution.parentExecutionId === root?.executionId,
-        );
-        expect(children).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              skillId: 'embodied.move_to',
-              skillVersion: areaPatrolMoveVersion,
-              status: 'completed',
-            }),
-            expect.objectContaining({
-              skillId: 'embodied.inspect_area',
-              skillVersion: inspection.version,
-              status: 'completed',
-            }),
-          ]),
-        );
-        expect(executions.tree).toEqual([
-          expect.objectContaining({
-            item: expect.objectContaining({ skillId: 'embodied.area_patrol' }),
-            children: expect.arrayContaining([
-              expect.objectContaining({
-                item: expect.objectContaining({ skillId: 'embodied.move_to' }),
-              }),
-              expect.objectContaining({
-                item: expect.objectContaining({ skillId: 'embodied.inspect_area' }),
-              }),
-            ]),
-          }),
-        ]);
+        expect(provider.requests.some((request) => request.method === 'tools/call')).toBe(false);
+        expect(provider.requests.some((request) => request.method === 'tasks/get')).toBe(false);
+        await expect(runtime.listMcpInvocations(serverId)).resolves.toEqual([]);
       } finally {
         await runtime.deleteMcpServer(serverId).catch(() => undefined);
         await provider.close();
