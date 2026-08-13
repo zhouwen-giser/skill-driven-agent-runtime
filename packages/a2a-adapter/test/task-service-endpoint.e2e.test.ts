@@ -789,6 +789,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           tools: z.array(
             z.object({
               toolName: z.string(),
+              taskExecutionProfile: z
+                .object({ taskBehavior: z.literal('synchronous_only') })
+                .loose(),
               enhancement: z.object({ purpose: z.string(), tags: z.array(z.string()) }).optional(),
             }),
           ),
@@ -798,7 +801,12 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         'device_status',
         'slow_probe',
       ]);
-      expect(registration.tools).toContainEqual({ toolName: 'device_status' });
+      expect(registration.tools).toContainEqual(
+        expect.objectContaining({
+          toolName: 'device_status',
+          taskExecutionProfile: expect.objectContaining({ taskBehavior: 'synchronous_only' }),
+        }),
+      );
       const enhancementResponse = await fetch(
         `${runtime.management.baseUrl}/api/v1/mcp/servers/${encodedServerId}/tools/device_status/enhancement`,
         {
@@ -3880,7 +3888,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           ),
         ).resolves.toMatchObject({
           phase: 'failed',
-          errorCode: 'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
+          errorCode: 'RESULT_SCHEMA_MISMATCH',
         });
 
         await expect(
@@ -7623,6 +7631,7 @@ async function startModelLoopback(): Promise<Server> {
             ['status', 'coveredSubregions', 'missingSubregions', 'trajectory', 'anomalies'].every(
               (field) => required.data.required?.includes(field),
             );
+          const normalizedData = requestData.normalized.data ?? null;
           respondStructured(response, {
             text: requiresPatrolResult
               ? 'Patrol evidence was preserved with its authoritative completion status.'
@@ -7631,7 +7640,7 @@ async function startModelLoopback(): Promise<Server> {
                 : 'Device is online.',
             structured:
               requiresPatrolResult || requiresMoveResult
-                ? requestData.normalized.data
+                ? normalizedData
                 : {
                     status: 'online',
                     ...(requiresDeviceId ? { deviceId: 'device-nested-confirmation' } : {}),
@@ -7643,10 +7652,7 @@ async function startModelLoopback(): Promise<Server> {
                   : requiresMoveResult
                     ? 'final-position'
                     : 'status',
-                value:
-                  requiresPatrolResult || requiresMoveResult
-                    ? requestData.normalized.data
-                    : 'online',
+                value: requiresPatrolResult || requiresMoveResult ? normalizedData : 'online',
                 confidence: 1,
               },
             ],
