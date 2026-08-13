@@ -300,6 +300,39 @@ describe('Workflow outer controller', () => {
 
   it.each([
     [
+      'execution did not succeed',
+      {
+        status: 'failed' as const,
+        errors: { runtime: { code: 'TOOL_FAILED', message: 'Tool failed.' } },
+      },
+    ],
+    [
+      'execution errors remain',
+      {
+        status: 'succeeded' as const,
+        errors: { runtime: { code: 'TOOL_FAILED', message: 'Tool failed.' } },
+      },
+    ],
+  ])('does not promote evaluator achievement when %s', async (_reason, invalidState) => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.execution.execute.mockResolvedValueOnce({
+      ...instance('instance-0', 'plan-initial', 0, 1),
+      ...invalidState,
+    });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Incorrectly achieved.' });
+
+    await expect(fixture.controller.start(startInput())).rejects.toMatchObject({
+      code: 'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
+    });
+    expect(fixture.taskOutcomes.prepareAchieved).not.toHaveBeenCalled();
+    expect(fixture.terminalOutcomes.outcomes.size).toBe(0);
+    expect(fixture.controls.rounds).toHaveLength(0);
+    expect(fixture.goals.goal.status).toBe('active');
+    expect(fixture.controls.controls.get('control-1')).toMatchObject({ status: 'failed' });
+  });
+
+  it.each([
+    [
       'request_input' as const,
       { question: 'Which device should be inspected?' },
       'awaiting_input' as const,

@@ -508,6 +508,14 @@ export class WorkflowControllerService {
         instance,
         ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
       });
+      if (
+        evaluation.decision === 'achieved' &&
+        (instance.status !== 'succeeded' || Object.keys(instance.errors).length > 0)
+      )
+        throw new WorkflowControllerError(
+          'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
+          'Goal achievement requires a succeeded Workflow instance with no execution errors.',
+        );
       const round = {
         controlId: control.controlId,
         roundIndex: control.roundCount,
@@ -1185,6 +1193,7 @@ export type WorkflowControllerErrorCode =
   | 'WORKFLOW_CONTROL_NOT_WAITING_EXTERNAL'
   | 'WORKFLOW_CONTROL_EXTERNAL_INSTANCE_INCOMPLETE'
   | 'WORKFLOW_CONTROL_EXTERNAL_INSTANCE_STALE'
+  | 'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID'
   | 'WORKFLOW_CONTROL_TERMINAL_COMMIT_INCOMPLETE'
   | 'WORKFLOW_CONTROL_PLAN_NOT_CONFIRMED';
 export class WorkflowControllerError extends Error {
