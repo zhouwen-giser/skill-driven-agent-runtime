@@ -20,6 +20,7 @@ import type { RegisterSkillVersionInput } from '../../application/src/index.js';
 import {
   createCatalogEvidenceEnvelope,
   type EvidenceExportConfiguration,
+  type ModelStage,
 } from '../../domain/src/index.js';
 import {
   startFrozenMcpTasksMockProvider,
@@ -44,6 +45,7 @@ const queueName = `a2a-lifecycle-${randomUUID()}`;
 let runtime: ServerRuntimeHandle;
 let modelServer: Server;
 let initialPromptVersion = 0;
+const configuredPromptIds = new Map<ModelStage, string>();
 const failingProviderId = `provider.fail.${randomUUID()}`;
 let workflowPlanningCalls = 0;
 let controlEvaluationCalls = 0;
@@ -248,21 +250,9 @@ beforeAll(async () => {
     },
   );
   if (routeResponse.status !== 204) throw new Error('MODEL_ROUTE_SETUP_FAILED');
-  const promptResponse = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      promptId: 'prompt.skill-authoring.e2e',
-      stage: 'skill_authoring',
-      content: 'Author a validated Skill. {{instruction}}',
-      source: 'admin',
-      publish: true,
-    }),
-  });
-  if (promptResponse.status !== 201) throw new Error('MODEL_PROMPT_SETUP_FAILED');
-  initialPromptVersion = z
-    .object({ version: z.number().int().positive() })
-    .parse(await promptResponse.json()).version;
+  initialPromptVersion = (
+    await configurePrompt('skill_authoring', 'Author a validated Skill. {{instruction}}')
+  ).version;
   const workflowRoute = await fetch(
     `${runtime.management.baseUrl}/api/v1/models/routes/workflow_planning`,
     {
@@ -272,18 +262,7 @@ beforeAll(async () => {
     },
   );
   if (workflowRoute.status !== 204) throw new Error('WORKFLOW_MODEL_ROUTE_SETUP_FAILED');
-  const workflowPrompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      promptId: 'prompt.workflow-planning.e2e',
-      stage: 'workflow_planning',
-      content: 'Workflow planning policy. {{instruction}}',
-      source: 'admin',
-      publish: true,
-    }),
-  });
-  if (workflowPrompt.status !== 201) throw new Error('WORKFLOW_PROMPT_SETUP_FAILED');
+  await configurePrompt('workflow_planning', 'Workflow planning policy. {{instruction}}');
   const evaluationRoute = await fetch(
     `${runtime.management.baseUrl}/api/v1/models/routes/goal_evaluation`,
     {
@@ -293,18 +272,7 @@ beforeAll(async () => {
     },
   );
   if (evaluationRoute.status !== 204) throw new Error('GOAL_EVALUATION_ROUTE_SETUP_FAILED');
-  const evaluationPrompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      promptId: 'prompt.goal-evaluation.e2e',
-      stage: 'goal_evaluation',
-      content: 'Goal evaluation policy. {{instruction}}',
-      source: 'admin',
-      publish: true,
-    }),
-  });
-  if (evaluationPrompt.status !== 201) throw new Error('GOAL_EVALUATION_PROMPT_SETUP_FAILED');
+  await configurePrompt('goal_evaluation', 'Goal evaluation policy. {{instruction}}');
   for (const stage of [
     'intent',
     'goal',
@@ -328,18 +296,7 @@ beforeAll(async () => {
       body: JSON.stringify({ providerId: 'provider.e2e' }),
     });
     if (route.status !== 204) throw new Error(`TASK_DECISION_ROUTE_SETUP_FAILED:${stage}`);
-    const prompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        promptId: `prompt.${stage}.e2e`,
-        stage,
-        content: `Structured ${stage} decision. {{instruction}}`,
-        source: 'admin',
-        publish: true,
-      }),
-    });
-    if (prompt.status !== 201) throw new Error(`TASK_DECISION_PROMPT_SETUP_FAILED:${stage}`);
+    await configurePrompt(stage, `Structured ${stage} decision. {{instruction}}`);
   }
   const baselineSkill = await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
     method: 'POST',
@@ -355,6 +312,45 @@ afterAll(async () => {
   await once(modelServer, 'close');
   await dropIsolatedRuntimeDatabase(postgresAdminUrl, databaseName);
 }, 120_000);
+
+async function configurePrompt(
+  stage: ModelStage,
+  content: string,
+): Promise<Readonly<{ promptId: string; version: number }>> {
+  const currentResponse = await fetch(
+    `${runtime.management.baseUrl}/api/v1/prompts/current/${stage}`,
+  );
+  const currentBody = await currentResponse.text();
+  if (currentResponse.status !== 200)
+    throw new Error(`MODEL_PROMPT_CURRENT_SETUP_FAILED:${stage}:${currentBody}`);
+  const current = z
+    .object({ item: z.object({ promptId: z.string().min(1) }) })
+    .parse(JSON.parse(currentBody)).item;
+  configuredPromptIds.set(stage, current.promptId);
+  const promptResponse = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      promptId: current.promptId,
+      stage,
+      content,
+      source: 'admin',
+      publish: true,
+    }),
+  });
+  const promptBody = await promptResponse.text();
+  if (promptResponse.status !== 201)
+    throw new Error(`MODEL_PROMPT_SETUP_FAILED:${stage}:${promptBody}`);
+  return z
+    .object({ promptId: z.literal(current.promptId), version: z.number().int().positive() })
+    .parse(JSON.parse(promptBody));
+}
+
+function promptIdFor(stage: ModelStage): string {
+  const promptId = configuredPromptIds.get(stage);
+  if (promptId === undefined) throw new Error(`MODEL_PROMPT_NOT_CONFIGURED:${stage}`);
+  return encodeURIComponent(promptId);
+}
 
 describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   it('routes an ambiguous prompt-injection attempt through persisted Task Understanding', async () => {
@@ -1172,7 +1168,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         providerId: 'provider.e2e',
         model: 'model-e2e',
         status: 'succeeded',
-        promptId: 'prompt.skill-authoring.e2e',
+        promptId: promptIdFor('skill_authoring'),
         promptVersion: initialPromptVersion,
         request: expect.objectContaining({
           instruction: expect.stringContaining('Inspect one device by identifier'),
@@ -1273,7 +1269,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        promptId: 'prompt.skill-authoring.e2e',
+        promptId: promptIdFor('skill_authoring'),
         stage: 'skill_authoring',
         content: 'Candidate policy. {{instruction}}',
         source: 'auto_candidate',
@@ -1314,7 +1310,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         ).items;
     expect((await readVersions()).at(-1)?.promptVersion).toBe(initialPromptVersion);
     const publish = await fetch(
-      `${runtime.management.baseUrl}/api/v1/prompts/prompt.skill-authoring.e2e/publish/${String(candidate.version)}`,
+      `${runtime.management.baseUrl}/api/v1/prompts/${promptIdFor('skill_authoring')}/publish/${String(candidate.version)}`,
       { method: 'POST' },
     );
     expect(publish.status).toBe(200);
@@ -1326,7 +1322,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect((await author('after')).status).toBe(201);
     expect((await readVersions()).at(-1)?.promptVersion).toBe(initialPromptVersion + 2);
     const effects = await fetch(
-      `${runtime.management.baseUrl}/api/v1/prompts/prompt.skill-authoring.e2e/effects/${String(initialPromptVersion + 2)}`,
+      `${runtime.management.baseUrl}/api/v1/prompts/${promptIdFor('skill_authoring')}/effects/${String(initialPromptVersion + 2)}`,
     );
     await expect(effects.json()).resolves.toMatchObject({ invocationCount: 1, successCount: 1 });
   });
@@ -6570,7 +6566,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       reportId: quality.reportId,
       workflowDisposition: 'rejected_low_quality',
       promptDisposition: 'candidate_created',
-      promptId: 'prompt.goal.e2e',
+      promptId: promptIdFor('goal'),
       promptStage: 'goal',
     });
     const promptVersions = z
@@ -7053,7 +7049,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   );
 
   it('retrieves Skill/Prompt corrections, failure reasons, and evaluation conclusions as evolution memory', async () => {
-    const promptId = 'prompt.intent.e2e';
+    const promptId = promptIdFor('intent');
     const prompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
