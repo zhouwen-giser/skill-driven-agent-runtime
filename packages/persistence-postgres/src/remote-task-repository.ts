@@ -9,6 +9,7 @@ import type {
 import {
   controlEventTypeForStatus,
   compareRuntimeRevisions,
+  createProviderEvidenceItem,
   createRuntimeExecutionContext,
   errorSnapshotFromRemoteTask,
   localStateForStatus,
@@ -1340,6 +1341,35 @@ function parseToolResult(value: unknown): InternalToolResult {
       : { structuredContent: parsed.structuredContent }),
     isError: parsed.isError,
     ...(parsed.metadata === undefined ? {} : { metadata: parsed.metadata }),
+    ...(parsed.evidence === undefined
+      ? {}
+      : {
+          evidence: parsed.evidence.map((item) =>
+            createProviderEvidenceItem({
+              evidenceId: item.evidenceId,
+              evidenceType: item.evidenceType,
+              observedAt: item.observedAt,
+              ...(item.subjectRef === undefined ? {} : { subjectRef: item.subjectRef }),
+              ...(item.producer === undefined ? {} : { producer: item.producer }),
+              payloadRef:
+                item.payloadRef.kind === 'structured_content'
+                  ? item.payloadRef
+                  : {
+                      kind: 'uri',
+                      uri: item.payloadRef.uri,
+                      ...(item.payloadRef.mediaType === undefined
+                        ? {}
+                        : { mediaType: item.payloadRef.mediaType }),
+                      ...(item.payloadRef.sha256 === undefined
+                        ? {}
+                        : { sha256: item.payloadRef.sha256 }),
+                    },
+            }),
+          ),
+        }),
+    ...(parsed.validatedEvidence === undefined
+      ? {}
+      : { validatedEvidence: parsed.validatedEvidence }),
   };
 }
 
