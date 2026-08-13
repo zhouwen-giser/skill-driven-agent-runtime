@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 3,
+  "candidateSha": "09941d263c12b5146ec30a628de3cad1ee99644d",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T04:11:35.713Z",
+  "finishedAt": "2026-08-13T04:15:14.237Z",
+  "command": "pnpm verify",
+  "status": "FAILED_INTEGRATION_ENVIRONMENT",
+  "durationMs": 218524,
+  "passedSteps": [
+    {
+      "name": "static-unit-contract-build",
+      "durationMs": 183697,
+      "testFiles": 257,
+      "tests": 1849,
+      "openapiOperations": 167,
+      "outputSha256": "94e00dbddc4d5849586e3aaef25fbbd262ef4796dc2ab991662aaf49c7167eef"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "durationMs": 761,
+      "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "durationMs": 28306,
+      "migrationCount": 50,
+      "outputSha256": "164e017a2098c35f19e75ae4decde8af8b254d29411c5ee58ce5cce5d1388fc0"
+    }
+  ],
+  "failedStep": {
+    "name": "postgres-redis-integration",
+    "durationMs": 5756,
+    "outputSha256": "0a7a5d3ef664bc9abc4b3a82eacbf8fc87b3a6d72a94fdda72bfb2d3ba2c1014",
+    "diagnostic": "Docker could not bind the repository default PostgreSQL port because 127.0.0.1:55432 was already allocated. The official runner stopped its own attempted containers before exiting. No integration test was collected."
+  },
+  "interpretation": "The exact candidate passed bootstrap, cognitive replay, and the real migration path through 0157. The next attempt must use an isolated Compose project and unused PostgreSQL/Redis ports without stopping or reusing the existing service."
+}
