@@ -3,8 +3,8 @@
   "contract": "sdar.evidence/v1",
   "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
   "command": "pnpm.cmd demo:evidence-e2e",
-  "startedAt": "2026-08-13T23:26:27.224Z",
-  "completedAt": "2026-08-13T23:29:46.052Z",
+  "startedAt": "2026-08-13T23:47:41.062Z",
+  "completedAt": "2026-08-13T23:51:19.638Z",
   "environment": {
     "runtimePostgreSQL": "postgresql://sdar:***@127.0.0.1:55484/sdar",
     "controlPostgreSQL": "postgresql://sdar:***@127.0.0.1:55484/sdar_control_v14_integration_gate",

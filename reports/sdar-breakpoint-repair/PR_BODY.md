@@ -4,15 +4,15 @@ Close the SDAR-owned Task-control, public-operation conformance, A2A terminal-pr
 governed-control, in-flight recovery, and aggregate-performance breakpoints without moving Runtime
 authority, weakening protected gates, or enabling physical side effects.
 
-This PR body is pre-delivery evidence. P08 and P09 are still pending, so it does not claim
-`RELEASE_QUALIFICATION_PASSED` or protected-review readiness.
+P08 has passed. This body remains pre-PR evidence until P09 synchronizes latest Main, reruns the
+exact candidate gates, records the final SHA, pushes, and creates the required non-Draft PR. It does
+not yet claim `READY_FOR_PROTECTED_REVIEW`.
 
 ## Source locks
 
 - Execution baseline main: `b7f02dcedc9680758e7e5f779a939a738d8de770`
-- Historical P06 implementation: `aa4231d2fb98050eaf1fbc5f9c77ef76ca7bf7bd`
-- Historical P06 evidence commit: `9ab42ac6e076d007115d640ed4e3a84b0349b8b4`
-- Current candidate: `PENDING_FINAL_CANDIDATE_COMMIT`
+- Clean-start P08 preflight SHA: `9841e6527330920d44f19c68214988b56db3c6eb`
+- Final P09 candidate: `PENDING_FINAL_COMMIT`
 - P09 synchronized main: `PENDING_FETCH_AND_MERGE`
 - SMPP: HEAD `7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb`, `origin/main`
   `340abeeff75cd811b40e1bfd9d5a26f5a62f2c45`, equal tree
@@ -28,7 +28,7 @@ This PR body is pre-delivery evidence. P08 and P09 are still pending, so it does
 - BP-SDAR-003: `FIXED`
 - BP-SDAR-004: `FIXED`
 - BP-SDAR-005: `FIXED`
-- BP-SDAR-006: `FIXED` by historical P06 evidence
+- BP-SDAR-006: `FIXED`; current P08 full verification/performance passed
 - BP-SDAR-007: `FIXED`; P07 is complete
 
 ## Node Control Task Control
@@ -39,19 +39,12 @@ Runtime.
 
 The durable revision fence binds every command, including omitted-`expectedRevision` commands, to
 action/lease identity, actual revision, and pre-dispatch state. Stale owners and queued writers
-cannot mutate a Task after losing their claim. Runtime receipt identity and uncertain completion are
+cannot mutate after losing their claim. Runtime receipt identity and uncertain completion are
 reconciled conservatively instead of becoming optimistic success.
 
-Latest focused closure evidence:
-
-- Runtime revision-authority PostgreSQL: `10/10 PASS`;
-- Runtime management contracts: `79/79 PASS`;
-- Node Control Task-control unit suite: `22/22 PASS`;
-- Node Control API contract suite: `6/6 PASS`;
-- Node Control PostgreSQL foundation: `15/15 PASS`;
-- current-tree TypeScript, lint, formatting, and diff hygiene: `PASS`.
-
-These are focused implementation-closure results, not the official P08 sequence.
+Focused closure evidence passed: Runtime revision-authority PostgreSQL 10/10, Runtime management
+contracts 79/79, Node Control Task-control unit 22/22, Node Control API contract 6/6, and Node
+Control PostgreSQL foundation 15/15.
 
 ## Public Operation Conformance
 
@@ -86,44 +79,51 @@ identity is revalidated before polling.
 
 - PostgreSQL-backed controlled SMPP consumer: `1/1 PASS`.
 - Candidate-built production Runtime/Node Control/Console journey: `98/98 PASS`.
-- SDAR live lock: HEAD `9ab42ac6e076d007115d640ed4e3a84b0349b8b4`, tree
-  `4597d7bd75580ecc6f97e5da2439638c455ce425`, tracked-diff SHA-256
-  `152f2de21e2f53c776b46371457af9491a390e8147dde86b00d5b7bfb1c00dec`.
 - SMPP and Console remained read-only and clean.
 - `physicalDeviceWrites=0`; `fireCalls=0`.
 
-## Historical P06 performance / full verification
+## P08 release qualification
 
-The P06 `pnpm verify` run passed 10/10 stages at
-`aa4231d2fb98050eaf1fbc5f9c77ef76ca7bf7bd` in `918423 ms`. Phase 13 passed unchanged limits with
-Runtime P95 regression `-10.596%`, baseline median drift `6.833%`, and Evidence append P95
-`4.402 ms`.
+P08 started from a clean worktree at
+`9841e6527330920d44f19c68214988b56db3c6eb`; all twelve required commands passed:
 
-Source changed after P06. This result is historical evidence only and is not current P08 or final
-candidate qualification.
+- format, lint, and TypeScript: PASS;
+- Node Control contract: 77 files / 29 schemas / 131 operations / 20 events / 7 fixtures;
+- SMPP Registry projection: 10 vectors;
+- v1.4 security: 5391 files / 0 secret findings; licenses passed;
+- Node Control: 36 files / 194 tests;
+- integration: 35 files / 214 tests plus isolated PostgreSQL 1/1;
+- contract: 47 files / 303 tests;
+- E2E: 6 files / 72 passed / 1 skipped plus Phase 13 1/1;
+- build: PASS;
+- `pnpm verify`: 10/10 stages in `948706 ms`.
 
-## P08/P09 status
+The aggregate verifier reported bootstrap 272 files / 1965 tests, 55 migrations, 36 integration
+files / 215 tests, 7 E2E files / 73 tests, Management OpenAPI 169 operations, A2A TCK 74 passed /
+161 skipped / 100% applicable coverage, and Phase 12 Evidence 44/44.
 
-All exact P08 commands remain `NOT_RUN` on the current committed candidate:
+`summary.json` reports `dirty=true` only because the verifier writes managed evidence after the
+clean-start check and before sampling status; the candidate did not begin dirty.
 
-```text
-pnpm format:check
-pnpm lint
-pnpm typecheck
-pnpm verify:node-control-contract
-pnpm verify:smpp-registry-projection
-pnpm verify:v14-security
-pnpm test:node-control
-pnpm test:integration
-pnpm test:contract
-pnpm test:e2e
-pnpm build
-pnpm verify
-```
+## Performance
 
-P09 fetch/`--no-ff` merge, exact-candidate rerun, final evidence update, push equality, and this
-non-Draft PR's creation/inspection remain pending. The pending state is not limited to the security
-alias.
+Phase 13 passed unchanged limits: baseline Runtime P95 `445.599 ms`, Evidence-enabled P95
+`453.681 ms`, regression `+1.814%`, baseline median drift `6.786%`, and Evidence append P95
+`5.043 ms`. Physical Provider execution was `false`. This is local deterministic-fixture evidence,
+not a production SLO.
+
+## P09 status
+
+Pending before PR creation:
+
+- fetch latest `origin/main` and perform the required non-rebase merge when applicable;
+- rerun the exact P08 sequence plus `pnpm verify` on the synchronized candidate;
+- update and commit final evidence;
+- push and prove remote SHA equals local SHA;
+- create and inspect the required non-Draft PR.
+
+P08 issues `RELEASE_QUALIFICATION_PASSED`. P09 is incomplete, so protected-review readiness and the
+overall completion token are not yet issued.
 
 ## Security and compatibility
 
@@ -147,10 +147,10 @@ regression.
 
 - No SMPP or Console repository changes.
 - No SOCP multi-node implementation.
-- No real-device or fire writes; `physicalDeviceWrites=0`, `fireCalls=0`.
+- No real-device or fire writes; `physicalProvider=false`, `physicalDeviceWrites=0`, `fireCalls=0`.
 - No protocol, security, or performance-threshold weakening.
 - No production-readiness, production SLO/HA, real SMPP/physical recovery, or monolithic Runtime
   A-close -> Runtime B-terminal claim.
 - No automatic merge, tag, release, or deployment.
 
-Protected review remains pending P08/P09. No automatic merge, tag, release, or deployment.
+Protected review remains pending P09. No automatic merge, tag, release, or deployment.

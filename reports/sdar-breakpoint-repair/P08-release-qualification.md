@@ -2,110 +2,121 @@
 
 ## Status
 
-- Phase result: `PENDING_OFFICIAL_P08_GATE`
-- Exit criterion `RELEASE_QUALIFICATION_PASSED`: **not issued**
-- Delivery candidate SHA: `PENDING_FINAL_CANDIDATE_COMMIT`
-- Exact P08 command list: `NOT_RUN` on the current delivery candidate
+- Phase result: `RELEASE_QUALIFICATION_PASSED`
+- Exit criterion: `RELEASE_QUALIFICATION_PASSED`
+- Clean-start tested implementation/evidence preflight SHA:
+  `9841e6527330920d44f19c68214988b56db3c6eb`
+- Exact P08 command list: `12/12 PASS`
+- Final `pnpm verify`: `10/10 PASS` in `948706 ms`
 - P07 cross-project regression: `CROSS_PROJECT_REGRESSION_PASSED`
+- Physical Provider enabled: `false`
 - Physical device writes: `0`
 - Fire calls: `0`
 
-The implementation-level revision and reconciliation review is closed, but P08 itself has not run.
-The passing `pnpm verify` at `aa4231d2fb98050eaf1fbc5f9c77ef76ca7bf7bd` and its checked-in
-evidence commit `9ab42ac6e076d007115d640ed4e3a84b0349b8b4` belong to historical P06
-evidence. Source changed after that run, so those results are not current P08 qualification and are
-not reused as delivery-candidate PASS claims.
+P08 ran from a clean worktree at the exact preflight SHA above. All twelve commands required by the
+task package passed without reducing security, contract, integration, E2E, performance, or release
+thresholds. `reports/verification/summary.json` reports `dirty=true` because the verifier writes its
+managed evidence before it samples Git status; the run itself began clean. That post-start evidence
+write is not presented as a dirty-start waiver.
 
-## Pre-P08 repair closure
+P09 latest-main synchronization and its exact-candidate rerun remain pending. Therefore this phase
+issues the P08 exit token, but does not issue `READY_FOR_PROTECTED_REVIEW` or
+`SDAR_BREAKPOINT_REPAIR_COMPLETE`.
 
-The latest focused review found the durable Task revision fence `CLOSED/CLEAN`. Every Task command,
-including a command that omits `expectedRevision`, is bound to durable command/action identity and
-pre-dispatch revision state. Stale owners and old queued writers cannot cross the action lease, and
-ambiguous dispatch/completion paths remain reconciliation-pending rather than becoming optimistic
-success.
+## Required P08 gate results
 
-| Focused closure evidence                                       | Result      | Boundary                                                                    |
-| -------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------- |
-| Runtime revision-authority PostgreSQL suite                    | PASS: 10/10 | Durable revision claim, lease, stale-owner, restart, and cross-Task fencing |
-| Runtime management contracts                                   | PASS: 79/79 | Task commands and stable conflict/recovery responses                        |
-| Node Control Task-control unit suite                           | PASS: 22/22 | Receipt identity, retry, and reconciliation behavior                        |
-| Node Control API contract suite                                | PASS: 6/6   | Public Task-command response and retryability mapping                       |
-| Node Control PostgreSQL foundation suite                       | PASS: 15/15 | Durable outer operation and reconciliation marker behavior                  |
-| Current-tree TypeScript, lint, format, and diff hygiene checks | PASS        | Focused implementation closure only; not the official P08 sequence          |
+| Required command                       | Result | Exact evidence                                                  |
+| -------------------------------------- | ------ | --------------------------------------------------------------- |
+| `pnpm format:check`                    | PASS   | Repository formatting gate passed                               |
+| `pnpm lint`                            | PASS   | Repository lint gate passed                                     |
+| `pnpm typecheck`                       | PASS   | Repository TypeScript gate passed                               |
+| `pnpm verify:node-control-contract`    | PASS   | 77 files, 29 schemas, 131 operations, 20 events, and 7 fixtures |
+| `pnpm verify:smpp-registry-projection` | PASS   | 10 projection checksum vectors                                  |
+| `pnpm verify:v14-security`             | PASS   | Secret scan: 5391 files, 0 findings; license gates passed       |
+| `pnpm test:node-control`               | PASS   | 36 files / 194 tests                                            |
+| `pnpm test:integration`                | PASS   | 35 files / 214 tests, plus isolated PostgreSQL 1/1              |
+| `pnpm test:contract`                   | PASS   | 47 files / 303 tests                                            |
+| `pnpm test:e2e`                        | PASS   | 6 files / 72 passed / 1 skipped, plus Phase 13 1/1              |
+| `pnpm build`                           | PASS   | Production build gate passed                                    |
+| `pnpm verify`                          | PASS   | 10/10 stages in 948706 ms                                       |
 
-These results close the implementation defect under review. They do not issue the P08 exit token
-and do not substitute for the exact clean-candidate command sequence below.
+The single E2E skip is retained as a skip, not counted as a pass. The separately executed Phase 13
+performance scenario passed 1/1 and the aggregate verifier subsequently reported 7 E2E files / 73
+tests passed.
 
-## Required P08 gate mapping
+## Aggregate verifier evidence
 
-| Required command                       | Current P08 result |
-| -------------------------------------- | ------------------ |
-| `pnpm format:check`                    | `NOT_RUN`          |
-| `pnpm lint`                            | `NOT_RUN`          |
-| `pnpm typecheck`                       | `NOT_RUN`          |
-| `pnpm verify:node-control-contract`    | `NOT_RUN`          |
-| `pnpm verify:smpp-registry-projection` | `NOT_RUN`          |
-| `pnpm verify:v14-security`             | `NOT_RUN`          |
-| `pnpm test:node-control`               | `NOT_RUN`          |
-| `pnpm test:integration`                | `NOT_RUN`          |
-| `pnpm test:contract`                   | `NOT_RUN`          |
-| `pnpm test:e2e`                        | `NOT_RUN`          |
-| `pnpm build`                           | `NOT_RUN`          |
-| `pnpm verify`                          | `NOT_RUN`          |
+The clean-start `pnpm verify` run reported:
 
-All twelve commands remain required. In particular, the pending state is not limited to
-`pnpm verify:v14-security`.
+- bootstrap: 272 files / 1965 tests;
+- Management OpenAPI inventory: 169 operations;
+- database migrations: 55;
+- integration: 36 files / 215 tests;
+- E2E: 7 files / 73 tests;
+- A2A TCK: 74 passed, 161 skipped, 100% applicable coverage;
+- canonical Phase 12 Evidence: 44/44 scenarios;
+- all ten verifier stages passed in `948706 ms`.
+
+The TCK denominator separates applicable passed cases from inapplicable skipped cases; the 100%
+claim applies only to the applicable set.
+
+## Phase 13 performance
+
+The current P08 run retained the unchanged performance gates:
+
+| Metric                       | Result       |
+| ---------------------------- | ------------ |
+| Baseline Runtime P95         | `445.599 ms` |
+| Evidence-enabled Runtime P95 | `453.681 ms` |
+| Runtime P95 regression       | `+1.814%`    |
+| Baseline median drift        | `6.786%`     |
+| Evidence append P95          | `5.043 ms`   |
+| Physical Provider enabled    | `false`      |
+
+These are local deterministic-fixture qualification results, not a production SLO or HA claim.
+
+## Pre-P08 repair closure retained
+
+The durable Task revision fence remains `CLOSED/CLEAN`. Focused evidence before the aggregate run
+included Runtime revision-authority PostgreSQL 10/10, Runtime management contracts 79/79, Node
+Control Task-control unit tests 22/22, Node Control API contracts 6/6, and Node Control PostgreSQL
+foundation 15/15. The official P08 run above now supplies clean-start repository qualification on
+top of those focused results.
 
 ## P07 cross-project evidence retained
 
 P07 is complete and BP-SDAR-007 is `FIXED`:
 
-- the isolated PostgreSQL-backed SMPP controlled consumer passed `1/1`;
-- the candidate-built Runtime/Node Control/Console journey passed `98/98` live assertions;
+- isolated PostgreSQL-backed SMPP controlled consumer: `1/1 PASS`;
+- candidate-built Runtime/Node Control/Console journey: `98/98 PASS`;
 - SMPP HEAD `7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb` and `origin/main`
   `340abeeff75cd811b40e1bfd9d5a26f5a62f2c45` resolve to tree
   `f611988bf9d6aa8e5cebfacf53cfb235ff2a6ec4`;
 - Console HEAD `1a5ea3c279331a8fd83dd117d73d5a7166c668b7` and `origin/main`
   `e7fa2348f7d574a0e9363bdf33598f33144a909c` resolve to tree
   `c0694842247c48813fff9127fda4744bbd02516c`;
-- the live run used SDAR HEAD `9ab42ac6e076d007115d640ed4e3a84b0349b8b4`, tree
-  `4597d7bd75580ecc6f97e5da2439638c455ce425`, and tracked-diff SHA-256
-  `152f2de21e2f53c776b46371457af9491a390e8147dde86b00d5b7bfb1c00dec`.
+- `physicalDeviceWrites=0`; `fireCalls=0`.
 
-P07 was read-only for SMPP and Console. It remains cross-project regression evidence, not a
-replacement for P08 release qualification.
+P07 remains read-only cross-project regression evidence and is not conflated with the P08 release
+gate.
 
 ## Safety and qualification boundary
 
 - Runtime PostgreSQL remains Task and Workflow authority; Node Control remains a governed facade.
 - Redis remains wake/queue-only and cannot manufacture an outcome.
-- Production strict TLS remains the default. Private HTTP still requires explicit exact RFC1918
+- Production strict TLS remains the default. Private HTTP requires explicit exact RFC1918
   host-and-port acknowledgement.
-- No Runtime database authority is exposed through Node Control, and no discovery result grants
-  control authority.
+- The secret scanner inspected 5391 files and reported zero findings; project/license gates passed.
+- No Runtime database authority is exposed through Node Control, and discovery grants no control
+  authority.
 - No `vehicle_fire_weapon` Capability, Skill, confirmation, or execution authority was created.
 - Real SMPP/physical recovery, real-device qualification, production SLO/HA, and the monolithic
   Runtime A-close -> Runtime B-terminal drill remain unclaimed.
-- `physicalDeviceWrites=0`; `fireCalls=0`.
+- `physicalProvider=false`; `physicalDeviceWrites=0`; `fireCalls=0`.
 
-## Pending execution
+## Remaining delivery work
 
-Run the following exact list on the committed P08 delivery candidate:
-
-```text
-pnpm format:check
-pnpm lint
-pnpm typecheck
-pnpm verify:node-control-contract
-pnpm verify:smpp-registry-projection
-pnpm verify:v14-security
-pnpm test:node-control
-pnpm test:integration
-pnpm test:contract
-pnpm test:e2e
-pnpm build
-pnpm verify
-```
-
-P09 latest-main fetch/merge, exact-candidate rerun, push equality, and non-Draft PR creation are
-also pending. This report does not claim `RELEASE_QUALIFICATION_PASSED`.
+P09 must still fetch `origin/main`, perform the required non-rebase merge when applicable, rerun the
+exact P08 sequence plus `pnpm verify` on the synchronized candidate, update final evidence, push and
+prove remote/local SHA equality, and create and inspect the required non-Draft PR. Until then,
+`READY_FOR_PROTECTED_REVIEW` is not issued.

@@ -95,9 +95,12 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       Control Task-control unit tests passed 22/22, Node Control API contracts passed 6/6, and Node
       Control PostgreSQL foundation passed 15/15. Current-tree TypeScript, lint, format, and diff
       hygiene checks are green. This is focused implementation-closure evidence, not P08.
-- [ ] Complete P08 release qualification. None of the exact twelve-command P08 sequence is recorded
-      as run on the current committed delivery candidate, and the exit token is not issued. The
-      historical `aa4231d2` full verify and `9ab42ac` evidence commit remain P06-only evidence.
+- [x] 2026-08-14 completed P08 release qualification from a clean worktree at
+      `9841e6527330920d44f19c68214988b56db3c6eb`. All twelve required commands passed. The final
+      `pnpm verify` passed 10/10 stages in 948706 ms with bootstrap 272 files/1965 tests, 55
+      migrations, integration 36 files/215 tests, E2E 7 files/73 tests, A2A TCK 74 passed/161
+      skipped/100% applicable coverage, and Phase 12 Evidence 44/44. Exit:
+      `RELEASE_QUALIFICATION_PASSED`.
 - [ ] Complete P09 latest-main merge, exact-candidate rerun, evidence, push, and non-Draft PR.
 
 ## Discoveries and Surprises
@@ -142,9 +145,12 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   `expectedRevision`; an in-memory preflight cannot fence a queued writer after its lease is lost.
   The repair now binds action/lease identity, actual revision, and pre-dispatch state and treats
   dispatch/completion ambiguity as reconciliation-pending.
-- The `aa4231d2` full gate and `9ab42ac` evidence commit predate the final revision-fence changes.
-  They remain historical P06 evidence and cannot be inferred as P08 PASS. The entire exact P08
-  sequence, not only `verify:v14-security`, must run on the current committed candidate.
+- The `aa4231d2` full gate and `9ab42ac` evidence commit predate the final revision-fence changes and
+  remain historical P06 evidence. Current P08 qualification instead comes from the clean-start run
+  at `9841e652`: all twelve exact commands and the final aggregate verifier passed.
+- The current verification summary reports `dirty=true` because the verifier writes its managed
+  evidence after the clean-start check and before sampling Git status. This is a post-start evidence
+  effect, not permission to begin a release gate from a dirty worktree.
 
 ## Decision Log
 
@@ -174,7 +180,11 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - 2026-08-14: Close the revision-fence review only after omitted- and explicit-revision commands
   share a durable action/lease claim, stale owners and queued writers fail closed, and ambiguous
   Runtime/outer-operation completion remains reconciliation-pending. Keep this focused evidence
-  separate from the still-unrun P08 release sequence.
+  separate from the repository release sequence.
+- 2026-08-14: Issue `RELEASE_QUALIFICATION_PASSED` only after all twelve exact P08 commands passed
+  from clean preflight SHA `9841e652`, including the standalone 5391-file zero-finding secret scan,
+  current integration/E2E suites, unchanged Phase 13 gates, build, and final 10/10 aggregate verify.
+  Keep P09 synchronization and protected-review readiness pending.
 
 ## Implementation Steps
 
@@ -217,9 +227,12 @@ pnpm build
 pnpm verify
 ```
 
-The exact P08 command list above is currently `NOT_RUN` on the committed delivery candidate. The
-latest focused repair closure separately records green TypeScript, lint, formatting, and
-`git diff --check` hygiene; those checks do not substitute for the official P08 sequence.
+The exact P08 command list above passed from clean preflight SHA `9841e652`. Standalone evidence was:
+format/lint/typecheck PASS; Node Control contract 77 files/29 schemas/131 operations/20 events/7
+fixtures; SMPP projection 10 vectors; v1.4 security 5391 files/0 findings plus licenses; Node Control
+36 files/194 tests; integration 35 files/214 tests plus isolated PostgreSQL 1/1; contract 47
+files/303 tests; E2E 6 files/72 passed/1 skipped plus Phase 13 1/1; build PASS; and final
+`pnpm verify` 10/10 in 948706 ms.
 
 P07 uses fetched SMPP and Console Main checkouts read-only. Any external defect becomes an `EXT-*`
 report and is not patched here.
@@ -255,11 +268,14 @@ and 69/69, real PostgreSQL recovery passed 2/2, isolated Redis failed-wake recon
 transparently `NOT RUN`; the same boundaries were exercised separately and two independent final
 audits found no remaining P05 P0/P1. P06 and BP-SDAR-006 are now `FIXED`: the official full gate
 passed 10/10 stages and unchanged Phase 13 performance limits at `aa4231d2`; this remains historical
-P06 evidence because later source changed. P07 and BP-SDAR-007 are `FIXED`: the controlled SMPP
+P06 evidence. P07 and BP-SDAR-007 are `FIXED`: the controlled SMPP
 database-backed consumer passed 1/1 and the live candidate-built Console nonterminal journey passed
 98/98 assertions with terminal convergence and zero physical writes or fire calls. The durable
 revision-fence review is `CLOSED/CLEAN` with Runtime PostgreSQL 10/10, Runtime contracts 79/79, Node
 Control unit 22/22, API contract 6/6, and PostgreSQL foundation 15/15; current-tree TypeScript, lint,
-format, and diff hygiene are green. The complete exact P08 sequence remains `NOT_RUN`, and P09
-fetch/merge/rerun/push/PR delivery has not started. No P08 exit token, final candidate, or
-protected-review readiness is claimed.
+format, and diff hygiene are green. P08 is `COMPLETE`: all twelve exact commands passed from clean
+preflight SHA `9841e652`, final verify passed 10/10 in 948706 ms, and current Phase 13 recorded
+baseline P95 445.599 ms, enabled P95 453.681 ms, +1.814% regression, 6.786% median drift, and
+5.043 ms append P95 with physical Provider disabled. P09 fetch/merge/rerun/push/PR delivery has not
+started. `RELEASE_QUALIFICATION_PASSED` is issued; no final candidate or protected-review readiness
+is claimed.
