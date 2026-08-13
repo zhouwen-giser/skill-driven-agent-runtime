@@ -1,30 +1,30 @@
 {
   "schemaVersion": 1,
   "status": "failed",
-  "commit": "48263487651cabf29ee7e4667a8a6ddb6eeac2fe",
-  "dirty": false,
+  "commit": "6dc93f6f8162947f0228d9dc531f5c183fd87480",
+  "dirty": true,
   "environment": {
     "node": "v22.14.0",
     "platform": "win32",
     "architecture": "x64",
     "infrastructureMode": "operator-managed"
   },
-  "startedAt": "2026-08-13T14:41:24.087Z",
-  "finishedAt": "2026-08-13T14:49:38.543Z",
-  "durationMs": 494456,
+  "startedAt": "2026-08-13T16:24:15.739Z",
+  "finishedAt": "2026-08-13T16:35:24.643Z",
+  "durationMs": 668904,
   "steps": [
     {
       "name": "static-unit-contract-build",
       "command": "pnpm verify:bootstrap",
       "status": "passed",
-      "startedAt": "2026-08-13T14:41:24.088Z",
-      "finishedAt": "2026-08-13T14:44:41.847Z",
-      "durationMs": 197759,
+      "startedAt": "2026-08-13T16:24:15.740Z",
+      "finishedAt": "2026-08-13T16:27:06.132Z",
+      "durationMs": 170392,
       "logPath": "reports/verification/raw/static-unit-contract-build.log",
-      "outputSha256": "da37e7e64eefab30bfa997f1e9be34c1b83c06992a81e575251789d9ff09e70e",
+      "outputSha256": "7f25b0d6ad198e089ec50b3d35ae9a04b9e3bdea24646310e23b5fdf63c328a5",
       "metrics": {
         "testFiles": 268,
-        "tests": 1926,
+        "tests": 1928,
         "openapiOperations": 169
       },
       "exitCode": 0
@@ -33,9 +33,9 @@
       "name": "cognitive-replay-no-physical-provider",
       "command": "pnpm verify:cognitive-replay",
       "status": "passed",
-      "startedAt": "2026-08-13T14:44:41.849Z",
-      "finishedAt": "2026-08-13T14:44:42.717Z",
-      "durationMs": 868,
+      "startedAt": "2026-08-13T16:27:06.134Z",
+      "finishedAt": "2026-08-13T16:27:06.865Z",
+      "durationMs": 731,
       "logPath": "reports/verification/raw/cognitive-replay-no-physical-provider.log",
       "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3",
       "metrics": {},
@@ -45,9 +45,9 @@
       "name": "clean-baseline-reset-seed",
       "command": "pnpm verify:migrations",
       "status": "passed",
-      "startedAt": "2026-08-13T14:44:42.717Z",
-      "finishedAt": "2026-08-13T14:45:08.892Z",
-      "durationMs": 26175,
+      "startedAt": "2026-08-13T16:27:06.865Z",
+      "finishedAt": "2026-08-13T16:27:28.413Z",
+      "durationMs": 21548,
       "logPath": "reports/verification/raw/clean-baseline-reset-seed.log",
       "outputSha256": "6b617b9b5e5ac6d570b40c822e6d4e042375508b1866b805c036fdbef31919c6",
       "metrics": {
@@ -59,11 +59,11 @@
       "name": "postgres-redis-integration",
       "command": "pnpm test:integration",
       "status": "passed",
-      "startedAt": "2026-08-13T14:45:08.892Z",
-      "finishedAt": "2026-08-13T14:48:37.163Z",
-      "durationMs": 208271,
+      "startedAt": "2026-08-13T16:27:28.413Z",
+      "finishedAt": "2026-08-13T16:30:37.982Z",
+      "durationMs": 189569,
       "logPath": "reports/verification/raw/postgres-redis-integration.log",
-      "outputSha256": "9723f3b0ba214a71fc392da7540df63491d95dde1f0408c0c0265e54dea551b3",
+      "outputSha256": "1bb3ee2ccc16d3d3e12f907000e9e73638bb948e09fd603b329efe0dcd5896b9",
       "metrics": {
         "testFiles": 35,
         "tests": 201
@@ -73,12 +73,39 @@
     {
       "name": "postgres-redis-model-mcp-e2e",
       "command": "pnpm test:e2e",
-      "status": "failed",
-      "startedAt": "2026-08-13T14:48:37.163Z",
-      "finishedAt": "2026-08-13T14:49:38.542Z",
-      "durationMs": 61379,
+      "status": "passed",
+      "startedAt": "2026-08-13T16:30:37.982Z",
+      "finishedAt": "2026-08-13T16:33:56.499Z",
+      "durationMs": 198517,
       "logPath": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
-      "outputSha256": "5bc01ea746ea9938eb9e5481c888e24d05c747337476a8213c3da6d556dcd258",
+      "outputSha256": "f9b4e7f37bb31c81a15a9721b58be6b5847c4b5ed99cfd54b21e22d69fc92fca",
+      "metrics": {
+        "testFiles": 7,
+        "tests": 73
+      },
+      "exitCode": 0
+    },
+    {
+      "name": "official-a2a-tck",
+      "command": "pnpm test:a2a-tck",
+      "status": "passed",
+      "startedAt": "2026-08-13T16:33:56.499Z",
+      "finishedAt": "2026-08-13T16:34:55.821Z",
+      "durationMs": 59322,
+      "logPath": "reports/verification/raw/official-a2a-tck.log",
+      "outputSha256": "c416a9e3eaaf460dfb550d72473d7beb3360d434d0389296411e82b0e42f4180",
+      "metrics": {},
+      "exitCode": 0
+    },
+    {
+      "name": "canonical-evidence-demo",
+      "command": "pnpm demo:evidence-e2e",
+      "status": "failed",
+      "startedAt": "2026-08-13T16:34:55.821Z",
+      "finishedAt": "2026-08-13T16:35:24.643Z",
+      "durationMs": 28822,
+      "logPath": "reports/verification/raw/canonical-evidence-demo.log",
+      "outputSha256": "40a84b8bfb6b54e7ef10192bc393b447ab5b85f4eaddc24fa3b5b7b55001918b",
       "metrics": {},
       "exitCode": 1
     }

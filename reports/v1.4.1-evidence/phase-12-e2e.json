@@ -3,12 +3,12 @@
   "contract": "sdar.evidence/v1",
   "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
   "command": "pnpm.cmd demo:evidence-e2e",
-  "startedAt": "2026-08-12T08:03:28.072Z",
-  "completedAt": "2026-08-12T08:05:49.471Z",
+  "startedAt": "2026-08-13T16:48:46.417Z",
+  "completedAt": "2026-08-13T16:50:10.474Z",
   "environment": {
-    "runtimePostgreSQL": "postgresql://sdar:***@127.0.0.1:55433/sdar",
+    "runtimePostgreSQL": "postgresql://sdar:***@127.0.0.1:55444/sdar",
     "controlPostgreSQL": "postgresql://sdar:***@127.0.0.1:55484/sdar_control_v14_integration_gate",
-    "redisPort": "56379",
+    "redisPort": "56392",
     "httpDelivery": "real local Node Control API and programmable Evidence sink"
   },
   "dimensions": [
@@ -75,8 +75,8 @@
         "invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation",
         "persists a LangGraph human interrupt and resumes without replaying the preceding MCP call",
         "refreshes the public Agent Card when enabled skills change",
-        "resolves a capability gap into a confirmed task-scoped Temporary Skill execution",
-        "runs recursive embodied.area_patrol with exact child versions and a"
+        "rejects ungoverned recursive embodied.area_patrol with",
+        "resolves a capability gap into a confirmed task-scoped Temporary Skill execution"
       ],
       "status": "passed"
     },
@@ -635,7 +635,7 @@
           {
             "project": "e2e",
             "file": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
-            "testName": "runs recursive embodied.area_patrol with exact child versions and a"
+            "testName": "rejects ungoverned recursive embodied.area_patrol with"
           }
         ],
         "evidence_outbox": [
