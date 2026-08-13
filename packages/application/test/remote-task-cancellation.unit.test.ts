@@ -221,10 +221,11 @@ describe('RemoteTaskCancellationWorker', () => {
 });
 
 describe('RemoteTaskCancellationReconciler', () => {
-  it('rebuilds a missing requested delivery job but does not auto-retry uncertainty', async () => {
+  it('rebuilds missing and failed requested wakes but does not retry uncertainty', async () => {
     const harness = createHarness();
     await requestCancellation(harness);
     harness.queue.enqueued.length = 0;
+    harness.queue.states.clear();
     const reconciler = new RemoteTaskCancellationReconciler({
       cancellations: harness.cancellations,
       queue: harness.queue,
@@ -232,6 +233,20 @@ describe('RemoteTaskCancellationReconciler', () => {
     });
 
     await expect(reconciler.reconcile()).resolves.toEqual({ examined: 1, scheduled: 1 });
+    harness.queue.states.set(
+      `${requiredRequest(harness.cancellations.request).requestId}~${String(
+        requiredRequest(harness.cancellations.request).version,
+      )}`,
+      'failed',
+    );
+    harness.queue.enqueued.length = 0;
+    await expect(reconciler.reconcile()).resolves.toEqual({ examined: 1, scheduled: 1 });
+    expect(harness.queue.enqueued).toEqual([
+      {
+        requestId: requiredRequest(harness.cancellations.request).requestId,
+        expectedVersion: requiredRequest(harness.cancellations.request).version,
+      },
+    ]);
     harness.cancellations.request = {
       ...requiredRequest(harness.cancellations.request),
       deliveryStatus: 'uncertain',
@@ -309,6 +324,7 @@ function createHarness(overrides: Readonly<{ binding?: RemoteTaskBinding }> = {}
 
 class RecordingCancellationQueue implements RemoteTaskCancellationQueue {
   readonly enqueued: RemoteTaskCancellationJob[] = [];
+  readonly states = new Map<string, RemoteTaskPollJobState>();
   readonly operations: string[];
   enqueueError: Error | undefined;
 
@@ -320,11 +336,12 @@ class RecordingCancellationQueue implements RemoteTaskCancellationQueue {
     this.operations.push('queue.enqueue');
     if (this.enqueueError !== undefined) return Promise.reject(this.enqueueError);
     this.enqueued.push(input);
+    this.states.set(`${input.requestId}~${String(input.expectedVersion)}`, 'scheduled');
     return Promise.resolve();
   }
 
-  state(): Promise<RemoteTaskPollJobState> {
-    return Promise.resolve('missing');
+  state(requestId: string, expectedVersion: number): Promise<RemoteTaskPollJobState> {
+    return Promise.resolve(this.states.get(`${requestId}~${String(expectedVersion)}`) ?? 'missing');
   }
 }
 

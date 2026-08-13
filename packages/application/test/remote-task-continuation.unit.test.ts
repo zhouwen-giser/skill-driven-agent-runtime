@@ -319,6 +319,7 @@ describe('RemoteTaskContinuationReconciler', () => {
     const inputRequired = inputRequiredEvent();
     const queueStates = new Map<string, Awaited<ReturnType<RemoteTaskContinuationQueue['state']>>>([
       ['event-already-scheduled', 'scheduled'],
+      ['event-failed-wake', 'failed'],
     ]);
     const enqueue = vi.fn<RemoteTaskContinuationQueue['enqueue']>((job) => {
       queueStates.set(job.eventId, 'scheduled');
@@ -331,6 +332,7 @@ describe('RemoteTaskContinuationReconciler', () => {
             completed,
             inputRequired,
             { ...failedEvent(), eventId: 'event-already-scheduled' },
+            { ...failedEvent(), eventId: 'event-failed-wake' },
           ]),
       },
       queue: {
@@ -341,13 +343,18 @@ describe('RemoteTaskContinuationReconciler', () => {
     });
 
     await expect(reconciler.reconcile()).resolves.toEqual({
-      examined: 3,
-      scheduled: 2,
+      examined: 4,
+      scheduled: 3,
       alreadyScheduled: 1,
       deferredInput: 0,
     });
     expect(enqueue).toHaveBeenCalledWith(jobFor(completed));
     expect(enqueue).toHaveBeenCalledWith(jobFor(inputRequired));
+    expect(enqueue).toHaveBeenCalledWith({
+      eventId: 'event-failed-wake',
+      bindingId: failedEvent().bindingId,
+      eventType: failedEvent().type,
+    });
   });
 });
 

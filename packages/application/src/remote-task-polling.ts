@@ -359,7 +359,6 @@ export class RemoteTaskReconciler {
       const state = await this.#queue.state(binding.bindingId, binding.version);
       if (state === 'failed') {
         deadLetters += 1;
-        continue;
       }
       if (state === 'scheduled') {
         alreadyScheduled += 1;

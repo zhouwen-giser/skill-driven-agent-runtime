@@ -417,7 +417,7 @@ export class RemoteTaskContinuationReconciler {
     const deferredInput = 0;
     for (const event of events) {
       const state = await this.#queue.state(event.eventId);
-      if (state === 'scheduled' || state === 'active' || state === 'failed') {
+      if (state === 'scheduled' || state === 'active') {
         alreadyScheduled += 1;
         continue;
       }

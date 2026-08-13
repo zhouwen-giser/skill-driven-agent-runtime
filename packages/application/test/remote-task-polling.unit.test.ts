@@ -246,7 +246,7 @@ describe('RemoteTaskPollingService', () => {
 });
 
 describe('RemoteTaskReconciler', () => {
-  it('repairs missing/completed jobs and leaves current failed jobs as dead letters', async () => {
+  it('repairs missing, completed, and failed wakes from the current PostgreSQL binding', async () => {
     const repository = new InMemoryRemoteTaskRepository();
     const queue = new RecordingPollQueue();
     const bindings = [
@@ -267,7 +267,7 @@ describe('RemoteTaskReconciler', () => {
 
     await expect(reconciler.reconcile()).resolves.toEqual({
       examined: 4,
-      scheduled: 2,
+      scheduled: 3,
       alreadyScheduled: 1,
       active: 0,
       deadLetters: 1,
@@ -275,6 +275,7 @@ describe('RemoteTaskReconciler', () => {
     expect(queue.enqueued.map(({ job: queued }) => queued.bindingId)).toEqual([
       'missing',
       'completed',
+      'failed',
     ]);
   });
 });

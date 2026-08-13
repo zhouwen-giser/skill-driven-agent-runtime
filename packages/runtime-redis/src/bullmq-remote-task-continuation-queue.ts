@@ -46,8 +46,7 @@ export class BullMqRemoteTaskContinuationQueue implements RemoteTaskContinuation
         state === 'delayed' ||
         state === 'active' ||
         state === 'waiting-children' ||
-        state === 'prioritized' ||
-        state === 'failed'
+        state === 'prioritized'
       )
         return;
       await existing.remove();

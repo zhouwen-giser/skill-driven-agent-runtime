@@ -229,7 +229,7 @@ export class RemoteTaskCancellationReconciler {
     let scheduled = 0;
     for (const request of requests) {
       const state = await this.#queue.state(request.requestId, request.version);
-      if (state === 'scheduled' || state === 'active' || state === 'failed') continue;
+      if (state === 'scheduled' || state === 'active') continue;
       await this.#queue.enqueue({ requestId: request.requestId, expectedVersion: request.version });
       scheduled += 1;
     }
