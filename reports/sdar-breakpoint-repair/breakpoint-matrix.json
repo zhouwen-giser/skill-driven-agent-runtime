@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "1.0",
+  "sourceSha": "b7f02dcedc9680758e7e5f779a939a738d8de770",
+  "observedAt": "2026-08-13T09:22:22.0818780+08:00",
+  "physicalDeviceWrites": 0,
+  "results": [
+    {
+      "id": "BP-SDAR-001",
+      "status": "STILL_REPRODUCIBLE",
+      "evidence": [
+        "Frozen public and internal OpenAPI declare pause, resume, cancel, and goal-patch.",
+        "The Node Control and Runtime management routers do not register those command routes."
+      ]
+    },
+    {
+      "id": "BP-SDAR-002",
+      "status": "STILL_REPRODUCIBLE",
+      "evidence": [
+        "The frozen verifier reports 131 operations and passes.",
+        "No gate compares inventory, OpenAPI, production router, RBAC, and contract-test coverage."
+      ]
+    },
+    {
+      "id": "BP-SDAR-003",
+      "status": "STILL_REPRODUCIBLE",
+      "evidence": [
+        "getTask overlays FAILED while the durable projection and listTasks remain WORKING.",
+        "A late older WORKING projection can overwrite a previously saved terminal projection."
+      ]
+    },
+    {
+      "id": "BP-SDAR-004",
+      "status": "PARTIALLY_FIXED",
+      "evidence": [
+        "Governance and confirmation foundations are present.",
+        "Temporary Skill discovery and confirmation authority still have fail-open durability gaps.",
+        "This Goal never creates or enables vehicle_fire_weapon authority."
+      ]
+    },
+    {
+      "id": "BP-SDAR-005",
+      "status": "PARTIALLY_FIXED",
+      "evidence": [
+        "Polling, duplicate suppression, and uncertainty primitives are present.",
+        "Remote call/admission, cancel ACK, continuation, and TTL crash windows remain incomplete."
+      ]
+    },
+    {
+      "id": "BP-SDAR-006",
+      "status": "STILL_REPRODUCIBLE",
+      "evidence": [
+        "The latest checked-in full verification summary is failed.",
+        "Attempt 8 records 40.1437 percent Runtime P95 regression and 15.0758 percent baseline drift against unchanged 10 and 15 percent gates."
+      ]
+    },
+    {
+      "id": "BP-SDAR-007",
+      "status": "ALREADY_FIXED_ON_MAIN",
+      "evidence": [
+        "PR 20 is merged into the locked baseline.",
+        "Explicit unauthenticated SMPP credentials and exact allowlisted private HTTP are implemented and tested."
+      ]
+    }
+  ]
+}
