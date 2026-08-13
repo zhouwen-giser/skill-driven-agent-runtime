@@ -5,6 +5,7 @@ import type {
   McpInvocation,
   McpProtocolContractSnapshot,
   McpTaskBehavior,
+  McpToolCancellation,
   RemoteTaskAuthoritySnapshot,
   RemoteTaskCreated,
   RemoteTaskSnapshot,
@@ -55,6 +56,7 @@ export interface RemoteTaskAdmissionReceipt {
   readonly sessionRevision: string;
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior: McpTaskBehavior;
+  readonly taskCancellation: McpToolCancellation;
   /** Missing only for a legacy receipt persisted before migration 0160. */
   readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
   readonly continuation: Readonly<{
@@ -307,6 +309,7 @@ export class RemoteTaskAdmissionRecoveryService {
         tasksSchemaRevision: remote.tasksSchemaRevision,
         protocolContract: intent.receipt.protocolContract,
         taskBehavior: intent.receipt.taskBehavior,
+        taskCancellation: intent.receipt.taskCancellation,
         runtimeRevision,
         ...(remote.providerRevision === undefined
           ? {}

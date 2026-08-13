@@ -555,6 +555,8 @@ function parseReceipt(value: unknown): RemoteTaskAdmissionReceipt {
     typeof value['sessionRevision'] !== 'string' ||
     !isRecord(value['protocolContract']) ||
     !isMcpTaskBehavior(value['taskBehavior']) ||
+    (value['taskCancellation'] !== undefined &&
+      !isMcpToolCancellation(value['taskCancellation'])) ||
     !isRecord(value['continuation']) ||
     !isWorkflowContinuationCompleteness(value['continuation']['completeness']) ||
     !isRecord(value['continuation']['snapshot'])
@@ -565,6 +567,7 @@ function parseReceipt(value: unknown): RemoteTaskAdmissionReceipt {
     throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_INVALID');
   return {
     ...(value as unknown as Omit<RemoteTaskAdmissionReceipt, 'continuation'>),
+    taskCancellation: value['taskCancellation'] ?? 'unknown',
     ...(authority === undefined
       ? {}
       : { authoritySnapshot: createRemoteTaskAuthoritySnapshot(authority as never) }),
@@ -583,6 +586,17 @@ function isWorkflowContinuationCompleteness(
 
 function isMcpTaskBehavior(value: unknown): value is RemoteTaskAdmissionReceipt['taskBehavior'] {
   return value === 'synchronous_only' || value === 'server_directed' || value === 'task_required';
+}
+
+function isMcpToolCancellation(
+  value: unknown,
+): value is RemoteTaskAdmissionReceipt['taskCancellation'] {
+  return (
+    value === 'unsupported' ||
+    value === 'cooperative' ||
+    value === 'task_cancel' ||
+    value === 'unknown'
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

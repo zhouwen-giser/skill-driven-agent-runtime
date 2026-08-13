@@ -340,6 +340,7 @@ function binding(overrides = {}) {
       serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed',
+    taskCancellation: 'task_cancel',
     runtimeRevision: '1',
     lastProviderUpdatedAt: clock.now(),
     executionContext: { mode: 'live' },

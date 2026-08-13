@@ -189,6 +189,22 @@ describe('PlanPreparationProcessor LLM decisions', () => {
     expect(tasks.messages.join(' ')).toContain('LLM intent execute');
     expect(tasks.messages.join(' ')).toContain('Scheduled skill-1@2 from User Goal Plan');
     expect(tasks.userGoalRuntimeCalls).toEqual(['goal_planning', 'skill_goal_scheduling']);
+    expect(tasks.value.skillSelectionId).toBe('selection-1');
+  });
+
+  it('does not invent a Skill Selection reference when generic scheduling has no record', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    tasks.selectionRecordId = undefined;
+
+    await processorWith(tasks).process(initialJob);
+
+    expect(tasks.value).toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      selectedSkillId: 'skill-1',
+      skillAttemptId: 'skill-attempt-1',
+    });
+    expect(tasks.value).not.toHaveProperty('skillSelectionId');
   });
 
   it('marks the Task failed when a configured decision model fails without fallback', async () => {
@@ -548,7 +564,9 @@ function processorWith(
               validationPassed: true,
               createdAt: timestamp,
             },
-            selectionRecordId: 'selection-1',
+            ...(tasks.selectionRecordId === undefined
+              ? {}
+              : { selectionRecordId: tasks.selectionRecordId }),
           },
         ]);
       },
@@ -750,6 +768,7 @@ class MemoryTasks {
   skillInputRequired = false;
   autoConfirm = false;
   useTemporarySkill = false;
+  selectionRecordId: string | undefined = 'selection-1';
   planningInput: unknown;
   readonly userGoalPlanningInputs: Readonly<{ goal: unknown; taskId: string }>[] = [];
   readonly autoExecutions: { taskId: string; planId: string; executionInput: unknown }[] = [];

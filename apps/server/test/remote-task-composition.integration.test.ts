@@ -804,6 +804,7 @@ function remoteAdmission(
       serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed',
+    taskCancellation: 'task_cancel',
     runtimeRevision: '1',
     providerRevision: 'provider-1',
     taskTtlMs: 3_600_000,

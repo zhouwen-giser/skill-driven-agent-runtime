@@ -7,6 +7,7 @@ import type {
 } from './mcp-task.js';
 import type { TaskExecutionTiming } from './mcp-task-availability.js';
 import type { McpProtocolContractSnapshot, McpTaskBehavior } from './mcp-frozen-protocol.js';
+import type { McpToolCancellation } from './mcp.js';
 import {
   createRuntimeExecutionContext,
   type RuntimeExecutionContext,
@@ -144,6 +145,8 @@ export interface RemoteTaskBinding {
   readonly tasksSchemaRevision: string;
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
+  /** Cancellation authority frozen from the admitted Tool catalog revision. */
+  readonly taskCancellation: McpToolCancellation;
   readonly runtimeRevision?: string;
   readonly providerRevision?: string;
   readonly taskTtlMs?: number;
@@ -209,6 +212,8 @@ export interface RemoteTaskAdmission {
   readonly tasksSchemaRevision: string;
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
+  /** Optional only at the legacy admission boundary; the binding freezes unknown when absent. */
+  readonly taskCancellation?: McpToolCancellation;
   readonly runtimeRevision?: string;
   readonly providerRevision?: string;
   readonly taskTtlMs?: number;
@@ -327,10 +332,15 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
   // observed Provider status is projected into awaiting/terminal local state.
   const localState = 'polling' as const;
   const protocolContract = input.protocolContract;
-  if (input.taskBehavior === undefined || input.runtimeRevision === undefined)
+  const taskCancellation = input.taskCancellation ?? 'unknown';
+  if (
+    input.taskBehavior === undefined ||
+    input.runtimeRevision === undefined ||
+    !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as const).includes(taskCancellation)
+  )
     throw new DomainError(
       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
-      'Frozen Remote Task admission requires taskBehavior and runtimeRevision.',
+      'Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.',
     );
   const authoritySnapshot = createRemoteTaskAuthoritySnapshot(input.authoritySnapshot);
   if (
@@ -349,6 +359,7 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
     );
   return Object.freeze({
     ...input,
+    taskCancellation,
     authoritySnapshot,
     protocolContract,
     executionContext: createRuntimeExecutionContext(input.executionContext),

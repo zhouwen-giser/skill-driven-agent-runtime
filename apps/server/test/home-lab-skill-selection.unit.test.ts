@@ -18,12 +18,34 @@ import type {
 } from '../../../packages/application/src/index.js';
 import { homeLabReadOnlyTaskUnderstandingConfiguration } from '../src/home-lab-task-understanding.js';
 import { createHomeLabReadOnlySkillSelectionService } from '../src/home-lab-skill-selection.js';
-import { startServerRuntime } from '../src/runtime.js';
+import { resolveSkillUsageSelectionId, startServerRuntime } from '../src/runtime.js';
 
 const now = '2026-08-10T12:00:00.000Z';
 const validUntil = '2026-08-10T13:00:00.000Z';
 
 describe('home-lab production Skill selection composition', () => {
+  it('uses Usage evidence only for a real selection authority and keeps profile-off generic planning selectionless', () => {
+    expect(
+      resolveSkillUsageSelectionId({
+        selectedSkill: true,
+        skillSelectionConfigured: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveSkillUsageSelectionId({
+        selectedSkill: true,
+        skillSelectionConfigured: true,
+        skillSelectionId: 'selection-authoritative',
+      }),
+    ).toBe('selection-authoritative');
+    expect(() =>
+      resolveSkillUsageSelectionId({
+        selectedSkill: true,
+        skillSelectionConfigured: true,
+      }),
+    ).toThrow('SKILL_USAGE_SELECTION_ID_REQUIRED');
+  });
+
   it('persists the sole compatible composite candidate after both exact resource readiness checks', async () => {
     const records = new MemorySelectionRepository();
     const availabilityArguments: unknown[] = [];

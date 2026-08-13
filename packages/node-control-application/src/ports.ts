@@ -56,6 +56,10 @@ export interface NodeControlFoundationRepository {
     operation: ManagementOperation,
     audit: ControlAuditEvent,
   ): Promise<ManagementOperation>;
+  markGovernanceOperationReconciliationPending?(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation>;
   cancelGovernanceOperation?(
     operationId: string,
     audit: ControlAuditEvent,

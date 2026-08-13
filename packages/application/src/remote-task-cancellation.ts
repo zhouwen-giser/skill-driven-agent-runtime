@@ -56,7 +56,7 @@ export class RemoteTaskCancellationService {
   ): Promise<
     Readonly<{
       request?: RemoteTaskCancellationRequest;
-      disposition: 'requested' | 'missing' | 'stale' | 'terminal' | 'closed';
+      disposition: 'requested' | 'missing' | 'stale' | 'terminal' | 'closed' | 'unsupported';
       deliveryScheduled: boolean;
     }>
   > {
@@ -64,6 +64,8 @@ export class RemoteTaskCancellationService {
     if (binding === undefined) return { disposition: 'missing', deliveryScheduled: false };
     if (isRemoteTaskTerminal(binding.protocolStatus))
       return { disposition: 'terminal', deliveryScheduled: false };
+    if (binding.taskCancellation !== 'task_cancel')
+      return { disposition: 'unsupported', deliveryScheduled: false };
     const requestedAt = this.#clock.now();
     const result = await this.#cancellations.requestCancellation(
       createRemoteTaskCancellationRequest({
@@ -97,7 +99,7 @@ export class RemoteTaskCancellationService {
 }
 
 export type RemoteTaskCancellationProcessResult =
-  'missing' | 'stale' | 'resolved' | 'acknowledged' | 'uncertain';
+  'missing' | 'stale' | 'resolved' | 'acknowledged' | 'uncertain' | 'unsupported';
 
 export class RemoteTaskCancellationWorker {
   readonly #remoteTasks: Pick<RemoteTaskRepository, 'findById'>;
@@ -149,6 +151,32 @@ export class RemoteTaskCancellationWorker {
       });
       if (!claim.claimed) return claim.reason === 'resolved' ? 'resolved' : 'stale';
       const startedAt = this.#clock.now();
+      if (binding.taskCancellation !== 'task_cancel') {
+        const completedAt = this.#clock.now();
+        const errorCode = 'MCP_TASK_CANCEL_UNSUPPORTED';
+        const attempt = cancellationAttempt({
+          attemptId: this.#ids.nextAttemptId(),
+          request: claim.request,
+          protocolRevision: binding.protocolRevision,
+          status: 'provider_protocol',
+          errorCode,
+          startedAt,
+          completedAt,
+        });
+        const mutation = await this.#cancellations.recordCancellationUncertain({
+          requestId: claim.request.requestId,
+          expectedVersion: claim.request.version,
+          claimToken,
+          attempt,
+          errorCode,
+          observedAt: completedAt,
+        });
+        return mutation.applied
+          ? 'unsupported'
+          : mutation.reason === 'resolved'
+            ? 'resolved'
+            : 'stale';
+      }
       try {
         const ack = await this.#sender.cancelRemoteTask({
           serverId: binding.serverId,

@@ -1004,6 +1004,7 @@ interface RuntimeControlRouteOptions {
     }>;
     evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
     evidenceOperations?: RuntimeEvidenceOperationsSurface;
+    taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
     actorId?: string;
     artifactPrincipalResolver?: ManagementPrincipalResolver;
   }>;
@@ -1053,6 +1054,7 @@ export async function startManagementHttpEndpoint(
       }>;
       evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
       evidenceOperations?: RuntimeEvidenceOperationsSurface;
+      taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
       actorId?: string;
       artifactPrincipalResolver?: ManagementPrincipalResolver;
     }>;
@@ -3915,14 +3917,14 @@ function registerRuntimeTaskCommandRoutes(
         ).execute(
           {
             operation: runtimeTaskActionAuditOperation(action),
-            subjectId: 'runtime-task-control',
+            subjectId: `runtime-task-control:${taskId}`,
             expectedVersion: command.expectedRevision ?? 0,
             idempotencyKey,
             actorId,
             reason: command.reason,
             requestFingerprint: `sha256:${sha256Json(input)}`,
           },
-          () =>
+          (lease) =>
             executeRuntimeTaskCommand({
               tasks: options.operations.tasks,
               action,
@@ -3931,11 +3933,24 @@ function registerRuntimeTaskCommandRoutes(
               operationType,
               actorId,
               idempotencyKey,
+              leaseIdentity: lease.leaseIdentity(),
+              ...(runtime.taskRevisionAuthority === undefined
+                ? {}
+                : { taskRevisionAuthority: runtime.taskRevisionAuthority }),
             }),
-          () =>
-            Promise.resolve({
-              disposition: 'orphaned' as const,
-              errorCode: 'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE',
+          (lease) =>
+            recoverRuntimeTaskCommand({
+              tasks: options.operations.tasks,
+              action,
+              taskId,
+              command,
+              operationType,
+              actorId,
+              idempotencyKey,
+              leaseIdentity: lease.leaseIdentity(),
+              ...(runtime.taskRevisionAuthority === undefined
+                ? {}
+                : { taskRevisionAuthority: runtime.taskRevisionAuthority }),
             }),
         );
         response.status(202).type('application/json').send(canonicalJsonResponse(operation));
@@ -3958,17 +3973,30 @@ async function executeRuntimeTaskCommand(
     operationType: string;
     actorId: string;
     idempotencyKey: string;
+    leaseIdentity: RuntimeTaskRevisionLeaseIdentity;
+    taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
   }>,
 ): Promise<ManagementOperation> {
-  const task =
+  const mutateTask = () =>
     input.action === 'cancel'
-      ? await input.tasks.cancel(input.taskId)
-      : await input.tasks.followUp({
+      ? input.tasks.cancel(input.taskId)
+      : input.tasks.followUp({
           taskId: input.taskId,
           action: input.action === 'goal-patch' ? 'patch_goal' : input.action,
           messageText: input.command.reason,
           ...(input.command.payload === undefined ? {} : { inputContent: input.command.payload }),
         });
+  const task = await executeRuntimeTaskAtRevision(
+    input.taskRevisionAuthority,
+    input.taskId,
+    input.command.expectedRevision,
+    {
+      operation: input.action,
+      idempotencyKey: input.idempotencyKey,
+      lease: input.leaseIdentity,
+    },
+    mutateTask,
+  );
   return completedRuntimeOperation({
     operationType: input.operationType,
     target: { type: 'task', id: input.taskId },
@@ -3978,6 +4006,158 @@ async function executeRuntimeTaskCommand(
     input: { taskId: input.taskId, command: input.command },
     result: task,
     occurredAt: task.updatedAt,
+  });
+}
+
+interface RuntimeTaskRevisionAuthority {
+  executeAtRevision<T>(
+    taskId: string,
+    expectedRevision: number,
+    identity: Readonly<{
+      operation: RuntimeTaskCommandAction;
+      idempotencyKey: string;
+      lease: RuntimeTaskRevisionLeaseIdentity;
+    }>,
+    operation: () => Promise<T>,
+  ): Promise<
+    | Readonly<{
+        disposition: 'applied';
+        priorRevision: number;
+        claimedRevision: number;
+        result: T;
+      }>
+    | Readonly<{ disposition: 'not_found' }>
+    | Readonly<{ disposition: 'conflict'; currentRevision: number }>
+  >;
+  executeAtCurrentRevision<T>(
+    taskId: string,
+    identity: Readonly<{
+      operation: RuntimeTaskCommandAction;
+      idempotencyKey: string;
+      lease: RuntimeTaskRevisionLeaseIdentity;
+    }>,
+    operation: () => Promise<T>,
+  ): Promise<
+    | Readonly<{
+        disposition: 'applied';
+        priorRevision: number;
+        claimedRevision: number;
+        result: T;
+      }>
+    | Readonly<{ disposition: 'not_found' }>
+    | Readonly<{ disposition: 'conflict'; currentRevision: number }>
+  >;
+  reconcile<T>(
+    taskId: string,
+    identity: Readonly<{ operation: RuntimeTaskCommandAction; idempotencyKey: string }>,
+    recoveredLease: RuntimeTaskRevisionLeaseIdentity,
+    recoveredResult: T,
+  ): Promise<
+    | Readonly<{ disposition: 'applied'; result: T }>
+    | Readonly<{ disposition: 'unapplied' | 'indeterminate' }>
+  >;
+}
+
+interface RuntimeTaskRevisionLeaseIdentity {
+  readonly actionId: string;
+  readonly attempt: number;
+  readonly token: string;
+}
+
+async function executeRuntimeTaskAtRevision<T>(
+  authority: RuntimeTaskRevisionAuthority | undefined,
+  taskId: string,
+  expectedRevision: number | undefined,
+  identity: Readonly<{
+    operation: RuntimeTaskCommandAction;
+    idempotencyKey: string;
+    lease: RuntimeTaskRevisionLeaseIdentity;
+  }>,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (authority === undefined)
+    throw Object.assign(new Error('Runtime Task revision authority is unavailable.'), {
+      code: 'RUNTIME_TASK_REVISION_AUTHORITY_UNAVAILABLE',
+      status: 503,
+    });
+  const execution =
+    expectedRevision === undefined
+      ? await authority.executeAtCurrentRevision(taskId, identity, operation)
+      : await authority.executeAtRevision(taskId, expectedRevision, identity, operation);
+  if (execution.disposition === 'not_found')
+    throw Object.assign(new Error(`Task ${taskId} was not found.`), {
+      code: 'TASK_NOT_FOUND',
+      status: 404,
+    });
+  if (execution.disposition === 'conflict')
+    throw Object.assign(
+      new Error(
+        expectedRevision === undefined
+          ? `Task revision ${String(execution.currentRevision)} was concurrently claimed.`
+          : `Expected Task revision ${String(expectedRevision)} but found ${String(execution.currentRevision)}.`,
+      ),
+      { code: 'REVISION_CONFLICT', status: 412 },
+    );
+  return execution.result;
+}
+
+async function recoverRuntimeTaskCommand(
+  input: Readonly<{
+    tasks: ManagementOperations['tasks'];
+    action: RuntimeTaskCommandAction;
+    taskId: string;
+    command: z.infer<typeof RuntimeControlCommandSchema>;
+    operationType: string;
+    actorId: string;
+    idempotencyKey: string;
+    leaseIdentity: RuntimeTaskRevisionLeaseIdentity;
+    taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
+  }>,
+) {
+  if (input.taskRevisionAuthority === undefined)
+    return Object.freeze({
+      disposition: 'indeterminate' as const,
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+  let task;
+  try {
+    task = await input.tasks.get(input.taskId);
+  } catch {
+    return Object.freeze({
+      disposition: 'indeterminate' as const,
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+  }
+  const reconciliation = await input.taskRevisionAuthority.reconcile(
+    input.taskId,
+    { operation: input.action, idempotencyKey: input.idempotencyKey },
+    input.leaseIdentity,
+    task,
+  );
+  if (reconciliation.disposition !== 'applied')
+    return Object.freeze({
+      disposition:
+        reconciliation.disposition === 'unapplied'
+          ? ('orphaned' as const)
+          : ('indeterminate' as const),
+      errorCode:
+        reconciliation.disposition === 'unapplied'
+          ? 'RUNTIME_TASK_COMMAND_RECOVERY_UNAPPLIED'
+          : 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+  const recoveredTask = reconciliation.result;
+  return Object.freeze({
+    disposition: 'completed' as const,
+    result: completedRuntimeOperation({
+      operationType: input.operationType,
+      target: { type: 'task', id: input.taskId },
+      actorId: input.actorId,
+      reason: input.command.reason,
+      idempotencyKey: input.idempotencyKey,
+      input: { taskId: input.taskId, command: input.command },
+      result: recoveredTask,
+      occurredAt: recoveredTask.updatedAt,
+    }),
   });
 }
 
@@ -4460,6 +4640,7 @@ function sanitizeRemoteTaskBinding(binding: LifecycleBinding) {
     protocolStatus: binding.protocolStatus,
     protocolContract: binding.protocolContract,
     ...(binding.taskBehavior === undefined ? {} : { taskBehavior: binding.taskBehavior }),
+    taskCancellation: binding.taskCancellation,
     ...(binding.runtimeRevision === undefined ? {} : { runtimeRevision: binding.runtimeRevision }),
     ...(binding.providerRevision === undefined
       ? {}
@@ -4833,6 +5014,31 @@ function normalizeHttpError(error: unknown): Readonly<{
       body: { code, message: 'The authenticated principal is not authorized.' },
     };
   }
+  if (code === 'REVISION_CONFLICT') return { status: 412, body: { code, message } };
+  if (code === 'GOAL_PATCH_APPLIED_REPLAN_FAILED')
+    return {
+      status: 503,
+      body: {
+        code,
+        message: 'Goal Patch was committed, but durable replanning did not complete.',
+      },
+    };
+  if (code === 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING')
+    return {
+      status: 503,
+      body: {
+        code,
+        message: 'Runtime Task command requires durable reconciliation.',
+      },
+    };
+  if (code === 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING')
+    return {
+      status: 503,
+      body: {
+        code,
+        message: 'Cognitive management action requires durable reconciliation.',
+      },
+    };
   if (
     code.endsWith('_ALREADY_EXISTS') ||
     (code.startsWith('ARTIFACT_') &&
@@ -4844,7 +5050,6 @@ function normalizeHttpError(error: unknown): Readonly<{
     code === 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT' ||
     code === 'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS' ||
     code === 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST' ||
-    code === 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING' ||
     code === 'DETERMINISTIC_RECOVERY_PROVIDER_DISPATCH_INDETERMINATE' ||
     code === 'EXPERIENCE_DEAD_LETTER_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_VERSION_CONFLICT' ||

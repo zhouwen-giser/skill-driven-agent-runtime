@@ -654,6 +654,7 @@ function admission(overrides: Partial<Parameters<typeof createRemoteTaskBinding>
     pollIntervalMs: 200,
     createdAt: timestamp,
     ...overrides,
+    taskCancellation: overrides.taskCancellation ?? ('task_cancel' as const),
   };
 }
 

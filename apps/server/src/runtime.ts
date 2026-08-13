@@ -262,6 +262,7 @@ import {
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
+  type McpToolCancellation,
   type RemoteTaskAuthoritySnapshot,
   type RuntimeRequestContext,
   type SkillUsageCandidateSnapshot,
@@ -283,6 +284,7 @@ import {
   PostgresRuntimeAgentCardRepository,
   PostgresRuntimeCoreEvidenceSource,
   PostgresRuntimeEvidenceExportStore,
+  PostgresRuntimeTaskRevisionAuthority,
   PostgresSkillEvidenceSource,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
@@ -339,6 +341,7 @@ import {
 } from '../../../packages/management-api/src/index.js';
 import {
   PostgresAgentTaskRepository,
+  PostgresAgentTaskCommandContext,
   PostgresTaskCapabilityRepository,
   PostgresGovernedControlAuthorityRepository,
   PostgresGovernedControlManagementAuthorityReader,
@@ -715,6 +718,36 @@ export function createA2ACancelReconciliationHandler(
   };
 }
 
+export function requestContinuationActivationFailureCancellation(
+  cancellations: Pick<RemoteTaskCancellationService, 'request'>,
+  input: Readonly<{
+    bindingId: string;
+    snapshotId: string;
+    workflowInstanceId: string;
+  }>,
+) {
+  return cancellations.request({
+    bindingId: input.bindingId,
+    idempotencyKey: `continuation-activation-failure:${input.snapshotId}:${input.bindingId}`,
+    source: 'compensation',
+    reasonCode: 'WORKFLOW_CONTINUATION_ACTIVATION_FAILED',
+    summary: `Workflow ${input.workflowInstanceId} continuation activation failed after remote Task admission.`,
+  });
+}
+
+export function resolveSkillUsageSelectionId(
+  input: Readonly<{
+    selectedSkill: boolean;
+    skillSelectionConfigured: boolean;
+    skillSelectionId?: string;
+  }>,
+): string | undefined {
+  if (!input.selectedSkill) return undefined;
+  if (input.skillSelectionId !== undefined) return input.skillSelectionId;
+  if (input.skillSelectionConfigured) throw new Error('SKILL_USAGE_SELECTION_ID_REQUIRED');
+  return undefined;
+}
+
 export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
@@ -809,9 +842,10 @@ export async function startServerRuntime(
   }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
-  const tasks = new PostgresAgentTaskRepository(pool, publishTaskState);
-  const taskInputs = new PostgresTaskInputRepository(pool, publishTaskState);
-  const events = new PostgresRuntimeEventPublisher(pool);
+  const taskCommands = new PostgresAgentTaskCommandContext().bindPool(pool);
+  const tasks = new PostgresAgentTaskRepository(pool, publishTaskState, taskCommands);
+  const taskInputs = new PostgresTaskInputRepository(pool, publishTaskState, taskCommands);
+  const events = new PostgresRuntimeEventPublisher(pool, taskCommands);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
@@ -1171,7 +1205,7 @@ export async function startServerRuntime(
     clock,
   });
   const taskCapabilities = new RuntimeTaskCapabilityService({
-    store: new PostgresTaskCapabilityRepository(pool, publishTaskState),
+    store: new PostgresTaskCapabilityRepository(pool, publishTaskState, taskCommands),
     schemas: schemaValidator,
     evidence: mcpRepository,
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
@@ -1920,6 +1954,7 @@ export async function startServerRuntime(
   const runtimeTerminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(
     pool,
     publishTaskState,
+    taskCommands,
   );
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
@@ -2211,7 +2246,7 @@ export async function startServerRuntime(
   const workflowPlanner = new WorkflowPlannerService({
     model: modelRuntime,
     validator: workflowValidator,
-    repository: new PostgresWorkflowPlanRepository(pool),
+    repository: new PostgresWorkflowPlanRepository(pool, taskCommands),
     workflowSchema,
     clock,
     maxAttempts: 3,
@@ -2365,7 +2400,7 @@ export async function startServerRuntime(
           queue: remoteTaskCancellationQueue,
           clock,
         });
-  const workflowPlans = new PostgresWorkflowPlanRepository(pool);
+  const workflowPlans = new PostgresWorkflowPlanRepository(pool, taskCommands);
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
@@ -2593,6 +2628,7 @@ export async function startServerRuntime(
                   sessionRevision: string;
                   protocolContract: McpProtocolContractSnapshot;
                   taskBehavior: McpTaskBehavior;
+                  taskCancellation: McpToolCancellation;
                   authoritySnapshot: RemoteTaskAuthoritySnapshot;
                   at: string;
                 }>,
@@ -2619,6 +2655,7 @@ export async function startServerRuntime(
                     sessionRevision: input.sessionRevision,
                     protocolContract: input.protocolContract,
                     taskBehavior: input.taskBehavior,
+                    taskCancellation: input.taskCancellation,
                     authoritySnapshot: input.authoritySnapshot,
                     continuation,
                   },
@@ -2694,11 +2731,13 @@ export async function startServerRuntime(
       try {
         const protocolContract = receipt.protocolContract;
         const taskBehavior = receipt.taskBehavior;
+        const taskCancellation = receipt.taskCancellation;
         const runtimeRevision = remote.runtimeRevision;
         if (
           remote.protocolMode !== 'frozen_v1' ||
           protocolContract === undefined ||
           taskBehavior === undefined ||
+          taskCancellation === undefined ||
           runtimeRevision === undefined
         )
           throw new Error('MCP_FROZEN_INVOCATION_AUTHORITY_MISSING');
@@ -2738,6 +2777,7 @@ export async function startServerRuntime(
           tasksSchemaRevision: remote.tasksSchemaRevision,
           protocolContract,
           taskBehavior,
+          taskCancellation,
           runtimeRevision,
           ...(remote.providerRevision === undefined
             ? {}
@@ -2921,7 +2961,7 @@ export async function startServerRuntime(
     nowMilliseconds: () => Date.now(),
   };
   const langGraphExecutor = new LangGraphWorkflowExecutor(workflowPorts, workflowCallCosts);
-  const workflowInstances = new PostgresWorkflowExecutionRepository(pool);
+  const workflowInstances = new PostgresWorkflowExecutionRepository(pool, taskCommands);
   const workflowContinuations = new PostgresWorkflowContinuationRepository(pool);
   const workflowExecution = new WorkflowExecutionService({
     plans: workflowPlans,
@@ -3012,16 +3052,24 @@ export async function startServerRuntime(
           compensationFailures.push(new Error('REMOTE_TASK_BINDING_NOT_FOUND'));
           continue;
         }
-        let cancellationAcknowledged = false;
+        let cancellationDisposition:
+          | Awaited<ReturnType<RemoteTaskCancellationService['request']>>['disposition']
+          | 'service_unavailable' = 'service_unavailable';
+        let cancellationDeliveryScheduled = false;
         let cancellationFailure: string | undefined;
         try {
-          cancellationAcknowledged = (
-            await mcpRegistry.cancelRemoteTask({
-              serverId: binding.serverId,
-              remoteTaskId: binding.remoteTaskId,
-              executionContext: binding.executionContext,
-            })
-          ).acknowledged;
+          if (remoteTaskCancellation === undefined)
+            throw new Error('REMOTE_TASK_CANCELLATION_SERVICE_UNAVAILABLE');
+          const cancellation = await requestContinuationActivationFailureCancellation(
+            remoteTaskCancellation,
+            {
+              bindingId: binding.bindingId,
+              snapshotId: snapshot.snapshotId,
+              workflowInstanceId: snapshot.workflowInstanceId,
+            },
+          );
+          cancellationDisposition = cancellation.disposition;
+          cancellationDeliveryScheduled = cancellation.deliveryScheduled;
         } catch (cancellationError: unknown) {
           compensationFailures.push(cancellationError);
           cancellationFailure =
@@ -3037,7 +3085,8 @@ export async function startServerRuntime(
             serverId: binding.serverId,
             remoteTaskId: binding.remoteTaskId,
             workflowInstanceId: snapshot.workflowInstanceId,
-            cancellationAcknowledged,
+            cancellationDisposition,
+            cancellationDeliveryScheduled,
             ...(cancellationFailure === undefined ? {} : { cancellationFailure }),
             cause:
               typeof error === 'object' &&
@@ -3191,7 +3240,11 @@ export async function startServerRuntime(
   });
   const goalService = new GoalService({ goals, contexts, clock });
   const userGoalRuntimeRepository = new PostgresUserGoalRuntimeRepository(pool);
-  const goalCancellationRepository = new PostgresGoalCancellationRepository(pool, publishTaskState);
+  const goalCancellationRepository = new PostgresGoalCancellationRepository(
+    pool,
+    publishTaskState,
+    taskCommands,
+  );
   const userGoalPlanController = new UserGoalPlanController({
     terminal: runtimeTerminalOutcomes,
     outcomes: userGoalRuntimeRepository,
@@ -3362,7 +3415,7 @@ export async function startServerRuntime(
   });
   const goalPatches = new GoalPatchService({
     goals,
-    patches: new PostgresGoalPatchRepository(pool, publishTaskState),
+    patches: new PostgresGoalPatchRepository(pool, publishTaskState, taskCommands),
     plans: workflowPlans,
     planner: workflowPlanner,
     skills,
@@ -3568,7 +3621,19 @@ export async function startServerRuntime(
       },
       async pause(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        await workflowExecution.pauseForPlan(task.planId);
+        // A running executor may have been created before this command's ALS
+        // scope, so its paused save cannot be assumed to record command
+        // evidence. Persist the same payload as the repository; a same-scope
+        // save is exact-idempotent and a background save gets its missing proof.
+        const paused = await workflowExecution.pauseForPlan(task.planId);
+        await taskCommands.recordEffect('workflow_paused', paused.instanceId, {
+          instanceId: paused.instanceId,
+          planId: paused.planId,
+          goalId: paused.goalId,
+          goalVersion: paused.goalVersion,
+          status: paused.status,
+          pendingConfirmation: paused.pendingConfirmation,
+        });
       },
       async commitRuntimeCancellation(task, reason) {
         if (
@@ -3627,13 +3692,12 @@ export async function startServerRuntime(
       },
       async resume(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        return (
-          await workflowExecution.resumePauseForPlan(task.planId, 300, {
-            agentTaskId: task.taskId,
-            contextId: task.contextId,
-            workflowControlId: await resolveTaskWorkflowControlId(task),
-          })
-        ).disposition;
+        const resumed = await workflowExecution.resumePauseForPlan(task.planId, 300, {
+          agentTaskId: task.taskId,
+          contextId: task.contextId,
+          workflowControlId: await resolveTaskWorkflowControlId(task),
+        });
+        return resumed.disposition;
       },
       async cancelGoal(task, reason) {
         if (task.goalId === undefined) throw new Error('TASK_GOAL_NOT_ATTACHED');
@@ -4382,15 +4446,18 @@ export async function startServerRuntime(
             ),
         );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
+        const usageSelectionId = resolveSkillUsageSelectionId({
+          selectedSkill: skill !== undefined,
+          skillSelectionConfigured: skillSelection !== undefined,
+          ...(input.task.skillSelectionId === undefined
+            ? {}
+            : { skillSelectionId: input.task.skillSelectionId }),
+        });
         const preparedUsageEvidence =
-          skill === undefined
+          skill === undefined || usageSelectionId === undefined
             ? undefined
             : await (async () => {
-                if (input.task.skillSelectionId === undefined)
-                  throw new Error('SKILL_USAGE_SELECTION_ID_REQUIRED');
-                const selection = await skillSelectionRepository.findSelection(
-                  input.task.skillSelectionId,
-                );
+                const selection = await skillSelectionRepository.findSelection(usageSelectionId);
                 const candidate = selection?.candidates.find(
                   (item) => item.skillId === skill.skillId && item.skillVersion === skill.version,
                 )?.usageCandidate;
@@ -6062,6 +6129,7 @@ export async function startServerRuntime(
               },
               evidenceExport,
               evidenceOperations,
+              taskRevisionAuthority: new PostgresRuntimeTaskRevisionAuthority(pool, taskCommands),
               actorId: 'sdar-node-control',
               ...(options.runtimeControlArtifactPrincipalResolver === undefined
                 ? {}

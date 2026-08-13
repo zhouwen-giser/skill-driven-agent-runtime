@@ -317,6 +317,7 @@ export async function startNodeControlApi(
     healthObservationTimer.unref();
     drainControlEvidence();
     drainTelemetryEvidence();
+    const taskSummaries = new PostgresRuntimeTaskSummaryQuery(runtimePool);
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: environment.SDAR_CONTROL_API_TOKEN,
       ...(environment.SDAR_CONTROL_OPERATOR_API_TOKEN === undefined
@@ -358,7 +359,7 @@ export async function startNodeControlApi(
       runtimeAgentCards,
       agentCardValidator,
       taskCapabilities: new PostgresRuntimeTaskCapabilityBindingQuery(runtimePool),
-      taskSummaries: new PostgresRuntimeTaskSummaryQuery(runtimePool),
+      taskSummaries,
       taskControl,
       runtimeGovernance,
       evidenceExport,

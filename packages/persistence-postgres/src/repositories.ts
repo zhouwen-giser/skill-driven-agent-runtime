@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import type {
   AgentTaskRepository,
   TaskWaitPolicyRepository,
@@ -155,6 +157,224 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
 type TaskStateCommitted = (task: AgentTask) => void;
+
+interface AgentTaskCommandState {
+  readonly taskId: string;
+  readonly token: string;
+  readonly actionId: string;
+  readonly operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+  readonly idempotencyKey: string;
+  readonly leaseAttempt: number;
+  readonly leaseToken: string;
+  readonly expectedRevision?: number;
+  active: boolean;
+}
+
+/**
+ * Propagates the unguessable token for an exact-revision Task command. Writers
+ * set it only for their own PostgreSQL transaction so the database can match it
+ * to the durable per-Task command fence.
+ */
+export class PostgresAgentTaskCommandContext {
+  readonly #storage = new AsyncLocalStorage<AgentTaskCommandState>();
+
+  async run<T>(
+    identity: Readonly<{
+      taskId: string;
+      token: string;
+      actionId: string;
+      operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+      idempotencyKey: string;
+      leaseAttempt: number;
+      leaseToken: string;
+      expectedRevision?: number;
+    }>,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    if (this.#storage.getStore() !== undefined)
+      throw new Error('AGENT_TASK_COMMAND_CONTEXT_NESTED');
+    const state: AgentTaskCommandState = { ...identity, active: true };
+    try {
+      return await this.#storage.run(state, operation);
+    } finally {
+      // Detached async work created by a command must not retain bypass authority
+      // after the session fence is released.
+      state.active = false;
+    }
+  }
+
+  current():
+    | Readonly<{
+        taskId: string;
+        token: string;
+        actionId: string;
+        operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+        idempotencyKey: string;
+        leaseAttempt: number;
+        leaseToken: string;
+        expectedRevision?: number;
+      }>
+    | undefined {
+    const state = this.#storage.getStore();
+    return state?.active === true ? state : undefined;
+  }
+
+  /**
+   * Locks and validates the exact Cognitive lease for an additional
+   * command-owned PostgreSQL writer. Call only after BEGIN and before taking
+   * any aggregate row lock, preserving the global action -> aggregate order.
+   */
+  async fenceTransaction(client: PoolClient, taskId: string): Promise<void> {
+    const command = currentAgentTaskCommand(this, taskId);
+    if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
+  }
+
+  async recordEffect(effectKind: string, effectRef: string, payload: unknown): Promise<void> {
+    const command = this.current();
+    if (command === undefined) throw new Error('AGENT_TASK_COMMAND_CONTEXT_MISSING');
+    const client = await this.#poolForEffect().connect();
+    try {
+      await client.query('BEGIN');
+      await setAgentTaskCommandIdentity(client, command);
+      await recordAgentTaskCommandEffect(client, command, effectKind, effectRef, payload);
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  #effectPool: Pool | undefined;
+
+  bindPool(pool: Pool): this {
+    if (this.#effectPool !== undefined && this.#effectPool !== pool)
+      throw new Error('AGENT_TASK_COMMAND_CONTEXT_POOL_CONFLICT');
+    this.#effectPool = pool;
+    return this;
+  }
+
+  #poolForEffect(): Pool {
+    if (this.#effectPool === undefined) throw new Error('AGENT_TASK_COMMAND_CONTEXT_POOL_MISSING');
+    return this.#effectPool;
+  }
+}
+
+function currentAgentTaskCommand(
+  context: PostgresAgentTaskCommandContext | undefined,
+  taskId: string,
+) {
+  const command = context?.current();
+  if (command !== undefined && command.taskId !== taskId)
+    throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
+  return command;
+}
+
+async function setAgentTaskCommandIdentity(
+  client: PoolClient,
+  command: Readonly<{
+    taskId: string;
+    token: string;
+    actionId: string;
+    operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+    idempotencyKey: string;
+    leaseAttempt: number;
+    leaseToken: string;
+    expectedRevision?: number;
+  }>,
+): Promise<void> {
+  const lease = await client.query(
+    `SELECT 1
+       FROM cognitive_management_action
+      WHERE action_id=$1 AND operation=$2 AND subject_id=$3
+        AND idempotency_key=$4 AND expected_version=CASE WHEN $5=-1 THEN 0 ELSE $5 END
+        AND status='pending' AND lease_attempt=$6 AND lease_token=$7
+        AND lease_expires_at>clock_timestamp()
+      FOR UPDATE`,
+    [
+      command.actionId,
+      command.operation === 'goal-patch' ? 'task_goal_patch' : `task_${command.operation}`,
+      `runtime-task-control:${command.taskId}`,
+      command.idempotencyKey,
+      command.expectedRevision ?? -1,
+      command.leaseAttempt,
+      command.leaseToken,
+    ],
+  );
+  if (lease.rowCount !== 1) throw new Error('AGENT_TASK_COMMAND_LEASE_LOST');
+  await client.query(
+    `SELECT set_config('sdar.runtime_task_command_task_id',$1,true),
+            set_config('sdar.runtime_task_command_token',$2,true),
+            set_config('sdar.runtime_task_command_action_id',$3,true),
+            set_config('sdar.runtime_task_command_operation',$4,true),
+            set_config('sdar.runtime_task_command_idempotency_key',$5,true),
+            set_config('sdar.runtime_task_command_lease_attempt',$6,true),
+            set_config('sdar.runtime_task_command_lease_token',$7,true),
+            set_config('sdar.runtime_task_command_expected_revision',$8,true)`,
+    [
+      command.taskId,
+      command.token,
+      command.actionId,
+      command.operation,
+      command.idempotencyKey,
+      String(command.leaseAttempt),
+      command.leaseToken,
+      command.expectedRevision === undefined ? '' : String(command.expectedRevision),
+    ],
+  );
+}
+
+async function recordAgentTaskCommandEffect(
+  client: PoolClient,
+  command: Readonly<{
+    taskId: string;
+    token: string;
+    actionId: string;
+    operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+    idempotencyKey: string;
+  }>,
+  effectKind: string,
+  effectRef: string,
+  payload: unknown,
+): Promise<void> {
+  const effectJson = JSON.stringify(payload);
+  const inserted = await client.query(
+    `INSERT INTO runtime_task_command_effect(
+       action_id,task_id,command_token,operation,idempotency_key,
+       effect_kind,effect_ref,effect_json,recorded_at)
+     VALUES($1,$2,$3::uuid,$4,$5,$6,$7,$8::jsonb,clock_timestamp())
+     ON CONFLICT(action_id,effect_kind,effect_ref) DO NOTHING`,
+    [
+      command.actionId,
+      command.taskId,
+      command.token,
+      command.operation,
+      command.idempotencyKey,
+      effectKind,
+      effectRef,
+      effectJson,
+    ],
+  );
+  if (inserted.rowCount === 1) return;
+  const exact = await client.query(
+    `SELECT 1 FROM runtime_task_command_effect
+      WHERE action_id=$1 AND task_id=$2 AND command_token=$3::uuid
+        AND operation=$4 AND idempotency_key=$5 AND effect_kind=$6
+        AND effect_ref=$7 AND effect_json=$8::jsonb`,
+    [
+      command.actionId,
+      command.taskId,
+      command.token,
+      command.operation,
+      command.idempotencyKey,
+      effectKind,
+      effectRef,
+      effectJson,
+    ],
+  );
+  if (exact.rowCount !== 1) throw new Error('AGENT_TASK_COMMAND_EFFECT_CONFLICT');
+}
 
 const ToolReferenceSchema = z.object({ serverId: z.string(), toolName: z.string() });
 const ToolReferencesSchema = z.array(ToolReferenceSchema);
@@ -945,7 +1165,8 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
         `UPDATE agent_task task
          SET phase='failed', phase_message='Process stopped during execution; V1 does not recover or retry.',
              error_code='PROCESS_EXECUTION_LOST', updated_at=$1
-         WHERE phase IN ('executing','paused','evaluating')
+         WHERE active_command_token IS NULL
+           AND phase IN ('executing','paused','evaluating')
          ${
            this.#preserveRemoteWaits
              ? `AND NOT EXISTS (
@@ -984,6 +1205,13 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
                '{"code":"PROCESS_EXECUTION_LOST","message":"Process stopped during execution; V1 does not recover or retry."}'::jsonb,true),
              pending_confirmation_json=NULL, completed_at=$1
          WHERE status IN ('running','paused')
+           AND NOT EXISTS (
+             SELECT 1
+             FROM workflow_plan plan
+             JOIN agent_task task ON task.plan_id=plan.plan_id
+             WHERE plan.plan_id=instance.plan_id
+               AND task.active_command_token IS NOT NULL
+           )
          ${
            this.#preserveRemoteWaits
              ? `AND NOT EXISTS (
@@ -1000,6 +1228,11 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
         `UPDATE task_execution_attempt
          SET status='failed', completed_at=$1, error_code='PROCESS_EXECUTION_LOST'
          WHERE status='running'
+           AND NOT EXISTS (
+             SELECT 1 FROM agent_task task
+             WHERE task.task_id=task_execution_attempt.task_id
+               AND task.active_command_token IS NOT NULL
+           )
          ${
            this.#preserveRemoteWaits
              ? `AND NOT EXISTS (
@@ -1205,10 +1438,16 @@ const GoalPatchChangesSchema = z.object({
 export class PostgresGoalPatchRepository implements GoalPatchRepository {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    commandContext?: PostgresAgentTaskCommandContext,
+  ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#commandContext = commandContext;
   }
 
   async apply(
@@ -1218,6 +1457,12 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const command = this.#commandContext?.current();
+      if (command !== undefined) {
+        if (triggeringTaskId !== command.taskId)
+          throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
+        await setAgentTaskCommandIdentity(client, command);
+      }
       const goal = await client.query<GoalRow>('SELECT * FROM goal WHERE goal_id=$1 FOR UPDATE', [
         record.goalId,
       ]);
@@ -1317,8 +1562,26 @@ export class PostgresGoalPatchRepository implements GoalPatchRepository {
           completed.createdAt,
         ],
       );
+      if (command !== undefined)
+        await recordAgentTaskCommandEffect(
+          client,
+          command,
+          'goal_patch_committed',
+          completed.patchId,
+          {
+            patchId: completed.patchId,
+            goalId: completed.goalId,
+            fromVersion: completed.fromVersion,
+            toVersion: completed.toVersion,
+            newPlanId: completed.newPlanId,
+            triggeringTaskId: completed.triggeringTaskId,
+          },
+        );
       await client.query('COMMIT');
-      for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
+      for (const task of tasks.rows) {
+        if (this.#onTaskStateCommitted === undefined) continue;
+        this.#onTaskStateCommitted(mapTaskRow(task));
+      }
       return completed;
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -1360,10 +1623,16 @@ interface GoalCancellationRow extends QueryResultRow {
 export class PostgresGoalCancellationRepository implements GoalCancellationRepository {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    commandContext?: PostgresAgentTaskCommandContext,
+  ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#commandContext = commandContext;
   }
 
   async cancel(
@@ -1375,6 +1644,8 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const command = this.#commandContext?.current();
+      if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
       const goal = await client.query<GoalRow>(
         "SELECT * FROM goal WHERE goal_id=$1 AND version=$2 AND status='active' FOR UPDATE",
         [input.goalId, input.goalVersion],
@@ -1480,9 +1751,10 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
                     md5('goal:' || $1::text || ':' || $2::text || ':' || binding_id),'goal',
                     'local_goal_cancel',left($3,2048),'requested',0,$4,$4,1
              FROM remote_task_binding
-             WHERE goal_id=$1 AND goal_version=$2::integer AND terminal_at IS NULL
-               AND protocol_status IN ('working','input_required')
-               AND local_state NOT IN ('closed','reentered','quarantined')
+              WHERE goal_id=$1 AND goal_version=$2::integer AND terminal_at IS NULL
+                AND protocol_status IN ('working','input_required')
+                AND task_cancellation='task_cancel'
+                AND local_state NOT IN ('closed','reentered','quarantined')
              ON CONFLICT(binding_id,idempotency_key) DO NOTHING`,
             [input.goalId, input.goalVersion, input.reason, input.createdAt],
           );
@@ -1491,9 +1763,10 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
              SET local_state='cancel_observing',next_poll_at=$3,
                  poll_claim_token=NULL,poll_claimed_at=NULL,poll_claim_expires_at=NULL,
                  updated_at=$3,version=version+1
-             WHERE goal_id=$1 AND goal_version=$2 AND terminal_at IS NULL
-               AND protocol_status IN ('working','input_required')
-               AND local_state NOT IN ('closed','reentered','quarantined','cancel_observing')`,
+              WHERE goal_id=$1 AND goal_version=$2 AND terminal_at IS NULL
+                AND protocol_status IN ('working','input_required')
+                AND task_cancellation='task_cancel'
+                AND local_state NOT IN ('closed','reentered','quarantined','cancel_observing')`,
             [input.goalId, input.goalVersion, input.createdAt],
           );
         } else
@@ -1541,6 +1814,14 @@ export class PostgresGoalCancellationRepository implements GoalCancellationRepos
           completed.createdAt,
         ],
       );
+      if (command !== undefined)
+        await recordAgentTaskCommandEffect(
+          client,
+          command,
+          'goal_cancellation_committed',
+          completed.cancellationId,
+          completed,
+        );
       await client.query('COMMIT');
       for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
       return completed;
@@ -1812,10 +2093,16 @@ type RuntimeTerminalCommitInput =
 export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminalOutcomeRepository {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    commandContext?: PostgresAgentTaskCommandContext,
+  ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#commandContext = commandContext;
   }
 
   commitAchieved(input: RuntimeAchievedOutcomeInput): Promise<RuntimeTerminalOutcomeRecord> {
@@ -1871,6 +2158,11 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const command = this.#commandContext?.current();
+      if (command !== undefined) {
+        if (input.taskId !== command.taskId) throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
+        await setAgentTaskCommandIdentity(client, command);
+      }
       const taskIdentity =
         input.taskId === undefined
           ? undefined
@@ -2216,6 +2508,21 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           input.committedAt,
         ],
       );
+      if (command !== undefined && input.taskId !== undefined)
+        await recordAgentTaskCommandEffect(
+          client,
+          command,
+          'terminal_outcome_committed',
+          input.outcomeId,
+          {
+            outcomeId: input.outcomeId,
+            outcomeKind: kind,
+            taskId: input.taskId,
+            goalId: input.goalId,
+            goalVersion: input.goalVersion,
+            controlId: input.controlId,
+          },
+        );
       let committedTask: AgentTask | undefined;
       if (task !== undefined) {
         const terminalTask = terminalTaskProjection(kind, input.summary, processed);
@@ -2298,6 +2605,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
            FROM remote_task_binding
            WHERE agent_task_id=$1 AND goal_id=$4 AND goal_version=$5
              AND terminal_at IS NULL AND protocol_status IN ('working','input_required')
+             AND task_cancellation='task_cancel'
              AND local_state NOT IN ('closed','reentered','quarantined')
            ON CONFLICT(binding_id,idempotency_key) DO NOTHING`,
           [input.taskId ?? '', input.summary, input.committedAt, input.goalId, input.goalVersion],
@@ -2309,6 +2617,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
                updated_at=$2,version=version+1
            WHERE agent_task_id=$1 AND goal_id=$3 AND goal_version=$4
              AND terminal_at IS NULL AND protocol_status IN ('working','input_required')
+             AND task_cancellation='task_cancel'
              AND local_state NOT IN ('closed','reentered','quarantined','cancel_observing')`,
           [input.taskId ?? '', input.committedAt, input.goalId, input.goalVersion],
         );
@@ -3495,10 +3804,16 @@ function exactGoalSnapshot(value: unknown): Goal {
 export class PostgresAgentTaskRepository implements AgentTaskRepository {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    commandContext?: PostgresAgentTaskCommandContext,
+  ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#commandContext = commandContext;
   }
 
   async findById(taskId: string): Promise<AgentTask | undefined> {
@@ -3561,8 +3876,18 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   }
 
   async save(task: AgentTask): Promise<void> {
-    const result = await this.#pool.query(
-      `INSERT INTO agent_task (
+    const command = this.#commandContext?.current();
+    if (command !== undefined && command.taskId !== task.taskId)
+      throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
+    const client = command === undefined ? undefined : await this.#pool.connect();
+    try {
+      if (client !== undefined) {
+        await client.query('BEGIN');
+        if (command === undefined) throw new Error('AGENT_TASK_COMMAND_TOKEN_MISSING');
+        await setAgentTaskCommandIdentity(client, command);
+      }
+      const result = await (client ?? this.#pool).query(
+        `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
          phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
          output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
@@ -3590,46 +3915,59 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
          error_code = EXCLUDED.error_code,
          updated_at = EXCLUDED.updated_at
        WHERE agent_task.phase NOT IN ('capability_gap','completed','canceled','failed','invalidated')`,
-      [
-        task.taskId,
-        task.contextId,
-        task.userId,
-        task.requestText,
-        task.requestMetadata,
-        task.phase,
-        task.phaseMessage,
-        task.goalId ?? null,
-        task.goalVersion ?? null,
-        task.planId ?? null,
-        task.selectedSkillId ?? null,
-        task.selectedSkillVersion ?? null,
-        task.skillSelectionId ?? null,
-        task.skillInputResolutionId ?? null,
-        task.temporarySkillId ?? null,
-        task.userGoalPlanId ?? null,
-        task.skillGoalId ?? null,
-        task.skillAttemptId ?? null,
-        task.skillExecutionContractId ?? null,
-        task.output?.text ?? null,
-        task.output?.structured ?? null,
-        task.capabilityGap ?? null,
-        task.errorCode ?? null,
-        task.createdAt,
-        task.updatedAt,
-      ],
-    );
-    if (result.rowCount === 0) throw new Error('TASK_TERMINAL_MUTATION_FORBIDDEN');
-    this.#onTaskStateCommitted?.(task);
+        [
+          task.taskId,
+          task.contextId,
+          task.userId,
+          task.requestText,
+          task.requestMetadata,
+          task.phase,
+          task.phaseMessage,
+          task.goalId ?? null,
+          task.goalVersion ?? null,
+          task.planId ?? null,
+          task.selectedSkillId ?? null,
+          task.selectedSkillVersion ?? null,
+          task.skillSelectionId ?? null,
+          task.skillInputResolutionId ?? null,
+          task.temporarySkillId ?? null,
+          task.userGoalPlanId ?? null,
+          task.skillGoalId ?? null,
+          task.skillAttemptId ?? null,
+          task.skillExecutionContractId ?? null,
+          task.output?.text ?? null,
+          task.output?.structured ?? null,
+          task.capabilityGap ?? null,
+          task.errorCode ?? null,
+          task.createdAt,
+          task.updatedAt,
+        ],
+      );
+      if (result.rowCount === 0) throw new Error('TASK_TERMINAL_MUTATION_FORBIDDEN');
+      if (client !== undefined) await client.query('COMMIT');
+      this.#onTaskStateCommitted?.(task);
+    } catch (error: unknown) {
+      if (client !== undefined) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client?.release();
+    }
   }
 }
 
 export class PostgresTaskInputRepository implements TaskInputRepository {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    commandContext?: PostgresAgentTaskCommandContext,
+  ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#commandContext = commandContext;
   }
 
   async createRequest(request: TaskInputRequest): Promise<void> {
@@ -3671,11 +4009,26 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
   }
 
   async cancelPending(taskId: string, status: 'expired' | 'canceled'): Promise<void> {
-    await this.#pool.query(
-      `UPDATE task_input_request SET status=$2
-       WHERE task_id=$1 AND status='waiting'`,
-      [taskId, status],
-    );
+    const command = currentAgentTaskCommand(this.#commandContext, taskId);
+    const client = command === undefined ? undefined : await this.#pool.connect();
+    try {
+      if (client !== undefined) {
+        await client.query('BEGIN');
+        if (command === undefined) throw new Error('AGENT_TASK_COMMAND_TOKEN_MISSING');
+        await setAgentTaskCommandIdentity(client, command);
+      }
+      await (client ?? this.#pool).query(
+        `UPDATE task_input_request SET status=$2
+         WHERE task_id=$1 AND status='waiting'`,
+        [taskId, status],
+      );
+      if (client !== undefined) await client.query('COMMIT');
+    } catch (error: unknown) {
+      if (client !== undefined) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client?.release();
+    }
   }
 
   async listResponses(taskId: string): Promise<readonly TaskInputResponse[]> {
@@ -4101,25 +4454,42 @@ export class PostgresEvolutionPolicyRepository implements EvolutionPolicyReposit
 
 export class PostgresRuntimeEventPublisher implements RuntimeEventPublisher {
   readonly #pool: Pool;
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, commandContext?: PostgresAgentTaskCommandContext) {
     this.#pool = pool;
+    this.#commandContext = commandContext;
   }
 
   async publish(event: RuntimeTaskEvent): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO runtime_event (
-         event_id, task_id, context_id, event_type, event_timestamp, summary
-       ) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        event.eventId,
-        event.taskId,
-        event.contextId,
-        event.eventType,
-        event.timestamp,
-        event.summary,
-      ],
-    );
+    const command = currentAgentTaskCommand(this.#commandContext, event.taskId);
+    const client = command === undefined ? undefined : await this.#pool.connect();
+    try {
+      if (client !== undefined) {
+        await client.query('BEGIN');
+        if (command === undefined) throw new Error('AGENT_TASK_COMMAND_TOKEN_MISSING');
+        await setAgentTaskCommandIdentity(client, command);
+      }
+      await (client ?? this.#pool).query(
+        `INSERT INTO runtime_event (
+           event_id, task_id, context_id, event_type, event_timestamp, summary
+         ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          event.eventId,
+          event.taskId,
+          event.contextId,
+          event.eventType,
+          event.timestamp,
+          event.summary,
+        ],
+      );
+      if (client !== undefined) await client.query('COMMIT');
+    } catch (error: unknown) {
+      if (client !== undefined) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client?.release();
+    }
   }
 
   async listByTask(taskId: string): Promise<readonly RuntimeTaskEvent[]> {
@@ -5249,8 +5619,10 @@ export class PostgresWorkflowTemplateRepository implements WorkflowTemplateRepos
 
 export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
+  constructor(pool: Pool, commandContext?: PostgresAgentTaskCommandContext) {
     this.#pool = pool;
+    this.#commandContext = commandContext;
   }
   async findPlan(planId: string): Promise<WorkflowPlanRecord | undefined> {
     const result = await this.#pool.query<WorkflowPlanRow>(
@@ -5340,37 +5712,63 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     );
   }
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO workflow_plan
+    const command = this.#commandContext?.current();
+    const client = command === undefined ? undefined : await this.#pool.connect();
+    try {
+      if (client !== undefined) {
+        await client.query('BEGIN');
+        if (command === undefined) throw new Error('AGENT_TASK_COMMAND_TOKEN_MISSING');
+        await setAgentTaskCommandIdentity(client, command);
+      }
+      await (client ?? this.#pool).query(
+        `INSERT INTO workflow_plan
          (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
           capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
           mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at)
        VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17)`,
-      [
-        plan.planId,
-        plan.skillGoalId ?? null,
-        plan.skillAttemptId ?? null,
-        plan.goalId,
-        plan.goalVersion,
-        JSON.stringify(plan.goalContract),
-        plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
-        JSON.stringify(plan.capabilityGapSkillIds ?? []),
-        JSON.stringify(plan.toolExecutionSemantics ?? []),
-        plan.definition === undefined ? null : JSON.stringify(plan.definition),
-        plan.sourceConfirmedPlanId ?? null,
-        plan.sourcePlanId ?? null,
-        JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
-        plan.revisionKind ?? null,
-        plan.confirmationStatus,
-        plan.attemptCount,
-        plan.createdAt,
-      ],
-    );
+        [
+          plan.planId,
+          plan.skillGoalId ?? null,
+          plan.skillAttemptId ?? null,
+          plan.goalId,
+          plan.goalVersion,
+          JSON.stringify(plan.goalContract),
+          plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
+          JSON.stringify(plan.capabilityGapSkillIds ?? []),
+          JSON.stringify(plan.toolExecutionSemantics ?? []),
+          plan.definition === undefined ? null : JSON.stringify(plan.definition),
+          plan.sourceConfirmedPlanId ?? null,
+          plan.sourcePlanId ?? null,
+          JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
+          plan.revisionKind ?? null,
+          plan.confirmationStatus,
+          plan.attemptCount,
+          plan.createdAt,
+        ],
+      );
+      if (client !== undefined && command !== undefined)
+        await recordAgentTaskCommandEffect(client, command, 'workflow_plan_saved', plan.planId, {
+          planId: plan.planId,
+          goalId: plan.goalId,
+          goalVersion: plan.goalVersion,
+          sourcePlanId: plan.sourcePlanId,
+          revisionKind: plan.revisionKind,
+          confirmationStatus: plan.confirmationStatus,
+        });
+      if (client !== undefined) await client.query('COMMIT');
+    } catch (error: unknown) {
+      if (client !== undefined) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client?.release();
+    }
   }
   async savePlanAndSupersede(plan: WorkflowPlanRecord, sourcePlanId: string): Promise<void> {
+    const command = this.#commandContext?.current();
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
       const source = await client.query(
         `UPDATE workflow_plan SET confirmation_status='superseded'
          WHERE plan_id=$1 AND confirmation_status IN ('awaiting_confirmation','confirmed')`,
@@ -5403,6 +5801,15 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           plan.createdAt,
         ],
       );
+      if (command !== undefined)
+        await recordAgentTaskCommandEffect(client, command, 'workflow_plan_saved', plan.planId, {
+          planId: plan.planId,
+          goalId: plan.goalId,
+          goalVersion: plan.goalVersion,
+          sourcePlanId: plan.sourcePlanId,
+          revisionKind: plan.revisionKind,
+          confirmationStatus: plan.confirmationStatus,
+        });
       await client.query('COMMIT');
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -5586,8 +5993,10 @@ function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecor
 
 export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
+  constructor(pool: Pool, commandContext?: PostgresAgentTaskCommandContext) {
     this.#pool = pool;
+    this.#commandContext = commandContext;
   }
   async countNodeEvents(instanceId: string): Promise<number> {
     const result = await this.#pool.query<{ count: number }>(
@@ -5679,8 +6088,16 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   }
 
   async saveInstance(instance: WorkflowInstance): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO workflow_instance(
+    const command = this.#commandContext?.current();
+    const client = command === undefined ? undefined : await this.#pool.connect();
+    try {
+      if (client !== undefined) {
+        await client.query('BEGIN');
+        if (command === undefined) throw new Error('AGENT_TASK_COMMAND_TOKEN_MISSING');
+        await setAgentTaskCommandIdentity(client, command);
+      }
+      await (client ?? this.#pool).query(
+        `INSERT INTO workflow_instance(
          instance_id,plan_id,skill_goal_id,skill_attempt_id,workflow_definition_id,workflow_version,goal_id,goal_version,
          status,input_json,result_json,errors_json,started_at,completed_at,
          skill_versions_json,budget_limits_json,budget_usage_json,termination_reason,pending_confirmation_json)
@@ -5693,30 +6110,52 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
          budget_usage_json=EXCLUDED.budget_usage_json,
          termination_reason=EXCLUDED.termination_reason,
          pending_confirmation_json=EXCLUDED.pending_confirmation_json`,
-      [
-        instance.instanceId,
-        instance.planId,
-        instance.skillGoalId ?? null,
-        instance.skillAttemptId ?? null,
-        instance.workflowDefinitionId,
-        instance.workflowVersion,
-        instance.goalId,
-        instance.goalVersion,
-        instance.status,
-        JSON.stringify(instance.input),
-        instance.result === undefined ? null : JSON.stringify(instance.result),
-        JSON.stringify(instance.errors),
-        instance.startedAt,
-        instance.completedAt ?? null,
-        JSON.stringify(instance.skillVersions),
-        JSON.stringify(instance.budgetLimits),
-        JSON.stringify(instance.budgetUsage),
-        instance.terminationReason ?? null,
-        instance.pendingConfirmation === undefined
-          ? null
-          : JSON.stringify(instance.pendingConfirmation),
-      ],
-    );
+        [
+          instance.instanceId,
+          instance.planId,
+          instance.skillGoalId ?? null,
+          instance.skillAttemptId ?? null,
+          instance.workflowDefinitionId,
+          instance.workflowVersion,
+          instance.goalId,
+          instance.goalVersion,
+          instance.status,
+          JSON.stringify(instance.input),
+          instance.result === undefined ? null : JSON.stringify(instance.result),
+          JSON.stringify(instance.errors),
+          instance.startedAt,
+          instance.completedAt ?? null,
+          JSON.stringify(instance.skillVersions),
+          JSON.stringify(instance.budgetLimits),
+          JSON.stringify(instance.budgetUsage),
+          instance.terminationReason ?? null,
+          instance.pendingConfirmation === undefined
+            ? null
+            : JSON.stringify(instance.pendingConfirmation),
+        ],
+      );
+      if (client !== undefined && command !== undefined)
+        await recordAgentTaskCommandEffect(
+          client,
+          command,
+          `workflow_${instance.status}`,
+          instance.instanceId,
+          {
+            instanceId: instance.instanceId,
+            planId: instance.planId,
+            goalId: instance.goalId,
+            goalVersion: instance.goalVersion,
+            status: instance.status,
+            pendingConfirmation: instance.pendingConfirmation,
+          },
+        );
+      if (client !== undefined) await client.query('COMMIT');
+    } catch (error: unknown) {
+      if (client !== undefined) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client?.release();
+    }
   }
 
   async saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void> {

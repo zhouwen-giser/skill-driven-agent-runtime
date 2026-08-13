@@ -224,6 +224,7 @@ function remoteBinding(): RemoteTaskBinding {
         serverDiscoverySnapshotId: 'snapshot-1',
       },
       taskBehavior: 'server_directed',
+      taskCancellation: 'task_cancel',
       runtimeRevision: '1',
       remoteRevision: 'remote-revision-1',
       executionContext: { mode: 'live' },

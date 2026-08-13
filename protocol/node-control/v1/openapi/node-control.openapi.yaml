@@ -5344,6 +5344,16 @@ paths:
       responses:
         '200':
           description: Get Runtime task projection
+          headers:
+            ETag:
+              description: Opaque exact Task revision validator for CommandRequest.expectedRevision.
+              schema:
+                type: string
+            X-SDAR-Task-Revision:
+              description: Non-negative Runtime Task revision represented by this projection.
+              schema:
+                type: integer
+                minimum: 0
           content:
             application/json:
               schema:

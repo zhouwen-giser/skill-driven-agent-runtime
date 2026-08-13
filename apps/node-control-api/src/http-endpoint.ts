@@ -84,6 +84,9 @@ export interface NodeControlHttpConfiguration {
       filter: Readonly<{ phase?: string; goalId?: string; limit: number }>,
     ): Promise<readonly NodeControlTaskSummary[]>;
     get(taskId: string): Promise<NodeControlTaskSummary | undefined>;
+    getWithRevision(
+      taskId: string,
+    ): Promise<Readonly<{ summary: NodeControlTaskSummary; revision: number }> | undefined>;
   }>;
   readonly taskControl?: NodeControlTaskControlService;
   readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
@@ -1514,8 +1517,10 @@ export function createNodeControlHttpApp(
 
   app.get('/api/v1/tasks/:taskId', async (request, response, next) => {
     try {
-      const task = await requiredTaskSummaries(configuration).get(request.params.taskId);
-      if (task === undefined) {
+      const projection = await requiredTaskSummaries(configuration).getWithRevision(
+        request.params.taskId,
+      );
+      if (projection === undefined) {
         sendProblem(response, {
           title: 'Task not found',
           status: 404,
@@ -1527,7 +1532,11 @@ export function createNodeControlHttpApp(
         });
         return;
       }
-      response.status(200).json(task);
+      response
+        .set('etag', `"task-revision-${String(projection.revision)}"`)
+        .set('x-sdar-task-revision', String(projection.revision))
+        .status(200)
+        .json(projection.summary);
     } catch (error) {
       next(error);
     }
@@ -1926,7 +1935,7 @@ export function createNodeControlHttpApp(
         detail: error.message,
         instance: request.originalUrl,
         correlationId: correlationId(request),
-        retryable: error.status >= 500,
+        retryable: error.code === 'REVISION_CONFLICT' || error.status >= 500,
       });
       return;
     }
@@ -1938,7 +1947,10 @@ export function createNodeControlHttpApp(
         detail: error.message,
         instance: request.originalUrl,
         correlationId: correlationId(request),
-        retryable: error.status >= 500,
+        retryable:
+          error.code === 'REVISION_CONFLICT' ||
+          taskControlReconciliationCodes.has(error.code) ||
+          error.status >= 500,
       });
       return;
     }
@@ -1958,7 +1970,7 @@ export function createNodeControlHttpApp(
           error instanceof Error ? error.message : 'The Runtime adapter rejected the request.',
         instance: request.originalUrl,
         correlationId: correlationId(request),
-        retryable: error.status >= 500,
+        retryable: error.code === 'REVISION_CONFLICT' || error.status >= 500,
       });
       return;
     }
@@ -2043,6 +2055,14 @@ export function createNodeControlHttpApp(
   });
   return app;
 }
+
+const taskControlReconciliationCodes = new Set([
+  'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS',
+  'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST',
+  'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE',
+]);
 
 const TargetTypeSchema = z.enum([
   'node',

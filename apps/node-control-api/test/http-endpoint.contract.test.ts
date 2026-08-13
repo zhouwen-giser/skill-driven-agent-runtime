@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 
@@ -516,6 +517,21 @@ describe('Node Control HTTP frozen contract', () => {
                 })
               : undefined,
           ),
+        getWithRevision: (taskId) =>
+          Promise.resolve(
+            taskId === 'task-p12'
+              ? {
+                  summary: Object.freeze({
+                    taskId,
+                    contextId: 'context-p12',
+                    phase: 'working',
+                    updatedAt: '2026-08-02T08:00:00.000Z',
+                    controlledActions: Object.freeze({ cancel: false }),
+                  }),
+                  revision: 11,
+                }
+              : undefined,
+          ),
       },
     });
     server = await listen(app);
@@ -585,6 +601,8 @@ describe('Node Control HTTP frozen contract', () => {
       headers: organizationHeaders,
     });
     expect(task.status).toBe(200);
+    expect(task.headers.get('etag')).toBe('"task-revision-11"');
+    expect(task.headers.get('x-sdar-task-revision')).toBe('11');
     const taskSchema = JSON.parse(
       await readFile('protocol/node-control/v1/schemas/task-summary.schema.json', 'utf8'),
     ) as unknown;
@@ -781,8 +799,25 @@ describe('Node Control HTTP frozen contract', () => {
       (
         action: 'pause' | 'resume' | 'cancel' | 'goal_patch',
         taskId: string,
-        command: { reason: string },
-      ) => Promise.resolve(runtimeTaskControlOperation(action, taskId, command.reason)),
+        command: { reason: string; idempotencyKey: string },
+      ) =>
+        taskId === 'task-stale'
+          ? Promise.reject(
+              Object.assign(new Error('The Runtime Task revision changed.'), {
+                code: 'REVISION_CONFLICT',
+                status: 412,
+              }),
+            )
+          : taskId === 'task-reconciliation'
+            ? Promise.reject(
+                Object.assign(new Error('The Runtime command requires reconciliation.'), {
+                  code: 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+                  status: 409,
+                }),
+              )
+            : Promise.resolve(
+                runtimeTaskControlOperation(action, taskId, command.reason, command.idempotencyKey),
+              ),
     );
     const taskControl = new NodeControlTaskControlService({
       runtime: { execute },
@@ -871,6 +906,59 @@ describe('Node Control HTTP frozen contract', () => {
     expect(replay.status).toBe(202);
     expect(execute).toHaveBeenCalledTimes(4);
 
+    const stale = await fetch(`${baseUrl}/api/v1/tasks/task-stale/resume`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${organizationToken}`,
+        'content-type': 'application/json',
+        'idempotency-key': 'organization-task-stale-command',
+      },
+      body: JSON.stringify({ reason: 'Resume exact revision only.', expectedRevision: 2 }),
+    });
+    expect(stale.status).toBe(412);
+    expect(stale.headers.get('content-type')).toContain('application/problem+json');
+    await expect(stale.json()).resolves.toMatchObject({
+      code: 'REVISION_CONFLICT',
+      status: 412,
+      retryable: true,
+    });
+    expect(execute).toHaveBeenCalledTimes(5);
+    const staleReplay = await fetch(`${baseUrl}/api/v1/tasks/task-stale/resume`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${organizationToken}`,
+        'content-type': 'application/json',
+        'idempotency-key': 'organization-task-stale-command',
+      },
+      body: JSON.stringify({ reason: 'Resume exact revision only.', expectedRevision: 2 }),
+    });
+    expect(staleReplay.status).toBe(412);
+    await expect(staleReplay.json()).resolves.toMatchObject({
+      code: 'REVISION_CONFLICT',
+      status: 412,
+      retryable: true,
+    });
+    expect(execute).toHaveBeenCalledTimes(5);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const pending = await fetch(`${baseUrl}/api/v1/tasks/task-reconciliation/cancel`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${organizationToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'organization-task-reconciliation-command',
+        },
+        body: JSON.stringify({ reason: 'Reconcile the uncertain Runtime command.' }),
+      });
+      expect(pending.status).toBe(409);
+      await expect(pending.json()).resolves.toMatchObject({
+        code: 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+        status: 409,
+        retryable: true,
+      });
+    }
+    expect(execute).toHaveBeenCalledTimes(7);
+
     for (const deniedToken of [operatorToken, viewerToken, securityToken]) {
       const denied = await fetch(`${baseUrl}/api/v1/tasks/task-denied/cancel`, {
         method: 'POST',
@@ -894,7 +982,7 @@ describe('Node Control HTTP frozen contract', () => {
       body: JSON.stringify({ reason: 'No idempotency key.' }),
     });
     expect(missingKey.status).toBe(400);
-    expect(execute).toHaveBeenCalledTimes(4);
+    expect(execute).toHaveBeenCalledTimes(7);
   });
 });
 
@@ -1007,6 +1095,24 @@ class MemoryRepository implements NodeControlFoundationRepository {
     this.audits.push(audit);
     return Promise.resolve(running);
   }
+  markGovernanceOperationReconciliationPending(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    const index = this.operations.findIndex(
+      (candidate) => candidate.operationId === operation.operationId,
+    );
+    const current = this.operations[index];
+    if (index < 0 || current === undefined)
+      return Promise.reject(new Error('TEST_GOVERNANCE_OPERATION_NOT_FOUND'));
+    if (['succeeded', 'failed', 'canceled'].includes(current.status))
+      return Promise.resolve(current);
+    if (current.status !== 'running')
+      return Promise.reject(new Error('TEST_GOVERNANCE_OPERATION_NOT_RUNNING'));
+    this.operations[index] = operation;
+    this.audits.push(audit);
+    return Promise.resolve(operation);
+  }
   completeGovernanceOperation(
     operation: ManagementOperation,
     audit: ControlAuditEvent,
@@ -1078,6 +1184,7 @@ function runtimeTaskControlOperation(
   action: 'pause' | 'resume' | 'cancel' | 'goal_patch',
   taskId: string,
   reason: string,
+  idempotencyKey: string,
 ): ManagementOperation {
   const accepted = createManagementOperation(
     {
@@ -1086,7 +1193,7 @@ function runtimeTaskControlOperation(
       target: { type: 'task', id: taskId },
       actorId: 'runtime-task-authority',
       reason,
-      idempotencyKeyHash: 'e'.repeat(64),
+      idempotencyKeyHash: createHash('sha256').update(idempotencyKey).digest('hex'),
       inputHash: 'f'.repeat(64),
     },
     '2026-08-13T01:00:00.000Z',

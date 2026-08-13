@@ -619,6 +619,7 @@ function remoteTaskBinding(
     pollIntervalMs: 200,
     createdAt: timestamp,
     ...overrides,
+    taskCancellation: overrides.taskCancellation ?? 'task_cancel',
   });
 }
 

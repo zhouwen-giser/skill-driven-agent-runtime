@@ -306,6 +306,7 @@ function admissionIntent(status: 'dispatching' | 'receipt_recorded'): RemoteTask
               serverDiscoverySnapshotId: 'snapshot-restart-provider',
             },
             taskBehavior: 'task_required' as const,
+            taskCancellation: 'task_cancel' as const,
             authoritySnapshot: testAuthoritySnapshot(),
             continuation: {
               snapshot: continuationSnapshot(),

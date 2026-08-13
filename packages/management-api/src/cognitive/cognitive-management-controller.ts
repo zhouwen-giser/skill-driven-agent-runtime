@@ -190,6 +190,7 @@ const NOOP_ACTION_LEASE: CognitiveManagementActionLeaseGuard = Object.freeze({
   enterProviderDispatch: () => Promise.resolve(),
   executionPhase: () => 'execution_started',
   providerDispatchIdentity: () => undefined,
+  leaseIdentity: () => ({ actionId: 'noop-action', attempt: 1, token: 'noop-lease' }),
   signal: new AbortController().signal,
 });
 

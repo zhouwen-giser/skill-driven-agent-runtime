@@ -720,7 +720,7 @@ paths:
     parameters: [{ name: bindingId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: cancelRemoteTaskBinding
-      description: Creates an idempotent source=management cooperative cancellation request. Acknowledgement or uncertainty is not Provider terminal cancellation and observation continues.
+      description: Creates an idempotent source=management cooperative cancellation request only when the admitted Tool's frozen cancellation authority is task_cancel. Unsupported, cooperative-only, unknown, or legacy-missing authority fails closed before request persistence or Provider transport. Acknowledgement or uncertainty is not Provider terminal cancellation and observation continues.
       responses:
         '200':
           { description: Durable cancellation request disposition and delivery scheduling state }

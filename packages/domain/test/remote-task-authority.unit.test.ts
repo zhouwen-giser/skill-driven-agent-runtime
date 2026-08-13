@@ -58,6 +58,16 @@ describe('Remote Task frozen authority', () => {
       }),
     ).toThrow(expect.objectContaining({ code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_MISMATCH' }));
   });
+
+  it('freezes legacy missing cancellation authority as fail-closed unknown', () => {
+    const { taskCancellation, ...legacyAdmission } = admission();
+    expect(taskCancellation).toBe('task_cancel');
+
+    const binding = createRemoteTaskBinding(legacyAdmission);
+
+    expect(binding.taskCancellation).toBe('unknown');
+    expect(Object.isFrozen(binding)).toBe(true);
+  });
 });
 
 function authoritySnapshot() {
@@ -118,6 +128,7 @@ function admission(): RemoteTaskAdmission {
       serverDiscoverySnapshotId: 'protocol-snapshot-4',
     },
     taskBehavior: 'server_directed',
+    taskCancellation: 'task_cancel',
     runtimeRevision: 'runtime-1',
     executionContext: { mode: 'live' },
     authoritySnapshot: authoritySnapshot(),

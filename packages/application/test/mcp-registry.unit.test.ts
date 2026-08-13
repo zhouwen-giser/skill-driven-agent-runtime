@@ -66,6 +66,7 @@ describe('MCP Registry invocation boundary', () => {
     expect(markDispatching).toHaveBeenCalledOnce();
     expect(recordRemoteReceipt).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
+        taskCancellation: 'unsupported',
         authoritySnapshot: expect.objectContaining({
           schemaVersion: '1.0',
           runtime: expect.objectContaining({

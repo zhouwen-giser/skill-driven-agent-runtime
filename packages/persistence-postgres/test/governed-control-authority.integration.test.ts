@@ -361,6 +361,7 @@ describe('PostgreSQL governed physical-control authority', () => {
             sessionRevision: input.sessionRevision,
             protocolContract: input.protocolContract,
             taskBehavior: input.taskBehavior,
+            taskCancellation: input.taskCancellation,
             authoritySnapshot: input.authoritySnapshot,
             continuation,
           },

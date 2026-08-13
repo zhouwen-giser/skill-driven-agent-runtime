@@ -336,6 +336,32 @@ describe('PostgresRemoteTaskAdmissionIntentStore', () => {
       code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID',
     });
   });
+
+  it('maps a legacy receipt without cancellation authority to fail-closed unknown', async () => {
+    const legacyReceipt = { ...receipt() } as Record<string, unknown>;
+    delete legacyReceipt['taskCancellation'];
+    const query = vi.fn().mockResolvedValue({
+      rows: [
+        intentRow({
+          status: 'receipt_recorded',
+          dispatch_hash: dispatchHash,
+          dispatched_at: dispatchedAt,
+          recorded_invocation_id: 'mcp-invocation-1',
+          remote_receipt_json: legacyReceipt,
+          receipt_recorded_at: receiptAt,
+          updated_at: receiptAt,
+          version: 3,
+        }),
+      ],
+    });
+    const store = new PostgresRemoteTaskAdmissionIntentStore({ query } as unknown as Pool);
+
+    await expect(store.listRecoverable(100)).resolves.toEqual([
+      expect.objectContaining({
+        receipt: expect.objectContaining({ taskCancellation: 'unknown' }),
+      }),
+    ]);
+  });
 });
 
 function intent(): RemoteTaskAdmissionIntent {
@@ -400,6 +426,7 @@ function receipt(): RemoteTaskAdmissionReceipt {
       serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed',
+    taskCancellation: 'task_cancel',
     authoritySnapshot: {
       schemaVersion: '1.0',
       capturedAt: receiptAt,

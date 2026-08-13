@@ -20,6 +20,7 @@ import {
   type McpTaskStatus,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
+  type McpToolCancellation,
   type RemoteTaskBinding,
   type RemoteTaskAuthoritySnapshot,
   type RemoteTaskControlEvent,
@@ -166,6 +167,7 @@ interface RemoteTaskBindingRow extends QueryResultRow {
   tasks_schema_revision: string;
   protocol_contract_json: unknown;
   task_behavior: McpTaskBehavior | null;
+  task_cancellation: McpToolCancellation | null;
   runtime_revision: string | null;
   provider_revision: string | null;
   task_ttl_ms: string | number | null;
@@ -262,7 +264,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
            workflow_definition_version,workflow_instance_id,workflow_node_id,
            workflow_node_run_id,parent_workflow_instance_id,parent_skill_call_id,
            mcp_invocation_id,protocol_status,protocol_revision,tasks_schema_revision,
-           protocol_contract_json,task_behavior,runtime_revision,provider_revision,
+           protocol_contract_json,task_behavior,task_cancellation,runtime_revision,provider_revision,
            task_ttl_ms,task_expires_at,
            provider_substate,remote_revision,last_provider_updated_at,local_state,
            requested_timing_json,execution_mode,simulation_id,authority_snapshot_json,credential_revision,
@@ -270,8 +272,8 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
            provider_failure_count,created_at,updated_at,version)
          VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-           $21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33::jsonb,$34,$35,$36::jsonb,
-           $37,$38,$39,$40,$41,$42,$43,$44,$45)
+           $21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34::jsonb,$35,$36,$37::jsonb,
+           $38,$39,$40,$41,$42,$43,$44,$45,$46)
          ON CONFLICT (server_id,remote_task_id) DO NOTHING
          RETURNING *`,
         bindingInsertParameters(binding),
@@ -299,6 +301,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
             tasksSchemaRevision: binding.tasksSchemaRevision,
             protocolContract: binding.protocolContract,
             ...(binding.taskBehavior === undefined ? {} : { taskBehavior: binding.taskBehavior }),
+            taskCancellation: binding.taskCancellation,
             ...(binding.runtimeRevision === undefined
               ? {}
               : { runtimeRevision: binding.runtimeRevision }),
@@ -940,6 +943,7 @@ function bindingInsertParameters(binding: RemoteTaskBinding): unknown[] {
     binding.tasksSchemaRevision,
     JSON.stringify(binding.protocolContract),
     binding.taskBehavior ?? null,
+    binding.taskCancellation,
     binding.runtimeRevision ?? null,
     binding.providerRevision ?? null,
     binding.taskTtlMs ?? null,
@@ -1258,6 +1262,7 @@ function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
     tasksSchemaRevision: row.tasks_schema_revision,
     protocolContract: McpProtocolContractSnapshotSchema.parse(row.protocol_contract_json),
     ...(row.task_behavior === null ? {} : { taskBehavior: row.task_behavior }),
+    taskCancellation: row.task_cancellation ?? 'unknown',
     ...(row.runtime_revision === null ? {} : { runtimeRevision: row.runtime_revision }),
     ...(row.provider_revision === null ? {} : { providerRevision: row.provider_revision }),
     ...(row.task_ttl_ms === null
@@ -1371,6 +1376,7 @@ function sameAdmissionIdentity(current: RemoteTaskBinding, candidate: RemoteTask
     current.workflowInstanceId === candidate.workflowInstanceId &&
     current.workflowNodeRunId === candidate.workflowNodeRunId &&
     current.mcpInvocationId === candidate.mcpInvocationId &&
+    current.taskCancellation === candidate.taskCancellation &&
     canonicalHash(current.authoritySnapshot ?? null) ===
       canonicalHash(candidate.authoritySnapshot ?? null)
   );

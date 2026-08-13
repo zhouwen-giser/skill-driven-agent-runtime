@@ -14,6 +14,7 @@ import {
   parseMcpProviderBindingPolicyOverride,
   type ExactMcpProviderBindingPolicy,
 } from '../../node-control-domain/src/index.js';
+import type { PostgresAgentTaskCommandContext } from './repositories.js';
 
 interface ResolutionRow extends QueryResultRow {
   exposure_id: string;
@@ -74,15 +75,18 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
   readonly #pool: Pool;
   readonly #onTaskStateCommitted:
     ((task: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]['task']) => void) | undefined;
+  readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
   constructor(
     pool: Pool,
     onTaskStateCommitted?: (
       task: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]['task'],
     ) => void,
+    commandContext?: PostgresAgentTaskCommandContext,
   ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
+    this.#commandContext = commandContext;
   }
 
   async resolveExposure(exposureId: string, exposureVersion: number, now: string) {
@@ -201,6 +205,7 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      await this.#commandContext?.fenceTransaction(client, input.taskId);
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `task-capability-attempt:${input.taskId}`,
       ]);
@@ -244,8 +249,12 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
     status: Exclude<TaskCapabilityExecutionAttempt['status'], 'prepared'>,
     timestamp: string,
   ) {
-    const result = await this.#pool.query(
-      `UPDATE task_capability_execution_attempt
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await this.#commandContext?.fenceTransaction(client, taskId);
+      const result = await client.query(
+        `UPDATE task_capability_execution_attempt
           SET status=$2,
               started_at=CASE WHEN status=$2 THEN started_at
                               WHEN $2='running' THEN $3 ELSE COALESCE(started_at,$3) END,
@@ -257,9 +266,16 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
           AND ((status='prepared' AND $2 IN ('running','waiting','succeeded','failed','canceled'))
             OR (status IN ('running','waiting') AND $2 IN ('waiting','succeeded','failed','canceled','superseded'))
             OR status=$2)`,
-      [taskId, status, timestamp],
-    );
-    if (result.rowCount === 0) throw new Error('TASK_CAPABILITY_ATTEMPT_TRANSITION_INVALID');
+        [taskId, status, timestamp],
+      );
+      if (result.rowCount === 0) throw new Error('TASK_CAPABILITY_ATTEMPT_TRANSITION_INVALID');
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async reconcileCanceledAttempts() {

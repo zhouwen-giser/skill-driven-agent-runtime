@@ -808,6 +808,7 @@ async function seedRunningTask(): Promise<void> {
         serverDiscoverySnapshotId: 'snapshot-p05',
       },
       taskBehavior: 'server_directed',
+      taskCancellation: 'task_cancel',
       runtimeRevision: '1',
       providerSubstate: 'running',
       remoteRevision: 'provider-revision-p05',

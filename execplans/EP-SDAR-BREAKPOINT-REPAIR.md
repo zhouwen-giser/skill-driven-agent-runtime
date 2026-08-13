@@ -80,9 +80,24 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       terminal CapabilityAttempt closure, failed Redis wake reconstruction, and exact Runtime/SMPP
       Provider polling authority. Real PostgreSQL recovery passed 2/2, isolated Redis recovery
       passed 7/7, and `physicalDeviceWrites=0`. Exit: `REMOTE_IN_FLIGHT_RECOVERY_PASSED`.
-- [ ] Complete P06 aggregate verification/performance.
-- [ ] Complete P07 read-only SMPP and Console regression.
-- [ ] Complete P08 release qualification.
+- [x] 2026-08-14 completed P06 aggregate verification/performance. The official `pnpm verify` at
+      `aa4231d2` passed all ten stages in 918423 ms; Phase 13 passed unchanged limits with
+      `-10.596%` Runtime P95 regression, `6.833%` baseline drift, and `4.402 ms` append P95.
+      Generated evidence is committed at `9ab42ac`; `physicalDeviceWrites=0`.
+- [x] 2026-08-14 completed P07 read-only SMPP and Console regression. The isolated
+      PostgreSQL-backed SMPP controlled consumer passed 1/1, and the candidate-built production
+      Runtime/Node Control/Console BFF journey passed 98/98 assertions across pause/resume, Goal
+      Patch, stale-revision rejection, idempotent cancel replay, and A2A/BFF/Console terminal
+      convergence. `physicalDeviceWrites=0`; `fireCalls=0`. Exit:
+      `CROSS_PROJECT_REGRESSION_PASSED`.
+- [x] 2026-08-14 closed the pre-P08 durable Task revision/reconciliation review. Runtime
+      revision-authority PostgreSQL passed 10/10, Runtime management contracts passed 79/79, Node
+      Control Task-control unit tests passed 22/22, Node Control API contracts passed 6/6, and Node
+      Control PostgreSQL foundation passed 15/15. Current-tree TypeScript, lint, format, and diff
+      hygiene checks are green. This is focused implementation-closure evidence, not P08.
+- [ ] Complete P08 release qualification. None of the exact twelve-command P08 sequence is recorded
+      as run on the current committed delivery candidate, and the exit token is not issued. The
+      historical `aa4231d2` full verify and `9ab42ac` evidence commit remain P06-only evidence.
 - [ ] Complete P09 latest-main merge, exact-candidate rerun, evidence, push, and non-Draft PR.
 
 ## Discoveries and Surprises
@@ -96,8 +111,9 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   the current 131-operation verifier validates frozen files rather than production registrations.
 - A2A `getTask` can overlay Runtime terminal authority without repairing the durable projection;
   `listTasks` remains stale and an unconditional upsert permits terminal-to-WORKING regression.
-- The latest checked-in aggregate and performance authority is failed. It is baseline evidence only,
-  never candidate evidence or permission to change Phase 13 thresholds or the estimand.
+- Historical aggregate and performance failures remain immutable diagnostic evidence. The current
+  checked-in authority passes all ten stages and the unchanged Phase 13 thresholds; no percentile,
+  sample count, baseline-drift limit, Runtime-regression limit, or estimand was weakened.
 - P01 required two durable, complementary idempotency boundaries: Node Control persists the public
   governance operation and audit, while Runtime's existing Cognitive Management Action gate fences
   the authoritative Task mutation. A recovered uncertain dispatch is rejected instead of replayed.
@@ -119,9 +135,16 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - Long-running `tasks/get` must retain the admitted remote Provider identity, not merely its local
   endpoint and Catalog. The frozen authority now includes Binding origin, external Server, and SMPP
   source lineage while allowing a normal readiness revision refresh with stable identity.
-- The P03 PostgreSQL 75/75 run predates the final keyset-pagination refinement. Unit and TypeScript
-  coverage passed for that refinement; exact-final PostgreSQL evidence remains pending an isolated
-  database environment.
+- The earlier P03 PostgreSQL 75/75 run predates the final keyset-pagination refinement. The final
+  aggregate candidate subsequently passed the exact-tree PostgreSQL/Redis integration gate at
+  35 files / 201 tests, so the earlier qualification gap is no longer pending.
+- Every public Task command needs a durable revision claim, including callers that omit
+  `expectedRevision`; an in-memory preflight cannot fence a queued writer after its lease is lost.
+  The repair now binds action/lease identity, actual revision, and pre-dispatch state and treats
+  dispatch/completion ambiguity as reconciliation-pending.
+- The `aa4231d2` full gate and `9ab42ac` evidence commit predate the final revision-fence changes.
+  They remain historical P06 evidence and cannot be inferred as P08 PASS. The entire exact P08
+  sequence, not only `verify:v14-security`, must run on the current committed candidate.
 
 ## Decision Log
 
@@ -148,6 +171,10 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   continuation activation order, hierarchy re-entry, failed-wake reconstruction, terminal attempt
   closure, and stale polling authority all passed focused real persistence gates and independent
   review. Never replay an external creation call whose durable receipt is absent.
+- 2026-08-14: Close the revision-fence review only after omitted- and explicit-revision commands
+  share a durable action/lease claim, stale owners and queued writers fail closed, and ambiguous
+  Runtime/outer-operation completion remains reconciliation-pending. Keep this focused evidence
+  separate from the still-unrun P08 release sequence.
 
 ## Implementation Steps
 
@@ -180,7 +207,6 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm verify:node-control-contract
-pnpm verify:node-control-implementation-conformance
 pnpm verify:smpp-registry-projection
 pnpm verify:v14-security
 pnpm test:node-control
@@ -189,8 +215,11 @@ pnpm test:contract
 pnpm test:e2e
 pnpm build
 pnpm verify
-git diff --check
 ```
+
+The exact P08 command list above is currently `NOT_RUN` on the committed delivery candidate. The
+latest focused repair closure separately records green TypeScript, lint, formatting, and
+`git diff --check` hygiene; those checks do not substitute for the official P08 sequence.
 
 P07 uses fetched SMPP and Console Main checkouts read-only. Any external defect becomes an `EXT-*`
 report and is not patched here.
@@ -211,7 +240,7 @@ separate real, deterministic, static, external, and unverified evidence.
 
 ## Outcomes and Retrospective
 
-P01-P03 are functionally closed and committed locally, and BP-SDAR-001 through BP-SDAR-003 are
+P01-P03 are functionally closed and committed, and BP-SDAR-001 through BP-SDAR-003 are
 `FIXED`. Current shared evidence is: full TypeScript PASS; combined focused Vitest 9 files/108 tests; P01
 isolated PostgreSQL 76/76; combined P01/P02 Node Control foundation PostgreSQL 14/14; P02 contract 41
 files/281 tests plus 131-operation/455-RBAC conformance; and P03 PostgreSQL 75/75 on the pre-keyset
@@ -224,5 +253,13 @@ dispatch with terminal `position.observation` evidence and zero transport for un
 and 69/69, real PostgreSQL recovery passed 2/2, isolated Redis failed-wake reconstruction passed
 7/7, and migrations passed through 0160. A single monolithic Runtime A-to-B drill remains
 transparently `NOT RUN`; the same boundaries were exercised separately and two independent final
-audits found no remaining P05 P0/P1. P06-P09 are not complete, and no final candidate or
+audits found no remaining P05 P0/P1. P06 and BP-SDAR-006 are now `FIXED`: the official full gate
+passed 10/10 stages and unchanged Phase 13 performance limits at `aa4231d2`; this remains historical
+P06 evidence because later source changed. P07 and BP-SDAR-007 are `FIXED`: the controlled SMPP
+database-backed consumer passed 1/1 and the live candidate-built Console nonterminal journey passed
+98/98 assertions with terminal convergence and zero physical writes or fire calls. The durable
+revision-fence review is `CLOSED/CLEAN` with Runtime PostgreSQL 10/10, Runtime contracts 79/79, Node
+Control unit 22/22, API contract 6/6, and PostgreSQL foundation 15/15; current-tree TypeScript, lint,
+format, and diff hygiene are green. The complete exact P08 sequence remains `NOT_RUN`, and P09
+fetch/merge/rerun/push/PR delivery has not started. No P08 exit token, final candidate, or
 protected-review readiness is claimed.

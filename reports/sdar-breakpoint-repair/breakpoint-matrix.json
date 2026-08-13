@@ -89,23 +89,40 @@
     },
     {
       "id": "BP-SDAR-006",
-      "status": "STILL_REPRODUCIBLE",
+      "status": "FIXED",
+      "rootCause": "The current aggregate gate initially exposed a mix of narrow implementation/test-fixture defects and local infrastructure readiness failures. The first failures were preserved and repaired without changing the protected percentile, sample, baseline-drift, or Runtime-regression thresholds.",
+      "implementation": [
+        "Removed the bootstrap lint defect and made the Windows shell fixture select the repository-supported Bash launcher without skipping its assertion.",
+        "Repaired exact-optional PostgreSQL and migrated Prompt-owner/model-route E2E fixtures while preserving production authority constraints.",
+        "Restored authoritative Workflow replan confirmation and deterministic read-only Provider semantics required by the aggregate E2E path.",
+        "Ran the official full gate with isolated operator-managed PostgreSQL and Redis after preserving all earlier environment failures."
+      ],
+      "tests": [
+        "Official pnpm verify passed all 10 stages at aa4231d2fb98050eaf1fbc5f9c77ef76ca7bf7bd in 918423 ms.",
+        "Bootstrap passed 268 files / 1928 tests and reported 169 Management OpenAPI operations; 53 migrations passed.",
+        "PostgreSQL/Redis integration passed 35 files / 201 tests; model/MCP E2E passed 7 files / 73 tests; A2A TCK, canonical Evidence demo, and all three smoke stages passed.",
+        "Phase 13 passed with baseline P95 490.639 ms, Evidence-enabled P95 438.650 ms, -10.596 percent regression, 6.833 percent baseline-median drift, and 4.402 ms Evidence append P95."
+      ],
       "evidence": [
-        "The latest checked-in full verification summary is failed.",
-        "Attempt 8 records 40.1437 percent Runtime P95 regression and 15.0758 percent baseline drift against unchanged 10 and 15 percent gates."
+        "The final performance run retained the unchanged maximums: Runtime P95 regression 10 percent, baseline median drift 15 percent, and Evidence append P95 20 ms; 1549 records were received.",
+        "The performance boundary used real local A2A -> Runtime -> PostgreSQL/Redis and HTTP Evidence delivery/ACK with deterministic model/Skill fixtures; it is not a production SLO or HA qualification.",
+        "reports/verification/summary.json records dirty=true because verify-full.mjs writes tracked raw logs before sampling git status. The run began after a clean-worktree check; generated evidence was committed in 9ab42ac6e076d007115d640ed4e3a84b0349b8b4.",
+        "All physical side-effect gates remained closed and physicalDeviceWrites=0.",
+        "Exit criterion FULL_VERIFY_PERFORMANCE_PASSED is asserted."
       ]
     },
     {
       "id": "BP-SDAR-007",
-      "status": "ALREADY_FIXED_ON_MAIN",
+      "status": "FIXED",
       "evidence": [
-        "PR 20 is merged into the locked baseline.",
-        "Explicit unauthenticated SMPP credentials and exact allowlisted private HTTP are implemented and tested.",
-        "Current canonical verification passed 6 shared Registry assets and 10 checksum vectors with canonicalByteIdentical=true and smppNativeAuthorityVerified=true; SMPP projection tests passed 3 files/18 tests and SDAR credential-free/private-HTTP tests passed 3 files/34 tests.",
-        "Current deterministic Binding/Catalog/read-only and remote-terminal compatibility passed: SDAR 3 files/54 tests plus 2 files/29 tests, and SMPP 5 files/35 tests.",
-        "Console compatibility passed its 94-operation/29-schema contract check, 8 Task-command mapping tests, 10 BFF tests, and 19 resource/status mapping tests; candidate SDAR production conformance passed 131 operations and 455 RBAC decisions.",
-        "The database-backed controlled SDAR consumer was not collected because TEST_DATABASE_URL is unset, and the available Console live SUT predates this candidate; status is PARTIALLY_VERIFIED / BLOCKED_LIVE_CANDIDATE_SUT_AND_TEST_DATABASE.",
-        "External refs are the observed local origin/main SHAs only because P07 did not fetch: SMPP 340abeeff75cd811b40e1bfd9d5a26f5a62f2c45 and Console e7fa2348f7d574a0e9363bdf33598f33144a909c; physicalDeviceWrites=0."
+        "PR 20 is merged into the locked baseline; explicit unauthenticated SMPP credentials and exact allowlisted private HTTP remain implemented and tested.",
+        "Exact read-only locks: SMPP HEAD 7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb and origin/main 340abeeff75cd811b40e1bfd9d5a26f5a62f2c45 both resolve to tree f611988bf9d6aa8e5cebfacf53cfb235ff2a6ec4; Console HEAD 1a5ea3c279331a8fd83dd117d73d5a7166c668b7 and origin/main e7fa2348f7d574a0e9363bdf33598f33144a909c both resolve to tree c0694842247c48813fff9127fda4744bbd02516c.",
+        "The isolated PostgreSQL-backed controlled SMPP consumer passed 1/1 with Registry import/discovery, tools/list, synchronous result, Task create/cancel/get, and notification; it used the committed local mock adapter and is not external certification.",
+        "The fresh candidate-built production Runtime, Node Control, Console BFF, A2A, and read-only MCP journey passed 98/98 assertions with SDAR HEAD 9ab42ac6e076d007115d640ed4e3a84b0349b8b4, tree 4597d7bd75580ecc6f97e5da2439638c455ce425, and tracked-diff SHA-256 152f2de21e2f53c776b46371457af9491a390e8147dde86b00d5b7bfb1c00dec.",
+        "Pause/resume Task 6c616066-4d41-4243-a4f3-2c79a284a98a proved revisions 10/12/15, successful ManagementOperations, exactly two read-only MCP invocations, and A2A/BFF/Console completed convergence.",
+        "Goal Patch/cancel Task 840e92b6-a3c1-40a4-bc8f-f199fb72d317 proved goalVersion=2 and GOAL_PATCH_INVALIDATED at revision 11, stale expectedRevision=9 rejection with HTTP 412 REVISION_CONFLICT, valid cancellation at revision 13, byte-exact same-key replay, and A2A/BFF/Console canceled convergence.",
+        "Fresh Runtime PostgreSQL inspection found both terminal Tasks with selected Skills and NULL skill_selection_id, zero selection records, zero failed-FK Tasks, and no agent_task_skill_selection_fk or SKILL_USAGE_SELECTION_ID_REQUIRED failure.",
+        "Canonical temporary evidence D:/Code/test/.codex-console-live/logs/p07-candidate-nonterminal.json has SHA-256 7b4f64b3ea46c91b8f759c2d111f58d04cf8355a0e8a83a944a3a14f04ec296c; all Goal-owned services, containers, and ports were cleaned; physicalDeviceWrites=0 and fireCalls=0."
       ]
     }
   ]

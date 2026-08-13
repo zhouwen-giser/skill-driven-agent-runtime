@@ -6008,6 +6008,100 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
   });
 
+  it('requests remote cancellation from a canceled terminal outcome only for frozen task_cancel bindings', async () => {
+    const fixture = await createGoalContinuationInvalidationFixture('terminal-cancel-authority');
+    await pool.query(
+      `UPDATE remote_task_binding SET task_cancellation='unsupported'
+       WHERE binding_id=$1`,
+      [fixture.bindingIds[1]],
+    );
+
+    await new PostgresRuntimeTerminalOutcomeRepository(pool).commitCanceled({
+      outcomeId: 'terminal-outcome-cancellation-authority',
+      taskId: fixture.taskId,
+      goalId: fixture.goalId,
+      goalVersion: 1,
+      controlId: fixture.controlId,
+      summary: 'Operator canceled execution with mixed frozen Provider control authority.',
+      eventId: 'terminal-event-cancellation-authority',
+      committedAt: '2026-07-16T09:01:00.000Z',
+    });
+
+    await expect(
+      pool.query<{ binding_id: string; local_state: string; task_cancellation: string }>(
+        `SELECT binding_id,local_state,task_cancellation
+         FROM remote_task_binding WHERE binding_id=ANY($1::text[]) ORDER BY binding_id`,
+        [[...fixture.bindingIds]],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          binding_id: fixture.bindingIds[0],
+          local_state: 'cancel_observing',
+          task_cancellation: 'task_cancel',
+        },
+        {
+          binding_id: fixture.bindingIds[1],
+          local_state: 'polling',
+          task_cancellation: 'unsupported',
+        },
+      ],
+    });
+    await expect(
+      pool.query<{ binding_id: string }>(
+        `SELECT binding_id FROM remote_task_cancel_request
+         WHERE binding_id=ANY($1::text[]) ORDER BY binding_id`,
+        [[...fixture.bindingIds]],
+      ),
+    ).resolves.toMatchObject({ rows: [{ binding_id: fixture.bindingIds[0] }] });
+  });
+
+  it('requests remote cancellation from Goal cancellation only for frozen task_cancel bindings', async () => {
+    const fixture = await createGoalContinuationInvalidationFixture('goal-cancel-authority');
+    await pool.query(
+      `UPDATE remote_task_binding SET task_cancellation='unsupported'
+       WHERE binding_id=$1`,
+      [fixture.bindingIds[1]],
+    );
+
+    await new PostgresGoalCancellationRepository(pool).cancel({
+      cancellationId: 'goal-cancellation-authority',
+      goalId: fixture.goalId,
+      goalVersion: 1,
+      reason: 'Operator canceled a Goal with mixed frozen Provider control authority.',
+      warnings: [],
+      createdAt: '2026-07-16T09:02:00.000Z',
+    });
+
+    await expect(
+      pool.query<{ binding_id: string; local_state: string; task_cancellation: string }>(
+        `SELECT binding_id,local_state,task_cancellation
+         FROM remote_task_binding WHERE binding_id=ANY($1::text[]) ORDER BY binding_id`,
+        [[...fixture.bindingIds]],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          binding_id: fixture.bindingIds[0],
+          local_state: 'cancel_observing',
+          task_cancellation: 'task_cancel',
+        },
+        {
+          binding_id: fixture.bindingIds[1],
+          local_state: 'polling',
+          task_cancellation: 'unsupported',
+        },
+      ],
+    });
+    await expect(
+      pool.query<{ binding_id: string }>(
+        `SELECT binding_id FROM remote_task_cancel_request
+         WHERE binding_id=ANY($1::text[]) ORDER BY binding_id`,
+        [[...fixture.bindingIds]],
+      ),
+    ).resolves.toMatchObject({ rows: [{ binding_id: fixture.bindingIds[0] }] });
+  });
+
   it('rejects a terminal retry when the persisted Capability-attempt lineage has drifted', async () => {
     const fixture = await createTerminalOutcomeFixture('terminal-attempt-replay-drift');
     const proof = await seedTerminalCapabilityProof(fixture, 'terminal-attempt-replay-drift');
@@ -8763,13 +8857,15 @@ async function terminalOutcomeCounts(
 
 interface GoalContinuationInvalidationFixture {
   readonly prefix: string;
+  readonly taskId: string;
   readonly goalId: string;
+  readonly controlId: string;
   readonly snapshotId: string;
   readonly bindingIds: readonly [string, string];
 }
 
 async function createGoalContinuationInvalidationFixture(
-  prefix: 'cancel' | 'patch',
+  prefix: 'cancel' | 'patch' | 'terminal-cancel-authority' | 'goal-cancel-authority',
 ): Promise<GoalContinuationInvalidationFixture> {
   const timestamp = '2026-07-16T09:00:00.000Z';
   const contextId = `continuation-invalidation-context-${prefix}`;
@@ -8928,6 +9024,7 @@ async function createGoalContinuationInvalidationFixture(
           serverDiscoverySnapshotId: `snapshot-${prefix}-${String(sequence)}`,
         },
         taskBehavior: 'server_directed',
+        taskCancellation: 'task_cancel',
         runtimeRevision: '1',
         executionContext: { mode: 'live' },
         authoritySnapshot: {
@@ -9005,7 +9102,7 @@ async function createGoalContinuationInvalidationFixture(
       updatedAt: timestamp,
     }),
   );
-  return { prefix, goalId, snapshotId, bindingIds };
+  return { prefix, taskId, goalId, controlId, snapshotId, bindingIds };
 }
 
 function testOutcome(skillId: string, skillVersion: number) {

@@ -1,7 +1,10 @@
+import { readFile } from 'node:fs/promises';
+
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
+import { RemoteTaskCancellationService } from '../../application/src/index.js';
 import {
   createRemoteTaskBinding,
   createRemoteTaskCancellationRequest,
@@ -20,6 +23,14 @@ const databaseName = 'sdar_v11_continuation_integration';
 const adminConnection =
   process.env['SDAR_TEST_POSTGRES_URL'] ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const databaseConnection = replaceDatabase(adminConnection, databaseName);
+const cancellationAuthorityMigrationUp = new URL(
+  '../../../infra/postgres/migrations/0161_v14_remote_task_cancellation_authority.up.sql',
+  import.meta.url,
+);
+const cancellationAuthorityMigrationDown = new URL(
+  '../../../infra/postgres/migrations/0161_v14_remote_task_cancellation_authority.down.sql',
+  import.meta.url,
+);
 let pool: Pool;
 
 function replaceDatabase(connection: string, database: string): string {
@@ -90,6 +101,7 @@ describe('PostgreSQL remote Task continuation authority', () => {
           serverDiscoverySnapshotId: 'continuation-snapshot-1',
         },
         taskBehavior: 'server_directed',
+        taskCancellation: 'task_cancel',
         runtimeRevision: '1',
         providerSubstate: 'running',
         remoteRevision: 'remote-revision-1',
@@ -118,6 +130,7 @@ describe('PostgreSQL remote Task continuation authority', () => {
     );
     const admittedAuthority = admitted.binding.authoritySnapshot;
     if (admittedAuthority === undefined) throw new Error('TEST_REMOTE_TASK_AUTHORITY_MISSING');
+    expect(admitted.binding.taskCancellation).toBe('task_cancel');
     expect(admittedAuthority).toMatchObject({
       schemaVersion: '1.0',
       runtime: {
@@ -126,11 +139,16 @@ describe('PostgreSQL remote Task continuation authority', () => {
         serverUpdatedAt: 'credential-revision-1',
       },
     });
-    const persistedAuthority = await pool.query<{ authority_snapshot_json: unknown }>(
-      'SELECT authority_snapshot_json FROM remote_task_binding WHERE binding_id=$1',
+    const persistedAuthority = await pool.query<{
+      authority_snapshot_json: unknown;
+      task_cancellation: string | null;
+    }>(
+      `SELECT authority_snapshot_json,task_cancellation
+       FROM remote_task_binding WHERE binding_id=$1`,
       ['continuation-binding'],
     );
     expect(persistedAuthority.rows[0]?.authority_snapshot_json).toEqual(admittedAuthority);
+    expect(persistedAuthority.rows[0]?.task_cancellation).toBe('task_cancel');
     const reorderedAuthority = {
       capturedAt: admittedAuthority.capturedAt,
       runtime: admittedAuthority.runtime,
@@ -410,6 +428,120 @@ describe('PostgreSQL remote Task continuation authority', () => {
       "UPDATE workflow_instance SET status='running' WHERE instance_id='continuation-instance'",
     );
     await pool.query("DELETE FROM skill_call_workflow WHERE call_id='continuation-child-call'");
+  });
+
+  it('migrates a legacy binding to unknown authority without stranding polling or cancellation', async () => {
+    const remoteTasks = new PostgresRemoteTaskRepository(pool);
+    const cancellations = new PostgresRemoteTaskCancellationRepository(pool);
+    const cancellationAuthorityDownSql = await readFile(cancellationAuthorityMigrationDown, 'utf8');
+
+    // A rollback must not erase authority or cancellation evidence produced after 0161.
+    await expect(pool.query(cancellationAuthorityDownSql)).rejects.toThrow('0161 rollback refused');
+    await pool.query(
+      "UPDATE remote_task_binding SET task_cancellation='unknown' WHERE binding_id='continuation-binding'",
+    );
+    await expect(pool.query(cancellationAuthorityDownSql)).rejects.toThrow('0161 rollback refused');
+    await pool.query('DELETE FROM remote_task_cancel_attempt');
+    await pool.query('DELETE FROM remote_task_cancel_request');
+    await pool.query(
+      `UPDATE remote_task_binding
+       SET local_state='polling',protocol_status='working',terminal_at=NULL,
+           next_poll_at='2026-07-16T08:01:30.000Z'
+       WHERE binding_id='continuation-binding'`,
+    );
+    await expect(pool.query(cancellationAuthorityDownSql)).rejects.toThrow('0161 rollback refused');
+    await pool.query(
+      `UPDATE remote_task_binding
+       SET local_state='reentered',terminal_at=NULL,next_poll_at=NULL
+       WHERE binding_id='continuation-binding'`,
+    );
+
+    // Once the post-0161 evidence has been explicitly exported and removed, recreate the
+    // pre-0161 shape. The up migration must backfill it rather than infer later catalog state.
+    await pool.query(cancellationAuthorityDownSql);
+    await expect(
+      pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count
+         FROM information_schema.columns
+         WHERE table_schema='public'
+           AND table_name='remote_task_binding'
+           AND column_name='task_cancellation'`,
+      ),
+    ).resolves.toMatchObject({ rows: [{ count: '0' }] });
+    await pool.query(await readFile(cancellationAuthorityMigrationUp, 'utf8'));
+
+    const migratedColumn = await pool.query<{
+      is_nullable: 'YES' | 'NO';
+      task_cancellation: string;
+    }>(
+      `SELECT columns.is_nullable,binding.task_cancellation
+       FROM information_schema.columns AS columns
+       JOIN remote_task_binding AS binding ON binding.binding_id=$1
+       WHERE columns.table_schema='public'
+         AND columns.table_name='remote_task_binding'
+         AND columns.column_name='task_cancellation'`,
+      ['continuation-binding'],
+    );
+    expect(migratedColumn.rows).toEqual([{ is_nullable: 'NO', task_cancellation: 'unknown' }]);
+
+    const prepared = await pool.query<{ version: string | number }>(
+      `UPDATE remote_task_binding
+       SET protocol_status='working',local_state='polling',next_poll_at=$2,
+           poll_claim_token=NULL,poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+           terminal_at=NULL,invalidated_at=NULL,updated_at=$2,version=version+1
+       WHERE binding_id=$1
+       RETURNING version`,
+      ['continuation-binding', '2026-07-16T08:02:00.000Z'],
+    );
+    const preparedVersion = Number(prepared.rows[0]?.version);
+    expect(Number.isSafeInteger(preparedVersion)).toBe(true);
+    await expect(
+      remoteTasks.claimPoll({
+        bindingId: 'continuation-binding',
+        expectedVersion: preparedVersion,
+        claimToken: 'legacy-authority-poll-claim',
+        claimedAt: '2026-07-16T08:02:00.000Z',
+        expiresAt: '2026-07-16T08:02:30.000Z',
+      }),
+    ).resolves.toMatchObject({
+      claimed: true,
+      binding: { taskCancellation: 'unknown' },
+    });
+
+    let enqueueCount = 0;
+    const cancellationService = new RemoteTaskCancellationService({
+      remoteTasks,
+      cancellations,
+      queue: {
+        enqueue: () => {
+          enqueueCount += 1;
+          return Promise.resolve();
+        },
+        state: () => Promise.resolve('missing'),
+      },
+      clock: { now: () => '2026-07-16T08:02:01.000Z' },
+      ids: {
+        nextRequestId: () => 'legacy-authority-cancel-request',
+        nextAttemptId: () => 'legacy-authority-cancel-attempt',
+        nextClaimToken: () => 'legacy-authority-cancel-claim',
+      },
+    });
+    await expect(
+      cancellationService.request({
+        bindingId: 'continuation-binding',
+        idempotencyKey: 'legacy-authority-cancel',
+        source: 'management',
+        reasonCode: 'OPERATOR_CANCEL',
+        summary: 'Legacy authority must fail closed.',
+      }),
+    ).resolves.toEqual({ disposition: 'unsupported', deliveryScheduled: false });
+    expect(enqueueCount).toBe(0);
+    await expect(
+      pool.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM remote_task_cancel_request WHERE cancel_request_id=$1',
+        ['legacy-authority-cancel-request'],
+      ),
+    ).resolves.toMatchObject({ rows: [{ count: '0' }] });
   });
 });
 

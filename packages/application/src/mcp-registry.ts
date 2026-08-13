@@ -9,6 +9,7 @@ import {
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
+  type McpToolCancellation,
   type RemoteTaskOperationAck,
   type RemoteTaskAuthoritySnapshot,
   type RemoteTaskSnapshot,
@@ -72,6 +73,7 @@ export interface McpCallContext {
         sessionRevision: string;
         protocolContract: McpProtocolContractSnapshot;
         taskBehavior: McpTaskBehavior;
+        taskCancellation: McpToolCancellation;
         authoritySnapshot: RemoteTaskAuthoritySnapshot;
         at: string;
       }>,
@@ -100,6 +102,7 @@ export interface RecordedMcpInvocationOutcome {
   readonly sessionRevision: string;
   readonly protocolContract?: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
+  readonly taskCancellation?: McpToolCancellation;
   readonly authoritySnapshot: RemoteTaskAuthoritySnapshot;
 }
 
@@ -390,6 +393,7 @@ export class McpRegistryService {
         sessionRevision: `${outcome.task.protocolRevision}/${outcome.task.tasksSchemaRevision}`,
         protocolContract: frozenAuthority.protocolContract,
         taskBehavior: frozenAuthority.taskBehavior,
+        taskCancellation: frozenAuthority.taskCancellation,
         authoritySnapshot,
         at: completedAt,
       });
@@ -411,6 +415,7 @@ export class McpRegistryService {
           : String(record.server.toolRevision),
       protocolContract: frozenAuthority.protocolContract,
       taskBehavior: frozenAuthority.taskBehavior,
+      taskCancellation: frozenAuthority.taskCancellation,
       authoritySnapshot,
     };
   }
@@ -466,6 +471,7 @@ export class McpRegistryService {
   ): Readonly<{
     protocolContract: McpProtocolContractSnapshot;
     taskBehavior: McpTaskBehavior;
+    taskCancellation: McpToolCancellation;
     catalogAuthority: Readonly<{
       catalogRevision: string;
       catalogChecksum: string;
@@ -488,6 +494,7 @@ export class McpRegistryService {
         serverDiscoverySnapshotId: snapshot.snapshotId,
       }),
       taskBehavior: tool.taskExecutionProfile.taskBehavior,
+      taskCancellation: tool.executionSemantics.cancellation,
       catalogAuthority,
     };
   }

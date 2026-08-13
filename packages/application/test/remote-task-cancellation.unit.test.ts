@@ -126,6 +126,28 @@ describe('RemoteTaskCancellationService', () => {
     expect(harness.cancellations.request).toBeUndefined();
     expect(harness.queue.enqueued).toEqual([]);
   });
+
+  it.each(['unsupported', 'cooperative', 'unknown'] as const)(
+    'fails closed before RequestCancel persistence when frozen Provider control is %s',
+    async (taskCancellation) => {
+      const harness = createHarness({ binding: binding({ taskCancellation }) });
+
+      await expect(
+        harness.service.request({
+          bindingId: 'binding-1',
+          idempotencyKey: 'unsupported-cancel',
+          source: 'management',
+          reasonCode: 'OPERATOR_CANCEL',
+          summary: 'Operator requested cancellation.',
+        }),
+      ).resolves.toEqual({ disposition: 'unsupported', deliveryScheduled: false });
+
+      expect(harness.operations).toEqual([]);
+      expect(harness.cancellations.request).toBeUndefined();
+      expect(harness.queue.enqueued).toEqual([]);
+      expect(harness.sender).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('RemoteTaskCancellationWorker', () => {
@@ -217,6 +239,29 @@ describe('RemoteTaskCancellationWorker', () => {
     await expect(reconciler.reconcile()).resolves.toEqual({ examined: 0, scheduled: 0 });
     await expect(harness.worker.process(job)).resolves.toBe('stale');
     expect(harness.sender).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed before transport when an unsupported legacy request reaches the worker', async () => {
+    const harness = createHarness();
+    await requestCancellation(harness);
+    harness.remoteTasks.binding = {
+      ...harness.remoteTasks.binding,
+      taskCancellation: 'unsupported',
+    };
+
+    await expect(harness.worker.process(firstJob(harness.queue))).resolves.toBe('unsupported');
+
+    expect(harness.sender).not.toHaveBeenCalled();
+    expect(harness.cancellations.request).toMatchObject({
+      deliveryStatus: 'uncertain',
+      lastSafeErrorCode: 'MCP_TASK_CANCEL_UNSUPPORTED',
+    });
+    expect(harness.cancellations.attempts).toEqual([
+      expect.objectContaining({
+        status: 'provider_protocol',
+        errorCode: 'MCP_TASK_CANCEL_UNSUPPORTED',
+      }),
+    ]);
   });
 });
 
@@ -538,6 +583,7 @@ function binding(overrides: Partial<RemoteTaskBinding> = {}): RemoteTaskBinding 
         serverDiscoverySnapshotId: 'snapshot-1',
       },
       taskBehavior: 'server_directed',
+      taskCancellation: 'task_cancel',
       runtimeRevision: '1',
       executionContext: { mode: 'live' },
       authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-1'),

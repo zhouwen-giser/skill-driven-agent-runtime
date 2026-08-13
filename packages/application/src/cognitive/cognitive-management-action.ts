@@ -69,6 +69,7 @@ export interface CognitiveManagementActionLeaseGuard {
   ): Promise<void>;
   executionPhase(): CognitiveManagementActionLease['executionPhase'];
   providerDispatchIdentity(): Readonly<{ dispatchId: string; dispatchHash: string }> | undefined;
+  leaseIdentity(): Readonly<{ actionId: string; attempt: number; token: string }>;
   readonly signal: AbortSignal;
 }
 
@@ -235,6 +236,13 @@ export class CognitiveManagementActionGate {
         return result;
       } catch (error: unknown) {
         if (isLeaseLost(error)) throw error;
+        if (stableErrorCode(error) === 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING') {
+          await lease.guard.assertCurrent();
+          // The Runtime authority has durable evidence that must be reconciled
+          // under this same Cognitive action. Preserve both the non-terminal
+          // action and the stable retryable Runtime error across HTTP replay.
+          throw error;
+        }
         if (lease.current().executionPhase === 'provider_dispatch') {
           await lease.guard.assertCurrent();
           throw new CognitiveManagementActionError(
@@ -319,6 +327,12 @@ export class CognitiveManagementActionGate {
               dispatchId: current.providerDispatchId,
               dispatchHash: current.providerDispatchHash,
             }),
+      leaseIdentity: () =>
+        Object.freeze({
+          actionId: current.actionId,
+          attempt: current.attempt,
+          token: current.token,
+        }),
       enterProviderDispatch: async (
         input: Readonly<{ dispatchId: string; dispatchHash: string }>,
       ) => {

@@ -445,7 +445,7 @@ describe('management HTTP API contract', () => {
       });
 
     const uncertain = await request();
-    expect(uncertain.status).toBe(409);
+    expect(uncertain.status).toBe(503);
     await expect(uncertain.json()).resolves.toMatchObject({
       error: { code: 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING' },
     });
@@ -766,6 +766,41 @@ describe('management HTTP API contract', () => {
         bearerToken: serviceToken,
         skills: {} as RuntimeSkillGovernanceService,
         actorId: 'node-control-service',
+        taskRevisionAuthority: {
+          async executeAtCurrentRevision<T>(
+            _taskId: string,
+            _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+            operation: () => Promise<T>,
+          ) {
+            return {
+              disposition: 'applied' as const,
+              priorRevision: 0,
+              claimedRevision: 1,
+              result: await operation(),
+            };
+          },
+          async executeAtRevision<T>(
+            _taskId: string,
+            _expectedRevision: number,
+            _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+            operation: () => Promise<T>,
+          ) {
+            return {
+              disposition: 'applied' as const,
+              priorRevision: 0,
+              claimedRevision: 1,
+              result: await operation(),
+            };
+          },
+          reconcile<T>(
+            _taskId: string,
+            _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+            _lease: Readonly<{ actionId: string; attempt: number; token: string }>,
+            recoveredResult: T,
+          ) {
+            return Promise.resolve({ disposition: 'applied' as const, result: recoveredResult });
+          },
+        },
       },
     });
 
@@ -822,6 +857,151 @@ describe('management HTTP API contract', () => {
     });
     expect(cancel).toHaveBeenCalledOnce();
     expect(cancel).toHaveBeenCalledWith('task-cancel');
+  });
+
+  it('rejects stale revisions before all four Runtime Task mutations and preserves exact replay', async () => {
+    const serviceToken = 'runtime-task-revision-service-token-000000000000';
+    const configured = operations();
+    const executeAtRevision = vi.fn((taskId: string, expectedRevision: number) => {
+      void taskId;
+      void expectedRevision;
+    });
+    const taskRevisionAuthority = {
+      async executeAtCurrentRevision<T>(
+        taskId: string,
+        _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+        operation: () => Promise<T>,
+      ) {
+        executeAtRevision(taskId, 0);
+        return {
+          disposition: 'applied' as const,
+          priorRevision: 0,
+          claimedRevision: 1,
+          result: await operation(),
+        };
+      },
+      async executeAtRevision<T>(
+        taskId: string,
+        expectedRevision: number,
+        _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+        operation: () => Promise<T>,
+      ) {
+        executeAtRevision(taskId, expectedRevision);
+        return expectedRevision === 7
+          ? ({
+              disposition: 'applied' as const,
+              priorRevision: 7,
+              claimedRevision: 8,
+              result: await operation(),
+            } as const)
+          : ({ disposition: 'conflict', currentRevision: 7 } as const);
+      },
+      reconcile<T>(
+        _taskId: string,
+        _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+        _lease: Readonly<{ actionId: string; attempt: number; token: string }>,
+        recoveredResult: T,
+      ) {
+        return Promise.resolve({ disposition: 'applied' as const, result: recoveredResult });
+      },
+    };
+    const followUp = vi.fn<ManagementOperations['tasks']['followUp']>((command) =>
+      Promise.resolve(runtimeTask(command.taskId, command.action)),
+    );
+    const cancel = vi.fn<ManagementOperations['tasks']['cancel']>((taskId) =>
+      Promise.resolve(runtimeTask(taskId, 'cancel')),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: { ...configured.tasks, followUp, cancel },
+      },
+      cognitiveManagementActions: new CognitiveManagementActionGate({
+        repository: new InMemoryCognitiveManagementActionRepository(),
+        clock: { now: () => '2026-08-13T00:00:01.000Z' },
+      }),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        taskRevisionAuthority,
+      },
+    });
+
+    const commands = [
+      { suffix: 'pause', taskId: 'task-stale-pause' },
+      { suffix: 'resume', taskId: 'task-stale-resume' },
+      { suffix: 'cancel', taskId: 'task-stale-cancel' },
+      { suffix: 'goal-patches', taskId: 'task-stale-goal-patch' },
+    ] as const;
+    for (const command of commands) {
+      const stale = await runtimeTaskCommandRequest(
+        endpoint.baseUrl,
+        serviceToken,
+        command.taskId,
+        command.suffix,
+        `${command.taskId}-stale-key`,
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 6 },
+      );
+      expect(stale.status).toBe(412);
+      expect(stale.headers.get('content-type')).toContain('application/problem+json');
+      await expect(stale.json()).resolves.toMatchObject({
+        code: 'REVISION_CONFLICT',
+        status: 412,
+      });
+      const staleReplay = await runtimeTaskCommandRequest(
+        endpoint.baseUrl,
+        serviceToken,
+        command.taskId,
+        command.suffix,
+        `${command.taskId}-stale-key`,
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 6 },
+      );
+      expect(staleReplay.status).toBe(412);
+      await expect(staleReplay.json()).resolves.toMatchObject({
+        code: 'REVISION_CONFLICT',
+        status: 412,
+      });
+
+      const exact = await runtimeTaskCommandRequest(
+        endpoint.baseUrl,
+        serviceToken,
+        command.taskId,
+        command.suffix,
+        `${command.taskId}-exact-key`,
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 7 },
+      );
+      expect(exact.status).toBe(202);
+    }
+    expect(followUp).toHaveBeenCalledTimes(3);
+    expect(cancel).toHaveBeenCalledTimes(1);
+
+    const replayRequest = () =>
+      runtimeTaskCommandRequest(
+        endpoint?.baseUrl ?? '',
+        serviceToken,
+        'task-stale-pause',
+        'pause',
+        'task-stale-pause-exact-key',
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 7 },
+      );
+    const replay = await replayRequest();
+    expect(replay.status).toBe(202);
+    expect(followUp).toHaveBeenCalledTimes(3);
+
+    const conflict = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-stale-pause',
+      'pause',
+      'task-stale-pause-exact-key',
+      { reason: 'Apply only to the exact Task revision.', expectedRevision: 8 },
+    );
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({
+      code: 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT',
+    });
+    expect(followUp).toHaveBeenCalledTimes(3);
+    expect(executeAtRevision).toHaveBeenCalledTimes(8);
   });
 
   it('exposes authenticated Runtime identity routes and fails closed without catalog authority', async () => {
@@ -966,6 +1146,7 @@ describe('management HTTP API contract', () => {
       runtimeControl: {
         bearerToken: serviceToken,
         skills: {} as RuntimeSkillGovernanceService,
+        taskRevisionAuthority: passThroughTaskRevisionAuthority(),
       },
     });
 
@@ -1079,6 +1260,7 @@ describe('management HTTP API contract', () => {
       runtimeControl: {
         bearerToken: serviceToken,
         skills: {} as RuntimeSkillGovernanceService,
+        taskRevisionAuthority: passThroughTaskRevisionAuthority(),
       },
     });
     endpoint = await startManagementHttpEndpoint(endpointOptions());
@@ -1152,17 +1334,17 @@ describe('management HTTP API contract', () => {
       );
 
     const recovered = await request();
-    expect(recovered.status).toBe(409);
+    expect(recovered.status).toBe(503);
     await expect(recovered.json()).resolves.toMatchObject({
-      code: 'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE',
-      status: 409,
+      code: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+      status: 503,
     });
     expect(followUp).not.toHaveBeenCalled();
 
     const stableFailure = await request();
     expect(stableFailure.status).toBe(409);
     await expect(stableFailure.json()).resolves.toMatchObject({
-      code: 'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE',
+      code: 'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS',
       status: 409,
     });
     expect(followUp).not.toHaveBeenCalled();
@@ -1896,6 +2078,7 @@ describe('management HTTP API contract', () => {
         serverDiscoverySnapshotId: 'snapshot-1',
       },
       taskBehavior: 'server_directed',
+      taskCancellation: 'task_cancel',
       runtimeRevision: '1',
       providerSubstate: 'running',
       requestedTiming: {
@@ -2071,7 +2254,7 @@ describe('management HTTP API contract', () => {
       correlationRoot: { taskId: 'task-1', skillId: 'skill.patrol' },
       items: [
         {
-          binding: { remoteTaskId: 'provider-task-1' },
+          binding: { remoteTaskId: 'provider-task-1', taskCancellation: 'task_cancel' },
           capability: { status: 'registered' },
           protocol: {
             runtimeRevision: '9',
@@ -5290,4 +5473,53 @@ function actionLease(
     expiresAt: '2099-01-01T00:00:00.000Z',
     executionPhase,
   });
+}
+
+function passThroughTaskRevisionAuthority() {
+  return {
+    async executeAtCurrentRevision<T>(
+      _taskId: string,
+      _identity: Readonly<{
+        operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+        idempotencyKey: string;
+        lease: Readonly<{ actionId: string; attempt: number; token: string }>;
+      }>,
+      operation: () => Promise<T>,
+    ) {
+      return {
+        disposition: 'applied' as const,
+        priorRevision: 0,
+        claimedRevision: 1,
+        result: await operation(),
+      };
+    },
+    async executeAtRevision<T>(
+      _taskId: string,
+      expectedRevision: number,
+      _identity: Readonly<{
+        operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+        idempotencyKey: string;
+        lease: Readonly<{ actionId: string; attempt: number; token: string }>;
+      }>,
+      operation: () => Promise<T>,
+    ) {
+      return {
+        disposition: 'applied' as const,
+        priorRevision: expectedRevision,
+        claimedRevision: expectedRevision + 1,
+        result: await operation(),
+      };
+    },
+    reconcile<T>(
+      _taskId: string,
+      _identity: Readonly<{
+        operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+        idempotencyKey: string;
+      }>,
+      _lease: Readonly<{ actionId: string; attempt: number; token: string }>,
+      result: T,
+    ) {
+      return Promise.resolve({ disposition: 'applied' as const, result });
+    },
+  };
 }

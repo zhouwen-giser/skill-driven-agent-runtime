@@ -393,6 +393,63 @@ export class PostgresNodeControlFoundationRepository implements NodeControlFound
     }
   }
 
+  async markGovernanceOperationReconciliationPending(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    assertRuntimeReconciliationPendingOperation(operation);
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentResult = await client.query<OperationRow>(
+        `${operationSelect} WHERE operation_id=$1 FOR UPDATE`,
+        [operation.operationId],
+      );
+      const current = currentResult.rows[0];
+      if (current === undefined) {
+        throw Object.assign(new Error('Governance operation intent was not persisted.'), {
+          code: 'RUNTIME_GOVERNANCE_INTENT_NOT_FOUND',
+          status: 409,
+        });
+      }
+      assertGovernanceOperationIdentity(current, operation);
+      if (['succeeded', 'failed', 'canceled'].includes(current.status)) {
+        await client.query('COMMIT');
+        return mapOperation(current);
+      }
+      if (current.status !== 'running') {
+        throw Object.assign(
+          new Error('Only a running Governance operation can await Runtime reconciliation.'),
+          { code: 'RUNTIME_GOVERNANCE_RECONCILIATION_STATE_CONFLICT', status: 409 },
+        );
+      }
+      assertCompatibleReconciliationMarker(current, operation);
+      const pending = await client.query<OperationRow>(
+        `UPDATE sdar_control.management_operation
+            SET result=$2::jsonb,error_code=$3
+          WHERE operation_id=$1 AND status='running' AND completed_at IS NULL
+          RETURNING operation_id,operation_type,target_type,target_id,target_version,
+            target_revision::text,status,idempotency_key_hash::text,input_hash::text,
+            actor_id,reason,result,error_code,created_at,started_at,completed_at`,
+        [operation.operationId, JSON.stringify(operation.result), operation.errorCode],
+      );
+      const row = pending.rows[0];
+      if (row === undefined)
+        throw Object.assign(new Error('Governance operation reconciliation state changed.'), {
+          code: 'RUNTIME_GOVERNANCE_RECONCILIATION_STATE_CONFLICT',
+          status: 409,
+        });
+      await insertAudit(client, audit);
+      await client.query('COMMIT');
+      return mapOperation(row);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async cancelGovernanceOperation(
     operationId: string,
     audit: ControlAuditEvent,
@@ -774,6 +831,66 @@ function assertGovernanceOperationIdentity(
       code: 'RUNTIME_GOVERNANCE_IDEMPOTENCY_CONFLICT',
       status: 409,
     });
+}
+
+const runtimeReconciliationCodes = new Set([
+  'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS',
+  'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST',
+  'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE',
+]);
+
+function assertRuntimeReconciliationPendingOperation(operation: ManagementOperation): void {
+  const marker = runtimeReconciliationMarker(operation.result);
+  if (
+    operation.status !== 'running' ||
+    operation.completedAt !== undefined ||
+    operation.errorCode === undefined ||
+    !runtimeReconciliationCodes.has(operation.errorCode) ||
+    marker === undefined
+  )
+    throw Object.assign(
+      new Error('Governance operation requires a bounded Runtime reconciliation marker.'),
+      { code: 'RUNTIME_GOVERNANCE_RECONCILIATION_MARKER_INVALID', status: 409 },
+    );
+}
+
+function assertCompatibleReconciliationMarker(
+  current: OperationRow,
+  expected: ManagementOperation,
+): void {
+  if (current.result === null && current.error_code === null) return;
+  const currentMarker = runtimeReconciliationMarker(current.result);
+  const expectedMarker = runtimeReconciliationMarker(expected.result);
+  if (
+    currentMarker === undefined ||
+    expectedMarker === undefined ||
+    current.error_code !== expected.errorCode ||
+    currentMarker.failureStatus !== expectedMarker.failureStatus
+  )
+    throw Object.assign(new Error('Governance operation reconciliation marker conflicts.'), {
+      code: 'RUNTIME_GOVERNANCE_RECONCILIATION_STATE_CONFLICT',
+      status: 409,
+    });
+}
+
+function runtimeReconciliationMarker(
+  value: unknown,
+): Readonly<{ failureStatus: number }> | undefined {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('runtimeReconciliationPending' in value) ||
+    value.runtimeReconciliationPending !== true ||
+    !('failureStatus' in value) ||
+    typeof value.failureStatus !== 'number' ||
+    !Number.isInteger(value.failureStatus) ||
+    value.failureStatus < 400 ||
+    value.failureStatus > 599
+  )
+    return undefined;
+  return Object.freeze({ failureStatus: value.failureStatus });
 }
 
 function cancellationReceipt(value: unknown):

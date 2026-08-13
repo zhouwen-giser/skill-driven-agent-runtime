@@ -903,7 +903,9 @@ export class PlanPreparationProcessor {
     task = bindTaskSkill(task, {
       skillId: selection.skillId,
       skillVersion: selection.version,
-      selectionId: dispatch.selectionRecordId ?? dispatch.attempt.attemptId,
+      ...(dispatch.selectionRecordId === undefined
+        ? {}
+        : { selectionId: dispatch.selectionRecordId }),
       userGoalPlanId,
       skillGoalId: dispatch.attempt.skillGoalId,
       skillAttemptId: dispatch.attempt.attemptId,

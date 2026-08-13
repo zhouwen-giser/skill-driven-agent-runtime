@@ -44,6 +44,10 @@ export interface NodeControlTaskControlOperationRepository {
     operation: ManagementOperation,
     audit: ControlAuditEvent,
   ): Promise<ManagementOperation>;
+  markGovernanceOperationReconciliationPending(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation>;
   completeGovernanceOperation(
     operation: ManagementOperation,
     audit: ControlAuditEvent,
@@ -75,7 +79,8 @@ export class NodeControlTaskControlService {
   ): Promise<ManagementOperation> {
     assertTaskControlPrincipal(principal);
     const operationType = `task.${action}`;
-    const target = Object.freeze({ type: 'task', id: requiredIdentifier(taskId) });
+    const normalizedTaskId = requiredIdentifier(taskId);
+    const target = Object.freeze({ type: 'task', id: normalizedTaskId });
     const idempotencyKeyHash = sha256(command.idempotencyKey);
     const inputHash = sha256Json({
       operationType,
@@ -98,8 +103,8 @@ export class NodeControlTaskControlService {
           'The idempotency key was already used for a different Task command.',
           409,
         );
-      if (isTerminalOperation(replay)) return replay;
-      return this.#startDispatchAndComplete(replay, action, taskId, command);
+      if (isTerminalOperation(replay)) return terminalTaskControlReplay(replay);
+      return this.#startDispatchAndComplete(replay, action, normalizedTaskId, command);
     }
 
     const occurredAt = this.#clock.now();
@@ -125,8 +130,8 @@ export class NodeControlTaskControlService {
         'The idempotency key was concurrently used for a different Task command.',
         409,
       );
-    if (isTerminalOperation(persisted)) return persisted;
-    return this.#startDispatchAndComplete(persisted, action, taskId, command);
+    if (isTerminalOperation(persisted)) return terminalTaskControlReplay(persisted);
+    return this.#startDispatchAndComplete(persisted, action, normalizedTaskId, command);
   }
 
   async #startDispatchAndComplete(
@@ -135,19 +140,22 @@ export class NodeControlTaskControlService {
     taskId: string,
     command: RuntimeTaskControlCommand,
   ): Promise<ManagementOperation> {
-    if (accepted.status === 'running')
+    if (accepted.status === 'running') {
+      if (isRuntimeReconciliationPending(accepted))
+        return this.#invokeAndComplete(accepted, action, taskId, command);
       throw new NodeControlTaskControlError(
         'TASK_CONTROL_DISPATCH_UNCERTAIN',
         'Task control dispatch already started; replay is fail-closed to prevent a duplicate Runtime side effect.',
         409,
       );
+    }
     if (accepted.status !== 'accepted') return accepted;
     const running = await this.#operations.startGovernanceOperation(
       accepted,
       auditFor(accepted, 'DISPATCH_STARTED', this.#clock.now()),
     );
     if (running.status === 'canceled') return running;
-    if (isTerminalOperation(running)) return running;
+    if (isTerminalOperation(running)) return terminalTaskControlReplay(running);
     if (running.status !== 'running')
       throw new NodeControlTaskControlError(
         'TASK_CONTROL_DISPATCH_NOT_STARTED',
@@ -163,31 +171,68 @@ export class NodeControlTaskControlService {
     taskId: string,
     command: RuntimeTaskControlCommand,
   ): Promise<ManagementOperation> {
+    let runtime: ManagementOperation;
     try {
-      const runtime = await this.#runtime.execute(action, taskId, command);
-      const terminalStatus =
-        runtime.status === 'failed'
-          ? ('failed' as const)
-          : runtime.status === 'canceled'
-            ? ('canceled' as const)
-            : ('succeeded' as const);
-      const completed = transitionManagementOperation(
+      runtime = await this.#runtime.execute(action, taskId, command);
+    } catch (error) {
+      const errorCode = taskControlErrorCode(error);
+      if (isRuntimeReconciliationPendingCode(errorCode)) {
+        return this.#persistReconciliationPending(
+          running,
+          errorCode,
+          reconciliationFailureStatus(errorCode),
+        );
+      }
+      if (!isDefinitiveRuntimeRejection(error))
+        return this.#persistReconciliationPending(
+          running,
+          'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+          503,
+        );
+      return this.#persistTerminalRuntimeFailure(
         running,
-        terminalStatus,
-        this.#clock.now(),
-        runtime.status === 'failed'
-          ? {
-              errorCode: runtime.errorCode ?? 'RUNTIME_TASK_CONTROL_FAILED',
-              result: { runtimeOperationId: runtime.operationId },
-            }
-          : {
-              result: {
-                runtimeOperationId: runtime.operationId,
-                runtimeOperation: runtime,
-              },
-            },
+        errorCode,
+        taskControlFailureStatus(error),
       );
-      return await this.#operations.completeGovernanceOperation(
+    }
+
+    if (runtime.status === 'accepted' || runtime.status === 'running')
+      return this.#persistReconciliationPending(
+        running,
+        'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+        503,
+      );
+
+    if (!matchesRuntimeTaskControlReceipt(runtime, action, taskId, command.idempotencyKey))
+      return this.#persistReconciliationPending(
+        running,
+        'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+        503,
+      );
+
+    const completionBase = withoutRuntimeReconciliationMarker(running);
+    const completed = transitionManagementOperation(
+      completionBase,
+      runtime.status,
+      this.#clock.now(),
+      runtime.status === 'failed'
+        ? {
+            errorCode: runtime.errorCode ?? 'RUNTIME_TASK_CONTROL_FAILED',
+            result: {
+              runtimeOperationId: runtime.operationId,
+              failureStatus: persistedTaskControlFailureStatus(runtime.result) ?? 503,
+            },
+          }
+        : {
+            result: {
+              runtimeOperationId: runtime.operationId,
+              runtimeOperation: runtime,
+            },
+          },
+    );
+    let persisted: ManagementOperation;
+    try {
+      persisted = await this.#operations.completeGovernanceOperation(
         completed,
         auditFor(
           completed,
@@ -198,26 +243,65 @@ export class NodeControlTaskControlService {
               : 'FAILED',
         ),
       );
-    } catch (error) {
-      const failed = transitionManagementOperation(running, 'failed', this.#clock.now(), {
-        errorCode: taskControlErrorCode(error),
-      });
-      await this.#operations.completeGovernanceOperation(failed, auditFor(failed, 'FAILED'));
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'status' in error &&
-        typeof error.status === 'number' &&
-        'code' in error &&
-        typeof error.code === 'string'
-      )
-        throw error;
-      throw new NodeControlTaskControlError(
-        taskControlErrorCode(error),
-        'The Runtime Task authority rejected or could not complete the command.',
+    } catch {
+      return this.#persistReconciliationPending(
+        running,
+        'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
         503,
       );
     }
+    return terminalTaskControlReplay(persisted);
+  }
+
+  async #persistTerminalRuntimeFailure(
+    running: ManagementOperation,
+    errorCode: string,
+    failureStatus = 503,
+  ): Promise<ManagementOperation> {
+    const completionBase = withoutRuntimeReconciliationMarker(running);
+    const failed = transitionManagementOperation(completionBase, 'failed', this.#clock.now(), {
+      errorCode,
+      result: { failureStatus },
+    });
+    let persistedFailure: ManagementOperation;
+    try {
+      persistedFailure = await this.#operations.completeGovernanceOperation(
+        failed,
+        auditFor(failed, 'FAILED'),
+      );
+    } catch {
+      return this.#persistReconciliationPending(
+        running,
+        'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+        503,
+      );
+    }
+    return terminalTaskControlReplay(persistedFailure);
+  }
+
+  async #persistReconciliationPending(
+    running: ManagementOperation,
+    errorCode: RuntimeReconciliationCode,
+    failureStatus: 409 | 503,
+  ): Promise<ManagementOperation> {
+    if (isRuntimeReconciliationPending(running)) throw persistedTaskControlError(running);
+    const pending = Object.freeze({
+      ...running,
+      result: Object.freeze({ runtimeReconciliationPending: true, failureStatus }),
+      errorCode,
+    });
+    const persistedPending = await this.#operations.markGovernanceOperationReconciliationPending(
+      pending,
+      auditFor(pending, 'RECONCILIATION_PENDING', this.#clock.now()),
+    );
+    if (isTerminalOperation(persistedPending)) return terminalTaskControlReplay(persistedPending);
+    if (!isRuntimeReconciliationPending(persistedPending))
+      throw new NodeControlTaskControlError(
+        'TASK_CONTROL_DISPATCH_UNCERTAIN',
+        'Task control dispatch already started without a valid Runtime reconciliation marker.',
+        409,
+      );
+    throw persistedTaskControlError(persistedPending);
   }
 }
 
@@ -261,6 +345,117 @@ function auditFor(
 
 function isTerminalOperation(operation: ManagementOperation): boolean {
   return ['succeeded', 'failed', 'canceled'].includes(operation.status);
+}
+
+function terminalTaskControlReplay(operation: ManagementOperation): ManagementOperation {
+  if (operation.status === 'failed') throw persistedTaskControlError(operation);
+  return operation;
+}
+
+function persistedTaskControlError(operation: ManagementOperation): NodeControlTaskControlError {
+  return new NodeControlTaskControlError(
+    operation.errorCode ?? 'RUNTIME_TASK_CONTROL_FAILED',
+    'The Runtime Task authority rejected or could not complete the command.',
+    persistedTaskControlFailureStatus(operation.result) ?? 503,
+  );
+}
+
+function isRuntimeReconciliationPending(operation: ManagementOperation): boolean {
+  return (
+    isRuntimeReconciliationPendingCode(operation.errorCode) &&
+    runtimeReconciliationMarkerStatus(operation.result) !== undefined
+  );
+}
+
+function runtimeReconciliationMarkerStatus(result: unknown): number | undefined {
+  if (
+    typeof result !== 'object' ||
+    result === null ||
+    !('runtimeReconciliationPending' in result) ||
+    result.runtimeReconciliationPending !== true
+  )
+    return undefined;
+  return persistedTaskControlFailureStatus(result);
+}
+
+function isRuntimeReconciliationPendingCode(code: unknown): code is RuntimeReconciliationCode {
+  return (
+    typeof code === 'string' &&
+    runtimeReconciliationCodes.includes(code as RuntimeReconciliationCode)
+  );
+}
+
+type RuntimeReconciliationCode = (typeof runtimeReconciliationCodes)[number];
+
+const runtimeReconciliationCodes = Object.freeze([
+  'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS',
+  'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST',
+  'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE',
+] as const);
+
+function reconciliationFailureStatus(code: RuntimeReconciliationCode): 409 | 503 {
+  return code === 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING' ||
+    code === 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST'
+    ? 503
+    : 409;
+}
+
+function withoutRuntimeReconciliationMarker(operation: ManagementOperation): ManagementOperation {
+  if (!isRuntimeReconciliationPending(operation)) return operation;
+  const base = { ...operation };
+  delete base.result;
+  delete base.errorCode;
+  return Object.freeze(base);
+}
+
+function persistedTaskControlFailureStatus(result: unknown): number | undefined {
+  if (typeof result !== 'object' || result === null || !('failureStatus' in result))
+    return undefined;
+  const status = result.failureStatus;
+  return typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599
+    ? status
+    : undefined;
+}
+
+function taskControlFailureStatus(error: unknown): number | undefined {
+  if (
+    typeof error !== 'object' ||
+    error === null ||
+    !('status' in error) ||
+    typeof error.status !== 'number'
+  )
+    return undefined;
+  return Number.isInteger(error.status) && error.status >= 400 && error.status <= 599
+    ? error.status
+    : undefined;
+}
+
+function isDefinitiveRuntimeRejection(error: unknown): boolean {
+  const status = taskControlFailureStatus(error);
+  const code = taskControlErrorCode(error);
+  return (
+    status !== undefined &&
+    status >= 400 &&
+    status < 500 &&
+    ![408, 425, 429].includes(status) &&
+    !code.startsWith('RUNTIME_TASK_CONTROL_HTTP_')
+  );
+}
+
+function matchesRuntimeTaskControlReceipt(
+  operation: ManagementOperation,
+  action: NodeControlTaskAction,
+  taskId: string,
+  idempotencyKey: string,
+): boolean {
+  return (
+    operation.operationType === `task.${action}` &&
+    operation.target.type === 'task' &&
+    operation.target.id === taskId &&
+    operation.idempotencyKeyHash === sha256(idempotencyKey)
+  );
 }
 
 function taskControlErrorCode(error: unknown): string {

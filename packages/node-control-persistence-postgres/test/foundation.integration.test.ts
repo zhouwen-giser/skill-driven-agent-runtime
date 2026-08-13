@@ -508,7 +508,7 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
                 target,
                 actorId: 'runtime-task-authority',
                 reason,
-                idempotencyKeyHash: '8'.repeat(64),
+                idempotencyKeyHash,
                 inputHash: '9'.repeat(64),
               },
               '2026-08-13T01:00:01.000Z',
@@ -659,6 +659,72 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     await expect(
       repository.findManagementOperation(fixture.accepted.operationId),
     ).resolves.toMatchObject({ status: 'running' });
+  });
+
+  it('durably resumes only an explicitly marked Runtime reconciliation after restart', async () => {
+    const fixture = taskControlFixture('runtime-reconciliation-restart', 'goal_patch');
+    const accepted = await repository.recordGovernanceOperation(
+      fixture.accepted,
+      operationAudit(fixture.accepted, 'ACCEPTED', fixture.accepted.createdAt),
+    );
+    const running = await repository.startGovernanceOperation(
+      accepted,
+      operationAudit(accepted, 'DISPATCH_STARTED', '2026-08-13T03:15:01.000Z'),
+    );
+    const pending = Object.freeze({
+      ...running,
+      result: Object.freeze({ runtimeReconciliationPending: true, failureStatus: 503 }),
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+    await expect(
+      repository.markGovernanceOperationReconciliationPending(
+        pending,
+        operationAudit(pending, 'RECONCILIATION_PENDING', '2026-08-13T03:15:02.000Z'),
+      ),
+    ).resolves.toMatchObject({
+      status: 'running',
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+      result: { runtimeReconciliationPending: true, failureStatus: 503 },
+    });
+    await expect(
+      repository.findManagementOperation(fixture.accepted.operationId),
+    ).resolves.not.toHaveProperty('completedAt');
+
+    let runtimeCalls = 0;
+    const restarted = new NodeControlTaskControlService({
+      runtime: {
+        execute: () => {
+          runtimeCalls += 1;
+          return Promise.resolve(runtimeOperationForIntegration(fixture));
+        },
+      },
+      operations: new PostgresNodeControlFoundationRepository(pool),
+      clock: { now: () => '2026-08-13T03:15:03.000Z' },
+    });
+    await expect(
+      restarted.execute(fixture.action, fixture.taskId, fixture.command, fixture.principal),
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      result: { runtimeOperationId: `runtime-${fixture.accepted.operationId}` },
+    });
+    await expect(
+      restarted.execute(fixture.action, fixture.taskId, fixture.command, fixture.principal),
+    ).resolves.toMatchObject({ status: 'succeeded' });
+    expect(runtimeCalls).toBe(1);
+    await expect(
+      repository.findManagementOperation(fixture.accepted.operationId),
+    ).resolves.not.toHaveProperty('errorCode');
+    await expect(
+      repository.findManagementOperation(fixture.accepted.operationId),
+    ).resolves.not.toHaveProperty('result.runtimeReconciliationPending');
+    const audits = await pool.query<{ result_code: string }>(
+      `SELECT result_code
+         FROM sdar_control.control_audit_event
+        WHERE aggregate_id=$1
+        ORDER BY created_at,result_code`,
+      [fixture.taskId],
+    );
+    expect(audits.rows.map((row) => row.result_code)).toContain('RECONCILIATION_PENDING');
   });
 
   it('serializes concurrent cancellation and dispatch start with one pre-dispatch winner', async () => {
@@ -1044,7 +1110,7 @@ function runtimeOperationForIntegration(
       target: { type: 'task', id: fixture.taskId },
       actorId: 'sdar-runtime',
       reason: fixture.reason,
-      idempotencyKeyHash: '8'.repeat(64),
+      idempotencyKeyHash: sha256(fixture.command.idempotencyKey),
       inputHash: '9'.repeat(64),
     },
     '2026-08-13T03:30:00.000Z',
