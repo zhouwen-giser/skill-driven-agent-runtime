@@ -1957,37 +1957,77 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
               ? (input as RuntimeAchievedOutcomeInput).capabilityTerminalProof
               : undefined;
           if (mapped.capabilityAttemptId !== undefined) {
-            if (retryCapabilityProof === undefined)
-              throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
-            const retryAuthority = (
-              await client.query<{
-                attempt_id: string;
-                task_id: string;
-                binding_id: string;
-                binding_hash: string;
-                requested_capability_id: string;
-                capability_version: number;
-              }>(
-                `SELECT attempt.attempt_id,attempt.task_id,binding.binding_id,binding.binding_hash,
-                        binding.requested_capability_id,binding.capability_version
-                   FROM task_capability_execution_attempt AS attempt
-                   JOIN task_capability_binding AS binding
-                     ON binding.binding_id=attempt.capability_binding_id
-                    AND binding.task_id=attempt.task_id
-                  WHERE attempt.attempt_id=$1 AND attempt.task_id=$2`,
-                [mapped.capabilityAttemptId, input.taskId],
+            if (kind === 'achieved') {
+              if (retryCapabilityProof === undefined)
+                throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+              const retryAuthority = (
+                await client.query<{
+                  attempt_id: string;
+                  task_id: string;
+                  binding_id: string;
+                  binding_hash: string;
+                  requested_capability_id: string;
+                  capability_version: number;
+                }>(
+                  `SELECT attempt.attempt_id,attempt.task_id,binding.binding_id,binding.binding_hash,
+                          binding.requested_capability_id,binding.capability_version
+                     FROM task_capability_execution_attempt AS attempt
+                     JOIN task_capability_binding AS binding
+                       ON binding.binding_id=attempt.capability_binding_id
+                      AND binding.task_id=attempt.task_id
+                    WHERE attempt.attempt_id=$1 AND attempt.task_id=$2`,
+                  [mapped.capabilityAttemptId, input.taskId],
+                )
+              ).rows[0];
+              if (
+                retryAuthority?.attempt_id !== retryCapabilityProof.attemptId ||
+                retryAuthority.task_id !== retryCapabilityProof.taskId ||
+                retryAuthority.binding_id !== retryCapabilityProof.bindingId ||
+                retryAuthority.binding_hash !== retryCapabilityProof.bindingHash ||
+                retryAuthority.requested_capability_id !==
+                  retryCapabilityProof.requestedCapabilityId ||
+                retryAuthority.capability_version !== retryCapabilityProof.capabilityVersion
               )
-            ).rows[0];
-            if (
-              retryAuthority?.attempt_id !== retryCapabilityProof.attemptId ||
-              retryAuthority.task_id !== retryCapabilityProof.taskId ||
-              retryAuthority.binding_id !== retryCapabilityProof.bindingId ||
-              retryAuthority.binding_hash !== retryCapabilityProof.bindingHash ||
-              retryAuthority.requested_capability_id !==
-                retryCapabilityProof.requestedCapabilityId ||
-              retryAuthority.capability_version !== retryCapabilityProof.capabilityVersion
-            )
-              throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+                throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+            } else {
+              const expectedAttemptStatus = kind === 'canceled' ? 'canceled' : 'failed';
+              const retryAttempt = (
+                await client.query<{
+                  attempt_id: string;
+                  task_id: string;
+                  status: 'failed' | 'canceled';
+                  completed_at: Date | string;
+                }>(
+                  `SELECT attempt_id,task_id,status,completed_at
+                     FROM task_capability_execution_attempt AS attempt
+                    WHERE attempt.attempt_id=$1
+                      AND attempt.task_id=$2
+                      AND attempt.status=$3
+                      AND attempt.attempt_no=(
+                        SELECT MAX(latest.attempt_no)
+                          FROM task_capability_execution_attempt AS latest
+                         WHERE latest.task_id=$2
+                      )`,
+                  [mapped.capabilityAttemptId, input.taskId, expectedAttemptStatus],
+                )
+              ).rows[0];
+              if (
+                retryAttempt?.attempt_id !== mapped.capabilityAttemptId ||
+                retryAttempt.task_id !== input.taskId ||
+                retryAttempt.status !== expectedAttemptStatus ||
+                toIsoString(retryAttempt.completed_at) !== mapped.committedAt
+              )
+                throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
+            }
+          } else if (kind !== 'achieved' && input.taskId !== undefined) {
+            const activeAttempt = await client.query(
+              `SELECT attempt_id
+                 FROM task_capability_execution_attempt
+                WHERE task_id=$1 AND status IN ('prepared','running','waiting')
+                ORDER BY attempt_no DESC LIMIT 1`,
+              [input.taskId],
+            );
+            if (activeAttempt.rowCount !== 0) throw new Error('RUNTIME_TERMINAL_OUTCOME_CONFLICT');
           }
           await client.query('COMMIT');
           return mapped;
@@ -2125,6 +2165,16 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         if (succeededAttempt.rowCount !== 1)
           throw new Error('RUNTIME_TERMINAL_CAPABILITY_PROOF_CONFLICT');
       }
+      const terminalCapabilityAttemptId =
+        capabilityTerminalProof?.attemptId ??
+        (kind === 'achieved' || input.taskId === undefined
+          ? undefined
+          : await closeLatestActiveCapabilityAttempt(
+              client,
+              input.taskId,
+              kind === 'canceled' ? 'canceled' : 'failed',
+              input.committedAt,
+            ));
 
       const authority = input.authority ?? USER_GOAL_PLAN_TERMINAL_AUTHORITY;
       const layeredOutcome = 'layeredOutcome' in input ? input.layeredOutcome : undefined;
@@ -2160,7 +2210,7 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
           roundIndex ?? null,
           finalInstanceId ?? null,
           processed?.resultId ?? null,
-          capabilityTerminalProof?.attemptId ?? null,
+          terminalCapabilityAttemptId ?? null,
           input.summary,
           authority,
           input.committedAt,
@@ -2334,9 +2384,9 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         ...(roundIndex === undefined ? {} : { roundIndex }),
         ...(finalInstanceId === undefined ? {} : { finalInstanceId }),
         ...(processed === undefined ? {} : { resultId: processed.resultId }),
-        ...(capabilityTerminalProof === undefined
+        ...(terminalCapabilityAttemptId === undefined
           ? {}
-          : { capabilityAttemptId: capabilityTerminalProof.attemptId }),
+          : { capabilityAttemptId: terminalCapabilityAttemptId }),
         summary: input.summary,
         authority,
         enhancementWarnings: [],
@@ -2349,6 +2399,31 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
       client.release();
     }
   }
+}
+
+async function closeLatestActiveCapabilityAttempt(
+  client: PoolClient,
+  taskId: string,
+  status: 'failed' | 'canceled',
+  completedAt: string,
+): Promise<string | undefined> {
+  const result = await client.query<{ attempt_id: string }>(
+    `UPDATE task_capability_execution_attempt AS attempt
+        SET status=$2,
+            started_at=COALESCE(attempt.started_at,$3),
+            completed_at=$3
+      WHERE attempt.attempt_id=(
+        SELECT latest.attempt_id
+          FROM task_capability_execution_attempt AS latest
+         WHERE latest.task_id=$1
+         ORDER BY latest.attempt_no DESC
+         LIMIT 1
+      )
+        AND attempt.status IN ('prepared','running','waiting')
+      RETURNING attempt.attempt_id`,
+    [taskId, status, completedAt],
+  );
+  return result.rows[0]?.attempt_id;
 }
 
 async function insertLayeredOutcome(
@@ -2604,10 +2679,9 @@ function matchesTerminalRetry(
     existing.roundIndex === round?.roundIndex &&
     existing.finalInstanceId === finalInstanceId &&
     existing.resultId === processed?.resultId &&
-    existing.capabilityAttemptId ===
-      (kind === 'achieved'
-        ? (input as RuntimeAchievedOutcomeInput).capabilityTerminalProof?.attemptId
-        : undefined) &&
+    (kind !== 'achieved' ||
+      existing.capabilityAttemptId ===
+        (input as RuntimeAchievedOutcomeInput).capabilityTerminalProof?.attemptId) &&
     existing.summary === input.summary
   );
 }

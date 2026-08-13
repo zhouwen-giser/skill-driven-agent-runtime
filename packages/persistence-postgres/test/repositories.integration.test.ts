@@ -5858,23 +5858,42 @@ describe('PostgreSQL protocol-domain repositories', () => {
     ]);
   });
 
-  it('atomically commits unachievable and canceled terminal projections', async () => {
+  it('atomically closes and idempotently replays Capability attempts for unachievable and canceled terminal projections', async () => {
     const unachievable = await createTerminalOutcomeFixture('unachievable');
-    await unachievable.outcomes.commitUnachievable({
+    const supersededUnachievableAttempt = await seedTerminalCapabilityProof(
+      unachievable,
+      'unachievable',
+    );
+    const latestUnachievableAttempt = await new PostgresTaskCapabilityRepository(
+      pool,
+    ).appendAttempt({
+      attemptId: 'capability-attempt-terminal-unachievable-replan',
+      taskId: unachievable.taskId,
+      capabilityBindingId: supersededUnachievableAttempt.bindingId,
+      skillVersionRefs: ['skill:home.living-room.get-state:1'],
+      providerBindingRefs: [],
+      reason: 'replan',
+    });
+    const unachievableInput = {
       outcomeId: `terminal-outcome-${unachievable.taskId}`,
       taskId: unachievable.taskId,
       goalId: unachievable.goalId,
       goalVersion: 1,
       controlId: unachievable.controlId,
-      controlStatus: 'unachievable',
+      controlStatus: 'unachievable' as const,
       round: {
         ...unachievable.achievedInput.round,
-        evaluation: { decision: 'unachievable', summary: 'No valid route remains.' },
+        evaluation: { decision: 'unachievable' as const, summary: 'No valid route remains.' },
       },
       summary: 'No valid route remains.',
       eventId: `event-terminal-${unachievable.taskId}`,
       committedAt: '2026-07-16T00:00:04.000Z',
-    });
+    };
+    const committedUnachievable = await unachievable.outcomes.commitUnachievable(unachievableInput);
+    await expect(unachievable.outcomes.commitUnachievable(unachievableInput)).resolves.toEqual(
+      committedUnachievable,
+    );
+    expect(committedUnachievable.capabilityAttemptId).toBe(latestUnachievableAttempt.attemptId);
     await expect(unachievable.tasks.findById(unachievable.taskId)).resolves.toMatchObject({
       phase: 'failed',
       errorCode: 'GOAL_UNACHIEVABLE',
@@ -5882,8 +5901,37 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(unachievable.goals.findById(unachievable.goalId)).resolves.toMatchObject({
       status: 'unachievable',
     });
+    await expect(
+      pool.query(
+        `SELECT attempt_id,status,started_at,completed_at
+           FROM task_capability_execution_attempt
+          WHERE task_id=$1 ORDER BY attempt_no`,
+        [unachievable.taskId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          attempt_id: supersededUnachievableAttempt.attemptId,
+          status: 'superseded',
+        },
+        {
+          attempt_id: latestUnachievableAttempt.attemptId,
+          status: 'failed',
+          started_at: new Date(unachievableInput.committedAt),
+          completed_at: new Date(unachievableInput.committedAt),
+        },
+      ],
+    });
+    await expect(
+      pool.query('SELECT capability_attempt_id FROM runtime_terminal_outcome WHERE outcome_id=$1', [
+        unachievableInput.outcomeId,
+      ]),
+    ).resolves.toMatchObject({
+      rows: [{ capability_attempt_id: latestUnachievableAttempt.attemptId }],
+    });
 
     const canceled = await createTerminalOutcomeFixture('canceled');
+    const canceledAttempt = await seedTerminalCapabilityProof(canceled, 'canceled');
     const waitingControl = await canceled.controls.find(canceled.controlId);
     if (waitingControl === undefined) throw new Error('TERMINAL_CONTROL_FIXTURE_MISSING');
     await canceled.controls.save({
@@ -5908,7 +5956,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
       controlRoundIndex: 0,
       createdAt: '2026-07-16T00:00:03.500Z',
     });
-    await canceled.outcomes.commitCanceled({
+    const canceledInput = {
       outcomeId: `terminal-outcome-${canceled.taskId}`,
       taskId: canceled.taskId,
       goalId: canceled.goalId,
@@ -5918,7 +5966,12 @@ describe('PostgreSQL protocol-domain repositories', () => {
       summary: 'Operator canceled execution.',
       eventId: `event-terminal-${canceled.taskId}`,
       committedAt: '2026-07-16T00:00:04.000Z',
-    });
+    };
+    const committedCanceled = await canceled.outcomes.commitCanceled(canceledInput);
+    await expect(canceled.outcomes.commitCanceled(canceledInput)).resolves.toEqual(
+      committedCanceled,
+    );
+    expect(committedCanceled.capabilityAttemptId).toBe(canceledAttempt.attemptId);
     await expect(canceled.tasks.findById(canceled.taskId)).resolves.toMatchObject({
       phase: 'canceled',
       errorCode: 'RUNTIME_CANCELED',
@@ -5931,6 +5984,95 @@ describe('PostgreSQL protocol-domain repositories', () => {
     await expect(
       canceledInputs.findRequest(`input-request-${canceled.taskId}`),
     ).resolves.toMatchObject({ status: 'canceled' });
+    await expect(
+      pool.query(
+        `SELECT status,started_at,completed_at
+           FROM task_capability_execution_attempt WHERE attempt_id=$1`,
+        [canceledAttempt.attemptId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'canceled',
+          started_at: new Date(canceledInput.committedAt),
+          completed_at: new Date(canceledInput.committedAt),
+        },
+      ],
+    });
+    await expect(
+      pool.query('SELECT capability_attempt_id FROM runtime_terminal_outcome WHERE outcome_id=$1', [
+        canceledInput.outcomeId,
+      ]),
+    ).resolves.toMatchObject({
+      rows: [{ capability_attempt_id: canceledAttempt.attemptId }],
+    });
+  });
+
+  it('rejects a terminal retry when the persisted Capability-attempt lineage has drifted', async () => {
+    const fixture = await createTerminalOutcomeFixture('terminal-attempt-replay-drift');
+    const proof = await seedTerminalCapabilityProof(fixture, 'terminal-attempt-replay-drift');
+    const input = {
+      outcomeId: `terminal-outcome-${fixture.taskId}`,
+      taskId: fixture.taskId,
+      goalId: fixture.goalId,
+      goalVersion: 1,
+      controlId: fixture.controlId,
+      controlStatus: 'unachievable' as const,
+      round: {
+        ...fixture.achievedInput.round,
+        evaluation: { decision: 'unachievable' as const, summary: 'No route remains.' },
+      },
+      summary: 'No route remains.',
+      eventId: `event-terminal-${fixture.taskId}`,
+      committedAt: '2026-07-16T00:00:04.000Z',
+    };
+    await fixture.outcomes.commitUnachievable(input);
+    await pool.query(
+      `UPDATE task_capability_execution_attempt SET status='canceled' WHERE attempt_id=$1`,
+      [proof.attemptId],
+    );
+
+    await expect(fixture.outcomes.commitUnachievable(input)).rejects.toThrow(
+      'RUNTIME_TERMINAL_OUTCOME_CONFLICT',
+    );
+  });
+
+  it('rolls back the Capability-attempt closure when terminal outcome insertion fails', async () => {
+    const fixture = await createTerminalOutcomeFixture('terminal-attempt-atomic-rollback');
+    const proof = await seedTerminalCapabilityProof(fixture, 'terminal-attempt-atomic-rollback');
+    await installTerminalOutcomeFault('runtime_terminal_outcome', 'BEFORE', 'INSERT');
+    try {
+      await expect(
+        fixture.outcomes.commitUnachievable({
+          outcomeId: `terminal-outcome-${fixture.taskId}`,
+          taskId: fixture.taskId,
+          goalId: fixture.goalId,
+          goalVersion: 1,
+          controlId: fixture.controlId,
+          controlStatus: 'unachievable',
+          round: {
+            ...fixture.achievedInput.round,
+            evaluation: { decision: 'unachievable', summary: 'No route remains.' },
+          },
+          summary: 'No route remains.',
+          eventId: `event-terminal-${fixture.taskId}`,
+          committedAt: '2026-07-16T00:00:04.000Z',
+        }),
+      ).rejects.toThrow('INJECTED_RUNTIME_TERMINAL_FAULT');
+    } finally {
+      await removeTerminalOutcomeFault('runtime_terminal_outcome');
+    }
+    await expect(
+      pool.query(
+        'SELECT status,started_at,completed_at FROM task_capability_execution_attempt WHERE attempt_id=$1',
+        [proof.attemptId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [{ status: 'prepared', started_at: null, completed_at: null }],
+    });
+    await expect(
+      fixture.outcomes.find(`terminal-outcome-${fixture.taskId}`),
+    ).resolves.toBeUndefined();
   });
 
   it.each([
@@ -8904,7 +9046,13 @@ async function expectContinuationInvalidated(
 }
 
 async function installTerminalOutcomeFault(
-  table: 'processed_result' | 'agent_task' | 'goal' | 'workflow_control' | 'runtime_event',
+  table:
+    | 'runtime_terminal_outcome'
+    | 'processed_result'
+    | 'agent_task'
+    | 'goal'
+    | 'workflow_control'
+    | 'runtime_event',
   timing: 'BEFORE' | 'AFTER',
   operation: 'INSERT' | 'UPDATE',
 ): Promise<void> {
@@ -8924,7 +9072,13 @@ async function installTerminalOutcomeFault(
 }
 
 async function removeTerminalOutcomeFault(
-  table: 'processed_result' | 'agent_task' | 'goal' | 'workflow_control' | 'runtime_event',
+  table:
+    | 'runtime_terminal_outcome'
+    | 'processed_result'
+    | 'agent_task'
+    | 'goal'
+    | 'workflow_control'
+    | 'runtime_event',
 ): Promise<void> {
   await pool.query(`DROP TRIGGER IF EXISTS sdar_test_terminal_outcome_fault ON ${table}`);
   await pool.query('DROP FUNCTION IF EXISTS sdar_test_terminal_outcome_fault()');
