@@ -71,8 +71,12 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       monotonic PostgreSQL projection, startup/periodic reconciliation, PostgreSQL 75/75, and
       focused reconciler tests. A fresh Node Control foundation regression passed 11/11 at the P03
       stage before the later cancellation-authority additions; it is not A2A behavior evidence.
-- [ ] Complete P04 governed physical-control safety.
-- [ ] Complete P05 in-flight recovery.
+- [ ] P04 partially implemented: the MCP transport now fails closed on missing exact governed
+      authority and fire is hard denied, but trusted-human issue/revoke, one-dispatch consumption,
+      compatible positive UGV control, and stable terminal evidence remain blocked.
+- [ ] P05 partially implemented: cancel uncertainty, continuation reclaim, TTL, and explicit remote
+      failure are repaired, while remote creation-to-admission and complete callback idempotence
+      remain blocked.
 - [ ] Complete P06 aggregate verification/performance.
 - [ ] Complete P07 read-only SMPP and Console regression.
 - [ ] Complete P08 release qualification.
@@ -102,6 +106,16 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - Durable A2A convergence required three cooperating safeguards: canonicalize saves from Runtime
   Task authority, reject terminal regression in PostgreSQL, and reconcile existing projections on
   startup and a bounded periodic schedule.
+- P04 can safely make `Tool discovered != control executable` true without pretending that a
+  production control is now usable. The current signer is not composed from a trusted human
+  principal, confirmation is not consumed per dispatch, current UGV control artifacts do not match
+  the positive constraint shape, and terminal Capability evidence is still read-only.
+- P05 can fence known cancel and continuation replay windows, but the remote Task may be created
+  before SDAR durably learns its identity. Replaying that call would risk a duplicate external side
+  effect, so this gap remains explicit rather than being hidden behind a retry.
+- The P03 PostgreSQL 75/75 run predates the final keyset-pagination refinement. Unit and TypeScript
+  coverage passed for that refinement; exact-final PostgreSQL evidence remains pending an isolated
+  database environment.
 
 ## Decision Log
 
@@ -120,6 +134,11 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   composed.
 - 2026-08-13: Reconcile only existing `a2a-v1` projections from Runtime terminal authority. Do not
   let the repair admit new A2A Tasks or make A2A an independent state machine.
+- 2026-08-13: Keep P04 at `PARTIALLY_FIXED`. Do not expose a signer that trusts actor fields from the
+  request body, silently reuse artifact approval, or claim governed control from conservative
+  transport denial alone.
+- 2026-08-13: Keep P05 at `PARTIALLY_FIXED`. Never replay an external creation call when its result
+  may exist but its local admission identity was not durably captured.
 
 ## Implementation Steps
 
@@ -183,11 +202,14 @@ separate real, deterministic, static, external, and unverified evidence.
 
 ## Outcomes and Retrospective
 
-P01-P03 are functionally closed in the working tree and BP-SDAR-001 through BP-SDAR-003 are `FIXED`.
-Current shared evidence is: full TypeScript PASS; combined focused Vitest 9 files/108 tests; P01
+P01-P03 are functionally closed and committed locally, and BP-SDAR-001 through BP-SDAR-003 are
+`FIXED`. Current shared evidence is: full TypeScript PASS; combined focused Vitest 9 files/108 tests; P01
 isolated PostgreSQL 76/76; combined P01/P02 Node Control foundation PostgreSQL 14/14; P02 contract 41
-files/281 tests plus 131-operation/455-RBAC conformance; and P03 PostgreSQL 75/75 plus focused
-reconciler tests. The P03-stage foundation regression was 11/11 before later P01/P02 cancellation
-changes. Physical device writes remain zero. The implementation/evidence changes are not yet
-committed or pushed, P04-P09 remain pending, and no final candidate or protected-review readiness is
-claimed.
+files/281 tests plus 131-operation/455-RBAC conformance; and P03 PostgreSQL 75/75 on the pre-keyset
+revision plus focused reconciler tests. The P03-stage foundation regression was 11/11 before later
+P01/P02 cancellation changes. P04 now has a conservative transport authority gate (60/60 focused
+and 56/56 related deterministic tests), and P05 has bounded uncertainty/reclaim repairs (56/56
+focused tests), but both remain `PARTIALLY_FIXED` for the blockers documented above. Their new real
+PostgreSQL tests and the exact-final P03 PostgreSQL tree remain unexecuted due to the current
+environment. Physical device writes remain zero. P04-P09 are not complete, and no final candidate
+or protected-review readiness is claimed.

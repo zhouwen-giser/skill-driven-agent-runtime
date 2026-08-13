@@ -60,13 +60,16 @@ projection rows are scanned.
 | ------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm typecheck`                                              | PASS   | Full repository TypeScript check, exit `0`                                                                                                                                       |
 | Current P01-P03 focused Vitest selection                      | PASS   | 9 files, 108 tests                                                                                                                                                               |
-| P03 Runtime PostgreSQL repository integration                 | PASS   | 75/75 tests against PostgreSQL                                                                                                                                                   |
+| P03 Runtime PostgreSQL repository integration                 | PASS ON PRE-KEYSET REVISION | 75/75 tests ran before the final keyset-pagination refinement                                                                                                      |
 | P03-stage fresh Node Control foundation PostgreSQL regression | PASS   | 11/11 tests before the later P01/P02 Management Operation cancel additions                                                                                                       |
 | A2A projection-store unit tests                               | PASS   | Late WORKING save, cancel against an existing terminal result, and cancel-reconciliation failure                                                                                 |
 | Terminal reconciler unit tests                                | PASS   | All Runtime terminal phases, notification-loss/restart repair, invalid stored document, non-terminal/missing authority, idempotence, admission preservation, and interval bounds |
 
 The PostgreSQL regression proves that an older late `WORKING` write and a conflicting terminal write
-cannot replace an already-persisted `TASK_STATE_COMPLETED` row. Existing endpoint coverage for
+cannot replace an already-persisted `TASK_STATE_COMPLETED` row. The final keyset-pagination change is
+covered by unit and TypeScript checks, but the exact final P03 tree still requires an isolated
+PostgreSQL rerun; the earlier 75/75 result is not presented as exact-candidate dynamic evidence.
+Existing endpoint coverage for
 failure, cancellation, input-required-to-terminal, capability gap, and replan exhaustion continues
 to feed the same Runtime terminal mapping; the new repair is generic over terminal Task phases. The
 11/11 Node Control foundation run is retained as a phase-stage regression result, not attributed as
