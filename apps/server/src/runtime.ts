@@ -4053,6 +4053,9 @@ export async function startServerRuntime(
               nextClaimToken: () => `workflow-continuation-claim-${randomUUID()}`,
               nextAttemptId: () => `workflow-continuation-attempt-${randomUUID()}`,
             },
+            async failTask(taskId, errorCode, summary) {
+              await service.fail(taskId, errorCode, summary);
+            },
             onContinued: continueWorkflowHierarchy,
             inputRequired: remoteTaskInput,
           });

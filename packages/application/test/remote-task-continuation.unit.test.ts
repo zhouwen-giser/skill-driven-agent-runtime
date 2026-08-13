@@ -250,6 +250,66 @@ describe('RemoteTaskContinuationService', () => {
       status: 'failed',
       errorCode: 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
     });
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+    expect(harness.failTask).toHaveBeenCalledWith(
+      'task-1',
+      'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+      'The remote Task terminal result was claimed, but no durable Workflow continuation outcome exists; the local Task was failed without replaying the continuation.',
+    );
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+    });
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'not_claimed',
+    });
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails the local Task once when recovered continuation authority is uncertain', async () => {
+    const harness = createHarness({ binding: remoteTaskBinding({ goalVersion: 2 }) });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+    harness.continuations.seedRunningAttempt(event.eventId);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'uncertain',
+      errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+    });
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+    expect(harness.failTask).toHaveBeenCalledWith(
+      'task-1',
+      'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+      'Remote Task continuation recovery authority no longer matches the durable Workflow state; the local Task was failed without replaying the continuation.',
+    );
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+    });
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'not_claimed',
+    });
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not close continuation authority when local Task fail-close is unavailable', async () => {
+    const failCloseError = Object.assign(new Error('Task authority unavailable'), {
+      code: 'TASK_FAIL_CLOSE_UNAVAILABLE',
+    });
+    const harness = createHarness({ failTask: () => Promise.reject(failCloseError) });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+    harness.continuations.seedRunningAttempt(event.eventId);
+
+    await expect(harness.service.process(jobFor(event))).rejects.toBe(failCloseError);
+
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+    expect(harness.continuations.attempts[0]).toMatchObject({ status: 'running' });
+    expect(harness.continuations.control(event.eventId)).toMatchObject({ status: 'claimed' });
   });
 });
 
@@ -298,6 +358,7 @@ function createHarness(
     snapshot?: WorkflowContinuationSnapshot;
     continueError?: Error;
     onContinued?: ConstructorParameters<typeof RemoteTaskContinuationService>[0]['onContinued'];
+    failTask?: ConstructorParameters<typeof RemoteTaskContinuationService>[0]['failTask'];
   }> = {},
 ) {
   const binding = overrides.binding ?? remoteTaskBinding();
@@ -318,6 +379,9 @@ function createHarness(
     if (overrides.continueError !== undefined) return Promise.reject(overrides.continueError);
     return Promise.resolve(workflowInstance({ status: 'succeeded', completedAt: timestamp }));
   });
+  const failTask = vi.fn<
+    ConstructorParameters<typeof RemoteTaskContinuationService>[0]['failTask']
+  >(overrides.failTask ?? (() => Promise.resolve()));
   const service = new RemoteTaskContinuationService({
     continuations,
     remoteTasks: { findById: findBinding },
@@ -328,9 +392,10 @@ function createHarness(
       nextClaimToken: () => 'claim-1',
       nextAttemptId: () => 'continuation-attempt-1',
     },
+    failTask,
     ...(overrides.onContinued === undefined ? {} : { onContinued: overrides.onContinued }),
   });
-  return { service, continuations, findBinding, get, continueExternal };
+  return { service, continuations, findBinding, get, continueExternal, failTask };
 }
 
 class InMemoryContinuationRepository implements WorkflowContinuationRepository {

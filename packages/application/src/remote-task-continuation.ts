@@ -45,6 +45,7 @@ export class RemoteTaskContinuationService {
   readonly #clock: Clock;
   readonly #ids: Readonly<{ nextClaimToken(): string; nextAttemptId(): string }>;
   readonly #claimLeaseMs: number;
+  readonly #failTask: (taskId: string, errorCode: string, summary: string) => Promise<void>;
   readonly #onContinued:
     | ((
         input: Readonly<{
@@ -70,6 +71,7 @@ export class RemoteTaskContinuationService {
       serial: ContextSerialGate;
       clock: Clock;
       ids: Readonly<{ nextClaimToken(): string; nextAttemptId(): string }>;
+      failTask(taskId: string, errorCode: string, summary: string): Promise<void>;
       claimLeaseMs?: number;
       onContinued?: (
         input: Readonly<{
@@ -91,6 +93,7 @@ export class RemoteTaskContinuationService {
     this.#serial = dependencies.serial;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
+    this.#failTask = dependencies.failTask;
     this.#claimLeaseMs = dependencies.claimLeaseMs ?? 30_000;
     this.#onContinued = dependencies.onContinued;
     this.#inputRequired = dependencies.inputRequired;
@@ -247,16 +250,22 @@ export class RemoteTaskContinuationService {
       instance === undefined ||
       !continuationIdentityMatches(binding, snapshot, instance)
     ) {
+      const errorCode = 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH';
+      await this.#failTask(
+        binding.agentTaskId,
+        errorCode,
+        'Remote Task continuation recovery authority no longer matches the durable Workflow state; the local Task was failed without replaying the continuation.',
+      );
       await this.#continuations.finishControl({
         eventId: control.eventId,
         claimToken,
         status: 'failed',
         processedAt: this.#clock.now(),
-        errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+        errorCode,
       });
       return {
         disposition: 'uncertain',
-        errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+        errorCode,
       };
     }
     if (attempt.status === 'claimed') {
@@ -298,6 +307,11 @@ export class RemoteTaskContinuationService {
           currentSnapshot.stateVersion > attempt.snapshotStateVersion);
       if (!graphCommitObserved) {
         const errorCode = 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN';
+        await this.#failTask(
+          binding.agentTaskId,
+          errorCode,
+          'The remote Task terminal result was claimed, but no durable Workflow continuation outcome exists; the local Task was failed without replaying the continuation.',
+        );
         const failed = transitionWorkflowContinuationAttempt(
           attempt,
           'failed',

@@ -899,6 +899,7 @@ function continuationService(
       nextClaimToken: sequentialId('continuation-claim'),
       nextAttemptId: sequentialId('continuation-attempt'),
     },
+    failTask: () => Promise.resolve(),
     ...(onContinued === undefined ? {} : { onContinued }),
   });
 }
