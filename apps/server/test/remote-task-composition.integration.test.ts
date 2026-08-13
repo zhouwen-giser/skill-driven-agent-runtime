@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { applyRuntimeMigrations } from '../src/runtime.js';
+import { continueRemoteTaskWorkflowHierarchy } from '../src/remote-task-workflow-hierarchy.js';
 import {
   RemoteTaskContinuationService,
   RemoteTaskPollingService,
@@ -22,6 +23,7 @@ import {
   createSkillVersion,
   type RemoteTaskAdmission,
   type RuntimeExecutionContext,
+  type WorkflowControlRecord,
   type WorkflowDefinition,
   type WorkflowMcpCallOutcome,
 } from '../../../packages/domain/src/index.js';
@@ -197,7 +199,7 @@ describe('remote MCP Task composition acceptance', () => {
     await expect(remoteTasks.listControlEvents('parallel-binding-right')).resolves.toHaveLength(1);
   }, 30_000);
 
-  it('completes a remote-waiting child Skill before propagating its validated result to the parent', async () => {
+  it('recovers after the parent continuation commits but its remote-control callback crashes', async () => {
     const authority = await seedAuthority('child');
     const plans = new PostgresWorkflowPlanRepository(pool);
     const skills = new PostgresSkillRepository(pool);
@@ -369,63 +371,92 @@ describe('remote MCP Task composition acceptance', () => {
       nextId: sequentialId('unused-child-id'),
     });
     const propagationOrder: string[] = [];
-    const service = continuationService(
-      continuations,
-      remoteTasks,
-      execution,
-      async ({ instance }) => {
-        const persistedChild = await instances.findInstance(instance.instanceId);
-        expect(persistedChild?.status).toBe('succeeded');
-        propagationOrder.push('child-persisted');
-        const child = await skillCalls.completeExternalChild(instance);
-        propagationOrder.push('lineage-completed');
-        const parentSnapshot = await continuations.findCurrent(child.parentInstanceId);
-        const parentWait = parentSnapshot?.waitingNodeRuns.find(
-          (wait) =>
-            wait.kind === 'child_workflow' &&
-            wait.sourceId === child.childInstanceId &&
-            wait.nodeId === child.parentNodeId,
-        );
-        if (parentSnapshot === undefined || parentWait === undefined)
-          throw new Error('PARENT_CHILD_CONTINUATION_NOT_FOUND');
-        await execution.continueExternal({
-          instanceId: child.parentInstanceId,
-          continuationAttemptId: 'parent-propagation-attempt',
-          resolution:
-            child.outcome.kind === 'completed'
-              ? {
-                  kind: 'completed',
-                  waitId: parentWait.waitId,
-                  nodeRunId: parentWait.nodeRunId,
-                  result: child.outcome.result,
-                }
-              : {
-                  kind: 'failed',
-                  waitId: parentWait.waitId,
-                  nodeRunId: parentWait.nodeRunId,
-                  error: child.outcome.error,
-                },
-        });
-        propagationOrder.push('parent-propagated');
-      },
+    let crashAfterParentContinuationCommit = true;
+    let crashAfterRootControlCommit = true;
+    let rootControl: WorkflowControlRecord = {
+      controlId: authority.workflowControlId,
+      contextId: authority.contextId,
+      goalId: authority.goalId,
+      goalVersion: 1,
+      taskId: authority.agentTaskId,
+      status: 'running' as const,
+      currentPlanId: 'parent-plan',
+      input: {},
+      skillIds: [skill.skillId],
+      planningInstruction: 'Complete the remote child Skill.',
+      roundCount: 0,
+      replanCount: 0,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const continueRoot = vi.fn((_controlId: string, instanceId: string) => {
+      rootControl = {
+        ...rootControl,
+        status: 'achieved' as const,
+        roundCount: 1,
+        finalInstanceId: instanceId,
+        updatedAt: '2026-07-17T08:02:00.000Z',
+      };
+      return Promise.resolve(rootControl);
+    });
+    const service = continuationService(continuations, remoteTasks, execution, (input) =>
+      continueRemoteTaskWorkflowHierarchy(
+        {
+          skillCallWorkflows: lineage,
+          skillCallWorkflow: {
+            async completeExternalChild(instance) {
+              const persistedChild = await instances.findInstance(instance.instanceId);
+              expect(persistedChild?.status).toBe('succeeded');
+              propagationOrder.push('child-persisted');
+              const child = await skillCalls.completeExternalChild(instance);
+              propagationOrder.push('lineage-completed');
+              return child;
+            },
+          },
+          continuations,
+          execution: {
+            get: (instanceId) => execution.get(instanceId),
+            async continueExternal(continuation) {
+              const continued = await execution.continueExternal(continuation);
+              propagationOrder.push('parent-propagated');
+              if (crashAfterParentContinuationCommit) {
+                crashAfterParentContinuationCommit = false;
+                throw Object.assign(
+                  new Error('Injected crash after the parent Workflow continuation committed.'),
+                  { code: 'TEST_CRASH_AFTER_PARENT_CONTINUATION_COMMIT' },
+                );
+              }
+              return continued;
+            },
+          },
+          controller: {
+            get: () => Promise.resolve(rootControl),
+            listRounds: () => Promise.resolve([]),
+            continueAfterExternal: continueRoot,
+          },
+          recordRootResume: () => Promise.resolve(),
+          projectControl: (_snapshot, control) => {
+            if (control.status === 'achieved' && crashAfterRootControlCommit) {
+              crashAfterRootControlCommit = false;
+              return Promise.reject(
+                Object.assign(
+                  new Error('Injected crash after the root Workflow control committed.'),
+                  { code: 'TEST_CRASH_AFTER_ROOT_CONTROL_COMMIT' },
+                ),
+              );
+            }
+            return Promise.resolve();
+          },
+        },
+        input,
+      ),
     );
 
     const event = await completeRemoteTask(remoteTasks, 'child-binding', 'child');
-    const queueName = `sdar-composition-child-${randomUUID()}`;
-    const continuationQueue = new BullMqRemoteTaskContinuationQueue({
-      connection: redis,
-      queueName,
+    await expect(service.process(event)).resolves.toMatchObject({
+      disposition: 'callback_deferred',
+      errorCode: 'TEST_CRASH_AFTER_PARENT_CONTINUATION_COMMIT',
     });
-    const worker = new BullMqRemoteTaskContinuationWorker({
-      connection: redis,
-      queueName,
-      concurrency: 1,
-      processor: service,
-    });
-    resources.push(worker, continuationQueue);
-    worker.start();
-    await continuationQueue.enqueue(event);
-    await waitFor(async () => (await continuationQueue.state(event.eventId)) === 'completed');
 
     expect(propagationOrder).toEqual(['child-persisted', 'lineage-completed', 'parent-propagated']);
     await expect(execution.get('child-instance')).resolves.toMatchObject({
@@ -443,9 +474,19 @@ describe('remote MCP Task composition acceptance', () => {
     await expect(continuations.findCurrent('child-instance')).resolves.toBeUndefined();
     await expect(continuations.findCurrent('parent-instance')).resolves.toBeUndefined();
     await expect(continuations.listAttempts('child-instance')).resolves.toHaveLength(1);
-    await continuationQueue.enqueue(event);
-    await waitFor(async () => (await continuationQueue.state(event.eventId)) === 'completed');
+
+    await expect(service.process(event)).resolves.toMatchObject({
+      disposition: 'callback_deferred',
+      errorCode: 'TEST_CRASH_AFTER_ROOT_CONTROL_COMMIT',
+    });
+    expect(continueRoot).toHaveBeenCalledTimes(1);
+
+    await expect(service.process(event)).resolves.toMatchObject({ disposition: 'continued' });
     await expect(continuations.listAttempts('child-instance')).resolves.toHaveLength(1);
+    await expect(remoteTasks.listControlEvents('child-binding')).resolves.toEqual([
+      expect.objectContaining({ eventId: event.eventId, status: 'processed' }),
+    ]);
+    expect(continueRoot).toHaveBeenCalledTimes(1);
     const parentEvents = await instances.listNodeEvents('parent-instance');
     expect(
       parentEvents.filter(

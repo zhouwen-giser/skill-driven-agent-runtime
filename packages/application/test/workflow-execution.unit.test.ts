@@ -1174,6 +1174,30 @@ class MemoryContinuations implements WorkflowContinuationRepository {
     );
   }
 
+  findLatestForWait(
+    workflowInstanceId: string,
+    wait: Readonly<{
+      kind: 'remote_task' | 'child_workflow';
+      sourceId: string;
+      nodeId: string;
+    }>,
+  ) {
+    return Promise.resolve(
+      [...this.snapshots]
+        .reverse()
+        .find(
+          (snapshot) =>
+            snapshot.workflowInstanceId === workflowInstanceId &&
+            snapshot.waitingNodeRuns.some(
+              (candidate) =>
+                candidate.kind === wait.kind &&
+                candidate.sourceId === wait.sourceId &&
+                candidate.nodeId === wait.nodeId,
+            ),
+        ),
+    );
+  }
+
   findCurrentByBinding(bindingId: string) {
     return Promise.resolve(
       [...this.snapshots]

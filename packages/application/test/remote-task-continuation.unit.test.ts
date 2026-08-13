@@ -459,6 +459,27 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
     );
   }
 
+  findLatestForWait(
+    workflowInstanceId: string,
+    wait: Readonly<{
+      kind: 'remote_task' | 'child_workflow';
+      sourceId: string;
+      nodeId: string;
+    }>,
+  ): Promise<WorkflowContinuationSnapshot | undefined> {
+    return Promise.resolve(
+      workflowInstanceId === this.snapshot.workflowInstanceId &&
+        this.snapshot.waitingNodeRuns.some(
+          (candidate) =>
+            candidate.kind === wait.kind &&
+            candidate.sourceId === wait.sourceId &&
+            candidate.nodeId === wait.nodeId,
+        )
+        ? this.snapshot
+        : undefined,
+    );
+  }
+
   findCurrentByBinding(bindingId: string): Promise<WorkflowContinuationSnapshot | undefined> {
     return Promise.resolve(
       this.snapshot.waitingNodeRuns.some(

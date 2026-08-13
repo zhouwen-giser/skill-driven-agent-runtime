@@ -442,6 +442,7 @@ import {
 import { createHomeLabReadOnlySkillSelectionService } from './home-lab-skill-selection.js';
 import { assertHomeLabReadOnlyRuntimeConfiguration } from './home-lab-task-understanding.js';
 import { assertManagedCapabilityRuntimeConfiguration } from './managed-capability-task-understanding.js';
+import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -3956,67 +3957,27 @@ export async function startServerRuntime(
       continuationAttemptId: string;
     }>,
   ): Promise<void> => {
-    let currentSnapshot = input.snapshot;
-    let currentInstance = input.instance;
-    let depth = 0;
-    for (;;) {
-      const childLink = await skillCallWorkflows.findByChildInstanceId(currentInstance.instanceId);
-      if (childLink === undefined) {
-        if (currentInstance.status !== 'waiting_external') {
-          await recordSkillProjectionSafely(() =>
+    await continueRemoteTaskWorkflowHierarchy(
+      {
+        skillCallWorkflows,
+        skillCallWorkflow: skillCallWorkflowService,
+        continuations: workflowContinuations,
+        execution: workflowExecution,
+        controller: workflowController,
+        recordRootResume: (snapshot) =>
+          recordSkillProjectionSafely(() =>
             skillExecutionRecording.recordStatus({
-              workflowPlanId: currentSnapshot.workflowPlanId,
+              workflowPlanId: snapshot.workflowPlanId,
               eventType: 'skill.execution_started',
               status: 'executing',
               summary: 'Authoritative Workflow resumed after an external Task observation.',
             }),
-          );
-          const continued = await workflowController.continueAfterExternal(
-            currentSnapshot.workflowControlId,
-            currentInstance.instanceId,
-          );
-          await projectSkillExecutionControl(currentSnapshot.workflowPlanId, continued);
-        }
-        return;
-      }
-      if (
-        currentInstance.status === 'running' ||
-        currentInstance.status === 'paused' ||
-        currentInstance.status === 'waiting_external'
-      )
-        throw new Error('WORKFLOW_SKILL_CHILD_CONTINUATION_INCOMPLETE');
-      const child = await skillCallWorkflowService.completeExternalChild(currentInstance);
-      const parentSnapshot = await workflowContinuations.findCurrent(child.parentInstanceId);
-      const parentWait = parentSnapshot?.waitingNodeRuns.find(
-        (wait) =>
-          wait.kind === 'child_workflow' &&
-          wait.sourceId === child.childInstanceId &&
-          wait.nodeId === child.parentNodeId,
-      );
-      if (parentSnapshot === undefined || parentWait === undefined)
-        throw new Error('WORKFLOW_SKILL_PARENT_CONTINUATION_NOT_FOUND');
-      currentInstance = await workflowExecution.continueExternal({
-        instanceId: child.parentInstanceId,
-        continuationAttemptId: `${input.continuationAttemptId}-parent-${String(depth)}`,
-        resolution:
-          child.outcome.kind === 'completed'
-            ? {
-                kind: 'completed',
-                waitId: parentWait.waitId,
-                nodeRunId: parentWait.nodeRunId,
-                result: child.outcome.result,
-              }
-            : {
-                kind: 'failed',
-                waitId: parentWait.waitId,
-                nodeRunId: parentWait.nodeRunId,
-                error: child.outcome.error,
-              },
-      });
-      currentSnapshot = parentSnapshot;
-      depth += 1;
-      if (currentInstance.status === 'waiting_external') return;
-    }
+          ),
+        projectControl: (snapshot, control) =>
+          projectSkillExecutionControl(snapshot.workflowPlanId, control),
+      },
+      input,
+    );
   };
   const remoteTaskContinuation =
     remoteTaskRepository === undefined ||

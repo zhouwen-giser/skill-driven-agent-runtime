@@ -940,6 +940,14 @@ export interface WorkflowContinuationRepository {
   ): Promise<WorkflowContinuationSnapshot>;
   findById(snapshotId: string): Promise<WorkflowContinuationSnapshot | undefined>;
   findCurrent(workflowInstanceId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  findLatestForWait(
+    workflowInstanceId: string,
+    wait: Readonly<{
+      kind: 'remote_task' | 'child_workflow';
+      sourceId: string;
+      nodeId: string;
+    }>,
+  ): Promise<WorkflowContinuationSnapshot | undefined>;
   findCurrentByBinding(bindingId: string): Promise<WorkflowContinuationSnapshot | undefined>;
   listInbox(
     now: string,

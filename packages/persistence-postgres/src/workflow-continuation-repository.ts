@@ -268,6 +268,32 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
     return result.rows[0] === undefined ? undefined : mapSnapshot(result.rows[0]);
   }
 
+  async findLatestForWait(
+    workflowInstanceId: string,
+    wait: Readonly<{
+      kind: 'remote_task' | 'child_workflow';
+      sourceId: string;
+      nodeId: string;
+    }>,
+  ): Promise<WorkflowContinuationSnapshot | undefined> {
+    const result = await this.#pool.query<WorkflowContinuationSnapshotRow>(
+      `SELECT *
+         FROM workflow_continuation_snapshot AS snapshot
+        WHERE snapshot.workflow_instance_id=$1
+          AND EXISTS (
+            SELECT 1
+              FROM jsonb_array_elements(snapshot.state_json->'waitingNodeRuns') AS candidate
+             WHERE candidate->>'kind'=$2
+               AND candidate->>'sourceId'=$3
+               AND candidate->>'nodeId'=$4
+          )
+        ORDER BY snapshot.state_version DESC
+        LIMIT 1`,
+      [workflowInstanceId, wait.kind, wait.sourceId, wait.nodeId],
+    );
+    return result.rows[0] === undefined ? undefined : mapSnapshot(result.rows[0]);
+  }
+
   async findCurrentByBinding(bindingId: string): Promise<WorkflowContinuationSnapshot | undefined> {
     const result = await this.#pool.query<WorkflowContinuationSnapshotRow>(
       `SELECT snapshot.*
