@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 4,
+  "candidateSha": "97dc0ad4c4b577d82cdde638ea46348520333315",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T04:18:05.784Z",
+  "finishedAt": "2026-08-13T04:21:30.502Z",
+  "command": "pnpm verify",
+  "environmentOverrides": {
+    "COMPOSE_PROJECT_NAME": "sdar-breakpoint-full4",
+    "SDAR_POSTGRES_PORT": 55444,
+    "SDAR_REDIS_PORT": 56391
+  },
+  "status": "FAILED_INTEGRATION_ENVIRONMENT",
+  "durationMs": 204718,
+  "passedSteps": [
+    {
+      "name": "static-unit-contract-build",
+      "durationMs": 178221,
+      "testFiles": 257,
+      "tests": 1849,
+      "openapiOperations": 167,
+      "outputSha256": "a817f451c26a436b310023dd39056f67dc67104336c24eb54d38c908abc2b337"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "durationMs": 751,
+      "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "durationMs": 23139,
+      "migrationCount": 50,
+      "outputSha256": "0102bbe9f14af438e9d38607342234c6c2334ce1ba97e4802ebf2dd3fbd66046"
+    }
+  ],
+  "failedStep": {
+    "name": "postgres-redis-integration",
+    "durationMs": 2604,
+    "outputSha256": "eb2a96303430e6fa7d1f74f5bda9914f391e99ac94d130068eb3de394e833cff",
+    "diagnostic": "Docker could not create the isolated Compose bridge network because all predefined address pools had already been subnetted. No integration test was collected."
+  },
+  "interpretation": "The existing Docker network inventory contains many unrelated historical projects. The next attempt will not remove them. It will use Goal-owned disposable PostgreSQL and Redis containers on Docker's existing default bridge and run the official gate in operator-managed infrastructure mode."
+}
