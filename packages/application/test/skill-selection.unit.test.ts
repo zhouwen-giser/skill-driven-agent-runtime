@@ -301,6 +301,7 @@ describe('SkillSelectionService', () => {
               bindingId: 'mcp-binding-ha-light-lab',
               revision: 1,
               localServerId: input.localServerId,
+              originType: 'direct' as const,
               providerId: 'ha-light-lab',
               endpointRef: 'https://provider.test/mcp',
               catalogRevision: '1.0.0:1',

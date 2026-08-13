@@ -125,7 +125,10 @@ const RemoteTaskAuthoritySnapshotSchema = z
       .object({
         bindingId: z.string().min(1),
         revision: z.number().int().positive(),
+        originType: z.enum(['direct', 'smpp_registry']),
         providerId: z.string().min(1),
+        externalServerId: z.string().min(1).optional(),
+        smppSourceId: z.string().min(1).optional(),
         endpointRef: z.string().min(1),
         catalogRevision: z.string().min(1),
         catalogChecksum: z.string().regex(/^[a-f0-9]{64}$/u),

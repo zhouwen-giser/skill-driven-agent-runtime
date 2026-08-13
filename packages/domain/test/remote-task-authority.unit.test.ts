@@ -31,6 +31,20 @@ describe('Remote Task frozen authority', () => {
     ).toThrow(expect.objectContaining({ code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID' }));
   });
 
+  it('rejects an unknown snapshot schema and incomplete SMPP remote identity', () => {
+    const input = authoritySnapshot();
+
+    expect(() =>
+      createRemoteTaskAuthoritySnapshot({ ...input, schemaVersion: '0.9' } as never),
+    ).toThrow(expect.objectContaining({ code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID' }));
+    expect(() =>
+      createRemoteTaskAuthoritySnapshot({
+        ...input,
+        providerBinding: { ...input.providerBinding, externalServerId: undefined } as never,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID' }));
+  });
+
   it('rejects admission when the snapshot is not tied to its credential and discovery revision', () => {
     const input = admission();
 
@@ -63,7 +77,10 @@ function authoritySnapshot() {
     providerBinding: {
       bindingId: 'binding-1',
       revision: 7,
+      originType: 'smpp_registry' as const,
       providerId: 'external-provider-1',
+      externalServerId: 'external-server-1',
+      smppSourceId: 'smpp-source-1',
       endpointRef: 'https://provider.test/mcp',
       catalogRevision: 'catalog-revision-4',
       catalogChecksum: 'c'.repeat(64),

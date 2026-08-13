@@ -307,6 +307,35 @@ describe('PostgresRemoteTaskAdmissionIntentStore', () => {
       "status IN ('prepared','dispatching','receipt_recorded')",
     );
   });
+
+  it.each([
+    ['unknown', '0.9'],
+    ['missing', undefined],
+  ])('rejects a receipt with %s authority schema before recovery', async (_case, schemaVersion) => {
+    const validReceipt = receipt();
+    const authority = { ...validReceipt.authoritySnapshot } as Record<string, unknown>;
+    if (schemaVersion === undefined) delete authority['schemaVersion'];
+    else authority['schemaVersion'] = schemaVersion;
+    const query = vi.fn().mockResolvedValue({
+      rows: [
+        intentRow({
+          status: 'receipt_recorded',
+          dispatch_hash: dispatchHash,
+          dispatched_at: dispatchedAt,
+          recorded_invocation_id: 'mcp-invocation-1',
+          remote_receipt_json: { ...validReceipt, authoritySnapshot: authority },
+          receipt_recorded_at: receiptAt,
+          updated_at: receiptAt,
+          version: 3,
+        }),
+      ],
+    });
+    const store = new PostgresRemoteTaskAdmissionIntentStore({ query } as unknown as Pool);
+
+    await expect(store.listRecoverable(100)).rejects.toMatchObject({
+      code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID',
+    });
+  });
 });
 
 function intent(): RemoteTaskAdmissionIntent {

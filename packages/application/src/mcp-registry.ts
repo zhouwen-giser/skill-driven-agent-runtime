@@ -585,7 +585,11 @@ export class McpRegistryService {
         current.binding.bindingId !== frozenProvider.bindingId ||
         current.binding.localServerId !== input.serverId ||
         current.binding.revision < frozenProvider.revision ||
+        current.binding.originType !== frozenProvider.originType ||
         current.binding.providerId !== frozenProvider.providerId ||
+        current.binding.externalServerId !== frozenProvider.externalServerId ||
+        current.sourceCandidateLineage?.smppSourceId !== frozenProvider.smppSourceId ||
+        current.sourceCandidateLineage?.externalServerId !== frozenProvider.externalServerId ||
         current.binding.endpointRef !== frozenProvider.endpointRef ||
         (current.binding.revision === frozenProvider.revision &&
           current.binding.catalogRevision !== frozenProvider.catalogRevision) ||
@@ -913,7 +917,14 @@ function remoteTaskAuthoritySnapshot(
           providerBinding: {
             bindingId: provider.binding.bindingId,
             revision: provider.binding.revision,
+            originType: provider.binding.originType,
             providerId: provider.binding.providerId,
+            ...(provider.binding.externalServerId === undefined
+              ? {}
+              : { externalServerId: provider.binding.externalServerId }),
+            ...(provider.sourceCandidateLineage === undefined
+              ? {}
+              : { smppSourceId: provider.sourceCandidateLineage.smppSourceId }),
             endpointRef: provider.binding.endpointRef,
             catalogRevision: provider.binding.catalogRevision,
             catalogChecksum: provider.binding.catalogChecksum,

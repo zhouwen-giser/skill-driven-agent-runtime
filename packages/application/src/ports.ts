@@ -576,12 +576,18 @@ export interface CurrentMcpProviderBindingAuthorityPort {
         bindingId: string;
         revision: number;
         localServerId: string;
+        originType: 'direct' | 'smpp_registry';
         providerId: string;
+        externalServerId?: string;
         endpointRef: string;
         catalogRevision: string;
         catalogChecksum: string;
         operationCount: number;
         availabilityValidUntil: string;
+      }>;
+      sourceCandidateLineage?: Readonly<{
+        smppSourceId: string;
+        externalServerId: string;
       }>;
     }>
   >;

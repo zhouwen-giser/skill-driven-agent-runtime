@@ -40,7 +40,10 @@ export interface RemoteTaskAuthoritySnapshot {
   readonly providerBinding?: Readonly<{
     bindingId: string;
     revision: number;
+    originType: 'direct' | 'smpp_registry';
     providerId: string;
+    externalServerId?: string;
+    smppSourceId?: string;
     endpointRef: string;
     catalogRevision: string;
     catalogChecksum: string;
@@ -361,6 +364,7 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
 export function createRemoteTaskAuthoritySnapshot(
   input: RemoteTaskAuthoritySnapshot,
 ): RemoteTaskAuthoritySnapshot {
+  const rawSchemaVersion: unknown = (input as unknown as Record<string, unknown>)['schemaVersion'];
   const runtime = input.runtime;
   const runtimeStrings = [
     runtime.serverId,
@@ -371,6 +375,7 @@ export function createRemoteTaskAuthoritySnapshot(
     runtime.catalogChecksum,
   ];
   if (
+    rawSchemaVersion !== '1.0' ||
     !validTimestamp(input.capturedAt) ||
     runtimeStrings.some((value) => value.trim() === '') ||
     !Number.isInteger(runtime.toolRevision) ||
@@ -384,6 +389,9 @@ export function createRemoteTaskAuthoritySnapshot(
       'Remote Task Runtime authority snapshot is invalid.',
     );
   const provider = input.providerBinding;
+  const rawProviderOriginType: unknown = (
+    provider as unknown as Record<string, unknown> | undefined
+  )?.['originType'];
   if (
     provider !== undefined &&
     ([
@@ -400,6 +408,13 @@ export function createRemoteTaskAuthoritySnapshot(
       provider.operationCount < 1 ||
       !validTimestamp(provider.availabilityValidUntil) ||
       !validTimestamp(provider.observedAt) ||
+      (rawProviderOriginType !== 'direct' && rawProviderOriginType !== 'smpp_registry') ||
+      (provider.originType === 'direct'
+        ? provider.externalServerId !== undefined || provider.smppSourceId !== undefined
+        : provider.externalServerId?.trim() === '' ||
+          provider.externalServerId === undefined ||
+          provider.smppSourceId?.trim() === '' ||
+          provider.smppSourceId === undefined) ||
       provider.endpointRef !== runtime.endpoint ||
       provider.catalogRevision !== runtime.catalogRevision ||
       provider.catalogChecksum !== runtime.catalogChecksum ||

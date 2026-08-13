@@ -270,6 +270,7 @@ describe('PostgreSQL governed physical-control authority', () => {
               bindingId: requestedBindingId ?? providerBindingId,
               revision: registration.server.toolRevision,
               localServerId,
+              originType: 'direct' as const,
               providerId,
               endpointRef: registration.server.endpoint,
               catalogRevision: catalog.catalogRevision,

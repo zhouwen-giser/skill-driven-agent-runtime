@@ -133,10 +133,7 @@ describe('MCP Registry invocation boundary', () => {
   });
 
   it.each([
-    [
-      'legacy row without a snapshot',
-      () => undefined,
-    ],
+    ['legacy row without a snapshot', () => undefined],
     [
       'Runtime endpoint drift',
       (
@@ -198,6 +195,9 @@ describe('MCP Registry invocation boundary', () => {
     ['Binding revision rollback', { revision: 0 }],
     ['Provider identity change', { providerId: 'replacement-provider' }],
     ['Binding identity change', { bindingId: 'replacement-binding' }],
+    ['Binding origin change', { originType: 'direct' as const }],
+    ['external Server identity change', { externalServerId: 'replacement-server' }],
+    ['SMPP source identity change', { smppSourceId: 'replacement-source' }],
     ['endpoint change', { endpoint: 'https://replacement-provider.test/mcp' }],
     ['Catalog checksum change', { catalogChecksum: 'f'.repeat(64) }],
     ['expired current availability', { bindingAvailabilityValidUntil: timestamp }],
@@ -822,6 +822,9 @@ function createFixture(
       catalogChecksum?: string;
       bindingAvailabilityValidUntil?: string;
       observedAt?: string;
+      originType?: 'direct' | 'smpp_registry';
+      externalServerId?: string;
+      smppSourceId?: string;
     }>;
     toolName?: string;
     toolEffect?: McpTool['executionSemantics']['effect'];
@@ -909,14 +912,18 @@ function createFixture(
             }) => {
               order.push('binding-authority');
               const current = options.currentBinding?.() ?? {};
+              const originType = current.originType ?? 'smpp_registry';
+              const externalServerId = current.externalServerId ?? 'external-server-1';
               return Promise.resolve({
                 observedAt: current.observedAt ?? timestamp,
                 binding: {
                   bindingId: current.bindingId ?? input.bindingId ?? 'binding-provider-1',
                   revision: current.revision ?? 1,
                   localServerId: input.localServerId,
+                  originType,
                   providerId:
                     current.providerId ?? options.bindingProviderId ?? 'external-provider-1',
+                  ...(originType === 'direct' ? {} : { externalServerId }),
                   endpointRef:
                     current.endpoint ?? options.bindingEndpoint ?? 'https://provider.test/mcp',
                   catalogRevision:
@@ -933,6 +940,14 @@ function createFixture(
                     options.bindingAvailabilityValidUntil ??
                     '2026-08-11T02:00:00.000Z',
                 },
+                ...(originType === 'direct'
+                  ? {}
+                  : {
+                      sourceCandidateLineage: {
+                        smppSourceId: current.smppSourceId ?? 'smpp-source-1',
+                        externalServerId,
+                      },
+                    }),
               });
             },
           },
