@@ -197,6 +197,60 @@ describe('RemoteTaskContinuationService', () => {
       errorCode: 'LANGGRAPH_CONTINUATION_CRASH',
     });
   });
+
+  it('retries only the durable callback after graph continuation was committed', async () => {
+    const callbackError = Object.assign(new Error('notification transport unavailable'), {
+      code: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+    });
+    const onContinued = vi
+      .fn<
+        NonNullable<ConstructorParameters<typeof RemoteTaskContinuationService>[0]['onContinued']>
+      >()
+      .mockRejectedValueOnce(callbackError)
+      .mockResolvedValue(undefined);
+    const harness = createHarness({ onContinued });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toMatchObject({
+      disposition: 'callback_deferred',
+      errorCode: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+    });
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+    expect(harness.continuations.attempts).toHaveLength(1);
+    expect(harness.continuations.attempts[0]).toMatchObject({ status: 'succeeded' });
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'pending',
+      errorCode: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+    });
+
+    await expect(harness.service.process(jobFor(event))).resolves.toMatchObject({
+      disposition: 'continued',
+    });
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+    expect(onContinued).toHaveBeenCalledTimes(2);
+    expect(onContinued.mock.calls[0]?.[0].continuationAttemptId).toBe(
+      onContinued.mock.calls[1]?.[0].continuationAttemptId,
+    );
+    expect(harness.continuations.control(event.eventId)).toMatchObject({ status: 'processed' });
+  });
+
+  it('fails closed without replay when a running attempt has no durable graph outcome', async () => {
+    const harness = createHarness();
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+    harness.continuations.seedRunningAttempt(event.eventId);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'uncertain',
+      errorCode: 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+    });
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.continuations.attempts[0]).toMatchObject({
+      status: 'failed',
+      errorCode: 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+    });
+  });
 });
 
 describe('RemoteTaskContinuationReconciler', () => {
@@ -243,6 +297,7 @@ function createHarness(
     instance?: WorkflowInstance;
     snapshot?: WorkflowContinuationSnapshot;
     continueError?: Error;
+    onContinued?: ConstructorParameters<typeof RemoteTaskContinuationService>[0]['onContinued'];
   }> = {},
 ) {
   const binding = overrides.binding ?? remoteTaskBinding();
@@ -273,6 +328,7 @@ function createHarness(
       nextClaimToken: () => 'claim-1',
       nextAttemptId: () => 'continuation-attempt-1',
     },
+    ...(overrides.onContinued === undefined ? {} : { onContinued: overrides.onContinued }),
   });
   return { service, continuations, findBinding, get, continueExternal };
 }
@@ -294,6 +350,21 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
 
   control(eventId: string): RemoteTaskControlEvent | undefined {
     return this.#controls.get(eventId);
+  }
+
+  seedRunningAttempt(eventId: string): void {
+    this.attempts.push({
+      attemptId: 'continuation-attempt-running',
+      eventId,
+      snapshotId: this.snapshot.snapshotId,
+      continuationId: this.snapshot.continuationId,
+      workflowInstanceId: this.snapshot.workflowInstanceId,
+      snapshotStateVersion: this.snapshot.stateVersion,
+      claimToken: 'crashed-claim',
+      status: 'running',
+      createdAt: timestamp,
+      startedAt: timestamp,
+    });
   }
 
   saveSnapshot(): Promise<void> {
@@ -370,6 +441,24 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
     return Promise.resolve();
   }
 
+  deferControl(
+    input: Parameters<WorkflowContinuationRepository['deferControl']>[0],
+  ): Promise<void> {
+    const current = this.#controls.get(input.eventId);
+    if (current?.status !== 'claimed' || this.#claimTokens.get(input.eventId) !== input.claimToken)
+      throw new Error('CONTROL_CLAIM_STALE');
+    const deferred = {
+      ...current,
+      status: 'pending',
+      errorCode: input.errorCode,
+    } as RemoteTaskControlEvent;
+    delete (deferred as { claimedAt?: string }).claimedAt;
+    delete (deferred as { processedAt?: string }).processedAt;
+    this.#controls.set(input.eventId, deferred);
+    this.#claimTokens.delete(input.eventId);
+    return Promise.resolve();
+  }
+
   saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void> {
     this.attempts.push(attempt);
     return Promise.resolve();
@@ -384,6 +473,12 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
       throw new Error('CONTINUATION_ATTEMPT_STALE');
     this.attempts[index] = attempt;
     return Promise.resolve();
+  }
+
+  findLatestAttemptByEvent(eventId: string): Promise<WorkflowContinuationAttempt | undefined> {
+    return Promise.resolve(
+      [...this.attempts].reverse().find((attempt) => attempt.eventId === eventId),
+    );
   }
 
   listAttempts(workflowInstanceId: string): Promise<readonly WorkflowContinuationAttempt[]> {

@@ -1176,6 +1176,11 @@ class MemoryContinuations implements WorkflowContinuationRepository {
     return Promise.resolve();
   }
 
+  deferControl(input: { eventId: string; claimToken: string; errorCode: string }) {
+    void input;
+    return Promise.resolve();
+  }
+
   saveAttempt(attempt: WorkflowContinuationAttempt) {
     this.attempts.push(attempt);
     return Promise.resolve();
@@ -1189,6 +1194,12 @@ class MemoryContinuations implements WorkflowContinuationRepository {
     const index = this.attempts.findIndex((candidate) => candidate.attemptId === attempt.attemptId);
     if (index >= 0) this.attempts[index] = attempt;
     return Promise.resolve();
+  }
+
+  findLatestAttemptByEvent(eventId: string) {
+    return Promise.resolve(
+      [...this.attempts].reverse().find((attempt) => attempt.eventId === eventId),
+    );
   }
 
   listAttempts(workflowInstanceId: string) {

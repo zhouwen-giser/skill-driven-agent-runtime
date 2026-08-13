@@ -81,7 +81,7 @@ export class RemoteTaskCancellationService {
     let deliveryScheduled = false;
     if (
       result.request.providerTerminalStatus === undefined &&
-      result.request.deliveryStatus !== 'acknowledged'
+      result.request.deliveryStatus === 'requested'
     )
       try {
         await this.#queue.enqueue({

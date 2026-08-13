@@ -83,6 +83,7 @@ export type RemoteTaskPollProcessResult =
   | 'control_pending'
   | 'provider_unreachable'
   | 'stale_provider_snapshot'
+  | 'expired'
   | 'quarantined';
 
 export class RemoteTaskPollingService {
@@ -151,6 +152,19 @@ export class RemoteTaskPollingService {
       }
       const binding = claim.binding;
 
+      if (
+        binding.taskExpiresAt !== undefined &&
+        Date.parse(claimedAt) >= Date.parse(binding.taskExpiresAt)
+      )
+        return this.#closeUncertain(
+          binding,
+          claimToken,
+          'MCP_REMOTE_TASK_TTL_EXPIRED',
+          'The remote MCP Task exceeded its persisted TTL before a terminal observation.',
+          claimedAt,
+          'expired',
+        );
+
       const protocolStartedAt = this.#clock.now();
       const read = await this.#reader.readRemoteTask({
         serverId: binding.serverId,
@@ -194,47 +208,32 @@ export class RemoteTaskPollingService {
         return 'provider_unreachable';
       }
       if (read.kind === 'contract_invalid' || read.kind === 'provider_protocol') {
-        const mutation = await this.#repository.quarantine({
-          bindingId: binding.bindingId,
-          expectedVersion: binding.version,
+        return this.#closeUncertain(
+          binding,
           claimToken,
-          observationId: this.#ids.nextObservationId(),
-          errorCode: read.errorCode,
+          read.errorCode,
+          'The remote MCP Task could not be observed under its frozen protocol contract.',
           observedAt,
-          protocolAttempt: protocolAttempt({
-            attemptId: this.#ids.nextProtocolAttemptId(),
-            binding,
-            status: read.kind,
-            errorCode: read.errorCode,
-            startedAt: protocolStartedAt,
-            completedAt: observedAt,
-          }),
-        });
-        return mutation.applied ? 'quarantined' : mutation.reason;
+          'quarantined',
+          protocolStartedAt,
+        );
       }
 
       const snapshot = read.snapshot;
       if (
         snapshot.protocolRevision !== binding.protocolRevision ||
-        snapshot.tasksSchemaRevision !== binding.tasksSchemaRevision
+        snapshot.tasksSchemaRevision !== binding.tasksSchemaRevision ||
+        (binding.runtimeRevision !== undefined && snapshot.runtimeRevision === undefined)
       ) {
-        const mutation = await this.#repository.quarantine({
-          bindingId: binding.bindingId,
-          expectedVersion: binding.version,
+        return this.#closeUncertain(
+          binding,
           claimToken,
-          observationId: this.#ids.nextObservationId(),
-          errorCode: 'MCP_TASK_SESSION_REVISION_CHANGED',
+          'MCP_TASK_SESSION_REVISION_CHANGED',
+          'The remote MCP Task session authority changed while the Task was in flight.',
           observedAt,
-          protocolAttempt: protocolAttempt({
-            attemptId: this.#ids.nextProtocolAttemptId(),
-            binding,
-            status: 'provider_protocol',
-            errorCode: 'MCP_TASK_SESSION_REVISION_CHANGED',
-            startedAt: protocolStartedAt,
-            completedAt: observedAt,
-          }),
-        });
-        return mutation.applied ? 'quarantined' : mutation.reason;
+          'quarantined',
+          protocolStartedAt,
+        );
       }
       const keepObserving =
         snapshot.status === 'working' ||
@@ -290,6 +289,37 @@ export class RemoteTaskPollingService {
       await this.#queue.enqueue(nextJob, mutation.binding.nextPollAt ?? mutation.binding.updatedAt);
       return mutation.binding.localState === 'cancel_observing' ? 'cancel_observing' : 'working';
     });
+  }
+
+  async #closeUncertain(
+    binding: RemoteTaskBinding,
+    claimToken: string,
+    errorCode: string,
+    summary: string,
+    observedAt: string,
+    disposition: 'expired' | 'quarantined',
+    startedAt = observedAt,
+  ): Promise<RemoteTaskPollProcessResult> {
+    const mutation = await this.#repository.closeUncertain({
+      bindingId: binding.bindingId,
+      expectedVersion: binding.version,
+      claimToken,
+      observationId: this.#ids.nextObservationId(),
+      controlEventId: this.#ids.nextControlEventId(),
+      errorCode,
+      summary,
+      observedAt,
+      resultHash: this.#hash({ bindingId: binding.bindingId, errorCode, observedAt }),
+      protocolAttempt: protocolAttempt({
+        attemptId: this.#ids.nextProtocolAttemptId(),
+        binding,
+        status: 'provider_protocol',
+        errorCode,
+        startedAt,
+        completedAt: observedAt,
+      }),
+    });
+    return mutation.applied ? disposition : mutation.reason;
   }
 }
 

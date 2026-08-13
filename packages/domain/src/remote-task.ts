@@ -136,6 +136,7 @@ export interface RemoteTaskBinding {
   readonly pollClaimExpiresAt?: string;
   readonly resultSnapshot?: InternalToolResult;
   readonly errorSnapshot?: RemoteTaskFailureSnapshot;
+  readonly lastSafeErrorCode?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly invalidatedAt?: string;

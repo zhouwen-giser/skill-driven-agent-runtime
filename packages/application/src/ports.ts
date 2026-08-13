@@ -726,6 +726,20 @@ export interface RemoteTaskRepository {
       protocolAttempt: RemoteTaskProtocolAttempt;
     }>,
   ): Promise<RemoteTaskMutationResult>;
+  closeUncertain(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      controlEventId: string;
+      errorCode: string;
+      summary: string;
+      observedAt: string;
+      resultHash: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
   listObservations(bindingId: string): Promise<readonly RemoteTaskObservation[]>;
   listControlEvents(bindingId: string): Promise<readonly RemoteTaskControlEvent[]>;
   listProtocolAttempts(bindingId: string): Promise<readonly RemoteTaskProtocolAttempt[]>;
@@ -950,11 +964,19 @@ export interface WorkflowContinuationRepository {
       bindingDisposition?: 'reentered';
     }>,
   ): Promise<void>;
+  deferControl(
+    input: Readonly<{
+      eventId: string;
+      claimToken: string;
+      errorCode: string;
+    }>,
+  ): Promise<void>;
   saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void>;
   updateAttempt(
     attempt: WorkflowContinuationAttempt,
     expectedStatus: WorkflowContinuationAttemptStatus,
   ): Promise<void>;
+  findLatestAttemptByEvent(eventId: string): Promise<WorkflowContinuationAttempt | undefined>;
   listAttempts(workflowInstanceId: string): Promise<readonly WorkflowContinuationAttempt[]>;
 }
 

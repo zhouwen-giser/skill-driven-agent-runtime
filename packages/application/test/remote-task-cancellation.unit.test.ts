@@ -73,6 +73,44 @@ describe('RemoteTaskCancellationService', () => {
     expect(harness.cancellations.createdCount).toBe(1);
   });
 
+  it('does not schedule an idempotent retry after delivery authority becomes uncertain', async () => {
+    const harness = createHarness();
+    const first = await harness.service.request({
+      bindingId: 'binding-1',
+      idempotencyKey: 'cancel-task-1',
+      source: 'task',
+      reasonCode: 'TASK_CANCELED',
+      summary: 'Task canceled by user.',
+    });
+    const request = requiredRequest(first.request);
+    const claim = await harness.cancellations.claimCancellation({
+      requestId: request.requestId,
+      expectedVersion: request.version,
+      claimToken: 'simulated-process-crash-claim',
+      claimedAt: timestamp,
+      expiresAt: '2026-07-17T08:01:00.000Z',
+    });
+    expect(claim).toMatchObject({
+      claimed: true,
+      request: {
+        deliveryStatus: 'uncertain',
+        lastSafeErrorCode: 'MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
+      },
+    });
+    harness.queue.enqueued.length = 0;
+
+    await expect(
+      harness.service.request({
+        bindingId: 'binding-1',
+        idempotencyKey: 'cancel-task-1',
+        source: 'task',
+        reasonCode: 'TASK_CANCELED',
+        summary: 'Task canceled by user.',
+      }),
+    ).resolves.toMatchObject({ disposition: 'requested', deliveryScheduled: false });
+    expect(harness.queue.enqueued).toEqual([]);
+  });
+
   it('does not create a request or wire job for Provider-terminal evidence', async () => {
     const harness = createHarness({ binding: binding({ protocolStatus: 'cancelled' }) });
 
@@ -154,6 +192,31 @@ describe('RemoteTaskCancellationWorker', () => {
       remoteTaskId: 'provider-task-1',
       executionContext: { mode: 'live' },
     });
+  });
+
+  it('never repeats cancel after an acknowledgement persistence crash', async () => {
+    const harness = createHarness();
+    await requestCancellation(harness);
+    const job = firstJob(harness.queue);
+    harness.cancellations.acknowledgementError = new Error('postgres response lost after ACK');
+    harness.cancellations.uncertaintyError = new Error('postgres remains unavailable');
+
+    await expect(harness.worker.process(job)).rejects.toThrow('postgres remains unavailable');
+
+    expect(harness.sender).toHaveBeenCalledTimes(1);
+    expect(harness.cancellations.request).toMatchObject({
+      deliveryStatus: 'uncertain',
+      lastSafeErrorCode: 'MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
+    });
+
+    const reconciler = new RemoteTaskCancellationReconciler({
+      cancellations: harness.cancellations,
+      queue: harness.queue,
+      clock: harness.clock,
+    });
+    await expect(reconciler.reconcile()).resolves.toEqual({ examined: 0, scheduled: 0 });
+    await expect(harness.worker.process(job)).resolves.toBe('stale');
+    expect(harness.sender).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -280,6 +343,8 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
   readonly remoteTasks: { binding: RemoteTaskBinding };
   readonly operations: string[];
   createdCount = 0;
+  acknowledgementError: Error | undefined;
+  uncertaintyError: Error | undefined;
 
   constructor(remoteTasks: { binding: RemoteTaskBinding }, operations: string[]) {
     this.remoteTasks = remoteTasks;
@@ -330,14 +395,19 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
     if (this.request === undefined) return Promise.resolve({ claimed: false, reason: 'missing' });
     if (this.request.providerTerminalStatus !== undefined)
       return Promise.resolve({ claimed: false, reason: 'resolved' });
-    if (this.request.version !== input.expectedVersion)
+    if (
+      this.request.version !== input.expectedVersion ||
+      this.request.deliveryStatus !== 'requested'
+    )
       return Promise.resolve({ claimed: false, reason: 'stale' });
     this.request = {
       ...this.request,
+      deliveryStatus: 'uncertain',
       claimToken: input.claimToken,
       claimedAt: input.claimedAt,
       claimExpiresAt: input.expiresAt,
       attemptCount: this.request.attemptCount + 1,
+      lastSafeErrorCode: 'MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
       updatedAt: input.claimedAt,
       version: this.request.version + 1,
     };
@@ -354,6 +424,7 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
       protocolRevision: string;
     }>,
   ): Promise<RemoteTaskCancellationMutationResult> {
+    if (this.acknowledgementError !== undefined) return Promise.reject(this.acknowledgementError);
     const current = this.request;
     this.attempts.push(input.attempt);
     if (current === undefined) return Promise.resolve({ applied: false, reason: 'missing' });
@@ -382,6 +453,7 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
       observedAt: string;
     }>,
   ): Promise<RemoteTaskCancellationMutationResult> {
+    if (this.uncertaintyError !== undefined) return Promise.reject(this.uncertaintyError);
     const current = this.request;
     this.attempts.push(input.attempt);
     if (current === undefined) return Promise.resolve({ applied: false, reason: 'missing' });

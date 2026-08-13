@@ -6,6 +6,7 @@ import {
   type RemoteTaskControlEvent,
   type WorkflowExternalWaitResolution,
   type WorkflowInstance,
+  type WorkflowContinuationAttempt,
   type WorkflowContinuationSnapshot,
 } from '../../domain/src/index.js';
 
@@ -23,6 +24,13 @@ export type RemoteTaskContinuationProcessResult =
   | Readonly<{ disposition: 'input_activated' | 'input_deferred' }>
   | Readonly<{ disposition: 'not_claimed' }>
   | Readonly<{ disposition: 'stale'; instance?: WorkflowInstance }>
+  | Readonly<{
+      disposition: 'callback_deferred';
+      workflowControlId: string;
+      instance: WorkflowInstance;
+      errorCode: string;
+    }>
+  | Readonly<{ disposition: 'uncertain'; errorCode: string }>
   | Readonly<{
       disposition: 'continued';
       workflowControlId: string;
@@ -126,6 +134,9 @@ export class RemoteTaskContinuationService {
         'The queued remote Task control reference does not match PostgreSQL authority.',
       );
     }
+    const existingAttempt = await this.#continuations.findLatestAttemptByEvent(event.eventId);
+    if (existingAttempt !== undefined)
+      return this.#recoverAttempt(claimed, binding, existingAttempt, claimToken);
     const snapshot = await this.#continuations.findCurrentByBinding(binding.bindingId);
     if (snapshot === undefined) {
       await this.#continuations.finishControl({
@@ -169,56 +180,42 @@ export class RemoteTaskContinuationService {
     }
     attempt = transitionWorkflowContinuationAttempt(attempt, 'running', this.#clock.now());
     await this.#continuations.updateAttempt(attempt, 'claimed');
+    return this.#executeAttempt(
+      claimed,
+      snapshot,
+      attempt,
+      claimToken,
+      wait.waitId,
+      wait.nodeRunId,
+    );
+  }
+
+  async #executeAttempt(
+    control: RemoteTaskControlEvent,
+    snapshot: WorkflowContinuationSnapshot,
+    runningAttempt: WorkflowContinuationAttempt,
+    claimToken: string,
+    waitId: string,
+    nodeRunId: string,
+  ): Promise<RemoteTaskContinuationProcessResult> {
+    let continued: WorkflowInstance;
     try {
-      const continued = await this.#execution.continueExternal({
+      continued = await this.#execution.continueExternal({
         instanceId: snapshot.workflowInstanceId,
-        resolution: resolutionFromControlEvent(claimed, wait.waitId, wait.nodeRunId),
-        continuationAttemptId: attempt.attemptId,
+        resolution: resolutionFromControlEvent(control, waitId, nodeRunId),
+        continuationAttemptId: runningAttempt.attemptId,
       });
-      const completedAt = this.#clock.now();
-      await this.#onContinued?.({
-        snapshot,
-        instance: continued,
-        continuationAttemptId: attempt.attemptId,
-      });
-      if (continued.status === 'failed') {
-        attempt = transitionWorkflowContinuationAttempt(
-          attempt,
-          'failed',
-          completedAt,
-          firstErrorCode(continued) ?? 'WORKFLOW_EXTERNAL_CONTINUATION_FAILED',
-        );
-      } else if (continued.status === 'canceled') {
-        attempt = transitionWorkflowContinuationAttempt(attempt, 'canceled', completedAt);
-      } else if (continued.status === 'waiting_external') {
-        attempt = transitionWorkflowContinuationAttempt(attempt, 'waiting_external', completedAt);
-      } else {
-        attempt = transitionWorkflowContinuationAttempt(attempt, 'succeeded', completedAt);
-      }
-      await this.#continuations.updateAttempt(attempt, 'running');
-      await this.#continuations.finishControl({
-        eventId: event.eventId,
-        claimToken,
-        status: 'processed',
-        processedAt: completedAt,
-        bindingDisposition: 'reentered',
-      });
-      return {
-        disposition: 'continued',
-        workflowControlId: snapshot.workflowControlId,
-        instance: continued,
-      };
     } catch (error: unknown) {
       const errorCode = normalizedCode(error);
-      attempt = transitionWorkflowContinuationAttempt(
-        attempt,
+      const failedAttempt = transitionWorkflowContinuationAttempt(
+        runningAttempt,
         'failed',
         this.#clock.now(),
         errorCode,
       );
-      await this.#continuations.updateAttempt(attempt, 'running');
+      await this.#continuations.updateAttempt(failedAttempt, 'running');
       await this.#continuations.finishControl({
-        eventId: event.eventId,
+        eventId: control.eventId,
         claimToken,
         status: 'failed',
         processedAt: this.#clock.now(),
@@ -226,6 +223,152 @@ export class RemoteTaskContinuationService {
       });
       throw error;
     }
+    const completedAttempt = terminalAttemptForInstance(
+      runningAttempt,
+      continued,
+      this.#clock.now(),
+    );
+    await this.#continuations.updateAttempt(completedAttempt, 'running');
+    return this.#deliverContinuation(control, snapshot, continued, completedAttempt, claimToken);
+  }
+
+  async #recoverAttempt(
+    control: RemoteTaskControlEvent,
+    binding: RemoteTaskBinding,
+    attempt: WorkflowContinuationAttempt,
+    claimToken: string,
+  ): Promise<RemoteTaskContinuationProcessResult> {
+    const [snapshot, instance] = await Promise.all([
+      this.#continuations.findById(attempt.snapshotId),
+      this.#execution.get(attempt.workflowInstanceId),
+    ]);
+    if (
+      snapshot === undefined ||
+      instance === undefined ||
+      !continuationIdentityMatches(binding, snapshot, instance)
+    ) {
+      await this.#continuations.finishControl({
+        eventId: control.eventId,
+        claimToken,
+        status: 'failed',
+        processedAt: this.#clock.now(),
+        errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+      });
+      return {
+        disposition: 'uncertain',
+        errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+      };
+    }
+    if (attempt.status === 'claimed') {
+      const wait = snapshot.waitingNodeRuns.find(
+        (candidate) =>
+          candidate.kind === 'remote_task' &&
+          candidate.sourceId === binding.bindingId &&
+          candidate.nodeId === binding.workflowNodeId &&
+          candidate.nodeRunId === binding.workflowNodeRunId,
+      );
+      if (instance.status !== 'waiting_external' || wait === undefined) {
+        const stale = transitionWorkflowContinuationAttempt(attempt, 'stale', this.#clock.now());
+        await this.#continuations.updateAttempt(stale, 'claimed');
+        await this.#continuations.finishControl({
+          eventId: control.eventId,
+          claimToken,
+          status: 'processed',
+          processedAt: this.#clock.now(),
+        });
+        return { disposition: 'stale', instance };
+      }
+      const running = transitionWorkflowContinuationAttempt(attempt, 'running', this.#clock.now());
+      await this.#continuations.updateAttempt(running, 'claimed');
+      return this.#executeAttempt(
+        control,
+        snapshot,
+        running,
+        claimToken,
+        wait.waitId,
+        wait.nodeRunId,
+      );
+    }
+    if (attempt.status === 'running') {
+      const currentSnapshot = await this.#continuations.findCurrent(instance.instanceId);
+      const graphCommitObserved =
+        instance.status !== 'waiting_external' ||
+        (currentSnapshot !== undefined &&
+          currentSnapshot.snapshotId !== snapshot.snapshotId &&
+          currentSnapshot.stateVersion > attempt.snapshotStateVersion);
+      if (!graphCommitObserved) {
+        const errorCode = 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN';
+        const failed = transitionWorkflowContinuationAttempt(
+          attempt,
+          'failed',
+          this.#clock.now(),
+          errorCode,
+        );
+        await this.#continuations.updateAttempt(failed, 'running');
+        await this.#continuations.finishControl({
+          eventId: control.eventId,
+          claimToken,
+          status: 'failed',
+          processedAt: this.#clock.now(),
+          errorCode,
+        });
+        return { disposition: 'uncertain', errorCode };
+      }
+      const recovered = terminalAttemptForInstance(attempt, instance, this.#clock.now());
+      await this.#continuations.updateAttempt(recovered, 'running');
+      return this.#deliverContinuation(control, snapshot, instance, recovered, claimToken);
+    }
+    if (attempt.status === 'stale') {
+      await this.#continuations.finishControl({
+        eventId: control.eventId,
+        claimToken,
+        status: 'processed',
+        processedAt: this.#clock.now(),
+      });
+      return { disposition: 'stale', instance };
+    }
+    return this.#deliverContinuation(control, snapshot, instance, attempt, claimToken);
+  }
+
+  async #deliverContinuation(
+    control: RemoteTaskControlEvent,
+    snapshot: WorkflowContinuationSnapshot,
+    instance: WorkflowInstance,
+    attempt: WorkflowContinuationAttempt,
+    claimToken: string,
+  ): Promise<RemoteTaskContinuationProcessResult> {
+    try {
+      await this.#onContinued?.({
+        snapshot,
+        instance,
+        continuationAttemptId: attempt.attemptId,
+      });
+    } catch (error: unknown) {
+      const errorCode = normalizedCode(error);
+      await this.#continuations.deferControl({
+        eventId: control.eventId,
+        claimToken,
+        errorCode,
+      });
+      return {
+        disposition: 'callback_deferred',
+        workflowControlId: snapshot.workflowControlId,
+        instance,
+        errorCode,
+      };
+    }
+    await this.#continuations.finishControl({
+      eventId: control.eventId,
+      claimToken,
+      status: 'processed',
+      processedAt: this.#clock.now(),
+      bindingDisposition: 'reentered',
+    });
+    return {
+      disposition: 'continued',
+      workflowControlId: snapshot.workflowControlId,
+      instance,
+    };
   }
 }
 
@@ -291,6 +434,25 @@ function continuationAuthorityMatches(
 ): instance is WorkflowInstance {
   return (
     instance?.status === 'waiting_external' &&
+    continuationIdentityMatches(binding, snapshot, instance)
+  );
+}
+
+function continuationIdentityMatches(
+  binding: RemoteTaskBinding,
+  snapshot: Readonly<{
+    agentTaskId: string;
+    contextId: string;
+    goalId: string;
+    goalVersion: number;
+    workflowPlanId: string;
+    workflowDefinitionId: string;
+    workflowDefinitionVersion: number;
+    workflowInstanceId: string;
+  }>,
+  instance: WorkflowInstance,
+): boolean {
+  return (
     binding.agentTaskId === snapshot.agentTaskId &&
     binding.contextId === snapshot.contextId &&
     binding.goalId === snapshot.goalId &&
@@ -303,6 +465,25 @@ function continuationAuthorityMatches(
     instance.goalId === snapshot.goalId &&
     instance.goalVersion === snapshot.goalVersion
   );
+}
+
+function terminalAttemptForInstance(
+  attempt: WorkflowContinuationAttempt,
+  instance: WorkflowInstance,
+  completedAt: string,
+): WorkflowContinuationAttempt {
+  if (instance.status === 'failed' || instance.status === 'running' || instance.status === 'paused')
+    return transitionWorkflowContinuationAttempt(
+      attempt,
+      'failed',
+      completedAt,
+      firstErrorCode(instance) ?? 'WORKFLOW_EXTERNAL_CONTINUATION_FAILED',
+    );
+  if (instance.status === 'canceled')
+    return transitionWorkflowContinuationAttempt(attempt, 'canceled', completedAt);
+  if (instance.status === 'waiting_external')
+    return transitionWorkflowContinuationAttempt(attempt, 'waiting_external', completedAt);
+  return transitionWorkflowContinuationAttempt(attempt, 'succeeded', completedAt);
 }
 
 function resolutionFromControlEvent(

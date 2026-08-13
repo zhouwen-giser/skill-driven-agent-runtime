@@ -149,6 +149,7 @@ interface RemoteTaskBindingRow extends QueryResultRow {
   poll_claim_expires_at: Date | string | null;
   result_snapshot_json: unknown;
   error_snapshot_json: unknown;
+  last_safe_error_code: string | null;
   created_at: Date | string;
   updated_at: Date | string;
   invalidated_at: Date | string | null;
@@ -774,6 +775,80 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
     });
   }
 
+  closeUncertain(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      controlEventId: string;
+      errorCode: string;
+      summary: string;
+      observedAt: string;
+      resultHash: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult> {
+    return withTransaction(this.#pool, async (client) => {
+      const locked = await lockBinding(client, input.bindingId);
+      if (locked === undefined) return { applied: false, reason: 'missing' };
+      if (!matchesActiveClaim(locked, input.expectedVersion, input.claimToken)) {
+        await insertProtocolAttempt(client, input.protocolAttempt);
+        return { applied: false, reason: isObservationActive(locked) ? 'stale' : 'closed' };
+      }
+      await insertProtocolAttempt(client, input.protocolAttempt);
+      const payload = {
+        status: 'failed' as const,
+        remoteTaskId: locked.remoteTaskId,
+        protocolRevision: locked.protocolRevision,
+        tasksSchemaRevision: locked.tasksSchemaRevision,
+        runtimeRevision: locked.runtimeRevision,
+        error: {
+          code: -32_001,
+          message: input.summary,
+          data: { errorCode: input.errorCode, uncertainty: true },
+        },
+      };
+      await insertObservation(client, {
+        observationId: input.observationId,
+        bindingId: locked.bindingId,
+        sequence: await nextObservationSequence(client, locked.bindingId),
+        type: 'schema_invalid',
+        source: 'reconciliation',
+        ...(locked.remoteRevision === undefined ? {} : { remoteRevision: locked.remoteRevision }),
+        ...(locked.runtimeRevision === undefined
+          ? {}
+          : { runtimeRevision: locked.runtimeRevision }),
+        ...(locked.providerRevision === undefined
+          ? {}
+          : { providerRevision: locked.providerRevision }),
+        payload,
+        accepted: true,
+        observedAt: input.observedAt,
+      });
+      const control = await insertUncertainControlEvent(client, locked, {
+        controlEventId: input.controlEventId,
+        resultHash: input.resultHash,
+        payload,
+        observedAt: input.observedAt,
+      });
+      const updated = await client.query<RemoteTaskBindingRow>(
+        `UPDATE remote_task_binding
+         SET local_state='terminal_event_pending',next_poll_at=NULL,
+             poll_claim_token=NULL,poll_claimed_at=NULL,poll_claim_expires_at=NULL,
+             last_safe_error_code=$4,updated_at=$5,version=version+1
+         WHERE binding_id=$1 AND version=$2 AND poll_claim_token=$3
+         RETURNING *`,
+        [locked.bindingId, locked.version, input.claimToken, input.errorCode, input.observedAt],
+      );
+      return {
+        applied: true,
+        binding: mapBinding(requiredUpdatedRow(updated.rows[0])),
+        controlEvent: control,
+      };
+    });
+  }
+
   async listObservations(bindingId: string): Promise<readonly RemoteTaskObservation[]> {
     const result = await this.#pool.query<RemoteTaskObservationRow>(
       'SELECT * FROM remote_task_observation WHERE binding_id=$1 ORDER BY sequence',
@@ -1020,6 +1095,40 @@ async function insertControlEvent(
   return mapControlEvent(row);
 }
 
+async function insertUncertainControlEvent(
+  client: PoolClient,
+  binding: RemoteTaskBinding,
+  input: Readonly<{
+    controlEventId: string;
+    resultHash: string;
+    payload: unknown;
+    observedAt: string;
+  }>,
+): Promise<RemoteTaskControlEvent> {
+  const remoteRevision = binding.remoteRevision ?? `uncertain:${input.observedAt}`;
+  const inserted = await client.query<RemoteTaskControlEventRow>(
+    `INSERT INTO remote_task_control_event (
+       event_id,binding_id,event_type,remote_revision,runtime_revision,result_hash,
+       payload_json,status,created_at)
+     VALUES ($1,$2,'task.failed',$3,$4,$5,$6::jsonb,'pending',$7)
+     ON CONFLICT (binding_id,event_type,remote_revision,result_hash)
+     DO UPDATE SET event_id=remote_task_control_event.event_id
+     RETURNING *`,
+    [
+      input.controlEventId,
+      binding.bindingId,
+      remoteRevision,
+      binding.runtimeRevision ?? null,
+      input.resultHash,
+      JSON.stringify(input.payload),
+      input.observedAt,
+    ],
+  );
+  const row = inserted.rows[0];
+  if (row === undefined) throw new Error('REMOTE_TASK_CONTROL_EVENT_INSERT_FAILED');
+  return mapControlEvent(row);
+}
+
 async function insertProtocolAttempt(client: PoolClient, attempt: RemoteTaskProtocolAttempt) {
   await client.query(
     `INSERT INTO remote_task_protocol_attempt (
@@ -1142,6 +1251,7 @@ function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
     ...(row.error_snapshot_json === null
       ? {}
       : { errorSnapshot: parseFailureSnapshot(row.error_snapshot_json) }),
+    ...(row.last_safe_error_code === null ? {} : { lastSafeErrorCode: row.last_safe_error_code }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
     ...(row.invalidated_at === null ? {} : { invalidatedAt: toIsoString(row.invalidated_at) }),

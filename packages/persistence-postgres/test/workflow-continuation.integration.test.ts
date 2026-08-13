@@ -4,12 +4,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
 import {
   createRemoteTaskBinding,
+  createRemoteTaskCancellationRequest,
   createWorkflowContinuationAttempt,
   createWorkflowContinuationSnapshot,
   transitionWorkflowContinuationAttempt,
   type WorkflowContinuationSnapshot,
 } from '../../domain/src/index.js';
 import {
+  PostgresRemoteTaskCancellationRepository,
   PostgresRemoteTaskRepository,
   PostgresWorkflowContinuationRepository,
 } from '../src/index.js';
@@ -99,6 +101,50 @@ describe('PostgreSQL remote Task continuation authority', () => {
       }),
       'continuation-admission-observation',
     );
+    const cancellations = new PostgresRemoteTaskCancellationRepository(pool);
+    const cancellation = await cancellations.requestCancellation(
+      createRemoteTaskCancellationRequest({
+        requestId: 'continuation-cancel-request',
+        bindingId: 'continuation-binding',
+        idempotencyKey: 'continuation-cancel-idempotency',
+        source: 'workflow',
+        reasonCode: 'WORKFLOW_CANCEL_REQUESTED',
+        summary: 'Cancel the remote Task without replay after uncertainty.',
+        requestedAt: '2026-07-16T08:00:00.100Z',
+      }),
+      1,
+    );
+    expect(cancellation).toMatchObject({
+      requested: true,
+      request: { deliveryStatus: 'requested', version: 1 },
+    });
+    if (!cancellation.requested) throw new Error('TEST_CANCELLATION_REQUEST_REQUIRED');
+    const cancelClaim = await cancellations.claimCancellation({
+      requestId: cancellation.request.requestId,
+      expectedVersion: cancellation.request.version,
+      claimToken: 'continuation-cancel-claim',
+      claimedAt: '2026-07-16T08:00:00.200Z',
+      expiresAt: '2026-07-16T08:00:00.300Z',
+    });
+    expect(cancelClaim).toMatchObject({
+      claimed: true,
+      request: {
+        deliveryStatus: 'uncertain',
+        lastSafeErrorCode: 'MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
+      },
+    });
+    await expect(
+      cancellations.listRequiringDelivery('2026-07-16T08:00:01.000Z', 10),
+    ).resolves.toEqual([]);
+    await expect(
+      cancellations.claimCancellation({
+        requestId: cancellation.request.requestId,
+        expectedVersion: cancelClaim.claimed ? cancelClaim.request.version : 2,
+        claimToken: 'continuation-cancel-replay-claim',
+        claimedAt: '2026-07-16T08:00:01.000Z',
+        expiresAt: '2026-07-16T08:00:02.000Z',
+      }),
+    ).resolves.toMatchObject({ claimed: false, reason: 'stale' });
     await pool.query(
       `INSERT INTO remote_task_control_event (
          event_id,binding_id,event_type,remote_revision,result_hash,payload_json,
@@ -210,6 +256,9 @@ describe('PostgreSQL remote Task continuation authority', () => {
       staleAttempt,
       waitingAttempt,
     ]);
+    await expect(continuations.findLatestAttemptByEvent('continuation-control')).resolves.toEqual(
+      waitingAttempt,
+    );
     await expect(
       pool.query<{ indexed: boolean }>(
         `SELECT EXISTS(
@@ -219,17 +268,39 @@ describe('PostgreSQL remote Task continuation authority', () => {
       ),
     ).resolves.toMatchObject({ rows: [{ indexed: false }] });
     await expect(
-      continuations.finishControl({
+      continuations.deferControl({
         eventId: 'continuation-control',
         claimToken: 'continuation-claim-2',
+        errorCode: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+      }),
+    ).resolves.toBeUndefined();
+    await expect(continuations.listInbox('2026-07-16T08:01:15.000Z', 10)).resolves.toEqual([
+      expect.objectContaining({
+        eventId: 'continuation-control',
+        status: 'pending',
+        errorCode: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+      }),
+    ]);
+    await expect(
+      continuations.claimControl({
+        eventId: 'continuation-control',
+        claimToken: 'continuation-claim-3',
+        claimedAt: '2026-07-16T08:01:15.000Z',
+        expiresAt: '2026-07-16T08:01:25.000Z',
+      }),
+    ).resolves.toMatchObject({ status: 'claimed' });
+    await expect(
+      continuations.finishControl({
+        eventId: 'continuation-control',
+        claimToken: 'continuation-claim-3',
         status: 'processed',
-        processedAt: '2026-07-16T08:01:14.000Z',
+        processedAt: '2026-07-16T08:01:16.000Z',
         bindingDisposition: 'reentered',
       }),
     ).resolves.toBeUndefined();
     await expect(remoteTasks.findById('continuation-binding')).resolves.toMatchObject({
       localState: 'reentered',
-      version: 2,
+      version: 3,
     });
 
     const successor = createWorkflowContinuationSnapshot({
