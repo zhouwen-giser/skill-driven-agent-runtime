@@ -33,6 +33,7 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  GovernedControlInvocationAuthorizer,
   McpRuntimeBindingAuthorityVerifier,
   McpProtocolOperationsService,
   FrozenMcpRegistryService,
@@ -329,6 +330,7 @@ import {
 import {
   PostgresAgentTaskRepository,
   PostgresTaskCapabilityRepository,
+  PostgresGovernedControlAuthorityRepository,
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
@@ -1164,6 +1166,15 @@ export async function startServerRuntime(
   });
   await taskCapabilities.reconcileCanceledAttempts();
   await taskCapabilities.reconcileFailedAttempts();
+  const governedControlAuthorityRepository = new PostgresGovernedControlAuthorityRepository(pool);
+  const governedControlInvocationAuthorizer =
+    options.capabilityAuthorityReader === undefined
+      ? undefined
+      : new GovernedControlInvocationAuthorizer({
+          store: governedControlAuthorityRepository,
+          capabilities: options.capabilityAuthorityReader,
+          clock,
+        });
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new CompositeModelTransportAdapter({
@@ -1971,6 +1982,9 @@ export async function startServerRuntime(
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
+    ...(governedControlInvocationAuthorizer === undefined
+      ? {}
+      : { controlAuthority: governedControlInvocationAuthorizer }),
     runtimeBindingAuthority: runtimeMcpBindingAuthority,
     clock,
     ids: {

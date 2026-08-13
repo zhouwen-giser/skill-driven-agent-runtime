@@ -24,6 +24,84 @@ import type { McpRegistryRepository, McpServerRecord } from '../src/ports.js';
 const timestamp = '2026-08-11T01:00:00.000Z';
 
 describe('MCP Registry invocation boundary', () => {
+  it('rejects a discovered side-effecting Tool without governed Task authority', async () => {
+    const fixture = createFixture({ toolEffect: 'side_effecting' });
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'light_set_state', {
+        resourceId: 'living-room-main-light',
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_CONTROL_AUTHORITY_REQUIRED' });
+
+    expect(fixture.controlAuthority).not.toHaveBeenCalled();
+    expect(fixture.call).not.toHaveBeenCalled();
+    expect(fixture.repository.invocations).toEqual([]);
+  });
+
+  it('rejects unknown Tool effect before transport even when Task identity is supplied', async () => {
+    const fixture = createFixture({ toolEffect: 'unknown' });
+
+    await expect(
+      fixture.service.callDetailed(
+        'provider-1',
+        'light_set_state',
+        { resourceId: 'living-room-main-light' },
+        undefined,
+        {
+          taskId: 'task-control-1',
+          capabilityAttemptId: 'capability-attempt-control-1',
+          providerBindingId: 'binding-provider-1',
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'MCP_CONTROL_SEMANTICS_NOT_EXPLICIT' });
+
+    expect(fixture.controlAuthority).not.toHaveBeenCalled();
+    expect(fixture.call).not.toHaveBeenCalled();
+  });
+
+  it('hard-denies vehicle_fire_weapon even when a Catalog mislabels it read-only', async () => {
+    const fixture = createFixture({ toolName: 'vehicle_fire_weapon', toolEffect: 'read_only' });
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'vehicle_fire_weapon', {}),
+    ).rejects.toMatchObject({ code: 'MCP_CONTROL_TOOL_HARD_DENIED' });
+
+    expect(fixture.controlAuthority).not.toHaveBeenCalled();
+    expect(fixture.call).not.toHaveBeenCalled();
+  });
+
+  it('crosses transport only after exact governed side-effect authority succeeds', async () => {
+    const order: string[] = [];
+    const fixture = createFixture({ toolEffect: 'side_effecting', order });
+    const arguments_ = { resourceId: 'living-room-main-light' };
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'light_set_state', arguments_, undefined, {
+        taskId: 'task-control-1',
+        capabilityAttemptId: 'capability-attempt-control-1',
+        providerBindingId: 'binding-provider-1',
+        providerId: 'external-provider-1',
+      }),
+    ).resolves.toMatchObject({ invocationId: 'invocation-1' });
+
+    expect(fixture.controlAuthority).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        taskId: 'task-control-1',
+        capabilityAttemptId: 'capability-attempt-control-1',
+        providerBindingId: 'binding-provider-1',
+        serverId: 'provider-1',
+        toolName: 'light_set_state',
+        arguments: arguments_,
+      }),
+    );
+    expect(order).toEqual([
+      'frozen-authority',
+      'binding-authority',
+      'control-authority',
+      'provider-call',
+    ]);
+  });
+
   it('rejects a disabled Server before Frozen authority lookup or Provider transport', async () => {
     const fixture = createFixture({ serverStatus: 'disabled' });
 
@@ -476,11 +554,19 @@ function createFixture(
     bindingProviderId?: string;
     bindingAvailabilityValidUntil?: string;
     providerBindingsConfigured?: boolean;
+    toolName?: string;
+    toolEffect?: McpTool['executionSemantics']['effect'];
   }> = {},
 ) {
   const order = options.order ?? [];
   const serverValue = server(options.serverStatus ?? 'enabled');
-  const toolValue = tool();
+  const toolValue = tool(
+    options.toolName ??
+      (options.toolEffect === undefined || options.toolEffect === 'read_only'
+        ? 'light_get_state'
+        : 'light_set_state'),
+    options.toolEffect,
+  );
   const snapshotValue = Object.prototype.hasOwnProperty.call(options, 'protocolSnapshot')
     ? options.protocolSnapshot
     : protocolSnapshot();
@@ -503,6 +589,10 @@ function createFixture(
     }),
   );
   const decrypt = vi.fn(() => ({ authorization: 'Bearer provider-secret' }));
+  const controlAuthority = vi.fn(() => {
+    order.push('control-authority');
+    return Promise.resolve();
+  });
   const service = new McpRegistryService({
     repository,
     cipher: {
@@ -520,6 +610,7 @@ function createFixture(
       update: () => Promise.reject(new Error('unused')),
       cancel: () => Promise.reject(new Error('unused')),
     },
+    controlAuthority: { authorize: controlAuthority },
     ...(options.providerBindingsConfigured === false
       ? {}
       : {
@@ -555,7 +646,7 @@ function createFixture(
       nextManagementOperationId: () => 'operation-1',
     },
   });
-  return { call, checkAvailability, decrypt, repository, service };
+  return { call, checkAvailability, controlAuthority, decrypt, repository, service };
 }
 
 class MemoryMcpRegistryRepository implements McpRegistryRepository {
@@ -640,15 +731,18 @@ function server(status: McpServer['status']): McpServer {
   };
 }
 
-function tool(): McpTool {
+function tool(
+  toolName = 'light_get_state',
+  effect: McpTool['executionSemantics']['effect'] = 'read_only',
+): McpTool {
   return {
     serverId: 'provider-1',
-    toolName: 'light_get_state',
+    toolName,
     inputSchema: { type: 'object', additionalProperties: false },
     outputSchema: { type: 'object' },
     protocolMode: 'frozen_v1',
     executionSemantics: {
-      effect: 'read_only',
+      effect,
       execution: 'synchronous',
       cancellation: 'unsupported',
       idempotency: 'none',

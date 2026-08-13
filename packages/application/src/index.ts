@@ -54,6 +54,7 @@ export * from './goal-patch-service.js';
 export * from './workflow-revision.js';
 export * from './workflow-template.js';
 export * from './mcp-registry.js';
+export * from './governed-control-authority.js';
 export * from './mcp-runtime-binding-authority.js';
 export * from './mcp-protocol-operations.js';
 export * from './frozen-mcp-registry.js';

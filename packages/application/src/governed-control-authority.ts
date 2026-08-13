@@ -1,0 +1,579 @@
+import { createHash } from 'node:crypto';
+
+import type { McpToolExecutionSemantics } from '../../domain/src/index.js';
+
+import { canonicalHash } from './mcp-task-readiness.js';
+
+const CONTROL_APPROVER_ROLE = 'physical_control_approver';
+const MAX_CONFIRMATION_TTL_MS = 15 * 60 * 1_000;
+const ACTIVE_CAPABILITY_ATTEMPT_STATUSES = new Set(['prepared', 'running', 'waiting']);
+const TERMINAL_TASK_PHASES = new Set(['completed', 'failed', 'canceled']);
+
+export const HARD_DENIED_CONTROL_TOOLS = Object.freeze(['vehicle_fire_weapon'] as const);
+
+export interface GovernedControlConfirmation {
+  readonly confirmationId: string;
+  readonly taskId: string;
+  readonly capabilityBindingId: string;
+  readonly capabilityId: string;
+  readonly capabilityVersion: number;
+  readonly planId: string;
+  readonly planHash: string;
+  readonly skillId: string;
+  readonly skillVersion: number;
+  readonly actorId: string;
+  readonly actorKind: 'human';
+  readonly authenticationMethod: string;
+  readonly actorRoles: readonly string[];
+  readonly reason: string;
+  readonly confirmedAt: string;
+  readonly expiresAt: string;
+  readonly revokedAt?: string;
+  readonly revokedBy?: string;
+}
+
+export interface GovernedControlConfirmationStore {
+  saveConfirmation(confirmation: GovernedControlConfirmation): Promise<GovernedControlConfirmation>;
+  revokeConfirmation(
+    confirmationId: string,
+    revokedBy: string,
+    revokedAt: string,
+  ): Promise<GovernedControlConfirmation | undefined>;
+}
+
+export class GovernedControlConfirmationService {
+  readonly #store: GovernedControlConfirmationStore;
+  readonly #clock: Readonly<{ now(): string }>;
+  readonly #ids: Readonly<{ nextConfirmationId(): string }>;
+
+  constructor(
+    dependencies: Readonly<{
+      store: GovernedControlConfirmationStore;
+      clock: Readonly<{ now(): string }>;
+      ids: Readonly<{ nextConfirmationId(): string }>;
+    }>,
+  ) {
+    this.#store = dependencies.store;
+    this.#clock = dependencies.clock;
+    this.#ids = dependencies.ids;
+  }
+
+  async issue(
+    input: Omit<
+      GovernedControlConfirmation,
+      'confirmationId' | 'confirmedAt' | 'revokedAt' | 'revokedBy'
+    >,
+  ): Promise<GovernedControlConfirmation> {
+    assertTrustedHumanActor(input);
+    const scope = {
+      taskId: required(input.taskId, 'taskId'),
+      capabilityBindingId: required(input.capabilityBindingId, 'capabilityBindingId'),
+      capabilityId: required(input.capabilityId, 'capabilityId'),
+      planId: required(input.planId, 'planId'),
+      skillId: required(input.skillId, 'skillId'),
+      actorId: required(input.actorId, 'actorId'),
+      authenticationMethod: required(input.authenticationMethod, 'authenticationMethod'),
+      reason: required(input.reason, 'reason'),
+    };
+    if (!Number.isInteger(input.capabilityVersion) || input.capabilityVersion < 1)
+      fail(
+        'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID',
+        'Control confirmation requires a positive Capability version.',
+      );
+    if (!Number.isInteger(input.skillVersion) || input.skillVersion < 1)
+      fail(
+        'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID',
+        'Control confirmation requires a positive Skill version.',
+      );
+    const confirmedAt = timestamp(this.#clock.now(), 'GOVERNED_CONTROL_CLOCK_INVALID');
+    const expiresAt = timestamp(input.expiresAt, 'GOVERNED_CONTROL_CONFIRMATION_EXPIRY_INVALID');
+    if (expiresAt <= confirmedAt || expiresAt - confirmedAt > MAX_CONFIRMATION_TTL_MS)
+      fail(
+        'GOVERNED_CONTROL_CONFIRMATION_EXPIRY_INVALID',
+        'Control confirmation must expire after issuance and within fifteen minutes.',
+      );
+    if (!/^[a-f0-9]{64}$/u.test(input.planHash))
+      fail(
+        'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID',
+        'Control confirmation requires an exact immutable plan hash.',
+      );
+    const confirmation = freezeConfirmation({
+      ...input,
+      ...scope,
+      confirmationId: required(this.#ids.nextConfirmationId(), 'confirmationId'),
+      confirmedAt: new Date(confirmedAt).toISOString(),
+      expiresAt: new Date(expiresAt).toISOString(),
+    });
+    return this.#store.saveConfirmation(confirmation);
+  }
+
+  revoke(
+    input: Readonly<{
+      confirmationId: string;
+      actorId: string;
+      actorKind: 'human';
+      authenticationMethod: string;
+      actorRoles: readonly string[];
+    }>,
+  ): Promise<GovernedControlConfirmation | undefined> {
+    assertTrustedHumanActor(input);
+    return this.#store.revokeConfirmation(
+      required(input.confirmationId, 'confirmationId'),
+      required(input.actorId, 'actorId'),
+      this.#clock.now(),
+    );
+  }
+}
+
+export interface GovernedControlRuntimeAuthoritySnapshot {
+  readonly task: Readonly<{
+    taskId: string;
+    phase: string;
+    planId: string;
+    selectedSkillId: string;
+    selectedSkillVersion: number;
+  }>;
+  readonly binding: Readonly<{
+    bindingId: string;
+    capabilityId: string;
+    capabilityVersion: number;
+    inputSnapshot: unknown;
+    constraintSnapshot: readonly Readonly<Record<string, unknown>>[];
+    evidenceRequirementSnapshot: readonly Readonly<Record<string, unknown>>[];
+    initialImplementationRefs: readonly string[];
+    bindingHash: string;
+  }>;
+  readonly attempt: Readonly<{
+    attemptId: string;
+    status: string;
+    planId?: string;
+    skillVersionRefs: readonly string[];
+    providerBindingRefs: readonly string[];
+  }>;
+  readonly plan: Readonly<{
+    planId: string;
+    confirmationStatus: string;
+    definitionHash: string;
+  }>;
+  readonly skill: Readonly<{
+    skillId: string;
+    skillVersion: number;
+    currentVersion: number;
+    status: string;
+    validationPassed: boolean;
+    capabilities: readonly string[];
+    toolPolicy: Readonly<Record<string, unknown>>;
+    runtimePolicy: Readonly<Record<string, unknown>>;
+    outcomeSpecification?: Readonly<Record<string, unknown>>;
+  }>;
+  readonly readiness: Readonly<{
+    readinessId: string;
+    workflowPlanId: string;
+    checkPhase: string;
+    dslHash: string;
+    disposition: string;
+    guardAction: string;
+    confirmationRequired: boolean;
+    serverId: string;
+    operationName: string;
+    argumentsHash: string;
+    availability: string;
+    riskLevel: string;
+    validUntil?: string;
+    checkedAt: string;
+  }>;
+  readonly confirmation: GovernedControlConfirmation;
+}
+
+export interface GovernedControlAuthorityStore {
+  load(
+    input: Readonly<{
+      taskId: string;
+      serverId: string;
+      toolName: string;
+      argumentsHash: string;
+    }>,
+  ): Promise<GovernedControlRuntimeAuthoritySnapshot | undefined>;
+}
+
+export interface CurrentGovernedCapabilityAuthority {
+  readonly definition: Readonly<Record<string, unknown>>;
+  readonly implementationBindings: readonly Readonly<Record<string, unknown>>[];
+}
+
+export interface CurrentGovernedCapabilityAuthorityPort {
+  load(capabilityId: string, version: number): Promise<CurrentGovernedCapabilityAuthority>;
+}
+
+export interface GovernedControlInvocation {
+  readonly taskId: string;
+  readonly capabilityAttemptId: string;
+  readonly providerBindingId: string;
+  readonly serverId: string;
+  readonly toolName: string;
+  readonly arguments: Readonly<Record<string, unknown>>;
+  readonly executionSemantics: McpToolExecutionSemantics;
+}
+
+export interface GovernedControlInvocationAuthorityPort {
+  authorize(input: GovernedControlInvocation): Promise<void>;
+}
+
+/**
+ * Rechecks every mutable authority immediately before a Provider transport is crossed. Catalog
+ * discovery is deliberately absent from this API: a discovered Tool can identify the target, but
+ * it cannot manufacture Capability, Skill, plan, confirmation, readiness, or Task binding facts.
+ */
+export class GovernedControlInvocationAuthorizer implements GovernedControlInvocationAuthorityPort {
+  readonly #store: GovernedControlAuthorityStore;
+  readonly #capabilities: CurrentGovernedCapabilityAuthorityPort;
+  readonly #clock: Readonly<{ now(): string }>;
+
+  constructor(
+    dependencies: Readonly<{
+      store: GovernedControlAuthorityStore;
+      capabilities: CurrentGovernedCapabilityAuthorityPort;
+      clock: Readonly<{ now(): string }>;
+    }>,
+  ) {
+    this.#store = dependencies.store;
+    this.#capabilities = dependencies.capabilities;
+    this.#clock = dependencies.clock;
+  }
+
+  async authorize(input: GovernedControlInvocation): Promise<void> {
+    if (
+      HARD_DENIED_CONTROL_TOOLS.includes(
+        input.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
+      )
+    )
+      fail(
+        'GOVERNED_CONTROL_TOOL_HARD_DENIED',
+        'vehicle_fire_weapon has no execution authority in this Runtime.',
+      );
+    if (
+      input.executionSemantics.effect !== 'side_effecting' ||
+      input.executionSemantics.execution === 'unknown'
+    )
+      fail(
+        'GOVERNED_CONTROL_SEMANTICS_NOT_EXPLICIT',
+        'Physical control requires explicit side-effect and execution semantics.',
+      );
+    const argumentsHash = canonicalHash(input.arguments);
+    const snapshot = await this.#store.load({
+      taskId: input.taskId,
+      serverId: input.serverId,
+      toolName: input.toolName,
+      argumentsHash,
+    });
+    if (snapshot === undefined)
+      fail(
+        'GOVERNED_CONTROL_AUTHORITY_NOT_FOUND',
+        'No complete durable control authority exists for this Task and Tool invocation.',
+      );
+    const capability = await this.#loadCurrentCapability(snapshot.binding);
+    this.#assertRuntimeAuthority(input, snapshot, argumentsHash);
+    this.#assertCurrentCapability(snapshot, capability, input.providerBindingId);
+    this.#assertConfirmation(snapshot);
+  }
+
+  async #loadCurrentCapability(
+    binding: GovernedControlRuntimeAuthoritySnapshot['binding'],
+  ): Promise<CurrentGovernedCapabilityAuthority> {
+    try {
+      return await this.#capabilities.load(binding.capabilityId, binding.capabilityVersion);
+    } catch {
+      fail(
+        'GOVERNED_CONTROL_CAPABILITY_NOT_CURRENT',
+        'The exact current Capability authority could not be loaded.',
+      );
+    }
+  }
+
+  #assertRuntimeAuthority(
+    input: GovernedControlInvocation,
+    snapshot: GovernedControlRuntimeAuthoritySnapshot,
+    argumentsHash: string,
+  ): void {
+    const { task, binding, attempt, plan, skill, readiness } = snapshot;
+    const expectedSkillRef = `skill:${skill.skillId}:${String(skill.skillVersion)}`;
+    const requiredTools = recordArray(skill.toolPolicy['required']);
+    const requiredTool = requiredTools[0];
+    const sideEffectPolicy = record(skill.outcomeSpecification?.['sideEffectPolicy']);
+    if (
+      task.taskId !== input.taskId ||
+      TERMINAL_TASK_PHASES.has(task.phase) ||
+      task.phase !== 'executing' ||
+      task.planId !== plan.planId ||
+      task.selectedSkillId !== skill.skillId ||
+      task.selectedSkillVersion !== skill.skillVersion ||
+      binding.initialImplementationRefs.length !== 1 ||
+      binding.initialImplementationRefs[0] !== expectedSkillRef ||
+      attempt.attemptId !== input.capabilityAttemptId ||
+      !ACTIVE_CAPABILITY_ATTEMPT_STATUSES.has(attempt.status) ||
+      (attempt.planId !== undefined && attempt.planId !== plan.planId) ||
+      (attempt.skillVersionRefs.length > 0 &&
+        !attempt.skillVersionRefs.includes(expectedSkillRef)) ||
+      attempt.providerBindingRefs.length !== 1 ||
+      attempt.providerBindingRefs[0] !== input.providerBindingId ||
+      plan.confirmationStatus !== 'confirmed' ||
+      skill.currentVersion !== skill.skillVersion ||
+      skill.status !== 'enabled' ||
+      !skill.validationPassed ||
+      !skill.capabilities.includes(binding.capabilityId) ||
+      requiredTools.length !== 1 ||
+      requiredTool?.['serverId'] !== input.serverId ||
+      requiredTool['toolName'] !== input.toolName ||
+      recordArray(skill.toolPolicy['optional']).length !== 0 ||
+      skill.runtimePolicy['autoConfirmPlan'] !== false ||
+      sideEffectPolicy?.['sideEffecting'] !== true ||
+      sideEffectPolicy['confirmation'] !== 'required' ||
+      canonicalHash(binding.inputSnapshot) !== argumentsHash ||
+      binding.evidenceRequirementSnapshot.length === 0 ||
+      readiness.workflowPlanId !== plan.planId ||
+      readiness.checkPhase !== 'pre_invocation' ||
+      readiness.dslHash !== plan.definitionHash ||
+      readiness.disposition !== 'ready' ||
+      readiness.guardAction !== 'proceed' ||
+      readiness.confirmationRequired ||
+      readiness.serverId !== input.serverId ||
+      readiness.operationName !== input.toolName ||
+      readiness.argumentsHash !== argumentsHash ||
+      readiness.availability !== 'available' ||
+      !['high', 'critical'].includes(readiness.riskLevel)
+    )
+      fail(
+        'GOVERNED_CONTROL_RUNTIME_AUTHORITY_INVALID',
+        'Task, binding, Skill, plan, readiness, or Provider authority is not exact and current.',
+      );
+    const now = timestamp(this.#clock.now(), 'GOVERNED_CONTROL_CLOCK_INVALID');
+    if (
+      readiness.validUntil === undefined ||
+      timestamp(readiness.checkedAt, 'GOVERNED_CONTROL_READINESS_TIME_INVALID') > now ||
+      timestamp(readiness.validUntil, 'GOVERNED_CONTROL_READINESS_TIME_INVALID') <= now
+    )
+      fail(
+        'GOVERNED_CONTROL_READINESS_STALE',
+        'The exact pre-invocation readiness snapshot is absent, future-dated, or expired.',
+      );
+  }
+
+  #assertCurrentCapability(
+    snapshot: GovernedControlRuntimeAuthoritySnapshot,
+    authority: CurrentGovernedCapabilityAuthority,
+    providerBindingId: string,
+  ): void {
+    const { binding, skill } = snapshot;
+    const definition = authority.definition;
+    const implementations = authority.implementationBindings.filter(
+      (candidate) =>
+        candidate['capability_id'] === binding.capabilityId &&
+        candidate['capability_version'] === binding.capabilityVersion &&
+        candidate['implementation_type'] === 'skill' &&
+        candidate['implementation_id'] === skill.skillId &&
+        candidate['implementation_version'] === String(skill.skillVersion) &&
+        candidate['role'] === 'primary' &&
+        candidate['status'] === 'active',
+    );
+    if (
+      definition['capability_id'] !== binding.capabilityId ||
+      definition['version'] !== binding.capabilityVersion ||
+      definition['status'] !== 'published' ||
+      !['high', 'critical'].includes(String(definition['risk_level'])) ||
+      canonical(definition['constraints']) !== canonical(binding.constraintSnapshot) ||
+      implementations.length !== 1
+    )
+      fail(
+        'GOVERNED_CONTROL_CAPABILITY_NOT_CURRENT',
+        'The frozen Task binding differs from current Capability and implementation authority.',
+      );
+    assertControlConstraints(binding.constraintSnapshot, snapshot, providerBindingId);
+  }
+
+  #assertConfirmation(snapshot: GovernedControlRuntimeAuthoritySnapshot): void {
+    const { confirmation, binding, plan, skill, task } = snapshot;
+    assertTrustedHumanActor(confirmation);
+    const now = timestamp(this.#clock.now(), 'GOVERNED_CONTROL_CLOCK_INVALID');
+    const confirmedAt = timestamp(
+      confirmation.confirmedAt,
+      'GOVERNED_CONTROL_CONFIRMATION_TIME_INVALID',
+    );
+    const expiresAt = timestamp(
+      confirmation.expiresAt,
+      'GOVERNED_CONTROL_CONFIRMATION_TIME_INVALID',
+    );
+    if (
+      confirmation.taskId !== task.taskId ||
+      confirmation.capabilityBindingId !== binding.bindingId ||
+      confirmation.capabilityId !== binding.capabilityId ||
+      confirmation.capabilityVersion !== binding.capabilityVersion ||
+      confirmation.planId !== plan.planId ||
+      confirmation.planHash !== plan.definitionHash ||
+      confirmation.skillId !== skill.skillId ||
+      confirmation.skillVersion !== skill.skillVersion ||
+      confirmation.revokedAt !== undefined ||
+      confirmedAt > now ||
+      expiresAt <= now ||
+      expiresAt - confirmedAt > MAX_CONFIRMATION_TTL_MS
+    )
+      fail(
+        'GOVERNED_CONTROL_CONFIRMATION_INVALID',
+        'High-risk confirmation is stale, revoked, untrusted, or bound to different authority.',
+      );
+  }
+}
+
+function assertControlConstraints(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+  snapshot: GovernedControlRuntimeAuthoritySnapshot,
+  providerBindingId: string,
+): void {
+  const authorization = exactlyOne(constraints, 'authorization');
+  const confirmation = exactlyOne(constraints, 'confirmation_policy');
+  const sideEffect = exactlyOne(constraints, 'side_effect_policy');
+  const provider = exactlyOne(constraints, 'provider_binding_policy');
+  const resource = exactlyOne(constraints, 'resource_policy');
+  const exactSkill = exactlyOne(constraints, 'exact_skill_version');
+  const resourceId = record(snapshot.binding.inputSnapshot)?.['resourceId'];
+  if (
+    authorization['effect'] !== 'physical_control' ||
+    authorization['requiredActorRole'] !== CONTROL_APPROVER_ROLE ||
+    !stringArray(authorization['allowedActorIds']).includes(snapshot.confirmation.actorId) ||
+    confirmation['required'] !== true ||
+    confirmation['stage'] !== 'pre_dispatch' ||
+    confirmation['trustedActorRequired'] !== true ||
+    sideEffect['sideEffecting'] !== true ||
+    sideEffect['effectClass'] !== 'physical_control' ||
+    provider['mcpProviderBindingId'] !== providerBindingId ||
+    provider['localServerId'] !== snapshot.readiness.serverId ||
+    provider['mcpToolName'] !== snapshot.readiness.operationName ||
+    provider['requiredStatus'] !== 'active' ||
+    provider['requiredAvailabilityStatus'] !== 'available' ||
+    provider['requiredFreshness'] !== 'unexpired' ||
+    provider['fallback'] !== 'deny' ||
+    exactSkill['skillId'] !== snapshot.skill.skillId ||
+    exactSkill['skillVersion'] !== snapshot.skill.skillVersion ||
+    exactSkill['taskType'] !== snapshot.readiness.operationName ||
+    typeof resourceId !== 'string' ||
+    !stringArray(resource['allowedResourceIds']).includes(resourceId)
+  )
+    fail(
+      'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
+      'The frozen Capability lacks exact authorization, confirmation, side-effect, provider, Skill, or resource policy.',
+    );
+}
+
+function assertTrustedHumanActor(
+  input: Readonly<{
+    actorId: string;
+    actorKind: string;
+    authenticationMethod: string;
+    actorRoles: readonly string[];
+  }>,
+): void {
+  const actorId = required(input.actorId, 'actorId');
+  if (
+    input.actorKind !== 'human' ||
+    required(input.authenticationMethod, 'authenticationMethod') === 'none' ||
+    !input.actorRoles.includes(CONTROL_APPROVER_ROLE) ||
+    /^(?:agent|assistant|llm|model):/iu.test(actorId)
+  )
+    fail(
+      'GOVERNED_CONTROL_CONFIRMATION_ACTOR_UNTRUSTED',
+      'High-risk confirmation requires an authenticated human control approver.',
+    );
+}
+
+function exactlyOne(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+  type: string,
+): Readonly<Record<string, unknown>> {
+  const matches = constraints.filter((constraint) => constraint['type'] === type);
+  const match = matches[0];
+  if (matches.length !== 1 || match === undefined)
+    fail(
+      'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
+      `Governed control requires exactly one ${type} constraint.`,
+    );
+  return match;
+}
+
+function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
+}
+
+function recordArray(value: unknown): readonly Readonly<Record<string, unknown>>[] {
+  if (!Array.isArray(value)) return Object.freeze([]);
+  const records = value.map(record);
+  return records.every((item) => item !== undefined) ? Object.freeze(records) : Object.freeze([]);
+}
+
+function stringArray(value: unknown): readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+    ? value
+    : Object.freeze([]);
+}
+
+function freezeConfirmation(input: GovernedControlConfirmation): GovernedControlConfirmation {
+  return Object.freeze({ ...input, actorRoles: Object.freeze([...input.actorRoles]) });
+}
+
+function timestamp(value: string, code: GovernedControlAuthorityErrorCode): number {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) fail(code, 'Governed control timestamp is invalid.');
+  return parsed;
+}
+
+function required(value: string, field: string): string {
+  const normalized = value.trim();
+  if (normalized === '')
+    fail('GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID', `${field} is required.`);
+  return normalized;
+}
+
+function canonical(value: unknown): string {
+  if (value === undefined) return 'null';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  const object = value as Readonly<Record<string, unknown>>;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonical(object[key])}`)
+    .join(',')}}`;
+}
+
+export function governedControlSnapshotHash(value: unknown): string {
+  return createHash('sha256').update(canonical(value)).digest('hex');
+}
+
+export type GovernedControlAuthorityErrorCode =
+  | 'GOVERNED_CONTROL_AUTHORITY_NOT_FOUND'
+  | 'GOVERNED_CONTROL_CAPABILITY_NOT_CURRENT'
+  | 'GOVERNED_CONTROL_CLOCK_INVALID'
+  | 'GOVERNED_CONTROL_CONFIRMATION_ACTOR_UNTRUSTED'
+  | 'GOVERNED_CONTROL_CONFIRMATION_EXPIRY_INVALID'
+  | 'GOVERNED_CONTROL_CONFIRMATION_INVALID'
+  | 'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID'
+  | 'GOVERNED_CONTROL_CONFIRMATION_TIME_INVALID'
+  | 'GOVERNED_CONTROL_CONSTRAINTS_INVALID'
+  | 'GOVERNED_CONTROL_READINESS_STALE'
+  | 'GOVERNED_CONTROL_READINESS_TIME_INVALID'
+  | 'GOVERNED_CONTROL_RUNTIME_AUTHORITY_INVALID'
+  | 'GOVERNED_CONTROL_SEMANTICS_NOT_EXPLICIT'
+  | 'GOVERNED_CONTROL_TOOL_HARD_DENIED';
+
+export class GovernedControlAuthorityError extends Error {
+  constructor(
+    readonly code: GovernedControlAuthorityErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'GovernedControlAuthorityError';
+  }
+}
+
+function fail(code: GovernedControlAuthorityErrorCode, message: string): never {
+  throw new GovernedControlAuthorityError(code, message);
+}

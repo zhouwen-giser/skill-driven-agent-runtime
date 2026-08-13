@@ -33,6 +33,10 @@ import {
   McpRuntimeBindingAuthorityVerifier,
   type RuntimeMcpCatalogAuthority,
 } from './mcp-runtime-binding-authority.js';
+import {
+  HARD_DENIED_CONTROL_TOOLS,
+  type GovernedControlInvocationAuthorityPort,
+} from './governed-control-authority.js';
 
 export interface McpCallContext {
   readonly taskId?: string;
@@ -121,6 +125,7 @@ export class McpRegistryService {
   readonly #frozenAvailability: FrozenTaskAvailabilityRuntimePort | undefined;
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
+  readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
   readonly #runtimeBindingAuthority: McpRuntimeBindingAuthorityVerifier;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
 
@@ -132,6 +137,7 @@ export class McpRegistryService {
       frozenAvailability?: FrozenTaskAvailabilityRuntimePort;
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
+      controlAuthority?: GovernedControlInvocationAuthorityPort;
       runtimeBindingAuthority?: McpRuntimeBindingAuthorityVerifier;
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
@@ -143,6 +149,7 @@ export class McpRegistryService {
     this.#frozenAvailability = dependencies.frozenAvailability;
     this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#providerBindings = dependencies.providerBindings;
+    this.#controlAuthority = dependencies.controlAuthority;
     this.#runtimeBindingAuthority =
       dependencies.runtimeBindingAuthority ??
       new McpRuntimeBindingAuthorityVerifier({
@@ -194,6 +201,7 @@ export class McpRegistryService {
       context.providerBindingId,
       context.providerId,
     );
+    await this.#assertControlAuthority(tool, arguments_, context);
     const invocationId = context.preTransportFence?.invocationId ?? this.#ids.nextInvocationId();
     const startedAt = this.#clock.now();
     const executionContext = createRuntimeExecutionContext(
@@ -301,6 +309,47 @@ export class McpRegistryService {
       protocolContract: frozenAuthority.protocolContract,
       taskBehavior: frozenAuthority.taskBehavior,
     };
+  }
+
+  async #assertControlAuthority(
+    tool: McpTool,
+    arguments_: Readonly<Record<string, unknown>>,
+    context: McpCallContext,
+  ): Promise<void> {
+    if (
+      HARD_DENIED_CONTROL_TOOLS.includes(
+        tool.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
+      )
+    )
+      throw new McpRegistryError(
+        'MCP_CONTROL_TOOL_HARD_DENIED',
+        'vehicle_fire_weapon has no execution authority in this Runtime.',
+      );
+    if (tool.executionSemantics.effect === 'read_only') return;
+    if (tool.executionSemantics.effect !== 'side_effecting')
+      throw new McpRegistryError(
+        'MCP_CONTROL_SEMANTICS_NOT_EXPLICIT',
+        'Unknown Tool effect cannot cross the Provider transport boundary.',
+      );
+    if (
+      this.#controlAuthority === undefined ||
+      context.taskId === undefined ||
+      context.capabilityAttemptId === undefined ||
+      context.providerBindingId === undefined
+    )
+      throw new McpRegistryError(
+        'MCP_CONTROL_AUTHORITY_REQUIRED',
+        'Side-effecting Tool invocation requires exact governed Task authority.',
+      );
+    await this.#controlAuthority.authorize({
+      taskId: context.taskId,
+      capabilityAttemptId: context.capabilityAttemptId,
+      providerBindingId: context.providerBindingId,
+      serverId: tool.serverId,
+      toolName: tool.toolName,
+      arguments: arguments_,
+      executionSemantics: tool.executionSemantics,
+    });
   }
 
   #frozenInvocationAuthority(
@@ -816,6 +865,9 @@ function assertNoHomeAssistantEntityIdentity(value: unknown): void {
 export type McpRegistryErrorCode =
   | 'MCP_ARGUMENT_SCHEMA_MISMATCH'
   | 'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN'
+  | 'MCP_CONTROL_AUTHORITY_REQUIRED'
+  | 'MCP_CONTROL_SEMANTICS_NOT_EXPLICIT'
+  | 'MCP_CONTROL_TOOL_HARD_DENIED'
   | 'MCP_PROVIDER_RESULT_TOO_COMPLEX'
   | 'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE'
   | 'MCP_PROVIDER_BINDING_NOT_CURRENT'
