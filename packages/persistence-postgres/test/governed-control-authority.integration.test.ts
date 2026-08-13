@@ -143,9 +143,10 @@ describe('PostgreSQL governed physical-control authority', () => {
         confirmation: {
           confirmationId: 'confirmation-governed-live',
           actorKind: 'human',
-          revokedAt: undefined,
         },
       });
+      expect(snapshot?.confirmation).not.toHaveProperty('revokedAt');
+      expect(snapshot?.confirmation).not.toHaveProperty('revokedBy');
       await expect(
         authorizer(afterIssueRestart.repository, '2026-08-13T01:01:00.000Z').authorize(
           invocation(),
