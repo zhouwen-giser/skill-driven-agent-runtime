@@ -1010,6 +1010,8 @@ export interface ExternalTaskProjectionQuery {
   readonly contextId?: string;
   readonly state?: string;
   readonly statusTimestampAfter?: string;
+  /** Stable keyset used by background reconciliation; public list views omit it. */
+  readonly taskIdAfter?: string;
   readonly offset: number;
   readonly limit: number;
 }

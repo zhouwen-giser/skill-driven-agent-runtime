@@ -24,7 +24,9 @@ import {
   type NodeControlRuntimeGovernanceService,
   type NodeControlEvidenceExportService,
   type NodeControlEvidenceOperationsService,
+  type NodeControlTaskControlService,
   type EvidenceOperationsPrincipal,
+  NodeControlTaskControlError,
   NodeControlRuntimeGovernanceError,
 } from '../../../packages/node-control-application/src/index.js';
 import type { TaskCapabilityBinding } from '../../../packages/domain/src/index.js';
@@ -83,6 +85,7 @@ export interface NodeControlHttpConfiguration {
     ): Promise<readonly NodeControlTaskSummary[]>;
     get(taskId: string): Promise<NodeControlTaskSummary | undefined>;
   }>;
+  readonly taskControl?: NodeControlTaskControlService;
   readonly runtimeGovernance?: NodeControlRuntimeGovernanceService;
   readonly evidenceExport?: NodeControlEvidenceExportService;
   readonly evidenceOperations?: NodeControlEvidenceOperationsService;
@@ -1246,6 +1249,23 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.post('/api/v1/management-operations/:operationId/cancel', async (request, response, next) => {
+    try {
+      response
+        .status(202)
+        .json(
+          await service.cancelManagementOperation(
+            request.params.operationId,
+            requiredHeader(request, 'idempotency-key'),
+            parseCommand(request.body),
+            controlPrincipal(response).actorId,
+          ),
+        );
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/api/v1/events', async (request, response, next) => {
     try {
       const events = requiredNodeEvents(configuration);
@@ -1533,6 +1553,40 @@ export function createNodeControlHttpApp(
       next(error);
     }
   });
+
+  for (const [path, action] of [
+    ['pause', 'pause'],
+    ['resume', 'resume'],
+    ['cancel', 'cancel'],
+    ['goal-patches', 'goal_patch'],
+  ] as const) {
+    app.post(`/api/v1/tasks/:taskId/${path}`, async (request, response, next) => {
+      try {
+        const command = TaskControlCommandSchema.parse(request.body);
+        const idempotencyKey = TaskControlIdempotencyKeySchema.parse(
+          request.header('idempotency-key'),
+        );
+        const requestCorrelationId = correlationId(request);
+        const operation = await requiredTaskControl(configuration).execute(
+          action,
+          request.params.taskId,
+          {
+            reason: command.reason,
+            idempotencyKey,
+            correlationId: requestCorrelationId,
+            ...(command.payload === undefined ? {} : { payload: command.payload }),
+            ...(command.expectedRevision === undefined
+              ? {}
+              : { expectedRevision: command.expectedRevision }),
+          },
+          controlPrincipal(response),
+        );
+        response.set('x-correlation-id', requestCorrelationId).status(202).json(operation);
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
 
   app.use('/internal/v1', bearerAuthentication(configuration.runtimeServiceToken));
 
@@ -1876,6 +1930,18 @@ export function createNodeControlHttpApp(
       });
       return;
     }
+    if (error instanceof NodeControlTaskControlError) {
+      sendProblem(response, {
+        status: error.status,
+        code: error.code,
+        title: 'Task control command rejected',
+        detail: error.message,
+        instance: request.originalUrl,
+        correlationId: correlationId(request),
+        retryable: error.status >= 500,
+      });
+      return;
+    }
     if (
       typeof error === 'object' &&
       error !== null &&
@@ -2014,6 +2080,8 @@ const CommandSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .strict();
+const TaskControlCommandSchema = CommandSchema;
+const TaskControlIdempotencyKeySchema = z.string().trim().min(8).max(128);
 const EvidenceIdentifierSchema = z.string().trim().min(1).max(512);
 const EvidenceRecoveryReasonSchema = z
   .object({ reason: z.string().trim().min(1).max(2_048) })
@@ -2780,7 +2848,14 @@ function publicApiAccessControl(configuration: NodeControlHttpConfiguration) {
       });
       return;
     }
-    if (!roleOperationAllowed(principal.role, request.method, request.originalUrl)) {
+    if (
+      !roleOperationAllowed(
+        principal.role,
+        request.method,
+        request.originalUrl,
+        configuration.taskControl !== undefined,
+      )
+    ) {
       sendProblem(response, {
         status: 403,
         code: 'CONTROL_SCOPE_FORBIDDEN',
@@ -2810,10 +2885,16 @@ function credential(role: PublicApiRole, token: string | undefined) {
   return Object.freeze({ role, digest, key: `${role}:${digest.toString('hex')}` });
 }
 
-function roleOperationAllowed(role: PublicApiRole, method: string, originalUrl: string): boolean {
+function roleOperationAllowed(
+  role: PublicApiRole,
+  method: string,
+  originalUrl: string,
+  organizationTaskControlEnabled: boolean,
+): boolean {
   if (role === 'node_admin') return true;
-  if (role === 'organization_service') return organizationOperationAllowed(method, originalUrl);
-  if (organizationOperationAllowed(method, originalUrl)) return true;
+  if (role === 'organization_service')
+    return organizationOperationAllowed(method, originalUrl, organizationTaskControlEnabled);
+  if (organizationOperationAllowed(method, originalUrl, false)) return true;
   const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
   const evidenceRecovery = [
     /^\/api\/v1\/evidence-export\/replays$/u,
@@ -2831,13 +2912,23 @@ function roleOperationAllowed(role: PublicApiRole, method: string, originalUrl: 
   return evidenceRead || /^\/api\/v1\/audit-events$/u.test(path);
 }
 
-function organizationOperationAllowed(method: string, originalUrl: string): boolean {
-  if (method !== 'GET') return false;
+function organizationOperationAllowed(
+  method: string,
+  originalUrl: string,
+  taskControlEnabled: boolean,
+): boolean {
   const path = new URL(originalUrl, 'http://node-control.invalid').pathname;
+  if (
+    taskControlEnabled &&
+    method === 'POST' &&
+    /^\/api\/v1\/tasks\/[^/]+\/(?:pause|resume|cancel|goal-patches)$/u.test(path)
+  )
+    return true;
+  if (method !== 'GET') return false;
   return [
     /^\/api\/v1\/node(?:\/health)?$/u,
-    /^\/api\/v1\/node-capabilities(?:\/[^/]+\/versions\/\d+(?:\/implementations)?)?$/u,
-    /^\/api\/v1\/capability-readiness(?:\/[^/]+\/versions\/\d+)?$/u,
+    /^\/api\/v1\/node-capabilities(?:\/[^/]+\/versions\/\d+)?$/u,
+    /^\/api\/v1\/capability-readiness(?:\/[^/]+\/\d+)?$/u,
     /^\/api\/v1\/a2a-exposures(?:\/[^/]+\/versions\/\d+)?$/u,
     /^\/api\/v1\/a2a-agent-card-revisions\/\d+$/u,
     /^\/api\/v1\/tasks(?:\/[^/]+(?:\/capability-binding)?)?$/u,
@@ -3004,6 +3095,18 @@ function requiredTaskSummaries(
       status: 503,
     });
   return configuration.taskSummaries;
+}
+
+function requiredTaskControl(
+  configuration: NodeControlHttpConfiguration,
+): NodeControlTaskControlService {
+  if (configuration.taskControl === undefined)
+    throw new NodeControlTaskControlError(
+      'TASK_CONTROL_NOT_COMPOSED',
+      'Task control is unavailable for this Node.',
+      503,
+    );
+  return configuration.taskControl;
 }
 
 function requiredRuntimeGovernance(

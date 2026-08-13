@@ -13,6 +13,10 @@ import {
 import { parseOfficialAgentCard } from '../../../packages/a2a-adapter/src/node-control-agent-card.js';
 import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
 import { A2AInteractionProjection } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
+import {
+  A2ATerminalProjectionReconciler,
+  resolveA2ATerminalReconciliationIntervalMs,
+} from '../../../packages/a2a-adapter/src/terminal-projection-reconciler.js';
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
 import {
   PlanPreparationProcessor,
@@ -576,6 +580,7 @@ export interface ServerRuntimeOptions {
   }>;
   readonly a2aWaitTimeoutMs?: number;
   readonly a2aSafetyPollIntervalMs?: number;
+  readonly a2aTerminalReconciliationIntervalMs?: number;
 }
 
 export interface ServerRuntimeHandle {
@@ -5566,6 +5571,8 @@ export async function startServerRuntime(
     },
   };
   let management: ManagementHttpEndpointHandle | undefined;
+  let a2aTerminalProjectionReconciliationTimer: NodeJS.Timeout | undefined;
+  let a2aTerminalProjectionReconciliationInFlight: Promise<void> | undefined;
   try {
     const startedManagement = await startManagementHttpEndpoint({
       operations: {
@@ -5792,6 +5799,64 @@ export async function startServerRuntime(
             runtimeControl: {
               bearerToken: options.runtimeControlServiceToken,
               skills: runtimeSkillGovernance,
+              health: {
+                async get() {
+                  const observedAt = clock.now();
+                  try {
+                    const result = await pool.query<{ active_tasks: string }>(
+                      `SELECT count(*)::text AS active_tasks
+                         FROM agent_task
+                        WHERE phase NOT IN ('completed','failed','canceled','invalidated','capability_gap')`,
+                    );
+                    const activeTasks = Number(result.rows[0]?.active_tasks ?? '0');
+                    if (!Number.isSafeInteger(activeTasks) || activeTasks < 0)
+                      throw new Error('RUNTIME_ACTIVE_TASK_COUNT_INVALID');
+                    return Object.freeze({
+                      nodeId: 'sdar-runtime',
+                      status: 'healthy' as const,
+                      components: Object.freeze([
+                        Object.freeze({
+                          component: 'runtime_database',
+                          status: 'healthy' as const,
+                          observedAt,
+                        }),
+                        Object.freeze({
+                          component: 'task_authority',
+                          status: 'healthy' as const,
+                          observedAt,
+                        }),
+                      ]),
+                      activeTasks,
+                      observedAt,
+                    });
+                  } catch {
+                    return Object.freeze({
+                      nodeId: 'sdar-runtime',
+                      status: 'unavailable' as const,
+                      components: Object.freeze([
+                        Object.freeze({
+                          component: 'runtime_database',
+                          status: 'unavailable' as const,
+                          reasonCode: 'RUNTIME_DATABASE_UNAVAILABLE',
+                          observedAt,
+                        }),
+                      ]),
+                      activeTasks: 0,
+                      observedAt,
+                    });
+                  }
+                },
+              },
+              version: {
+                get: () =>
+                  Promise.resolve(
+                    Object.freeze({
+                      runtimeVersion: '1.4.1',
+                      nodeControlContractVersion: '1.0.0',
+                      runtimeControlContractVersion: '1.0.0',
+                    }),
+                  ),
+              },
               evidenceExport,
               evidenceOperations,
               actorId: 'sdar-node-control',
@@ -5823,10 +5888,41 @@ export async function startServerRuntime(
         ? {}
         : { safetyPollIntervalMs: options.a2aSafetyPollIntervalMs }),
     });
+    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool);
+    const a2aTerminalProjectionReconciler = new A2ATerminalProjectionReconciler({
+      projections: a2aProjections,
+      tasks,
+      interaction: interactiveGoalMetadata,
+    });
+    await a2aTerminalProjectionReconciler.reconcile();
+    const scheduleA2ATerminalProjectionReconciliation = (): void => {
+      if (a2aTerminalProjectionReconciliationInFlight !== undefined) return;
+      a2aTerminalProjectionReconciliationInFlight = a2aTerminalProjectionReconciler
+        .reconcile()
+        .then((result) => {
+          if (result.reconciled === 0) return;
+          process.stdout.write(
+            `${JSON.stringify({ event: 'a2a_terminal_projection.reconciled', ...result })}\n`,
+          );
+        })
+        .catch((error: unknown) => {
+          process.stderr.write(
+            `${JSON.stringify({ event: 'a2a_terminal_projection.reconciliation_failed', errorCode: runtimeErrorCode(error), summary: error instanceof Error ? error.message : String(error) })}\n`,
+          );
+        })
+        .finally(() => {
+          a2aTerminalProjectionReconciliationInFlight = undefined;
+        });
+    };
+    a2aTerminalProjectionReconciliationTimer = setInterval(
+      scheduleA2ATerminalProjectionReconciliation,
+      resolveA2ATerminalReconciliationIntervalMs(options.a2aTerminalReconciliationIntervalMs),
+    );
+    a2aTerminalProjectionReconciliationTimer.unref();
     const a2a = await startA2AHttpEndpoint({
       executor: taskExecutor,
       taskStore: new A2AProjectionTaskStore(
-        new PostgresExternalTaskProjectionRepository(pool),
+        a2aProjections,
         tasks,
         createA2ACancelReconciliationHandler(foregroundAwareTasks),
         interactiveGoalMetadata,
@@ -5976,6 +6072,8 @@ export async function startServerRuntime(
         if (remoteTaskCancellationReconcileTimer !== undefined)
           clearInterval(remoteTaskCancellationReconcileTimer);
         if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
+        if (a2aTerminalProjectionReconciliationTimer !== undefined)
+          clearInterval(a2aTerminalProjectionReconciliationTimer);
         taskExecutor.close();
         frozenTaskNotifications?.close();
         businessEventCoordinator?.close();
@@ -6008,6 +6106,7 @@ export async function startServerRuntime(
         await artifactShadowRuntime?.revalidationQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
+        await a2aTerminalProjectionReconciliationInFlight;
         await evidenceExportInFlight;
         await evidenceOperationsMaintenanceInFlight;
         await runtimeCoreEvidenceProjection;
@@ -6032,6 +6131,8 @@ export async function startServerRuntime(
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
     if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
+    if (a2aTerminalProjectionReconciliationTimer !== undefined)
+      clearInterval(a2aTerminalProjectionReconciliationTimer);
     taskStateNotifier.close();
     frozenTaskNotifications?.close();
     businessEventCoordinator?.close();
@@ -6060,6 +6161,7 @@ export async function startServerRuntime(
     await artifactShadowRuntime?.queue.close();
     await artifactShadowRuntime?.revalidationQueue.close();
     await queue.close();
+    await a2aTerminalProjectionReconciliationInFlight;
     await evidenceExportInFlight;
     await evidenceOperationsMaintenanceInFlight;
     await runtimeCoreEvidenceProjection;

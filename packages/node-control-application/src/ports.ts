@@ -52,6 +52,15 @@ export interface NodeControlFoundationRepository {
     operation: ManagementOperation,
     audit: ControlAuditEvent,
   ): Promise<ManagementOperation>;
+  startGovernanceOperation?(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation>;
+  cancelGovernanceOperation?(
+    operationId: string,
+    audit: ControlAuditEvent,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation | undefined>;
   completeGovernanceOperation?(
     operation: ManagementOperation,
     audit: ControlAuditEvent,

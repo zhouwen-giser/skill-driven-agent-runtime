@@ -4074,7 +4074,23 @@ export class PostgresExternalTaskProjectionRepository implements ExternalTaskPro
        ON CONFLICT (protocol, task_id) DO UPDATE SET
          context_id = EXCLUDED.context_id, state = EXCLUDED.state,
          status_timestamp = EXCLUDED.status_timestamp,
-         document_json = EXCLUDED.document_json, updated_at = clock_timestamp()`,
+         document_json = EXCLUDED.document_json, updated_at = clock_timestamp()
+       WHERE (
+         external_task_projection.state NOT IN (
+           'TASK_STATE_COMPLETED','TASK_STATE_FAILED','TASK_STATE_CANCELED'
+         ) OR external_task_projection.state = EXCLUDED.state
+       ) AND (
+         (
+           external_task_projection.state NOT IN (
+             'TASK_STATE_COMPLETED','TASK_STATE_FAILED','TASK_STATE_CANCELED'
+           ) AND EXCLUDED.state IN (
+             'TASK_STATE_COMPLETED','TASK_STATE_FAILED','TASK_STATE_CANCELED'
+           )
+         )
+         OR external_task_projection.status_timestamp IS NULL
+         OR EXCLUDED.status_timestamp IS NULL
+         OR external_task_projection.status_timestamp <= EXCLUDED.status_timestamp
+       )`,
       [
         projection.protocol,
         projection.taskId,
@@ -4097,13 +4113,18 @@ export class PostgresExternalTaskProjectionRepository implements ExternalTaskPro
          AND ($2::text IS NULL OR context_id = $2)
          AND ($3::text IS NULL OR state = $3)
          AND ($4::timestamptz IS NULL OR status_timestamp >= $4)
-       ORDER BY status_timestamp DESC NULLS LAST, task_id
-       OFFSET $5 LIMIT $6`,
+         AND ($5::text IS NULL OR task_id > $5)
+       ORDER BY
+         CASE WHEN $5::text IS NOT NULL THEN task_id END ASC,
+         CASE WHEN $5::text IS NULL THEN status_timestamp END DESC NULLS LAST,
+         task_id
+       OFFSET $6 LIMIT $7`,
       [
         query.protocol,
         query.contextId ?? null,
         query.state ?? null,
         query.statusTimestampAfter ?? null,
+        query.taskIdAfter ?? null,
         query.offset,
         query.limit,
       ],

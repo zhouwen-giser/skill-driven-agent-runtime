@@ -60,9 +60,17 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       (33 files / 158 tests) passed.
 - [x] 2026-08-13 09:45 +08:00 reproduced and classified BP-SDAR-001 through
       BP-SDAR-007; published the P00 source lock, baseline report, and breakpoint matrix.
-- [ ] Complete P01 Node Control Task Control.
-- [ ] Complete P02 public operation implementation conformance.
-- [ ] Complete P03 A2A terminal convergence.
+- [x] 2026-08-13 completed P01 Node Control Task Control: four public/internal commands, durable
+      replay/conflict/restart semantics, Runtime authority delegation, 9-file/108-test combined
+      focused gate, isolated Runtime PostgreSQL 76/76, and combined P01/P02 Node Control foundation
+      PostgreSQL 14/14.
+- [x] 2026-08-13 completed P02 public operation implementation conformance: contract suite 41
+      files/281 tests and production gate for 131 operations, 455 RBAC decisions, and 131 covered
+      operation IDs.
+- [x] 2026-08-13 completed P03 A2A terminal convergence: authoritative save canonicalization,
+      monotonic PostgreSQL projection, startup/periodic reconciliation, PostgreSQL 75/75, and
+      focused reconciler tests. A fresh Node Control foundation regression passed 11/11 at the P03
+      stage before the later cancellation-authority additions; it is not A2A behavior evidence.
 - [ ] Complete P04 governed physical-control safety.
 - [ ] Complete P05 in-flight recovery.
 - [ ] Complete P06 aggregate verification/performance.
@@ -83,6 +91,17 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   `listTasks` remains stale and an unconditional upsert permits terminal-to-WORKING regression.
 - The latest checked-in aggregate and performance authority is failed. It is baseline evidence only,
   never candidate evidence or permission to change Phase 13 thresholds or the estimand.
+- P01 required two durable, complementary idempotency boundaries: Node Control persists the public
+  governance operation and audit, while Runtime's existing Cognitive Management Action gate fences
+  the authoritative Task mutation. A recovered uncertain dispatch is rejected instead of replayed.
+- The production conformance gate proves route, authentication/RBAC, and declared contract coverage;
+  it does not prove every business mutation. Capability Catalog stage/activate routes are registered
+  and service-authenticated but correctly return
+  `503 RUNTIME_CAPABILITY_CATALOG_CONTROL_UNAVAILABLE` because no Runtime catalog control authority
+  is composed.
+- Durable A2A convergence required three cooperating safeguards: canonicalize saves from Runtime
+  Task authority, reject terminal regression in PostgreSQL, and reconcile existing projections on
+  startup and a bounded periodic schedule.
 
 ## Decision Log
 
@@ -94,6 +113,13 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   commands through application ports, never direct cross-authority SQL.
 - 2026-08-13: Preserve historical aggregate/performance failures as immutable attempts; no threshold,
   percentile, sample, or schema weakening is permitted.
+- 2026-08-13: Reuse Runtime `TaskService.cancel()`/`followUp()` and the PostgreSQL-backed Cognitive
+  Management Action gate. Do not create a second Task phase or Plan authority in Node Control.
+- 2026-08-13: Treat public operation conformance as route/auth/coverage evidence only. A registered
+  fail-closed `503` handler is not evidence that Catalog staging or activation is functionally
+  composed.
+- 2026-08-13: Reconcile only existing `a2a-v1` projections from Runtime terminal authority. Do not
+  let the repair admit new A2A Tasks or make A2A an independent state machine.
 
 ## Implementation Steps
 
@@ -157,5 +183,11 @@ separate real, deterministic, static, external, and unverified evidence.
 
 ## Outcomes and Retrospective
 
-In progress. This section will record the exact candidate, passed gates, breakpoint dispositions,
-remaining external blockers, and protected-review handoff after P09.
+P01-P03 are functionally closed in the working tree and BP-SDAR-001 through BP-SDAR-003 are `FIXED`.
+Current shared evidence is: full TypeScript PASS; combined focused Vitest 9 files/108 tests; P01
+isolated PostgreSQL 76/76; combined P01/P02 Node Control foundation PostgreSQL 14/14; P02 contract 41
+files/281 tests plus 131-operation/455-RBAC conformance; and P03 PostgreSQL 75/75 plus focused
+reconciler tests. The P03-stage foundation regression was 11/11 before later P01/P02 cancellation
+changes. Physical device writes remain zero. The implementation/evidence changes are not yet
+committed or pushed, P04-P09 remain pending, and no final candidate or protected-review readiness is
+claimed.

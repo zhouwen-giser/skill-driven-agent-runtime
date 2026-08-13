@@ -18,7 +18,11 @@ export type CognitiveManagementOperation =
   | 'artifact_rollback'
   | 'artifact_kill_switch'
   | 'artifact_build_promotion_package'
-  | 'deterministic_capability_execution';
+  | 'deterministic_capability_execution'
+  | 'task_pause'
+  | 'task_resume'
+  | 'task_cancel'
+  | 'task_goal_patch';
 
 export interface CognitiveManagementActionClaim {
   readonly actionId: string;

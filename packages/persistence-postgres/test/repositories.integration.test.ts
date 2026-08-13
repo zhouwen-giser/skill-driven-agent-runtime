@@ -399,6 +399,50 @@ describe('PostgreSQL protocol-domain repositories', () => {
     ).resolves.toEqual({ disposition: 'conflict' });
   });
 
+  it('persists all Runtime Task command actions for restart-safe replay and conflict rejection', async () => {
+    for (const [index, operation] of (
+      ['task_pause', 'task_resume', 'task_cancel', 'task_goal_patch'] as const
+    ).entries()) {
+      const repository = new PostgresCognitiveManagementActionRepository(pool);
+      const claim = {
+        actionId: `cognitive-management-runtime-task-${String(index + 1)}`,
+        operation,
+        subjectId: 'runtime-task-control',
+        expectedVersion: 0,
+        idempotencyKey: `runtime-task-command-db-${String(index + 1)}`,
+        actorId: 'sdar-node-control',
+        reason: 'Apply one governed Runtime Task command.',
+        requestHash: `sha256:${String(index + 4).repeat(64)}`,
+        claimedAt: '2026-08-13T00:00:00.000Z',
+        leaseOwner: `runtime-task-owner-${String(index + 1)}`,
+        leaseToken: `runtime-task-token-${String(index + 1)}`,
+        leaseDurationMs: 60_000,
+      } as const;
+      const claimed = await repository.claim(claim);
+      expect(claimed).toMatchObject({ disposition: 'claimed', lease: { attempt: 1 } });
+      if (claimed.disposition !== 'claimed') throw new Error('ACTION_LEASE_NOT_CLAIMED');
+      const started = await repository.startExecution(claimed.lease);
+      await repository.complete(
+        started,
+        { status: 'succeeded', operation },
+        '2026-08-13T00:00:01.000Z',
+      );
+
+      const restarted = new PostgresCognitiveManagementActionRepository(pool);
+      await expect(restarted.claim(claim)).resolves.toEqual({
+        disposition: 'completed',
+        result: { status: 'succeeded', operation },
+      });
+      await expect(
+        restarted.claim({
+          ...claim,
+          actionId: `${claim.actionId}-conflict`,
+          requestHash: `sha256:${(['8', '9', 'a', 'b'] as const)[index]?.repeat(64) ?? ''}`,
+        }),
+      ).resolves.toEqual({ disposition: 'conflict' });
+    }
+  });
+
   it('atomically takes over expired leases and fences every stale owner across dispatch', async () => {
     const firstRepository = new PostgresCognitiveManagementActionRepository(pool);
     const claim = {
@@ -4274,6 +4318,45 @@ describe('PostgreSQL protocol-domain repositories', () => {
         limit: 10,
       }),
     ).resolves.toMatchObject({ total: 1 });
+
+    await projections.save({
+      protocol: 'a2a-v1',
+      taskId: submitted.task.taskId,
+      contextId: submitted.context.contextId,
+      state: 'TASK_STATE_WORKING',
+      statusTimestamp: '2026-07-11T10:02:00.000Z',
+      document: { id: submitted.task.taskId, working: true },
+    });
+    await projections.save({
+      protocol: 'a2a-v1',
+      taskId: submitted.task.taskId,
+      contextId: submitted.context.contextId,
+      state: 'TASK_STATE_COMPLETED',
+      statusTimestamp: '2026-07-11T10:01:00.000Z',
+      document: { id: submitted.task.taskId, terminal: 'completed' },
+    });
+    await projections.save({
+      protocol: 'a2a-v1',
+      taskId: submitted.task.taskId,
+      contextId: submitted.context.contextId,
+      state: 'TASK_STATE_WORKING',
+      statusTimestamp: '2026-07-11T10:04:00.000Z',
+      document: { id: submitted.task.taskId, late: true },
+    });
+    await projections.save({
+      protocol: 'a2a-v1',
+      taskId: submitted.task.taskId,
+      contextId: submitted.context.contextId,
+      state: 'TASK_STATE_FAILED',
+      statusTimestamp: '2026-07-11T10:03:00.000Z',
+      document: { id: submitted.task.taskId, conflictingTerminal: true },
+    });
+
+    await expect(projections.find('a2a-v1', submitted.task.taskId)).resolves.toMatchObject({
+      state: 'TASK_STATE_COMPLETED',
+      statusTimestamp: '2026-07-11T10:01:00.000Z',
+      document: { id: submitted.task.taskId, terminal: 'completed' },
+    });
   });
 
   it('persists Skill requests only as drafts', async () => {

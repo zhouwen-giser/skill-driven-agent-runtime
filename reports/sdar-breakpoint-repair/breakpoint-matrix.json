@@ -1,31 +1,67 @@
 {
   "schemaVersion": "1.0",
   "sourceSha": "b7f02dcedc9680758e7e5f779a939a738d8de770",
-  "observedAt": "2026-08-13T09:22:22.0818780+08:00",
+  "observedAt": "2026-08-13T10:49:39.3017334+08:00",
   "physicalDeviceWrites": 0,
   "results": [
     {
       "id": "BP-SDAR-001",
-      "status": "STILL_REPRODUCIBLE",
+      "status": "FIXED",
+      "rootCause": "Frozen Task control operations had no production Node Control to Runtime command boundary or durable replay identity.",
+      "implementation": [
+        "Registered all four public and internal Task command routes with public RBAC and Runtime service authentication.",
+        "Delegated authoritative phase and Plan validation to Runtime TaskService through durable Node Control and Runtime Management Operation gates.",
+        "Persisted replay/conflict/recovery identity and failed closed before duplicate Task mutation."
+      ],
+      "tests": [
+        "Current P01-P03 focused Vitest selection: 9 files, 108 tests passed.",
+        "P01 isolated PostgreSQL repository integration: 76/76 tests passed.",
+        "Combined P01/P02 Node Control foundation PostgreSQL integration: 14/14 tests passed.",
+        "Full repository TypeScript check passed."
+      ],
       "evidence": [
-        "Frozen public and internal OpenAPI declare pause, resume, cancel, and goal-patch.",
-        "The Node Control and Runtime management routers do not register those command routes."
+        "Pause, resume, cancel, and Goal Patch are registered on both production HTTP boundaries.",
+        "Same-key replay is exact, changed input conflicts before TaskService, and uncertain restart never duplicates Goal Patch.",
+        "Runtime PostgreSQL remains Task phase and Plan authority; physicalDeviceWrites=0."
       ]
     },
     {
       "id": "BP-SDAR-002",
-      "status": "STILL_REPRODUCIBLE",
+      "status": "FIXED",
+      "rootCause": "The prior contract gate validated frozen artifacts but did not compare them with production routes, RBAC decisions, or executed contract coverage.",
+      "implementation": [
+        "Added a production-composition conformance verifier for inventory, OpenAPI, actual routes, authentication, RBAC, and coverage.",
+        "Added deliberate negative tests and wired the verifier into v1.4 security and bootstrap verification."
+      ],
+      "tests": [
+        "Contract suite: 41 files, 281 tests passed.",
+        "Production conformance: 131 operations, 455 RBAC decisions, and 131 covered operation IDs passed.",
+        "Combined P01/P02 Node Control foundation PostgreSQL integration: 14/14 tests passed.",
+        "Missing handler, route drift, RBAC gap, and coverage gap negative cases passed."
+      ],
       "evidence": [
-        "The frozen verifier reports 131 operations and passes.",
-        "No gate compares inventory, OpenAPI, production router, RBAC, and contract-test coverage."
+        "The permanent gate compares 94 public and 37 internal operations with real Express composition and HTTP auth behavior.",
+        "Capability Catalog stage/activate are route/auth conformant but fail closed with 503 because no Runtime catalog mutation authority is composed; no functional Catalog mutation is claimed.",
+        "physicalDeviceWrites=0."
       ]
     },
     {
       "id": "BP-SDAR-003",
-      "status": "STILL_REPRODUCIBLE",
+      "status": "FIXED",
+      "rootCause": "A2A load overlay was request-local, projection upserts were unconditional, and no startup or periodic reconciler repaired notification loss.",
+      "implementation": [
+        "Canonicalized A2A saves from Runtime Task authority and made PostgreSQL terminal projection updates monotonic.",
+        "Added startup and bounded single-flight periodic reconciliation for existing A2A projections."
+      ],
+      "tests": [
+        "Current P01-P03 focused Vitest selection: 9 files, 108 tests passed.",
+        "P03 PostgreSQL repository integration: 75/75 tests passed.",
+        "The P03-stage fresh Node Control foundation PostgreSQL regression passed 11/11 before later P01/P02 cancel-authority additions."
+      ],
       "evidence": [
-        "getTask overlays FAILED while the durable projection and listTasks remain WORKING.",
-        "A late older WORKING projection can overwrite a previously saved terminal projection."
+        "Completed, failed, canceled, invalidated, and capability-gap Runtime Tasks converge to durable A2A terminal projections without another client request.",
+        "Late older WORKING and conflicting terminal writes cannot overwrite an existing terminal projection.",
+        "Reconciliation is idempotent and does not create projections for unadmitted Tasks; physicalDeviceWrites=0."
       ]
     },
     {
