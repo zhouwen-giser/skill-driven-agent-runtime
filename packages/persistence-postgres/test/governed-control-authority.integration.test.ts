@@ -9,7 +9,10 @@ import {
   type CurrentGovernedCapabilityAuthority,
   type GovernedControlConfirmation,
 } from '../../application/src/index.js';
-import { PostgresGovernedControlAuthorityRepository } from '../src/index.js';
+import {
+  PostgresGovernedControlAuthorityRepository,
+  PostgresMcpRegistryRepository,
+} from '../src/index.js';
 
 const databaseName = 'sdar_v14_governed_control_authority_integration';
 const adminConnection =
@@ -20,14 +23,14 @@ const taskId = 'task-governed-control';
 const planId = 'plan-governed-control';
 const bindingId = 'binding-governed-control';
 const attemptId = 'attempt-governed-control';
-const capabilityId = 'vehicle.light.control';
+const capabilityId = 'vehicle.ugv.track-target';
 const capabilityVersion = 1;
-const skillId = 'skill-governed-light-control';
+const skillId = 'ugv.track-target';
 const skillVersion = 3;
-const serverId = 'provider-governed-control';
-const toolName = 'light_set_state';
-const providerBindingId = 'provider-binding-governed-control';
-const arguments_ = Object.freeze({ resourceId: 'lab-light-1', state: 'off' });
+const serverId = 'smpp-ugv-provider';
+const toolName = 'vehicle_track_target';
+const providerBindingId = 'provider-binding-ugv';
+const arguments_ = Object.freeze({ resourceId: 'ugv-1', targetId: 'target-1' });
 const planDefinition = Object.freeze({
   workflowDefinitionId: 'workflow-governed-control',
   version: 1,
@@ -114,6 +117,8 @@ describe('PostgreSQL governed physical-control authority', () => {
     try {
       const snapshot = await afterIssueRestart.repository.load({
         taskId,
+        capabilityAttemptId: attemptId,
+        providerBindingId,
         serverId,
         toolName,
         argumentsHash,
@@ -138,7 +143,7 @@ describe('PostgreSQL governed physical-control authority', () => {
           serverId,
           operationName: toolName,
           argumentsHash,
-          riskLevel: 'high',
+          riskLevel: 'medium',
         },
         confirmation: {
           confirmationId: 'confirmation-governed-live',
@@ -148,12 +153,74 @@ describe('PostgreSQL governed physical-control authority', () => {
       expect(snapshot?.confirmation).not.toHaveProperty('revokedAt');
       expect(snapshot?.confirmation).not.toHaveProperty('revokedBy');
       await expect(
-        authorizer(afterIssueRestart.repository, '2026-08-13T01:01:00.000Z').authorize(
+        authorizer(afterIssueRestart.repository, '2026-08-13T01:01:00.000Z').authorizeAndConsume(
           invocation(),
         ),
-      ).resolves.toBeUndefined();
+      ).resolves.toMatchObject({
+        confirmationId: 'confirmation-governed-live',
+        invocationId: 'invocation-governed-control',
+        dispatchHash: `sha256:${'d'.repeat(64)}`,
+        consumedAt: '2026-08-13T01:01:00.000Z',
+      });
+      await expect(
+        authorizer(afterIssueRestart.repository, '2026-08-13T01:01:01.000Z').authorizeAndConsume(
+          invocation(),
+        ),
+      ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED' });
+      await expect(
+        authorizer(afterIssueRestart.repository, '2026-08-13T01:01:02.000Z').authorizeAndConsume({
+          ...invocation(),
+          invocationId: 'invocation-governed-other',
+          dispatchHash: `sha256:${'e'.repeat(64)}`,
+        }),
+      ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED' });
+      const invocationAudit = new PostgresMcpRegistryRepository(afterIssueRestart.pool);
+      const auditRecord = {
+        invocationId: 'invocation-governed-control',
+        taskId,
+        capabilityAttemptId: attemptId,
+        controlConfirmationId: 'confirmation-governed-live',
+        controlProviderBindingId: providerBindingId,
+        controlArgumentsHash: argumentsHash,
+        controlDispatchHash: `sha256:${'d'.repeat(64)}`,
+        contextId: 'context-governed-control',
+        executionMode: 'live' as const,
+        serverId,
+        toolName,
+        executionSemantics: invocation().executionSemantics,
+        arguments: arguments_,
+        status: 'failed' as const,
+        errorCode: 'TEST_NO_PROVIDER_DISPATCH',
+        errorMessage: 'Deterministic audit fixture; no Provider transport was called.',
+        startedAt: '2026-08-13T01:01:00.000Z',
+        completedAt: '2026-08-13T01:01:00.000Z',
+        durationMs: 0,
+      };
+      await expect(
+        invocationAudit.saveInvocation({
+          ...auditRecord,
+          invocationId: 'invocation-governed-mismatched',
+          controlDispatchHash: `sha256:${'e'.repeat(64)}`,
+        }),
+      ).rejects.toMatchObject({ code: '23503' });
+      await invocationAudit.saveInvocation(auditRecord);
+      await expect(invocationAudit.listInvocationsByTask(taskId)).resolves.toContainEqual(
+        expect.objectContaining({
+          invocationId: 'invocation-governed-control',
+          controlConfirmationId: 'confirmation-governed-live',
+          controlProviderBindingId: providerBindingId,
+          controlArgumentsHash: argumentsHash,
+          controlDispatchHash: `sha256:${'d'.repeat(64)}`,
+        }),
+      );
       expect(physicalDeviceWrites).toBe(0);
 
+      const revocable = confirmationService(
+        afterIssueRestart.repository,
+        'confirmation-governed-revocable',
+        '2026-08-13T01:01:10.000Z',
+      );
+      await revocable.issue(confirmationInput('2026-08-13T01:05:00.000Z'));
       const revocation = new GovernedControlConfirmationService({
         store: afterIssueRestart.repository,
         clock: { now: () => '2026-08-13T01:01:30.000Z' },
@@ -161,7 +228,7 @@ describe('PostgreSQL governed physical-control authority', () => {
       });
       await expect(
         revocation.revoke({
-          confirmationId: 'confirmation-governed-live',
+          confirmationId: 'confirmation-governed-revocable',
           actorId: 'human:operator-2',
           actorKind: 'human',
           authenticationMethod: 'oidc-mfa',
@@ -178,15 +245,22 @@ describe('PostgreSQL governed physical-control authority', () => {
     const afterRevokeRestart = await openRestartedRepository();
     try {
       await expect(
-        authorizer(afterRevokeRestart.repository, '2026-08-13T01:02:00.000Z').authorize(
+        authorizer(afterRevokeRestart.repository, '2026-08-13T01:02:00.000Z').authorizeAndConsume(
           invocation(),
         ),
       ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_CONFIRMATION_INVALID' });
       await expect(
-        afterRevokeRestart.repository.load({ taskId, serverId, toolName, argumentsHash }),
+        afterRevokeRestart.repository.load({
+          taskId,
+          capabilityAttemptId: attemptId,
+          providerBindingId,
+          serverId,
+          toolName,
+          argumentsHash,
+        }),
       ).resolves.toMatchObject({
         confirmation: {
-          confirmationId: 'confirmation-governed-live',
+          confirmationId: 'confirmation-governed-revocable',
           revokedAt: '2026-08-13T01:01:30.000Z',
           revokedBy: 'human:operator-2',
         },
@@ -205,12 +279,19 @@ describe('PostgreSQL governed physical-control authority', () => {
     const afterExpiryRestart = await openRestartedRepository();
     try {
       await expect(
-        authorizer(afterExpiryRestart.repository, '2026-08-13T01:04:00.000Z').authorize(
+        authorizer(afterExpiryRestart.repository, '2026-08-13T01:04:00.000Z').authorizeAndConsume(
           invocation(),
         ),
       ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_CONFIRMATION_INVALID' });
       await expect(
-        afterExpiryRestart.repository.load({ taskId, serverId, toolName, argumentsHash }),
+        afterExpiryRestart.repository.load({
+          taskId,
+          capabilityAttemptId: attemptId,
+          providerBindingId,
+          serverId,
+          toolName,
+          argumentsHash,
+        }),
       ).resolves.toMatchObject({
         confirmation: {
           confirmationId: 'confirmation-governed-expiring',
@@ -266,15 +347,20 @@ function confirmationInput(expiresAt: string) {
     capabilityBindingId: bindingId,
     capabilityId,
     capabilityVersion,
+    capabilityAttemptId: attemptId,
     planId,
     planHash,
     skillId,
     skillVersion,
+    providerBindingId,
+    serverId,
+    toolName,
+    argumentsHash,
     actorId: 'human:operator-1',
     actorKind: 'human' as const,
     authenticationMethod: 'oidc-mfa',
     actorRoles: ['physical_control_approver'],
-    reason: 'Approve bounded deterministic light control.',
+    reason: 'Approve one bounded deterministic UGV tracking Task.',
     expiresAt,
   };
 }
@@ -289,15 +375,20 @@ function confirmationRecord(
     capabilityBindingId: bindingId,
     capabilityId,
     capabilityVersion,
+    capabilityAttemptId: attemptId,
     planId,
     planHash,
     skillId,
     skillVersion,
+    providerBindingId,
+    serverId,
+    toolName,
+    argumentsHash,
     actorId: 'human:operator-1',
     actorKind: 'human',
     authenticationMethod: 'oidc-mfa',
     actorRoles: ['physical_control_approver'],
-    reason: 'Approve bounded deterministic light control.',
+    reason: 'Approve one bounded deterministic UGV tracking Task.',
     confirmedAt: '2026-08-13T01:00:00.000Z',
     expiresAt,
   };
@@ -305,20 +396,15 @@ function confirmationRecord(
 
 function invocation() {
   return {
+    invocationId: 'invocation-governed-control',
+    dispatchHash: `sha256:${'d'.repeat(64)}`,
     taskId,
     capabilityAttemptId: attemptId,
     providerBindingId,
     serverId,
     toolName,
     arguments: arguments_,
-    executionSemantics: {
-      effect: 'side_effecting' as const,
-      execution: 'synchronous' as const,
-      cancellation: 'unsupported' as const,
-      idempotency: 'client_request_key' as const,
-      replay: 'forbidden' as const,
-      source: 'mcp_declared' as const,
-    },
+    executionSemantics: controlExecutionSemantics(),
   };
 }
 
@@ -336,7 +422,8 @@ function currentCapability(): CurrentGovernedCapabilityAuthority {
       capability_id: capabilityId,
       version: capabilityVersion,
       status: 'published',
-      risk_level: 'high',
+      risk_level: 'medium',
+      supported_modes: ['plan_confirmed', 'remote_task'],
       constraints,
     },
     implementationBindings: [
@@ -348,6 +435,17 @@ function currentCapability(): CurrentGovernedCapabilityAuthority {
         implementation_version: String(skillVersion),
         role: 'primary',
         status: 'active',
+        provider_policy_override: {
+          selection: 'required',
+          mcpProviderBindingId: providerBindingId,
+          localServerId: serverId,
+          mcpToolName: toolName,
+          allowedResourceIds: ['ugv-1'],
+          requireActive: true,
+          requireAvailable: true,
+          requireUnexpiredFreshness: true,
+          denyFallback: true,
+        },
       },
     ],
   };
@@ -367,6 +465,20 @@ async function openRestartedRepository(): Promise<{
 
 async function seedExactAuthority(): Promise<void> {
   await pool.query(
+    `INSERT INTO mcp_server(
+       server_id,name,endpoint,transport,status,tool_revision,encrypted_credential,
+       created_at,updated_at)
+     VALUES($1,'Governed Control Provider','https://provider.invalid/mcp','streamable_http',
+            'enabled',1,'encrypted-test-only','2026-08-13T01:00:00.000Z',
+            '2026-08-13T01:00:00.000Z')`,
+    [serverId],
+  );
+  await pool.query(
+    `INSERT INTO mcp_tool(server_id,tool_name,input_schema_json,discovered_at)
+     VALUES($1,$2,'{"type":"object"}'::jsonb,'2026-08-13T01:00:00.000Z')`,
+    [serverId, toolName],
+  );
+  await pool.query(
     `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
      VALUES('context-governed-control','human:operator-1',
             '2026-08-13T01:00:00.000Z','2026-08-13T01:00:00.000Z')`,
@@ -374,8 +486,8 @@ async function seedExactAuthority(): Promise<void> {
   await pool.query(
     `INSERT INTO goal(
        goal_id,context_id,version,title,description,status,created_at,updated_at)
-     VALUES('goal-governed-control','context-governed-control',1,
-            'Bounded light control','Turn off one deterministic lab light.','active',
+      VALUES('goal-governed-control','context-governed-control',1,
+             'Bounded UGV tracking','Track one deterministic UGV target.','active',
             '2026-08-13T01:00:00.000Z','2026-08-13T01:00:00.000Z')`,
   );
   await pool.query(
@@ -388,7 +500,7 @@ async function seedExactAuthority(): Promise<void> {
        skill_id,version,name,summary,description,capabilities_json,workflow_guidance,
        output_instruction,input_schema_json,output_schema_json,tool_policy_json,
        runtime_policy_json,status,source_kind,validation_passed,created_at)
-     VALUES($1,$2,'Governed Light Control','Bounded physical light control.',
+      VALUES($1,$2,'Governed UGV Target Tracking','Bounded physical UGV tracking.',
        'Requires exact Task, Capability, plan, readiness, Provider and human confirmation.',
        $3::jsonb,'Invoke the exact required Tool once.','Return confirmed state evidence.',
        '{"type":"object"}'::jsonb,'{"type":"object"}'::jsonb,$4::jsonb,$5::jsonb,
@@ -422,7 +534,17 @@ async function seedExactAuthority(): Promise<void> {
       `sha256:${'1'.repeat(64)}`,
       JSON.stringify({
         schemaVersion: '1.0',
-        sideEffectPolicy: { sideEffecting: true, confirmation: 'required' },
+        sideEffectPolicy: {
+          sideEffecting: true,
+          confirmation: 'required_before_execution',
+          autoConfirmPlan: false,
+          allowRealSideEffectsEnv: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
+          realTestRunIdEnv: 'REAL_UGV_TEST_RUN_ID',
+          exactResourceRequired: true,
+          remoteTaskIdentityRequired: true,
+          terminalObservationRequired: true,
+          redispatchAfterUncertain: false,
+        },
       }),
     ],
   );
@@ -437,8 +559,8 @@ async function seedExactAuthority(): Promise<void> {
       JSON.stringify({
         goalId: 'goal-governed-control',
         version: 1,
-        title: 'Bounded light control',
-        description: 'Turn off one deterministic lab light.',
+        title: 'Bounded UGV tracking',
+        description: 'Track one deterministic UGV target.',
         constraints: [],
         successCriteria: [],
       }),
@@ -454,8 +576,8 @@ async function seedExactAuthority(): Promise<void> {
       JSON.stringify({
         goalId: 'goal-governed-control',
         version: 1,
-        title: 'Bounded light control',
-        description: 'Turn off one deterministic lab light.',
+        title: 'Bounded UGV tracking',
+        description: 'Track one deterministic UGV target.',
         constraints: [],
         successCriteria: [],
       }),
@@ -466,7 +588,7 @@ async function seedExactAuthority(): Promise<void> {
     `INSERT INTO agent_task(
        task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
        goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,created_at,updated_at)
-     VALUES($1,'context-governed-control','human:operator-1','Turn off the lab light.',
+      VALUES($1,'context-governed-control','human:operator-1','Track target-1 with ugv-1.',
             '{}'::jsonb,'executing','Executing governed control.','goal-governed-control',1,
             $2,$3,$4,'2026-08-13T01:00:00.000Z','2026-08-13T01:00:00.000Z')`,
     [taskId, planId, skillId, skillVersion],
@@ -484,7 +606,7 @@ async function seedExactAuthority(): Promise<void> {
       capabilityId,
       capabilityVersion,
       JSON.stringify(arguments_),
-      JSON.stringify([{ type: 'target_state', state: 'off' }]),
+      JSON.stringify([{ type: 'remote_task_terminal', required: true }]),
       JSON.stringify([{ type: 'state_confirmation', required: true }]),
       JSON.stringify(constraints),
       JSON.stringify([`skill:${skillId}:${String(skillVersion)}`]),
@@ -523,7 +645,7 @@ async function seedExactAuthority(): Promise<void> {
        arguments_snapshot_json,arguments_hash,result_json,availability,risk_level,
        reservation_mode,valid_until,source_revision,checked_at,normalization_reason_codes_json)
      VALUES('availability-governed-control','readiness-governed-control','set-lab-light',
-            $1,$2,$3::jsonb,$4,'{"available":true}'::jsonb,'available','high','none',
+             $1,$2,$3::jsonb,$4,'{"available":true}'::jsonb,'available','medium','none',
             '2026-08-13T01:10:00.000Z','catalog-governed-control-v1',
             '2026-08-13T01:00:30.000Z','[]'::jsonb)`,
     [serverId, toolName, JSON.stringify(arguments_), argumentsHash],
@@ -533,29 +655,50 @@ async function seedExactAuthority(): Promise<void> {
 function controlConstraints() {
   return [
     {
-      type: 'authorization',
-      effect: 'physical_control',
-      requiredActorRole: 'physical_control_approver',
-      allowedActorIds: ['human:operator-1'],
+      type: 'resource_policy',
+      identifierAuthority: 'public_smpp_tool_schema',
+      selection: 'exact_value',
+      allowedResourceIds: ['ugv-1'],
+      downstreamResourceBinding: 'forbidden',
     },
-    {
-      type: 'confirmation_policy',
-      required: true,
-      stage: 'pre_dispatch',
-      trustedActorRequired: true,
-    },
-    { type: 'side_effect_policy', sideEffecting: true, effectClass: 'physical_control' },
     {
       type: 'provider_binding_policy',
       mcpProviderBindingId: providerBindingId,
       localServerId: serverId,
       mcpToolName: toolName,
+      allowedResourceIds: ['ugv-1'],
+      executionSemantics: controlExecutionSemantics(),
       requiredStatus: 'active',
       requiredAvailabilityStatus: 'available',
       requiredFreshness: 'unexpired',
       fallback: 'deny',
     },
-    { type: 'resource_policy', allowedResourceIds: ['lab-light-1'] },
     { type: 'exact_skill_version', skillId, skillVersion, taskType: toolName },
+    {
+      type: 'confirmation_policy',
+      required: true,
+      stage: 'before_execution',
+      autoConfirmPlan: false,
+    },
+    {
+      type: 'physical_side_effect_policy',
+      sideEffecting: true,
+      allowEnvironment: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
+      runIdEnvironment: 'REAL_UGV_TEST_RUN_ID',
+      dispatchMaximum: 1,
+      uncertainDispatchPolicy: 'reconcile_never_redispatch',
+      remoteTaskTerminalEvidenceRequired: true,
+    },
   ];
+}
+
+function controlExecutionSemantics() {
+  return {
+    effect: 'side_effecting' as const,
+    execution: 'task_required' as const,
+    cancellation: 'task_cancel' as const,
+    idempotency: 'server_managed' as const,
+    replay: 'forbidden' as const,
+    source: 'mcp_declared' as const,
+  };
 }

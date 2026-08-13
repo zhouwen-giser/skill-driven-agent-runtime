@@ -6,21 +6,24 @@ import {
   governedControlSnapshotHash,
   type CurrentGovernedCapabilityAuthority,
   type GovernedControlConfirmation,
+  type GovernedControlConfirmationConsumption,
   type GovernedControlRuntimeAuthoritySnapshot,
 } from '../src/index.js';
 
 const confirmedAt = '2026-08-13T01:00:00.000Z';
 const expiresAt = '2026-08-13T01:05:00.000Z';
 const taskId = 'task-control-1';
-const capabilityId = 'vehicle.light.control';
+const capabilityId = 'vehicle.ugv.track-target';
 const capabilityVersion = 1;
 const planId = 'plan-control-1';
-const skillId = 'skill-light-control';
+const skillId = 'ugv.track-target';
 const skillVersion = 3;
-const serverId = 'provider-control';
-const toolName = 'light_set_state';
-const providerBindingId = 'provider-binding-control';
-const arguments_ = Object.freeze({ resourceId: 'living-room-main-light', state: 'off' });
+const serverId = 'smpp-ugv-provider';
+const toolName = 'vehicle_track_target';
+const providerBindingId = 'provider-binding-ugv';
+const arguments_ = Object.freeze({ resourceId: 'ugv-1', targetId: 'target-1' });
+const invocationId = 'invocation-control-1';
+const dispatchHash = `sha256:${'d'.repeat(64)}`;
 const planDefinition = Object.freeze({ nodes: [{ id: 'set', type: 'mcp_tool' }] });
 const planHash = governedControlSnapshotHash(planDefinition);
 
@@ -74,12 +77,20 @@ describe('GovernedControlConfirmationService', () => {
 });
 
 describe('GovernedControlInvocationAuthorizer', () => {
-  it('authorizes an exact current physical-control chain without calling any Provider', async () => {
+  it('authorizes and consumes an exact published UGV control chain without calling a Provider', async () => {
     const fixture = authorizerFixture();
 
-    await expect(fixture.authorizer.authorize(invocation())).resolves.toBeUndefined();
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).resolves.toMatchObject({
+      confirmationId: 'control-confirmation-1',
+      providerBindingId,
+      argumentsHash: governedControlSnapshotHash(arguments_),
+      invocationId,
+      dispatchHash,
+    });
     expect(fixture.store.load).toHaveBeenCalledExactlyOnceWith({
       taskId,
+      capabilityAttemptId: 'capability-attempt-control',
+      providerBindingId,
       serverId,
       toolName,
       argumentsHash: governedControlSnapshotHash(arguments_),
@@ -88,13 +99,56 @@ describe('GovernedControlInvocationAuthorizer', () => {
       capabilityId,
       capabilityVersion,
     );
+    expect(fixture.store.consumeConfirmation).toHaveBeenCalledExactlyOnceWith({
+      confirmationId: 'control-confirmation-1',
+      taskId,
+      capabilityBindingId: 'capability-binding-control',
+      capabilityAttemptId: 'capability-attempt-control',
+      providerBindingId,
+      serverId,
+      toolName,
+      argumentsHash: governedControlSnapshotHash(arguments_),
+      invocationId,
+      dispatchHash,
+      consumedAt: '2026-08-13T01:01:00.000Z',
+    });
+    expect(fixture.physicalDeviceWrites).toBe(0);
+  });
+
+  it('rejects a confirmation already consumed by a different invocation or dispatch hash', async () => {
+    const fixture = authorizerFixture();
+    const snapshot = currentSnapshot();
+    fixture.store.consumeConfirmation.mockResolvedValue({
+      ...snapshot.confirmation,
+      consumedInvocationId: 'invocation-control-other',
+      consumedDispatchHash: `sha256:${'e'.repeat(64)}`,
+      consumedAt: '2026-08-13T01:00:59.000Z',
+    });
+
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).rejects.toMatchObject({
+      code: 'GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED',
+    });
+    expect(fixture.physicalDeviceWrites).toBe(0);
+  });
+
+  it('permits exactly one dispatch admission for the same confirmation and invocation identity', async () => {
+    const fixture = authorizerFixture();
+
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).resolves.toMatchObject({
+      confirmationId: 'control-confirmation-1',
+      invocationId,
+    });
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).rejects.toMatchObject({
+      code: 'GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED',
+    });
+    expect(fixture.store.consumeConfirmation).toHaveBeenCalledTimes(2);
     expect(fixture.physicalDeviceWrites).toBe(0);
   });
 
   it('rejects a discovered control when the TaskCapabilityBinding authority is absent', async () => {
     const fixture = authorizerFixture({ snapshot: undefined });
 
-    await expect(fixture.authorizer.authorize(invocation())).rejects.toMatchObject({
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).rejects.toMatchObject({
       code: 'GOVERNED_CONTROL_AUTHORITY_NOT_FOUND',
     });
     expect(fixture.physicalDeviceWrites).toBe(0);
@@ -114,7 +168,7 @@ describe('GovernedControlInvocationAuthorizer', () => {
       },
     });
 
-    await expect(fixture.authorizer.authorize(invocation())).rejects.toMatchObject({
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).rejects.toMatchObject({
       code: 'GOVERNED_CONTROL_RUNTIME_AUTHORITY_INVALID',
     });
     expect(fixture.physicalDeviceWrites).toBe(0);
@@ -133,7 +187,7 @@ describe('GovernedControlInvocationAuthorizer', () => {
       },
     });
 
-    await expect(fixture.authorizer.authorize(invocation())).rejects.toMatchObject({
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).rejects.toMatchObject({
       code: 'GOVERNED_CONTROL_CONFIRMATION_INVALID',
     });
   });
@@ -147,7 +201,7 @@ describe('GovernedControlInvocationAuthorizer', () => {
       },
     });
 
-    await expect(fixture.authorizer.authorize(invocation())).rejects.toMatchObject({
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).rejects.toMatchObject({
       code: 'GOVERNED_CONTROL_READINESS_STALE',
     });
   });
@@ -164,7 +218,7 @@ describe('GovernedControlInvocationAuthorizer', () => {
       },
     });
 
-    await expect(fixture.authorizer.authorize(invocation())).rejects.toMatchObject({
+    await expect(fixture.authorizer.authorizeAndConsume(invocation())).rejects.toMatchObject({
       code: 'GOVERNED_CONTROL_RUNTIME_AUTHORITY_INVALID',
     });
     expect(fixture.physicalDeviceWrites).toBe(0);
@@ -174,7 +228,10 @@ describe('GovernedControlInvocationAuthorizer', () => {
     const fixture = authorizerFixture();
 
     await expect(
-      fixture.authorizer.authorize({ ...invocation(), toolName: 'vehicle_fire_weapon' }),
+      fixture.authorizer.authorizeAndConsume({
+        ...invocation(),
+        toolName: 'vehicle_fire_weapon',
+      }),
     ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_TOOL_HARD_DENIED' });
     expect(fixture.store.load).not.toHaveBeenCalled();
     expect(fixture.capabilities.load).not.toHaveBeenCalled();
@@ -199,35 +256,35 @@ function confirmationInput() {
     capabilityBindingId: 'capability-binding-control',
     capabilityId,
     capabilityVersion,
+    capabilityAttemptId: 'capability-attempt-control',
     planId,
     planHash,
     skillId,
     skillVersion,
+    providerBindingId,
+    serverId,
+    toolName,
+    argumentsHash: governedControlSnapshotHash(arguments_),
     actorId: 'human:operator-1',
     actorKind: 'human' as const,
     authenticationMethod: 'oidc-mfa',
     actorRoles: ['physical_control_approver'],
-    reason: 'Approve shutdown of the bounded lab light.',
+    reason: 'Approve one bounded UGV target-tracking task.',
     expiresAt,
   };
 }
 
 function invocation() {
   return {
+    invocationId,
+    dispatchHash,
     taskId,
     capabilityAttemptId: 'capability-attempt-control',
     providerBindingId,
     serverId,
     toolName,
     arguments: arguments_,
-    executionSemantics: {
-      effect: 'side_effecting' as const,
-      execution: 'synchronous' as const,
-      cancellation: 'unsupported' as const,
-      idempotency: 'client_request_key' as const,
-      replay: 'forbidden' as const,
-      source: 'mcp_declared' as const,
-    },
+    executionSemantics: controlExecutionSemantics(),
   };
 }
 
@@ -238,9 +295,32 @@ function authorizerFixture(
   }> = {},
 ) {
   const snapshot = Object.hasOwn(options, 'snapshot') ? options.snapshot : currentSnapshot();
+  let consumed = false;
   const store = {
     load: vi.fn(() => Promise.resolve(snapshot)),
+    consumeConfirmation: vi.fn((input: GovernedControlConfirmationConsumption) =>
+      Promise.resolve(
+        snapshot === undefined || consumed
+          ? undefined
+          : {
+              ...snapshot.confirmation,
+              consumedInvocationId: input.invocationId,
+              consumedDispatchHash: input.dispatchHash,
+              consumedAt: input.consumedAt,
+            },
+      ),
+    ),
   };
+  store.consumeConfirmation.mockImplementation((input: GovernedControlConfirmationConsumption) => {
+    if (snapshot === undefined || consumed) return Promise.resolve(undefined);
+    consumed = true;
+    return Promise.resolve({
+      ...snapshot.confirmation,
+      consumedInvocationId: input.invocationId,
+      consumedDispatchHash: input.dispatchHash,
+      consumedAt: input.consumedAt,
+    });
+  });
   const capabilities = {
     load: vi.fn(() => Promise.resolve(options.capability ?? currentCapability())),
   };
@@ -299,7 +379,17 @@ function currentSnapshot(): GovernedControlRuntimeAuthoritySnapshot {
       },
       runtimePolicy: { autoConfirmPlan: false, maxMcpCalls: 1 },
       outcomeSpecification: {
-        sideEffectPolicy: { sideEffecting: true, confirmation: 'required' },
+        sideEffectPolicy: {
+          sideEffecting: true,
+          confirmation: 'required_before_execution',
+          autoConfirmPlan: false,
+          allowRealSideEffectsEnv: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
+          realTestRunIdEnv: 'REAL_UGV_TEST_RUN_ID',
+          exactResourceRequired: true,
+          remoteTaskIdentityRequired: true,
+          terminalObservationRequired: true,
+          redispatchAfterUncertain: false,
+        },
       },
     },
     readiness: {
@@ -314,7 +404,7 @@ function currentSnapshot(): GovernedControlRuntimeAuthoritySnapshot {
       operationName: toolName,
       argumentsHash: governedControlSnapshotHash(arguments_),
       availability: 'available',
-      riskLevel: 'high',
+      riskLevel: 'medium',
       validUntil: '2026-08-13T01:02:00.000Z',
       checkedAt: '2026-08-13T01:00:30.000Z',
     },
@@ -332,7 +422,8 @@ function currentCapability(): CurrentGovernedCapabilityAuthority {
       capability_id: capabilityId,
       version: capabilityVersion,
       status: 'published',
-      risk_level: 'high',
+      risk_level: 'medium',
+      supported_modes: ['plan_confirmed', 'remote_task'],
       constraints: controlConstraints(),
     },
     implementationBindings: [
@@ -344,6 +435,17 @@ function currentCapability(): CurrentGovernedCapabilityAuthority {
         implementation_version: String(skillVersion),
         role: 'primary',
         status: 'active',
+        provider_policy_override: {
+          selection: 'required',
+          mcpProviderBindingId: providerBindingId,
+          localServerId: serverId,
+          mcpToolName: toolName,
+          allowedResourceIds: ['ugv-1'],
+          requireActive: true,
+          requireAvailable: true,
+          requireUnexpiredFreshness: true,
+          denyFallback: true,
+        },
       },
     ],
   };
@@ -352,31 +454,23 @@ function currentCapability(): CurrentGovernedCapabilityAuthority {
 function controlConstraints() {
   return [
     {
-      type: 'authorization',
-      effect: 'physical_control',
-      requiredActorRole: 'physical_control_approver',
-      allowedActorIds: ['human:operator-1'],
+      type: 'resource_policy',
+      identifierAuthority: 'public_smpp_tool_schema',
+      selection: 'exact_value',
+      allowedResourceIds: ['ugv-1'],
+      downstreamResourceBinding: 'forbidden',
     },
-    {
-      type: 'confirmation_policy',
-      required: true,
-      stage: 'pre_dispatch',
-      trustedActorRequired: true,
-    },
-    { type: 'side_effect_policy', sideEffecting: true, effectClass: 'physical_control' },
     {
       type: 'provider_binding_policy',
       mcpProviderBindingId: providerBindingId,
       localServerId: serverId,
       mcpToolName: toolName,
+      allowedResourceIds: ['ugv-1'],
+      executionSemantics: controlExecutionSemantics(),
       requiredStatus: 'active',
       requiredAvailabilityStatus: 'available',
       requiredFreshness: 'unexpired',
       fallback: 'deny',
-    },
-    {
-      type: 'resource_policy',
-      allowedResourceIds: ['living-room-main-light'],
     },
     {
       type: 'exact_skill_version',
@@ -384,5 +478,31 @@ function controlConstraints() {
       skillVersion,
       taskType: toolName,
     },
+    {
+      type: 'confirmation_policy',
+      required: true,
+      stage: 'before_execution',
+      autoConfirmPlan: false,
+    },
+    {
+      type: 'physical_side_effect_policy',
+      sideEffecting: true,
+      allowEnvironment: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
+      runIdEnvironment: 'REAL_UGV_TEST_RUN_ID',
+      dispatchMaximum: 1,
+      uncertainDispatchPolicy: 'reconcile_never_redispatch',
+      remoteTaskTerminalEvidenceRequired: true,
+    },
   ];
+}
+
+function controlExecutionSemantics() {
+  return {
+    effect: 'side_effecting' as const,
+    execution: 'task_required' as const,
+    cancellation: 'task_cancel' as const,
+    idempotency: 'server_managed' as const,
+    replay: 'forbidden' as const,
+    source: 'mcp_declared' as const,
+  };
 }

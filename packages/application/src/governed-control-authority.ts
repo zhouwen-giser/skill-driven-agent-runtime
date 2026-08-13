@@ -7,6 +7,7 @@ import { canonicalHash } from './mcp-task-readiness.js';
 const CONTROL_APPROVER_ROLE = 'physical_control_approver';
 const MAX_CONFIRMATION_TTL_MS = 15 * 60 * 1_000;
 const ACTIVE_CAPABILITY_ATTEMPT_STATUSES = new Set(['prepared', 'running', 'waiting']);
+const PHYSICAL_CONTROL_RISK_LEVELS = new Set(['medium', 'high', 'critical']);
 const TERMINAL_TASK_PHASES = new Set(['completed', 'failed', 'canceled']);
 
 export const HARD_DENIED_CONTROL_TOOLS = Object.freeze(['vehicle_fire_weapon'] as const);
@@ -17,10 +18,15 @@ export interface GovernedControlConfirmation {
   readonly capabilityBindingId: string;
   readonly capabilityId: string;
   readonly capabilityVersion: number;
+  readonly capabilityAttemptId: string;
   readonly planId: string;
   readonly planHash: string;
   readonly skillId: string;
   readonly skillVersion: number;
+  readonly providerBindingId: string;
+  readonly serverId: string;
+  readonly toolName: string;
+  readonly argumentsHash: string;
   readonly actorId: string;
   readonly actorKind: 'human';
   readonly authenticationMethod: string;
@@ -30,6 +36,23 @@ export interface GovernedControlConfirmation {
   readonly expiresAt: string;
   readonly revokedAt?: string;
   readonly revokedBy?: string;
+  readonly consumedInvocationId?: string;
+  readonly consumedDispatchHash?: string;
+  readonly consumedAt?: string;
+}
+
+export interface GovernedControlConfirmationConsumption {
+  readonly confirmationId: string;
+  readonly taskId: string;
+  readonly capabilityBindingId: string;
+  readonly capabilityAttemptId: string;
+  readonly providerBindingId: string;
+  readonly serverId: string;
+  readonly toolName: string;
+  readonly argumentsHash: string;
+  readonly invocationId: string;
+  readonly dispatchHash: string;
+  readonly consumedAt: string;
 }
 
 export interface GovernedControlConfirmationStore {
@@ -61,7 +84,13 @@ export class GovernedControlConfirmationService {
   async issue(
     input: Omit<
       GovernedControlConfirmation,
-      'confirmationId' | 'confirmedAt' | 'revokedAt' | 'revokedBy'
+      | 'confirmationId'
+      | 'confirmedAt'
+      | 'revokedAt'
+      | 'revokedBy'
+      | 'consumedInvocationId'
+      | 'consumedDispatchHash'
+      | 'consumedAt'
     >,
   ): Promise<GovernedControlConfirmation> {
     assertTrustedHumanActor(input);
@@ -69,8 +98,12 @@ export class GovernedControlConfirmationService {
       taskId: required(input.taskId, 'taskId'),
       capabilityBindingId: required(input.capabilityBindingId, 'capabilityBindingId'),
       capabilityId: required(input.capabilityId, 'capabilityId'),
+      capabilityAttemptId: required(input.capabilityAttemptId, 'capabilityAttemptId'),
       planId: required(input.planId, 'planId'),
       skillId: required(input.skillId, 'skillId'),
+      providerBindingId: required(input.providerBindingId, 'providerBindingId'),
+      serverId: required(input.serverId, 'serverId'),
+      toolName: required(input.toolName, 'toolName'),
       actorId: required(input.actorId, 'actorId'),
       authenticationMethod: required(input.authenticationMethod, 'authenticationMethod'),
       reason: required(input.reason, 'reason'),
@@ -96,6 +129,11 @@ export class GovernedControlConfirmationService {
       fail(
         'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID',
         'Control confirmation requires an exact immutable plan hash.',
+      );
+    if (!/^[a-f0-9]{64}$/u.test(input.argumentsHash))
+      fail(
+        'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID',
+        'Control confirmation requires an exact immutable arguments hash.',
       );
     const confirmation = freezeConfirmation({
       ...input,
@@ -189,11 +227,16 @@ export interface GovernedControlAuthorityStore {
   load(
     input: Readonly<{
       taskId: string;
+      capabilityAttemptId: string;
+      providerBindingId: string;
       serverId: string;
       toolName: string;
       argumentsHash: string;
     }>,
   ): Promise<GovernedControlRuntimeAuthoritySnapshot | undefined>;
+  consumeConfirmation(
+    input: GovernedControlConfirmationConsumption,
+  ): Promise<GovernedControlConfirmation | undefined>;
 }
 
 export interface CurrentGovernedCapabilityAuthority {
@@ -206,6 +249,8 @@ export interface CurrentGovernedCapabilityAuthorityPort {
 }
 
 export interface GovernedControlInvocation {
+  readonly invocationId: string;
+  readonly dispatchHash: string;
   readonly taskId: string;
   readonly capabilityAttemptId: string;
   readonly providerBindingId: string;
@@ -215,8 +260,17 @@ export interface GovernedControlInvocation {
   readonly executionSemantics: McpToolExecutionSemantics;
 }
 
+export interface GovernedControlDispatchReceipt {
+  readonly confirmationId: string;
+  readonly providerBindingId: string;
+  readonly argumentsHash: string;
+  readonly invocationId: string;
+  readonly dispatchHash: string;
+  readonly consumedAt: string;
+}
+
 export interface GovernedControlInvocationAuthorityPort {
-  authorize(input: GovernedControlInvocation): Promise<void>;
+  authorizeAndConsume(input: GovernedControlInvocation): Promise<GovernedControlDispatchReceipt>;
 }
 
 /**
@@ -241,7 +295,9 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
     this.#clock = dependencies.clock;
   }
 
-  async authorize(input: GovernedControlInvocation): Promise<void> {
+  async authorizeAndConsume(
+    input: GovernedControlInvocation,
+  ): Promise<GovernedControlDispatchReceipt> {
     if (
       HARD_DENIED_CONTROL_TOOLS.includes(
         input.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
@@ -259,9 +315,13 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
         'GOVERNED_CONTROL_SEMANTICS_NOT_EXPLICIT',
         'Physical control requires explicit side-effect and execution semantics.',
       );
+    const invocationId = required(input.invocationId, 'invocationId');
+    const exactDispatchHash = dispatchHash(input.dispatchHash);
     const argumentsHash = canonicalHash(input.arguments);
     const snapshot = await this.#store.load({
       taskId: input.taskId,
+      capabilityAttemptId: input.capabilityAttemptId,
+      providerBindingId: input.providerBindingId,
       serverId: input.serverId,
       toolName: input.toolName,
       argumentsHash,
@@ -273,8 +333,41 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       );
     const capability = await this.#loadCurrentCapability(snapshot.binding);
     this.#assertRuntimeAuthority(input, snapshot, argumentsHash);
-    this.#assertCurrentCapability(snapshot, capability, input.providerBindingId);
-    this.#assertConfirmation(snapshot);
+    this.#assertCurrentCapability(snapshot, capability, input);
+    this.#assertConfirmation(input, snapshot, argumentsHash);
+    const consumedAt = new Date(
+      timestamp(this.#clock.now(), 'GOVERNED_CONTROL_CLOCK_INVALID'),
+    ).toISOString();
+    const consumed = await this.#store.consumeConfirmation({
+      confirmationId: snapshot.confirmation.confirmationId,
+      taskId: input.taskId,
+      capabilityBindingId: snapshot.binding.bindingId,
+      capabilityAttemptId: input.capabilityAttemptId,
+      providerBindingId: input.providerBindingId,
+      serverId: input.serverId,
+      toolName: input.toolName,
+      argumentsHash,
+      invocationId,
+      dispatchHash: exactDispatchHash,
+      consumedAt,
+    });
+    if (
+      consumed?.consumedInvocationId !== invocationId ||
+      consumed.consumedDispatchHash !== exactDispatchHash ||
+      consumed.consumedAt === undefined
+    )
+      fail(
+        'GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED',
+        'The exact control confirmation is unavailable or was consumed by another dispatch.',
+      );
+    return Object.freeze({
+      confirmationId: consumed.confirmationId,
+      providerBindingId: consumed.providerBindingId,
+      argumentsHash: consumed.argumentsHash,
+      invocationId: consumed.consumedInvocationId,
+      dispatchHash: consumed.consumedDispatchHash,
+      consumedAt: consumed.consumedAt,
+    });
   }
 
   async #loadCurrentCapability(
@@ -312,8 +405,8 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       attempt.attemptId !== input.capabilityAttemptId ||
       !ACTIVE_CAPABILITY_ATTEMPT_STATUSES.has(attempt.status) ||
       (attempt.planId !== undefined && attempt.planId !== plan.planId) ||
-      (attempt.skillVersionRefs.length > 0 &&
-        !attempt.skillVersionRefs.includes(expectedSkillRef)) ||
+      attempt.skillVersionRefs.length !== 1 ||
+      attempt.skillVersionRefs[0] !== expectedSkillRef ||
       attempt.providerBindingRefs.length !== 1 ||
       attempt.providerBindingRefs[0] !== input.providerBindingId ||
       plan.confirmationStatus !== 'confirmed' ||
@@ -325,9 +418,18 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       requiredTool?.['serverId'] !== input.serverId ||
       requiredTool['toolName'] !== input.toolName ||
       recordArray(skill.toolPolicy['optional']).length !== 0 ||
+      !recordArray(skill.toolPolicy['forbidden']).some(
+        (tool) => tool['serverId'] === input.serverId && tool['toolName'] === 'vehicle_fire_weapon',
+      ) ||
       skill.runtimePolicy['autoConfirmPlan'] !== false ||
+      skill.runtimePolicy['maxMcpCalls'] !== 1 ||
       sideEffectPolicy?.['sideEffecting'] !== true ||
-      sideEffectPolicy['confirmation'] !== 'required' ||
+      sideEffectPolicy['confirmation'] !== 'required_before_execution' ||
+      sideEffectPolicy['autoConfirmPlan'] !== false ||
+      sideEffectPolicy['exactResourceRequired'] !== true ||
+      sideEffectPolicy['remoteTaskIdentityRequired'] !== true ||
+      sideEffectPolicy['terminalObservationRequired'] !== true ||
+      sideEffectPolicy['redispatchAfterUncertain'] !== false ||
       canonicalHash(binding.inputSnapshot) !== argumentsHash ||
       binding.evidenceRequirementSnapshot.length === 0 ||
       readiness.workflowPlanId !== plan.planId ||
@@ -340,7 +442,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       readiness.operationName !== input.toolName ||
       readiness.argumentsHash !== argumentsHash ||
       readiness.availability !== 'available' ||
-      !['high', 'critical'].includes(readiness.riskLevel)
+      !PHYSICAL_CONTROL_RISK_LEVELS.has(readiness.riskLevel)
     )
       fail(
         'GOVERNED_CONTROL_RUNTIME_AUTHORITY_INVALID',
@@ -361,7 +463,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
   #assertCurrentCapability(
     snapshot: GovernedControlRuntimeAuthoritySnapshot,
     authority: CurrentGovernedCapabilityAuthority,
-    providerBindingId: string,
+    input: GovernedControlInvocation,
   ): void {
     const { binding, skill } = snapshot;
     const definition = authority.definition;
@@ -379,7 +481,9 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       definition['capability_id'] !== binding.capabilityId ||
       definition['version'] !== binding.capabilityVersion ||
       definition['status'] !== 'published' ||
-      !['high', 'critical'].includes(String(definition['risk_level'])) ||
+      !PHYSICAL_CONTROL_RISK_LEVELS.has(String(definition['risk_level'])) ||
+      !stringArray(definition['supported_modes']).includes('plan_confirmed') ||
+      !stringArray(definition['supported_modes']).includes('remote_task') ||
       canonical(definition['constraints']) !== canonical(binding.constraintSnapshot) ||
       implementations.length !== 1
     )
@@ -387,10 +491,33 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
         'GOVERNED_CONTROL_CAPABILITY_NOT_CURRENT',
         'The frozen Task binding differs from current Capability and implementation authority.',
       );
-    assertControlConstraints(binding.constraintSnapshot, snapshot, providerBindingId);
+    const implementation = implementations[0];
+    const providerOverride = record(implementation?.['provider_policy_override']);
+    const resourceId = record(binding.inputSnapshot)?.['resourceId'];
+    if (
+      providerOverride?.['selection'] !== 'required' ||
+      providerOverride['mcpProviderBindingId'] !== input.providerBindingId ||
+      providerOverride['localServerId'] !== input.serverId ||
+      providerOverride['mcpToolName'] !== input.toolName ||
+      typeof resourceId !== 'string' ||
+      !stringArray(providerOverride['allowedResourceIds']).includes(resourceId) ||
+      providerOverride['requireActive'] !== true ||
+      providerOverride['requireAvailable'] !== true ||
+      providerOverride['requireUnexpiredFreshness'] !== true ||
+      providerOverride['denyFallback'] !== true
+    )
+      fail(
+        'GOVERNED_CONTROL_CAPABILITY_NOT_CURRENT',
+        'The current Capability implementation lacks the exact active Provider authority.',
+      );
+    assertControlConstraints(binding.constraintSnapshot, snapshot, input);
   }
 
-  #assertConfirmation(snapshot: GovernedControlRuntimeAuthoritySnapshot): void {
+  #assertConfirmation(
+    input: GovernedControlInvocation,
+    snapshot: GovernedControlRuntimeAuthoritySnapshot,
+    argumentsHash: string,
+  ): void {
     const { confirmation, binding, plan, skill, task } = snapshot;
     assertTrustedHumanActor(confirmation);
     const now = timestamp(this.#clock.now(), 'GOVERNED_CONTROL_CLOCK_INVALID');
@@ -407,10 +534,15 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       confirmation.capabilityBindingId !== binding.bindingId ||
       confirmation.capabilityId !== binding.capabilityId ||
       confirmation.capabilityVersion !== binding.capabilityVersion ||
+      confirmation.capabilityAttemptId !== snapshot.attempt.attemptId ||
       confirmation.planId !== plan.planId ||
       confirmation.planHash !== plan.definitionHash ||
       confirmation.skillId !== skill.skillId ||
       confirmation.skillVersion !== skill.skillVersion ||
+      confirmation.providerBindingId !== input.providerBindingId ||
+      confirmation.serverId !== input.serverId ||
+      confirmation.toolName !== input.toolName ||
+      confirmation.argumentsHash !== argumentsHash ||
       confirmation.revokedAt !== undefined ||
       confirmedAt > now ||
       expiresAt <= now ||
@@ -426,40 +558,43 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
 function assertControlConstraints(
   constraints: readonly Readonly<Record<string, unknown>>[],
   snapshot: GovernedControlRuntimeAuthoritySnapshot,
-  providerBindingId: string,
+  input: GovernedControlInvocation,
 ): void {
-  const authorization = exactlyOne(constraints, 'authorization');
   const confirmation = exactlyOne(constraints, 'confirmation_policy');
-  const sideEffect = exactlyOne(constraints, 'side_effect_policy');
+  const sideEffect = exactlyOne(constraints, 'physical_side_effect_policy');
   const provider = exactlyOne(constraints, 'provider_binding_policy');
   const resource = exactlyOne(constraints, 'resource_policy');
   const exactSkill = exactlyOne(constraints, 'exact_skill_version');
   const resourceId = record(snapshot.binding.inputSnapshot)?.['resourceId'];
   if (
-    authorization['effect'] !== 'physical_control' ||
-    authorization['requiredActorRole'] !== CONTROL_APPROVER_ROLE ||
-    !stringArray(authorization['allowedActorIds']).includes(snapshot.confirmation.actorId) ||
     confirmation['required'] !== true ||
-    confirmation['stage'] !== 'pre_dispatch' ||
-    confirmation['trustedActorRequired'] !== true ||
+    confirmation['stage'] !== 'before_execution' ||
+    confirmation['autoConfirmPlan'] !== false ||
     sideEffect['sideEffecting'] !== true ||
-    sideEffect['effectClass'] !== 'physical_control' ||
-    provider['mcpProviderBindingId'] !== providerBindingId ||
+    sideEffect['dispatchMaximum'] !== 1 ||
+    sideEffect['uncertainDispatchPolicy'] !== 'reconcile_never_redispatch' ||
+    sideEffect['remoteTaskTerminalEvidenceRequired'] !== true ||
+    provider['mcpProviderBindingId'] !== input.providerBindingId ||
     provider['localServerId'] !== snapshot.readiness.serverId ||
     provider['mcpToolName'] !== snapshot.readiness.operationName ||
+    canonical(provider['executionSemantics']) !== canonical(input.executionSemantics) ||
     provider['requiredStatus'] !== 'active' ||
     provider['requiredAvailabilityStatus'] !== 'available' ||
     provider['requiredFreshness'] !== 'unexpired' ||
     provider['fallback'] !== 'deny' ||
+    typeof resourceId !== 'string' ||
+    !stringArray(provider['allowedResourceIds']).includes(resourceId) ||
     exactSkill['skillId'] !== snapshot.skill.skillId ||
     exactSkill['skillVersion'] !== snapshot.skill.skillVersion ||
     exactSkill['taskType'] !== snapshot.readiness.operationName ||
-    typeof resourceId !== 'string' ||
+    resource['identifierAuthority'] !== 'public_smpp_tool_schema' ||
+    resource['selection'] !== 'exact_value' ||
+    resource['downstreamResourceBinding'] !== 'forbidden' ||
     !stringArray(resource['allowedResourceIds']).includes(resourceId)
   )
     fail(
       'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
-      'The frozen Capability lacks exact authorization, confirmation, side-effect, provider, Skill, or resource policy.',
+      'The frozen Capability lacks exact confirmation, physical-side-effect, provider, Skill, or public resource policy.',
     );
 }
 
@@ -533,6 +668,16 @@ function required(value: string, field: string): string {
   return normalized;
 }
 
+function dispatchHash(value: string): string {
+  const normalized = required(value, 'dispatchHash');
+  if (!/^sha256:[a-f0-9]{64}$/u.test(normalized))
+    fail(
+      'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID',
+      'Control dispatch requires an exact canonical dispatch hash.',
+    );
+  return normalized;
+}
+
 function canonical(value: unknown): string {
   if (value === undefined) return 'null';
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -553,6 +698,7 @@ export type GovernedControlAuthorityErrorCode =
   | 'GOVERNED_CONTROL_CAPABILITY_NOT_CURRENT'
   | 'GOVERNED_CONTROL_CLOCK_INVALID'
   | 'GOVERNED_CONTROL_CONFIRMATION_ACTOR_UNTRUSTED'
+  | 'GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED'
   | 'GOVERNED_CONTROL_CONFIRMATION_EXPIRY_INVALID'
   | 'GOVERNED_CONTROL_CONFIRMATION_INVALID'
   | 'GOVERNED_CONTROL_CONFIRMATION_SCOPE_INVALID'

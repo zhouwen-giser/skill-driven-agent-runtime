@@ -34,6 +34,8 @@ import {
   RuntimeRecoveryService,
   McpRegistryService,
   GovernedControlInvocationAuthorizer,
+  GovernedControlConfirmationService,
+  GovernedControlManagementService,
   McpRuntimeBindingAuthorityVerifier,
   McpProtocolOperationsService,
   FrozenMcpRegistryService,
@@ -236,6 +238,7 @@ import {
   type GatewayArtifactAdapterRegistry,
   type OperatorIdentityPort,
   type ManagementPrincipalResolver,
+  type GovernedControlPrincipalResolver,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
   type TemplateRuntimeStateReader,
@@ -331,6 +334,7 @@ import {
   PostgresAgentTaskRepository,
   PostgresTaskCapabilityRepository,
   PostgresGovernedControlAuthorityRepository,
+  PostgresGovernedControlManagementAuthorityReader,
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
@@ -487,6 +491,8 @@ export interface ServerRuntimeOptions {
   readonly artifactOperatorIdentity?: OperatorIdentityPort;
   /** Required to expose P12 management endpoints; identity is never read from request JSON. */
   readonly artifactManagementPrincipalResolver?: ManagementPrincipalResolver;
+  /** Trusted-human Bearer identity for issue/revoke of physical-control confirmations. */
+  readonly governedControlPrincipalResolver?: GovernedControlPrincipalResolver;
   /** Required to execute P06 shadow work; missing current facts fail closed as stale. */
   readonly artifactShadowStateReader?: ArtifactShadowCurrentStateReader;
   /**
@@ -1167,6 +1173,15 @@ export async function startServerRuntime(
   await taskCapabilities.reconcileCanceledAttempts();
   await taskCapabilities.reconcileFailedAttempts();
   const governedControlAuthorityRepository = new PostgresGovernedControlAuthorityRepository(pool);
+  const governedControlManagement = new GovernedControlManagementService({
+    authority: new PostgresGovernedControlManagementAuthorityReader(pool),
+    confirmations: new GovernedControlConfirmationService({
+      store: governedControlAuthorityRepository,
+      clock,
+      ids: { nextConfirmationId: () => `governed-confirmation-${randomUUID()}` },
+    }),
+    clock,
+  });
   const governedControlInvocationAuthorizer =
     options.capabilityAuthorityReader === undefined
       ? undefined
@@ -5807,6 +5822,14 @@ export async function startServerRuntime(
             },
           }),
       ...(artifactManagement === undefined ? {} : { artifactManagement }),
+      ...(options.governedControlPrincipalResolver === undefined
+        ? {}
+        : {
+            governedControl: {
+              confirmations: governedControlManagement,
+              principalResolver: options.governedControlPrincipalResolver,
+            },
+          }),
       ...(options.runtimeControlServiceToken === undefined
         ? {}
         : {

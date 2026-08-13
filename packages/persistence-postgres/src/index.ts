@@ -1,6 +1,7 @@
 export * from './repositories.js';
 export * from './task-capability-repository.js';
 export * from './governed-control-authority-repository.js';
+export * from './governed-control-management-authority-reader.js';
 export * from './skill-governance-repository.js';
 export * from './compiler/index.js';
 export * from './remote-task-repository.js';

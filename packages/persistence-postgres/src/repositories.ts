@@ -857,6 +857,10 @@ interface McpInvocationRow extends QueryResultRow {
   invocation_id: string;
   task_id: string | null;
   capability_attempt_id: string | null;
+  control_confirmation_id: string | null;
+  control_provider_binding_id: string | null;
+  control_arguments_hash: string | null;
+  control_dispatch_hash: string | null;
   context_id: string | null;
   execution_mode: McpInvocation['executionMode'];
   simulation_id: string | null;
@@ -6742,13 +6746,20 @@ export class PostgresMcpRegistryRepository
   async saveInvocation(invocation: McpInvocation): Promise<void> {
     await this.#pool.query(
       `INSERT INTO mcp_invocation
-         (invocation_id, task_id, capability_attempt_id, context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
-          execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+         (invocation_id, task_id, capability_attempt_id, control_confirmation_id,
+          control_provider_binding_id, control_arguments_hash, control_dispatch_hash,
+          context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
+          execution_semantics_json, result_json, status, error_code, error_message,
+          started_at, completed_at, duration_ms)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
       [
         invocation.invocationId,
         invocation.taskId ?? null,
         invocation.capabilityAttemptId ?? null,
+        invocation.controlConfirmationId ?? null,
+        invocation.controlProviderBindingId ?? null,
+        invocation.controlArgumentsHash ?? null,
+        invocation.controlDispatchHash ?? null,
         invocation.contextId ?? null,
         invocation.executionMode,
         invocation.simulationId ?? null,
@@ -6769,7 +6780,9 @@ export class PostgresMcpRegistryRepository
 
   async listInvocations(serverId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
-      `SELECT invocation_id, task_id, capability_attempt_id, context_id, server_id, tool_name, arguments_json,
+      `SELECT invocation_id, task_id, capability_attempt_id, control_confirmation_id,
+              control_provider_binding_id, control_arguments_hash, control_dispatch_hash,
+              context_id, server_id, tool_name, arguments_json,
               execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
       [serverId],
@@ -6779,7 +6792,9 @@ export class PostgresMcpRegistryRepository
 
   async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
     const result = await this.#pool.query<McpInvocationRow>(
-      `SELECT invocation_id, task_id, capability_attempt_id, context_id, server_id, tool_name, arguments_json,
+      `SELECT invocation_id, task_id, capability_attempt_id, control_confirmation_id,
+              control_provider_binding_id, control_arguments_hash, control_dispatch_hash,
+              context_id, server_id, tool_name, arguments_json,
               execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
        FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
       [taskId],
@@ -7402,6 +7417,18 @@ function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
     ...(row.capability_attempt_id === null
       ? {}
       : { capabilityAttemptId: row.capability_attempt_id }),
+    ...(row.control_confirmation_id === null
+      ? {}
+      : { controlConfirmationId: row.control_confirmation_id }),
+    ...(row.control_provider_binding_id === null
+      ? {}
+      : { controlProviderBindingId: row.control_provider_binding_id }),
+    ...(row.control_arguments_hash === null
+      ? {}
+      : { controlArgumentsHash: row.control_arguments_hash.trim() }),
+    ...(row.control_dispatch_hash === null
+      ? {}
+      : { controlDispatchHash: row.control_dispatch_hash }),
     ...(row.context_id === null ? {} : { contextId: row.context_id }),
     executionMode: row.execution_mode,
     ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),

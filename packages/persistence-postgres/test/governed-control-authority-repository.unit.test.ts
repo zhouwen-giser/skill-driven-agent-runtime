@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Pool } from 'pg';
 
-import type { GovernedControlConfirmation } from '../../application/src/index.js';
+import type {
+  GovernedControlConfirmation,
+  GovernedControlConfirmationConsumption,
+} from '../../application/src/index.js';
 import { PostgresGovernedControlAuthorityRepository } from '../src/index.js';
 
 const confirmedAt = '2026-08-13T01:00:00.000Z';
@@ -25,10 +28,15 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
       'capability-binding-control',
       'vehicle.light.control',
       1,
+      'capability-attempt-control',
       'plan-control-1',
       'a'.repeat(64),
       'skill-light-control',
       3,
+      'provider-binding-control',
+      'provider-control',
+      'light_set_state',
+      'b'.repeat(64),
       'human:operator-1',
       'human',
       'oidc-mfa',
@@ -50,6 +58,8 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     await expect(
       repository.load({
         taskId: 'task-control-1',
+        capabilityAttemptId: 'capability-attempt-control',
+        providerBindingId: 'provider-binding-control',
         serverId: 'provider-control',
         toolName: 'light_set_state',
         argumentsHash: 'b'.repeat(64),
@@ -78,6 +88,8 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
       'provider-control',
       'light_set_state',
       'b'.repeat(64),
+      'provider-binding-control',
+      'capability-attempt-control',
     ]);
   });
 
@@ -92,6 +104,8 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     await expect(
       repository.load({
         taskId: 'task-with-discovery-only',
+        capabilityAttemptId: 'capability-attempt-control',
+        providerBindingId: 'provider-binding-control',
         serverId: 'provider-control',
         toolName: 'vehicle_fire_weapon',
         argumentsHash: 'c'.repeat(64),
@@ -127,6 +141,56 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     });
     expect(query.mock.calls[0]?.[0]).toContain('UPDATE governed_control_confirmation');
     expect(query.mock.calls[0]?.[0]).toContain('revoked_at IS NULL');
+    expect(query.mock.calls[0]?.[0]).toContain('consumed_at IS NULL');
+  });
+
+  it('atomically consumes an exact confirmation once and rejects every retry identity', async () => {
+    const consumption = confirmationConsumption();
+    let queryCount = 0;
+    const query = vi.fn((text: string, values?: readonly unknown[]) => {
+      queryCount += 1;
+      void text;
+      void values;
+      return Promise.resolve({
+        rows:
+          queryCount === 1
+            ? [
+                {
+                  ...confirmationRow(),
+                  consumed_invocation_id: consumption.invocationId,
+                  consumed_dispatch_hash: consumption.dispatchHash,
+                  consumed_at: consumption.consumedAt,
+                },
+              ]
+            : [],
+      });
+    });
+    const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
+
+    await expect(repository.consumeConfirmation(consumption)).resolves.toMatchObject({
+      confirmationId: 'control-confirmation-1',
+      consumedInvocationId: consumption.invocationId,
+      consumedDispatchHash: consumption.dispatchHash,
+      consumedAt: consumption.consumedAt,
+    });
+    expect(query.mock.calls[0]?.[0]).toContain('UPDATE governed_control_confirmation');
+    expect(query.mock.calls[0]?.[0]).toContain('consumed_invocation_id=$9');
+    expect(query.mock.calls[0]?.[0]).toContain('consumed_dispatch_hash=$10');
+    expect(query.mock.calls[0]?.[0]).not.toContain('UNION ALL');
+    expect(query.mock.calls[0]?.[1]).toEqual([
+      'control-confirmation-1',
+      'task-control-1',
+      'capability-binding-control',
+      'capability-attempt-control',
+      'provider-binding-control',
+      'provider-control',
+      'light_set_state',
+      'b'.repeat(64),
+      'invocation-control-1',
+      `sha256:${'d'.repeat(64)}`,
+      '2026-08-13T01:01:00.000Z',
+    ]);
+    await expect(repository.consumeConfirmation(consumption)).resolves.toBeUndefined();
   });
 });
 
@@ -137,10 +201,15 @@ function confirmation(): GovernedControlConfirmation {
     capabilityBindingId: 'capability-binding-control',
     capabilityId: 'vehicle.light.control',
     capabilityVersion: 1,
+    capabilityAttemptId: 'capability-attempt-control',
     planId: 'plan-control-1',
     planHash: 'a'.repeat(64),
     skillId: 'skill-light-control',
     skillVersion: 3,
+    providerBindingId: 'provider-binding-control',
+    serverId: 'provider-control',
+    toolName: 'light_set_state',
+    argumentsHash: 'b'.repeat(64),
     actorId: 'human:operator-1',
     actorKind: 'human',
     authenticationMethod: 'oidc-mfa',
@@ -158,10 +227,15 @@ function confirmationRow() {
     capability_binding_id: 'capability-binding-control',
     capability_id: 'vehicle.light.control',
     capability_version: 1,
+    capability_attempt_id: 'capability-attempt-control',
     plan_id: 'plan-control-1',
     plan_hash: 'a'.repeat(64),
     skill_id: 'skill-light-control',
     skill_version: 3,
+    provider_binding_id: 'provider-binding-control',
+    server_id: 'provider-control',
+    tool_name: 'light_set_state',
+    arguments_hash: 'b'.repeat(64),
     actor_id: 'human:operator-1',
     actor_kind: 'human' as const,
     authentication_method: 'oidc-mfa',
@@ -171,6 +245,25 @@ function confirmationRow() {
     expires_at: expiresAt,
     revoked_at: null,
     revoked_by: null,
+    consumed_invocation_id: null,
+    consumed_dispatch_hash: null,
+    consumed_at: null,
+  };
+}
+
+function confirmationConsumption(): GovernedControlConfirmationConsumption {
+  return {
+    confirmationId: 'control-confirmation-1',
+    taskId: 'task-control-1',
+    capabilityBindingId: 'capability-binding-control',
+    capabilityAttemptId: 'capability-attempt-control',
+    providerBindingId: 'provider-binding-control',
+    serverId: 'provider-control',
+    toolName: 'light_set_state',
+    argumentsHash: 'b'.repeat(64),
+    invocationId: 'invocation-control-1',
+    dispatchHash: `sha256:${'d'.repeat(64)}`,
+    consumedAt: '2026-08-13T01:01:00.000Z',
   };
 }
 
@@ -230,10 +323,15 @@ function authorityRow() {
     confirmation_capability_binding_id: 'capability-binding-control',
     confirmation_capability_id: 'vehicle.light.control',
     confirmation_capability_version: 1,
+    confirmation_capability_attempt_id: 'capability-attempt-control',
     confirmation_plan_id: 'plan-control-1',
     confirmation_plan_hash: 'e'.repeat(64),
     confirmation_skill_id: 'skill-light-control',
     confirmation_skill_version: 3,
+    confirmation_provider_binding_id: 'provider-binding-control',
+    confirmation_server_id: 'provider-control',
+    confirmation_tool_name: 'light_set_state',
+    confirmation_arguments_hash: 'b'.repeat(64),
     confirmation_actor_id: 'human:operator-1',
     confirmation_actor_kind: 'human' as const,
     confirmation_authentication_method: 'oidc-mfa',
@@ -243,5 +341,8 @@ function authorityRow() {
     confirmation_expires_at: expiresAt,
     confirmation_revoked_at: null,
     confirmation_revoked_by: null,
+    confirmation_consumed_invocation_id: null,
+    confirmation_consumed_dispatch_hash: null,
+    confirmation_consumed_at: null,
   };
 }

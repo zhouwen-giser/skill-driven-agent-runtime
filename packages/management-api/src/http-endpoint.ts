@@ -9,7 +9,11 @@ import {
   CognitiveManagementController,
   type CognitiveManagementAuthorizer,
 } from './cognitive/cognitive-management-controller.js';
-import { ArtifactManagementError, SkillGovernanceError } from '../../application/src/index.js';
+import {
+  ArtifactManagementError,
+  GovernedControlManagementError,
+  SkillGovernanceError,
+} from '../../application/src/index.js';
 import {
   createManagementOperation,
   transitionManagementOperation,
@@ -86,6 +90,9 @@ import type {
   ArtifactManagementCommandOperation,
   ManagementPrincipal,
   ManagementPrincipalResolver,
+  GovernedControlManagementService,
+  GovernedControlPrincipal,
+  GovernedControlPrincipalResolver,
   RuntimeSkillGovernanceService,
 } from '../../application/src/index.js';
 import {
@@ -121,6 +128,20 @@ const MemoryRetentionPolicySchema = z.object({
   automaticDeleteEnabled: z.boolean(),
 });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
+const GovernedControlIssueSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(2_048),
+    ttlMs: z
+      .number()
+      .int()
+      .min(1_000)
+      .max(15 * 60 * 1_000)
+      .optional(),
+  })
+  .strict();
+const GovernedControlRevokeSchema = z
+  .object({ reason: z.string().trim().min(1).max(2_048) })
+  .strict();
 const TaskActionSchema = z
   .object({
     action: z.enum([
@@ -958,6 +979,7 @@ interface RuntimeControlRouteOptions {
     commands: ArtifactManagementCommandService;
     principalResolver: ManagementPrincipalResolver;
   }>;
+  readonly governedControl?: GovernedControlRouteOptions;
   readonly runtimeControl?: Readonly<{
     bearerToken: string;
     skills: RuntimeSkillGovernanceService;
@@ -987,6 +1009,11 @@ interface RuntimeControlRouteOptions {
   }>;
 }
 
+interface GovernedControlRouteOptions {
+  readonly confirmations: Pick<GovernedControlManagementService, 'issue' | 'revoke'>;
+  readonly principalResolver: GovernedControlPrincipalResolver;
+}
+
 export async function startManagementHttpEndpoint(
   options: Readonly<{
     operations: ManagementOperations;
@@ -1001,6 +1028,7 @@ export async function startManagementHttpEndpoint(
       commands: ArtifactManagementCommandService;
       principalResolver: ManagementPrincipalResolver;
     }>;
+    governedControl?: GovernedControlRouteOptions;
     runtimeControl?: Readonly<{
       bearerToken: string;
       skills: RuntimeSkillGovernanceService;
@@ -1078,6 +1106,45 @@ export async function startManagementHttpEndpoint(
       },
     });
   });
+
+  app.post(
+    '/api/v1/tasks/:taskId/governed-control-confirmations',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = GovernedControlIssueSchema.parse(request.body);
+      response.status(201).json(
+        await governedControl.confirmations.issue({
+          taskId: pathValue(request, 'taskId'),
+          reason: body.reason,
+          ...(body.ttlMs === undefined ? {} : { ttlMs: body.ttlMs }),
+          principal,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/governed-control-confirmations/:confirmationId/revoke',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = GovernedControlRevokeSchema.parse(request.body);
+      response.json(
+        await governedControl.confirmations.revoke({
+          taskId: pathValue(request, 'taskId'),
+          confirmationId: pathValue(request, 'confirmationId'),
+          reason: body.reason,
+          principal,
+        }),
+      );
+    }),
+  );
 
   registerRuntimeControlGovernanceRoutes(app, options);
   app.post(
@@ -4141,6 +4208,26 @@ function runtimeArtifactPrincipal(
   });
 }
 
+function requireGovernedControl(
+  value: GovernedControlRouteOptions | undefined,
+): GovernedControlRouteOptions {
+  if (value === undefined)
+    throw new GovernedControlManagementError('GOVERNED_CONTROL_MANAGEMENT_UNAVAILABLE', 503);
+  return value;
+}
+
+function resolveGovernedControlPrincipal(
+  resolver: GovernedControlPrincipalResolver,
+  request: Request,
+): Promise<GovernedControlPrincipal> {
+  const authorization = request.header('authorization');
+  return resolver.resolve({
+    ...(authorization === undefined ? {} : { authorization }),
+    requestId: request.header('x-request-id') ?? `governed-control-${randomUUID()}`,
+    ...(request.ip === undefined ? {} : { sourceIp: request.ip }),
+  });
+}
+
 function planTemplateArtifactOperation(
   operation: 'publish' | 'revalidate' | 'suspend',
   payload: z.infer<typeof RuntimePlanTemplatePayloadSchema>,
@@ -4702,6 +4789,8 @@ function normalizeHttpError(error: unknown): Readonly<{
       body: { code: error.code, message: 'Artifact management request was rejected.' },
     };
   }
+  if (error instanceof GovernedControlManagementError)
+    return { status: error.status, body: { code: error.code, message: error.message } };
   if (error instanceof SkillGovernanceError) {
     return { status: error.status, body: { code: error.code, message: error.message } };
   }

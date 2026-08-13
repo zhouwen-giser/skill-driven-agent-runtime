@@ -19,6 +19,10 @@ import {
   type FrozenTaskAvailabilityRuntimePort,
   type FrozenTaskLifecycleRuntimePort,
 } from '../src/mcp-registry.js';
+import {
+  governedControlSnapshotHash,
+  type GovernedControlInvocation,
+} from '../src/governed-control-authority.js';
 import type { McpRegistryRepository, McpServerRecord } from '../src/ports.js';
 
 const timestamp = '2026-08-11T01:00:00.000Z';
@@ -86,6 +90,16 @@ describe('MCP Registry invocation boundary', () => {
 
     expect(fixture.controlAuthority).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
+        invocationId: 'invocation-1',
+        dispatchHash: createMcpProviderDispatchHash({
+          invocationId: 'invocation-1',
+          taskId: 'task-control-1',
+          providerBindingId: 'binding-provider-1',
+          providerId: 'external-provider-1',
+          serverId: 'provider-1',
+          toolName: 'light_set_state',
+          arguments: arguments_,
+        }),
         taskId: 'task-control-1',
         capabilityAttemptId: 'capability-attempt-control-1',
         providerBindingId: 'binding-provider-1',
@@ -99,6 +113,15 @@ describe('MCP Registry invocation boundary', () => {
       'binding-authority',
       'control-authority',
       'provider-call',
+    ]);
+    expect(fixture.repository.invocations).toEqual([
+      expect.objectContaining({
+        invocationId: 'invocation-1',
+        controlConfirmationId: 'confirmation-control-1',
+        controlProviderBindingId: 'binding-provider-1',
+        controlArgumentsHash: governedControlSnapshotHash(arguments_),
+        controlDispatchHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/u),
+      }),
     ]);
   });
 
@@ -382,7 +405,7 @@ describe('MCP Registry invocation boundary', () => {
     expect(fixture.repository.invocations[0]).toMatchObject({ status: 'succeeded' });
   });
 
-  it('enters the exact durable dispatch fence after all authority checks and immediately before transport', async () => {
+  it('enters the exact durable dispatch fence after catalog and binding checks and before transport', async () => {
     const order: string[] = [];
     const fixture = createFixture({ order });
     const arguments_ = { resourceId: 'living-room-main-light' };
@@ -463,6 +486,42 @@ describe('MCP Registry invocation boundary', () => {
     ).rejects.toMatchObject({ code: 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST' });
 
     expect(enter).toHaveBeenCalledOnce();
+    expect(fixture.call).not.toHaveBeenCalled();
+    expect(fixture.repository.invocations).toEqual([]);
+  });
+
+  it('does not consume side-effect confirmation when the durable dispatch fence rejects', async () => {
+    const fixture = createFixture({ toolEffect: 'side_effecting' });
+    const enter = vi.fn(() =>
+      Promise.reject(
+        Object.assign(new Error('lease lost'), {
+          code: 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST',
+        }),
+      ),
+    );
+
+    await expect(
+      fixture.service.callDetailed(
+        'provider-1',
+        'light_set_state',
+        { resourceId: 'living-room-main-light' },
+        undefined,
+        {
+          taskId: 'task-control-1',
+          capabilityAttemptId: 'capability-attempt-control-1',
+          providerBindingId: 'binding-provider-1',
+          providerId: 'external-provider-1',
+          preTransportFence: {
+            invocationId: 'invocation-control-fenced-1',
+            signal: new AbortController().signal,
+            enter,
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST' });
+
+    expect(enter).toHaveBeenCalledOnce();
+    expect(fixture.controlAuthority).not.toHaveBeenCalled();
     expect(fixture.call).not.toHaveBeenCalled();
     expect(fixture.repository.invocations).toEqual([]);
   });
@@ -589,9 +648,16 @@ function createFixture(
     }),
   );
   const decrypt = vi.fn(() => ({ authorization: 'Bearer provider-secret' }));
-  const controlAuthority = vi.fn(() => {
+  const controlAuthority = vi.fn((input: GovernedControlInvocation) => {
     order.push('control-authority');
-    return Promise.resolve();
+    return Promise.resolve({
+      confirmationId: 'confirmation-control-1',
+      providerBindingId: input.providerBindingId,
+      argumentsHash: governedControlSnapshotHash(input.arguments),
+      invocationId: input.invocationId,
+      dispatchHash: input.dispatchHash,
+      consumedAt: timestamp,
+    });
   });
   const service = new McpRegistryService({
     repository,
@@ -610,7 +676,7 @@ function createFixture(
       update: () => Promise.reject(new Error('unused')),
       cancel: () => Promise.reject(new Error('unused')),
     },
-    controlAuthority: { authorize: controlAuthority },
+    controlAuthority: { authorizeAndConsume: controlAuthority },
     ...(options.providerBindingsConfigured === false
       ? {}
       : {

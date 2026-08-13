@@ -35,6 +35,7 @@ import {
 } from './mcp-runtime-binding-authority.js';
 import {
   HARD_DENIED_CONTROL_TOOLS,
+  type GovernedControlDispatchReceipt,
   type GovernedControlInvocationAuthorityPort,
 } from './governed-control-authority.js';
 
@@ -201,12 +202,23 @@ export class McpRegistryService {
       context.providerBindingId,
       context.providerId,
     );
-    await this.#assertControlAuthority(tool, arguments_, context);
     const invocationId = context.preTransportFence?.invocationId ?? this.#ids.nextInvocationId();
     const startedAt = this.#clock.now();
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
     );
+    const dispatchHash = createMcpProviderDispatchHash({
+      invocationId,
+      ...(context.taskId === undefined ? {} : { taskId: context.taskId }),
+      ...(context.contextId === undefined ? {} : { contextId: context.contextId }),
+      ...(context.providerBindingId === undefined
+        ? {}
+        : { providerBindingId: context.providerBindingId }),
+      ...(context.providerId === undefined ? {} : { providerId: context.providerId }),
+      serverId,
+      toolName,
+      arguments: arguments_,
+    });
     let outcome: McpInvocationOutcome;
     const transportSignal =
       signal === undefined
@@ -227,40 +239,36 @@ export class McpRegistryService {
       ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
       ...(transportSignal === undefined ? {} : { signal: transportSignal }),
     };
-    let preTransportFenceEntered = context.preTransportFence === undefined;
+    // Acquire deterministic ownership before consuming the one-shot human confirmation. A
+    // rejected or already-aborted fence must leave the confirmation reusable by the owner that
+    // actually obtained dispatch authority.
+    throwIfAborted(transportSignal);
+    if (context.preTransportFence !== undefined) {
+      await context.preTransportFence.enter({
+        dispatchId: invocationId,
+        dispatchHash,
+      });
+    }
+    throwIfAborted(transportSignal);
+    const controlAuthority = await this.#assertControlAuthority(
+      tool,
+      arguments_,
+      context,
+      invocationId,
+      dispatchHash,
+    );
     try {
-      throwIfAborted(transportSignal);
-      if (context.preTransportFence !== undefined) {
-        await context.preTransportFence.enter({
-          dispatchId: invocationId,
-          dispatchHash: createMcpProviderDispatchHash({
-            invocationId,
-            ...(context.taskId === undefined ? {} : { taskId: context.taskId }),
-            ...(context.contextId === undefined ? {} : { contextId: context.contextId }),
-            ...(context.providerBindingId === undefined
-              ? {}
-              : { providerBindingId: context.providerBindingId }),
-            ...(context.providerId === undefined ? {} : { providerId: context.providerId }),
-            serverId,
-            toolName,
-            arguments: arguments_,
-          }),
-        });
-        preTransportFenceEntered = true;
-      }
       throwIfAborted(transportSignal);
       outcome = await lifecycle.call(transportInput);
       assertNoHomeAssistantEntityIdentity(outcome);
     } catch (error: unknown) {
-      // A rejected deterministic fence proves that this owner never obtained authority to
-      // dispatch. Do not manufacture an MCP invocation receipt for a call that did not occur.
-      if (!preTransportFenceEntered) throw error;
       const completedAt = this.#clock.now();
       const canceled = transportSignal?.aborted === true;
       await this.#repository.saveInvocation(
         invocationRecord({
           invocationId,
           context,
+          ...(controlAuthority === undefined ? {} : { controlAuthority }),
           serverId,
           toolName,
           executionSemantics: tool.executionSemantics,
@@ -282,6 +290,7 @@ export class McpRegistryService {
       invocationRecord({
         invocationId,
         context,
+        ...(controlAuthority === undefined ? {} : { controlAuthority }),
         serverId,
         toolName,
         executionSemantics: tool.executionSemantics,
@@ -315,7 +324,9 @@ export class McpRegistryService {
     tool: McpTool,
     arguments_: Readonly<Record<string, unknown>>,
     context: McpCallContext,
-  ): Promise<void> {
+    invocationId: string,
+    dispatchHash: string,
+  ): Promise<GovernedControlDispatchReceipt | undefined> {
     if (
       HARD_DENIED_CONTROL_TOOLS.includes(
         tool.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
@@ -325,7 +336,7 @@ export class McpRegistryService {
         'MCP_CONTROL_TOOL_HARD_DENIED',
         'vehicle_fire_weapon has no execution authority in this Runtime.',
       );
-    if (tool.executionSemantics.effect === 'read_only') return;
+    if (tool.executionSemantics.effect === 'read_only') return undefined;
     if (tool.executionSemantics.effect !== 'side_effecting')
       throw new McpRegistryError(
         'MCP_CONTROL_SEMANTICS_NOT_EXPLICIT',
@@ -341,7 +352,9 @@ export class McpRegistryService {
         'MCP_CONTROL_AUTHORITY_REQUIRED',
         'Side-effecting Tool invocation requires exact governed Task authority.',
       );
-    await this.#controlAuthority.authorize({
+    return this.#controlAuthority.authorizeAndConsume({
+      invocationId,
+      dispatchHash,
       taskId: context.taskId,
       capabilityAttemptId: context.capabilityAttemptId,
       providerBindingId: context.providerBindingId,
@@ -744,6 +757,7 @@ function invocationRecord(
   input: Readonly<{
     invocationId: string;
     context: McpCallContext;
+    controlAuthority?: GovernedControlDispatchReceipt;
     serverId: string;
     toolName: string;
     executionSemantics: McpInvocation['executionSemantics'];
@@ -766,6 +780,14 @@ function invocationRecord(
     ...(input.context.capabilityAttemptId === undefined
       ? {}
       : { capabilityAttemptId: input.context.capabilityAttemptId }),
+    ...(input.controlAuthority === undefined
+      ? {}
+      : {
+          controlConfirmationId: input.controlAuthority.confirmationId,
+          controlProviderBindingId: input.controlAuthority.providerBindingId,
+          controlArgumentsHash: input.controlAuthority.argumentsHash,
+          controlDispatchHash: input.controlAuthority.dispatchHash,
+        }),
     ...(input.context.contextId === undefined ? {} : { contextId: input.context.contextId }),
     executionMode: executionContext.mode,
     ...(executionContext.simulationId === undefined

@@ -4,6 +4,7 @@ import { canonicalHash } from '../../application/src/index.js';
 import type {
   GovernedControlAuthorityStore,
   GovernedControlConfirmation,
+  GovernedControlConfirmationConsumption,
   GovernedControlConfirmationStore,
   GovernedControlRuntimeAuthoritySnapshot,
 } from '../../application/src/index.js';
@@ -58,10 +59,15 @@ interface GovernedControlRow {
   readonly confirmation_capability_binding_id: string;
   readonly confirmation_capability_id: string;
   readonly confirmation_capability_version: number;
+  readonly confirmation_capability_attempt_id: string;
   readonly confirmation_plan_id: string;
   readonly confirmation_plan_hash: string;
   readonly confirmation_skill_id: string;
   readonly confirmation_skill_version: number;
+  readonly confirmation_provider_binding_id: string;
+  readonly confirmation_server_id: string;
+  readonly confirmation_tool_name: string;
+  readonly confirmation_arguments_hash: string;
   readonly confirmation_actor_id: string;
   readonly confirmation_actor_kind: 'human';
   readonly confirmation_authentication_method: string;
@@ -71,6 +77,9 @@ interface GovernedControlRow {
   readonly confirmation_expires_at: Date | string;
   readonly confirmation_revoked_at: Date | string | null;
   readonly confirmation_revoked_by: string | null;
+  readonly confirmation_consumed_invocation_id: string | null;
+  readonly confirmation_consumed_dispatch_hash: string | null;
+  readonly confirmation_consumed_at: Date | string | null;
 }
 
 interface ConfirmationRow {
@@ -79,10 +88,15 @@ interface ConfirmationRow {
   readonly capability_binding_id: string;
   readonly capability_id: string;
   readonly capability_version: number;
+  readonly capability_attempt_id: string;
   readonly plan_id: string;
   readonly plan_hash: string;
   readonly skill_id: string;
   readonly skill_version: number;
+  readonly provider_binding_id: string;
+  readonly server_id: string;
+  readonly tool_name: string;
+  readonly arguments_hash: string;
   readonly actor_id: string;
   readonly actor_kind: 'human';
   readonly authentication_method: string;
@@ -92,6 +106,9 @@ interface ConfirmationRow {
   readonly expires_at: Date | string;
   readonly revoked_at: Date | string | null;
   readonly revoked_by: string | null;
+  readonly consumed_invocation_id: string | null;
+  readonly consumed_dispatch_hash: string | null;
+  readonly consumed_at: Date | string | null;
 }
 
 /** PostgreSQL is the sole restart-safe authority for physical-control confirmation and admission. */
@@ -110,9 +127,10 @@ export class PostgresGovernedControlAuthorityRepository
     const result = await this.#pool.query<ConfirmationRow>(
       `INSERT INTO governed_control_confirmation(
          confirmation_id,task_id,capability_binding_id,capability_id,capability_version,
-         plan_id,plan_hash,skill_id,skill_version,actor_id,actor_kind,authentication_method,
+         capability_attempt_id,plan_id,plan_hash,skill_id,skill_version,provider_binding_id,
+         server_id,tool_name,arguments_hash,actor_id,actor_kind,authentication_method,
          actor_roles_json,reason,confirmed_at,expires_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20,$21)
        RETURNING *`,
       [
         confirmation.confirmationId,
@@ -120,10 +138,15 @@ export class PostgresGovernedControlAuthorityRepository
         confirmation.capabilityBindingId,
         confirmation.capabilityId,
         confirmation.capabilityVersion,
+        confirmation.capabilityAttemptId,
         confirmation.planId,
         confirmation.planHash,
         confirmation.skillId,
         confirmation.skillVersion,
+        confirmation.providerBindingId,
+        confirmation.serverId,
+        confirmation.toolName,
+        confirmation.argumentsHash,
         confirmation.actorId,
         confirmation.actorKind,
         confirmation.authenticationMethod,
@@ -143,17 +166,55 @@ export class PostgresGovernedControlAuthorityRepository
   ): Promise<GovernedControlConfirmation | undefined> {
     const result = await this.#pool.query<ConfirmationRow>(
       `WITH updated AS (
-         UPDATE governed_control_confirmation
-            SET revoked_at=$3,revoked_by=$2
-          WHERE confirmation_id=$1 AND revoked_at IS NULL
+          UPDATE governed_control_confirmation
+             SET revoked_at=$3,revoked_by=$2
+          WHERE confirmation_id=$1 AND revoked_at IS NULL AND consumed_at IS NULL
           RETURNING *
        )
        SELECT * FROM updated
        UNION ALL
        SELECT * FROM governed_control_confirmation
-        WHERE confirmation_id=$1 AND NOT EXISTS(SELECT 1 FROM updated)
+        WHERE confirmation_id=$1 AND revoked_at IS NOT NULL
+          AND NOT EXISTS(SELECT 1 FROM updated)
        LIMIT 1`,
       [confirmationId, revokedBy, revokedAt],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapConfirmation(row);
+  }
+
+  async consumeConfirmation(
+    input: GovernedControlConfirmationConsumption,
+  ): Promise<GovernedControlConfirmation | undefined> {
+    const result = await this.#pool.query<ConfirmationRow>(
+      `UPDATE governed_control_confirmation
+          SET consumed_invocation_id=$9,consumed_dispatch_hash=$10,consumed_at=$11
+        WHERE confirmation_id=$1
+          AND task_id=$2
+          AND capability_binding_id=$3
+          AND capability_attempt_id=$4
+          AND provider_binding_id=$5
+          AND server_id=$6
+          AND tool_name=$7
+          AND arguments_hash=$8
+          AND revoked_at IS NULL
+          AND consumed_at IS NULL
+          AND confirmed_at <= $11
+          AND expires_at > $11
+        RETURNING *`,
+      [
+        input.confirmationId,
+        input.taskId,
+        input.capabilityBindingId,
+        input.capabilityAttemptId,
+        input.providerBindingId,
+        input.serverId,
+        input.toolName,
+        input.argumentsHash,
+        input.invocationId,
+        input.dispatchHash,
+        input.consumedAt,
+      ],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapConfirmation(row);
@@ -162,6 +223,8 @@ export class PostgresGovernedControlAuthorityRepository
   async load(
     input: Readonly<{
       taskId: string;
+      capabilityAttemptId: string;
+      providerBindingId: string;
       serverId: string;
       toolName: string;
       argumentsHash: string;
@@ -208,10 +271,15 @@ export class PostgresGovernedControlAuthorityRepository
          confirmation.capability_binding_id AS confirmation_capability_binding_id,
          confirmation.capability_id AS confirmation_capability_id,
          confirmation.capability_version AS confirmation_capability_version,
+         confirmation.capability_attempt_id AS confirmation_capability_attempt_id,
          confirmation.plan_id AS confirmation_plan_id,
          confirmation.plan_hash AS confirmation_plan_hash,
          confirmation.skill_id AS confirmation_skill_id,
          confirmation.skill_version AS confirmation_skill_version,
+         confirmation.provider_binding_id AS confirmation_provider_binding_id,
+         confirmation.server_id AS confirmation_server_id,
+         confirmation.tool_name AS confirmation_tool_name,
+         confirmation.arguments_hash AS confirmation_arguments_hash,
          confirmation.actor_id AS confirmation_actor_id,
          confirmation.actor_kind AS confirmation_actor_kind,
          confirmation.authentication_method AS confirmation_authentication_method,
@@ -220,7 +288,10 @@ export class PostgresGovernedControlAuthorityRepository
          confirmation.confirmed_at AS confirmation_confirmed_at,
          confirmation.expires_at AS confirmation_expires_at,
          confirmation.revoked_at AS confirmation_revoked_at,
-         confirmation.revoked_by AS confirmation_revoked_by
+         confirmation.revoked_by AS confirmation_revoked_by,
+         confirmation.consumed_invocation_id AS confirmation_consumed_invocation_id,
+         confirmation.consumed_dispatch_hash AS confirmation_consumed_dispatch_hash,
+         confirmation.consumed_at AS confirmation_consumed_at
        FROM agent_task task
        JOIN task_capability_binding binding ON binding.task_id=task.task_id
        JOIN LATERAL (
@@ -257,16 +328,28 @@ export class PostgresGovernedControlAuthorityRepository
        JOIN LATERAL (
          SELECT current_confirmation.*
            FROM governed_control_confirmation current_confirmation
-          WHERE current_confirmation.task_id=task.task_id
-            AND current_confirmation.capability_binding_id=binding.binding_id
-            AND current_confirmation.plan_id=plan.plan_id
-            AND current_confirmation.skill_id=version.skill_id
-            AND current_confirmation.skill_version=version.version
+           WHERE current_confirmation.task_id=task.task_id
+             AND current_confirmation.capability_binding_id=binding.binding_id
+             AND current_confirmation.capability_attempt_id=attempt.attempt_id
+             AND current_confirmation.plan_id=plan.plan_id
+             AND current_confirmation.skill_id=version.skill_id
+             AND current_confirmation.skill_version=version.version
+             AND current_confirmation.provider_binding_id=$5
+             AND current_confirmation.server_id=$2
+             AND current_confirmation.tool_name=$3
+             AND current_confirmation.arguments_hash=$4
           ORDER BY current_confirmation.confirmed_at DESC,current_confirmation.confirmation_id DESC
           LIMIT 1
        ) confirmation ON true
-       WHERE task.task_id=$1`,
-      [input.taskId, input.serverId, input.toolName, input.argumentsHash],
+       WHERE task.task_id=$1 AND attempt.attempt_id=$6`,
+      [
+        input.taskId,
+        input.serverId,
+        input.toolName,
+        input.argumentsHash,
+        input.providerBindingId,
+        input.capabilityAttemptId,
+      ],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapAuthority(row);
@@ -339,10 +422,15 @@ function mapAuthority(row: GovernedControlRow): GovernedControlRuntimeAuthorityS
       capability_binding_id: row.confirmation_capability_binding_id,
       capability_id: row.confirmation_capability_id,
       capability_version: row.confirmation_capability_version,
+      capability_attempt_id: row.confirmation_capability_attempt_id,
       plan_id: row.confirmation_plan_id,
       plan_hash: row.confirmation_plan_hash,
       skill_id: row.confirmation_skill_id,
       skill_version: row.confirmation_skill_version,
+      provider_binding_id: row.confirmation_provider_binding_id,
+      server_id: row.confirmation_server_id,
+      tool_name: row.confirmation_tool_name,
+      arguments_hash: row.confirmation_arguments_hash,
       actor_id: row.confirmation_actor_id,
       actor_kind: row.confirmation_actor_kind,
       authentication_method: row.confirmation_authentication_method,
@@ -352,6 +440,9 @@ function mapAuthority(row: GovernedControlRow): GovernedControlRuntimeAuthorityS
       expires_at: row.confirmation_expires_at,
       revoked_at: row.confirmation_revoked_at,
       revoked_by: row.confirmation_revoked_by,
+      consumed_invocation_id: row.confirmation_consumed_invocation_id,
+      consumed_dispatch_hash: row.confirmation_consumed_dispatch_hash,
+      consumed_at: row.confirmation_consumed_at,
     }),
   });
 }
@@ -363,10 +454,15 @@ function mapConfirmation(row: ConfirmationRow): GovernedControlConfirmation {
     capabilityBindingId: row.capability_binding_id,
     capabilityId: row.capability_id,
     capabilityVersion: row.capability_version,
+    capabilityAttemptId: row.capability_attempt_id,
     planId: row.plan_id,
     planHash: row.plan_hash,
     skillId: row.skill_id,
     skillVersion: row.skill_version,
+    providerBindingId: row.provider_binding_id,
+    serverId: row.server_id,
+    toolName: row.tool_name,
+    argumentsHash: row.arguments_hash.trim(),
     actorId: row.actor_id,
     actorKind: row.actor_kind,
     authenticationMethod: row.authentication_method,
@@ -376,6 +472,13 @@ function mapConfirmation(row: ConfirmationRow): GovernedControlConfirmation {
     expiresAt: iso(row.expires_at),
     ...(row.revoked_at === null ? {} : { revokedAt: iso(row.revoked_at) }),
     ...(row.revoked_by === null ? {} : { revokedBy: row.revoked_by }),
+    ...(row.consumed_invocation_id === null
+      ? {}
+      : { consumedInvocationId: row.consumed_invocation_id }),
+    ...(row.consumed_dispatch_hash === null
+      ? {}
+      : { consumedDispatchHash: row.consumed_dispatch_hash }),
+    ...(row.consumed_at === null ? {} : { consumedAt: iso(row.consumed_at) }),
   });
 }
 

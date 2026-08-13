@@ -20,6 +20,7 @@ import {
   ArtifactManagementCommandService,
   ArtifactManagementQueryService,
   CognitiveManagementActionGate,
+  GovernedControlManagementError,
   RuntimeSkillGovernanceService,
   type ArtifactGovernancePort,
   type CognitiveManagementActionLeaseGuard,
@@ -28,6 +29,7 @@ import {
   type CognitiveManagementActionLease,
   type CognitiveManagementActionRecord,
   type CognitiveManagementActionRepository,
+  type GovernedControlManagementService,
 } from '../../application/src/index.js';
 
 import {
@@ -64,6 +66,117 @@ describe('management HTTP API contract', () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+
+  it('keeps governed-control management unavailable unless a trusted identity is composed', async () => {
+    endpoint = await startManagementHttpEndpoint({ operations: operations() });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Operator confirmation.' }),
+      },
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'GOVERNED_CONTROL_MANAGEMENT_UNAVAILABLE' },
+    });
+  });
+
+  it('authenticates governed-control issue/revoke and rejects body authority overrides', async () => {
+    const token = 'governed-control-http-token-000001';
+    const principal = Object.freeze({
+      actorId: 'human:operator-1',
+      kind: 'human' as const,
+      authenticationMethod: 'configured_bearer',
+      permissions: new Set([
+        'physical_control.confirm' as const,
+        'physical_control.revoke' as const,
+      ]),
+      requestId: 'request-1',
+    });
+    const issue = vi.fn(() =>
+      Promise.resolve({ confirmation: { confirmationId: 'confirmation-1' } }),
+    );
+    const revoke = vi.fn(() =>
+      Promise.resolve({ confirmationId: 'confirmation-1', revoked: true }),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      governedControl: {
+        confirmations: {
+          issue: issue as unknown as GovernedControlManagementService['issue'],
+          revoke: revoke as unknown as GovernedControlManagementService['revoke'],
+        },
+        principalResolver: {
+          resolve(input) {
+            if (input.authorization !== `Bearer ${token}`)
+              return Promise.reject(
+                new GovernedControlManagementError('GOVERNED_CONTROL_AUTHENTICATION_REQUIRED', 401),
+              );
+            return Promise.resolve(principal);
+          },
+        },
+      },
+    });
+
+    const unauthorized = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Operator confirmation.' }),
+      },
+    );
+    expect(unauthorized.status).toBe(401);
+
+    const override = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          reason: 'Operator confirmation.',
+          actorId: 'request-body-actor',
+          providerBindingId: 'request-body-provider',
+        }),
+      },
+    );
+    expect(override.status).toBe(400);
+    expect(issue).not.toHaveBeenCalled();
+
+    const issued = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Operator confirmation.', ttlMs: 60_000 }),
+      },
+    );
+    expect(issued.status).toBe(201);
+    expect(issue).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      reason: 'Operator confirmation.',
+      ttlMs: 60_000,
+      principal,
+    });
+
+    const revoked = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations/confirmation-1/revoke`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Route changed before dispatch.' }),
+      },
+    );
+    expect(revoked.status).toBe(200);
+    expect(revoke).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      confirmationId: 'confirmation-1',
+      reason: 'Route changed before dispatch.',
+      principal,
+    });
   });
 
   it('exposes workflow-template inventory and usage evidence', async () => {
