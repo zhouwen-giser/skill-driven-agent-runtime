@@ -3737,6 +3737,7 @@ export async function startServerRuntime(
         };
       },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
+      reportReplanPlan: (taskId, input) => service.awaitWorkflowReplanConfirmation(taskId, input),
       reportInputContinuationPlan: (taskId, input) =>
         service.awaitInputContinuationConfirmation(taskId, input),
       continueUserGoalPlan: (taskId, userGoalPlanId) =>

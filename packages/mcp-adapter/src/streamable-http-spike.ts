@@ -148,7 +148,7 @@ async function handleFrozenRequest(
   const id = body['id'];
   const taskProfile = {
     profileVersion: '1.0',
-    taskBehavior: 'server_directed',
+    taskBehavior: 'synchronous_only',
     availability: 'dynamic',
     supportsScheduling: false,
     supportsMaxElapsed: true,

@@ -5225,7 +5225,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           forbidden: [],
         },
       });
-      const executeHistory = async (marker: string) => {
+      const executeHistory = async (marker: string, expectedState: TaskState) => {
         const submitted = await runtime.a2a.client.sendMessage(
           SendMessageRequest.fromJSON({
             message: {
@@ -5244,10 +5244,42 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
         expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
         await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm history.');
-        await waitForTaskState(submitted.id, TaskState.TASK_STATE_COMPLETED);
+        if (marker === 'HISTORICAL_REPLAY_FAILURE') {
+          await waitForInternalTaskPhase(submitted.id, 'awaiting_plan_confirmation');
+          await sendFollowUp(
+            submitted.id,
+            submitted.contextId,
+            'confirm_plan',
+            'Confirm the safe replacement plan.',
+          );
+        }
+        await waitForTaskState(submitted.id, expectedState);
+        const storedTask = z
+          .object({ goalId: z.string() })
+          .parse(
+            await fetch(
+              `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
+            ).then((response) => response.json()),
+          );
+        return { taskId: submitted.id, goalId: storedTask.goalId };
       };
-      await executeHistory('HISTORICAL_REPLAY_SUCCESS');
-      await executeHistory('HISTORICAL_REPLAY_FAILURE');
+      await executeHistory('HISTORICAL_REPLAY_SUCCESS', TaskState.TASK_STATE_COMPLETED);
+      const failedHistory = await executeHistory(
+        'HISTORICAL_REPLAY_FAILURE',
+        TaskState.TASK_STATE_FAILED,
+      );
+      const failedEvolutionEvidence = await waitForEvolutionExperience(
+        failedHistory.goalId,
+        failedHistory.taskId,
+      );
+      expect(failedEvolutionEvidence.items).toContainEqual(
+        expect.objectContaining({
+          taskId: failedHistory.taskId,
+          goal: expect.objectContaining({ goalId: failedHistory.goalId }),
+          evaluation: expect.objectContaining({ decision: 'adjust_plan' }),
+          successful: false,
+        }),
+      );
       const formalSkillsBefore = await readFormalSkillIds();
       const createAndComplete = async (taskId: string, forceSimulationFailure = false) => {
         const createdResponse = await fetch(
@@ -7330,12 +7362,27 @@ async function startModelLoopback(): Promise<Server> {
             message.content?.includes('workflow_control_replan') === true &&
             message.content.includes('replacementSkill'),
         );
+        const historicalFailureReplanRequest = body.messages?.some(
+          (message) =>
+            message.content?.includes('"operation":"workflow_control_replan"') === true &&
+            message.content.includes('HISTORICAL_REPLAY_FAILURE'),
+        );
         const workflowControlInputContinuationRequest = body.messages?.some(
           (message) => message.content?.includes('workflow_control_continue_after_input') === true,
         );
         const genericTaskEvaluationRequest =
           body.messages?.some(
             (message) => message.content?.includes('"workflow":{"instanceId"') === true,
+          ) === true;
+        const historicalFailureEvaluationRequest =
+          genericTaskEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('HISTORICAL_REPLAY_FAILURE') === true,
+          ) === true;
+        const historicalFailureWorkflowFailed =
+          historicalFailureEvaluationRequest &&
+          body.messages?.some(
+            (message) => message.content?.includes('"status":"failed"') === true,
           ) === true;
         const controlEvaluationRequest =
           genericTaskEvaluationRequest &&
@@ -7360,7 +7407,11 @@ async function startModelLoopback(): Promise<Server> {
           body.messages?.some(
             (message) => message.content?.includes('INPUT_AFTER_EVALUATION') === true,
           );
-        if (primarySkillFailureRequest === true) {
+        if (
+          primarySkillFailureRequest === true &&
+          !historicalFailureEvaluationRequest &&
+          !historicalFailureReplanRequest
+        ) {
           response.statusCode = 500;
           response.end(JSON.stringify({ error: 'Primary Skill execution failed.' }));
           return;
@@ -8286,6 +8337,33 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (historicalFailureReplanRequest === true) {
+          const requestData = z
+            .object({
+              workflowIdentity: z.object({
+                workflowDefinitionId: z.string(),
+                version: z.number(),
+                goalId: z.string(),
+                goalVersion: z.number(),
+              }),
+            })
+            .parse(embeddedOperation(body.messages, 'workflow_control_replan'));
+          respondStructured(response, {
+            ...requestData.workflowIdentity,
+            entryNodeId: 'result',
+            exitNodeIds: ['result'],
+            nodes: [
+              {
+                nodeId: 'result',
+                name: 'Recovered historical result',
+                type: 'result',
+                value: { op: 'literal', value: 'historical-failure-recovered' },
+              },
+            ],
+            edges: [],
+          });
+          return;
+        }
         if (workflowControlReplanRequest === true) {
           const requestData = z
             .object({
@@ -8654,6 +8732,22 @@ async function startModelLoopback(): Promise<Server> {
                       ? [{ sourceNodeId: 'execute', targetNodeId: 'result' }]
                       : [],
           });
+          return;
+        }
+        if (historicalFailureEvaluationRequest) {
+          respondStructured(
+            response,
+            historicalFailureWorkflowFailed
+              ? {
+                  decision: 'adjust_plan',
+                  summary: 'The failed historical execution requires a safe replacement plan.',
+                  actionInstruction: 'Recover without replaying the failed Tool path.',
+                }
+              : {
+                  decision: 'unachievable',
+                  summary: 'The replacement plan cannot recover the historical failure.',
+                },
+          );
           return;
         }
         if (autoTaskEvaluationRequest) {
@@ -9111,7 +9205,7 @@ async function waitForEvolutionExperience(goalId: string, taskId: string) {
         goal: z.object({ goalId: z.string(), successCriteria: z.array(z.string()) }),
         workflow: z.object({ nodes: z.array(z.unknown()) }),
         tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
-        result: z.unknown(),
+        result: z.unknown().optional(),
         evaluation: z.object({ decision: z.string(), summary: z.string() }),
         successful: z.boolean(),
       }),

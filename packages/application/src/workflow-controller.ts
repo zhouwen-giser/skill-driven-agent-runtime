@@ -96,6 +96,15 @@ export interface WorkflowControllerTaskOutcomes {
       summary: string;
     }>,
   ): Promise<unknown>;
+  reportReplanPlan(
+    taskId: string,
+    input: Readonly<{
+      planId: string;
+      goalId: string;
+      goalVersion: number;
+      summary: string;
+    }>,
+  ): Promise<unknown>;
   reportInputContinuationPlan(
     taskId: string,
     input: Readonly<{
@@ -508,13 +517,10 @@ export class WorkflowControllerService {
         instance,
         ...(control.taskId === undefined ? {} : { taskId: control.taskId }),
       });
-      if (
-        evaluation.decision === 'achieved' &&
-        (instance.status !== 'succeeded' || Object.keys(instance.errors).length > 0)
-      )
+      if (evaluation.decision === 'achieved' && instance.status !== 'succeeded')
         throw new WorkflowControllerError(
           'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
-          'Goal achievement requires a succeeded Workflow instance with no execution errors.',
+          'Goal achievement requires a succeeded Workflow instance.',
         );
       const round = {
         controlId: control.controlId,
@@ -805,6 +811,19 @@ export class WorkflowControllerService {
             !nextPlan.executionReadiness.confirmationRequired)) &&
         (await this.#confirmation.evaluate(nextSkillIds, nextPlan.definition)).autoConfirm;
       if (autoConfirm) await this.#execution.confirm(nextPlan.planId, control.taskId);
+      if (!autoConfirm && replacement === undefined && control.taskId !== undefined) {
+        if (this.#taskOutcomes === undefined)
+          throw new WorkflowControllerError(
+            'WORKFLOW_CONTROL_TASK_OUTCOME_UNAVAILABLE',
+            'Replan confirmation Task projection is unavailable.',
+          );
+        await this.#taskOutcomes.reportReplanPlan(control.taskId, {
+          planId: nextPlan.planId,
+          goalId: control.goalId,
+          goalVersion: control.goalVersion,
+          summary: evaluation.summary,
+        });
+      }
       if (replacement !== undefined && control.taskId !== undefined)
         await this.#taskOutcomes?.reportReplacementPlan(control.taskId, {
           planId: nextPlan.planId,

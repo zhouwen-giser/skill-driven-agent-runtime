@@ -702,6 +702,32 @@ export class TaskService {
     );
   }
 
+  async awaitWorkflowReplanConfirmation(
+    taskId: string,
+    input: Readonly<{ planId: string; goalId: string; goalVersion: number; summary: string }>,
+  ): Promise<AgentTask> {
+    let task = await this.get(taskId);
+    if (task.phase !== 'planning')
+      task = await this.#saveTransition(task, 'planning', input.summary);
+    task = bindTaskPlan(task, {
+      planId: input.planId,
+      goalId: input.goalId,
+      goalVersion: input.goalVersion,
+      timestamp: this.#dependencies.clock.now(),
+    });
+    await this.#dependencies.tasks.save(task);
+    await this.#dependencies.taskCapabilities?.appendAttempt(task.taskId, {
+      attemptId: `capability-attempt-${this.#dependencies.ids.nextId('attempt')}`,
+      reason: 'replan',
+      planId: input.planId,
+    });
+    return this.#saveTransition(
+      task,
+      'awaiting_plan_confirmation',
+      'Workflow evaluation produced a new plan that requires confirmation.',
+    );
+  }
+
   async reportCapabilityGap(taskId: string, evaluation: GoalEvaluationResult): Promise<AgentTask> {
     if (
       evaluation.decision !== 'capability_gap' ||
