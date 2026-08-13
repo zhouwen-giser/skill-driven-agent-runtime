@@ -368,8 +368,23 @@ function receipt(): RemoteTaskAdmissionReceipt {
       mode: 'frozen_v1',
       protocolVersion: '2026-07-28',
       baselineSha256: 'b'.repeat(64),
+      serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed',
+    authoritySnapshot: {
+      schemaVersion: '1.0',
+      capturedAt: receiptAt,
+      runtime: {
+        serverId: 'provider-1',
+        endpoint: 'https://provider-1.test/mcp',
+        serverUpdatedAt: 'credential-1',
+        toolRevision: 1,
+        protocolSnapshotId: 'snapshot-1',
+        catalogRevision: 'catalog-revision-1',
+        catalogChecksum: 'c'.repeat(64),
+        operationCount: 1,
+      },
+    },
     continuation: {
       snapshot: continuationSnapshot(),
       completeness: 'exact_single',

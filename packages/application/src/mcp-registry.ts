@@ -4,11 +4,13 @@ import {
   createMcpToolExecutionSemantics,
   withMcpToolAdminExecutionSemanticsOverride,
   createMcpToolEnhancement,
+  createRemoteTaskAuthoritySnapshot,
   type McpInvocation,
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
   type RemoteTaskOperationAck,
+  type RemoteTaskAuthoritySnapshot,
   type RemoteTaskSnapshot,
   type McpManagementOperation,
   type McpManagementOperationType,
@@ -31,6 +33,7 @@ import type {
 } from './ports.js';
 import {
   McpRuntimeBindingAuthorityVerifier,
+  type CurrentMcpProviderBindingAuthority,
   type RuntimeMcpCatalogAuthority,
 } from './mcp-runtime-binding-authority.js';
 import {
@@ -69,6 +72,7 @@ export interface McpCallContext {
         sessionRevision: string;
         protocolContract: McpProtocolContractSnapshot;
         taskBehavior: McpTaskBehavior;
+        authoritySnapshot: RemoteTaskAuthoritySnapshot;
         at: string;
       }>,
     ): Promise<void>;
@@ -96,6 +100,7 @@ export interface RecordedMcpInvocationOutcome {
   readonly sessionRevision: string;
   readonly protocolContract?: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
+  readonly authoritySnapshot: RemoteTaskAuthoritySnapshot;
 }
 
 export interface FrozenTaskAvailabilityRuntimePort {
@@ -232,7 +237,7 @@ export class McpRegistryService {
     // incomplete registration cannot cause an externally visible call followed by a retryable
     // local failure.
     const frozenAuthority = this.#frozenInvocationAuthority(runtimeAuthority, tool);
-    await this.#assertCurrentProviderBinding(
+    const providerBindingAuthority = await this.#assertCurrentProviderBinding(
       runtimeAuthority,
       context.providerBindingId,
       context.providerId,
@@ -251,6 +256,11 @@ export class McpRegistryService {
         'Remote admission and deterministic dispatch must share one invocation identity.',
       );
     const startedAt = this.#clock.now();
+    const authoritySnapshot = remoteTaskAuthoritySnapshot(
+      runtimeAuthority,
+      providerBindingAuthority,
+      startedAt,
+    );
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
     );
@@ -380,6 +390,7 @@ export class McpRegistryService {
         sessionRevision: `${outcome.task.protocolRevision}/${outcome.task.tasksSchemaRevision}`,
         protocolContract: frozenAuthority.protocolContract,
         taskBehavior: frozenAuthority.taskBehavior,
+        authoritySnapshot,
         at: completedAt,
       });
     } else {
@@ -400,6 +411,7 @@ export class McpRegistryService {
           : String(record.server.toolRevision),
       protocolContract: frozenAuthority.protocolContract,
       taskBehavior: frozenAuthority.taskBehavior,
+      authoritySnapshot,
     };
   }
 
@@ -484,9 +496,9 @@ export class McpRegistryService {
     runtimeAuthority: RuntimeMcpCatalogAuthority,
     bindingId: string | undefined,
     providerId: string | undefined,
-  ): Promise<void> {
+  ): Promise<CurrentMcpProviderBindingAuthority | undefined> {
     if (this.#providerBindings === undefined && bindingId === undefined && providerId === undefined)
-      return;
+      return undefined;
     if (this.#providerBindings === undefined)
       throw new McpRegistryError(
         'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE',
@@ -520,6 +532,74 @@ export class McpRegistryService {
         'Current MCP Provider Binding authority differs from the Runtime invocation target.',
       );
     }
+    return authority;
+  }
+
+  async #assertRemoteTaskReadAuthority(
+    input: Readonly<{
+      serverId: string;
+      operationName: string;
+      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+      credentialRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
+    }>,
+    runtime: RuntimeMcpCatalogAuthority,
+  ): Promise<void> {
+    try {
+      const snapshot =
+        input.authoritySnapshot === undefined
+          ? undefined
+          : createRemoteTaskAuthoritySnapshot(input.authoritySnapshot);
+      if (snapshot === undefined)
+        throw new Error('LEGACY_REMOTE_TASK_CATALOG_AUTHORITY_UNPROVABLE');
+      const frozenRuntime = snapshot.runtime;
+      if (
+        frozenRuntime.serverId !== input.serverId ||
+        frozenRuntime.serverId !== runtime.record.server.serverId ||
+        frozenRuntime.endpoint !== runtime.record.server.endpoint ||
+        frozenRuntime.serverUpdatedAt !== runtime.record.server.updatedAt ||
+        frozenRuntime.serverUpdatedAt !== input.credentialRevision ||
+        frozenRuntime.toolRevision !== runtime.record.server.toolRevision ||
+        frozenRuntime.protocolSnapshotId !== runtime.snapshot.snapshotId ||
+        frozenRuntime.protocolSnapshotId !== input.protocolContract.serverDiscoverySnapshotId ||
+        frozenRuntime.catalogRevision !== runtime.catalogAuthority.catalogRevision ||
+        frozenRuntime.catalogChecksum !== runtime.catalogAuthority.catalogChecksum ||
+        frozenRuntime.operationCount !== runtime.catalogAuthority.operationCount ||
+        !runtime.tools.some((tool) => tool.toolName === input.operationName)
+      )
+        throw new Error('REMOTE_TASK_RUNTIME_AUTHORITY_DRIFT');
+
+      const frozenProvider = snapshot.providerBinding;
+      if (this.#providerBindings === undefined) {
+        if (frozenProvider !== undefined)
+          throw new Error('REMOTE_TASK_PROVIDER_AUTHORITY_UNAVAILABLE');
+        return;
+      }
+      if (frozenProvider === undefined)
+        throw new Error('REMOTE_TASK_PROVIDER_AUTHORITY_NOT_FROZEN');
+      const current = await this.#providerBindings.loadCurrentMcpProviderBinding({
+        bindingId: frozenProvider.bindingId,
+        localServerId: input.serverId,
+      });
+      if (
+        current.binding.bindingId !== frozenProvider.bindingId ||
+        current.binding.localServerId !== input.serverId ||
+        current.binding.revision < frozenProvider.revision ||
+        current.binding.providerId !== frozenProvider.providerId ||
+        current.binding.endpointRef !== frozenProvider.endpointRef ||
+        (current.binding.revision === frozenProvider.revision &&
+          current.binding.catalogRevision !== frozenProvider.catalogRevision) ||
+        current.binding.catalogChecksum !== frozenProvider.catalogChecksum ||
+        current.binding.operationCount !== frozenProvider.operationCount ||
+        Date.parse(current.binding.availabilityValidUntil) <= Date.parse(this.#clock.now())
+      )
+        throw new Error('REMOTE_TASK_PROVIDER_AUTHORITY_DRIFT');
+    } catch {
+      throw new McpRegistryError(
+        'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+        'Remote Task polling authority differs from the exact Runtime and Provider Binding admitted before dispatch.',
+      );
+    }
   }
 
   async delete(serverId: string): Promise<void> {
@@ -544,14 +624,19 @@ export class McpRegistryService {
       operationName: string;
       remoteTaskId: string;
       executionContext: RuntimeExecutionContext;
+      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+      credentialRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
     }>,
   ): Promise<RemoteTaskReadResult> {
     try {
-      const record = await this.#requireServer(input.serverId);
-      const executionContext = createRuntimeExecutionContext(input.executionContext);
-      const tool = (await this.#repository.listTools(input.serverId)).find(
-        (candidate) => candidate.toolName === input.operationName,
+      const runtimeAuthority = await this.#runtimeBindingAuthority.loadRuntimeAuthority(
+        input.serverId,
       );
+      await this.#assertRemoteTaskReadAuthority(input, runtimeAuthority);
+      const { record, tools } = runtimeAuthority;
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
+      const tool = tools.find((candidate) => candidate.toolName === input.operationName);
       if (tool === undefined)
         throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
       const snapshot = await this.#requireFrozenLifecycle().get({
@@ -577,7 +662,10 @@ export class McpRegistryService {
       if (
         code === 'MCP_TASK_CAPABILITY_REQUIRED' ||
         code === 'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED' ||
-        code === 'MCP_SERVER_NOT_FOUND'
+        code === 'MCP_SERVER_NOT_FOUND' ||
+        code === 'MCP_SERVER_NOT_ENABLED' ||
+        code === 'MCP_FROZEN_PROTOCOL_SNAPSHOT_REQUIRED' ||
+        code === 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'
       ) {
         return { kind: 'provider_protocol', errorCode: code };
       }
@@ -801,6 +889,42 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   signal?.throwIfAborted();
 }
 
+function remoteTaskAuthoritySnapshot(
+  runtime: RuntimeMcpCatalogAuthority,
+  provider: CurrentMcpProviderBindingAuthority | undefined,
+  capturedAt: string,
+): RemoteTaskAuthoritySnapshot {
+  return createRemoteTaskAuthoritySnapshot({
+    schemaVersion: '1.0',
+    capturedAt,
+    runtime: {
+      serverId: runtime.record.server.serverId,
+      endpoint: runtime.record.server.endpoint,
+      serverUpdatedAt: runtime.record.server.updatedAt,
+      toolRevision: runtime.record.server.toolRevision,
+      protocolSnapshotId: runtime.snapshot.snapshotId,
+      catalogRevision: runtime.catalogAuthority.catalogRevision,
+      catalogChecksum: runtime.catalogAuthority.catalogChecksum,
+      operationCount: runtime.catalogAuthority.operationCount,
+    },
+    ...(provider === undefined
+      ? {}
+      : {
+          providerBinding: {
+            bindingId: provider.binding.bindingId,
+            revision: provider.binding.revision,
+            providerId: provider.binding.providerId,
+            endpointRef: provider.binding.endpointRef,
+            catalogRevision: provider.binding.catalogRevision,
+            catalogChecksum: provider.binding.catalogChecksum,
+            operationCount: provider.binding.operationCount,
+            availabilityValidUntil: provider.binding.availabilityValidUntil,
+            observedAt: provider.observedAt,
+          },
+        }),
+  });
+}
+
 export function createMcpProviderDispatchHash(
   input: Readonly<{
     invocationId: string;
@@ -977,6 +1101,7 @@ export type McpRegistryErrorCode =
   | 'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE'
   | 'MCP_PROVIDER_BINDING_NOT_CURRENT'
   | 'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT'
+  | 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_ENABLED'
   | 'MCP_SERVER_NOT_FOUND'

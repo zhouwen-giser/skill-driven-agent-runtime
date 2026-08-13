@@ -63,7 +63,7 @@ describe('PostgreSQL remote Task continuation authority', () => {
   it('round-trips versioned snapshots, leases controls, records attempts and fails closed on rollback', async () => {
     const remoteTasks = new PostgresRemoteTaskRepository(pool);
     const continuations = new PostgresWorkflowContinuationRepository(pool);
-    await remoteTasks.admit(
+    const admitted = await remoteTasks.admit(
       createRemoteTaskBinding({
         bindingId: 'continuation-binding',
         serverId: 'continuation-server',
@@ -87,12 +87,27 @@ describe('PostgreSQL remote Task continuation authority', () => {
           mode: 'frozen_v1',
           protocolVersion: '2026-07-28',
           baselineSha256: 'a'.repeat(64),
+          serverDiscoverySnapshotId: 'continuation-snapshot-1',
         },
         taskBehavior: 'server_directed',
         runtimeRevision: '1',
         providerSubstate: 'running',
         remoteRevision: 'remote-revision-1',
         executionContext: { mode: 'live' },
+        authoritySnapshot: {
+          schemaVersion: '1.0',
+          capturedAt: '2026-07-16T08:00:00.000Z',
+          runtime: {
+            serverId: 'continuation-server',
+            endpoint: 'https://continuation-server.test/mcp',
+            serverUpdatedAt: 'credential-revision-1',
+            toolRevision: 1,
+            protocolSnapshotId: 'continuation-snapshot-1',
+            catalogRevision: 'catalog-revision-1',
+            catalogChecksum: 'c'.repeat(64),
+            operationCount: 1,
+          },
+        },
         credentialRevision: 'credential-revision-1',
         sessionRevision: 'session-revision-1',
         lastProviderUpdatedAt: '2026-07-16T08:00:00.000Z',
@@ -101,6 +116,53 @@ describe('PostgreSQL remote Task continuation authority', () => {
       }),
       'continuation-admission-observation',
     );
+    const admittedAuthority = admitted.binding.authoritySnapshot;
+    if (admittedAuthority === undefined) throw new Error('TEST_REMOTE_TASK_AUTHORITY_MISSING');
+    expect(admittedAuthority).toMatchObject({
+      schemaVersion: '1.0',
+      runtime: {
+        serverId: 'continuation-server',
+        protocolSnapshotId: 'continuation-snapshot-1',
+        serverUpdatedAt: 'credential-revision-1',
+      },
+    });
+    const persistedAuthority = await pool.query<{ authority_snapshot_json: unknown }>(
+      'SELECT authority_snapshot_json FROM remote_task_binding WHERE binding_id=$1',
+      ['continuation-binding'],
+    );
+    expect(persistedAuthority.rows[0]?.authority_snapshot_json).toEqual(admittedAuthority);
+    const reorderedAuthority = {
+      capturedAt: admittedAuthority.capturedAt,
+      runtime: admittedAuthority.runtime,
+      schemaVersion: '1.0' as const,
+    };
+    const duplicate = await remoteTasks.admit(
+      {
+        ...admitted.binding,
+        authoritySnapshot: reorderedAuthority,
+      },
+      'continuation-duplicate-admission-observation',
+    );
+    expect(duplicate).toMatchObject({
+      created: false,
+      binding: { bindingId: 'continuation-binding' },
+    });
+
+    await expect(
+      pool.query(
+        `INSERT INTO remote_task_admission_intent(
+           intent_id,invocation_id,binding_id,task_id,context_id,server_id,operation_name,
+           arguments_hash,local_envelope_json,status,dispatch_hash,dispatched_at,
+           recorded_invocation_id,remote_receipt_json,receipt_recorded_at,
+           created_at,updated_at,version)
+         VALUES('authority-missing-receipt','continuation-invocation','authority-missing-binding',
+                'continuation-agent-task','continuation-context','continuation-server','long_operation',
+                $1,'{}'::jsonb,'receipt_recorded',$2,$3,'continuation-invocation',
+                '{"remoteTask":{"remoteTaskId":"missing-authority"},"continuation":{"snapshot":{"waitingNodeRuns":[]},"completeness":"exact_single"}}'::jsonb,
+                $3,$3,$3,3)`,
+        ['d'.repeat(64), `sha256:${'e'.repeat(64)}`, '2026-07-16T08:00:00.000Z'],
+      ),
+    ).rejects.toMatchObject({ constraint: 'remote_task_admission_receipt_authority_check' });
     const cancellations = new PostgresRemoteTaskCancellationRepository(pool);
     const cancellation = await cancellations.requestCancellation(
       createRemoteTaskCancellationRequest({

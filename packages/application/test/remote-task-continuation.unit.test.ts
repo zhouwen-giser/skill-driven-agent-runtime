@@ -607,17 +607,36 @@ function remoteTaskBinding(
       mode: 'frozen_v1',
       protocolVersion: '2026-07-28',
       baselineSha256: 'a'.repeat(64),
+      serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed',
     runtimeRevision: '1',
     lastProviderUpdatedAt: timestamp,
     executionContext: { mode: 'live' },
+    authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-sha256-1'),
     credentialRevision: 'credential-sha256-1',
     sessionRevision: '2026-07-28/schema-1',
     pollIntervalMs: 200,
     createdAt: timestamp,
     ...overrides,
   });
+}
+
+function testAuthoritySnapshot(serverId: string, credentialRevision: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: timestamp,
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
+  };
 }
 
 function continuationSnapshot(

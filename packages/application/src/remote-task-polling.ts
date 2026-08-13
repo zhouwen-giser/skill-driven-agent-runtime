@@ -171,6 +171,11 @@ export class RemoteTaskPollingService {
         operationName: binding.operationName,
         remoteTaskId: binding.remoteTaskId,
         executionContext: binding.executionContext,
+        ...(binding.authoritySnapshot === undefined
+          ? {}
+          : { authoritySnapshot: binding.authoritySnapshot }),
+        credentialRevision: binding.credentialRevision,
+        protocolContract: binding.protocolContract,
       });
       const observedAt = this.#clock.now();
       if (read.kind === 'provider_unreachable') {

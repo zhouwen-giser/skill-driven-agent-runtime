@@ -805,12 +805,19 @@ async function seedRunningTask(): Promise<void> {
         mode: 'frozen_v1',
         protocolVersion: '2026-07-28',
         baselineSha256: 'a'.repeat(64),
+        serverDiscoverySnapshotId: 'snapshot-p05',
       },
       taskBehavior: 'server_directed',
       runtimeRevision: '1',
       providerSubstate: 'running',
       remoteRevision: 'provider-revision-p05',
       executionContext: { mode: 'live' },
+      authoritySnapshot: runtimeAuthoritySnapshot(
+        'catalog-from-smpp',
+        'credential-revision-p05',
+        'snapshot-p05',
+        timestamp,
+      ),
       credentialRevision: 'credential-revision-p05',
       sessionRevision: 'session-revision-p05',
       lastProviderUpdatedAt: timestamp,
@@ -819,6 +826,28 @@ async function seedRunningTask(): Promise<void> {
     }),
     'remote-binding-p05-admitted',
   );
+}
+
+function runtimeAuthoritySnapshot(
+  serverId: string,
+  credentialRevision: string,
+  protocolSnapshotId: string,
+  capturedAt: string,
+) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt,
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId,
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
+  };
 }
 
 async function truncateControl(): Promise<void> {

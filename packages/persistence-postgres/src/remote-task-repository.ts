@@ -6,9 +6,11 @@ import type {
   RemoteTaskPollClaimResult,
   RemoteTaskRepository,
 } from '../../application/src/index.js';
+import { canonicalHash } from '../../application/src/index.js';
 import {
   controlEventTypeForStatus,
   compareRuntimeRevisions,
+  createRemoteTaskAuthoritySnapshot,
   createProviderEvidenceItem,
   createRuntimeExecutionContext,
   errorSnapshotFromRemoteTask,
@@ -19,6 +21,7 @@ import {
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
   type RemoteTaskBinding,
+  type RemoteTaskAuthoritySnapshot,
   type RemoteTaskControlEvent,
   type RemoteTaskControlEventStatus,
   type RemoteTaskControlEventType,
@@ -102,6 +105,38 @@ const McpProtocolContractSnapshotSchema: z.ZodType<McpProtocolContractSnapshot> 
     serverDiscoverySnapshotId: z.string().min(1).optional(),
   })
   .strict();
+const RemoteTaskAuthoritySnapshotSchema = z
+  .object({
+    schemaVersion: z.literal('1.0'),
+    capturedAt: z.string().min(1),
+    runtime: z
+      .object({
+        serverId: z.string().min(1),
+        endpoint: z.string().min(1),
+        serverUpdatedAt: z.string().min(1),
+        toolRevision: z.number().int().positive(),
+        protocolSnapshotId: z.string().min(1),
+        catalogRevision: z.string().min(1),
+        catalogChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
+        operationCount: z.number().int().positive(),
+      })
+      .strict(),
+    providerBinding: z
+      .object({
+        bindingId: z.string().min(1),
+        revision: z.number().int().positive(),
+        providerId: z.string().min(1),
+        endpointRef: z.string().min(1),
+        catalogRevision: z.string().min(1),
+        catalogChecksum: z.string().regex(/^[a-f0-9]{64}$/u),
+        operationCount: z.number().int().positive(),
+        availabilityValidUntil: z.string().min(1),
+        observedAt: z.string().min(1),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
 interface RemoteTaskBindingRow extends QueryResultRow {
   binding_id: string;
@@ -139,6 +174,7 @@ interface RemoteTaskBindingRow extends QueryResultRow {
   requested_timing_json: unknown;
   execution_mode: RuntimeExecutionMode;
   simulation_id: string | null;
+  authority_snapshot_json: unknown;
   credential_revision: string;
   session_revision: string;
   poll_interval_ms: number;
@@ -226,13 +262,13 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
            protocol_contract_json,task_behavior,runtime_revision,provider_revision,
            task_ttl_ms,task_expires_at,
            provider_substate,remote_revision,last_provider_updated_at,local_state,
-           requested_timing_json,execution_mode,simulation_id,credential_revision,
+           requested_timing_json,execution_mode,simulation_id,authority_snapshot_json,credential_revision,
            session_revision,poll_interval_ms,next_poll_at,poll_attempt,
            provider_failure_count,created_at,updated_at,version)
          VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-           $21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33::jsonb,$34,$35,$36,
-           $37,$38,$39,$40,$41,$42,$43,$44)
+           $21,$22,$23::jsonb,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33::jsonb,$34,$35,$36::jsonb,
+           $37,$38,$39,$40,$41,$42,$43,$44,$45)
          ON CONFLICT (server_id,remote_task_id) DO NOTHING
          RETURNING *`,
         bindingInsertParameters(binding),
@@ -912,6 +948,7 @@ function bindingInsertParameters(binding: RemoteTaskBinding): unknown[] {
     toJsonParameter(binding.requestedTiming),
     binding.executionContext.mode,
     binding.executionContext.simulationId ?? null,
+    toJsonParameter(binding.authoritySnapshot),
     binding.credentialRevision,
     binding.sessionRevision,
     binding.pollIntervalMs,
@@ -1235,6 +1272,9 @@ function mapBinding(row: RemoteTaskBindingRow): RemoteTaskBinding {
       mode: row.execution_mode,
       ...(row.simulation_id === null ? {} : { simulationId: row.simulation_id }),
     }),
+    ...(row.authority_snapshot_json === null
+      ? {}
+      : { authoritySnapshot: parseAuthoritySnapshot(row.authority_snapshot_json) }),
     credentialRevision: row.credential_revision,
     sessionRevision: row.session_revision,
     pollIntervalMs: row.poll_interval_ms,
@@ -1327,7 +1367,16 @@ function sameAdmissionIdentity(current: RemoteTaskBinding, candidate: RemoteTask
     current.skillAttemptId === candidate.skillAttemptId &&
     current.workflowInstanceId === candidate.workflowInstanceId &&
     current.workflowNodeRunId === candidate.workflowNodeRunId &&
-    current.mcpInvocationId === candidate.mcpInvocationId
+    current.mcpInvocationId === candidate.mcpInvocationId &&
+    canonicalHash(current.authoritySnapshot ?? null) ===
+      canonicalHash(candidate.authoritySnapshot ?? null)
+  );
+}
+
+function parseAuthoritySnapshot(value: unknown): RemoteTaskAuthoritySnapshot {
+  assertBoundedJson(value);
+  return createRemoteTaskAuthoritySnapshot(
+    RemoteTaskAuthoritySnapshotSchema.parse(value) as RemoteTaskAuthoritySnapshot,
   );
 }
 

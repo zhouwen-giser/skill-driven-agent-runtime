@@ -221,11 +221,13 @@ function remoteBinding(): RemoteTaskBinding {
         mode: 'frozen_v1',
         protocolVersion: '2026-test',
         baselineSha256: 'a'.repeat(64),
+        serverDiscoverySnapshotId: 'snapshot-1',
       },
       taskBehavior: 'server_directed',
       runtimeRevision: '1',
       remoteRevision: 'remote-revision-1',
       executionContext: { mode: 'live' },
+      authoritySnapshot: testAuthoritySnapshot('mcp-server-1', 'credential-1'),
       credentialRevision: 'credential-1',
       sessionRevision: 'session-1',
       lastProviderUpdatedAt: '2026-07-17T00:00:00.000Z',
@@ -235,6 +237,23 @@ function remoteBinding(): RemoteTaskBinding {
   };
   delete binding.nextPollAt;
   return { ...binding, localState: 'awaiting_input' };
+}
+
+function testAuthoritySnapshot(serverId: string, credentialRevision: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: '2026-07-17T00:00:00.000Z',
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
+  };
 }
 
 function inputLink(input: Readonly<{ requestedSchema?: unknown }> = {}): RemoteTaskInputLink {

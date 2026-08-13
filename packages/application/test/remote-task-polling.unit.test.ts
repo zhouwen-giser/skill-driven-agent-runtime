@@ -109,6 +109,14 @@ describe('RemoteTaskPollingService', () => {
       remoteTaskId: 'remote-1',
       operationName: 'long-tool',
       executionContext: { mode: 'historical-replay', simulationId: 'replay-1' },
+      authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-sha256-1'),
+      credentialRevision: 'credential-sha256-1',
+      protocolContract: {
+        mode: 'frozen_v1',
+        protocolVersion: '2026-07-28',
+        baselineSha256: 'a'.repeat(64),
+        serverDiscoverySnapshotId: 'snapshot-1',
+      },
     });
     expect(harness.repository.binding.version).toBe(3);
     expect(harness.repository.binding.pollAttempt).toBe(1);
@@ -193,6 +201,27 @@ describe('RemoteTaskPollingService', () => {
         }),
       }),
     ]);
+    expect(harness.queue.enqueued).toHaveLength(0);
+  });
+
+  it('quarantines authority drift with its stable code and schedules no retry', async () => {
+    const harness = pollingHarness();
+    harness.readerResult = {
+      kind: 'provider_protocol',
+      errorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    };
+
+    await expect(harness.service.process(job())).resolves.toBe('quarantined');
+
+    expect(harness.repository.binding).toMatchObject({
+      localState: 'terminal_event_pending',
+      protocolStatus: 'working',
+      lastSafeErrorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    });
+    expect(harness.repository.attempts.at(-1)).toMatchObject({
+      status: 'provider_protocol',
+      errorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    });
     expect(harness.queue.enqueued).toHaveLength(0);
   });
 
@@ -613,16 +642,35 @@ function admission(overrides: Partial<Parameters<typeof createRemoteTaskBinding>
       mode: 'frozen_v1' as const,
       protocolVersion: '2026-07-28',
       baselineSha256: 'a'.repeat(64),
+      serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed' as const,
     runtimeRevision: '1',
     lastProviderUpdatedAt: timestamp,
     executionContext: { mode: 'live' as const },
+    authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-sha256-1'),
     credentialRevision: 'credential-sha256-1',
     sessionRevision: '2026-07-28/schema-1',
     pollIntervalMs: 200,
     createdAt: timestamp,
     ...overrides,
+  };
+}
+
+function testAuthoritySnapshot(serverId: string, credentialRevision: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: timestamp,
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
   };
 }
 

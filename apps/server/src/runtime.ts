@@ -262,6 +262,7 @@ import {
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
+  type RemoteTaskAuthoritySnapshot,
   type RuntimeRequestContext,
   type SkillUsageCandidateSnapshot,
   type SkillUsageSelectionContext,
@@ -2592,6 +2593,7 @@ export async function startServerRuntime(
                   sessionRevision: string;
                   protocolContract: McpProtocolContractSnapshot;
                   taskBehavior: McpTaskBehavior;
+                  authoritySnapshot: RemoteTaskAuthoritySnapshot;
                   at: string;
                 }>,
               ) {
@@ -2617,6 +2619,7 @@ export async function startServerRuntime(
                     sessionRevision: input.sessionRevision,
                     protocolContract: input.protocolContract,
                     taskBehavior: input.taskBehavior,
+                    authoritySnapshot: input.authoritySnapshot,
                     continuation,
                   },
                   input.at,
@@ -2752,6 +2755,7 @@ export async function startServerRuntime(
             ? {}
             : { requestedTiming: guardedTaskExecution.timing }),
           executionContext,
+          authoritySnapshot: receipt.authoritySnapshot,
           credentialRevision: receipt.credentialRevision,
           sessionRevision: receipt.sessionRevision,
           lastProviderUpdatedAt: remote.lastUpdatedAt,

@@ -5,6 +5,7 @@ import type {
   McpInvocation,
   McpProtocolContractSnapshot,
   McpTaskBehavior,
+  RemoteTaskAuthoritySnapshot,
   RemoteTaskCreated,
   RemoteTaskSnapshot,
   RuntimeExecutionContext,
@@ -54,6 +55,8 @@ export interface RemoteTaskAdmissionReceipt {
   readonly sessionRevision: string;
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior: McpTaskBehavior;
+  /** Missing only for a legacy receipt persisted before migration 0160. */
+  readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
   readonly continuation: Readonly<{
     snapshot: WorkflowContinuationSnapshot;
     completeness: WorkflowExternalWaitCheckpointCompleteness;
@@ -270,7 +273,11 @@ export class RemoteTaskAdmissionRecoveryService {
       if (intent.status !== 'receipt_recorded' || intent.receipt === undefined) continue;
       const remote = intent.receipt.remoteTask;
       const runtimeRevision = remote.runtimeRevision;
-      if (remote.protocolMode !== 'frozen_v1' || runtimeRevision === undefined) {
+      if (
+        remote.protocolMode !== 'frozen_v1' ||
+        runtimeRevision === undefined ||
+        intent.receipt.authoritySnapshot === undefined
+      ) {
         await this.#failTask(
           intent.taskId,
           'REMOTE_TASK_ADMISSION_RECEIPT_AUTHORITY_INVALID',
@@ -313,6 +320,7 @@ export class RemoteTaskAdmissionRecoveryService {
         ...(remote.providerObservation?.remoteRevision === undefined
           ? {}
           : { remoteRevision: remote.providerObservation.remoteRevision }),
+        authoritySnapshot: intent.receipt.authoritySnapshot,
         credentialRevision: intent.receipt.credentialRevision,
         sessionRevision: intent.receipt.sessionRevision,
         lastProviderUpdatedAt: remote.lastUpdatedAt,

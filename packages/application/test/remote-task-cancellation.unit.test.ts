@@ -535,10 +535,12 @@ function binding(overrides: Partial<RemoteTaskBinding> = {}): RemoteTaskBinding 
         mode: 'frozen_v1',
         protocolVersion: 'tasks-protocol-1',
         baselineSha256: 'a'.repeat(64),
+        serverDiscoverySnapshotId: 'snapshot-1',
       },
       taskBehavior: 'server_directed',
       runtimeRevision: '1',
       executionContext: { mode: 'live' },
+      authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-1'),
       credentialRevision: 'credential-1',
       sessionRevision: 'session-1',
       lastProviderUpdatedAt: timestamp,
@@ -546,6 +548,23 @@ function binding(overrides: Partial<RemoteTaskBinding> = {}): RemoteTaskBinding 
       createdAt: timestamp,
     }),
     ...overrides,
+  };
+}
+
+function testAuthoritySnapshot(serverId: string, credentialRevision: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: timestamp,
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
   };
 }
 

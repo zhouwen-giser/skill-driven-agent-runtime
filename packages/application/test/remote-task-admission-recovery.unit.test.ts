@@ -100,6 +100,34 @@ describe('RemoteTaskAdmissionRecoveryService', () => {
     });
   });
 
+  it('fails closed instead of materializing a legacy receipt without authority', async () => {
+    const current = admissionIntent('receipt_recorded');
+    if (current.receipt === undefined) throw new Error('TEST_RECEIPT_REQUIRED');
+    const receipt = { ...current.receipt };
+    delete receipt.authoritySnapshot;
+    const intent = { ...current, receipt };
+    const closeReceiptAsUncertain = vi.fn().mockResolvedValue({
+      applied: true,
+      intent: { ...intent, status: 'uncertain' },
+    });
+    const failTask = vi.fn().mockResolvedValue(undefined);
+    const admit = vi.fn();
+    const service = recoveryService({
+      intents: [intent],
+      closeReceiptAsUncertain,
+      failTask,
+      admit,
+    });
+
+    await expect(service.reconcile()).resolves.toMatchObject({ uncertain: 1, materialized: 0 });
+    expect(admit).not.toHaveBeenCalled();
+    expect(failTask).toHaveBeenCalledWith(
+      intent.taskId,
+      'REMOTE_TASK_ADMISSION_RECEIPT_AUTHORITY_INVALID',
+      expect.stringContaining('frozen Runtime authority'),
+    );
+  });
+
   it('leaves fresh prepared, dispatching, and partial receipts untouched during periodic recovery', async () => {
     const preparedBase = admissionIntent('dispatching');
     const prepared = {
@@ -275,8 +303,10 @@ function admissionIntent(status: 'dispatching' | 'receipt_recorded'): RemoteTask
               mode: 'frozen_v1' as const,
               protocolVersion: '2026-07-28',
               baselineSha256: 'b'.repeat(64),
+              serverDiscoverySnapshotId: 'snapshot-restart-provider',
             },
             taskBehavior: 'task_required' as const,
+            authoritySnapshot: testAuthoritySnapshot(),
             continuation: {
               snapshot: continuationSnapshot(),
               completeness: 'exact_single' as const,
@@ -287,6 +317,23 @@ function admissionIntent(status: 'dispatching' | 'receipt_recorded'): RemoteTask
     createdAt,
     updatedAt: createdAt,
     version: status === 'receipt_recorded' ? 3 : 2,
+  };
+}
+
+function testAuthoritySnapshot() {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: '2026-08-13T03:00:00.000Z',
+    runtime: {
+      serverId: 'provider-restart',
+      endpoint: 'https://provider-restart.test/mcp',
+      serverUpdatedAt: 'credential-restart',
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-restart-provider',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
   };
 }
 

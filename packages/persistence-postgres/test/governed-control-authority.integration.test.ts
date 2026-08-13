@@ -360,6 +360,7 @@ describe('PostgreSQL governed physical-control authority', () => {
             sessionRevision: input.sessionRevision,
             protocolContract: input.protocolContract,
             taskBehavior: input.taskBehavior,
+            authoritySnapshot: input.authoritySnapshot,
             continuation,
           },
           input.at,

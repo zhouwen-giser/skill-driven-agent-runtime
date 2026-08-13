@@ -10,9 +10,11 @@ import type {
   McpTool,
   McpToolEnhancement,
   McpProtocolDiscoverySnapshot,
+  McpProtocolContractSnapshot,
   McpToolExecutionSemantics,
   RemoteTaskOperationAck,
   RemoteTaskBinding,
+  RemoteTaskAuthoritySnapshot,
   RemoteTaskControlEvent,
   RemoteTaskObservation,
   RemoteTaskProtocolAttempt,
@@ -634,6 +636,9 @@ export interface RemoteTaskSnapshotReader {
       operationName: string;
       remoteTaskId: string;
       executionContext: RuntimeExecutionContext;
+      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+      credentialRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
     }>,
   ): Promise<RemoteTaskReadResult>;
 }

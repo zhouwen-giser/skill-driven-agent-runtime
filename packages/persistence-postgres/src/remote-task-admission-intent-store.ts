@@ -9,7 +9,11 @@ import type {
   RemoteTaskAdmissionReceipt,
 } from '../../application/src/index.js';
 import { canonicalHash } from '../../application/src/index.js';
-import { createWorkflowContinuationSnapshot, type McpInvocation } from '../../domain/src/index.js';
+import {
+  createRemoteTaskAuthoritySnapshot,
+  createWorkflowContinuationSnapshot,
+  type McpInvocation,
+} from '../../domain/src/index.js';
 
 interface RemoteTaskAdmissionIntentRow extends QueryResultRow {
   intent_id: string;
@@ -156,6 +160,9 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
     receipt: RemoteTaskAdmissionReceipt,
     at: string,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
+    if (receipt.authoritySnapshot === undefined)
+      throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_AUTHORITY_REQUIRED');
+    createRemoteTaskAuthoritySnapshot(receipt.authoritySnapshot);
     return withTransaction(this.#pool, async (client) => {
       const locked = await client.query<RemoteTaskAdmissionIntentRow>(
         `SELECT * FROM remote_task_admission_intent WHERE intent_id=$1 FOR UPDATE`,
@@ -553,8 +560,14 @@ function parseReceipt(value: unknown): RemoteTaskAdmissionReceipt {
     !isRecord(value['continuation']['snapshot'])
   )
     throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_INVALID');
+  const authority = value['authoritySnapshot'];
+  if (authority !== undefined && !isRecord(authority))
+    throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_INVALID');
   return {
     ...(value as unknown as Omit<RemoteTaskAdmissionReceipt, 'continuation'>),
+    ...(authority === undefined
+      ? {}
+      : { authoritySnapshot: createRemoteTaskAuthoritySnapshot(authority as never) }),
     continuation: {
       snapshot: createWorkflowContinuationSnapshot(value['continuation']['snapshot'] as never),
       completeness: value['continuation']['completeness'],

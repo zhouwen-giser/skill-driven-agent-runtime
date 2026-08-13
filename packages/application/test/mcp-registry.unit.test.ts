@@ -64,10 +64,169 @@ describe('MCP Registry invocation boundary', () => {
       outcome: { kind: 'remote_task', task: { remoteTaskId: 'remote-task-journal-1' } },
     });
     expect(markDispatching).toHaveBeenCalledOnce();
-    expect(recordRemoteReceipt).toHaveBeenCalledOnce();
+    expect(recordRemoteReceipt).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        authoritySnapshot: expect.objectContaining({
+          schemaVersion: '1.0',
+          runtime: expect.objectContaining({
+            serverId: 'provider-1',
+            endpoint: 'https://provider.test/mcp',
+            protocolSnapshotId: 'snapshot-1',
+          }),
+          providerBinding: expect.objectContaining({
+            bindingId: 'binding-provider-1',
+            revision: 1,
+            providerId: 'external-provider-1',
+          }),
+        }),
+      }),
+    );
     expect(fixture.repository.invocations).toEqual([]);
     expect(close).not.toHaveBeenCalled();
     expect(markUncertain).not.toHaveBeenCalled();
+  });
+
+  it('continues tasks/get when only Provider readiness observation timestamps refresh', async () => {
+    let readCount = 0;
+    const fixture = createFixture({
+      outcome: remoteTaskOutcome(),
+      currentBinding: () =>
+        readCount++ === 0
+          ? {}
+          : {
+              revision: 2,
+              catalogRevision: '1.0.0:2',
+              bindingAvailabilityValidUntil: '2026-08-11T03:00:00.000Z',
+              observedAt: '2026-08-11T01:00:30.000Z',
+            },
+    });
+    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    if (admitted.protocolContract === undefined) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
+    const providerBinding = admitted.authoritySnapshot.providerBinding;
+    if (providerBinding === undefined) throw new Error('TEST_PROVIDER_AUTHORITY_MISSING');
+    const historicalAuthority = {
+      ...admitted.authoritySnapshot,
+      providerBinding: {
+        ...providerBinding,
+        observedAt: '2026-08-11T00:59:30.000Z',
+        availabilityValidUntil: '2026-08-11T01:30:00.000Z',
+      },
+    };
+    const decryptCountBeforeRead = fixture.decrypt.mock.calls.length;
+
+    await expect(
+      fixture.service.readRemoteTask({
+        serverId: 'provider-1',
+        operationName: 'light_get_state',
+        remoteTaskId: 'remote-task-read-1',
+        executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+        authoritySnapshot: historicalAuthority,
+        credentialRevision: timestamp,
+        protocolContract: admitted.protocolContract,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'snapshot',
+      snapshot: { remoteTaskId: 'remote-task-read-1' },
+    });
+    expect(fixture.get).toHaveBeenCalledOnce();
+    expect(fixture.decrypt).toHaveBeenCalledTimes(decryptCountBeforeRead + 1);
+  });
+
+  it.each([
+    [
+      'legacy row without a snapshot',
+      () => undefined,
+    ],
+    [
+      'Runtime endpoint drift',
+      (
+        authority: Awaited<ReturnType<McpRegistryService['callDetailed']>>['authoritySnapshot'],
+      ) => ({
+        ...authority,
+        runtime: { ...authority.runtime, endpoint: 'https://stale-runtime.test/mcp' },
+      }),
+    ],
+    [
+      'Runtime Catalog drift',
+      (
+        authority: Awaited<ReturnType<McpRegistryService['callDetailed']>>['authoritySnapshot'],
+      ) => ({
+        ...authority,
+        runtime: { ...authority.runtime, catalogChecksum: 'f'.repeat(64) },
+      }),
+    ],
+    [
+      'Provider Binding revision drift',
+      (authority: Awaited<ReturnType<McpRegistryService['callDetailed']>>['authoritySnapshot']) => {
+        if (authority.providerBinding === undefined)
+          throw new Error('TEST_PROVIDER_AUTHORITY_MISSING');
+        return {
+          ...authority,
+          providerBinding: {
+            ...authority.providerBinding,
+            revision: authority.providerBinding.revision + 1,
+          },
+        };
+      },
+    ],
+  ])('quarantines %s before tasks/get transport', async (_case, mutateAuthority) => {
+    const fixture = createFixture({ outcome: remoteTaskOutcome() });
+    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    if (admitted.protocolContract === undefined) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
+    const decryptCountBeforeRead = fixture.decrypt.mock.calls.length;
+    const authoritySnapshot = mutateAuthority(admitted.authoritySnapshot);
+
+    await expect(
+      fixture.service.readRemoteTask({
+        serverId: 'provider-1',
+        operationName: 'light_get_state',
+        remoteTaskId: 'remote-task-read-1',
+        executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+        ...(authoritySnapshot === undefined ? {} : { authoritySnapshot }),
+        credentialRevision: timestamp,
+        protocolContract: admitted.protocolContract,
+      }),
+    ).resolves.toEqual({
+      kind: 'provider_protocol',
+      errorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    });
+    expect(fixture.get).not.toHaveBeenCalled();
+    expect(fixture.decrypt).toHaveBeenCalledTimes(decryptCountBeforeRead);
+  });
+
+  it.each([
+    ['Binding revision rollback', { revision: 0 }],
+    ['Provider identity change', { providerId: 'replacement-provider' }],
+    ['Binding identity change', { bindingId: 'replacement-binding' }],
+    ['endpoint change', { endpoint: 'https://replacement-provider.test/mcp' }],
+    ['Catalog checksum change', { catalogChecksum: 'f'.repeat(64) }],
+    ['expired current availability', { bindingAvailabilityValidUntil: timestamp }],
+  ])('quarantines current Provider %s before tasks/get transport', async (_case, current) => {
+    let readCount = 0;
+    const fixture = createFixture({
+      outcome: remoteTaskOutcome(),
+      currentBinding: () => (readCount++ === 0 ? {} : current),
+    });
+    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    if (admitted.protocolContract === undefined) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
+    const decryptCountBeforeRead = fixture.decrypt.mock.calls.length;
+
+    await expect(
+      fixture.service.readRemoteTask({
+        serverId: 'provider-1',
+        operationName: 'light_get_state',
+        remoteTaskId: 'remote-task-read-1',
+        executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+        authoritySnapshot: admitted.authoritySnapshot,
+        credentialRevision: timestamp,
+        protocolContract: admitted.protocolContract,
+      }),
+    ).resolves.toEqual({
+      kind: 'provider_protocol',
+      errorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    });
+    expect(fixture.get).not.toHaveBeenCalled();
+    expect(fixture.decrypt).toHaveBeenCalledTimes(decryptCountBeforeRead);
   });
   it('rejects a discovered side-effecting Tool without governed Task authority', async () => {
     const fixture = createFixture({ toolEffect: 'side_effecting' });
@@ -654,6 +813,16 @@ function createFixture(
     bindingProviderId?: string;
     bindingAvailabilityValidUntil?: string;
     providerBindingsConfigured?: boolean;
+    currentBinding?: () => Readonly<{
+      revision?: number;
+      providerId?: string;
+      bindingId?: string;
+      endpoint?: string;
+      catalogRevision?: string;
+      catalogChecksum?: string;
+      bindingAvailabilityValidUntil?: string;
+      observedAt?: string;
+    }>;
     toolName?: string;
     toolEffect?: McpTool['executionSemantics']['effect'];
   }> = {},
@@ -680,6 +849,18 @@ function createFixture(
     if (options.callError !== undefined) return Promise.reject(options.callError);
     return Promise.resolve(options.outcome ?? immediateOutcome());
   });
+  const get = vi.fn<FrozenTaskLifecycleRuntimePort['get']>((input) =>
+    Promise.resolve({
+      remoteTaskId: input.remoteTaskId,
+      status: 'working',
+      createdAt: timestamp,
+      lastUpdatedAt: timestamp,
+      ttlMs: 60_000,
+      protocolRevision: '2026-07-28',
+      tasksSchemaRevision: 'tasks-v1',
+      runtimeRevision: 'runtime-1',
+    }),
+  );
   const checkAvailability = vi.fn<FrozenTaskAvailabilityRuntimePort['check']>(() =>
     Promise.resolve({
       kind: 'results',
@@ -713,7 +894,7 @@ function createFixture(
     },
     frozenLifecycle: {
       call,
-      get: () => Promise.reject(new Error('unused')),
+      get,
       update: () => Promise.reject(new Error('unused')),
       cancel: () => Promise.reject(new Error('unused')),
     },
@@ -727,21 +908,30 @@ function createFixture(
               localServerId: string;
             }) => {
               order.push('binding-authority');
+              const current = options.currentBinding?.() ?? {};
               return Promise.resolve({
-                observedAt: timestamp,
+                observedAt: current.observedAt ?? timestamp,
                 binding: {
-                  bindingId: input.bindingId ?? 'binding-provider-1',
-                  revision: 1,
+                  bindingId: current.bindingId ?? input.bindingId ?? 'binding-provider-1',
+                  revision: current.revision ?? 1,
                   localServerId: input.localServerId,
-                  providerId: options.bindingProviderId ?? 'external-provider-1',
-                  endpointRef: options.bindingEndpoint ?? 'https://provider.test/mcp',
+                  providerId:
+                    current.providerId ?? options.bindingProviderId ?? 'external-provider-1',
+                  endpointRef:
+                    current.endpoint ?? options.bindingEndpoint ?? 'https://provider.test/mcp',
                   catalogRevision:
-                    options.bindingCatalogRevision ?? catalogAuthority.catalogRevision,
+                    current.catalogRevision ??
+                    options.bindingCatalogRevision ??
+                    catalogAuthority.catalogRevision,
                   catalogChecksum:
-                    options.bindingCatalogChecksum ?? catalogAuthority.catalogChecksum,
+                    current.catalogChecksum ??
+                    options.bindingCatalogChecksum ??
+                    catalogAuthority.catalogChecksum,
                   operationCount: options.bindingOperationCount ?? catalogAuthority.operationCount,
                   availabilityValidUntil:
-                    options.bindingAvailabilityValidUntil ?? '2026-08-11T02:00:00.000Z',
+                    current.bindingAvailabilityValidUntil ??
+                    options.bindingAvailabilityValidUntil ??
+                    '2026-08-11T02:00:00.000Z',
                 },
               });
             },
@@ -753,7 +943,7 @@ function createFixture(
       nextManagementOperationId: () => 'operation-1',
     },
   });
-  return { call, checkAvailability, controlAuthority, decrypt, repository, service };
+  return { call, get, checkAvailability, controlAuthority, decrypt, repository, service };
 }
 
 class MemoryMcpRegistryRepository implements McpRegistryRepository {
@@ -895,6 +1085,23 @@ function immediateOutcome(overrides: Readonly<Record<string, unknown>> = {}): Mc
       isError: false,
       evidence: [],
       ...overrides,
+    },
+  };
+}
+
+function remoteTaskOutcome(): McpInvocationOutcome {
+  return {
+    kind: 'remote_task',
+    task: {
+      protocolMode: 'frozen_v1',
+      remoteTaskId: 'remote-task-read-1',
+      status: 'working',
+      createdAt: timestamp,
+      lastUpdatedAt: timestamp,
+      ttlMs: 60_000,
+      protocolRevision: '2026-07-28',
+      tasksSchemaRevision: 'tasks-v1',
+      runtimeRevision: 'runtime-1',
     },
   };
 }
