@@ -3,12 +3,12 @@
   "contract": "sdar.evidence/v1",
   "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
   "command": "pnpm.cmd demo:evidence-e2e",
-  "startedAt": "2026-08-13T17:09:49.504Z",
-  "completedAt": "2026-08-13T17:13:03.829Z",
+  "startedAt": "2026-08-13T23:26:27.224Z",
+  "completedAt": "2026-08-13T23:29:46.052Z",
   "environment": {
-    "runtimePostgreSQL": "postgresql://sdar:***@127.0.0.1:55444/sdar",
+    "runtimePostgreSQL": "postgresql://sdar:***@127.0.0.1:55484/sdar",
     "controlPostgreSQL": "postgresql://sdar:***@127.0.0.1:55484/sdar_control_v14_integration_gate",
-    "redisPort": "56392",
+    "redisPort": "56384",
     "httpDelivery": "real local Node Control API and programmable Evidence sink"
   },
   "dimensions": [
