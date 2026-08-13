@@ -5,8 +5,7 @@
 - Repository: `zhouwen-giser/skill-driven-agent-runtime`
 - Baseline: `origin/main` at `b7f02dcedc9680758e7e5f779a939a738d8de770`
 - Repair branch: `fix/sdar-breakpoint-repair`
-- Last committed branch SHA before this phase evidence was frozen:
-  `5bb5de0d4def7c77e08ec9ffbf89263fd517ff9f`
+- P04 implementation commits: `6711aaa`, `7e98cbb`, and `2e695a6`
 - Physical device writes: `0`
 - Fire authority created or enabled: `0`
 
@@ -14,72 +13,86 @@
 
 `BP-SDAR-004` - Governed Physical-Control Authority.
 
-Disposition: `PARTIALLY_FIXED`.
+Disposition: `FIXED`.
 
-The phase closes the transport-boundary fail-open defect, but it does not yet provide a trustworthy
-production path that issues and consumes human control confirmation or a terminal stable-state
-proof. The phase exit token `GOVERNED_CONTROL_AUTHORITY_PASSED` is therefore not asserted.
+The Runtime now proves the complete authority chain from exact Capability version and confirmed
+Skill/Plan through effect/risk classification, trusted-human confirmation, readiness, exact Task
+Capability binding, one bounded Provider dispatch, and durable terminal observation evidence.
+Catalog discovery remains evidence only and cannot authorize execution.
+
+Phase exit: `GOVERNED_CONTROL_AUTHORITY_PASSED`.
 
 ## Reproduction before repair
 
 Temporary Skill discovery and ordinary Workflow transport could reach an enabled MCP Tool without
 an exact Task Capability binding or a durable human-control authority. Discovery could therefore be
-mistaken for permission to execute a side effect.
+mistaken for permission to execute a side effect, and a confirmation was not bound to exactly one
+Provider dispatch.
 
-## Implemented safety boundary
+## Implemented authority chain
 
 - Every Runtime MCP call continues through `McpRegistryService`; Generic Workflow, Temporary Skill,
-  and direct Runtime paths do not bypass the new gate.
-- `read_only` calls retain their existing behavior. `unknown` and `side_effecting` calls fail closed
-  unless an exact Task ID, active Capability attempt, single Provider Binding, current Capability
-  version and constraints, active Skill, confirmed Plan hash, risk, readiness, and bounded durable
-  confirmation all agree.
-- `vehicle_fire_weapon` is hard denied by Tool identity before transport even if catalog metadata
-  incorrectly classifies it as read-only. This Goal creates no fire Capability, Skill, or authority.
-- Migration `0157_v14_governed_control_confirmation` adds PostgreSQL-backed confirmation records,
-  expiry, one-way revocation, foreign keys, and update/delete immutability.
-- Runtime composes the authorizer only when its Capability authority reader exists. Otherwise
-  side-effecting calls fail closed because no control authority is available.
+  and direct Runtime paths do not bypass the governed-control gate.
+- `unknown` and `side_effecting` calls fail closed unless the exact Task ID, active Capability
+  attempt, single Provider Binding, current Capability version and constraints, active Skill,
+  confirmed Plan hash, declared risk, readiness, and bounded durable confirmation all agree.
+- Production Management API issue/revoke commands derive a trusted human principal from the
+  server-side bearer identity. The request body cannot select the actor or authority scope, and
+  distinct `physical_control.confirm` and `physical_control.revoke` permissions are enforced.
+- The server derives the confirmation scope from PostgreSQL authority: Task, Capability binding and
+  attempt, Plan hash, Skill, Provider binding, server, Tool, and arguments hash.
+- Migration `0158_v14_governed_control_dispatch_consumption` binds the confirmation to the exact
+  attempt, Provider binding, server, Tool, arguments hash, invocation, and dispatch hash.
+- The deterministic pre-transport fence is acquired before confirmation consumption. Consumption
+  is one-way and one-shot; a repeated call, including the same logical scope, fails with
+  `GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED` before Provider transport.
+- The existing UGV policy vocabulary (`side_effecting`, `before_execution`,
+  `required_before_execution`, and medium/high/critical risk) is accepted by the positive authority
+  path without weakening its constraints.
+- `vehicle_fire_weapon` remains hard denied by Tool identity before transport even if metadata is
+  misclassified. This Goal creates no fire Capability, Skill, confirmation, or execution authority.
 
-## Remaining blockers
+## Positive execution and evidence
 
-1. No production endpoint derives a trusted human principal and issues or revokes confirmation.
-   `GovernedControlConfirmationService` is not composed into a management boundary, and its raw
-   caller-supplied actor fields are not suitable as production identity proof.
-2. The authorizer's positive constraint shape does not match the current UGV control artifacts;
-   existing governed controls remain safely non-selectable rather than forming a positive path.
-3. A confirmation is not atomically consumed or bound to exactly one invocation/dispatch. The same
-   Task/attempt/context could authorize more than one call.
-4. Task Capability terminal evidence still implements read-only semantics. There is no authoritative
-   stable side-effect observation evaluator that closes a fake-Provider control Task successfully.
-5. Except for the explicit fire hard deny, physical-control classification still depends on declared
-   Tool effect metadata. An administrative read-only misclassification remains a structural risk.
+The PostgreSQL integration uses the production management service, PostgreSQL authority reader and
+stores, `McpRegistryService`, and the loopback Frozen MCP Provider. A trusted human issues one
+bounded confirmation for `embodied.move`; exactly one `tools/call` creates and reconciles the remote
+Task. The terminal Provider snapshot is persisted with `position.observation` evidence and a
+pending `task.completed` control event. A second dispatch with the same authority is rejected, and
+the Provider call count remains exactly one.
 
-The minimum safe follow-up is a bearer-authenticated, human-only management command with a distinct
-`physical_control.confirm` permission, server-derived identity and scope, bounded one-dispatch
-consumption, and stable Provider evidence. It must not silently reuse artifact-approval authority or
-trust actor fields from the request body.
+This is a deterministic fake-provider qualification. It performs no physical write and does not
+claim real-device qualification.
+
+## Negative execution proof
+
+The A2A E2E regression covers ungoverned `embodied.move_to` and recursive
+`embodied.area_patrol` paths. Each fails closed with `MCP_CONTROL_AUTHORITY_REQUIRED` before
+`tools/call`, remote Task creation, MCP invocation persistence, or any child Provider dispatch.
+Catalog discovery and Plan confirmation alone therefore do not become control authority.
 
 ## Validation
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Governed authority/application/repository focused tests | PASS | 4 files, 60 tests |
-| Existing UGV/managed deterministic regressions | PASS | 6 files, 56 tests |
-| Full repository TypeScript check | PASS | `tsc -p tsconfig.json --noEmit`, exit `0` |
-| Targeted ESLint, Prettier, and `git diff --check` | PASS | Phase-owned files |
-| Real PostgreSQL confirmation integration | NOT EXECUTED | Test exists, but the protected local PostgreSQL rejected credentials and the isolated Docker runner was unavailable in the execution environment |
-| Positive fake Provider to terminal stable-state path | NOT IMPLEMENTED | No production signer/consumer or terminal stable-state evaluator |
+| Trusted-human management, HTTP, authority, and repository tests | PASS | 150/150 |
+| UGV policy/authority regressions | PASS | 19/19 |
+| Governed PostgreSQL + loopback Provider integration | PASS | 2/2, including one terminal positive dispatch and restart/revoke/expiry/FK/immutability |
+| Ungoverned A2A control regressions | PASS | 8/8; Provider transport count remains zero |
+| Full repository TypeScript check | PASS | `pnpm typecheck`, exit `0` |
+| Physical-device safety | PASS | `physicalDeviceWrites=0`; deterministic fake Provider only |
 
-The unexecuted PostgreSQL integration contains restart-load, revoke, expiry, foreign-key, and
-immutability cases, but its existence is not counted as dynamic evidence.
+The positive chain proves Provider call count `1`, durable remote admission and terminal
+reconciliation, `position.observation` evidence, and rejection of a second call without an
+additional transport. The negative chain proves ungoverned calls do not reach Provider transport.
 
 ## Authority and safety impact
 
-Runtime PostgreSQL remains Task and Capability-attempt authority. Node Control definitions remain
-read-only inputs. The repair adds no second Task state machine, no real-device permission, and no
-fire authority. Its current production behavior for controlled writes is conservative denial.
+Runtime PostgreSQL remains Task, Capability-attempt, confirmation, invocation, and remote-binding
+authority. Node Control definitions remain read-only inputs. The repair adds no second Task state
+machine, no real-device permission, and no fire authority. Read-only Tools preserve their prior
+behavior; controlled writes require the new exact, trusted, single-dispatch authority chain.
 
 ## Status
 
-`BLOCKED_PRODUCTION_CONFIRMATION_ENTRY_AND_DYNAMIC_PG_EVIDENCE`
+`GOVERNED_CONTROL_AUTHORITY_PASSED`

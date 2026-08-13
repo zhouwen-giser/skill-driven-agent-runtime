@@ -66,12 +66,13 @@
     },
     {
       "id": "BP-SDAR-004",
-      "status": "PARTIALLY_FIXED",
+      "status": "FIXED",
       "evidence": [
-        "A transport-boundary authorizer now rejects unknown or side-effecting Tools without exact Task, Capability attempt, single Provider Binding, current Skill/Plan/readiness, and bounded confirmation authority.",
-        "vehicle_fire_weapon is hard denied before transport even when effect metadata is misclassified; this Goal creates or enables no fire authority.",
-        "The production trusted-human issue/revoke entry, one-dispatch confirmation consumption, compatible UGV positive path, and stable side-effect terminal evidence are not implemented.",
-        "Focused authority tests passed 60/60 and related deterministic UGV tests passed 56/56; the real PostgreSQL integration was not executed in the current environment."
+        "Production Management API issue/revoke commands derive a trusted human principal and server-derived Task, Capability attempt, Provider, Tool, Plan, Skill, and arguments scope; request bodies cannot choose actor or scope.",
+        "Confirmation consumption is durably bound to one invocation and dispatch hash; reuse fails before transport with GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED.",
+        "The real PostgreSQL plus loopback Frozen Provider positive chain passed 2/2, issued authority through the production service, performed exactly one Provider tools/call, reconciled terminal position.observation evidence, and preserved physicalDeviceWrites=0.",
+        "Ungoverned A2A move and patrol regressions passed 8/8 and reached no Provider transport; vehicle_fire_weapon remains hard denied and this Goal creates no fire authority.",
+        "Exit criterion GOVERNED_CONTROL_AUTHORITY_PASSED is asserted."
       ]
     },
     {

@@ -71,9 +71,10 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       monotonic PostgreSQL projection, startup/periodic reconciliation, PostgreSQL 75/75, and
       focused reconciler tests. A fresh Node Control foundation regression passed 11/11 at the P03
       stage before the later cancellation-authority additions; it is not A2A behavior evidence.
-- [ ] P04 partially implemented: the MCP transport now fails closed on missing exact governed
-      authority and fire is hard denied, but trusted-human issue/revoke, one-dispatch consumption,
-      compatible positive UGV control, and stable terminal evidence remain blocked.
+- [x] 2026-08-13 completed P04 governed physical-control authority: production trusted-human
+      issue/revoke, exact one-dispatch confirmation consumption, compatible UGV policy, PostgreSQL
+      plus loopback Provider positive chain 2/2, ungoverned A2A rejection 8/8, and
+      `physicalDeviceWrites=0`. Exit: `GOVERNED_CONTROL_AUTHORITY_PASSED`.
 - [ ] P05 partially implemented: cancel uncertainty, continuation reclaim, TTL, and explicit remote
       failure are repaired, while remote creation-to-admission and complete callback idempotence
       remain blocked.
@@ -106,10 +107,9 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - Durable A2A convergence required three cooperating safeguards: canonicalize saves from Runtime
   Task authority, reject terminal regression in PostgreSQL, and reconcile existing projections on
   startup and a bounded periodic schedule.
-- P04 can safely make `Tool discovered != control executable` true without pretending that a
-  production control is now usable. The current signer is not composed from a trusted human
-  principal, confirmation is not consumed per dispatch, current UGV control artifacts do not match
-  the positive constraint shape, and terminal Capability evidence is still read-only.
+- P04 required both directions of proof: ungoverned discovery/Plan paths fail before Provider
+  transport, while an exact trusted-human authority reaches one loopback Provider dispatch and
+  durable `position.observation` terminal evidence. A second dispatch is rejected before transport.
 - P05 can fence known cancel and continuation replay windows, but the remote Task may be created
   before SDAR durably learns its identity. Replaying that call would risk a duplicate external side
   effect, so this gap remains explicit rather than being hidden behind a retry.
@@ -134,9 +134,10 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
   composed.
 - 2026-08-13: Reconcile only existing `a2a-v1` projections from Runtime terminal authority. Do not
   let the repair admit new A2A Tasks or make A2A an independent state machine.
-- 2026-08-13: Keep P04 at `PARTIALLY_FIXED`. Do not expose a signer that trusts actor fields from the
-  request body, silently reuse artifact approval, or claim governed control from conservative
-  transport denial alone.
+- 2026-08-13: Close P04 as `FIXED` only after the production management boundary derived the human
+  actor and exact authority scope server-side, confirmation consumption became one-dispatch, and a
+  PostgreSQL/loopback Provider positive chain proved terminal evidence. Do not trust actor/scope
+  fields from request bodies or reuse artifact-approval authority.
 - 2026-08-13: Keep P05 at `PARTIALLY_FIXED`. Never replay an external creation call when its result
   may exist but its local admission identity was not durably captured.
 
@@ -207,9 +208,11 @@ P01-P03 are functionally closed and committed locally, and BP-SDAR-001 through B
 isolated PostgreSQL 76/76; combined P01/P02 Node Control foundation PostgreSQL 14/14; P02 contract 41
 files/281 tests plus 131-operation/455-RBAC conformance; and P03 PostgreSQL 75/75 on the pre-keyset
 revision plus focused reconciler tests. The P03-stage foundation regression was 11/11 before later
-P01/P02 cancellation changes. P04 now has a conservative transport authority gate (60/60 focused
-and 56/56 related deterministic tests), and P05 has bounded uncertainty/reclaim repairs (56/56
-focused tests), but both remain `PARTIALLY_FIXED` for the blockers documented above. Their new real
-PostgreSQL tests and the exact-final P03 PostgreSQL tree remain unexecuted due to the current
-environment. Physical device writes remain zero. P04-P09 are not complete, and no final candidate
-or protected-review readiness is claimed.
+P01/P02 cancellation changes. P04 is `FIXED`: trusted-human management/authority tests passed
+150/150, UGV regressions passed 19/19, the PostgreSQL plus loopback Provider positive/restart suite
+passed 2/2, and ungoverned A2A regressions passed 8/8. It proves exactly one governed Provider
+dispatch with terminal `position.observation` evidence and zero transport for ungoverned controls;
+`physicalDeviceWrites=0`. P05 has bounded uncertainty/reclaim repairs (56/56 focused tests) but
+remains `PARTIALLY_FIXED` for its documented blockers. The exact-final P03 PostgreSQL tree remains
+unexecuted in the current environment. P05-P09 are not complete, and no final candidate or
+protected-review readiness is claimed.
