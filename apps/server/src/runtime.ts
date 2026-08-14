@@ -599,6 +599,8 @@ export interface ServerRuntimeOptions {
     readonly mcpAllowedAuthorities: readonly string[];
     readonly providerAllowedAuthorities: readonly string[];
   }>;
+  /** Compatibility policy for MCP servers that treat an absent mode header as live. */
+  readonly mcpExecutionModeHeaderPolicy?: 'emit' | 'omit_live';
   readonly a2aWaitTimeoutMs?: number;
   readonly a2aSafetyPollIntervalMs?: number;
   readonly a2aTerminalReconciliationIntervalMs?: number;
@@ -2046,6 +2048,9 @@ export async function startServerRuntime(
     ...(governedControlInvocationAuthorizer === undefined
       ? {}
       : { controlAuthority: governedControlInvocationAuthorizer }),
+    ...(options.mcpExecutionModeHeaderPolicy === undefined
+      ? {}
+      : { executionModeHeaderPolicy: options.mcpExecutionModeHeaderPolicy }),
     runtimeBindingAuthority: runtimeMcpBindingAuthority,
     clock,
     ids: {

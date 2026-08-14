@@ -108,6 +108,12 @@ The deployed UGV adapter currently advertises `executionModes=[simulation]`. Set
 This still uses the real PMS projection, Binding, deployed MCP Runtime and provider adapter, but its
 result is classified as real external simulation evidence rather than physical-vehicle evidence.
 
+For a non-production adapter that treats an absent execution-mode header as its live default, set
+`SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit` together with an explicit non-production `NODE_ENV` and
+control environment. The Runtime still records the invocation as `live`; only the transport header
+is omitted. This compatibility switch does not convert simulation evidence into physical evidence
+and is rejected in production.
+
 ## Run and interpret status
 
 From the repository root, with the deployment environment already exported:

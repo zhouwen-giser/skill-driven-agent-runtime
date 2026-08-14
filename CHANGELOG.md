@@ -32,6 +32,18 @@ All notable changes to this project are documented here. The format follows Keep
   dispatches. A fresh real read reached the adapter but again failed
   `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, so no navigate or physical write
   was attempted.
+- Added `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit` as a production-rejected compatibility switch
+  for adapters whose live contract requires the execution-mode header to be absent. Runtime audit
+  evidence remains `live`, simulation headers remain explicit, and `SDAR_A2A_WAIT_TIMEOUT_MS`
+  separately configures the bounded A2A wait. Focused MCP/environment tests and TypeScript checking
+  pass.
+- Retried the requested one-A2A-Task 10 m movement shape as five sequential `forward / 2 m`
+  dispatches. The no-header live availability probe no longer returned
+  `UGV_EXECUTION_MODE_UNSUPPORTED`; it returned `UGV_MQTT_UNAVAILABLE`. Four A2A preparation
+  attempts produced zero MCP invocations: three timed out and the latest failed
+  `MODEL_TRANSPORT_UPSTREAM_ERROR` while reducing an invalid six-Skill-Goal candidate to the one
+  native navigate Skill Goal. No governed confirmation, navigate call, physical write or proven
+  movement occurred.
 - Executed real A2A read-only `run016` through Task/Goal/User Goal Plan, exact
   `ugv.get-state@4`, `vehicle.ugv.read-state@2`, Exposure v2 and live MCP invocation
   `mcp-invocation-fb54fcdb-dabf-42ee-85d6-eebcb7aa8717`. The adapter returned

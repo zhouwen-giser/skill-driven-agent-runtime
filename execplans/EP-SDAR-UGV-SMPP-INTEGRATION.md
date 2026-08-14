@@ -119,6 +119,19 @@ repository license/source-lock process become mandatory before the dependency or
       `mcp-invocation-deterministic-6160523029e621b25c2f1a995c14d1ce` reached the deployed adapter
       and failed `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`; navigate calls and
       physical writes remained zero.
+- [x] 2026-08-14 added the explicit non-production
+      `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit` compatibility switch. It omits only the live MCP
+      transport header, keeps persisted execution evidence `live`, leaves simulation headers
+      unchanged and is rejected in Production. A protocol-faithful no-header availability request
+      no longer reproduced `UGV_EXECUTION_MODE_UNSUPPORTED`; the external adapter instead returned
+      `unknown / UGV_MQTT_UNAVAILABLE`.
+- [x] 2026-08-14 retried the requested single A2A movement Task shape whose one native navigate
+      Skill procedure contains five sequential `forward / 2 m` MCP nodes. Four Task attempts
+      created zero MCP/navigate invocations: three preparation waits timed out; latest Task
+      `55496234-f5e7-4589-9a18-b24afd2439d6` reached Task Understanding, Goal Contract generation
+      and Goal Planning, then `interactive_plan_patch` failed `MODEL_TRANSPORT_UPSTREAM_ERROR`
+      while correcting a six-Skill-Goal candidate to the required one Skill Goal. No Plan/control
+      confirmation or physical write occurred.
 - [x] 2026-08-12 implemented ADR-137 create-on-empty Runtime model initialization. Startup
       atomically creates the explicitly configured structured Provider and optional separate
       embedding Provider plus all 21 operation routes only when the Provider table is empty; any
@@ -133,10 +146,11 @@ repository license/source-lock process become mandatory before the dependency or
       external adapter returned `UGV_EXECUTION_MODE_UNSUPPORTED`; corrected Goal Evaluation no
       longer shape-crashed, but the bounded replan budget exhausted and the Task failed
       `GOAL_UNACHIEVABLE`. This is real failure evidence, not a passed A2A gate.
-- [ ] Resolve the external live execution-mode rejection, terminal-outcome direct
-      `capability_attempt_id` gap and missing terminal A2A failure projection; then rerun successful
-      deterministic and A2A reads. Failed CapabilityAttempt restart reconciliation is verified;
-      real-model conformance itself is complete.
+- [ ] Resolve the current external `UGV_MQTT_UNAVAILABLE` state, terminal-outcome direct
+      `capability_attempt_id` gap, missing terminal A2A failure projection and transient model Plan
+      patch failure; then rerun successful deterministic/A2A reads. The transport-header mode
+      rejection itself is resolved by the non-production compatibility switch. Failed
+      CapabilityAttempt restart reconciliation and real-model conformance are complete.
 - [ ] Enable live execution on the deployed UGV adapter, provide authoritative fresh/connected/
       stationary state evidence, and complete node-scoped one-shot sequence confirmation before
       running the five-dispatch movement Task. Then complete lifecycle/emergency/recovery
@@ -182,6 +196,11 @@ repository license/source-lock process become mandatory before the dependency or
   `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`. The subsequent SDAR simulation
   path failed closed in readiness with `UGV_DEVICE_MCP_UNAVAILABLE` and created zero simulation
   invocations. A direct simulation compatibility probe returned `UGV_ADAPTER_INTERNAL_ERROR`.
+- With `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit`, a current no-header live availability request no
+  longer reproduced the mode rejection and instead exposed `UGV_MQTT_UNAVAILABLE`. The movement
+  A2A retry remained pre-dispatch: all four Task attempts have zero MCP invocations; the latest
+  failed during model Plan correction after its Goal was patched to the exact five-dispatch
+  contract.
 - The failed invocation report does not carry the Goal-required complete Task/Goal/Plan/Skill/
   Capability/Capability Attempt/Binding/Registry/catalog/invocation/remote-task/terminal reference
   set. The missing lineage is a qualification blocker and is not reconstructed from unrelated rows.
@@ -313,7 +332,10 @@ generic materializer and `managed_capability` path have focused evidence. Real-m
 complete with two Providers, 42 operation routes, 21 current Prompts, nine structured stages,
 Workflow correction and two finite embedding checks. Real A2A `run016` reached exact governed Skill
 and live MCP invocation, but the adapter returned `UGV_EXECUTION_MODE_UNSUPPORTED`; corrected Goal
-Evaluation completed, then replan budget exhausted and the Goal became unachievable. The linked
+Evaluation completed, then replan budget exhausted and the Goal became unachievable. The newer
+non-production no-header compatibility path removes that mode rejection but reveals
+`UGV_MQTT_UNAVAILABLE`. Four single-Task 10 m movement attempts remained pre-dispatch; the latest
+failed model Plan correction, and all four have zero MCP calls. The linked
 CapabilityAttempt was closed `failed` by restart reconciliation, but the terminal outcome lacks a
 direct CapabilityAttempt FK, no successful `result_processing` exists and the A2A projection
 remained `TASK_STATE_WORKING`. Deterministic Read, A2A, broader recovery, control and Production

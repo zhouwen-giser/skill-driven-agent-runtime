@@ -28,6 +28,39 @@ import type { McpRegistryRepository, McpServerRecord } from '../src/ports.js';
 const timestamp = '2026-08-11T01:00:00.000Z';
 
 describe('MCP Registry invocation boundary', () => {
+  it('can omit only the live execution-mode header while retaining live invocation evidence', async () => {
+    const fixture = createFixture({ executionModeHeaderPolicy: 'omit_live' });
+
+    await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        headers: { authorization: 'Bearer provider-secret' },
+      }),
+    );
+    expect(fixture.repository.invocations).toEqual([
+      expect.objectContaining({ executionMode: 'live' }),
+    ]);
+  });
+
+  it('keeps explicit simulation headers when live-header omission is enabled', async () => {
+    const fixture = createFixture({ executionModeHeaderPolicy: 'omit_live' });
+
+    await fixture.service.callDetailed('provider-1', 'light_get_state', {}, undefined, {
+      executionContext: { mode: 'simulation', simulationId: 'simulation-header-test' },
+    });
+
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        headers: {
+          authorization: 'Bearer provider-secret',
+          'X-SDAR-Execution-Mode': 'simulation',
+          'X-SDAR-Simulation-Id': 'simulation-header-test',
+        },
+      }),
+    );
+  });
+
   it('journals a remote receipt atomically instead of saving the invocation separately', async () => {
     const outcome: McpInvocationOutcome = {
       kind: 'remote_task',
@@ -863,6 +896,7 @@ function createFixture(
     }>;
     toolName?: string;
     toolEffect?: McpTool['executionSemantics']['effect'];
+    executionModeHeaderPolicy?: 'emit' | 'omit_live';
   }> = {},
 ) {
   const order = options.order ?? [];
@@ -937,6 +971,9 @@ function createFixture(
       cancel: () => Promise.reject(new Error('unused')),
     },
     controlAuthority: { authorizeAndConsume: controlAuthority },
+    ...(options.executionModeHeaderPolicy === undefined
+      ? {}
+      : { executionModeHeaderPolicy: options.executionModeHeaderPolicy }),
     ...(options.providerBindingsConfigured === false
       ? {}
       : {

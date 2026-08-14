@@ -11,10 +11,13 @@ Fire has zero Capability/Skill and zero invocation authority.
 
 The branch was synchronized with `origin/main@34ce7a7` in merge commit `80e9f93`. Exact five-node
 planning, remote-terminal aggregation and generic frozen movement-constraint interpretation pass
-124 focused tests and full TypeScript checking. A fresh real live `vehicle_get_state` still reached
-the deployed adapter and failed `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`.
-Therefore navigate invocations and physical movement remain zero; authoritative stationarity and
-node-scoped sequence confirmation are also still open physical-dispatch prerequisites.
+focused tests and full TypeScript checking. A non-production compatibility switch now omits only
+the live MCP execution-mode transport header while preserving `live` invocation evidence; the
+deployed adapter no longer rejects that header shape. Its latest protocol-faithful availability
+response is nevertheless `unknown / UGV_MQTT_UNAVAILABLE`. Four single-A2A-Task attempts to plan
+five sequential `forward / 2 m` calls ended before MCP dispatch: three timed out in preparation and
+the latest failed while correcting the model-generated six-Skill-Goal plan to the required one
+Skill Goal. Navigate invocations, physical writes and proven movement remain zero.
 
 Runtime's create-on-empty model bootstrap is implemented and verified. Existing Provider state makes
 startup a strict no-op, while a clean database can atomically create the explicitly configured
@@ -38,6 +41,13 @@ the last A2A projection remained `TASK_STATE_WORKING`, so complete direct/termin
 proven. `a2a-readonly.json` is the primary real
 run016 failure report; detailed lineage is under `failed-attempts/a2a-readonly-run016.redacted.json`.
 Physical writes, control calls and fire calls remain zero.
+
+The latest movement attempt is Task `55496234-f5e7-4589-9a18-b24afd2439d6`. Task Understanding,
+Goal Contract generation and Goal Planning completed, and the Goal was patched to the exact
+five-dispatch contract. The model then returned `MODEL_TRANSPORT_UPSTREAM_ERROR` for
+`interactive_plan_patch`, so no Plan confirmation, governed-control confirmation or MCP call was
+created. Exact redacted evidence is preserved in
+`failed-attempts/a2a-move10-live-header-omit-20260814.redacted.json`.
 
 Source restart/outage/LKG-expiry/bad-checksum cases, successful reads, aggregate bootstrap and all
 control/lifecycle/emergency/recovery cases remain unqualified. Execution semantics remain

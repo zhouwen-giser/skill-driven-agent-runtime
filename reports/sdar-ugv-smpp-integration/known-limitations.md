@@ -42,11 +42,18 @@
 - `a2a-readonly.json` is the primary real run016 failure report. Detailed Task/Goal/Capability/MCP
   lineage is separately preserved in `failed-attempts/a2a-readonly-run016.redacted.json`; neither
   report is a passing A2A qualification.
-- The earlier deterministic live read, A2A live read, and a fresh 2026-08-14 deterministic attempt
-  all failed at the external execution-mode boundary. The latest failed invocation is preserved in
-  `failed-attempts/deterministic-live-20260814-0159.redacted.json`. Successful deterministic reads,
-  broader end-to-end restart recovery, complete successful invocation lineage and a real physical
-  UGV remain unproven.
+- Earlier deterministic and A2A live reads failed at the external execution-mode boundary. The
+  non-production `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit` compatibility switch now preserves
+  Runtime `live` evidence while omitting only that transport header; the latest no-header
+  availability probe did not reproduce `UGV_EXECUTION_MODE_UNSUPPORTED`. It instead returned
+  `unknown / UGV_MQTT_UNAVAILABLE`, so successful reads and physical dispatch remain unavailable.
+- Four one-A2A-Task attempts requested a native five-node navigate procedure totaling 10 m. Three
+  timed out during preparation. Latest Task `55496234-f5e7-4589-9a18-b24afd2439d6` reached Task
+  Understanding, Goal Contract generation and Goal Planning, but `interactive_plan_patch` failed
+  `MODEL_TRANSPORT_UPSTREAM_ERROR` while correcting an invalid six-Skill-Goal candidate to the
+  required one Skill Goal. All four attempts have zero MCP/navigate invocations, zero physical
+  writes and zero proven movement; see
+  `failed-attempts/a2a-move10-live-header-omit-20260814.redacted.json`.
 - The five-dispatch code does not claim that remote command completion proves chassis stationarity.
   The deployed `vehicle_get_state` output schema does not freeze authoritative
   fresh/connected/stationary/unowned-task fields, and node-scoped one-shot sequence confirmation is
