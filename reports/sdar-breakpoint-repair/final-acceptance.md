@@ -2,18 +2,21 @@
 
 ## Current verdict
 
-- Verdict: `PENDING_PUSH_AND_PR`
+- Verdict: `ACCEPTED`
 - P08 state: `RELEASE_QUALIFICATION_PASSED`
 - P09 qualification state: `12/12 PASS`; final `pnpm verify` `10/10 PASS`
-- Goal state `SDAR_BREAKPOINT_REPAIR_COMPLETE`: **not issued**
-- Delivery state `READY_FOR_PROTECTED_REVIEW`: **not issued**
+- P09 publication state: `COMPLETE`
+- Goal state: `SDAR_BREAKPOINT_REPAIR_COMPLETE`
+- Delivery state: `READY_FOR_PROTECTED_REVIEW`
 - Branch: `fix/sdar-breakpoint-repair`
 - Execution baseline `origin/main`: `b7f02dcedc9680758e7e5f779a939a738d8de770`
 - Clean-start P08 preflight SHA: `9841e6527330920d44f19c68214988b56db3c6eb`
 - P09 tested SHA: `c2622c62607aaa02df62ae1f6b71998cf4f92688`
-- Final PR head SHA: `PENDING_PUBLICATION_COMMIT`
-- Remote candidate SHA: `PENDING_PUSH`
-- Pull request: `PENDING_CREATE_NON_DRAFT_PR`
+- Qualification-evidence / PR-creation head: `7341d078edee6923cbf765471794c72d34ee5e5f`
+- PR-creation push equality: local = remote = PR head = `7341d078edee6923cbf765471794c72d34ee5e5f`
+- Pull request: [#21](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/21)
+- PR base / head: `main` / `fix/sdar-breakpoint-repair`
+- PR state / Draft / merge state: `OPEN` / `false` / `CLEAN`
 - Physical Provider enabled: `false`
 - Physical device writes: `0`
 - Fire calls: `0`
@@ -22,8 +25,8 @@ P07, the durable revision-fence repair, P08, and the synchronized P09 qualificat
 Fresh fetch confirmed live `origin/main` at `b7f02dcedc9680758e7e5f779a939a738d8de770`, and the required
 `git merge --no-ff origin/main` reported `Already up to date`. The P09 tested SHA
 `c2622c62607aaa02df62ae1f6b71998cf4f92688` passed all twelve commands and final
-`pnpm verify` 10/10 in `1000343 ms`. Final acceptance remains pending on publication commit, push
-equality, and non-Draft PR creation and inspection.
+`pnpm verify` 10/10 in `1000343 ms`. Publication then completed with exact local/remote/PR-head
+equality at `7341d078edee6923cbf765471794c72d34ee5e5f`; non-Draft PR #21 was inspected OPEN and CLEAN.
 
 ## Breakpoint disposition
 
@@ -39,18 +42,18 @@ equality, and non-Draft PR creation and inspection.
 
 ## Phase state
 
-| Phase | State                                   | Exit token                                              |
-| ----- | --------------------------------------- | ------------------------------------------------------- |
-| P00   | COMPLETE                                | `P00_COMPLETE`                                          |
-| P01   | COMPLETE                                | `TASK_CONTROL_PUBLIC_CONTRACT_PASSED`                   |
-| P02   | COMPLETE                                | `NODE_CONTROL_PUBLIC_IMPLEMENTATION_CONFORMANCE_PASSED` |
-| P03   | COMPLETE                                | `A2A_TERMINAL_CONVERGENCE_PASSED`                       |
-| P04   | COMPLETE                                | `GOVERNED_CONTROL_AUTHORITY_PASSED`                     |
-| P05   | COMPLETE                                | `REMOTE_IN_FLIGHT_RECOVERY_PASSED`                      |
-| P06   | COMPLETE                                | `FULL_VERIFY_PERFORMANCE_PASSED`                        |
-| P07   | COMPLETE                                | `CROSS_PROJECT_REGRESSION_PASSED`                       |
-| P08   | COMPLETE                                | `RELEASE_QUALIFICATION_PASSED`                          |
-| P09   | QUALIFICATION_COMPLETE_DELIVERY_PENDING | `READY_FOR_PROTECTED_REVIEW` not issued                 |
+| Phase | State    | Exit token                                              |
+| ----- | -------- | ------------------------------------------------------- |
+| P00   | COMPLETE | `P00_COMPLETE`                                          |
+| P01   | COMPLETE | `TASK_CONTROL_PUBLIC_CONTRACT_PASSED`                   |
+| P02   | COMPLETE | `NODE_CONTROL_PUBLIC_IMPLEMENTATION_CONFORMANCE_PASSED` |
+| P03   | COMPLETE | `A2A_TERMINAL_CONVERGENCE_PASSED`                       |
+| P04   | COMPLETE | `GOVERNED_CONTROL_AUTHORITY_PASSED`                     |
+| P05   | COMPLETE | `REMOTE_IN_FLIGHT_RECOVERY_PASSED`                      |
+| P06   | COMPLETE | `FULL_VERIFY_PERFORMANCE_PASSED`                        |
+| P07   | COMPLETE | `CROSS_PROJECT_REGRESSION_PASSED`                       |
+| P08   | COMPLETE | `RELEASE_QUALIFICATION_PASSED`                          |
+| P09   | COMPLETE | `READY_FOR_PROTECTED_REVIEW`                            |
 
 ## P08 clean-start qualification
 
@@ -129,11 +132,17 @@ the synchronized-candidate evidence; its tested SHA is not claimed as the final 
 P08 5391-file scan and `445.599 ms` baseline remain historical P08 figures and are not replaced by
 the P09 values.
 
-## Remaining acceptance gates
+## Publication acceptance
 
-- Commit final managed evidence and delivery documents.
-- Push and prove remote SHA equals local SHA.
-- Create and inspect a non-Draft PR with `head=fix/sdar-breakpoint-repair` and `base=main`.
+At PR creation, local HEAD, remote `fix/sdar-breakpoint-repair`, and PR head were exactly
+`7341d078edee6923cbf765471794c72d34ee5e5f`. PR
+[#21](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/21) was verified with
+`base=main`, `head=fix/sdar-breakpoint-repair`, `isDraft=false`, `state=OPEN`, and
+`mergeStateStatus=CLEAN`.
+
+The post-PR closeout commit is the commit containing these documents. Its exact final SHA cannot be
+self-referenced inside its own bytes; the live PR `headRefOid` and final delivery verification are
+authoritative after the closeout commit is pushed.
 
 ## Evidence classification and limitations
 
@@ -141,9 +150,14 @@ the P09 values.
   P08 repository gates, and the P07 live candidate journey within its exact locks.
 - Deterministic evidence: model/Skill/loopback Provider behavior, governed-control safety, and
   Phase 13 performance.
-- Pending: final publication commit, push equality, and PR creation/inspection.
+- Protected publication evidence: push equality and PR creation/inspection passed at `7341d078...`.
 - Not performed and not claimed: real SMPP/physical recovery, real-device qualification,
   production SLO/HA, the monolithic Runtime A-close -> Runtime B-terminal drill, merge, tag,
   release, or deployment.
 
 `physicalProvider=false`; `physicalDeviceWrites=0`; `fireCalls=0`.
+
+```text
+SDAR_BREAKPOINT_REPAIR_COMPLETE
+READY_FOR_PROTECTED_REVIEW
+```

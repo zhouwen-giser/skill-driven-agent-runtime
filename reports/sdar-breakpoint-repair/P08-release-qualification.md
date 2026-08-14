@@ -26,9 +26,11 @@ evidence. P09 later fetched live `origin/main` at
 `c2622c62607aaa02df62ae1f6b71998cf4f92688` passed all twelve commands and final
 `pnpm verify` 10/10 in `1000343 ms`.
 
-P09 qualification is complete, but push, remote/local SHA equality, and non-Draft PR creation and
-inspection remain pending. Therefore this report does not issue `READY_FOR_PROTECTED_REVIEW` or
-`SDAR_BREAKPOINT_REPAIR_COMPLETE`.
+P09 publication is complete. At PR creation, local HEAD, remote branch, and PR head were exactly
+`7341d078edee6923cbf765471794c72d34ee5e5f`. PR
+[#21](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/21) is OPEN, non-Draft, targets
+`main` from `fix/sdar-breakpoint-repair`, and reported `mergeStateStatus=CLEAN` at inspection.
+`READY_FOR_PROTECTED_REVIEW` and `SDAR_BREAKPOINT_REPAIR_COMPLETE` are issued.
 
 ## Required P08 gate results
 
@@ -138,9 +140,20 @@ The older `9841e652...` / `948706 ms` result above remains the historical P08 ru
 substituted for the synchronized P09 result. Its 5391-file scan and `445.599 ms` baseline remain
 P08-only evidence rather than being overwritten by the P09 figures.
 
-## Remaining delivery work
+## P09 publication closeout
 
-P09 qualification is complete. The branch still needs its final publication commit, push,
-remote/local SHA equality proof, and creation and inspection of the required non-Draft PR. The
-tested P09 SHA is not claimed as the final PR head SHA. Until publication is complete,
-`READY_FOR_PROTECTED_REVIEW` is not issued.
+- Qualification-evidence / PR-creation head: `7341d078edee6923cbf765471794c72d34ee5e5f`.
+- Push equality at PR creation: local = remote = PR head.
+- Pull request: [#21](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/21).
+- Base / head: `main` / `fix/sdar-breakpoint-repair`.
+- State: `OPEN`; Draft: `false`; merge state: `CLEAN`.
+- `physicalDeviceWrites=0`; `fireCalls=0`.
+
+The post-PR closeout commit is the commit containing these documents. Its exact final head cannot
+be self-referenced inside its own bytes; the authoritative exact value is the live PR `headRefOid`
+confirmed by final delivery verification after that closeout commit is pushed.
+
+```text
+SDAR_BREAKPOINT_REPAIR_COMPLETE
+READY_FOR_PROTECTED_REVIEW
+```

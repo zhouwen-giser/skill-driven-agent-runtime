@@ -105,8 +105,10 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       fresh fetch resolved live `origin/main` to `b7f02d`; `git merge --no-ff origin/main` reported
       `Already up to date`. At tested SHA `c2622c`, all twelve required commands passed and final
       `pnpm verify` passed 10/10 stages in 1000343 ms. `physicalDeviceWrites=0`; `fireCalls=0`.
-- [ ] Complete P09 publication: final evidence/document commit, push, remote/local SHA equality,
-      and creation and inspection of the required non-Draft PR.
+- [x] 2026-08-14 completed P09 publication. At PR creation, local HEAD, remote branch, and PR head
+      were equal at `7341d078edee6923cbf765471794c72d34ee5e5f`. Non-Draft PR #21 targets
+      `main` from `fix/sdar-breakpoint-repair` and was inspected OPEN and CLEAN. Exit:
+      `SDAR_BREAKPOINT_REPAIR_COMPLETE` / `READY_FOR_PROTECTED_REVIEW`.
 
 ## Discoveries and Surprises
 
@@ -193,7 +195,8 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - 2026-08-14: Issue `RELEASE_QUALIFICATION_PASSED` only after all twelve exact P08 commands passed
   from clean preflight SHA `9841e652`, including the standalone 5391-file zero-finding secret scan,
   current integration/E2E suites, unchanged Phase 13 gates, build, and final 10/10 aggregate verify.
-  Keep protected-review readiness pending through P09 qualification and publication.
+  Withhold protected-review readiness until P09 qualification and publication; both are now
+  complete.
 - 2026-08-14: Close P09 qualification only after a fresh fetch/no-rebase merge check and an
   independent 12/12 rerun at `c2622c`, including final `pnpm verify` 10/10 in 1000343 ms. Do not
   treat the tested SHA as the final PR head until publication commit, push equality, and PR
@@ -294,10 +297,11 @@ preflight SHA `9841e652`, final verify passed 10/10 in 948706 ms, and current Ph
 baseline P95 445.599 ms, enabled P95 453.681 ms, +1.814% regression, 6.786% median drift, and
 5.043 ms append P95 with physical Provider disabled. P09 synchronization and qualification are also
 complete: live Main remained `b7f02d`, the required merge was already up to date, and tested SHA
-`c2622c` passed 12/12 plus final verify 10/10 in 1000343 ms. Publication commit, push equality, and
-the non-Draft PR remain pending. Its standalone security run scanned 5396 files with zero findings;
+`c2622c` passed 12/12 plus final verify 10/10 in 1000343 ms. Its standalone security run scanned
+5396 files with zero findings;
 final Phase 13 recorded baseline P95 536.321 ms, enabled P95 529.503 ms, -1.271% regression,
 10.355% baseline median drift, 5.339 ms append P95, 1736 received records, and physical side effects
 disabled. The older P08 5391-file scan and 445.599 ms baseline remain historical P08 evidence.
-`RELEASE_QUALIFICATION_PASSED` is issued; no final PR head SHA or protected-review readiness is
-claimed.
+P09 publication completed with PR-creation local/remote/head equality at `7341d078...`; non-Draft
+PR #21 is OPEN and CLEAN. All completion tokens are issued. The closeout commit containing these
+documents cannot self-reference its own SHA; live PR `headRefOid` is authoritative after push.

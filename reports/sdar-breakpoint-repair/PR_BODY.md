@@ -4,9 +4,8 @@ Close the SDAR-owned Task-control, public-operation conformance, A2A terminal-pr
 governed-control, in-flight recovery, and aggregate-performance breakpoints without moving Runtime
 authority, weakening protected gates, or enabling physical side effects.
 
-P08 and the synchronized P09 candidate qualification have passed. This body remains pre-PR evidence
-until the final publication commit is pushed with remote/local SHA equality and the required
-non-Draft PR is created and inspected. It does not yet claim `READY_FOR_PROTECTED_REVIEW`.
+P08 and P09 qualification passed. PR #21 is OPEN, non-Draft, and CLEAN.
+`SDAR_BREAKPOINT_REPAIR_COMPLETE` and `READY_FOR_PROTECTED_REVIEW` are issued.
 
 ## Source locks
 
@@ -15,7 +14,8 @@ non-Draft PR is created and inspected. It does not yet claim `READY_FOR_PROTECTE
 - P09 tested SHA: `c2622c62607aaa02df62ae1f6b71998cf4f92688`
 - Live fetched/synchronized main: `b7f02dcedc9680758e7e5f779a939a738d8de770`
 - Required merge result: `Already up to date`
-- Final PR head SHA: `PENDING_PUBLICATION_COMMIT`
+- Qualification-evidence / PR-creation head: `7341d078edee6923cbf765471794c72d34ee5e5f`
+- PR-creation equality: local = remote = PR head = `7341d078edee6923cbf765471794c72d34ee5e5f`
 - SMPP: HEAD `7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb`, `origin/main`
   `340abeeff75cd811b40e1bfd9d5a26f5a62f2c45`, equal tree
   `f611988bf9d6aa8e5cebfacf53cfb235ff2a6ec4`
@@ -131,14 +131,13 @@ The `9841e652...` / `948706 ms` result above remains the earlier P08 qualificati
 SHA. The P08 5391-file scan and `445.599 ms` baseline remain historical P08 evidence and are not
 replaced by the P09 figures.
 
-Pending before PR creation:
+At PR creation, local HEAD, remote branch, and PR head were exactly
+`7341d078edee6923cbf765471794c72d34ee5e5f`. PR
+[#21](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/21) has `base=main`,
+`head=fix/sdar-breakpoint-repair`, `isDraft=false`, `state=OPEN`, and `mergeStateStatus=CLEAN`.
 
-- commit final evidence/publication documents;
-- push and prove remote SHA equals local SHA;
-- create and inspect the required non-Draft PR.
-
-P08 issues `RELEASE_QUALIFICATION_PASSED`, and P09 qualification is complete. Publication is
-incomplete, so protected-review readiness and the overall completion token are not yet issued.
+The post-PR closeout commit contains these documents and cannot self-reference its own SHA. The live
+PR `headRefOid`, refreshed after closeout push, and final delivery verification are authoritative.
 
 ## Security and compatibility
 
@@ -168,5 +167,4 @@ regression.
   A-close -> Runtime B-terminal claim.
 - No automatic merge, tag, release, or deployment.
 
-Protected review remains pending push/equality/PR delivery. No automatic merge, tag, release, or
-deployment.
+Protected review is ready. No automatic merge, tag, release, or deployment.

@@ -2,11 +2,10 @@
 
 ## Delivery status
 
-`PENDING_PUSH_AND_PR`
+`SDAR_BREAKPOINT_REPAIR_COMPLETE / READY_FOR_PROTECTED_REVIEW`
 
-All SDAR-owned breakpoints, P07 cross-project regression, the durable Task revision fence, P08, and
-the synchronized P09 qualification are closed. Final publication commit, push equality, and
-non-Draft PR creation/inspection remain pending; protected-review readiness is not yet claimed.
+All SDAR-owned breakpoints, P07, the durable Task revision fence, P08, P09 qualification, and
+protected PR publication are complete. PR #21 is OPEN, non-Draft, and CLEAN.
 
 ## Source locks
 
@@ -17,8 +16,8 @@ non-Draft PR creation/inspection remain pending; protected-review readiness is n
 - P09 tested SHA: `c2622c62607aaa02df62ae1f6b71998cf4f92688`
 - Live fetched and synchronized main SHA: `b7f02dcedc9680758e7e5f779a939a738d8de770`
 - Required merge result: `Already up to date`
-- Final PR head SHA: `PENDING_PUBLICATION_COMMIT`
-- Remote branch SHA: `PENDING_PUSH`
+- Qualification-evidence / PR-creation head: `7341d078edee6923cbf765471794c72d34ee5e5f`
+- PR-creation equality: local = remote = PR head = `7341d078edee6923cbf765471794c72d34ee5e5f`
 - SMPP: HEAD `7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb`, `origin/main`
   `340abeeff75cd811b40e1bfd9d5a26f5a62f2c45`, equal tree
   `f611988bf9d6aa8e5cebfacf53cfb235ff2a6ec4`
@@ -145,22 +144,23 @@ Neither tested SHA is claimed as the final PR head SHA.
 - No `vehicle_fire_weapon` Capability, Skill, confirmation, or authority was created.
 - `physicalProvider=false`; `physicalDeviceWrites=0`; `fireCalls=0`.
 
-## Pending gates
+## Publication evidence
 
-- Final evidence/publication commit, push, and local/remote SHA equality: `PENDING`.
-- Non-Draft PR to `main` and mergeability/check inspection: `PENDING`.
-
-P08 and P09 candidate qualification have passed. Publication is incomplete, so neither
-`READY_FOR_PROTECTED_REVIEW` nor `SDAR_BREAKPOINT_REPAIR_COMPLETE` is issued.
+At PR creation, local HEAD, remote branch, and PR head were equal at `7341d078...`. The non-Draft PR
+was inspected OPEN and CLEAN. Both completion tokens are issued. The post-PR closeout commit
+contains these documents and cannot self-reference its own SHA; live PR `headRefOid` plus final
+delivery verification is authoritative.
 
 ## Pull request
 
-- PR number: `PENDING_CREATE_PR`
-- PR URL: `PENDING_CREATE_PR`
+- PR number: `21`
+- PR URL: https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/21
 - Base: `main`
 - Head: `fix/sdar-breakpoint-repair`
-- Draft: `false` required; creation pending
-- Candidate/PR head SHA: `PENDING_PUBLICATION_COMMIT`
+- Draft: `false`
+- State: `OPEN`
+- Merge state status: `CLEAN`
+- Qualification-evidence / PR-creation head: `7341d078edee6923cbf765471794c72d34ee5e5f`
 
 ## Rollback
 
@@ -176,5 +176,6 @@ It does not claim production readiness, production SLO/HA, real SMPP/physical re
 monolithic Runtime A-close -> Runtime B-terminal drill.
 
 ```text
-PENDING_PUSH_AND_PR
+SDAR_BREAKPOINT_REPAIR_COMPLETE
+READY_FOR_PROTECTED_REVIEW
 ```
