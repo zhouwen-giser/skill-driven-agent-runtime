@@ -6,8 +6,8 @@
   "git": {
     "branch": "codex/sdar-ugv-smpp-integration",
     "baseSha": "34ce7a7a43971de37566b24f969b4f0aeadec2b2",
-    "finalHeadSha": "3c4a797",
-    "finalHeadMeaning": "implementation commit before this self-referential handoff metadata commit",
+    "finalHeadSha": "f78b42f",
+    "finalHeadMeaning": "latest implementation and readiness-evidence commit before this self-referential handoff metadata commit",
     "handoffMetadataCommitExcludedFromImplementationHead": true,
     "worktreeDirty": true,
     "implementationCommitted": true,

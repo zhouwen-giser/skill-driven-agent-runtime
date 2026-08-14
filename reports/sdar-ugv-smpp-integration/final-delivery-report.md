@@ -143,9 +143,9 @@ but aggregate `bootstrap.sh` and complete Production qualification remain blocke
 ## Delivery artifact status
 
 The prior ZIP, checksum and patch were not regenerated after this coordinate attempt and are stale;
-they are not current delivery authority. Implementation commit `3c4a797` and Draft PR #22 are the
-delivery authority for this worktree. `.gitignore`, `.codex/**`, actual secret files and checkpoints
-remain excluded.
+they are not current delivery authority. Implementation/evidence commits `3c4a797` and `f78b42f`
+plus Draft PR #22 are the delivery authority for this worktree. `.gitignore`, `.codex/**`, actual
+secret files and checkpoints remain excluded.
 
 Machine-readable state is in `final-handoff.json`; the immutable real A2A failure is under
 `failed-attempts/`; historical regression evidence is in `regression.json`; remaining limitations
