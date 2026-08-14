@@ -67,6 +67,10 @@
   Runtime health is ready, but its Business Event inbox backlog is 113; no fresh vehicle-state
   authority exists for navigation admission. The following read at `11:48:01Z` returned
   `disabled / UGV_CHASSIS_TRACK_BUSY` again.
+- The Runtime was then restarted with the authorized local Node Control viewer/service credentials
+  and only `physical_control.confirm` / `physical_control.revoke`. The fifteenth and sixteenth exact
+  Availability reads through `12:01:54Z` still returned
+  `disabled / UGV_CHASSIS_TRACK_BUSY`; no Plan or physical dispatch was created.
 - The five-dispatch code does not claim that remote command completion proves chassis stationarity.
   The deployed `vehicle_get_state` output schema does not freeze authoritative
   fresh/connected/stationary/unowned-task fields, and node-scoped one-shot sequence confirmation is

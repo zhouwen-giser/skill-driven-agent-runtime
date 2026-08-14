@@ -16,7 +16,10 @@ All notable changes to this project are documented here. The format follows Keep
 - A subsequent Goal continuation read observed the external state transition to
   `unknown / UGV_STATE_STALE`. Runtime health remains ready, but its Business Event inbox backlog
   is 113 and no fresh vehicle-state authority exists. The next read returned
-  `disabled / UGV_CHASSIS_TRACK_BUSY` again; dispatch remains closed.
+  `disabled / UGV_CHASSIS_TRACK_BUSY` again. An authorized Runtime restart using only Node Control
+  viewer/service credentials and `physical_control.confirm` / `physical_control.revoke` was
+  successful, but the fifteenth and sixteenth exact Availability reads remained
+  `disabled / UGV_CHASSIS_TRACK_BUSY`; dispatch remains closed.
 - Propagated nested Provider readiness reason codes into `SKILL_SELECTION_NO_CANDIDATES`, deduped
   exact model-selected Task Types, admitted physical-side-effect Capability policy correctly, and
   forwarded frozen TaskCapability input to Provider planning availability.

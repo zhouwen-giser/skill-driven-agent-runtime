@@ -63,8 +63,10 @@ The next Goal continuation Availability read at `11:40:25Z` observed
 `unknown / UGV_STATE_STALE` rather than chassis busy. The external Runtime process is healthy, but
 its Business Event inbox backlog remains 113; without fresh vehicle state, navigation admission
 continues to fail closed. The following read at `11:48:01Z` returned
-`disabled / UGV_CHASSIS_TRACK_BUSY` again, proving the external readiness is oscillating rather than
-available.
+`disabled / UGV_CHASSIS_TRACK_BUSY` again. After the authorized Runtime restart with only
+`physical_control.confirm` / `physical_control.revoke`, the fifteenth and sixteenth exact reads
+through `12:01:54Z` again returned `UGV_CHASSIS_TRACK_BUSY`; the external readiness is still
+unavailable.
 
 Source restart/outage/LKG-expiry/bad-checksum cases, successful reads, aggregate bootstrap and all
 control/lifecycle/emergency/recovery cases remain unqualified. Execution semantics remain

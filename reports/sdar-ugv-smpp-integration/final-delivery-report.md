@@ -1,13 +1,13 @@
 # SDAR × UGV SMPP final delivery
 
-Generated at `2026-08-14T11:25:57.105Z`.
+Generated at `2026-08-14T12:01:54.328Z`.
 
 Final qualification: `SDAR_UGV_INTEGRATION_BLOCKED`.
 
 The real Registry, Provider Binding, governed read and coordinate-navigation authorities and
 real-model boundary are proven. The latest exact coordinate A2A request reached a corrected Goal
 and one exact navigate Skill Goal, but the external UGV Runtime reported
-`disabled / UGV_CHASSIS_TRACK_BUSY` on twelve protocol-faithful read-only Availability checks.
+`disabled / UGV_CHASSIS_TRACK_BUSY` on sixteen protocol-faithful read-only Availability checks.
 This is a blocked result, not a partial or successful qualification; no physical command was
 dispatched.
 
@@ -45,7 +45,9 @@ Skill Goal was reviewed and accepted. Provider Availability nevertheless remaine
 `2026-08-14T11:25:57.105Z`. A subsequent Goal continuation read at `11:40:25Z` returned
 `unknown / UGV_STATE_STALE`; external Runtime health remains ready, but its Business Event inbox
 backlog is 113. The following read at `11:48:01Z` returned
-`disabled / UGV_CHASSIS_TRACK_BUSY` again. The Task therefore remains blocked before Workflow Plan
+`disabled / UGV_CHASSIS_TRACK_BUSY` again. After the authorized Runtime restart with only
+`physical_control.confirm` / `physical_control.revoke`, two more exact reads through `12:01:54Z`
+still returned `disabled / UGV_CHASSIS_TRACK_BUSY`. The Task therefore remains blocked before Workflow Plan
 persistence. No
 governed-control confirmation, MCP Tool invocation, remote Task or physical write exists for this
 attempt. The redacted evidence is

@@ -145,6 +145,10 @@ repository license/source-lock process become mandatory before the dependency or
       `unknown / UGV_STATE_STALE`. The external Runtime is process-ready, but Business Event inbox
       backlog 113 means fresh vehicle-state admission authority is still absent. The following
       read returned `disabled / UGV_CHASSIS_TRACK_BUSY` again.
+- [x] 2026-08-14 restarted Runtime with the authorized local Node Control viewer/service
+      credentials and only `physical_control.confirm` / `physical_control.revoke`. The fifteenth
+      and sixteenth exact Availability reads through `12:01:54Z` still returned
+      `disabled / UGV_CHASSIS_TRACK_BUSY`; no Plan, confirmation or physical dispatch was created.
 - [x] 2026-08-12 implemented ADR-137 create-on-empty Runtime model initialization. Startup
       atomically creates the explicitly configured structured Provider and optional separate
       embedding Provider plus all 21 operation routes only when the Provider table is empty; any

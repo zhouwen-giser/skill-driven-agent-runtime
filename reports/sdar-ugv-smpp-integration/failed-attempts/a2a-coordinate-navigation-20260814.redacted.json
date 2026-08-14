@@ -2,7 +2,7 @@
   "schemaVersion": "sdar.ugv-smpp-a2a-coordinate-navigation-attempt/v1",
   "status": "blocked_before_plan",
   "evidenceClass": "real_sdar_control_plane_and_provider_availability_no_physical_dispatch",
-  "observedAt": "2026-08-14T11:48:01.658Z",
+  "observedAt": "2026-08-14T12:01:54.328Z",
   "request": {
     "taskId": "2eb25439-8d9d-448a-9e04-5a4ed761170d",
     "contextId": "b763c07b-9ef7-4c09-b762-b9a06182ec3b",
@@ -58,9 +58,9 @@
   "providerAvailability": {
     "protocolMethod": "io.sdar/taskExecution/checkAvailability",
     "profileVersion": "1.0",
-    "exactSuccessfulReadCount": 14,
+    "exactSuccessfulReadCount": 16,
     "firstObservedAt": "2026-08-14T10:40:27.876Z",
-    "lastObservedAt": "2026-08-14T11:48:01.658Z",
+    "lastObservedAt": "2026-08-14T12:01:54.328Z",
     "availability": "disabled",
     "riskLevel": "medium",
     "reasonCode": "UGV_CHASSIS_TRACK_BUSY",
@@ -94,6 +94,13 @@
       "executed": true,
       "availability": "disabled",
       "reasonCode": "UGV_CHASSIS_TRACK_BUSY",
+      "physicalDispatchAttempted": false
+    },
+    "authorizedRuntimeRestartRetry": {
+      "executed": true,
+      "availability": "disabled",
+      "reasonCode": "UGV_CHASSIS_TRACK_BUSY",
+      "validUntil": "2026-08-14T12:01:42.479Z",
       "physicalDispatchAttempted": false
     }
   },
