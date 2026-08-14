@@ -4,14 +4,15 @@
   200/304, explicit credential-free Source revision 1, native lineage and the exact
   Provider/Server tuple are proven. Source restart, Registry outage with unexpired LKG,
   expired-LKG rejection and bad-checksum rejection were not executed against this deployment.
-- The latest materialized authority is Provider Binding revision 2, Runtime tool revision 2 and
-  Catalog `2.0.0-rc.1:2` with 11 operations. Its availability/readiness windows are point-in-time
+- The latest materialized authority is Provider Binding revision 5, Runtime tool revision 5 and
+  Catalog `2.0.0-rc.1:5` with 11 operations. Its availability/readiness windows are point-in-time
   observations and have not been promoted into current-liveness evidence.
 - The latest disposable integration database publishes five read-only Skills/Capabilities and one
-  explicitly activated navigate Skill/Capability; the other four controls remain
-  Draft/non-selectable. Navigate is frozen as one linear five-dispatch procedure with exact
-  `forward / 2 m` arguments and a 10 m aggregate. Fire has no Capability or Skill and was not
-  invoked, but an unconditional Runtime hard deny for generic Workflow access to
+  explicitly activated coordinate-point navigate Skill/Capability at version 5; the other four
+  controls remain Draft/non-selectable. The accepted TaskCapability froze the exact configured
+  WGS84 point and `stopOnObstacle=true`, but observed live v5 predates the final Schema-const fix.
+  The corrected driver must materialize a successor before dispatch. Fire has no Capability or
+  Skill and was not invoked, but an unconditional Runtime hard deny for generic Workflow access to
   `vehicle_fire_weapon` is not proven.
 - The live contract does not declare execution semantics. Tool effect and task behavior therefore
   use reviewed `admin_override` values; this is not Runtime-declared semantic authority and does
@@ -45,8 +46,9 @@
 - Earlier deterministic and A2A live reads failed at the external execution-mode boundary. The
   non-production `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit` compatibility switch now preserves
   Runtime `live` evidence while omitting only that transport header; the latest no-header
-  availability probe did not reproduce `UGV_EXECUTION_MODE_UNSUPPORTED`. It instead returned
-  `unknown / UGV_MQTT_UNAVAILABLE`, so successful reads and physical dispatch remain unavailable.
+  availability probe did not reproduce `UGV_EXECUTION_MODE_UNSUPPORTED`. The latest exact
+  coordinate availability reads returned `disabled / UGV_CHASSIS_TRACK_BUSY` continuously for
+  more than 39 minutes, so physical dispatch remains unavailable.
 - Four one-A2A-Task attempts requested a native five-node navigate procedure totaling 10 m. Three
   timed out during preparation. Latest Task `55496234-f5e7-4589-9a18-b24afd2439d6` reached Task
   Understanding, Goal Contract generation and Goal Planning, but `interactive_plan_patch` failed
@@ -54,6 +56,13 @@
   required one Skill Goal. All four attempts have zero MCP/navigate invocations, zero physical
   writes and zero proven movement; see
   `failed-attempts/a2a-move10-live-header-omit-20260814.redacted.json`.
+- The later exact coordinate A2A Task `2eb25439-8d9d-448a-9e04-5a4ed761170d` accepted a corrected
+  Goal and one exact `vehicle.ugv.navigate` Skill Goal, then failed before Workflow Plan persistence
+  because Provider task readiness was disabled. Twelve protocol-faithful read-only availability
+  checks from `10:40:27Z` through the post-integration retry at `11:25:57Z` consistently returned
+  `UGV_CHASSIS_TRACK_BUSY`; Runtime PostgreSQL had zero UGV remote bindings. No Plan or governed
+  confirmation was created and MCP Tool calls/physical writes remained zero. See
+  `failed-attempts/a2a-coordinate-navigation-20260814.redacted.json`.
 - The five-dispatch code does not claim that remote command completion proves chassis stationarity.
   The deployed `vehicle_get_state` output schema does not freeze authoritative
   fresh/connected/stationary/unowned-task fields, and node-scoped one-shot sequence confirmation is
@@ -62,18 +71,19 @@
   HTTPS-required rule only for explicit development/test/integration deployments. It remains
   rejected in Production; HTTPS certificate validation, URL-credential rejection and scheme
   validation remain enabled.
-- All physical-write gates are closed. No movement, recon, gimbal, tracking, lifecycle control,
+- All physical-write gates are closed by the external busy result. No movement, recon, gimbal, tracking, lifecycle control,
   emergency stop or recovery-side-effect scenario has been attempted. The latest live attempt was
   read-only; physical writes, navigate calls and fire calls remain zero.
 - A historical disposable local bootstrap incorrectly published five control authorities. Its
   evidence remains under `failed-attempts/` and is excluded from qualification. Current governance
   correctly stages controls non-executable; the one-time remediation driver was not run against
   those historical databases.
-- The repository-wide `pnpm verify` did not pass. Main Integration passed 189/189, but the isolated
-  P11 evidence-export run timed out; an unchanged standalone rerun later passed 1/1. This does not
-  rewrite the failed aggregate gate.
-- Main E2E passed 72/72 with one skip, then failed protected Phase 13 baseline drift at
-  `22.939% > 15%`. Runtime regression (`1.7548%`) and append P95 (`3.410 ms`) passed. The official
+- The current repository-wide `pnpm verify` did not pass. Static/unit/contract/build, cognitive
+  replay, migrations and Integration passed (35 files/215 tests plus isolated export 1/1). Main
+  E2E passed 72 tests with one skip, then protected Phase 13 baseline drift failed. The diagnostic
+  writer's fixed attempt-8 defect was repaired to allocate immutable attempts monotonically.
+- The unchanged Phase 13 rerun wrote immutable attempt 9 and failed baseline drift at
+  `15.828% > 15%`. Runtime regression (`7.128%`) and append P95 (`4.219 ms`) passed. The official
   A2A TCK could not start because the host lacks `python3-venv`; evidence demo 44/44 and all three
   smokes passed.
 - The aggregate deployment bootstrap is not qualified. The recorded preflight remains a

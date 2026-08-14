@@ -1,6 +1,6 @@
 {
   "schemaVersion": "sdar.ugv-smpp-regression/v1",
-  "generatedAt": "2026-08-12T08:12:06.073Z",
+  "generatedAt": "2026-08-14T11:25:57.105Z",
   "status": "failed",
   "evidenceClass": "repository_gate_and_subsequent_individual_gate_observations",
   "regressionPassed": false,
@@ -19,37 +19,29 @@
     {
       "name": "authoritative_repository_wide_verification",
       "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
-      "startedAt": "2026-08-12T07:44:41.768Z",
-      "completedAt": "2026-08-12T07:52:33.828Z",
+      "startedAt": "2026-08-14T11:00:24.203Z",
+      "completedAt": "2026-08-14T11:12:19.944Z",
       "exitCode": 1,
       "status": "failed",
       "classification": "authoritative_full_gate",
       "failure": {
-        "stage": "postgres_redis_integration",
-        "suite": "evidence_export_v141_isolated",
-        "code": "P11_WAIT_TIMEOUT"
+        "stage": "phase13_performance",
+        "suite": "task_service_endpoint_phase13",
+        "code": "PHASE13_BASELINE_STABILITY_FAILED"
       }
     },
     {
-      "name": "isolated_evidence_export_rerun",
-      "command": "SDAR_REUSE_EXISTING_INFRA=true node scripts/test-integration.mjs apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts",
+      "name": "phase13_immutable_diagnostic_rerun_after_allocator_fix",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true node scripts/test-e2e.mjs packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
       "startedAt": null,
       "completedAt": null,
       "exitCode": 0,
-      "status": "passed_1_of_1",
-      "classification": "focused_non_authoritative_rerun"
-    },
-    {
-      "name": "end_to_end_and_phase13",
-      "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm test:e2e",
-      "startedAt": null,
-      "completedAt": null,
-      "exitCode": 1,
+      "exitCode": null,
       "status": "failed",
-      "classification": "subsequent_individual_gate",
+      "classification": "focused_diagnostic_rerun",
       "failure": {
         "stage": "phase13_performance",
-        "code": "P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXISTS",
+        "code": "PHASE13_BASELINE_STABILITY_FAILED",
         "underlyingGate": "baseline_stability"
       }
     },
@@ -58,9 +50,9 @@
       "command": "pnpm test:a2a-tck",
       "startedAt": null,
       "completedAt": null,
-      "exitCode": 1,
-      "status": "environment_blocked_before_tests",
-      "classification": "subsequent_individual_gate"
+      "exitCode": null,
+      "status": "not_reached_in_current_full_verify",
+      "classification": "not_executed_after_prior_gate_failure"
     },
     {
       "name": "evidence_e2e_demo",
@@ -102,14 +94,14 @@
   "repositoryWideVerification": {
     "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
     "status": "failed",
-    "startedAt": "2026-08-12T07:44:41.768Z",
-    "finishedAt": "2026-08-12T07:52:33.828Z",
+    "startedAt": "2026-08-14T11:00:24.203Z",
+    "finishedAt": "2026-08-14T11:12:19.944Z",
     "steps": {
       "staticUnitContractBuild": {
         "status": "passed",
-        "testFiles": 243,
-        "tests": 1753,
-        "openapiOperations": 166,
+        "testFiles": 275,
+        "tests": 2003,
+        "openapiOperations": 169,
         "includes": [
           "format_check",
           "lint",
@@ -125,33 +117,32 @@
       },
       "migrations": {
         "status": "passed",
-        "runtimeMigrationCount": 45,
+        "runtimeMigrationCount": 56,
         "controlMigrationCount": 11
       },
       "postgresRedisIntegration": {
-        "status": "failed",
+        "status": "passed",
         "mainSuite": {
           "status": "passed",
-          "testFiles": 32,
-          "tests": 189
-        },
-        "isolatedEvidenceExport": {
-          "status": "failed",
-          "errorCode": "P11_WAIT_TIMEOUT",
-          "failurePoint": "first task acknowledged; Node Control evidence-export status did not become healthy with zero pending records within the protected ten-second wait",
-          "classification": "transient_full_run_drain_or_backlog_not_reproduced_in_isolation"
+          "testFiles": 36,
+          "tests": 216
         }
       }
     },
     "authoritativeSummary": "reports/verification/summary.json"
   },
   "focusedFollowUp": {
-    "isolatedEvidenceExportRerun": {
-      "command": "SDAR_REUSE_EXISTING_INFRA=true node scripts/test-integration.mjs apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts",
+    "finalGoalRegression": {
       "status": "passed",
-      "testFiles": 1,
-      "tests": 1,
-      "timeoutOrAssertionChanged": false
+      "testFiles": 15,
+      "tests": 183,
+      "physicalProviderCalls": 0
+    },
+    "phase13DiagnosticAllocatorRerun": {
+      "status": "failed_baseline_stability_with_diagnostic_written",
+      "diagnosticAttempt": 9,
+      "immutableDiagnosticWritten": true,
+      "thresholdOrAssertionChanged": false
     },
     "nodeCapabilityCleanupRegression": {
       "status": "passed",
@@ -165,7 +156,7 @@
     }
   },
   "endToEnd": {
-    "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm test:e2e",
+    "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
     "status": "failed",
     "mainE2eSuite": {
       "status": "passed",
@@ -175,26 +166,26 @@
     },
     "phase13Performance": {
       "status": "failed_baseline_stability",
-      "runtimeP95BaselineMs": 414.1570700000011,
-      "runtimeP95EvidenceEnabledMs": 421.4246970000022,
-      "runtimeP95RegressionPercent": 1.754799694715115,
+      "runtimeP95BaselineMs": 560.8833,
+      "runtimeP95EvidenceEnabledMs": 600.86215,
+      "runtimeP95RegressionPercent": 7.12784,
       "runtimeP95MaximumPercent": 10,
       "runtimeP95RegressionGatePassed": true,
-      "evidenceAppendP95Ms": 3.4100659999994605,
+      "evidenceAppendP95Ms": 4.218869,
       "evidenceAppendMaximumMs": 20,
       "evidenceAppendGatePassed": true,
       "baselineWindowMediansMs": [
-        299.14680899999803,
-        259.8442744999993,
-        237.58592849999695
+        376.5141,
+        441.2313,
+        428.7697
       ],
-      "baselineMedianDriftPercent": 22.939118931608547,
+      "baselineMedianDriftPercent": 15.828196,
       "baselineMedianDriftMaximumPercent": 15,
       "baselineStabilityGatePassed": false,
-      "diagnosticWriteError": "P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXISTS",
-      "diagnosticWriteRootCause": "the failure writer uses immutable attempt 8, which already exists from a different historical run",
-      "newImmutableDiagnosticWritten": false,
-      "classification": "nonfunctional_measurement_stability_blocker_and_diagnostic_attempt_allocation_defect",
+      "diagnosticAttempt": 9,
+      "newImmutableDiagnosticWritten": true,
+      "diagnosticAllocationDefectFixed": true,
+      "classification": "nonfunctional_measurement_stability_blocker",
       "ugvChangeCausalityProven": false
     },
     "historicalBaselineEvidence": {
@@ -207,8 +198,8 @@
   "additionalGates": {
     "officialA2aTck": {
       "command": "pnpm test:a2a-tck",
-      "status": "environment_blocked_before_tests",
-      "reason": "python3-venv ensurepip is unavailable on the host",
+      "status": "not_reached_in_current_full_verify",
+      "reason": "the authoritative command stopped after the protected Phase 13 failure",
       "systemPackageInstalledOrModified": false
     },
     "evidenceE2eDemo": {
@@ -252,10 +243,8 @@
     "operatorManagedRedisLifecycleChanged": false
   },
   "blockingReasons": [
-    "FULL_VERIFY_P11_TRANSIENT_TIMEOUT",
     "PHASE13_BASELINE_STABILITY_FAILED",
-    "PHASE13_DIAGNOSTIC_ATTEMPT_ALLOCATION_DEFECT",
-    "OFFICIAL_A2A_TCK_HOST_PYTHON_VENV_UNAVAILABLE"
+    "OFFICIAL_A2A_TCK_NOT_REACHED_AFTER_PRIOR_GATE_FAILURE"
   ],
   "redaction": {
     "secretsIncluded": false,

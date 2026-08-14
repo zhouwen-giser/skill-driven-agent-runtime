@@ -347,6 +347,92 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     expect(api.capability('vehicle.ugv.fire-weapon')).toBeUndefined();
   });
 
+  it('publishes a successor point-navigation authority with one obstacle-stopping dispatch', async () => {
+    const root = workspaceRoot();
+    const api = new FakeUgvGovernanceApis();
+    await governUgvSmppCapabilities(configuration(root), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+
+    const report = await governUgvSmppCapabilities(
+      {
+        ...configuration(root),
+        activateNavigateControl: true,
+        navigateControlMode: 'coordinate_point',
+        navigateCoordinateTarget: {
+          longitude: 106.81413978,
+          latitude: 29.720426,
+          altitude: 500,
+        },
+      },
+      { fetch: api.fetch, now: () => NOW },
+    );
+
+    expect(report.navigateControl).toEqual({
+      activated: true,
+      mode: 'coordinate_point',
+      dispatchMaximum: 1,
+      stopOnObstacleRequired: true,
+    });
+    expect(api.runtimeSkill('ugv.navigate')).toEqual(
+      expect.objectContaining({
+        version: 2,
+        status: 'enabled',
+        runtimePolicy: expect.objectContaining({ maxMcpCalls: 1 }),
+        inputSchema: expect.objectContaining({
+          required: ['resourceId', 'mission', 'stopOnObstacle'],
+          properties: expect.objectContaining({
+            resourceId: expect.objectContaining({ const: RESOURCE_ID }),
+            stopOnObstacle: { type: 'boolean', const: true },
+            mission: expect.objectContaining({
+              properties: expect.objectContaining({
+                type: { const: 'point' },
+                target: expect.objectContaining({
+                  properties: {
+                    latitude: { type: 'number', const: 29.720426 },
+                    longitude: { type: 'number', const: 106.81413978 },
+                    altitude: { type: 'number', const: 500 },
+                  },
+                }),
+              }),
+            }),
+          }),
+        }),
+        usageSpecification: expect.objectContaining({
+          taskBindings: [expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v2' })],
+        }),
+      }),
+    );
+    const capability = api.capability('vehicle.ugv.navigate');
+    expect(capability).toEqual(
+      expect.objectContaining({
+        version: 2,
+        status: 'published',
+        successCriteria: expect.arrayContaining([
+          {
+            type: 'external_command_dispatch_count',
+            minimum: 1,
+            maximum: 1,
+          },
+        ]),
+      }),
+    );
+    expect(
+      Array.isArray(capability?.['constraints']) &&
+        capability['constraints'].some(
+          (constraint) => isRecord(constraint) && constraint['type'] === 'bounded_movement_policy',
+        ),
+    ).toBe(false);
+    expect(api.implementation('vehicle.ugv.navigate')).toEqual(
+      expect.objectContaining({
+        implementationId: 'ugv.navigate',
+        implementationVersion: '2',
+        status: 'active',
+      }),
+    );
+  });
+
   it('is idempotent for the same exact versions and fails closed on later exact-version drift', async () => {
     const root = workspaceRoot();
     const api = new FakeUgvGovernanceApis();
@@ -582,6 +668,37 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'YES',
     });
     expect(activated.configuration.activateNavigateControl).toBe(true);
+    expect(activated.configuration.navigateControlMode).toBe('distance_sequence');
+
+    const coordinate = await ugvSmppGovernanceConfigurationFromEnvironment({
+      SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:10080',
+      SDAR_CONTROL_API_TOKEN_FILE: secretFile,
+      SDAR_UGV_RUNTIME_MANAGEMENT_BASE_URL: 'http://127.0.0.1:9998',
+      SDAR_UGV_GOVERNANCE_PACKAGE_ROOT: root,
+      SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-coordinate-run',
+      SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'YES',
+      ALLOW_UGV_COORDINATE_NAVIGATION: 'YES',
+      UGV_TEST_SAFE_POINT_JSON: '{"longitude":106.81413978,"latitude":29.720426,"altitude":500}',
+    });
+    expect(coordinate.configuration.navigateControlMode).toBe('coordinate_point');
+    expect(coordinate.configuration.navigateCoordinateTarget).toEqual({
+      longitude: 106.81413978,
+      latitude: 29.720426,
+      altitude: 500,
+    });
+
+    await expect(
+      ugvSmppGovernanceConfigurationFromEnvironment({
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:10080',
+        SDAR_CONTROL_API_TOKEN_FILE: secretFile,
+        SDAR_UGV_RUNTIME_MANAGEMENT_BASE_URL: 'http://127.0.0.1:9998',
+        SDAR_UGV_GOVERNANCE_PACKAGE_ROOT: root,
+        SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-coordinate-invalid',
+        SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'YES',
+        ALLOW_UGV_COORDINATE_NAVIGATION: 'YES',
+        UGV_TEST_SAFE_POINT_JSON: '{"longitude":106.81413978,"latitude":29.720426}',
+      }),
+    ).rejects.toMatchObject({ code: 'DRIVER_CONFIGURATION_INVALID' });
 
     const api = new FakeUgvGovernanceApis({ toolNames: ['vehicle_get_state'] });
     const report = await governUgvSmppCapabilities(loaded.configuration, {
@@ -1007,6 +1124,24 @@ function makeTools(
                       type: 'object',
                       additionalProperties: false,
                       properties: {
+                        type: { const: 'point' },
+                        target: {
+                          type: 'object',
+                          additionalProperties: false,
+                          properties: {
+                            latitude: { type: 'number', minimum: -90, maximum: 90 },
+                            longitude: { type: 'number', minimum: -180, maximum: 180 },
+                            altitude: { type: 'number' },
+                          },
+                          required: ['latitude', 'longitude'],
+                        },
+                      },
+                      required: ['type', 'target'],
+                    },
+                    {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
                         type: { const: 'distance' },
                         direction: {
                           type: 'string',
@@ -1018,6 +1153,7 @@ function makeTools(
                     },
                   ],
                 },
+                stopOnObstacle: { type: 'boolean' },
               }
             : {}),
         },

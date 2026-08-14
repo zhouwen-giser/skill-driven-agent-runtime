@@ -231,10 +231,18 @@ describe('FrozenSkillTaskReadinessAdapter', () => {
         value: { resourceId: 'living-room-main-light' },
       }),
     }).inspect(inspectInput(binding(dynamicPolicy())));
+    await new FrozenSkillTaskReadinessAdapter(dependencies).inspect({
+      ...inspectInput(binding(dynamicPolicy())),
+      arguments: {
+        unresolved: false,
+        value: { resourceId: 'task-capability-frozen-input' },
+      },
+    });
 
     expect(observedArguments).toEqual([
       { unresolved: true, knownArguments: {}, unresolvedPaths: ['$'] },
       { unresolved: false, value: { resourceId: 'living-room-main-light' } },
+      { unresolved: false, value: { resourceId: 'task-capability-frozen-input' } },
     ]);
   });
 

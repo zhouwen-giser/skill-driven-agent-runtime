@@ -46,7 +46,7 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
   async inspect(input: Parameters<SkillTaskReadinessPort['inspect']>[0]) {
     const bindings = await Promise.all(
       input.taskBindings.map((binding) =>
-        this.#inspectBinding(binding, input.allowPreferredProviderFallback),
+        this.#inspectBinding(binding, input.allowPreferredProviderFallback, input.arguments),
       ),
     );
     return Object.freeze({
@@ -58,6 +58,7 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
   async #inspectBinding(
     binding: SkillTaskBinding,
     allowPreferredFallback: boolean,
+    arguments_: TaskAvailabilityArguments | undefined,
   ): Promise<SkillTaskBindingReadiness> {
     const registered = await this.#operations.listTaskOperationCandidates(binding.taskType);
     const eligible = policyCandidates(registered, binding.providerPolicy, allowPreferredFallback);
@@ -79,11 +80,12 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
         const request = {
           nodeId: binding.bindingId,
           operationName: candidate.operationName,
-          arguments: this.#resolveArguments?.(binding) ?? {
-            unresolved: true as const,
-            knownArguments: {},
-            unresolvedPaths: ['$'],
-          },
+          arguments: arguments_ ??
+            this.#resolveArguments?.(binding) ?? {
+              unresolved: true as const,
+              knownArguments: {},
+              unresolvedPaths: ['$'],
+            },
         };
         const outcome = await this.#availability.checkTaskAvailability({
           serverId: candidate.providerId,

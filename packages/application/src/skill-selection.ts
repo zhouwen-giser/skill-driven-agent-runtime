@@ -258,13 +258,32 @@ export class SkillSelectionService {
         };
       }),
     );
-    return candidates.filter(
+    const selectable = candidates.filter(
       (candidate) =>
         candidate.usageCandidate === undefined ||
         (candidate.usageCandidate.modeDecision.decision === 'selected' &&
           (candidate.usageCandidate.applicability.status === 'satisfied' ||
             candidate.usageCandidate.applicability.status === 'partial')),
     );
+    if (selectable.length === 0 && candidates.length > 0) {
+      const reasonCodes = [
+        ...new Set(
+          candidates.flatMap((candidate) => [
+            ...(candidate.usageCandidate?.applicability.reasonCodes ?? []),
+            ...(candidate.usageCandidate?.applicability.readiness.bindings.flatMap((binding) => [
+              ...binding.reasonCodes,
+              ...(binding.candidates?.flatMap((provider) => provider.reasonCodes) ?? []),
+            ]) ?? []),
+            ...(candidate.usageCandidate?.modeDecision.reasonCodes ?? []),
+          ]),
+        ),
+      ].sort();
+      throw new SkillSelectionError(
+        'SKILL_SELECTION_NO_CANDIDATES',
+        `No applicable Skill candidates exist (${reasonCodes.join(',') || 'no_reason_code'}).`,
+      );
+    }
+    return selectable;
   }
 }
 

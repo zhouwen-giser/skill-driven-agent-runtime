@@ -85,10 +85,10 @@ const PhysicalPlanDefinitionSchema = z
           tool: z.object({ serverId: z.string().min(1), toolName: z.string().min(1) }).optional(),
           taskExecution: z
             .object({ protocolMode: z.string().min(1) })
-            .passthrough()
+            .loose()
             .optional(),
         })
-        .passthrough(),
+        .loose(),
     ),
     edges: z.array(
       z
@@ -97,10 +97,10 @@ const PhysicalPlanDefinitionSchema = z
           targetNodeId: z.string().min(1),
           outcome: z.string().min(1).optional(),
         })
-        .passthrough(),
+        .loose(),
     ),
   })
-  .passthrough();
+  .loose();
 
 /**
  * One read-only PostgreSQL projection. It includes invocation-less admission intents and never
@@ -391,7 +391,7 @@ function mapPhysicalPlan(planId: string, row: PhysicalPlanRow): TaskCapabilityPh
           nodeId: node.nodeId,
           ordinal: index + 1,
           type: node.type,
-          ...(node.tool === undefined ? {} : node.tool),
+          ...(node.tool ?? {}),
           taskRequired:
             node.type === 'mcp_tool' && node.taskExecution?.protocolMode === 'frozen_v1',
         }),

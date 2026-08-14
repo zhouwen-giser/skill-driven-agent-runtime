@@ -1308,23 +1308,37 @@ async function resetPartitionDeliveryState(
       acknowledged_sequence: string | null;
       acknowledged_at: Date | string | null;
     }>(
-      `SELECT max(sequence) FILTER (WHERE sent_at IS NOT NULL)::text AS sent_sequence,
-         CASE
-           WHEN count(*)=0 THEN NULL
-           WHEN min(sequence) FILTER (WHERE acknowledged_at IS NULL) IS NULL
-             THEN max(sequence)::text
-           ELSE GREATEST(0,min(sequence) FILTER (WHERE acknowledged_at IS NULL)-1)::text
-         END AS acknowledged_sequence,
-         max(acknowledged_at) AS acknowledged_at
-       FROM evidence_outbox evidence
-       JOIN evidence_export_configuration configuration
-         ON configuration.export_id=$2 AND configuration.revision=$3
-           AND configuration.is_active
-       WHERE evidence.source_partition=$1
-         AND configuration.definition->'includedFamilies' ? evidence.record_family
-         AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
-           configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
-         ) ? evidence.record_type)`,
+      `WITH eligible AS (
+         SELECT evidence.sequence,evidence.sent_at,evidence.acknowledged_at
+         FROM evidence_outbox evidence
+         JOIN evidence_export_configuration configuration
+           ON configuration.export_id=$2 AND configuration.revision=$3
+             AND configuration.is_active
+         WHERE evidence.source_partition=$1
+           AND configuration.definition->'includedFamilies' ? evidence.record_family
+           AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
+             configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
+           ) ? evidence.record_type)
+       ), frontier AS (
+         SELECT min(sequence) FILTER (WHERE acknowledged_at IS NULL) AS first_unacknowledged,
+                max(sequence) FILTER (WHERE sent_at IS NOT NULL) AS sent_sequence
+         FROM eligible
+       )
+       SELECT frontier.sent_sequence::text,
+              acknowledged.sequence::text AS acknowledged_sequence,
+              acknowledged.acknowledged_at
+       FROM frontier
+       LEFT JOIN LATERAL (
+         SELECT eligible.sequence,eligible.acknowledged_at
+         FROM eligible
+         WHERE eligible.acknowledged_at IS NOT NULL
+           AND (
+             frontier.first_unacknowledged IS NULL
+             OR eligible.sequence < frontier.first_unacknowledged
+           )
+         ORDER BY eligible.sequence DESC
+         LIMIT 1
+       ) acknowledged ON true`,
       [sourcePartition, command.exportId, command.configurationRevision],
     );
     const state = frontier.rows[0];

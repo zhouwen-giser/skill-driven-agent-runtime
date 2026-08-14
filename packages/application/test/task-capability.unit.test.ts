@@ -93,6 +93,7 @@ function fixture(
       ? Promise.reject(new Error('MCP_PROVIDER_BINDING_NOT_CURRENT'))
       : Promise.resolve(),
   );
+  const physicalEvidence = options.physicalEvidence;
   const service = new RuntimeTaskCapabilityService({
     store,
     schemas: new AjvJsonSchemaValidator(),
@@ -103,11 +104,11 @@ function fixture(
             listInvocationsByTask: () => Promise.resolve(options.invocations ?? []),
           },
         }),
-    ...(options.physicalEvidence === undefined
+    ...(physicalEvidence === undefined
       ? {}
       : {
           physicalEvidence: {
-            loadPhysicalEvidence: () => Promise.resolve(options.physicalEvidence!),
+            loadPhysicalEvidence: () => Promise.resolve(physicalEvidence),
           },
         }),
     ...((resolution.providerBindingRequirements?.length ?? 0) === 0
@@ -277,6 +278,106 @@ describe('RuntimeTaskCapabilityService', () => {
         ],
         risk: 'low',
         humanConfirmation: 'not_requested',
+        taskAvailabilityArguments: {
+          unresolved: false,
+          value: { resourceId: 'resource:42' },
+        },
+        systemPolicy: {
+          allowedModes: ['guidance', 'template', 'procedure'],
+          requireProcedureForHighRisk: true,
+          allowGuidanceWithIncompleteContext: false,
+        },
+      },
+    });
+    expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledTimes(2);
+  });
+
+  it('projects an exact physical side-effect policy as high-risk confirmation-pending context', async () => {
+    const resolution: RuntimeCapabilityResolution = {
+      exposureId: 'vehicle.navigate',
+      exposureVersion: 1,
+      requestedCapabilityId: 'vehicle.navigate.capability',
+      capabilityVersion: 4,
+      requestSchema: {
+        type: 'object',
+        required: ['resourceId'],
+        properties: { resourceId: { const: 'vehicle:ugv-1' } },
+        additionalProperties: false,
+      },
+      successCriteria: [{ type: 'output_schema_valid', required: true }],
+      requiredEvidence: [
+        {
+          type: 'required_evidence',
+          evidenceType: 'vehicle.task.terminal',
+          required: true,
+          hardGate: true,
+        },
+      ],
+      constraints: [
+        {
+          type: 'resource_policy',
+          selection: 'exact_value',
+          allowedResourceIds: ['vehicle:ugv-1'],
+        },
+        {
+          type: 'provider_binding_policy',
+          mcpProviderBindingId: 'binding-current',
+          localServerId: 'server.example',
+          bindingRevision: 1,
+          catalogRevision: '1.0.0:1',
+          catalogChecksum: 'a'.repeat(64),
+          requiredStatus: 'active',
+          requiredAvailabilityStatus: 'available',
+          requiredFreshness: 'unexpired',
+          fallback: 'deny',
+        },
+        { type: 'exact_skill_version', skillId: 'vehicle.navigate', skillVersion: 4 },
+        { type: 'confirmation_policy', required: true, stage: 'before_execution' },
+        {
+          type: 'physical_side_effect_policy',
+          sideEffecting: true,
+          dispatchMaximum: 1,
+          uncertainDispatchPolicy: 'reconcile_never_redispatch',
+          remoteTaskTerminalEvidenceRequired: true,
+        },
+      ],
+      implementationRefs: ['skill:vehicle.navigate:4'],
+      providerBindingRefs: ['binding-current'],
+      providerBindingRequirements: [
+        { bindingId: 'binding-current', localServerId: 'server.example' },
+      ],
+    };
+    const accepted = fixture({ resolution });
+    const prepared = await accepted.service.prepareAcceptance({
+      task: accepted.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: resolution.exposureId,
+          versionConstraint: '1',
+          requestId: 'request-physical-skill-usage-authority',
+        },
+      },
+      capabilityInput: { resourceId: 'vehicle:ugv-1' },
+      inputAttempt: accepted.inputAttempt,
+      bindingId: 'task-capability-physical-binding',
+      capabilityAttemptId: 'capability-attempt-physical-skill-usage',
+      event: accepted.event,
+    });
+    if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
+    await accepted.service.accept(prepared);
+
+    await expect(
+      accepted.service.resolveSkillUsageAuthority(accepted.task.taskId),
+    ).resolves.toMatchObject({
+      skillId: 'vehicle.navigate',
+      skillVersion: 4,
+      context: {
+        risk: 'high',
+        humanConfirmation: 'pending',
+        taskAvailabilityArguments: {
+          unresolved: false,
+          value: { resourceId: 'vehicle:ugv-1' },
+        },
         systemPolicy: {
           allowedModes: ['guidance', 'template', 'procedure'],
           requireProcedureForHighRisk: true,
@@ -1164,7 +1265,7 @@ describe('RuntimeTaskCapabilityService', () => {
               invocationPresent: false,
               capabilityAttemptId: 'capability-attempt-physical',
               admission: {
-                ...scenario.physicalEvidence.dispatches[0]!.admission!,
+                ...required(required(scenario.physicalEvidence.dispatches[0]).admission),
                 intentId: 'physical-admission-orphan',
                 invocationId: 'physical-invocation-orphan',
                 status: 'uncertain',
@@ -1182,9 +1283,9 @@ describe('RuntimeTaskCapabilityService', () => {
         physicalEvidence: {
           ...scenario.physicalEvidence,
           plan: {
-            ...scenario.physicalEvidence.plan!,
+            ...required(scenario.physicalEvidence.plan),
             nodes: [
-              ...scenario.physicalEvidence.plan!.nodes,
+              ...required(scenario.physicalEvidence.plan).nodes,
               {
                 nodeId: 'usage_task_5',
                 ordinal: 7,
@@ -1226,7 +1327,7 @@ describe('RuntimeTaskCapabilityService', () => {
               ? {
                   ...evidence,
                   remoteTask: {
-                    ...evidence.remoteTask!,
+                    ...required(evidence.remoteTask),
                     localState: 'terminal_event_claimed',
                     terminalEventStatus: 'claimed',
                     processedCompletedEventCount: 0,
@@ -1445,9 +1546,9 @@ function physicalDispatchEvidence(
     invocationPresent: true,
     capabilityAttemptId,
     confirmation: {
-      confirmationId: invocation.controlConfirmationId!,
+      confirmationId: required(invocation.controlConfirmationId),
       consumedInvocationId: invocationId,
-      consumedDispatchHash: invocation.controlDispatchHash!,
+      consumedDispatchHash: required(invocation.controlDispatchHash),
       consumedAt: physicalTime(index, 10),
     },
     admission: {
@@ -1458,8 +1559,8 @@ function physicalDispatchEvidence(
       bindingId,
       recordedInvocationId: invocationId,
       materializedBindingId: bindingId,
-      argumentsHash: invocation.controlArgumentsHash!,
-      dispatchHash: invocation.controlDispatchHash!,
+      argumentsHash: required(invocation.controlArgumentsHash),
+      dispatchHash: required(invocation.controlDispatchHash),
       workflowPlanId: planId,
       workflowNodeId: nodeId,
       workflowNodeRunId: nodeRunId,
@@ -1811,4 +1912,9 @@ async function exerciseTwoProviderResult(
         }
       : {},
   );
+}
+
+function required<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error('Expected fixture value.');
+  return value;
 }

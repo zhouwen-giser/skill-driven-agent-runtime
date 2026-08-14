@@ -9,6 +9,35 @@ import { canonicalizeSourceArtifactJson } from '../../domain/src/index.js';
 import { PostgresExperienceReplayArtifactEvidenceSource } from '../src/index.js';
 
 describe('PostgresExperienceReplayArtifactEvidenceSource', () => {
+  it('carries the exact durable source observation cursor into the projection partition', async () => {
+    const source = new PostgresExperienceReplayArtifactEvidenceSource({
+      query: () =>
+        Promise.resolve({
+          rows: [
+            {
+              kind: 'experience_task',
+              source_family: 'experience',
+              source_id: 'task-a',
+              source_version: null,
+              episode_id: 'task-a',
+              observed_at: new Date('2026-08-04T03:05:00.000Z'),
+            },
+          ],
+        }),
+    } as unknown as Pool);
+
+    await expect(source.pendingPartitions(1)).resolves.toEqual([
+      {
+        kind: 'experience_task',
+        sourceFamily: 'experience',
+        sourcePartition: 'v141:experience_task:6:task-a',
+        sourceId: 'task-a',
+        episodeId: 'task-a',
+        observedAt: '2026-08-04T03:05:00.000Z',
+      },
+    ]);
+  });
+
   it('enumerates bounded source partitions, scopes task facts exactly and decodes patterns', async () => {
     const client = new FakeClient();
     const pool = new FakePool(client);
@@ -78,6 +107,11 @@ describe('PostgresExperienceReplayArtifactEvidenceSource', () => {
     expect(pool.sql[0]).toContain("'experience_pattern'");
     expect(pool.sql[0]).toContain("'artifact'");
     expect(pool.sql[0]).not.toContain('NOT EXISTS');
+    expect(pool.sql[0]).toContain('checkpoint.last_occurred_at < normalized.observed_at');
+    expect(pool.sql[0]).toContain("date_trunc('milliseconds',MAX(observed_at)) AS observed_at");
+    expect(pool.sql[0]).toContain('trace.created_at');
+    expect(pool.sql[0]).toContain('interaction.created_at');
+    expect(pool.sql[0]).toContain("run.run_type='process_mining'");
     const scopedSql = client.sql.filter(
       (sql) =>
         sql.includes('goal_experience_episode') ||

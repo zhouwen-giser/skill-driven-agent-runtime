@@ -28,6 +28,7 @@ const NAVIGATE_EXACT_DIRECTION = 'forward';
 const NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS = 2;
 const NAVIGATE_EXACT_TOTAL_DISTANCE_METERS = 10;
 const NAVIGATE_ARGUMENT_CONSTRAINT_ID = 'vehicle-navigate-distance-per-dispatch';
+type NavigateControlMode = 'distance_sequence' | 'coordinate_point';
 
 type GovernanceKind = 'read_only' | 'long_running_control' | 'emergency_stop';
 
@@ -164,6 +165,14 @@ export interface UgvSmppCapabilityGovernanceConfiguration {
   readonly resourceId?: string;
   /** Explicitly publishes only the bounded vehicle_navigate control authority. */
   readonly activateNavigateControl?: boolean;
+  /** Selects the immutable native navigate procedure published by this run. */
+  readonly navigateControlMode?: NavigateControlMode;
+  /** Exact WGS84 point frozen into a coordinate-point navigate successor. */
+  readonly navigateCoordinateTarget?: Readonly<{
+    longitude: number;
+    latitude: number;
+    altitude: number;
+  }>;
 }
 
 export interface UgvSmppCapabilityGovernanceReport {
@@ -198,6 +207,12 @@ export interface UgvSmppCapabilityGovernanceReport {
     forbidden: true;
     capabilityCreated: false;
     skillCreated: false;
+  }>;
+  readonly navigateControl: Readonly<{
+    activated: boolean;
+    mode: NavigateControlMode;
+    dispatchMaximum: number;
+    stopOnObstacleRequired: boolean;
   }>;
   readonly skills: readonly Readonly<{
     skillId: string;
@@ -826,6 +841,12 @@ export async function governUgvSmppCapabilities(
       capabilityCreated: false,
       skillCreated: false,
     }),
+    navigateControl: Object.freeze({
+      activated: configuration.activateNavigateControl === true,
+      mode: navigateControlMode(configuration),
+      dispatchMaximum: navigateDispatchMaximum(configuration),
+      stopOnObstacleRequired: navigateControlMode(configuration) === 'coordinate_point',
+    }),
     skills: Object.freeze(skills),
     capabilities: Object.freeze(capabilities),
     stagedControls: Object.freeze(
@@ -909,7 +930,7 @@ async function resolveGovernanceVersions(
       const tool = authority.tools.find(({ toolName }) => toolName === spec.toolName);
       if (tool === undefined)
         return fail('GOVERNANCE_VERSION_MISSING', 'Governance Tool authority is incomplete.');
-      validateToolSemantics(spec, tool, authority.binding.localServerId);
+      validateToolSemantics(spec, tool, authority.binding.localServerId, configuration);
       const resource = resolveResourceId(tool, configuration.resourceId);
       const skills = await runtimeListSkillVersions(configuration, spec.skillId, request);
       const nodes = capabilityVersions.get(spec.capabilityId) ?? [];
@@ -930,6 +951,7 @@ async function resolveGovernanceVersions(
         tool,
         resource.resourceId,
         proposedSkillVersion,
+        configuration,
       );
       const skillVersion =
         latestSkill !== undefined &&
@@ -951,6 +973,7 @@ async function resolveGovernanceVersions(
         resource.resourceId,
         proposedCapabilityVersion,
         skillVersion,
+        configuration,
       );
       const capabilityVersion =
         latestCapability !== undefined && capabilityMatches(latestCapability, proposedCapability)
@@ -991,7 +1014,7 @@ function planGovernance(
     const version = versions.get(spec.skillId);
     if (version === undefined)
       return fail('GOVERNANCE_VERSION_MISSING', 'Governance version resolution is incomplete.');
-    validateToolSemantics(spec, tool, authority.binding.localServerId);
+    validateToolSemantics(spec, tool, authority.binding.localServerId, configuration);
     const resource = resolveResourceId(tool, configuration.resourceId);
     const skillContract = buildSkillContract(
       spec,
@@ -999,6 +1022,7 @@ function planGovernance(
       tool,
       resource.resourceId,
       version.skillVersion,
+      configuration,
     );
     const capability = buildCapability(
       spec,
@@ -1007,6 +1031,7 @@ function planGovernance(
       resource.resourceId,
       version.capabilityVersion,
       version.skillVersion,
+      configuration,
     );
     const implementation = buildImplementation(
       spec,
@@ -1140,7 +1165,12 @@ async function loadCatalogAuthority(
   return Object.freeze({ binding, server, tools: Object.freeze(tools), fingerprint });
 }
 
-function validateToolSemantics(spec: GovernanceSpec, tool: Tool, serverId: string): void {
+function validateToolSemantics(
+  spec: GovernanceSpec,
+  tool: Tool,
+  serverId: string,
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+): void {
   const expectedReadOnly = spec.kind === 'read_only';
   if (
     tool.serverId !== serverId ||
@@ -1160,7 +1190,53 @@ function validateToolSemantics(spec: GovernanceSpec, tool: Tool, serverId: strin
     );
   requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
-  if (spec.toolName === NAVIGATE_TOOL_NAME) assertNavigateDistanceSchema(tool.inputSchema);
+  if (spec.toolName === NAVIGATE_TOOL_NAME) {
+    if (navigateControlMode(configuration) === 'coordinate_point')
+      assertNavigatePointSchema(tool.inputSchema);
+    else assertNavigateDistanceSchema(tool.inputSchema);
+  }
+}
+
+function assertNavigatePointSchema(schema: unknown): void {
+  const input = requireObjectSchema(schema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
+  const properties = record(input['properties']);
+  const mission = record(properties?.['mission']);
+  const alternatives = mission?.['oneOf'];
+  const pointAlternative = Array.isArray(alternatives)
+    ? alternatives.map(record).find((alternative) => {
+        const fields = record(alternative?.['properties']);
+        return record(fields?.['type'])?.['const'] === 'point';
+      })
+    : undefined;
+  const pointFields = record(pointAlternative?.['properties']);
+  const target = record(pointFields?.['target']);
+  const targetFields = record(target?.['properties']);
+  const latitude = record(targetFields?.['latitude']);
+  const longitude = record(targetFields?.['longitude']);
+  const altitude = record(targetFields?.['altitude']);
+  if (pointAlternative === undefined)
+    fail(
+      'NAVIGATE_POINT_SCHEMA_UNSUPPORTED',
+      'vehicle_navigate must expose one bounded WGS84 point mission alternative.',
+    );
+  if (
+    pointAlternative['additionalProperties'] !== false ||
+    !sameStrings(pointAlternative['required'], ['target', 'type']) ||
+    target?.['type'] !== 'object' ||
+    target['additionalProperties'] !== false ||
+    !sameStrings(target['required'], ['latitude', 'longitude']) ||
+    latitude?.['type'] !== 'number' ||
+    latitude['minimum'] !== -90 ||
+    latitude['maximum'] !== 90 ||
+    longitude?.['type'] !== 'number' ||
+    longitude['minimum'] !== -180 ||
+    longitude['maximum'] !== 180 ||
+    altitude?.['type'] !== 'number'
+  )
+    fail(
+      'NAVIGATE_POINT_SCHEMA_UNSUPPORTED',
+      'vehicle_navigate must expose the exact WGS84 mission.point contract.',
+    );
 }
 
 function assertNavigateDistanceSchema(schema: unknown): void {
@@ -1248,14 +1324,26 @@ function buildSkillContract(
   tool: Tool,
   resourceId: string,
   version: number,
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
 ): Readonly<{
   skill: Readonly<Record<string, unknown>>;
   usage: Readonly<Record<string, unknown>>;
 }> {
-  const inputSchema = requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
+  const coordinateNavigate =
+    spec.toolName === NAVIGATE_TOOL_NAME &&
+    navigateControlMode(configuration) === 'coordinate_point';
+  const inputSchema = coordinateNavigate
+    ? coordinatePointInputSchema(
+        tool.inputSchema,
+        resourceId,
+        navigateCoordinateTarget(configuration),
+      )
+    : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   const readOnly = spec.kind === 'read_only';
-  const boundedNavigate = spec.toolName === NAVIGATE_TOOL_NAME;
+  const boundedNavigate =
+    spec.toolName === NAVIGATE_TOOL_NAME &&
+    navigateControlMode(configuration) === 'distance_sequence';
   const confirmation = readOnly
     ? []
     : [
@@ -1306,10 +1394,16 @@ function buildSkillContract(
             remoteTaskIdentityRequired: true,
             terminalObservationRequired: true,
             redispatchAfterUncertain: false,
-            ...(boundedNavigate
+            ...(spec.toolName === NAVIGATE_TOOL_NAME
               ? {
-                  dispatchMaximum: NAVIGATE_EXACT_DISPATCH_COUNT,
-                  requiredArgumentConstraintIds: Object.freeze([NAVIGATE_ARGUMENT_CONSTRAINT_ID]),
+                  dispatchMaximum: navigateDispatchMaximum(configuration),
+                  ...(boundedNavigate
+                    ? {
+                        requiredArgumentConstraintIds: Object.freeze([
+                          NAVIGATE_ARGUMENT_CONSTRAINT_ID,
+                        ]),
+                      }
+                    : {}),
                 }
               : {}),
             ...(spec.kind === 'emergency_stop'
@@ -1338,7 +1432,9 @@ function buildSkillContract(
       ? `Invoke exactly ${spec.toolName} once for ${resourceId}; require normalized observation evidence and never invoke a side-effecting Tool.`
       : boundedNavigate
         ? `After explicit Plan confirmation, invoke ${spec.toolName} exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} times for ${resourceId}; every invocation must move ${NAVIGATE_EXACT_DIRECTION} by exactly ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres, bind its remote Task, and reach a terminal observation before the next dispatch. Never redispatch an uncertain command.`
-        : `After explicit Plan confirmation, invoke exactly ${spec.toolName} once for ${resourceId}; bind the remote Task, observe progress, and accept only its terminal observation. Never redispatch an uncertain command.`,
+        : coordinateNavigate
+          ? `After explicit Plan confirmation, invoke ${spec.toolName} exactly once for ${resourceId} with mission.type=point, an explicit WGS84 target, and stopOnObstacle=true; bind the remote Task and accept only terminal evidence. Never redispatch an uncertain command.`
+          : `After explicit Plan confirmation, invoke exactly ${spec.toolName} once for ${resourceId}; bind the remote Task, observe progress, and accept only its terminal observation. Never redispatch an uncertain command.`,
     outputInstruction:
       'Return only schema-valid public SMPP output with the declared normalized evidence references.',
     inputSchema,
@@ -1357,7 +1453,8 @@ function buildSkillContract(
       maxReplans: 0,
       maxDurationSeconds: readOnly ? 60 : spec.kind === 'emergency_stop' ? 300 : 1800,
       maxLlmCalls: 0,
-      maxMcpCalls: boundedNavigate ? NAVIGATE_EXACT_DISPATCH_COUNT : 1,
+      maxMcpCalls:
+        spec.toolName === NAVIGATE_TOOL_NAME ? navigateDispatchMaximum(configuration) : 1,
       cancelStrategy: readOnly ? 'wait_current' : 'try_interrupt',
       ...(readOnly ? {} : { pauseReplanThresholdSeconds: 0 }),
     }),
@@ -1378,10 +1475,17 @@ function buildSkillContract(
           ? 'Require normalized observation evidence; MCP transport acceptance is not sufficient evidence.'
           : boundedNavigate
             ? `Dispatch exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} times in strict sequence; bind every remote Task and require progress plus terminal observation before its successor dispatch.`
-            : 'Dispatch once only; bind the remote Task and require progress plus terminal observation before success.',
+            : coordinateNavigate
+              ? 'Dispatch exactly once to the explicit WGS84 point with stopOnObstacle=true; bind the remote Task and require progress plus terminal observation.'
+              : 'Dispatch once only; bind the remote Task and require progress plus terminal observation before success.',
         ...(boundedNavigate
           ? [
               `Each ${NAVIGATE_TOOL_NAME} dispatch must use mission.type=distance, direction=${NAVIGATE_EXACT_DIRECTION}, and mission.distanceM=${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres; the confirmed Task must contain exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} sequential dispatches totalling ${String(NAVIGATE_EXACT_TOTAL_DISTANCE_METERS)} metres.`,
+            ]
+          : []),
+        ...(coordinateNavigate
+          ? [
+              'The confirmed input must use mission.type=point, a schema-valid explicit WGS84 target, and stopOnObstacle=true.',
             ]
           : []),
       ]),
@@ -1397,6 +1501,11 @@ function buildSkillContract(
               ...(boundedNavigate
                 ? [
                     `Dispatch ${NAVIGATE_TOOL_NAME} with any direction or distance outside the frozen ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} × ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metre ${NAVIGATE_EXACT_DIRECTION} sequence, or dispatch a successor before its predecessor is terminal.`,
+                  ]
+                : []),
+              ...(coordinateNavigate
+                ? [
+                    `Dispatch ${NAVIGATE_TOOL_NAME} with a distance, route, return-home mission, an inferred target, or stopOnObstacle other than true.`,
                   ]
                 : []),
             ]),
@@ -1433,25 +1542,29 @@ function buildSkillContract(
         : []),
     ]),
     taskBindings: Object.freeze(
-      Array.from({ length: boundedNavigate ? NAVIGATE_EXACT_DISPATCH_COUNT : 1 }, (_, index) =>
-        Object.freeze({
-          bindingId: boundedNavigate
-            ? `task-binding-${spec.skillId}-v${String(version)}-dispatch-${String(index + 1)}`
-            : `task-binding-${spec.skillId}-v${String(version)}`,
-          taskType: spec.toolName,
-          providerPolicy: Object.freeze({
-            selection: 'required',
-            preferredProviderIds: Object.freeze([]),
-            requiredProviderId: binding.localServerId,
-            forbiddenProviderIds: Object.freeze([]),
-            requiredAttributes: Object.freeze([
-              `task_behavior:${tool.taskExecutionProfile.taskBehavior}`,
-              `effect:${tool.executionSemantics.effect}`,
-              `execution:${tool.executionSemantics.execution}`,
-              `catalog_checksum:${binding.catalogChecksum}`,
-            ]),
+      Array.from(
+        {
+          length: spec.toolName === NAVIGATE_TOOL_NAME ? navigateDispatchMaximum(configuration) : 1,
+        },
+        (_, index) =>
+          Object.freeze({
+            bindingId: boundedNavigate
+              ? `task-binding-${spec.skillId}-v${String(version)}-dispatch-${String(index + 1)}`
+              : `task-binding-${spec.skillId}-v${String(version)}`,
+            taskType: spec.toolName,
+            providerPolicy: Object.freeze({
+              selection: 'required',
+              preferredProviderIds: Object.freeze([]),
+              requiredProviderId: binding.localServerId,
+              forbiddenProviderIds: Object.freeze([]),
+              requiredAttributes: Object.freeze([
+                `task_behavior:${tool.taskExecutionProfile.taskBehavior}`,
+                `effect:${tool.executionSemantics.effect}`,
+                `execution:${tool.executionSemantics.execution}`,
+                `catalog_checksum:${binding.catalogChecksum}`,
+              ]),
+            }),
           }),
-        }),
       ),
     ),
     adaptive: Object.freeze({
@@ -1473,7 +1586,9 @@ function buildSkillContract(
             ? 'Validate the exact resource and current Binding, invoke once, and require normalized observation evidence.'
             : boundedNavigate
               ? `Validate explicit confirmation and current authority, then dispatch exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} ${NAVIGATE_EXACT_DIRECTION} distance missions of ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres in strict sequence; require terminal evidence before each successor dispatch.`
-              : 'Validate explicit confirmation and current authority, dispatch once, bind the remote Task, observe progress, and require terminal evidence.',
+              : coordinateNavigate
+                ? 'Validate explicit confirmation and current authority, then dispatch the explicit WGS84 point mission exactly once with stopOnObstacle=true; require remote terminal evidence.'
+                : 'Validate explicit confirmation and current authority, dispatch once, bind the remote Task, observe progress, and require terminal evidence.',
         ]),
       }),
     }),
@@ -1501,8 +1616,17 @@ function buildCapability(
   resourceId: string,
   capabilityVersion: number,
   skillVersion: number,
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
 ): NodeCapabilityDefinitionVersion {
   const readOnly = spec.kind === 'read_only';
+  const coordinateNavigate =
+    spec.toolName === NAVIGATE_TOOL_NAME &&
+    navigateControlMode(configuration) === 'coordinate_point';
+  const boundedNavigate =
+    spec.toolName === NAVIGATE_TOOL_NAME &&
+    navigateControlMode(configuration) === 'distance_sequence';
+  const dispatchMaximum =
+    spec.toolName === NAVIGATE_TOOL_NAME ? navigateDispatchMaximum(configuration) : 1;
   return createNodeCapabilityDefinition({
     capabilityId: spec.capabilityId,
     version: capabilityVersion,
@@ -1512,7 +1636,13 @@ function buildCapability(
     domain: 'vehicle.ugv',
     name: spec.name,
     description: spec.summary,
-    inputSchema: requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
+    inputSchema: coordinateNavigate
+      ? coordinatePointInputSchema(
+          tool.inputSchema,
+          resourceId,
+          navigateCoordinateTarget(configuration),
+        )
+      : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
     outputSchema: requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
     successCriteria: [
       Object.freeze({ type: 'output_schema_valid', required: true }),
@@ -1526,10 +1656,8 @@ function buildCapability(
             Object.freeze({ type: 'remote_terminal_observation_present', required: true }),
             Object.freeze({
               type: 'external_command_dispatch_count',
-              ...(spec.toolName === NAVIGATE_TOOL_NAME
-                ? { minimum: NAVIGATE_EXACT_DISPATCH_COUNT }
-                : {}),
-              maximum: boundedDispatchMaximum(spec),
+              ...(spec.toolName === NAVIGATE_TOOL_NAME ? { minimum: dispatchMaximum } : {}),
+              maximum: dispatchMaximum,
             }),
           ]),
     ],
@@ -1567,12 +1695,12 @@ function buildCapability(
               sideEffecting: true,
               allowEnvironment: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
               runIdEnvironment: 'REAL_UGV_TEST_RUN_ID',
-              dispatchMaximum: boundedDispatchMaximum(spec),
+              dispatchMaximum,
               uncertainDispatchPolicy: 'reconcile_never_redispatch',
               remoteTaskTerminalEvidenceRequired: true,
             }),
           ]),
-      ...(spec.toolName === NAVIGATE_TOOL_NAME ? [boundedMovementConstraint()] : []),
+      ...(boundedNavigate ? [boundedMovementConstraint()] : []),
       ...(spec.kind === 'emergency_stop'
         ? [
             Object.freeze({
@@ -1618,8 +1746,66 @@ function boundedMovementConstraint(): JsonObject {
   });
 }
 
-function boundedDispatchMaximum(spec: GovernanceSpec): number {
-  return spec.toolName === NAVIGATE_TOOL_NAME ? NAVIGATE_EXACT_DISPATCH_COUNT : 1;
+function coordinatePointInputSchema(
+  schema: unknown,
+  resourceId: string,
+  target: Readonly<{ longitude: number; latitude: number; altitude: number }>,
+): JsonObject {
+  assertNavigatePointSchema(schema);
+  return requireObjectSchema(
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId', 'mission', 'stopOnObstacle'],
+      properties: {
+        resourceId: { type: 'string', const: resourceId },
+        mission: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['type', 'target'],
+          properties: {
+            type: { const: 'point' },
+            target: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['latitude', 'longitude', 'altitude'],
+              properties: {
+                latitude: { type: 'number', const: target.latitude },
+                longitude: { type: 'number', const: target.longitude },
+                altitude: { type: 'number', const: target.altitude },
+              },
+            },
+          },
+        },
+        stopOnObstacle: { type: 'boolean', const: true },
+      },
+    },
+    'NAVIGATE_POINT_SCHEMA_UNSUPPORTED',
+  );
+}
+
+function navigateControlMode(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+): NavigateControlMode {
+  return configuration.navigateControlMode ?? 'distance_sequence';
+}
+
+function navigateDispatchMaximum(configuration: UgvSmppCapabilityGovernanceConfiguration): number {
+  return navigateControlMode(configuration) === 'distance_sequence'
+    ? NAVIGATE_EXACT_DISPATCH_COUNT
+    : 1;
+}
+
+function navigateCoordinateTarget(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+): Readonly<{ longitude: number; latitude: number; altitude: number }> {
+  const target = configuration.navigateCoordinateTarget;
+  if (navigateControlMode(configuration) !== 'coordinate_point' || target === undefined)
+    fail(
+      'DRIVER_CONFIGURATION_INVALID',
+      'Coordinate navigation requires one exact configured WGS84 target.',
+    );
+  return target;
 }
 
 function buildImplementation(
@@ -2200,6 +2386,24 @@ function validateConfiguration(
   )
     fail('DRIVER_CONFIGURATION_INVALID', 'Navigate activation must be an explicit boolean.');
   if (
+    input.navigateControlMode !== undefined &&
+    !['distance_sequence', 'coordinate_point'].includes(input.navigateControlMode)
+  )
+    fail('DRIVER_CONFIGURATION_INVALID', 'Navigate control mode is invalid.');
+  if (input.navigateControlMode === 'coordinate_point' && input.activateNavigateControl !== true)
+    fail(
+      'DRIVER_CONFIGURATION_INVALID',
+      'Coordinate navigation requires explicit navigate activation.',
+    );
+  if (
+    input.navigateControlMode === 'coordinate_point' &&
+    !validCoordinateTarget(input.navigateCoordinateTarget)
+  )
+    fail(
+      'DRIVER_CONFIGURATION_INVALID',
+      'Coordinate navigation requires one exact configured WGS84 target.',
+    );
+  if (
     input.resourceId !== undefined &&
     (input.resourceId.trim() === '' || input.resourceId.length > 256)
   )
@@ -2375,6 +2579,17 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
 > {
   const configuredResource = environment['UGV_TEST_RESOURCE_ID']?.trim();
   const activateNavigateControl = explicitYes(environment, 'SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL');
+  const coordinateNavigation = optionalYesNo(environment, 'ALLOW_UGV_COORDINATE_NAVIGATION');
+  const navigateCoordinateTarget = coordinateNavigation
+    ? configuredSafePoint(environment)
+    : undefined;
+  if (coordinateNavigation) {
+    if (!activateNavigateControl)
+      fail(
+        'DRIVER_CONFIGURATION_INVALID',
+        'Coordinate navigation requires explicit navigate activation.',
+      );
+  }
   return Object.freeze({
     configuration: Object.freeze({
       nodeControlBaseUrl: requiredEnvironment(environment, 'SDAR_NODE_CONTROL_BASE_URL'),
@@ -2386,6 +2601,8 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
       packageWorkspaceRoot: requiredEnvironment(environment, 'SDAR_UGV_GOVERNANCE_PACKAGE_ROOT'),
       runId: requiredEnvironment(environment, 'SDAR_UGV_BOOTSTRAP_RUN_ID'),
       activateNavigateControl,
+      navigateControlMode: coordinateNavigation ? 'coordinate_point' : 'distance_sequence',
+      ...(navigateCoordinateTarget === undefined ? {} : { navigateCoordinateTarget }),
       ...(configuredResource === undefined || configuredResource === ''
         ? {}
         : { resourceId: configuredResource }),
@@ -2402,6 +2619,59 @@ function explicitYes(environment: NodeJS.ProcessEnv, name: string): boolean {
   if (value !== 'YES')
     fail('DRIVER_CONFIGURATION_INVALID', `${name} must be exactly YES when configured.`);
   return true;
+}
+
+function optionalYesNo(environment: NodeJS.ProcessEnv, name: string): boolean {
+  const value = environment[name]?.trim();
+  if (value === undefined || value === '' || value === 'NO') return false;
+  if (value !== 'YES')
+    fail('DRIVER_CONFIGURATION_INVALID', `${name} must be exactly YES or NO when configured.`);
+  return true;
+}
+
+function configuredSafePoint(
+  environment: NodeJS.ProcessEnv,
+): Readonly<{ longitude: number; latitude: number; altitude: number }> {
+  const raw = requiredEnvironment(environment, 'UGV_TEST_SAFE_POINT_JSON');
+  if (raw.length > 16_384)
+    fail('DRIVER_CONFIGURATION_INVALID', 'UGV_TEST_SAFE_POINT_JSON is too large.');
+  let point: unknown;
+  try {
+    point = JSON.parse(raw);
+  } catch {
+    return fail('DRIVER_CONFIGURATION_INVALID', 'UGV_TEST_SAFE_POINT_JSON is invalid JSON.');
+  }
+  const value = record(point);
+  if (!validCoordinateTarget(value))
+    fail(
+      'DRIVER_CONFIGURATION_INVALID',
+      'UGV_TEST_SAFE_POINT_JSON must be one exact WGS84 latitude/longitude/altitude object.',
+    );
+  return Object.freeze({
+    longitude: value.longitude,
+    latitude: value.latitude,
+    altitude: value.altitude,
+  });
+}
+
+function validCoordinateTarget(
+  value: unknown,
+): value is Readonly<{ longitude: number; latitude: number; altitude: number }> {
+  const target = record(value);
+  return (
+    target !== undefined &&
+    sameStrings(Object.keys(target), ['altitude', 'latitude', 'longitude']) &&
+    finiteCoordinate(target['latitude'], -90, 90) &&
+    finiteCoordinate(target['longitude'], -180, 180) &&
+    typeof target['altitude'] === 'number' &&
+    Number.isFinite(target['altitude'])
+  );
+}
+
+function finiteCoordinate(value: unknown, minimum: number, maximum: number): value is number {
+  return (
+    typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+  );
 }
 
 export async function writeRedactedUgvSmppGovernanceReport(

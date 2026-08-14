@@ -358,13 +358,14 @@ export class RuntimeTaskCapabilityService {
       binding.constraintSnapshot,
       'confirmation_policy',
     );
-    const sideEffectPolicy = exactlyOneConstraint(binding.constraintSnapshot, 'side_effect_policy');
+    const sideEffectPolicy = exactlyOneSideEffectPolicy(binding.constraintSnapshot);
     const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
     const resourceId = input?.['resourceId'];
     const allowedResourceIds = resourcePolicy['allowedResourceIds'];
     const localServerId = providerPolicy['localServerId'];
     const providerBindingId = providerPolicy['mcpProviderBindingId'];
     if (
+      input === undefined ||
       exactSkill['skillId'] !== skillReference.skillId ||
       exactSkill['skillVersion'] !== skillReference.skillVersion ||
       typeof resourceId !== 'string' ||
@@ -381,6 +382,8 @@ export class RuntimeTaskCapabilityService {
       providerPolicy['fallback'] !== 'deny' ||
       typeof confirmationPolicy['required'] !== 'boolean' ||
       typeof sideEffectPolicy['sideEffecting'] !== 'boolean' ||
+      (sideEffectPolicy['type'] === 'physical_side_effect_policy' &&
+        !sideEffectPolicy['sideEffecting']) ||
       (sideEffectPolicy['sideEffecting'] && !confirmationPolicy['required'])
     )
       skillUsageAuthorityInvalid('The frozen Task Capability usage policy is incomplete.');
@@ -433,6 +436,10 @@ export class RuntimeTaskCapabilityService {
           humanConfirmation: confirmationPolicy['required']
             ? ('pending' as const)
             : ('not_requested' as const),
+          taskAvailabilityArguments: Object.freeze({
+            unresolved: false as const,
+            value: Object.freeze(structuredClone(input)),
+          }),
           systemPolicy: Object.freeze({
             allowedModes: Object.freeze(['guidance', 'template', 'procedure'] as const),
             requireProcedureForHighRisk: true,
@@ -788,8 +795,7 @@ function createPhysicalDispatchProof(
       invocation.executionSemantics.effect === 'side_effecting' &&
       invocation.executionSemantics.execution === 'task_required' &&
       invocation.executionSemantics.replay === 'forbidden' &&
-      provider !== undefined &&
-      invocation.serverId === provider.serverId &&
+      invocation.serverId === provider?.serverId &&
       invocation.toolName === provider.toolName &&
       nonEmpty(invocation.controlConfirmationId) &&
       nonEmpty(invocation.controlProviderBindingId) &&
@@ -806,25 +812,22 @@ function createPhysicalDispatchProof(
       consumedAt !== undefined &&
       invocationStartedAt <= consumedAt &&
       consumedAt <= invocationCompletedAt &&
-      admission !== undefined &&
-      admission.invocationId === invocation.invocationId &&
+      admission?.invocationId === invocation.invocationId &&
       admission.taskId === binding.taskId &&
       admission.capabilityAttemptId === capabilityAttemptId &&
       admission.recordedInvocationId === invocation.invocationId &&
       admission.argumentsHash === invocation.controlArgumentsHash &&
       admission.dispatchHash === invocation.controlDispatchHash &&
-      admission?.status === 'materialized' &&
+      admission.status === 'materialized' &&
       admission.reasonCode === undefined &&
-      remote !== undefined &&
-      admission.bindingId === remote.bindingId &&
+      admission.bindingId === remote?.bindingId &&
       admission.materializedBindingId === remote.bindingId &&
       admission.workflowPlanId === planId &&
       admission.workflowNodeId === remote.workflowNodeId &&
       admission.workflowNodeRunId === remote.workflowNodeRunId &&
       remote.mcpInvocationId === invocation.invocationId &&
       remote.workflowPlanId === planId &&
-      expectedNode !== undefined &&
-      remote.workflowNodeId === expectedNode.nodeId &&
+      remote.workflowNodeId === expectedNode?.nodeId &&
       remote.executionMode === 'live' &&
       remote.protocolStatus === 'completed' &&
       remote.providerFailureCount === 0 &&
@@ -883,8 +886,7 @@ function physicalPlanSequence(
   expectedDispatchCount: number,
 ): readonly TaskCapabilityPhysicalPlanEvidence['nodes'][number][] | undefined {
   if (
-    plan === undefined ||
-    plan.planId !== planId ||
+    plan?.planId !== planId ||
     plan.confirmationStatus !== 'confirmed' ||
     expectedDispatchCount < 1 ||
     plan.nodes.some((node) => node.type === 'loop' || node.type === 'parallel')
@@ -1011,15 +1013,11 @@ function nonEmpty(value: string | undefined): value is string {
 }
 
 function propertyPath(value: unknown): readonly string[] | undefined {
-  return Array.isArray(value) && value.length > 0 && value.every(nonEmpty)
-    ? (value as readonly string[])
-    : undefined;
+  return Array.isArray(value) && value.length > 0 && value.every(nonEmpty) ? value : undefined;
 }
 
 function stringValues(value: unknown): readonly string[] | undefined {
-  return Array.isArray(value) && value.length > 0 && value.every(nonEmpty)
-    ? (value as readonly string[])
-    : undefined;
+  return Array.isArray(value) && value.length > 0 && value.every(nonEmpty) ? value : undefined;
 }
 
 function valueAtPath(value: unknown, path: readonly string[]): unknown {
@@ -1433,6 +1431,22 @@ function exactlyOneConstraint(
   const match = matches[0];
   if (matches.length !== 1 || match === undefined)
     skillUsageAuthorityInvalid(`The Task Capability requires one ${type} constraint.`);
+  return match;
+}
+
+function exactlyOneSideEffectPolicy(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+): Readonly<Record<string, unknown>> {
+  const matches = constraints.filter(
+    (constraint) =>
+      constraint['type'] === 'side_effect_policy' ||
+      constraint['type'] === 'physical_side_effect_policy',
+  );
+  const match = matches[0];
+  if (matches.length !== 1 || match === undefined)
+    skillUsageAuthorityInvalid(
+      'The Task Capability requires exactly one side-effect policy constraint.',
+    );
   return match;
 }
 

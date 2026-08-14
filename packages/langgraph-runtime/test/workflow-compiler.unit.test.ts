@@ -367,11 +367,11 @@ describe('LangGraph Workflow compiler', () => {
       [
         ...segmentIds.slice(0, -1).map((nodeId, index) => ({
           sourceNodeId: nodeId,
-          targetNodeId: segmentIds[index + 1]!,
+          targetNodeId: required(segmentIds[index + 1]),
         })),
-        { sourceNodeId: segmentIds.at(-1)!, targetNodeId: 'result' },
+        { sourceNodeId: required(segmentIds.at(-1)), targetNodeId: 'result' },
       ],
-      segmentIds[0]!,
+      required(segmentIds[0]),
       ['result'],
     );
     const callMcpTool = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) =>
@@ -1857,6 +1857,11 @@ describe('LangGraph Workflow compiler', () => {
     expect(callMcpTool).not.toHaveBeenCalled();
   });
 });
+
+function required<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error('Expected fixture value.');
+  return value;
+}
 
 function recoveryDefinition(option: {
   readonly action: 'retry' | 'change_arguments' | 'alternative_tool' | 'invoke_skill';

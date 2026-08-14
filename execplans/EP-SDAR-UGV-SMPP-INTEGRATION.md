@@ -29,7 +29,7 @@ are never edited or redeployed by this repository.
 
 ## Context and Orientation
 
-- Base and `origin/main`: `b8fc6c20b95114007eab86305aa4e34863f1334d`.
+- Latest merged `origin/main`: `34ce7a7a43971de37566b24f969b4f0aeadec2b2`; branch head before this handoff commit: `710cb25d9e365c6a1a30a532d22deac787a7c3b0`.
 - Branch: `codex/sdar-ugv-smpp-integration`, created directly from that base.
 - Existing authorities to reuse: `NodeControlSmppRegistryService`, Candidate Directory,
   `NodeControlMcpProviderBindingService`, Runtime frozen MCP Registry/Catalog, Remote Task Binding
@@ -101,7 +101,7 @@ repository license/source-lock process become mandatory before the dependency or
       pending and is not claimed by unit evidence.
 - [x] Implement and verify the generic `managed_capability` Task Understanding composition and
       deterministic admission guards while preserving the HA profile regression.
-- [x] Reconciled exact Provider Binding revision 2, Runtime tool revision 2 and live 11-operation
+- [x] Reconciled exact Provider Binding revision 5, Runtime tool revision 5 and live 11-operation
       Catalog `2.0.0-rc.1:2`; published five read Skills at version 4 and five read Capabilities at
       version 2, and staged five controls non-selectable Draft without implementation bindings.
       Fire has no Capability/Skill and was not called.
@@ -132,6 +132,15 @@ repository license/source-lock process become mandatory before the dependency or
       and Goal Planning, then `interactive_plan_patch` failed `MODEL_TRANSPORT_UPSTREAM_ERROR`
       while correcting a six-Skill-Goal candidate to the required one Skill Goal. No Plan/control
       confirmation or physical write occurred.
+- [x] 2026-08-14 published coordinate-point navigate Skill/Capability version 5 for `vehicle:ugv1`.
+      The accepted TaskCapability froze longitude `106.81413978`, latitude `29.72042600`, altitude
+      `500` and `stopOnObstacle=true`. The driver now freezes those values as Schema constants, but
+      observed live v5 predates that final fix and needs a governance successor rerun. Real A2A Task
+      `2eb25439-8d9d-448a-9e04-5a4ed761170d` accepted the corrected exact Goal and one exact Skill
+      Goal, then failed before Workflow Plan persistence. Twelve read-only frozen Availability
+      checks through the post-integration retry at `11:25:57Z` returned
+      `disabled / UGV_CHASSIS_TRACK_BUSY`; no governed
+      confirmation, MCP Tool call, remote Task or physical write was created.
 - [x] 2026-08-12 implemented ADR-137 create-on-empty Runtime model initialization. Startup
       atomically creates the explicitly configured structured Provider and optional separate
       embedding Provider plus all 21 operation routes only when the Provider table is empty; any
@@ -146,25 +155,29 @@ repository license/source-lock process become mandatory before the dependency or
       external adapter returned `UGV_EXECUTION_MODE_UNSUPPORTED`; corrected Goal Evaluation no
       longer shape-crashed, but the bounded replan budget exhausted and the Task failed
       `GOAL_UNACHIEVABLE`. This is real failure evidence, not a passed A2A gate.
-- [ ] Resolve the current external `UGV_MQTT_UNAVAILABLE` state, terminal-outcome direct
+- [ ] Resolve the current external `UGV_CHASSIS_TRACK_BUSY` state, terminal-outcome direct
       `capability_attempt_id` gap, missing terminal A2A failure projection and transient model Plan
       patch failure; then rerun successful deterministic/A2A reads. The transport-header mode
       rejection itself is resolved by the non-production compatibility switch. Failed
       CapabilityAttempt restart reconciliation and real-model conformance are complete.
+- [ ] Materialize the post-fix coordinate governance successor so the persisted Skill and
+      Capability input Schemas freeze the exact WGS84 target before any dispatch.
 - [ ] Enable live execution on the deployed UGV adapter, provide authoritative fresh/connected/
       stationary state evidence, and complete node-scoped one-shot sequence confirmation before
       running the five-dispatch movement Task. Then complete lifecycle/emergency/recovery
       qualification.
-- [x] Ran focused gates and the repository acceptance matrix. Static, cognitive replay, migrations,
-      main Integration (189/189), main E2E (72/72 with one skip), evidence demo (44/44) and all three
-      smokes passed. The aggregate `pnpm verify` remains failed because its isolated P11 export run
-      timed out; an unchanged standalone rerun passed 1/1. The later E2E Phase 13 baseline drift
-      failed at `22.939% > 15%`, and the official A2A TCK could not start without host
-      `python3-venv`. No threshold, assertion or timeout was weakened.
+- [x] Ran the current focused and repository gates. Static/unit/contract/build passed 275
+      files/2,003 tests, cognitive replay and migrations passed, and Integration passed 36
+      files/216 tests; main E2E
+      passed 72 tests with one skip. The aggregate still failed protected Phase 13 baseline
+      stability. The fixed attempt-8 diagnostic defect is repaired; immutable attempt 9 records
+      the unchanged rerun's drift `15.828% > 15%` while Runtime regression `7.128%` and append P95
+      `4.219 ms` pass. No threshold, assertion or timeout was weakened.
 - [x] Refresh final Markdown/JSON evidence and traceability with the real failed A2A run while
       preserving detailed failed-attempt lineage and the historical failed full verification.
-- [x] Regenerated the secret-scanned delivery ZIP/SHA/patch after the final evidence was frozen;
-      `.gitignore`, `.codex/**`, actual secrets and generated delivery files are excluded.
+- [x] Marked the prior delivery ZIP/SHA/patch stale after the coordinate attempt. Git commit and
+      pull-request state are current delivery authority; `.gitignore`, `.codex/**`, actual secrets
+      and checkpoints remain excluded.
 
 ## Discoveries and Surprises
 
@@ -239,6 +252,10 @@ repository license/source-lock process become mandatory before the dependency or
   failed protected Phase 13 baseline drift at `22.939% > 15%`. Runtime regression (`1.7548%`) and
   append P95 (`3.410 ms`) passed. The official A2A TCK was host-blocked by missing `python3-venv`;
   evidence demo 44/44 and infra/Server/Node Control smokes passed.
+- The deployed UGV Runtime can remain process-ready while its planning authority returns
+  `UGV_CHASSIS_TRACK_BUSY`. PMS resource status is a coarser control-plane projection and cannot
+  override the exact Frozen Availability result; unknown external occupancy is never cleared by
+  SDAR.
 
 ## Decision Log
 
@@ -281,14 +298,12 @@ repository license/source-lock process become mandatory before the dependency or
 ## Validation
 
 Focused materialization, governance, managed Task Understanding, outbound policy, deployment and
-cleanup regressions pass. The repository-wide attempt passed its static, cognitive replay,
-migration and main Integration portions, including 189/189 Integration tests, but failed its
-isolated P11 evidence-export wait. The exact isolated case subsequently passed 1/1 without changing
-the test. A separate `pnpm test:e2e` passed 72/72 main cases with one skip and then failed Phase 13
-baseline drift (`22.939% > 15%`); Runtime regression (`1.7548%`) and append P95 (`3.410 ms`) passed.
-The canonical evidence demo passed 44/44, and infra, Server and Node Control smokes passed. The
-official A2A TCK did not start because the host lacks `python3-venv`. These are classified as a
-failed full gate, not combined into a synthetic pass.
+cleanup regressions pass. The current repository-wide attempt passed static/unit/contract/build,
+cognitive replay, migrations and Integration (35 files/215 tests plus isolated export 1/1). Main
+E2E passed 72 tests with one skip, then protected Phase 13 baseline stability failed. The diagnostic
+writer now allocates immutable attempts monotonically; attempt 9 records drift
+`15.828% > 15%`, Runtime regression `7.128%` and append P95 `4.219 ms`. This remains a failed full
+gate, not a synthetic pass.
 
 The model-initialization increment passes 131 focused Unit/Contract tests across 10 files,
 repository TypeScript typecheck, the 747-source architecture gate, and an isolated real PostgreSQL
@@ -325,7 +340,7 @@ redispatch. Remote completion/cancellation comes only from frozen `tasks/get`/ob
 ## Outcomes and Retrospective
 
 `SDAR_UGV_INTEGRATION_BLOCKED`. Real projection/native lineage/304, Source revision 1, the exact
-candidate, Binding revision 2, Runtime tool revision 2 and the live 11-operation adapter Catalog
+candidate, Binding revision 5, Runtime tool revision 5 and the live 11-operation adapter Catalog
 `2.0.0-rc.1:2` are proven. Five read Skills v4/Capabilities v2 are published and five controls are
 staged Draft/non-selectable without implementations; fire has no Capability/Skill/invocation. The
 generic materializer and `managed_capability` path have focused evidence. Real-model conformance is

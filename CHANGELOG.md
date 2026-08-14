@@ -4,13 +4,30 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## SDAR × UGV SMPP Integration (blocked handoff)
 
+- Added an explicitly governed coordinate-point navigate successor for `vehicle:ugv1`. The code now
+  freezes WGS84 longitude `106.81413978`, latitude `29.72042600`, altitude `500` and
+  `stopOnObstacle=true` as input-Schema constants, with one physical dispatch and mandatory remote
+  terminal evidence. The observed live v5 authority predates this final const fix and requires a
+  governance successor rerun before dispatch.
+- Executed a real A2A coordinate attempt through Task Understanding, corrected exact Goal and a
+  single exact navigate Skill Goal. Provider planning readiness consistently returned
+  `UGV_CHASSIS_TRACK_BUSY` through twelve protocol-faithful reads including the post-integration
+  retry, so the Task failed before Plan persistence;
+  confirmations, MCP Tool calls and physical writes remain zero.
+- Propagated nested Provider readiness reason codes into `SKILL_SELECTION_NO_CANDIDATES`, deduped
+  exact model-selected Task Types, admitted physical-side-effect Capability policy correctly, and
+  forwarded frozen TaskCapability input to Provider planning availability.
+- Repaired Phase 13 immutable diagnostic allocation to choose the next monotonic attempt instead
+  of overwriting fixed attempt 8. Attempt 9 now records the real baseline-drift assertion
+  (`15.828% > 15%`) while Runtime regression (`7.128%`) and append P95 (`4.219 ms`) pass.
+
 - Added explicit credential-free Source authority, generic Provider materialization, exact
   Provider Binding/catalog reconciliation and redacted lineage reports for one real UGV-only SMPP
-  projection. The latest observed authority is Source revision 1, Provider Binding revision 2,
-  Runtime tool revision 2 and Catalog `2.0.0-rc.1:2` with 11 discovered operations.
-- Added five published read-only Skills at version 4 and five read Capabilities at version 2;
-  staged five control authorities Draft/non-selectable without implementation bindings. Fire
-  receives no Capability or Skill.
+  projection. The latest observed authority is Source revision 1, Provider Binding revision 5,
+  Runtime tool revision 5 and Catalog `2.0.0-rc.1:5` with 11 discovered operations.
+- Added five published read-only Skills and Capabilities at version 5 plus the explicitly activated
+  coordinate-point navigate Skill/Capability at version 5; four other control authorities remain
+  Draft/non-selectable. Fire receives no Capability or Skill.
 - Added create-on-empty Runtime model bootstrap from explicit deployment configuration. PostgreSQL
   remains authoritative: any existing Provider makes startup a strict no-op; a clean database can
   atomically create one structured Provider, an optional separate embedding Provider, 21 routes per
@@ -72,13 +89,14 @@ All notable changes to this project are documented here. The format follows Keep
   bad-checksum behavior, aggregate bootstrap and the failed invocation's complete queryable lineage
   remain unproven; real model conformance passed and real A2A ran but failed, while all
   control/lifecycle/emergency/recovery phases were not run.
-- Regenerated the secret-scanned delivery ZIP/SHA/patch from the final evidence and code state,
-  excluding `.gitignore`, `.codex/**`, actual secrets, checkpoints and delivery outputs themselves.
-- The repository gate remains failed. Main Integration passed 189/189, but the aggregate isolated
-  P11 export case timed out before an unchanged standalone 1/1 pass. Main E2E passed 72/72 with one
-  skip before Phase 13 baseline drift failed at `22.939% > 15%`; Runtime regression (`1.7548%`),
-  append P95 (`3.410 ms`), evidence demo 44/44 and all three smokes passed. The official A2A TCK did
-  not start because the host lacks `python3-venv`.
+- The prior delivery ZIP/SHA/patch was not regenerated after the coordinate attempt and is marked
+  stale; Git commit and pull-request state are the current delivery authority. `.gitignore`,
+  `.codex/**`, actual secrets and checkpoints remain excluded.
+- The current repository gate remains failed. Static/unit/contract/build passed 275 files and 2,003
+  tests, migrations passed, Integration passed 36 files/216 tests and Main E2E passed 72 tests with
+  one skip. Phase 13 then failed baseline drift at `15.828% > 15%`; Runtime regression (`7.128%`)
+  and append P95 (`4.219 ms`) passed. The fixed allocator wrote immutable diagnostic attempt 9.
+  Later gates, including the official A2A TCK, were not reached.
 
 ## SDAR v1.4.1 Canonical Evidence Export (completed; PR Ready)
 

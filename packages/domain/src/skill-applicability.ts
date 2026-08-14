@@ -1,5 +1,6 @@
 import type { SkillExecutionMode, SkillContextSource } from './skill-usage.js';
 import type {
+  TaskAvailabilityArguments,
   TaskAvailabilityPossibleEffect,
   TaskAvailabilityRiskLevel,
   TaskAvailableWindow,
@@ -96,6 +97,8 @@ export interface SkillUsageSelectionContext {
   readonly risk: SkillRiskLevel;
   readonly humanConfirmation: SkillHumanConfirmationState;
   readonly systemPolicy: SkillModeSystemPolicy;
+  /** Exact frozen Skill input used only for the Provider's read-only planning availability check. */
+  readonly taskAvailabilityArguments?: TaskAvailabilityArguments;
 }
 
 export type SkillModeDecision =

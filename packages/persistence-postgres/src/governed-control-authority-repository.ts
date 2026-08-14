@@ -338,9 +338,11 @@ export class PostgresGovernedControlAuthorityRepository
              AND current_confirmation.server_id=$2
              AND current_confirmation.tool_name=$3
              AND current_confirmation.arguments_hash=$4
-             AND current_confirmation.revoked_at IS NULL
-             AND current_confirmation.consumed_at IS NULL
-          ORDER BY current_confirmation.confirmed_at DESC,current_confirmation.confirmation_id DESC
+          ORDER BY
+            CASE WHEN current_confirmation.revoked_at IS NULL
+                       AND current_confirmation.consumed_at IS NULL
+              THEN 0 ELSE 1 END,
+            current_confirmation.confirmed_at DESC,current_confirmation.confirmation_id DESC
           LIMIT 1
        ) confirmation ON true
        WHERE task.task_id=$1 AND attempt.attempt_id=$6`,

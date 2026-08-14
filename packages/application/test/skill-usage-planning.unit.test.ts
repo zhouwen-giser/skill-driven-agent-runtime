@@ -199,8 +199,10 @@ describe('Skill Usage Workflow planning', () => {
   });
 
   it('preserves repeated bindings to one Task operation as explicit sequential Tool nodes', () => {
+    const firstTaskBinding = usage.taskBindings[0];
+    if (firstTaskBinding === undefined) throw new Error('Expected a Task binding fixture.');
     const taskBindings = Array.from({ length: 5 }, (_, index) => ({
-      ...usage.taskBindings[0]!,
+      ...firstTaskBinding,
       bindingId: `move-segment-${String(index + 1)}`,
     }));
     const repeatedUsage = createSkillUsageSpecification({
