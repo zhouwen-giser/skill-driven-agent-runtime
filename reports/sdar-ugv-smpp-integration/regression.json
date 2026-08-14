@@ -1,6 +1,6 @@
 {
   "schemaVersion": "sdar.ugv-smpp-regression/v1",
-  "generatedAt": "2026-08-14T11:25:57.105Z",
+  "generatedAt": "2026-08-14T14:17:20.861Z",
   "status": "failed",
   "evidenceClass": "repository_gate_and_subsequent_individual_gate_observations",
   "regressionPassed": false,
@@ -11,19 +11,34 @@
   "environment": {
     "node": "v22.23.1",
     "pnpm": "11.7.0",
-    "infrastructureMode": "isolated_ephemeral_postgres_with_operator_managed_redis",
-    "temporaryPostgresCleanedUp": true,
+    "infrastructureMode": "operator_managed_postgres_and_redis",
+    "temporaryPostgresCleanedUp": false,
     "operatorDatabaseMutationPerformed": false
   },
   "commandMatrix": [
     {
       "name": "authoritative_repository_wide_verification",
       "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
+      "startedAt": "2026-08-14T14:13:11.839Z",
+      "completedAt": "2026-08-14T14:17:20.861Z",
+      "exitCode": 1,
+      "status": "failed",
+      "classification": "authoritative_full_gate",
+      "failure": {
+        "stage": "postgres_redis_integration_setup",
+        "suite": "integration_database_recreation",
+        "code": "POSTGRES_TEMPLATE1_COLLATION_METADATA_INVALID",
+        "sqlState": "XX000"
+      }
+    },
+    {
+      "name": "historical_authoritative_repository_wide_verification",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
       "startedAt": "2026-08-14T11:00:24.203Z",
       "completedAt": "2026-08-14T11:12:19.944Z",
       "exitCode": 1,
       "status": "failed",
-      "classification": "authoritative_full_gate",
+      "classification": "historical_full_gate",
       "failure": {
         "stage": "phase13_performance",
         "suite": "task_service_endpoint_phase13",
@@ -94,13 +109,13 @@
   "repositoryWideVerification": {
     "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
     "status": "failed",
-    "startedAt": "2026-08-14T11:00:24.203Z",
-    "finishedAt": "2026-08-14T11:12:19.944Z",
+    "startedAt": "2026-08-14T14:13:11.839Z",
+    "finishedAt": "2026-08-14T14:17:20.861Z",
     "steps": {
       "staticUnitContractBuild": {
         "status": "passed",
         "testFiles": 275,
-        "tests": 2003,
+        "tests": 2005,
         "openapiOperations": 169,
         "includes": [
           "format_check",
@@ -121,11 +136,11 @@
         "controlMigrationCount": 11
       },
       "postgresRedisIntegration": {
-        "status": "passed",
-        "mainSuite": {
-          "status": "passed",
-          "testFiles": 36,
-          "tests": 216
+        "status": "failed_before_test_execution",
+        "failure": {
+          "code": "POSTGRES_TEMPLATE1_COLLATION_METADATA_INVALID",
+          "sqlState": "XX000",
+          "operatorDatabaseMutationPerformed": false
         }
       }
     },
@@ -157,15 +172,15 @@
   },
   "endToEnd": {
     "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
-    "status": "failed",
+    "status": "historical_failed_not_reached_in_current_run",
     "mainE2eSuite": {
-      "status": "passed",
+      "status": "historical_passed",
       "testFiles": 6,
       "passedTests": 72,
       "skippedTests": 1
     },
     "phase13Performance": {
-      "status": "failed_baseline_stability",
+      "status": "historical_failed_baseline_stability",
       "runtimeP95BaselineMs": 560.8833,
       "runtimeP95EvidenceEnabledMs": 600.86215,
       "runtimeP95RegressionPercent": 7.12784,
@@ -199,7 +214,7 @@
     "officialA2aTck": {
       "command": "pnpm test:a2a-tck",
       "status": "not_reached_in_current_full_verify",
-      "reason": "the authoritative command stopped after the protected Phase 13 failure",
+      "reason": "the authoritative command stopped during Integration database creation before E2E",
       "systemPackageInstalledOrModified": false
     },
     "evidenceE2eDemo": {
@@ -225,26 +240,29 @@
     }
   },
   "preExistingOperatorDatabaseIssue": {
-    "status": "worked_around_without_mutation",
+    "status": "blocks_current_integration_database_creation",
     "reason": "the operator PostgreSQL template1 collation metadata referenced a libc version unavailable on the host",
     "safeRefreshAttempt": "rejected_by_postgresql_invalid_collation_version_change",
-    "resolution": "repository verification used a temporary PostgreSQL 17 plus pgvector 0.8.5 container on tmpfs",
+    "historicalResolution": "an earlier repository verification used a temporary PostgreSQL 17 plus pgvector 0.8.5 container on tmpfs",
+    "currentResolution": "not_applied; the operator PostgreSQL system template was left unchanged",
     "operatorDatabaseChanged": false
   },
   "productionEligible": false,
   "result": {
     "fullVerifyPassed": false,
     "productionGatePassed": false,
-    "focusedRerunRetroactivelyChangesFullGate": false
+    "focusedRerunRetroactivelyChangesFullGate": false,
+    "currentFailureClass": "test_infrastructure_setup",
+    "codeAssertionsFailedInCurrentRun": false
   },
   "cleanup": {
-    "temporaryPostgresContainerStoppedAndRemoved": true,
-    "temporaryPostgresStorage": "tmpfs",
+    "temporaryPostgresContainerStoppedAndRemoved": false,
+    "temporaryPostgresStorage": "not_created_in_current_run",
     "operatorManagedRedisLifecycleChanged": false
   },
   "blockingReasons": [
-    "PHASE13_BASELINE_STABILITY_FAILED",
-    "OFFICIAL_A2A_TCK_NOT_REACHED_AFTER_PRIOR_GATE_FAILURE"
+    "POSTGRES_TEMPLATE1_COLLATION_METADATA_INVALID",
+    "INTEGRATION_AND_E2E_NOT_REACHED_AFTER_TEST_DATABASE_SETUP_FAILURE"
   ],
   "redaction": {
     "secretsIncluded": false,

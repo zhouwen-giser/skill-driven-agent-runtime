@@ -71,6 +71,8 @@ const planDefinition = Object.freeze({
 });
 const planHash = governedControlSnapshotHash(planDefinition);
 const argumentsHash = governedControlSnapshotHash(arguments_);
+const readinessArguments = Object.freeze({ unresolved: false, value: arguments_ });
+const readinessArgumentsHash = governedControlSnapshotHash(readinessArguments);
 const constraints = Object.freeze(controlConstraints());
 
 function continuationCapsule(remoteBindingId: string, state: 'waiting' | 'awaiting_input') {
@@ -234,6 +236,7 @@ describe('PostgreSQL governed physical-control authority', () => {
         serverId,
         toolName,
         argumentsHash,
+        readinessArgumentsHash,
       },
       authority: {
         capabilityBindingId: bindingId,
@@ -680,6 +683,7 @@ describe('PostgreSQL governed physical-control authority', () => {
         serverId,
         toolName,
         argumentsHash,
+        readinessArgumentsHash,
       });
       expect(snapshot).toMatchObject({
         task: { taskId, phase: 'executing', planId },
@@ -700,7 +704,7 @@ describe('PostgreSQL governed physical-control authority', () => {
           checkPhase: 'pre_invocation',
           serverId,
           operationName: toolName,
-          argumentsHash,
+          argumentsHash: readinessArgumentsHash,
           riskLevel: 'medium',
         },
         confirmation: {
@@ -815,6 +819,7 @@ describe('PostgreSQL governed physical-control authority', () => {
           serverId,
           toolName,
           argumentsHash,
+          readinessArgumentsHash,
         }),
       ).resolves.toMatchObject({
         confirmation: {
@@ -849,6 +854,7 @@ describe('PostgreSQL governed physical-control authority', () => {
           serverId,
           toolName,
           argumentsHash,
+          readinessArgumentsHash,
         }),
       ).resolves.toMatchObject({
         confirmation: {
@@ -1218,7 +1224,7 @@ async function seedExactAuthority(): Promise<void> {
              $1,$2,$3::jsonb,$4,'{"available":true}'::jsonb,'available','medium','none',
             '2026-08-13T01:10:00.000Z','catalog-governed-control-v1',
             '2026-08-13T01:00:30.000Z','[]'::jsonb)`,
-    [serverId, toolName, JSON.stringify(arguments_), argumentsHash],
+    [serverId, toolName, JSON.stringify(readinessArguments), readinessArgumentsHash],
   );
 }
 

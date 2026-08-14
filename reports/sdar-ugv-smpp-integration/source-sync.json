@@ -4,15 +4,16 @@
   "evidenceClass": "derived_from_real_persisted_source_and_materialization_run",
   "derivedFrom": [
     "reports/sdar-ugv-smpp-integration/external-preflight.json",
-    "reports/sdar-ugv-smpp-integration/provider-materialization.redacted.json"
+    "reports/sdar-ugv-smpp-integration/provider-materialization.redacted.json",
+    "reports/sdar-ugv-smpp-integration/failed-attempts/a2a-coordinate-navigation-r2-20260814.redacted.json"
   ],
-  "observedAt": "2026-08-12T10:22:38.450Z",
+  "observedAt": "2026-08-14T13:56:30.049Z",
   "sourceSyncReady": true,
   "source": {
-    "smppSourceId": "ugv-smpp",
+    "smppSourceId": "ugv-smpp-r2",
     "sourceRevision": 1,
     "snapshotRevision": 1,
-    "snapshotValidUntil": "2026-08-12T10:27:38.568Z",
+    "snapshotValidUntil": "2026-08-14T14:01:30.153Z",
     "status": "active",
     "syncMode": "poll",
     "lkgPolicy": "allow_unexpired",
@@ -20,7 +21,7 @@
   },
   "lineage": {
     "registryRevision": 1,
-    "registryChecksum": "5efefbcdbf4f4d44bc9e8fb89dca1b10f9a3b150f9bae28a22ffafbb0f1fb6c1",
+    "registryChecksum": "4ff1f7b7ce95027cf79806941076e3cd6fdcd47e7d83234a99fe8a3becc596d3",
     "nativeRevision": 1,
     "nativeChecksum": "72a880d6415d318919f821379007af9f59b5f611ac8560a5833b3b134603c218",
     "projectionContract": "sdar-registry-v1",

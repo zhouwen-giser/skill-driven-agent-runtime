@@ -232,6 +232,7 @@ export interface GovernedControlAuthorityStore {
       serverId: string;
       toolName: string;
       argumentsHash: string;
+      readinessArgumentsHash: string;
     }>,
   ): Promise<GovernedControlRuntimeAuthoritySnapshot | undefined>;
   consumeConfirmation(
@@ -318,6 +319,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
     const invocationId = required(input.invocationId, 'invocationId');
     const exactDispatchHash = dispatchHash(input.dispatchHash);
     const argumentsHash = canonicalHash(input.arguments);
+    const readinessArgumentsHash = canonicalHash({ unresolved: false, value: input.arguments });
     const snapshot = await this.#store.load({
       taskId: input.taskId,
       capabilityAttemptId: input.capabilityAttemptId,
@@ -325,6 +327,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       serverId: input.serverId,
       toolName: input.toolName,
       argumentsHash,
+      readinessArgumentsHash,
     });
     if (snapshot === undefined)
       fail(
@@ -332,7 +335,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
         'No complete durable control authority exists for this Task and Tool invocation.',
       );
     const capability = await this.#loadCurrentCapability(snapshot.binding);
-    this.#assertRuntimeAuthority(input, snapshot, argumentsHash);
+    this.#assertRuntimeAuthority(input, snapshot, argumentsHash, readinessArgumentsHash);
     this.#assertCurrentCapability(snapshot, capability, input);
     this.#assertConfirmation(input, snapshot, argumentsHash);
     const consumedAt = new Date(
@@ -387,6 +390,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
     input: GovernedControlInvocation,
     snapshot: GovernedControlRuntimeAuthoritySnapshot,
     argumentsHash: string,
+    readinessArgumentsHash: string,
   ): void {
     const { task, binding, attempt, plan, skill, readiness } = snapshot;
     const expectedSkillRef = `skill:${skill.skillId}:${String(skill.skillVersion)}`;
@@ -441,7 +445,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       readiness.confirmationRequired ||
       readiness.serverId !== input.serverId ||
       readiness.operationName !== input.toolName ||
-      readiness.argumentsHash !== argumentsHash ||
+      readiness.argumentsHash !== readinessArgumentsHash ||
       readiness.availability !== 'available' ||
       !PHYSICAL_CONTROL_RISK_LEVELS.has(readiness.riskLevel)
     )

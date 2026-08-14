@@ -63,6 +63,7 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
         serverId: 'provider-control',
         toolName: 'light_set_state',
         argumentsHash: 'b'.repeat(64),
+        readinessArgumentsHash: 'd'.repeat(64),
       }),
     ).resolves.toMatchObject({
       task: { taskId: 'task-control-1', phase: 'executing', planId: 'plan-control-1' },
@@ -93,6 +94,7 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
       'b'.repeat(64),
       'provider-binding-control',
       'capability-attempt-control',
+      'd'.repeat(64),
     ]);
   });
 
@@ -112,6 +114,7 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
         serverId: 'provider-control',
         toolName: 'vehicle_fire_weapon',
         argumentsHash: 'c'.repeat(64),
+        readinessArgumentsHash: 'd'.repeat(64),
       }),
     ).resolves.toBeUndefined();
   });

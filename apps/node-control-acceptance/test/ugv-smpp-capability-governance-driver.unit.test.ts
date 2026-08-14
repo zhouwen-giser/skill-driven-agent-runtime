@@ -264,6 +264,30 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     expect(JSON.stringify(report)).not.toContain('https://runtime.local');
   });
 
+  it('governs the exact configured Provider Binding generation', async () => {
+    const root = workspaceRoot();
+    const bindingId = 'mcp-binding-ugv-smpp-r2';
+    const api = new FakeUgvGovernanceApis({
+      bindingId,
+      toolNames: ['vehicle_get_state'],
+    });
+    const report = await governUgvSmppCapabilities(
+      { ...configuration(root), bindingId },
+      { fetch: api.fetch, now: () => NOW },
+    );
+
+    expect(report.binding.bindingId).toBe(bindingId);
+    expect(
+      parseMcpProviderBindingPolicyOverride(
+        api.implementation('vehicle.ugv.read-state')?.['providerPolicyOverride'],
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        requirements: [expect.objectContaining({ mcpProviderBindingId: bindingId })],
+      }),
+    );
+  });
+
   it('publishes only bounded vehicle_navigate behind its explicit activation', async () => {
     const root = workspaceRoot();
     const api = new FakeUgvGovernanceApis();
@@ -662,11 +686,13 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       SDAR_UGV_RUNTIME_MANAGEMENT_BASE_URL: 'http://127.0.0.1:9998',
       SDAR_UGV_GOVERNANCE_PACKAGE_ROOT: root,
       SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-coordinate-run',
+      SDAR_UGV_BINDING_ID: 'mcp-binding-ugv-smpp-r2',
       SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'YES',
       ALLOW_UGV_COORDINATE_NAVIGATION: 'YES',
       UGV_TEST_SAFE_POINT_JSON: '{"longitude":106.81413978,"latitude":29.720426,"altitude":500}',
     });
     expect(coordinate.configuration.navigateControlMode).toBe('coordinate_point');
+    expect(coordinate.configuration.bindingId).toBe('mcp-binding-ugv-smpp-r2');
 
     await expect(
       ugvSmppGovernanceConfigurationFromEnvironment({
@@ -719,6 +745,7 @@ interface FakeOptions {
   readonly resourceSchema?: Record<string, unknown>;
   readonly availabilityValidUntil?: string;
   readonly changeCatalogOnFinalRead?: boolean;
+  readonly bindingId?: string;
 }
 
 class FakeUgvGovernanceApis {
@@ -832,7 +859,11 @@ class FakeUgvGovernanceApis {
     const url = new URL(input instanceof Request ? input.url : input.toString());
     const method = init?.method ?? 'GET';
 
-    if (method === 'GET' && url.pathname === '/api/v1/mcp-provider-bindings/mcp-binding-ugv-smpp') {
+    if (
+      method === 'GET' &&
+      url.pathname ===
+        `/api/v1/mcp-provider-bindings/${this.#options.bindingId ?? 'mcp-binding-ugv-smpp'}`
+    ) {
       this.#bindingReads += 1;
       if (this.#options.changeCatalogOnFinalRead === true && this.#bindingReads >= 2)
         this.replaceOutputSchema('vehicle_get_state', {
@@ -1013,7 +1044,7 @@ class FakeUgvGovernanceApis {
 
   private binding() {
     return {
-      bindingId: 'mcp-binding-ugv-smpp',
+      bindingId: this.#options.bindingId ?? 'mcp-binding-ugv-smpp',
       localServerId: SERVER_ID,
       originType: 'smpp_registry',
       smppSourceId: 'smpp-source-ugv',

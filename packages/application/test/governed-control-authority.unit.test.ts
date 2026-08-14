@@ -94,6 +94,10 @@ describe('GovernedControlInvocationAuthorizer', () => {
       serverId,
       toolName,
       argumentsHash: governedControlSnapshotHash(arguments_),
+      readinessArgumentsHash: governedControlSnapshotHash({
+        unresolved: false,
+        value: arguments_,
+      }),
     });
     expect(fixture.capabilities.load).toHaveBeenCalledExactlyOnceWith(
       capabilityId,
@@ -529,7 +533,7 @@ function currentSnapshot(): GovernedControlRuntimeAuthoritySnapshot {
       confirmationRequired: false,
       serverId,
       operationName: toolName,
-      argumentsHash: governedControlSnapshotHash(arguments_),
+      argumentsHash: governedControlSnapshotHash({ unresolved: false, value: arguments_ }),
       availability: 'available',
       riskLevel: 'medium',
       validUntil: '2026-08-13T01:02:00.000Z',
@@ -726,7 +730,7 @@ function navigateAuthority(arguments_: Readonly<Record<string, unknown>>) {
     readiness: {
       ...base.readiness,
       operationName: navigateToolName,
-      argumentsHash,
+      argumentsHash: governedControlSnapshotHash({ unresolved: false, value: arguments_ }),
     },
     confirmation: {
       ...base.confirmation,

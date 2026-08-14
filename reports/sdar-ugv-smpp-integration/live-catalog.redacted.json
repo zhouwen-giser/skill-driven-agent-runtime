@@ -5,12 +5,12 @@
   "derivedFrom": [
     "reports/sdar-ugv-smpp-integration/provider-materialization.redacted.json"
   ],
-  "observedAt": "2026-08-12T12:04:40.777Z",
+  "observedAt": "2026-08-14T13:04:49.247Z",
   "catalog": {
-    "revision": "2.0.0-rc.1:2",
+    "revision": "2.0.0-rc.1:1",
     "checksum": "1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62",
     "operationCount": 11,
-    "runtimeToolRevision": 2,
+    "runtimeToolRevision": 1,
     "publicResourceId": "vehicle:ugv1",
     "readOnlyOperationCount": 5,
     "controlOperationCount": 5,

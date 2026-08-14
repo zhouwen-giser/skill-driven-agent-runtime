@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-a2a-coordinate-navigation-attempt/v2",
+  "status": "failed",
+  "evidenceClass": "real_sdar_control_plane_and_real_provider_admission_rejection",
+  "observedAt": "2026-08-14T13:58:44.914Z",
+  "requestedOutcome": {
+    "resourceId": "vehicle:ugv1",
+    "mission": {
+      "type": "point",
+      "target": {
+        "longitude": 106.81413978,
+        "latitude": 29.720426,
+        "altitude": 500
+      }
+    },
+    "stopOnObstacle": true
+  },
+  "registryGeneration": {
+    "smppSourceId": "ugv-smpp-r2",
+    "sourceRevision": 1,
+    "snapshotRevision": 1,
+    "snapshotChecksum": "4ff1f7b7ce95027cf79806941076e3cd6fdcd47e7d83234a99fe8a3becc596d3",
+    "nativeRegistryRevision": 1,
+    "nativeRegistryChecksum": "72a880d6415d318919f821379007af9f59b5f611ac8560a5833b3b134603c218",
+    "conditionalOutcome": "not_modified",
+    "lastObservedAt": "2026-08-14T13:56:30.049Z",
+    "lastSnapshotValidUntil": "2026-08-14T14:01:30.153Z"
+  },
+  "governance": {
+    "bindingId": "mcp-binding-ugv-smpp-r2",
+    "bindingRevision": 1,
+    "localServerId": "ugv-smpp-runtime-r2",
+    "catalogRevision": "2.0.0-rc.1:1",
+    "catalogChecksum": "1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62",
+    "skillId": "ugv.navigate",
+    "skillVersion": 6,
+    "capabilityId": "vehicle.ugv.navigate",
+    "capabilityVersion": 6,
+    "exposureId": "a2a.vehicle.ugv.navigate",
+    "exposureVersion": 3,
+    "dispatchMaximum": 1,
+    "fireAuthorityPresent": false
+  },
+  "attempts": [
+    {
+      "taskId": "9fb402b1-cadf-4630-b638-7aa68ea6d2e4",
+      "phase": "failed",
+      "reasonCode": "INTERACTIVE_GOAL_SESSION_BUDGET_EXHAUSTED",
+      "planPersisted": false,
+      "mcpInvocations": 0
+    },
+    {
+      "taskId": "47907368-85b1-4609-9054-9092eee5ffc5",
+      "phase": "failed",
+      "reasonCode": "INTERACTIVE_GOAL_SESSION_BUDGET_EXHAUSTED",
+      "planPersisted": false,
+      "mcpInvocations": 0
+    },
+    {
+      "taskId": "1430d13b-c5db-4bd3-aa2b-7972ac399853",
+      "phase": "failed",
+      "reasonCode": "GOVERNED_CONTROL_AUTHORITY_NOT_FOUND",
+      "terminalTaskErrorCode": "GOAL_EVALUATION_CAPABILITY_EVIDENCE_FORBIDDEN",
+      "planConfirmed": true,
+      "governedConfirmationCreated": true,
+      "governedConfirmationConsumed": false,
+      "mcpInvocations": 0,
+      "rootCause": "pre_invocation_readiness_hash_wrapped_arguments_but_authority_lookup_used_raw_arguments_hash"
+    },
+    {
+      "taskId": "e31eae69-f5d3-4937-923c-4c0f9f2c62c7",
+      "contextId": "5a94f301-d8f6-44c6-8eb7-5486ecfe6735",
+      "phase": "failed",
+      "reasonCode": "GOAL_UNACHIEVABLE",
+      "planId": "plan-task-e31eae69-f5d3-4937-923c-4c0f9f2c62c7-132ad1aa-f3a5-471e-a289-d6d38c6c6646",
+      "capabilityAttemptId": "capability-attempt-e31eae69-f5d3-4937-923c-4c0f9f2c62c7-1",
+      "planConfirmed": true,
+      "governedConfirmationCreated": true,
+      "governedConfirmationConsumed": true,
+      "mcpInvocationId": "mcp-invocation-28d73189-46d1-481d-a1ef-2e2a98a0d3ba",
+      "mcpInvocations": 1,
+      "navigateInvocations": 1,
+      "runtimeEvidenceExecutionMode": "live",
+      "transportLiveExecutionModeHeaderOmitted": true,
+      "providerAdmission": {
+        "status": "failed",
+        "errorCode": "MCP_TOOL_BUSINESS_REJECTION",
+        "reasonCode": "UGV_EXECUTION_MODE_UNSUPPORTED",
+        "retryable": false,
+        "remoteTaskCreated": false
+      }
+    }
+  ],
+  "implementedFixes": [
+    {
+      "code": "GOVERNED_CONTROL_READINESS_ARGUMENT_HASH_MISMATCH",
+      "status": "fixed_and_focused_verified",
+      "detail": "The authority lookup now uses the frozen TaskAvailabilityArguments envelope hash for readiness and the raw Tool arguments hash for confirmation and dispatch."
+    },
+    {
+      "code": "GOAL_CONTRACT_PUNCTUATION_ONLY_TEXT_ACCEPTED",
+      "status": "fixed_and_focused_verified",
+      "detail": "Goal constraints and success criteria now require at least one Unicode letter or number after trimming and retain the bounded two-attempt model rejection path."
+    }
+  ],
+  "outcome": {
+    "realProviderRequestPerformed": true,
+    "remoteTaskCreated": false,
+    "physicalMovementProven": false,
+    "physicalWritesProven": 0,
+    "automaticReplayPerformed": false,
+    "blockingReasonCodes": [
+      "UGV_EXECUTION_MODE_UNSUPPORTED"
+    ]
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "credentialReferencesIncluded": false,
+    "endpointsIncluded": false,
+    "rawModelResponsesIncluded": false,
+    "rawProviderPayloadsIncluded": false,
+    "entityIdsIncluded": true
+  }
+}

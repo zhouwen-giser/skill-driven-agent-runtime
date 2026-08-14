@@ -101,7 +101,7 @@ repository license/source-lock process become mandatory before the dependency or
       pending and is not claimed by unit evidence.
 - [x] Implement and verify the generic `managed_capability` Task Understanding composition and
       deterministic admission guards while preserving the HA profile regression.
-- [x] Reconciled exact Provider Binding revision 5, Runtime tool revision 5 and live 11-operation
+- [x] On the prior pre-rebuild generation, reconciled exact Provider Binding revision 5, Runtime tool revision 5 and live 11-operation
       Catalog `2.0.0-rc.1:2`; published five read Skills at version 4 and five read Capabilities at
       version 2, and staged five controls non-selectable Draft without implementation bindings.
       Fire has no Capability/Skill and was not called.
@@ -149,6 +149,25 @@ repository license/source-lock process become mandatory before the dependency or
       credentials and only `physical_control.confirm` / `physical_control.revoke`. The fifteenth
       and sixteenth exact Availability reads through `12:01:54Z` still returned
       `disabled / UGV_CHASSIS_TRACK_BUSY`; no Plan, confirmation or physical dispatch was created.
+- [x] 2026-08-14 reconciled the external SMPP database rebuild as a new immutable SDAR authority
+      generation: Source `ugv-smpp-r2` revision 1, Frozen Server `ugv-smpp-runtime-r2`, Binding
+      `mcp-binding-ugv-smpp-r2` revision 1, Catalog `2.0.0-rc.1:1`, five read authorities and
+      coordinate navigate Skill/Capability v6. Repeated Source synchronization observed exact
+      native lineage and conditional `not_modified` without overwriting the old revision-1 ledger.
+- [x] 2026-08-14 fixed the governed-control pre-invocation hash mismatch found by a real confirmed
+      coordinate attempt. Readiness now joins on the frozen `{unresolved:false,value:args}`
+      availability envelope hash, while confirmation and dispatch remain bound to the raw Tool
+      arguments hash. Focused Application/Repository regression tests and full TypeScript checking
+      pass; the reproducing attempt created zero MCP invocations.
+- [x] 2026-08-14 completed a second exact coordinate A2A retry through Goal/Plan review,
+      `ugv.navigate@6`, `vehicle.ugv.navigate@6`, one immutable Plan, one consumed one-shot human
+      physical confirmation and one real `vehicle_navigate` invocation. The Provider rejected
+      admission with `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`,
+      `retryable=false`, before creating a remote Task. No replay or movement is claimed.
+- [x] 2026-08-14 hardened Goal Contract output validation after the real model returned
+      punctuation-only constraints/success criteria. Each item must now contain a Unicode letter
+      or number; the existing bounded two-attempt model path remains intact and focused regression
+      coverage passes.
 - [x] 2026-08-12 implemented ADR-137 create-on-empty Runtime model initialization. Startup
       atomically creates the explicitly configured structured Provider and optional separate
       embedding Provider plus all 21 operation routes only when the Provider table is empty; any
@@ -163,23 +182,22 @@ repository license/source-lock process become mandatory before the dependency or
       external adapter returned `UGV_EXECUTION_MODE_UNSUPPORTED`; corrected Goal Evaluation no
       longer shape-crashed, but the bounded replan budget exhausted and the Task failed
       `GOAL_UNACHIEVABLE`. This is real failure evidence, not a passed A2A gate.
-- [ ] Resolve the current external `UGV_STATE_STALE` / Business Event inbox backlog state,
-      terminal-outcome direct `capability_attempt_id` gap, missing terminal A2A failure projection
-      and transient model Plan
-      patch failure; then rerun successful deterministic/A2A reads. The transport-header mode
-      rejection itself is resolved by the non-production compatibility switch. Failed
-      CapabilityAttempt restart reconciliation and real-model conformance are complete.
+- [ ] Obtain a successful Provider read and resolve the terminal-outcome direct
+      `capability_attempt_id` gap plus missing terminal A2A failure projection. The rebuilt r2
+      Registry lineage supersedes the earlier busy/stale Availability observations, but the exact
+      live coordinate retry now fails at Provider admission with `UGV_EXECUTION_MODE_UNSUPPORTED`.
+      Failed CapabilityAttempt restart reconciliation and real-model conformance are complete.
 - [ ] Enable live execution on the deployed UGV adapter, provide authoritative fresh/connected/
       stationary state evidence, and complete node-scoped one-shot sequence confirmation before
       running the five-dispatch movement Task. Then complete lifecycle/emergency/recovery
       qualification.
-- [x] Ran the current focused and repository gates. Static/unit/contract/build passed 275
-      files/2,003 tests, cognitive replay and migrations passed, and Integration passed 36
-      files/216 tests; main E2E
-      passed 72 tests with one skip. The aggregate still failed protected Phase 13 baseline
-      stability. The fixed attempt-8 diagnostic defect is repaired; immutable attempt 9 records
-      the unchanged rerun's drift `15.828% > 15%` while Runtime regression `7.128%` and append P95
-      `4.219 ms` pass. No threshold, assertion or timeout was weakened.
+- [x] Re-ran the current focused and repository gates after the r2 refresh. Focused tests passed
+      45/45; static/unit/contract/build passed 275 files/2,005 tests; Cognitive Replay and all 56
+      Runtime plus 11 Control migrations passed. Integration did not start because the
+      operator-managed PostgreSQL `template1` has invalid collation-version metadata (`XX000`).
+      The operator database was not modified; E2E and later gates were not reached. The prior
+      isolated run's Phase 13 failure remains historical evidence. No threshold, assertion or
+      timeout was weakened.
 - [x] Refresh final Markdown/JSON evidence and traceability with the real failed A2A run while
       preserving detailed failed-attempt lineage and the historical failed full verification.
 - [x] Marked the prior delivery ZIP/SHA/patch stale after the coordinate attempt. Git commit and
@@ -346,22 +364,27 @@ redispatch. Remote completion/cancellation comes only from frozen `tasks/get`/ob
 
 ## Outcomes and Retrospective
 
-`SDAR_UGV_INTEGRATION_BLOCKED`. Real projection/native lineage/304, Source revision 1, the exact
-candidate, Binding revision 5, Runtime tool revision 5 and the live 11-operation adapter Catalog
-`2.0.0-rc.1:2` are proven. Five read Skills v4/Capabilities v2 are published and five controls are
-staged Draft/non-selectable without implementations; fire has no Capability/Skill/invocation. The
+`SDAR_UGV_INTEGRATION_BLOCKED`. Real projection/native lineage/304, rebuilt Source generation
+`ugv-smpp-r2` revision 1, the exact candidate, Binding `mcp-binding-ugv-smpp-r2` revision 1,
+Runtime tool revision 1 and the live 11-operation adapter Catalog `2.0.0-rc.1:1` are proven. Five
+read Skills/Capabilities and coordinate navigate Skill/Capability v6 are published; four other
+controls are staged Draft/non-selectable without implementations, and fire has no
+Capability/Skill/invocation authority. The
 generic materializer and `managed_capability` path have focused evidence. Real-model conformance is
 complete with two Providers, 42 operation routes, 21 current Prompts, nine structured stages,
 Workflow correction and two finite embedding checks. Real A2A `run016` reached exact governed Skill
 and live MCP invocation, but the adapter returned `UGV_EXECUTION_MODE_UNSUPPORTED`; corrected Goal
 Evaluation completed, then replan budget exhausted and the Goal became unachievable. The newer
-non-production no-header compatibility path removes that mode rejection but reveals
-`UGV_MQTT_UNAVAILABLE`. Four single-Task 10 m movement attempts remained pre-dispatch; the latest
-failed model Plan correction, and all four have zero MCP calls. The linked
+non-production no-header compatibility path permits SDAR transport but the rebuilt Provider still
+explicitly rejects live command admission as `UGV_EXECUTION_MODE_UNSUPPORTED`. The latest exact
+coordinate Task proved the complete SDAR confirmation and pre-transport chain and made one failed
+real navigate invocation; no remote Task or movement resulted. Four earlier single-Task 10 m
+movement attempts remained pre-dispatch. The linked
 CapabilityAttempt was closed `failed` by restart reconciliation, but the terminal outcome lacks a
 direct CapabilityAttempt FK, no successful `result_processing` exists and the A2A projection
 remained `TASK_STATE_WORKING`. Deterministic Read, A2A, broader recovery, control and Production
-qualification therefore remain blocked. Physical writes, control calls and fire calls are all zero.
+qualification therefore remain blocked. Successful physical writes and fire calls are zero; one
+failed admission-rejected navigate control invocation is durable evidence.
 Additional limitations are
 `admin_override` semantics, missing Runtime fire hard-deny proof, incomplete Source reliability,
 incomplete failed-invocation lifecycle/terminal lineage, aggregate bootstrap, a failed repository verification gate,

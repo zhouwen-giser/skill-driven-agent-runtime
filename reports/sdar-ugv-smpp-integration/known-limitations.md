@@ -1,14 +1,16 @@
 # Known limitations — SDAR × UGV SMPP
 
-- The credential-free PMS Web proxy exposes the frozen `sdar-registry-v1` projection. Projection
+- The credential-free PMS Web proxy was cleared and rebuilt. SDAR therefore created a new immutable
+  Source generation `ugv-smpp-r2` instead of overwriting the old revision-1 ledger. Projection
   200/304, explicit credential-free Source revision 1, native lineage and the exact
   Provider/Server tuple are proven. Source restart, Registry outage with unexpired LKG,
   expired-LKG rejection and bad-checksum rejection were not executed against this deployment.
-- The latest materialized authority is Provider Binding revision 5, Runtime tool revision 5 and
-  Catalog `2.0.0-rc.1:5` with 11 operations. Its availability/readiness windows are point-in-time
+- The latest materialized authority is the new Frozen Server `ugv-smpp-runtime-r2`, Provider
+  Binding `mcp-binding-ugv-smpp-r2` revision 1, Runtime tool revision 1 and Catalog
+  `2.0.0-rc.1:1` with 11 operations. Its availability/readiness windows are point-in-time
   observations and have not been promoted into current-liveness evidence.
 - The latest disposable integration database publishes five read-only Skills/Capabilities and one
-  explicitly activated coordinate-point navigate Skill/Capability at version 5; the other four
+  explicitly activated coordinate-point navigate Skill/Capability at version 6; the other four
   controls remain Draft/non-selectable. The reusable Capability bounds WGS84 input and requires
   `stopOnObstacle=true`; the accepted TaskCapability, Availability snapshot, confirmed Plan and
   one-shot confirmation freeze the exact request. Fire has no Capability or Skill and was not
@@ -71,6 +73,21 @@
   and only `physical_control.confirm` / `physical_control.revoke`. The fifteenth and sixteenth exact
   Availability reads through `12:01:54Z` still returned
   `disabled / UGV_CHASSIS_TRACK_BUSY`; no Plan or physical dispatch was created.
+- After the SMPP rebuild, four new A2A attempts exercised the revision-1 `r2` authority. Two
+  exhausted interactive Goal budgets before a Plan. The third reached an exact confirmed Plan and
+  one-shot control confirmation but found a product defect: pre-invocation readiness hashed the
+  `TaskAvailabilityArguments` envelope while the authority Repository joined it as if it were the
+  raw Tool-argument hash. That defect is fixed with focused regression coverage; no invocation was
+  created by the failed attempt. The fourth attempt selected `ugv.navigate@6`, confirmed the exact
+  point Plan, consumed one one-shot physical confirmation and made exactly one real
+  `vehicle_navigate` call. The external Provider rejected admission with
+  `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, `retryable=false`; no remote Task
+  or movement was created. See
+  `failed-attempts/a2a-coordinate-navigation-r2-20260814.redacted.json`.
+- The same runs exposed model-generated Goal constraints and success criteria containing only
+  punctuation. Goal Contract validation now requires every constraint and success criterion to
+  contain at least one Unicode letter or number and still performs only the existing bounded two
+  model attempts. The affected live candidates were corrected through the audited Goal Patch path.
 - The five-dispatch code does not claim that remote command completion proves chassis stationarity.
   The deployed `vehicle_get_state` output schema does not freeze authoritative
   fresh/connected/stationary/unowned-task fields, and node-scoped one-shot sequence confirmation is
@@ -79,17 +96,23 @@
   HTTPS-required rule only for explicit development/test/integration deployments. It remains
   rejected in Production; HTTPS certificate validation, URL-credential rejection and scheme
   validation remain enabled.
-- All physical-write gates are closed by the external busy result. No movement, recon, gimbal, tracking, lifecycle control,
-  emergency stop or recovery-side-effect scenario has been attempted. The latest live attempt was
-  read-only; physical writes, navigate calls and fire calls remain zero.
+- The latest coordinate attempt crossed the real Provider boundary exactly once, but Provider
+  admission rejected it before a remote Task existed. No movement, recon, gimbal, tracking,
+  lifecycle control, emergency stop or recovery-side-effect outcome is proven. Physical movement
+  and fire calls remain zero; the single navigate invocation is failed evidence, not a successful
+  physical write.
 - A historical disposable local bootstrap incorrectly published five control authorities. Its
   evidence remains under `failed-attempts/` and is excluded from qualification. Current governance
   correctly stages controls non-executable; the one-time remediation driver was not run against
   those historical databases.
-- The current repository-wide `pnpm verify` did not pass. Static/unit/contract/build, cognitive
-  replay, migrations and Integration passed (35 files/215 tests plus isolated export 1/1). Main
-  E2E passed 72 tests with one skip, then protected Phase 13 baseline drift failed. The diagnostic
-  writer's fixed attempt-8 defect was repaired to allocate immutable attempts monotonically.
+- The current repository-wide `pnpm verify` did not pass. Static/unit/contract/build passed 275
+  files/2,005 tests, Cognitive Replay passed, and all 56 Runtime plus 11 Control migrations passed.
+  Integration did not start because operator-managed PostgreSQL `template1` has invalid
+  collation-version metadata (`XX000`). The operator database was left unchanged; E2E and later
+  gates were not reached in this run.
+- An earlier isolated run passed Integration and Main E2E, then failed protected Phase 13 baseline
+  drift. The diagnostic writer's fixed attempt-8 defect was repaired to allocate immutable
+  attempts monotonically.
 - The unchanged Phase 13 rerun wrote immutable attempt 9 and failed baseline drift at
   `15.828% > 15%`. Runtime regression (`7.128%`) and append P95 (`4.219 ms`) passed. The official
   A2A TCK could not start because the host lacks `python3-venv`; evidence demo 44/44 and all three

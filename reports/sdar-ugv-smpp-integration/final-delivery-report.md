@@ -1,26 +1,28 @@
 # SDAR × UGV SMPP final delivery
 
-Generated at `2026-08-14T12:01:54.328Z`.
+Generated at `2026-08-14T13:58:44.914Z`.
 
 Final qualification: `SDAR_UGV_INTEGRATION_BLOCKED`.
 
-The real Registry, Provider Binding, governed read and coordinate-navigation authorities and
-real-model boundary are proven. The latest exact coordinate A2A request reached a corrected Goal
-and one exact navigate Skill Goal, but the external UGV Runtime reported
-`disabled / UGV_CHASSIS_TRACK_BUSY` on sixteen protocol-faithful read-only Availability checks.
-This is a blocked result, not a partial or successful qualification; no physical command was
-dispatched.
+The rebuilt real Registry, new Provider Binding generation, governed coordinate-navigation
+authority and real-model boundary are proven. The latest exact coordinate A2A request reached and
+confirmed one immutable `ugv.navigate@6` Plan, consumed one exact one-shot physical confirmation
+and crossed the real Provider boundary once. The external UGV Runtime rejected admission with
+`MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, `retryable=false`, before creating
+a remote Task. This is a blocked result, not a partial or successful qualification; no movement is
+proven and no automatic replay occurred.
 
 ## Delivered authority
 
-- Source `ugv-smpp` revision 1 is active with explicit credential-free authority and poll mode. A
-  real projection 200 and conditional 304 were observed, with native Registry lineage preserved.
+- Source generation `ugv-smpp-r2` revision 1 is active with explicit credential-free authority. A
+  real projection 200 and repeated conditional 304 were observed, with native Registry lineage
+  preserved. The old Source generation remains immutable historical evidence.
 - Provider `isr.vehicle.ugv.ugv1` / Server `production-ugv-direct-1` is materialized through
-  `mcp-binding-ugv-smpp` revision 5. Runtime tool revision 5 and frozen Catalog
-  `2.0.0-rc.1:5` expose 11 operations under checksum
+  `mcp-binding-ugv-smpp-r2` revision 1 and Frozen Server `ugv-smpp-runtime-r2`. Runtime tool
+  revision 1 and frozen Catalog `2.0.0-rc.1:1` expose 11 operations under checksum
   `1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62`.
-- Five read-only Skills and Capabilities are published at version 5. Coordinate-point
-  `ugv.navigate@5` / `vehicle.ugv.navigate@5` is published for one point mission with
+- Five read-only Skills and Capabilities are published at version 6. Coordinate-point
+  `ugv.navigate@6` / `vehicle.ugv.navigate@6` is published for one point mission with
   `stopOnObstacle=true`; the accepted TaskCapability, Availability snapshot, confirmed Plan and
   one-shot confirmation freeze the requested point. Four other control authorities remain
   Draft/non-selectable. Fire has zero Skill, Capability and invocation authority.
@@ -37,7 +39,34 @@ recorded validity windows are not promoted into a current-liveness claim at hand
 
 ## Latest real A2A result
 
-The latest coordinate-navigation Task `2eb25439-8d9d-448a-9e04-5a4ed761170d` targeted longitude
+After the external SMPP database rebuild, SDAR created a new immutable Source/Server/Binding
+generation instead of mutating the previous revision-1 ledger. The latest Task
+`e31eae69-f5d3-4937-923c-4c0f9f2c62c7` targeted longitude `106.81413978`, latitude `29.72042600`,
+altitude `500.000` for `vehicle:ugv1`. It persisted the corrected Goal, single Skill Goal,
+`ugv.navigate@6`, `vehicle.ugv.navigate@6`, exact structured input and one immutable Workflow Plan.
+Before confirmation there were zero MCP calls. A human-scoped one-shot confirmation was generated
+from server-side authority and consumed by invocation
+`mcp-invocation-28d73189-46d1-481d-a1ef-2e2a98a0d3ba`; the confirmation, CapabilityAttempt,
+Binding, Tool-argument and dispatch hashes are durably linked.
+
+The call retained Runtime evidence mode `live` while the explicit non-production compatibility
+switch omitted only the live transport header. The external Provider nevertheless returned
+`MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, `retryable=false`, and created no
+remote Task. The A2A Task ended `failed / GOAL_UNACHIEVABLE`. No movement is proven, the failed
+command was not replayed, and fire was not invoked. The redacted evidence is
+`failed-attempts/a2a-coordinate-navigation-r2-20260814.redacted.json`.
+
+The immediately preceding Task exposed and safely reproduced a Runtime defect before any MCP
+invocation: readiness stored the hash of the `TaskAvailabilityArguments` envelope, while governed
+authority lookup joined it using the raw Tool-argument hash. The fix now supplies both exact hashes
+to their distinct authority comparisons, and focused tests prove confirmation/dispatch still use
+the raw arguments hash. Goal Contract validation was also tightened after the real model twice
+returned punctuation-only constraint arrays; every constraint and success criterion must now
+contain a letter or number.
+
+Earlier coordinate evidence remains historical:
+
+An earlier coordinate-navigation Task `2eb25439-8d9d-448a-9e04-5a4ed761170d` targeted longitude
 `106.81413978`, latitude `29.72042600`, altitude `500.000` for `vehicle:ugv1`. Its malformed model
 Goal candidate was rejected and replaced by a deterministically exact Goal; one exact navigate
 Skill Goal was reviewed and accepted. Provider Availability nevertheless remained
@@ -97,8 +126,8 @@ The earlier deterministic-read qualification also failed at the external adapter
 restart/outage/LKG-expiry/bad-checksum qualification, successful reads, explicitly confirmed
 physical control, lifecycle control, emergency stop, recon and broader end-to-end recovery remain
 unproven.
-No movement, control or fire operation was called; physical writes remain zero. The latest blocker
-is oscillating external vehicle readiness, not missing operator confirmation authority.
+No successful movement or fire operation exists. The latest blocker is the external Provider's
+explicit live execution-mode rejection, not missing SDAR plan/confirmation authority.
 
 Execution semantics are reviewed `admin_override` values because the external contract does not
 declare them. An unconditional Runtime hard deny for generic Workflow access to
@@ -107,14 +136,13 @@ declare them. An unconditional Runtime hard deny for generic Workflow access to
 ## Verification
 
 The current repository-wide gate remains failed and is not rewritten by focused passes.
-Static/unit/contract/build passed with 275 files and 2,003 tests; cognitive replay passed; 56
-Runtime and 11 Control migrations passed; PostgreSQL/Redis Integration passed 36 files and 216
-tests. Main E2E passed 72 tests with one skip, then Phase 13 failed its protected baseline-window
-drift gate. The post-fix immutable diagnostic attempt 9 records `15.828% > 15%`; Runtime P95
-regression (`7.128%`) and Evidence append P95 (`4.219 ms`) passed. The allocator now writes the
-next immutable attempt instead of masking the assertion with `EEXIST`. The full command stopped at
-Phase 13, so later gates including the official A2A TCK were not reached. No threshold, assertion or
-timeout was weakened.
+Static/unit/contract/build passed with 275 files and 2,005 tests; Cognitive Replay passed; all 56
+Runtime and 11 Control migrations passed. Integration did not start because the operator-managed
+PostgreSQL rejected test-database creation: `template1` has invalid collation-version metadata
+(`XX000`). The operator database was not modified, and the run did not reach Integration, E2E,
+Phase 13 or the official A2A TCK. An earlier isolated run passed Integration and Main E2E, then
+failed protected Phase 13 baseline drift at `15.828% > 15%`; Runtime P95 regression (`7.128%`) and
+Evidence append P95 (`4.219 ms`) passed. No threshold, assertion or timeout was weakened.
 
 ## Layered readiness
 

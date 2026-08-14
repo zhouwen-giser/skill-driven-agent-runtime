@@ -31,12 +31,22 @@ import type {
   PlanningCorrectionRecordInput,
 } from './planning-correction-service.js';
 
+const MeaningfulContractTextSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(4096)
+  .refine(
+    (value) => /[\p{L}\p{N}]/u.test(value),
+    'Goal Contract text must contain at least one letter or number.',
+  );
+
 const ContractOutputSchema = z
   .object({
     title: z.string().trim().min(1).max(512),
     description: z.string().trim().min(1).max(8192),
-    constraints: z.array(z.string().trim().min(1).max(4096)).max(64),
-    successCriteria: z.array(z.string().trim().min(1).max(4096)).min(1).max(64),
+    constraints: z.array(MeaningfulContractTextSchema).max(64),
+    successCriteria: z.array(MeaningfulContractTextSchema).min(1).max(64),
   })
   .strict();
 

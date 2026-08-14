@@ -18,7 +18,7 @@ import {
 const CHECKSUM = /^[a-f0-9]{64}$/u;
 const INITIAL_GOVERNANCE_VERSION = 1;
 const CREATED_AT = '2026-08-12T00:00:00.000Z';
-const UGV_BINDING_ID = 'mcp-binding-ugv-smpp';
+const DEFAULT_UGV_BINDING_ID = 'mcp-binding-ugv-smpp';
 const FIRE_TOOL_NAME = 'vehicle_fire_weapon';
 const FIRE_CAPABILITY_ID = 'vehicle.ugv.fire-weapon';
 const FIRE_SKILL_ID = 'ugv.fire-weapon';
@@ -161,6 +161,8 @@ export interface UgvSmppCapabilityGovernanceConfiguration {
   readonly runtimeManagementBaseUrl: string;
   readonly packageWorkspaceRoot: string;
   readonly runId: string;
+  /** Exact current Node Control Provider Binding authority. */
+  readonly bindingId?: string;
   /** Required only when the live public Tool schemas admit more than one resource ID. */
   readonly resourceId?: string;
   /** Explicitly publishes only the bounded vehicle_navigate control authority. */
@@ -174,7 +176,7 @@ export interface UgvSmppCapabilityGovernanceReport {
   readonly status: 'passed';
   readonly observedAt: string;
   readonly binding: Readonly<{
-    bindingId: typeof UGV_BINDING_ID;
+    bindingId: string;
     localServerId: string;
     revision: number;
     registryRevision: number;
@@ -276,7 +278,7 @@ export class UgvSmppCapabilityGovernanceError extends Error {
 
 const BindingSchema = z
   .object({
-    bindingId: z.literal(UGV_BINDING_ID),
+    bindingId: z.string().min(1),
     localServerId: z.string().min(1),
     originType: z.literal('smpp_registry'),
     smppSourceId: z.string().min(1),
@@ -802,7 +804,7 @@ export async function governUgvSmppCapabilities(
     status: 'passed',
     observedAt: finalObservedAt,
     binding: Object.freeze({
-      bindingId: UGV_BINDING_ID,
+      bindingId: finalAuthority.binding.bindingId,
       localServerId: finalAuthority.binding.localServerId,
       revision: finalAuthority.binding.revision,
       registryRevision: finalAuthority.binding.registryRevision,
@@ -1066,13 +1068,19 @@ async function loadCatalogAuthority(
   observedAt: string,
   request: typeof fetch,
 ): Promise<CatalogAuthority> {
+  const bindingId = configuration.bindingId ?? DEFAULT_UGV_BINDING_ID;
   const binding = BindingSchema.parse(
     await controlGet(
       configuration,
-      `/api/v1/mcp-provider-bindings/${encodeURIComponent(UGV_BINDING_ID)}`,
+      `/api/v1/mcp-provider-bindings/${encodeURIComponent(bindingId)}`,
       request,
     ),
   );
+  if (binding.bindingId !== bindingId)
+    fail(
+      'PROVIDER_BINDING_IDENTITY_MISMATCH',
+      'Node Control returned a different Provider Binding identity.',
+    );
   requireFresh(binding.availabilityValidUntil, observedAt, 'PROVIDER_BINDING_FRESHNESS_EXPIRED');
   const servers = z
     .object({ items: z.array(RuntimeServerSchema) })
@@ -2348,6 +2356,9 @@ function validateConfiguration(
     fail('DRIVER_CONFIGURATION_INVALID', 'Node Control bearer token is required.');
   if (input.runId.trim().length < 8 || input.runId.length > 128)
     fail('DRIVER_CONFIGURATION_INVALID', 'A bounded unique runId is required.');
+  const bindingId = input.bindingId?.trim() ?? DEFAULT_UGV_BINDING_ID;
+  if (bindingId === '' || bindingId.length > 256)
+    fail('DRIVER_CONFIGURATION_INVALID', 'Provider Binding ID must be bounded and non-empty.');
   if (!isAbsolute(input.packageWorkspaceRoot))
     fail('DRIVER_CONFIGURATION_INVALID', 'Skill Package workspace root must be absolute.');
   if (
@@ -2375,6 +2386,7 @@ function validateConfiguration(
     );
   return Object.freeze({
     ...input,
+    bindingId,
     nodeControlBaseUrl,
     runtimeManagementBaseUrl,
     packageWorkspaceRoot: resolve(input.packageWorkspaceRoot),
@@ -2540,6 +2552,7 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
   }>
 > {
   const configuredResource = environment['UGV_TEST_RESOURCE_ID']?.trim();
+  const configuredBindingId = environment['SDAR_UGV_BINDING_ID']?.trim();
   const activateNavigateControl = explicitYes(environment, 'SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL');
   const coordinateNavigation = optionalYesNo(environment, 'ALLOW_UGV_COORDINATE_NAVIGATION');
   if (coordinateNavigation) {
@@ -2560,6 +2573,10 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
       ),
       packageWorkspaceRoot: requiredEnvironment(environment, 'SDAR_UGV_GOVERNANCE_PACKAGE_ROOT'),
       runId: requiredEnvironment(environment, 'SDAR_UGV_BOOTSTRAP_RUN_ID'),
+      bindingId:
+        configuredBindingId === undefined || configuredBindingId === ''
+          ? DEFAULT_UGV_BINDING_ID
+          : configuredBindingId,
       activateNavigateControl,
       navigateControlMode: coordinateNavigation ? 'coordinate_point' : 'distance_sequence',
       ...(configuredResource === undefined || configuredResource === ''

@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## SDAR × UGV SMPP Integration (blocked handoff)
 
+- Reconciled the external SMPP database rebuild as a new immutable SDAR generation: Source
+  `ugv-smpp-r2` revision 1, Frozen Server `ugv-smpp-runtime-r2`, Binding
+  `mcp-binding-ugv-smpp-r2` revision 1 and Catalog `2.0.0-rc.1:1`. Governance now accepts the exact
+  configured Binding ID rather than assuming the historical local identity; five read authorities
+  and coordinate navigate Skill/Capability v6 use the new lineage.
+- Fixed governed-control authority lookup after a real confirmed coordinate attempt proved that
+  pre-invocation readiness hashes the `TaskAvailabilityArguments` envelope while confirmation and
+  dispatch hash raw Tool arguments. The two hashes now remain explicit and are matched at their
+  owning authority boundaries. The retry consumed one exact human confirmation and made one real
+  `vehicle_navigate` invocation; the external Provider rejected live admission as
+  `UGV_EXECUTION_MODE_UNSUPPORTED`, so no remote Task, replay or movement occurred.
+- Reject punctuation-only model Goal constraints and success criteria after two real model
+  candidates produced comma-only arrays. Each item must contain a Unicode letter or number; the
+  existing two-attempt model bound and audited user Goal Patch path remain unchanged.
+- Re-ran the repository gate after the r2 refresh. Static/unit/contract/build passed 275 files and
+  2,005 tests, Cognitive Replay passed, and all 56 Runtime plus 11 Control migrations passed. The
+  operator-managed PostgreSQL then rejected Integration database creation because `template1`
+  has invalid collation-version metadata (`XX000`); the operator database was not modified and
+  Integration/E2E were not reached in this run.
 - Added an explicitly governed coordinate-point navigate authority for `vehicle:ugv1`, with one
   physical dispatch, explicit bounded WGS84 input, `stopOnObstacle=true` and mandatory remote
   terminal evidence. The reusable Skill/Capability bounds valid coordinates; each TaskCapability,
@@ -29,10 +48,11 @@ All notable changes to this project are documented here. The format follows Keep
 
 - Added explicit credential-free Source authority, generic Provider materialization, exact
   Provider Binding/catalog reconciliation and redacted lineage reports for one real UGV-only SMPP
-  projection. The latest observed authority is Source revision 1, Provider Binding revision 5,
-  Runtime tool revision 5 and Catalog `2.0.0-rc.1:5` with 11 discovered operations.
-- Added five published read-only Skills and Capabilities at version 5 plus the explicitly activated
-  coordinate-point navigate Skill/Capability at version 5; four other control authorities remain
+  projection. The latest observed authority is rebuilt Source generation revision 1, Provider
+  Binding revision 1, Runtime tool revision 1 and Catalog `2.0.0-rc.1:1` with 11 discovered
+  operations.
+- Added five published read-only Skills and Capabilities at version 6 plus the explicitly activated
+  coordinate-point navigate Skill/Capability at version 6; four other control authorities remain
   Draft/non-selectable. Fire receives no Capability or Skill.
 - Added create-on-empty Runtime model bootstrap from explicit deployment configuration. PostgreSQL
   remains authoritative: any existing Provider makes startup a strict no-op; a clean database can
@@ -98,7 +118,7 @@ All notable changes to this project are documented here. The format follows Keep
 - The prior delivery ZIP/SHA/patch was not regenerated after the coordinate attempt and is marked
   stale; Git commit and pull-request state are the current delivery authority. `.gitignore`,
   `.codex/**`, actual secrets and checkpoints remain excluded.
-- The current repository gate remains failed. Static/unit/contract/build passed 275 files and 2,003
+- The earlier repository gate remained failed. Static/unit/contract/build passed 275 files and 2,003
   tests, migrations passed, Integration passed 36 files/216 tests and Main E2E passed 72 tests with
   one skip. Phase 13 then failed baseline drift at `15.828% > 15%`; Runtime regression (`7.128%`)
   and append P95 (`4.219 ms`) passed. The fixed allocator wrote immutable diagnostic attempt 9.

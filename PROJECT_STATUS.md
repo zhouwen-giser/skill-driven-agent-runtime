@@ -3,9 +3,10 @@
 SDAR × UGV SMPP integration is `SDAR_UGV_INTEGRATION_BLOCKED` (updated 2026-08-14). Discovery readiness is
 `true`; Read, A2A, Control, Workflow, Resilience and Production readiness are all `false`. Real
 projection 200/304 and native lineage, credential-free Source revision 1, exact Provider/Server,
-Provider Binding revision 5, Runtime tool revision 5 and Catalog `2.0.0-rc.1:5` with 11 operations
-are proven at their observation times. The disposable integration database now has five read
-authorities and one explicitly activated coordinate-point navigate authority at version 5. The
+new Source generation `ugv-smpp-r2`, Provider Binding `mcp-binding-ugv-smpp-r2` revision 1,
+Runtime tool revision 1 and Catalog `2.0.0-rc.1:1` with 11 operations are proven at their
+observation times. The disposable integration database now has five read authorities and one
+explicitly activated coordinate-point navigate authority at version 6. The
 reusable Skill/Capability bounds WGS84 input and requires `stopOnObstacle=true`; the accepted
 TaskCapability, Availability snapshot, Plan and confirmation freeze the requested point exactly.
 The other four controls remain Draft/non-selectable.
@@ -15,9 +16,11 @@ The branch was synchronized with `origin/main@34ce7a7` in merge commit `80e9f93`
 planning, remote-terminal aggregation and generic frozen movement-constraint interpretation pass
 focused tests and full TypeScript checking. A non-production compatibility switch now omits only
 the live MCP execution-mode transport header while preserving `live` invocation evidence. The
-latest coordinate-point authority uses a single dispatch; its protocol-faithful Availability is
-nevertheless `disabled / UGV_CHASSIS_TRACK_BUSY`. Navigate invocations, physical writes and proven
-movement remain zero.
+latest coordinate-point authority uses a single dispatch. After the SMPP rebuild, the latest A2A
+Task reached an exact confirmed Plan and consumed one one-shot physical confirmation. Exactly one
+real `vehicle_navigate` invocation crossed the Provider boundary, but Provider admission returned
+`MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, `retryable=false`, before a remote
+Task existed. Physical movement remains unproven and fire invocations remain zero.
 
 Runtime's create-on-empty model bootstrap is implemented and verified. Existing Provider state makes
 startup a strict no-op, while a clean database can atomically create the explicitly configured
@@ -40,7 +43,8 @@ timestamps. The terminal outcome is Task-linked but has a null direct `capabilit
 the last A2A projection remained `TASK_STATE_WORKING`, so complete direct/terminal lineage is not
 proven. `a2a-readonly.json` is the primary real
 run016 failure report; detailed lineage is under `failed-attempts/a2a-readonly-run016.redacted.json`.
-Physical writes, control calls and fire calls remain zero.
+Successful physical writes and fire calls remain zero. The later coordinate retry contributes one
+failed, admission-rejected control invocation.
 
 The earlier movement attempt was Task `55496234-f5e7-4589-9a18-b24afd2439d6`. Task Understanding,
 Goal Contract generation and Goal Planning completed, and the Goal was patched to the exact
@@ -49,7 +53,7 @@ five-dispatch contract. The model then returned `MODEL_TRANSPORT_UPSTREAM_ERROR`
 created. Exact redacted evidence is preserved in
 `failed-attempts/a2a-move10-live-header-omit-20260814.redacted.json`.
 
-The latest coordinate attempt is Task `2eb25439-8d9d-448a-9e04-5a4ed761170d`. It accepted an exact
+An earlier coordinate attempt was Task `2eb25439-8d9d-448a-9e04-5a4ed761170d`. It accepted an exact
 patched Goal and one exact navigate Skill Goal for longitude `106.81413978`, latitude
 `29.72042600`, altitude `500`, but failed before Workflow Plan persistence because Provider
 readiness was disabled. Twelve exact read-only availability checks through the post-integration
@@ -58,6 +62,17 @@ returned `UGV_CHASSIS_TRACK_BUSY`; Runtime PostgreSQL had no UGV remote binding.
 confirmation, MCP Tool call or physical write occurred. The Runtime now propagates nested Provider
 readiness reason codes into `SKILL_SELECTION_NO_CANDIDATES`; evidence is in
 `failed-attempts/a2a-coordinate-navigation-20260814.redacted.json`.
+
+The post-rebuild coordinate retry is Task `e31eae69-f5d3-4937-923c-4c0f9f2c62c7`. It used Source
+`ugv-smpp-r2`, Binding `mcp-binding-ugv-smpp-r2` revision 1, `ugv.navigate@6`, Capability
+`vehicle.ugv.navigate@6` and Exposure v3. The exact one-node Plan and structured point input were
+confirmed; one server-derived one-shot confirmation was consumed by the sole real MCP invocation.
+The Provider rejected live admission as `UGV_EXECUTION_MODE_UNSUPPORTED`, so no remote Task or
+movement was created and no replay was attempted. A preceding zero-invocation attempt exposed and
+led to fixing a readiness-envelope/raw-argument hash mismatch in governed authority lookup. The
+same run also led to rejecting punctuation-only Goal Contract text. Focused tests cover both
+defects; evidence is in
+`failed-attempts/a2a-coordinate-navigation-r2-20260814.redacted.json`.
 
 The next Goal continuation Availability read at `11:40:25Z` observed
 `unknown / UGV_STATE_STALE` rather than chassis busy. The external Runtime process is healthy, but
@@ -74,13 +89,13 @@ control/lifecycle/emergency/recovery cases remain unqualified. Execution semanti
 `unsafe_test_open` profile relaxes plaintext/authority-membership checks without disabling HTTPS
 certificate validation.
 
-The current repository gate remains failed: static/unit/contract/build passed 275 files/2,003
-tests, cognitive replay and migrations passed, and Integration passed 36 files/216 tests. Main E2E
-passed 72 tests with one skip, then Phase 13 baseline drift failed. The fixed-attempt diagnostic
-defect is repaired; immutable attempt 9 records the unchanged rerun's `15.828% > 15%` drift while
-Runtime regression (`7.128%`) and append P95 (`4.219 ms`) passed. The aggregate stopped at Phase 13,
-so later gates including the official A2A TCK were not reached. Later focused work and the real A2A
-attempt do not rewrite the aggregate verification outcome.
+The current repository gate remains failed: static/unit/contract/build passed 275 files/2,005
+tests, Cognitive Replay passed and all 56 Runtime plus 11 Control migrations passed. Integration
+did not start because the operator-managed PostgreSQL rejected test-database creation: `template1`
+has invalid collation-version metadata (`XX000`). The operator database was not modified, and this
+run did not reach Integration, E2E, Phase 13 or the official A2A TCK. An earlier isolated full run
+passed Integration and Main E2E, then failed Phase 13 baseline drift at `15.828% > 15%`; Runtime
+regression (`7.128%`) and append P95 (`4.219 ms`) passed. Neither run is rewritten as a pass.
 
 SDAR x SMPP Home-Lab Integration is `BLOCKED_DRAFT_PUBLISHED` (2026-08-12) on
 `codex/sdar-smpp-home-lab-integration`. Draft PR #19 contains pushed implementation candidate
