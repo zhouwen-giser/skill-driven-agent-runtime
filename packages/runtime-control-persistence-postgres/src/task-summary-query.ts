@@ -23,6 +23,7 @@ interface TaskRow extends QueryResultRow {
   binding_id: string | null;
   created_at: Date;
   updated_at: Date;
+  revision: string;
 }
 
 export class PostgresRuntimeTaskSummaryQuery {
@@ -45,19 +46,35 @@ export class PostgresRuntimeTaskSummaryQuery {
   }
 
   async get(taskId: string): Promise<RuntimeTaskSummary | undefined> {
+    return (await this.getWithRevision(taskId))?.summary;
+  }
+
+  async getWithRevision(
+    taskId: string,
+  ): Promise<Readonly<{ summary: RuntimeTaskSummary; revision: number }> | undefined> {
     const result = await this.#pool.query<TaskRow>(`${selectTaskSummary} WHERE task.task_id=$1`, [
       taskId,
     ]);
-    return result.rows[0] === undefined ? undefined : mapTaskSummary(result.rows[0]);
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return Object.freeze({
+      summary: mapTaskSummary(row),
+      revision: safeTaskRevision(row.revision),
+    });
   }
 }
 
 const selectTaskSummary = `SELECT task.task_id,task.goal_id,task.plan_id,task.context_id,task.phase,
-  task.selected_skill_id,binding.binding_id,task.created_at,task.updated_at
+  task.selected_skill_id,binding.binding_id,task.created_at,task.updated_at,
+  task.revision::text AS revision
   FROM agent_task task
   LEFT JOIN task_capability_binding binding ON binding.task_id=task.task_id`;
 
 function mapTaskSummary(row: TaskRow): RuntimeTaskSummary {
+  const terminal = ['capability_gap', 'completed', 'canceled', 'failed', 'invalidated'].includes(
+    row.phase,
+  );
+  const hasPlan = row.plan_id !== null;
   return Object.freeze({
     taskId: row.task_id,
     ...(row.goal_id === null ? {} : { goalId: row.goal_id }),
@@ -69,10 +86,17 @@ function mapTaskSummary(row: TaskRow): RuntimeTaskSummary {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     controlledActions: Object.freeze({
-      pause: false,
-      resume: false,
-      cancel: false,
-      goalPatch: false,
+      pause: row.phase === 'executing' && hasPlan,
+      resume: row.phase === 'paused' && hasPlan,
+      cancel: !terminal,
+      goalPatch: !terminal && row.goal_id !== null && hasPlan,
     }),
   });
+}
+
+function safeTaskRevision(value: string): number {
+  const revision = Number(value);
+  if (!Number.isSafeInteger(revision) || revision < 0)
+    throw new Error('AGENT_TASK_REVISION_INVALID');
+  return revision;
 }

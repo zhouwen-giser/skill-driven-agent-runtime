@@ -678,6 +678,64 @@ describe('TaskService', () => {
     expect(harness.tasks.get('task-replacement')).not.toHaveProperty('skillInputResolutionId');
   });
 
+  it('binds an evaluator replan while preserving Goal and Skill execution lineage', async () => {
+    const harness = createHarness();
+    harness.tasks.set('task-replan', {
+      taskId: 'task-replan',
+      contextId: 'context-1',
+      userId: 'user-1',
+      requestText: 'Run.',
+      requestMetadata: {},
+      phase: 'executing',
+      phaseMessage: 'Executing.',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      planId: 'plan-old',
+      selectedSkillId: 'skill-selected',
+      selectedSkillVersion: 3,
+      skillSelectionId: 'selection-1',
+      userGoalPlanId: 'user-goal-plan-1',
+      skillGoalId: 'skill-goal-1',
+      skillAttemptId: 'skill-attempt-1',
+      skillExecutionContractId: 'skill-execution-contract-1',
+      skillInputResolutionId: 'skill-input-resolution-1',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    await expect(
+      harness.service.awaitWorkflowReplanConfirmation('task-replan', {
+        planId: 'plan-replan',
+        goalId: 'goal-1',
+        goalVersion: 1,
+        summary: 'Evaluation requires a revised plan.',
+      }),
+    ).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+      planId: 'plan-replan',
+      goalId: 'goal-1',
+      goalVersion: 1,
+      selectedSkillId: 'skill-selected',
+      selectedSkillVersion: 3,
+      skillSelectionId: 'selection-1',
+      userGoalPlanId: 'user-goal-plan-1',
+      skillGoalId: 'skill-goal-1',
+      skillAttemptId: 'skill-attempt-1',
+      skillExecutionContractId: 'skill-execution-contract-1',
+      skillInputResolutionId: 'skill-input-resolution-1',
+    });
+    expect(harness.operations).toContain('task.save:task-replan:planning');
+    expect(harness.operations).toContain('task.save:task-replan:awaiting_plan_confirmation');
+    await expect(
+      harness.service.followUp({
+        taskId: 'task-replan',
+        action: 'confirm_plan',
+        messageText: 'Confirm the revised plan.',
+      }),
+    ).resolves.toMatchObject({ phase: 'executing', planId: 'plan-replan' });
+    expect(harness.operations).toContain('plan.confirm:plan-replan');
+  });
+
   it('rejects a confirmation-bound plan through the shared follow-up transition', async () => {
     const harness = createHarness();
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });

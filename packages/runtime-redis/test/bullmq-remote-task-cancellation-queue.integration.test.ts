@@ -41,7 +41,7 @@ describe('BullMQ remote MCP Task cancellation queue', () => {
     await expect(rawQueue.getJobCountByTypes('waiting')).resolves.toBe(1);
   });
 
-  it('does not automatically retry a cancellation worker failure', async () => {
+  it('does not automatically retry but replaces a failed requested wake on reconciliation', async () => {
     const queueName = `sdar-remote-cancellation-failure-${String(Date.now())}`;
     const queue = new BullMqRemoteTaskCancellationQueue({ connection, queueName });
     const rawQueue = new Queue(queueName, { connection });
@@ -76,5 +76,28 @@ describe('BullMQ remote MCP Task cancellation queue', () => {
     if (failedJob === undefined) throw new Error('REMOTE_TASK_CANCELLATION_FAILED_JOB_MISSING');
     expect(failedJob.attemptsMade).toBe(1);
     await expect(queue.state(input.requestId, input.expectedVersion)).resolves.toBe('failed');
+    await worker.close();
+    resources.splice(resources.indexOf(worker), 1);
+    await queue.enqueue(input);
+    await expect(queue.state(input.requestId, input.expectedVersion)).resolves.toBe('scheduled');
+    const recoveredWorker = new BullMqRemoteTaskCancellationWorker({
+      connection,
+      queueName,
+      processor: {
+        process: () => {
+          calls += 1;
+          return Promise.resolve();
+        },
+      },
+    });
+    resources.push(recoveredWorker);
+    const recoveredJob = await rawQueue.getJob(
+      remoteTaskCancellationJobId(input.requestId, input.expectedVersion),
+    );
+    if (recoveredJob === undefined)
+      throw new Error('REMOTE_TASK_CANCELLATION_RECOVERED_JOB_MISSING');
+    recoveredWorker.start();
+    await recoveredJob.waitUntilFinished(queueEvents, 5_000);
+    expect(calls).toBe(2);
   });
 });

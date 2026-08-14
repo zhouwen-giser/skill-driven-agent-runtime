@@ -245,6 +245,91 @@ export class NodeControlFoundationService {
     return operation;
   }
 
+  async cancelManagementOperation(
+    operationId: string,
+    idempotencyKey: string,
+    command: Readonly<{ reason: string; payload?: unknown; expectedRevision?: number }>,
+    actorId = 'deployment-operator',
+  ): Promise<ManagementOperation> {
+    const normalizedOperationId = operationId.trim();
+    if (normalizedOperationId === '' || normalizedOperationId.length > 512)
+      throw new NodeControlFoundationError(
+        'MANAGEMENT_OPERATION_ID_INVALID',
+        'Management Operation cancellation requires a bounded operation identifier.',
+        400,
+      );
+    const normalizedActorId = actorId.trim();
+    if (normalizedActorId === '' || normalizedActorId.length > 512)
+      throw new NodeControlFoundationError(
+        'MANAGEMENT_OPERATION_ACTOR_INVALID',
+        'Management Operation cancellation requires an authenticated actor.',
+        400,
+      );
+    const occurredAt = this.#clock.now();
+    const baseContext = mutationContext(
+      'management_operation.cancel',
+      idempotencyKey,
+      { operationId: normalizedOperationId, command },
+      occurredAt,
+      command.reason,
+    );
+    const context = Object.freeze({ ...baseContext, actorId: normalizedActorId });
+    const cancel = this.#repository.cancelGovernanceOperation?.bind(this.#repository);
+    if (cancel === undefined)
+      throw new NodeControlFoundationError(
+        'MANAGEMENT_OPERATION_CANCEL_UNAVAILABLE',
+        'Management Operation cancellation authority is unavailable.',
+        503,
+      );
+    try {
+      const canceled = await cancel(
+        normalizedOperationId,
+        {
+          auditId: `audit-operation-cancel-${hashJson(`${normalizedOperationId}:${context.idempotencyKeyHash}`).slice(0, 40)}`,
+          actorId: context.actorId,
+          action: 'management_operation.cancel',
+          aggregateType: 'management_operation',
+          aggregateId: normalizedOperationId,
+          reason: context.reason,
+          requestHash: context.requestHash,
+          resultCode: 'MANAGEMENT_OPERATION_CANCELED_BEFORE_DISPATCH',
+          createdAt: occurredAt,
+        },
+        context,
+      );
+      if (canceled === undefined)
+        throw new NodeControlApplicationError(
+          'MANAGEMENT_OPERATION_NOT_FOUND',
+          'Management Operation was not found.',
+        );
+      return canceled;
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'MANAGEMENT_OPERATION_NOT_CANCELLABLE'
+      )
+        throw new NodeControlFoundationError(
+          'MANAGEMENT_OPERATION_NOT_CANCELLABLE',
+          'Only an accepted Management Operation that has not started dispatch can be canceled.',
+          409,
+        );
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'MANAGEMENT_OPERATION_CANCEL_IDEMPOTENCY_CONFLICT'
+      )
+        throw new NodeControlFoundationError(
+          'MANAGEMENT_OPERATION_CANCEL_IDEMPOTENCY_CONFLICT',
+          'The cancellation Idempotency-Key was reused for a different request.',
+          409,
+        );
+      throw error;
+    }
+  }
+
   listAuditEvents(limit = 100) {
     return this.#repository.listAuditEvents(boundedLimit(limit));
   }

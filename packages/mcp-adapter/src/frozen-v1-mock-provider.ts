@@ -5,6 +5,7 @@ import { FROZEN_MCP_PROTOCOL_VERSION } from './frozen-v1-mcp-client.js';
 
 const TASKS_EXTENSION = 'io.modelcontextprotocol/tasks';
 const TASK_PROFILE = 'io.sdar/taskExecution';
+const TOOL_EXECUTION_SEMANTICS = 'io.sdar/tool-execution-semantics';
 
 export interface FrozenMcpTasksMockProviderHandle {
   readonly endpoint: URL;
@@ -410,6 +411,20 @@ function frozenTools(options: FrozenMcpTasksMockProviderOptions) {
     supportsInputRequired: true,
     idempotency: 'client_request_key',
   };
+  const readOnlySemantics = {
+    effect: 'read_only',
+    execution: 'task_capable',
+    cancellation: 'task_cancel',
+    idempotency: 'client_request_key',
+    replay: 'allowed',
+  };
+  const physicalControlSemantics = {
+    effect: 'side_effecting',
+    execution: 'task_capable',
+    cancellation: 'task_cancel',
+    idempotency: 'client_request_key',
+    replay: 'simulation_only',
+  };
   return [
     ...(options.areaPatrol === undefined
       ? [
@@ -423,7 +438,10 @@ function frozenTools(options: FrozenMcpTasksMockProviderOptions) {
               required: ['status'],
               properties: { status: { type: 'string', enum: ['online'] } },
             },
-            _meta: { [TASK_PROFILE]: taskProfile },
+            _meta: {
+              [TASK_PROFILE]: taskProfile,
+              [TOOL_EXECUTION_SEMANTICS]: readOnlySemantics,
+            },
           },
         ]
       : []),
@@ -467,7 +485,10 @@ function frozenTools(options: FrozenMcpTasksMockProviderOptions) {
           },
         },
       },
-      _meta: { [TASK_PROFILE]: taskProfile },
+      _meta: {
+        [TASK_PROFILE]: taskProfile,
+        [TOOL_EXECUTION_SEMANTICS]: physicalControlSemantics,
+      },
     },
     ...(options.areaPatrol === undefined
       ? []
@@ -504,7 +525,10 @@ function frozenTools(options: FrozenMcpTasksMockProviderOptions) {
                 missingEvidence: { type: 'array', items: { type: 'string' } },
               },
             },
-            _meta: { [TASK_PROFILE]: taskProfile },
+            _meta: {
+              [TASK_PROFILE]: taskProfile,
+              [TOOL_EXECUTION_SEMANTICS]: physicalControlSemantics,
+            },
           },
           {
             name: 'embodied.inspect_area',
@@ -519,7 +543,10 @@ function frozenTools(options: FrozenMcpTasksMockProviderOptions) {
               required: ['anomalies'],
               properties: { anomalies: { type: 'array', items: { type: 'object' } } },
             },
-            _meta: { [TASK_PROFILE]: taskProfile },
+            _meta: {
+              [TASK_PROFILE]: taskProfile,
+              [TOOL_EXECUTION_SEMANTICS]: readOnlySemantics,
+            },
           },
         ]),
   ];

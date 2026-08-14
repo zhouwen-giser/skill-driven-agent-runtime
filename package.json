@@ -39,6 +39,7 @@
     "verify:a2a-baseline": "node scripts/verify-a2a-baseline.mjs",
     "verify:management-openapi": "node scripts/check-management-openapi.mjs",
     "verify:node-control-contract": "node scripts/verify-node-control-contract.mjs",
+    "verify:node-control-implementation-conformance": "tsx scripts/verify-node-control-operation-conformance.mts",
     "verify:smpp-registry-projection": "node scripts/verify-smpp-sdar-registry-projection-contract.mjs",
     "verify:smpp-registry-projection:cross-repo": "node scripts/verify-smpp-sdar-registry-projection-contract.mjs --require-canonical",
     "generate:evidence-contract": "tsx scripts/generate-v141-evidence-contract.mts",
@@ -54,7 +55,7 @@
     "verify:v13-release": "node scripts/validate-v13-p13-release.mjs",
     "verify:v13-p14": "node scripts/operations/validate-v13-p14.mjs",
     "verify:v13-secrets": "node scripts/verify-v13-secrets.mjs",
-    "verify:v14-security": "pnpm verify:v13-secrets && pnpm verify:licenses && pnpm verify:project-license && pnpm verify:node-control-contract && pnpm verify:smpp-registry-projection",
+    "verify:v14-security": "pnpm verify:v13-secrets && pnpm verify:licenses && pnpm verify:project-license && pnpm verify:node-control-contract && pnpm verify:node-control-implementation-conformance && pnpm verify:smpp-registry-projection",
     "verify:v14-recovery": "node scripts/smoke-node-control.mjs",
     "complete:v13-p13": "node scripts/complete-v13-p13.mjs",
     "evidence:v13-capacity": "node scripts/generate-v13-capacity-evidence.mjs",
@@ -84,7 +85,7 @@
     "verify:project-license": "node scripts/verify-project-license.mjs",
     "verify:infra": "node scripts/verify-compose.mjs && node scripts/verify-compose-config.mjs",
     "verify:sources": "node scripts/check-sources-lock.mjs",
-    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && pnpm test:unit && pnpm test:contract && pnpm verify:evidence-contract && pnpm verify:evidence-coverage && node scripts/check-architecture.mjs && node scripts/verify-a2a-baseline.mjs && node scripts/check-management-openapi.mjs && node scripts/verify-node-control-contract.mjs && node scripts/verify-smpp-sdar-registry-projection-contract.mjs && node scripts/verify-acceptance-map.mjs && node scripts/check-sources-lock.mjs && node protocol/scripts/verify-protocol-package.mjs && node scripts/verify-compose.mjs && node scripts/verify-project-license.mjs && node scripts/generate-sbom.mjs --check && node scripts/verify-compose-config.mjs && tsc -p tsconfig.build.json && pnpm --dir apps/console build",
+    "verify:bootstrap": "prettier --no-error-on-unmatched-pattern --check package.json pnpm-workspace.yaml eslint.config.mjs vitest.config.ts tsconfig.json tsconfig.build.json \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,tsx,json}\" \"infra/**/*.{ts,tsx,json}\" && eslint . && tsc -p tsconfig.json --noEmit && pnpm test:unit && pnpm test:contract && pnpm verify:evidence-contract && pnpm verify:evidence-coverage && node scripts/check-architecture.mjs && node scripts/verify-a2a-baseline.mjs && node scripts/check-management-openapi.mjs && node scripts/verify-node-control-contract.mjs && pnpm verify:node-control-implementation-conformance && node scripts/verify-smpp-sdar-registry-projection-contract.mjs && node scripts/verify-acceptance-map.mjs && node scripts/check-sources-lock.mjs && node protocol/scripts/verify-protocol-package.mjs && node scripts/verify-compose.mjs && node scripts/verify-project-license.mjs && node scripts/generate-sbom.mjs --check && node scripts/verify-compose-config.mjs && tsc -p tsconfig.build.json && pnpm --dir apps/console build",
     "verify": "node scripts/verify-full.mjs"
   },
   "dependencies": {

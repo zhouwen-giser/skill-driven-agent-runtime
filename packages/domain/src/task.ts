@@ -119,7 +119,7 @@ export function bindTaskSkill(
   input: Readonly<{
     skillId: string;
     skillVersion: number;
-    selectionId: string;
+    selectionId?: string;
     userGoalPlanId?: string;
     skillGoalId?: string;
     skillAttemptId?: string;
@@ -142,11 +142,17 @@ export function bindTaskSkill(
       'SKILL_ATTEMPT_INVALID',
       'User Goal Plan, Skill Goal and Skill Attempt bindings must be attached together.',
     );
+  const unboundTask = { ...withoutSkillInputResolution(task) };
+  delete unboundTask.skillSelectionId;
   return {
-    ...withoutSkillInputResolution(task),
+    ...unboundTask,
     selectedSkillId: requireIdentifier(input.skillId, 'SKILL_ID_REQUIRED'),
     selectedSkillVersion: input.skillVersion,
-    skillSelectionId: requireIdentifier(input.selectionId, 'SKILL_SELECTION_ID_REQUIRED'),
+    ...(input.selectionId === undefined
+      ? {}
+      : {
+          skillSelectionId: requireIdentifier(input.selectionId, 'SKILL_SELECTION_ID_REQUIRED'),
+        }),
     ...(input.userGoalPlanId === undefined
       ? {}
       : {

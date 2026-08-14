@@ -231,6 +231,33 @@ describe('Workflow outer controller', () => {
     expect(fixture.execution.execute).toHaveBeenCalledTimes(2);
   });
 
+  it('projects an evaluator replan onto the attached Task before awaiting confirmation', async () => {
+    const fixture = createFixture({ maxReplans: 2, autoConfirm: false });
+    fixture.execution.execute.mockResolvedValueOnce({
+      ...instance('instance-0', 'plan-initial', 0, 2),
+      status: 'failed',
+      errors: { runtime: { code: 'TOOL_FAILED', message: 'The first strategy failed.' } },
+    });
+    fixture.evaluator.decisions.push({
+      decision: 'adjust_plan',
+      summary: 'Use the persisted failure evidence to revise the plan.',
+      actionInstruction: 'Run the safe recovery path.',
+    });
+
+    await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+      status: 'awaiting_confirmation',
+      currentPlanId: 'plan-control-1-1',
+      replanCount: 1,
+    });
+    expect(fixture.taskOutcomes.reportReplanPlan).toHaveBeenCalledWith('task-control', {
+      planId: 'plan-control-1-1',
+      goalId: 'goal-control',
+      goalVersion: 1,
+      summary: 'Use the persisted failure evidence to revise the plan.',
+    });
+    expect(fixture.execution.confirm).not.toHaveBeenCalled();
+  });
+
   it('terminates and marks the Goal unachievable when maxReplans is exhausted', async () => {
     const fixture = createFixture({ maxReplans: 0, autoConfirm: true });
     fixture.evaluator.decisions.push({
@@ -296,6 +323,45 @@ describe('Workflow outer controller', () => {
       replanCount: 1,
     });
     expect(fixture.evaluator.inputs[0]?.instance).toBe(failed);
+  });
+
+  it('does not promote evaluator achievement when execution did not succeed', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.execution.execute.mockResolvedValueOnce({
+      ...instance('instance-0', 'plan-initial', 0, 1),
+      status: 'failed',
+      errors: { runtime: { code: 'TOOL_FAILED', message: 'Tool failed.' } },
+    });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Incorrectly achieved.' });
+
+    await expect(fixture.controller.start(startInput())).rejects.toMatchObject({
+      code: 'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
+    });
+    expect(fixture.taskOutcomes.prepareAchieved).not.toHaveBeenCalled();
+    expect(fixture.terminalOutcomes.outcomes.size).toBe(0);
+    expect(fixture.controls.rounds).toHaveLength(0);
+    expect(fixture.goals.goal.status).toBe('active');
+    expect(fixture.controls.controls.get('control-1')).toMatchObject({ status: 'failed' });
+  });
+
+  it('promotes evaluator achievement when a succeeded execution retains handled error evidence', async () => {
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+    fixture.execution.execute.mockResolvedValueOnce({
+      ...instance('instance-0', 'plan-initial', 0, 1),
+      errors: { handledNode: { code: 'TOOL_FAILED', message: 'Recovered by the error handler.' } },
+    });
+    fixture.evaluator.decisions.push({
+      decision: 'achieved',
+      summary: 'Recovered execution achieved.',
+    });
+
+    await expect(fixture.controller.start(startInput())).resolves.toMatchObject({
+      status: 'achieved',
+      roundCount: 1,
+    });
+    expect(fixture.taskOutcomes.prepareAchieved).toHaveBeenCalledTimes(1);
+    expect(fixture.terminalOutcomes.outcomes.size).toBe(1);
+    expect(fixture.goals.goal.status).toBe('achieved');
   });
 
   it.each([
@@ -559,6 +625,7 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
       }),
     ),
     reportReplacementPlan: vi.fn(() => Promise.resolve()),
+    reportReplanPlan: vi.fn(() => Promise.resolve()),
     reportInputContinuationPlan: vi.fn(() => Promise.resolve()),
     continueUserGoalPlan: vi.fn(() => Promise.resolve()),
   };

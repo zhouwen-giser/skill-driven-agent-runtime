@@ -94,6 +94,11 @@ export interface McpInvocation {
   readonly invocationId: string;
   readonly taskId?: string;
   readonly capabilityAttemptId?: string;
+  /** Durable one-dispatch authority consumed before a side-effecting Provider call. */
+  readonly controlConfirmationId?: string;
+  readonly controlProviderBindingId?: string;
+  readonly controlArgumentsHash?: string;
+  readonly controlDispatchHash?: string;
   readonly contextId?: string;
   readonly executionMode: RuntimeExecutionMode;
   readonly simulationId?: string;

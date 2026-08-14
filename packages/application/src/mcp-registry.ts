@@ -4,11 +4,14 @@ import {
   createMcpToolExecutionSemantics,
   withMcpToolAdminExecutionSemanticsOverride,
   createMcpToolEnhancement,
+  createRemoteTaskAuthoritySnapshot,
   type McpInvocation,
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
+  type McpToolCancellation,
   type RemoteTaskOperationAck,
+  type RemoteTaskAuthoritySnapshot,
   type RemoteTaskSnapshot,
   type McpManagementOperation,
   type McpManagementOperationType,
@@ -31,8 +34,14 @@ import type {
 } from './ports.js';
 import {
   McpRuntimeBindingAuthorityVerifier,
+  type CurrentMcpProviderBindingAuthority,
   type RuntimeMcpCatalogAuthority,
 } from './mcp-runtime-binding-authority.js';
+import {
+  HARD_DENIED_CONTROL_TOOLS,
+  type GovernedControlDispatchReceipt,
+  type GovernedControlInvocationAuthorityPort,
+} from './governed-control-authority.js';
 
 export interface McpCallContext {
   readonly taskId?: string;
@@ -47,6 +56,43 @@ export interface McpCallContext {
     signal: AbortSignal;
     enter(input: Readonly<{ dispatchId: string; dispatchHash: string }>): Promise<void>;
   }>;
+  /**
+   * Durable journal for a Provider call that may create a remote Task. The journal owns the
+   * invocation write for a remote receipt so the receipt and its audit record commit together.
+   */
+  readonly remoteAdmissionJournal?: Readonly<{
+    invocationId: string;
+    markDispatching(
+      input: Readonly<{ invocationId: string; dispatchHash: string; at: string }>,
+    ): Promise<void>;
+    recordRemoteReceipt(
+      input: Readonly<{
+        invocation: McpInvocation;
+        outcome: Extract<McpInvocationOutcome, { kind: 'remote_task' }>;
+        credentialRevision: string;
+        sessionRevision: string;
+        protocolContract: McpProtocolContractSnapshot;
+        taskBehavior: McpTaskBehavior;
+        taskCancellation: McpToolCancellation;
+        authoritySnapshot: RemoteTaskAuthoritySnapshot;
+        at: string;
+      }>,
+    ): Promise<void>;
+    close(
+      input: Readonly<{
+        invocationId: string;
+        reasonCode: string;
+        at: string;
+      }>,
+    ): Promise<void>;
+    markUncertain(
+      input: Readonly<{
+        invocationId: string;
+        reasonCode: string;
+        at: string;
+      }>,
+    ): Promise<void>;
+  }>;
 }
 
 export interface RecordedMcpInvocationOutcome {
@@ -56,6 +102,8 @@ export interface RecordedMcpInvocationOutcome {
   readonly sessionRevision: string;
   readonly protocolContract?: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
+  readonly taskCancellation?: McpToolCancellation;
+  readonly authoritySnapshot: RemoteTaskAuthoritySnapshot;
 }
 
 export interface FrozenTaskAvailabilityRuntimePort {
@@ -121,6 +169,7 @@ export class McpRegistryService {
   readonly #frozenAvailability: FrozenTaskAvailabilityRuntimePort | undefined;
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
+  readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
   readonly #runtimeBindingAuthority: McpRuntimeBindingAuthorityVerifier;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
 
@@ -132,6 +181,7 @@ export class McpRegistryService {
       frozenAvailability?: FrozenTaskAvailabilityRuntimePort;
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
+      controlAuthority?: GovernedControlInvocationAuthorityPort;
       runtimeBindingAuthority?: McpRuntimeBindingAuthorityVerifier;
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
@@ -143,6 +193,7 @@ export class McpRegistryService {
     this.#frozenAvailability = dependencies.frozenAvailability;
     this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#providerBindings = dependencies.providerBindings;
+    this.#controlAuthority = dependencies.controlAuthority;
     this.#runtimeBindingAuthority =
       dependencies.runtimeBindingAuthority ??
       new McpRuntimeBindingAuthorityVerifier({
@@ -189,16 +240,45 @@ export class McpRegistryService {
     // incomplete registration cannot cause an externally visible call followed by a retryable
     // local failure.
     const frozenAuthority = this.#frozenInvocationAuthority(runtimeAuthority, tool);
-    await this.#assertCurrentProviderBinding(
+    const providerBindingAuthority = await this.#assertCurrentProviderBinding(
       runtimeAuthority,
       context.providerBindingId,
       context.providerId,
     );
-    const invocationId = context.preTransportFence?.invocationId ?? this.#ids.nextInvocationId();
+    const invocationId =
+      context.remoteAdmissionJournal?.invocationId ??
+      context.preTransportFence?.invocationId ??
+      this.#ids.nextInvocationId();
+    if (
+      context.remoteAdmissionJournal !== undefined &&
+      context.preTransportFence !== undefined &&
+      context.remoteAdmissionJournal.invocationId !== context.preTransportFence.invocationId
+    )
+      throw new McpRegistryError(
+        'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT',
+        'Remote admission and deterministic dispatch must share one invocation identity.',
+      );
     const startedAt = this.#clock.now();
+    const authoritySnapshot = remoteTaskAuthoritySnapshot(
+      runtimeAuthority,
+      providerBindingAuthority,
+      startedAt,
+    );
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
     );
+    const dispatchHash = createMcpProviderDispatchHash({
+      invocationId,
+      ...(context.taskId === undefined ? {} : { taskId: context.taskId }),
+      ...(context.contextId === undefined ? {} : { contextId: context.contextId }),
+      ...(context.providerBindingId === undefined
+        ? {}
+        : { providerBindingId: context.providerBindingId }),
+      ...(context.providerId === undefined ? {} : { providerId: context.providerId }),
+      serverId,
+      toolName,
+      arguments: arguments_,
+    });
     let outcome: McpInvocationOutcome;
     const transportSignal =
       signal === undefined
@@ -219,77 +299,112 @@ export class McpRegistryService {
       ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
       ...(transportSignal === undefined ? {} : { signal: transportSignal }),
     };
-    let preTransportFenceEntered = context.preTransportFence === undefined;
+    // Acquire deterministic ownership before consuming the one-shot human confirmation. A
+    // rejected or already-aborted fence must leave the confirmation reusable by the owner that
+    // actually obtained dispatch authority.
+    let controlAuthority: GovernedControlDispatchReceipt | undefined;
     try {
       throwIfAborted(transportSignal);
       if (context.preTransportFence !== undefined) {
         await context.preTransportFence.enter({
           dispatchId: invocationId,
-          dispatchHash: createMcpProviderDispatchHash({
-            invocationId,
-            ...(context.taskId === undefined ? {} : { taskId: context.taskId }),
-            ...(context.contextId === undefined ? {} : { contextId: context.contextId }),
-            ...(context.providerBindingId === undefined
-              ? {}
-              : { providerBindingId: context.providerBindingId }),
-            ...(context.providerId === undefined ? {} : { providerId: context.providerId }),
-            serverId,
-            toolName,
-            arguments: arguments_,
-          }),
+          dispatchHash,
         });
-        preTransportFenceEntered = true;
       }
+      throwIfAborted(transportSignal);
+      controlAuthority = await this.#assertControlAuthority(
+        tool,
+        arguments_,
+        context,
+        invocationId,
+        dispatchHash,
+      );
+      if (context.remoteAdmissionJournal !== undefined)
+        await context.remoteAdmissionJournal.markDispatching({
+          invocationId,
+          dispatchHash,
+          at: this.#clock.now(),
+        });
+    } catch (error: unknown) {
+      await context.remoteAdmissionJournal?.close({
+        invocationId,
+        reasonCode: stableErrorCode(error) ?? 'MCP_REMOTE_ADMISSION_PRETRANSPORT_REJECTED',
+        at: this.#clock.now(),
+      });
+      throw error;
+    }
+    try {
       throwIfAborted(transportSignal);
       outcome = await lifecycle.call(transportInput);
       assertNoHomeAssistantEntityIdentity(outcome);
     } catch (error: unknown) {
-      // A rejected deterministic fence proves that this owner never obtained authority to
-      // dispatch. Do not manufacture an MCP invocation receipt for a call that did not occur.
-      if (!preTransportFenceEntered) throw error;
       const completedAt = this.#clock.now();
       const canceled = transportSignal?.aborted === true;
-      await this.#repository.saveInvocation(
-        invocationRecord({
-          invocationId,
-          context,
-          serverId,
-          toolName,
-          executionSemantics: tool.executionSemantics,
-          arguments: arguments_,
-          status: canceled ? 'canceled' : 'failed',
-          errorCode: canceled ? 'MCP_CALL_CANCELED' : (stableErrorCode(error) ?? 'MCP_CALL_FAILED'),
-          errorMessage: canceled ? 'MCP Tool call was canceled.' : 'MCP Tool call failed.',
-          startedAt,
-          completedAt,
-        }),
-      );
+      const invocation = invocationRecord({
+        invocationId,
+        context,
+        ...(controlAuthority === undefined ? {} : { controlAuthority }),
+        serverId,
+        toolName,
+        executionSemantics: tool.executionSemantics,
+        arguments: arguments_,
+        status: canceled ? 'canceled' : 'failed',
+        errorCode: canceled ? 'MCP_CALL_CANCELED' : (stableErrorCode(error) ?? 'MCP_CALL_FAILED'),
+        errorMessage: canceled ? 'MCP Tool call was canceled.' : 'MCP Tool call failed.',
+        startedAt,
+        completedAt,
+      });
+      await this.#repository.saveInvocation(invocation);
+      await context.remoteAdmissionJournal?.markUncertain({
+        invocationId,
+        reasonCode: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+        at: completedAt,
+      });
       throw error;
     }
     const completedAt = this.#clock.now();
     const invocationResult =
       outcome.kind === 'immediate' ? outcome.result : { remoteTask: outcome.task };
     const businessRejected = outcome.kind === 'immediate' && outcome.result.isError;
-    await this.#repository.saveInvocation(
-      invocationRecord({
+    const invocation = invocationRecord({
+      invocationId,
+      context,
+      ...(controlAuthority === undefined ? {} : { controlAuthority }),
+      serverId,
+      toolName,
+      executionSemantics: tool.executionSemantics,
+      arguments: arguments_,
+      result: invocationResult,
+      status: businessRejected ? 'failed' : 'succeeded',
+      ...(businessRejected
+        ? {
+            errorCode: 'MCP_TOOL_BUSINESS_REJECTION',
+            errorMessage: 'MCP Tool returned an immediate isError result.',
+          }
+        : {}),
+      startedAt,
+      completedAt,
+    });
+    if (outcome.kind === 'remote_task' && context.remoteAdmissionJournal !== undefined) {
+      await context.remoteAdmissionJournal.recordRemoteReceipt({
+        invocation,
+        outcome,
+        credentialRevision: record.server.updatedAt,
+        sessionRevision: `${outcome.task.protocolRevision}/${outcome.task.tasksSchemaRevision}`,
+        protocolContract: frozenAuthority.protocolContract,
+        taskBehavior: frozenAuthority.taskBehavior,
+        taskCancellation: frozenAuthority.taskCancellation,
+        authoritySnapshot,
+        at: completedAt,
+      });
+    } else {
+      await this.#repository.saveInvocation(invocation);
+      await context.remoteAdmissionJournal?.close({
         invocationId,
-        context,
-        serverId,
-        toolName,
-        executionSemantics: tool.executionSemantics,
-        arguments: arguments_,
-        result: invocationResult,
-        status: businessRejected ? 'failed' : 'succeeded',
-        ...(businessRejected
-          ? {
-              errorCode: 'MCP_TOOL_BUSINESS_REJECTION',
-              errorMessage: 'MCP Tool returned an immediate isError result.',
-            }
-          : {}),
-        startedAt,
-        completedAt,
-      }),
-    );
+        reasonCode: 'MCP_REMOTE_ADMISSION_NOT_REQUIRED',
+        at: completedAt,
+      });
+    }
     return {
       invocationId,
       outcome,
@@ -300,7 +415,54 @@ export class McpRegistryService {
           : String(record.server.toolRevision),
       protocolContract: frozenAuthority.protocolContract,
       taskBehavior: frozenAuthority.taskBehavior,
+      taskCancellation: frozenAuthority.taskCancellation,
+      authoritySnapshot,
     };
+  }
+
+  async #assertControlAuthority(
+    tool: McpTool,
+    arguments_: Readonly<Record<string, unknown>>,
+    context: McpCallContext,
+    invocationId: string,
+    dispatchHash: string,
+  ): Promise<GovernedControlDispatchReceipt | undefined> {
+    if (
+      HARD_DENIED_CONTROL_TOOLS.includes(
+        tool.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
+      )
+    )
+      throw new McpRegistryError(
+        'MCP_CONTROL_TOOL_HARD_DENIED',
+        'vehicle_fire_weapon has no execution authority in this Runtime.',
+      );
+    if (tool.executionSemantics.effect === 'read_only') return undefined;
+    if (tool.executionSemantics.effect !== 'side_effecting')
+      throw new McpRegistryError(
+        'MCP_CONTROL_SEMANTICS_NOT_EXPLICIT',
+        'Unknown Tool effect cannot cross the Provider transport boundary.',
+      );
+    if (
+      this.#controlAuthority === undefined ||
+      context.taskId === undefined ||
+      context.capabilityAttemptId === undefined ||
+      context.providerBindingId === undefined
+    )
+      throw new McpRegistryError(
+        'MCP_CONTROL_AUTHORITY_REQUIRED',
+        'Side-effecting Tool invocation requires exact governed Task authority.',
+      );
+    return this.#controlAuthority.authorizeAndConsume({
+      invocationId,
+      dispatchHash,
+      taskId: context.taskId,
+      capabilityAttemptId: context.capabilityAttemptId,
+      providerBindingId: context.providerBindingId,
+      serverId: tool.serverId,
+      toolName: tool.toolName,
+      arguments: arguments_,
+      executionSemantics: tool.executionSemantics,
+    });
   }
 
   #frozenInvocationAuthority(
@@ -309,6 +471,7 @@ export class McpRegistryService {
   ): Readonly<{
     protocolContract: McpProtocolContractSnapshot;
     taskBehavior: McpTaskBehavior;
+    taskCancellation: McpToolCancellation;
     catalogAuthority: Readonly<{
       catalogRevision: string;
       catalogChecksum: string;
@@ -331,6 +494,7 @@ export class McpRegistryService {
         serverDiscoverySnapshotId: snapshot.snapshotId,
       }),
       taskBehavior: tool.taskExecutionProfile.taskBehavior,
+      taskCancellation: tool.executionSemantics.cancellation,
       catalogAuthority,
     };
   }
@@ -339,9 +503,9 @@ export class McpRegistryService {
     runtimeAuthority: RuntimeMcpCatalogAuthority,
     bindingId: string | undefined,
     providerId: string | undefined,
-  ): Promise<void> {
+  ): Promise<CurrentMcpProviderBindingAuthority | undefined> {
     if (this.#providerBindings === undefined && bindingId === undefined && providerId === undefined)
-      return;
+      return undefined;
     if (this.#providerBindings === undefined)
       throw new McpRegistryError(
         'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE',
@@ -375,6 +539,78 @@ export class McpRegistryService {
         'Current MCP Provider Binding authority differs from the Runtime invocation target.',
       );
     }
+    return authority;
+  }
+
+  async #assertRemoteTaskReadAuthority(
+    input: Readonly<{
+      serverId: string;
+      operationName: string;
+      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+      credentialRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
+    }>,
+    runtime: RuntimeMcpCatalogAuthority,
+  ): Promise<void> {
+    try {
+      const snapshot =
+        input.authoritySnapshot === undefined
+          ? undefined
+          : createRemoteTaskAuthoritySnapshot(input.authoritySnapshot);
+      if (snapshot === undefined)
+        throw new Error('LEGACY_REMOTE_TASK_CATALOG_AUTHORITY_UNPROVABLE');
+      const frozenRuntime = snapshot.runtime;
+      if (
+        frozenRuntime.serverId !== input.serverId ||
+        frozenRuntime.serverId !== runtime.record.server.serverId ||
+        frozenRuntime.endpoint !== runtime.record.server.endpoint ||
+        frozenRuntime.serverUpdatedAt !== runtime.record.server.updatedAt ||
+        frozenRuntime.serverUpdatedAt !== input.credentialRevision ||
+        frozenRuntime.toolRevision !== runtime.record.server.toolRevision ||
+        frozenRuntime.protocolSnapshotId !== runtime.snapshot.snapshotId ||
+        frozenRuntime.protocolSnapshotId !== input.protocolContract.serverDiscoverySnapshotId ||
+        frozenRuntime.catalogRevision !== runtime.catalogAuthority.catalogRevision ||
+        frozenRuntime.catalogChecksum !== runtime.catalogAuthority.catalogChecksum ||
+        frozenRuntime.operationCount !== runtime.catalogAuthority.operationCount ||
+        !runtime.tools.some((tool) => tool.toolName === input.operationName)
+      )
+        throw new Error('REMOTE_TASK_RUNTIME_AUTHORITY_DRIFT');
+
+      const frozenProvider = snapshot.providerBinding;
+      if (this.#providerBindings === undefined) {
+        if (frozenProvider !== undefined)
+          throw new Error('REMOTE_TASK_PROVIDER_AUTHORITY_UNAVAILABLE');
+        return;
+      }
+      if (frozenProvider === undefined)
+        throw new Error('REMOTE_TASK_PROVIDER_AUTHORITY_NOT_FROZEN');
+      const current = await this.#providerBindings.loadCurrentMcpProviderBinding({
+        bindingId: frozenProvider.bindingId,
+        localServerId: input.serverId,
+      });
+      if (
+        current.binding.bindingId !== frozenProvider.bindingId ||
+        current.binding.localServerId !== input.serverId ||
+        current.binding.revision < frozenProvider.revision ||
+        current.binding.originType !== frozenProvider.originType ||
+        current.binding.providerId !== frozenProvider.providerId ||
+        current.binding.externalServerId !== frozenProvider.externalServerId ||
+        current.sourceCandidateLineage?.smppSourceId !== frozenProvider.smppSourceId ||
+        current.sourceCandidateLineage?.externalServerId !== frozenProvider.externalServerId ||
+        current.binding.endpointRef !== frozenProvider.endpointRef ||
+        (current.binding.revision === frozenProvider.revision &&
+          current.binding.catalogRevision !== frozenProvider.catalogRevision) ||
+        current.binding.catalogChecksum !== frozenProvider.catalogChecksum ||
+        current.binding.operationCount !== frozenProvider.operationCount ||
+        Date.parse(current.binding.availabilityValidUntil) <= Date.parse(this.#clock.now())
+      )
+        throw new Error('REMOTE_TASK_PROVIDER_AUTHORITY_DRIFT');
+    } catch {
+      throw new McpRegistryError(
+        'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+        'Remote Task polling authority differs from the exact Runtime and Provider Binding admitted before dispatch.',
+      );
+    }
   }
 
   async delete(serverId: string): Promise<void> {
@@ -399,14 +635,19 @@ export class McpRegistryService {
       operationName: string;
       remoteTaskId: string;
       executionContext: RuntimeExecutionContext;
+      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+      credentialRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
     }>,
   ): Promise<RemoteTaskReadResult> {
     try {
-      const record = await this.#requireServer(input.serverId);
-      const executionContext = createRuntimeExecutionContext(input.executionContext);
-      const tool = (await this.#repository.listTools(input.serverId)).find(
-        (candidate) => candidate.toolName === input.operationName,
+      const runtimeAuthority = await this.#runtimeBindingAuthority.loadRuntimeAuthority(
+        input.serverId,
       );
+      await this.#assertRemoteTaskReadAuthority(input, runtimeAuthority);
+      const { record, tools } = runtimeAuthority;
+      const executionContext = createRuntimeExecutionContext(input.executionContext);
+      const tool = tools.find((candidate) => candidate.toolName === input.operationName);
       if (tool === undefined)
         throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
       const snapshot = await this.#requireFrozenLifecycle().get({
@@ -432,7 +673,10 @@ export class McpRegistryService {
       if (
         code === 'MCP_TASK_CAPABILITY_REQUIRED' ||
         code === 'MCP_TASK_PROTOCOL_REVISION_UNSUPPORTED' ||
-        code === 'MCP_SERVER_NOT_FOUND'
+        code === 'MCP_SERVER_NOT_FOUND' ||
+        code === 'MCP_SERVER_NOT_ENABLED' ||
+        code === 'MCP_FROZEN_PROTOCOL_SNAPSHOT_REQUIRED' ||
+        code === 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'
       ) {
         return { kind: 'provider_protocol', errorCode: code };
       }
@@ -656,6 +900,49 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   signal?.throwIfAborted();
 }
 
+function remoteTaskAuthoritySnapshot(
+  runtime: RuntimeMcpCatalogAuthority,
+  provider: CurrentMcpProviderBindingAuthority | undefined,
+  capturedAt: string,
+): RemoteTaskAuthoritySnapshot {
+  return createRemoteTaskAuthoritySnapshot({
+    schemaVersion: '1.0',
+    capturedAt,
+    runtime: {
+      serverId: runtime.record.server.serverId,
+      endpoint: runtime.record.server.endpoint,
+      serverUpdatedAt: runtime.record.server.updatedAt,
+      toolRevision: runtime.record.server.toolRevision,
+      protocolSnapshotId: runtime.snapshot.snapshotId,
+      catalogRevision: runtime.catalogAuthority.catalogRevision,
+      catalogChecksum: runtime.catalogAuthority.catalogChecksum,
+      operationCount: runtime.catalogAuthority.operationCount,
+    },
+    ...(provider === undefined
+      ? {}
+      : {
+          providerBinding: {
+            bindingId: provider.binding.bindingId,
+            revision: provider.binding.revision,
+            originType: provider.binding.originType,
+            providerId: provider.binding.providerId,
+            ...(provider.binding.externalServerId === undefined
+              ? {}
+              : { externalServerId: provider.binding.externalServerId }),
+            ...(provider.sourceCandidateLineage === undefined
+              ? {}
+              : { smppSourceId: provider.sourceCandidateLineage.smppSourceId }),
+            endpointRef: provider.binding.endpointRef,
+            catalogRevision: provider.binding.catalogRevision,
+            catalogChecksum: provider.binding.catalogChecksum,
+            operationCount: provider.binding.operationCount,
+            availabilityValidUntil: provider.binding.availabilityValidUntil,
+            observedAt: provider.observedAt,
+          },
+        }),
+  });
+}
+
 export function createMcpProviderDispatchHash(
   input: Readonly<{
     invocationId: string;
@@ -695,6 +982,7 @@ function invocationRecord(
   input: Readonly<{
     invocationId: string;
     context: McpCallContext;
+    controlAuthority?: GovernedControlDispatchReceipt;
     serverId: string;
     toolName: string;
     executionSemantics: McpInvocation['executionSemantics'];
@@ -717,6 +1005,14 @@ function invocationRecord(
     ...(input.context.capabilityAttemptId === undefined
       ? {}
       : { capabilityAttemptId: input.context.capabilityAttemptId }),
+    ...(input.controlAuthority === undefined
+      ? {}
+      : {
+          controlConfirmationId: input.controlAuthority.confirmationId,
+          controlProviderBindingId: input.controlAuthority.providerBindingId,
+          controlArgumentsHash: input.controlAuthority.argumentsHash,
+          controlDispatchHash: input.controlAuthority.dispatchHash,
+        }),
     ...(input.context.contextId === undefined ? {} : { contextId: input.context.contextId }),
     executionMode: executionContext.mode,
     ...(executionContext.simulationId === undefined
@@ -816,9 +1112,14 @@ function assertNoHomeAssistantEntityIdentity(value: unknown): void {
 export type McpRegistryErrorCode =
   | 'MCP_ARGUMENT_SCHEMA_MISMATCH'
   | 'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN'
+  | 'MCP_CONTROL_AUTHORITY_REQUIRED'
+  | 'MCP_CONTROL_SEMANTICS_NOT_EXPLICIT'
+  | 'MCP_CONTROL_TOOL_HARD_DENIED'
   | 'MCP_PROVIDER_RESULT_TOO_COMPLEX'
   | 'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE'
   | 'MCP_PROVIDER_BINDING_NOT_CURRENT'
+  | 'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT'
+  | 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_ENABLED'
   | 'MCP_SERVER_NOT_FOUND'

@@ -13,6 +13,10 @@ import {
 import { parseOfficialAgentCard } from '../../../packages/a2a-adapter/src/node-control-agent-card.js';
 import { A2AProjectionTaskStore } from '../../../packages/a2a-adapter/src/postgres-task-store.js';
 import { A2AInteractionProjection } from '../../../packages/a2a-adapter/src/interactive-planning-projection.js';
+import {
+  A2ATerminalProjectionReconciler,
+  resolveA2ATerminalReconciliationIntervalMs,
+} from '../../../packages/a2a-adapter/src/terminal-projection-reconciler.js';
 import { TaskServiceAgentExecutor } from '../../../packages/a2a-adapter/src/task-service-executor.js';
 import {
   PlanPreparationProcessor,
@@ -29,6 +33,9 @@ import {
   MemoryRetentionPolicyService,
   RuntimeRecoveryService,
   McpRegistryService,
+  GovernedControlInvocationAuthorizer,
+  GovernedControlConfirmationService,
+  GovernedControlManagementService,
   McpRuntimeBindingAuthorityVerifier,
   McpProtocolOperationsService,
   FrozenMcpRegistryService,
@@ -41,6 +48,9 @@ import {
   EventImpactRecoveryService,
   ContinuityImpactService,
   RemoteTaskAdmissionService,
+  RemoteTaskAdmissionRecoveryService,
+  type RemoteTaskAdmissionIntent,
+  type RemoteTaskAdmissionEnvelope,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
   RemoteTaskContinuationService,
@@ -231,6 +241,7 @@ import {
   type GatewayArtifactAdapterRegistry,
   type OperatorIdentityPort,
   type ManagementPrincipalResolver,
+  type GovernedControlPrincipalResolver,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
   type TemplateRuntimeStateReader,
@@ -247,7 +258,12 @@ import {
   type AgentTask,
   type CognitiveInjectionMode,
   type GoalExecutionContract,
+  type McpInvocation,
   type McpInvocationOutcome,
+  type McpProtocolContractSnapshot,
+  type McpTaskBehavior,
+  type McpToolCancellation,
+  type RemoteTaskAuthoritySnapshot,
   type RuntimeRequestContext,
   type SkillUsageCandidateSnapshot,
   type SkillUsageSelectionContext,
@@ -268,6 +284,7 @@ import {
   PostgresRuntimeAgentCardRepository,
   PostgresRuntimeCoreEvidenceSource,
   PostgresRuntimeEvidenceExportStore,
+  PostgresRuntimeTaskRevisionAuthority,
   PostgresSkillEvidenceSource,
 } from '../../../packages/runtime-control-persistence-postgres/src/index.js';
 import {
@@ -324,7 +341,10 @@ import {
 } from '../../../packages/management-api/src/index.js';
 import {
   PostgresAgentTaskRepository,
+  PostgresAgentTaskCommandContext,
   PostgresTaskCapabilityRepository,
+  PostgresGovernedControlAuthorityRepository,
+  PostgresGovernedControlManagementAuthorityReader,
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
@@ -387,6 +407,7 @@ import {
   PostgresEvolutionExperienceRepository,
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
+  PostgresRemoteTaskAdmissionIntentStore,
   PostgresRemoteTaskInputRepository,
   PostgresRemoteTaskCancellationRepository,
   PostgresRemoteTaskLifecycleQuery,
@@ -425,6 +446,7 @@ import {
 import { createHomeLabReadOnlySkillSelectionService } from './home-lab-skill-selection.js';
 import { assertHomeLabReadOnlyRuntimeConfiguration } from './home-lab-task-understanding.js';
 import { assertManagedCapabilityRuntimeConfiguration } from './managed-capability-task-understanding.js';
+import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -481,6 +503,8 @@ export interface ServerRuntimeOptions {
   readonly artifactOperatorIdentity?: OperatorIdentityPort;
   /** Required to expose P12 management endpoints; identity is never read from request JSON. */
   readonly artifactManagementPrincipalResolver?: ManagementPrincipalResolver;
+  /** Trusted-human Bearer identity for issue/revoke of physical-control confirmations. */
+  readonly governedControlPrincipalResolver?: GovernedControlPrincipalResolver;
   /** Required to execute P06 shadow work; missing current facts fail closed as stale. */
   readonly artifactShadowStateReader?: ArtifactShadowCurrentStateReader;
   /**
@@ -576,6 +600,7 @@ export interface ServerRuntimeOptions {
   }>;
   readonly a2aWaitTimeoutMs?: number;
   readonly a2aSafetyPollIntervalMs?: number;
+  readonly a2aTerminalReconciliationIntervalMs?: number;
 }
 
 export interface ServerRuntimeHandle {
@@ -693,6 +718,36 @@ export function createA2ACancelReconciliationHandler(
   };
 }
 
+export function requestContinuationActivationFailureCancellation(
+  cancellations: Pick<RemoteTaskCancellationService, 'request'>,
+  input: Readonly<{
+    bindingId: string;
+    snapshotId: string;
+    workflowInstanceId: string;
+  }>,
+) {
+  return cancellations.request({
+    bindingId: input.bindingId,
+    idempotencyKey: `continuation-activation-failure:${input.snapshotId}:${input.bindingId}`,
+    source: 'compensation',
+    reasonCode: 'WORKFLOW_CONTINUATION_ACTIVATION_FAILED',
+    summary: `Workflow ${input.workflowInstanceId} continuation activation failed after remote Task admission.`,
+  });
+}
+
+export function resolveSkillUsageSelectionId(
+  input: Readonly<{
+    selectedSkill: boolean;
+    skillSelectionConfigured: boolean;
+    skillSelectionId?: string;
+  }>,
+): string | undefined {
+  if (!input.selectedSkill) return undefined;
+  if (input.skillSelectionId !== undefined) return input.skillSelectionId;
+  if (input.skillSelectionConfigured) throw new Error('SKILL_USAGE_SELECTION_ID_REQUIRED');
+  return undefined;
+}
+
 export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
@@ -787,9 +842,10 @@ export async function startServerRuntime(
   }
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
-  const tasks = new PostgresAgentTaskRepository(pool, publishTaskState);
-  const taskInputs = new PostgresTaskInputRepository(pool, publishTaskState);
-  const events = new PostgresRuntimeEventPublisher(pool);
+  const taskCommands = new PostgresAgentTaskCommandContext().bindPool(pool);
+  const tasks = new PostgresAgentTaskRepository(pool, publishTaskState, taskCommands);
+  const taskInputs = new PostgresTaskInputRepository(pool, publishTaskState, taskCommands);
+  const events = new PostgresRuntimeEventPublisher(pool, taskCommands);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
@@ -1149,7 +1205,7 @@ export async function startServerRuntime(
     clock,
   });
   const taskCapabilities = new RuntimeTaskCapabilityService({
-    store: new PostgresTaskCapabilityRepository(pool, publishTaskState),
+    store: new PostgresTaskCapabilityRepository(pool, publishTaskState, taskCommands),
     schemas: schemaValidator,
     evidence: mcpRepository,
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
@@ -1159,6 +1215,24 @@ export async function startServerRuntime(
   });
   await taskCapabilities.reconcileCanceledAttempts();
   await taskCapabilities.reconcileFailedAttempts();
+  const governedControlAuthorityRepository = new PostgresGovernedControlAuthorityRepository(pool);
+  const governedControlManagement = new GovernedControlManagementService({
+    authority: new PostgresGovernedControlManagementAuthorityReader(pool),
+    confirmations: new GovernedControlConfirmationService({
+      store: governedControlAuthorityRepository,
+      clock,
+      ids: { nextConfirmationId: () => `governed-confirmation-${randomUUID()}` },
+    }),
+    clock,
+  });
+  const governedControlInvocationAuthorizer =
+    options.capabilityAuthorityReader === undefined
+      ? undefined
+      : new GovernedControlInvocationAuthorizer({
+          store: governedControlAuthorityRepository,
+          capabilities: options.capabilityAuthorityReader,
+          clock,
+        });
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new CompositeModelTransportAdapter({
@@ -1880,6 +1954,7 @@ export async function startServerRuntime(
   const runtimeTerminalOutcomes = new PostgresRuntimeTerminalOutcomeRepository(
     pool,
     publishTaskState,
+    taskCommands,
   );
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
@@ -1966,6 +2041,9 @@ export async function startServerRuntime(
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
+    ...(governedControlInvocationAuthorizer === undefined
+      ? {}
+      : { controlAuthority: governedControlInvocationAuthorizer }),
     runtimeBindingAuthority: runtimeMcpBindingAuthority,
     clock,
     ids: {
@@ -2168,7 +2246,7 @@ export async function startServerRuntime(
   const workflowPlanner = new WorkflowPlannerService({
     model: modelRuntime,
     validator: workflowValidator,
-    repository: new PostgresWorkflowPlanRepository(pool),
+    repository: new PostgresWorkflowPlanRepository(pool, taskCommands),
     workflowSchema,
     clock,
     maxAttempts: 3,
@@ -2182,6 +2260,10 @@ export async function startServerRuntime(
   });
   const remoteTaskRepository =
     options.frozenMcpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
+  const remoteTaskAdmissionIntents =
+    options.frozenMcpTasks === undefined
+      ? undefined
+      : new PostgresRemoteTaskAdmissionIntentStore(pool);
   const frozenTaskNotifications =
     remoteTaskRepository === undefined
       ? undefined
@@ -2318,7 +2400,7 @@ export async function startServerRuntime(
           queue: remoteTaskCancellationQueue,
           clock,
         });
-  const workflowPlans = new PostgresWorkflowPlanRepository(pool);
+  const workflowPlans = new PostgresWorkflowPlanRepository(pool, taskCommands);
   const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
@@ -2358,6 +2440,7 @@ export async function startServerRuntime(
       taskExecution,
       signal,
       executionContext,
+      prepareExternalWait,
     }) {
       if (!isRecord(arguments_)) throw new Error('WORKFLOW_MCP_ARGUMENTS_NOT_OBJECT');
       const instance = await workflowInstances.findInstance(executionId);
@@ -2431,6 +2514,181 @@ export async function startServerRuntime(
               enter: (dispatch: Readonly<{ dispatchId: string; dispatchHash: string }>) =>
                 deterministicLease.lease.enterProviderDispatch(dispatch),
             };
+      const remoteAdmissionEnabled =
+        effectiveTaskExecution !== undefined ||
+        declaredTaskOperation?.taskExecutionProfile.taskBehavior === 'server_directed';
+      if (
+        remoteAdmissionEnabled &&
+        (remoteTaskAdmission === undefined ||
+          remoteTaskAdmissionIntents === undefined ||
+          authorityTask === undefined ||
+          instance === undefined ||
+          plan === undefined ||
+          planDefinition === undefined)
+      )
+        throw new RemoteMcpTaskPhaseNotConnectedError('not-dispatched');
+      const invocationId = remoteAdmissionEnabled
+        ? (preTransportFence?.invocationId ?? `mcp-invocation-${randomUUID()}`)
+        : undefined;
+      const bindingId =
+        invocationId === undefined ? undefined : `remote-task-binding-${invocationId}`;
+      const intentId =
+        invocationId === undefined ? undefined : `remote-task-admission-${invocationId}`;
+      const remoteAdmissionEnvelope: RemoteTaskAdmissionEnvelope | undefined =
+        invocationId === undefined ||
+        bindingId === undefined ||
+        authorityTask === undefined ||
+        instance === undefined ||
+        plan === undefined ||
+        planDefinition === undefined
+          ? undefined
+          : {
+              bindingId,
+              serverId: tool.serverId,
+              operationName: tool.toolName,
+              agentTaskId: authorityTask.taskId,
+              contextId: authorityTask.contextId,
+              goalId: instance.goalId,
+              goalVersion: instance.goalVersion,
+              workflowPlanId: plan.planId,
+              ...(instance.skillGoalId === undefined ? {} : { skillGoalId: instance.skillGoalId }),
+              ...(instance.skillAttemptId === undefined
+                ? {}
+                : { skillAttemptId: instance.skillAttemptId }),
+              workflowDefinitionId: planDefinition.workflowDefinitionId,
+              workflowDefinitionVersion: planDefinition.version,
+              workflowInstanceId: instance.instanceId,
+              workflowNodeId,
+              workflowNodeRunId,
+              ...(skillCallLink === undefined
+                ? {}
+                : {
+                    parentWorkflowInstanceId: skillCallLink.parentInstanceId,
+                    parentSkillCallId: skillCallLink.callId,
+                  }),
+              mcpInvocationId: invocationId,
+              ...(guardedTaskExecution?.timing === undefined
+                ? {}
+                : { requestedTiming: guardedTaskExecution.timing }),
+              executionContext,
+              createdAt: clock.now(),
+            };
+      const remoteAdmissionIntent: RemoteTaskAdmissionIntent | undefined =
+        intentId === undefined ||
+        invocationId === undefined ||
+        remoteAdmissionEnvelope === undefined ||
+        remoteTaskAdmissionIntents === undefined ||
+        authorityTask === undefined
+          ? undefined
+          : {
+              intentId,
+              invocationId,
+              taskId: authorityTask.taskId,
+              ...(providerBindingContext?.capabilityAttemptId === undefined
+                ? {}
+                : { capabilityAttemptId: providerBindingContext.capabilityAttemptId }),
+              contextId: authorityTask.contextId,
+              serverId: tool.serverId,
+              operationName: tool.toolName,
+              argumentsHash: createHash('sha256').update(canonicalJson(arguments_)).digest('hex'),
+              envelope: remoteAdmissionEnvelope,
+              status: 'prepared',
+              createdAt: remoteAdmissionEnvelope.createdAt,
+              updatedAt: remoteAdmissionEnvelope.createdAt,
+              version: 1,
+            };
+      if (remoteAdmissionIntent !== undefined && remoteTaskAdmissionIntents !== undefined)
+        await remoteTaskAdmissionIntents.prepare(remoteAdmissionIntent);
+      const remoteAdmissionJournal =
+        remoteAdmissionIntent === undefined || remoteTaskAdmissionIntents === undefined
+          ? undefined
+          : {
+              invocationId: remoteAdmissionIntent.invocationId,
+              async markDispatching(
+                input: Readonly<{
+                  invocationId: string;
+                  dispatchHash: string;
+                  at: string;
+                }>,
+              ) {
+                const mutation = await remoteTaskAdmissionIntents.markDispatching({
+                  intentId: remoteAdmissionIntent.intentId,
+                  ...input,
+                });
+                if (!mutation.applied)
+                  throw new Error(
+                    `REMOTE_TASK_ADMISSION_DISPATCH_${mutation.reason.toUpperCase()}`,
+                  );
+              },
+              async recordRemoteReceipt(
+                input: Readonly<{
+                  invocation: McpInvocation;
+                  outcome: Extract<McpInvocationOutcome, { kind: 'remote_task' }>;
+                  credentialRevision: string;
+                  sessionRevision: string;
+                  protocolContract: McpProtocolContractSnapshot;
+                  taskBehavior: McpTaskBehavior;
+                  taskCancellation: McpToolCancellation;
+                  authoritySnapshot: RemoteTaskAuthoritySnapshot;
+                  at: string;
+                }>,
+              ) {
+                const envelope = remoteAdmissionIntent.envelope;
+                const remoteSnapshot = input.outcome.reconciledTask ?? input.outcome.task;
+                const continuation = await prepareExternalWait({
+                  waitId: envelope.bindingId,
+                  kind: 'remote_task',
+                  sourceId: envelope.bindingId,
+                  nodeId: workflowNodeId,
+                  nodeRunId: workflowNodeRunId,
+                  state: remoteSnapshot.status === 'input_required' ? 'awaiting_input' : 'waiting',
+                });
+                const mutation = await remoteTaskAdmissionIntents.recordRemoteReceiptAndInvocation(
+                  remoteAdmissionIntent.intentId,
+                  input.invocation,
+                  {
+                    remoteTask: input.outcome.task,
+                    ...(input.outcome.reconciledTask === undefined
+                      ? {}
+                      : { reconciledTask: input.outcome.reconciledTask }),
+                    credentialRevision: input.credentialRevision,
+                    sessionRevision: input.sessionRevision,
+                    protocolContract: input.protocolContract,
+                    taskBehavior: input.taskBehavior,
+                    taskCancellation: input.taskCancellation,
+                    authoritySnapshot: input.authoritySnapshot,
+                    continuation,
+                  },
+                  input.at,
+                );
+                if (!mutation.applied)
+                  throw new Error(`REMOTE_TASK_ADMISSION_RECEIPT_${mutation.reason.toUpperCase()}`);
+              },
+              async close(
+                input: Readonly<{
+                  invocationId: string;
+                  reasonCode: string;
+                  at: string;
+                }>,
+              ) {
+                await remoteTaskAdmissionIntents.close({
+                  intentId: remoteAdmissionIntent.intentId,
+                  ...input,
+                });
+              },
+              async markUncertain(
+                input: Readonly<{
+                  invocationId: string;
+                  reasonCode: string;
+                  at: string;
+                }>,
+              ) {
+                await remoteTaskAdmissionIntents.markUncertain({
+                  intentId: remoteAdmissionIntent.intentId,
+                  ...input,
+                });
+              },
+            };
       const receipt = await mcpRegistry.callDetailed(
         tool.serverId,
         tool.toolName,
@@ -2443,6 +2701,7 @@ export async function startServerRuntime(
                 ? {}
                 : { taskExecution: guardedTaskExecution }),
               ...(preTransportFence === undefined ? {} : { preTransportFence }),
+              ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
             }
           : {
               taskId: authorityTask.taskId,
@@ -2453,58 +2712,32 @@ export async function startServerRuntime(
                 ? {}
                 : { taskExecution: guardedTaskExecution }),
               ...(preTransportFence === undefined ? {} : { preTransportFence }),
+              ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
             },
       );
       if (receipt.outcome.kind === 'immediate') return receipt.outcome;
       const remote = receipt.outcome.task;
       if (
         remoteTaskAdmission === undefined ||
+        remoteTaskAdmissionIntents === undefined ||
+        remoteAdmissionIntent === undefined ||
+        bindingId === undefined ||
         authorityTask === undefined ||
         instance === undefined ||
         plan === undefined ||
         planDefinition === undefined
-      ) {
-        let cancellationAcknowledged = false;
-        let cancellationFailure: string | undefined;
-        try {
-          cancellationAcknowledged = (
-            await mcpRegistry.cancelRemoteTask({
-              serverId: tool.serverId,
-              remoteTaskId: remote.remoteTaskId,
-              executionContext,
-              ...(signal === undefined ? {} : { signal }),
-            })
-          ).acknowledged;
-        } catch (cancellationError: unknown) {
-          cancellationFailure =
-            cancellationError instanceof Error
-              ? cancellationError.name
-              : 'REMOTE_TASK_CANCEL_FAILED';
-        }
-        process.stderr.write(
-          `${JSON.stringify({
-            event: 'remote_task.phase_not_connected',
-            code: 'REMOTE_MCP_TASK_PHASE_NOT_CONNECTED',
-            serverId: tool.serverId,
-            operationName: tool.toolName,
-            remoteTaskId: remote.remoteTaskId,
-            executionId,
-            workflowNodeRunId,
-            cancellationAcknowledged,
-            ...(cancellationFailure === undefined ? {} : { cancellationFailure }),
-          })}\n`,
-        );
+      )
         throw new RemoteMcpTaskPhaseNotConnectedError(remote.remoteTaskId);
-      }
-      const bindingId = `remote-task-binding-${randomUUID()}`;
       try {
         const protocolContract = receipt.protocolContract;
         const taskBehavior = receipt.taskBehavior;
+        const taskCancellation = receipt.taskCancellation;
         const runtimeRevision = remote.runtimeRevision;
         if (
           remote.protocolMode !== 'frozen_v1' ||
           protocolContract === undefined ||
           taskBehavior === undefined ||
+          taskCancellation === undefined ||
           runtimeRevision === undefined
         )
           throw new Error('MCP_FROZEN_INVOCATION_AUTHORITY_MISSING');
@@ -2544,6 +2777,7 @@ export async function startServerRuntime(
           tasksSchemaRevision: remote.tasksSchemaRevision,
           protocolContract,
           taskBehavior,
+          taskCancellation,
           runtimeRevision,
           ...(remote.providerRevision === undefined
             ? {}
@@ -2561,6 +2795,7 @@ export async function startServerRuntime(
             ? {}
             : { requestedTiming: guardedTaskExecution.timing }),
           executionContext,
+          authoritySnapshot: receipt.authoritySnapshot,
           credentialRevision: receipt.credentialRevision,
           sessionRevision: receipt.sessionRevision,
           lastProviderUpdatedAt: remote.lastUpdatedAt,
@@ -2631,22 +2866,6 @@ export async function startServerRuntime(
           },
         };
       } catch (error: unknown) {
-        let cancellationAcknowledged = false;
-        let cancellationFailure: string | undefined;
-        try {
-          const cancellation = await mcpRegistry.cancelRemoteTask({
-            serverId: tool.serverId,
-            remoteTaskId: remote.remoteTaskId,
-            executionContext,
-            ...(signal === undefined ? {} : { signal }),
-          });
-          cancellationAcknowledged = cancellation.acknowledged;
-        } catch (cancellationError: unknown) {
-          cancellationFailure =
-            cancellationError instanceof Error
-              ? cancellationError.name
-              : 'REMOTE_TASK_CANCEL_FAILED';
-        }
         process.stderr.write(
           `${JSON.stringify({
             event: 'remote_task.admission.uncertain',
@@ -2656,8 +2875,7 @@ export async function startServerRuntime(
             remoteTaskId: remote.remoteTaskId,
             workflowInstanceId: instance.instanceId,
             workflowNodeRunId,
-            cancellationAcknowledged,
-            ...(cancellationFailure === undefined ? {} : { cancellationFailure }),
+            recoveryPending: true,
             message: error instanceof Error ? error.message : 'Remote Task binding failed.',
           })}\n`,
         );
@@ -2743,7 +2961,7 @@ export async function startServerRuntime(
     nowMilliseconds: () => Date.now(),
   };
   const langGraphExecutor = new LangGraphWorkflowExecutor(workflowPorts, workflowCallCosts);
-  const workflowInstances = new PostgresWorkflowExecutionRepository(pool);
+  const workflowInstances = new PostgresWorkflowExecutionRepository(pool, taskCommands);
   const workflowContinuations = new PostgresWorkflowContinuationRepository(pool);
   const workflowExecution = new WorkflowExecutionService({
     plans: workflowPlans,
@@ -2757,6 +2975,44 @@ export async function startServerRuntime(
       nextContinuationId: () => `workflow-continuation-${randomUUID()}`,
     },
     continuations: workflowContinuations,
+    async onExternalWaitPrepared(prepared) {
+      if (remoteTaskAdmissionIntents === undefined || prepared.completeness !== 'exact_final')
+        return;
+      for (const wait of prepared.snapshot.waitingNodeRuns) {
+        if (wait.kind !== 'remote_task') continue;
+        const intent = await remoteTaskAdmissionIntents.findByBindingId(wait.sourceId);
+        if (
+          intent?.status !== 'receipt_recorded' ||
+          intent.receipt?.continuation.completeness !== 'requires_graph_merge'
+        )
+          continue;
+        const mutation = await remoteTaskAdmissionIntents.replaceContinuation({
+          intentId: intent.intentId,
+          invocationId: intent.invocationId,
+          continuation: prepared,
+          at: clock.now(),
+        });
+        if (!mutation.applied)
+          throw new Error(`REMOTE_TASK_ADMISSION_CONTINUATION_${mutation.reason.toUpperCase()}`);
+      }
+    },
+    async onExternalWaitActivated(snapshot) {
+      if (remoteTaskAdmissionIntents === undefined) return;
+      for (const wait of snapshot.waitingNodeRuns) {
+        if (wait.kind !== 'remote_task') continue;
+        const intent = await remoteTaskAdmissionIntents.findByBindingId(wait.sourceId);
+        if (intent === undefined) continue;
+        const mutation = await remoteTaskAdmissionIntents.markMaterialized({
+          intentId: intent.intentId,
+          invocationId: intent.invocationId,
+          bindingId: wait.sourceId,
+          snapshotId: snapshot.snapshotId,
+          at: clock.now(),
+        });
+        if (!mutation.applied)
+          throw new Error(`REMOTE_TASK_ADMISSION_MATERIALIZE_${mutation.reason.toUpperCase()}`);
+      }
+    },
     async onContinuationActivationFailure({ snapshot, error }) {
       const compensationFailures: unknown[] = [];
       for (const wait of snapshot.waitingNodeRuns) {
@@ -2796,16 +3052,24 @@ export async function startServerRuntime(
           compensationFailures.push(new Error('REMOTE_TASK_BINDING_NOT_FOUND'));
           continue;
         }
-        let cancellationAcknowledged = false;
+        let cancellationDisposition:
+          | Awaited<ReturnType<RemoteTaskCancellationService['request']>>['disposition']
+          | 'service_unavailable' = 'service_unavailable';
+        let cancellationDeliveryScheduled = false;
         let cancellationFailure: string | undefined;
         try {
-          cancellationAcknowledged = (
-            await mcpRegistry.cancelRemoteTask({
-              serverId: binding.serverId,
-              remoteTaskId: binding.remoteTaskId,
-              executionContext: binding.executionContext,
-            })
-          ).acknowledged;
+          if (remoteTaskCancellation === undefined)
+            throw new Error('REMOTE_TASK_CANCELLATION_SERVICE_UNAVAILABLE');
+          const cancellation = await requestContinuationActivationFailureCancellation(
+            remoteTaskCancellation,
+            {
+              bindingId: binding.bindingId,
+              snapshotId: snapshot.snapshotId,
+              workflowInstanceId: snapshot.workflowInstanceId,
+            },
+          );
+          cancellationDisposition = cancellation.disposition;
+          cancellationDeliveryScheduled = cancellation.deliveryScheduled;
         } catch (cancellationError: unknown) {
           compensationFailures.push(cancellationError);
           cancellationFailure =
@@ -2821,7 +3085,8 @@ export async function startServerRuntime(
             serverId: binding.serverId,
             remoteTaskId: binding.remoteTaskId,
             workflowInstanceId: snapshot.workflowInstanceId,
-            cancellationAcknowledged,
+            cancellationDisposition,
+            cancellationDeliveryScheduled,
             ...(cancellationFailure === undefined ? {} : { cancellationFailure }),
             cause:
               typeof error === 'object' &&
@@ -2975,7 +3240,11 @@ export async function startServerRuntime(
   });
   const goalService = new GoalService({ goals, contexts, clock });
   const userGoalRuntimeRepository = new PostgresUserGoalRuntimeRepository(pool);
-  const goalCancellationRepository = new PostgresGoalCancellationRepository(pool, publishTaskState);
+  const goalCancellationRepository = new PostgresGoalCancellationRepository(
+    pool,
+    publishTaskState,
+    taskCommands,
+  );
   const userGoalPlanController = new UserGoalPlanController({
     terminal: runtimeTerminalOutcomes,
     outcomes: userGoalRuntimeRepository,
@@ -3146,7 +3415,7 @@ export async function startServerRuntime(
   });
   const goalPatches = new GoalPatchService({
     goals,
-    patches: new PostgresGoalPatchRepository(pool, publishTaskState),
+    patches: new PostgresGoalPatchRepository(pool, publishTaskState, taskCommands),
     plans: workflowPlans,
     planner: workflowPlanner,
     skills,
@@ -3352,7 +3621,23 @@ export async function startServerRuntime(
       },
       async pause(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        await workflowExecution.pauseForPlan(task.planId);
+        const command = taskCommands.current();
+        if (command !== undefined && command.taskId !== task.taskId)
+          throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
+        // A running executor may have been created before this command's ALS
+        // scope, so its paused save cannot be assumed to record command
+        // evidence. Persist the same payload as the repository; a same-scope
+        // save is exact-idempotent and a background save gets its missing proof.
+        const paused = await workflowExecution.pauseForPlan(task.planId);
+        if (command !== undefined)
+          await taskCommands.recordEffect('workflow_paused', paused.instanceId, {
+            instanceId: paused.instanceId,
+            planId: paused.planId,
+            goalId: paused.goalId,
+            goalVersion: paused.goalVersion,
+            status: paused.status,
+            pendingConfirmation: paused.pendingConfirmation,
+          });
       },
       async commitRuntimeCancellation(task, reason) {
         if (
@@ -3411,13 +3696,12 @@ export async function startServerRuntime(
       },
       async resume(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
-        return (
-          await workflowExecution.resumePauseForPlan(task.planId, 300, {
-            agentTaskId: task.taskId,
-            contextId: task.contextId,
-            workflowControlId: await resolveTaskWorkflowControlId(task),
-          })
-        ).disposition;
+        const resumed = await workflowExecution.resumePauseForPlan(task.planId, 300, {
+          agentTaskId: task.taskId,
+          contextId: task.contextId,
+          workflowControlId: await resolveTaskWorkflowControlId(task),
+        });
+        return resumed.disposition;
       },
       async cancelGoal(task, reason) {
         if (task.goalId === undefined) throw new Error('TASK_GOAL_NOT_ATTACHED');
@@ -3425,6 +3709,24 @@ export async function startServerRuntime(
       },
     },
   });
+  const remoteTaskAdmissionRecovery =
+    remoteTaskAdmissionIntents === undefined ||
+    remoteTaskAdmission === undefined ||
+    remoteTaskRepository === undefined
+      ? undefined
+      : new RemoteTaskAdmissionRecoveryService({
+          store: remoteTaskAdmissionIntents,
+          admission: remoteTaskAdmission,
+          remoteTasks: remoteTaskRepository,
+          continuations: workflowContinuations,
+          clock,
+          async failTask(taskId, errorCode, summary) {
+            await service.fail(taskId, errorCode, summary);
+          },
+          nextObservationId: () => `remote-task-observation-${randomUUID()}`,
+          nextControlEventId: () => `remote-task-control-${randomUUID()}`,
+        });
+  if (remoteTaskAdmissionRecovery !== undefined) await remoteTaskAdmissionRecovery.reconcile();
   async function resolveTaskWorkflowControlId(task: AgentTask): Promise<string> {
     const baseControlId = `control-task-${task.taskId}`;
     try {
@@ -3503,6 +3805,7 @@ export async function startServerRuntime(
         };
       },
       reportReplacementPlan: (taskId, input) => service.awaitReplacementConfirmation(taskId, input),
+      reportReplanPlan: (taskId, input) => service.awaitWorkflowReplanConfirmation(taskId, input),
       reportInputContinuationPlan: (taskId, input) =>
         service.awaitInputContinuationConfirmation(taskId, input),
       continueUserGoalPlan: (taskId, userGoalPlanId) =>
@@ -3727,67 +4030,27 @@ export async function startServerRuntime(
       continuationAttemptId: string;
     }>,
   ): Promise<void> => {
-    let currentSnapshot = input.snapshot;
-    let currentInstance = input.instance;
-    let depth = 0;
-    for (;;) {
-      const childLink = await skillCallWorkflows.findByChildInstanceId(currentInstance.instanceId);
-      if (childLink === undefined) {
-        if (currentInstance.status !== 'waiting_external') {
-          await recordSkillProjectionSafely(() =>
+    await continueRemoteTaskWorkflowHierarchy(
+      {
+        skillCallWorkflows,
+        skillCallWorkflow: skillCallWorkflowService,
+        continuations: workflowContinuations,
+        execution: workflowExecution,
+        controller: workflowController,
+        recordRootResume: (snapshot) =>
+          recordSkillProjectionSafely(() =>
             skillExecutionRecording.recordStatus({
-              workflowPlanId: currentSnapshot.workflowPlanId,
+              workflowPlanId: snapshot.workflowPlanId,
               eventType: 'skill.execution_started',
               status: 'executing',
               summary: 'Authoritative Workflow resumed after an external Task observation.',
             }),
-          );
-          const continued = await workflowController.continueAfterExternal(
-            currentSnapshot.workflowControlId,
-            currentInstance.instanceId,
-          );
-          await projectSkillExecutionControl(currentSnapshot.workflowPlanId, continued);
-        }
-        return;
-      }
-      if (
-        currentInstance.status === 'running' ||
-        currentInstance.status === 'paused' ||
-        currentInstance.status === 'waiting_external'
-      )
-        throw new Error('WORKFLOW_SKILL_CHILD_CONTINUATION_INCOMPLETE');
-      const child = await skillCallWorkflowService.completeExternalChild(currentInstance);
-      const parentSnapshot = await workflowContinuations.findCurrent(child.parentInstanceId);
-      const parentWait = parentSnapshot?.waitingNodeRuns.find(
-        (wait) =>
-          wait.kind === 'child_workflow' &&
-          wait.sourceId === child.childInstanceId &&
-          wait.nodeId === child.parentNodeId,
-      );
-      if (parentSnapshot === undefined || parentWait === undefined)
-        throw new Error('WORKFLOW_SKILL_PARENT_CONTINUATION_NOT_FOUND');
-      currentInstance = await workflowExecution.continueExternal({
-        instanceId: child.parentInstanceId,
-        continuationAttemptId: `${input.continuationAttemptId}-parent-${String(depth)}`,
-        resolution:
-          child.outcome.kind === 'completed'
-            ? {
-                kind: 'completed',
-                waitId: parentWait.waitId,
-                nodeRunId: parentWait.nodeRunId,
-                result: child.outcome.result,
-              }
-            : {
-                kind: 'failed',
-                waitId: parentWait.waitId,
-                nodeRunId: parentWait.nodeRunId,
-                error: child.outcome.error,
-              },
-      });
-      currentSnapshot = parentSnapshot;
-      depth += 1;
-      if (currentInstance.status === 'waiting_external') return;
-    }
+          ),
+        projectControl: (snapshot, control) =>
+          projectSkillExecutionControl(snapshot.workflowPlanId, control),
+      },
+      input,
+    );
   };
   const remoteTaskContinuation =
     remoteTaskRepository === undefined ||
@@ -3823,6 +4086,9 @@ export async function startServerRuntime(
             ids: {
               nextClaimToken: () => `workflow-continuation-claim-${randomUUID()}`,
               nextAttemptId: () => `workflow-continuation-attempt-${randomUUID()}`,
+            },
+            async failTask(taskId, errorCode, summary) {
+              await service.fail(taskId, errorCode, summary);
             },
             onContinued: continueWorkflowHierarchy,
             inputRequired: remoteTaskInput,
@@ -4184,15 +4450,18 @@ export async function startServerRuntime(
             ),
         );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
+        const usageSelectionId = resolveSkillUsageSelectionId({
+          selectedSkill: skill !== undefined,
+          skillSelectionConfigured: skillSelection !== undefined,
+          ...(input.task.skillSelectionId === undefined
+            ? {}
+            : { skillSelectionId: input.task.skillSelectionId }),
+        });
         const preparedUsageEvidence =
-          skill === undefined
+          skill === undefined || usageSelectionId === undefined
             ? undefined
             : await (async () => {
-                if (input.task.skillSelectionId === undefined)
-                  throw new Error('SKILL_USAGE_SELECTION_ID_REQUIRED');
-                const selection = await skillSelectionRepository.findSelection(
-                  input.task.skillSelectionId,
-                );
+                const selection = await skillSelectionRepository.findSelection(usageSelectionId);
                 const candidate = selection?.candidates.find(
                   (item) => item.skillId === skill.skillId && item.skillVersion === skill.version,
                 )?.usageCandidate;
@@ -4935,8 +5204,10 @@ export async function startServerRuntime(
       : setInterval(() => {
           if (remoteTaskReconcileRunning) return;
           remoteTaskReconcileRunning = true;
-          void remoteTaskReconciler
-            .reconcile()
+          void (async () => {
+            await remoteTaskAdmissionRecovery?.reconcile(100, 'periodic');
+            return remoteTaskReconciler.reconcile();
+          })()
             .catch((error: unknown) => {
               process.stderr.write(
                 `${JSON.stringify({ event: 'remote_task_reconcile.failed', error: error instanceof Error ? error.message : String(error) })}\n`,
@@ -5566,6 +5837,8 @@ export async function startServerRuntime(
     },
   };
   let management: ManagementHttpEndpointHandle | undefined;
+  let a2aTerminalProjectionReconciliationTimer: NodeJS.Timeout | undefined;
+  let a2aTerminalProjectionReconciliationInFlight: Promise<void> | undefined;
   try {
     const startedManagement = await startManagementHttpEndpoint({
       operations: {
@@ -5786,14 +6059,81 @@ export async function startServerRuntime(
             },
           }),
       ...(artifactManagement === undefined ? {} : { artifactManagement }),
+      ...(options.governedControlPrincipalResolver === undefined
+        ? {}
+        : {
+            governedControl: {
+              confirmations: governedControlManagement,
+              principalResolver: options.governedControlPrincipalResolver,
+            },
+          }),
       ...(options.runtimeControlServiceToken === undefined
         ? {}
         : {
             runtimeControl: {
               bearerToken: options.runtimeControlServiceToken,
               skills: runtimeSkillGovernance,
+              health: {
+                async get() {
+                  const observedAt = clock.now();
+                  try {
+                    const result = await pool.query<{ active_tasks: string }>(
+                      `SELECT count(*)::text AS active_tasks
+                         FROM agent_task
+                        WHERE phase NOT IN ('completed','failed','canceled','invalidated','capability_gap')`,
+                    );
+                    const activeTasks = Number(result.rows[0]?.active_tasks ?? '0');
+                    if (!Number.isSafeInteger(activeTasks) || activeTasks < 0)
+                      throw new Error('RUNTIME_ACTIVE_TASK_COUNT_INVALID');
+                    return Object.freeze({
+                      nodeId: 'sdar-runtime',
+                      status: 'healthy' as const,
+                      components: Object.freeze([
+                        Object.freeze({
+                          component: 'runtime_database',
+                          status: 'healthy' as const,
+                          observedAt,
+                        }),
+                        Object.freeze({
+                          component: 'task_authority',
+                          status: 'healthy' as const,
+                          observedAt,
+                        }),
+                      ]),
+                      activeTasks,
+                      observedAt,
+                    });
+                  } catch {
+                    return Object.freeze({
+                      nodeId: 'sdar-runtime',
+                      status: 'unavailable' as const,
+                      components: Object.freeze([
+                        Object.freeze({
+                          component: 'runtime_database',
+                          status: 'unavailable' as const,
+                          reasonCode: 'RUNTIME_DATABASE_UNAVAILABLE',
+                          observedAt,
+                        }),
+                      ]),
+                      activeTasks: 0,
+                      observedAt,
+                    });
+                  }
+                },
+              },
+              version: {
+                get: () =>
+                  Promise.resolve(
+                    Object.freeze({
+                      runtimeVersion: '1.4.1',
+                      nodeControlContractVersion: '1.0.0',
+                      runtimeControlContractVersion: '1.0.0',
+                    }),
+                  ),
+              },
               evidenceExport,
               evidenceOperations,
+              taskRevisionAuthority: new PostgresRuntimeTaskRevisionAuthority(pool, taskCommands),
               actorId: 'sdar-node-control',
               ...(options.runtimeControlArtifactPrincipalResolver === undefined
                 ? {}
@@ -5823,10 +6163,41 @@ export async function startServerRuntime(
         ? {}
         : { safetyPollIntervalMs: options.a2aSafetyPollIntervalMs }),
     });
+    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool);
+    const a2aTerminalProjectionReconciler = new A2ATerminalProjectionReconciler({
+      projections: a2aProjections,
+      tasks,
+      interaction: interactiveGoalMetadata,
+    });
+    await a2aTerminalProjectionReconciler.reconcile();
+    const scheduleA2ATerminalProjectionReconciliation = (): void => {
+      if (a2aTerminalProjectionReconciliationInFlight !== undefined) return;
+      a2aTerminalProjectionReconciliationInFlight = a2aTerminalProjectionReconciler
+        .reconcile()
+        .then((result) => {
+          if (result.reconciled === 0) return;
+          process.stdout.write(
+            `${JSON.stringify({ event: 'a2a_terminal_projection.reconciled', ...result })}\n`,
+          );
+        })
+        .catch((error: unknown) => {
+          process.stderr.write(
+            `${JSON.stringify({ event: 'a2a_terminal_projection.reconciliation_failed', errorCode: runtimeErrorCode(error), summary: error instanceof Error ? error.message : String(error) })}\n`,
+          );
+        })
+        .finally(() => {
+          a2aTerminalProjectionReconciliationInFlight = undefined;
+        });
+    };
+    a2aTerminalProjectionReconciliationTimer = setInterval(
+      scheduleA2ATerminalProjectionReconciliation,
+      resolveA2ATerminalReconciliationIntervalMs(options.a2aTerminalReconciliationIntervalMs),
+    );
+    a2aTerminalProjectionReconciliationTimer.unref();
     const a2a = await startA2AHttpEndpoint({
       executor: taskExecutor,
       taskStore: new A2AProjectionTaskStore(
-        new PostgresExternalTaskProjectionRepository(pool),
+        a2aProjections,
         tasks,
         createA2ACancelReconciliationHandler(foregroundAwareTasks),
         interactiveGoalMetadata,
@@ -5976,6 +6347,8 @@ export async function startServerRuntime(
         if (remoteTaskCancellationReconcileTimer !== undefined)
           clearInterval(remoteTaskCancellationReconcileTimer);
         if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
+        if (a2aTerminalProjectionReconciliationTimer !== undefined)
+          clearInterval(a2aTerminalProjectionReconciliationTimer);
         taskExecutor.close();
         frozenTaskNotifications?.close();
         businessEventCoordinator?.close();
@@ -6008,6 +6381,7 @@ export async function startServerRuntime(
         await artifactShadowRuntime?.revalidationQueue.close();
         await queue.close();
         await Promise.allSettled([...backgroundExecutions]);
+        await a2aTerminalProjectionReconciliationInFlight;
         await evidenceExportInFlight;
         await evidenceOperationsMaintenanceInFlight;
         await runtimeCoreEvidenceProjection;
@@ -6032,6 +6406,8 @@ export async function startServerRuntime(
     if (remoteTaskContinuationReconcileTimer !== undefined)
       clearInterval(remoteTaskContinuationReconcileTimer);
     if (businessEventIngressTimer !== undefined) clearInterval(businessEventIngressTimer);
+    if (a2aTerminalProjectionReconciliationTimer !== undefined)
+      clearInterval(a2aTerminalProjectionReconciliationTimer);
     taskStateNotifier.close();
     frozenTaskNotifications?.close();
     businessEventCoordinator?.close();
@@ -6060,6 +6436,7 @@ export async function startServerRuntime(
     await artifactShadowRuntime?.queue.close();
     await artifactShadowRuntime?.revalidationQueue.close();
     await queue.close();
+    await a2aTerminalProjectionReconciliationInFlight;
     await evidenceExportInFlight;
     await evidenceOperationsMaintenanceInFlight;
     await runtimeCoreEvidenceProjection;

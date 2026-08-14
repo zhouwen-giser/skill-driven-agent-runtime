@@ -14,7 +14,7 @@ interface CognitiveManagementActionRow extends QueryResultRow {
   action_id: string;
   operation: CognitiveManagementOperation;
   subject_id: string;
-  expected_version: number;
+  expected_version: string;
   idempotency_key: string;
   actor_id: string;
   reason: string;
@@ -279,7 +279,7 @@ export class PostgresCognitiveManagementActionRepository implements CognitiveMan
       throw new Error('COGNITIVE_MANAGEMENT_AUDIT_LIMIT_INVALID');
     }
     const result = await this.#pool.query<CognitiveManagementActionRow>(
-      `SELECT action_id,operation,subject_id,expected_version,idempotency_key,actor_id,
+      `SELECT action_id,operation,subject_id,expected_version::text AS expected_version,idempotency_key,actor_id,
          reason,request_hash,status,result,error_code,claimed_at,completed_at,failed_at,updated_at,
          lease_owner,lease_expires_at,lease_attempt,lease_token,execution_phase
          ,provider_dispatch_id,provider_dispatch_hash
@@ -294,7 +294,7 @@ export class PostgresCognitiveManagementActionRepository implements CognitiveMan
           actionId: row.action_id,
           operation: row.operation,
           subjectId: row.subject_id,
-          expectedVersion: row.expected_version,
+          expectedVersion: safeExpectedVersion(row.expected_version),
           idempotencyKey: row.idempotency_key,
           actorId: row.actor_id,
           reason: row.reason,
@@ -354,6 +354,13 @@ function mapLease(row: CognitiveManagementActionRow): CognitiveManagementActionL
 
 function leaseConflict(): never {
   throw new Error('COGNITIVE_MANAGEMENT_ACTION_LEASE_CONFLICT');
+}
+
+function safeExpectedVersion(value: string): number {
+  const expectedVersion = Number(value);
+  if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0)
+    throw new Error('COGNITIVE_MANAGEMENT_ACTION_EXPECTED_VERSION_INVALID');
+  return expectedVersion;
 }
 
 function toIsoString(value: Date | string): string {

@@ -45,7 +45,7 @@ describe('BullMQ remote MCP Task continuation queue', () => {
     await expect(rawQueue.getJobCountByTypes('waiting')).resolves.toBe(1);
   });
 
-  it('does not automatically retry a continuation lost during execution', async () => {
+  it('does not automatically retry but replaces a failed wake on authoritative reconciliation', async () => {
     const queueName = `sdar-remote-continuation-failure-${String(Date.now())}`;
     const queue = new BullMqRemoteTaskContinuationQueue({ connection, queueName });
     const rawQueue = new Queue(queueName, { connection });
@@ -80,5 +80,26 @@ describe('BullMQ remote MCP Task continuation queue', () => {
     if (failedJob === undefined) throw new Error('REMOTE_TASK_CONTINUATION_FAILED_JOB_MISSING');
     expect(failedJob.attemptsMade).toBe(1);
     await expect(queue.state(input.eventId)).resolves.toBe('failed');
+    await worker.close();
+    resources.splice(resources.indexOf(worker), 1);
+    await queue.enqueue(input);
+    await expect(queue.state(input.eventId)).resolves.toBe('scheduled');
+    const recoveredWorker = new BullMqRemoteTaskContinuationWorker({
+      connection,
+      queueName,
+      processor: {
+        process: () => {
+          calls += 1;
+          return Promise.resolve();
+        },
+      },
+    });
+    resources.push(recoveredWorker);
+    const recoveredJob = await rawQueue.getJob(remoteTaskContinuationJobId(input.eventId));
+    if (recoveredJob === undefined)
+      throw new Error('REMOTE_TASK_CONTINUATION_RECOVERED_JOB_MISSING');
+    recoveredWorker.start();
+    await recoveredJob.waitUntilFinished(queueEvents, 5_000);
+    expect(calls).toBe(2);
   });
 });

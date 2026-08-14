@@ -2200,10 +2200,6 @@ function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function stableKey(scope: string, identity: string): string {
-  return `ugv-smpp-${scope}-${sha256(identity).slice(0, 24)}`;
-}
-
 function runKey(runId: string, scope: string, identity: string): string {
   return `${runId}-${scope}-${sha256(identity).slice(0, 16)}`.slice(0, 256);
 }

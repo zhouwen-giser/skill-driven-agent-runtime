@@ -516,6 +516,7 @@ function recoveryHarness(input: RecoveryHarnessInput) {
         enterProviderDispatch: vi.fn(() => Promise.resolve()),
         executionPhase: () => phase,
         providerDispatchIdentity: () => dispatch,
+        leaseIdentity: () => ({ actionId: 'action-test', attempt: 1, token: 'lease-test' }),
       });
     },
   };

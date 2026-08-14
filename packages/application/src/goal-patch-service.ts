@@ -192,72 +192,76 @@ export class GoalPatchService {
         'Goal Patch was not applied because its formal Skill input is unresolved.',
       );
     const patch = await this.#patches.apply(baseRecord, input.taskId);
-    if (this.#userGoalPlanning !== undefined) {
-      if (sourceUserGoalPlan === undefined)
-        throw new GoalPatchError(
-          'GOAL_PATCH_SOURCE_PLAN_INVALID',
-          'Source User Goal Plan must be active and match the current Goal version.',
-        );
-      await this.#userGoalPlanning.plan({
-        goal: afterGoal,
+    try {
+      if (this.#userGoalPlanning !== undefined) {
+        if (sourceUserGoalPlan === undefined)
+          throw new GoalPatchError(
+            'GOAL_PATCH_SOURCE_PLAN_INVALID',
+            'Source User Goal Plan must be active and match the current Goal version.',
+          );
+        await this.#userGoalPlanning.plan({
+          goal: afterGoal,
+          ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+          revision: sourceUserGoalPlan.plan.revision + 1,
+          revisionKind: 'goal_patch',
+          sourcePlan: {
+            planId: sourceUserGoalPlan.plan.planId,
+            revision: sourceUserGoalPlan.plan.revision,
+            lockVersion: sourceUserGoalPlan.lockVersion,
+            status: requireReplaceableUserGoalPlanStatus(sourceUserGoalPlan.plan.status),
+            inheritedCompletedEffectIds: [
+              ...new Set([
+                ...sourceUserGoalPlan.plan.inheritedCompletedEffectIds,
+                ...completedEffects.map((effect) => effect.completedEffectId),
+              ]),
+            ],
+            forbiddenReplayFingerprints: [
+              ...new Set([
+                ...sourceUserGoalPlan.plan.forbiddenReplayFingerprints,
+                ...completedEffects.map((effect) => effect.effectFingerprint),
+              ]),
+            ],
+          },
+        });
+      }
+      await this.#planner.plan({
+        planId: newPlanId,
+        workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
+        workflowVersion: sourcePlan.definition.version + 1,
+        goalId: goal.goalId,
+        goalVersion: afterGoal.version,
+        goalContract: createGoalExecutionContract(afterGoal),
+        planningInstruction: JSON.stringify({
+          operation: 'goal_patch_replan',
+          patch,
+          workflowIdentity: {
+            workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
+            version: sourcePlan.definition.version + 1,
+            goalId: goal.goalId,
+            goalVersion: afterGoal.version,
+          },
+          compensationGuidance: compensation.guidance,
+          ...(readiness.planningContext === undefined
+            ? {}
+            : { skillInputResolution: readiness.planningContext }),
+          confirmationPolicy: 'always_require_confirmation',
+        }),
+        sourcePlanId: sourcePlan.planId,
+        revisionKind: 'replan',
         ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
-        revision: sourceUserGoalPlan.plan.revision + 1,
-        revisionKind: 'goal_patch',
-        sourcePlan: {
-          planId: sourceUserGoalPlan.plan.planId,
-          revision: sourceUserGoalPlan.plan.revision,
-          lockVersion: sourceUserGoalPlan.lockVersion,
-          status: requireReplaceableUserGoalPlanStatus(sourceUserGoalPlan.plan.status),
-          inheritedCompletedEffectIds: [
-            ...new Set([
-              ...sourceUserGoalPlan.plan.inheritedCompletedEffectIds,
-              ...completedEffects.map((effect) => effect.completedEffectId),
-            ]),
-          ],
-          forbiddenReplayFingerprints: [
-            ...new Set([
-              ...sourceUserGoalPlan.plan.forbiddenReplayFingerprints,
-              ...completedEffects.map((effect) => effect.effectFingerprint),
-            ]),
-          ],
-        },
-      });
-    }
-    await this.#planner.plan({
-      planId: newPlanId,
-      workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
-      workflowVersion: sourcePlan.definition.version + 1,
-      goalId: goal.goalId,
-      goalVersion: afterGoal.version,
-      goalContract: createGoalExecutionContract(afterGoal),
-      planningInstruction: JSON.stringify({
-        operation: 'goal_patch_replan',
-        patch,
-        workflowIdentity: {
-          workflowDefinitionId: sourcePlan.definition.workflowDefinitionId,
-          version: sourcePlan.definition.version + 1,
-          goalId: goal.goalId,
-          goalVersion: afterGoal.version,
-        },
-        compensationGuidance: compensation.guidance,
-        ...(readiness.planningContext === undefined
+        ...(sourcePlan.compositionContext === undefined
           ? {}
-          : { skillInputResolution: readiness.planningContext }),
-        confirmationPolicy: 'always_require_confirmation',
-      }),
-      sourcePlanId: sourcePlan.planId,
-      revisionKind: 'replan',
-      ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
-      ...(sourcePlan.compositionContext === undefined
-        ? {}
-        : { compositionContext: sourcePlan.compositionContext }),
-      ...(sourcePlan.capabilityGapSkillIds === undefined
-        ? {}
-        : { capabilityGapSkillIds: sourcePlan.capabilityGapSkillIds }),
-      ...(sourcePlan.definition.skillUsagePolicy === undefined
-        ? {}
-        : { skillUsagePolicy: sourcePlan.definition.skillUsagePolicy }),
-    });
+          : { compositionContext: sourcePlan.compositionContext }),
+        ...(sourcePlan.capabilityGapSkillIds === undefined
+          ? {}
+          : { capabilityGapSkillIds: sourcePlan.capabilityGapSkillIds }),
+        ...(sourcePlan.definition.skillUsagePolicy === undefined
+          ? {}
+          : { skillUsagePolicy: sourcePlan.definition.skillUsagePolicy }),
+      });
+    } catch (error: unknown) {
+      throw new GoalPatchAppliedReplanError(patch.patchId, patch.toVersion, error);
+    }
     return this.get(patch.patchId);
   }
 
@@ -328,6 +332,7 @@ function applyChanges(goal: Goal, changes: GoalPatchChanges, timestamp: string):
 }
 
 export type GoalPatchErrorCode =
+  | 'GOAL_PATCH_APPLIED_REPLAN_FAILED'
   | 'GOAL_PATCH_EMPTY'
   | 'GOAL_PATCH_GOAL_NOT_ACTIVE'
   | 'GOAL_PATCH_NOT_FOUND'
@@ -339,5 +344,22 @@ export class GoalPatchError extends Error {
     super(message);
     this.name = 'GoalPatchError';
     this.code = code;
+  }
+}
+
+export class GoalPatchAppliedReplanError extends GoalPatchError {
+  readonly patchId: string;
+  readonly toVersion: number;
+  readonly status = 503;
+
+  constructor(patchId: string, toVersion: number, cause: unknown) {
+    super(
+      'GOAL_PATCH_APPLIED_REPLAN_FAILED',
+      `Goal Patch ${patchId} committed Goal version ${String(toVersion)}, but durable replanning did not complete.`,
+    );
+    this.name = 'GoalPatchAppliedReplanError';
+    this.patchId = patchId;
+    this.toVersion = toVersion;
+    this.cause = cause;
   }
 }

@@ -257,6 +257,76 @@ describe('GoalPatchService', () => {
     ).rejects.toMatchObject({ code: 'GOAL_PATCH_SOURCE_PLAN_INVALID' });
     expect(modelCallCount).toBe(modelCallsBeforeStalePatch);
   });
+
+  it('reports a stable post-commit failure when durable replanning does not complete', async () => {
+    let persisted: GoalPatchRecord | undefined;
+    const plannerFailure = new Error('planner unavailable');
+    const service = new GoalPatchService({
+      goals: {
+        findById: () => Promise.resolve(goal),
+        findActiveByContextId: () => Promise.resolve(goal),
+        findLatestByContextId: () => Promise.resolve(goal),
+        listByContextId: () => Promise.resolve([goal]),
+        listTransitions: () => Promise.resolve([]),
+        save: () => Promise.resolve(),
+      },
+      plans: {
+        findPlan: () => Promise.resolve(sourcePlan),
+        findConfirmedDefinition: () => Promise.resolve(undefined),
+        confirmPlan: () => Promise.resolve(),
+        saveAttempt: () => Promise.resolve(),
+        savePlan: () => Promise.resolve(),
+        savePlanAndSupersede: () => Promise.resolve(),
+      },
+      patches: {
+        apply: (record, triggeringTaskId) => {
+          persisted = {
+            ...record,
+            ...(triggeringTaskId === undefined ? {} : { triggeringTaskId }),
+            invalidatedPlanIds: [sourcePlan.planId],
+            invalidatedInstanceIds: ['instance-1'],
+          };
+          return Promise.resolve(persisted);
+        },
+        find: () => Promise.resolve(persisted),
+        listByGoal: () => Promise.resolve(persisted === undefined ? [] : [persisted]),
+      },
+      planner: { plan: () => Promise.reject(plannerFailure) },
+      skills: skillsWithCompensation(),
+      model: {
+        generateStructured: () =>
+          Promise.resolve({
+            changes: { constraints: ['read-only', 'include temperature'] },
+            decisionSummary: 'Added the requested constraint.',
+          }),
+      },
+      clock: { now: () => '2026-07-12T00:00:01.000Z' },
+      ids: { nextPatchId: () => 'patch-committed', nextPlanId: () => 'plan-replan' },
+    });
+
+    await expect(
+      service.apply({
+        goalId: goal.goalId,
+        sourcePlanId: sourcePlan.planId,
+        instruction: 'Also include temperature.',
+        taskId: 'task-1',
+      }),
+    ).rejects.toMatchObject({
+      code: 'GOAL_PATCH_APPLIED_REPLAN_FAILED',
+      status: 503,
+      patchId: 'patch-committed',
+      toVersion: 2,
+      cause: plannerFailure,
+    });
+    expect(persisted).toMatchObject({
+      patchId: 'patch-committed',
+      fromVersion: 1,
+      toVersion: 2,
+      newPlanId: 'plan-replan',
+      triggeringTaskId: 'task-1',
+      afterGoal: { version: 2 },
+    });
+  });
 });
 
 function skillsWithCompensation() {

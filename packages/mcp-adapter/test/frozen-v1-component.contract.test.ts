@@ -37,9 +37,25 @@ describe('Frozen MCP local component conformance', () => {
     expect(discovery.tools).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          toolName: 'task_success',
+          executionSemantics: expect.objectContaining({
+            effect: 'read_only',
+            replay: 'allowed',
+            source: 'mcp_declared',
+          }),
+        }),
+        expect.objectContaining({
           toolName: 'embodied.move',
           outputSchema: expect.any(Object),
           taskExecutionProfile: expect.objectContaining({ taskBehavior: 'server_directed' }),
+          executionSemantics: {
+            effect: 'side_effecting',
+            execution: 'task_capable',
+            cancellation: 'task_cancel',
+            idempotency: 'client_request_key',
+            replay: 'simulation_only',
+            source: 'mcp_declared',
+          },
         }),
       ]),
     );
@@ -93,6 +109,27 @@ describe('Frozen MCP local component conformance', () => {
       'embodied.area_patrol',
       'embodied.inspect_area',
     ]);
+    expect(
+      Object.fromEntries(
+        discovery.tools.map((tool) => [tool.toolName, tool.executionSemantics] as const),
+      ),
+    ).toEqual({
+      'embodied.move': expect.objectContaining({
+        effect: 'side_effecting',
+        replay: 'simulation_only',
+        source: 'mcp_declared',
+      }),
+      'embodied.area_patrol': expect.objectContaining({
+        effect: 'side_effecting',
+        replay: 'simulation_only',
+        source: 'mcp_declared',
+      }),
+      'embodied.inspect_area': expect.objectContaining({
+        effect: 'read_only',
+        replay: 'allowed',
+        source: 'mcp_declared',
+      }),
+    });
   });
 
   it('handles MRTR input, cooperative cancel and Notification reconciliation without duplicate Tool calls', async () => {

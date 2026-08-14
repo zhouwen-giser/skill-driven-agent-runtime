@@ -13,14 +13,14 @@ const StoredDocumentSchema = z.record(z.string(), z.unknown());
 /** SDK-facing projection store. Domain task state remains authoritative in agent_task. */
 export class A2AProjectionTaskStore implements TaskStore {
   readonly #projections: ExternalTaskProjectionRepository;
-  readonly #tasks: AgentTaskRepository | undefined;
+  readonly #tasks: Pick<AgentTaskRepository, 'findById'> | undefined;
   readonly #onCanceled: ((taskId: string) => Promise<void>) | undefined;
   readonly #interaction:
     ((taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>) | undefined;
 
   constructor(
     projections: ExternalTaskProjectionRepository,
-    tasks?: AgentTaskRepository,
+    tasks?: Pick<AgentTaskRepository, 'findById'>,
     onCanceled?: (taskId: string) => Promise<void>,
     interaction?: (taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>,
   ) {
@@ -36,14 +36,27 @@ export class A2AProjectionTaskStore implements TaskStore {
     if (task.status.state === TaskState.TASK_STATE_CANCELED) {
       await this.#onCanceled?.(task.id);
     }
-    const rawDocument: unknown = Task.toJSON(task);
+    const authoritative = await this.#tasks?.findById(task.id);
+    const canonical =
+      authoritative === undefined
+        ? task
+        : Task.fromJSON({
+            ...StoredDocumentSchema.parse(
+              Task.toJSON(toA2ATask(authoritative, await this.#interaction?.(task.id))),
+            ),
+            history: task.history.map((message) => Message.toJSON(message)),
+          });
+    if (canonical.status === undefined) throw new Error('A2A_TASK_STATUS_REQUIRED');
+    const rawDocument: unknown = Task.toJSON(canonical);
     const document = StoredDocumentSchema.parse(rawDocument);
     await this.#projections.save({
       protocol: 'a2a-v1',
-      taskId: task.id,
-      contextId: task.contextId,
-      state: TaskState[task.status.state],
-      ...(task.status.timestamp === undefined ? {} : { statusTimestamp: task.status.timestamp }),
+      taskId: canonical.id,
+      contextId: canonical.contextId,
+      state: TaskState[canonical.status.state],
+      ...(canonical.status.timestamp === undefined
+        ? {}
+        : { statusTimestamp: canonical.status.timestamp }),
       document,
     });
   }

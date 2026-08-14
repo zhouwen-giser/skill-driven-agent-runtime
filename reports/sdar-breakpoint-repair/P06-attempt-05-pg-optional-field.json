@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 5,
+  "candidateSha": "6d6b41ea28d61f66c5406c39b2cfe507a2cb21e9",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T04:24:48.624Z",
+  "finishedAt": "2026-08-13T04:30:39.442Z",
+  "command": "pnpm verify",
+  "infrastructureMode": "operator-managed using Goal-owned disposable containers",
+  "status": "FAILED_INTEGRATION_TEST_FIXTURE",
+  "durationMs": 350818,
+  "passedSteps": [
+    {
+      "name": "static-unit-contract-build",
+      "durationMs": 181099,
+      "testFiles": 257,
+      "tests": 1849,
+      "openapiOperations": 167,
+      "outputSha256": "7d7c77362a71fd7b0597410c401c0dd83afa7cee62230b8ae1e9d2f58c6d7397"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "durationMs": 828,
+      "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "durationMs": 22566,
+      "migrationCount": 50,
+      "outputSha256": "f52c6ebbbc87ca3ffca5ff4d92745bbc0a7abd7b4e7d4c695c7c5dfbf688a4c9"
+    }
+  ],
+  "failedStep": {
+    "name": "postgres-redis-integration",
+    "durationMs": 146322,
+    "testFilesPassed": 32,
+    "testFilesFailed": 1,
+    "testsPassed": 195,
+    "testsFailed": 1,
+    "outputSha256": "316ff48484a3271dfac1b3c3366abdd439602c3e626a8e1abbb4e25db0220e98",
+    "test": "packages/persistence-postgres/test/governed-control-authority.integration.test.ts",
+    "diagnostic": "The fixture required an own revokedAt property with value undefined, while the exact-optional repository contract omits revokedAt when the PostgreSQL value is NULL."
+  },
+  "interpretation": "Production behavior matches the declared optional field and unit repository contract. The repair removes only the incorrect own-property expectation; it does not change confirmation or revocation semantics."
+}

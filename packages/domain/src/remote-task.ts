@@ -7,6 +7,7 @@ import type {
 } from './mcp-task.js';
 import type { TaskExecutionTiming } from './mcp-task-availability.js';
 import type { McpProtocolContractSnapshot, McpTaskBehavior } from './mcp-frozen-protocol.js';
+import type { McpToolCancellation } from './mcp.js';
 import {
   createRuntimeExecutionContext,
   type RuntimeExecutionContext,
@@ -23,6 +24,35 @@ export type RemoteTaskLocalState =
   | 'quarantined';
 
 export type RemoteTaskCancellationDeliveryStatus = 'requested' | 'acknowledged' | 'uncertain';
+
+export interface RemoteTaskAuthoritySnapshot {
+  readonly schemaVersion: '1.0';
+  readonly capturedAt: string;
+  readonly runtime: Readonly<{
+    serverId: string;
+    endpoint: string;
+    serverUpdatedAt: string;
+    toolRevision: number;
+    protocolSnapshotId: string;
+    catalogRevision: string;
+    catalogChecksum: string;
+    operationCount: number;
+  }>;
+  readonly providerBinding?: Readonly<{
+    bindingId: string;
+    revision: number;
+    originType: 'direct' | 'smpp_registry';
+    providerId: string;
+    externalServerId?: string;
+    smppSourceId?: string;
+    endpointRef: string;
+    catalogRevision: string;
+    catalogChecksum: string;
+    operationCount: number;
+    availabilityValidUntil: string;
+    observedAt: string;
+  }>;
+}
 
 export type RemoteTaskCancellationProviderTerminalStatus = Extract<
   McpTaskStatus,
@@ -115,6 +145,8 @@ export interface RemoteTaskBinding {
   readonly tasksSchemaRevision: string;
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
+  /** Cancellation authority frozen from the admitted Tool catalog revision. */
+  readonly taskCancellation: McpToolCancellation;
   readonly runtimeRevision?: string;
   readonly providerRevision?: string;
   readonly taskTtlMs?: number;
@@ -124,6 +156,11 @@ export interface RemoteTaskBinding {
   readonly localState: RemoteTaskLocalState;
   readonly requestedTiming?: TaskExecutionTiming;
   readonly executionContext: RuntimeExecutionContext;
+  /**
+   * Exact Runtime and optional Node Control Provider authority captured before tools/call.
+   * It is optional only while reading rows created before migration 0160.
+   */
+  readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
   readonly credentialRevision: string;
   readonly sessionRevision: string;
   readonly lastProviderUpdatedAt: string;
@@ -136,6 +173,7 @@ export interface RemoteTaskBinding {
   readonly pollClaimExpiresAt?: string;
   readonly resultSnapshot?: InternalToolResult;
   readonly errorSnapshot?: RemoteTaskFailureSnapshot;
+  readonly lastSafeErrorCode?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly invalidatedAt?: string;
@@ -174,6 +212,8 @@ export interface RemoteTaskAdmission {
   readonly tasksSchemaRevision: string;
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior?: McpTaskBehavior;
+  /** Optional only at the legacy admission boundary; the binding freezes unknown when absent. */
+  readonly taskCancellation?: McpToolCancellation;
   readonly runtimeRevision?: string;
   readonly providerRevision?: string;
   readonly taskTtlMs?: number;
@@ -182,6 +222,7 @@ export interface RemoteTaskAdmission {
   readonly remoteRevision?: string;
   readonly requestedTiming?: TaskExecutionTiming;
   readonly executionContext: RuntimeExecutionContext;
+  readonly authoritySnapshot: RemoteTaskAuthoritySnapshot;
   readonly credentialRevision: string;
   readonly sessionRevision: string;
   readonly lastProviderUpdatedAt: string;
@@ -291,10 +332,25 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
   // observed Provider status is projected into awaiting/terminal local state.
   const localState = 'polling' as const;
   const protocolContract = input.protocolContract;
-  if (input.taskBehavior === undefined || input.runtimeRevision === undefined)
+  const taskCancellation = input.taskCancellation ?? 'unknown';
+  if (
+    input.taskBehavior === undefined ||
+    input.runtimeRevision === undefined ||
+    !(['unsupported', 'cooperative', 'task_cancel', 'unknown'] as const).includes(taskCancellation)
+  )
     throw new DomainError(
       'REMOTE_TASK_FROZEN_AUTHORITY_REQUIRED',
-      'Frozen Remote Task admission requires taskBehavior and runtimeRevision.',
+      'Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.',
+    );
+  const authoritySnapshot = createRemoteTaskAuthoritySnapshot(input.authoritySnapshot);
+  if (
+    authoritySnapshot.runtime.serverId !== input.serverId ||
+    authoritySnapshot.runtime.serverUpdatedAt !== input.credentialRevision ||
+    authoritySnapshot.runtime.protocolSnapshotId !== protocolContract.serverDiscoverySnapshotId
+  )
+    throw new DomainError(
+      'REMOTE_TASK_AUTHORITY_SNAPSHOT_MISMATCH',
+      'Remote Task authority snapshot does not match its frozen Runtime admission.',
     );
   if ((input.taskTtlMs === undefined) !== (input.taskExpiresAt === undefined))
     throw new DomainError(
@@ -303,6 +359,8 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
     );
   return Object.freeze({
     ...input,
+    taskCancellation,
+    authoritySnapshot,
     protocolContract,
     executionContext: createRuntimeExecutionContext(input.executionContext),
     localState,
@@ -312,6 +370,82 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
     version: 1,
     updatedAt: input.createdAt,
   });
+}
+
+export function createRemoteTaskAuthoritySnapshot(
+  input: RemoteTaskAuthoritySnapshot,
+): RemoteTaskAuthoritySnapshot {
+  const rawSchemaVersion: unknown = (input as unknown as Record<string, unknown>)['schemaVersion'];
+  const runtime = input.runtime;
+  const runtimeStrings = [
+    runtime.serverId,
+    runtime.endpoint,
+    runtime.serverUpdatedAt,
+    runtime.protocolSnapshotId,
+    runtime.catalogRevision,
+    runtime.catalogChecksum,
+  ];
+  if (
+    rawSchemaVersion !== '1.0' ||
+    !validTimestamp(input.capturedAt) ||
+    runtimeStrings.some((value) => value.trim() === '') ||
+    !Number.isInteger(runtime.toolRevision) ||
+    runtime.toolRevision < 1 ||
+    !/^[a-f0-9]{64}$/u.test(runtime.catalogChecksum) ||
+    !Number.isInteger(runtime.operationCount) ||
+    runtime.operationCount < 1
+  )
+    throw new DomainError(
+      'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID',
+      'Remote Task Runtime authority snapshot is invalid.',
+    );
+  const provider = input.providerBinding;
+  const rawProviderOriginType: unknown = (
+    provider as unknown as Record<string, unknown> | undefined
+  )?.['originType'];
+  if (
+    provider !== undefined &&
+    ([
+      provider.bindingId,
+      provider.providerId,
+      provider.endpointRef,
+      provider.catalogRevision,
+      provider.catalogChecksum,
+    ].some((value) => value.trim() === '') ||
+      !Number.isInteger(provider.revision) ||
+      provider.revision < 1 ||
+      !/^[a-f0-9]{64}$/u.test(provider.catalogChecksum) ||
+      !Number.isInteger(provider.operationCount) ||
+      provider.operationCount < 1 ||
+      !validTimestamp(provider.availabilityValidUntil) ||
+      !validTimestamp(provider.observedAt) ||
+      (rawProviderOriginType !== 'direct' && rawProviderOriginType !== 'smpp_registry') ||
+      (provider.originType === 'direct'
+        ? provider.externalServerId !== undefined || provider.smppSourceId !== undefined
+        : provider.externalServerId?.trim() === '' ||
+          provider.externalServerId === undefined ||
+          provider.smppSourceId?.trim() === '' ||
+          provider.smppSourceId === undefined) ||
+      provider.endpointRef !== runtime.endpoint ||
+      provider.catalogRevision !== runtime.catalogRevision ||
+      provider.catalogChecksum !== runtime.catalogChecksum ||
+      provider.operationCount !== runtime.operationCount ||
+      Date.parse(provider.availabilityValidUntil) <= Date.parse(input.capturedAt))
+  )
+    throw new DomainError(
+      'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID',
+      'Remote Task Provider Binding authority snapshot is invalid.',
+    );
+  return Object.freeze({
+    schemaVersion: '1.0' as const,
+    capturedAt: input.capturedAt,
+    runtime: Object.freeze({ ...runtime }),
+    ...(provider === undefined ? {} : { providerBinding: Object.freeze({ ...provider }) }),
+  });
+}
+
+function validTimestamp(value: string): boolean {
+  return value.trim() !== '' && Number.isFinite(Date.parse(value));
 }
 
 export function localStateForStatus(status: McpTaskStatus): RemoteTaskLocalState {

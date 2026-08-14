@@ -146,6 +146,34 @@ describe('server environment', () => {
     ).toThrow('Artifact management bearer authentication requires at least one role.');
   });
 
+  it('requires a complete trusted-human governed-control identity', () => {
+    const masterKey = randomBytes(32).toString('base64');
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_GOVERNED_CONTROL_BEARER_TOKEN: 'g'.repeat(32),
+        SDAR_GOVERNED_CONTROL_ACTOR_ID: 'human:operator-1',
+        SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm,physical_control.revoke',
+      }),
+    ).toMatchObject({
+      SDAR_GOVERNED_CONTROL_ACTOR_ID: 'human:operator-1',
+      SDAR_GOVERNED_CONTROL_PERMISSIONS: ['physical_control.confirm', 'physical_control.revoke'],
+    });
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_GOVERNED_CONTROL_BEARER_TOKEN: 'g'.repeat(32),
+      }),
+    ).toThrow('requires a human actor ID');
+    expect(() =>
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: masterKey,
+        SDAR_GOVERNED_CONTROL_ACTOR_ID: 'human:operator-1',
+        SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm',
+      }),
+    ).toThrow('requires a bearer token');
+  });
+
   it('maps a distinct Runtime Control service token onto the configured Artifact identity', () => {
     expect(
       parseServerEnvironment({

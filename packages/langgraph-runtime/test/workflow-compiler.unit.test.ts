@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { WorkflowDefinition, WorkflowMcpCallOutcome } from '../../domain/src/index.js';
+import type {
+  WorkflowContinuationSnapshot,
+  WorkflowDefinition,
+  WorkflowMcpCallOutcome,
+} from '../../domain/src/index.js';
+import type { WorkflowExternalWaitSnapshotPreparer } from '../../application/src/ports.js';
 import { compileWorkflow, type WorkflowRuntimePorts } from '../src/workflow-compiler.js';
 
 function ports(overrides: Partial<WorkflowRuntimePorts> = {}): WorkflowRuntimePorts {
@@ -75,6 +80,214 @@ function definition(
 }
 
 describe('LangGraph Workflow compiler', () => {
+  it('exposes an exact single external-wait capsule before returning the Provider receipt', async () => {
+    const prepareExternalWait = vi.fn<WorkflowExternalWaitSnapshotPreparer>((preparation) =>
+      Promise.resolve({
+        snapshot: {} as WorkflowContinuationSnapshot,
+        completeness: preparation.completeness,
+      }),
+    );
+    const callMcpTool = vi.fn(async (input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
+      const outcome = externalWait('execution.prepared-single', 'remote');
+      if (outcome.kind !== 'waiting_external') throw new Error('TEST_WAIT_REQUIRED');
+      await input.prepareExternalWait(outcome.wait);
+      return outcome;
+    });
+
+    const result = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'remote',
+            name: 'Remote',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'long_running' },
+            arguments: {},
+          },
+        ],
+        [],
+        'remote',
+        ['remote'],
+      ),
+      'confirmed',
+      ports({ callMcpTool }),
+    ).invoke(
+      {},
+      budget,
+      costs,
+      undefined,
+      'execution.prepared-single',
+      undefined,
+      prepareExternalWait,
+    );
+
+    expect(result.status).toBe('waiting_external');
+    expect(prepareExternalWait).toHaveBeenCalledOnce();
+    expect(prepareExternalWait).toHaveBeenCalledWith(
+      expect.objectContaining({
+        completeness: 'exact_single',
+        continuation: expect.objectContaining({
+          waitingNodeRuns: [expect.objectContaining({ nodeId: 'remote' })],
+          nodeRunCounts: { remote: 1 },
+        }),
+      }),
+    );
+  });
+
+  it('marks parallel receipt capsules partial and emits one exact final graph snapshot', async () => {
+    const prepareExternalWait = vi.fn<WorkflowExternalWaitSnapshotPreparer>((preparation) =>
+      Promise.resolve({
+        snapshot: {} as WorkflowContinuationSnapshot,
+        completeness: preparation.completeness,
+      }),
+    );
+    const callMcpTool = vi.fn(async (input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
+      const outcome = externalWait('execution.prepared-parallel', input.workflowNodeId);
+      if (outcome.kind !== 'waiting_external') throw new Error('TEST_WAIT_REQUIRED');
+      await input.prepareExternalWait(outcome.wait);
+      return outcome;
+    });
+    const result = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'parallel',
+            name: 'Parallel',
+            type: 'parallel',
+            branchEntryNodeIds: ['remote-a', 'remote-b'],
+          },
+          {
+            nodeId: 'remote-a',
+            name: 'Remote A',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'long_running' },
+            arguments: {},
+          },
+          {
+            nodeId: 'remote-b',
+            name: 'Remote B',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'long_running' },
+            arguments: {},
+          },
+          {
+            nodeId: 'join',
+            name: 'Join',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        [
+          { sourceNodeId: 'remote-a', targetNodeId: 'join' },
+          { sourceNodeId: 'remote-b', targetNodeId: 'join' },
+        ],
+        'parallel',
+        ['join'],
+      ),
+      'confirmed',
+      ports({ callMcpTool }),
+    ).invoke(
+      {},
+      budget,
+      costs,
+      undefined,
+      'execution.prepared-parallel',
+      undefined,
+      prepareExternalWait,
+    );
+
+    expect(result.status).toBe('waiting_external');
+    expect(prepareExternalWait.mock.calls.map(([input]) => input.completeness)).toEqual([
+      'requires_graph_merge',
+      'requires_graph_merge',
+      'exact_final',
+    ]);
+    expect(prepareExternalWait.mock.calls.at(-1)?.[0].continuation.waitingNodeRuns).toHaveLength(2);
+  });
+
+  it('keeps a nested parallel remote wait partial until the final graph snapshot', async () => {
+    const prepareExternalWait = vi.fn<WorkflowExternalWaitSnapshotPreparer>((preparation) =>
+      Promise.resolve({
+        snapshot: {} as WorkflowContinuationSnapshot,
+        completeness: preparation.completeness,
+      }),
+    );
+    const callMcpTool = vi.fn(async (input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
+      const outcome = externalWait('execution.prepared-nested-parallel', 'remote');
+      if (outcome.kind !== 'waiting_external') throw new Error('TEST_WAIT_REQUIRED');
+      await input.prepareExternalWait(outcome.wait);
+      return outcome;
+    });
+    const result = await compileWorkflow(
+      definition(
+        [
+          {
+            nodeId: 'parallel',
+            name: 'Parallel',
+            type: 'parallel',
+            branchEntryNodeIds: ['remote', 'local'],
+          },
+          {
+            nodeId: 'remote',
+            name: 'Remote',
+            type: 'mcp_tool',
+            tool: { serverId: 'provider', toolName: 'long_running' },
+            arguments: {},
+          },
+          {
+            nodeId: 'transform',
+            name: 'Transform',
+            type: 'skill_call',
+            skillId: 'transform',
+            input: {},
+          },
+          {
+            nodeId: 'local',
+            name: 'Local',
+            type: 'skill_call',
+            skillId: 'local',
+            input: {},
+          },
+          {
+            nodeId: 'join',
+            name: 'Join',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        [
+          { sourceNodeId: 'remote', targetNodeId: 'transform' },
+          { sourceNodeId: 'transform', targetNodeId: 'join' },
+          { sourceNodeId: 'local', targetNodeId: 'join' },
+        ],
+        'parallel',
+        ['join'],
+      ),
+      'confirmed',
+      ports({ callMcpTool }),
+    ).invoke(
+      {},
+      budget,
+      costs,
+      undefined,
+      'execution.prepared-nested-parallel',
+      undefined,
+      prepareExternalWait,
+    );
+
+    expect(result.status).toBe('waiting_external');
+    expect(prepareExternalWait.mock.calls.map(([input]) => input.completeness)).toEqual([
+      'requires_graph_merge',
+      'exact_final',
+    ]);
+    expect(prepareExternalWait.mock.calls[0]?.[0].continuation.waitingNodeRuns).toEqual([
+      expect.objectContaining({ nodeId: 'remote' }),
+    ]);
+    expect(prepareExternalWait.mock.calls.at(-1)?.[0].continuation.waitingNodeRuns).toEqual([
+      expect.objectContaining({ nodeId: 'remote' }),
+    ]);
+  });
+
   it('returns a typed external wait without succeeding the node or running its successor', async () => {
     const executeLlm = vi.fn().mockResolvedValue({ shouldNotRun: true });
     const callMcpTool = vi.fn().mockResolvedValue(externalWait('execution.external', 'remote'));

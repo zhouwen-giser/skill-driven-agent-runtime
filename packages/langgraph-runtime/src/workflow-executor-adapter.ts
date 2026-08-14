@@ -31,6 +31,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     signal?: AbortSignal,
     executionId?: string,
     executionContext?: RuntimeExecutionContext,
+    prepareExternalWait?: Parameters<WorkflowExecutor['execute']>[6],
   ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
     if (executionId !== undefined) this.#executions.set(executionId, compiled);
@@ -41,6 +42,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
       signal,
       executionId,
       executionContext,
+      prepareExternalWait,
     );
     if (executionId !== undefined && result.status !== 'paused')
       this.#executions.delete(executionId);
@@ -51,6 +53,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     executionId: string,
     confirmed: WorkflowConfirmationResume,
     signal?: AbortSignal,
+    prepareExternalWait?: Parameters<NonNullable<WorkflowExecutor['resumeHumanConfirmation']>>[3],
   ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = this.#executions.get(executionId);
     if (compiled === undefined)
@@ -58,7 +61,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
         'WORKFLOW_CHECKPOINT_NOT_AVAILABLE',
         'Workflow checkpoint is unavailable and cannot be recovered or retried.',
       );
-    const result = await compiled.resume(executionId, confirmed, signal);
+    const result = await compiled.resume(executionId, confirmed, signal, prepareExternalWait);
     if (result.status !== 'paused') this.#executions.delete(executionId);
     return mapResult(result);
   }
@@ -70,6 +73,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     resolution: WorkflowExternalWaitResolution,
     continuationAttemptId: string,
     signal?: AbortSignal,
+    prepareExternalWait?: Parameters<NonNullable<WorkflowExecutor['continueExternal']>>[6],
   ): ReturnType<WorkflowExecutor['execute']> {
     const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
     const result = await compiled.continueExternal(
@@ -79,6 +83,7 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
       this.#callCosts,
       signal,
       continuationAttemptId,
+      prepareExternalWait,
     );
     return mapResult(result);
   }
