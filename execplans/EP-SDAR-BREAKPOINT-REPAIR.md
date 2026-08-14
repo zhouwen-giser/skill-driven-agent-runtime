@@ -101,7 +101,12 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
       migrations, integration 36 files/215 tests, E2E 7 files/73 tests, A2A TCK 74 passed/161
       skipped/100% applicable coverage, and Phase 12 Evidence 44/44. Exit:
       `RELEASE_QUALIFICATION_PASSED`.
-- [ ] Complete P09 latest-main merge, exact-candidate rerun, evidence, push, and non-Draft PR.
+- [x] 2026-08-14 completed P09 latest-main synchronization and exact-candidate qualification. A
+      fresh fetch resolved live `origin/main` to `b7f02d`; `git merge --no-ff origin/main` reported
+      `Already up to date`. At tested SHA `c2622c`, all twelve required commands passed and final
+      `pnpm verify` passed 10/10 stages in 1000343 ms. `physicalDeviceWrites=0`; `fireCalls=0`.
+- [ ] Complete P09 publication: final evidence/document commit, push, remote/local SHA equality,
+      and creation and inspection of the required non-Draft PR.
 
 ## Discoveries and Surprises
 
@@ -151,6 +156,10 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - The current verification summary reports `dirty=true` because the verifier writes its managed
   evidence after the clean-start check and before sampling Git status. This is a post-start evidence
   effect, not permission to begin a release gate from a dirty worktree.
+- Fresh P09 synchronization did not require a merge commit: live `origin/main` remained `b7f02d`,
+  and the required no-rebase merge reported `Already up to date`. The synchronized candidate at
+  `c2622c` independently passed 12/12 commands and final verify 10/10; the older `9841e652` run
+  remains historical P08 evidence.
 
 ## Decision Log
 
@@ -184,7 +193,14 @@ before implementation. SMPP and `sdar-organization-control-plane` are read-only 
 - 2026-08-14: Issue `RELEASE_QUALIFICATION_PASSED` only after all twelve exact P08 commands passed
   from clean preflight SHA `9841e652`, including the standalone 5391-file zero-finding secret scan,
   current integration/E2E suites, unchanged Phase 13 gates, build, and final 10/10 aggregate verify.
-  Keep P09 synchronization and protected-review readiness pending.
+  Keep protected-review readiness pending through P09 qualification and publication.
+- 2026-08-14: Close P09 qualification only after a fresh fetch/no-rebase merge check and an
+  independent 12/12 rerun at `c2622c`, including final `pnpm verify` 10/10 in 1000343 ms. Do not
+  treat the tested SHA as the final PR head until publication commit, push equality, and PR
+  inspection are complete. P09 standalone security scanned 5396 files with zero findings, and
+  Phase 13 passed with baseline P95 536.321 ms, enabled P95 529.503 ms, -1.271% regression,
+  10.355% baseline median drift, 5.339 ms append P95, 1736 received records, and physical side
+  effects disabled.
 
 ## Implementation Steps
 
@@ -276,6 +292,12 @@ Control unit 22/22, API contract 6/6, and PostgreSQL foundation 15/15; current-t
 format, and diff hygiene are green. P08 is `COMPLETE`: all twelve exact commands passed from clean
 preflight SHA `9841e652`, final verify passed 10/10 in 948706 ms, and current Phase 13 recorded
 baseline P95 445.599 ms, enabled P95 453.681 ms, +1.814% regression, 6.786% median drift, and
-5.043 ms append P95 with physical Provider disabled. P09 fetch/merge/rerun/push/PR delivery has not
-started. `RELEASE_QUALIFICATION_PASSED` is issued; no final candidate or protected-review readiness
-is claimed.
+5.043 ms append P95 with physical Provider disabled. P09 synchronization and qualification are also
+complete: live Main remained `b7f02d`, the required merge was already up to date, and tested SHA
+`c2622c` passed 12/12 plus final verify 10/10 in 1000343 ms. Publication commit, push equality, and
+the non-Draft PR remain pending. Its standalone security run scanned 5396 files with zero findings;
+final Phase 13 recorded baseline P95 536.321 ms, enabled P95 529.503 ms, -1.271% regression,
+10.355% baseline median drift, 5.339 ms append P95, 1736 received records, and physical side effects
+disabled. The older P08 5391-file scan and 445.599 ms baseline remain historical P08 evidence.
+`RELEASE_QUALIFICATION_PASSED` is issued; no final PR head SHA or protected-review readiness is
+claimed.

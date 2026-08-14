@@ -19,8 +19,15 @@ thresholds. `reports/verification/summary.json` reports `dirty=true` because the
 managed evidence before it samples Git status; the run itself began clean. That post-start evidence
 write is not presented as a dirty-start waiver.
 
-P09 latest-main synchronization and its exact-candidate rerun remain pending. Therefore this phase
-issues the P08 exit token, but does not issue `READY_FOR_PROTECTED_REVIEW` or
+This report retains the original P08 qualification at `9841e652...` as historical candidate
+evidence. P09 later fetched live `origin/main` at
+`b7f02dcedc9680758e7e5f779a939a738d8de770`; `git merge --no-ff origin/main` reported
+`Already up to date`. The synchronized P09 candidate at
+`c2622c62607aaa02df62ae1f6b71998cf4f92688` passed all twelve commands and final
+`pnpm verify` 10/10 in `1000343 ms`.
+
+P09 qualification is complete, but push, remote/local SHA equality, and non-Draft PR creation and
+inspection remain pending. Therefore this report does not issue `READY_FOR_PROTECTED_REVIEW` or
 `SDAR_BREAKPOINT_REPAIR_COMPLETE`.
 
 ## Required P08 gate results
@@ -114,9 +121,26 @@ gate.
   Runtime A-close -> Runtime B-terminal drill remain unclaimed.
 - `physicalProvider=false`; `physicalDeviceWrites=0`; `fireCalls=0`.
 
+## P09 synchronized-candidate qualification
+
+- Live fetched `origin/main`: `b7f02dcedc9680758e7e5f779a939a738d8de770`.
+- Required `git merge --no-ff origin/main`: `Already up to date`.
+- Tested P09 SHA: `c2622c62607aaa02df62ae1f6b71998cf4f92688`.
+- Exact command list: `12/12 PASS`.
+- Standalone v1.4 security: `5396` files scanned / `0` findings; licenses passed.
+- Final `pnpm verify`: `10/10 PASS` in `1000343 ms`.
+- Final P09 Phase 13: baseline P95 `536.321 ms`, enabled P95 `529.503 ms`, regression
+  `-1.271%`, baseline median drift `10.355%`, append P95 `5.339 ms`, and `1736` records received.
+- Physical side effects: `false`.
+- `physicalDeviceWrites=0`; `fireCalls=0`.
+
+The older `9841e652...` / `948706 ms` result above remains the historical P08 run; it is not
+substituted for the synchronized P09 result. Its 5391-file scan and `445.599 ms` baseline remain
+P08-only evidence rather than being overwritten by the P09 figures.
+
 ## Remaining delivery work
 
-P09 must still fetch `origin/main`, perform the required non-rebase merge when applicable, rerun the
-exact P08 sequence plus `pnpm verify` on the synchronized candidate, update final evidence, push and
-prove remote/local SHA equality, and create and inspect the required non-Draft PR. Until then,
+P09 qualification is complete. The branch still needs its final publication commit, push,
+remote/local SHA equality proof, and creation and inspection of the required non-Draft PR. The
+tested P09 SHA is not claimed as the final PR head SHA. Until publication is complete,
 `READY_FOR_PROTECTED_REVIEW` is not issued.

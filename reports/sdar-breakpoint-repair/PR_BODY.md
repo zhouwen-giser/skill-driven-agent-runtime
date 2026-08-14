@@ -4,16 +4,18 @@ Close the SDAR-owned Task-control, public-operation conformance, A2A terminal-pr
 governed-control, in-flight recovery, and aggregate-performance breakpoints without moving Runtime
 authority, weakening protected gates, or enabling physical side effects.
 
-P08 has passed. This body remains pre-PR evidence until P09 synchronizes latest Main, reruns the
-exact candidate gates, records the final SHA, pushes, and creates the required non-Draft PR. It does
-not yet claim `READY_FOR_PROTECTED_REVIEW`.
+P08 and the synchronized P09 candidate qualification have passed. This body remains pre-PR evidence
+until the final publication commit is pushed with remote/local SHA equality and the required
+non-Draft PR is created and inspected. It does not yet claim `READY_FOR_PROTECTED_REVIEW`.
 
 ## Source locks
 
 - Execution baseline main: `b7f02dcedc9680758e7e5f779a939a738d8de770`
 - Clean-start P08 preflight SHA: `9841e6527330920d44f19c68214988b56db3c6eb`
-- Final P09 candidate: `PENDING_FINAL_COMMIT`
-- P09 synchronized main: `PENDING_FETCH_AND_MERGE`
+- P09 tested SHA: `c2622c62607aaa02df62ae1f6b71998cf4f92688`
+- Live fetched/synchronized main: `b7f02dcedc9680758e7e5f779a939a738d8de770`
+- Required merge result: `Already up to date`
+- Final PR head SHA: `PENDING_PUBLICATION_COMMIT`
 - SMPP: HEAD `7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb`, `origin/main`
   `340abeeff75cd811b40e1bfd9d5a26f5a62f2c45`, equal tree
   `f611988bf9d6aa8e5cebfacf53cfb235ff2a6ec4`
@@ -112,18 +114,31 @@ Phase 13 passed unchanged limits: baseline Runtime P95 `445.599 ms`, Evidence-en
 `5.043 ms`. Physical Provider execution was `false`. This is local deterministic-fixture evidence,
 not a production SLO.
 
-## P09 status
+## P09 qualification and delivery status
+
+Fresh fetch confirmed live `origin/main` at
+`b7f02dcedc9680758e7e5f779a939a738d8de770`; the required
+`git merge --no-ff origin/main` reported `Already up to date`. Tested SHA
+`c2622c62607aaa02df62ae1f6b71998cf4f92688` passed all twelve exact qualification commands and
+final `pnpm verify` 10/10 in `1000343 ms`. Standalone v1.4 security scanned 5396 files with 0
+findings and passed licenses. Final Phase 13 recorded baseline P95 `536.321 ms`, enabled P95
+`529.503 ms`, regression `-1.271%`, baseline median drift `10.355%`, append P95 `5.339 ms`, and
+`1736` received records. Physical side effects were `false`; `physicalDeviceWrites=0`;
+`fireCalls=0`.
+
+The `9841e652...` / `948706 ms` result above remains the earlier P08 qualification. The
+`c2622c...` result is the synchronized P09 qualification and is not claimed as the final PR head
+SHA. The P08 5391-file scan and `445.599 ms` baseline remain historical P08 evidence and are not
+replaced by the P09 figures.
 
 Pending before PR creation:
 
-- fetch latest `origin/main` and perform the required non-rebase merge when applicable;
-- rerun the exact P08 sequence plus `pnpm verify` on the synchronized candidate;
-- update and commit final evidence;
+- commit final evidence/publication documents;
 - push and prove remote SHA equals local SHA;
 - create and inspect the required non-Draft PR.
 
-P08 issues `RELEASE_QUALIFICATION_PASSED`. P09 is incomplete, so protected-review readiness and the
-overall completion token are not yet issued.
+P08 issues `RELEASE_QUALIFICATION_PASSED`, and P09 qualification is complete. Publication is
+incomplete, so protected-review readiness and the overall completion token are not yet issued.
 
 ## Security and compatibility
 
@@ -153,4 +168,5 @@ regression.
   A-close -> Runtime B-terminal claim.
 - No automatic merge, tag, release, or deployment.
 
-Protected review remains pending P09. No automatic merge, tag, release, or deployment.
+Protected review remains pending push/equality/PR delivery. No automatic merge, tag, release, or
+deployment.

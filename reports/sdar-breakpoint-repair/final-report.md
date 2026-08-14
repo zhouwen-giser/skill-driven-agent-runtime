@@ -2,12 +2,11 @@
 
 ## Delivery status
 
-`PENDING_P09_DELIVERY`
+`PENDING_PUSH_AND_PR`
 
-All SDAR-owned breakpoints, P07 cross-project regression, the durable Task revision fence, and the
-clean-start P08 release qualification are closed. P09 latest-main synchronization, synchronized-tree
-rerun, final evidence commit, push equality, and non-Draft PR remain pending; protected-review
-readiness is not yet claimed.
+All SDAR-owned breakpoints, P07 cross-project regression, the durable Task revision fence, P08, and
+the synchronized P09 qualification are closed. Final publication commit, push equality, and
+non-Draft PR creation/inspection remain pending; protected-review readiness is not yet claimed.
 
 ## Source locks
 
@@ -15,8 +14,10 @@ readiness is not yet claimed.
 - Repair branch: `fix/sdar-breakpoint-repair`
 - Execution baseline main SHA: `b7f02dcedc9680758e7e5f779a939a738d8de770`
 - Clean-start P08 preflight SHA: `9841e6527330920d44f19c68214988b56db3c6eb`
-- Final P09 evidence/candidate SHA: `PENDING_FINAL_COMMIT`
-- P09 synchronized main SHA: `PENDING_FETCH_AND_MERGE`
+- P09 tested SHA: `c2622c62607aaa02df62ae1f6b71998cf4f92688`
+- Live fetched and synchronized main SHA: `b7f02dcedc9680758e7e5f779a939a738d8de770`
+- Required merge result: `Already up to date`
+- Final PR head SHA: `PENDING_PUBLICATION_COMMIT`
 - Remote branch SHA: `PENDING_PUSH`
 - SMPP: HEAD `7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb`, `origin/main`
   `340abeeff75cd811b40e1bfd9d5a26f5a62f2c45`, equal tree
@@ -113,6 +114,25 @@ The P06 implementation SHA `aa4231d2fb98050eaf1fbc5f9c77ef76ca7bf7bd` and eviden
 `9ab42ac6e076d007115d640ed4e3a84b0349b8b4` remain valid historical records. They are not used as
 the current P08 PASS; current qualification is anchored to `9841e652...`.
 
+## P09 synchronized-candidate qualification
+
+After a fresh fetch, live `origin/main` remained
+`b7f02dcedc9680758e7e5f779a939a738d8de770`. The required
+`git merge --no-ff origin/main` reported `Already up to date`. At tested SHA
+`c2622c62607aaa02df62ae1f6b71998cf4f92688`:
+
+- all twelve exact qualification commands passed;
+- standalone v1.4 security scanned 5396 files with 0 findings; licenses passed;
+- final `pnpm verify` passed 10/10 stages in `1000343 ms`;
+- final Phase 13 recorded baseline P95 `536.321 ms`, enabled P95 `529.503 ms`, regression
+  `-1.271%`, baseline median drift `10.355%`, append P95 `5.339 ms`, and `1736` received records;
+- physical side effects were `false`;
+- `physicalDeviceWrites=0`; `fireCalls=0`.
+
+This is the current synchronized-candidate qualification. The older `9841e652...` / `948706 ms`
+result, including its 5391-file scan and `445.599 ms` baseline, remains the historical P08 run.
+Neither tested SHA is claimed as the final PR head SHA.
+
 ## Safety, security, and compatibility
 
 - Runtime PostgreSQL Task/Workflow authority, Native Registry lineage, and A2A projection boundaries
@@ -127,12 +147,10 @@ the current P08 PASS; current qualification is anchored to `9841e652...`.
 
 ## Pending gates
 
-- P09 `git fetch origin main` and required `git merge --no-ff origin/main`: `PENDING`.
-- P09 exact P08 sequence plus `pnpm verify` rerun on the synchronized candidate: `PENDING`.
-- Final evidence/candidate commit, push, and local/remote SHA equality: `PENDING`.
+- Final evidence/publication commit, push, and local/remote SHA equality: `PENDING`.
 - Non-Draft PR to `main` and mergeability/check inspection: `PENDING`.
 
-P08 has passed and `RELEASE_QUALIFICATION_PASSED` is issued. P09 is not complete, so neither
+P08 and P09 candidate qualification have passed. Publication is incomplete, so neither
 `READY_FOR_PROTECTED_REVIEW` nor `SDAR_BREAKPOINT_REPAIR_COMPLETE` is issued.
 
 ## Pull request
@@ -142,7 +160,7 @@ P08 has passed and `RELEASE_QUALIFICATION_PASSED` is issued. P09 is not complete
 - Base: `main`
 - Head: `fix/sdar-breakpoint-repair`
 - Draft: `false` required; creation pending
-- Candidate SHA: `PENDING_FINAL_COMMIT`
+- Candidate/PR head SHA: `PENDING_PUBLICATION_COMMIT`
 
 ## Rollback
 
@@ -158,5 +176,5 @@ It does not claim production readiness, production SLO/HA, real SMPP/physical re
 monolithic Runtime A-close -> Runtime B-terminal drill.
 
 ```text
-PENDING_P09_DELIVERY
+PENDING_PUSH_AND_PR
 ```
