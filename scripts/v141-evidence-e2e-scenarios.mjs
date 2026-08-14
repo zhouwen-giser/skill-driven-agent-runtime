@@ -61,7 +61,7 @@ export const PHASE12_SCENARIOS = Object.freeze([
     ['skill.procedure_compilation', 'skill.execution'],
     'e2e',
     'packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts',
-    'runs recursive embodied.area_patrol with exact child versions and a',
+    'rejects ungoverned recursive embodied.area_patrol with',
   ),
   scenario(
     5,

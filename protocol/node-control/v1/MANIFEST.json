@@ -247,8 +247,8 @@
     },
     {
       "path": "openapi/node-control.openapi.yaml",
-      "size": 211939,
-      "sha256": "870a7451b84410fe6979ac2e773dd42ba63e545dfe45899afc493b56010a6fde"
+      "size": 212335,
+      "sha256": "b9e2cf35412cf3a671eb807feb60d6b707572332b6f4d8939ce6ad0e5ea8f490"
     },
     {
       "path": "openapi/runtime-control.openapi.yaml",

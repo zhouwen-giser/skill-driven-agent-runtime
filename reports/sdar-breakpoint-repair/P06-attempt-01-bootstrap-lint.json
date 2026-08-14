@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 1,
+  "candidateSha": "01be490985fdd410e917a35b6791b2b029fd63a9",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T03:52:50.496Z",
+  "finishedAt": "2026-08-13T03:54:39.714Z",
+  "command": "pnpm verify",
+  "status": "FAILED_BOOTSTRAP_LINT",
+  "failedStep": "static-unit-contract-build",
+  "failedCommand": "pnpm verify:bootstrap",
+  "durationMs": 109218,
+  "outputSha256": "4401393d81ee17f8ea5359b1408e1d62264363edc44bbc90fe71c01d346e1cd8",
+  "failure": {
+    "rule": "@typescript-eslint/no-unused-vars",
+    "file": "apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts",
+    "line": 2203,
+    "symbol": "stableKey"
+  },
+  "interpretation": "The formal aggregate gate stopped at its first bootstrap failure. No integration, E2E, A2A TCK, smoke, or Phase 13 performance result was produced by this attempt.",
+  "repair": "Remove the unreferenced local helper without changing governance behavior or any verification threshold."
+}

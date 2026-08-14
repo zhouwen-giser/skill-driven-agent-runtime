@@ -9,7 +9,11 @@ import {
   CognitiveManagementController,
   type CognitiveManagementAuthorizer,
 } from './cognitive/cognitive-management-controller.js';
-import { ArtifactManagementError, SkillGovernanceError } from '../../application/src/index.js';
+import {
+  ArtifactManagementError,
+  GovernedControlManagementError,
+  SkillGovernanceError,
+} from '../../application/src/index.js';
 import {
   createManagementOperation,
   transitionManagementOperation,
@@ -86,6 +90,9 @@ import type {
   ArtifactManagementCommandOperation,
   ManagementPrincipal,
   ManagementPrincipalResolver,
+  GovernedControlManagementService,
+  GovernedControlPrincipal,
+  GovernedControlPrincipalResolver,
   RuntimeSkillGovernanceService,
 } from '../../application/src/index.js';
 import {
@@ -121,6 +128,20 @@ const MemoryRetentionPolicySchema = z.object({
   automaticDeleteEnabled: z.boolean(),
 });
 const CancelGoalSchema = z.object({ reason: z.string().min(1) });
+const GovernedControlIssueSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(2_048),
+    ttlMs: z
+      .number()
+      .int()
+      .min(1_000)
+      .max(15 * 60 * 1_000)
+      .optional(),
+  })
+  .strict();
+const GovernedControlRevokeSchema = z
+  .object({ reason: z.string().trim().min(1).max(2_048) })
+  .strict();
 const TaskActionSchema = z
   .object({
     action: z.enum([
@@ -742,7 +763,7 @@ export interface ManagementOperations {
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
   readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
   readonly goalCancellations: Pick<GoalCancellationService, 'cancel' | 'get' | 'list'>;
-  readonly tasks: Pick<TaskService, 'attachPlan' | 'followUp' | 'get' | 'list'>;
+  readonly tasks: Pick<TaskService, 'attachPlan' | 'cancel' | 'followUp' | 'get' | 'list'>;
   readonly taskWaitTimeouts: Pick<TaskWaitTimeoutService, 'getPolicy' | 'updatePolicy'>;
   readonly resultProcessing: Pick<ResultProcessingService, 'get' | 'list'>;
   readonly taskQuality: Pick<TaskQualityEvaluationService, 'getByTask'>;
@@ -951,19 +972,47 @@ type RuntimeEvidenceOperationsSurface = Pick<
 >;
 
 interface RuntimeControlRouteOptions {
+  readonly operations: Pick<ManagementOperations, 'tasks'>;
+  readonly cognitiveManagementActions?: Pick<CognitiveManagementActionGate, 'execute'>;
   readonly artifactManagement?: Readonly<{
     queries: ArtifactManagementQueryService;
     commands: ArtifactManagementCommandService;
     principalResolver: ManagementPrincipalResolver;
   }>;
+  readonly governedControl?: GovernedControlRouteOptions;
   readonly runtimeControl?: Readonly<{
     bearerToken: string;
     skills: RuntimeSkillGovernanceService;
+    health?: Readonly<{ get(): Promise<unknown> }>;
+    version?: Readonly<{ get(): Promise<unknown> }>;
+    capabilityCatalogs?: Readonly<{
+      stage(
+        input: Readonly<{
+          command: z.infer<typeof RuntimeControlCommandSchema>;
+          idempotencyKey: string;
+          actorId: string;
+        }>,
+      ): Promise<ManagementOperation>;
+      activate(
+        input: Readonly<{
+          revision: number;
+          command: z.infer<typeof RuntimeControlCommandSchema>;
+          idempotencyKey: string;
+          actorId: string;
+        }>,
+      ): Promise<ManagementOperation>;
+    }>;
     evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
     evidenceOperations?: RuntimeEvidenceOperationsSurface;
+    taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
     actorId?: string;
     artifactPrincipalResolver?: ManagementPrincipalResolver;
   }>;
+}
+
+interface GovernedControlRouteOptions {
+  readonly confirmations: Pick<GovernedControlManagementService, 'issue' | 'revoke'>;
+  readonly principalResolver: GovernedControlPrincipalResolver;
 }
 
 export async function startManagementHttpEndpoint(
@@ -980,11 +1029,32 @@ export async function startManagementHttpEndpoint(
       commands: ArtifactManagementCommandService;
       principalResolver: ManagementPrincipalResolver;
     }>;
+    governedControl?: GovernedControlRouteOptions;
     runtimeControl?: Readonly<{
       bearerToken: string;
       skills: RuntimeSkillGovernanceService;
+      health?: Readonly<{ get(): Promise<unknown> }>;
+      version?: Readonly<{ get(): Promise<unknown> }>;
+      capabilityCatalogs?: Readonly<{
+        stage(
+          input: Readonly<{
+            command: z.infer<typeof RuntimeControlCommandSchema>;
+            idempotencyKey: string;
+            actorId: string;
+          }>,
+        ): Promise<ManagementOperation>;
+        activate(
+          input: Readonly<{
+            revision: number;
+            command: z.infer<typeof RuntimeControlCommandSchema>;
+            idempotencyKey: string;
+            actorId: string;
+          }>,
+        ): Promise<ManagementOperation>;
+      }>;
       evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
       evidenceOperations?: RuntimeEvidenceOperationsSurface;
+      taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
       actorId?: string;
       artifactPrincipalResolver?: ManagementPrincipalResolver;
     }>;
@@ -1038,6 +1108,45 @@ export async function startManagementHttpEndpoint(
       },
     });
   });
+
+  app.post(
+    '/api/v1/tasks/:taskId/governed-control-confirmations',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = GovernedControlIssueSchema.parse(request.body);
+      response.status(201).json(
+        await governedControl.confirmations.issue({
+          taskId: pathValue(request, 'taskId'),
+          reason: body.reason,
+          ...(body.ttlMs === undefined ? {} : { ttlMs: body.ttlMs }),
+          principal,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/governed-control-confirmations/:confirmationId/revoke',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = GovernedControlRevokeSchema.parse(request.body);
+      response.json(
+        await governedControl.confirmations.revoke({
+          taskId: pathValue(request, 'taskId'),
+          confirmationId: pathValue(request, 'confirmationId'),
+          reason: body.reason,
+          principal,
+        }),
+      );
+    }),
+  );
 
   registerRuntimeControlGovernanceRoutes(app, options);
   app.post(
@@ -3409,6 +3518,68 @@ function registerRuntimeControlGovernanceRoutes(
   app: express.Express,
   options: RuntimeControlRouteOptions,
 ): void {
+  registerRuntimeTaskCommandRoutes(app, options);
+  app.get(
+    '/internal/v1/runtime/health',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      if (runtime.health === undefined)
+        throw runtimeControlUnavailable(
+          'RUNTIME_HEALTH_AUTHORITY_UNAVAILABLE',
+          'Runtime health authority is unavailable.',
+        );
+      response.status(200).json(await runtime.health.get());
+    }),
+  );
+  app.get(
+    '/internal/v1/runtime/version',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      if (runtime.version === undefined)
+        throw runtimeControlUnavailable(
+          'RUNTIME_VERSION_AUTHORITY_UNAVAILABLE',
+          'Runtime version authority is unavailable.',
+        );
+      response.status(200).json(await runtime.version.get());
+    }),
+  );
+  app.post(
+    '/internal/v1/capability-catalogs/stage',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      if (runtime.capabilityCatalogs === undefined)
+        throw runtimeControlUnavailable(
+          'RUNTIME_CAPABILITY_CATALOG_CONTROL_UNAVAILABLE',
+          'Runtime capability catalog staging authority is unavailable.',
+        );
+      response.status(202).json(
+        await runtime.capabilityCatalogs.stage({
+          command: RuntimeControlCommandSchema.parse(request.body),
+          idempotencyKey: runtimeIdempotencyKey(request),
+          actorId: runtime.actorId ?? 'sdar-node-control',
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/internal/v1/capability-catalogs/:revision/activate',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      if (runtime.capabilityCatalogs === undefined)
+        throw runtimeControlUnavailable(
+          'RUNTIME_CAPABILITY_CATALOG_CONTROL_UNAVAILABLE',
+          'Runtime capability catalog activation authority is unavailable.',
+        );
+      response.status(202).json(
+        await runtime.capabilityCatalogs.activate({
+          revision: positiveIntegerPath(pathValue(request, 'revision')),
+          command: RuntimeControlCommandSchema.parse(request.body),
+          idempotencyKey: runtimeIdempotencyKey(request),
+          actorId: runtime.actorId ?? 'sdar-node-control',
+        }),
+      );
+    }),
+  );
   app.get(
     '/internal/v1/evidence-export/operations/configuration',
     asyncRoute(async (request, response) => {
@@ -3724,6 +3895,295 @@ function registerRuntimeControlGovernanceRoutes(
   }
 }
 
+type RuntimeTaskCommandAction = 'pause' | 'resume' | 'cancel' | 'goal-patch';
+
+function registerRuntimeTaskCommandRoutes(
+  app: express.Express,
+  options: RuntimeControlRouteOptions,
+): void {
+  const register = (pathSuffix: string, action: RuntimeTaskCommandAction) => {
+    app.post(
+      `/internal/v1/tasks/:taskId/${pathSuffix}`,
+      asyncRoute(async (request, response) => {
+        const runtime = requireRuntimeControl(request, options.runtimeControl);
+        const command = RuntimeControlCommandSchema.parse(request.body);
+        const idempotencyKey = runtimeIdempotencyKey(request);
+        const taskId = pathValue(request, 'taskId');
+        const operationType = runtimeTaskOperationType(action);
+        const input = Object.freeze({ taskId, command });
+        const actorId = runtime.actorId ?? 'sdar-node-control';
+        const operation = await requiredRuntimeTaskCommandActions(
+          options.cognitiveManagementActions,
+        ).execute(
+          {
+            operation: runtimeTaskActionAuditOperation(action),
+            subjectId: `runtime-task-control:${taskId}`,
+            expectedVersion: command.expectedRevision ?? 0,
+            idempotencyKey,
+            actorId,
+            reason: command.reason,
+            requestFingerprint: `sha256:${sha256Json(input)}`,
+          },
+          (lease) =>
+            executeRuntimeTaskCommand({
+              tasks: options.operations.tasks,
+              action,
+              taskId,
+              command,
+              operationType,
+              actorId,
+              idempotencyKey,
+              leaseIdentity: lease.leaseIdentity(),
+              ...(runtime.taskRevisionAuthority === undefined
+                ? {}
+                : { taskRevisionAuthority: runtime.taskRevisionAuthority }),
+            }),
+          (lease) =>
+            recoverRuntimeTaskCommand({
+              tasks: options.operations.tasks,
+              action,
+              taskId,
+              command,
+              operationType,
+              actorId,
+              idempotencyKey,
+              leaseIdentity: lease.leaseIdentity(),
+              ...(runtime.taskRevisionAuthority === undefined
+                ? {}
+                : { taskRevisionAuthority: runtime.taskRevisionAuthority }),
+            }),
+        );
+        response.status(202).type('application/json').send(canonicalJsonResponse(operation));
+      }),
+    );
+  };
+
+  register('pause', 'pause');
+  register('resume', 'resume');
+  register('cancel', 'cancel');
+  register('goal-patches', 'goal-patch');
+}
+
+async function executeRuntimeTaskCommand(
+  input: Readonly<{
+    tasks: ManagementOperations['tasks'];
+    action: RuntimeTaskCommandAction;
+    taskId: string;
+    command: z.infer<typeof RuntimeControlCommandSchema>;
+    operationType: string;
+    actorId: string;
+    idempotencyKey: string;
+    leaseIdentity: RuntimeTaskRevisionLeaseIdentity;
+    taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
+  }>,
+): Promise<ManagementOperation> {
+  const mutateTask = () =>
+    input.action === 'cancel'
+      ? input.tasks.cancel(input.taskId)
+      : input.tasks.followUp({
+          taskId: input.taskId,
+          action: input.action === 'goal-patch' ? 'patch_goal' : input.action,
+          messageText: input.command.reason,
+          ...(input.command.payload === undefined ? {} : { inputContent: input.command.payload }),
+        });
+  const task = await executeRuntimeTaskAtRevision(
+    input.taskRevisionAuthority,
+    input.taskId,
+    input.command.expectedRevision,
+    {
+      operation: input.action,
+      idempotencyKey: input.idempotencyKey,
+      lease: input.leaseIdentity,
+    },
+    mutateTask,
+  );
+  return completedRuntimeOperation({
+    operationType: input.operationType,
+    target: { type: 'task', id: input.taskId },
+    actorId: input.actorId,
+    reason: input.command.reason,
+    idempotencyKey: input.idempotencyKey,
+    input: { taskId: input.taskId, command: input.command },
+    result: task,
+    occurredAt: task.updatedAt,
+  });
+}
+
+interface RuntimeTaskRevisionAuthority {
+  executeAtRevision<T>(
+    taskId: string,
+    expectedRevision: number,
+    identity: Readonly<{
+      operation: RuntimeTaskCommandAction;
+      idempotencyKey: string;
+      lease: RuntimeTaskRevisionLeaseIdentity;
+    }>,
+    operation: () => Promise<T>,
+  ): Promise<
+    | Readonly<{
+        disposition: 'applied';
+        priorRevision: number;
+        claimedRevision: number;
+        result: T;
+      }>
+    | Readonly<{ disposition: 'not_found' }>
+    | Readonly<{ disposition: 'conflict'; currentRevision: number }>
+  >;
+  executeAtCurrentRevision<T>(
+    taskId: string,
+    identity: Readonly<{
+      operation: RuntimeTaskCommandAction;
+      idempotencyKey: string;
+      lease: RuntimeTaskRevisionLeaseIdentity;
+    }>,
+    operation: () => Promise<T>,
+  ): Promise<
+    | Readonly<{
+        disposition: 'applied';
+        priorRevision: number;
+        claimedRevision: number;
+        result: T;
+      }>
+    | Readonly<{ disposition: 'not_found' }>
+    | Readonly<{ disposition: 'conflict'; currentRevision: number }>
+  >;
+  reconcile<T>(
+    taskId: string,
+    identity: Readonly<{ operation: RuntimeTaskCommandAction; idempotencyKey: string }>,
+    recoveredLease: RuntimeTaskRevisionLeaseIdentity,
+    recoveredResult: T,
+  ): Promise<
+    | Readonly<{ disposition: 'applied'; result: T }>
+    | Readonly<{ disposition: 'unapplied' | 'indeterminate' }>
+  >;
+}
+
+interface RuntimeTaskRevisionLeaseIdentity {
+  readonly actionId: string;
+  readonly attempt: number;
+  readonly token: string;
+}
+
+async function executeRuntimeTaskAtRevision<T>(
+  authority: RuntimeTaskRevisionAuthority | undefined,
+  taskId: string,
+  expectedRevision: number | undefined,
+  identity: Readonly<{
+    operation: RuntimeTaskCommandAction;
+    idempotencyKey: string;
+    lease: RuntimeTaskRevisionLeaseIdentity;
+  }>,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (authority === undefined)
+    throw Object.assign(new Error('Runtime Task revision authority is unavailable.'), {
+      code: 'RUNTIME_TASK_REVISION_AUTHORITY_UNAVAILABLE',
+      status: 503,
+    });
+  const execution =
+    expectedRevision === undefined
+      ? await authority.executeAtCurrentRevision(taskId, identity, operation)
+      : await authority.executeAtRevision(taskId, expectedRevision, identity, operation);
+  if (execution.disposition === 'not_found')
+    throw Object.assign(new Error(`Task ${taskId} was not found.`), {
+      code: 'TASK_NOT_FOUND',
+      status: 404,
+    });
+  if (execution.disposition === 'conflict')
+    throw Object.assign(
+      new Error(
+        expectedRevision === undefined
+          ? `Task revision ${String(execution.currentRevision)} was concurrently claimed.`
+          : `Expected Task revision ${String(expectedRevision)} but found ${String(execution.currentRevision)}.`,
+      ),
+      { code: 'REVISION_CONFLICT', status: 412 },
+    );
+  return execution.result;
+}
+
+async function recoverRuntimeTaskCommand(
+  input: Readonly<{
+    tasks: ManagementOperations['tasks'];
+    action: RuntimeTaskCommandAction;
+    taskId: string;
+    command: z.infer<typeof RuntimeControlCommandSchema>;
+    operationType: string;
+    actorId: string;
+    idempotencyKey: string;
+    leaseIdentity: RuntimeTaskRevisionLeaseIdentity;
+    taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
+  }>,
+) {
+  if (input.taskRevisionAuthority === undefined)
+    return Object.freeze({
+      disposition: 'indeterminate' as const,
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+  let task;
+  try {
+    task = await input.tasks.get(input.taskId);
+  } catch {
+    return Object.freeze({
+      disposition: 'indeterminate' as const,
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+  }
+  const reconciliation = await input.taskRevisionAuthority.reconcile(
+    input.taskId,
+    { operation: input.action, idempotencyKey: input.idempotencyKey },
+    input.leaseIdentity,
+    task,
+  );
+  if (reconciliation.disposition !== 'applied')
+    return Object.freeze({
+      disposition:
+        reconciliation.disposition === 'unapplied'
+          ? ('orphaned' as const)
+          : ('indeterminate' as const),
+      errorCode:
+        reconciliation.disposition === 'unapplied'
+          ? 'RUNTIME_TASK_COMMAND_RECOVERY_UNAPPLIED'
+          : 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+  const recoveredTask = reconciliation.result;
+  return Object.freeze({
+    disposition: 'completed' as const,
+    result: completedRuntimeOperation({
+      operationType: input.operationType,
+      target: { type: 'task', id: input.taskId },
+      actorId: input.actorId,
+      reason: input.command.reason,
+      idempotencyKey: input.idempotencyKey,
+      input: { taskId: input.taskId, command: input.command },
+      result: recoveredTask,
+      occurredAt: recoveredTask.updatedAt,
+    }),
+  });
+}
+
+function runtimeTaskOperationType(action: RuntimeTaskCommandAction): string {
+  if (action === 'goal-patch') return 'task.goal_patch';
+  return `task.${action}`;
+}
+
+function runtimeTaskActionAuditOperation(
+  action: RuntimeTaskCommandAction,
+): 'task_pause' | 'task_resume' | 'task_cancel' | 'task_goal_patch' {
+  if (action === 'goal-patch') return 'task_goal_patch';
+  return `task_${action}`;
+}
+
+function requiredRuntimeTaskCommandActions(
+  actions: RuntimeControlRouteOptions['cognitiveManagementActions'],
+): Pick<CognitiveManagementActionGate, 'execute'> {
+  if (actions === undefined)
+    throw Object.assign(new Error('Runtime Task command durability is unavailable.'), {
+      code: 'RUNTIME_TASK_COMMAND_DURABILITY_UNAVAILABLE',
+      status: 503,
+    });
+  return actions;
+}
+
 const EvidenceOperationsIdentifierSchema = z.string().trim().min(1).max(512);
 const EvidenceOperationsSha256Schema = z
   .string()
@@ -3924,6 +4384,26 @@ function runtimeArtifactPrincipal(
   return resolver.resolve({
     ...(authorization === undefined ? {} : { authorization }),
     requestId: request.header('x-request-id') ?? `runtime-control-${randomUUID()}`,
+    ...(request.ip === undefined ? {} : { sourceIp: request.ip }),
+  });
+}
+
+function requireGovernedControl(
+  value: GovernedControlRouteOptions | undefined,
+): GovernedControlRouteOptions {
+  if (value === undefined)
+    throw new GovernedControlManagementError('GOVERNED_CONTROL_MANAGEMENT_UNAVAILABLE', 503);
+  return value;
+}
+
+function resolveGovernedControlPrincipal(
+  resolver: GovernedControlPrincipalResolver,
+  request: Request,
+): Promise<GovernedControlPrincipal> {
+  const authorization = request.header('authorization');
+  return resolver.resolve({
+    ...(authorization === undefined ? {} : { authorization }),
+    requestId: request.header('x-request-id') ?? `governed-control-${randomUUID()}`,
     ...(request.ip === undefined ? {} : { sourceIp: request.ip }),
   });
 }
@@ -4160,6 +4640,7 @@ function sanitizeRemoteTaskBinding(binding: LifecycleBinding) {
     protocolStatus: binding.protocolStatus,
     protocolContract: binding.protocolContract,
     ...(binding.taskBehavior === undefined ? {} : { taskBehavior: binding.taskBehavior }),
+    taskCancellation: binding.taskCancellation,
     ...(binding.runtimeRevision === undefined ? {} : { runtimeRevision: binding.runtimeRevision }),
     ...(binding.providerRevision === undefined
       ? {}
@@ -4471,6 +4952,14 @@ function pathValue(request: Request, name: string): string {
   return value;
 }
 
+function positiveIntegerPath(value: string): number {
+  return z.coerce.number().int().positive().parse(value);
+}
+
+function runtimeControlUnavailable(code: string, message: string): Error {
+  return Object.assign(new Error(message), { code, status: 503 });
+}
+
 function normalizeHttpError(error: unknown): Readonly<{
   status: number;
   body: Readonly<{ code: string; message: string; details?: unknown }>;
@@ -4481,6 +4970,8 @@ function normalizeHttpError(error: unknown): Readonly<{
       body: { code: error.code, message: 'Artifact management request was rejected.' },
     };
   }
+  if (error instanceof GovernedControlManagementError)
+    return { status: error.status, body: { code: error.code, message: error.message } };
   if (error instanceof SkillGovernanceError) {
     return { status: error.status, body: { code: error.code, message: error.message } };
   }
@@ -4523,6 +5014,31 @@ function normalizeHttpError(error: unknown): Readonly<{
       body: { code, message: 'The authenticated principal is not authorized.' },
     };
   }
+  if (code === 'REVISION_CONFLICT') return { status: 412, body: { code, message } };
+  if (code === 'GOAL_PATCH_APPLIED_REPLAN_FAILED')
+    return {
+      status: 503,
+      body: {
+        code,
+        message: 'Goal Patch was committed, but durable replanning did not complete.',
+      },
+    };
+  if (code === 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING')
+    return {
+      status: 503,
+      body: {
+        code,
+        message: 'Runtime Task command requires durable reconciliation.',
+      },
+    };
+  if (code === 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING')
+    return {
+      status: 503,
+      body: {
+        code,
+        message: 'Cognitive management action requires durable reconciliation.',
+      },
+    };
   if (
     code.endsWith('_ALREADY_EXISTS') ||
     (code.startsWith('ARTIFACT_') &&
@@ -4534,11 +5050,13 @@ function normalizeHttpError(error: unknown): Readonly<{
     code === 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT' ||
     code === 'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS' ||
     code === 'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST' ||
-    code === 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING' ||
     code === 'DETERMINISTIC_RECOVERY_PROVIDER_DISPATCH_INDETERMINATE' ||
     code === 'EXPERIENCE_DEAD_LETTER_VERSION_CONFLICT' ||
     code === 'KNOWLEDGE_PROMOTION_VERSION_CONFLICT' ||
-    code === 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT'
+    code === 'KNOWLEDGE_PROMOTION_EVALUATION_CONFLICT' ||
+    code === 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN' ||
+    code === 'TASK_PHASE_TRANSITION_INVALID' ||
+    code === 'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE'
   ) {
     return {
       status: 409,

@@ -15,11 +15,13 @@ import {
   NodeControlRuntimeGovernanceService,
   NodeControlEvidenceExportService,
   NodeControlEvidenceOperationsService,
+  NodeControlTaskControlService,
 } from '../../../packages/node-control-application/src/index.js';
 import {
   HttpRuntimeGovernanceClient,
   HttpRuntimeEvidenceExportClient,
   HttpRuntimeEvidenceOperationsClient,
+  HttpRuntimeTaskControlClient,
 } from '../../../packages/runtime-control-http-client/src/index.js';
 import {
   PostgresNodeControlA2aExposureRepository,
@@ -110,6 +112,14 @@ export async function startNodeControlApi(
     operations: repository,
     clock: { now: () => new Date().toISOString() },
     actorId: `node-control:${environment.SDAR_CONTROL_NODE_ID}`,
+  });
+  const taskControl = new NodeControlTaskControlService({
+    runtime: new HttpRuntimeTaskControlClient({
+      baseUrl: environment.SDAR_CONTROL_RUNTIME_ENDPOINT_REF,
+      serviceToken: environment.SDAR_CONTROL_RUNTIME_SERVICE_TOKEN,
+    }),
+    operations: repository,
+    clock: { now: () => new Date().toISOString() },
   });
   const evidenceExport = new NodeControlEvidenceExportService({
     configurations: configurationService,
@@ -307,6 +317,7 @@ export async function startNodeControlApi(
     healthObservationTimer.unref();
     drainControlEvidence();
     drainTelemetryEvidence();
+    const taskSummaries = new PostgresRuntimeTaskSummaryQuery(runtimePool);
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: environment.SDAR_CONTROL_API_TOKEN,
       ...(environment.SDAR_CONTROL_OPERATOR_API_TOKEN === undefined
@@ -348,7 +359,8 @@ export async function startNodeControlApi(
       runtimeAgentCards,
       agentCardValidator,
       taskCapabilities: new PostgresRuntimeTaskCapabilityBindingQuery(runtimePool),
-      taskSummaries: new PostgresRuntimeTaskSummaryQuery(runtimePool),
+      taskSummaries,
+      taskControl,
       runtimeGovernance,
       evidenceExport,
       evidenceOperations,

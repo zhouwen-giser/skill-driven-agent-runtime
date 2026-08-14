@@ -6,6 +6,10 @@ import type {
   NodeProfile,
 } from '../../node-control-domain/src/index.js';
 import {
+  createManagementOperation,
+  transitionManagementOperation,
+} from '../../node-control-domain/src/index.js';
+import {
   NodeControlFoundationService,
   type ConfigurationMutationContext,
   type NodeControlFoundationRepository,
@@ -14,6 +18,7 @@ import {
 class MemoryFoundationRepository implements NodeControlFoundationRepository {
   profile: NodeProfile | undefined;
   audits: ControlAuditEvent[] = [];
+  operations: ManagementOperation[] = [];
   ready = true;
 
   migrate(): Promise<void> {
@@ -65,10 +70,64 @@ class MemoryFoundationRepository implements NodeControlFoundationRepository {
     return Promise.resolve(operation);
   }
   listManagementOperations(): Promise<readonly ManagementOperation[]> {
-    return Promise.resolve([]);
+    return Promise.resolve(this.operations);
   }
-  findManagementOperation(): Promise<ManagementOperation | undefined> {
-    return Promise.resolve(undefined);
+  findManagementOperation(operationId: string): Promise<ManagementOperation | undefined> {
+    return Promise.resolve(
+      this.operations.find((operation) => operation.operationId === operationId),
+    );
+  }
+  cancelGovernanceOperation(
+    operationId: string,
+    audit: ControlAuditEvent,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation | undefined> {
+    const index = this.operations.findIndex((operation) => operation.operationId === operationId);
+    const current = this.operations[index];
+    if (current === undefined) return Promise.resolve(undefined);
+    if (current.status === 'canceled') {
+      const cancellation = (
+        current.result as
+          | {
+              cancellation?: {
+                idempotencyKeyHash?: string;
+                requestHash?: string;
+                actorId?: string;
+              };
+            }
+          | undefined
+      )?.cancellation;
+      if (
+        cancellation?.idempotencyKeyHash !== context.idempotencyKeyHash ||
+        cancellation.requestHash !== context.requestHash ||
+        cancellation.actorId !== context.actorId
+      )
+        return Promise.reject(
+          Object.assign(new Error('conflict'), {
+            code: 'MANAGEMENT_OPERATION_CANCEL_IDEMPOTENCY_CONFLICT',
+          }),
+        );
+      return Promise.resolve(current);
+    }
+    if (current.status !== 'accepted')
+      return Promise.reject(
+        Object.assign(new Error('not cancellable'), {
+          code: 'MANAGEMENT_OPERATION_NOT_CANCELLABLE',
+        }),
+      );
+    const canceled = transitionManagementOperation(current, 'canceled', audit.createdAt, {
+      result: {
+        canceledBeforeDispatch: true,
+        cancellation: {
+          actorId: context.actorId,
+          idempotencyKeyHash: context.idempotencyKeyHash,
+          requestHash: context.requestHash,
+        },
+      },
+    });
+    this.operations[index] = canceled;
+    this.audits.push(audit);
+    return Promise.resolve(canceled);
   }
   listAuditEvents(): Promise<readonly ControlAuditEvent[]> {
     return Promise.resolve(this.audits);
@@ -113,6 +172,56 @@ describe('NodeControlFoundationService', () => {
       ]),
     });
   });
+
+  it('cancels only an accepted pre-dispatch Management Operation and replays cancellation', async () => {
+    const repository = new MemoryFoundationRepository();
+    const accepted = managementOperation('operation-cancel-accepted');
+    repository.operations.push(accepted);
+    const service = serviceFor(repository);
+
+    const canceled = await service.cancelManagementOperation(
+      accepted.operationId,
+      'cancel-operation-key',
+      { reason: 'Stop before Runtime dispatch.' },
+      'node-control:node_admin',
+    );
+    const replay = await service.cancelManagementOperation(
+      accepted.operationId,
+      'cancel-operation-key',
+      { reason: 'Stop before Runtime dispatch.' },
+      'node-control:node_admin',
+    );
+
+    expect(canceled).toMatchObject({
+      status: 'canceled',
+      result: { canceledBeforeDispatch: true },
+    });
+    expect(replay).toEqual(canceled);
+    expect(repository.audits).toEqual([
+      expect.objectContaining({
+        actorId: 'node-control:node_admin',
+        resultCode: 'MANAGEMENT_OPERATION_CANCELED_BEFORE_DISPATCH',
+      }),
+    ]);
+  });
+
+  it('fails closed when cancellation races after dispatch start or terminal completion', async () => {
+    const repository = new MemoryFoundationRepository();
+    const accepted = managementOperation('operation-cancel-running');
+    repository.operations.push(
+      transitionManagementOperation(accepted, 'running', '2026-08-01T17:00:01.000Z'),
+    );
+    const service = serviceFor(repository);
+
+    await expect(
+      service.cancelManagementOperation(
+        accepted.operationId,
+        'cancel-running-key',
+        { reason: 'Too late.' },
+        'node-control:node_admin',
+      ),
+    ).rejects.toMatchObject({ code: 'MANAGEMENT_OPERATION_NOT_CANCELLABLE', status: 409 });
+  });
 });
 
 function serviceFor(repository: MemoryFoundationRepository): NodeControlFoundationService {
@@ -121,4 +230,19 @@ function serviceFor(repository: MemoryFoundationRepository): NodeControlFoundati
     clock: { now: () => '2026-08-01T17:00:00.000Z' },
     ids: { next: () => 'audit-1' },
   });
+}
+
+function managementOperation(operationId: string): ManagementOperation {
+  return createManagementOperation(
+    {
+      operationId,
+      operationType: 'task.pause',
+      target: { type: 'task', id: 'task-cancel' },
+      actorId: 'node-control:node_admin',
+      reason: 'Pause task.',
+      idempotencyKeyHash: 'a'.repeat(64),
+      inputHash: 'b'.repeat(64),
+    },
+    '2026-08-01T17:00:00.000Z',
+  );
 }

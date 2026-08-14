@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 8,
+  "candidateSha": "3eb04437c1f2f8d2269866a03bf1f25f8975ee22",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T14:22:27.328Z",
+  "finishedAt": "2026-08-13T14:27:16.565Z",
+  "command": "pnpm verify",
+  "infrastructureMode": "self-managed Compose on Goal-owned 55446/56392 ports",
+  "status": "FAILED_INFRASTRUCTURE_HOST_POSTGRES_READINESS",
+  "durationMs": 289237,
+  "passedSteps": [
+    {
+      "name": "static-unit-contract-build",
+      "durationMs": 190355,
+      "testFiles": 268,
+      "tests": 1926,
+      "openapiOperations": 169,
+      "outputSha256": "43441ece45b7d4c12111e7e9c2f990aedd40023417e49c8f94168b450fc0ccb2"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "durationMs": 811,
+      "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "durationMs": 22516,
+      "migrationCount": 53,
+      "outputSha256": "55205ade9375fc2b199f8806a6170b382e61154552ec3d3aff6fc7a182807700"
+    }
+  ],
+  "failedStep": {
+    "name": "postgres-redis-integration",
+    "durationMs": 75551,
+    "testsEntered": false,
+    "outputSha256": "b0f8af20227fcc52f2dc2269dd9e0e8a83f471d7cff6eaef5e61d709db12c745",
+    "diagnostic": "The Compose PostgreSQL container probe and Redis host probe were healthy, but the Windows host PostgreSQL probe did not become reachable before the 60-second infrastructure deadline: initializationMarker=true, finalReady=true, containerProbe=true, hostPostgres=false, hostRedis=true."
+  },
+  "followUp": {
+    "sourceChanges": false,
+    "diagnosticProbe": "Starting the same stopped Goal-owned containers and querying postgresql://sdar@127.0.0.1:55446/sdar succeeded, after which both containers were stopped again.",
+    "classification": "ENVIRONMENT_TRANSIENT_HOST_PORT_PUBLICATION"
+  },
+  "interpretation": "No integration test executed and no product assertion failed. Preserve this attempt as infrastructure evidence; a standalone integration rerun is permitted only after confirming the same isolated port mapping is reachable."
+}

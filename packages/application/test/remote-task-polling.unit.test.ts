@@ -109,6 +109,14 @@ describe('RemoteTaskPollingService', () => {
       remoteTaskId: 'remote-1',
       operationName: 'long-tool',
       executionContext: { mode: 'historical-replay', simulationId: 'replay-1' },
+      authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-sha256-1'),
+      credentialRevision: 'credential-sha256-1',
+      protocolContract: {
+        mode: 'frozen_v1',
+        protocolVersion: '2026-07-28',
+        baselineSha256: 'a'.repeat(64),
+        serverDiscoverySnapshotId: 'snapshot-1',
+      },
     });
     expect(harness.repository.binding.version).toBe(3);
     expect(harness.repository.binding.pollAttempt).toBe(1);
@@ -173,14 +181,82 @@ describe('RemoteTaskPollingService', () => {
     expect(harness.repository.binding.providerFailureCount).toBe(0);
   });
 
-  it('quarantines invalid contracts without a retry or fabricated terminal state', async () => {
+  it('closes invalid contracts as explicit uncertainty without another Provider request', async () => {
     const harness = pollingHarness();
     harness.readerResult = { kind: 'contract_invalid', errorCode: 'MCP_TASK_RESPONSE_INVALID' };
 
     await expect(harness.service.process(job())).resolves.toBe('quarantined');
-    expect(harness.repository.binding.localState).toBe('quarantined');
+    expect(harness.repository.binding.localState).toBe('terminal_event_pending');
     expect(harness.repository.binding.protocolStatus).toBe('working');
     expect(harness.repository.binding.terminalAt).toBeUndefined();
+    expect(harness.repository.binding.lastSafeErrorCode).toBe('MCP_TASK_RESPONSE_INVALID');
+    expect(harness.repository.controls).toEqual([
+      expect.objectContaining({
+        type: 'task.failed',
+        status: 'pending',
+        payload: expect.objectContaining({
+          error: expect.objectContaining({
+            data: { errorCode: 'MCP_TASK_RESPONSE_INVALID', uncertainty: true },
+          }),
+        }),
+      }),
+    ]);
+    expect(harness.queue.enqueued).toHaveLength(0);
+  });
+
+  it('quarantines authority drift with its stable code and schedules no retry', async () => {
+    const harness = pollingHarness();
+    harness.readerResult = {
+      kind: 'provider_protocol',
+      errorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    };
+
+    await expect(harness.service.process(job())).resolves.toBe('quarantined');
+
+    expect(harness.repository.binding).toMatchObject({
+      localState: 'terminal_event_pending',
+      protocolStatus: 'working',
+      lastSafeErrorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    });
+    expect(harness.repository.attempts.at(-1)).toMatchObject({
+      status: 'provider_protocol',
+      errorCode: 'MCP_REMOTE_TASK_AUTHORITY_CHANGED',
+    });
+    expect(harness.queue.enqueued).toHaveLength(0);
+  });
+
+  it('enforces persisted remote Task TTL before reading the Provider', async () => {
+    const harness = pollingHarness({
+      taskTtlMs: 500,
+      taskExpiresAt: '2026-07-16T08:00:00.500Z',
+    });
+
+    await expect(harness.service.process(job())).resolves.toBe('expired');
+
+    expect(harness.reader.readRemoteTask).not.toHaveBeenCalled();
+    expect(harness.repository.binding).toMatchObject({
+      localState: 'terminal_event_pending',
+      protocolStatus: 'working',
+      lastSafeErrorCode: 'MCP_REMOTE_TASK_TTL_EXPIRED',
+    });
+    expect(harness.repository.controls).toHaveLength(1);
+  });
+
+  it('closes a frozen Task when its runtime revision authority disappears', async () => {
+    const harness = pollingHarness();
+    const snapshot = { ...workingSnapshot() };
+    delete snapshot.runtimeRevision;
+    harness.readerResult = {
+      kind: 'snapshot',
+      snapshot,
+    };
+
+    await expect(harness.service.process(job())).resolves.toBe('quarantined');
+
+    expect(harness.repository.binding).toMatchObject({
+      localState: 'terminal_event_pending',
+      lastSafeErrorCode: 'MCP_TASK_SESSION_REVISION_CHANGED',
+    });
     expect(harness.queue.enqueued).toHaveLength(0);
   });
 
@@ -199,7 +275,7 @@ describe('RemoteTaskPollingService', () => {
 });
 
 describe('RemoteTaskReconciler', () => {
-  it('repairs missing/completed jobs and leaves current failed jobs as dead letters', async () => {
+  it('repairs missing, completed, and failed wakes from the current PostgreSQL binding', async () => {
     const repository = new InMemoryRemoteTaskRepository();
     const queue = new RecordingPollQueue();
     const bindings = [
@@ -220,7 +296,7 @@ describe('RemoteTaskReconciler', () => {
 
     await expect(reconciler.reconcile()).resolves.toEqual({
       examined: 4,
-      scheduled: 2,
+      scheduled: 3,
       alreadyScheduled: 1,
       active: 0,
       deadLetters: 1,
@@ -228,6 +304,7 @@ describe('RemoteTaskReconciler', () => {
     expect(queue.enqueued.map(({ job: queued }) => queued.bindingId)).toEqual([
       'missing',
       'completed',
+      'failed',
     ]);
   });
 });
@@ -491,6 +568,39 @@ class InMemoryRemoteTaskRepository implements RemoteTaskRepository {
     return Promise.resolve({ applied: true as const, binding: this.binding });
   }
 
+  closeUncertain(input: Parameters<RemoteTaskRepository['closeUncertain']>[0]) {
+    this.attempts.push(input.protocolAttempt);
+    if (!this.matches(input.expectedVersion, input.claimToken)) return Promise.resolve(stale());
+    const payload = {
+      status: 'failed',
+      error: {
+        code: -32_001,
+        message: input.summary,
+        data: { errorCode: input.errorCode, uncertainty: true },
+      },
+    };
+    const controlEvent: RemoteTaskControlEvent = {
+      eventId: input.controlEventId,
+      bindingId: this.binding.bindingId,
+      type: 'task.failed',
+      remoteRevision: this.binding.remoteRevision ?? `uncertain:${input.observedAt}`,
+      resultHash: input.resultHash,
+      payload,
+      status: 'pending',
+      createdAt: input.observedAt,
+    };
+    this.controls.push(controlEvent);
+    this.binding = clearClaim(
+      withoutNextPoll({
+        ...this.binding,
+        localState: 'terminal_event_pending',
+        lastSafeErrorCode: input.errorCode,
+        version: this.binding.version + 1,
+      }),
+    );
+    return Promise.resolve({ applied: true as const, binding: this.binding, controlEvent });
+  }
+
   listObservations() {
     return Promise.resolve(this.observations);
   }
@@ -532,16 +642,36 @@ function admission(overrides: Partial<Parameters<typeof createRemoteTaskBinding>
       mode: 'frozen_v1' as const,
       protocolVersion: '2026-07-28',
       baselineSha256: 'a'.repeat(64),
+      serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed' as const,
     runtimeRevision: '1',
     lastProviderUpdatedAt: timestamp,
     executionContext: { mode: 'live' as const },
+    authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-sha256-1'),
     credentialRevision: 'credential-sha256-1',
     sessionRevision: '2026-07-28/schema-1',
     pollIntervalMs: 200,
     createdAt: timestamp,
     ...overrides,
+    taskCancellation: overrides.taskCancellation ?? ('task_cancel' as const),
+  };
+}
+
+function testAuthoritySnapshot(serverId: string, credentialRevision: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: timestamp,
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
   };
 }
 
@@ -555,6 +685,7 @@ function workingSnapshot(): RemoteTaskSnapshot {
     pollIntervalMs: 200,
     protocolRevision: '2026-07-28',
     tasksSchemaRevision: 'schema-1',
+    runtimeRevision: '2',
   };
 }
 

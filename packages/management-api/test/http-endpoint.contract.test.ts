@@ -7,14 +7,20 @@ import {
   createSkillVersion,
   createRemoteTaskBinding,
   DEFAULT_MCP_TOOL_EXECUTION_SEMANTICS,
+  type AgentTask,
   type EvolutionExperience,
   type RemoteTaskBinding,
   type SkillExecutionView,
 } from '../../domain/src/index.js';
 import {
+  createManagementOperation,
+  transitionManagementOperation,
+} from '../../node-control-domain/src/index.js';
+import {
   ArtifactManagementCommandService,
   ArtifactManagementQueryService,
   CognitiveManagementActionGate,
+  GovernedControlManagementError,
   RuntimeSkillGovernanceService,
   type ArtifactGovernancePort,
   type CognitiveManagementActionLeaseGuard,
@@ -23,6 +29,7 @@ import {
   type CognitiveManagementActionLease,
   type CognitiveManagementActionRecord,
   type CognitiveManagementActionRepository,
+  type GovernedControlManagementService,
 } from '../../application/src/index.js';
 
 import {
@@ -59,6 +66,117 @@ describe('management HTTP API contract', () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+
+  it('keeps governed-control management unavailable unless a trusted identity is composed', async () => {
+    endpoint = await startManagementHttpEndpoint({ operations: operations() });
+    const response = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Operator confirmation.' }),
+      },
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'GOVERNED_CONTROL_MANAGEMENT_UNAVAILABLE' },
+    });
+  });
+
+  it('authenticates governed-control issue/revoke and rejects body authority overrides', async () => {
+    const token = 'governed-control-http-token-000001';
+    const principal = Object.freeze({
+      actorId: 'human:operator-1',
+      kind: 'human' as const,
+      authenticationMethod: 'configured_bearer',
+      permissions: new Set([
+        'physical_control.confirm' as const,
+        'physical_control.revoke' as const,
+      ]),
+      requestId: 'request-1',
+    });
+    const issue = vi.fn(() =>
+      Promise.resolve({ confirmation: { confirmationId: 'confirmation-1' } }),
+    );
+    const revoke = vi.fn(() =>
+      Promise.resolve({ confirmationId: 'confirmation-1', revoked: true }),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      governedControl: {
+        confirmations: {
+          issue: issue as unknown as GovernedControlManagementService['issue'],
+          revoke: revoke as unknown as GovernedControlManagementService['revoke'],
+        },
+        principalResolver: {
+          resolve(input) {
+            if (input.authorization !== `Bearer ${token}`)
+              return Promise.reject(
+                new GovernedControlManagementError('GOVERNED_CONTROL_AUTHENTICATION_REQUIRED', 401),
+              );
+            return Promise.resolve(principal);
+          },
+        },
+      },
+    });
+
+    const unauthorized = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Operator confirmation.' }),
+      },
+    );
+    expect(unauthorized.status).toBe(401);
+
+    const override = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          reason: 'Operator confirmation.',
+          actorId: 'request-body-actor',
+          providerBindingId: 'request-body-provider',
+        }),
+      },
+    );
+    expect(override.status).toBe(400);
+    expect(issue).not.toHaveBeenCalled();
+
+    const issued = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Operator confirmation.', ttlMs: 60_000 }),
+      },
+    );
+    expect(issued.status).toBe(201);
+    expect(issue).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      reason: 'Operator confirmation.',
+      ttlMs: 60_000,
+      principal,
+    });
+
+    const revoked = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-1/governed-control-confirmations/confirmation-1/revoke`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Route changed before dispatch.' }),
+      },
+    );
+    expect(revoked.status).toBe(200);
+    expect(revoke).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      confirmationId: 'confirmation-1',
+      reason: 'Route changed before dispatch.',
+      principal,
+    });
   });
 
   it('exposes workflow-template inventory and usage evidence', async () => {
@@ -327,7 +445,7 @@ describe('management HTTP API contract', () => {
       });
 
     const uncertain = await request();
-    expect(uncertain.status).toBe(409);
+    expect(uncertain.status).toBe(503);
     await expect(uncertain.json()).resolves.toMatchObject({
       error: { code: 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING' },
     });
@@ -623,6 +741,613 @@ describe('management HTTP API contract', () => {
     );
     expect(publishedTemplate.status).toBe(202);
     expect(activate).toHaveBeenCalledOnce();
+  });
+
+  it('delegates every authenticated Runtime Task command to the Task authority', async () => {
+    const serviceToken = 'runtime-task-control-service-token-000000000000';
+    const configured = operations();
+    const actions = new CognitiveManagementActionGate({
+      repository: new InMemoryCognitiveManagementActionRepository(),
+      clock: { now: () => '2026-08-13T00:00:01.000Z' },
+    });
+    const followUp = vi.fn<ManagementOperations['tasks']['followUp']>((command) =>
+      Promise.resolve(runtimeTask(command.taskId, command.action)),
+    );
+    const cancel = vi.fn<ManagementOperations['tasks']['cancel']>((taskId) =>
+      Promise.resolve(runtimeTask(taskId, 'cancel')),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: { ...configured.tasks, followUp, cancel },
+      },
+      cognitiveManagementActions: actions,
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        actorId: 'node-control-service',
+        taskRevisionAuthority: {
+          async executeAtCurrentRevision<T>(
+            _taskId: string,
+            _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+            operation: () => Promise<T>,
+          ) {
+            return {
+              disposition: 'applied' as const,
+              priorRevision: 0,
+              claimedRevision: 1,
+              result: await operation(),
+            };
+          },
+          async executeAtRevision<T>(
+            _taskId: string,
+            _expectedRevision: number,
+            _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+            operation: () => Promise<T>,
+          ) {
+            return {
+              disposition: 'applied' as const,
+              priorRevision: 0,
+              claimedRevision: 1,
+              result: await operation(),
+            };
+          },
+          reconcile<T>(
+            _taskId: string,
+            _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+            _lease: Readonly<{ actionId: string; attempt: number; token: string }>,
+            recoveredResult: T,
+          ) {
+            return Promise.resolve({ disposition: 'applied' as const, result: recoveredResult });
+          },
+        },
+      },
+    });
+
+    const requests = [
+      { suffix: 'pause', key: 'runtime-task-pause-key', body: { reason: 'Pause safely.' } },
+      {
+        suffix: 'resume',
+        key: 'runtime-task-resume-key',
+        body: { reason: 'Resume safely.', expectedRevision: 0 },
+      },
+      { suffix: 'cancel', key: 'runtime-task-cancel-key', body: { reason: 'Cancel safely.' } },
+      {
+        suffix: 'goal-patches',
+        key: 'runtime-task-goal-patch-key',
+        body: { reason: 'Patch the goal.', payload: { instruction: 'Keep prior evidence.' } },
+      },
+    ] as const;
+
+    for (const request of requests) {
+      const response = await runtimeTaskCommandRequest(
+        endpoint.baseUrl,
+        serviceToken,
+        `task-${request.suffix}`,
+        request.suffix,
+        request.key,
+        request.body,
+      );
+      expect(response.status).toBe(202);
+      await expect(response.json()).resolves.toMatchObject({
+        operationType:
+          request.suffix === 'goal-patches' ? 'task.goal_patch' : `task.${request.suffix}`,
+        target: { type: 'task', id: `task-${request.suffix}` },
+        status: 'succeeded',
+        actorId: 'node-control-service',
+        reason: request.body.reason,
+      });
+    }
+
+    expect(followUp).toHaveBeenNthCalledWith(1, {
+      taskId: 'task-pause',
+      action: 'pause',
+      messageText: 'Pause safely.',
+    });
+    expect(followUp).toHaveBeenNthCalledWith(2, {
+      taskId: 'task-resume',
+      action: 'resume',
+      messageText: 'Resume safely.',
+    });
+    expect(followUp).toHaveBeenNthCalledWith(3, {
+      taskId: 'task-goal-patches',
+      action: 'patch_goal',
+      messageText: 'Patch the goal.',
+      inputContent: { instruction: 'Keep prior evidence.' },
+    });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledWith('task-cancel');
+  });
+
+  it('rejects stale revisions before all four Runtime Task mutations and preserves exact replay', async () => {
+    const serviceToken = 'runtime-task-revision-service-token-000000000000';
+    const configured = operations();
+    const executeAtRevision = vi.fn((taskId: string, expectedRevision: number) => {
+      void taskId;
+      void expectedRevision;
+    });
+    const taskRevisionAuthority = {
+      async executeAtCurrentRevision<T>(
+        taskId: string,
+        _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+        operation: () => Promise<T>,
+      ) {
+        executeAtRevision(taskId, 0);
+        return {
+          disposition: 'applied' as const,
+          priorRevision: 0,
+          claimedRevision: 1,
+          result: await operation(),
+        };
+      },
+      async executeAtRevision<T>(
+        taskId: string,
+        expectedRevision: number,
+        _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+        operation: () => Promise<T>,
+      ) {
+        executeAtRevision(taskId, expectedRevision);
+        return expectedRevision === 7
+          ? ({
+              disposition: 'applied' as const,
+              priorRevision: 7,
+              claimedRevision: 8,
+              result: await operation(),
+            } as const)
+          : ({ disposition: 'conflict', currentRevision: 7 } as const);
+      },
+      reconcile<T>(
+        _taskId: string,
+        _identity: Readonly<{ operation: string; idempotencyKey: string }>,
+        _lease: Readonly<{ actionId: string; attempt: number; token: string }>,
+        recoveredResult: T,
+      ) {
+        return Promise.resolve({ disposition: 'applied' as const, result: recoveredResult });
+      },
+    };
+    const followUp = vi.fn<ManagementOperations['tasks']['followUp']>((command) =>
+      Promise.resolve(runtimeTask(command.taskId, command.action)),
+    );
+    const cancel = vi.fn<ManagementOperations['tasks']['cancel']>((taskId) =>
+      Promise.resolve(runtimeTask(taskId, 'cancel')),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: { ...configured.tasks, followUp, cancel },
+      },
+      cognitiveManagementActions: new CognitiveManagementActionGate({
+        repository: new InMemoryCognitiveManagementActionRepository(),
+        clock: { now: () => '2026-08-13T00:00:01.000Z' },
+      }),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        taskRevisionAuthority,
+      },
+    });
+
+    const commands = [
+      { suffix: 'pause', taskId: 'task-stale-pause' },
+      { suffix: 'resume', taskId: 'task-stale-resume' },
+      { suffix: 'cancel', taskId: 'task-stale-cancel' },
+      { suffix: 'goal-patches', taskId: 'task-stale-goal-patch' },
+    ] as const;
+    for (const command of commands) {
+      const stale = await runtimeTaskCommandRequest(
+        endpoint.baseUrl,
+        serviceToken,
+        command.taskId,
+        command.suffix,
+        `${command.taskId}-stale-key`,
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 6 },
+      );
+      expect(stale.status).toBe(412);
+      expect(stale.headers.get('content-type')).toContain('application/problem+json');
+      await expect(stale.json()).resolves.toMatchObject({
+        code: 'REVISION_CONFLICT',
+        status: 412,
+      });
+      const staleReplay = await runtimeTaskCommandRequest(
+        endpoint.baseUrl,
+        serviceToken,
+        command.taskId,
+        command.suffix,
+        `${command.taskId}-stale-key`,
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 6 },
+      );
+      expect(staleReplay.status).toBe(412);
+      await expect(staleReplay.json()).resolves.toMatchObject({
+        code: 'REVISION_CONFLICT',
+        status: 412,
+      });
+
+      const exact = await runtimeTaskCommandRequest(
+        endpoint.baseUrl,
+        serviceToken,
+        command.taskId,
+        command.suffix,
+        `${command.taskId}-exact-key`,
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 7 },
+      );
+      expect(exact.status).toBe(202);
+    }
+    expect(followUp).toHaveBeenCalledTimes(3);
+    expect(cancel).toHaveBeenCalledTimes(1);
+
+    const replayRequest = () =>
+      runtimeTaskCommandRequest(
+        endpoint?.baseUrl ?? '',
+        serviceToken,
+        'task-stale-pause',
+        'pause',
+        'task-stale-pause-exact-key',
+        { reason: 'Apply only to the exact Task revision.', expectedRevision: 7 },
+      );
+    const replay = await replayRequest();
+    expect(replay.status).toBe(202);
+    expect(followUp).toHaveBeenCalledTimes(3);
+
+    const conflict = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-stale-pause',
+      'pause',
+      'task-stale-pause-exact-key',
+      { reason: 'Apply only to the exact Task revision.', expectedRevision: 8 },
+    );
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({
+      code: 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT',
+    });
+    expect(followUp).toHaveBeenCalledTimes(3);
+    expect(executeAtRevision).toHaveBeenCalledTimes(8);
+  });
+
+  it('exposes authenticated Runtime identity routes and fails closed without catalog authority', async () => {
+    const serviceToken = 'runtime-identity-service-token-0000000000000000';
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        health: {
+          get: () =>
+            Promise.resolve({
+              nodeId: 'runtime-node',
+              status: 'healthy',
+              components: [
+                {
+                  component: 'runtime_database',
+                  status: 'healthy',
+                  observedAt: '2026-08-13T00:00:00.000Z',
+                },
+              ],
+              activeTasks: 0,
+              observedAt: '2026-08-13T00:00:00.000Z',
+            }),
+        },
+        version: {
+          get: () =>
+            Promise.resolve({
+              runtimeVersion: '1.4.1',
+              nodeControlContractVersion: '1.0.0',
+              runtimeControlContractVersion: '1.0.0',
+            }),
+        },
+      },
+    });
+
+    for (const path of ['runtime/health', 'runtime/version']) {
+      const unauthenticated = await fetch(`${endpoint.baseUrl}/internal/v1/${path}`);
+      expect(unauthenticated.status).toBe(401);
+      const authenticated = await fetch(`${endpoint.baseUrl}/internal/v1/${path}`, {
+        headers: { authorization: `Bearer ${serviceToken}` },
+      });
+      expect(authenticated.status).toBe(200);
+    }
+
+    const unavailableCatalog = await fetch(
+      `${endpoint.baseUrl}/internal/v1/capability-catalogs/stage`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${serviceToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'capability-catalog-stage-unavailable',
+        },
+        body: JSON.stringify({ reason: 'Stage the exact catalog.' }),
+      },
+    );
+    expect(unavailableCatalog.status).toBe(503);
+    await expect(unavailableCatalog.json()).resolves.toMatchObject({
+      code: 'RUNTIME_CAPABILITY_CATALOG_CONTROL_UNAVAILABLE',
+    });
+  });
+
+  it('delegates catalog stage and activate only to an explicitly composed Runtime authority', async () => {
+    const serviceToken = 'runtime-catalog-service-token-000000000000000';
+    const stage = vi.fn((input: { command: { reason: string } }) =>
+      Promise.resolve(runtimeOperation('capability.catalog.stage', input.command.reason)),
+    );
+    const activate = vi.fn((input: { revision: number; command: { reason: string } }) =>
+      Promise.resolve(runtimeOperation('capability.catalog.activate', input.command.reason)),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        capabilityCatalogs: { stage, activate },
+      },
+    });
+    const headers = {
+      authorization: `Bearer ${serviceToken}`,
+      'content-type': 'application/json',
+      'idempotency-key': 'runtime-catalog-command-key',
+    };
+
+    const staged = await fetch(`${endpoint.baseUrl}/internal/v1/capability-catalogs/stage`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ reason: 'Stage exact catalog.', payload: { catalogHash: 'abc' } }),
+    });
+    expect(staged.status).toBe(202);
+    const activated = await fetch(
+      `${endpoint.baseUrl}/internal/v1/capability-catalogs/7/activate`,
+      {
+        method: 'POST',
+        headers: { ...headers, 'idempotency-key': 'runtime-catalog-activate-key' },
+        body: JSON.stringify({ reason: 'Activate exact catalog.', expectedRevision: 6 }),
+      },
+    );
+    expect(activated.status).toBe(202);
+    expect(stage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: expect.objectContaining({ reason: 'Stage exact catalog.' }),
+        idempotencyKey: 'runtime-catalog-command-key',
+      }),
+    );
+    expect(activate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        revision: 7,
+        command: expect.objectContaining({ reason: 'Activate exact catalog.' }),
+        idempotencyKey: 'runtime-catalog-activate-key',
+      }),
+    );
+  });
+
+  it('fails closed on invalid Runtime Task commands and replays one exact command once', async () => {
+    const serviceToken = 'runtime-task-replay-service-token-000000000000';
+    const configured = operations();
+    const actions = new CognitiveManagementActionGate({
+      repository: new InMemoryCognitiveManagementActionRepository(),
+      clock: { now: () => '2026-08-13T00:00:01.000Z' },
+    });
+    const followUp = vi.fn<ManagementOperations['tasks']['followUp']>((command) => {
+      if (command.taskId === 'task-missing')
+        return Promise.reject(
+          Object.assign(new Error('Task task-missing was not found.'), { code: 'TASK_NOT_FOUND' }),
+        );
+      if (command.taskId === 'task-terminal')
+        return Promise.reject(
+          Object.assign(new Error('Terminal Task cannot be controlled.'), {
+            code: 'TASK_TERMINAL_FOLLOW_UP_FORBIDDEN',
+          }),
+        );
+      return Promise.resolve(runtimeTask(command.taskId, command.action));
+    });
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: { ...configured.tasks, followUp },
+      },
+      cognitiveManagementActions: actions,
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        taskRevisionAuthority: passThroughTaskRevisionAuthority(),
+      },
+    });
+
+    const unauthorized = await fetch(`${endpoint.baseUrl}/internal/v1/tasks/task-1/pause`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'unauthorized-key' },
+      body: JSON.stringify({ reason: 'Pause.' }),
+    });
+    expect(unauthorized.status).toBe(401);
+    expect(unauthorized.headers.get('content-type')).toContain('application/problem+json');
+
+    const missingKey = await fetch(`${endpoint.baseUrl}/internal/v1/tasks/task-1/pause`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${serviceToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ reason: 'Pause.' }),
+    });
+    expect(missingKey.status).toBe(400);
+
+    const missingReason = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-1',
+      'pause',
+      'missing-reason-key',
+      {},
+    );
+    expect(missingReason.status).toBe(400);
+
+    const invalidRevision = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-1',
+      'resume',
+      'invalid-revision-key',
+      { reason: 'Resume.', expectedRevision: -1 },
+    );
+    expect(invalidRevision.status).toBe(400);
+
+    const first = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-replay',
+      'goal-patches',
+      'goal-patch-replay-key',
+      { reason: 'Patch goal.', payload: { instruction: 'first' } },
+    );
+    const firstBody = await first.text();
+    const replay = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-replay',
+      'goal-patches',
+      'goal-patch-replay-key',
+      { reason: 'Patch goal.', payload: { instruction: 'first' } },
+    );
+    expect(replay.status).toBe(202);
+    expect(await replay.text()).toBe(firstBody);
+    expect(followUp).toHaveBeenCalledTimes(1);
+
+    const conflict = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-replay',
+      'goal-patches',
+      'goal-patch-replay-key',
+      { reason: 'Patch goal.', payload: { instruction: 'different' } },
+    );
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({
+      code: 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT',
+      status: 409,
+    });
+    expect(followUp).toHaveBeenCalledTimes(1);
+
+    const missing = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-missing',
+      'pause',
+      'missing-task-key',
+      { reason: 'Pause.' },
+    );
+    expect(missing.status).toBe(404);
+    const terminal = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-terminal',
+      'pause',
+      'terminal-task-key',
+      { reason: 'Pause.' },
+    );
+    expect(terminal.status).toBe(409);
+  });
+
+  it('replays one completed Runtime Task command across endpoint restart without duplicate mutation', async () => {
+    const serviceToken = 'runtime-task-restart-service-token-000000000000';
+    const configured = operations();
+    const repository = new InMemoryCognitiveManagementActionRepository();
+    const followUp = vi.fn<ManagementOperations['tasks']['followUp']>((command) =>
+      Promise.resolve(runtimeTask(command.taskId, command.action)),
+    );
+    const endpointOptions = () => ({
+      operations: {
+        ...configured,
+        tasks: { ...configured.tasks, followUp },
+      },
+      cognitiveManagementActions: new CognitiveManagementActionGate({
+        repository,
+        clock: { now: () => '2026-08-13T00:00:01.000Z' },
+      }),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        taskRevisionAuthority: passThroughTaskRevisionAuthority(),
+      },
+    });
+    endpoint = await startManagementHttpEndpoint(endpointOptions());
+    const request = () =>
+      runtimeTaskCommandRequest(
+        endpoint?.baseUrl ?? '',
+        serviceToken,
+        'task-restart-replay',
+        'goal-patches',
+        'goal-patch-restart-key',
+        { reason: 'Patch goal once.', payload: { instruction: 'Preserve completed effects.' } },
+      );
+
+    const first = await request();
+    expect(first.status).toBe(202);
+    const firstBody = await first.text();
+    await endpoint.close();
+    endpoint = await startManagementHttpEndpoint(endpointOptions());
+
+    const replay = await request();
+    expect(replay.status).toBe(202);
+    expect(await replay.text()).toBe(firstBody);
+    expect(followUp).toHaveBeenCalledTimes(1);
+
+    const conflict = await runtimeTaskCommandRequest(
+      endpoint.baseUrl,
+      serviceToken,
+      'task-restart-replay',
+      'goal-patches',
+      'goal-patch-restart-key',
+      { reason: 'Patch goal once.', payload: { instruction: 'Different patch.' } },
+    );
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({
+      code: 'COGNITIVE_MANAGEMENT_IDEMPOTENCY_CONFLICT',
+      status: 409,
+    });
+    expect(followUp).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when a Runtime Task command lease is recovered after an uncertain restart', async () => {
+    const serviceToken = 'runtime-task-uncertain-service-token-000000000000';
+    const idempotencyKey = 'goal-patch-uncertain-key';
+    const configured = operations();
+    const followUp = vi.fn<ManagementOperations['tasks']['followUp']>((command) =>
+      Promise.resolve(runtimeTask(command.taskId, command.action)),
+    );
+    const repository = new InMemoryCognitiveManagementActionRepository([idempotencyKey]);
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: { ...configured.tasks, followUp },
+      },
+      cognitiveManagementActions: new CognitiveManagementActionGate({
+        repository,
+        clock: { now: () => '2026-08-13T00:00:01.000Z' },
+      }),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+      },
+    });
+    const request = () =>
+      runtimeTaskCommandRequest(
+        endpoint?.baseUrl ?? '',
+        serviceToken,
+        'task-uncertain-goal-patch',
+        'goal-patches',
+        idempotencyKey,
+        { reason: 'Patch goal once.', payload: { instruction: 'Never duplicate this patch.' } },
+      );
+
+    const recovered = await request();
+    expect(recovered.status).toBe(503);
+    await expect(recovered.json()).resolves.toMatchObject({
+      code: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+      status: 503,
+    });
+    expect(followUp).not.toHaveBeenCalled();
+
+    const stableFailure = await request();
+    expect(stableFailure.status).toBe(409);
+    await expect(stableFailure.json()).resolves.toMatchObject({
+      code: 'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS',
+      status: 409,
+    });
+    expect(followUp).not.toHaveBeenCalled();
   });
 
   it('projects bounded P10 Gateway evidence without changing Task protocol semantics', async () => {
@@ -1350,8 +2075,10 @@ describe('management HTTP API contract', () => {
         mode: 'frozen_v1',
         protocolVersion: '2026-07-28',
         baselineSha256: 'a'.repeat(64),
+        serverDiscoverySnapshotId: 'snapshot-1',
       },
       taskBehavior: 'server_directed',
+      taskCancellation: 'task_cancel',
       runtimeRevision: '1',
       providerSubstate: 'running',
       requestedTiming: {
@@ -1359,6 +2086,20 @@ describe('management HTTP API contract', () => {
         maxElapsedMs: 60_000,
       },
       executionContext: { mode: 'live' },
+      authoritySnapshot: {
+        schemaVersion: '1.0',
+        capturedAt: '2026-07-17T00:00:00.000Z',
+        runtime: {
+          serverId: 'mcp.devices',
+          endpoint: 'https://mcp.devices.test/mcp',
+          serverUpdatedAt: 'credential-1',
+          toolRevision: 1,
+          protocolSnapshotId: 'snapshot-1',
+          catalogRevision: 'catalog-revision-1',
+          catalogChecksum: 'c'.repeat(64),
+          operationCount: 1,
+        },
+      },
       credentialRevision: 'credential-1',
       sessionRevision: 'session-1',
       lastProviderUpdatedAt: '2026-07-17T00:00:00.000Z',
@@ -1513,7 +2254,7 @@ describe('management HTTP API contract', () => {
       correlationRoot: { taskId: 'task-1', skillId: 'skill.patrol' },
       items: [
         {
-          binding: { remoteTaskId: 'provider-task-1' },
+          binding: { remoteTaskId: 'provider-task-1', taskCancellation: 'task_cancel' },
           capability: { status: 'registered' },
           protocol: {
             runtimeRevision: '9',
@@ -3896,6 +4637,38 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('retains the frozen 400 response for a stale Task plan decision', async () => {
+    const configured = operations();
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...configured,
+        tasks: {
+          ...configured.tasks,
+          followUp: () =>
+            Promise.reject(
+              Object.assign(new Error('Only an awaiting plan may receive a decision.'), {
+                code: 'TASK_PLAN_DECISION_NOT_AWAITING',
+              }),
+            ),
+        },
+      },
+    });
+
+    const staleDecision = await fetch(`${endpoint.baseUrl}/api/v1/tasks/task-canceled/actions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'confirm_plan',
+        messageText: 'Attempt a stale confirmation.',
+      }),
+    });
+
+    expect(staleDecision.status).toBe(400);
+    await expect(staleDecision.json()).resolves.toMatchObject({
+      error: { code: 'TASK_PLAN_DECISION_NOT_AWAITING' },
+    });
+  });
+
   it('creates and semantically searches source-traceable global memories', async () => {
     const configured = operations();
     const item = {
@@ -4243,7 +5016,13 @@ function operations(failServerList = false): ManagementOperations {
     goals: { create: unused, get: unused, history: unused },
     goalPatches: { apply: unused, get: unused, list: () => Promise.resolve([]) },
     goalCancellations: { cancel: unused, get: unused, list: () => Promise.resolve([]) },
-    tasks: { attachPlan: unused, followUp: unused, get: unused, list: () => Promise.resolve([]) },
+    tasks: {
+      attachPlan: unused,
+      cancel: unused,
+      followUp: unused,
+      get: unused,
+      list: () => Promise.resolve([]),
+    },
     taskWaitTimeouts: { getPolicy: unused, updatePolicy: unused },
     resultProcessing: { get: unused, list: () => Promise.resolve([]) },
     taskQuality: { getByTask: unused },
@@ -4372,6 +5151,64 @@ function operations(failServerList = false): ManagementOperations {
     },
     workflowRevisions: { get: unused, reviseAdmin: unused },
   };
+}
+
+function runtimeTask(taskId: string, action: string): AgentTask {
+  return {
+    taskId,
+    contextId: 'context-runtime-control',
+    userId: 'anonymous',
+    requestText: 'Control this Task.',
+    requestMetadata: {},
+    phase: action === 'cancel' ? 'canceled' : action === 'pause' ? 'paused' : 'executing',
+    phaseMessage: `Task command ${action} applied.`,
+    goalId: 'goal-runtime-control',
+    goalVersion: 1,
+    planId: 'plan-runtime-control',
+    createdAt: '2026-08-13T00:00:00.000Z',
+    updatedAt: '2026-08-13T00:00:01.000Z',
+  };
+}
+
+function runtimeOperation(operationType: string, reason: string) {
+  const timestamp = '2026-08-13T00:00:00.000Z';
+  const accepted = createManagementOperation(
+    {
+      operationId: `runtime-${operationType}`,
+      operationType,
+      target: { type: 'capability_catalog', id: 'runtime-capability-catalog' },
+      actorId: 'runtime-catalog-authority',
+      reason,
+      idempotencyKeyHash: 'a'.repeat(64),
+      inputHash: 'b'.repeat(64),
+    },
+    timestamp,
+  );
+  return transitionManagementOperation(
+    transitionManagementOperation(accepted, 'running', timestamp),
+    'succeeded',
+    timestamp,
+    { result: { applied: true } },
+  );
+}
+
+function runtimeTaskCommandRequest(
+  baseUrl: string,
+  serviceToken: string,
+  taskId: string,
+  suffix: string,
+  idempotencyKey: string,
+  body: unknown,
+): Promise<Response> {
+  return fetch(`${baseUrl}/internal/v1/tasks/${taskId}/${suffix}`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${serviceToken}`,
+      'content-type': 'application/json',
+      'idempotency-key': idempotencyKey,
+    },
+    body: JSON.stringify(body),
+  });
 }
 
 function capabilitySummaryView() {
@@ -4636,4 +5473,53 @@ function actionLease(
     expiresAt: '2099-01-01T00:00:00.000Z',
     executionPhase,
   });
+}
+
+function passThroughTaskRevisionAuthority() {
+  return {
+    async executeAtCurrentRevision<T>(
+      _taskId: string,
+      _identity: Readonly<{
+        operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+        idempotencyKey: string;
+        lease: Readonly<{ actionId: string; attempt: number; token: string }>;
+      }>,
+      operation: () => Promise<T>,
+    ) {
+      return {
+        disposition: 'applied' as const,
+        priorRevision: 0,
+        claimedRevision: 1,
+        result: await operation(),
+      };
+    },
+    async executeAtRevision<T>(
+      _taskId: string,
+      expectedRevision: number,
+      _identity: Readonly<{
+        operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+        idempotencyKey: string;
+        lease: Readonly<{ actionId: string; attempt: number; token: string }>;
+      }>,
+      operation: () => Promise<T>,
+    ) {
+      return {
+        disposition: 'applied' as const,
+        priorRevision: expectedRevision,
+        claimedRevision: expectedRevision + 1,
+        result: await operation(),
+      };
+    },
+    reconcile<T>(
+      _taskId: string,
+      _identity: Readonly<{
+        operation: 'pause' | 'resume' | 'cancel' | 'goal-patch';
+        idempotencyKey: string;
+      }>,
+      _lease: Readonly<{ actionId: string; attempt: number; token: string }>,
+      result: T,
+    ) {
+      return Promise.resolve({ disposition: 'applied' as const, result });
+    },
+  };
 }

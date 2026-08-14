@@ -92,6 +92,45 @@ paths:
             schema: { type: integer, minimum: 1, maximum: 200, default: 50 },
           }
       responses: { '200': { description: Most recently updated PostgreSQL Task records } }
+  /api/v1/tasks/{taskId}/governed-control-confirmations:
+    parameters: [{ $ref: '#/components/parameters/TaskId' }]
+    post:
+      operationId: issueGovernedControlConfirmation
+      description: Issues a short-lived physical-control confirmation. Identity and the exact Task, Capability Binding, latest Attempt, Plan hash, Skill, Provider Binding, tool, and arguments scope are derived from authenticated and server-owned state; none is accepted from JSON.
+      security: [{ GovernedControlBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GovernedControlIssueRequest' }
+      responses:
+        '201': { description: Persisted confirmation plus its server-derived immutable authority }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/governed-control-confirmations/{confirmationId}/revoke:
+    parameters:
+      - { $ref: '#/components/parameters/TaskId' }
+      - { name: confirmationId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: revokeGovernedControlConfirmation
+      description: Revokes an exact Task-bound confirmation using a trusted human principal with physical_control.revoke permission. Revocation never dispatches or reverses a physical action.
+      security: [{ GovernedControlBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GovernedControlRevokeRequest' }
+      responses:
+        '200': { description: Revoked confirmation }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}/understanding:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:
@@ -681,7 +720,7 @@ paths:
     parameters: [{ name: bindingId, in: path, required: true, schema: { type: string } }]
     post:
       operationId: cancelRemoteTaskBinding
-      description: Creates an idempotent source=management cooperative cancellation request. Acknowledgement or uncertainty is not Provider terminal cancellation and observation continues.
+      description: Creates an idempotent source=management cooperative cancellation request only when the admitted Tool's frozen cancellation authority is task_cancel. Unsupported, cooperative-only, unknown, or legacy-missing authority fails closed before request persistence or Provider transport. Acknowledgement or uncertainty is not Provider terminal cancellation and observation continues.
       responses:
         '200':
           { description: Durable cancellation request disposition and delivery scheduling state }
@@ -2029,6 +2068,10 @@ components:
       type: http
       scheme: bearer
       description: Optional deployment-configured bearer guard for cognitive management writes.
+    GovernedControlBearer:
+      type: http
+      scheme: bearer
+      description: Deployment-configured trusted-human credential with explicit physical_control.confirm or physical_control.revoke permission.
   parameters:
     BoundedListLimit:
       {
@@ -2058,6 +2101,19 @@ components:
                   code: { type: string }
                   message: { type: string }
   schemas:
+    GovernedControlIssueRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+        ttlMs: { type: integer, minimum: 1000, maximum: 900000, default: 300000 }
+    GovernedControlRevokeRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2048 }
     DeterministicCapabilityExecutionRequest:
       type: object
       additionalProperties: false

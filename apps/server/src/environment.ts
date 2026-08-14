@@ -38,6 +38,22 @@ const ArtifactManagementRolesSchema = z.preprocess(
     .transform((roles) => Object.freeze([...roles])),
 );
 
+const GovernedControlPermissionsSchema = z.preprocess(
+  (value) =>
+    typeof value === 'string' ? value.split(',').map((permission) => permission.trim()) : value,
+  z
+    .array(z.enum(['physical_control.confirm', 'physical_control.revoke']))
+    .min(1)
+    .superRefine((permissions, context) => {
+      if (new Set(permissions).size !== permissions.length)
+        context.addIssue({
+          code: 'custom',
+          message: 'Governed control permissions must not contain duplicates.',
+        });
+    })
+    .transform((permissions) => Object.freeze([...permissions])),
+);
+
 const EnvironmentSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
@@ -73,6 +89,14 @@ const EnvironmentSchema = z
     SDAR_ARTIFACT_MANAGEMENT_TENANT_ID: z.string().trim().min(1).optional(),
     SDAR_ARTIFACT_MANAGEMENT_KIND: z.enum(['human', 'service']).default('human'),
     SDAR_ARTIFACT_MANAGEMENT_ROLES: ArtifactManagementRolesSchema.optional(),
+    SDAR_GOVERNED_CONTROL_BEARER_TOKEN: z
+      .string()
+      .min(32)
+      .max(4_096)
+      .regex(/^\S+$/u, 'Governed control bearer token must not contain whitespace.')
+      .optional(),
+    SDAR_GOVERNED_CONTROL_ACTOR_ID: z.string().trim().min(1).optional(),
+    SDAR_GOVERNED_CONTROL_PERMISSIONS: GovernedControlPermissionsSchema.optional(),
     SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: z.enum(['true', 'false']).default('false'),
     SDAR_MASTER_KEY_BASE64: z.string().min(1),
     BUSINESS_EVENTS_ENABLED: z.enum(['true', 'false']).default('false'),
@@ -179,6 +203,9 @@ const EnvironmentSchema = z
       environment.SDAR_ARTIFACT_MANAGEMENT_ACTOR_ID !== undefined ||
       environment.SDAR_ARTIFACT_MANAGEMENT_TENANT_ID !== undefined ||
       environment.SDAR_ARTIFACT_MANAGEMENT_ROLES !== undefined;
+    const governedControlConfigured =
+      environment.SDAR_GOVERNED_CONTROL_ACTOR_ID !== undefined ||
+      environment.SDAR_GOVERNED_CONTROL_PERMISSIONS !== undefined;
     if (
       (environment.SDAR_NODE_CONTROL_BASE_URL === undefined) !==
       (environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN === undefined)
@@ -275,6 +302,30 @@ const EnvironmentSchema = z
           'Runtime Control Plan Template governance requires the existing Artifact management identity.',
       });
     }
+    if (environment.SDAR_GOVERNED_CONTROL_BEARER_TOKEN === undefined && governedControlConfigured)
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_GOVERNED_CONTROL_BEARER_TOKEN'],
+        message: 'Governed control identity configuration requires a bearer token.',
+      });
+    if (
+      environment.SDAR_GOVERNED_CONTROL_BEARER_TOKEN !== undefined &&
+      environment.SDAR_GOVERNED_CONTROL_ACTOR_ID === undefined
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_GOVERNED_CONTROL_ACTOR_ID'],
+        message: 'Governed control bearer authentication requires a human actor ID.',
+      });
+    if (
+      environment.SDAR_GOVERNED_CONTROL_BEARER_TOKEN !== undefined &&
+      environment.SDAR_GOVERNED_CONTROL_PERMISSIONS === undefined
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_GOVERNED_CONTROL_PERMISSIONS'],
+        message: 'Governed control bearer authentication requires explicit permissions.',
+      });
     const exposedHosts = [environment.SDAR_A2A_HOST, environment.SDAR_MANAGEMENT_HOST].filter(
       (host) => !isLoopbackHost(host),
     );

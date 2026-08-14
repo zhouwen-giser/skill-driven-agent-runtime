@@ -10,9 +10,11 @@ import type {
   McpTool,
   McpToolEnhancement,
   McpProtocolDiscoverySnapshot,
+  McpProtocolContractSnapshot,
   McpToolExecutionSemantics,
   RemoteTaskOperationAck,
   RemoteTaskBinding,
+  RemoteTaskAuthoritySnapshot,
   RemoteTaskControlEvent,
   RemoteTaskObservation,
   RemoteTaskProtocolAttempt,
@@ -574,12 +576,18 @@ export interface CurrentMcpProviderBindingAuthorityPort {
         bindingId: string;
         revision: number;
         localServerId: string;
+        originType: 'direct' | 'smpp_registry';
         providerId: string;
+        externalServerId?: string;
         endpointRef: string;
         catalogRevision: string;
         catalogChecksum: string;
         operationCount: number;
         availabilityValidUntil: string;
+      }>;
+      sourceCandidateLineage?: Readonly<{
+        smppSourceId: string;
+        externalServerId: string;
       }>;
     }>
   >;
@@ -634,6 +642,9 @@ export interface RemoteTaskSnapshotReader {
       operationName: string;
       remoteTaskId: string;
       executionContext: RuntimeExecutionContext;
+      authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+      credentialRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
     }>,
   ): Promise<RemoteTaskReadResult>;
 }
@@ -723,6 +734,20 @@ export interface RemoteTaskRepository {
       observationId: string;
       errorCode: string;
       observedAt: string;
+      protocolAttempt: RemoteTaskProtocolAttempt;
+    }>,
+  ): Promise<RemoteTaskMutationResult>;
+  closeUncertain(
+    input: Readonly<{
+      bindingId: string;
+      expectedVersion: number;
+      claimToken: string;
+      observationId: string;
+      controlEventId: string;
+      errorCode: string;
+      summary: string;
+      observedAt: string;
+      resultHash: string;
       protocolAttempt: RemoteTaskProtocolAttempt;
     }>,
   ): Promise<RemoteTaskMutationResult>;
@@ -926,6 +951,14 @@ export interface WorkflowContinuationRepository {
   ): Promise<WorkflowContinuationSnapshot>;
   findById(snapshotId: string): Promise<WorkflowContinuationSnapshot | undefined>;
   findCurrent(workflowInstanceId: string): Promise<WorkflowContinuationSnapshot | undefined>;
+  findLatestForWait(
+    workflowInstanceId: string,
+    wait: Readonly<{
+      kind: 'remote_task' | 'child_workflow';
+      sourceId: string;
+      nodeId: string;
+    }>,
+  ): Promise<WorkflowContinuationSnapshot | undefined>;
   findCurrentByBinding(bindingId: string): Promise<WorkflowContinuationSnapshot | undefined>;
   listInbox(
     now: string,
@@ -950,11 +983,19 @@ export interface WorkflowContinuationRepository {
       bindingDisposition?: 'reentered';
     }>,
   ): Promise<void>;
+  deferControl(
+    input: Readonly<{
+      eventId: string;
+      claimToken: string;
+      errorCode: string;
+    }>,
+  ): Promise<void>;
   saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void>;
   updateAttempt(
     attempt: WorkflowContinuationAttempt,
     expectedStatus: WorkflowContinuationAttemptStatus,
   ): Promise<void>;
+  findLatestAttemptByEvent(eventId: string): Promise<WorkflowContinuationAttempt | undefined>;
   listAttempts(workflowInstanceId: string): Promise<readonly WorkflowContinuationAttempt[]>;
 }
 
@@ -1010,6 +1051,8 @@ export interface ExternalTaskProjectionQuery {
   readonly contextId?: string;
   readonly state?: string;
   readonly statusTimestampAfter?: string;
+  /** Stable keyset used by background reconciliation; public list views omit it. */
+  readonly taskIdAfter?: string;
   readonly offset: number;
   readonly limit: number;
 }
@@ -1084,6 +1127,23 @@ export interface WorkflowExecutionRepository {
   saveNodeEvents(events: readonly WorkflowNodeEvent[]): Promise<void>;
 }
 
+export type WorkflowExternalWaitCheckpointCompleteness =
+  'exact_single' | 'requires_graph_merge' | 'exact_final';
+
+export interface WorkflowExternalWaitPreparedSnapshot {
+  readonly snapshot: WorkflowContinuationSnapshot;
+  readonly completeness: WorkflowExternalWaitCheckpointCompleteness;
+}
+
+export interface WorkflowExternalWaitPreparation {
+  readonly continuation: WorkflowRuntimeContinuationState;
+  readonly completeness: WorkflowExternalWaitCheckpointCompleteness;
+}
+
+export type WorkflowExternalWaitSnapshotPreparer = (
+  input: WorkflowExternalWaitPreparation,
+) => Promise<WorkflowExternalWaitPreparedSnapshot>;
+
 export interface SkillCallWorkflowRepository {
   save(record: SkillCallWorkflowRecord): Promise<void>;
   find(
@@ -1102,6 +1162,7 @@ export interface WorkflowExecutor {
     signal?: AbortSignal,
     executionId?: string,
     executionContext?: RuntimeExecutionContext,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): Promise<
     Readonly<{
       status: 'paused' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled';
@@ -1127,11 +1188,13 @@ export interface WorkflowExecutor {
     resolution: WorkflowExternalWaitResolution,
     continuationAttemptId: string,
     signal?: AbortSignal,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): ReturnType<WorkflowExecutor['execute']>;
   resumeHumanConfirmation?(
     executionId: string,
     confirmed: WorkflowConfirmationResume,
     signal?: AbortSignal,
+    prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer,
   ): ReturnType<WorkflowExecutor['execute']>;
   requestPause?(executionId: string): boolean;
   requestCancel?(executionId: string, interruptCurrent: boolean): boolean;

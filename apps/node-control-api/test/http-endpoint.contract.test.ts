@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 
@@ -8,6 +9,7 @@ import {
   NodeControlConfigurationService,
   NodeControlEventService,
   NodeControlRuntimeGovernanceService,
+  NodeControlTaskControlService,
   type NodeControlMcpProviderBindingService,
   type NodeControlCapabilityService,
   type NodeControlEvidenceExportService,
@@ -515,6 +517,21 @@ describe('Node Control HTTP frozen contract', () => {
                 })
               : undefined,
           ),
+        getWithRevision: (taskId) =>
+          Promise.resolve(
+            taskId === 'task-p12'
+              ? {
+                  summary: Object.freeze({
+                    taskId,
+                    contextId: 'context-p12',
+                    phase: 'working',
+                    updatedAt: '2026-08-02T08:00:00.000Z',
+                    controlledActions: Object.freeze({ cancel: false }),
+                  }),
+                  revision: 11,
+                }
+              : undefined,
+          ),
       },
     });
     server = await listen(app);
@@ -584,6 +601,8 @@ describe('Node Control HTTP frozen contract', () => {
       headers: organizationHeaders,
     });
     expect(task.status).toBe(200);
+    expect(task.headers.get('etag')).toBe('"task-revision-11"');
+    expect(task.headers.get('x-sdar-task-revision')).toBe('11');
     const taskSchema = JSON.parse(
       await readFile('protocol/node-control/v1/schemas/task-summary.schema.json', 'utf8'),
     ) as unknown;
@@ -638,7 +657,7 @@ describe('Node Control HTTP frozen contract', () => {
           { headers: viewerHeaders },
         )
       ).status,
-    ).toBe(200);
+    ).toBe(403);
     expect((await fetch(`${baseUrl}/api/v1/audit-events`, { headers: viewerHeaders })).status).toBe(
       403,
     );
@@ -762,6 +781,209 @@ describe('Node Control HTTP frozen contract', () => {
     controller.abort();
     await reader.cancel().catch(() => undefined);
   });
+
+  it('authenticates and delegates all four public Task commands through durable Node Control', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-13T01:00:00.000Z' },
+      ids: { next: () => 'audit-task-control' },
+    });
+    const configurationService = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-13T01:00:00.000Z' },
+      ids: { next: () => 'operation-task-control' },
+    });
+    const execute = vi.fn(
+      (
+        action: 'pause' | 'resume' | 'cancel' | 'goal_patch',
+        taskId: string,
+        command: { reason: string; idempotencyKey: string },
+      ) =>
+        taskId === 'task-stale'
+          ? Promise.reject(
+              Object.assign(new Error('The Runtime Task revision changed.'), {
+                code: 'REVISION_CONFLICT',
+                status: 412,
+              }),
+            )
+          : taskId === 'task-reconciliation'
+            ? Promise.reject(
+                Object.assign(new Error('The Runtime command requires reconciliation.'), {
+                  code: 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+                  status: 409,
+                }),
+              )
+            : Promise.resolve(
+                runtimeTaskControlOperation(action, taskId, command.reason, command.idempotencyKey),
+              ),
+    );
+    const taskControl = new NodeControlTaskControlService({
+      runtime: { execute },
+      operations: repository,
+      clock: { now: () => '2026-08-13T01:00:01.000Z' },
+    });
+    const app = createNodeControlHttpApp(service, configurationService, {
+      bearerToken: token,
+      operatorBearerToken: operatorToken,
+      viewerBearerToken: viewerToken,
+      securityBearerToken: securityToken,
+      organizationBearerToken: organizationToken,
+      organizationTenantId: 'organization-task-control',
+      runtimeServiceToken: `${token}-runtime`,
+      nodeControlApiUrl: 'http://127.0.0.1:10080',
+      nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
+      a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+      taskControl,
+    });
+    server = await listen(app);
+    const baseUrl = address(server);
+    const requests = [
+      { suffix: 'pause', action: 'pause', body: { reason: 'Pause Task safely.' } },
+      { suffix: 'resume', action: 'resume', body: { reason: 'Resume Task safely.' } },
+      { suffix: 'cancel', action: 'cancel', body: { reason: 'Cancel Task safely.' } },
+      {
+        suffix: 'goal-patches',
+        action: 'goal_patch',
+        body: {
+          reason: 'Patch Task Goal safely.',
+          payload: { instruction: 'Retain accepted evidence.' },
+          expectedRevision: 3,
+        },
+      },
+    ] as const;
+
+    for (const [index, request] of requests.entries()) {
+      const taskId = `task-${String(index)}`;
+      const response = await fetch(`${baseUrl}/api/v1/tasks/${taskId}/${request.suffix}`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${organizationToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': `organization-task-command-${String(index)}`,
+          'x-correlation-id': `task-command-correlation-${String(index)}`,
+        },
+        body: JSON.stringify(request.body),
+      });
+      expect(response.status).toBe(202);
+      expect(response.headers.get('x-correlation-id')).toBe(
+        `task-command-correlation-${String(index)}`,
+      );
+      await expect(response.json()).resolves.toMatchObject({
+        operationType: `task.${request.action}`,
+        target: { type: 'task', id: taskId },
+        status: 'succeeded',
+        actorId: 'node-control:organization_service',
+        reason: request.body.reason,
+      });
+    }
+
+    expect(execute).toHaveBeenCalledTimes(4);
+    expect(execute).toHaveBeenNthCalledWith(
+      4,
+      'goal_patch',
+      'task-3',
+      expect.objectContaining({
+        reason: 'Patch Task Goal safely.',
+        payload: { instruction: 'Retain accepted evidence.' },
+        expectedRevision: 3,
+        idempotencyKey: 'organization-task-command-3',
+        correlationId: 'task-command-correlation-3',
+      }),
+    );
+
+    const replay = await fetch(`${baseUrl}/api/v1/tasks/task-0/pause`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${organizationToken}`,
+        'content-type': 'application/json',
+        'idempotency-key': 'organization-task-command-0',
+        'x-correlation-id': 'task-command-replay-correlation',
+      },
+      body: JSON.stringify({ reason: 'Pause Task safely.' }),
+    });
+    expect(replay.status).toBe(202);
+    expect(execute).toHaveBeenCalledTimes(4);
+
+    const stale = await fetch(`${baseUrl}/api/v1/tasks/task-stale/resume`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${organizationToken}`,
+        'content-type': 'application/json',
+        'idempotency-key': 'organization-task-stale-command',
+      },
+      body: JSON.stringify({ reason: 'Resume exact revision only.', expectedRevision: 2 }),
+    });
+    expect(stale.status).toBe(412);
+    expect(stale.headers.get('content-type')).toContain('application/problem+json');
+    await expect(stale.json()).resolves.toMatchObject({
+      code: 'REVISION_CONFLICT',
+      status: 412,
+      retryable: true,
+    });
+    expect(execute).toHaveBeenCalledTimes(5);
+    const staleReplay = await fetch(`${baseUrl}/api/v1/tasks/task-stale/resume`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${organizationToken}`,
+        'content-type': 'application/json',
+        'idempotency-key': 'organization-task-stale-command',
+      },
+      body: JSON.stringify({ reason: 'Resume exact revision only.', expectedRevision: 2 }),
+    });
+    expect(staleReplay.status).toBe(412);
+    await expect(staleReplay.json()).resolves.toMatchObject({
+      code: 'REVISION_CONFLICT',
+      status: 412,
+      retryable: true,
+    });
+    expect(execute).toHaveBeenCalledTimes(5);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const pending = await fetch(`${baseUrl}/api/v1/tasks/task-reconciliation/cancel`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${organizationToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'organization-task-reconciliation-command',
+        },
+        body: JSON.stringify({ reason: 'Reconcile the uncertain Runtime command.' }),
+      });
+      expect(pending.status).toBe(409);
+      await expect(pending.json()).resolves.toMatchObject({
+        code: 'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+        status: 409,
+        retryable: true,
+      });
+    }
+    expect(execute).toHaveBeenCalledTimes(7);
+
+    for (const deniedToken of [operatorToken, viewerToken, securityToken]) {
+      const denied = await fetch(`${baseUrl}/api/v1/tasks/task-denied/cancel`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${deniedToken}`,
+          'content-type': 'application/json',
+          'idempotency-key': 'denied-task-command',
+        },
+        body: JSON.stringify({ reason: 'Must be denied.' }),
+      });
+      expect(denied.status).toBe(403);
+      await expect(denied.json()).resolves.toMatchObject({ code: 'CONTROL_SCOPE_FORBIDDEN' });
+    }
+
+    const missingKey = await fetch(`${baseUrl}/api/v1/tasks/task-invalid/pause`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${organizationToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ reason: 'No idempotency key.' }),
+    });
+    expect(missingKey.status).toBe(400);
+    expect(execute).toHaveBeenCalledTimes(7);
+  });
 });
 
 class MemoryRepository implements NodeControlFoundationRepository {
@@ -856,6 +1078,58 @@ class MemoryRepository implements NodeControlFoundationRepository {
     this.audits.push(audit);
     return Promise.resolve(operation);
   }
+  startGovernanceOperation(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    const index = this.operations.findIndex(
+      (candidate) => candidate.operationId === operation.operationId,
+    );
+    const current = this.operations[index];
+    if (index < 0 || current === undefined)
+      return Promise.reject(new Error('TEST_GOVERNANCE_OPERATION_NOT_FOUND'));
+    if (['succeeded', 'failed', 'canceled'].includes(current.status))
+      return Promise.resolve(current);
+    const running = transitionManagementOperation(current, 'running', audit.createdAt);
+    this.operations[index] = running;
+    this.audits.push(audit);
+    return Promise.resolve(running);
+  }
+  markGovernanceOperationReconciliationPending(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    const index = this.operations.findIndex(
+      (candidate) => candidate.operationId === operation.operationId,
+    );
+    const current = this.operations[index];
+    if (index < 0 || current === undefined)
+      return Promise.reject(new Error('TEST_GOVERNANCE_OPERATION_NOT_FOUND'));
+    if (['succeeded', 'failed', 'canceled'].includes(current.status))
+      return Promise.resolve(current);
+    if (current.status !== 'running')
+      return Promise.reject(new Error('TEST_GOVERNANCE_OPERATION_NOT_RUNNING'));
+    this.operations[index] = operation;
+    this.audits.push(audit);
+    return Promise.resolve(operation);
+  }
+  completeGovernanceOperation(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    const index = this.operations.findIndex(
+      (candidate) => candidate.operationId === operation.operationId,
+    );
+    if (index < 0) return Promise.reject(new Error('TEST_GOVERNANCE_OPERATION_NOT_FOUND'));
+    const current = this.operations[index];
+    if (current === undefined)
+      return Promise.reject(new Error('TEST_GOVERNANCE_OPERATION_MISSING'));
+    if (['succeeded', 'failed', 'canceled'].includes(current.status))
+      return Promise.resolve(current);
+    this.operations[index] = operation;
+    this.audits.push(audit);
+    return Promise.resolve(operation);
+  }
 }
 
 function skillView(skillId = 'skill.p10') {
@@ -903,6 +1177,32 @@ function runtimeOperation(operationType: string, reason: string): ManagementOper
     'succeeded',
     '2026-08-02T00:00:00.000Z',
     { result: { accepted: true } },
+  );
+}
+
+function runtimeTaskControlOperation(
+  action: 'pause' | 'resume' | 'cancel' | 'goal_patch',
+  taskId: string,
+  reason: string,
+  idempotencyKey: string,
+): ManagementOperation {
+  const accepted = createManagementOperation(
+    {
+      operationId: `runtime-task-${action}`,
+      operationType: `task.${action}`,
+      target: { type: 'task', id: taskId },
+      actorId: 'runtime-task-authority',
+      reason,
+      idempotencyKeyHash: createHash('sha256').update(idempotencyKey).digest('hex'),
+      inputHash: 'f'.repeat(64),
+    },
+    '2026-08-13T01:00:00.000Z',
+  );
+  return transitionManagementOperation(
+    transitionManagementOperation(accepted, 'running', '2026-08-13T01:00:00.000Z'),
+    'succeeded',
+    '2026-08-13T01:00:01.000Z',
+    { result: { applied: true } },
   );
 }
 

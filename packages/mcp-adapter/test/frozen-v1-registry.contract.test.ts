@@ -32,10 +32,82 @@ describe('Frozen V1 registry adapter', () => {
         toolName: 'move_to',
         protocolMode: 'frozen_v1',
         outputSchema: { type: 'object' },
+        executionSemantics: {
+          effect: 'unknown',
+          execution: 'unknown',
+          cancellation: 'unknown',
+          idempotency: 'unknown',
+          replay: 'unknown',
+          source: 'default_unknown',
+        },
         taskExecutionProfile: expect.objectContaining({ taskBehavior: 'task_required' }),
       }),
     ]);
   });
+
+  it('retains a complete exact Frozen Tool execution-semantics declaration', async () => {
+    const result = await discoverTools(
+      tools({
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'allowed',
+      }),
+    );
+
+    expect(result.tools[0]).toMatchObject({
+      declaredExecutionSemantics: {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'allowed',
+        source: 'mcp_declared',
+      },
+      executionSemantics: {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'allowed',
+        source: 'mcp_declared',
+      },
+    });
+  });
+
+  it.each([
+    [{ effect: 'read_only' }, 'incomplete'],
+    [
+      {
+        effect: 'unsafe',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'allowed',
+      },
+      'unsupported value',
+    ],
+    [
+      {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'cooperative',
+        idempotency: 'client_request_key',
+        replay: 'allowed',
+        inferred: true,
+      },
+      'extra field',
+    ],
+  ])(
+    'fails the complete discovery for malformed exact semantics: %s (%s)',
+    async (value, _label) => {
+      void _label;
+      await expect(discoverTools(tools(value))).rejects.toMatchObject({
+        code: 'FROZEN_TOOLS_DISCOVERY_INVALID',
+      });
+    },
+  );
 
   it.each([
     [{ ...tools(), nextCursor: 'more' }, 'pagination'],
@@ -91,7 +163,7 @@ function discovery() {
   };
 }
 
-function tools() {
+function tools(executionSemantics?: unknown) {
   return {
     tools: [
       {
@@ -109,10 +181,33 @@ function tools() {
             supportsInputRequired: true,
             idempotency: 'client_request_key',
           },
+          ...(executionSemantics === undefined
+            ? {}
+            : { 'io.sdar/tool-execution-semantics': executionSemantics }),
         },
       },
     ],
   };
+}
+
+function discoverTools(toolResult: ReturnType<typeof tools>) {
+  const client = new FrozenV1McpClient((_url, init) => {
+    const body = parseRequest(init);
+    return Promise.resolve(
+      Response.json({
+        jsonrpc: '2.0',
+        id: body.id,
+        result: body.method === 'server/discover' ? discovery() : toolResult,
+      }),
+    );
+  });
+  return new FrozenV1RegistryAdapter(client).discover({
+    server,
+    headers: {},
+    snapshotId: 'snapshot-1',
+    baselineSha256: 'a'.repeat(64),
+    discoveredAt: '2026-07-19T03:00:00.000Z',
+  });
 }
 
 function parseRequest(init: RequestInit | undefined): { id: number; method: string } {

@@ -798,23 +798,46 @@ async function seedRuntimeModelAuthority(): Promise<void> {
 }
 
 async function seedWorkflowPlanningPrompt(): Promise<void> {
-  const timestamp = '2026-08-02T04:00:00.000Z';
-  await runtimePool.query(
-    `INSERT INTO prompt(prompt_id,stage,current_version,created_at,updated_at)
-     VALUES('p03-workflow-planning','workflow_planning',NULL,$1,$1)
-     ON CONFLICT(prompt_id) DO UPDATE SET updated_at=EXCLUDED.updated_at`,
-    [timestamp],
-  );
-  await runtimePool.query(
-    `INSERT INTO prompt_version(prompt_id,stage,version,previous_version,content,status,source,created_at)
-     VALUES('p03-workflow-planning','workflow_planning',1,NULL,'System policy. {{instruction}}','enabled','admin',$1)
-     ON CONFLICT(prompt_id,version) DO NOTHING`,
-    [timestamp],
-  );
-  await runtimePool.query(
-    `UPDATE prompt SET current_version=1,updated_at=$1 WHERE prompt_id='p03-workflow-planning'`,
-    [timestamp],
-  );
+  const client = await runtimePool.connect();
+  try {
+    await client.query('BEGIN');
+    let owner = await client.query<{ prompt_id: string }>(
+      `SELECT prompt_id FROM prompt WHERE stage='workflow_planning' FOR UPDATE`,
+    );
+    if (owner.rows[0] === undefined) {
+      await client.query(
+        `INSERT INTO prompt(prompt_id,stage,current_version,created_at,updated_at)
+         VALUES('prompt.runtime-default.workflow_planning','workflow_planning',NULL,clock_timestamp(),clock_timestamp())`,
+      );
+      owner = await client.query<{ prompt_id: string }>(
+        `SELECT prompt_id FROM prompt WHERE stage='workflow_planning' FOR UPDATE`,
+      );
+    }
+    const promptId = owner.rows[0]?.prompt_id;
+    if (promptId === undefined) throw new Error('WORKFLOW_PLANNING_PROMPT_OWNER_MISSING');
+    const latest = await client.query<{ version: number }>(
+      `SELECT COALESCE(MAX(version),0)::integer AS version
+       FROM prompt_version WHERE prompt_id=$1`,
+      [promptId],
+    );
+    const previousVersion = latest.rows[0]?.version ?? 0;
+    const nextVersion = previousVersion + 1;
+    await client.query(
+      `INSERT INTO prompt_version(prompt_id,stage,version,previous_version,content,status,source,created_at)
+       VALUES($1,'workflow_planning',$2,$3,'System policy. {{instruction}}','enabled','admin',clock_timestamp())`,
+      [promptId, nextVersion, previousVersion === 0 ? null : previousVersion],
+    );
+    await client.query(
+      `UPDATE prompt SET current_version=$2,updated_at=clock_timestamp() WHERE prompt_id=$1`,
+      [promptId, nextVersion],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function seedModelInvocationTasks(): Promise<void> {

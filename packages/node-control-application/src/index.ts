@@ -11,3 +11,4 @@ export * from './evidence-export-service.js';
 export * from './evidence-operations-service.js';
 export * from './ports.js';
 export * from './smpp-registry-service.js';
+export * from './task-control-service.js';

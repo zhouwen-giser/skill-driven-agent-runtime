@@ -35,6 +35,14 @@ export interface McpLoopbackServerOptions {
   readonly deviceExecutionSemantics?: unknown;
 }
 
+const DEFAULT_DEVICE_EXECUTION_SEMANTICS = Object.freeze({
+  effect: 'read_only',
+  execution: 'synchronous',
+  cancellation: 'cooperative',
+  idempotency: 'client_request_key',
+  replay: 'allowed',
+});
+
 export async function startMcpStreamableHttpSpike(): Promise<McpSpikeHandle> {
   const server = await startMcpLoopbackServer();
   const clientTransport = new StreamableHTTPClientTransport(server.endpoint);
@@ -140,7 +148,7 @@ async function handleFrozenRequest(
   const id = body['id'];
   const taskProfile = {
     profileVersion: '1.0',
-    taskBehavior: 'server_directed',
+    taskBehavior: 'synchronous_only',
     availability: 'dynamic',
     supportsScheduling: false,
     supportsMaxElapsed: true,
@@ -166,7 +174,11 @@ async function handleFrozenRequest(
       : method === 'tools/list'
         ? {
             tools: [
-              frozenLoopbackTool('device_status', taskProfile, options.deviceExecutionSemantics),
+              frozenLoopbackTool(
+                'device_status',
+                taskProfile,
+                options.deviceExecutionSemantics ?? DEFAULT_DEVICE_EXECUTION_SEMANTICS,
+              ),
               frozenLoopbackTool('slow_probe', taskProfile),
             ],
           }
@@ -250,13 +262,8 @@ function registerTools(
   reportCancellation: (observed: boolean) => void,
   options: McpLoopbackServerOptions,
 ): void {
-  const deviceExecutionSemantics = options.deviceExecutionSemantics ?? {
-    effect: 'read_only',
-    execution: 'synchronous',
-    cancellation: 'cooperative',
-    idempotency: 'client_request_key',
-    replay: 'allowed',
-  };
+  const deviceExecutionSemantics =
+    options.deviceExecutionSemantics ?? DEFAULT_DEVICE_EXECUTION_SEMANTICS;
   mcpServer.registerTool(
     'device_status',
     {

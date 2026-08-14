@@ -342,6 +342,190 @@ export class PostgresNodeControlFoundationRepository implements NodeControlFound
     }
   }
 
+  async startGovernanceOperation(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentResult = await client.query<OperationRow>(
+        `${operationSelect} WHERE operation_id=$1 FOR UPDATE`,
+        [operation.operationId],
+      );
+      const current = currentResult.rows[0];
+      if (current === undefined) {
+        throw Object.assign(new Error('Governance operation intent was not persisted.'), {
+          code: 'RUNTIME_GOVERNANCE_INTENT_NOT_FOUND',
+          status: 409,
+        });
+      }
+      assertGovernanceOperationIdentity(current, operation);
+      if (['succeeded', 'failed', 'canceled'].includes(current.status)) {
+        await client.query('COMMIT');
+        return mapOperation(current);
+      }
+      if (current.status === 'running') {
+        throw Object.assign(
+          new Error('Governance operation dispatch was already started and is not replayable.'),
+          { code: 'RUNTIME_GOVERNANCE_DISPATCH_ALREADY_STARTED', status: 409 },
+        );
+      }
+      const started = await client.query<OperationRow>(
+        `UPDATE sdar_control.management_operation
+            SET status='running',started_at=$2
+          WHERE operation_id=$1 AND status='accepted'
+          RETURNING operation_id,operation_type,target_type,target_id,target_version,
+            target_revision::text,status,idempotency_key_hash::text,input_hash::text,
+            actor_id,reason,result,error_code,created_at,started_at,completed_at`,
+        [operation.operationId, audit.createdAt],
+      );
+      const row = started.rows[0];
+      if (row === undefined) throw new Error('CONTROL_GOVERNANCE_OPERATION_NOT_STARTED');
+      await insertAudit(client, audit);
+      await client.query('COMMIT');
+      return mapOperation(row);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async markGovernanceOperationReconciliationPending(
+    operation: ManagementOperation,
+    audit: ControlAuditEvent,
+  ): Promise<ManagementOperation> {
+    assertRuntimeReconciliationPendingOperation(operation);
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentResult = await client.query<OperationRow>(
+        `${operationSelect} WHERE operation_id=$1 FOR UPDATE`,
+        [operation.operationId],
+      );
+      const current = currentResult.rows[0];
+      if (current === undefined) {
+        throw Object.assign(new Error('Governance operation intent was not persisted.'), {
+          code: 'RUNTIME_GOVERNANCE_INTENT_NOT_FOUND',
+          status: 409,
+        });
+      }
+      assertGovernanceOperationIdentity(current, operation);
+      if (['succeeded', 'failed', 'canceled'].includes(current.status)) {
+        await client.query('COMMIT');
+        return mapOperation(current);
+      }
+      if (current.status !== 'running') {
+        throw Object.assign(
+          new Error('Only a running Governance operation can await Runtime reconciliation.'),
+          { code: 'RUNTIME_GOVERNANCE_RECONCILIATION_STATE_CONFLICT', status: 409 },
+        );
+      }
+      assertCompatibleReconciliationMarker(current, operation);
+      const pending = await client.query<OperationRow>(
+        `UPDATE sdar_control.management_operation
+            SET result=$2::jsonb,error_code=$3
+          WHERE operation_id=$1 AND status='running' AND completed_at IS NULL
+          RETURNING operation_id,operation_type,target_type,target_id,target_version,
+            target_revision::text,status,idempotency_key_hash::text,input_hash::text,
+            actor_id,reason,result,error_code,created_at,started_at,completed_at`,
+        [operation.operationId, JSON.stringify(operation.result), operation.errorCode],
+      );
+      const row = pending.rows[0];
+      if (row === undefined)
+        throw Object.assign(new Error('Governance operation reconciliation state changed.'), {
+          code: 'RUNTIME_GOVERNANCE_RECONCILIATION_STATE_CONFLICT',
+          status: 409,
+        });
+      await insertAudit(client, audit);
+      await client.query('COMMIT');
+      return mapOperation(row);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async cancelGovernanceOperation(
+    operationId: string,
+    audit: ControlAuditEvent,
+    context: ConfigurationMutationContext,
+  ): Promise<ManagementOperation | undefined> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentResult = await client.query<OperationRow>(
+        `${operationSelect} WHERE operation_id=$1 FOR UPDATE`,
+        [operationId],
+      );
+      const current = currentResult.rows[0];
+      if (current === undefined) {
+        await client.query('COMMIT');
+        return undefined;
+      }
+      if (!cancellableBeforeDispatchOperationTypes.has(current.operation_type)) {
+        throw Object.assign(
+          new Error('This Governance operation type has no pre-dispatch cancellation contract.'),
+          { code: 'MANAGEMENT_OPERATION_NOT_CANCELLABLE', status: 409 },
+        );
+      }
+      if (current.status === 'canceled') {
+        const replay = cancellationReceipt(current.result);
+        if (
+          replay?.actorId !== context.actorId ||
+          replay.idempotencyKeyHash !== context.idempotencyKeyHash ||
+          replay.requestHash !== context.requestHash
+        )
+          throw Object.assign(new Error('Cancellation idempotency identity conflicts.'), {
+            code: 'MANAGEMENT_OPERATION_CANCEL_IDEMPOTENCY_CONFLICT',
+            status: 409,
+          });
+        await client.query('COMMIT');
+        return mapOperation(current);
+      }
+      if (current.status !== 'accepted') {
+        throw Object.assign(
+          new Error('Only a pre-dispatch accepted Governance operation can be canceled.'),
+          { code: 'MANAGEMENT_OPERATION_NOT_CANCELLABLE', status: 409 },
+        );
+      }
+      const canceled = await client.query<OperationRow>(
+        `UPDATE sdar_control.management_operation
+            SET status='canceled',result=$2::jsonb,completed_at=$3
+          WHERE operation_id=$1 AND status='accepted'
+          RETURNING operation_id,operation_type,target_type,target_id,target_version,
+            target_revision::text,status,idempotency_key_hash::text,input_hash::text,
+            actor_id,reason,result,error_code,created_at,started_at,completed_at`,
+        [
+          operationId,
+          JSON.stringify({
+            canceledBeforeDispatch: true,
+            cancellation: {
+              actorId: context.actorId,
+              idempotencyKeyHash: context.idempotencyKeyHash,
+              requestHash: context.requestHash,
+            },
+          }),
+          audit.createdAt,
+        ],
+      );
+      const row = canceled.rows[0];
+      if (row === undefined) throw new Error('CONTROL_GOVERNANCE_OPERATION_NOT_CANCELED');
+      await insertAudit(client, audit);
+      await client.query('COMMIT');
+      return mapOperation(row);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async completeGovernanceOperation(
     operation: ManagementOperation,
     audit: ControlAuditEvent,
@@ -625,6 +809,115 @@ const operationSelect = `SELECT operation_id, operation_type, target_type, targe
        target_revision::text, status, idempotency_key_hash::text, input_hash::text,
        actor_id, reason, result, error_code, created_at, started_at, completed_at
   FROM sdar_control.management_operation`;
+
+const cancellableBeforeDispatchOperationTypes = new Set([
+  'task.pause',
+  'task.resume',
+  'task.cancel',
+  'task.goal_patch',
+]);
+
+function assertGovernanceOperationIdentity(
+  current: OperationRow,
+  expected: ManagementOperation,
+): void {
+  if (
+    current.operation_type !== expected.operationType ||
+    current.idempotency_key_hash !== expected.idempotencyKeyHash ||
+    current.input_hash !== expected.inputHash ||
+    current.actor_id !== expected.actorId
+  )
+    throw Object.assign(new Error('Governance operation dispatch identity conflicts.'), {
+      code: 'RUNTIME_GOVERNANCE_IDEMPOTENCY_CONFLICT',
+      status: 409,
+    });
+}
+
+const runtimeReconciliationCodes = new Set([
+  'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_RECONCILIATION_PENDING',
+  'COGNITIVE_MANAGEMENT_ACTION_IN_PROGRESS',
+  'COGNITIVE_MANAGEMENT_ACTION_LEASE_LOST',
+  'RUNTIME_TASK_COMMAND_RECOVERY_INDETERMINATE',
+]);
+
+function assertRuntimeReconciliationPendingOperation(operation: ManagementOperation): void {
+  const marker = runtimeReconciliationMarker(operation.result);
+  if (
+    operation.status !== 'running' ||
+    operation.completedAt !== undefined ||
+    operation.errorCode === undefined ||
+    !runtimeReconciliationCodes.has(operation.errorCode) ||
+    marker === undefined
+  )
+    throw Object.assign(
+      new Error('Governance operation requires a bounded Runtime reconciliation marker.'),
+      { code: 'RUNTIME_GOVERNANCE_RECONCILIATION_MARKER_INVALID', status: 409 },
+    );
+}
+
+function assertCompatibleReconciliationMarker(
+  current: OperationRow,
+  expected: ManagementOperation,
+): void {
+  if (current.result === null && current.error_code === null) return;
+  const currentMarker = runtimeReconciliationMarker(current.result);
+  const expectedMarker = runtimeReconciliationMarker(expected.result);
+  if (
+    currentMarker === undefined ||
+    expectedMarker === undefined ||
+    current.error_code !== expected.errorCode ||
+    currentMarker.failureStatus !== expectedMarker.failureStatus
+  )
+    throw Object.assign(new Error('Governance operation reconciliation marker conflicts.'), {
+      code: 'RUNTIME_GOVERNANCE_RECONCILIATION_STATE_CONFLICT',
+      status: 409,
+    });
+}
+
+function runtimeReconciliationMarker(
+  value: unknown,
+): Readonly<{ failureStatus: number }> | undefined {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('runtimeReconciliationPending' in value) ||
+    value.runtimeReconciliationPending !== true ||
+    !('failureStatus' in value) ||
+    typeof value.failureStatus !== 'number' ||
+    !Number.isInteger(value.failureStatus) ||
+    value.failureStatus < 400 ||
+    value.failureStatus > 599
+  )
+    return undefined;
+  return Object.freeze({ failureStatus: value.failureStatus });
+}
+
+function cancellationReceipt(value: unknown):
+  | Readonly<{
+      actorId: string;
+      idempotencyKeyHash: string;
+      requestHash: string;
+    }>
+  | undefined {
+  if (typeof value !== 'object' || value === null || !('cancellation' in value)) return undefined;
+  const receipt = value.cancellation;
+  if (typeof receipt !== 'object' || receipt === null) return undefined;
+  if (
+    !('actorId' in receipt) ||
+    typeof receipt.actorId !== 'string' ||
+    !('idempotencyKeyHash' in receipt) ||
+    typeof receipt.idempotencyKeyHash !== 'string' ||
+    !('requestHash' in receipt) ||
+    typeof receipt.requestHash !== 'string'
+  )
+    return undefined;
+  return Object.freeze({
+    actorId: receipt.actorId,
+    idempotencyKeyHash: receipt.idempotencyKeyHash,
+    requestHash: receipt.requestHash,
+  });
+}
 
 function mapNodeProfile(row: NodeProfileRow): NodeProfile {
   return rehydrateNodeProfile({

@@ -157,10 +157,12 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
   ): Promise<RemoteTaskCancellationClaimResult> {
     const result = await this.#pool.query<CancellationRequestRow>(
       `UPDATE remote_task_cancel_request
-       SET claim_token=$3,claimed_at=$4,claim_expires_at=$5,
-           attempt_count=attempt_count+1,updated_at=$4,version=version+1
+       SET delivery_status='uncertain',claim_token=$3,claimed_at=$4,claim_expires_at=$5,
+           attempt_count=attempt_count+1,
+           last_safe_error_code='MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
+           updated_at=$4,version=version+1
        WHERE cancel_request_id=$1 AND version=$2
-         AND delivery_status IN ('requested','uncertain')
+         AND delivery_status='requested'
          AND provider_terminal_status IS NULL
          AND (claim_expires_at IS NULL OR claim_expires_at <= $4)
        RETURNING *`,

@@ -3,6 +3,7 @@ import process from 'node:process';
 import { ConfiguredOperatorIdentityPort } from '../../../packages/application/src/index.js';
 import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runtime-control-http-client/src/index.js';
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
+import { ConfiguredBearerGovernedControlIdentity } from './governed-control-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
 import { homeLabReadOnlyTaskUnderstandingConfiguration } from './home-lab-task-understanding.js';
 import { managedCapabilityTaskUnderstandingConfiguration } from './managed-capability-task-understanding.js';
@@ -15,6 +16,7 @@ const artifactManagementIdentity = createArtifactManagementIdentity();
 const runtimeControlArtifactIdentity = createArtifactManagementIdentity(
   environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN,
 );
+const governedControlIdentity = createGovernedControlIdentity();
 const nodeControlAuthorityReader =
   environment.SDAR_NODE_CONTROL_BASE_URL === undefined ||
   environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN === undefined
@@ -70,6 +72,9 @@ const runtime = await startServerRuntime({
         }),
         artifactManagementPrincipalResolver: artifactManagementIdentity.managementPrincipalResolver,
       }),
+  ...(governedControlIdentity === undefined
+    ? {}
+    : { governedControlPrincipalResolver: governedControlIdentity }),
   ...(environment.BUSINESS_EVENTS_ENABLED === 'true' ||
   environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
     ? {
@@ -132,6 +137,16 @@ function createArtifactManagementIdentity(
     kind: environment.SDAR_ARTIFACT_MANAGEMENT_KIND,
     roles,
   });
+}
+
+function createGovernedControlIdentity(): ConfiguredBearerGovernedControlIdentity | undefined {
+  const token = environment.SDAR_GOVERNED_CONTROL_BEARER_TOKEN;
+  if (token === undefined) return undefined;
+  const actorId = environment.SDAR_GOVERNED_CONTROL_ACTOR_ID;
+  const permissions = environment.SDAR_GOVERNED_CONTROL_PERMISSIONS;
+  if (actorId === undefined || permissions === undefined)
+    throw new Error('GOVERNED_CONTROL_IDENTITY_CONFIG_INVALID');
+  return new ConfiguredBearerGovernedControlIdentity({ token, actorId, permissions });
 }
 
 function splitAllowlist(value: string): readonly string[] {

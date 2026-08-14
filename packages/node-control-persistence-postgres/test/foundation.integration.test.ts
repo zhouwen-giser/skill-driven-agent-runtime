@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -8,7 +8,13 @@ import {
   createNodeProfile,
   createNodeProfileRevision,
   transitionManagementOperation,
+  type ControlAuditEvent,
+  type ManagementOperation,
 } from '../../node-control-domain/src/index.js';
+import {
+  NodeControlFoundationService,
+  NodeControlTaskControlService,
+} from '../../node-control-application/src/index.js';
 import {
   applyControlMigrations,
   PostgresNodeControlEventRepository,
@@ -454,6 +460,309 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     ).rejects.toMatchObject({ code: '55000' });
   });
 
+  it('recovers one accepted Task command and replays its terminal result after process restart', async () => {
+    const action = 'goal_patch' as const;
+    const taskId = 'task-control-restart';
+    const reason = 'Apply this Goal Patch once after restart.';
+    const idempotencyKey = 'node-control-restart-goal-patch';
+    const payload = Object.freeze({ instruction: 'Retain prior accepted evidence.' });
+    const actorId = 'node-control:organization_service';
+    const operationType = 'task.goal_patch';
+    const target = Object.freeze({ type: 'task', id: taskId });
+    const idempotencyKeyHash = sha256(idempotencyKey);
+    const inputHash = sha256Json({ operationType, target, actorId, reason, payload });
+    const accepted = createManagementOperation(
+      {
+        operationId: `control-task-${sha256(`${operationType}:${idempotencyKeyHash}`).slice(0, 40)}`,
+        operationType,
+        target,
+        actorId,
+        reason,
+        idempotencyKeyHash,
+        inputHash,
+      },
+      '2026-08-13T01:00:00.000Z',
+    );
+    await repository.recordGovernanceOperation(accepted, {
+      auditId: 'audit-task-control-restart-accepted',
+      actorId,
+      action: operationType,
+      aggregateType: 'task',
+      aggregateId: taskId,
+      reason,
+      requestHash: inputHash,
+      resultCode: 'ACCEPTED',
+      createdAt: accepted.createdAt,
+    });
+
+    let runtimeCalls = 0;
+    const serviceAfterRestart = () =>
+      new NodeControlTaskControlService({
+        runtime: {
+          execute: () => {
+            runtimeCalls += 1;
+            const runtimeAccepted = createManagementOperation(
+              {
+                operationId: 'runtime-task-control-restart',
+                operationType,
+                target,
+                actorId: 'runtime-task-authority',
+                reason,
+                idempotencyKeyHash,
+                inputHash: '9'.repeat(64),
+              },
+              '2026-08-13T01:00:01.000Z',
+            );
+            return Promise.resolve(
+              transitionManagementOperation(
+                transitionManagementOperation(
+                  runtimeAccepted,
+                  'running',
+                  '2026-08-13T01:00:01.000Z',
+                ),
+                'succeeded',
+                '2026-08-13T01:00:02.000Z',
+                { result: { applied: true } },
+              ),
+            );
+          },
+        },
+        operations: repository,
+        clock: { now: () => '2026-08-13T01:00:02.000Z' },
+      });
+    const command = Object.freeze({
+      reason,
+      idempotencyKey,
+      correlationId: 'task-control-restart-correlation',
+      payload,
+    });
+    const principal = Object.freeze({ actorId, role: 'organization_service' as const });
+
+    await expect(
+      serviceAfterRestart().execute(action, taskId, command, principal),
+    ).resolves.toMatchObject({
+      operationId: accepted.operationId,
+      status: 'succeeded',
+      result: { runtimeOperationId: 'runtime-task-control-restart' },
+    });
+    await expect(
+      serviceAfterRestart().execute(action, taskId, command, principal),
+    ).resolves.toMatchObject({
+      operationId: accepted.operationId,
+      status: 'succeeded',
+    });
+    expect(runtimeCalls).toBe(1);
+    await expect(
+      serviceAfterRestart().execute(
+        action,
+        taskId,
+        { ...command, payload: { instruction: 'Conflicting patch.' } },
+        principal,
+      ),
+    ).rejects.toMatchObject({ code: 'TASK_CONTROL_IDEMPOTENCY_CONFLICT', status: 409 });
+    expect(runtimeCalls).toBe(1);
+  });
+
+  it('atomically cancels an accepted Task command before dispatch and replays without Runtime', async () => {
+    const fixture = taskControlFixture('cancel-before-dispatch', 'pause');
+    await repository.recordGovernanceOperation(
+      fixture.accepted,
+      operationAudit(fixture.accepted, 'ACCEPTED', fixture.accepted.createdAt),
+    );
+    const foundation = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-13T03:00:01.000Z' },
+      ids: { next: () => 'unused-cancel-operation-id' },
+    });
+
+    const canceled = await foundation.cancelManagementOperation(
+      fixture.accepted.operationId,
+      'cancel-before-dispatch-key',
+      { reason: 'Cancel before Runtime dispatch.' },
+      fixture.principal.actorId,
+    );
+    const replay = await foundation.cancelManagementOperation(
+      fixture.accepted.operationId,
+      'cancel-before-dispatch-key',
+      { reason: 'Cancel before Runtime dispatch.' },
+      fixture.principal.actorId,
+    );
+    let runtimeCalls = 0;
+    const taskControl = new NodeControlTaskControlService({
+      runtime: {
+        execute: () => {
+          runtimeCalls += 1;
+          return Promise.resolve(runtimeOperationForIntegration(fixture));
+        },
+      },
+      operations: repository,
+      clock: { now: () => '2026-08-13T03:00:02.000Z' },
+    });
+
+    await expect(
+      taskControl.execute(fixture.action, fixture.taskId, fixture.command, fixture.principal),
+    ).resolves.toEqual(canceled);
+    expect(replay).toEqual(canceled);
+    expect(canceled).toMatchObject({
+      status: 'canceled',
+      result: { canceledBeforeDispatch: true },
+    });
+    expect(runtimeCalls).toBe(0);
+    const cancellationAudits = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count
+         FROM sdar_control.control_audit_event
+        WHERE aggregate_id=$1
+          AND result_code='MANAGEMENT_OPERATION_CANCELED_BEFORE_DISPATCH'`,
+      [fixture.accepted.operationId],
+    );
+    expect(cancellationAudits.rows).toEqual([{ count: '1' }]);
+  });
+
+  it('fails closed when dispatch wins before cancellation and on running process replay', async () => {
+    const fixture = taskControlFixture('dispatch-before-cancel', 'resume');
+    await repository.recordGovernanceOperation(
+      fixture.accepted,
+      operationAudit(fixture.accepted, 'ACCEPTED', fixture.accepted.createdAt),
+    );
+    await repository.startGovernanceOperation(
+      fixture.accepted,
+      operationAudit(fixture.accepted, 'DISPATCH_STARTED', '2026-08-13T03:10:01.000Z'),
+    );
+    const foundation = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-13T03:10:02.000Z' },
+      ids: { next: () => 'unused-cancel-operation-id' },
+    });
+
+    await expect(
+      foundation.cancelManagementOperation(
+        fixture.accepted.operationId,
+        'cancel-after-dispatch-key',
+        { reason: 'Attempt after dispatch.' },
+        fixture.principal.actorId,
+      ),
+    ).rejects.toMatchObject({ code: 'MANAGEMENT_OPERATION_NOT_CANCELLABLE', status: 409 });
+    let runtimeCalls = 0;
+    await expect(
+      new NodeControlTaskControlService({
+        runtime: {
+          execute: () => {
+            runtimeCalls += 1;
+            return Promise.resolve(runtimeOperationForIntegration(fixture));
+          },
+        },
+        operations: repository,
+        clock: { now: () => '2026-08-13T03:10:03.000Z' },
+      }).execute(fixture.action, fixture.taskId, fixture.command, fixture.principal),
+    ).rejects.toMatchObject({ code: 'TASK_CONTROL_DISPATCH_UNCERTAIN', status: 409 });
+    expect(runtimeCalls).toBe(0);
+    await expect(
+      repository.findManagementOperation(fixture.accepted.operationId),
+    ).resolves.toMatchObject({ status: 'running' });
+  });
+
+  it('durably resumes only an explicitly marked Runtime reconciliation after restart', async () => {
+    const fixture = taskControlFixture('runtime-reconciliation-restart', 'goal_patch');
+    const accepted = await repository.recordGovernanceOperation(
+      fixture.accepted,
+      operationAudit(fixture.accepted, 'ACCEPTED', fixture.accepted.createdAt),
+    );
+    const running = await repository.startGovernanceOperation(
+      accepted,
+      operationAudit(accepted, 'DISPATCH_STARTED', '2026-08-13T03:15:01.000Z'),
+    );
+    const pending = Object.freeze({
+      ...running,
+      result: Object.freeze({ runtimeReconciliationPending: true, failureStatus: 503 }),
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+    });
+    await expect(
+      repository.markGovernanceOperationReconciliationPending(
+        pending,
+        operationAudit(pending, 'RECONCILIATION_PENDING', '2026-08-13T03:15:02.000Z'),
+      ),
+    ).resolves.toMatchObject({
+      status: 'running',
+      errorCode: 'RUNTIME_TASK_COMMAND_RECONCILIATION_PENDING',
+      result: { runtimeReconciliationPending: true, failureStatus: 503 },
+    });
+    await expect(
+      repository.findManagementOperation(fixture.accepted.operationId),
+    ).resolves.not.toHaveProperty('completedAt');
+
+    let runtimeCalls = 0;
+    const restarted = new NodeControlTaskControlService({
+      runtime: {
+        execute: () => {
+          runtimeCalls += 1;
+          return Promise.resolve(runtimeOperationForIntegration(fixture));
+        },
+      },
+      operations: new PostgresNodeControlFoundationRepository(pool),
+      clock: { now: () => '2026-08-13T03:15:03.000Z' },
+    });
+    await expect(
+      restarted.execute(fixture.action, fixture.taskId, fixture.command, fixture.principal),
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      result: { runtimeOperationId: `runtime-${fixture.accepted.operationId}` },
+    });
+    await expect(
+      restarted.execute(fixture.action, fixture.taskId, fixture.command, fixture.principal),
+    ).resolves.toMatchObject({ status: 'succeeded' });
+    expect(runtimeCalls).toBe(1);
+    await expect(
+      repository.findManagementOperation(fixture.accepted.operationId),
+    ).resolves.not.toHaveProperty('errorCode');
+    await expect(
+      repository.findManagementOperation(fixture.accepted.operationId),
+    ).resolves.not.toHaveProperty('result.runtimeReconciliationPending');
+    const audits = await pool.query<{ result_code: string }>(
+      `SELECT result_code
+         FROM sdar_control.control_audit_event
+        WHERE aggregate_id=$1
+        ORDER BY created_at,result_code`,
+      [fixture.taskId],
+    );
+    expect(audits.rows.map((row) => row.result_code)).toContain('RECONCILIATION_PENDING');
+  });
+
+  it('serializes concurrent cancellation and dispatch start with one pre-dispatch winner', async () => {
+    const fixture = taskControlFixture('cancel-dispatch-concurrency', 'cancel');
+    await repository.recordGovernanceOperation(
+      fixture.accepted,
+      operationAudit(fixture.accepted, 'ACCEPTED', fixture.accepted.createdAt),
+    );
+    const [start, cancel] = await Promise.allSettled([
+      repository.startGovernanceOperation(
+        fixture.accepted,
+        operationAudit(fixture.accepted, 'DISPATCH_STARTED', '2026-08-13T03:20:01.000Z'),
+      ),
+      repository.cancelGovernanceOperation(
+        fixture.accepted.operationId,
+        operationAudit(
+          fixture.accepted,
+          'MANAGEMENT_OPERATION_CANCELED_BEFORE_DISPATCH',
+          '2026-08-13T03:20:01.000Z',
+        ),
+        context('c', 'd', '2026-08-13T03:20:01.000Z'),
+      ),
+    ]);
+    const final = await repository.findManagementOperation(fixture.accepted.operationId);
+
+    expect(final?.status === 'running' || final?.status === 'canceled').toBe(true);
+    if (final?.status === 'running') {
+      expect(start).toMatchObject({ status: 'fulfilled', value: { status: 'running' } });
+      expect(cancel).toMatchObject({
+        status: 'rejected',
+        reason: { code: 'MANAGEMENT_OPERATION_NOT_CANCELLABLE' },
+      });
+    } else {
+      expect(cancel).toMatchObject({ status: 'fulfilled', value: { status: 'canceled' } });
+      expect(start).toMatchObject({ status: 'fulfilled', value: { status: 'canceled' } });
+    }
+  });
+
   it('projects durable health and published telemetry without skipping or leaking credentials', async () => {
     const source = new PostgresNodeControlEvidenceSource(pool, undefined, evidenceReadPrincipal());
     const healthProducer = new PostgresNodeHealthObservationProducer(pool);
@@ -723,6 +1032,94 @@ async function insertCredentialConstraintBinding(bindingId: string, credentialRe
       '2026-08-12T03:00:00.000Z',
       '2026-08-12T02:00:00.000Z',
     ],
+  );
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function sha256Json(value: unknown): string {
+  return sha256(JSON.stringify(value));
+}
+
+function taskControlFixture(suffix: string, action: 'pause' | 'resume' | 'cancel' | 'goal_patch') {
+  const taskId = `task-${suffix}`;
+  const operationType = `task.${action}`;
+  const reason = `Govern Task command ${suffix}.`;
+  const idempotencyKey = `task-control-${suffix}-key`;
+  const principal = Object.freeze({
+    actorId: 'node-control:node_admin',
+    role: 'node_admin' as const,
+  });
+  const target = Object.freeze({ type: 'task', id: taskId });
+  const idempotencyKeyHash = sha256(idempotencyKey);
+  const inputHash = sha256Json({ operationType, target, actorId: principal.actorId, reason });
+  const accepted = createManagementOperation(
+    {
+      operationId: `control-task-${sha256(`${operationType}:${idempotencyKeyHash}`).slice(0, 40)}`,
+      operationType,
+      target,
+      actorId: principal.actorId,
+      reason,
+      idempotencyKeyHash,
+      inputHash,
+    },
+    '2026-08-13T03:00:00.000Z',
+  );
+  return Object.freeze({
+    action,
+    taskId,
+    operationType,
+    reason,
+    accepted,
+    principal,
+    command: Object.freeze({
+      reason,
+      idempotencyKey,
+      correlationId: `correlation-${suffix}`,
+    }),
+  });
+}
+
+function operationAudit(
+  operation: ManagementOperation,
+  resultCode: string,
+  createdAt: string,
+): ControlAuditEvent {
+  return Object.freeze({
+    auditId: `audit-${operation.operationId}-${resultCode.toLowerCase().replaceAll('_', '-')}`,
+    actorId: operation.actorId,
+    action: operation.operationType,
+    aggregateType: operation.target.type,
+    aggregateId: operation.target.id,
+    reason: operation.reason,
+    requestHash: operation.inputHash,
+    resultCode,
+    createdAt,
+  });
+}
+
+function runtimeOperationForIntegration(
+  fixture: ReturnType<typeof taskControlFixture>,
+): ManagementOperation {
+  const accepted = createManagementOperation(
+    {
+      operationId: `runtime-${fixture.accepted.operationId}`,
+      operationType: fixture.operationType,
+      target: { type: 'task', id: fixture.taskId },
+      actorId: 'sdar-runtime',
+      reason: fixture.reason,
+      idempotencyKeyHash: sha256(fixture.command.idempotencyKey),
+      inputHash: '9'.repeat(64),
+    },
+    '2026-08-13T03:30:00.000Z',
+  );
+  return transitionManagementOperation(
+    transitionManagementOperation(accepted, 'running', '2026-08-13T03:30:00.001Z'),
+    'succeeded',
+    '2026-08-13T03:30:00.002Z',
+    { result: { applied: true } },
   );
 }
 

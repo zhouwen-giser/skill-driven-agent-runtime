@@ -13,6 +13,7 @@ import type {
 import { transitionWorkflowContinuationLifecycle } from '../../domain/src/index.js';
 import type {
   WorkflowExecutionRepository,
+  WorkflowExternalWaitPreparedSnapshot,
   WorkflowExecutor,
   WorkflowPlanRepository,
   SkillRepository,
@@ -275,7 +276,12 @@ describe('Workflow execution application service', () => {
     await expect(
       service.resumeHumanConfirmation({ instanceId: 'instance-paused', confirmed: true }),
     ).resolves.toMatchObject({ status: 'succeeded', result: 'done' });
-    expect(resumeHumanConfirmation).toHaveBeenCalledWith('instance-paused', true, undefined);
+    expect(resumeHumanConfirmation).toHaveBeenCalledWith(
+      'instance-paused',
+      true,
+      undefined,
+      expect.any(Function),
+    );
     expect(instances.events.map((event) => event.sequence)).toEqual([1, 2]);
   });
 
@@ -466,6 +472,7 @@ describe('Workflow execution application service', () => {
       undefined,
       'instance-budget',
       { mode: 'simulation', simulationId: 'simulation-budget-1' },
+      expect.any(Function),
     );
   });
 
@@ -765,19 +772,30 @@ describe('Workflow execution application service', () => {
       },
       budgetUsage: { replanCount: 0, durationMs: 2, llmCalls: 0, mcpCalls: 1, cost: 0 },
     };
-    const execute = vi.fn().mockResolvedValue({
-      status: 'waiting_external',
-      errors: {},
-      budgetUsage: continuationState.budgetUsage,
-      continuation: continuationState,
-      events: [
-        {
-          nodeId: 'result',
-          type: 'node_waiting_external',
-          timestamp: '2026-07-12T00:00:01.000Z',
-          summary: 'Remote Task accepted.',
-        },
-      ],
+    let receiptSnapshot: WorkflowContinuationSnapshot | undefined;
+    const execute = vi.fn<WorkflowExecutor['execute']>(async (...parameters) => {
+      const prepareExternalWait = parameters[6];
+      if (prepareExternalWait === undefined) throw new Error('TEST_PREPARER_MISSING');
+      receiptSnapshot = (
+        await prepareExternalWait({
+          continuation: continuationState,
+          completeness: 'exact_single',
+        })
+      ).snapshot;
+      return {
+        status: 'waiting_external',
+        errors: {},
+        budgetUsage: continuationState.budgetUsage,
+        continuation: continuationState,
+        events: [
+          {
+            nodeId: 'result',
+            type: 'node_waiting_external',
+            timestamp: '2026-07-12T00:00:01.000Z',
+            summary: 'Remote Task accepted.',
+          },
+        ],
+      };
     });
     const continueExternal = vi.fn().mockResolvedValue({
       status: 'succeeded',
@@ -793,6 +811,16 @@ describe('Workflow execution application service', () => {
         },
       ],
     });
+    const onExternalWaitPrepared = vi.fn(() => {
+      expect(continuations.snapshots).toHaveLength(0);
+      return Promise.resolve();
+    });
+    const onExternalWaitActivated = vi.fn((activated: WorkflowContinuationSnapshot) => {
+      expect(continuations.snapshots.some((item) => item.snapshotId === activated.snapshotId)).toBe(
+        true,
+      );
+      return Promise.reject(new Error('TEST_POST_ACTIVATION_NOTIFICATION_FAILED'));
+    });
     const service = createService(
       new MemoryPlans([validPlan]),
       instances,
@@ -800,6 +828,7 @@ describe('Workflow execution application service', () => {
       disabledSkills,
       undefined,
       continuations,
+      { onExternalWaitPrepared, onExternalWaitActivated },
     );
 
     await expect(
@@ -815,6 +844,10 @@ describe('Workflow execution application service', () => {
       }),
     ).resolves.toMatchObject({ status: 'waiting_external' });
     expect(continuations.snapshots).toHaveLength(1);
+    expect(continuations.snapshots[0]?.snapshotId).toBe(receiptSnapshot?.snapshotId);
+    expect(onExternalWaitPrepared).toHaveBeenCalledOnce();
+    expect(onExternalWaitActivated).toHaveBeenCalledOnce();
+    expect(instances.instances.at(-1)).toMatchObject({ status: 'waiting_external' });
     await expect(
       service.continueExternal({
         instanceId: 'instance-remote',
@@ -930,6 +963,10 @@ function createService(
   skills: SkillRepository = disabledSkills,
   clockOverride?: Readonly<{ now(): string }>,
   continuations: WorkflowContinuationRepository = new MemoryContinuations(),
+  externalWaitHooks: Readonly<{
+    onExternalWaitPrepared?: (prepared: WorkflowExternalWaitPreparedSnapshot) => Promise<void>;
+    onExternalWaitActivated?: (snapshot: WorkflowContinuationSnapshot) => Promise<void>;
+  }> = {},
 ) {
   let time = 0;
   let event = 0;
@@ -955,6 +992,7 @@ function createService(
       nextContinuationId: () => `continuation-${String(++event)}`,
     },
     continuations,
+    ...externalWaitHooks,
     skills,
     systemBudgetDefaults: {
       maxReplans: 3,
@@ -1136,6 +1174,30 @@ class MemoryContinuations implements WorkflowContinuationRepository {
     );
   }
 
+  findLatestForWait(
+    workflowInstanceId: string,
+    wait: Readonly<{
+      kind: 'remote_task' | 'child_workflow';
+      sourceId: string;
+      nodeId: string;
+    }>,
+  ) {
+    return Promise.resolve(
+      [...this.snapshots]
+        .reverse()
+        .find(
+          (snapshot) =>
+            snapshot.workflowInstanceId === workflowInstanceId &&
+            snapshot.waitingNodeRuns.some(
+              (candidate) =>
+                candidate.kind === wait.kind &&
+                candidate.sourceId === wait.sourceId &&
+                candidate.nodeId === wait.nodeId,
+            ),
+        ),
+    );
+  }
+
   findCurrentByBinding(bindingId: string) {
     return Promise.resolve(
       [...this.snapshots]
@@ -1176,6 +1238,11 @@ class MemoryContinuations implements WorkflowContinuationRepository {
     return Promise.resolve();
   }
 
+  deferControl(input: { eventId: string; claimToken: string; errorCode: string }) {
+    void input;
+    return Promise.resolve();
+  }
+
   saveAttempt(attempt: WorkflowContinuationAttempt) {
     this.attempts.push(attempt);
     return Promise.resolve();
@@ -1189,6 +1256,12 @@ class MemoryContinuations implements WorkflowContinuationRepository {
     const index = this.attempts.findIndex((candidate) => candidate.attemptId === attempt.attemptId);
     if (index >= 0) this.attempts[index] = attempt;
     return Promise.resolve();
+  }
+
+  findLatestAttemptByEvent(eventId: string) {
+    return Promise.resolve(
+      [...this.attempts].reverse().find((attempt) => attempt.eventId === eventId),
+    );
   }
 
   listAttempts(workflowInstanceId: string) {

@@ -313,6 +313,7 @@ function currentProviderBindings() {
           bindingId: `binding-${input.localServerId}`,
           revision: 1,
           localServerId: input.localServerId,
+          originType: 'direct' as const,
           providerId: `external-${input.localServerId}`,
           endpointRef: 'https://provider.test/mcp',
           catalogRevision: '1.0.0:1',

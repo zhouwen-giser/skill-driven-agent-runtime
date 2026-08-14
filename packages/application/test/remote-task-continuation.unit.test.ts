@@ -197,6 +197,120 @@ describe('RemoteTaskContinuationService', () => {
       errorCode: 'LANGGRAPH_CONTINUATION_CRASH',
     });
   });
+
+  it('retries only the durable callback after graph continuation was committed', async () => {
+    const callbackError = Object.assign(new Error('notification transport unavailable'), {
+      code: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+    });
+    const onContinued = vi
+      .fn<
+        NonNullable<ConstructorParameters<typeof RemoteTaskContinuationService>[0]['onContinued']>
+      >()
+      .mockRejectedValueOnce(callbackError)
+      .mockResolvedValue(undefined);
+    const harness = createHarness({ onContinued });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toMatchObject({
+      disposition: 'callback_deferred',
+      errorCode: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+    });
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+    expect(harness.continuations.attempts).toHaveLength(1);
+    expect(harness.continuations.attempts[0]).toMatchObject({ status: 'succeeded' });
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'pending',
+      errorCode: 'CONTINUATION_CALLBACK_UNAVAILABLE',
+    });
+
+    await expect(harness.service.process(jobFor(event))).resolves.toMatchObject({
+      disposition: 'continued',
+    });
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+    expect(onContinued).toHaveBeenCalledTimes(2);
+    expect(onContinued.mock.calls[0]?.[0].continuationAttemptId).toBe(
+      onContinued.mock.calls[1]?.[0].continuationAttemptId,
+    );
+    expect(harness.continuations.control(event.eventId)).toMatchObject({ status: 'processed' });
+  });
+
+  it('fails closed without replay when a running attempt has no durable graph outcome', async () => {
+    const harness = createHarness();
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+    harness.continuations.seedRunningAttempt(event.eventId);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'uncertain',
+      errorCode: 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+    });
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.continuations.attempts[0]).toMatchObject({
+      status: 'failed',
+      errorCode: 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+    });
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+    expect(harness.failTask).toHaveBeenCalledWith(
+      'task-1',
+      'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+      'The remote Task terminal result was claimed, but no durable Workflow continuation outcome exists; the local Task was failed without replaying the continuation.',
+    );
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'WORKFLOW_EXTERNAL_CONTINUATION_OUTCOME_UNCERTAIN',
+    });
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'not_claimed',
+    });
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails the local Task once when recovered continuation authority is uncertain', async () => {
+    const harness = createHarness({ binding: remoteTaskBinding({ goalVersion: 2 }) });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+    harness.continuations.seedRunningAttempt(event.eventId);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'uncertain',
+      errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+    });
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+    expect(harness.failTask).toHaveBeenCalledWith(
+      'task-1',
+      'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+      'Remote Task continuation recovery authority no longer matches the durable Workflow state; the local Task was failed without replaying the continuation.',
+    );
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'REMOTE_TASK_CONTINUATION_RECOVERY_AUTHORITY_MISMATCH',
+    });
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'not_claimed',
+    });
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not close continuation authority when local Task fail-close is unavailable', async () => {
+    const failCloseError = Object.assign(new Error('Task authority unavailable'), {
+      code: 'TASK_FAIL_CLOSE_UNAVAILABLE',
+    });
+    const harness = createHarness({ failTask: () => Promise.reject(failCloseError) });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+    harness.continuations.seedRunningAttempt(event.eventId);
+
+    await expect(harness.service.process(jobFor(event))).rejects.toBe(failCloseError);
+
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.failTask).toHaveBeenCalledTimes(1);
+    expect(harness.continuations.attempts[0]).toMatchObject({ status: 'running' });
+    expect(harness.continuations.control(event.eventId)).toMatchObject({ status: 'claimed' });
+  });
 });
 
 describe('RemoteTaskContinuationReconciler', () => {
@@ -205,6 +319,7 @@ describe('RemoteTaskContinuationReconciler', () => {
     const inputRequired = inputRequiredEvent();
     const queueStates = new Map<string, Awaited<ReturnType<RemoteTaskContinuationQueue['state']>>>([
       ['event-already-scheduled', 'scheduled'],
+      ['event-failed-wake', 'failed'],
     ]);
     const enqueue = vi.fn<RemoteTaskContinuationQueue['enqueue']>((job) => {
       queueStates.set(job.eventId, 'scheduled');
@@ -217,6 +332,7 @@ describe('RemoteTaskContinuationReconciler', () => {
             completed,
             inputRequired,
             { ...failedEvent(), eventId: 'event-already-scheduled' },
+            { ...failedEvent(), eventId: 'event-failed-wake' },
           ]),
       },
       queue: {
@@ -227,13 +343,18 @@ describe('RemoteTaskContinuationReconciler', () => {
     });
 
     await expect(reconciler.reconcile()).resolves.toEqual({
-      examined: 3,
-      scheduled: 2,
+      examined: 4,
+      scheduled: 3,
       alreadyScheduled: 1,
       deferredInput: 0,
     });
     expect(enqueue).toHaveBeenCalledWith(jobFor(completed));
     expect(enqueue).toHaveBeenCalledWith(jobFor(inputRequired));
+    expect(enqueue).toHaveBeenCalledWith({
+      eventId: 'event-failed-wake',
+      bindingId: failedEvent().bindingId,
+      eventType: failedEvent().type,
+    });
   });
 });
 
@@ -243,6 +364,8 @@ function createHarness(
     instance?: WorkflowInstance;
     snapshot?: WorkflowContinuationSnapshot;
     continueError?: Error;
+    onContinued?: ConstructorParameters<typeof RemoteTaskContinuationService>[0]['onContinued'];
+    failTask?: ConstructorParameters<typeof RemoteTaskContinuationService>[0]['failTask'];
   }> = {},
 ) {
   const binding = overrides.binding ?? remoteTaskBinding();
@@ -263,6 +386,9 @@ function createHarness(
     if (overrides.continueError !== undefined) return Promise.reject(overrides.continueError);
     return Promise.resolve(workflowInstance({ status: 'succeeded', completedAt: timestamp }));
   });
+  const failTask = vi.fn<
+    ConstructorParameters<typeof RemoteTaskContinuationService>[0]['failTask']
+  >(overrides.failTask ?? (() => Promise.resolve()));
   const service = new RemoteTaskContinuationService({
     continuations,
     remoteTasks: { findById: findBinding },
@@ -273,8 +399,10 @@ function createHarness(
       nextClaimToken: () => 'claim-1',
       nextAttemptId: () => 'continuation-attempt-1',
     },
+    failTask,
+    ...(overrides.onContinued === undefined ? {} : { onContinued: overrides.onContinued }),
   });
-  return { service, continuations, findBinding, get, continueExternal };
+  return { service, continuations, findBinding, get, continueExternal, failTask };
 }
 
 class InMemoryContinuationRepository implements WorkflowContinuationRepository {
@@ -294,6 +422,21 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
 
   control(eventId: string): RemoteTaskControlEvent | undefined {
     return this.#controls.get(eventId);
+  }
+
+  seedRunningAttempt(eventId: string): void {
+    this.attempts.push({
+      attemptId: 'continuation-attempt-running',
+      eventId,
+      snapshotId: this.snapshot.snapshotId,
+      continuationId: this.snapshot.continuationId,
+      workflowInstanceId: this.snapshot.workflowInstanceId,
+      snapshotStateVersion: this.snapshot.stateVersion,
+      claimToken: 'crashed-claim',
+      status: 'running',
+      createdAt: timestamp,
+      startedAt: timestamp,
+    });
   }
 
   saveSnapshot(): Promise<void> {
@@ -320,6 +463,27 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
   findCurrent(workflowInstanceId: string): Promise<WorkflowContinuationSnapshot | undefined> {
     return Promise.resolve(
       workflowInstanceId === this.snapshot.workflowInstanceId ? this.snapshot : undefined,
+    );
+  }
+
+  findLatestForWait(
+    workflowInstanceId: string,
+    wait: Readonly<{
+      kind: 'remote_task' | 'child_workflow';
+      sourceId: string;
+      nodeId: string;
+    }>,
+  ): Promise<WorkflowContinuationSnapshot | undefined> {
+    return Promise.resolve(
+      workflowInstanceId === this.snapshot.workflowInstanceId &&
+        this.snapshot.waitingNodeRuns.some(
+          (candidate) =>
+            candidate.kind === wait.kind &&
+            candidate.sourceId === wait.sourceId &&
+            candidate.nodeId === wait.nodeId,
+        )
+        ? this.snapshot
+        : undefined,
     );
   }
 
@@ -370,6 +534,24 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
     return Promise.resolve();
   }
 
+  deferControl(
+    input: Parameters<WorkflowContinuationRepository['deferControl']>[0],
+  ): Promise<void> {
+    const current = this.#controls.get(input.eventId);
+    if (current?.status !== 'claimed' || this.#claimTokens.get(input.eventId) !== input.claimToken)
+      throw new Error('CONTROL_CLAIM_STALE');
+    const deferred = {
+      ...current,
+      status: 'pending',
+      errorCode: input.errorCode,
+    } as RemoteTaskControlEvent;
+    delete (deferred as { claimedAt?: string }).claimedAt;
+    delete (deferred as { processedAt?: string }).processedAt;
+    this.#controls.set(input.eventId, deferred);
+    this.#claimTokens.delete(input.eventId);
+    return Promise.resolve();
+  }
+
   saveAttempt(attempt: WorkflowContinuationAttempt): Promise<void> {
     this.attempts.push(attempt);
     return Promise.resolve();
@@ -384,6 +566,12 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
       throw new Error('CONTINUATION_ATTEMPT_STALE');
     this.attempts[index] = attempt;
     return Promise.resolve();
+  }
+
+  findLatestAttemptByEvent(eventId: string): Promise<WorkflowContinuationAttempt | undefined> {
+    return Promise.resolve(
+      [...this.attempts].reverse().find((attempt) => attempt.eventId === eventId),
+    );
   }
 
   listAttempts(workflowInstanceId: string): Promise<readonly WorkflowContinuationAttempt[]> {
@@ -419,17 +607,37 @@ function remoteTaskBinding(
       mode: 'frozen_v1',
       protocolVersion: '2026-07-28',
       baselineSha256: 'a'.repeat(64),
+      serverDiscoverySnapshotId: 'snapshot-1',
     },
     taskBehavior: 'server_directed',
     runtimeRevision: '1',
     lastProviderUpdatedAt: timestamp,
     executionContext: { mode: 'live' },
+    authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-sha256-1'),
     credentialRevision: 'credential-sha256-1',
     sessionRevision: '2026-07-28/schema-1',
     pollIntervalMs: 200,
     createdAt: timestamp,
     ...overrides,
+    taskCancellation: overrides.taskCancellation ?? 'task_cancel',
   });
+}
+
+function testAuthoritySnapshot(serverId: string, credentialRevision: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: timestamp,
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
+  };
 }
 
 function continuationSnapshot(

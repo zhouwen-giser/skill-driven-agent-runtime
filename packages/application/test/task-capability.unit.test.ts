@@ -112,6 +112,7 @@ function fixture(
                   bindingId: bindingId ?? 'binding-current',
                   revision: 1,
                   localServerId,
+                  originType: 'direct' as const,
                   providerId: 'provider-current',
                   endpointRef: 'https://provider.example.test/mcp',
                   catalogRevision: '1.0.0:1',

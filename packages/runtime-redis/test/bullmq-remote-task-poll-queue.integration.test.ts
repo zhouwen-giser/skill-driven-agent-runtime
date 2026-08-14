@@ -45,7 +45,7 @@ describe('BullMQ remote MCP Task poll queue', () => {
     await expect(rawQueue.getJobCountByTypes('delayed')).resolves.toBe(1);
   });
 
-  it('retains a failed poll as a dead letter and retries only by explicit operator action', async () => {
+  it('retains a failed poll for audit and replaces it on authoritative reconciliation', async () => {
     const queueName = `sdar-remote-dead-letter-${String(Date.now())}`;
     const queue = new BullMqRemoteTaskPollQueue({ connection, queueName });
     const rawQueue = new Queue(queueName, { connection });
@@ -83,9 +83,26 @@ describe('BullMQ remote MCP Task poll queue', () => {
 
     await worker.close();
     resources.splice(resources.indexOf(worker), 1);
-    await queue.retryDeadLetter(remoteTaskPollJobId(input.bindingId, input.expectedVersion));
+    await queue.enqueue(input, new Date().toISOString());
     await expect(queue.state(input.bindingId, input.expectedVersion)).resolves.toBe('scheduled');
-    expect(calls).toBe(1);
+    const recoveredWorker = new BullMqRemoteTaskPollWorker({
+      connection,
+      queueName,
+      processor: {
+        process: () => {
+          calls += 1;
+          return Promise.resolve();
+        },
+      },
+    });
+    resources.push(recoveredWorker);
+    const recoveredJob = await rawQueue.getJob(
+      remoteTaskPollJobId(input.bindingId, input.expectedVersion),
+    );
+    if (recoveredJob === undefined) throw new Error('REMOTE_TASK_RECOVERED_JOB_MISSING');
+    recoveredWorker.start();
+    await recoveredJob.waitUntilFinished(queueEvents, 5_000);
+    expect(calls).toBe(2);
   });
 
   it('replaces a completed poll when PostgreSQL reconciliation still owns the same version', async () => {

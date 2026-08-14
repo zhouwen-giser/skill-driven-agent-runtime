@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "phase": "P06",
+  "attempt": 6,
+  "candidateSha": "9df1c22a4debfbb30d6cb5e0c072f2f0e5c3f780",
+  "workingTreeCleanAtStart": true,
+  "physicalDeviceWrites": 0,
+  "startedAt": "2026-08-13T04:34:07.194Z",
+  "finishedAt": "2026-08-13T04:41:05.214Z",
+  "command": "pnpm verify",
+  "infrastructureMode": "operator-managed using Goal-owned disposable containers",
+  "status": "FAILED_E2E_SETUP",
+  "durationMs": 418020,
+  "passedSteps": [
+    {
+      "name": "static-unit-contract-build",
+      "durationMs": 179440,
+      "testFiles": 257,
+      "tests": 1849,
+      "openapiOperations": 167,
+      "outputSha256": "30c02b7cf9aba5634137e5ac9d3afef80c50da9f59b3226e391d44e30f0ec667"
+    },
+    {
+      "name": "cognitive-replay-no-physical-provider",
+      "durationMs": 744,
+      "outputSha256": "6113eecf6141f6aae28c7afdc6d15011d7190cd382e527ac611143937a1164e3"
+    },
+    {
+      "name": "clean-baseline-reset-seed",
+      "durationMs": 21930,
+      "migrationCount": 50,
+      "outputSha256": "f52c6ebbbc87ca3ffca5ff4d92745bbc0a7abd7b4e7d4c695c7c5dfbf688a4c9"
+    },
+    {
+      "name": "postgres-redis-integration",
+      "durationMs": 186992,
+      "testFiles": 34,
+      "tests": 197,
+      "outputSha256": "5bac74c5ac66046ca19badc97ef87cfc9b3b8f1d23f467702da75fa8294e2ee0"
+    }
+  ],
+  "failedStep": {
+    "name": "postgres-redis-model-mcp-e2e",
+    "durationMs": 28911,
+    "testsPassedBeforeSetupFailure": 11,
+    "testsSkippedAfterSetupFailure": 62,
+    "outputSha256": "c202b7091a0999f2c3bb44e097bb5652aacc855ba52d2c0314b29368e7f03578",
+    "test": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "diagnostic": "Migration 0153 seeds one durable Prompt owner per stage. The older E2E fixture attempted to create a second promptId for the already-owned skill_authoring stage, so PostgreSQL rejected the unique stage conflict before the suite ran."
+  },
+  "interpretation": "The repair reads the current stage owner through the management API and creates the E2E version under that authority. It preserves the unique stage constraint and operator ownership rather than deleting seed data or bypassing Prompt governance."
+}

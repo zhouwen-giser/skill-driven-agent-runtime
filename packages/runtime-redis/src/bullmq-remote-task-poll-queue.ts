@@ -51,8 +51,7 @@ export class BullMqRemoteTaskPollQueue implements RemoteTaskPollQueue {
         state === 'delayed' ||
         state === 'active' ||
         state === 'waiting-children' ||
-        state === 'prioritized' ||
-        state === 'failed'
+        state === 'prioritized'
       ) {
         return;
       }

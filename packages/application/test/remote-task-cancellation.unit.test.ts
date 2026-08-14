@@ -73,6 +73,44 @@ describe('RemoteTaskCancellationService', () => {
     expect(harness.cancellations.createdCount).toBe(1);
   });
 
+  it('does not schedule an idempotent retry after delivery authority becomes uncertain', async () => {
+    const harness = createHarness();
+    const first = await harness.service.request({
+      bindingId: 'binding-1',
+      idempotencyKey: 'cancel-task-1',
+      source: 'task',
+      reasonCode: 'TASK_CANCELED',
+      summary: 'Task canceled by user.',
+    });
+    const request = requiredRequest(first.request);
+    const claim = await harness.cancellations.claimCancellation({
+      requestId: request.requestId,
+      expectedVersion: request.version,
+      claimToken: 'simulated-process-crash-claim',
+      claimedAt: timestamp,
+      expiresAt: '2026-07-17T08:01:00.000Z',
+    });
+    expect(claim).toMatchObject({
+      claimed: true,
+      request: {
+        deliveryStatus: 'uncertain',
+        lastSafeErrorCode: 'MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
+      },
+    });
+    harness.queue.enqueued.length = 0;
+
+    await expect(
+      harness.service.request({
+        bindingId: 'binding-1',
+        idempotencyKey: 'cancel-task-1',
+        source: 'task',
+        reasonCode: 'TASK_CANCELED',
+        summary: 'Task canceled by user.',
+      }),
+    ).resolves.toMatchObject({ disposition: 'requested', deliveryScheduled: false });
+    expect(harness.queue.enqueued).toEqual([]);
+  });
+
   it('does not create a request or wire job for Provider-terminal evidence', async () => {
     const harness = createHarness({ binding: binding({ protocolStatus: 'cancelled' }) });
 
@@ -88,6 +126,28 @@ describe('RemoteTaskCancellationService', () => {
     expect(harness.cancellations.request).toBeUndefined();
     expect(harness.queue.enqueued).toEqual([]);
   });
+
+  it.each(['unsupported', 'cooperative', 'unknown'] as const)(
+    'fails closed before RequestCancel persistence when frozen Provider control is %s',
+    async (taskCancellation) => {
+      const harness = createHarness({ binding: binding({ taskCancellation }) });
+
+      await expect(
+        harness.service.request({
+          bindingId: 'binding-1',
+          idempotencyKey: 'unsupported-cancel',
+          source: 'management',
+          reasonCode: 'OPERATOR_CANCEL',
+          summary: 'Operator requested cancellation.',
+        }),
+      ).resolves.toEqual({ disposition: 'unsupported', deliveryScheduled: false });
+
+      expect(harness.operations).toEqual([]);
+      expect(harness.cancellations.request).toBeUndefined();
+      expect(harness.queue.enqueued).toEqual([]);
+      expect(harness.sender).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('RemoteTaskCancellationWorker', () => {
@@ -155,13 +215,62 @@ describe('RemoteTaskCancellationWorker', () => {
       executionContext: { mode: 'live' },
     });
   });
+
+  it('never repeats cancel after an acknowledgement persistence crash', async () => {
+    const harness = createHarness();
+    await requestCancellation(harness);
+    const job = firstJob(harness.queue);
+    harness.cancellations.acknowledgementError = new Error('postgres response lost after ACK');
+    harness.cancellations.uncertaintyError = new Error('postgres remains unavailable');
+
+    await expect(harness.worker.process(job)).rejects.toThrow('postgres remains unavailable');
+
+    expect(harness.sender).toHaveBeenCalledTimes(1);
+    expect(harness.cancellations.request).toMatchObject({
+      deliveryStatus: 'uncertain',
+      lastSafeErrorCode: 'MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
+    });
+
+    const reconciler = new RemoteTaskCancellationReconciler({
+      cancellations: harness.cancellations,
+      queue: harness.queue,
+      clock: harness.clock,
+    });
+    await expect(reconciler.reconcile()).resolves.toEqual({ examined: 0, scheduled: 0 });
+    await expect(harness.worker.process(job)).resolves.toBe('stale');
+    expect(harness.sender).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed before transport when an unsupported legacy request reaches the worker', async () => {
+    const harness = createHarness();
+    await requestCancellation(harness);
+    harness.remoteTasks.binding = {
+      ...harness.remoteTasks.binding,
+      taskCancellation: 'unsupported',
+    };
+
+    await expect(harness.worker.process(firstJob(harness.queue))).resolves.toBe('unsupported');
+
+    expect(harness.sender).not.toHaveBeenCalled();
+    expect(harness.cancellations.request).toMatchObject({
+      deliveryStatus: 'uncertain',
+      lastSafeErrorCode: 'MCP_TASK_CANCEL_UNSUPPORTED',
+    });
+    expect(harness.cancellations.attempts).toEqual([
+      expect.objectContaining({
+        status: 'provider_protocol',
+        errorCode: 'MCP_TASK_CANCEL_UNSUPPORTED',
+      }),
+    ]);
+  });
 });
 
 describe('RemoteTaskCancellationReconciler', () => {
-  it('rebuilds a missing requested delivery job but does not auto-retry uncertainty', async () => {
+  it('rebuilds missing and failed requested wakes but does not retry uncertainty', async () => {
     const harness = createHarness();
     await requestCancellation(harness);
     harness.queue.enqueued.length = 0;
+    harness.queue.states.clear();
     const reconciler = new RemoteTaskCancellationReconciler({
       cancellations: harness.cancellations,
       queue: harness.queue,
@@ -169,6 +278,20 @@ describe('RemoteTaskCancellationReconciler', () => {
     });
 
     await expect(reconciler.reconcile()).resolves.toEqual({ examined: 1, scheduled: 1 });
+    harness.queue.states.set(
+      `${requiredRequest(harness.cancellations.request).requestId}~${String(
+        requiredRequest(harness.cancellations.request).version,
+      )}`,
+      'failed',
+    );
+    harness.queue.enqueued.length = 0;
+    await expect(reconciler.reconcile()).resolves.toEqual({ examined: 1, scheduled: 1 });
+    expect(harness.queue.enqueued).toEqual([
+      {
+        requestId: requiredRequest(harness.cancellations.request).requestId,
+        expectedVersion: requiredRequest(harness.cancellations.request).version,
+      },
+    ]);
     harness.cancellations.request = {
       ...requiredRequest(harness.cancellations.request),
       deliveryStatus: 'uncertain',
@@ -246,6 +369,7 @@ function createHarness(overrides: Readonly<{ binding?: RemoteTaskBinding }> = {}
 
 class RecordingCancellationQueue implements RemoteTaskCancellationQueue {
   readonly enqueued: RemoteTaskCancellationJob[] = [];
+  readonly states = new Map<string, RemoteTaskPollJobState>();
   readonly operations: string[];
   enqueueError: Error | undefined;
 
@@ -257,11 +381,12 @@ class RecordingCancellationQueue implements RemoteTaskCancellationQueue {
     this.operations.push('queue.enqueue');
     if (this.enqueueError !== undefined) return Promise.reject(this.enqueueError);
     this.enqueued.push(input);
+    this.states.set(`${input.requestId}~${String(input.expectedVersion)}`, 'scheduled');
     return Promise.resolve();
   }
 
-  state(): Promise<RemoteTaskPollJobState> {
-    return Promise.resolve('missing');
+  state(requestId: string, expectedVersion: number): Promise<RemoteTaskPollJobState> {
+    return Promise.resolve(this.states.get(`${requestId}~${String(expectedVersion)}`) ?? 'missing');
   }
 }
 
@@ -280,6 +405,8 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
   readonly remoteTasks: { binding: RemoteTaskBinding };
   readonly operations: string[];
   createdCount = 0;
+  acknowledgementError: Error | undefined;
+  uncertaintyError: Error | undefined;
 
   constructor(remoteTasks: { binding: RemoteTaskBinding }, operations: string[]) {
     this.remoteTasks = remoteTasks;
@@ -330,14 +457,19 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
     if (this.request === undefined) return Promise.resolve({ claimed: false, reason: 'missing' });
     if (this.request.providerTerminalStatus !== undefined)
       return Promise.resolve({ claimed: false, reason: 'resolved' });
-    if (this.request.version !== input.expectedVersion)
+    if (
+      this.request.version !== input.expectedVersion ||
+      this.request.deliveryStatus !== 'requested'
+    )
       return Promise.resolve({ claimed: false, reason: 'stale' });
     this.request = {
       ...this.request,
+      deliveryStatus: 'uncertain',
       claimToken: input.claimToken,
       claimedAt: input.claimedAt,
       claimExpiresAt: input.expiresAt,
       attemptCount: this.request.attemptCount + 1,
+      lastSafeErrorCode: 'MCP_TASK_CANCEL_OUTCOME_UNCERTAIN',
       updatedAt: input.claimedAt,
       version: this.request.version + 1,
     };
@@ -354,6 +486,7 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
       protocolRevision: string;
     }>,
   ): Promise<RemoteTaskCancellationMutationResult> {
+    if (this.acknowledgementError !== undefined) return Promise.reject(this.acknowledgementError);
     const current = this.request;
     this.attempts.push(input.attempt);
     if (current === undefined) return Promise.resolve({ applied: false, reason: 'missing' });
@@ -382,6 +515,7 @@ class InMemoryCancellationRepository implements RemoteTaskCancellationRepository
       observedAt: string;
     }>,
   ): Promise<RemoteTaskCancellationMutationResult> {
+    if (this.uncertaintyError !== undefined) return Promise.reject(this.uncertaintyError);
     const current = this.request;
     this.attempts.push(input.attempt);
     if (current === undefined) return Promise.resolve({ applied: false, reason: 'missing' });
@@ -446,10 +580,13 @@ function binding(overrides: Partial<RemoteTaskBinding> = {}): RemoteTaskBinding 
         mode: 'frozen_v1',
         protocolVersion: 'tasks-protocol-1',
         baselineSha256: 'a'.repeat(64),
+        serverDiscoverySnapshotId: 'snapshot-1',
       },
       taskBehavior: 'server_directed',
+      taskCancellation: 'task_cancel',
       runtimeRevision: '1',
       executionContext: { mode: 'live' },
+      authoritySnapshot: testAuthoritySnapshot('server-1', 'credential-1'),
       credentialRevision: 'credential-1',
       sessionRevision: 'session-1',
       lastProviderUpdatedAt: timestamp,
@@ -457,6 +594,23 @@ function binding(overrides: Partial<RemoteTaskBinding> = {}): RemoteTaskBinding 
       createdAt: timestamp,
     }),
     ...overrides,
+  };
+}
+
+function testAuthoritySnapshot(serverId: string, credentialRevision: string) {
+  return {
+    schemaVersion: '1.0' as const,
+    capturedAt: timestamp,
+    runtime: {
+      serverId,
+      endpoint: `https://${serverId}.test/mcp`,
+      serverUpdatedAt: credentialRevision,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: 'catalog-revision-1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 1,
+    },
   };
 }
 
