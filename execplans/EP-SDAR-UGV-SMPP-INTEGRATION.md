@@ -109,6 +109,16 @@ repository license/source-lock process become mandatory before the dependency or
       sole SDAR live read invocation failed with `UGV_EXECUTION_MODE_UNSUPPORTED`; simulation was
       rejected by readiness as `UGV_DEVICE_MCP_UNAVAILABLE` before invocation; a direct simulation
       compatibility probe returned `UGV_ADAPTER_INTERNAL_ERROR`.
+- [x] 2026-08-14 merged `origin/main@34ce7a7` through merge commit `80e9f93` before continuing the
+      physical-control work. Implemented an explicitly activated navigate authority whose one
+      immutable Skill procedure contains five linear `vehicle_navigate` nodes, each frozen to
+      `forward / 2 m`, with exact-count and remote-terminal proof. Focused 124/124 and repository
+      TypeScript checks pass; this is implementation evidence, not physical-movement evidence.
+- [x] 2026-08-14 repeated a real live deterministic `vehicle_get_state` call after refreshing Source
+      and Runtime readiness. Invocation
+      `mcp-invocation-deterministic-6160523029e621b25c2f1a995c14d1ce` reached the deployed adapter
+      and failed `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`; navigate calls and
+      physical writes remained zero.
 - [x] 2026-08-12 implemented ADR-137 create-on-empty Runtime model initialization. Startup
       atomically creates the explicitly configured structured Provider and optional separate
       embedding Provider plus all 21 operation routes only when the Provider table is empty; any
@@ -127,7 +137,10 @@ repository license/source-lock process become mandatory before the dependency or
       `capability_attempt_id` gap and missing terminal A2A failure projection; then rerun successful
       deterministic and A2A reads. Failed CapabilityAttempt restart reconciliation is verified;
       real-model conformance itself is complete.
-- [ ] Complete explicitly authorized control/lifecycle/emergency/recovery qualification.
+- [ ] Enable live execution on the deployed UGV adapter, provide authoritative fresh/connected/
+      stationary state evidence, and complete node-scoped one-shot sequence confirmation before
+      running the five-dispatch movement Task. Then complete lifecycle/emergency/recovery
+      qualification.
 - [x] Ran focused gates and the repository acceptance matrix. Static, cognitive replay, migrations,
       main Integration (189/189), main E2E (72/72 with one skip), evidence demo (44/44) and all three
       smokes passed. The aggregate `pnpm verify` remains failed because its isolated P11 export run

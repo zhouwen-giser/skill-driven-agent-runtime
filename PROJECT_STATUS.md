@@ -1,12 +1,20 @@
 # Project Status
 
-SDAR × UGV SMPP integration is `SDAR_UGV_INTEGRATION_BLOCKED` (2026-08-12). Discovery readiness is
+SDAR × UGV SMPP integration is `SDAR_UGV_INTEGRATION_BLOCKED` (updated 2026-08-14). Discovery readiness is
 `true`; Read, A2A, Control, Workflow, Resilience and Production readiness are all `false`. Real
 projection 200/304 and native lineage, credential-free Source revision 1, exact Provider/Server,
 Provider Binding revision 2, Runtime tool revision 2 and Catalog `2.0.0-rc.1:2` with 11 operations
-are proven at their observation times. Five read Skills are published at version 4 and five read
-Capabilities at version 2; five controls remain Draft/non-selectable without implementation
-bindings; fire has zero Capability/Skill and zero invocation authority.
+are proven at their observation times. The disposable integration database now has five read
+authorities and one explicitly activated navigate authority; navigate is frozen to one immutable
+five-node `forward / 2 m` procedure, while the other four controls remain Draft/non-selectable.
+Fire has zero Capability/Skill and zero invocation authority.
+
+The branch was synchronized with `origin/main@34ce7a7` in merge commit `80e9f93`. Exact five-node
+planning, remote-terminal aggregation and generic frozen movement-constraint interpretation pass
+124 focused tests and full TypeScript checking. A fresh real live `vehicle_get_state` still reached
+the deployed adapter and failed `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`.
+Therefore navigate invocations and physical movement remain zero; authoritative stationarity and
+node-scoped sequence confirmation are also still open physical-dispatch prerequisites.
 
 Runtime's create-on-empty model bootstrap is implemented and verified. Existing Provider state makes
 startup a strict no-op, while a clean database can atomically create the explicitly configured

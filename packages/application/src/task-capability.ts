@@ -17,6 +17,7 @@ import type {
   RuntimeTaskEvent,
 } from './ports.js';
 import type { RuntimeMcpProviderBindingAdmissionVerifier } from './mcp-runtime-binding-authority.js';
+import { canonicalHash } from './mcp-task-readiness.js';
 
 export interface RuntimeCapabilityResolution {
   readonly exposureId: string;
@@ -70,6 +71,106 @@ export interface TaskCapabilityEvidenceSource {
   listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]>;
 }
 
+/**
+ * PostgreSQL-owned proof projected for one physical dispatch. It deliberately contains no claim
+ * that a vehicle is stationary: a remote Task terminal state proves command completion only.
+ */
+export interface TaskCapabilityPhysicalDispatchEvidence {
+  readonly invocationId: string;
+  readonly invocationPresent: boolean;
+  readonly capabilityAttemptId?: string;
+  readonly confirmation?: Readonly<{
+    confirmationId: string;
+    consumedInvocationId?: string;
+    consumedDispatchHash?: string;
+    consumedAt?: string;
+    revokedAt?: string;
+  }>;
+  readonly admission?: Readonly<{
+    intentId: string;
+    invocationId: string;
+    taskId: string;
+    capabilityAttemptId?: string;
+    bindingId: string;
+    recordedInvocationId?: string;
+    materializedBindingId?: string;
+    argumentsHash: string;
+    dispatchHash?: string;
+    workflowPlanId: string;
+    workflowNodeId: string;
+    workflowNodeRunId: string;
+    status: string;
+    reasonCode?: string;
+  }>;
+  readonly remoteTask?: Readonly<{
+    bindingId: string;
+    remoteTaskId: string;
+    mcpInvocationId: string;
+    workflowNodeId: string;
+    workflowNodeRunId: string;
+    workflowPlanId: string;
+    workflowDefinitionId: string;
+    workflowDefinitionVersion: number;
+    workflowInstanceId: string;
+    executionMode: string;
+    protocolStatus: string;
+    localState: string;
+    providerFailureCount: number;
+    providerEvidence: readonly unknown[];
+    resultIsError?: boolean;
+    lastSafeErrorCode?: string;
+    invalidatedAt?: string;
+    createdAt: string;
+    terminalAt?: string;
+    acceptedObservationCount: number;
+    acceptedObservedAt?: string;
+    unsafeObservationCount: number;
+    failedProtocolAttemptCount: number;
+    terminalEventCount: number;
+    processedCompletedEventCount: number;
+    terminalEventCreatedAt?: string;
+    terminalEventProcessedAt?: string;
+    terminalEventStatus?: string;
+    terminalEventErrorCode?: string;
+    continuationAttemptCount: number;
+    waitingExternalContinuationCount: number;
+    succeededContinuationCount: number;
+  }>;
+}
+
+export interface TaskCapabilityPhysicalPlanEvidence {
+  readonly planId: string;
+  readonly confirmationStatus: string;
+  readonly workflowDefinitionId: string;
+  readonly workflowDefinitionVersion: number;
+  readonly entryNodeId: string;
+  readonly exitNodeIds: readonly string[];
+  readonly nodes: readonly Readonly<{
+    nodeId: string;
+    ordinal: number;
+    type: string;
+    serverId?: string;
+    toolName?: string;
+    taskRequired: boolean;
+  }>[];
+  readonly edges: readonly Readonly<{
+    sourceNodeId: string;
+    targetNodeId: string;
+    outcome?: string;
+  }>[];
+}
+
+export interface TaskCapabilityPhysicalEvidenceSnapshot {
+  readonly plan?: TaskCapabilityPhysicalPlanEvidence;
+  readonly dispatches: readonly TaskCapabilityPhysicalDispatchEvidence[];
+}
+
+export interface TaskCapabilityPhysicalEvidenceSource {
+  loadPhysicalEvidence(
+    input: Readonly<{ taskId: string; capabilityAttemptId: string; planId: string }>,
+  ): Promise<TaskCapabilityPhysicalEvidenceSnapshot>;
+}
+
 export interface TaskCapabilityTerminalSuccessContext {
   readonly outputSchemaValid?: boolean;
   readonly requiredBinding?: Readonly<{
@@ -88,6 +189,7 @@ export class RuntimeTaskCapabilityService {
   readonly #store: TaskCapabilityAcceptanceStore;
   readonly #schemas: JsonSchemaValidator;
   readonly #evidence: TaskCapabilityEvidenceSource | undefined;
+  readonly #physicalEvidence: TaskCapabilityPhysicalEvidenceSource | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #runtimeProviderBindings: RuntimeMcpProviderBindingAdmissionVerifier | undefined;
 
@@ -96,6 +198,7 @@ export class RuntimeTaskCapabilityService {
       store: TaskCapabilityAcceptanceStore;
       schemas: JsonSchemaValidator;
       evidence?: TaskCapabilityEvidenceSource;
+      physicalEvidence?: TaskCapabilityPhysicalEvidenceSource;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
       runtimeProviderBindings?: RuntimeMcpProviderBindingAdmissionVerifier;
     }>,
@@ -103,6 +206,7 @@ export class RuntimeTaskCapabilityService {
     this.#store = dependencies.store;
     this.#schemas = dependencies.schemas;
     this.#evidence = dependencies.evidence;
+    this.#physicalEvidence = dependencies.physicalEvidence;
     this.#providerBindings = dependencies.providerBindings;
     this.#runtimeProviderBindings = dependencies.runtimeProviderBindings;
   }
@@ -448,16 +552,27 @@ export class RuntimeTaskCapabilityService {
     const invocations = taskInvocations.filter(
       (invocation) => invocation.capabilityAttemptId === latestAttempt.attemptId,
     );
+    const physicalPolicy = physicalSideEffectPolicy(binding.constraintSnapshot);
+    const physicalDispatches =
+      physicalPolicy === undefined
+        ? undefined
+        : await this.#loadPhysicalDispatchProof(
+            taskId,
+            latestAttempt,
+            binding,
+            invocations,
+            physicalPolicy,
+          );
     for (const criterion of binding.successCriteriaSnapshot) {
-      if (!criterionSatisfied(criterion, result, binding, invocations, context))
+      if (!criterionSatisfied(criterion, result, binding, invocations, context, physicalDispatches))
         terminal('A frozen success criterion is not satisfied.');
     }
     for (const requirement of binding.evidenceRequirementSnapshot) {
-      if (!evidenceSatisfied(requirement, result, binding, invocations))
+      if (!evidenceSatisfied(requirement, result, binding, invocations, physicalDispatches))
         terminal('Required Capability evidence is incomplete.');
     }
     for (const constraint of binding.constraintSnapshot) {
-      if (!constraintSatisfied(constraint, result, binding, invocations))
+      if (!constraintSatisfied(constraint, result, binding, invocations, physicalDispatches))
         terminal('A frozen safety or authorization constraint is not satisfied.');
     }
     return Object.freeze({
@@ -468,6 +583,32 @@ export class RuntimeTaskCapabilityService {
       requestedCapabilityId: binding.requestedCapabilityId,
       capabilityVersion: binding.capabilityVersion,
     });
+  }
+
+  async #loadPhysicalDispatchProof(
+    taskId: string,
+    capabilityAttempt: TaskCapabilityExecutionAttempt,
+    binding: TaskCapabilityBinding,
+    invocations: readonly McpInvocation[],
+    policy: Readonly<Record<string, unknown>>,
+  ): Promise<PhysicalDispatchProof> {
+    if (this.#physicalEvidence === undefined)
+      terminal('Physical Capability completion requires durable remote Task lifecycle evidence.');
+    if (capabilityAttempt.planId === undefined)
+      terminal('Physical Capability completion requires one exact confirmed Workflow plan.');
+    const evidence = await this.#physicalEvidence.loadPhysicalEvidence({
+      taskId,
+      capabilityAttemptId: capabilityAttempt.attemptId,
+      planId: capabilityAttempt.planId,
+    });
+    return createPhysicalDispatchProof(
+      capabilityAttempt.attemptId,
+      capabilityAttempt.planId,
+      binding,
+      invocations,
+      evidence,
+      policy,
+    );
   }
 
   async markLatestAttempt(
@@ -526,12 +667,377 @@ function assertRequester(policy: Readonly<Record<string, unknown>> | undefined, 
     );
 }
 
+interface PhysicalDispatchProof {
+  readonly expectedDispatchCount: number;
+  readonly expectedPlanNodes: readonly TaskCapabilityPhysicalPlanEvidence['nodes'][number][];
+  readonly dispatches: readonly Readonly<{
+    invocation: McpInvocation;
+    evidence: TaskCapabilityPhysicalDispatchEvidence;
+  }>[];
+  readonly valid: boolean;
+}
+
+function physicalSideEffectPolicy(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+): Readonly<Record<string, unknown>> | undefined {
+  const policies = constraints.filter(
+    (constraint) => constraint['type'] === 'physical_side_effect_policy',
+  );
+  if (policies.length === 0) return undefined;
+  if (policies.length !== 1) terminal('Physical Capability requires one side-effect policy.');
+  return policies[0];
+}
+
+function createPhysicalDispatchProof(
+  capabilityAttemptId: string,
+  planId: string,
+  binding: TaskCapabilityBinding,
+  invocations: readonly McpInvocation[],
+  evidence: TaskCapabilityPhysicalEvidenceSnapshot,
+  policy: Readonly<Record<string, unknown>>,
+): PhysicalDispatchProof {
+  const rawExpectedDispatchCount = policy['dispatchMaximum'];
+  const expectedDispatchCount =
+    typeof rawExpectedDispatchCount === 'number' &&
+    Number.isSafeInteger(rawExpectedDispatchCount) &&
+    rawExpectedDispatchCount > 0
+      ? rawExpectedDispatchCount
+      : 0;
+  const provider = providerBindingPolicy(binding.constraintSnapshot);
+  const expectedPlanNodes =
+    provider === undefined
+      ? undefined
+      : physicalPlanSequence(evidence.plan, planId, provider, expectedDispatchCount);
+  const sideEffectingInvocations = invocations
+    .filter((invocation) => invocation.executionSemantics.effect === 'side_effecting')
+    .sort(compareInvocationOrder);
+  const invocationIds = new Set(sideEffectingInvocations.map((item) => item.invocationId));
+  const matchingEvidence = evidence.dispatches.filter((item) =>
+    invocationIds.has(item.invocationId),
+  );
+  const evidenceByInvocation = new Map(
+    matchingEvidence.map((item) => [item.invocationId, item] as const),
+  );
+  const dispatches = sideEffectingInvocations.flatMap((invocation) => {
+    const item = evidenceByInvocation.get(invocation.invocationId);
+    return item === undefined ? [] : [{ invocation, evidence: item }];
+  });
+  let valid =
+    expectedDispatchCount > 0 &&
+    provider !== undefined &&
+    expectedPlanNodes !== undefined &&
+    invocations.length === expectedDispatchCount &&
+    sideEffectingInvocations.length === expectedDispatchCount &&
+    evidence.dispatches.length === expectedDispatchCount &&
+    evidence.dispatches.every((item) => item.capabilityAttemptId === capabilityAttemptId) &&
+    matchingEvidence.length === expectedDispatchCount &&
+    evidenceByInvocation.size === expectedDispatchCount &&
+    dispatches.length === expectedDispatchCount;
+
+  const confirmationIds = new Set<string>();
+  const admissionIntentIds = new Set<string>();
+  const dispatchHashes = new Set<string>();
+  const remoteBindingIds = new Set<string>();
+  const remoteTaskIds = new Set<string>();
+  const nodeRunIds = new Set<string>();
+  const workflowInstanceIds = new Set<string>();
+  let previousTerminalAt: number | undefined;
+  for (const [index, { invocation, evidence: dispatchEvidence }] of dispatches.entries()) {
+    const confirmation = dispatchEvidence.confirmation;
+    const admission = dispatchEvidence.admission;
+    const remote = dispatchEvidence.remoteTask;
+    const expectedNode = expectedPlanNodes?.[index];
+    const invocationStartedAt = parseTimestamp(invocation.startedAt);
+    const invocationCompletedAt = parseTimestamp(invocation.completedAt);
+    const consumedAt = parseTimestamp(confirmation?.consumedAt);
+    const bindingCreatedAt = parseTimestamp(remote?.createdAt);
+    const acceptedObservedAt = parseTimestamp(remote?.acceptedObservedAt);
+    const remoteTerminalAt = parseTimestamp(remote?.terminalAt);
+    const terminalCreatedAt = parseTimestamp(remote?.terminalEventCreatedAt);
+    const terminalProcessedAt = parseTimestamp(remote?.terminalEventProcessedAt);
+    const receipt = isRecord(invocation.result) ? invocation.result['remoteTask'] : undefined;
+    const remoteReceipt = isRecord(receipt) ? receipt : undefined;
+    const intermediate = index < expectedDispatchCount - 1;
+    const lifecycleValid =
+      remote !== undefined &&
+      (intermediate
+        ? remote.localState === 'reentered' &&
+          remote.terminalEventStatus === 'processed' &&
+          remote.processedCompletedEventCount === 1 &&
+          terminalProcessedAt !== undefined &&
+          remote.continuationAttemptCount === 1 &&
+          remote.waitingExternalContinuationCount === 1 &&
+          remote.succeededContinuationCount === 0
+        : ((remote.localState === 'terminal_event_claimed' &&
+            remote.terminalEventStatus === 'claimed' &&
+            remote.processedCompletedEventCount === 0 &&
+            terminalProcessedAt === undefined) ||
+            (remote.localState === 'reentered' &&
+              remote.terminalEventStatus === 'processed' &&
+              remote.processedCompletedEventCount === 1 &&
+              terminalProcessedAt !== undefined)) &&
+          remote.continuationAttemptCount === 1 &&
+          remote.waitingExternalContinuationCount === 0 &&
+          remote.succeededContinuationCount === 1);
+    const dispatchValid =
+      dispatchEvidence.invocationPresent &&
+      dispatchEvidence.capabilityAttemptId === capabilityAttemptId &&
+      invocation.capabilityAttemptId === capabilityAttemptId &&
+      invocation.executionMode === 'live' &&
+      invocation.status === 'succeeded' &&
+      invocation.executionSemantics.effect === 'side_effecting' &&
+      invocation.executionSemantics.execution === 'task_required' &&
+      invocation.executionSemantics.replay === 'forbidden' &&
+      provider !== undefined &&
+      invocation.serverId === provider.serverId &&
+      invocation.toolName === provider.toolName &&
+      nonEmpty(invocation.controlConfirmationId) &&
+      nonEmpty(invocation.controlProviderBindingId) &&
+      nonEmpty(invocation.controlArgumentsHash) &&
+      nonEmpty(invocation.controlDispatchHash) &&
+      invocation.controlArgumentsHash === canonicalHash(invocation.arguments) &&
+      invocation.controlArgumentsHash === canonicalHash(binding.inputSnapshot) &&
+      confirmation?.confirmationId === invocation.controlConfirmationId &&
+      confirmation.consumedInvocationId === invocation.invocationId &&
+      confirmation.consumedDispatchHash === invocation.controlDispatchHash &&
+      confirmation.revokedAt === undefined &&
+      invocationStartedAt !== undefined &&
+      invocationCompletedAt !== undefined &&
+      consumedAt !== undefined &&
+      invocationStartedAt <= consumedAt &&
+      consumedAt <= invocationCompletedAt &&
+      admission !== undefined &&
+      admission.invocationId === invocation.invocationId &&
+      admission.taskId === binding.taskId &&
+      admission.capabilityAttemptId === capabilityAttemptId &&
+      admission.recordedInvocationId === invocation.invocationId &&
+      admission.argumentsHash === invocation.controlArgumentsHash &&
+      admission.dispatchHash === invocation.controlDispatchHash &&
+      admission?.status === 'materialized' &&
+      admission.reasonCode === undefined &&
+      remote !== undefined &&
+      admission.bindingId === remote.bindingId &&
+      admission.materializedBindingId === remote.bindingId &&
+      admission.workflowPlanId === planId &&
+      admission.workflowNodeId === remote.workflowNodeId &&
+      admission.workflowNodeRunId === remote.workflowNodeRunId &&
+      remote.mcpInvocationId === invocation.invocationId &&
+      remote.workflowPlanId === planId &&
+      expectedNode !== undefined &&
+      remote.workflowNodeId === expectedNode.nodeId &&
+      remote.executionMode === 'live' &&
+      remote.protocolStatus === 'completed' &&
+      remote.providerFailureCount === 0 &&
+      remote.resultIsError === false &&
+      remote.lastSafeErrorCode === undefined &&
+      remote.invalidatedAt === undefined &&
+      remote.unsafeObservationCount === 0 &&
+      remote.failedProtocolAttemptCount === 0 &&
+      remote.acceptedObservationCount === 1 &&
+      remote.terminalEventCount === 1 &&
+      remote.terminalEventErrorCode === undefined &&
+      lifecycleValid &&
+      bindingCreatedAt !== undefined &&
+      acceptedObservedAt !== undefined &&
+      remoteTerminalAt !== undefined &&
+      terminalCreatedAt !== undefined &&
+      bindingCreatedAt === acceptedObservedAt &&
+      bindingCreatedAt <= remoteTerminalAt &&
+      remoteTerminalAt <= terminalCreatedAt &&
+      (terminalProcessedAt === undefined || terminalCreatedAt <= terminalProcessedAt) &&
+      (previousTerminalAt === undefined || previousTerminalAt <= invocationStartedAt) &&
+      remoteReceipt?.['remoteTaskId'] === remote.remoteTaskId;
+    valid &&= dispatchValid;
+    previousTerminalAt = terminalCreatedAt;
+    if (confirmation !== undefined) confirmationIds.add(confirmation.confirmationId);
+    if (admission !== undefined) admissionIntentIds.add(admission.intentId);
+    if (invocation.controlDispatchHash !== undefined)
+      dispatchHashes.add(invocation.controlDispatchHash);
+    if (remote !== undefined) {
+      remoteBindingIds.add(remote.bindingId);
+      remoteTaskIds.add(remote.remoteTaskId);
+      nodeRunIds.add(remote.workflowNodeRunId);
+      workflowInstanceIds.add(remote.workflowInstanceId);
+    }
+  }
+  valid &&=
+    confirmationIds.size === expectedDispatchCount &&
+    admissionIntentIds.size === expectedDispatchCount &&
+    dispatchHashes.size === expectedDispatchCount &&
+    remoteBindingIds.size === expectedDispatchCount &&
+    remoteTaskIds.size === expectedDispatchCount &&
+    nodeRunIds.size === expectedDispatchCount &&
+    workflowInstanceIds.size === 1;
+  return Object.freeze({
+    expectedDispatchCount,
+    expectedPlanNodes: Object.freeze(expectedPlanNodes ?? []),
+    dispatches: Object.freeze(dispatches),
+    valid,
+  });
+}
+
+function physicalPlanSequence(
+  plan: TaskCapabilityPhysicalPlanEvidence | undefined,
+  planId: string,
+  provider: Readonly<{ serverId: string; toolName: string }>,
+  expectedDispatchCount: number,
+): readonly TaskCapabilityPhysicalPlanEvidence['nodes'][number][] | undefined {
+  if (
+    plan === undefined ||
+    plan.planId !== planId ||
+    plan.confirmationStatus !== 'confirmed' ||
+    expectedDispatchCount < 1 ||
+    plan.nodes.some((node) => node.type === 'loop' || node.type === 'parallel')
+  )
+    return undefined;
+  const toolNodes = plan.nodes.filter((node) => node.type === 'mcp_tool');
+  if (
+    toolNodes.length !== expectedDispatchCount ||
+    new Set(toolNodes.map((node) => node.nodeId)).size !== expectedDispatchCount ||
+    toolNodes.some(
+      (node) =>
+        node.serverId !== provider.serverId ||
+        node.toolName !== provider.toolName ||
+        !node.taskRequired,
+    )
+  )
+    return undefined;
+  for (const [index, node] of toolNodes.entries()) {
+    const previous = toolNodes[index - 1];
+    const next = toolNodes[index + 1];
+    const incoming = plan.edges.filter((edge) => edge.targetNodeId === node.nodeId);
+    const outgoing = plan.edges.filter((edge) => edge.sourceNodeId === node.nodeId);
+    if (
+      (previous === undefined
+        ? incoming.length > 1
+        : incoming.length !== 1 || incoming[0]?.sourceNodeId !== previous.nodeId) ||
+      (next === undefined
+        ? outgoing.length > 1
+        : outgoing.length !== 1 || outgoing[0]?.targetNodeId !== next.nodeId)
+    )
+      return undefined;
+  }
+  return Object.freeze(toolNodes);
+}
+
+function boundedMovementSatisfied(
+  constraint: Readonly<Record<string, unknown>>,
+  proof: PhysicalDispatchProof,
+  binding: TaskCapabilityBinding,
+): boolean {
+  const toolName = constraint['toolName'];
+  const missionType = constraint['missionType'];
+  const missionTypePath = propertyPath(constraint['missionTypeArgumentPath']);
+  const directionPath = propertyPath(constraint['directionArgumentPath']);
+  const distancePath = propertyPath(constraint['distanceArgumentPath']);
+  const allowedDirections = stringValues(constraint['allowedDirections']);
+  const exclusiveMinimum = constraint['exclusiveMinimum'];
+  const maximumInclusive = constraint['maximumInclusive'];
+  const exactDirection = constraint['exactDirection'];
+  const exactDistancePerDispatch = constraint['exactDistancePerDispatch'];
+  const exactDispatchCount = constraint['exactDispatchCount'];
+  const exactTotalDistance = constraint['exactTotalDistance'];
+  if (
+    typeof toolName !== 'string' ||
+    typeof missionType !== 'string' ||
+    missionTypePath === undefined ||
+    directionPath === undefined ||
+    distancePath === undefined ||
+    allowedDirections === undefined ||
+    allowedDirections.length === 0 ||
+    typeof exclusiveMinimum !== 'number' ||
+    !Number.isFinite(exclusiveMinimum) ||
+    typeof maximumInclusive !== 'number' ||
+    !Number.isFinite(maximumInclusive) ||
+    maximumInclusive <= exclusiveMinimum ||
+    typeof exactDirection !== 'string' ||
+    exactDirection.trim() === '' ||
+    typeof exactDistancePerDispatch !== 'number' ||
+    !Number.isFinite(exactDistancePerDispatch) ||
+    !Number.isSafeInteger(exactDispatchCount) ||
+    typeof exactDispatchCount !== 'number' ||
+    exactDispatchCount < 1 ||
+    typeof exactTotalDistance !== 'number' ||
+    !Number.isFinite(exactTotalDistance) ||
+    constraint['strictSequential'] !== true ||
+    constraint['terminalBeforeNext'] !== true
+  )
+    return false;
+  const inputDirection = valueAtPath(binding.inputSnapshot, directionPath);
+  const inputDistance = valueAtPath(binding.inputSnapshot, distancePath);
+  return (
+    inputDirection === exactDirection &&
+    inputDistance === exactDistancePerDispatch &&
+    exactDispatchCount === proof.expectedDispatchCount &&
+    nearlyEqual(exactDistancePerDispatch * exactDispatchCount, exactTotalDistance) &&
+    proof.dispatches.every(({ invocation }) => {
+      const direction = valueAtPath(invocation.arguments, directionPath);
+      const distance = valueAtPath(invocation.arguments, distancePath);
+      return (
+        invocation.toolName === toolName &&
+        valueAtPath(invocation.arguments, missionTypePath) === missionType &&
+        direction === exactDirection &&
+        typeof direction === 'string' &&
+        allowedDirections.includes(direction) &&
+        distance === exactDistancePerDispatch &&
+        typeof distance === 'number' &&
+        Number.isFinite(distance) &&
+        distance > exclusiveMinimum &&
+        distance <= maximumInclusive
+      );
+    })
+  );
+}
+
+function nearlyEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= Number.EPSILON * Math.max(1, Math.abs(left), Math.abs(right));
+}
+
+function compareInvocationOrder(left: McpInvocation, right: McpInvocation): number {
+  return (
+    left.startedAt.localeCompare(right.startedAt) ||
+    left.invocationId.localeCompare(right.invocationId)
+  );
+}
+
+function parseTimestamp(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function nonEmpty(value: string | undefined): value is string {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function propertyPath(value: unknown): readonly string[] | undefined {
+  return Array.isArray(value) && value.length > 0 && value.every(nonEmpty)
+    ? (value as readonly string[])
+    : undefined;
+}
+
+function stringValues(value: unknown): readonly string[] | undefined {
+  return Array.isArray(value) && value.length > 0 && value.every(nonEmpty)
+    ? (value as readonly string[])
+    : undefined;
+}
+
+function valueAtPath(value: unknown, path: readonly string[]): unknown {
+  let current = value;
+  for (const part of path) {
+    if (!isRecord(current)) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
 function criterionSatisfied(
   criterion: Readonly<Record<string, unknown>>,
   result: Readonly<Record<string, unknown>>,
   binding: TaskCapabilityBinding,
   invocations: readonly McpInvocation[],
   context: Readonly<{ outputSchemaValid?: boolean }>,
+  physicalDispatches?: PhysicalDispatchProof,
 ) {
   if (criterion['type'] === 'field_equals' && typeof criterion['field'] === 'string')
     return Object.is(result[criterion['field']], criterion['value']);
@@ -543,8 +1049,16 @@ function criterionSatisfied(
     return resourceIdentityMatches(binding, result);
   if (criterion['type'] === 'required_evidence_complete' && criterion['required'] === true)
     return binding.evidenceRequirementSnapshot.every((requirement) =>
-      evidenceSatisfied(requirement, result, binding, invocations),
+      evidenceSatisfied(requirement, result, binding, invocations, physicalDispatches),
     );
+  if (criterion['type'] === 'mcp_acceptance_is_terminal_success')
+    return criterion['value'] === false && physicalDispatches?.valid === true;
+  if (criterion['type'] === 'remote_task_identity_present' && criterion['required'] === true)
+    return physicalDispatches?.valid === true;
+  if (criterion['type'] === 'remote_terminal_observation_present' && criterion['required'] === true)
+    return physicalDispatches?.valid === true;
+  if (criterion['type'] === 'external_command_dispatch_count' && physicalDispatches?.valid === true)
+    return exactDispatchCriterionCount(criterion) === physicalDispatches.expectedDispatchCount;
   // State confirmation and restoration are write-side semantics. They remain
   // fail-closed until an authoritative write lifecycle supplies those proofs.
   return false;
@@ -555,6 +1069,7 @@ function evidenceSatisfied(
   result: Readonly<Record<string, unknown>>,
   binding: TaskCapabilityBinding,
   invocations: readonly McpInvocation[],
+  physicalDispatches?: PhysicalDispatchProof,
 ) {
   if (requirement['type'] === 'provider_result' && typeof requirement['field'] === 'string')
     return providerResultEvidenceSatisfied(requirement, result, binding, invocations);
@@ -565,6 +1080,17 @@ function evidenceSatisfied(
     requirement['required'] === true
   ) {
     const evidenceType = requirement['evidenceType'];
+    if (physicalDispatches !== undefined)
+      return (
+        physicalDispatches.valid &&
+        physicalDispatches.dispatches.every(({ evidence }) =>
+          providerEvidencePresent(
+            evidence.remoteTask?.providerEvidence,
+            evidenceType,
+            requirement['hardGate'] === true,
+          ),
+        )
+      );
     const policy = providerBindingPolicy(binding.constraintSnapshot);
     if (policy === undefined) return false;
     return invocations.some(
@@ -649,6 +1175,7 @@ function constraintSatisfied(
   result: Readonly<Record<string, unknown>>,
   binding: TaskCapabilityBinding,
   invocations: readonly McpInvocation[],
+  physicalDispatches?: PhysicalDispatchProof,
 ) {
   if (constraint['type'] === 'authorization' || constraint['type'] === 'safety') {
     const evidence = result['policyEvidence'];
@@ -663,6 +1190,20 @@ function constraintSatisfied(
   if (constraint['type'] === 'resource_policy') {
     const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
     const resourceId = input?.['resourceId'];
+    if (physicalDispatches !== undefined)
+      return (
+        constraint['identifierAuthority'] === 'public_smpp_tool_schema' &&
+        constraint['selection'] === 'exact_value' &&
+        constraint['downstreamResourceBinding'] === 'forbidden' &&
+        typeof resourceId === 'string' &&
+        Array.isArray(constraint['allowedResourceIds']) &&
+        constraint['allowedResourceIds'].includes(resourceId) &&
+        resourceIdentityMatches(binding, result) &&
+        physicalDispatches.valid &&
+        physicalDispatches.dispatches.every(
+          ({ invocation }) => invocation.arguments['resourceId'] === resourceId,
+        )
+      );
     return (
       constraint['identifierAuthority'] === 'public_resource_id' &&
       constraint['selection'] === 'request_value' &&
@@ -677,6 +1218,20 @@ function constraintSatisfied(
   if (constraint['type'] === 'provider_binding_policy') {
     const policy = providerBindingPolicy([constraint]);
     if (policy === undefined) return false;
+    if (physicalDispatches !== undefined)
+      return (
+        physicalDispatches.valid &&
+        constraint['requiredStatus'] === 'active' &&
+        constraint['requiredAvailabilityStatus'] === 'available' &&
+        constraint['requiredFreshness'] === 'unexpired' &&
+        constraint['fallback'] === 'deny' &&
+        physicalDispatches.dispatches.every(
+          ({ invocation }) =>
+            invocation.serverId === policy.serverId &&
+            invocation.toolName === policy.toolName &&
+            invocation.controlProviderBindingId === constraint['mcpProviderBindingId'],
+        )
+      );
     return (
       constraint['requiredStatus'] === 'active' &&
       constraint['requiredAvailabilityStatus'] === 'available' &&
@@ -696,19 +1251,54 @@ function constraintSatisfied(
     const skillId = constraint['skillId'];
     const skillVersion = constraint['skillVersion'];
     const taskType = constraint['taskType'];
-    return (
+    const exact =
       typeof skillId === 'string' &&
       Number.isSafeInteger(skillVersion) &&
       binding.initialImplementationRefs.includes(`skill:${skillId}:${String(skillVersion)}`) &&
-      typeof taskType === 'string' &&
-      invocations.some(
-        (invocation) => invocation.status === 'succeeded' && invocation.toolName === taskType,
-      )
-    );
+      typeof taskType === 'string';
+    if (!exact) return false;
+    return physicalDispatches === undefined
+      ? invocations.some(
+          (invocation) => invocation.status === 'succeeded' && invocation.toolName === taskType,
+        )
+      : physicalDispatches.valid &&
+          physicalDispatches.dispatches.every(({ invocation }) => invocation.toolName === taskType);
   }
   if (constraint['type'] === 'confirmation_policy')
-    return constraint['required'] === false && constraint['stage'] === 'not_applicable';
+    return physicalDispatches === undefined
+      ? constraint['required'] === false && constraint['stage'] === 'not_applicable'
+      : constraint['required'] === true &&
+          ['before_execution', 'pre_dispatch'].includes(String(constraint['stage'])) &&
+          physicalDispatches.valid;
+  if (constraint['type'] === 'physical_side_effect_policy')
+    return (
+      physicalDispatches?.valid === true &&
+      constraint['sideEffecting'] === true &&
+      constraint['dispatchMaximum'] === physicalDispatches.expectedDispatchCount &&
+      constraint['uncertainDispatchPolicy'] === 'reconcile_never_redispatch' &&
+      constraint['remoteTaskTerminalEvidenceRequired'] === true
+    );
+  if (constraint['type'] === 'bounded_movement_policy')
+    return (
+      physicalDispatches?.valid === true &&
+      boundedMovementSatisfied(constraint, physicalDispatches, binding)
+    );
   return false;
+}
+
+function exactDispatchCriterionCount(
+  criterion: Readonly<Record<string, unknown>>,
+): number | undefined {
+  const exact = criterion['exact'];
+  if (typeof exact === 'number' && Number.isSafeInteger(exact) && exact > 0) return exact;
+  const minimum = criterion['minimum'];
+  const maximum = criterion['maximum'];
+  return typeof minimum === 'number' &&
+    Number.isSafeInteger(minimum) &&
+    minimum > 0 &&
+    minimum === maximum
+    ? minimum
+    : undefined;
 }
 
 function resourceIdentityMatches(

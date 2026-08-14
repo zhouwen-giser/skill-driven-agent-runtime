@@ -49,11 +49,11 @@ const BindingSchema = z
     createdAt: z.iso.datetime({ offset: true }).optional(),
   })
   .strict();
-const BindingListSchema = z
+const CapabilityAuthoritySchema = z
   .object({
-    items: z.array(BindingSchema),
-    totalEstimate: z.number().int().nonnegative(),
-    asOf: z.iso.datetime({ offset: true }),
+    observedAt: z.iso.datetime({ offset: true }),
+    definition: DefinitionSchema,
+    implementationBindings: z.array(BindingSchema),
   })
   .strict();
 
@@ -154,28 +154,29 @@ export class HttpNodeControlCapabilityEvidenceReader
 {
   readonly #baseUrl: string;
   readonly #serviceToken: string;
+  readonly #bindingServiceToken: string;
 
   constructor(
-    input: Readonly<{ baseUrl: string; serviceToken: string; unsafeTestOpen?: boolean }>,
+    input: Readonly<{
+      baseUrl: string;
+      serviceToken: string;
+      bindingServiceToken?: string;
+      unsafeTestOpen?: boolean;
+    }>,
   ) {
     this.#baseUrl = admittedControlBaseUrl(input.baseUrl, input.unsafeTestOpen === true);
     this.#serviceToken = input.serviceToken;
+    this.#bindingServiceToken = input.bindingServiceToken ?? input.serviceToken;
   }
 
   async load(capabilityId: string, version: number): Promise<CapabilityAuthoritySnapshot> {
-    const path = `/api/v1/node-capabilities/${encodeURIComponent(capabilityId)}/versions/${String(version)}`;
-    const [definitionResponse, bindingsResponse] = await Promise.all([
-      globalThis.fetch(`${this.#baseUrl}${path}`, {
-        headers: this.#headers(),
-        redirect: 'manual',
-      }),
-      globalThis.fetch(`${this.#baseUrl}${path}/implementations?pageSize=200`, {
-        headers: this.#headers(),
-        redirect: 'manual',
-      }),
-    ]);
-    const definition = DefinitionSchema.parse(await responseJson(definitionResponse));
-    const bindings = BindingListSchema.parse(await responseJson(bindingsResponse));
+    const path = `/internal/v1/node-capabilities/${encodeURIComponent(capabilityId)}/versions/${String(version)}/authority`;
+    const response = await globalThis.fetch(`${this.#baseUrl}${path}`, {
+      headers: this.#headers(this.#bindingServiceToken),
+      redirect: 'manual',
+    });
+    const authority = CapabilityAuthoritySchema.parse(await responseJson(response));
+    const { definition } = authority;
     if (definition.capabilityId !== capabilityId || definition.version !== version)
       throw new Error('NODE_CONTROL_CAPABILITY_IDENTITY_MISMATCH');
     return Object.freeze({
@@ -199,10 +200,10 @@ export class HttpNodeControlCapabilityEvidenceReader
         previous_version: definition.previousVersion ?? null,
         created_by: definition.createdBy ?? null,
         created_at: definition.createdAt ?? null,
-        updated_at: definition.updatedAt ?? definition.createdAt ?? bindings.asOf,
+        updated_at: definition.updatedAt ?? definition.createdAt ?? authority.observedAt,
       }),
       implementationBindings: Object.freeze(
-        bindings.items.map((binding) =>
+        authority.implementationBindings.map((binding) =>
           Object.freeze({
             binding_id: binding.bindingId,
             revision: binding.revision,
@@ -216,7 +217,7 @@ export class HttpNodeControlCapabilityEvidenceReader
             activation_condition: binding.activationCondition ?? null,
             provider_policy_override: binding.providerPolicyOverride ?? null,
             status: binding.status,
-            created_at: binding.createdAt ?? bindings.asOf,
+            created_at: binding.createdAt ?? authority.observedAt,
           }),
         ),
       ),
@@ -230,7 +231,7 @@ export class HttpNodeControlCapabilityEvidenceReader
     if (input.bindingId !== undefined) query.set('bindingId', input.bindingId);
     const response = await globalThis.fetch(
       `${this.#baseUrl}/internal/v1/mcp-provider-bindings/current?${query.toString()}`,
-      { headers: this.#headers(), redirect: 'manual' },
+      { headers: this.#headers(this.#bindingServiceToken), redirect: 'manual' },
     );
     const authority = CurrentMcpProviderBindingAuthoritySchema.parse(await responseJson(response));
     return Object.freeze({
@@ -266,8 +267,8 @@ export class HttpNodeControlCapabilityEvidenceReader
     });
   }
 
-  #headers(): Readonly<Record<string, string>> {
-    return Object.freeze({ authorization: `Bearer ${this.#serviceToken}` });
+  #headers(token = this.#serviceToken): Readonly<Record<string, string>> {
+    return Object.freeze({ authorization: `Bearer ${token}` });
   }
 }
 

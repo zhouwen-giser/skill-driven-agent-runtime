@@ -24,6 +24,9 @@ const nodeControlAuthorityReader =
     : new HttpNodeControlCapabilityEvidenceReader({
         baseUrl: environment.SDAR_NODE_CONTROL_BASE_URL,
         serviceToken: environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN,
+        ...(environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN === undefined
+          ? {}
+          : { bindingServiceToken: environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN }),
         unsafeTestOpen: environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
       });
 const runtime = await startServerRuntime({

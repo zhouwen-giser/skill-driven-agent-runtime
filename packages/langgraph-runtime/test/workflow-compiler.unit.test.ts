@@ -338,6 +338,95 @@ describe('LangGraph Workflow compiler', () => {
     expect(executeLlm).not.toHaveBeenCalled();
   });
 
+  it('continues five sequential task-required Tool nodes only after each remote terminal result', async () => {
+    const executionId = 'execution.five-segments';
+    const segmentIds = Array.from({ length: 5 }, (_, index) => `segment-${String(index + 1)}`);
+    const workflow = definition(
+      [
+        ...segmentIds.map((nodeId) => ({
+          nodeId,
+          name: `Move segment ${nodeId}`,
+          type: 'mcp_tool' as const,
+          tool: { serverId: 'provider', toolName: 'vehicle_navigate' },
+          arguments: {
+            resourceId: 'vehicle:ugv1',
+            mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+          },
+          taskExecution: {
+            protocolMode: 'frozen_v1' as const,
+            availabilityCheck: 'required' as const,
+          },
+        })),
+        {
+          nodeId: 'result',
+          name: 'All segments completed',
+          type: 'result' as const,
+          value: { op: 'literal' as const, value: true },
+        },
+      ],
+      [
+        ...segmentIds.slice(0, -1).map((nodeId, index) => ({
+          sourceNodeId: nodeId,
+          targetNodeId: segmentIds[index + 1]!,
+        })),
+        { sourceNodeId: segmentIds.at(-1)!, targetNodeId: 'result' },
+      ],
+      segmentIds[0]!,
+      ['result'],
+    );
+    const callMcpTool = vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) =>
+      Promise.resolve(externalWait(executionId, input.workflowNodeId)),
+    );
+    let execution = await compileWorkflow(workflow, 'confirmed', ports({ callMcpTool })).invoke(
+      {},
+      { ...budget, maxMcpCalls: 5 },
+      costs,
+      undefined,
+      executionId,
+    );
+
+    for (const [index, nodeId] of segmentIds.entries()) {
+      expect(execution.status).toBe('waiting_external');
+      const continuation = execution.continuation;
+      const waiting = continuation?.waitingNodeRuns[0];
+      if (continuation === undefined || waiting === undefined)
+        throw new Error('TEST_CONTINUATION_MISSING');
+      expect(waiting).toMatchObject({
+        nodeId,
+        nodeRunId: `${executionId}~${nodeId}~1`,
+      });
+
+      execution = await compileWorkflow(
+        workflow,
+        'confirmed',
+        ports({ callMcpTool }),
+      ).continueExternal(
+        executionId,
+        continuation,
+        {
+          kind: 'completed',
+          waitId: waiting.waitId,
+          nodeRunId: waiting.nodeRunId,
+          result: {
+            content: [],
+            structuredContent: { segment: index + 1, terminal: true },
+            isError: false,
+          },
+        },
+        costs,
+        undefined,
+        `continuation-attempt-${String(index + 1)}`,
+      );
+    }
+
+    expect(execution).toMatchObject({
+      status: 'succeeded',
+      result: true,
+      budgetUsage: { mcpCalls: 5 },
+    });
+    expect(callMcpTool.mock.calls.map(([input]) => input.workflowNodeId)).toEqual(segmentIds);
+  });
+
   it('waits for a child Workflow and continues its Skill call from a fresh runtime', async () => {
     const executionId = 'execution.child-wait';
     const nodeRunId = `${executionId}~child~1`;

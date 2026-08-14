@@ -7,9 +7,11 @@
 - The latest materialized authority is Provider Binding revision 2, Runtime tool revision 2 and
   Catalog `2.0.0-rc.1:2` with 11 operations. Its availability/readiness windows are point-in-time
   observations and have not been promoted into current-liveness evidence.
-- Five read-only Skills are published at version 4 and five read Capabilities at version 2. Five
-  controls remain Draft/non-selectable without implementation bindings. Fire has no Capability or
-  Skill and was not invoked, but an unconditional Runtime hard deny for generic Workflow access to
+- The latest disposable integration database publishes five read-only Skills/Capabilities and one
+  explicitly activated navigate Skill/Capability; the other four controls remain
+  Draft/non-selectable. Navigate is frozen as one linear five-dispatch procedure with exact
+  `forward / 2 m` arguments and a 10 m aggregate. Fire has no Capability or Skill and was not
+  invoked, but an unconditional Runtime hard deny for generic Workflow access to
   `vehicle_fire_weapon` is not proven.
 - The live contract does not declare execution semantics. Tool effect and task behavior therefore
   use reviewed `admin_override` values; this is not Runtime-declared semantic authority and does
@@ -40,16 +42,22 @@
 - `a2a-readonly.json` is the primary real run016 failure report. Detailed Task/Goal/Capability/MCP
   lineage is separately preserved in `failed-attempts/a2a-readonly-run016.redacted.json`; neither
   report is a passing A2A qualification.
-- The earlier deterministic live read and the latest A2A live read both failed at the external
-  execution-mode boundary. Successful deterministic reads, broader end-to-end restart recovery,
-  complete successful invocation lineage and a real physical UGV remain unproven.
+- The earlier deterministic live read, A2A live read, and a fresh 2026-08-14 deterministic attempt
+  all failed at the external execution-mode boundary. The latest failed invocation is preserved in
+  `failed-attempts/deterministic-live-20260814-0159.redacted.json`. Successful deterministic reads,
+  broader end-to-end restart recovery, complete successful invocation lineage and a real physical
+  UGV remain unproven.
+- The five-dispatch code does not claim that remote command completion proves chassis stationarity.
+  The deployed `vehicle_get_state` output schema does not freeze authoritative
+  fresh/connected/stationary/unowned-task fields, and node-scoped one-shot sequence confirmation is
+  not yet implemented. Both remain closed prerequisites for physical dispatch.
 - The requested `unsafe_test_open` policy bypasses outbound authority membership and the
   HTTPS-required rule only for explicit development/test/integration deployments. It remains
   rejected in Production; HTTPS certificate validation, URL-credential rejection and scheme
   validation remain enabled.
 - All physical-write gates are closed. No movement, recon, gimbal, tracking, lifecycle control,
-  emergency stop or recovery-side-effect scenario has been attempted. Physical writes, control
-  calls and fire calls remain zero.
+  emergency stop or recovery-side-effect scenario has been attempted. The latest live attempt was
+  read-only; physical writes, navigate calls and fire calls remain zero.
 - A historical disposable local bootstrap incorrectly published five control authorities. Its
   evidence remains under `failed-attempts/` and is excluded from qualification. Current governance
   correctly stages controls non-executable; the one-time remediation driver was not run against

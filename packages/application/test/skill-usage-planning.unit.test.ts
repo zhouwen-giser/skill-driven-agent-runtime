@@ -198,6 +198,120 @@ describe('Skill Usage Workflow planning', () => {
     });
   });
 
+  it('preserves repeated bindings to one Task operation as explicit sequential Tool nodes', () => {
+    const taskBindings = Array.from({ length: 5 }, (_, index) => ({
+      ...usage.taskBindings[0]!,
+      bindingId: `move-segment-${String(index + 1)}`,
+    }));
+    const repeatedUsage = createSkillUsageSpecification({
+      ...usage,
+      taskBindings,
+    });
+    const repeatedSkill = createSkillVersion({
+      ...skill,
+      runtimePolicy: { ...skill.runtimePolicy, maxMcpCalls: 5 },
+      usageSpecification: repeatedUsage,
+    });
+    const baseCandidate = candidate('procedure');
+    const repeatedCandidate: SkillUsageCandidateSnapshot = {
+      ...baseCandidate,
+      applicability: {
+        ...baseCandidate.applicability,
+        readiness: {
+          overall: 'ready',
+          bindings: taskBindings.map((binding) => ({
+            bindingId: binding.bindingId,
+            taskType: binding.taskType,
+            disposition: 'ready' as const,
+            confirmationRequired: true,
+            reasonCodes: [],
+            selectedProviderId: 'provider.motion',
+            selectedOperationName: 'embodied.move',
+            selectedProtocolMode: 'frozen_v1' as const,
+            candidates: [
+              {
+                providerId: 'provider.motion',
+                operationName: 'embodied.move',
+                protocolMode: 'frozen_v1' as const,
+                attributes: ['task_behavior:task_required'],
+                disposition: 'restricted' as const,
+                riskLevel: 'high' as const,
+                nextAvailableWindows: [],
+                reservationMode: 'none' as const,
+                possibleEffects: [],
+                selected: true,
+                reasonCodes: ['CONFIRMATION_REQUIRED'],
+              },
+            ],
+          })),
+        },
+      },
+    };
+    const prepared = prepareSkillUsagePlan({
+      skill: repeatedSkill,
+      candidate: repeatedCandidate,
+      interpretation: {
+        kind: 'procedure',
+        apiVersion: 'sdar.io/v1alpha1',
+        skill: { skillId: repeatedSkill.skillId, skillVersion: repeatedSkill.version },
+        instructions: repeatedUsage.modes.procedure?.instructions ?? [],
+        steps: [
+          {
+            stepId: 'task-bindings',
+            kind: 'task_binding',
+            bindingIds: taskBindings.map((binding) => binding.bindingId),
+          },
+        ],
+        composition: directComposition,
+      },
+      goalContract: planningInput('procedure').goalContract,
+      workflowDefinitionId: 'workflow.repeated-move',
+      workflowVersion: 1,
+    });
+    const definition = prepared.deterministicDefinition;
+    if (definition === undefined) throw new Error('DETERMINISTIC_DEFINITION_EXPECTED');
+
+    const taskNodes = definition.nodes.filter((node) => node.type === 'mcp_tool');
+    expect(taskNodes.map((node) => node.nodeId)).toEqual([
+      'usage_task_0',
+      'usage_task_1',
+      'usage_task_2',
+      'usage_task_3',
+      'usage_task_4',
+    ]);
+    expect(
+      definition.edges.filter(
+        (edge) =>
+          edge.sourceNodeId.startsWith('usage_task_') &&
+          edge.targetNodeId.startsWith('usage_task_'),
+      ),
+    ).toEqual([
+      { sourceNodeId: 'usage_task_0', targetNodeId: 'usage_task_1' },
+      { sourceNodeId: 'usage_task_1', targetNodeId: 'usage_task_2' },
+      { sourceNodeId: 'usage_task_2', targetNodeId: 'usage_task_3' },
+      { sourceNodeId: 'usage_task_3', targetNodeId: 'usage_task_4' },
+    ]);
+    expect(checkSkillUsagePlanCompliance(definition, prepared.policy)).toEqual({
+      compliant: true,
+      errors: [],
+    });
+
+    const collapsed: WorkflowDefinition = {
+      ...definition,
+      nodes: definition.nodes.filter(
+        (node) => node.type !== 'mcp_tool' || node.nodeId === 'usage_task_0',
+      ),
+    };
+    expect(checkSkillUsagePlanCompliance(collapsed, prepared.policy)).toMatchObject({
+      compliant: false,
+      errors: [
+        expect.objectContaining({
+          code: 'SKILL_USAGE_TASK_BINDING_MULTIPLICITY_MISSING',
+        }),
+      ],
+    });
+  });
+
   it('rejects provider, confirmation, failure-policy, recursion and evidence violations structurally', () => {
     const prepared = prepareSkillUsagePlan({
       ...planningInput('procedure'),

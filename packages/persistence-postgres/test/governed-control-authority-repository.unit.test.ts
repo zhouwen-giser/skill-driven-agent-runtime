@@ -83,6 +83,8 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     expect(query.mock.calls[0]?.[0]).toContain('JOIN task_capability_binding');
     expect(query.mock.calls[0]?.[0]).toContain('JOIN LATERAL');
     expect(query.mock.calls[0]?.[0]).toContain('FROM governed_control_confirmation');
+    expect(query.mock.calls[0]?.[0]).toContain('current_confirmation.revoked_at IS NULL');
+    expect(query.mock.calls[0]?.[0]).toContain('current_confirmation.consumed_at IS NULL');
     expect(query.mock.calls[0]?.[1]).toEqual([
       'task-control-1',
       'provider-control',

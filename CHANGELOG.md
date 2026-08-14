@@ -26,6 +26,12 @@ All notable changes to this project are documented here. The format follows Keep
   `UGV_EXECUTION_MODE_UNSUPPORTED`; simulation readiness returned
   `UGV_DEVICE_MCP_UNAVAILABLE` before invocation, and a direct simulation compatibility probe
   returned `UGV_ADAPTER_INTERNAL_ERROR`.
+- Merged current `main` before physical debugging and added an explicitly activated, single-Task
+  navigate procedure with five linear `vehicle_navigate` nodes. Each dispatch is frozen to exactly
+  `forward / 2 m`; the terminal proof rejects extra, reordered, branched, uncertain or incomplete
+  dispatches. A fresh real read reached the adapter but again failed
+  `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, so no navigate or physical write
+  was attempted.
 - Executed real A2A read-only `run016` through Task/Goal/User Goal Plan, exact
   `ugv.get-state@4`, `vehicle.ugv.read-state@2`, Exposure v2 and live MCP invocation
   `mcp-invocation-fb54fcdb-dabf-42ee-85d6-eebcb7aa8717`. The adapter returned

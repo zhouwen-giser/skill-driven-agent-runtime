@@ -173,6 +173,39 @@ export function checkSkillUsagePlanCompliance(
         `taskBindings.${task.bindingId}`,
         'Selected Task binding is absent from the Workflow.',
       );
+  const taskOperationMultiplicity = new Map<
+    string,
+    Readonly<{
+      providerId: string;
+      operationName: string;
+      bindingIds: string[];
+    }>
+  >();
+  for (const task of policy.taskOperations) {
+    const key = `${task.providerId}/${task.operationName}`;
+    const current = taskOperationMultiplicity.get(key);
+    if (current === undefined)
+      taskOperationMultiplicity.set(key, {
+        providerId: task.providerId,
+        operationName: task.operationName,
+        bindingIds: [task.bindingId],
+      });
+    else current.bindingIds.push(task.bindingId);
+  }
+  for (const operation of taskOperationMultiplicity.values()) {
+    const matchingNodeCount = toolNodes.filter(
+      (node) =>
+        node.tool.serverId === operation.providerId &&
+        node.tool.toolName === operation.operationName,
+    ).length;
+    if (matchingNodeCount < operation.bindingIds.length)
+      error(
+        errors,
+        'SKILL_USAGE_TASK_BINDING_MULTIPLICITY_MISSING',
+        `taskBindings.${operation.bindingIds.join(',')}`,
+        `Workflow requires ${String(operation.bindingIds.length)} explicit ${operation.providerId}/${operation.operationName} nodes but contains ${String(matchingNodeCount)}.`,
+      );
+  }
 
   const skillNodes = definition.nodes.filter((node) => node.type === 'skill_call');
   const allowedChildIds = new Set(policy.childPolicies.map((item) => item.child.skillId));

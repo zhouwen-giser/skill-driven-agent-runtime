@@ -326,6 +326,40 @@ describe('MCP Registry invocation boundary', () => {
     ]);
   });
 
+  it('forwards exact nested navigate distance arguments through authority before transport', async () => {
+    const order: string[] = [];
+    const fixture = createFixture({
+      toolName: 'vehicle_navigate',
+      toolEffect: 'side_effecting',
+      order,
+    });
+    const arguments_ = {
+      resourceId: 'vehicle:ugv1',
+      mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+    };
+
+    await fixture.service.callDetailed('provider-1', 'vehicle_navigate', arguments_, undefined, {
+      taskId: 'task-control-1',
+      capabilityAttemptId: 'capability-attempt-control-1',
+      providerBindingId: 'binding-provider-1',
+      providerId: 'external-provider-1',
+    });
+
+    expect(fixture.controlAuthority).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'vehicle_navigate',
+        arguments: arguments_,
+      }),
+    );
+    expect(fixture.call).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'vehicle_navigate',
+        arguments: arguments_,
+      }),
+    );
+    expect(order.indexOf('control-authority')).toBeLessThan(order.indexOf('provider-call'));
+  });
+
   it('rejects a disabled Server before Frozen authority lookup or Provider transport', async () => {
     const fixture = createFixture({ serverStatus: 'disabled' });
 

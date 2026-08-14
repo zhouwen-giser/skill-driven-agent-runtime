@@ -2,10 +2,10 @@
   "schemaVersion": "sdar.ugv-smpp-model-stage-conformance/v1",
   "status": "passed",
   "evidenceClass": "real_model_provider",
-  "observedAt": "2026-08-12T09:59:21.618Z",
+  "observedAt": "2026-08-14T01:32:00.930Z",
   "provider": {
     "providerId": "ugv-real-model",
-    "model": "qwen3.7-max",
+    "model": "qwen3.7-plus",
     "apiStyle": "openai_chat_completions",
     "connectivity": "passed",
     "credentialsRedacted": true

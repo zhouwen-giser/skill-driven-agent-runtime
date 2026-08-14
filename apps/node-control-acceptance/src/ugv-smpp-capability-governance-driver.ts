@@ -22,6 +22,12 @@ const UGV_BINDING_ID = 'mcp-binding-ugv-smpp';
 const FIRE_TOOL_NAME = 'vehicle_fire_weapon';
 const FIRE_CAPABILITY_ID = 'vehicle.ugv.fire-weapon';
 const FIRE_SKILL_ID = 'ugv.fire-weapon';
+const NAVIGATE_TOOL_NAME = 'vehicle_navigate';
+const NAVIGATE_EXACT_DISPATCH_COUNT = 5;
+const NAVIGATE_EXACT_DIRECTION = 'forward';
+const NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS = 2;
+const NAVIGATE_EXACT_TOTAL_DISTANCE_METERS = 10;
+const NAVIGATE_ARGUMENT_CONSTRAINT_ID = 'vehicle-navigate-distance-per-dispatch';
 
 type GovernanceKind = 'read_only' | 'long_running_control' | 'emergency_stop';
 
@@ -156,6 +162,8 @@ export interface UgvSmppCapabilityGovernanceConfiguration {
   readonly runId: string;
   /** Required only when the live public Tool schemas admit more than one resource ID. */
   readonly resourceId?: string;
+  /** Explicitly publishes only the bounded vehicle_navigate control authority. */
+  readonly activateNavigateControl?: boolean;
 }
 
 export interface UgvSmppCapabilityGovernanceReport {
@@ -477,22 +485,20 @@ export async function governUgvSmppCapabilities(
       item.skillVersion,
       request,
     );
+    const publishAuthority = shouldPublishAuthority(item.spec, configuration);
     if (
       existingRuntimeSkill !== undefined &&
-      item.spec.kind !== 'read_only' &&
+      !publishAuthority &&
       existingRuntimeSkill.status !== 'draft'
     )
       fail(
         'CONTROL_GOVERNANCE_EXECUTABLE',
-        'A staged UGV control Skill is executable and must be suspended before read-only qualification can continue.',
+        'A staged UGV control Skill is executable and must be suspended before governance can continue.',
       );
     if (existingRuntimeSkill !== undefined) {
       assertRuntimeSkillContentExact(existingRuntimeSkill, item.skill, item.usage);
-      if (
-        item.spec.kind === 'read_only' &&
-        !['draft', 'enabled'].includes(existingRuntimeSkill.status)
-      )
-        fail('SKILL_LIFECYCLE_INVALID', 'A read-only Skill version is not publishable.');
+      if (publishAuthority && !['draft', 'enabled'].includes(existingRuntimeSkill.status))
+        fail('SKILL_LIFECYCLE_INVALID', 'A governed Skill version is not publishable.');
     }
     const existingCapability = await controlGetCapability(
       configuration,
@@ -503,10 +509,10 @@ export async function governUgvSmppCapabilities(
     let existingImplementation: CapabilityImplementationBinding | undefined;
     if (existingCapability !== undefined) {
       assertCapabilityExact(existingCapability, item.capability);
-      if (item.spec.kind !== 'read_only' && existingCapability.status !== 'draft')
+      if (!publishAuthority && existingCapability.status !== 'draft')
         fail(
           'CONTROL_GOVERNANCE_EXECUTABLE',
-          'A staged UGV control Capability is no longer draft and must be suspended before read-only qualification can continue.',
+          'A staged UGV control Capability is no longer draft and must be suspended before governance can continue.',
         );
       const implementations = await controlGetImplementations(
         configuration,
@@ -520,10 +526,10 @@ export async function governUgvSmppCapabilities(
           'A governed Capability has more than one implementation binding.',
         );
       existingImplementation = implementations[0];
-      if (item.spec.kind !== 'read_only' && existingImplementation !== undefined)
+      if (!publishAuthority && existingImplementation !== undefined)
         fail(
           'CONTROL_IMPLEMENTATION_ALREADY_EXISTS',
-          'A staged UGV control Capability has an active implementation and must be suspended before read-only qualification can continue.',
+          'A staged UGV control Capability has an active implementation and must be suspended before governance can continue.',
         );
       if (existingImplementation !== undefined)
         assertImplementationExact(existingImplementation, item.implementation);
@@ -549,6 +555,7 @@ export async function governUgvSmppCapabilities(
     Readonly<{ packageChecksum: string; runtimeStatus: 'draft'; governanceStatus: 'validated' }>
   >();
   for (const item of prepared) {
+    const publishAuthority = shouldPublishAuthority(item.spec, configuration);
     const packageResult = await materializeSkillPackage(
       configuration.packageWorkspaceRoot,
       item.spec,
@@ -575,7 +582,7 @@ export async function governUgvSmppCapabilities(
         ),
       );
     }
-    if (item.spec.kind === 'read_only' && item.existingRuntimeSkill?.status !== 'enabled')
+    if (publishAuthority && item.existingRuntimeSkill?.status !== 'enabled')
       OperationSchema.parse(
         await controlCommand(
           configuration,
@@ -600,7 +607,7 @@ export async function governUgvSmppCapabilities(
     );
     if (runtimeSkill === undefined)
       fail('SKILL_MISSING_AFTER_GOVERNANCE', 'Runtime did not expose the exact Skill version.');
-    const expectedRuntimeStatus = item.spec.kind === 'read_only' ? 'enabled' : 'draft';
+    const expectedRuntimeStatus = publishAuthority ? 'enabled' : 'draft';
     assertRuntimeSkillExact(runtimeSkill, item.skill, item.usage, expectedRuntimeStatus);
     const governed = GovernedSkillSchema.parse(
       await controlGet(
@@ -609,7 +616,7 @@ export async function governUgvSmppCapabilities(
         request,
       ),
     );
-    const expectedGovernedStatus = item.spec.kind === 'read_only' ? 'published' : 'validated';
+    const expectedGovernedStatus = publishAuthority ? 'published' : 'validated';
     assertGovernedSkillExact(
       governed,
       item.skill,
@@ -617,7 +624,7 @@ export async function governUgvSmppCapabilities(
       item.skillVersion,
       expectedGovernedStatus,
     );
-    if (item.spec.kind === 'read_only')
+    if (publishAuthority)
       skills.push(
         Object.freeze({
           skillId: item.spec.skillId,
@@ -644,6 +651,7 @@ export async function governUgvSmppCapabilities(
 
   const readinessTargets: PreparedGovernance[] = [];
   for (const item of prepared) {
+    const publishAuthority = shouldPublishAuthority(item.spec, configuration);
     let capability = item.existingCapability;
     capability ??= CapabilitySchema.parse(
       await controlCreate(
@@ -658,7 +666,7 @@ export async function governUgvSmppCapabilities(
         request,
       ),
     ) as NodeCapabilityDefinitionVersion;
-    if (item.spec.kind === 'read_only' && item.existingImplementation === undefined) {
+    if (publishAuthority && item.existingImplementation === undefined) {
       ImplementationSchema.parse(
         await controlCreate(
           configuration,
@@ -673,7 +681,7 @@ export async function governUgvSmppCapabilities(
         ),
       );
     }
-    if (item.spec.kind !== 'read_only') {
+    if (!publishAuthority) {
       if (capability.status !== 'draft')
         fail('CONTROL_GOVERNANCE_EXECUTABLE', 'A staged UGV control Capability must remain draft.');
       continue;
@@ -770,7 +778,9 @@ export async function governUgvSmppCapabilities(
     ...GOVERNANCE_SPECS.map(({ toolName }) => toolName),
     FIRE_TOOL_NAME,
   ]);
-  const stagedControlPrepared = prepared.filter(({ spec }) => spec.kind !== 'read_only');
+  const stagedControlPrepared = prepared.filter(
+    ({ spec }) => spec.kind !== 'read_only' && !shouldPublishAuthority(spec, configuration),
+  );
   const sharedResource = planned[0]?.resourceId;
   const selection = planned[0]?.resourceSelection;
   if (sharedResource === undefined || selection === undefined)
@@ -895,6 +905,7 @@ async function resolveGovernanceVersions(
   const result = new Map<string, Readonly<{ skillVersion: number; capabilityVersion: number }>>();
   await Promise.all(
     present.map(async (spec) => {
+      const publishAuthority = shouldPublishAuthority(spec, configuration);
       const tool = authority.tools.find(({ toolName }) => toolName === spec.toolName);
       if (tool === undefined)
         return fail('GOVERNANCE_VERSION_MISSING', 'Governance Tool authority is incomplete.');
@@ -903,7 +914,7 @@ async function resolveGovernanceVersions(
       const skills = await runtimeListSkillVersions(configuration, spec.skillId, request);
       const nodes = capabilityVersions.get(spec.capabilityId) ?? [];
       if (
-        spec.kind !== 'read_only' &&
+        !publishAuthority &&
         (skills.some(({ status }) => status !== 'draft') ||
           nodes.some(({ status }) => status !== 'draft'))
       )
@@ -926,11 +937,11 @@ async function resolveGovernanceVersions(
           ? latestSkill.version
           : proposedSkillVersion + (latestSkill === undefined ? 0 : 1);
       if (
-        spec.kind === 'read_only' &&
+        publishAuthority &&
         latestSkill !== undefined &&
         !['draft', 'enabled'].includes(latestSkill.status)
       )
-        fail('SKILL_LIFECYCLE_INVALID', 'The latest read-only Skill version is not publishable.');
+        fail('SKILL_LIFECYCLE_INVALID', 'The latest governed Skill version is not publishable.');
       const latestCapability = maxByVersion(nodes);
       const proposedCapabilityVersion = latestCapability?.version ?? INITIAL_GOVERNANCE_VERSION;
       const proposedCapability = buildCapability(
@@ -946,13 +957,13 @@ async function resolveGovernanceVersions(
           ? latestCapability.version
           : proposedCapabilityVersion + (latestCapability === undefined ? 0 : 1);
       if (
-        spec.kind === 'read_only' &&
+        publishAuthority &&
         latestCapability !== undefined &&
         !['draft', 'validating', 'published'].includes(latestCapability.status)
       )
         fail(
           'CAPABILITY_LIFECYCLE_INVALID',
-          'The latest read-only Capability version is not publishable.',
+          'The latest governed Capability version is not publishable.',
         );
       result.set(spec.skillId, Object.freeze({ skillVersion, capabilityVersion }));
     }),
@@ -1149,6 +1160,36 @@ function validateToolSemantics(spec: GovernanceSpec, tool: Tool, serverId: strin
     );
   requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
+  if (spec.toolName === NAVIGATE_TOOL_NAME) assertNavigateDistanceSchema(tool.inputSchema);
+}
+
+function assertNavigateDistanceSchema(schema: unknown): void {
+  const input = requireObjectSchema(schema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
+  const properties = record(input['properties']);
+  const mission = record(properties?.['mission']);
+  const alternatives = mission?.['oneOf'];
+  const distanceAlternative = Array.isArray(alternatives)
+    ? alternatives.map(record).find((alternative) => {
+        const fields = record(alternative?.['properties']);
+        return record(fields?.['type'])?.['const'] === 'distance';
+      })
+    : undefined;
+  const distanceFields = record(distanceAlternative?.['properties']);
+  const distance = record(distanceFields?.['distanceM']);
+  const direction = record(distanceFields?.['direction']);
+  const requiredFields = distanceAlternative?.['required'];
+  if (
+    distanceAlternative === undefined ||
+    distance?.['type'] !== 'number' ||
+    distance['exclusiveMinimum'] !== 0 ||
+    direction?.['type'] !== 'string' ||
+    !sameStrings(direction['enum'], ['backward', 'forward', 'left', 'right']) ||
+    !sameStrings(requiredFields, ['direction', 'distanceM', 'type'])
+  )
+    fail(
+      'NAVIGATE_DISTANCE_SCHEMA_UNSUPPORTED',
+      'vehicle_navigate must expose the exact mission.distanceM distance contract.',
+    );
 }
 
 function resolveResourceId(
@@ -1214,6 +1255,7 @@ function buildSkillContract(
   const inputSchema = requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   const readOnly = spec.kind === 'read_only';
+  const boundedNavigate = spec.toolName === NAVIGATE_TOOL_NAME;
   const confirmation = readOnly
     ? []
     : [
@@ -1264,6 +1306,12 @@ function buildSkillContract(
             remoteTaskIdentityRequired: true,
             terminalObservationRequired: true,
             redispatchAfterUncertain: false,
+            ...(boundedNavigate
+              ? {
+                  dispatchMaximum: NAVIGATE_EXACT_DISPATCH_COUNT,
+                  requiredArgumentConstraintIds: Object.freeze([NAVIGATE_ARGUMENT_CONSTRAINT_ID]),
+                }
+              : {}),
             ...(spec.kind === 'emergency_stop'
               ? {
                   safetyAction: 'emergency_stop',
@@ -1288,7 +1336,9 @@ function buildSkillContract(
     capabilities: Object.freeze([spec.capabilityId]),
     workflowGuidance: readOnly
       ? `Invoke exactly ${spec.toolName} once for ${resourceId}; require normalized observation evidence and never invoke a side-effecting Tool.`
-      : `After explicit Plan confirmation, invoke exactly ${spec.toolName} once for ${resourceId}; bind the remote Task, observe progress, and accept only its terminal observation. Never redispatch an uncertain command.`,
+      : boundedNavigate
+        ? `After explicit Plan confirmation, invoke ${spec.toolName} exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} times for ${resourceId}; every invocation must move ${NAVIGATE_EXACT_DIRECTION} by exactly ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres, bind its remote Task, and reach a terminal observation before the next dispatch. Never redispatch an uncertain command.`
+        : `After explicit Plan confirmation, invoke exactly ${spec.toolName} once for ${resourceId}; bind the remote Task, observe progress, and accept only its terminal observation. Never redispatch an uncertain command.`,
     outputInstruction:
       'Return only schema-valid public SMPP output with the declared normalized evidence references.',
     inputSchema,
@@ -1307,7 +1357,7 @@ function buildSkillContract(
       maxReplans: 0,
       maxDurationSeconds: readOnly ? 60 : spec.kind === 'emergency_stop' ? 300 : 1800,
       maxLlmCalls: 0,
-      maxMcpCalls: 1,
+      maxMcpCalls: boundedNavigate ? NAVIGATE_EXACT_DISPATCH_COUNT : 1,
       cancelStrategy: readOnly ? 'wait_current' : 'try_interrupt',
       ...(readOnly ? {} : { pauseReplanThresholdSeconds: 0 }),
     }),
@@ -1326,7 +1376,14 @@ function buildSkillContract(
         `Use exact Skill ${spec.skillId}@${String(version)} and exact MCP Tool ${spec.toolName}.`,
         readOnly
           ? 'Require normalized observation evidence; MCP transport acceptance is not sufficient evidence.'
-          : 'Dispatch once only; bind the remote Task and require progress plus terminal observation before success.',
+          : boundedNavigate
+            ? `Dispatch exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} times in strict sequence; bind every remote Task and require progress plus terminal observation before its successor dispatch.`
+            : 'Dispatch once only; bind the remote Task and require progress plus terminal observation before success.',
+        ...(boundedNavigate
+          ? [
+              `Each ${NAVIGATE_TOOL_NAME} dispatch must use mission.type=distance, direction=${NAVIGATE_EXACT_DIRECTION}, and mission.distanceM=${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres; the confirmed Task must contain exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} sequential dispatches totalling ${String(NAVIGATE_EXACT_TOTAL_DISTANCE_METERS)} metres.`,
+            ]
+          : []),
       ]),
       forbiddenActions: Object.freeze([
         `Invoke ${FIRE_TOOL_NAME} or create a fire/weapon Capability.`,
@@ -1337,6 +1394,11 @@ function buildSkillContract(
           : [
               'Auto-confirm a Plan or dispatch before explicit Plan confirmation.',
               'Redispatch a physical command after an uncertain or unreachable response.',
+              ...(boundedNavigate
+                ? [
+                    `Dispatch ${NAVIGATE_TOOL_NAME} with any direction or distance outside the frozen ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} × ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metre ${NAVIGATE_EXACT_DIRECTION} sequence, or dispatch a successor before its predecessor is terminal.`,
+                  ]
+                : []),
             ]),
         ...(spec.kind === 'emergency_stop'
           ? ['Trigger emergency stop from ambiguous, inferred or resource-less model output.']
@@ -1370,24 +1432,28 @@ function buildSkillContract(
           ]
         : []),
     ]),
-    taskBindings: Object.freeze([
-      Object.freeze({
-        bindingId: `task-binding-${spec.skillId}-v${String(version)}`,
-        taskType: spec.toolName,
-        providerPolicy: Object.freeze({
-          selection: 'required',
-          preferredProviderIds: Object.freeze([]),
-          requiredProviderId: binding.localServerId,
-          forbiddenProviderIds: Object.freeze([]),
-          requiredAttributes: Object.freeze([
-            `task_behavior:${tool.taskExecutionProfile.taskBehavior}`,
-            `effect:${tool.executionSemantics.effect}`,
-            `execution:${tool.executionSemantics.execution}`,
-            `catalog_checksum:${binding.catalogChecksum}`,
-          ]),
+    taskBindings: Object.freeze(
+      Array.from({ length: boundedNavigate ? NAVIGATE_EXACT_DISPATCH_COUNT : 1 }, (_, index) =>
+        Object.freeze({
+          bindingId: boundedNavigate
+            ? `task-binding-${spec.skillId}-v${String(version)}-dispatch-${String(index + 1)}`
+            : `task-binding-${spec.skillId}-v${String(version)}`,
+          taskType: spec.toolName,
+          providerPolicy: Object.freeze({
+            selection: 'required',
+            preferredProviderIds: Object.freeze([]),
+            requiredProviderId: binding.localServerId,
+            forbiddenProviderIds: Object.freeze([]),
+            requiredAttributes: Object.freeze([
+              `task_behavior:${tool.taskExecutionProfile.taskBehavior}`,
+              `effect:${tool.executionSemantics.effect}`,
+              `execution:${tool.executionSemantics.execution}`,
+              `catalog_checksum:${binding.catalogChecksum}`,
+            ]),
+          }),
         }),
-      }),
-    ]),
+      ),
+    ),
     adaptive: Object.freeze({
       instructions: Object.freeze([
         'Preserve the exact Provider Binding, Tool, Skill version, resource and terminal-evidence policy.',
@@ -1405,7 +1471,9 @@ function buildSkillContract(
         instructions: Object.freeze([
           readOnly
             ? 'Validate the exact resource and current Binding, invoke once, and require normalized observation evidence.'
-            : 'Validate explicit confirmation and current authority, dispatch once, bind the remote Task, observe progress, and require terminal evidence.',
+            : boundedNavigate
+              ? `Validate explicit confirmation and current authority, then dispatch exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} ${NAVIGATE_EXACT_DIRECTION} distance missions of ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres in strict sequence; require terminal evidence before each successor dispatch.`
+              : 'Validate explicit confirmation and current authority, dispatch once, bind the remote Task, observe progress, and require terminal evidence.',
         ]),
       }),
     }),
@@ -1456,7 +1524,13 @@ function buildCapability(
         : [
             Object.freeze({ type: 'remote_task_identity_present', required: true }),
             Object.freeze({ type: 'remote_terminal_observation_present', required: true }),
-            Object.freeze({ type: 'external_command_dispatch_count', maximum: 1 }),
+            Object.freeze({
+              type: 'external_command_dispatch_count',
+              ...(spec.toolName === NAVIGATE_TOOL_NAME
+                ? { minimum: NAVIGATE_EXACT_DISPATCH_COUNT }
+                : {}),
+              maximum: boundedDispatchMaximum(spec),
+            }),
           ]),
     ],
     requiredEvidence: spec.evidence.map((evidenceType) =>
@@ -1493,11 +1567,12 @@ function buildCapability(
               sideEffecting: true,
               allowEnvironment: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
               runIdEnvironment: 'REAL_UGV_TEST_RUN_ID',
-              dispatchMaximum: 1,
+              dispatchMaximum: boundedDispatchMaximum(spec),
               uncertainDispatchPolicy: 'reconcile_never_redispatch',
               remoteTaskTerminalEvidenceRequired: true,
             }),
           ]),
+      ...(spec.toolName === NAVIGATE_TOOL_NAME ? [boundedMovementConstraint()] : []),
       ...(spec.kind === 'emergency_stop'
         ? [
             Object.freeze({
@@ -1518,6 +1593,33 @@ function buildCapability(
     createdBy: 'ugv-smpp-capability-governance-driver',
     createdAt: CREATED_AT,
   });
+}
+
+function boundedMovementConstraint(): JsonObject {
+  return Object.freeze({
+    type: 'bounded_movement_policy',
+    constraintId: NAVIGATE_ARGUMENT_CONSTRAINT_ID,
+    toolName: NAVIGATE_TOOL_NAME,
+    missionType: 'distance',
+    missionTypeArgumentPath: Object.freeze(['mission', 'type']),
+    directionArgumentPath: Object.freeze(['mission', 'direction']),
+    distanceArgumentPath: Object.freeze(['mission', 'distanceM']),
+    allowedDirections: Object.freeze(['backward', 'forward', 'left', 'right']),
+    exclusiveMinimum: 0,
+    maximumInclusive: NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS,
+    unit: 'm',
+    scope: 'per_dispatch',
+    exactDirection: NAVIGATE_EXACT_DIRECTION,
+    exactDistancePerDispatch: NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS,
+    exactDispatchCount: NAVIGATE_EXACT_DISPATCH_COUNT,
+    exactTotalDistance: NAVIGATE_EXACT_TOTAL_DISTANCE_METERS,
+    strictSequential: true,
+    terminalBeforeNext: true,
+  });
+}
+
+function boundedDispatchMaximum(spec: GovernanceSpec): number {
+  return spec.toolName === NAVIGATE_TOOL_NAME ? NAVIGATE_EXACT_DISPATCH_COUNT : 1;
 }
 
 function buildImplementation(
@@ -2093,6 +2195,11 @@ function validateConfiguration(
   if (!isAbsolute(input.packageWorkspaceRoot))
     fail('DRIVER_CONFIGURATION_INVALID', 'Skill Package workspace root must be absolute.');
   if (
+    input.activateNavigateControl !== undefined &&
+    typeof input.activateNavigateControl !== 'boolean'
+  )
+    fail('DRIVER_CONFIGURATION_INVALID', 'Navigate activation must be an explicit boolean.');
+  if (
     input.resourceId !== undefined &&
     (input.resourceId.trim() === '' || input.resourceId.length > 256)
   )
@@ -2106,6 +2213,16 @@ function validateConfiguration(
     runtimeManagementBaseUrl,
     packageWorkspaceRoot: resolve(input.packageWorkspaceRoot),
   });
+}
+
+function shouldPublishAuthority(
+  spec: GovernanceSpec,
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+): boolean {
+  return (
+    spec.kind === 'read_only' ||
+    (configuration.activateNavigateControl === true && spec.toolName === NAVIGATE_TOOL_NAME)
+  );
 }
 
 function safeManagementBaseUrl(value: string): string {
@@ -2196,6 +2313,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return isRecord(value) ? value : undefined;
+}
+
+function sameStrings(value: unknown, expected: readonly string[]): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === 'string') &&
+    [...value].sort(compare).join('\u0000') === [...expected].sort(compare).join('\u0000')
+  );
+}
+
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -2245,6 +2374,7 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
   }>
 > {
   const configuredResource = environment['UGV_TEST_RESOURCE_ID']?.trim();
+  const activateNavigateControl = explicitYes(environment, 'SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL');
   return Object.freeze({
     configuration: Object.freeze({
       nodeControlBaseUrl: requiredEnvironment(environment, 'SDAR_NODE_CONTROL_BASE_URL'),
@@ -2255,6 +2385,7 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
       ),
       packageWorkspaceRoot: requiredEnvironment(environment, 'SDAR_UGV_GOVERNANCE_PACKAGE_ROOT'),
       runId: requiredEnvironment(environment, 'SDAR_UGV_BOOTSTRAP_RUN_ID'),
+      activateNavigateControl,
       ...(configuredResource === undefined || configuredResource === ''
         ? {}
         : { resourceId: configuredResource }),
@@ -2263,6 +2394,14 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
       environment['SDAR_UGV_GOVERNANCE_REPORT_FILE'] ??
       'reports/sdar-ugv-smpp-integration/capability-skill-governance.redacted.json',
   });
+}
+
+function explicitYes(environment: NodeJS.ProcessEnv, name: string): boolean {
+  const value = environment[name]?.trim();
+  if (value === undefined || value === '') return false;
+  if (value !== 'YES')
+    fail('DRIVER_CONFIGURATION_INVALID', `${name} must be exactly YES when configured.`);
+  return true;
 }
 
 export async function writeRedactedUgvSmppGovernanceReport(

@@ -343,6 +343,7 @@ import {
   PostgresAgentTaskRepository,
   PostgresAgentTaskCommandContext,
   PostgresTaskCapabilityRepository,
+  PostgresTaskCapabilityPhysicalEvidenceRepository,
   PostgresGovernedControlAuthorityRepository,
   PostgresGovernedControlManagementAuthorityReader,
   PostgresConversationContextRepository,
@@ -1208,6 +1209,7 @@ export async function startServerRuntime(
     store: new PostgresTaskCapabilityRepository(pool, publishTaskState, taskCommands),
     schemas: schemaValidator,
     evidence: mcpRepository,
+    physicalEvidence: new PostgresTaskCapabilityPhysicalEvidenceRepository(pool),
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
