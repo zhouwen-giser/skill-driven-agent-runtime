@@ -4,16 +4,19 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## SDAR × UGV SMPP Integration (blocked handoff)
 
-- Added an explicitly governed coordinate-point navigate successor for `vehicle:ugv1`. The code now
-  freezes WGS84 longitude `106.81413978`, latitude `29.72042600`, altitude `500` and
-  `stopOnObstacle=true` as input-Schema constants, with one physical dispatch and mandatory remote
-  terminal evidence. The observed live v5 authority predates this final const fix and requires a
-  governance successor rerun before dispatch.
+- Added an explicitly governed coordinate-point navigate authority for `vehicle:ugv1`, with one
+  physical dispatch, explicit bounded WGS84 input, `stopOnObstacle=true` and mandatory remote
+  terminal evidence. The reusable Skill/Capability bounds valid coordinates; each TaskCapability,
+  Availability snapshot, confirmed Plan and one-shot confirmation freeze the requested point.
 - Executed a real A2A coordinate attempt through Task Understanding, corrected exact Goal and a
   single exact navigate Skill Goal. Provider planning readiness consistently returned
   `UGV_CHASSIS_TRACK_BUSY` through twelve protocol-faithful reads including the post-integration
   retry, so the Task failed before Plan persistence;
   confirmations, MCP Tool calls and physical writes remain zero.
+- A subsequent Goal continuation read observed the external state transition to
+  `unknown / UGV_STATE_STALE`. Runtime health remains ready, but its Business Event inbox backlog
+  is 113 and no fresh vehicle-state authority exists. The next read returned
+  `disabled / UGV_CHASSIS_TRACK_BUSY` again; dispatch remains closed.
 - Propagated nested Provider readiness reason codes into `SKILL_SELECTION_NO_CANDIDATES`, deduped
   exact model-selected Task Types, admitted physical-side-effect Capability policy correctly, and
   forwarded frozen TaskCapability input to Provider planning availability.

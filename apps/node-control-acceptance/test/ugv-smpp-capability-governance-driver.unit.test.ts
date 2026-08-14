@@ -360,11 +360,6 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         ...configuration(root),
         activateNavigateControl: true,
         navigateControlMode: 'coordinate_point',
-        navigateCoordinateTarget: {
-          longitude: 106.81413978,
-          latitude: 29.720426,
-          altitude: 500,
-        },
       },
       { fetch: api.fetch, now: () => NOW },
     );
@@ -386,16 +381,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
             resourceId: expect.objectContaining({ const: RESOURCE_ID }),
             stopOnObstacle: { type: 'boolean', const: true },
             mission: expect.objectContaining({
-              properties: expect.objectContaining({
-                type: { const: 'point' },
-                target: expect.objectContaining({
-                  properties: {
-                    latitude: { type: 'number', const: 29.720426 },
-                    longitude: { type: 'number', const: 106.81413978 },
-                    altitude: { type: 'number', const: 500 },
-                  },
-                }),
-              }),
+              properties: expect.objectContaining({ type: { const: 'point' } }),
             }),
           }),
         }),
@@ -681,11 +667,6 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       UGV_TEST_SAFE_POINT_JSON: '{"longitude":106.81413978,"latitude":29.720426,"altitude":500}',
     });
     expect(coordinate.configuration.navigateControlMode).toBe('coordinate_point');
-    expect(coordinate.configuration.navigateCoordinateTarget).toEqual({
-      longitude: 106.81413978,
-      latitude: 29.720426,
-      altitude: 500,
-    });
 
     await expect(
       ugvSmppGovernanceConfigurationFromEnvironment({

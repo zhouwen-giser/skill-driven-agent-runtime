@@ -133,14 +133,18 @@ repository license/source-lock process become mandatory before the dependency or
       while correcting a six-Skill-Goal candidate to the required one Skill Goal. No Plan/control
       confirmation or physical write occurred.
 - [x] 2026-08-14 published coordinate-point navigate Skill/Capability version 5 for `vehicle:ugv1`.
-      The accepted TaskCapability froze longitude `106.81413978`, latitude `29.72042600`, altitude
-      `500` and `stopOnObstacle=true`. The driver now freezes those values as Schema constants, but
-      observed live v5 predates that final fix and needs a governance successor rerun. Real A2A Task
+      The reusable authority bounds WGS84 input and requires `stopOnObstacle=true`; the accepted
+      TaskCapability froze longitude `106.81413978`, latitude `29.72042600` and altitude `500`.
+      Real A2A Task
       `2eb25439-8d9d-448a-9e04-5a4ed761170d` accepted the corrected exact Goal and one exact Skill
       Goal, then failed before Workflow Plan persistence. Twelve read-only frozen Availability
       checks through the post-integration retry at `11:25:57Z` returned
       `disabled / UGV_CHASSIS_TRACK_BUSY`; no governed
       confirmation, MCP Tool call, remote Task or physical write was created.
+- [x] 2026-08-14 Goal continuation read observed the external transition to
+      `unknown / UGV_STATE_STALE`. The external Runtime is process-ready, but Business Event inbox
+      backlog 113 means fresh vehicle-state admission authority is still absent. The following
+      read returned `disabled / UGV_CHASSIS_TRACK_BUSY` again.
 - [x] 2026-08-12 implemented ADR-137 create-on-empty Runtime model initialization. Startup
       atomically creates the explicitly configured structured Provider and optional separate
       embedding Provider plus all 21 operation routes only when the Provider table is empty; any
@@ -155,13 +159,12 @@ repository license/source-lock process become mandatory before the dependency or
       external adapter returned `UGV_EXECUTION_MODE_UNSUPPORTED`; corrected Goal Evaluation no
       longer shape-crashed, but the bounded replan budget exhausted and the Task failed
       `GOAL_UNACHIEVABLE`. This is real failure evidence, not a passed A2A gate.
-- [ ] Resolve the current external `UGV_CHASSIS_TRACK_BUSY` state, terminal-outcome direct
-      `capability_attempt_id` gap, missing terminal A2A failure projection and transient model Plan
+- [ ] Resolve the current external `UGV_STATE_STALE` / Business Event inbox backlog state,
+      terminal-outcome direct `capability_attempt_id` gap, missing terminal A2A failure projection
+      and transient model Plan
       patch failure; then rerun successful deterministic/A2A reads. The transport-header mode
       rejection itself is resolved by the non-production compatibility switch. Failed
       CapabilityAttempt restart reconciliation and real-model conformance are complete.
-- [ ] Materialize the post-fix coordinate governance successor so the persisted Skill and
-      Capability input Schemas freeze the exact WGS84 target before any dispatch.
 - [ ] Enable live execution on the deployed UGV adapter, provide authoritative fresh/connected/
       stationary state evidence, and complete node-scoped one-shot sequence confirmation before
       running the five-dispatch movement Task. Then complete lifecycle/emergency/recovery

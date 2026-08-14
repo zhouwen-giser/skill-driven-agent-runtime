@@ -2,7 +2,7 @@
   "schemaVersion": "sdar.ugv-smpp-a2a-coordinate-navigation-attempt/v1",
   "status": "blocked_before_plan",
   "evidenceClass": "real_sdar_control_plane_and_provider_availability_no_physical_dispatch",
-  "observedAt": "2026-08-14T11:25:57.105Z",
+  "observedAt": "2026-08-14T11:48:01.658Z",
   "request": {
     "taskId": "2eb25439-8d9d-448a-9e04-5a4ed761170d",
     "contextId": "b763c07b-9ef7-4c09-b762-b9a06182ec3b",
@@ -58,12 +58,13 @@
   "providerAvailability": {
     "protocolMethod": "io.sdar/taskExecution/checkAvailability",
     "profileVersion": "1.0",
-    "exactSuccessfulReadCount": 12,
+    "exactSuccessfulReadCount": 14,
     "firstObservedAt": "2026-08-14T10:40:27.876Z",
-    "lastObservedAt": "2026-08-14T11:25:57.105Z",
+    "lastObservedAt": "2026-08-14T11:48:01.658Z",
     "availability": "disabled",
     "riskLevel": "medium",
     "reasonCode": "UGV_CHASSIS_TRACK_BUSY",
+    "observedReasonCodes": ["UGV_CHASSIS_TRACK_BUSY", "UGV_STATE_STALE"],
     "estimatedDelayMs": 0,
     "nextAvailableWindows": [],
     "runtimeHealthReady": true,
@@ -78,6 +79,18 @@
     "pmsResourceProjectionStatus": "available",
     "classification": "external_device_runtime_state_blocker",
     "postIntegrationRetry": {
+      "executed": true,
+      "availability": "disabled",
+      "reasonCode": "UGV_CHASSIS_TRACK_BUSY",
+      "physicalDispatchAttempted": false
+    },
+    "goalContinuationRetry": {
+      "executed": true,
+      "availability": "unknown",
+      "reasonCode": "UGV_STATE_STALE",
+      "physicalDispatchAttempted": false
+    },
+    "latestContinuationRetry": {
       "executed": true,
       "availability": "disabled",
       "reasonCode": "UGV_CHASSIS_TRACK_BUSY",

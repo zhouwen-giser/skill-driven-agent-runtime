@@ -9,10 +9,10 @@
   observations and have not been promoted into current-liveness evidence.
 - The latest disposable integration database publishes five read-only Skills/Capabilities and one
   explicitly activated coordinate-point navigate Skill/Capability at version 5; the other four
-  controls remain Draft/non-selectable. The accepted TaskCapability froze the exact configured
-  WGS84 point and `stopOnObstacle=true`, but observed live v5 predates the final Schema-const fix.
-  The corrected driver must materialize a successor before dispatch. Fire has no Capability or
-  Skill and was not invoked, but an unconditional Runtime hard deny for generic Workflow access to
+  controls remain Draft/non-selectable. The reusable Capability bounds WGS84 input and requires
+  `stopOnObstacle=true`; the accepted TaskCapability, Availability snapshot, confirmed Plan and
+  one-shot confirmation freeze the exact request. Fire has no Capability or Skill and was not
+  invoked, but an unconditional Runtime hard deny for generic Workflow access to
   `vehicle_fire_weapon` is not proven.
 - The live contract does not declare execution semantics. Tool effect and task behavior therefore
   use reviewed `admin_override` values; this is not Runtime-declared semantic authority and does
@@ -63,6 +63,10 @@
   `UGV_CHASSIS_TRACK_BUSY`; Runtime PostgreSQL had zero UGV remote bindings. No Plan or governed
   confirmation was created and MCP Tool calls/physical writes remained zero. See
   `failed-attempts/a2a-coordinate-navigation-20260814.redacted.json`.
+- The next Goal continuation read at `11:40:25Z` returned `unknown / UGV_STATE_STALE`. External
+  Runtime health is ready, but its Business Event inbox backlog is 113; no fresh vehicle-state
+  authority exists for navigation admission. The following read at `11:48:01Z` returned
+  `disabled / UGV_CHASSIS_TRACK_BUSY` again.
 - The five-dispatch code does not claim that remote command completion proves chassis stationarity.
   The deployed `vehicle_get_state` output schema does not freeze authoritative
   fresh/connected/stationary/unowned-task fields, and node-scoped one-shot sequence confirmation is

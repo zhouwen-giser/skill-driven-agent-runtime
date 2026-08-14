@@ -2,7 +2,7 @@
   "schemaVersion": "sdar.ugv-smpp-final-handoff/v1",
   "generatedAt": "2026-08-14T11:25:57.105Z",
   "finalQualification": "SDAR_UGV_INTEGRATION_BLOCKED",
-  "qualificationRationale": "Discovery, current rev5 governance and real-model conformance are proven. The latest exact coordinate A2A reached a corrected Goal and one exact navigate Skill Goal, but twelve protocol-faithful read-only Availability checks returned disabled / UGV_CHASSIS_TRACK_BUSY. No Workflow Plan, governed confirmation, MCP Tool call, remote Task or physical write was created.",
+  "qualificationRationale": "Discovery, current rev5 governance and real-model conformance are proven. The latest exact coordinate A2A reached a corrected Goal and one exact navigate Skill Goal. Twelve Availability reads ended disabled / UGV_CHASSIS_TRACK_BUSY; later continuation reads oscillated unknown / UGV_STATE_STALE then disabled / UGV_CHASSIS_TRACK_BUSY. No Workflow Plan, governed confirmation, MCP Tool call, remote Task or physical write was created.",
   "git": {
     "branch": "codex/sdar-ugv-smpp-integration",
     "baseSha": "34ce7a7a43971de37566b24f969b4f0aeadec2b2",
@@ -76,8 +76,7 @@
     "publishedNavigateSkillVersion": 5,
     "publishedNavigateCapabilities": 1,
     "publishedNavigateCapabilityVersion": 5,
-    "liveNavigateV5ExactCoordinateSchemaConstProven": false,
-    "coordinateConstSuccessorRequiredBeforeDispatch": true,
+    "taskCapabilityExactCoordinateBindingProven": true,
     "stagedNonSelectableControlSkills": 4,
     "stagedDraftControlCapabilities": 4,
     "persistedControlImplementationBindings": 1,
@@ -231,9 +230,10 @@
     "skillVersion": 5,
     "capabilityId": "vehicle.ugv.navigate",
     "capabilityVersion": 5,
-    "availabilityReadCount": 12,
+    "availabilityReadCount": 14,
     "providerAvailability": "disabled",
     "providerReasonCode": "UGV_CHASSIS_TRACK_BUSY",
+    "intermediateProviderReasonCode": "UGV_STATE_STALE",
     "workflowPlanPersisted": false,
     "governedConfirmationCreated": false,
     "mcpToolCalls": 0,
@@ -317,6 +317,7 @@
   },
   "blockers": {
     "external": [
+      "UGV_STATE_STALE",
       "UGV_CHASSIS_TRACK_BUSY",
       "UGV_EXECUTION_MODE_UNSUPPORTED_HISTORICAL",
       "SUCCESSFUL_UGV_READ_NOT_OBSERVED",
@@ -330,8 +331,7 @@
       "RUNTIME_FIRE_HARD_DENY_NOT_PROVEN"
     ],
     "controlAndRecovery": [
-      "EXACT_COORDINATE_NAVIGATION_PROVIDER_AVAILABILITY_DISABLED",
-      "COORDINATE_GOVERNANCE_SUCCESSOR_NOT_MATERIALIZED_AFTER_CONST_FIX",
+      "EXACT_COORDINATE_NAVIGATION_PROVIDER_AVAILABILITY_UNUSABLE",
       "SOURCE_AND_RUNTIME_RECOVERY_NOT_QUALIFIED"
     ],
     "nonfunctionalAndTestEnvironment": [

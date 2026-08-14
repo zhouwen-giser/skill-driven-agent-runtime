@@ -21,10 +21,9 @@ dispatched.
   `1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62`.
 - Five read-only Skills and Capabilities are published at version 5. Coordinate-point
   `ugv.navigate@5` / `vehicle.ugv.navigate@5` is published for one point mission with
-  `stopOnObstacle=true`; the accepted TaskCapability froze the requested point. Observed live v5
-  predates the final input-Schema const fix, so the corrected driver must materialize a successor
-  before dispatch. Four other control authorities remain Draft/non-selectable. Fire has zero Skill,
-  Capability and invocation authority.
+  `stopOnObstacle=true`; the accepted TaskCapability, Availability snapshot, confirmed Plan and
+  one-shot confirmation freeze the requested point. Four other control authorities remain
+  Draft/non-selectable. Fire has zero Skill, Capability and invocation authority.
 - Runtime startup now provides create-on-empty model authority initialization. A clean database can
   atomically register the explicitly configured structured Provider and optional embedding Provider;
   any existing Provider makes startup a strict no-op. PostgreSQL contains two Providers, 21
@@ -43,7 +42,11 @@ The latest coordinate-navigation Task `2eb25439-8d9d-448a-9e04-5a4ed761170d` tar
 Goal candidate was rejected and replaced by a deterministically exact Goal; one exact navigate
 Skill Goal was reviewed and accepted. Provider Availability nevertheless remained
 `UGV_CHASSIS_TRACK_BUSY` from the first observation through the post-integration retry at
-`2026-08-14T11:25:57.105Z`. The Task therefore failed before Workflow Plan persistence. No
+`2026-08-14T11:25:57.105Z`. A subsequent Goal continuation read at `11:40:25Z` returned
+`unknown / UGV_STATE_STALE`; external Runtime health remains ready, but its Business Event inbox
+backlog is 113. The following read at `11:48:01Z` returned
+`disabled / UGV_CHASSIS_TRACK_BUSY` again. The Task therefore remains blocked before Workflow Plan
+persistence. No
 governed-control confirmation, MCP Tool invocation, remote Task or physical write exists for this
 attempt. The redacted evidence is
 `failed-attempts/a2a-coordinate-navigation-20260814.redacted.json`.
@@ -93,7 +96,7 @@ restart/outage/LKG-expiry/bad-checksum qualification, successful reads, explicit
 physical control, lifecycle control, emergency stop, recon and broader end-to-end recovery remain
 unproven.
 No movement, control or fire operation was called; physical writes remain zero. The latest blocker
-is external chassis-track occupancy, not missing operator confirmation authority.
+is oscillating external vehicle readiness, not missing operator confirmation authority.
 
 Execution semantics are reviewed `admin_override` values because the external contract does not
 declare them. An unconditional Runtime hard deny for generic Workflow access to

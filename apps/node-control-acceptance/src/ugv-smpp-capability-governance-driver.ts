@@ -167,12 +167,6 @@ export interface UgvSmppCapabilityGovernanceConfiguration {
   readonly activateNavigateControl?: boolean;
   /** Selects the immutable native navigate procedure published by this run. */
   readonly navigateControlMode?: NavigateControlMode;
-  /** Exact WGS84 point frozen into a coordinate-point navigate successor. */
-  readonly navigateCoordinateTarget?: Readonly<{
-    longitude: number;
-    latitude: number;
-    altitude: number;
-  }>;
 }
 
 export interface UgvSmppCapabilityGovernanceReport {
@@ -1333,11 +1327,7 @@ function buildSkillContract(
     spec.toolName === NAVIGATE_TOOL_NAME &&
     navigateControlMode(configuration) === 'coordinate_point';
   const inputSchema = coordinateNavigate
-    ? coordinatePointInputSchema(
-        tool.inputSchema,
-        resourceId,
-        navigateCoordinateTarget(configuration),
-      )
+    ? coordinatePointInputSchema(tool.inputSchema, resourceId)
     : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   const readOnly = spec.kind === 'read_only';
@@ -1637,11 +1627,7 @@ function buildCapability(
     name: spec.name,
     description: spec.summary,
     inputSchema: coordinateNavigate
-      ? coordinatePointInputSchema(
-          tool.inputSchema,
-          resourceId,
-          navigateCoordinateTarget(configuration),
-        )
+      ? coordinatePointInputSchema(tool.inputSchema, resourceId)
       : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
     outputSchema: requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
     successCriteria: [
@@ -1746,11 +1732,7 @@ function boundedMovementConstraint(): JsonObject {
   });
 }
 
-function coordinatePointInputSchema(
-  schema: unknown,
-  resourceId: string,
-  target: Readonly<{ longitude: number; latitude: number; altitude: number }>,
-): JsonObject {
+function coordinatePointInputSchema(schema: unknown, resourceId: string): JsonObject {
   assertNavigatePointSchema(schema);
   return requireObjectSchema(
     {
@@ -1770,9 +1752,9 @@ function coordinatePointInputSchema(
               additionalProperties: false,
               required: ['latitude', 'longitude', 'altitude'],
               properties: {
-                latitude: { type: 'number', const: target.latitude },
-                longitude: { type: 'number', const: target.longitude },
-                altitude: { type: 'number', const: target.altitude },
+                latitude: { type: 'number', minimum: -90, maximum: 90 },
+                longitude: { type: 'number', minimum: -180, maximum: 180 },
+                altitude: { type: 'number' },
               },
             },
           },
@@ -1794,18 +1776,6 @@ function navigateDispatchMaximum(configuration: UgvSmppCapabilityGovernanceConfi
   return navigateControlMode(configuration) === 'distance_sequence'
     ? NAVIGATE_EXACT_DISPATCH_COUNT
     : 1;
-}
-
-function navigateCoordinateTarget(
-  configuration: UgvSmppCapabilityGovernanceConfiguration,
-): Readonly<{ longitude: number; latitude: number; altitude: number }> {
-  const target = configuration.navigateCoordinateTarget;
-  if (navigateControlMode(configuration) !== 'coordinate_point' || target === undefined)
-    fail(
-      'DRIVER_CONFIGURATION_INVALID',
-      'Coordinate navigation requires one exact configured WGS84 target.',
-    );
-  return target;
 }
 
 function buildImplementation(
@@ -2396,14 +2366,6 @@ function validateConfiguration(
       'Coordinate navigation requires explicit navigate activation.',
     );
   if (
-    input.navigateControlMode === 'coordinate_point' &&
-    !validCoordinateTarget(input.navigateCoordinateTarget)
-  )
-    fail(
-      'DRIVER_CONFIGURATION_INVALID',
-      'Coordinate navigation requires one exact configured WGS84 target.',
-    );
-  if (
     input.resourceId !== undefined &&
     (input.resourceId.trim() === '' || input.resourceId.length > 256)
   )
@@ -2580,15 +2542,13 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
   const configuredResource = environment['UGV_TEST_RESOURCE_ID']?.trim();
   const activateNavigateControl = explicitYes(environment, 'SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL');
   const coordinateNavigation = optionalYesNo(environment, 'ALLOW_UGV_COORDINATE_NAVIGATION');
-  const navigateCoordinateTarget = coordinateNavigation
-    ? configuredSafePoint(environment)
-    : undefined;
   if (coordinateNavigation) {
     if (!activateNavigateControl)
       fail(
         'DRIVER_CONFIGURATION_INVALID',
         'Coordinate navigation requires explicit navigate activation.',
       );
+    assertConfiguredSafePoint(environment);
   }
   return Object.freeze({
     configuration: Object.freeze({
@@ -2602,7 +2562,6 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
       runId: requiredEnvironment(environment, 'SDAR_UGV_BOOTSTRAP_RUN_ID'),
       activateNavigateControl,
       navigateControlMode: coordinateNavigation ? 'coordinate_point' : 'distance_sequence',
-      ...(navigateCoordinateTarget === undefined ? {} : { navigateCoordinateTarget }),
       ...(configuredResource === undefined || configuredResource === ''
         ? {}
         : { resourceId: configuredResource }),
@@ -2629,9 +2588,7 @@ function optionalYesNo(environment: NodeJS.ProcessEnv, name: string): boolean {
   return true;
 }
 
-function configuredSafePoint(
-  environment: NodeJS.ProcessEnv,
-): Readonly<{ longitude: number; latitude: number; altitude: number }> {
+function assertConfiguredSafePoint(environment: NodeJS.ProcessEnv): void {
   const raw = requiredEnvironment(environment, 'UGV_TEST_SAFE_POINT_JSON');
   if (raw.length > 16_384)
     fail('DRIVER_CONFIGURATION_INVALID', 'UGV_TEST_SAFE_POINT_JSON is too large.');
@@ -2642,30 +2599,18 @@ function configuredSafePoint(
     return fail('DRIVER_CONFIGURATION_INVALID', 'UGV_TEST_SAFE_POINT_JSON is invalid JSON.');
   }
   const value = record(point);
-  if (!validCoordinateTarget(value))
+  if (
+    value === undefined ||
+    !sameStrings(Object.keys(value), ['altitude', 'latitude', 'longitude']) ||
+    !finiteCoordinate(value['latitude'], -90, 90) ||
+    !finiteCoordinate(value['longitude'], -180, 180) ||
+    typeof value['altitude'] !== 'number' ||
+    !Number.isFinite(value['altitude'])
+  )
     fail(
       'DRIVER_CONFIGURATION_INVALID',
       'UGV_TEST_SAFE_POINT_JSON must be one exact WGS84 latitude/longitude/altitude object.',
     );
-  return Object.freeze({
-    longitude: value.longitude,
-    latitude: value.latitude,
-    altitude: value.altitude,
-  });
-}
-
-function validCoordinateTarget(
-  value: unknown,
-): value is Readonly<{ longitude: number; latitude: number; altitude: number }> {
-  const target = record(value);
-  return (
-    target !== undefined &&
-    sameStrings(Object.keys(target), ['altitude', 'latitude', 'longitude']) &&
-    finiteCoordinate(target['latitude'], -90, 90) &&
-    finiteCoordinate(target['longitude'], -180, 180) &&
-    typeof target['altitude'] === 'number' &&
-    Number.isFinite(target['altitude'])
-  );
 }
 
 function finiteCoordinate(value: unknown, minimum: number, maximum: number): value is number {

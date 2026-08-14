@@ -6,9 +6,9 @@ projection 200/304 and native lineage, credential-free Source revision 1, exact 
 Provider Binding revision 5, Runtime tool revision 5 and Catalog `2.0.0-rc.1:5` with 11 operations
 are proven at their observation times. The disposable integration database now has five read
 authorities and one explicitly activated coordinate-point navigate authority at version 5. The
-accepted TaskCapability froze the requested WGS84 point and `stopOnObstacle=true`; live v5's
-Skill/Capability Schema predates the final coordinate-const fix, so a successor governance rerun is
-required before dispatch. The other four controls remain Draft/non-selectable.
+reusable Skill/Capability bounds WGS84 input and requires `stopOnObstacle=true`; the accepted
+TaskCapability, Availability snapshot, Plan and confirmation freeze the requested point exactly.
+The other four controls remain Draft/non-selectable.
 Fire has zero Capability/Skill and zero invocation authority.
 
 The branch was synchronized with `origin/main@34ce7a7` in merge commit `80e9f93`. Exact five-node
@@ -58,6 +58,13 @@ returned `UGV_CHASSIS_TRACK_BUSY`; Runtime PostgreSQL had no UGV remote binding.
 confirmation, MCP Tool call or physical write occurred. The Runtime now propagates nested Provider
 readiness reason codes into `SKILL_SELECTION_NO_CANDIDATES`; evidence is in
 `failed-attempts/a2a-coordinate-navigation-20260814.redacted.json`.
+
+The next Goal continuation Availability read at `11:40:25Z` observed
+`unknown / UGV_STATE_STALE` rather than chassis busy. The external Runtime process is healthy, but
+its Business Event inbox backlog remains 113; without fresh vehicle state, navigation admission
+continues to fail closed. The following read at `11:48:01Z` returned
+`disabled / UGV_CHASSIS_TRACK_BUSY` again, proving the external readiness is oscillating rather than
+available.
 
 Source restart/outage/LKG-expiry/bad-checksum cases, successful reads, aggregate bootstrap and all
 control/lifecycle/emergency/recovery cases remain unqualified. Execution semantics remain
