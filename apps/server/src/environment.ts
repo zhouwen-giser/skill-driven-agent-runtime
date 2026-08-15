@@ -124,7 +124,7 @@ const EnvironmentSchema = z
     SDAR_UGV_MODEL_API_KEY_FILE: OptionalNonBlankStringSchema,
     SDAR_UGV_MODEL_TIMEOUT_MS: z.coerce.number().int().positive().max(300_000).default(30_000),
     SDAR_TASK_UNDERSTANDING_PROFILE: z
-      .enum(['off', 'home_lab_read_only', 'managed_capability'])
+      .enum(['off', 'home_lab_read_only', 'home_lab_governed_light_control', 'managed_capability'])
       .default('off'),
   })
   .superRefine((environment, context) => {
@@ -251,6 +251,7 @@ const EnvironmentSchema = z
       });
     if (
       (environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only' ||
+        environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' ||
         environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability') &&
       environment.SDAR_NODE_CONTROL_BASE_URL === undefined
     ) {
@@ -325,6 +326,18 @@ const EnvironmentSchema = z
         code: 'custom',
         path: ['SDAR_GOVERNED_CONTROL_PERMISSIONS'],
         message: 'Governed control bearer authentication requires explicit permissions.',
+      });
+    if (
+      environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' &&
+      (environment.SDAR_GOVERNED_CONTROL_BEARER_TOKEN === undefined ||
+        environment.SDAR_GOVERNED_CONTROL_ACTOR_ID === undefined ||
+        !environment.SDAR_GOVERNED_CONTROL_PERMISSIONS?.includes('physical_control.confirm'))
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_GOVERNED_CONTROL_BEARER_TOKEN'],
+        message:
+          'The governed light profile requires an authenticated human physical_control.confirm identity.',
       });
     const exposedHosts = [environment.SDAR_A2A_HOST, environment.SDAR_MANAGEMENT_HOST].filter(
       (host) => !isLoopbackHost(host),

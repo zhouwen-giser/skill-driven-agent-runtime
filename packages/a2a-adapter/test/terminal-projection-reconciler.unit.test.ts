@@ -1,5 +1,5 @@
 import { Message, Task, TaskState } from '@a2a-js/sdk';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   ExternalTaskProjection,
@@ -84,6 +84,25 @@ describe('A2ATerminalProjectionReconciler', () => {
     expect((await reconciler.reconcile()).reconciled).toBe(0);
     expect(projections.saveCalls).toBe(1);
     await expect(projections.find('a2a-v1', unadmitted.taskId)).resolves.toBeUndefined();
+  });
+
+  it('never resolves interactive planning metadata while rebuilding a terminal Task', async () => {
+    const completed = terminalTask('completed', 1);
+    const projections = new FakeProjectionRepository([
+      staleProjection(completed.taskId, completed.contextId, TaskState.TASK_STATE_INPUT_REQUIRED),
+    ]);
+    const interaction = vi.fn<
+      (taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>
+    >(() => Promise.reject(new Error('CONFIRMED_PLAN_HANDOFF_MUST_NOT_RUN')));
+    const reconciler = new A2ATerminalProjectionReconciler({
+      projections,
+      tasks: { findById: () => Promise.resolve(completed) },
+      interaction,
+    });
+
+    await expect(reconciler.reconcile()).resolves.toMatchObject({ reconciled: 1 });
+    expect(interaction).not.toHaveBeenCalled();
+    expect(projections.states()[completed.taskId]).toBe('TASK_STATE_COMPLETED');
   });
 
   it('freezes every page before repairs can reorder status timestamps', async () => {

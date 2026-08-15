@@ -82,8 +82,13 @@ describe('home-lab Capability and Skill governance driver', () => {
 
       expect(report.capabilityGovernanceReady).toBe(true);
       expect(report.runtimeCapabilityReadiness).toBe('available');
+      expect(report.schemaVersion).toBe('sdar.home-lab-capability-governance/v1');
       expect(report.skills).toHaveLength(6);
       expect(report.capabilities).toHaveLength(6);
+      expect(report.skills.every(({ skillVersion }) => skillVersion === 1)).toBe(true);
+      expect(report.capabilities.every(({ capabilityVersion }) => capabilityVersion === 1)).toBe(
+        true,
+      );
       expect(
         report.skills
           .filter(({ mcpToolName }) => mcpToolName !== undefined)
@@ -262,6 +267,199 @@ describe('home-lab Capability and Skill governance driver', () => {
         endpointsIncluded: false,
         entityIdsIncluded: false,
       });
+    },
+    GOVERNANCE_LIFECYCLE_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'materializes only the exact G09 main-light v2 authorities without mutating legacy v1',
+    async () => {
+      const root = workspaceRoot();
+      const api = new FakeGovernanceApis();
+      const legacyConfiguration = await configuration(root, true);
+      const legacy = await governHomeLabCapabilities(legacyConfiguration, {
+        fetch: api.fetch,
+        now: () => NOW,
+      });
+      const report = await governHomeLabCapabilities(
+        Object.freeze({
+          ...legacyConfiguration,
+          governanceProfile: 'g09_main_light_v2' as const,
+        }),
+        { fetch: api.fetch, now: () => NOW },
+      );
+
+      expect(legacy.schemaVersion).toBe('sdar.home-lab-capability-governance/v1');
+      expect(legacy.skills).toHaveLength(6);
+      expect(report.schemaVersion).toBe('sdar.home-lab-capability-governance/v2');
+      expect(report.skills.map(({ skillId, skillVersion }) => ({ skillId, skillVersion }))).toEqual(
+        [
+          { skillId: 'home.light.get-state', skillVersion: 2 },
+          { skillId: 'home.light.set-power', skillVersion: 2 },
+        ],
+      );
+      expect(
+        report.capabilities.map(({ capabilityId, capabilityVersion }) => ({
+          capabilityId,
+          capabilityVersion,
+        })),
+      ).toEqual([
+        { capabilityId: 'home.light.read-state', capabilityVersion: 2 },
+        { capabilityId: 'home.light.set-power', capabilityVersion: 2 },
+      ]);
+      expect(report.resourcePolicy).toEqual({
+        identifierAuthority: 'public_resource_id',
+        auxiliaryLightIncluded: false,
+        allowedResourceIds: ['living-room-main-light'],
+        physicalResourceBindings: 0,
+      });
+      expect(
+        report.skills.map(({ mcpProviderBindingId, localServerId }) => ({
+          mcpProviderBindingId,
+          localServerId,
+        })),
+      ).toEqual([
+        {
+          mcpProviderBindingId: 'mcp-binding-ha-light-g09',
+          localServerId: 'home-lab-light-mcp-g09',
+        },
+        {
+          mcpProviderBindingId: 'mcp-binding-ha-light-g09',
+          localServerId: 'home-lab-light-mcp-g09',
+        },
+      ]);
+
+      const packageSchema = JSON.parse(
+        await readFile('schemas/skill-package.schema.json', 'utf8'),
+      ) as unknown;
+      const importer = new SkillPackageImporter({
+        reader: new NodeSkillPackageReader(),
+        validator: new SkillPackageValidator({
+          schemas: new AjvJsonSchemaValidator(),
+          packageSchema,
+        }),
+        clock: { now: () => NOW },
+      });
+      for (const expected of EXPECTED_SKILLS.slice(0, 2)) {
+        const candidate = await importer.import(join(root, expected.skillId, 'v2'));
+        expect(candidate.skillVersion).toEqual(
+          expect.objectContaining({
+            skillId: expected.skillId,
+            version: 2,
+            previousVersion: 1,
+          }),
+        );
+        expect(candidate.skillVersion.usageSpecification?.taskBindings).toEqual([
+          expect.objectContaining({
+            bindingId: `task-binding-${expected.skillId}-v2`,
+            taskType: expected.toolName,
+            providerPolicy: expect.objectContaining({
+              requiredProviderId: 'home-lab-light-mcp-g09',
+            }),
+          }),
+        ]);
+      }
+      const g09ControlSkill = await importer.import(join(root, 'home.light.set-power', 'v2'));
+      expect(g09ControlSkill.skillVersion.toolPolicy.forbidden).toEqual([
+        { serverId: 'home-lab-light-mcp-g09', toolName: 'vehicle_fire_weapon' },
+      ]);
+      expect(g09ControlSkill.skillVersion.outcomeSpecification).toEqual(
+        expect.objectContaining({
+          sideEffectPolicy: expect.objectContaining({
+            sideEffecting: true,
+            confirmation: 'required_before_execution',
+            autoConfirmPlan: false,
+            exactResourceRequired: true,
+            remoteTaskIdentityRequired: true,
+            terminalObservationRequired: true,
+            redispatchAfterUncertain: false,
+          }),
+        }),
+      );
+
+      const readCapability = api.capabilityFor('home.light.read-state', 2);
+      const writeCapability = api.capabilityFor('home.light.set-power', 2);
+      expect(readCapability).toEqual(expect.objectContaining({ version: 2, previousVersion: 1 }));
+      expect(writeCapability).toEqual(expect.objectContaining({ version: 2, previousVersion: 1 }));
+      const readConstraints = recordArray(readCapability?.['constraints']);
+      const writeConstraints = recordArray(writeCapability?.['constraints']);
+      expect(readConstraints.some(({ type }) => type === 'physical_side_effect_policy')).toBe(
+        false,
+      );
+      expect(writeConstraints.find(({ type }) => type === 'resource_policy')).toEqual({
+        type: 'resource_policy',
+        identifierAuthority: 'public_smpp_tool_schema',
+        selection: 'exact_value',
+        allowedResourceIds: ['living-room-main-light'],
+        downstreamResourceBinding: 'forbidden',
+      });
+      expect(writeConstraints.find(({ type }) => type === 'provider_binding_policy')).toEqual({
+        type: 'provider_binding_policy',
+        mcpProviderBindingId: 'mcp-binding-ha-light-g09',
+        localServerId: 'home-lab-light-mcp-g09',
+        mcpToolName: 'light_set_power',
+        allowedResourceIds: ['living-room-main-light'],
+        executionSemantics: {
+          effect: 'side_effecting',
+          execution: 'task_required',
+          cancellation: 'task_cancel',
+          idempotency: 'client_request_key',
+          replay: 'forbidden',
+          source: 'mcp_declared',
+        },
+        requiredStatus: 'active',
+        requiredAvailabilityStatus: 'available',
+        requiredFreshness: 'unexpired',
+        fallback: 'deny',
+      });
+      expect(writeConstraints.find(({ type }) => type === 'confirmation_policy')).toEqual({
+        type: 'confirmation_policy',
+        required: true,
+        stage: 'before_execution',
+        autoConfirmPlan: false,
+      });
+      expect(writeConstraints.find(({ type }) => type === 'physical_side_effect_policy')).toEqual({
+        type: 'physical_side_effect_policy',
+        sideEffecting: true,
+        dispatchMaximum: 1,
+        uncertainDispatchPolicy: 'reconcile_never_redispatch',
+        remoteTaskTerminalEvidenceRequired: true,
+      });
+      expect(api.implementationFor('home.light.set-power', 2)).toEqual(
+        expect.objectContaining({
+          bindingId: 'capability-binding-home.light.set-power-v2',
+          capabilityVersion: 2,
+          implementationVersion: '2',
+          providerPolicyOverride: expect.objectContaining({
+            mcpProviderBindingId: 'mcp-binding-ha-light-g09',
+            localServerId: 'home-lab-light-mcp-g09',
+            allowedResourceIds: ['living-room-main-light'],
+          }),
+        }),
+      );
+      const legacyWriteCapability = api.capabilityFor('home.light.set-power', 1);
+      expect(legacyWriteCapability).toEqual(expect.objectContaining({ version: 1 }));
+      expect(legacyWriteCapability).not.toHaveProperty('previousVersion');
+      expect(writeCapability?.['supportedModes']).toEqual(['plan_confirmed', 'remote_task']);
+      expect(legacyWriteCapability?.['supportedModes']).toEqual(['deterministic']);
+      const legacyWriteConstraints = recordArray(legacyWriteCapability?.['constraints']);
+      expect(legacyWriteConstraints.find(({ type }) => type === 'resource_policy')).toEqual({
+        type: 'resource_policy',
+        identifierAuthority: 'public_resource_id',
+        selection: 'request_value',
+        allowedResourceIds: ['living-room-main-light', 'living-room-aux-light'],
+        physicalResourceBinding: 'forbidden',
+      });
+      expect(
+        legacyWriteConstraints.find(({ type }) => type === 'provider_binding_policy'),
+      ).not.toHaveProperty('executionSemantics');
+      const legacyControlSkill = await importer.import(join(root, 'home.light.set-power', 'v1'));
+      expect(legacyControlSkill.skillVersion.toolPolicy.forbidden).toEqual([]);
+      expect(legacyControlSkill.skillVersion.outcomeSpecification).not.toEqual(
+        expect.objectContaining({
+          sideEffectPolicy: expect.objectContaining({ exactResourceRequired: true }),
+        }),
+      );
     },
     GOVERNANCE_LIFECYCLE_TEST_TIMEOUT_MS,
   );
@@ -461,12 +659,17 @@ class FakeGovernanceApis {
     return this.#mutationCalls.filter((key) => key.includes(scope)).length;
   }
 
-  implementationFor(capabilityId: string): Record<string, unknown> | undefined {
-    return this.#implementations.get(capabilityId)?.[0];
+  implementationFor(capabilityId: string, version = 1): Record<string, unknown> | undefined {
+    return this.#implementations.get(versionedKey(capabilityId, version))?.[0];
+  }
+
+  capabilityFor(capabilityId: string, version = 1): Record<string, unknown> | undefined {
+    return this.#capabilities.get(versionedKey(capabilityId, version));
   }
 
   injectPhysicalImplementation(capabilityId: string): void {
-    const current = this.#implementations.get(capabilityId) ?? [];
+    const key = versionedKey(capabilityId, 1);
+    const current = this.#implementations.get(key) ?? [];
     current.push({
       bindingId: 'forbidden-physical-resource-binding',
       capabilityId,
@@ -480,7 +683,7 @@ class FakeGovernanceApis {
       status: 'active',
       revision: 1,
     });
-    this.#implementations.set(capabilityId, current);
+    this.#implementations.set(key, current);
   }
 
   readonly fetch: typeof fetch = async (input, init) => {
@@ -488,23 +691,34 @@ class FakeGovernanceApis {
     const url = new URL(input instanceof Request ? input.url : input.toString());
     const method = init?.method ?? 'GET';
     if (method === 'GET' && url.pathname.startsWith('/api/v1/mcp-provider-bindings/'))
-      return json(200, providerBinding(url.pathname.includes('climate') ? 'climate' : 'light'));
+      return json(
+        200,
+        url.pathname.includes('mcp-binding-ha-light-g09')
+          ? g09ProviderBinding()
+          : providerBinding(url.pathname.includes('climate') ? 'climate' : 'light'),
+      );
     if (method === 'GET' && url.pathname.endsWith('/tools')) {
       const provider = url.pathname.includes('climate') ? 'climate' : 'light';
-      return json(200, { items: tools(provider, this.lightReadToolName) });
+      const localServerId = url.pathname.includes('home-lab-light-mcp-g09')
+        ? 'home-lab-light-mcp-g09'
+        : undefined;
+      return json(200, { items: tools(provider, this.lightReadToolName, localServerId) });
     }
 
-    const runtimeSkill = /^\/api\/v1\/skills\/(.+)\/versions\/1$/u.exec(url.pathname);
+    const runtimeSkill = /^\/api\/v1\/skills\/(.+)\/versions\/(\d+)$/u.exec(url.pathname);
     if (method === 'GET' && runtimeSkill !== null && url.port === '9998') {
       const skillId = decodeURIComponent(capture(runtimeSkill, 1));
-      const skill = this.#runtimeSkills.get(skillId);
+      const version = Number(capture(runtimeSkill, 2));
+      const skill = this.#runtimeSkills.get(versionedKey(skillId, version));
       return skill === undefined ? json(404, { code: 'SKILL_NOT_FOUND' }) : json(200, skill);
     }
     if (method === 'GET' && runtimeSkill !== null) {
       const skillId = decodeURIComponent(capture(runtimeSkill, 1));
-      const skill = this.#runtimeSkills.get(skillId);
+      const version = Number(capture(runtimeSkill, 2));
+      const key = versionedKey(skillId, version);
+      const skill = this.#runtimeSkills.get(key);
       if (skill === undefined) return json(404, { code: 'SKILL_NOT_FOUND' });
-      return json(200, governedSkill(skill, this.#governedSkills.has(skillId)));
+      return json(200, governedSkill(skill, this.#governedSkills.has(key)));
     }
     if (method === 'POST' && url.pathname === '/api/v1/skills/import') {
       const key = idempotencyKey(init);
@@ -517,7 +731,11 @@ class FakeGovernanceApis {
           await readFile(join(payload['packageRoot'], 'manifest.json'), 'utf8'),
         ) as Record<string, unknown>;
         const skill = manifest['skill'];
-        if (!isRecord(skill) || typeof skill['skillId'] !== 'string')
+        if (
+          !isRecord(skill) ||
+          typeof skill['skillId'] !== 'string' ||
+          typeof skill['version'] !== 'number'
+        )
           return { status: 'failed', errorCode: 'SKILL_MANIFEST_INVALID' };
         const normative = JSON.parse(
           await readFile(join(payload['packageRoot'], 'normative.json'), 'utf8'),
@@ -531,7 +749,7 @@ class FakeGovernanceApis {
         const evidence = JSON.parse(
           await readFile(join(payload['packageRoot'], 'evidence.json'), 'utf8'),
         ) as Record<string, unknown>;
-        this.#runtimeSkills.set(skill['skillId'], {
+        this.#runtimeSkills.set(versionedKey(skill['skillId'], skill['version']), {
           ...skill,
           usageSpecification: {
             apiVersion: 'sdar.io/v1alpha1',
@@ -549,37 +767,46 @@ class FakeGovernanceApis {
     }
     if (method === 'POST' && url.pathname.endsWith('/publish') && runtimeSkillPath(url.pathname)) {
       const skillId = decodeURIComponent(pathSegment(url.pathname, 4));
+      const version = Number(pathSegment(url.pathname, 6));
+      const versionedSkillId = versionedKey(skillId, version);
       const key = idempotencyKey(init);
       return this.mutate(key, () => {
-        this.#governedSkills.add(skillId);
-        const current = this.#runtimeSkills.get(skillId);
+        this.#governedSkills.add(versionedSkillId);
+        const current = this.#runtimeSkills.get(versionedSkillId);
         if (current !== undefined)
-          this.#runtimeSkills.set(skillId, { ...current, status: 'enabled' });
+          this.#runtimeSkills.set(versionedSkillId, { ...current, status: 'enabled' });
         return { status: 'succeeded' };
       });
     }
 
-    const capabilityMatch = /^\/api\/v1\/node-capabilities\/(.+)\/versions\/1$/u.exec(url.pathname);
+    const capabilityMatch = /^\/api\/v1\/node-capabilities\/(.+)\/versions\/(\d+)$/u.exec(
+      url.pathname,
+    );
     if (method === 'GET' && capabilityMatch !== null) {
       const capabilityId = decodeURIComponent(capture(capabilityMatch, 1));
-      const capability = this.#capabilities.get(capabilityId);
+      const version = Number(capture(capabilityMatch, 2));
+      const capability = this.#capabilities.get(versionedKey(capabilityId, version));
       return capability === undefined
         ? json(404, { code: 'NODE_CAPABILITY_NOT_FOUND' })
         : json(200, capability);
     }
     const implementationMatch =
-      /^\/api\/v1\/node-capabilities\/(.+)\/versions\/1\/implementations$/u.exec(url.pathname);
+      /^\/api\/v1\/node-capabilities\/(.+)\/versions\/(\d+)\/implementations$/u.exec(url.pathname);
     if (method === 'GET' && implementationMatch !== null) {
       const capabilityId = decodeURIComponent(capture(implementationMatch, 1));
-      return json(200, { items: this.#implementations.get(capabilityId) ?? [] });
+      const version = Number(capture(implementationMatch, 2));
+      return json(200, {
+        items: this.#implementations.get(versionedKey(capabilityId, version)) ?? [],
+      });
     }
     if (method === 'POST' && url.pathname === '/api/v1/node-capabilities') {
       const body = parsedBody(init);
       const capabilityId = String(body['capabilityId']);
+      const version = Number(body['version']);
       return this.mutate(
         idempotencyKey(init),
         () => {
-          this.#capabilities.set(capabilityId, body);
+          this.#capabilities.set(versionedKey(capabilityId, version), body);
           return body;
         },
         201,
@@ -587,39 +814,47 @@ class FakeGovernanceApis {
     }
     if (method === 'POST' && implementationMatch !== null) {
       const capabilityId = decodeURIComponent(capture(implementationMatch, 1));
+      const version = Number(capture(implementationMatch, 2));
       const body = parsedBody(init);
       return this.mutate(
         idempotencyKey(init),
         () => {
-          this.#implementations.set(capabilityId, [body]);
+          this.#implementations.set(versionedKey(capabilityId, version), [body]);
           return body;
         },
         201,
       );
     }
     const transition =
-      /^\/api\/v1\/node-capabilities\/(.+)\/versions\/1\/(validate|publish)$/u.exec(url.pathname);
+      /^\/api\/v1\/node-capabilities\/(.+)\/versions\/(\d+)\/(validate|publish)$/u.exec(
+        url.pathname,
+      );
     if (method === 'POST' && transition !== null) {
       const capabilityId = decodeURIComponent(capture(transition, 1));
-      const action = capture(transition, 2);
+      const version = Number(capture(transition, 2));
+      const action = capture(transition, 3);
+      const versionedCapabilityId = versionedKey(capabilityId, version);
       return this.mutate(
         idempotencyKey(init),
         () => {
-          const capability = this.#capabilities.get(capabilityId);
+          const capability = this.#capabilities.get(versionedCapabilityId);
           if (capability === undefined) return { status: 'failed' };
           const next = {
             ...capability,
             status: action === 'validate' ? 'validating' : 'published',
           };
-          this.#capabilities.set(capabilityId, next);
+          this.#capabilities.set(versionedCapabilityId, next);
           return action === 'validate' ? next : { status: 'succeeded' };
         },
         action === 'validate' ? 200 : 202,
       );
     }
-    const readiness = /^\/api\/v1\/capability-readiness\/(.+)\/1\/evaluate$/u.exec(url.pathname);
+    const readiness = /^\/api\/v1\/capability-readiness\/(.+)\/(\d+)\/evaluate$/u.exec(
+      url.pathname,
+    );
     if (method === 'POST' && readiness !== null) {
       const capabilityId = decodeURIComponent(capture(readiness, 1));
+      const version = Number(capture(readiness, 2));
       return this.mutate(idempotencyKey(init), () => {
         const stabilityWindow =
           this.readinessStabilityOnce && !this.#readinessStabilitySeen.has(capabilityId);
@@ -628,10 +863,10 @@ class FakeGovernanceApis {
           status: 'succeeded',
           result: {
             capabilityId,
-            capabilityVersion: 1,
+            capabilityVersion: version,
             status: stabilityWindow ? 'unavailable' : 'available',
             validUntil: VALID_UNTIL,
-            availableImplementations: [`capability-binding-${capabilityId}-v1`],
+            availableImplementations: [`capability-binding-${capabilityId}-v${String(version)}`],
             unavailableImplementations: [],
             ...(stabilityWindow
               ? {
@@ -677,7 +912,22 @@ function providerBinding(provider: ProviderKind) {
   };
 }
 
-function tools(provider: ProviderKind, lightReadToolName: string) {
+function g09ProviderBinding() {
+  return {
+    bindingId: 'mcp-binding-ha-light-g09',
+    localServerId: 'home-lab-light-mcp-g09',
+    originType: 'smpp_registry',
+    status: 'active',
+    availabilityStatus: 'available',
+    availabilityValidUntil: VALID_UNTIL,
+    registryRevision: 9,
+    registryChecksum: CHECKSUM,
+    catalogRevision: '2.0.0:9',
+    catalogChecksum: CHECKSUM,
+  };
+}
+
+function tools(provider: ProviderKind, lightReadToolName: string, localServerId?: string) {
   const names =
     provider === 'climate'
       ? [
@@ -688,7 +938,7 @@ function tools(provider: ProviderKind, lightReadToolName: string) {
         ]
       : [lightReadToolName, 'light_set_power', 'light_set_brightness'];
   return names.map((toolName) => ({
-    serverId: `sdar-ha-${provider}-lab`,
+    serverId: localServerId ?? `sdar-ha-${provider}-lab`,
     toolName,
     inputSchema: {
       type: 'object',
@@ -710,6 +960,23 @@ function tools(provider: ProviderKind, lightReadToolName: string) {
       required: ['resourceId'],
     },
     protocolMode: 'frozen_v1',
+    executionSemantics: toolName.endsWith('get_state')
+      ? {
+          effect: 'read_only',
+          execution: 'synchronous',
+          cancellation: 'unsupported',
+          idempotency: 'none',
+          replay: 'allowed',
+          source: 'mcp_declared',
+        }
+      : {
+          effect: 'side_effecting',
+          execution: 'task_required',
+          cancellation: 'task_cancel',
+          idempotency: 'client_request_key',
+          replay: 'forbidden',
+          source: 'mcp_declared',
+        },
     taskExecutionProfile: {
       taskBehavior: toolName.endsWith('get_state') ? 'synchronous_only' : 'task_required',
     },
@@ -721,7 +988,7 @@ function governedSkill(skill: Record<string, unknown>, governed: boolean) {
   const outcome = skill['outcomeSpecification'];
   return {
     skillId: skill['skillId'],
-    version: '1',
+    version: String(skill['version']),
     status: governed ? 'published' : 'validated',
     inputSchema: skill['inputSchema'],
     outputSchema: skill['outputSchema'],
@@ -739,7 +1006,17 @@ function governedSkill(skill: Record<string, unknown>, governed: boolean) {
 }
 
 function runtimeSkillPath(pathname: string): boolean {
-  return /^\/api\/v1\/skills\/.+\/versions\/1\/publish$/u.test(pathname);
+  return /^\/api\/v1\/skills\/.+\/versions\/\d+\/publish$/u.test(pathname);
+}
+
+function versionedKey(identity: string, version: number): string {
+  return `${identity}@${String(version)}`;
+}
+
+function recordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value) || value.some((item) => !isRecord(item)))
+    throw new Error('EXPECTED_RECORD_ARRAY');
+  return value as Record<string, unknown>[];
 }
 
 function capture(match: RegExpExecArray, index: number): string {

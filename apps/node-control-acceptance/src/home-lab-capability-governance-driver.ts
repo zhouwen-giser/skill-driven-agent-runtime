@@ -15,8 +15,8 @@ import {
 
 const CHECKSUM = /^[a-f0-9]{64}$/u;
 const CREATED_AT = '2026-08-10T00:00:00.000Z';
-const CAPABILITY_VERSION = 1;
-const SKILL_VERSION = 1;
+const LEGACY_GOVERNANCE_VERSION = 1;
+const G09_GOVERNANCE_VERSION = 2;
 const MAIN_LIGHT_RESOURCE_ID = 'living-room-main-light';
 const AUX_LIGHT_RESOURCE_ID = 'living-room-aux-light';
 const CLIMATE_RESOURCE_ID = 'living-room-air-conditioner';
@@ -38,6 +38,17 @@ const PROVIDERS = Object.freeze({
       climate_get_state: 'synchronous_only',
       climate_set_hvac_mode: 'task_required',
       climate_set_temperature: 'task_required',
+    }),
+  }),
+});
+
+const G09_PROVIDERS = Object.freeze({
+  light: Object.freeze({
+    bindingId: 'mcp-binding-ha-light-g09',
+    localServerId: 'home-lab-light-mcp-g09',
+    tools: Object.freeze({
+      light_get_state: 'synchronous_only',
+      light_set_power: 'task_required',
     }),
   }),
 });
@@ -120,6 +131,29 @@ const COMPOSITE_SPEC = Object.freeze({
 
 type ProviderKind = keyof typeof PROVIDERS;
 type GovernanceSpec = (typeof GOVERNANCE_SPECS)[number];
+export type HomeLabCapabilityGovernanceProfile = 'legacy_v1' | 'g09_main_light_v2';
+type GovernanceVersion = typeof LEGACY_GOVERNANCE_VERSION | typeof G09_GOVERNANCE_VERSION;
+
+interface ActiveGovernanceProfile {
+  readonly profile: HomeLabCapabilityGovernanceProfile;
+  readonly version: GovernanceVersion;
+  readonly reportSchemaVersion:
+    'sdar.home-lab-capability-governance/v1' | 'sdar.home-lab-capability-governance/v2';
+  readonly specs: readonly GovernanceSpec[];
+  readonly providers: Readonly<
+    Partial<
+      Record<
+        ProviderKind,
+        Readonly<{
+          bindingId: string;
+          localServerId?: string;
+          tools: Readonly<Record<string, 'synchronous_only' | 'task_required'>>;
+        }>
+      >
+    >
+  >;
+  readonly includeComposite: boolean;
+}
 
 export interface HomeLabCapabilityGovernanceConfiguration {
   readonly nodeControlBaseUrl: string;
@@ -129,10 +163,12 @@ export interface HomeLabCapabilityGovernanceConfiguration {
   readonly preflightReportFile: string;
   readonly preflightMaximumAgeMs?: number;
   readonly runId: string;
+  readonly governanceProfile?: HomeLabCapabilityGovernanceProfile;
 }
 
 export interface HomeLabCapabilityGovernanceReport {
-  readonly schemaVersion: 'sdar.home-lab-capability-governance/v1';
+  readonly schemaVersion:
+    'sdar.home-lab-capability-governance/v1' | 'sdar.home-lab-capability-governance/v2';
   readonly status: 'passed';
   readonly observedAt: string;
   readonly capabilityGovernanceReady: true;
@@ -145,7 +181,7 @@ export interface HomeLabCapabilityGovernanceReport {
   }>;
   readonly skills: readonly Readonly<{
     skillId: string;
-    skillVersion: 1;
+    skillVersion: GovernanceVersion;
     taskType: string;
     mcpToolName?: string;
     mcpProviderBindingId?: string;
@@ -162,11 +198,11 @@ export interface HomeLabCapabilityGovernanceReport {
   }>[];
   readonly capabilities: readonly Readonly<{
     capabilityId: string;
-    capabilityVersion: 1;
+    capabilityVersion: GovernanceVersion;
     definitionHash: string;
     implementationBindingId: string;
     skillId: string;
-    skillVersion: 1;
+    skillVersion: GovernanceVersion;
     mcpProviderBindingId?: string;
     providerBindings: readonly Readonly<{
       mcpProviderBindingId: string;
@@ -212,6 +248,16 @@ const BindingSchema = z
   .loose();
 
 const JsonSchema = z.union([z.boolean(), z.record(z.string(), z.unknown())]);
+const ExecutionSemanticsSchema = z
+  .object({
+    effect: z.enum(['read_only', 'side_effecting', 'unknown']),
+    execution: z.enum(['synchronous', 'task_capable', 'task_required', 'unknown']),
+    cancellation: z.enum(['unsupported', 'cooperative', 'task_cancel', 'unknown']),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+    replay: z.enum(['allowed', 'simulation_only', 'forbidden', 'unknown']),
+    source: z.enum(['mcp_declared', 'admin_override', 'default_unknown']),
+  })
+  .strict();
 const ToolSchema = z
   .object({
     serverId: z.string().min(1),
@@ -219,6 +265,7 @@ const ToolSchema = z
     inputSchema: JsonSchema,
     outputSchema: JsonSchema,
     protocolMode: z.literal('frozen_v1'),
+    executionSemantics: ExecutionSemanticsSchema.optional(),
     taskExecutionProfile: z
       .object({
         taskBehavior: z.enum(['synchronous_only', 'server_directed', 'task_required']),
@@ -231,6 +278,7 @@ const RuntimeSkillSchema = z
   .object({
     skillId: z.string().min(1),
     version: z.number().int().positive(),
+    previousVersion: z.number().int().positive().optional(),
     name: z.string().min(1),
     summary: z.string().min(1),
     description: z.string().min(1),
@@ -268,6 +316,7 @@ const CapabilitySchema = z
   .object({
     capabilityId: z.string().min(1),
     version: z.number().int().positive(),
+    previousVersion: z.number().int().positive().optional(),
     domain: z.string().min(1),
     name: z.string().min(1),
     description: z.string().min(1),
@@ -374,6 +423,37 @@ interface PreparedCompositeGovernance {
 
 type PreparedGovernance = PreparedSingleGovernance | PreparedCompositeGovernance;
 
+function activeGovernanceProfile(
+  profile: HomeLabCapabilityGovernanceProfile | undefined,
+): ActiveGovernanceProfile {
+  const parsed = z.enum(['legacy_v1', 'g09_main_light_v2']).safeParse(profile ?? 'legacy_v1');
+  if (!parsed.success)
+    return fail('DRIVER_CONFIGURATION_INVALID', 'Governance profile is not supported.');
+  const selected = parsed.data;
+  if (selected === 'legacy_v1')
+    return Object.freeze({
+      profile: selected,
+      version: LEGACY_GOVERNANCE_VERSION,
+      reportSchemaVersion: 'sdar.home-lab-capability-governance/v1',
+      specs: GOVERNANCE_SPECS,
+      providers: PROVIDERS,
+      includeComposite: true,
+    });
+  return Object.freeze({
+    profile: selected,
+    version: G09_GOVERNANCE_VERSION,
+    reportSchemaVersion: 'sdar.home-lab-capability-governance/v2',
+    specs: Object.freeze(
+      GOVERNANCE_SPECS.filter(
+        ({ capabilityId }) =>
+          capabilityId === 'home.light.read-state' || capabilityId === 'home.light.set-power',
+      ),
+    ),
+    providers: G09_PROVIDERS,
+    includeComposite: false,
+  });
+}
+
 export async function governHomeLabCapabilities(
   input: HomeLabCapabilityGovernanceConfiguration,
   dependencies: Readonly<{
@@ -383,32 +463,50 @@ export async function governHomeLabCapabilities(
   }> = {},
 ): Promise<HomeLabCapabilityGovernanceReport> {
   const configuration = validateConfiguration(input);
+  const governance = activeGovernanceProfile(configuration.governanceProfile);
   const request = dependencies.fetch ?? fetch;
   const now = dependencies.now ?? (() => new Date().toISOString());
   const pause = dependencies.delay ?? delay;
   const observedAt = validTimestamp(now(), 'DRIVER_CLOCK_INVALID');
-  const preflight = await loadPreflightPolicy(configuration, observedAt);
-  const bindings = await loadBindings(configuration, observedAt, request);
-  const tools = await loadTools(configuration, bindings, request);
+  const preflight = await loadPreflightPolicy(configuration, observedAt, governance);
+  const bindings = await loadBindings(configuration, observedAt, governance, request);
+  const tools = await loadTools(configuration, bindings, governance, request);
   const prepared: PreparedGovernance[] = [];
 
   // Complete every drift and dependency check before the first authoritative API mutation.
-  for (const spec of GOVERNANCE_SPECS) {
+  for (const spec of governance.specs) {
     const binding = bindings.get(spec.provider);
     const tool = tools.get(`${spec.provider}:${spec.toolName}`);
     if (binding === undefined || tool === undefined)
       fail('GOVERNANCE_DEPENDENCY_MISSING', 'A required governance dependency is missing.');
     const allowedResourceIds = resourcesFor(spec.provider, preflight);
-    const skillContract = buildSkillContract(spec, binding, tool, allowedResourceIds);
-    const capability = buildCapability(spec, binding, tool, allowedResourceIds);
-    const implementation = buildImplementation(spec, binding, allowedResourceIds);
+    const skillContract = buildSkillContract(
+      spec,
+      binding,
+      tool,
+      allowedResourceIds,
+      governance.version,
+    );
+    const capability = buildCapability(spec, binding, tool, allowedResourceIds, governance.version);
+    const implementation = buildImplementation(
+      spec,
+      binding,
+      allowedResourceIds,
+      governance.version,
+    );
     assertSafeGovernanceJson({ skillContract, capability, implementation });
-    const existingRuntimeSkill = await runtimeGetSkill(configuration, spec.skillId, request);
+    const existingRuntimeSkill = await runtimeGetSkill(
+      configuration,
+      spec.skillId,
+      governance.version,
+      request,
+    );
     if (existingRuntimeSkill !== undefined)
       assertRuntimeSkillExact(existingRuntimeSkill, skillContract);
     const existingCapability = await controlGetCapability(
       configuration,
       spec.capabilityId,
+      governance.version,
       request,
     );
     let existingImplementation: CapabilityImplementationBinding | undefined;
@@ -417,6 +515,7 @@ export async function governHomeLabCapabilities(
       const implementations = await controlGetImplementations(
         configuration,
         spec.capabilityId,
+        governance.version,
         request,
       );
       if (implementations.length > 1)
@@ -451,109 +550,114 @@ export async function governHomeLabCapabilities(
     );
   }
 
-  const lightBinding = bindings.get('light');
-  const climateBinding = bindings.get('climate');
-  const lightTool = tools.get('light:light_get_state');
-  const climateTool = tools.get('climate:climate_get_state');
-  if (
-    lightBinding === undefined ||
-    climateBinding === undefined ||
-    lightTool === undefined ||
-    climateTool === undefined
-  )
-    fail('GOVERNANCE_DEPENDENCY_MISSING', 'A composite governance dependency is missing.');
-  const compositeSkillContract = buildCompositeSkillContract(
-    lightBinding,
-    climateBinding,
-    lightTool,
-    climateTool,
-  );
-  const compositeCapability = buildCompositeCapability(
-    lightBinding,
-    climateBinding,
-    lightTool,
-    climateTool,
-  );
-  const compositeImplementation = buildCompositeImplementation(
-    lightBinding,
-    climateBinding,
-    lightTool,
-    climateTool,
-  );
-  assertSafeGovernanceJson({
-    skillContract: compositeSkillContract,
-    capability: compositeCapability,
-    implementation: compositeImplementation,
-  });
-  const existingCompositeRuntimeSkill = await runtimeGetSkill(
-    configuration,
-    COMPOSITE_SPEC.skillId,
-    request,
-  );
-  if (existingCompositeRuntimeSkill !== undefined)
-    assertRuntimeSkillExact(existingCompositeRuntimeSkill, compositeSkillContract);
-  const existingCompositeCapability = await controlGetCapability(
-    configuration,
-    COMPOSITE_SPEC.capabilityId,
-    request,
-  );
-  let existingCompositeImplementation: CapabilityImplementationBinding | undefined;
-  if (existingCompositeCapability !== undefined) {
-    assertCapabilityExact(existingCompositeCapability, compositeCapability);
-    const implementations = await controlGetImplementations(
-      configuration,
-      COMPOSITE_SPEC.capabilityId,
-      request,
-    );
-    if (implementations.length > 1)
-      fail(
-        'CAPABILITY_IMPLEMENTATION_AUTHORITY_AMBIGUOUS',
-        'The composite Capability has more than one implementation binding.',
-      );
-    existingCompositeImplementation = implementations[0];
-    if (existingCompositeImplementation !== undefined)
-      assertImplementationExact(existingCompositeImplementation, compositeImplementation);
+  if (governance.includeComposite) {
+    const lightBinding = bindings.get('light');
+    const climateBinding = bindings.get('climate');
+    const lightTool = tools.get('light:light_get_state');
+    const climateTool = tools.get('climate:climate_get_state');
     if (
-      existingCompositeCapability.status === 'published' &&
-      existingCompositeImplementation === undefined
+      lightBinding === undefined ||
+      climateBinding === undefined ||
+      lightTool === undefined ||
+      climateTool === undefined
     )
-      fail(
-        'CAPABILITY_IMPLEMENTATION_MISSING',
-        'The published composite Capability is missing its exact Skill implementation.',
-      );
-  }
-  const compositeBindings: PreparedCompositeGovernance['bindings'] = Object.freeze([
-    lightBinding,
-    climateBinding,
-  ]);
-  const compositeTools: PreparedCompositeGovernance['tools'] = Object.freeze([
-    lightTool,
-    climateTool,
-  ]);
-  const compositeAllowedResourceIds: PreparedCompositeGovernance['allowedResourceIds'] =
-    Object.freeze([MAIN_LIGHT_RESOURCE_ID, CLIMATE_RESOURCE_ID]);
-  prepared.push(
-    Object.freeze({
-      kind: 'composite' as const,
-      spec: COMPOSITE_SPEC,
-      bindings: compositeBindings,
-      tools: compositeTools,
-      allowedResourceIds: compositeAllowedResourceIds,
-      skill: compositeSkillContract.skill,
-      usage: compositeSkillContract.usage,
+      fail('GOVERNANCE_DEPENDENCY_MISSING', 'A composite governance dependency is missing.');
+    const compositeSkillContract = buildCompositeSkillContract(
+      lightBinding,
+      climateBinding,
+      lightTool,
+      climateTool,
+    );
+    const compositeCapability = buildCompositeCapability(
+      lightBinding,
+      climateBinding,
+      lightTool,
+      climateTool,
+    );
+    const compositeImplementation = buildCompositeImplementation(
+      lightBinding,
+      climateBinding,
+      lightTool,
+      climateTool,
+    );
+    assertSafeGovernanceJson({
+      skillContract: compositeSkillContract,
       capability: compositeCapability,
       implementation: compositeImplementation,
-      ...(existingCompositeRuntimeSkill === undefined
-        ? {}
-        : { existingRuntimeSkill: existingCompositeRuntimeSkill }),
-      ...(existingCompositeCapability === undefined
-        ? {}
-        : { existingCapability: existingCompositeCapability }),
-      ...(existingCompositeImplementation === undefined
-        ? {}
-        : { existingImplementation: existingCompositeImplementation }),
-    }),
-  );
+    });
+    const existingCompositeRuntimeSkill = await runtimeGetSkill(
+      configuration,
+      COMPOSITE_SPEC.skillId,
+      LEGACY_GOVERNANCE_VERSION,
+      request,
+    );
+    if (existingCompositeRuntimeSkill !== undefined)
+      assertRuntimeSkillExact(existingCompositeRuntimeSkill, compositeSkillContract);
+    const existingCompositeCapability = await controlGetCapability(
+      configuration,
+      COMPOSITE_SPEC.capabilityId,
+      LEGACY_GOVERNANCE_VERSION,
+      request,
+    );
+    let existingCompositeImplementation: CapabilityImplementationBinding | undefined;
+    if (existingCompositeCapability !== undefined) {
+      assertCapabilityExact(existingCompositeCapability, compositeCapability);
+      const implementations = await controlGetImplementations(
+        configuration,
+        COMPOSITE_SPEC.capabilityId,
+        LEGACY_GOVERNANCE_VERSION,
+        request,
+      );
+      if (implementations.length > 1)
+        fail(
+          'CAPABILITY_IMPLEMENTATION_AUTHORITY_AMBIGUOUS',
+          'The composite Capability has more than one implementation binding.',
+        );
+      existingCompositeImplementation = implementations[0];
+      if (existingCompositeImplementation !== undefined)
+        assertImplementationExact(existingCompositeImplementation, compositeImplementation);
+      if (
+        existingCompositeCapability.status === 'published' &&
+        existingCompositeImplementation === undefined
+      )
+        fail(
+          'CAPABILITY_IMPLEMENTATION_MISSING',
+          'The published composite Capability is missing its exact Skill implementation.',
+        );
+    }
+    const compositeBindings: PreparedCompositeGovernance['bindings'] = Object.freeze([
+      lightBinding,
+      climateBinding,
+    ]);
+    const compositeTools: PreparedCompositeGovernance['tools'] = Object.freeze([
+      lightTool,
+      climateTool,
+    ]);
+    const compositeAllowedResourceIds: PreparedCompositeGovernance['allowedResourceIds'] =
+      Object.freeze([MAIN_LIGHT_RESOURCE_ID, CLIMATE_RESOURCE_ID]);
+    prepared.push(
+      Object.freeze({
+        kind: 'composite' as const,
+        spec: COMPOSITE_SPEC,
+        bindings: compositeBindings,
+        tools: compositeTools,
+        allowedResourceIds: compositeAllowedResourceIds,
+        skill: compositeSkillContract.skill,
+        usage: compositeSkillContract.usage,
+        capability: compositeCapability,
+        implementation: compositeImplementation,
+        ...(existingCompositeRuntimeSkill === undefined
+          ? {}
+          : { existingRuntimeSkill: existingCompositeRuntimeSkill }),
+        ...(existingCompositeCapability === undefined
+          ? {}
+          : { existingCapability: existingCompositeCapability }),
+        ...(existingCompositeImplementation === undefined
+          ? {}
+          : { existingImplementation: existingCompositeImplementation }),
+      }),
+    );
+  }
 
   const skillReports: HomeLabCapabilityGovernanceReport['skills'][number][] = [];
   for (const item of prepared) {
@@ -562,6 +666,7 @@ export async function governHomeLabCapabilities(
       item.spec,
       item.skill,
       item.usage,
+      governance.version,
     );
     const action = item.existingRuntimeSkill === undefined ? 'imported' : 'reconciled';
     if (item.existingRuntimeSkill === undefined) {
@@ -569,9 +674,9 @@ export async function governHomeLabCapabilities(
         await controlCommand(
           configuration,
           '/api/v1/skills/import',
-          stableKey('skill-import', item.spec.skillId),
+          governanceKey(governance, 'skill-import', item.spec.skillId),
           {
-            reason: `Import the exact governed ${item.spec.skillId}@1 Skill Package.`,
+            reason: `Import the exact governed ${item.spec.skillId}@${String(governance.version)} Skill Package.`,
             payload: { packageRoot: packageResult.packageRoot },
           },
           request,
@@ -581,32 +686,37 @@ export async function governHomeLabCapabilities(
     OperationSchema.parse(
       await controlCommand(
         configuration,
-        `/api/v1/skills/${encodeURIComponent(item.spec.skillId)}/versions/1/publish`,
-        stableKey('skill-publish', item.spec.skillId),
+        `/api/v1/skills/${encodeURIComponent(item.spec.skillId)}/versions/${String(governance.version)}/publish`,
+        governanceKey(governance, 'skill-publish', item.spec.skillId),
         {
-          reason: `Publish the exact governed ${item.spec.skillId}@1 Skill version.`,
+          reason: `Publish the exact governed ${item.spec.skillId}@${String(governance.version)} Skill version.`,
           expectedRevision: 0,
         },
         request,
       ),
     );
-    const runtimeSkill = await runtimeGetSkill(configuration, item.spec.skillId, request);
+    const runtimeSkill = await runtimeGetSkill(
+      configuration,
+      item.spec.skillId,
+      governance.version,
+      request,
+    );
     if (runtimeSkill === undefined)
       fail('SKILL_MISSING_AFTER_GOVERNANCE', 'Runtime did not expose the exact Skill version.');
     assertRuntimeSkillExact(runtimeSkill, { skill: item.skill, usage: item.usage });
     const governed = GovernedSkillSchema.parse(
       await controlGet(
         configuration,
-        `/api/v1/skills/${encodeURIComponent(item.spec.skillId)}/versions/1`,
+        `/api/v1/skills/${encodeURIComponent(item.spec.skillId)}/versions/${String(governance.version)}`,
         request,
       ),
     );
-    assertGovernedSkillExact(governed, item.skill, item.usage);
+    assertGovernedSkillExact(governed, item.skill, item.usage, governance.version);
     skillReports.push(
       item.kind === 'single'
         ? Object.freeze({
             skillId: item.spec.skillId,
-            skillVersion: 1,
+            skillVersion: governance.version,
             taskType: item.spec.toolName,
             mcpToolName: item.spec.toolName,
             mcpProviderBindingId: item.binding.bindingId,
@@ -625,7 +735,7 @@ export async function governHomeLabCapabilities(
           })
         : Object.freeze({
             skillId: item.spec.skillId,
-            skillVersion: 1,
+            skillVersion: governance.version,
             taskType: COMPOSITE_TASK_TYPE,
             mcpTools: Object.freeze(
               item.tools.map((tool, index) =>
@@ -651,7 +761,7 @@ export async function governHomeLabCapabilities(
       await controlCreate(
         configuration,
         '/api/v1/node-capabilities',
-        stableKey('capability-create', item.spec.capabilityId),
+        governanceKey(governance, 'capability-create', item.spec.capabilityId),
         item.capability,
         request,
       ),
@@ -659,8 +769,8 @@ export async function governHomeLabCapabilities(
     if (item.existingImplementation === undefined) {
       await controlCreate(
         configuration,
-        `/api/v1/node-capabilities/${encodeURIComponent(item.spec.capabilityId)}/versions/1/implementations`,
-        stableKey('capability-implementation', item.spec.capabilityId),
+        `/api/v1/node-capabilities/${encodeURIComponent(item.spec.capabilityId)}/versions/${String(governance.version)}/implementations`,
+        governanceKey(governance, 'capability-implementation', item.spec.capabilityId),
         item.implementation,
         request,
       );
@@ -669,9 +779,11 @@ export async function governHomeLabCapabilities(
       capability = CapabilitySchema.parse(
         await controlMutation(
           configuration,
-          `/api/v1/node-capabilities/${encodeURIComponent(item.spec.capabilityId)}/versions/1/validate`,
-          stableKey('capability-validate', item.spec.capabilityId),
-          { reason: `Validate the exact governed ${item.spec.capabilityId}@1 Capability.` },
+          `/api/v1/node-capabilities/${encodeURIComponent(item.spec.capabilityId)}/versions/${String(governance.version)}/validate`,
+          governanceKey(governance, 'capability-validate', item.spec.capabilityId),
+          {
+            reason: `Validate the exact governed ${item.spec.capabilityId}@${String(governance.version)} Capability.`,
+          },
           nodeCapabilityEtag(capability),
           200,
           request,
@@ -682,9 +794,11 @@ export async function governHomeLabCapabilities(
       OperationSchema.parse(
         await controlMutation(
           configuration,
-          `/api/v1/node-capabilities/${encodeURIComponent(item.spec.capabilityId)}/versions/1/publish`,
-          stableKey('capability-publish', item.spec.capabilityId),
-          { reason: `Publish the exact governed ${item.spec.capabilityId}@1 Capability.` },
+          `/api/v1/node-capabilities/${encodeURIComponent(item.spec.capabilityId)}/versions/${String(governance.version)}/publish`,
+          governanceKey(governance, 'capability-publish', item.spec.capabilityId),
+          {
+            reason: `Publish the exact governed ${item.spec.capabilityId}@${String(governance.version)} Capability.`,
+          },
           nodeCapabilityEtag(capability),
           202,
           request,
@@ -693,7 +807,12 @@ export async function governHomeLabCapabilities(
     } else if (capability.status !== 'published') {
       fail('CAPABILITY_LIFECYCLE_INVALID', 'Capability lifecycle is not publishable.');
     }
-    const published = await controlGetCapability(configuration, item.spec.capabilityId, request);
+    const published = await controlGetCapability(
+      configuration,
+      item.spec.capabilityId,
+      governance.version,
+      request,
+    );
     if (published?.status !== 'published')
       fail('CAPABILITY_NOT_PUBLISHED', 'Capability publication was not observable.');
     assertCapabilityExact(published, item.capability);
@@ -703,6 +822,7 @@ export async function governHomeLabCapabilities(
   const readinessByCapability = await evaluateCapabilityReadiness(
     readinessTargets,
     configuration,
+    governance,
     request,
     pause,
   );
@@ -717,11 +837,11 @@ export async function governHomeLabCapabilities(
     );
     return Object.freeze({
       capabilityId: item.spec.capabilityId,
-      capabilityVersion: 1,
+      capabilityVersion: governance.version,
       definitionHash: item.capability.definitionHash,
       implementationBindingId: item.implementation.bindingId,
       skillId: item.spec.skillId,
-      skillVersion: 1,
+      skillVersion: governance.version,
       ...(item.kind === 'single' ? { mcpProviderBindingId: item.binding.bindingId } : {}),
       providerBindings: Object.freeze(
         item.kind === 'single'
@@ -749,7 +869,7 @@ export async function governHomeLabCapabilities(
   });
 
   const report: HomeLabCapabilityGovernanceReport = Object.freeze({
-    schemaVersion: 'sdar.home-lab-capability-governance/v1',
+    schemaVersion: governance.reportSchemaVersion,
     status: 'passed',
     observedAt,
     capabilityGovernanceReady: true,
@@ -775,6 +895,7 @@ export async function governHomeLabCapabilities(
 async function evaluateCapabilityReadiness(
   targets: readonly PreparedGovernance[],
   configuration: HomeLabCapabilityGovernanceConfiguration,
+  governance: ActiveGovernanceProfile,
   request: typeof fetch,
   pause: (milliseconds: number) => Promise<void>,
 ): Promise<ReadonlyMap<string, z.infer<typeof ReadinessSchema>>> {
@@ -786,20 +907,22 @@ async function evaluateCapabilityReadiness(
       const readinessOperation = OperationSchema.parse(
         await controlCommand(
           configuration,
-          `/api/v1/capability-readiness/${encodeURIComponent(item.spec.capabilityId)}/1/evaluate`,
+          `/api/v1/capability-readiness/${encodeURIComponent(item.spec.capabilityId)}/${String(governance.version)}/evaluate`,
           runKey(
             configuration.runId,
             `capability-readiness-${String(attempt)}`,
-            item.spec.capabilityId,
+            versionedIdentity(governance.version, item.spec.capabilityId),
           ),
-          { reason: `Evaluate exact Runtime readiness for ${item.spec.capabilityId}@1.` },
+          {
+            reason: `Evaluate exact Runtime readiness for ${item.spec.capabilityId}@${String(governance.version)}.`,
+          },
           request,
         ),
       );
       const readiness = ReadinessSchema.parse(readinessOperation.result);
       const exactImplementations =
         readiness.capabilityId === item.spec.capabilityId &&
-        readiness.capabilityVersion === 1 &&
+        readiness.capabilityVersion === governance.version &&
         readiness.availableImplementations.length === 1 &&
         readiness.availableImplementations[0] === item.implementation.bindingId &&
         readiness.unavailableImplementations.length === 0;
@@ -861,6 +984,13 @@ export async function configurationFromEnvironment(
         86_400_000,
       ),
       runId: requiredEnvironment(environment, 'SDAR_HOME_LAB_RUN_ID'),
+      ...(environment['SDAR_HOME_LAB_GOVERNANCE_PROFILE'] === undefined
+        ? {}
+        : {
+            governanceProfile: governanceProfileFromEnvironment(
+              environment['SDAR_HOME_LAB_GOVERNANCE_PROFILE'],
+            ),
+          }),
     }),
     reportFile:
       environment['SDAR_HOME_LAB_GOVERNANCE_REPORT_FILE'] ??
@@ -896,6 +1026,7 @@ function validateConfiguration(
   if (!isAbsolute(input.preflightReportFile))
     fail('DRIVER_CONFIGURATION_INVALID', 'Preflight report path must be absolute.');
   const preflightMaximumAgeMs = input.preflightMaximumAgeMs ?? 86_400_000;
+  const governanceProfile = input.governanceProfile ?? 'legacy_v1';
   if (
     !Number.isSafeInteger(preflightMaximumAgeMs) ||
     preflightMaximumAgeMs < 60_000 ||
@@ -909,12 +1040,14 @@ function validateConfiguration(
     packageWorkspaceRoot: resolve(input.packageWorkspaceRoot),
     preflightReportFile: resolve(input.preflightReportFile),
     preflightMaximumAgeMs,
+    governanceProfile,
   });
 }
 
 async function loadPreflightPolicy(
   configuration: HomeLabCapabilityGovernanceConfiguration,
   observedAt: string,
+  governance: ActiveGovernanceProfile,
 ): Promise<HomeLabPreflightPolicy> {
   let parsedJson: unknown;
   try {
@@ -980,8 +1113,9 @@ async function loadPreflightPolicy(
     return matches.length === 1;
   };
   exact(MAIN_LIGHT_RESOURCE_ID, 'light', true);
-  exact(CLIMATE_RESOURCE_ID, 'climate', true);
-  const auxiliaryLightAvailable = exact(AUX_LIGHT_RESOURCE_ID, 'light', false);
+  const legacy = governance.profile === 'legacy_v1';
+  if (legacy) exact(CLIMATE_RESOURCE_ID, 'climate', true);
+  const auxiliaryLightAvailable = legacy && exact(AUX_LIGHT_RESOURCE_ID, 'light', false);
   const lightResourceIds = Object.freeze([
     MAIN_LIGHT_RESOURCE_ID,
     ...(auxiliaryLightAvailable ? [AUX_LIGHT_RESOURCE_ID] : []),
@@ -990,23 +1124,30 @@ async function loadPreflightPolicy(
   return Object.freeze({
     auxiliaryLightAvailable,
     lightResourceIds,
-    climateResourceIds,
-    allResourceIds: Object.freeze([
-      MAIN_LIGHT_RESOURCE_ID,
-      CLIMATE_RESOURCE_ID,
-      ...(auxiliaryLightAvailable ? [AUX_LIGHT_RESOURCE_ID] : []),
-    ]),
+    climateResourceIds: legacy ? climateResourceIds : Object.freeze([]),
+    allResourceIds: Object.freeze(
+      legacy
+        ? [
+            MAIN_LIGHT_RESOURCE_ID,
+            CLIMATE_RESOURCE_ID,
+            ...(auxiliaryLightAvailable ? [AUX_LIGHT_RESOURCE_ID] : []),
+          ]
+        : [MAIN_LIGHT_RESOURCE_ID],
+    ),
   });
 }
 
 async function loadBindings(
   configuration: HomeLabCapabilityGovernanceConfiguration,
   observedAt: string,
+  governance: ActiveGovernanceProfile,
   request: typeof fetch,
 ): Promise<ReadonlyMap<ProviderKind, Binding>> {
   const result = new Map<ProviderKind, Binding>();
-  for (const provider of Object.keys(PROVIDERS) as ProviderKind[]) {
-    const expected = PROVIDERS[provider];
+  for (const provider of Object.keys(governance.providers) as ProviderKind[]) {
+    const expected = governance.providers[provider];
+    if (expected === undefined)
+      fail('PROVIDER_BINDING_MISSING', 'Governance Provider configuration is incomplete.');
     const binding = BindingSchema.parse(
       await controlGet(
         configuration,
@@ -1016,6 +1157,11 @@ async function loadBindings(
     );
     if (binding.bindingId !== expected.bindingId)
       fail('PROVIDER_BINDING_IDENTITY_MISMATCH', 'Provider Binding identity is not exact.');
+    if (expected.localServerId !== undefined && binding.localServerId !== expected.localServerId)
+      fail(
+        'PROVIDER_BINDING_SERVER_IDENTITY_MISMATCH',
+        'Provider Binding local server identity is not exact.',
+      );
     requireFresh(binding.availabilityValidUntil, observedAt, 'PROVIDER_BINDING_FRESHNESS_EXPIRED');
     result.set(provider, binding);
   }
@@ -1025,10 +1171,14 @@ async function loadBindings(
 async function loadTools(
   configuration: HomeLabCapabilityGovernanceConfiguration,
   bindings: ReadonlyMap<ProviderKind, Binding>,
+  governance: ActiveGovernanceProfile,
   request: typeof fetch,
 ): Promise<ReadonlyMap<string, Tool>> {
   const result = new Map<string, Tool>();
-  for (const provider of Object.keys(PROVIDERS) as ProviderKind[]) {
+  for (const provider of Object.keys(governance.providers) as ProviderKind[]) {
+    const expected = governance.providers[provider];
+    if (expected === undefined)
+      fail('PROVIDER_BINDING_MISSING', 'Governance Provider configuration is incomplete.');
     const binding = bindings.get(provider);
     if (binding === undefined)
       fail('PROVIDER_BINDING_MISSING', 'Provider Binding disappeared during preflight.');
@@ -1042,7 +1192,7 @@ async function loadTools(
           request,
         ),
       );
-    for (const [toolName, taskBehavior] of Object.entries(PROVIDERS[provider].tools)) {
+    for (const [toolName, taskBehavior] of Object.entries(expected.tools)) {
       const [tool, ...duplicates] = collection.items.filter(
         (candidate) => candidate.toolName === toolName,
       );
@@ -1067,10 +1217,12 @@ function buildSkillContract(
   binding: Binding,
   tool: Tool,
   allowedResourceIds: readonly string[],
+  version: GovernanceVersion,
 ): Readonly<{
   skill: Readonly<Record<string, unknown>>;
   usage: Readonly<Record<string, unknown>>;
 }> {
+  const g09Control = version === G09_GOVERNANCE_VERSION && spec.sideEffecting;
   const inputSchema = constrainedInputSchema(tool.inputSchema, allowedResourceIds);
   const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   const confirmation = spec.sideEffecting
@@ -1079,7 +1231,7 @@ function buildSkillContract(
   const outcomeBase = Object.freeze({
     schemaVersion: '1.0',
     skillId: spec.skillId,
-    skillVersion: 1,
+    skillVersion: version,
     effects: Object.freeze([spec.effect]),
     evidence: spec.evidence,
     artifacts: Object.freeze([]),
@@ -1099,10 +1251,19 @@ function buildSkillContract(
         ? {
             sideEffecting: true,
             confirmation: 'required_before_execution',
+            ...(g09Control ? { autoConfirmPlan: false } : {}),
             allowRealDeviceSideEffectsEnv: 'ALLOW_REAL_DEVICE_SIDE_EFFECTS',
             realDeviceTestRunIdEnv: 'REAL_DEVICE_TEST_RUN_ID',
             stateConfirmationRequired: true,
             restorationRequired: true,
+            ...(g09Control
+              ? {
+                  exactResourceRequired: true,
+                  remoteTaskIdentityRequired: true,
+                  terminalObservationRequired: true,
+                  redispatchAfterUncertain: false,
+                }
+              : {}),
           }
         : { sideEffecting: false, confirmation: 'not_required' },
     ),
@@ -1113,7 +1274,8 @@ function buildSkillContract(
   });
   const skill = Object.freeze({
     skillId: spec.skillId,
-    version: 1,
+    version,
+    ...(version === LEGACY_GOVERNANCE_VERSION ? {} : { previousVersion: version - 1 }),
     name: spec.name,
     summary: spec.summary,
     description: `${spec.summary} The execution path is restricted to ${binding.bindingId} and ${spec.toolName}.`,
@@ -1128,7 +1290,11 @@ function buildSkillContract(
         Object.freeze({ serverId: binding.localServerId, toolName: spec.toolName }),
       ]),
       optional: Object.freeze([]),
-      forbidden: Object.freeze([]),
+      forbidden: Object.freeze(
+        g09Control
+          ? [Object.freeze({ serverId: binding.localServerId, toolName: 'vehicle_fire_weapon' })]
+          : [],
+      ),
     }),
     runtimePolicy: Object.freeze({
       autoConfirmPlan: false,
@@ -1156,7 +1322,7 @@ function buildSkillContract(
       constraints: Object.freeze([
         `Use only public resource IDs: ${allowedResourceIds.join(', ')}.`,
         `Require active, available and fresh Provider Binding ${binding.bindingId}.`,
-        `Use exact Skill version ${spec.skillId}@1 and exact MCP Tool ${spec.toolName}.`,
+        `Use exact Skill version ${spec.skillId}@${String(version)} and exact MCP Tool ${spec.toolName}.`,
       ]),
       forbiddenActions: Object.freeze([
         'Resolve, persist or return Home Assistant entity IDs.',
@@ -1182,7 +1348,7 @@ function buildSkillContract(
     ]),
     taskBindings: Object.freeze([
       Object.freeze({
-        bindingId: `task-binding-${spec.skillId}-v1`,
+        bindingId: `task-binding-${spec.skillId}-v${String(version)}`,
         taskType: spec.toolName,
         providerPolicy: Object.freeze({
           selection: 'required',
@@ -1412,7 +1578,7 @@ function buildCompositeCapability(
 ): NodeCapabilityDefinitionVersion {
   return createNodeCapabilityDefinition({
     capabilityId: COMPOSITE_SPEC.capabilityId,
-    version: CAPABILITY_VERSION,
+    version: LEGACY_GOVERNANCE_VERSION,
     domain: 'home.living-room',
     name: COMPOSITE_SPEC.name,
     description: COMPOSITE_SPEC.summary,
@@ -1468,10 +1634,10 @@ function buildCompositeImplementation(
   return Object.freeze({
     bindingId: `capability-binding-${COMPOSITE_SPEC.capabilityId}-v1`,
     capabilityId: COMPOSITE_SPEC.capabilityId,
-    capabilityVersion: CAPABILITY_VERSION,
+    capabilityVersion: LEGACY_GOVERNANCE_VERSION,
     implementationType: 'skill',
     implementationId: COMPOSITE_SPEC.skillId,
-    implementationVersion: String(SKILL_VERSION),
+    implementationVersion: String(LEGACY_GOVERNANCE_VERSION),
     role: 'primary',
     priority: 0,
     providerPolicyOverride: Object.freeze({
@@ -1517,6 +1683,33 @@ function providerBindingConstraint(binding: Binding, tool: Tool) {
   });
 }
 
+function exactExecutionSemantics(tool: Tool) {
+  const semantics = tool.executionSemantics;
+  if (semantics === undefined)
+    return fail(
+      'MCP_TOOL_EXECUTION_SEMANTICS_NOT_EXACT',
+      'G09 control requires explicit side-effecting task-required Tool semantics.',
+    );
+  if (
+    semantics.effect !== 'side_effecting' ||
+    semantics.execution !== 'task_required' ||
+    semantics.source === 'default_unknown' ||
+    Object.values(semantics).some((value) => value === 'unknown')
+  )
+    return fail(
+      'MCP_TOOL_EXECUTION_SEMANTICS_NOT_EXACT',
+      'G09 control requires explicit side-effecting task-required Tool semantics.',
+    );
+  return Object.freeze({
+    effect: semantics.effect,
+    execution: semantics.execution,
+    cancellation: semantics.cancellation,
+    idempotency: semantics.idempotency,
+    replay: semantics.replay,
+    source: semantics.source,
+  });
+}
+
 function compositeInputSchema(): JsonObject {
   return Object.freeze({
     type: 'object',
@@ -1552,7 +1745,9 @@ function buildCapability(
   binding: Binding,
   tool: Tool,
   allowedResourceIds: readonly string[],
+  version: GovernanceVersion,
 ): NodeCapabilityDefinitionVersion {
+  const g09Control = version === G09_GOVERNANCE_VERSION && spec.sideEffecting;
   const inputSchema = constrainedInputSchema(tool.inputSchema, allowedResourceIds);
   const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   const requiredEvidence = spec.evidence.map((evidenceType) =>
@@ -1560,7 +1755,8 @@ function buildCapability(
   );
   return createNodeCapabilityDefinition({
     capabilityId: spec.capabilityId,
-    version: CAPABILITY_VERSION,
+    version,
+    ...(version === LEGACY_GOVERNANCE_VERSION ? {} : { previousVersion: version - 1 }),
     domain: spec.provider === 'light' ? 'home.light' : 'home.climate',
     name: spec.name,
     description: spec.summary,
@@ -1581,36 +1777,69 @@ function buildCapability(
     effects: [spec.effect],
     artifacts: [],
     constraints: [
-      Object.freeze({
-        type: 'resource_policy',
-        identifierAuthority: 'public_resource_id',
-        selection: 'request_value',
-        allowedResourceIds,
-        physicalResourceBinding: 'forbidden',
-      }),
-      Object.freeze({
-        type: 'provider_binding_policy',
-        mcpProviderBindingId: binding.bindingId,
-        localServerId: binding.localServerId,
-        mcpToolName: spec.toolName,
-        requiredStatus: 'active',
-        requiredAvailabilityStatus: 'available',
-        requiredFreshness: 'unexpired',
-        fallback: 'deny',
-      }),
+      g09Control
+        ? Object.freeze({
+            type: 'resource_policy',
+            identifierAuthority: 'public_smpp_tool_schema',
+            selection: 'exact_value',
+            allowedResourceIds: Object.freeze([MAIN_LIGHT_RESOURCE_ID]),
+            downstreamResourceBinding: 'forbidden',
+          })
+        : Object.freeze({
+            type: 'resource_policy',
+            identifierAuthority: 'public_resource_id',
+            selection: 'request_value',
+            allowedResourceIds,
+            physicalResourceBinding: 'forbidden',
+          }),
+      g09Control
+        ? Object.freeze({
+            type: 'provider_binding_policy',
+            mcpProviderBindingId: binding.bindingId,
+            localServerId: binding.localServerId,
+            mcpToolName: spec.toolName,
+            allowedResourceIds: Object.freeze([MAIN_LIGHT_RESOURCE_ID]),
+            executionSemantics: exactExecutionSemantics(tool),
+            requiredStatus: 'active',
+            requiredAvailabilityStatus: 'available',
+            requiredFreshness: 'unexpired',
+            fallback: 'deny',
+          })
+        : Object.freeze({
+            type: 'provider_binding_policy',
+            mcpProviderBindingId: binding.bindingId,
+            localServerId: binding.localServerId,
+            mcpToolName: spec.toolName,
+            requiredStatus: 'active',
+            requiredAvailabilityStatus: 'available',
+            requiredFreshness: 'unexpired',
+            fallback: 'deny',
+          }),
       Object.freeze({
         type: 'exact_skill_version',
         skillId: spec.skillId,
-        skillVersion: SKILL_VERSION,
+        skillVersion: version,
         taskType: spec.toolName,
       }),
       Object.freeze({
         type: 'confirmation_policy',
         required: spec.sideEffecting,
         stage: spec.sideEffecting ? 'before_execution' : 'not_applicable',
+        ...(g09Control ? { autoConfirmPlan: false } : {}),
       }),
+      ...(g09Control
+        ? [
+            Object.freeze({
+              type: 'physical_side_effect_policy',
+              sideEffecting: true,
+              dispatchMaximum: 1,
+              uncertainDispatchPolicy: 'reconcile_never_redispatch',
+              remoteTaskTerminalEvidenceRequired: true,
+            }),
+          ]
+        : []),
     ],
-    supportedModes: ['deterministic'],
+    supportedModes: g09Control ? ['plan_confirmed', 'remote_task'] : ['deterministic'],
     riskLevel: spec.riskLevel,
     status: 'draft',
     createdBy: 'home-lab-governance-driver',
@@ -1622,14 +1851,15 @@ function buildImplementation(
   spec: GovernanceSpec,
   binding: Binding,
   allowedResourceIds: readonly string[],
+  version: GovernanceVersion,
 ): CapabilityImplementationBinding {
   return Object.freeze({
-    bindingId: `capability-binding-${spec.capabilityId}-v1`,
+    bindingId: `capability-binding-${spec.capabilityId}-v${String(version)}`,
     capabilityId: spec.capabilityId,
-    capabilityVersion: CAPABILITY_VERSION,
+    capabilityVersion: version,
     implementationType: 'skill',
     implementationId: spec.skillId,
-    implementationVersion: String(SKILL_VERSION),
+    implementationVersion: String(version),
     role: 'primary',
     priority: 0,
     providerPolicyOverride: Object.freeze({
@@ -1694,8 +1924,9 @@ async function materializeSkillPackage(
   spec: Readonly<{ skillId: string; name: string; summary: string }>,
   skill: Readonly<Record<string, unknown>>,
   usage: Readonly<Record<string, unknown>>,
+  version: GovernanceVersion,
 ): Promise<Readonly<{ packageRoot: string; packageChecksum: string }>> {
-  const packageRoot = join(workspaceRoot, spec.skillId, 'v1');
+  const packageRoot = join(workspaceRoot, spec.skillId, `v${String(version)}`);
   await mkdir(packageRoot, { recursive: true });
   const markdown = `# ${spec.name}\n\n${spec.summary}\n\nThis exact version uses only the MCP Tools declared by its governed Provider Binding policy.\n`;
   const files = Object.freeze({
@@ -1742,10 +1973,11 @@ async function materializeSkillPackage(
 async function runtimeGetSkill(
   configuration: HomeLabCapabilityGovernanceConfiguration,
   skillId: string,
+  version: GovernanceVersion,
   request: typeof fetch,
 ): Promise<z.infer<typeof RuntimeSkillSchema> | undefined> {
   const response = await request(
-    `${configuration.runtimeManagementBaseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/versions/1`,
+    `${configuration.runtimeManagementBaseUrl}/api/v1/skills/${encodeURIComponent(skillId)}/versions/${String(version)}`,
     { redirect: 'manual' },
   );
   if (response.status === 404) return undefined;
@@ -1755,10 +1987,11 @@ async function runtimeGetSkill(
 async function controlGetCapability(
   configuration: HomeLabCapabilityGovernanceConfiguration,
   capabilityId: string,
+  version: GovernanceVersion,
   request: typeof fetch,
 ): Promise<NodeCapabilityDefinitionVersion | undefined> {
   const response = await request(
-    `${configuration.nodeControlBaseUrl}/api/v1/node-capabilities/${encodeURIComponent(capabilityId)}/versions/1`,
+    `${configuration.nodeControlBaseUrl}/api/v1/node-capabilities/${encodeURIComponent(capabilityId)}/versions/${String(version)}`,
     {
       headers: { authorization: `Bearer ${configuration.nodeControlBearerToken}` },
       redirect: 'manual',
@@ -1773,6 +2006,7 @@ async function controlGetCapability(
 async function controlGetImplementations(
   configuration: HomeLabCapabilityGovernanceConfiguration,
   capabilityId: string,
+  version: GovernanceVersion,
   request: typeof fetch,
 ): Promise<readonly CapabilityImplementationBinding[]> {
   const body = z
@@ -1781,7 +2015,7 @@ async function controlGetImplementations(
     .parse(
       await controlGet(
         configuration,
-        `/api/v1/node-capabilities/${encodeURIComponent(capabilityId)}/versions/1/implementations?pageSize=100`,
+        `/api/v1/node-capabilities/${encodeURIComponent(capabilityId)}/versions/${String(version)}/implementations?pageSize=100`,
         request,
       ),
     );
@@ -1812,8 +2046,9 @@ function assertGovernedSkillExact(
   actual: z.infer<typeof GovernedSkillSchema>,
   skill: Readonly<Record<string, unknown>>,
   usage: Readonly<Record<string, unknown>>,
+  version: GovernanceVersion,
 ): void {
-  if (actual.skillId !== skill['skillId'] || String(actual.version) !== '1')
+  if (actual.skillId !== skill['skillId'] || String(actual.version) !== String(version))
     fail('SKILL_GOVERNANCE_IDENTITY_MISMATCH', 'Governed Skill identity is not exact.');
   const taskBindings = (actual.usageSpecification['taskBindings'] ?? []) as readonly unknown[];
   if (stableStringify(taskBindings) !== stableStringify(usage['taskBindings']))
@@ -2121,6 +2356,19 @@ function stableKey(scope: string, identity: string): string {
   return `home-lab-g06-${scope}-${sha256(identity).slice(0, 24)}`;
 }
 
+function governanceKey(
+  governance: ActiveGovernanceProfile,
+  scope: string,
+  identity: string,
+): string {
+  if (governance.profile === 'legacy_v1') return stableKey(scope, identity);
+  return `home-lab-g09-${scope}-${sha256(versionedIdentity(governance.version, identity)).slice(0, 24)}`;
+}
+
+function versionedIdentity(version: GovernanceVersion, identity: string): string {
+  return version === LEGACY_GOVERNANCE_VERSION ? identity : `${identity}@${String(version)}`;
+}
+
 function runKey(runId: string, scope: string, identity: string): string {
   return `${runId}-${scope}-${sha256(identity).slice(0, 16)}`.slice(0, 256);
 }
@@ -2166,6 +2414,14 @@ function optionalPositiveInteger(
   if (!Number.isSafeInteger(parsed))
     return fail('DRIVER_CONFIGURATION_INVALID', `${name} must be a safe integer.`);
   return parsed;
+}
+
+function governanceProfileFromEnvironment(
+  value: string | undefined,
+): HomeLabCapabilityGovernanceProfile {
+  const selected = value?.trim();
+  if (selected === 'legacy_v1' || selected === 'g09_main_light_v2') return selected;
+  return fail('DRIVER_CONFIGURATION_INVALID', 'SDAR_HOME_LAB_GOVERNANCE_PROFILE is not supported.');
 }
 
 function delay(milliseconds: number): Promise<void> {

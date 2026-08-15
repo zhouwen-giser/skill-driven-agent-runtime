@@ -5,6 +5,7 @@ import {
   type JsonValue,
 } from '../../../packages/node-control-domain/src/index.js';
 import {
+  configurationFromEnvironment,
   materializeHomeLabCatalog,
   type HomeLabCatalogMaterializationConfiguration,
 } from '../src/home-lab-catalog-materialization-driver.js';
@@ -17,6 +18,41 @@ const CONTROL_TOKEN = 'control-secret-never-report';
 const PROVIDER_TOKEN = 'provider-secret-never-report';
 
 describe('home-lab Catalog materialization driver', () => {
+  it('accepts isolated Binding IDs from the environment without changing legacy defaults', async () => {
+    const { configuration: configured } = await configurationFromEnvironment({
+      SDAR_HOME_LAB_SMPP_SOURCE_ID: 'home-lab-smpp-fresh',
+      SDAR_HOME_LAB_NODE_CONTROL_URL: 'http://127.0.0.1:10080',
+      SDAR_HOME_LAB_NODE_CONTROL_TOKEN: CONTROL_TOKEN,
+      SDAR_HOME_LAB_RUNTIME_URL: 'http://127.0.0.1:9998',
+      SDAR_HOME_LAB_RUN_ID: 'home-lab-freshness-run',
+      SDAR_HOME_LAB_CLIMATE_BINDING_ID: 'mcp-binding-ha-climate-fresh',
+      SDAR_HOME_LAB_CLIMATE_EXTERNAL_PROVIDER_ID: 'ha-climate-lab',
+      SDAR_HOME_LAB_CLIMATE_EXTERNAL_SERVER_ID: 'runtime-climate-1',
+      SDAR_HOME_LAB_CLIMATE_LOCAL_SERVER_ID: 'home-lab-climate-mcp-fresh',
+      SDAR_HOME_LAB_CLIMATE_CREDENTIAL_REF: 'secret://env/MCP_HA_CLIMATE_TOKEN',
+      SDAR_HOME_LAB_CLIMATE_MCP_TOKEN: PROVIDER_TOKEN,
+      SDAR_HOME_LAB_LIGHT_BINDING_ID: 'mcp-binding-ha-light-fresh',
+      SDAR_HOME_LAB_LIGHT_EXTERNAL_PROVIDER_ID: 'ha-light-lab',
+      SDAR_HOME_LAB_LIGHT_EXTERNAL_SERVER_ID: 'runtime-light-1',
+      SDAR_HOME_LAB_LIGHT_LOCAL_SERVER_ID: 'home-lab-light-mcp-fresh',
+      SDAR_HOME_LAB_LIGHT_CREDENTIAL_REF: 'secret://env/MCP_HA_LIGHT_TOKEN',
+      SDAR_HOME_LAB_LIGHT_MCP_TOKEN: PROVIDER_TOKEN,
+    });
+
+    expect(
+      configured.providers.map(({ bindingId, localServerId }) => ({ bindingId, localServerId })),
+    ).toEqual([
+      {
+        bindingId: 'mcp-binding-ha-climate-fresh',
+        localServerId: 'home-lab-climate-mcp-fresh',
+      },
+      {
+        bindingId: 'mcp-binding-ha-light-fresh',
+        localServerId: 'home-lab-light-mcp-fresh',
+      },
+    ]);
+  });
+
   it('creates both exact Bindings, registers Runtime Catalogs and emits only redacted proof', async () => {
     const api = new FakeHomeLabApis(false);
     api.runtimeSemanticsUnknown = true;

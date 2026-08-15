@@ -443,8 +443,19 @@ import {
   admitManagedDeterministicReadOnlyCapability,
   type ManagedDeterministicReadOnlyAdmission,
 } from './managed-deterministic-capability-admission.js';
-import { createHomeLabReadOnlySkillSelectionService } from './home-lab-skill-selection.js';
-import { assertHomeLabReadOnlyRuntimeConfiguration } from './home-lab-task-understanding.js';
+import {
+  createHomeLabGovernedLightSkillSelectionService,
+  createHomeLabReadOnlySkillSelectionService,
+} from './home-lab-skill-selection.js';
+import {
+  HOME_LAB_GOVERNED_LIGHT_PROFILE,
+  assertHomeLabGovernedLightRuntimeConfiguration,
+  assertHomeLabReadOnlyRuntimeConfiguration,
+} from './home-lab-task-understanding.js';
+import {
+  HomeLabGovernedLightWorkflowCandidateGuard,
+  assertHomeLabGovernedLightWorkflowContract,
+} from './home-lab-governed-light-workflow-contract.js';
 import { assertManagedCapabilityRuntimeConfiguration } from './managed-capability-task-understanding.js';
 import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
 import {
@@ -561,7 +572,8 @@ export interface ServerRuntimeOptions {
   }>;
   readonly capabilityNarrative?: CognitiveStructuredModelStageInvoker;
   readonly taskUnderstanding?: Readonly<{
-    readonly profile?: 'home_lab_read_only' | 'managed_capability';
+    readonly profile?:
+      'home_lab_read_only' | 'home_lab_governed_light_control' | 'managed_capability';
     readonly taskTypes: readonly TaskTypeDefinition[];
     readonly entryPolicy?: 'ambiguous_only' | 'all_requests';
     readonly skillSelectionMode?: 'exact_compatible_only' | 'model_ranked';
@@ -735,6 +747,47 @@ export function requestContinuationActivationFailureCancellation(
   });
 }
 
+export async function resumeTaskOwnedHumanConfirmation<TTask, TResult>(
+  input: Readonly<{ instanceId: string; confirmed: boolean }>,
+  dependencies: Readonly<{
+    findInstance(instanceId: string): Promise<Readonly<{ planId: string }> | undefined>;
+    findTaskByPlanId(planId: string): Promise<TTask | undefined>;
+    taskIdentity(task: TTask): Readonly<{ taskId: string; contextId: string }>;
+    resolveWorkflowControlId(task: TTask): Promise<string>;
+    resume(
+      input: Readonly<{
+        instanceId: string;
+        confirmed: boolean;
+        continuationAuthority: Readonly<{
+          agentTaskId: string;
+          contextId: string;
+          workflowControlId: string;
+        }>;
+      }>,
+    ): Promise<TResult>;
+  }>,
+): Promise<TResult> {
+  const instance = await dependencies.findInstance(input.instanceId);
+  if (instance === undefined)
+    throw Object.assign(new Error('Workflow instance was not found.'), {
+      code: 'WORKFLOW_INSTANCE_NOT_FOUND' as const,
+    });
+  const task = await dependencies.findTaskByPlanId(instance.planId);
+  if (task === undefined)
+    throw Object.assign(new Error('Task-owned Workflow continuation authority is required.'), {
+      code: 'WORKFLOW_CONTINUATION_TASK_AUTHORITY_REQUIRED' as const,
+    });
+  const identity = dependencies.taskIdentity(task);
+  return dependencies.resume({
+    ...input,
+    continuationAuthority: Object.freeze({
+      agentTaskId: identity.taskId,
+      contextId: identity.contextId,
+      workflowControlId: await dependencies.resolveWorkflowControlId(task),
+    }),
+  });
+}
+
 export function resolveSkillUsageSelectionId(
   input: Readonly<{
     selectedSkill: boolean;
@@ -752,8 +805,11 @@ export async function startServerRuntime(
   options: ServerRuntimeOptions,
 ): Promise<ServerRuntimeHandle> {
   assertHomeLabReadOnlyRuntimeConfiguration(options);
+  assertHomeLabGovernedLightRuntimeConfiguration(options);
   assertManagedCapabilityRuntimeConfiguration(options);
   const homeLabReadOnlyProfile = options.taskUnderstanding?.profile === 'home_lab_read_only';
+  const homeLabGovernedLightProfile =
+    options.taskUnderstanding?.profile === HOME_LAB_GOVERNED_LIGHT_PROFILE;
   const managedCapabilityProfile = options.taskUnderstanding?.profile === 'managed_capability';
   const mcpOutboundFetch = createMcpOutboundFetch({
     allowedAuthorities: options.outboundEndpointPolicy?.mcpAllowedAuthorities,
@@ -2223,8 +2279,10 @@ export async function startServerRuntime(
             nextReplacementPlanId: () => `skill-replacement-${randomUUID()}`,
           },
         })
-      : homeLabReadOnlyProfile
-        ? createHomeLabReadOnlySkillSelectionService({
+      : homeLabReadOnlyProfile || homeLabGovernedLightProfile
+        ? (homeLabGovernedLightProfile
+            ? createHomeLabGovernedLightSkillSelectionService
+            : createHomeLabReadOnlySkillSelectionService)({
             skills,
             graph: skillGraphRepository,
             records: skillSelectionRepository,
@@ -2234,12 +2292,18 @@ export async function startServerRuntime(
             providerBindings:
               options.currentMcpProviderBindingAuthorityReader ??
               (() => {
-                throw new Error('HOME_LAB_READ_ONLY_PROVIDER_BINDING_AUTHORITY_REQUIRED');
+                throw new Error(
+                  homeLabGovernedLightProfile
+                    ? 'HOME_LAB_GOVERNED_LIGHT_PROVIDER_BINDING_AUTHORITY_REQUIRED'
+                    : 'HOME_LAB_READ_ONLY_PROVIDER_BINDING_AUTHORITY_REQUIRED',
+                );
               })(),
             clock,
             ids: {
-              nextSelectionId: () => `skill-selection-home-lab-${randomUUID()}`,
-              nextReplacementPlanId: () => `skill-replacement-home-lab-${randomUUID()}`,
+              nextSelectionId: () =>
+                `skill-selection-${homeLabGovernedLightProfile ? 'home-lab-g09' : 'home-lab'}-${randomUUID()}`,
+              nextReplacementPlanId: () =>
+                `skill-replacement-${homeLabGovernedLightProfile ? 'home-lab-g09' : 'home-lab'}-${randomUUID()}`,
             },
           })
         : undefined;
@@ -2255,7 +2319,9 @@ export async function startServerRuntime(
     memories,
     ...(homeLabReadOnlyProfile
       ? { candidateGuard: new HomeLabReadOnlyWorkflowCandidateGuard() }
-      : {}),
+      : homeLabGovernedLightProfile
+        ? { candidateGuard: new HomeLabGovernedLightWorkflowCandidateGuard() }
+        : {}),
     ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
   });
   const remoteTaskRepository =
@@ -3255,7 +3321,7 @@ export async function startServerRuntime(
     repository: userGoalRuntimeRepository,
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
-    ...(managedCapabilityProfile
+    ...(managedCapabilityProfile || homeLabGovernedLightProfile
       ? {
           candidateAuthority: new TaskCapabilityUserGoalPlanAuthorityResolver({
             bindings: taskCapabilities,
@@ -3817,6 +3883,14 @@ export async function startServerRuntime(
           task,
           instance,
         );
+        if (homeLabGovernedLightProfile) {
+          if (task.temporarySkillId !== undefined)
+            throw new Error('HOME_LAB_GOVERNED_LIGHT_TEMPORARY_SKILL_FORBIDDEN');
+          if (instance.status !== 'succeeded')
+            throw new Error('HOME_LAB_GOVERNED_LIGHT_TERMINAL_INSTANCE_NOT_SUCCEEDED');
+          if (Object.keys(instance.errors).length !== 0)
+            throw new Error('HOME_LAB_GOVERNED_LIGHT_TERMINAL_INSTANCE_ERRORS_PRESENT');
+        }
         if (homeLabReadOnlyProfile) {
           const persistedPlan = await workflowPlans.findPlan(instance.planId);
           if (persistedPlan?.definition === undefined)
@@ -3850,6 +3924,22 @@ export async function startServerRuntime(
         if (selected === undefined) throw new Error('TASK_SKILL_VERSION_REQUIRED');
         const skill = await skills.findVersion(selected.skillId, selected.version);
         if (skill?.status !== 'enabled') throw new Error('TASK_SKILL_VERSION_NOT_ENABLED');
+        if (homeLabGovernedLightProfile) {
+          if (
+            task.selectedSkillId !== skill.skillId ||
+            task.selectedSkillVersion !== skill.version ||
+            skill.version !== 2 ||
+            !['home.light.get-state', 'home.light.set-power'].includes(skill.skillId)
+          )
+            throw new Error('HOME_LAB_GOVERNED_LIGHT_TERMINAL_SKILL_AUTHORITY_MISMATCH');
+          const persistedPlan = await workflowPlans.findPlan(instance.planId);
+          if (persistedPlan?.definition === undefined)
+            throw new Error('HOME_LAB_GOVERNED_LIGHT_TERMINAL_WORKFLOW_AUTHORITY_REQUIRED');
+          assertHomeLabGovernedLightWorkflowContract(persistedPlan.definition, {
+            skillId: skill.skillId,
+            skillVersion: skill.version,
+          });
+        }
         const processedResult = await resultProcessing.prepare({
           resultId: `processed-result-terminal-${taskId}`,
           taskId,
@@ -3877,11 +3967,28 @@ export async function startServerRuntime(
                     capabilityVersion: 1,
                   },
                 }
-              : {}),
+              : homeLabGovernedLightProfile
+                ? {
+                    requiredBinding: {
+                      requestedCapabilityId:
+                        skill.skillId === 'home.light.get-state'
+                          ? 'home.light.read-state'
+                          : 'home.light.set-power',
+                      capabilityVersion: 2,
+                    },
+                  }
+                : {}),
           },
         );
-        if (homeLabReadOnlyProfile && capabilityTerminalProof === undefined)
-          throw new Error('HOME_LAB_READ_ONLY_TERMINAL_CAPABILITY_PROOF_REQUIRED');
+        if (
+          (homeLabReadOnlyProfile || homeLabGovernedLightProfile) &&
+          capabilityTerminalProof === undefined
+        )
+          throw new Error(
+            homeLabGovernedLightProfile
+              ? 'HOME_LAB_GOVERNED_LIGHT_TERMINAL_CAPABILITY_PROOF_REQUIRED'
+              : 'HOME_LAB_READ_ONLY_TERMINAL_CAPABILITY_PROOF_REQUIRED',
+          );
         return Object.freeze({
           processedResult,
           ...(capabilityTerminalProof === undefined ? {} : { capabilityTerminalProof }),
@@ -6015,7 +6122,14 @@ export async function startServerRuntime(
           },
           confirm: (planId) => workflowExecution.confirm(planId),
           execute: (input) => workflowExecution.execute(input),
-          resumeHumanConfirmation: (input) => workflowExecution.resumeHumanConfirmation(input),
+          resumeHumanConfirmation: (input) =>
+            resumeTaskOwnedHumanConfirmation(input, {
+              findInstance: (instanceId) => workflowExecution.get(instanceId),
+              findTaskByPlanId: (planId) => tasks.findByPlanId(planId),
+              taskIdentity: (task) => ({ taskId: task.taskId, contextId: task.contextId }),
+              resolveWorkflowControlId: (task) => resolveTaskWorkflowControlId(task),
+              resume: (resumeInput) => workflowExecution.resumeHumanConfirmation(resumeInput),
+            }),
           pauseForPlan: (planId) => workflowExecution.pauseForPlan(planId),
           resumePauseForPlan: (planId) => workflowExecution.resumePauseForPlan(planId),
           cancelForPlan: (planId) => workflowExecution.cancelForPlan(planId),

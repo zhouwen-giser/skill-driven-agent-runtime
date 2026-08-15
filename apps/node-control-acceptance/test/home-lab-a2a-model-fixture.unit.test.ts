@@ -119,6 +119,39 @@ describe('home-lab A2A structured Model fixture', () => {
     );
   });
 
+  it('emits the exact G09 human-confirmation route and governed main-light Tool contract', () => {
+    const decision = homeLabA2AModelDecision(
+      JSON.stringify({
+        operation: 'task_initial_plan',
+        workflowIdentity: {
+          workflowDefinitionId: 'workflow.g09.main-light.control',
+          version: 2,
+          goalId: 'goal.g09',
+          goalVersion: 1,
+        },
+        skillUsagePolicy: {
+          skill: { skillId: 'home.light.set-power', skillVersion: 2 },
+        },
+      }),
+    );
+    expect(decision.structuredResult['entryNodeId']).toBe('confirmControl');
+    expect(decision.structuredResult['nodes']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          nodeId: 'setPower',
+          type: 'mcp_tool',
+          tool: { serverId: 'home-lab-light-mcp-g09', toolName: 'light_set_power' },
+        }),
+      ]),
+    );
+    expect(decision.structuredResult['edges']).toEqual(
+      expect.arrayContaining([
+        { sourceNodeId: 'confirmControl', targetNodeId: 'setPower', outcome: 'success' },
+        { sourceNodeId: 'confirmControl', targetNodeId: 'failure', outcome: 'failure' },
+      ]),
+    );
+  });
+
   it('returns safe auxiliary quality and durable evaluation-memory decisions', () => {
     expect(
       homeLabA2AModelDecision(

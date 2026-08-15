@@ -43,6 +43,20 @@ const CAPABILITY_ID = 'home.living-room.read-state';
 const SKILL_ID = 'home.living-room.get-state';
 const MAIN_LIGHT_RESOURCE_ID = 'living-room-main-light';
 const CLIMATE_RESOURCE_ID = 'living-room-air-conditioner';
+const G09_READ_REQUEST = '读取主灯基线';
+const G09_READ_TASK_TYPE_ID = 'task-type.home-lab-main-light-read-state';
+const G09_CONTROL_TASK_TYPE_ID = 'task-type.home-lab-main-light-set-power';
+const G09_READ_CAPABILITY_ID = 'home.light.read-state';
+const G09_CONTROL_CAPABILITY_ID = 'home.light.set-power';
+const G09_READ_SKILL_ID = 'home.light.get-state';
+const G09_CONTROL_SKILL_ID = 'home.light.set-power';
+const G09_LIGHT_SERVER_ID = 'home-lab-light-mcp-g09';
+const G09_CONTROL_PROMPT =
+  'Resume only after the exact task-scoped governed-control confirmation is issued.';
+
+type G09Scenario =
+  | Readonly<{ kind: 'read' }>
+  | Readonly<{ kind: 'control'; purpose: 'set' | 'restore'; power: 'on' | 'off' }>;
 
 export function homeLabA2AModelDecision(
   instruction: string,
@@ -121,7 +135,7 @@ function taskQuality(input: Readonly<Record<string, unknown>>) {
   record(evidence['processedResult']);
   return Object.freeze({
     score: 1,
-    summary: `The ${component} component preserved the exact governed read-only contract.`,
+    summary: `The ${component} component preserved the exact governed home-lab contract.`,
     findings: Object.freeze([]),
     evidenceRefs: Object.freeze([`task-quality:${component}:governed-runtime-evidence`]),
   });
@@ -132,6 +146,15 @@ function goalEvaluation(input: Readonly<Record<string, unknown>>) {
   if (workflow['status'] !== 'succeeded' || Object.keys(record(workflow['errors'])).length !== 0)
     throw new Error('HOME_LAB_A2A_MODEL_GOAL_WORKFLOW_NOT_SUCCEEDED');
   const outputs = record(workflow['result']);
+  if (outputs['resourceId'] === MAIN_LIGHT_RESOURCE_ID) {
+    const power = lightPower(outputs['power']);
+    if (outputs['reachable'] === false || outputs['confirmed'] === false)
+      throw new Error('HOME_LAB_G09_MODEL_GOAL_PROVIDER_EVIDENCE_MISSING');
+    return Object.freeze({
+      decision: 'achieved',
+      summary: `The exact governed main-light state is ${power} with Provider evidence.`,
+    });
+  }
   if (outputs['evidenceMainLight'] !== true || outputs['evidenceClimate'] !== true)
     throw new Error('HOME_LAB_A2A_MODEL_GOAL_PROVIDER_EVIDENCE_MISSING');
   structuredContent(outputs['mainLight'], MAIN_LIGHT_RESOURCE_ID);
@@ -163,7 +186,10 @@ function refinedMemory(input: Readonly<Record<string, unknown>>) {
 
 function taskUnderstanding(input: Readonly<Record<string, unknown>>) {
   if (input['untrustedUserRequest'] !== REQUEST_TEXT)
-    throw new Error('HOME_LAB_A2A_MODEL_REQUEST_NOT_EXACT');
+    return g09TaskUnderstanding(
+      input,
+      g09ScenarioFromRequest(requiredText(input['untrustedUserRequest'])),
+    );
   const definitions = records(input['taskTypeDefinitions']);
   const definition = definitions.length === 1 ? definitions[0] : undefined;
   if (
@@ -204,6 +230,8 @@ function taskUnderstanding(input: Readonly<Record<string, unknown>>) {
 
 function goalContract(input: Readonly<Record<string, unknown>>) {
   const understanding = record(input['taskUnderstanding']);
+  if (understanding['originalRequest'] !== REQUEST_TEXT)
+    return g09GoalContract(g09ScenarioFromRequest(requiredText(understanding['originalRequest'])));
   if (
     understanding['originalRequest'] !== REQUEST_TEXT ||
     !records(understanding['capabilityRequirements']).some(
@@ -226,6 +254,8 @@ function goalContract(input: Readonly<Record<string, unknown>>) {
 
 function userGoalPlan(input: Readonly<Record<string, unknown>>) {
   const contract = record(input['contract']);
+  const g09 = g09ScenarioFromGoalContract(contract);
+  if (g09 !== undefined) return g09UserGoalPlan(contract, g09);
   const goalId = requiredText(contract['goalId']);
   const criteria = records(contract['criteria']);
   if (criteria.length === 0) throw new Error('HOME_LAB_A2A_MODEL_GOAL_CRITERIA_MISSING');
@@ -256,6 +286,17 @@ function userGoalPlan(input: Readonly<Record<string, unknown>>) {
 
 function skillInput(input: Readonly<Record<string, unknown>>) {
   const skill = record(input['skill']);
+  if (
+    skill['version'] === 2 &&
+    (skill['skillId'] === G09_READ_SKILL_ID || skill['skillId'] === G09_CONTROL_SKILL_ID)
+  )
+    return Object.freeze({
+      structuredInput: Object.freeze({}),
+      unresolvedFields: Object.freeze([]),
+      sourceRefs: Object.freeze([]),
+      decisionSummary:
+        'The authoritative A2A structured_input overlay supplies the exact G09 resource and power.',
+    });
   if (skill['skillId'] !== SKILL_ID || skill['version'] !== 1)
     throw new Error('HOME_LAB_A2A_MODEL_SKILL_NOT_EXACT');
   return Object.freeze({
@@ -270,6 +311,15 @@ function skillInput(input: Readonly<Record<string, unknown>>) {
 }
 
 function workflow(input: Readonly<Record<string, unknown>>, mode: HomeLabA2AModelFixtureMode) {
+  const usagePolicy = input['skillUsagePolicy'];
+  if (isRecord(usagePolicy)) {
+    const skill = usagePolicy['skill'];
+    if (isRecord(skill) && skill['skillVersion'] === 2) {
+      if (skill['skillId'] === G09_READ_SKILL_ID) return g09Workflow(input, { kind: 'read' });
+      if (skill['skillId'] === G09_CONTROL_SKILL_ID)
+        return g09Workflow(input, { kind: 'control', purpose: 'set', power: 'off' });
+    }
+  }
   const identity = record(input['workflowIdentity']);
   const workflowDefinitionId = requiredText(identity['workflowDefinitionId']);
   const goalId = requiredText(identity['goalId']);
@@ -371,11 +421,279 @@ function workflow(input: Readonly<Record<string, unknown>>, mode: HomeLabA2AMode
   });
 }
 
+function g09TaskUnderstanding(input: Readonly<Record<string, unknown>>, scenario: G09Scenario) {
+  const definitions = records(input['taskTypeDefinitions']);
+  const expectedTaskType =
+    scenario.kind === 'read' ? G09_READ_TASK_TYPE_ID : G09_CONTROL_TASK_TYPE_ID;
+  const expectedCapability =
+    scenario.kind === 'read' ? G09_READ_CAPABILITY_ID : G09_CONTROL_CAPABILITY_ID;
+  const definition = definitions.find((candidate) => candidate['taskTypeId'] === expectedTaskType);
+  if (
+    definition?.['version'] !== 2 ||
+    !array(definition['capabilityRequirements']).includes(expectedCapability)
+  )
+    throw new Error('HOME_LAB_G09_MODEL_TASK_TYPE_NOT_EXACT');
+  const objective =
+    scenario.kind === 'read'
+      ? G09_READ_REQUEST
+      : `${scenario.purpose === 'restore' ? '恢复' : '设置'}主灯电源为 ${scenario.power}`;
+  return Object.freeze({
+    interpretedObjective: objective,
+    taskTypeCandidates: Object.freeze([
+      Object.freeze({
+        taskTypeId: expectedTaskType,
+        version: 2,
+        confidence: 1,
+        rationale:
+          scenario.kind === 'read'
+            ? 'The request names the exact governed main-light baseline read.'
+            : 'The request names one exact governed main-light power target.',
+      }),
+    ]),
+    capabilityRequirements: Object.freeze([
+      Object.freeze({
+        capabilityId: expectedCapability,
+        description:
+          scenario.kind === 'read'
+            ? 'Return the exact current main-light public state.'
+            : `Set and confirm main-light power ${scenario.power}.`,
+        required: true,
+      }),
+    ]),
+    knownConstraints: Object.freeze(
+      scenario.kind === 'read'
+        ? ['Use the exact G09 read Skill and Provider Binding.']
+        : [
+            'Require explicit immutable-plan confirmation.',
+            'Require task-scoped governed-control confirmation before dispatch.',
+            'Dispatch at most once and reconcile RemoteTask terminal evidence.',
+          ],
+    ),
+    knownDimensions: Object.freeze([
+      Object.freeze({ kind: 'target', value: MAIN_LIGHT_RESOURCE_ID }),
+      Object.freeze({
+        kind: 'criteria',
+        value:
+          scenario.kind === 'read'
+            ? 'Return current power with Provider evidence.'
+            : `Return confirmed power ${scenario.power} with terminal Provider evidence.`,
+      }),
+    ]),
+    missingDimensions: Object.freeze([]),
+    assumptions: Object.freeze([]),
+    confidence: 1,
+  });
+}
+
+function g09GoalContract(scenario: G09Scenario) {
+  if (scenario.kind === 'read')
+    return Object.freeze({
+      title: 'G09 read main-light baseline',
+      description: 'Read the exact governed living-room main-light public state.',
+      constraints: Object.freeze([
+        'Use home.light.read-state@2 through the exact fresh G09 Provider Binding.',
+      ]),
+      successCriteria: Object.freeze([
+        'Return main-light power and Provider observation evidence.',
+      ]),
+    });
+  return Object.freeze({
+    title: `G09 ${scenario.purpose} main-light power ${scenario.power}`,
+    description: `Use the exact governed control to ${scenario.purpose} living-room main-light power to ${scenario.power}.`,
+    constraints: Object.freeze([
+      'Require explicit immutable-plan confirmation.',
+      'Pause at the governed-control barrier before any MCP dispatch.',
+      'Require one task-scoped governed-control confirmation and at most one dispatch.',
+      'Require RemoteTask terminal state, Continuation and Provider evidence.',
+    ]),
+    successCriteria: Object.freeze([
+      `Return confirmed main-light power ${scenario.power} with terminal Provider evidence.`,
+    ]),
+  });
+}
+
+function g09UserGoalPlan(contract: Readonly<Record<string, unknown>>, scenario: G09Scenario) {
+  const goalId = requiredText(contract['goalId']);
+  const criteria = records(contract['criteria']);
+  if (criteria.length === 0) throw new Error('HOME_LAB_G09_MODEL_GOAL_CRITERIA_MISSING');
+  const capability = scenario.kind === 'read' ? G09_READ_CAPABILITY_ID : G09_CONTROL_CAPABILITY_ID;
+  const effect =
+    scenario.kind === 'read' ? 'effect.home.light.state_read' : 'effect.home.light.power_changed';
+  return Object.freeze({
+    skillGoals: Object.freeze([
+      Object.freeze({
+        skillGoalId: `skill-goal-home-lab-g09-${createHash('sha256').update(goalId).digest('hex').slice(0, 28)}`,
+        requiredResult:
+          scenario.kind === 'read'
+            ? 'Return the exact governed main-light baseline.'
+            : `Return confirmed governed main-light power ${scenario.power}.`,
+        capabilityNeeds: Object.freeze([capability]),
+        coveredCriterionIds: Object.freeze(
+          criteria.map((criterion) => requiredText(criterion['criterionId'])),
+        ),
+        requiredEffectRefs: Object.freeze([effect]),
+        evidenceRequirements: Object.freeze(['light.state.observation']),
+        artifactRequirements: Object.freeze([]),
+        assumptions: Object.freeze([]),
+        constraints: Object.freeze(strings(contract['constraints'])),
+      }),
+    ]),
+    dependencies: Object.freeze([]),
+  });
+}
+
+function g09Workflow(input: Readonly<Record<string, unknown>>, scenario: G09Scenario) {
+  const identity = record(input['workflowIdentity']);
+  const workflowDefinitionId = requiredText(identity['workflowDefinitionId']);
+  const goalId = requiredText(identity['goalId']);
+  const version = positive(identity['version']);
+  const goalVersion = positive(identity['goalVersion']);
+  const control = scenario.kind === 'control';
+  const toolNodeId = control ? 'setPower' : 'readLight';
+  return Object.freeze({
+    workflowDefinitionId,
+    version,
+    goalId,
+    goalVersion,
+    entryNodeId: control ? 'confirmControl' : 'readLight',
+    exitNodeIds: Object.freeze(['result', 'failure']),
+    nodes: Object.freeze([
+      ...(control
+        ? [
+            Object.freeze({
+              nodeId: 'confirmControl',
+              name: 'Wait for task-scoped governed-control confirmation',
+              type: 'human_confirmation',
+              prompt: G09_CONTROL_PROMPT,
+            }),
+          ]
+        : []),
+      Object.freeze({
+        nodeId: toolNodeId,
+        name: control ? 'Set governed main-light power' : 'Read governed main-light state',
+        type: 'mcp_tool',
+        tool: Object.freeze({
+          serverId: G09_LIGHT_SERVER_ID,
+          toolName: control ? 'light_set_power' : 'light_get_state',
+        }),
+        arguments: Object.freeze({
+          resourceId: Object.freeze({
+            op: 'ref',
+            path: Object.freeze(['input', 'skillInput', 'resourceId']),
+          }),
+          ...(control
+            ? {
+                power: Object.freeze({
+                  op: 'ref',
+                  path: Object.freeze(['input', 'skillInput', 'power']),
+                }),
+              }
+            : {}),
+        }),
+      }),
+      Object.freeze({
+        nodeId: 'evidenceLight',
+        name: 'Require exact main-light Provider evidence',
+        type: 'condition',
+        expression: Object.freeze({
+          op: 'exists',
+          path: Object.freeze(['evidence', 'light.state.observation']),
+        }),
+      }),
+      Object.freeze({
+        nodeId: 'result',
+        name: 'Return the exact governed main-light result',
+        type: 'result',
+        value: Object.freeze({
+          op: 'ref',
+          path: Object.freeze(['nodes', toolNodeId, 'data', 'structuredContent']),
+        }),
+      }),
+      Object.freeze({
+        nodeId: 'failure',
+        name: 'Fail when confirmation or evidence is absent',
+        type: 'result',
+        value: Object.freeze({ op: 'literal', value: false }),
+      }),
+    ]),
+    edges: Object.freeze([
+      ...(control
+        ? [
+            Object.freeze({
+              sourceNodeId: 'confirmControl',
+              targetNodeId: toolNodeId,
+              outcome: 'success',
+            }),
+            Object.freeze({
+              sourceNodeId: 'confirmControl',
+              targetNodeId: 'failure',
+              outcome: 'failure',
+            }),
+          ]
+        : []),
+      Object.freeze({ sourceNodeId: toolNodeId, targetNodeId: 'evidenceLight' }),
+      Object.freeze({
+        sourceNodeId: 'evidenceLight',
+        targetNodeId: 'result',
+        outcome: 'true',
+      }),
+      Object.freeze({
+        sourceNodeId: 'evidenceLight',
+        targetNodeId: 'failure',
+        outcome: 'false',
+      }),
+    ]),
+  });
+}
+
+function g09ScenarioFromRequest(request: string): G09Scenario {
+  if (request === G09_READ_REQUEST) return Object.freeze({ kind: 'read' as const });
+  const match = /^(设置|恢复)主灯电源为 (on|off)$/u.exec(request);
+  if (match === null) throw new Error('HOME_LAB_G09_MODEL_REQUEST_NOT_EXACT');
+  return Object.freeze({
+    kind: 'control' as const,
+    purpose: match[1] === '恢复' ? ('restore' as const) : ('set' as const),
+    power: match[2] === 'on' ? ('on' as const) : ('off' as const),
+  });
+}
+
+function g09ScenarioFromGoalContract(
+  contract: Readonly<Record<string, unknown>>,
+): G09Scenario | undefined {
+  const title = contract['title'];
+  if (title === 'G09 read main-light baseline') return Object.freeze({ kind: 'read' as const });
+  if (typeof title !== 'string') return undefined;
+  const match = /^G09 (set|restore) main-light power (on|off)$/u.exec(title);
+  if (match === null) return undefined;
+  return Object.freeze({
+    kind: 'control' as const,
+    purpose: match[1] === 'restore' ? ('restore' as const) : ('set' as const),
+    power: match[2] === 'on' ? ('on' as const) : ('off' as const),
+  });
+}
+
 function processedResult(input: Readonly<Record<string, unknown>>) {
   const normalized = record(input['normalized']);
   if (array(normalized['errors']).length !== 0)
     throw new Error('HOME_LAB_A2A_MODEL_RESULT_ERRORS_PRESENT');
   const outputs = record(normalized['data']);
+  if (outputs['resourceId'] === MAIN_LIGHT_RESOURCE_ID) {
+    const power = lightPower(outputs['power']);
+    const structured = Object.freeze({ ...outputs, resourceId: MAIN_LIGHT_RESOURCE_ID, power });
+    return Object.freeze({
+      text: `主灯受治理状态已确认为 ${power}。`,
+      structured,
+      keyFacts: Object.freeze([
+        Object.freeze({ name: 'resourceId', value: MAIN_LIGHT_RESOURCE_ID, confidence: 1 }),
+        Object.freeze({ name: 'power', value: power, confidence: 1 }),
+      ]),
+      valueAssessment: Object.freeze({
+        valuable: true,
+        summary: 'The exact governed main-light observation is present.',
+      }),
+      memoryCandidates: Object.freeze([]),
+    });
+  }
   const mainLight = structuredContent(outputs['mainLight'], MAIN_LIGHT_RESOURCE_ID);
   const climate = structuredContent(outputs['climate'], CLIMATE_RESOURCE_ID);
   const structured = Object.freeze({ mainLight, climate });
@@ -413,9 +731,12 @@ function parseInstruction(value: string): Readonly<Record<string, unknown>> {
 }
 
 function record(value: unknown): Readonly<Record<string, unknown>> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value))
-    throw new Error('HOME_LAB_A2A_MODEL_OBJECT_REQUIRED');
-  return value as Readonly<Record<string, unknown>>;
+  if (!isRecord(value)) throw new Error('HOME_LAB_A2A_MODEL_OBJECT_REQUIRED');
+  return value;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function records(value: unknown): readonly Readonly<Record<string, unknown>>[] {
@@ -435,6 +756,12 @@ function requiredText(value: unknown): string {
   if (typeof value !== 'string' || value.trim() === '')
     throw new Error('HOME_LAB_A2A_MODEL_TEXT_REQUIRED');
   return value;
+}
+
+function lightPower(value: unknown): 'on' | 'off' | 'unknown' | 'unavailable' {
+  if (!['on', 'off', 'unknown', 'unavailable'].includes(String(value)))
+    throw new Error('HOME_LAB_G09_MODEL_LIGHT_POWER_INVALID');
+  return value as 'on' | 'off' | 'unknown' | 'unavailable';
 }
 
 function positive(value: unknown): number {

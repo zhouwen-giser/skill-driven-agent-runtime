@@ -57,6 +57,8 @@ type GenericProviderReport = SmppProviderMaterializationReport['providers'][numb
 
 export interface HomeLabProviderConfiguration {
   readonly kind: ProviderKind;
+  /** Defaults to the original home-lab Binding ID for backwards-compatible replays. */
+  readonly bindingId?: string;
   readonly externalProviderId: string;
   readonly externalServerId: string;
   readonly localServerId: string;
@@ -96,12 +98,15 @@ export async function materializeHomeLabCatalog(
       ...input,
       providers: input.providers.map((provider) => {
         const expected = EXPECTED_PROVIDERS[provider.kind];
+        const bindingId = (provider.bindingId ?? expected.bindingId).trim();
+        if (bindingId === '')
+          fail('DRIVER_CONFIGURATION_INVALID', 'Provider Binding ID is required.');
         return Object.freeze({
           providerKey: provider.kind,
           name: `Home Lab ${provider.kind}`,
           externalProviderId: provider.externalProviderId,
           externalServerId: provider.externalServerId,
-          bindingId: expected.bindingId,
+          bindingId,
           localServerId: provider.localServerId,
           credentialRef: provider.credentialRef,
           credential: provider.credential,
@@ -151,6 +156,10 @@ export async function configurationFromEnvironment(
             } as const);
       return Object.freeze({
         kind,
+        bindingId:
+          environment[`${prefix}_BINDING_ID`] === undefined
+            ? EXPECTED_PROVIDERS[kind].bindingId
+            : requiredEnvironment(environment, `${prefix}_BINDING_ID`),
         externalProviderId: requiredEnvironment(environment, `${prefix}_EXTERNAL_PROVIDER_ID`),
         externalServerId: requiredEnvironment(environment, `${prefix}_EXTERNAL_SERVER_ID`),
         localServerId: requiredEnvironment(environment, `${prefix}_LOCAL_SERVER_ID`),
