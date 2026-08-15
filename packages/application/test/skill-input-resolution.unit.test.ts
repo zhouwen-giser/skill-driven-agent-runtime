@@ -291,6 +291,78 @@ describe('SkillInputResolutionService', () => {
     });
   });
 
+  it.each([
+    ['structured', { resourceId: 'vehicle:ugv-b' }],
+    ['scalar', 'vehicle:ugv-b'],
+  ])(
+    'honors an exact %s supplementary resource outside the managed profile',
+    async (kind, content) => {
+      const inputResponseId = `input-response-${kind}`;
+      const result = await resourceResolutionService(
+        new DecisionModel({
+          structuredInput: {},
+          unresolvedFields: ['resourceId'],
+          sourceRefs: [],
+          decisionSummary: 'The model omitted the structured candidate.',
+        }),
+      ).resolve({
+        task: task({}, 'Read the current vehicle state.'),
+        goal,
+        skill: managedResourceSkill(['vehicle:ugv-a', 'vehicle:ugv-b']),
+        supplementaryInputs: [
+          {
+            inputResponseId,
+            inputRequestId: `input-request-${kind}`,
+            taskId: 'task-1',
+            content,
+            createdAt: timestamp,
+          },
+        ],
+      });
+
+      expect(result).toMatchObject({
+        status: 'resolved',
+        structuredInput: { resourceId: 'vehicle:ugv-b' },
+        unresolvedFields: [],
+        sourceRefs: [`task-input-response:${inputResponseId}`],
+      });
+    },
+  );
+
+  it('applies the ugv.get-capabilities@2 schema const outside the managed profile', async () => {
+    const constSkill = {
+      ...managedResourceSkill(['vehicle:ugv1']),
+      skillId: 'ugv.get-capabilities',
+      version: 2,
+    };
+    const inputSchema = constSkill.inputSchema as Readonly<Record<string, unknown>>;
+    await expect(
+      resourceResolutionService(
+        new DecisionModel({
+          structuredInput: {},
+          unresolvedFields: ['resourceId'],
+          sourceRefs: [],
+          decisionSummary: 'The model omitted the schema-constant resource.',
+        }),
+      ).resolve({
+        task: task({}, 'Read current state.'),
+        goal,
+        skill: {
+          ...constSkill,
+          inputSchema: {
+            ...inputSchema,
+            properties: { resourceId: { type: 'string', const: 'vehicle:ugv1' } },
+          },
+        },
+        supplementaryInputs: [],
+      }),
+    ).resolves.toMatchObject({
+      status: 'resolved',
+      structuredInput: { resourceId: 'vehicle:ugv1' },
+      unresolvedFields: [],
+    });
+  });
+
   it('selects the sole governed resource without asking the model to invent identity', async () => {
     await expect(
       managedResourceResolutionService(
@@ -378,13 +450,17 @@ function resolutionService(repository: MemoryRepository, model: DecisionModel) {
 }
 
 function managedResourceResolutionService(model: DecisionModel) {
+  return resourceResolutionService(model, true);
+}
+
+function resourceResolutionService(model: DecisionModel, managed = false) {
   return new SkillInputResolutionService({
     model,
     schemas: enumeratedResourceSchemaValidator,
     records: new MemoryRepository(),
     clock: { now: () => timestamp },
     nextId: () => 'resolution-managed-resource',
-    policy: { resourceEnumeration: 'explicit_or_exact_text' },
+    ...(managed ? { policy: { resourceEnumeration: 'explicit_or_exact_text' as const } } : {}),
   });
 }
 

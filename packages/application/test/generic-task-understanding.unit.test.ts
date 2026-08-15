@@ -358,6 +358,12 @@ describe('GenericTaskUnderstandingService', () => {
                   confidence: 0.95,
                   rationale: 'Exact navigation phrase.',
                 },
+                {
+                  taskTypeId: taskType.taskTypeId,
+                  version: 1,
+                  confidence: 0.7,
+                  rationale: 'Duplicate exact Task Type candidate from the model.',
+                },
               ],
               capabilityRequirements: [
                 {
@@ -400,6 +406,7 @@ describe('GenericTaskUnderstandingService', () => {
         { capabilityId: 'vehicle.ugv.navigate', required: true, available: true },
       ],
     });
+    expect(result.taskTypeCandidates).toHaveLength(1);
     expect(JSON.parse(instructions[0] ?? '{}')).toMatchObject({
       taskTypeDefinitions: [{ taskTypeId: taskType.taskTypeId }],
     });

@@ -228,6 +228,7 @@ export class PostgresGovernedControlAuthorityRepository
       serverId: string;
       toolName: string;
       argumentsHash: string;
+      readinessArgumentsHash: string;
     }>,
   ): Promise<GovernedControlRuntimeAuthoritySnapshot | undefined> {
     const result = await this.#pool.query<GovernedControlRow>(
@@ -321,7 +322,7 @@ export class PostgresGovernedControlAuthorityRepository
             AND execution.check_phase='pre_invocation'
             AND availability.server_id=$2
             AND availability.operation_name=$3
-            AND availability.arguments_hash=$4
+            AND availability.arguments_hash=$7
           ORDER BY execution.created_at DESC,execution.readiness_id DESC
           LIMIT 1
        ) readiness ON true
@@ -338,7 +339,11 @@ export class PostgresGovernedControlAuthorityRepository
              AND current_confirmation.server_id=$2
              AND current_confirmation.tool_name=$3
              AND current_confirmation.arguments_hash=$4
-          ORDER BY current_confirmation.confirmed_at DESC,current_confirmation.confirmation_id DESC
+          ORDER BY
+            CASE WHEN current_confirmation.revoked_at IS NULL
+                       AND current_confirmation.consumed_at IS NULL
+              THEN 0 ELSE 1 END,
+            current_confirmation.confirmed_at DESC,current_confirmation.confirmation_id DESC
           LIMIT 1
        ) confirmation ON true
        WHERE task.task_id=$1 AND attempt.attempt_id=$6`,
@@ -349,6 +354,7 @@ export class PostgresGovernedControlAuthorityRepository
         input.argumentsHash,
         input.providerBindingId,
         input.capabilityAttemptId,
+        input.readinessArgumentsHash,
       ],
     );
     const row = result.rows[0];

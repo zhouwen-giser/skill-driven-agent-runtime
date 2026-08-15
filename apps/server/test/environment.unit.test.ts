@@ -12,6 +12,7 @@ describe('server environment', () => {
     'SDAR_MASTER_KEY_BASE64',
     'SDAR_REDIS_PORT',
     'SDAR_A2A_PORT',
+    'SDAR_A2A_WAIT_TIMEOUT_MS',
     'SDAR_MANAGEMENT_PORT',
   ] as const;
   const originalEnvironment = new Map(
@@ -43,6 +44,7 @@ describe('server environment', () => {
       SDAR_MASTER_KEY_BASE64: masterKey,
       SDAR_REDIS_PORT: 56379,
       SDAR_A2A_PORT: 9999,
+      SDAR_A2A_WAIT_TIMEOUT_MS: 30_000,
       SDAR_MANAGEMENT_PORT: 9998,
       SDAR_TASK_UNDERSTANDING_PROFILE: 'off',
     });
@@ -277,6 +279,28 @@ describe('server environment', () => {
         SDAR_NODE_CONTROL_BASE_URL: 'http://user:secret@192.168.1.7:10080',
       }),
     ).toThrow('credential-free HTTP(S)');
+  });
+
+  it('allows live MCP header omission only under an explicit non-production environment', () => {
+    const base = {
+      SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+      SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: 'omit',
+      SDAR_CONTROL_ENVIRONMENT: 'integration',
+    } as const;
+    expect(parseServerEnvironment({ ...base, NODE_ENV: 'test' })).toMatchObject({
+      SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: 'omit',
+    });
+    expect(() => parseServerEnvironment(base)).toThrow('explicit non-production');
+    expect(() => parseServerEnvironment({ ...base, NODE_ENV: 'production' })).toThrow(
+      'explicit non-production',
+    );
+    expect(() =>
+      parseServerEnvironment({
+        ...base,
+        NODE_ENV: 'test',
+        SDAR_CONTROL_ENVIRONMENT: 'production',
+      }),
+    ).toThrow('explicit non-production');
   });
 
   it('accepts only a bounded whitespace-free dedicated cognitive bearer', () => {

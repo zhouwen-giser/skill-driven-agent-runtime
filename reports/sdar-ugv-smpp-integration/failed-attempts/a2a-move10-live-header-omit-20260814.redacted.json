@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-a2a-movement-attempt/v1",
+  "status": "failed",
+  "evidenceClass": "real_control_plane_no_device_dispatch",
+  "observedAt": "2026-08-14T02:55:54.255Z",
+  "requestedOutcome": {
+    "resourceId": "vehicle:ugv1",
+    "direction": "forward",
+    "totalDistanceM": 10,
+    "dispatchCount": 5,
+    "distancePerDispatchM": 2,
+    "singleA2ATaskRequired": true
+  },
+  "liveCompatibility": {
+    "environmentSwitch": "SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit",
+    "runtimeEvidenceMode": "live",
+    "transportExecutionModeHeaderOmitted": true,
+    "simulationFallbackUsed": false,
+    "historicalModeRejectionObserved": true,
+    "currentModeRejectionObserved": false,
+    "currentAvailability": "unknown",
+    "currentAvailabilityReasonCode": "UGV_MQTT_UNAVAILABLE"
+  },
+  "attempts": [
+    {
+      "taskId": "fd084e64-660e-4bb5-94b3-43bf097788e1",
+      "createdAt": "2026-08-14T02:34:03.065Z",
+      "completedAt": "2026-08-14T02:36:28.656Z",
+      "phase": "canceled",
+      "reasonCode": "TASK_WAIT_TIMEOUT",
+      "mcpInvocations": 0,
+      "navigateInvocations": 0
+    },
+    {
+      "taskId": "76a67163-912e-466a-8625-e87ebc91c692",
+      "createdAt": "2026-08-14T02:36:57.852Z",
+      "completedAt": "2026-08-14T02:39:48.677Z",
+      "phase": "canceled",
+      "reasonCode": "TASK_WAIT_TIMEOUT",
+      "mcpInvocations": 0,
+      "navigateInvocations": 0
+    },
+    {
+      "taskId": "5f24afc9-7e03-48a5-9b2c-4ed34588b6bc",
+      "createdAt": "2026-08-14T02:43:53.885Z",
+      "completedAt": "2026-08-14T02:46:04.633Z",
+      "phase": "canceled",
+      "reasonCode": "TASK_WAIT_TIMEOUT",
+      "mcpInvocations": 0,
+      "navigateInvocations": 0
+    },
+    {
+      "taskId": "55496234-f5e7-4589-9a18-b24afd2439d6",
+      "createdAt": "2026-08-14T02:48:21.946Z",
+      "completedAt": "2026-08-14T02:53:17.848Z",
+      "phase": "failed",
+      "reasonCode": "MODEL_INVOCATION_FAILED",
+      "modelFailure": {
+        "stage": "interactive_plan_patch",
+        "errorCode": "MODEL_TRANSPORT_UPSTREAM_ERROR",
+        "durationMs": 3002
+      },
+      "mcpInvocations": 0,
+      "navigateInvocations": 0
+    }
+  ],
+  "latestPlanningEvidence": {
+    "taskUnderstandingSucceeded": true,
+    "goalContractGenerationSucceeded": true,
+    "goalPlanningSucceeded": true,
+    "goalPatchedToExactFiveDispatchContract": true,
+    "initialSkillGoalCount": 6,
+    "requiredSkillGoalCount": 1,
+    "singleSkillGoalCorrectionCompleted": false
+  },
+  "externalOperations": {
+    "a2aTasksCreated": 4,
+    "mcpInvocations": 0,
+    "navigateInvocations": 0,
+    "physicalWrites": 0,
+    "distanceMovedProvenM": 0
+  },
+  "blockingReasonCodes": [
+    "UGV_MQTT_UNAVAILABLE",
+    "MODEL_TRANSPORT_UPSTREAM_ERROR",
+    "SINGLE_SKILL_GOAL_CORRECTION_NOT_COMPLETED"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "credentialReferencesIncluded": false,
+    "endpointsIncluded": false,
+    "modelPayloadsIncluded": false,
+    "mcpPayloadsIncluded": false
+  }
+}

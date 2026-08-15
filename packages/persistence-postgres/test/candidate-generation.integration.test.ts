@@ -1086,8 +1086,8 @@ describe('P04R real P03→P04→P02 candidate product chain', () => {
       lateTaskPartition.sourceFamily,
       lateTaskPartition.sourcePartition,
     );
-    expect(checkpointAfterLateArrival.last_occurred_at).toBe(
-      checkpointBeforeLateArrival.last_occurred_at,
+    expect(new Date(checkpointAfterLateArrival.last_occurred_at ?? '').toISOString()).toBe(
+      '2026-07-28T05:00:01.000Z',
     );
     expect(checkpointAfterLateArrival.last_source_revision).not.toBe(
       checkpointBeforeLateArrival.last_source_revision,

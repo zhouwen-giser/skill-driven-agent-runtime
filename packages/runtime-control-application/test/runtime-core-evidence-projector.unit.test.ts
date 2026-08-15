@@ -87,6 +87,54 @@ describe('RuntimeCoreEvidenceProjector', () => {
     await expect(projector.projectTask('missing')).rejects.toThrow('was not found');
   });
 
+  it('projects terminal Task lifecycle evidence when no terminal-outcome authority was committed', async () => {
+    const writer = new MemoryWriter();
+    const terminalWithoutOutcome: RuntimeCoreEvidenceSnapshot = {
+      ...snapshot(),
+      task: { ...snapshot().task, phase: 'failed', error_code: 'TASK_WAIT_TIMEOUT' },
+      goals: [],
+      goalContracts: [],
+      goalPatches: [],
+      plans: [],
+      planSteps: [],
+      stateTransitions: [],
+      controlRounds: [],
+      executionGates: [],
+      confirmations: [],
+      skillExecutions: [],
+      invocations: [],
+      verifications: [],
+      outcomes: [],
+      runSeals: [],
+    };
+    const projector = new RuntimeCoreEvidenceProjector({
+      source: {
+        pendingTaskIds: () => Promise.resolve([]),
+        load: () => Promise.resolve(terminalWithoutOutcome),
+      },
+      writer,
+      environment: 'test',
+      clock: { now: () => '2026-08-04T04:00:00.000Z' },
+    });
+
+    await expect(projector.projectTask('task-runtime-core')).resolves.toMatchObject({
+      qualityIssueIds: [],
+      lastEvidenceSequence: '3',
+    });
+    expect(writer.records.map(({ recordType }) => recordType)).toEqual([
+      'runtime.episode',
+      'runtime.request',
+      'runtime.a2a_task',
+    ]);
+    expect(payload(writer.records, 'runtime.a2a_task')).toMatchObject({
+      protocolStatus: 'failed',
+    });
+    expect(writer.checkpoint).toMatchObject({
+      sourceFamily: 'runtime',
+      sourcePartition: 'runtime-core:task-runtime-core',
+    });
+  });
+
   it('records a blocking quality issue instead of inferring a missing Skill execution reference', async () => {
     const writer = new MemoryWriter();
     const source = snapshot();

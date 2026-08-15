@@ -48,6 +48,74 @@ describe('PostgresGovernedControlManagementAuthorityReader', () => {
     });
   });
 
+  it('derives navigate confirmation authority for the exact five-dispatch bounded Skill', async () => {
+    const query = vi.fn(() => Promise.resolve({ rows: [navigateAuthorityRow()] }));
+    const reader = new PostgresGovernedControlManagementAuthorityReader({
+      query,
+    } as unknown as Pool);
+
+    await expect(reader.issueAuthority('task-1')).resolves.toMatchObject({
+      capabilityId: 'vehicle.ugv.navigate',
+      skillId: 'ugv.navigate',
+      toolName: 'vehicle_navigate',
+      arguments: {
+        resourceId: 'ugv-1',
+        mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+      },
+    });
+  });
+
+  it('does not treat a five-dispatch budget as generic control authority', async () => {
+    const row = authorityRow();
+    const query = vi.fn(() =>
+      Promise.resolve({
+        rows: [
+          {
+            ...row,
+            constraint_snapshot: (row.constraint_snapshot as Record<string, unknown>[]).map(
+              (constraint) =>
+                constraint['type'] === 'physical_side_effect_policy'
+                  ? { ...constraint, dispatchMaximum: 5 }
+                  : constraint,
+            ),
+            skill_runtime_policy: { autoConfirmPlan: false, maxMcpCalls: 5 },
+          },
+        ],
+      }),
+    );
+    const reader = new PostgresGovernedControlManagementAuthorityReader({
+      query,
+    } as unknown as Pool);
+
+    await expect(reader.issueAuthority('task-1')).rejects.toMatchObject({
+      code: 'GOVERNED_CONTROL_AUTHORITY_SCOPE_INVALID',
+    });
+  });
+
+  it('rejects navigate confirmation authority above the frozen per-dispatch distance', async () => {
+    const row = navigateAuthorityRow();
+    const query = vi.fn(() =>
+      Promise.resolve({
+        rows: [
+          {
+            ...row,
+            input_snapshot: {
+              resourceId: 'ugv-1',
+              mission: { type: 'distance', direction: 'forward', distanceM: 10 },
+            },
+          },
+        ],
+      }),
+    );
+    const reader = new PostgresGovernedControlManagementAuthorityReader({
+      query,
+    } as unknown as Pool);
+
+    await expect(reader.issueAuthority('task-1')).rejects.toMatchObject({
+      code: 'GOVERNED_CONTROL_AUTHORITY_SCOPE_INVALID',
+    });
+  });
+
   it('never derives confirmation authority for the hard-denied fire tool', async () => {
     const row = authorityRow();
     const constraints = (row.constraint_snapshot as Record<string, unknown>[]).map((constraint) =>
@@ -156,6 +224,74 @@ function authorityRow() {
       sideEffectPolicy: {
         sideEffecting: true,
         confirmation: 'required_before_execution',
+      },
+    },
+  };
+}
+
+function navigateAuthorityRow() {
+  const row = authorityRow();
+  const skillId = 'ugv.navigate';
+  const capabilityId = 'vehicle.ugv.navigate';
+  const toolName = 'vehicle_navigate';
+  const arguments_ = {
+    resourceId: 'ugv-1',
+    mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+  };
+  return {
+    ...row,
+    selected_skill_id: skillId,
+    binding_id: 'binding-navigate',
+    capability_id: capabilityId,
+    input_snapshot: arguments_,
+    constraint_snapshot: [
+      ...(row.constraint_snapshot as Record<string, unknown>[]).map((constraint) => {
+        if (constraint['type'] === 'provider_binding_policy')
+          return { ...constraint, mcpToolName: toolName };
+        if (constraint['type'] === 'exact_skill_version')
+          return { ...constraint, skillId, taskType: toolName };
+        if (constraint['type'] === 'physical_side_effect_policy')
+          return { ...constraint, dispatchMaximum: 5 };
+        return constraint;
+      }),
+      {
+        type: 'bounded_movement_policy',
+        constraintId: 'vehicle-navigate-distance-per-dispatch',
+        toolName,
+        missionType: 'distance',
+        missionTypeArgumentPath: ['mission', 'type'],
+        directionArgumentPath: ['mission', 'direction'],
+        distanceArgumentPath: ['mission', 'distanceM'],
+        allowedDirections: ['backward', 'forward', 'left', 'right'],
+        exclusiveMinimum: 0,
+        maximumInclusive: 2,
+        unit: 'm',
+        scope: 'per_dispatch',
+        exactDirection: 'forward',
+        exactDistancePerDispatch: 2,
+        exactDispatchCount: 5,
+        exactTotalDistance: 10,
+        strictSequential: true,
+        terminalBeforeNext: true,
+      },
+    ],
+    initial_implementation_refs: [`skill:${skillId}:1`],
+    attempt_skill_version_refs: [`skill:${skillId}:1`],
+    plan_definition: { steps: [{ toolName }] },
+    skill_id: skillId,
+    skill_capabilities: [capabilityId],
+    skill_tool_policy: {
+      required: [{ serverId: 'fake-ugv', toolName }],
+      optional: [],
+      forbidden: [{ serverId: 'fake-ugv', toolName: 'vehicle_fire_weapon' }],
+    },
+    skill_runtime_policy: { autoConfirmPlan: false, maxMcpCalls: 5 },
+    skill_outcome_specification: {
+      sideEffectPolicy: {
+        sideEffecting: true,
+        confirmation: 'required_before_execution',
+        dispatchMaximum: 5,
+        requiredArgumentConstraintIds: ['vehicle-navigate-distance-per-dispatch'],
       },
     },
   };

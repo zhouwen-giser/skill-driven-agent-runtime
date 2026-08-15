@@ -161,6 +161,8 @@ export interface FrozenTaskLifecycleRuntimePort {
 export const SDAR_EXECUTION_MODE_HEADER = 'X-SDAR-Execution-Mode';
 export const SDAR_SIMULATION_ID_HEADER = 'X-SDAR-Simulation-Id';
 
+export type McpExecutionModeHeaderPolicy = 'emit' | 'omit_live';
+
 export class McpRegistryService {
   readonly #repository: McpRegistryRepository;
   readonly #cipher: SecretCipher;
@@ -170,6 +172,7 @@ export class McpRegistryService {
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
+  readonly #executionModeHeaderPolicy: McpExecutionModeHeaderPolicy;
   readonly #runtimeBindingAuthority: McpRuntimeBindingAuthorityVerifier;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
 
@@ -182,6 +185,7 @@ export class McpRegistryService {
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
       controlAuthority?: GovernedControlInvocationAuthorityPort;
+      executionModeHeaderPolicy?: McpExecutionModeHeaderPolicy;
       runtimeBindingAuthority?: McpRuntimeBindingAuthorityVerifier;
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
@@ -194,6 +198,7 @@ export class McpRegistryService {
     this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#providerBindings = dependencies.providerBindings;
     this.#controlAuthority = dependencies.controlAuthority;
+    this.#executionModeHeaderPolicy = dependencies.executionModeHeaderPolicy ?? 'emit';
     this.#runtimeBindingAuthority =
       dependencies.runtimeBindingAuthority ??
       new McpRuntimeBindingAuthorityVerifier({
@@ -292,6 +297,7 @@ export class McpRegistryService {
       headers: withExecutionHeaders(
         this.#cipher.decrypt(record.encryptedCredential),
         executionContext,
+        this.#executionModeHeaderPolicy,
       ),
       toolName,
       arguments: arguments_,
@@ -655,6 +661,7 @@ export class McpRegistryService {
         headers: withExecutionHeaders(
           this.#cipher.decrypt(record.encryptedCredential),
           executionContext,
+          this.#executionModeHeaderPolicy,
         ),
         remoteTaskId: input.remoteTaskId,
         outputValidator: this.#schemas,
@@ -699,6 +706,7 @@ export class McpRegistryService {
       headers: withExecutionHeaders(
         this.#cipher.decrypt(record.encryptedCredential),
         executionContext,
+        this.#executionModeHeaderPolicy,
       ),
       remoteTaskId: input.remoteTaskId,
     });
@@ -720,6 +728,7 @@ export class McpRegistryService {
       headers: withExecutionHeaders(
         this.#cipher.decrypt(record.encryptedCredential),
         executionContext,
+        this.#executionModeHeaderPolicy,
       ),
       remoteTaskId: input.remoteTaskId,
       inputResponses: input.inputResponses,
@@ -751,6 +760,7 @@ export class McpRegistryService {
         headers: withExecutionHeaders(
           this.#cipher.decrypt(record.encryptedCredential),
           executionContext,
+          this.#executionModeHeaderPolicy,
         ),
         requests: input.requests,
         ...(input.signal === undefined ? {} : { signal: input.signal }),
@@ -1035,7 +1045,9 @@ function invocationRecord(
 function withExecutionHeaders(
   credentials: Readonly<Record<string, string>>,
   executionContext: RuntimeExecutionContext,
+  policy: McpExecutionModeHeaderPolicy,
 ): Readonly<Record<string, string>> {
+  if (policy === 'omit_live' && executionContext.mode === 'live') return { ...credentials };
   return {
     ...credentials,
     [SDAR_EXECUTION_MODE_HEADER]: executionContext.mode,

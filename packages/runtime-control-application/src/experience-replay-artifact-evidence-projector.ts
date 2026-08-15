@@ -40,6 +40,8 @@ export interface ExperienceReplayArtifactProjectionPartition {
   readonly sourceId: string;
   readonly sourceVersion?: number;
   readonly episodeId?: string;
+  /** Latest authoritative source timestamp observed by the durable pending scan. */
+  readonly observedAt?: string;
 }
 
 export interface ExperienceReplayArtifactEvidenceSnapshot {
@@ -316,9 +318,21 @@ export class ExperienceReplayArtifactEvidenceProjector {
       optionalText(snapshot.checkpoint, 'projector_version') ===
         EXPERIENCE_REPLAY_ARTIFACT_PROJECTOR_VERSION
     ) {
-      await this.#writer.saveCheckpoint(
-        checkpointFor(snapshot, authorityRevision, authorityRevision, sourceCursor, recordedAt),
-      );
+      const previousOccurredAt = optionalTimestamp(snapshot.checkpoint, 'last_occurred_at');
+      if (
+        sourceCursor.occurredAt !== undefined &&
+        (previousOccurredAt === undefined || sourceCursor.occurredAt > previousOccurredAt)
+      ) {
+        await this.#writer.saveCheckpoint(
+          checkpointFor(
+            snapshot,
+            authorityRevision,
+            authorityRevision,
+            sourceCursor,
+            optionalTimestamp(snapshot.checkpoint, 'last_projected_at') ?? recordedAt,
+          ),
+        );
+      }
       return projectionResult(partition, taskId, projected, issueIds, sequences);
     }
 
@@ -1634,7 +1648,18 @@ function checkpointFor(
 function aggregateRevision(snapshot: ExperienceReplayArtifactEvidenceSnapshot) {
   return hashSourceArtifactJson(
     sanitize({
-      partition: snapshot.partition as unknown as EvidenceJsonValue,
+      partition: {
+        kind: snapshot.partition.kind,
+        sourceFamily: snapshot.partition.sourceFamily,
+        sourcePartition: snapshot.partition.sourcePartition,
+        sourceId: snapshot.partition.sourceId,
+        ...(snapshot.partition.sourceVersion === undefined
+          ? {}
+          : { sourceVersion: snapshot.partition.sourceVersion }),
+        ...(snapshot.partition.episodeId === undefined
+          ? {}
+          : { episodeId: snapshot.partition.episodeId }),
+      },
       task: snapshot.task ?? null,
       episodes: snapshot.episodes,
       traces: snapshot.traces,
@@ -1656,7 +1681,7 @@ function aggregateRevision(snapshot: ExperienceReplayArtifactEvidenceSnapshot) {
 }
 
 function aggregateCursor(snapshot: ExperienceReplayArtifactEvidenceSnapshot) {
-  let occurredAt: string | undefined;
+  let occurredAt = snapshot.partition.observedAt;
   for (const row of [
     ...snapshot.episodes,
     ...snapshot.traces,
@@ -1674,7 +1699,13 @@ function aggregateCursor(snapshot: ExperienceReplayArtifactEvidenceSnapshot) {
     ...snapshot.feedback,
     ...snapshot.promotions,
   ]) {
-    for (const field of ['updated_at', 'completed_at', 'created_at', 'started_at'] as const) {
+    for (const field of [
+      'updated_at',
+      'completed_at',
+      'created_at',
+      'started_at',
+      'invalidated_at',
+    ] as const) {
       const value = row[field];
       if (typeof value === 'string' && Number.isFinite(Date.parse(value))) {
         const normalized = new Date(value).toISOString();
@@ -1877,6 +1908,13 @@ function text(row: ExperienceReplayArtifactSourceRow, field: string) {
 function optionalText(row: ExperienceReplayArtifactSourceRow | undefined, field: string) {
   const result = row?.[field];
   return typeof result === 'string' && result.trim() !== '' ? result : undefined;
+}
+
+function optionalTimestamp(row: ExperienceReplayArtifactSourceRow | undefined, field: string) {
+  const result = row?.[field];
+  return typeof result === 'string' && Number.isFinite(Date.parse(result))
+    ? new Date(result).toISOString()
+    : undefined;
 }
 
 function nestedString(

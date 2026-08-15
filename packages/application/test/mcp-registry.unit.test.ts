@@ -28,6 +28,39 @@ import type { McpRegistryRepository, McpServerRecord } from '../src/ports.js';
 const timestamp = '2026-08-11T01:00:00.000Z';
 
 describe('MCP Registry invocation boundary', () => {
+  it('can omit only the live execution-mode header while retaining live invocation evidence', async () => {
+    const fixture = createFixture({ executionModeHeaderPolicy: 'omit_live' });
+
+    await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        headers: { authorization: 'Bearer provider-secret' },
+      }),
+    );
+    expect(fixture.repository.invocations).toEqual([
+      expect.objectContaining({ executionMode: 'live' }),
+    ]);
+  });
+
+  it('keeps explicit simulation headers when live-header omission is enabled', async () => {
+    const fixture = createFixture({ executionModeHeaderPolicy: 'omit_live' });
+
+    await fixture.service.callDetailed('provider-1', 'light_get_state', {}, undefined, {
+      executionContext: { mode: 'simulation', simulationId: 'simulation-header-test' },
+    });
+
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        headers: {
+          authorization: 'Bearer provider-secret',
+          'X-SDAR-Execution-Mode': 'simulation',
+          'X-SDAR-Simulation-Id': 'simulation-header-test',
+        },
+      }),
+    );
+  });
+
   it('journals a remote receipt atomically instead of saving the invocation separately', async () => {
     const outcome: McpInvocationOutcome = {
       kind: 'remote_task',
@@ -324,6 +357,40 @@ describe('MCP Registry invocation boundary', () => {
         controlDispatchHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/u),
       }),
     ]);
+  });
+
+  it('forwards exact nested navigate distance arguments through authority before transport', async () => {
+    const order: string[] = [];
+    const fixture = createFixture({
+      toolName: 'vehicle_navigate',
+      toolEffect: 'side_effecting',
+      order,
+    });
+    const arguments_ = {
+      resourceId: 'vehicle:ugv1',
+      mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+    };
+
+    await fixture.service.callDetailed('provider-1', 'vehicle_navigate', arguments_, undefined, {
+      taskId: 'task-control-1',
+      capabilityAttemptId: 'capability-attempt-control-1',
+      providerBindingId: 'binding-provider-1',
+      providerId: 'external-provider-1',
+    });
+
+    expect(fixture.controlAuthority).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'vehicle_navigate',
+        arguments: arguments_,
+      }),
+    );
+    expect(fixture.call).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'vehicle_navigate',
+        arguments: arguments_,
+      }),
+    );
+    expect(order.indexOf('control-authority')).toBeLessThan(order.indexOf('provider-call'));
   });
 
   it('rejects a disabled Server before Frozen authority lookup or Provider transport', async () => {
@@ -829,6 +896,7 @@ function createFixture(
     }>;
     toolName?: string;
     toolEffect?: McpTool['executionSemantics']['effect'];
+    executionModeHeaderPolicy?: 'emit' | 'omit_live';
   }> = {},
 ) {
   const order = options.order ?? [];
@@ -903,6 +971,9 @@ function createFixture(
       cancel: () => Promise.reject(new Error('unused')),
     },
     controlAuthority: { authorizeAndConsume: controlAuthority },
+    ...(options.executionModeHeaderPolicy === undefined
+      ? {}
+      : { executionModeHeaderPolicy: options.executionModeHeaderPolicy }),
     ...(options.providerBindingsConfigured === false
       ? {}
       : {

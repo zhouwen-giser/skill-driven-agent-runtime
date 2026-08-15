@@ -4,13 +4,56 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## SDAR × UGV SMPP Integration (blocked handoff)
 
+- Reconciled the external SMPP database rebuild as a new immutable SDAR generation: Source
+  `ugv-smpp-r2` revision 1, Frozen Server `ugv-smpp-runtime-r2`, Binding
+  `mcp-binding-ugv-smpp-r2` revision 1 and Catalog `2.0.0-rc.1:1`. Governance now accepts the exact
+  configured Binding ID rather than assuming the historical local identity; five read authorities
+  and coordinate navigate Skill/Capability v6 use the new lineage.
+- Fixed governed-control authority lookup after a real confirmed coordinate attempt proved that
+  pre-invocation readiness hashes the `TaskAvailabilityArguments` envelope while confirmation and
+  dispatch hash raw Tool arguments. The two hashes now remain explicit and are matched at their
+  owning authority boundaries. The retry consumed one exact human confirmation and made one real
+  `vehicle_navigate` invocation; the external Provider rejected live admission as
+  `UGV_EXECUTION_MODE_UNSUPPORTED`, so no remote Task, replay or movement occurred.
+- Reject punctuation-only model Goal constraints and success criteria after two real model
+  candidates produced comma-only arrays. Each item must contain a Unicode letter or number; the
+  existing two-attempt model bound and audited user Goal Patch path remain unchanged.
+- Re-ran the repository gate after the r2 refresh. Static/unit/contract/build passed 275 files and
+  2,005 tests, Cognitive Replay passed, and all 56 Runtime plus 11 Control migrations passed. The
+  operator-managed PostgreSQL then rejected Integration database creation because `template1`
+  has invalid collation-version metadata (`XX000`); the operator database was not modified and
+  Integration/E2E were not reached in this run.
+- Added an explicitly governed coordinate-point navigate authority for `vehicle:ugv1`, with one
+  physical dispatch, explicit bounded WGS84 input, `stopOnObstacle=true` and mandatory remote
+  terminal evidence. The reusable Skill/Capability bounds valid coordinates; each TaskCapability,
+  Availability snapshot, confirmed Plan and one-shot confirmation freeze the requested point.
+- Executed a real A2A coordinate attempt through Task Understanding, corrected exact Goal and a
+  single exact navigate Skill Goal. Provider planning readiness consistently returned
+  `UGV_CHASSIS_TRACK_BUSY` through twelve protocol-faithful reads including the post-integration
+  retry, so the Task failed before Plan persistence;
+  confirmations, MCP Tool calls and physical writes remain zero.
+- A subsequent Goal continuation read observed the external state transition to
+  `unknown / UGV_STATE_STALE`. Runtime health remains ready, but its Business Event inbox backlog
+  is 113 and no fresh vehicle-state authority exists. The next read returned
+  `disabled / UGV_CHASSIS_TRACK_BUSY` again. An authorized Runtime restart using only Node Control
+  viewer/service credentials and `physical_control.confirm` / `physical_control.revoke` was
+  successful, but the fifteenth and sixteenth exact Availability reads remained
+  `disabled / UGV_CHASSIS_TRACK_BUSY`; dispatch remains closed.
+- Propagated nested Provider readiness reason codes into `SKILL_SELECTION_NO_CANDIDATES`, deduped
+  exact model-selected Task Types, admitted physical-side-effect Capability policy correctly, and
+  forwarded frozen TaskCapability input to Provider planning availability.
+- Repaired Phase 13 immutable diagnostic allocation to choose the next monotonic attempt instead
+  of overwriting fixed attempt 8. Attempt 9 now records the real baseline-drift assertion
+  (`15.828% > 15%`) while Runtime regression (`7.128%`) and append P95 (`4.219 ms`) pass.
+
 - Added explicit credential-free Source authority, generic Provider materialization, exact
   Provider Binding/catalog reconciliation and redacted lineage reports for one real UGV-only SMPP
-  projection. The latest observed authority is Source revision 1, Provider Binding revision 2,
-  Runtime tool revision 2 and Catalog `2.0.0-rc.1:2` with 11 discovered operations.
-- Added five published read-only Skills at version 4 and five read Capabilities at version 2;
-  staged five control authorities Draft/non-selectable without implementation bindings. Fire
-  receives no Capability or Skill.
+  projection. The latest observed authority is rebuilt Source generation revision 1, Provider
+  Binding revision 1, Runtime tool revision 1 and Catalog `2.0.0-rc.1:1` with 11 discovered
+  operations.
+- Added five published read-only Skills and Capabilities at version 6 plus the explicitly activated
+  coordinate-point navigate Skill/Capability at version 6; four other control authorities remain
+  Draft/non-selectable. Fire receives no Capability or Skill.
 - Added create-on-empty Runtime model bootstrap from explicit deployment configuration. PostgreSQL
   remains authoritative: any existing Provider makes startup a strict no-op; a clean database can
   atomically create one structured Provider, an optional separate embedding Provider, 21 routes per
@@ -26,6 +69,24 @@ All notable changes to this project are documented here. The format follows Keep
   `UGV_EXECUTION_MODE_UNSUPPORTED`; simulation readiness returned
   `UGV_DEVICE_MCP_UNAVAILABLE` before invocation, and a direct simulation compatibility probe
   returned `UGV_ADAPTER_INTERNAL_ERROR`.
+- Merged current `main` before physical debugging and added an explicitly activated, single-Task
+  navigate procedure with five linear `vehicle_navigate` nodes. Each dispatch is frozen to exactly
+  `forward / 2 m`; the terminal proof rejects extra, reordered, branched, uncertain or incomplete
+  dispatches. A fresh real read reached the adapter but again failed
+  `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, so no navigate or physical write
+  was attempted.
+- Added `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit` as a production-rejected compatibility switch
+  for adapters whose live contract requires the execution-mode header to be absent. Runtime audit
+  evidence remains `live`, simulation headers remain explicit, and `SDAR_A2A_WAIT_TIMEOUT_MS`
+  separately configures the bounded A2A wait. Focused MCP/environment tests and TypeScript checking
+  pass.
+- Retried the requested one-A2A-Task 10 m movement shape as five sequential `forward / 2 m`
+  dispatches. The no-header live availability probe no longer returned
+  `UGV_EXECUTION_MODE_UNSUPPORTED`; it returned `UGV_MQTT_UNAVAILABLE`. Four A2A preparation
+  attempts produced zero MCP invocations: three timed out and the latest failed
+  `MODEL_TRANSPORT_UPSTREAM_ERROR` while reducing an invalid six-Skill-Goal candidate to the one
+  native navigate Skill Goal. No governed confirmation, navigate call, physical write or proven
+  movement occurred.
 - Executed real A2A read-only `run016` through Task/Goal/User Goal Plan, exact
   `ugv.get-state@4`, `vehicle.ugv.read-state@2`, Exposure v2 and live MCP invocation
   `mcp-invocation-fb54fcdb-dabf-42ee-85d6-eebcb7aa8717`. The adapter returned
@@ -54,13 +115,14 @@ All notable changes to this project are documented here. The format follows Keep
   bad-checksum behavior, aggregate bootstrap and the failed invocation's complete queryable lineage
   remain unproven; real model conformance passed and real A2A ran but failed, while all
   control/lifecycle/emergency/recovery phases were not run.
-- Regenerated the secret-scanned delivery ZIP/SHA/patch from the final evidence and code state,
-  excluding `.gitignore`, `.codex/**`, actual secrets, checkpoints and delivery outputs themselves.
-- The repository gate remains failed. Main Integration passed 189/189, but the aggregate isolated
-  P11 export case timed out before an unchanged standalone 1/1 pass. Main E2E passed 72/72 with one
-  skip before Phase 13 baseline drift failed at `22.939% > 15%`; Runtime regression (`1.7548%`),
-  append P95 (`3.410 ms`), evidence demo 44/44 and all three smokes passed. The official A2A TCK did
-  not start because the host lacks `python3-venv`.
+- The prior delivery ZIP/SHA/patch was not regenerated after the coordinate attempt and is marked
+  stale; Git commit and pull-request state are the current delivery authority. `.gitignore`,
+  `.codex/**`, actual secrets and checkpoints remain excluded.
+- The earlier repository gate remained failed. Static/unit/contract/build passed 275 files and 2,003
+  tests, migrations passed, Integration passed 36 files/216 tests and Main E2E passed 72 tests with
+  one skip. Phase 13 then failed baseline drift at `15.828% > 15%`; Runtime regression (`7.128%`)
+  and append P95 (`4.219 ms`) passed. The fixed allocator wrote immutable diagnostic attempt 9.
+  Later gates, including the official A2A TCK, were not reached.
 
 ## SDAR v1.4.1 Canonical Evidence Export (completed; PR Ready)
 

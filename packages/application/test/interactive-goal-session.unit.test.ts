@@ -84,12 +84,44 @@ describe('InteractiveGoalSessionService', () => {
     expect(confirmed.session).toMatchObject({ state: 'confirmed', version: 3 });
     expect(confirmed.candidate?.status).toBe('confirmed');
   });
+
+  it('rejects punctuation-only Goal constraints after the bounded model retry', async () => {
+    const repository = new MemoryInteractiveGoalRepository();
+    const modelTimeouts: number[] = [];
+    const service = sessionService(repository, 90_000, modelTimeouts, {
+      title: 'Navigate the UGV',
+      description: 'Navigate the declared UGV to the exact target.',
+      constraints: [','],
+      successCriteria: [','],
+    });
+    const started = await service.start({ taskId: 'task.interactive' });
+
+    await expect(
+      service.applyAction({
+        sessionId: started.session.sessionId,
+        expectedVersion: 1,
+        idempotencyKey: 'action.answer.invalid-contract',
+        actorId: 'user.1',
+        action: 'answer',
+        payload: { answer: 'pump-17' },
+      }),
+    ).rejects.toThrow(/^GOAL_CONTRACT_MODEL_OUTPUT_INVALID:/u);
+    expect(modelTimeouts).toEqual([90_000, 90_000]);
+    expect(repository.turns).toHaveLength(0);
+    expect(repository.candidates).toHaveLength(0);
+  });
 });
 
 function sessionService(
   repository: MemoryInteractiveGoalRepository,
   modelTimeoutMs?: number,
   modelTimeouts: number[] = [],
+  structuredResult: Readonly<Record<string, unknown>> = {
+    title: 'Inspect pump-17',
+    description: 'Inspect pump-17 and report its current status.',
+    constraints: ['Read only.'],
+    successCriteria: ['Return verified status.'],
+  },
 ) {
   let revised = false;
   return new InteractiveGoalSessionService({
@@ -109,12 +141,7 @@ function sessionService(
         modelTimeouts.push(input.timeoutMs);
         return Promise.resolve({
           invocationId: 'model-invocation.goal-contract.1',
-          structuredResult: {
-            title: 'Inspect pump-17',
-            description: 'Inspect pump-17 and report its current status.',
-            constraints: ['Read only.'],
-            successCriteria: ['Return verified status.'],
-          },
+          structuredResult,
         });
       },
     },

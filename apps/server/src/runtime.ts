@@ -343,6 +343,7 @@ import {
   PostgresAgentTaskRepository,
   PostgresAgentTaskCommandContext,
   PostgresTaskCapabilityRepository,
+  PostgresTaskCapabilityPhysicalEvidenceRepository,
   PostgresGovernedControlAuthorityRepository,
   PostgresGovernedControlManagementAuthorityReader,
   PostgresConversationContextRepository,
@@ -610,6 +611,8 @@ export interface ServerRuntimeOptions {
     readonly mcpAllowedAuthorities: readonly string[];
     readonly providerAllowedAuthorities: readonly string[];
   }>;
+  /** Compatibility policy for MCP servers that treat an absent mode header as live. */
+  readonly mcpExecutionModeHeaderPolicy?: 'emit' | 'omit_live';
   readonly a2aWaitTimeoutMs?: number;
   readonly a2aSafetyPollIntervalMs?: number;
   readonly a2aTerminalReconciliationIntervalMs?: number;
@@ -1264,6 +1267,7 @@ export async function startServerRuntime(
     store: new PostgresTaskCapabilityRepository(pool, publishTaskState, taskCommands),
     schemas: schemaValidator,
     evidence: mcpRepository,
+    physicalEvidence: new PostgresTaskCapabilityPhysicalEvidenceRepository(pool),
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
@@ -2100,6 +2104,9 @@ export async function startServerRuntime(
     ...(governedControlInvocationAuthorizer === undefined
       ? {}
       : { controlAuthority: governedControlInvocationAuthorizer }),
+    ...(options.mcpExecutionModeHeaderPolicy === undefined
+      ? {}
+      : { executionModeHeaderPolicy: options.mcpExecutionModeHeaderPolicy }),
     runtimeBindingAuthority: runtimeMcpBindingAuthority,
     clock,
     ids: {

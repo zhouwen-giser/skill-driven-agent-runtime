@@ -16,6 +16,7 @@ interface PartitionRow {
   readonly source_id: string;
   readonly source_version: number | null;
   readonly episode_id: string | null;
+  readonly observed_at: Date | string;
 }
 
 export class PostgresExperienceReplayArtifactEvidenceSource implements ExperienceReplayArtifactEvidenceSource {
@@ -235,54 +236,190 @@ export class PostgresExperienceReplayArtifactEvidenceSource implements Experienc
 const pendingPartitionsSql = `WITH candidate AS (
   SELECT 'experience_task'::text AS kind,'experience'::text AS source_family,
          episode.task_id AS source_id,NULL::integer AS source_version,
-         episode.task_id AS episode_id,0 AS priority
+         episode.task_id AS episode_id,0 AS priority,episode.created_at AS observed_at
   FROM goal_experience_episode episode WHERE episode.task_id IS NOT NULL
-  UNION
-  SELECT 'experience_task','experience',correction.task_id,NULL::integer,correction.task_id,0
+  UNION ALL
+  SELECT 'experience_task','experience',correction.task_id,NULL::integer,correction.task_id,0,
+         correction.created_at
   FROM planning_correction_fact correction
-  UNION
-  SELECT 'experience_task','experience',interaction.task_id,NULL::integer,interaction.task_id,0
+  UNION ALL
+  SELECT 'experience_task','experience',interaction.task_id,NULL::integer,interaction.task_id,0,
+         interaction.created_at
   FROM planning_interaction_episode interaction
-  UNION
-  SELECT 'experience_pattern','experience',pattern.pattern_id,NULL::integer,NULL::text,1
+  UNION ALL
+  SELECT 'experience_task','experience',episode.task_id,NULL::integer,episode.task_id,0,
+         trace.created_at
+  FROM experience_trace trace
+  JOIN experience_trace_source trace_source ON trace_source.trace_id=trace.trace_id
+  JOIN goal_experience_episode episode ON episode.episode_id=trace_source.source_episode_id
+  WHERE episode.task_id IS NOT NULL
+  UNION ALL
+  SELECT 'experience_task','experience',episode.task_id,NULL::integer,episode.task_id,0,
+         trace_source.created_at
+  FROM experience_trace_source trace_source
+  JOIN goal_experience_episode episode ON episode.episode_id=trace_source.source_episode_id
+  WHERE episode.task_id IS NOT NULL
+  UNION ALL
+  SELECT 'experience_task','experience',episode.task_id,NULL::integer,episode.task_id,0,
+         source.captured_at
+  FROM goal_experience_episode_source source
+  JOIN goal_experience_episode episode ON episode.episode_id=source.episode_id
+  WHERE episode.task_id IS NOT NULL
+  UNION ALL
+  SELECT 'experience_task','experience',episode.task_id,NULL::integer,episode.task_id,0,
+         task.updated_at
+  FROM goal_experience_episode episode
+  JOIN agent_task task ON task.task_id=episode.task_id
+  WHERE episode.task_id IS NOT NULL
+  UNION ALL
+  SELECT 'experience_task','experience',episode.task_id,NULL::integer,episode.task_id,0,
+         run.updated_at
+  FROM compilation_run run
+  JOIN experience_trace trace ON trace.trace_id=run.result_ref
+  JOIN experience_trace_source trace_source ON trace_source.trace_id=trace.trace_id
+  JOIN goal_experience_episode episode ON episode.episode_id=trace_source.source_episode_id
+  WHERE run.run_type='normalization' AND run.status='completed' AND episode.task_id IS NOT NULL
+  UNION ALL
+  SELECT 'experience_pattern','experience',pattern.pattern_id,NULL::integer,NULL::text,1,
+         pattern.created_at
   FROM pattern_candidate pattern
-  UNION
-  SELECT 'replay_case','replay',replay_case.replay_case_id,NULL::integer,episode.task_id,2
+  UNION ALL
+  SELECT 'experience_pattern','experience',support.pattern_id,NULL::integer,NULL::text,1,
+         support.created_at
+  FROM pattern_candidate_support support
+  UNION ALL
+  SELECT 'experience_pattern','experience',pattern.pattern_id,NULL::integer,NULL::text,1,
+         run.updated_at
+  FROM pattern_candidate pattern
+  JOIN compilation_run run
+    ON run.run_type='process_mining'
+   AND run.status='completed'
+   AND run.result_ref=pattern.definition->>'workflowPatternId'
+  UNION ALL
+  SELECT 'replay_case','replay',replay_case.replay_case_id,NULL::integer,episode.task_id,2,
+         replay_case.created_at
   FROM artifact_replay_case replay_case
   JOIN goal_experience_episode episode
     ON episode.episode_id=replay_case.primary_source_episode_id
-  UNION
-  SELECT 'artifact','artifact',artifact.artifact_id,artifact.version,NULL::text,3
+  UNION ALL
+  SELECT 'replay_case','replay',replay_case.replay_case_id,NULL::integer,episode.task_id,2,
+         task.updated_at
+  FROM artifact_replay_case replay_case
+  JOIN goal_experience_episode episode
+    ON episode.episode_id=replay_case.primary_source_episode_id
+  JOIN agent_task task ON task.task_id=episode.task_id
+  UNION ALL
+  SELECT 'replay_case','replay',replay_case.replay_case_id,NULL::integer,episode.task_id,2,
+         dataset.created_at
+  FROM artifact_replay_case replay_case
+  JOIN goal_experience_episode episode
+    ON episode.episode_id=replay_case.primary_source_episode_id
+  JOIN replay_dataset_case membership ON membership.replay_case_id=replay_case.replay_case_id
+  JOIN replay_dataset_manifest dataset
+    ON dataset.dataset_id=membership.dataset_id
+   AND dataset.dataset_version=membership.dataset_version
+  UNION ALL
+  SELECT 'artifact','artifact',artifact.artifact_id,artifact.version,NULL::text,3,
+         artifact.created_at
   FROM compiled_artifact artifact
-  UNION
-  SELECT 'replay_dataset','replay',dataset.dataset_id,dataset.dataset_version,NULL::text,4
+  UNION ALL
+  SELECT 'artifact','artifact',artifact.artifact_id,artifact.version,NULL::text,3,
+         lineage.created_at
+  FROM compiled_artifact artifact
+  JOIN artifact_lineage lineage ON lineage.lineage_id=artifact.lineage_id
+  UNION ALL
+  SELECT 'artifact','artifact',artifact.artifact_id,artifact.version,NULL::text,3,
+         event.occurred_at
+  FROM compiled_artifact artifact
+  JOIN cognitive_runtime_outbox event
+    ON event.payload->>'artifactId'=artifact.artifact_id
+   AND event.payload->>'artifactVersion'=artifact.version::text
+  WHERE event.event_type LIKE 'artifact.%'
+  UNION ALL
+  SELECT 'replay_dataset','replay',dataset.dataset_id,dataset.dataset_version,NULL::text,4,
+         GREATEST(dataset.created_at,dataset.invalidated_at)
   FROM replay_dataset_manifest dataset
-  UNION
-  SELECT 'validation','replay',validation.validation_run_id,NULL::integer,NULL::text,5
+  UNION ALL
+  SELECT 'validation','replay',validation.validation_run_id,NULL::integer,NULL::text,5,
+         GREATEST(validation.created_at,validation.updated_at,validation.started_at,
+                  validation.completed_at)
   FROM artifact_validation_run validation
-  UNION
-  SELECT 'retrieval','artifact',match.match_id,NULL::integer,match.task_id,6
+  UNION ALL
+  SELECT 'validation','replay',result.validation_run_id,NULL::integer,NULL::text,5,
+         result.created_at
+  FROM artifact_replay_case_result result
+  UNION ALL
+  SELECT 'validation','replay',counterexample.validation_run_id,NULL::integer,NULL::text,5,
+         counterexample.created_at
+  FROM artifact_counterexample counterexample
+  UNION ALL
+  SELECT 'retrieval','artifact',match.match_id,NULL::integer,match.task_id,6,
+         match.created_at
   FROM artifact_match_log match
-  UNION
-  SELECT 'usage','artifact',execution.artifact_execution_id,NULL::integer,execution.task_id,7
+  UNION ALL
+  SELECT 'retrieval','artifact',match.match_id,NULL::integer,match.task_id,6,
+         task.updated_at
+  FROM artifact_match_log match
+  JOIN agent_task task ON task.task_id=match.task_id
+  UNION ALL
+  SELECT 'usage','artifact',execution.artifact_execution_id,NULL::integer,execution.task_id,7,
+         GREATEST(execution.started_at,execution.completed_at)
   FROM artifact_execution execution
-  UNION
-  SELECT 'feedback','artifact',feedback.feedback_id,NULL::integer,execution.task_id,8
+  UNION ALL
+  SELECT 'usage','artifact',execution.artifact_execution_id,NULL::integer,execution.task_id,7,
+         task.updated_at
+  FROM artifact_execution execution
+  JOIN agent_task task ON task.task_id=execution.task_id
+  UNION ALL
+  SELECT 'feedback','artifact',feedback.feedback_id,NULL::integer,execution.task_id,8,
+         feedback.created_at
   FROM artifact_feedback feedback
   JOIN artifact_execution execution
     ON execution.artifact_execution_id=feedback.artifact_execution_id
-  UNION
-  SELECT 'promotion','artifact',package.promotion_package_id,NULL::integer,NULL::text,9
+  UNION ALL
+  SELECT 'feedback','artifact',feedback.feedback_id,NULL::integer,execution.task_id,8,
+         task.updated_at
+  FROM artifact_feedback feedback
+  JOIN artifact_execution execution
+    ON execution.artifact_execution_id=feedback.artifact_execution_id
+  JOIN agent_task task ON task.task_id=execution.task_id
+  UNION ALL
+  SELECT 'promotion','artifact',package.promotion_package_id,NULL::integer,NULL::text,9,
+         package.created_at
   FROM artifact_promotion_package package
+  UNION ALL
+  SELECT 'promotion','artifact',package.promotion_package_id,NULL::integer,NULL::text,9,
+         validation.updated_at
+  FROM artifact_promotion_package package
+  JOIN artifact_validation_run validation
+    ON validation.validation_run_id=package.validation_summary_ref
+  UNION ALL
+  SELECT 'promotion','artifact',package.promotion_package_id,NULL::integer,NULL::text,9,
+         assessment.created_at
+  FROM artifact_promotion_package package
+  JOIN artifact_promotion_assessment assessment
+    ON assessment.promotion_package_id=package.promotion_package_id
+  UNION ALL
+  SELECT 'promotion','artifact',package.promotion_package_id,NULL::integer,NULL::text,9,
+         counterexample.created_at
+  FROM artifact_promotion_package package
+  JOIN artifact_counterexample counterexample
+    ON counterexample.artifact_id=package.artifact_id
+   AND counterexample.artifact_version=package.artifact_version
+), collapsed AS (
+  SELECT kind,source_family,source_id,source_version,episode_id,MIN(priority) AS priority,
+         date_trunc('milliseconds',MAX(observed_at)) AS observed_at
+  FROM candidate
+  GROUP BY kind,source_family,source_id,source_version,episode_id
 ), normalized AS (
-  SELECT kind,source_family,source_id,source_version,episode_id,priority,
+  SELECT kind,source_family,source_id,source_version,episode_id,priority,observed_at,
          'v141:' || kind || ':' || length(source_id)::text || ':' || source_id ||
            CASE WHEN source_version IS NULL THEN '' ELSE ':v' || source_version::text END
            AS source_partition
-  FROM candidate
+  FROM collapsed
 )
 SELECT normalized.kind,normalized.source_family,normalized.source_id,normalized.source_version,
-       normalized.episode_id
+       normalized.episode_id,normalized.observed_at
 FROM normalized
 LEFT JOIN evidence_source_checkpoint checkpoint
   ON checkpoint.source_family=normalized.source_family
@@ -299,8 +436,17 @@ LEFT JOIN LATERAL (
   ORDER BY projection_issue.last_observed_at DESC,projection_issue.issue_id
   LIMIT 1
 ) projection_issue ON true
-WHERE projection_issue.last_observed_at IS NULL
-   OR projection_issue.last_observed_at + interval '5 seconds' <= clock_timestamp()
+WHERE (
+    checkpoint.source_partition IS NULL
+    OR checkpoint.projector_version IS DISTINCT FROM $1
+    OR checkpoint.last_occurred_at IS NULL
+    OR checkpoint.last_occurred_at < normalized.observed_at
+    OR projection_issue.last_observed_at IS NOT NULL
+  )
+  AND (
+    projection_issue.last_observed_at IS NULL
+    OR projection_issue.last_observed_at + interval '5 seconds' <= clock_timestamp()
+  )
 ORDER BY
   CASE WHEN checkpoint.projector_version IS DISTINCT FROM $1 THEN 0 ELSE 1 END,
   COALESCE(
@@ -557,6 +703,7 @@ async function rows(
 }
 
 function toPartition(row: PartitionRow): ExperienceReplayArtifactProjectionPartition {
+  const observedAt = new Date(row.observed_at).toISOString();
   return Object.freeze({
     kind: row.kind,
     sourceFamily: row.source_family,
@@ -564,6 +711,7 @@ function toPartition(row: PartitionRow): ExperienceReplayArtifactProjectionParti
     sourceId: row.source_id,
     ...(row.source_version === null ? {} : { sourceVersion: row.source_version }),
     ...(row.episode_id === null ? {} : { episodeId: row.episode_id }),
+    observedAt,
   });
 }
 
@@ -592,6 +740,7 @@ function assertProjectionPartition(partition: ExperienceReplayArtifactProjection
         : 'artifact';
   const versioned = partition.kind === 'artifact' || partition.kind === 'replay_dataset';
   const episodeId = partition.episodeId?.trim();
+  const observedAt = partition.observedAt;
   if (
     partition.sourceFamily !== expectedFamily ||
     versioned !== (partition.sourceVersion !== undefined) ||
@@ -602,6 +751,9 @@ function assertProjectionPartition(partition: ExperienceReplayArtifactProjection
         episodeId !== partition.episodeId ||
         partition.episodeId.length > 512)) ||
     (partition.kind === 'experience_task' && partition.episodeId !== partition.sourceId) ||
+    (observedAt !== undefined &&
+      (!Number.isFinite(Date.parse(observedAt)) ||
+        new Date(observedAt).toISOString() !== observedAt)) ||
     partition.sourcePartition !==
       sourcePartition(partition.kind, partition.sourceId, partition.sourceVersion)
   ) {

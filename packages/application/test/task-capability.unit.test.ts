@@ -9,10 +9,13 @@ import {
   type TaskCapabilityExecutionAttempt,
 } from '../../domain/src/index.js';
 import {
+  canonicalHash,
   RuntimeTaskCapabilityService,
   type RuntimeCapabilityResolution,
   type RuntimeMcpProviderBindingAdmissionVerifier,
   type TaskCapabilityAcceptanceStore,
+  type TaskCapabilityPhysicalDispatchEvidence,
+  type TaskCapabilityPhysicalEvidenceSnapshot,
 } from '../src/index.js';
 
 const timestamp = '2026-08-02T00:00:00.000Z';
@@ -21,6 +24,7 @@ function fixture(
   options: Readonly<{
     resolution?: RuntimeCapabilityResolution;
     invocations?: readonly McpInvocation[];
+    physicalEvidence?: TaskCapabilityPhysicalEvidenceSnapshot;
     providerBindingCurrent?: boolean;
     runtimeProviderBindingCurrent?: boolean;
     runtimeProviderBindingsConfigured?: boolean;
@@ -89,6 +93,7 @@ function fixture(
       ? Promise.reject(new Error('MCP_PROVIDER_BINDING_NOT_CURRENT'))
       : Promise.resolve(),
   );
+  const physicalEvidence = options.physicalEvidence;
   const service = new RuntimeTaskCapabilityService({
     store,
     schemas: new AjvJsonSchemaValidator(),
@@ -97,6 +102,13 @@ function fixture(
       : {
           evidence: {
             listInvocationsByTask: () => Promise.resolve(options.invocations ?? []),
+          },
+        }),
+    ...(physicalEvidence === undefined
+      ? {}
+      : {
+          physicalEvidence: {
+            loadPhysicalEvidence: () => Promise.resolve(physicalEvidence),
           },
         }),
     ...((resolution.providerBindingRequirements?.length ?? 0) === 0
@@ -266,6 +278,106 @@ describe('RuntimeTaskCapabilityService', () => {
         ],
         risk: 'low',
         humanConfirmation: 'not_requested',
+        taskAvailabilityArguments: {
+          unresolved: false,
+          value: { resourceId: 'resource:42' },
+        },
+        systemPolicy: {
+          allowedModes: ['guidance', 'template', 'procedure'],
+          requireProcedureForHighRisk: true,
+          allowGuidanceWithIncompleteContext: false,
+        },
+      },
+    });
+    expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledTimes(2);
+  });
+
+  it('projects an exact physical side-effect policy as high-risk confirmation-pending context', async () => {
+    const resolution: RuntimeCapabilityResolution = {
+      exposureId: 'vehicle.navigate',
+      exposureVersion: 1,
+      requestedCapabilityId: 'vehicle.navigate.capability',
+      capabilityVersion: 4,
+      requestSchema: {
+        type: 'object',
+        required: ['resourceId'],
+        properties: { resourceId: { const: 'vehicle:ugv-1' } },
+        additionalProperties: false,
+      },
+      successCriteria: [{ type: 'output_schema_valid', required: true }],
+      requiredEvidence: [
+        {
+          type: 'required_evidence',
+          evidenceType: 'vehicle.task.terminal',
+          required: true,
+          hardGate: true,
+        },
+      ],
+      constraints: [
+        {
+          type: 'resource_policy',
+          selection: 'exact_value',
+          allowedResourceIds: ['vehicle:ugv-1'],
+        },
+        {
+          type: 'provider_binding_policy',
+          mcpProviderBindingId: 'binding-current',
+          localServerId: 'server.example',
+          bindingRevision: 1,
+          catalogRevision: '1.0.0:1',
+          catalogChecksum: 'a'.repeat(64),
+          requiredStatus: 'active',
+          requiredAvailabilityStatus: 'available',
+          requiredFreshness: 'unexpired',
+          fallback: 'deny',
+        },
+        { type: 'exact_skill_version', skillId: 'vehicle.navigate', skillVersion: 4 },
+        { type: 'confirmation_policy', required: true, stage: 'before_execution' },
+        {
+          type: 'physical_side_effect_policy',
+          sideEffecting: true,
+          dispatchMaximum: 1,
+          uncertainDispatchPolicy: 'reconcile_never_redispatch',
+          remoteTaskTerminalEvidenceRequired: true,
+        },
+      ],
+      implementationRefs: ['skill:vehicle.navigate:4'],
+      providerBindingRefs: ['binding-current'],
+      providerBindingRequirements: [
+        { bindingId: 'binding-current', localServerId: 'server.example' },
+      ],
+    };
+    const accepted = fixture({ resolution });
+    const prepared = await accepted.service.prepareAcceptance({
+      task: accepted.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: resolution.exposureId,
+          versionConstraint: '1',
+          requestId: 'request-physical-skill-usage-authority',
+        },
+      },
+      capabilityInput: { resourceId: 'vehicle:ugv-1' },
+      inputAttempt: accepted.inputAttempt,
+      bindingId: 'task-capability-physical-binding',
+      capabilityAttemptId: 'capability-attempt-physical-skill-usage',
+      event: accepted.event,
+    });
+    if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
+    await accepted.service.accept(prepared);
+
+    await expect(
+      accepted.service.resolveSkillUsageAuthority(accepted.task.taskId),
+    ).resolves.toMatchObject({
+      skillId: 'vehicle.navigate',
+      skillVersion: 4,
+      context: {
+        risk: 'high',
+        humanConfirmation: 'pending',
+        taskAvailabilityArguments: {
+          unresolved: false,
+          value: { resourceId: 'vehicle:ugv-1' },
+        },
         systemPolicy: {
           allowedModes: ['guidance', 'template', 'procedure'],
           requireProcedureForHighRisk: true,
@@ -1131,7 +1243,419 @@ describe('RuntimeTaskCapabilityService', () => {
       ),
     ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
   });
+
+  it('accepts one exact five-dispatch physical attempt while the final control is still claimed', async () => {
+    await expect(exercisePhysicalTerminal(physicalScenario())).resolves.toMatchObject({
+      attemptId: 'capability-attempt-physical',
+      requestedCapabilityId: 'vehicle.navigate.exact',
+    });
+  });
+
+  it.each([
+    [
+      'an invocation-less uncertain admission intent in the same attempt',
+      (scenario: PhysicalScenario): PhysicalScenario => ({
+        ...scenario,
+        physicalEvidence: {
+          ...scenario.physicalEvidence,
+          dispatches: [
+            ...scenario.physicalEvidence.dispatches,
+            {
+              invocationId: 'physical-invocation-orphan',
+              invocationPresent: false,
+              capabilityAttemptId: 'capability-attempt-physical',
+              admission: {
+                ...required(required(scenario.physicalEvidence.dispatches[0]).admission),
+                intentId: 'physical-admission-orphan',
+                invocationId: 'physical-invocation-orphan',
+                status: 'uncertain',
+                reasonCode: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+              },
+            },
+          ],
+        },
+      }),
+    ],
+    [
+      'a sixth or side-branch MCP node in the confirmed plan',
+      (scenario: PhysicalScenario): PhysicalScenario => ({
+        ...scenario,
+        physicalEvidence: {
+          ...scenario.physicalEvidence,
+          plan: {
+            ...required(scenario.physicalEvidence.plan),
+            nodes: [
+              ...required(scenario.physicalEvidence.plan).nodes,
+              {
+                nodeId: 'usage_task_5',
+                ordinal: 7,
+                type: 'mcp_tool',
+                serverId: 'smpp-provider',
+                toolName: 'vehicle_navigate',
+                taskRequired: true,
+              },
+            ],
+          },
+        },
+      }),
+    ],
+    [
+      'an invocation that differs from the frozen forward two-metre input',
+      (scenario: PhysicalScenario): PhysicalScenario => ({
+        ...scenario,
+        invocations: scenario.invocations.map((invocation, index) =>
+          index === 2
+            ? {
+                ...invocation,
+                arguments: {
+                  resourceId: 'vehicle:ugv-1',
+                  mission: { type: 'distance', direction: 'forward', distanceM: 1 },
+                },
+              }
+            : invocation,
+        ),
+      }),
+    ],
+    [
+      'an unprocessed intermediate terminal control',
+      (scenario: PhysicalScenario): PhysicalScenario => ({
+        ...scenario,
+        physicalEvidence: {
+          ...scenario.physicalEvidence,
+          dispatches: scenario.physicalEvidence.dispatches.map((evidence, index) =>
+            index === 1
+              ? {
+                  ...evidence,
+                  remoteTask: {
+                    ...required(evidence.remoteTask),
+                    localState: 'terminal_event_claimed',
+                    terminalEventStatus: 'claimed',
+                    processedCompletedEventCount: 0,
+                  },
+                }
+              : evidence,
+          ),
+        },
+      }),
+    ],
+  ] as const)('rejects physical terminal success with %s', async (_case, mutate) => {
+    await expect(exercisePhysicalTerminal(mutate(physicalScenario()))).rejects.toMatchObject({
+      code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+    });
+  });
 });
+
+interface PhysicalScenario {
+  readonly resolution: RuntimeCapabilityResolution;
+  readonly invocations: readonly McpInvocation[];
+  readonly physicalEvidence: TaskCapabilityPhysicalEvidenceSnapshot;
+}
+
+function physicalScenario(): PhysicalScenario {
+  const capabilityAttemptId = 'capability-attempt-physical';
+  const planId = 'plan-physical-five-dispatch';
+  const arguments_ = {
+    resourceId: 'vehicle:ugv-1',
+    mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+  } as const;
+  const argumentsHash = canonicalHash(arguments_);
+  const invocations = Array.from({ length: 5 }, (_, index): McpInvocation => {
+    const invocationId = `physical-invocation-${String(index + 1)}`;
+    return {
+      invocationId,
+      taskId: 'task-1',
+      capabilityAttemptId,
+      controlConfirmationId: `physical-confirmation-${String(index + 1)}`,
+      controlProviderBindingId: 'binding-vehicle-navigate',
+      controlArgumentsHash: argumentsHash,
+      controlDispatchHash: physicalDispatchHash(index),
+      contextId: 'context-1',
+      executionMode: 'live',
+      serverId: 'smpp-provider',
+      toolName: 'vehicle_navigate',
+      executionSemantics: {
+        effect: 'side_effecting',
+        execution: 'task_required',
+        cancellation: 'task_cancel',
+        idempotency: 'server_managed',
+        replay: 'forbidden',
+        source: 'mcp_declared',
+      },
+      arguments: arguments_,
+      result: { remoteTask: { remoteTaskId: `remote-physical-${String(index + 1)}` } },
+      status: 'succeeded',
+      startedAt: physicalTime(index, 0),
+      completedAt: physicalTime(index, 20),
+      durationMs: 20,
+    };
+  });
+  const dispatches = invocations.map((invocation, index) =>
+    physicalDispatchEvidence(invocation, index, capabilityAttemptId, planId),
+  );
+  const planNodes = Array.from({ length: 5 }, (_, index) => ({
+    nodeId: `usage_task_${String(index)}`,
+    ordinal: index + 1,
+    type: 'mcp_tool',
+    serverId: 'smpp-provider',
+    toolName: 'vehicle_navigate',
+    taskRequired: true,
+  }));
+  const physicalEvidence: TaskCapabilityPhysicalEvidenceSnapshot = {
+    plan: {
+      planId,
+      confirmationStatus: 'confirmed',
+      workflowDefinitionId: 'workflow-physical-five-dispatch',
+      workflowDefinitionVersion: 1,
+      entryNodeId: 'usage_task_0',
+      exitNodeIds: ['usage_success'],
+      nodes: [
+        ...planNodes,
+        {
+          nodeId: 'usage_success',
+          ordinal: 6,
+          type: 'result',
+          taskRequired: false,
+        },
+      ],
+      edges: [
+        ...Array.from({ length: 4 }, (_, index) => ({
+          sourceNodeId: `usage_task_${String(index)}`,
+          targetNodeId: `usage_task_${String(index + 1)}`,
+        })),
+        { sourceNodeId: 'usage_task_4', targetNodeId: 'usage_success' },
+      ],
+    },
+    dispatches,
+  };
+  return {
+    resolution: physicalResolution(),
+    invocations,
+    physicalEvidence,
+  };
+}
+
+function physicalResolution(): RuntimeCapabilityResolution {
+  return {
+    exposureId: 'vehicle-navigate-exact',
+    exposureVersion: 1,
+    requestedCapabilityId: 'vehicle.navigate.exact',
+    capabilityVersion: 1,
+    requestSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId', 'mission'],
+      properties: {
+        resourceId: { const: 'vehicle:ugv-1' },
+        mission: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['type', 'direction', 'distanceM'],
+          properties: {
+            type: { const: 'distance' },
+            direction: { const: 'forward' },
+            distanceM: { const: 2 },
+          },
+        },
+      },
+    },
+    successCriteria: [
+      { type: 'output_schema_valid', required: true },
+      { type: 'resource_identity_matches_request', required: true },
+      { type: 'required_evidence_complete', required: true },
+      { type: 'mcp_acceptance_is_terminal_success', value: false },
+      { type: 'remote_task_identity_present', required: true },
+      { type: 'remote_terminal_observation_present', required: true },
+      { type: 'external_command_dispatch_count', minimum: 5, maximum: 5 },
+    ],
+    requiredEvidence: [
+      {
+        type: 'required_evidence',
+        evidenceType: 'vehicle.task.terminal',
+        required: true,
+        hardGate: true,
+      },
+    ],
+    constraints: [
+      {
+        type: 'resource_policy',
+        identifierAuthority: 'public_smpp_tool_schema',
+        selection: 'exact_value',
+        allowedResourceIds: ['vehicle:ugv-1'],
+        downstreamResourceBinding: 'forbidden',
+      },
+      {
+        type: 'provider_binding_policy',
+        mcpProviderBindingId: 'binding-vehicle-navigate',
+        localServerId: 'smpp-provider',
+        mcpToolName: 'vehicle_navigate',
+        requiredStatus: 'active',
+        requiredAvailabilityStatus: 'available',
+        requiredFreshness: 'unexpired',
+        fallback: 'deny',
+      },
+      {
+        type: 'exact_skill_version',
+        skillId: 'vehicle.navigate',
+        skillVersion: 1,
+        taskType: 'vehicle_navigate',
+      },
+      { type: 'confirmation_policy', required: true, stage: 'before_execution' },
+      {
+        type: 'physical_side_effect_policy',
+        sideEffecting: true,
+        dispatchMaximum: 5,
+        uncertainDispatchPolicy: 'reconcile_never_redispatch',
+        remoteTaskTerminalEvidenceRequired: true,
+      },
+      {
+        type: 'bounded_movement_policy',
+        toolName: 'vehicle_navigate',
+        missionType: 'distance',
+        missionTypeArgumentPath: ['mission', 'type'],
+        directionArgumentPath: ['mission', 'direction'],
+        distanceArgumentPath: ['mission', 'distanceM'],
+        allowedDirections: ['backward', 'forward', 'left', 'right'],
+        exclusiveMinimum: 0,
+        maximumInclusive: 2,
+        exactDirection: 'forward',
+        exactDistancePerDispatch: 2,
+        exactDispatchCount: 5,
+        exactTotalDistance: 10,
+        strictSequential: true,
+        terminalBeforeNext: true,
+      },
+    ],
+    implementationRefs: ['skill:vehicle.navigate:1'],
+    providerBindingRefs: ['binding-vehicle-navigate'],
+  };
+}
+
+function physicalDispatchEvidence(
+  invocation: McpInvocation,
+  index: number,
+  capabilityAttemptId: string,
+  planId: string,
+): TaskCapabilityPhysicalDispatchEvidence {
+  const final = index === 4;
+  const invocationId = invocation.invocationId;
+  const bindingId = `remote-binding-physical-${String(index + 1)}`;
+  const nodeId = `usage_task_${String(index)}`;
+  const nodeRunId = `${nodeId}:run:1`;
+  return {
+    invocationId,
+    invocationPresent: true,
+    capabilityAttemptId,
+    confirmation: {
+      confirmationId: required(invocation.controlConfirmationId),
+      consumedInvocationId: invocationId,
+      consumedDispatchHash: required(invocation.controlDispatchHash),
+      consumedAt: physicalTime(index, 10),
+    },
+    admission: {
+      intentId: `physical-admission-${String(index + 1)}`,
+      invocationId,
+      taskId: 'task-1',
+      capabilityAttemptId,
+      bindingId,
+      recordedInvocationId: invocationId,
+      materializedBindingId: bindingId,
+      argumentsHash: required(invocation.controlArgumentsHash),
+      dispatchHash: required(invocation.controlDispatchHash),
+      workflowPlanId: planId,
+      workflowNodeId: nodeId,
+      workflowNodeRunId: nodeRunId,
+      status: 'materialized',
+    },
+    remoteTask: {
+      bindingId,
+      remoteTaskId: `remote-physical-${String(index + 1)}`,
+      mcpInvocationId: invocationId,
+      workflowNodeId: nodeId,
+      workflowNodeRunId: nodeRunId,
+      workflowPlanId: planId,
+      workflowDefinitionId: 'workflow-physical-five-dispatch',
+      workflowDefinitionVersion: 1,
+      workflowInstanceId: 'workflow-instance-physical',
+      executionMode: 'live',
+      protocolStatus: 'completed',
+      localState: final ? 'terminal_event_claimed' : 'reentered',
+      providerFailureCount: 0,
+      providerEvidence: [
+        {
+          evidenceId: `physical-terminal-evidence-${String(index + 1)}`,
+          evidenceType: 'vehicle.task.terminal',
+          observedAt: physicalTime(index, 100),
+          payloadRef: { kind: 'structured_content', jsonPointer: '' },
+        },
+      ],
+      resultIsError: false,
+      createdAt: physicalTime(index, 20),
+      terminalAt: physicalTime(index, 100),
+      acceptedObservationCount: 1,
+      acceptedObservedAt: physicalTime(index, 20),
+      unsafeObservationCount: 0,
+      failedProtocolAttemptCount: 0,
+      terminalEventCount: 1,
+      processedCompletedEventCount: final ? 0 : 1,
+      terminalEventCreatedAt: physicalTime(index, 100),
+      ...(final ? {} : { terminalEventProcessedAt: physicalTime(index, 150) }),
+      terminalEventStatus: final ? 'claimed' : 'processed',
+      continuationAttemptCount: 1,
+      waitingExternalContinuationCount: final ? 0 : 1,
+      succeededContinuationCount: final ? 1 : 0,
+    },
+  };
+}
+
+function physicalDispatchHash(index: number): string {
+  return `sha256:${(index + 1).toString(16).padStart(64, '0')}`;
+}
+
+function physicalTime(index: number, offsetMs: number): string {
+  return new Date(Date.parse(timestamp) + index * 1_000 + offsetMs).toISOString();
+}
+
+async function exercisePhysicalTerminal(scenario: PhysicalScenario) {
+  const preparedFixture = fixture({
+    resolution: scenario.resolution,
+    invocations: scenario.invocations,
+    physicalEvidence: scenario.physicalEvidence,
+  });
+  const capabilityInput = {
+    resourceId: 'vehicle:ugv-1',
+    mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+  };
+  const prepared = await preparedFixture.service.prepareAcceptance({
+    task: preparedFixture.task,
+    metadata: {
+      'io.sdar/requestedCapability': {
+        exposureId: scenario.resolution.exposureId,
+        versionConstraint: '1',
+        requestId: 'request-physical-five-dispatch',
+      },
+    },
+    capabilityInput,
+    inputAttempt: preparedFixture.inputAttempt,
+    bindingId: 'binding-physical',
+    capabilityAttemptId: 'capability-attempt-physical',
+    event: preparedFixture.event,
+  });
+  if (prepared === undefined) throw new Error('Expected a physical Capability binding.');
+  await preparedFixture.service.accept(prepared);
+  preparedFixture.listAttempts.mockResolvedValue([
+    {
+      ...prepared.capabilityAttempt,
+      planId: 'plan-physical-five-dispatch',
+      status: 'waiting',
+      startedAt: timestamp,
+    },
+  ]);
+  return preparedFixture.service.assertTerminalSuccess(
+    preparedFixture.task.taskId,
+    { resourceId: 'vehicle:ugv-1', status: 'completed' },
+    { outputSchemaValid: true },
+  );
+}
 
 async function acceptedDefaultCapability() {
   const preparedFixture = fixture();
@@ -1388,4 +1912,9 @@ async function exerciseTwoProviderResult(
         }
       : {},
   );
+}
+
+function required<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error('Expected fixture value.');
+  return value;
 }

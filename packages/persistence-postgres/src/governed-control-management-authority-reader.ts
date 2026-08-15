@@ -175,6 +175,14 @@ function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
   const requiredTool = requiredTools[0];
   const sideEffectPolicy = record(record(row.skill_outcome_specification)['sideEffectPolicy']);
   const runtimePolicy = record(row.skill_runtime_policy);
+  const dispatchMaximum = frozenDispatchMaximum(physical);
+  assertBoundedMovementAuthority(
+    constraints,
+    argumentsRecord,
+    toolName,
+    dispatchMaximum,
+    sideEffectPolicy,
+  );
 
   if (
     exactSkill['skillId'] !== row.skill_id ||
@@ -201,12 +209,13 @@ function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
     requiredTool['toolName'] !== toolName ||
     optionalTools.length !== 0 ||
     runtimePolicy['autoConfirmPlan'] !== false ||
+    runtimePolicy['maxMcpCalls'] !== dispatchMaximum ||
     sideEffectPolicy['sideEffecting'] !== true ||
     !['required', 'required_before_execution'].includes(String(sideEffectPolicy['confirmation'])) ||
     !exactlyOneString(row.attempt_skill_version_refs, skillRef) ||
     !exactlyOneString(row.attempt_provider_binding_refs, providerBindingId) ||
     (physical['type'] === 'physical_side_effect_policy' &&
-      (physical['dispatchMaximum'] !== 1 ||
+      (physical['dispatchMaximum'] !== dispatchMaximum ||
         physical['uncertainDispatchPolicy'] !== 'reconcile_never_redispatch' ||
         physical['remoteTaskTerminalEvidenceRequired'] !== true))
   )
@@ -228,6 +237,101 @@ function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
     arguments: row.input_snapshot,
     argumentsHash: canonicalHash(row.input_snapshot),
   });
+}
+
+function assertBoundedMovementAuthority(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+  arguments_: Readonly<Record<string, unknown>>,
+  toolName: string,
+  dispatchMaximum: number,
+  sideEffectPolicy: Readonly<Record<string, unknown>>,
+): void {
+  const matches = constraints.filter(
+    (constraint) => constraint['type'] === 'bounded_movement_policy',
+  );
+  if (matches.length === 0) {
+    if (dispatchMaximum !== 1) invalidAuthority();
+    return;
+  }
+  if (matches.length !== 1 || matches[0] === undefined) invalidAuthority();
+  const movement = matches[0];
+  const constraintId = requiredString(movement['constraintId']);
+  const missionType = requiredString(movement['missionType']);
+  const missionTypeArgumentPath = argumentPath(movement['missionTypeArgumentPath']);
+  const directionArgumentPath = argumentPath(movement['directionArgumentPath']);
+  const distanceArgumentPath = argumentPath(movement['distanceArgumentPath']);
+  const allowedDirections = nonEmptyStringArray(movement['allowedDirections']);
+  const exclusiveMinimum = finiteNumber(movement['exclusiveMinimum']);
+  const maximumInclusive = finiteNumber(movement['maximumInclusive']);
+  const exactDirection = requiredString(movement['exactDirection']);
+  const exactDistancePerDispatch = finiteNumber(movement['exactDistancePerDispatch']);
+  const exactDispatchCount = positiveInteger(movement['exactDispatchCount']);
+  const exactTotalDistance = finiteNumber(movement['exactTotalDistance']);
+  if (
+    movement['toolName'] !== toolName ||
+    !allowedDirections.includes(exactDirection) ||
+    maximumInclusive <= exclusiveMinimum ||
+    exactDistancePerDispatch <= exclusiveMinimum ||
+    exactDistancePerDispatch > maximumInclusive ||
+    exactDispatchCount !== dispatchMaximum ||
+    exactTotalDistance !== exactDistancePerDispatch * exactDispatchCount ||
+    typeof movement['unit'] !== 'string' ||
+    movement['unit'].trim() === '' ||
+    movement['scope'] !== 'per_dispatch' ||
+    movement['strictSequential'] !== true ||
+    movement['terminalBeforeNext'] !== true ||
+    sideEffectPolicy['dispatchMaximum'] !== dispatchMaximum ||
+    !exactlyOneString(sideEffectPolicy['requiredArgumentConstraintIds'], constraintId) ||
+    valueAtArgumentPath(arguments_, missionTypeArgumentPath) !== missionType ||
+    valueAtArgumentPath(arguments_, directionArgumentPath) !== exactDirection ||
+    valueAtArgumentPath(arguments_, distanceArgumentPath) !== exactDistancePerDispatch
+  )
+    invalidAuthority();
+}
+
+function frozenDispatchMaximum(physical: Readonly<Record<string, unknown>>): number {
+  if (physical['type'] === 'side_effect_policy') return 1;
+  return positiveInteger(physical['dispatchMaximum']);
+}
+
+function positiveInteger(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) invalidAuthority();
+  return value;
+}
+
+function finiteNumber(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) invalidAuthority();
+  return value;
+}
+
+function argumentPath(value: unknown): readonly string[] {
+  const path = nonEmptyStringArray(value);
+  if (path.length === 0) invalidAuthority();
+  return path;
+}
+
+function nonEmptyStringArray(value: unknown): readonly string[] {
+  const values = stringArray(value);
+  if (
+    values.length === 0 ||
+    values.some((item) => item.trim() === '') ||
+    new Set(values).size !== values.length
+  )
+    invalidAuthority();
+  return values;
+}
+
+function valueAtArgumentPath(
+  arguments_: Readonly<Record<string, unknown>>,
+  path: readonly string[],
+): unknown {
+  let current: unknown = arguments_;
+  for (const segment of path) {
+    const object = record(current);
+    if (!Object.prototype.hasOwnProperty.call(object, segment)) invalidAuthority();
+    current = object[segment];
+  }
+  return current;
 }
 
 function exactlyOne(

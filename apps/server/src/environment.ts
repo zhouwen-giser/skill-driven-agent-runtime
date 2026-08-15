@@ -65,6 +65,7 @@ const EnvironmentSchema = z
     SDAR_REDIS_PORT: z.coerce.number().int().positive().default(56379),
     SDAR_A2A_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_A2A_PORT: z.coerce.number().int().positive().default(9999),
+    SDAR_A2A_WAIT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(900_000).default(30_000),
     SDAR_MANAGEMENT_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_MANAGEMENT_PORT: z.coerce.number().int().positive().default(9998),
     SDAR_RUNTIME_CONTROL_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
@@ -74,6 +75,7 @@ const EnvironmentSchema = z
     SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: z.enum(['safe', 'unsafe_test_open']).default('safe'),
     SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
     SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
+    SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: z.enum(['emit', 'omit']).default('emit'),
     SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN: z
       .string()
       .min(32)
@@ -128,6 +130,19 @@ const EnvironmentSchema = z
       .default('off'),
   })
   .superRefine((environment, context) => {
+    if (
+      environment.SDAR_MCP_LIVE_EXECUTION_MODE_HEADER === 'omit' &&
+      (environment.NODE_ENV === undefined ||
+        environment.NODE_ENV === 'production' ||
+        environment.SDAR_CONTROL_ENVIRONMENT === 'production')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_MCP_LIVE_EXECUTION_MODE_HEADER'],
+        message:
+          'Omitting the live MCP execution-mode header requires an explicit non-production NODE_ENV and control environment.',
+      });
+    }
     if (environment.SDAR_UGV_REAL_MODEL_ENABLED === 'YES') {
       for (const [key, value] of [
         ['SDAR_UGV_MODEL_PROVIDER_ID', environment.SDAR_UGV_MODEL_PROVIDER_ID],

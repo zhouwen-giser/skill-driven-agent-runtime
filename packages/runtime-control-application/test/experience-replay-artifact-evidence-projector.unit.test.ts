@@ -433,6 +433,59 @@ const EXTERNAL_EVIDENCE = Object.freeze([
 ]);
 
 describe('ExperienceReplayArtifactEvidenceProjector', () => {
+  it('does not refresh a checkpoint when the authoritative partition revision is unchanged', async () => {
+    const writer = new MemoryWriter();
+    const source = new MemorySource(writer, authorityFixtures());
+    const projector = createProjector(source, writer);
+    const fixturePartition = PARTITIONS[0];
+    if (fixturePartition === undefined) throw new Error('Missing Experience fixture partition.');
+    const partition = Object.freeze({
+      ...fixturePartition,
+      observedAt: '2026-08-04T07:30:00.000Z',
+    });
+
+    const first = await projector.projectPartition(partition);
+    const checkpointCount = writer.checkpoints.length;
+    const second = await projector.projectPartition(partition);
+
+    expect(first.projectedRecordIds.length).toBeGreaterThan(0);
+    expect(second.projectedRecordIds).toEqual([]);
+    expect(writer.checkpoints).toHaveLength(checkpointCount);
+    expect(writer.checkpoints[0]?.lastOccurredAt).toBe(partition.observedAt);
+  });
+
+  it('advances only the durable scan cursor when a newer observation has the same authority revision', async () => {
+    const writer = new MemoryWriter();
+    const source = new MemorySource(writer, authorityFixtures());
+    const projector = createProjector(source, writer);
+    const fixturePartition = PARTITIONS[0];
+    if (fixturePartition === undefined) throw new Error('Missing Experience fixture partition.');
+    const firstPartition = Object.freeze({
+      ...fixturePartition,
+      observedAt: '2026-08-04T07:30:00.000Z',
+    });
+    const laterPartition = Object.freeze({
+      ...fixturePartition,
+      observedAt: '2026-08-04T07:45:00.000Z',
+    });
+
+    await projector.projectPartition(firstPartition);
+    const firstCheckpoint = writer.checkpoints.at(-1);
+    const recordCount = writer.records.length;
+    const replay = await projector.projectPartition(laterPartition);
+    const cursorCheckpoint = writer.checkpoints.at(-1);
+
+    expect(replay.projectedRecordIds).toEqual([]);
+    expect(writer.records).toHaveLength(recordCount);
+    expect(writer.checkpoints).toHaveLength(2);
+    expect(cursorCheckpoint).toMatchObject({
+      lastOccurredAt: laterPartition.observedAt,
+      lastProjectedAt: firstCheckpoint?.lastProjectedAt,
+      lastSourceRevision: firstCheckpoint?.lastSourceRevision,
+      lastPayloadHash: firstCheckpoint?.lastPayloadHash,
+    });
+  });
+
   it('projects all 22 types through source-centric partitions with complete fields, exact lineage and canonical artifacts', async () => {
     const fixtures = authorityFixtures();
     const writer = new MemoryWriter();
@@ -907,7 +960,33 @@ class MemorySource implements ExperienceReplayArtifactEvidenceSource {
       priorRecordIds: Object.freeze([...priorRecordIds]),
       existingRecordIds: Object.freeze(existingEvidence.map((row) => text(row, 'record_id'))),
     });
-    return Promise.resolve(Object.freeze({ ...snapshot, existingEvidence }));
+    const checkpoint = [...this.writer.checkpoints]
+      .reverse()
+      .find(
+        (candidate) =>
+          candidate.sourceFamily === sourcePartition.sourceFamily &&
+          candidate.sourcePartition === sourcePartition.sourcePartition,
+      );
+    return Promise.resolve(
+      Object.freeze({
+        ...snapshot,
+        existingEvidence,
+        ...(checkpoint === undefined
+          ? {}
+          : {
+              checkpoint: sourceRow({
+                source_family: checkpoint.sourceFamily,
+                source_partition: checkpoint.sourcePartition,
+                last_occurred_at: checkpoint.lastOccurredAt ?? null,
+                last_source_record_id: checkpoint.lastSourceRecordId ?? null,
+                last_source_revision: checkpoint.lastSourceRevision ?? null,
+                last_payload_hash: checkpoint.lastPayloadHash ?? null,
+                last_projected_at: checkpoint.lastProjectedAt ?? null,
+                projector_version: checkpoint.projectorVersion,
+              }),
+            }),
+      }),
+    );
   }
 }
 

@@ -234,10 +234,10 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
           )`,
     );
     expect(removedColumns.rows).toEqual([{ count: '0' }]);
-    const preserved = await pool.query<{ value: string | null }>(
-      `SELECT to_regclass('sdar_control.node_control_evidence_observation')::text AS value`,
+    const preserved = await pool.query<{ exists: boolean }>(
+      `SELECT to_regclass('sdar_control.node_control_evidence_observation') IS NOT NULL AS exists`,
     );
-    expect(preserved.rows[0]?.value).toBe('sdar_control.node_control_evidence_observation');
+    expect(preserved.rows[0]?.exists).toBe(true);
     await expect(repository.probe()).resolves.toBe(true);
     await pool.query(
       `INSERT INTO sdar_control.smpp_registry_snapshot(

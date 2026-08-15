@@ -17,6 +17,7 @@ import {
   type SkillUsageCandidateSnapshot,
   type SkillUsageSelectionContext,
   type SkillUsageSpecification,
+  type TaskAvailabilityArguments,
   type SkillVersion,
 } from '../../domain/src/index.js';
 
@@ -137,6 +138,7 @@ export class SkillApplicabilityAssessor {
   async assess(
     skill: SkillVersion,
     observations: readonly SkillContextObservation[],
+    arguments_?: TaskAvailabilityArguments,
   ): Promise<SkillApplicabilityAssessment> {
     const usage = resolveUsage(skill);
     const requirementIds = new Set(usage.contextRequirements.map((item) => item.requirementId));
@@ -149,6 +151,7 @@ export class SkillApplicabilityAssessor {
       skillVersion: skill.version,
       taskBindings: usage.taskBindings,
       allowPreferredProviderFallback: usage.adaptive.allowPreferredProviderFallback,
+      ...(arguments_ === undefined ? {} : { arguments: arguments_ }),
     });
     const readiness = validateReadiness(usage.taskBindings, reported);
     const status = applicabilityStatus(context, readiness);
@@ -237,7 +240,11 @@ export class SkillUsageCandidateAssessor {
     skill: SkillVersion,
     context: SkillUsageSelectionContext,
   ): Promise<SkillUsageCandidateSnapshot> {
-    const applicability = await this.#applicability.assess(skill, context.observations);
+    const applicability = await this.#applicability.assess(
+      skill,
+      context.observations,
+      context.taskAvailabilityArguments,
+    );
     return Object.freeze({
       skillId: skill.skillId,
       skillVersion: skill.version,
