@@ -16,7 +16,8 @@ import {
 const CHECKSUM = /^[a-f0-9]{64}$/u;
 const CREATED_AT = '2026-08-10T00:00:00.000Z';
 const LEGACY_GOVERNANCE_VERSION = 1;
-const G09_GOVERNANCE_VERSION = 2;
+const G09_V2_GOVERNANCE_VERSION = 2;
+const G09_GOVERNANCE_VERSION = 3;
 const MAIN_LIGHT_RESOURCE_ID = 'living-room-main-light';
 const AUX_LIGHT_RESOURCE_ID = 'living-room-aux-light';
 const CLIMATE_RESOURCE_ID = 'living-room-air-conditioner';
@@ -131,8 +132,12 @@ const COMPOSITE_SPEC = Object.freeze({
 
 type ProviderKind = keyof typeof PROVIDERS;
 type GovernanceSpec = (typeof GOVERNANCE_SPECS)[number];
-export type HomeLabCapabilityGovernanceProfile = 'legacy_v1' | 'g09_main_light_v2';
-type GovernanceVersion = typeof LEGACY_GOVERNANCE_VERSION | typeof G09_GOVERNANCE_VERSION;
+export type HomeLabCapabilityGovernanceProfile =
+  'legacy_v1' | 'g09_main_light_v2' | 'g09_main_light_v3';
+type GovernanceVersion =
+  | typeof LEGACY_GOVERNANCE_VERSION
+  | typeof G09_V2_GOVERNANCE_VERSION
+  | typeof G09_GOVERNANCE_VERSION;
 
 interface ActiveGovernanceProfile {
   readonly profile: HomeLabCapabilityGovernanceProfile;
@@ -426,7 +431,9 @@ type PreparedGovernance = PreparedSingleGovernance | PreparedCompositeGovernance
 function activeGovernanceProfile(
   profile: HomeLabCapabilityGovernanceProfile | undefined,
 ): ActiveGovernanceProfile {
-  const parsed = z.enum(['legacy_v1', 'g09_main_light_v2']).safeParse(profile ?? 'legacy_v1');
+  const parsed = z
+    .enum(['legacy_v1', 'g09_main_light_v2', 'g09_main_light_v3'])
+    .safeParse(profile ?? 'legacy_v1');
   if (!parsed.success)
     return fail('DRIVER_CONFIGURATION_INVALID', 'Governance profile is not supported.');
   const selected = parsed.data;
@@ -441,7 +448,7 @@ function activeGovernanceProfile(
     });
   return Object.freeze({
     profile: selected,
-    version: G09_GOVERNANCE_VERSION,
+    version: selected === 'g09_main_light_v2' ? G09_V2_GOVERNANCE_VERSION : G09_GOVERNANCE_VERSION,
     reportSchemaVersion: 'sdar.home-lab-capability-governance/v2',
     specs: Object.freeze(
       GOVERNANCE_SPECS.filter(
@@ -683,18 +690,20 @@ export async function governHomeLabCapabilities(
         ),
       );
     }
-    OperationSchema.parse(
-      await controlCommand(
-        configuration,
-        `/api/v1/skills/${encodeURIComponent(item.spec.skillId)}/versions/${String(governance.version)}/publish`,
-        governanceKey(governance, 'skill-publish', item.spec.skillId),
-        {
-          reason: `Publish the exact governed ${item.spec.skillId}@${String(governance.version)} Skill version.`,
-          expectedRevision: 0,
-        },
-        request,
-      ),
-    );
+    if (item.existingRuntimeSkill?.status !== 'enabled') {
+      OperationSchema.parse(
+        await controlCommand(
+          configuration,
+          `/api/v1/skills/${encodeURIComponent(item.spec.skillId)}/versions/${String(governance.version)}/publish`,
+          governanceKey(governance, 'skill-publish', item.spec.skillId),
+          {
+            reason: `Publish the exact governed ${item.spec.skillId}@${String(governance.version)} Skill version.`,
+            expectedRevision: 0,
+          },
+          request,
+        ),
+      );
+    }
     const runtimeSkill = await runtimeGetSkill(
       configuration,
       item.spec.skillId,
@@ -1222,7 +1231,7 @@ function buildSkillContract(
   skill: Readonly<Record<string, unknown>>;
   usage: Readonly<Record<string, unknown>>;
 }> {
-  const g09Control = version === G09_GOVERNANCE_VERSION && spec.sideEffecting;
+  const g09Control = version !== LEGACY_GOVERNANCE_VERSION && spec.sideEffecting;
   const inputSchema = constrainedInputSchema(tool.inputSchema, allowedResourceIds);
   const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   const confirmation = spec.sideEffecting
@@ -1769,7 +1778,9 @@ function buildCapability(
       ...(spec.sideEffecting
         ? [
             Object.freeze({ type: 'state_confirmation_matches_request', required: true }),
-            Object.freeze({ type: 'baseline_restored', required: true }),
+            ...(version === G09_V2_GOVERNANCE_VERSION
+              ? [Object.freeze({ type: 'baseline_restored', required: true })]
+              : []),
           ]
         : []),
     ],
@@ -2420,7 +2431,12 @@ function governanceProfileFromEnvironment(
   value: string | undefined,
 ): HomeLabCapabilityGovernanceProfile {
   const selected = value?.trim();
-  if (selected === 'legacy_v1' || selected === 'g09_main_light_v2') return selected;
+  if (
+    selected === 'legacy_v1' ||
+    selected === 'g09_main_light_v2' ||
+    selected === 'g09_main_light_v3'
+  )
+    return selected;
   return fail('DRIVER_CONFIGURATION_INVALID', 'SDAR_HOME_LAB_GOVERNANCE_PROFILE is not supported.');
 }
 

@@ -6,6 +6,7 @@ import { ConfiguredBearerArtifactManagementIdentity } from './artifact-managemen
 import { ConfiguredBearerGovernedControlIdentity } from './governed-control-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
 import {
+  homeLabGovernedLightSkillUsageContext,
   homeLabGovernedLightTaskUnderstandingConfiguration,
   homeLabReadOnlyTaskUnderstandingConfiguration,
 } from './home-lab-task-understanding.js';
@@ -105,7 +106,10 @@ const runtime = await startServerRuntime({
   ...(environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only'
     ? { taskUnderstanding: homeLabReadOnlyTaskUnderstandingConfiguration() }
     : environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control'
-      ? { taskUnderstanding: homeLabGovernedLightTaskUnderstandingConfiguration() }
+      ? {
+          taskUnderstanding: homeLabGovernedLightTaskUnderstandingConfiguration(),
+          skillUsageContext: { resolve: homeLabGovernedLightSkillUsageContext },
+        }
       : environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
         ? {
             taskUnderstanding: {

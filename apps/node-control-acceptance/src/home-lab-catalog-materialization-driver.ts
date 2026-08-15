@@ -141,8 +141,9 @@ export async function configurationFromEnvironment(
     environment,
     'SDAR_HOME_LAB_NODE_CONTROL_TOKEN',
   );
+  const providerKinds = providerKindsFromEnvironment(environment['SDAR_HOME_LAB_PROVIDER_KINDS']);
   const providers = await Promise.all(
-    (['climate', 'light'] as const).map(async (kind) => {
+    providerKinds.map(async (kind) => {
       const prefix = `SDAR_HOME_LAB_${kind.toUpperCase()}`;
       const credentialMode = environment[`${prefix}_CREDENTIAL_MODE`] ?? 'bearer';
       if (!['bearer', 'none'].includes(credentialMode))
@@ -199,14 +200,31 @@ export async function writeRedactedReport(
 
 function validateHomeLabProviders(providers: readonly HomeLabProviderConfiguration[]): void {
   if (
-    providers.length !== 2 ||
-    new Set(providers.map(({ kind }) => kind)).size !== 2 ||
+    providers.length < 1 ||
+    providers.length > 2 ||
+    new Set(providers.map(({ kind }) => kind)).size !== providers.length ||
     providers.some(({ kind }) => !Object.hasOwn(EXPECTED_PROVIDERS, kind))
   )
     fail(
       'DRIVER_CONFIGURATION_INVALID',
-      'Exactly one climate and one light provider are required.',
+      'One or two unique supported home-lab providers are required.',
     );
+}
+
+function providerKindsFromEnvironment(value: string | undefined): readonly ProviderKind[] {
+  if (value === undefined) return Object.freeze(['climate', 'light'] as const);
+  const kinds = value.split(',').map((kind) => kind.trim());
+  if (
+    kinds.length < 1 ||
+    kinds.length > 2 ||
+    new Set(kinds).size !== kinds.length ||
+    kinds.some((kind) => kind !== 'climate' && kind !== 'light')
+  )
+    fail(
+      'DRIVER_CONFIGURATION_INVALID',
+      'SDAR_HOME_LAB_PROVIDER_KINDS must contain unique climate and/or light values.',
+    );
+  return Object.freeze(kinds as ProviderKind[]);
 }
 
 async function secretFromEnvironment(

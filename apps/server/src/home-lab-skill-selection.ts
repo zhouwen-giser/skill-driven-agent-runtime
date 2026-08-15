@@ -97,7 +97,7 @@ export function createHomeLabReadOnlySkillSelectionService(
   });
 }
 
-/** Exact G09 selection over the two compatible v2 light Skills; capability admission narrows to one. */
+/** Exact G09 selection over the two compatible v3 light Skills; capability admission narrows to one. */
 export function createHomeLabGovernedLightSkillSelectionService(
   dependencies: HomeLabReadOnlySkillSelectionDependencies,
 ): SkillSelectionService {
@@ -149,7 +149,7 @@ export function createHomeLabGovernedLightSkillSelectionService(
         return Promise.resolve({
           selectedSkillId: candidate.skillId,
           decisionSummary:
-            'The G09 profile selected the sole exact compatible v2 main-light Skill.',
+            'The G09 profile selected the sole exact compatible v3 main-light Skill.',
         });
       },
     },

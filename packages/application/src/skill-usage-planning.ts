@@ -265,8 +265,7 @@ export function checkSkillUsagePlanCompliance(
       ),
     );
     const providerEvidence =
-      !mappedEvidence &&
-      policy.taskOperations.some((task) => isSynchronousOnlyTaskOperation(policy, task.bindingId));
+      !mappedEvidence && policy.taskOperations.length > 0;
     const evidencePath = `evidence.${
       providerEvidence ? requirement.evidenceType : requirement.requirementId
     }`;
@@ -390,10 +389,7 @@ function compileDeterministicDefinition(
         ),
       );
       const providerEvidence =
-        !mappedEvidence &&
-        input.policy.taskOperations.some((task) =>
-          isSynchronousOnlyTaskOperation(input.policy, task.bindingId),
-        );
+        !mappedEvidence && input.policy.taskOperations.length > 0;
       primary.push({
         nodeId: `usage_evidence_${String(index)}`,
         name: `Require evidence ${requirement.requirementId}`,

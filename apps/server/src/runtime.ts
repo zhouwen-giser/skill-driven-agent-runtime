@@ -456,6 +456,7 @@ import {
 import {
   HomeLabGovernedLightWorkflowCandidateGuard,
   assertHomeLabGovernedLightWorkflowContract,
+  verifiedHomeLabGovernedLightOutcomeRefs,
 } from './home-lab-governed-light-workflow-contract.js';
 import { assertManagedCapabilityRuntimeConfiguration } from './managed-capability-task-understanding.js';
 import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
@@ -2033,6 +2034,7 @@ export async function startServerRuntime(
   const runtimeSkillGovernance = new RuntimeSkillGovernanceService({
     skills: skillRegistry,
     governance: new PostgresSkillExactVersionGovernanceRepository(pool),
+    afterCatalogChanged: refreshCapabilityCatalogAfterMutation,
   });
   const skillQuality = new SkillQualityService({
     repository: new PostgresSkillQualityRepository(pool),
@@ -3935,7 +3937,7 @@ export async function startServerRuntime(
           if (
             task.selectedSkillId !== skill.skillId ||
             task.selectedSkillVersion !== skill.version ||
-            skill.version !== 2 ||
+            skill.version !== 3 ||
             !['home.light.get-state', 'home.light.set-power'].includes(skill.skillId)
           )
             throw new Error('HOME_LAB_GOVERNED_LIGHT_TERMINAL_SKILL_AUTHORITY_MISMATCH');
@@ -3981,7 +3983,7 @@ export async function startServerRuntime(
                         skill.skillId === 'home.light.get-state'
                           ? 'home.light.read-state'
                           : 'home.light.set-power',
-                      capabilityVersion: 2,
+                      capabilityVersion: 3,
                     },
                   }
                 : {}),
@@ -4001,7 +4003,9 @@ export async function startServerRuntime(
           ...(capabilityTerminalProof === undefined ? {} : { capabilityTerminalProof }),
           ...(homeLabReadOnlyProfile
             ? { verifiedOutcomeRefs: verifiedHomeLabReadOnlyOutcomeRefs(skill) }
-            : {}),
+            : homeLabGovernedLightProfile
+              ? { verifiedOutcomeRefs: verifiedHomeLabGovernedLightOutcomeRefs(skill) }
+              : {}),
         });
       },
       enhanceResultMemory: (processed) => resultProcessing.enhance(processed),

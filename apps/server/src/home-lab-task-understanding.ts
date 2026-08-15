@@ -1,4 +1,7 @@
 import type {
+  AgentTask,
+  GoalExecutionContract,
+  SkillUsageSelectionContext,
   SkillTaskBinding,
   TaskAvailabilityArguments,
 } from '../../../packages/domain/src/index.js';
@@ -17,7 +20,7 @@ export const HOME_LAB_GOVERNED_LIGHT_BINDING_ID = 'mcp-binding-ha-light-g09';
 export const HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID = 'living-room-main-light';
 const HOME_LAB_GOVERNED_LIGHT_READ_TASK_TYPE_ID = 'task-type.home-lab-main-light-read-state';
 const HOME_LAB_GOVERNED_LIGHT_CONTROL_TASK_TYPE_ID = 'task-type.home-lab-main-light-set-power';
-const HOME_LAB_GOVERNED_LIGHT_TASK_TYPE_VERSION = 2;
+const HOME_LAB_GOVERNED_LIGHT_TASK_TYPE_VERSION = 3;
 
 type HomeLabReadOnlyRuntimeConfigurationInput = Pick<
   ServerRuntimeOptions,
@@ -33,6 +36,7 @@ type HomeLabGovernedLightRuntimeConfigurationInput = Pick<
   | 'capabilityAuthorityReader'
   | 'currentMcpProviderBindingAuthorityReader'
   | 'skillSelection'
+  | 'skillUsageContext'
   | 'frozenMcpTasks'
   | 'governedControlPrincipalResolver'
 >;
@@ -120,6 +124,62 @@ export function homeLabGovernedLightTaskUnderstandingConfiguration(): NonNullabl
   });
 }
 
+export function homeLabGovernedLightSkillUsageContext(
+  input: Readonly<{
+    goalContract: GoalExecutionContract;
+    task?: AgentTask;
+  }>,
+): SkillUsageSelectionContext {
+  const task = input.task;
+  if (
+    task === undefined ||
+    task.goalId !== input.goalContract.goalId ||
+    task.goalVersion !== input.goalContract.version
+  )
+    throw new Error('HOME_LAB_GOVERNED_LIGHT_USAGE_TASK_AUTHORITY_REQUIRED');
+  const request = task.requestText.trim();
+  const powerMatch = /^(?:设置|恢复)主灯电源为 (on|off)$/u.exec(request);
+  const read = request === '读取主灯基线';
+  if (!read && powerMatch === null)
+    throw new Error('HOME_LAB_GOVERNED_LIGHT_USAGE_REQUEST_NOT_EXACT');
+  const power = powerMatch?.[1];
+  return Object.freeze({
+    observations: Object.freeze([
+      Object.freeze({
+        requirementId: 'public-resource-id',
+        source: 'authoritative_context' as const,
+        status: 'available' as const,
+        evidenceRef: `home-lab-g09-resource:${HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID}`,
+      }),
+      Object.freeze({
+        requirementId: 'provider-binding-freshness',
+        source: 'authoritative_context' as const,
+        status: 'available' as const,
+        evidenceRef: `home-lab-g09-binding:${HOME_LAB_GOVERNED_LIGHT_BINDING_ID}`,
+      }),
+    ]),
+    risk: read ? ('low' as const) : ('high' as const),
+    humanConfirmation: 'pending' as const,
+    taskAvailabilityArguments: Object.freeze({
+      unresolved: false as const,
+      value: Object.freeze(
+        read
+          ? { resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID }
+          : {
+              resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
+              power,
+            },
+      ),
+    }),
+    systemPolicy: Object.freeze({
+      allowedModes: Object.freeze(['procedure'] as const),
+      preferredMode: 'procedure' as const,
+      requireProcedureForHighRisk: true,
+      allowGuidanceWithIncompleteContext: false,
+    }),
+  });
+}
+
 export function assertHomeLabReadOnlyRuntimeConfiguration(
   options: HomeLabReadOnlyRuntimeConfigurationInput,
 ): void {
@@ -176,6 +236,8 @@ export function assertHomeLabGovernedLightRuntimeConfiguration(
     throw new Error('HOME_LAB_GOVERNED_LIGHT_CAPABILITY_AUTHORITY_REQUIRED');
   if (options.skillSelection !== undefined)
     throw new Error('HOME_LAB_GOVERNED_LIGHT_SKILL_SELECTION_CONFIGURATION_CONFLICT');
+  if (options.skillUsageContext === undefined)
+    throw new Error('HOME_LAB_GOVERNED_LIGHT_SKILL_USAGE_CONTEXT_REQUIRED');
   if (options.frozenMcpTasks === undefined)
     throw new Error('HOME_LAB_GOVERNED_LIGHT_FROZEN_MCP_TASKS_REQUIRED');
   if (options.governedControlPrincipalResolver === undefined)

@@ -27,6 +27,7 @@ import {
 } from '../../server/src/home-lab-task-understanding.js';
 
 const CHECKSUM = /^[a-f0-9]{64}$/u;
+const SHA256_REF = /^sha256:[a-f0-9]{64}$/u;
 const TERMINAL_STATES = new Set<TaskState>([
   TaskState.TASK_STATE_COMPLETED,
   TaskState.TASK_STATE_FAILED,
@@ -39,20 +40,20 @@ export const HOME_LAB_G09_GOVERNED_LIGHT_SCENARIOS = Object.freeze({
   read: Object.freeze({
     kind: 'read' as const,
     requestText: '读取主灯基线',
-    exposureId: 'home-lab-a2a-main-light-read-g09',
-    agentSkillId: 'home-lab.main-light.read-g09',
+    exposureId: 'home-lab-a2a-main-light-read-g09-v3',
+    agentSkillId: 'home-lab.main-light.read-g09-v3',
     capabilityId: HOME_LAB_GOVERNED_LIGHT_READ_CAPABILITY_ID,
-    capabilityBindingId: 'capability-binding-home.light.read-state-v2',
+    capabilityBindingId: 'capability-binding-home.light.read-state-v3',
     skill: HOME_LAB_GOVERNED_LIGHT_SKILLS.read,
     taskTypeId: 'task-type.home-lab-main-light-read-state',
     toolName: 'light_get_state',
   }),
   control: Object.freeze({
     kind: 'control' as const,
-    exposureId: 'home-lab-a2a-main-light-control-g09',
-    agentSkillId: 'home-lab.main-light.control-g09',
+    exposureId: 'home-lab-a2a-main-light-control-g09-v3',
+    agentSkillId: 'home-lab.main-light.control-g09-v3',
     capabilityId: HOME_LAB_GOVERNED_LIGHT_CONTROL_CAPABILITY_ID,
-    capabilityBindingId: 'capability-binding-home.light.set-power-v2',
+    capabilityBindingId: 'capability-binding-home.light.set-power-v3',
     skill: HOME_LAB_GOVERNED_LIGHT_SKILLS.control,
     taskTypeId: 'task-type.home-lab-main-light-set-power',
     toolName: 'light_set_power',
@@ -89,8 +90,8 @@ export interface HomeLabG09GovernedLightReport {
     sourceId: 'home-lab-smpp-g09-019fca75';
     bindingId: typeof HOME_LAB_GOVERNED_LIGHT_BINDING_ID;
     serverId: typeof HOME_LAB_GOVERNED_LIGHT_SERVER_ID;
-    capabilityVersions: readonly [2, 2];
-    skillVersions: readonly [2, 2];
+    capabilityVersions: readonly [3, 3];
+    skillVersions: readonly [3, 3];
   }>;
   readonly writeGate: 'closed' | 'open_for_exact_run';
   readonly dryRun?: Readonly<{
@@ -171,7 +172,7 @@ interface BarrierReleaseResult {
 const CapabilitySchema = z
   .object({
     capabilityId: z.string().min(1),
-    version: z.literal(2),
+    version: z.literal(3),
     name: z.string().min(1),
     description: z.string().min(1),
     inputSchema: z.record(z.string(), z.unknown()),
@@ -185,7 +186,7 @@ const CapabilitySchema = z
 const ReadinessSchema = z
   .object({
     capabilityId: z.string().min(1),
-    capabilityVersion: z.literal(2),
+    capabilityVersion: z.literal(3),
     status: z.literal('available'),
     validUntil: z.iso.datetime(),
     availableImplementations: z.array(z.string()),
@@ -195,7 +196,7 @@ const ReadinessSchema = z
 const SkillSchema = z
   .object({
     skillId: z.string().min(1),
-    version: z.literal(2),
+    version: z.literal(3),
     status: z.literal('enabled'),
     capabilities: z.array(z.string()),
     toolPolicy: z.object({
@@ -223,7 +224,7 @@ const ToolSchema = z
     inputSchema: z.record(z.string(), z.unknown()),
     outputSchema: z.record(z.string(), z.unknown()),
     executionSemantics: z.record(z.string(), z.unknown()),
-    taskExecution: z.record(z.string(), z.unknown()).optional(),
+    taskExecutionProfile: z.record(z.string(), z.unknown()),
   })
   .loose();
 const RuntimeTaskSchema = z
@@ -413,12 +414,11 @@ export async function releaseGovernedControlAtPausedBarrier<TTask>(
   if (
     authority['taskId'] !== input.taskId ||
     authority['planId'] !== input.planId ||
-    authority['capabilityBindingId'] !==
-      HOME_LAB_G09_GOVERNED_LIGHT_SCENARIOS.control.capabilityBindingId ||
+    authority['capabilityBindingId'] !== `binding-${input.taskId}` ||
     authority['capabilityId'] !== HOME_LAB_G09_GOVERNED_LIGHT_SCENARIOS.control.capabilityId ||
-    authority['capabilityVersion'] !== 2 ||
+    authority['capabilityVersion'] !== 3 ||
     authority['skillId'] !== HOME_LAB_G09_GOVERNED_LIGHT_SCENARIOS.control.skill.skillId ||
-    authority['skillVersion'] !== 2 ||
+    authority['skillVersion'] !== 3 ||
     authority['providerBindingId'] !== HOME_LAB_GOVERNED_LIGHT_BINDING_ID ||
     authority['serverId'] !== HOME_LAB_GOVERNED_LIGHT_SERVER_ID ||
     authority['toolName'] !== HOME_LAB_G09_GOVERNED_LIGHT_SCENARIOS.control.toolName ||
@@ -484,8 +484,11 @@ async function preflightAuthority(
   const controlTool = exactlyOneTool(tools, 'light_set_power');
   if (
     controlTool.executionSemantics['effect'] !== 'side_effecting' ||
-    controlTool.taskExecution?.['execution'] !== 'task_required' ||
-    readTool.executionSemantics['effect'] !== 'read_only'
+    controlTool.executionSemantics['execution'] !== 'task_required' ||
+    controlTool.taskExecutionProfile['taskBehavior'] !== 'task_required' ||
+    readTool.executionSemantics['effect'] !== 'read_only' ||
+    readTool.executionSemantics['execution'] !== 'synchronous' ||
+    readTool.taskExecutionProfile['taskBehavior'] !== 'synchronous_only'
   )
     fail('G09_TOOL_AUTHORITY_INVALID', 'The exact read/control Tool semantics are unavailable.');
 
@@ -519,21 +522,21 @@ async function loadCapabilityAndSkill(
   const capability = CapabilitySchema.parse(
     await controlGet(
       configuration,
-      `/api/v1/node-capabilities/${encodeURIComponent(scenario.capabilityId)}/versions/2`,
+      `/api/v1/node-capabilities/${encodeURIComponent(scenario.capabilityId)}/versions/3`,
       request,
     ),
   );
   const readiness = ReadinessSchema.parse(
     await controlGet(
       configuration,
-      `/api/v1/capability-readiness/${encodeURIComponent(scenario.capabilityId)}/2`,
+      `/api/v1/capability-readiness/${encodeURIComponent(scenario.capabilityId)}/3`,
       request,
     ),
   );
   const skill = SkillSchema.parse(
     await runtimeGet(
       configuration,
-      `/api/v1/skills/${encodeURIComponent(scenario.skill.skillId)}/versions/2`,
+      `/api/v1/skills/${encodeURIComponent(scenario.skill.skillId)}/versions/3`,
       request,
     ),
   );
@@ -555,7 +558,7 @@ async function loadCapabilityAndSkill(
     skill.runtimePolicy['maxMcpCalls'] !== 1 ||
     skill.runtimePolicy['maxLlmCalls'] !== 0
   )
-    fail('G09_CAPABILITY_SKILL_AUTHORITY_INVALID', 'The exact G09 v2 authority is unavailable.');
+    fail('G09_CAPABILITY_SKILL_AUTHORITY_INVALID', 'The exact G09 v3 authority is unavailable.');
   return Object.freeze({ capability, skill });
 }
 
@@ -623,7 +626,7 @@ function exposure(
     exposureId: scenario.exposureId,
     version: 1,
     capabilityId: scenario.capabilityId,
-    capabilityVersion: 2,
+    capabilityVersion: 3,
     agentSkillId: scenario.agentSkillId,
     name: capability.name,
     description: capability.description,
@@ -665,7 +668,7 @@ async function ensureExposures(
       );
     else current = ExposureSchema.parse(await responseJson(response, 200));
     if (current.exposureHash !== draft.exposureHash)
-      fail('G09_EXPOSURE_DRIFT', 'An existing G09 Exposure differs from the exact v2 contract.');
+      fail('G09_EXPOSURE_DRIFT', 'An existing G09 Exposure differs from the exact v3 contract.');
     if (current.status === 'retired')
       fail('G09_EXPOSURE_RETIRED', 'A retired exact-version Exposure cannot be reused.');
     if (current.status !== 'published')
@@ -690,7 +693,7 @@ async function rebuildAgentCard(
       configuration,
       '/api/v1/a2a-agent-card-revisions/rebuild',
       stableKey(configuration.runId, 'agent-card-rebuild'),
-      { reason: 'Publish the exact G09 governed main-light v2 Exposures.' },
+      { reason: 'Publish the exact G09 governed main-light v3 Exposures.' },
       request,
     ),
   );
@@ -707,7 +710,15 @@ async function planTask(
   pause: (milliseconds: number) => Promise<void>,
 ): Promise<PlannedTask> {
   let task = await submitTask(configuration, scenario, client, randomId);
+  let preparationRetries = 0;
   for (let interruption = 0; interruption < 6; interruption += 1) {
+    if (task.status?.state === TaskState.TASK_STATE_FAILED && preparationRetries < 2) {
+      await assertZeroDispatch(configuration, task.id, request);
+      preparationRetries += 1;
+      await pause(5_000);
+      task = await submitTask(configuration, scenario, client, randomId);
+      continue;
+    }
     if (task.status?.state !== TaskState.TASK_STATE_INPUT_REQUIRED)
       fail('G09_PLAN_CONFIRMATION_NOT_REACHED', 'The A2A Task left the explicit review boundary.');
     const runtimeTask = RuntimeTaskSchema.parse(
@@ -732,9 +743,9 @@ async function planTask(
       runtimeTask.goalId === undefined ||
       runtimeTask.goalVersion === undefined ||
       runtimeTask.selectedSkillId !== scenario.skill.skillId ||
-      runtimeTask.selectedSkillVersion !== 2
+      runtimeTask.selectedSkillVersion !== 3
     )
-      fail('G09_PLAN_AUTHORITY_INVALID', 'The Task does not expose the exact confirmable v2 plan.');
+      fail('G09_PLAN_AUTHORITY_INVALID', 'The Task does not expose the exact confirmable v3 plan.');
     const plan = record(
       await runtimeGet(
         configuration,
@@ -743,10 +754,9 @@ async function planTask(
       ),
       'G09_PLAN_AUTHORITY_INVALID',
     );
-    assertHomeLabGovernedLightWorkflowContract(
-      record(plan['definition'], 'G09_PLAN_DEFINITION_INVALID'),
-      scenario.skill,
-    );
+    const definition = record(plan['definition'], 'G09_PLAN_DEFINITION_INVALID');
+    assertHomeLabGovernedLightWorkflowContract(definition, scenario.skill);
+    assertScenarioToolArguments(definition, scenario);
     const binding = record(
       await controlGet(
         configuration,
@@ -758,19 +768,39 @@ async function planTask(
     if (
       binding['taskId'] !== task.id ||
       binding['requestedCapabilityId'] !== scenario.capabilityId ||
-      binding['capabilityVersion'] !== 2 ||
+      binding['capabilityVersion'] !== 3 ||
       binding['exposureId'] !== scenario.exposureId ||
       binding['exposureVersion'] !== 1 ||
       canonical(binding['initialImplementationRefs']) !==
-        canonical([`skill:${scenario.skill.skillId}:2`])
+        canonical([`skill:${scenario.skill.skillId}:3`])
     )
       fail(
         'G09_TASK_CAPABILITY_BINDING_INVALID',
-        'The immutable Task Capability binding is not the exact G09 v2 authority.',
+        'The immutable Task Capability binding is not the exact G09 v3 authority.',
       );
     return Object.freeze({ task, runtimeTask, plan });
   }
   fail('G09_INPUT_LOOP_EXCEEDED', 'The bounded G09 cognitive review loop was exceeded.');
+}
+
+function assertScenarioToolArguments(
+  definition: Readonly<Record<string, unknown>>,
+  scenario: Scenario,
+): void {
+  const expectedNodeId = scenario.kind === 'control' ? 'setPower' : 'readLight';
+  const node = records(definition['nodes']).find(
+    (candidate) => candidate['nodeId'] === expectedNodeId,
+  );
+  const argumentsValue = record(node?.['arguments'], 'G09_PLAN_TOOL_ARGUMENTS_INVALID');
+  const expected = {
+    resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
+    ...(scenario.kind === 'control' ? { power: scenario.power } : {}),
+  };
+  if (canonical(argumentsValue) !== canonical(expected))
+    fail(
+      'G09_PLAN_TOOL_ARGUMENTS_INVALID',
+      'The confirmable G09 plan does not freeze the exact requested public resource and power.',
+    );
 }
 
 async function submitTask(
@@ -779,6 +809,10 @@ async function submitTask(
   client: A2AClient,
   randomId: () => string,
 ): Promise<Task> {
+  const structuredInput = Object.freeze({
+    resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
+    ...(scenario.kind === 'control' ? { power: scenario.power } : {}),
+  });
   const submitted = await client.sendMessage(
     SendMessageRequest.fromJSON({
       message: {
@@ -787,15 +821,13 @@ async function submitTask(
         parts: [
           { text: scenario.requestText, mediaType: 'text/plain' },
           {
-            data: {
-              resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
-              ...(scenario.kind === 'control' ? { power: scenario.power } : {}),
-            },
+            data: structuredInput,
             mediaType: 'application/json',
           },
         ],
         metadata: {
           user_id: USER_ID,
+          structured_input: structuredInput,
           'io.sdar/requestedCapability': {
             exposureId: scenario.exposureId,
             versionConstraint: '1',
@@ -986,7 +1018,7 @@ async function collectGovernedTaskEvidence(
     typeof invocation['controlArgumentsHash'] !== 'string' ||
     !CHECKSUM.test(invocation['controlArgumentsHash']) ||
     typeof invocation['controlDispatchHash'] !== 'string' ||
-    !CHECKSUM.test(invocation['controlDispatchHash'])
+    !SHA256_REF.test(invocation['controlDispatchHash'])
   )
     fail('G09_MCP_INVOCATION_INVALID', 'Expected one exact successful live light_set_power.');
   const invocationId = requiredText(invocation['invocationId'], 'G09_MCP_INVOCATION_ID_MISSING');
@@ -1083,11 +1115,16 @@ async function pollHumanConfirmationBarrier(
   pause: (milliseconds: number) => Promise<void>,
 ): Promise<unknown> {
   for (let attempt = 0; attempt < configuration.maxPolls; attempt += 1) {
-    const trace = await runtimeGet(
-      configuration,
-      `/api/v1/workflows/plans/${encodeURIComponent(planId)}/trace`,
-      request,
+    const response = await request(
+      `${configuration.runtimeManagementBaseUrl}/api/v1/workflows/plans/${encodeURIComponent(planId)}/trace`,
+      { redirect: 'manual' },
     );
+    if (response.status === 404) {
+      await response.body?.cancel();
+      await pause(configuration.pollIntervalMs);
+      continue;
+    }
+    const trace = await responseJson(response, 200);
     const view = record(trace, 'G09_WORKFLOW_TRACE_INVALID');
     const instance = isRecord(view['instance']) ? view['instance'] : undefined;
     if (
@@ -1184,10 +1221,10 @@ function assertTaskUnderstanding(value: unknown, taskId: string, scenario: Scena
     requirements[0]['available'] !== true ||
     candidates.length !== 1 ||
     candidates[0]?.['taskTypeId'] !== scenario.taskTypeId ||
-    candidates[0]['version'] !== 2 ||
+    candidates[0]['version'] !== 3 ||
     blocking.length !== 0
   )
-    fail('G09_TASK_UNDERSTANDING_INVALID', 'The exact v2 Task Understanding was not preserved.');
+    fail('G09_TASK_UNDERSTANDING_INVALID', 'The exact v3 Task Understanding was not preserved.');
 }
 
 function structuredLightOutput(task: Task): Readonly<Record<string, unknown>> & {
@@ -1242,8 +1279,8 @@ function reportBase(
       sourceId: 'home-lab-smpp-g09-019fca75',
       bindingId: HOME_LAB_GOVERNED_LIGHT_BINDING_ID,
       serverId: HOME_LAB_GOVERNED_LIGHT_SERVER_ID,
-      capabilityVersions: Object.freeze([2, 2] as const),
-      skillVersions: Object.freeze([2, 2] as const),
+      capabilityVersions: Object.freeze([3, 3] as const),
+      skillVersions: Object.freeze([3, 3] as const),
     }),
     writeGate,
     ...branch,
@@ -1619,6 +1656,7 @@ async function main(): Promise<void> {
           error instanceof HomeLabG09GovernedLightError
             ? error.code
             : 'G09_GOVERNED_LIGHT_DRIVER_FAILED',
+        ...(error instanceof HomeLabG09GovernedLightError ? { reason: error.message } : {}),
       })}\n`,
     );
     process.exitCode = 1;

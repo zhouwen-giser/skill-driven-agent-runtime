@@ -287,7 +287,7 @@ function userGoalPlan(input: Readonly<Record<string, unknown>>) {
 function skillInput(input: Readonly<Record<string, unknown>>) {
   const skill = record(input['skill']);
   if (
-    skill['version'] === 2 &&
+    skill['version'] === 3 &&
     (skill['skillId'] === G09_READ_SKILL_ID || skill['skillId'] === G09_CONTROL_SKILL_ID)
   )
     return Object.freeze({
@@ -314,10 +314,14 @@ function workflow(input: Readonly<Record<string, unknown>>, mode: HomeLabA2AMode
   const usagePolicy = input['skillUsagePolicy'];
   if (isRecord(usagePolicy)) {
     const skill = usagePolicy['skill'];
-    if (isRecord(skill) && skill['skillVersion'] === 2) {
+    if (isRecord(skill) && skill['skillVersion'] === 3) {
       if (skill['skillId'] === G09_READ_SKILL_ID) return g09Workflow(input, { kind: 'read' });
-      if (skill['skillId'] === G09_CONTROL_SKILL_ID)
-        return g09Workflow(input, { kind: 'control', purpose: 'set', power: 'off' });
+      if (skill['skillId'] === G09_CONTROL_SKILL_ID) {
+        const scenario = g09ScenarioFromGoalContract(record(input['goalContract']));
+        if (scenario?.kind !== 'control')
+          throw new Error('HOME_LAB_G09_MODEL_CONTROL_GOAL_AUTHORITY_MISSING');
+        return g09Workflow(input, scenario);
+      }
     }
   }
   const identity = record(input['workflowIdentity']);
@@ -429,7 +433,7 @@ function g09TaskUnderstanding(input: Readonly<Record<string, unknown>>, scenario
     scenario.kind === 'read' ? G09_READ_CAPABILITY_ID : G09_CONTROL_CAPABILITY_ID;
   const definition = definitions.find((candidate) => candidate['taskTypeId'] === expectedTaskType);
   if (
-    definition?.['version'] !== 2 ||
+    definition?.['version'] !== 3 ||
     !array(definition['capabilityRequirements']).includes(expectedCapability)
   )
     throw new Error('HOME_LAB_G09_MODEL_TASK_TYPE_NOT_EXACT');
@@ -442,7 +446,7 @@ function g09TaskUnderstanding(input: Readonly<Record<string, unknown>>, scenario
     taskTypeCandidates: Object.freeze([
       Object.freeze({
         taskTypeId: expectedTaskType,
-        version: 2,
+        version: 3,
         confidence: 1,
         rationale:
           scenario.kind === 'read'
@@ -491,7 +495,7 @@ function g09GoalContract(scenario: G09Scenario) {
       title: 'G09 read main-light baseline',
       description: 'Read the exact governed living-room main-light public state.',
       constraints: Object.freeze([
-        'Use home.light.read-state@2 through the exact fresh G09 Provider Binding.',
+        'Use home.light.read-state@3 through the exact fresh G09 Provider Binding.',
       ]),
       successCriteria: Object.freeze([
         'Return main-light power and Provider observation evidence.',
@@ -550,14 +554,36 @@ function g09Workflow(input: Readonly<Record<string, unknown>>, scenario: G09Scen
   const goalVersion = positive(identity['goalVersion']);
   const control = scenario.kind === 'control';
   const toolNodeId = control ? 'setPower' : 'readLight';
+  const contextGates = Object.freeze([
+    Object.freeze({
+      nodeId: 'contextPublicResource',
+      name: 'Require exact public resource context',
+      type: 'condition',
+      expression: Object.freeze({
+        op: 'ref',
+        path: Object.freeze(['context', 'public-resource-id']),
+      }),
+    }),
+    Object.freeze({
+      nodeId: 'contextProviderBinding',
+      name: 'Require fresh exact Provider Binding context',
+      type: 'condition',
+      expression: Object.freeze({
+        op: 'ref',
+        path: Object.freeze(['context', 'provider-binding-freshness']),
+      }),
+    }),
+  ]);
+  const firstExecutionNodeId = control ? 'confirmControl' : toolNodeId;
   return Object.freeze({
     workflowDefinitionId,
     version,
     goalId,
     goalVersion,
-    entryNodeId: control ? 'confirmControl' : 'readLight',
+    entryNodeId: 'contextPublicResource',
     exitNodeIds: Object.freeze(['result', 'failure']),
     nodes: Object.freeze([
+      ...contextGates,
       ...(control
         ? [
             Object.freeze({
@@ -577,18 +603,8 @@ function g09Workflow(input: Readonly<Record<string, unknown>>, scenario: G09Scen
           toolName: control ? 'light_set_power' : 'light_get_state',
         }),
         arguments: Object.freeze({
-          resourceId: Object.freeze({
-            op: 'ref',
-            path: Object.freeze(['input', 'skillInput', 'resourceId']),
-          }),
-          ...(control
-            ? {
-                power: Object.freeze({
-                  op: 'ref',
-                  path: Object.freeze(['input', 'skillInput', 'power']),
-                }),
-              }
-            : {}),
+          resourceId: MAIN_LIGHT_RESOURCE_ID,
+          ...(control ? { power: scenario.power } : {}),
         }),
       }),
       Object.freeze({
@@ -617,6 +633,26 @@ function g09Workflow(input: Readonly<Record<string, unknown>>, scenario: G09Scen
       }),
     ]),
     edges: Object.freeze([
+      Object.freeze({
+        sourceNodeId: 'contextPublicResource',
+        targetNodeId: 'contextProviderBinding',
+        outcome: 'true',
+      }),
+      Object.freeze({
+        sourceNodeId: 'contextPublicResource',
+        targetNodeId: 'failure',
+        outcome: 'false',
+      }),
+      Object.freeze({
+        sourceNodeId: 'contextProviderBinding',
+        targetNodeId: firstExecutionNodeId,
+        outcome: 'true',
+      }),
+      Object.freeze({
+        sourceNodeId: 'contextProviderBinding',
+        targetNodeId: 'failure',
+        outcome: 'false',
+      }),
       ...(control
         ? [
             Object.freeze({

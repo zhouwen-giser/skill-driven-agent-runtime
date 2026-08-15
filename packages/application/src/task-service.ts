@@ -570,6 +570,7 @@ export class TaskService {
       timestamp: this.#dependencies.clock.now(),
     });
     await this.#dependencies.tasks.save(task);
+    await this.#dependencies.taskCapabilities?.bindInitialPlan(taskId, input.planId);
     return task;
   }
 

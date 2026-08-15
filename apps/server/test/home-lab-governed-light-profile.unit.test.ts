@@ -8,12 +8,14 @@ import {
   HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
   HOME_LAB_GOVERNED_LIGHT_SERVER_ID,
   assertHomeLabGovernedLightRuntimeConfiguration,
+  homeLabGovernedLightSkillUsageContext,
   homeLabGovernedLightTaskUnderstandingConfiguration,
   resolveHomeLabGovernedLightTaskAvailabilityArguments,
 } from '../src/home-lab-task-understanding.js';
 import {
   HOME_LAB_GOVERNED_LIGHT_CONTROL_PROMPT,
   assertHomeLabGovernedLightWorkflowContract,
+  verifiedHomeLabGovernedLightOutcomeRefs,
 } from '../src/home-lab-governed-light-workflow-contract.js';
 import { resumeTaskOwnedHumanConfirmation } from '../src/runtime.js';
 
@@ -34,6 +36,7 @@ function startup(overrides: Partial<Startup> = {}): Startup {
     taskUnderstanding: homeLabGovernedLightTaskUnderstandingConfiguration(),
     capabilityAuthorityReader,
     currentMcpProviderBindingAuthorityReader: bindingAuthorityReader,
+    skillUsageContext: { resolve: homeLabGovernedLightSkillUsageContext },
     frozenMcpTasks: { isolationAcknowledged: true },
     governedControlPrincipalResolver,
     ...overrides,
@@ -41,7 +44,7 @@ function startup(overrides: Partial<Startup> = {}): Startup {
 }
 
 describe('G09 governed main-light profile', () => {
-  it('locks the two v2 Task Types and every required Runtime authority', () => {
+  it('locks the two v3 Task Types and every required Runtime authority', () => {
     const configuration = homeLabGovernedLightTaskUnderstandingConfiguration();
     expect(configuration).toMatchObject({
       profile: HOME_LAB_GOVERNED_LIGHT_PROFILE,
@@ -50,13 +53,13 @@ describe('G09 governed main-light profile', () => {
       taskTypes: [
         {
           taskTypeId: 'task-type.home-lab-main-light-read-state',
-          version: 2,
+          version: 3,
           capabilityRequirements: [HOME_LAB_GOVERNED_LIGHT_READ_CAPABILITY_ID],
           risks: [],
         },
         {
           taskTypeId: 'task-type.home-lab-main-light-set-power',
-          version: 2,
+          version: 3,
           capabilityRequirements: [HOME_LAB_GOVERNED_LIGHT_CONTROL_CAPABILITY_ID],
           risks: ['physical_side_effect', 'explicit_confirmation_required'],
         },
@@ -86,7 +89,7 @@ describe('G09 governed main-light profile', () => {
     });
     expect(
       resolveHomeLabGovernedLightTaskAvailabilityArguments({
-        bindingId: 'task-binding-home.light.get-state-v2',
+        bindingId: 'task-binding-home.light.get-state-v3',
         taskType: 'light_get_state',
         providerPolicy: providerPolicy('synchronous_only'),
       }),
@@ -96,7 +99,7 @@ describe('G09 governed main-light profile', () => {
     });
     expect(
       resolveHomeLabGovernedLightTaskAvailabilityArguments({
-        bindingId: 'task-binding-home.light.set-power-v2',
+        bindingId: 'task-binding-home.light.set-power-v3',
         taskType: 'light_set_power',
         providerPolicy: providerPolicy('task_required'),
       }),
@@ -108,26 +111,74 @@ describe('G09 governed main-light profile', () => {
     expect(HOME_LAB_GOVERNED_LIGHT_BINDING_ID).toBe('mcp-binding-ha-light-g09');
   });
 
+  it('binds exact read and requested power values into pre-selection availability', () => {
+    const goalContract = {
+      goalId: 'goal-g09',
+      version: 1,
+      title: 'Governed main-light control',
+      description: 'Use the exact G09 main-light authority.',
+      constraints: [],
+      successCriteria: [],
+    };
+    const task = (requestText: string) => ({
+      taskId: 'task-g09',
+      contextId: 'context-g09',
+      userId: 'user-g09',
+      requestText,
+      requestMetadata: {},
+      phase: 'skill_resolution' as const,
+      phaseMessage: 'Selecting.',
+      goalId: goalContract.goalId,
+      goalVersion: goalContract.version,
+      createdAt: '2026-08-15T00:00:00.000Z',
+      updatedAt: '2026-08-15T00:00:00.000Z',
+    });
+    expect(
+      homeLabGovernedLightSkillUsageContext({
+        goalContract,
+        task: task('设置主灯电源为 off'),
+      }).taskAvailabilityArguments,
+    ).toEqual({
+      unresolved: false,
+      value: { resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID, power: 'off' },
+    });
+    expect(
+      homeLabGovernedLightSkillUsageContext({
+        goalContract,
+        task: task('读取主灯基线'),
+      }).taskAvailabilityArguments,
+    ).toEqual({
+      unresolved: false,
+      value: { resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID },
+    });
+    expect(() =>
+      homeLabGovernedLightSkillUsageContext({
+        goalContract,
+        task: task('设置辅助灯电源为 off'),
+      }),
+    ).toThrow('HOME_LAB_GOVERNED_LIGHT_USAGE_REQUEST_NOT_EXACT');
+  });
+
   it('requires the exact pre-dispatch barrier and frozen RemoteTask execution contract', () => {
     expect(() =>
       assertHomeLabGovernedLightWorkflowContract(controlWorkflow(), {
         skillId: 'home.light.set-power',
-        skillVersion: 2,
+        skillVersion: 3,
       }),
     ).not.toThrow();
     expect(() =>
       assertHomeLabGovernedLightWorkflowContract(readWorkflow(), {
         skillId: 'home.light.get-state',
-        skillVersion: 2,
+        skillVersion: 3,
       }),
     ).not.toThrow();
     const withoutBarrier = structuredClone(controlWorkflow());
     const confirmation = withoutBarrier.nodes.find((node) => node.nodeId === 'confirmControl');
-    if (confirmation !== undefined) confirmation.prompt = 'Continue?';
+    if (confirmation !== undefined && 'prompt' in confirmation) confirmation.prompt = 'Continue?';
     expect(() =>
       assertHomeLabGovernedLightWorkflowContract(withoutBarrier, {
         skillId: 'home.light.set-power',
-        skillVersion: 2,
+        skillVersion: 3,
       }),
     ).toThrow('exact pre-dispatch governed-control barrier');
   });
@@ -155,13 +206,58 @@ describe('G09 governed main-light profile', () => {
     });
     expect(resume).toHaveBeenCalledOnce();
   });
+
+  it('projects only the exact v3 governed outcome authority into layered Goal evidence', () => {
+    expect(
+      verifiedHomeLabGovernedLightOutcomeRefs({
+        skillId: 'home.light.get-state',
+        version: 3,
+        outcomeSpecification: {
+          effects: ['effect.home.light.state_read'],
+          evidence: ['light.state.observation'],
+          artifacts: [],
+        },
+      }),
+    ).toEqual({
+      effectRefs: ['effect.home.light.state_read'],
+      evidenceRefs: ['light.state.observation'],
+      artifactRefs: [],
+    });
+    expect(
+      verifiedHomeLabGovernedLightOutcomeRefs({
+        skillId: 'home.light.set-power',
+        version: 3,
+        outcomeSpecification: {
+          effects: ['effect.home.light.power_changed'],
+          evidence: ['light.state.observation'],
+          artifacts: [],
+        },
+      }),
+    ).toEqual({
+      effectRefs: ['effect.home.light.power_changed'],
+      evidenceRefs: ['light.state.observation'],
+      artifactRefs: [],
+    });
+    expect(() =>
+      verifiedHomeLabGovernedLightOutcomeRefs({
+        skillId: 'home.light.get-state',
+        version: 3,
+        outcomeSpecification: {
+          effects: [],
+          evidence: ['light.state.observation'],
+          artifacts: [],
+        },
+      }),
+    ).toThrow('must exactly cover its governed effect and observation evidence');
+  });
 });
 
 function controlWorkflow() {
   return {
-    entryNodeId: 'confirmControl',
+    entryNodeId: 'contextPublicResource',
     exitNodeIds: ['result', 'failure'],
     nodes: [
+      ...contextNodes(),
       {
         nodeId: 'confirmControl',
         type: 'human_confirmation',
@@ -172,8 +268,8 @@ function controlWorkflow() {
         type: 'mcp_tool',
         tool: { serverId: HOME_LAB_GOVERNED_LIGHT_SERVER_ID, toolName: 'light_set_power' },
         arguments: {
-          resourceId: { op: 'ref', path: ['input', 'skillInput', 'resourceId'] },
-          power: { op: 'ref', path: ['input', 'skillInput', 'power'] },
+          resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
+          power: 'off',
         },
         taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
       },
@@ -190,6 +286,7 @@ function controlWorkflow() {
       { nodeId: 'failure', type: 'result', value: { op: 'literal', value: false } },
     ],
     edges: [
+      ...contextEdges('confirmControl'),
       { sourceNodeId: 'confirmControl', targetNodeId: 'setPower', outcome: 'success' },
       { sourceNodeId: 'confirmControl', targetNodeId: 'failure', outcome: 'failure' },
       { sourceNodeId: 'setPower', targetNodeId: 'evidenceLight' },
@@ -201,15 +298,16 @@ function controlWorkflow() {
 
 function readWorkflow() {
   return {
-    entryNodeId: 'readLight',
+    entryNodeId: 'contextPublicResource',
     exitNodeIds: ['result', 'failure'],
     nodes: [
+      ...contextNodes(),
       {
         nodeId: 'readLight',
         type: 'mcp_tool',
         tool: { serverId: HOME_LAB_GOVERNED_LIGHT_SERVER_ID, toolName: 'light_get_state' },
         arguments: {
-          resourceId: { op: 'ref', path: ['input', 'skillInput', 'resourceId'] },
+          resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
         },
       },
       {
@@ -225,9 +323,38 @@ function readWorkflow() {
       { nodeId: 'failure', type: 'result', value: { op: 'literal', value: false } },
     ],
     edges: [
+      ...contextEdges('readLight'),
       { sourceNodeId: 'readLight', targetNodeId: 'evidenceLight' },
       { sourceNodeId: 'evidenceLight', targetNodeId: 'result', outcome: 'true' },
       { sourceNodeId: 'evidenceLight', targetNodeId: 'failure', outcome: 'false' },
     ],
   };
+}
+
+function contextNodes() {
+  return [
+    {
+      nodeId: 'contextPublicResource',
+      type: 'condition',
+      expression: { op: 'ref', path: ['context', 'public-resource-id'] },
+    },
+    {
+      nodeId: 'contextProviderBinding',
+      type: 'condition',
+      expression: { op: 'ref', path: ['context', 'provider-binding-freshness'] },
+    },
+  ];
+}
+
+function contextEdges(targetNodeId: 'confirmControl' | 'readLight') {
+  return [
+    {
+      sourceNodeId: 'contextPublicResource',
+      targetNodeId: 'contextProviderBinding',
+      outcome: 'true',
+    },
+    { sourceNodeId: 'contextPublicResource', targetNodeId: 'failure', outcome: 'false' },
+    { sourceNodeId: 'contextProviderBinding', targetNodeId, outcome: 'true' },
+    { sourceNodeId: 'contextProviderBinding', targetNodeId: 'failure', outcome: 'false' },
+  ];
 }

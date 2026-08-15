@@ -83,6 +83,7 @@ export class RuntimeSkillGovernanceService {
     | 'validatePackage'
   >;
   readonly #governance: SkillExactVersionGovernanceRepository;
+  readonly #afterCatalogChanged: (() => Promise<void>) | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -95,10 +96,12 @@ export class RuntimeSkillGovernanceService {
         | 'validatePackage'
       >;
       governance: SkillExactVersionGovernanceRepository;
+      afterCatalogChanged?(): Promise<void>;
     }>,
   ) {
     this.#skills = dependencies.skills;
     this.#governance = dependencies.governance;
+    this.#afterCatalogChanged = dependencies.afterCatalogChanged;
   }
 
   async list(): Promise<readonly GovernedSkillVersionView[]> {
@@ -144,6 +147,7 @@ export class RuntimeSkillGovernanceService {
 
   async transition(input: SkillGovernanceMutation): Promise<GovernedSkillVersionView> {
     const result = await this.#governance.transition(input);
+    if (!result.replayed) await this.#afterCatalogChanged?.();
     return projectSkill(result.skill, result.status, result.governanceRevision);
   }
 

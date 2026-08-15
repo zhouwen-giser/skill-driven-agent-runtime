@@ -125,27 +125,51 @@ describe('home-lab A2A structured Model fixture', () => {
         operation: 'task_initial_plan',
         workflowIdentity: {
           workflowDefinitionId: 'workflow.g09.main-light.control',
-          version: 2,
+          version: 3,
           goalId: 'goal.g09',
           goalVersion: 1,
         },
         skillUsagePolicy: {
-          skill: { skillId: 'home.light.set-power', skillVersion: 2 },
+          skill: { skillId: 'home.light.set-power', skillVersion: 3 },
         },
+        goalContract: { title: 'G09 set main-light power on' },
       }),
     );
-    expect(decision.structuredResult['entryNodeId']).toBe('confirmControl');
+    expect(decision.structuredResult['entryNodeId']).toBe('contextPublicResource');
     expect(decision.structuredResult['nodes']).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           nodeId: 'setPower',
           type: 'mcp_tool',
           tool: { serverId: 'home-lab-light-mcp-g09', toolName: 'light_set_power' },
+          arguments: { resourceId: 'living-room-main-light', power: 'on' },
+        }),
+        expect.objectContaining({
+          nodeId: 'contextPublicResource',
+          expression: { op: 'ref', path: ['context', 'public-resource-id'] },
+        }),
+        expect.objectContaining({
+          nodeId: 'contextProviderBinding',
+          expression: { op: 'ref', path: ['context', 'provider-binding-freshness'] },
+        }),
+        expect.objectContaining({
+          nodeId: 'evidenceLight',
+          expression: { op: 'exists', path: ['evidence', 'light.state.observation'] },
         }),
       ]),
     );
     expect(decision.structuredResult['edges']).toEqual(
       expect.arrayContaining([
+        {
+          sourceNodeId: 'contextPublicResource',
+          targetNodeId: 'contextProviderBinding',
+          outcome: 'true',
+        },
+        {
+          sourceNodeId: 'contextProviderBinding',
+          targetNodeId: 'confirmControl',
+          outcome: 'true',
+        },
         { sourceNodeId: 'confirmControl', targetNodeId: 'setPower', outcome: 'success' },
         { sourceNodeId: 'confirmControl', targetNodeId: 'failure', outcome: 'failure' },
       ]),

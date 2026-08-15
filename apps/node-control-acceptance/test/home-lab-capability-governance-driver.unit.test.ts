@@ -272,7 +272,7 @@ describe('home-lab Capability and Skill governance driver', () => {
   );
 
   it(
-    'materializes only the exact G09 main-light v2 authorities without mutating legacy v1',
+    'materializes only the exact G09 main-light v3 authorities without mutating legacy v1',
     async () => {
       const root = workspaceRoot();
       const api = new FakeGovernanceApis();
@@ -284,7 +284,7 @@ describe('home-lab Capability and Skill governance driver', () => {
       const report = await governHomeLabCapabilities(
         Object.freeze({
           ...legacyConfiguration,
-          governanceProfile: 'g09_main_light_v2' as const,
+          governanceProfile: 'g09_main_light_v3' as const,
         }),
         { fetch: api.fetch, now: () => NOW },
       );
@@ -294,8 +294,8 @@ describe('home-lab Capability and Skill governance driver', () => {
       expect(report.schemaVersion).toBe('sdar.home-lab-capability-governance/v2');
       expect(report.skills.map(({ skillId, skillVersion }) => ({ skillId, skillVersion }))).toEqual(
         [
-          { skillId: 'home.light.get-state', skillVersion: 2 },
-          { skillId: 'home.light.set-power', skillVersion: 2 },
+          { skillId: 'home.light.get-state', skillVersion: 3 },
+          { skillId: 'home.light.set-power', skillVersion: 3 },
         ],
       );
       expect(
@@ -304,8 +304,8 @@ describe('home-lab Capability and Skill governance driver', () => {
           capabilityVersion,
         })),
       ).toEqual([
-        { capabilityId: 'home.light.read-state', capabilityVersion: 2 },
-        { capabilityId: 'home.light.set-power', capabilityVersion: 2 },
+        { capabilityId: 'home.light.read-state', capabilityVersion: 3 },
+        { capabilityId: 'home.light.set-power', capabilityVersion: 3 },
       ]);
       expect(report.resourcePolicy).toEqual({
         identifierAuthority: 'public_resource_id',
@@ -341,17 +341,17 @@ describe('home-lab Capability and Skill governance driver', () => {
         clock: { now: () => NOW },
       });
       for (const expected of EXPECTED_SKILLS.slice(0, 2)) {
-        const candidate = await importer.import(join(root, expected.skillId, 'v2'));
+        const candidate = await importer.import(join(root, expected.skillId, 'v3'));
         expect(candidate.skillVersion).toEqual(
           expect.objectContaining({
             skillId: expected.skillId,
-            version: 2,
-            previousVersion: 1,
+            version: 3,
+            previousVersion: 2,
           }),
         );
         expect(candidate.skillVersion.usageSpecification?.taskBindings).toEqual([
           expect.objectContaining({
-            bindingId: `task-binding-${expected.skillId}-v2`,
+            bindingId: `task-binding-${expected.skillId}-v3`,
             taskType: expected.toolName,
             providerPolicy: expect.objectContaining({
               requiredProviderId: 'home-lab-light-mcp-g09',
@@ -359,7 +359,7 @@ describe('home-lab Capability and Skill governance driver', () => {
           }),
         ]);
       }
-      const g09ControlSkill = await importer.import(join(root, 'home.light.set-power', 'v2'));
+      const g09ControlSkill = await importer.import(join(root, 'home.light.set-power', 'v3'));
       expect(g09ControlSkill.skillVersion.toolPolicy.forbidden).toEqual([
         { serverId: 'home-lab-light-mcp-g09', toolName: 'vehicle_fire_weapon' },
       ]);
@@ -377,10 +377,16 @@ describe('home-lab Capability and Skill governance driver', () => {
         }),
       );
 
-      const readCapability = api.capabilityFor('home.light.read-state', 2);
-      const writeCapability = api.capabilityFor('home.light.set-power', 2);
-      expect(readCapability).toEqual(expect.objectContaining({ version: 2, previousVersion: 1 }));
-      expect(writeCapability).toEqual(expect.objectContaining({ version: 2, previousVersion: 1 }));
+      const readCapability = api.capabilityFor('home.light.read-state', 3);
+      const writeCapability = api.capabilityFor('home.light.set-power', 3);
+      expect(readCapability).toEqual(expect.objectContaining({ version: 3, previousVersion: 2 }));
+      expect(writeCapability).toEqual(expect.objectContaining({ version: 3, previousVersion: 2 }));
+      expect(recordArray(writeCapability?.['successCriteria']).map(({ type }) => type)).toEqual([
+        'output_schema_valid',
+        'resource_identity_matches_request',
+        'required_evidence_complete',
+        'state_confirmation_matches_request',
+      ]);
       const readConstraints = recordArray(readCapability?.['constraints']);
       const writeConstraints = recordArray(writeCapability?.['constraints']);
       expect(readConstraints.some(({ type }) => type === 'physical_side_effect_policy')).toBe(
@@ -425,11 +431,11 @@ describe('home-lab Capability and Skill governance driver', () => {
         uncertainDispatchPolicy: 'reconcile_never_redispatch',
         remoteTaskTerminalEvidenceRequired: true,
       });
-      expect(api.implementationFor('home.light.set-power', 2)).toEqual(
+      expect(api.implementationFor('home.light.set-power', 3)).toEqual(
         expect.objectContaining({
-          bindingId: 'capability-binding-home.light.set-power-v2',
-          capabilityVersion: 2,
-          implementationVersion: '2',
+          bindingId: 'capability-binding-home.light.set-power-v3',
+          capabilityVersion: 3,
+          implementationVersion: '3',
           providerPolicyOverride: expect.objectContaining({
             mcpProviderBindingId: 'mcp-binding-ha-light-g09',
             localServerId: 'home-lab-light-mcp-g09',
@@ -482,7 +488,7 @@ describe('home-lab Capability and Skill governance driver', () => {
       expect(replay.resourcePolicy.auxiliaryLightIncluded).toBe(false);
       expect(JSON.stringify(replay)).not.toContain('living-room-aux-light');
       expect(api.callsFor('skill-import')).toBe(6);
-      expect(api.callsFor('skill-publish')).toBe(12);
+      expect(api.callsFor('skill-publish')).toBe(6);
       expect(api.callsFor('capability-create')).toBe(6);
       expect(api.callsFor('capability-publish')).toBe(6);
       expect(api.callsFor('capability-readiness')).toBe(12);

@@ -53,6 +53,30 @@ describe('home-lab Catalog materialization driver', () => {
     ]);
   });
 
+  it('allows a light-only refresh when the climate candidate is intentionally out of scope', async () => {
+    const { configuration: configured } = await configurationFromEnvironment({
+      SDAR_HOME_LAB_PROVIDER_KINDS: 'light',
+      SDAR_HOME_LAB_SMPP_SOURCE_ID: 'home-lab-smpp-g09',
+      SDAR_HOME_LAB_NODE_CONTROL_URL: 'http://127.0.0.1:10080',
+      SDAR_HOME_LAB_NODE_CONTROL_TOKEN: CONTROL_TOKEN,
+      SDAR_HOME_LAB_RUNTIME_URL: 'http://127.0.0.1:9998',
+      SDAR_HOME_LAB_RUN_ID: 'home-lab-g09-light-only',
+      SDAR_HOME_LAB_LIGHT_BINDING_ID: 'mcp-binding-ha-light-g09',
+      SDAR_HOME_LAB_LIGHT_EXTERNAL_PROVIDER_ID: 'ha-light-lab',
+      SDAR_HOME_LAB_LIGHT_EXTERNAL_SERVER_ID: 'runtime-light-g09',
+      SDAR_HOME_LAB_LIGHT_LOCAL_SERVER_ID: 'home-lab-light-mcp-g09',
+      SDAR_HOME_LAB_LIGHT_CREDENTIAL_REF: 'secret://env/MCP_HA_LIGHT_TOKEN',
+      SDAR_HOME_LAB_LIGHT_MCP_TOKEN: PROVIDER_TOKEN,
+    });
+
+    expect(configured.providers).toHaveLength(1);
+    expect(configured.providers[0]).toMatchObject({
+      kind: 'light',
+      bindingId: 'mcp-binding-ha-light-g09',
+      localServerId: 'home-lab-light-mcp-g09',
+    });
+  });
+
   it('creates both exact Bindings, registers Runtime Catalogs and emits only redacted proof', async () => {
     const api = new FakeHomeLabApis(false);
     api.runtimeSemanticsUnknown = true;
