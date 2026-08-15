@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { linkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { linkSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, get, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
 import { performance } from 'node:perf_hooks';
@@ -6760,7 +6760,6 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
               'local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO',
             source: {
               testFile: 'packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts',
-              diagnosticAttempt: 8,
             },
             measurementDesign: {
               discardedWarmupWindows,
@@ -9692,30 +9691,54 @@ function phase13Iso(value: Date | string): string {
   return date.toISOString();
 }
 
-function writeImmutablePhase13FailureDiagnostic(report: unknown): void {
-  const reportUrl = new URL(
-    '../../../reports/v1.4.1-evidence/failed-attempts/13-performance-attempt-8-diagnostic.json',
+function writeImmutablePhase13FailureDiagnostic(
+  report: Readonly<Record<string, unknown> & { source: Readonly<Record<string, unknown>> }>,
+): void {
+  const directoryUrl = new URL(
+    '../../../reports/v1.4.1-evidence/failed-attempts/',
     import.meta.url,
   );
-  const temporaryUrl = new URL(`${reportUrl.href}.tmp-${String(process.pid)}-${randomUUID()}`);
-  writeFileSync(temporaryUrl, `${JSON.stringify(report, null, 2)}\n`, {
-    encoding: 'utf8',
-    flag: 'wx',
-  });
-  try {
+  const firstAttempt = nextPhase13DiagnosticAttempt(directoryUrl);
+  for (let attempt = firstAttempt; attempt < firstAttempt + 1_000; attempt += 1) {
+    const reportUrl = new URL(
+      `13-performance-attempt-${String(attempt)}-diagnostic.json`,
+      directoryUrl,
+    );
+    const temporaryUrl = new URL(`${reportUrl.href}.tmp-${String(process.pid)}-${randomUUID()}`);
+    const attemptReport = {
+      ...report,
+      source: { ...report.source, diagnosticAttempt: attempt },
+    };
+    writeFileSync(temporaryUrl, `${JSON.stringify(attemptReport, null, 2)}\n`, {
+      encoding: 'utf8',
+      flag: 'wx',
+    });
     try {
-      // A same-directory hard link publishes a complete file and fails atomically if the
-      // immutable attempt path already exists; unlike rename, it cannot replace a prior run.
-      linkSync(temporaryUrl, reportUrl);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-        throw new Error('P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXISTS', { cause: error });
+      try {
+        // A same-directory hard link publishes a complete file and fails atomically if another
+        // runner claimed the next monotonic attempt; unlike rename, it cannot replace history.
+        linkSync(temporaryUrl, reportUrl);
+        return;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       }
-      throw error;
+    } finally {
+      rmSync(temporaryUrl, { force: true });
     }
-  } finally {
-    rmSync(temporaryUrl, { force: true });
   }
+  throw new Error('P13_PERFORMANCE_DIAGNOSTIC_ATTEMPT_EXHAUSTED');
+}
+
+function nextPhase13DiagnosticAttempt(directoryUrl: URL): number {
+  const attemptPattern = /^13-performance-attempt-(\d+)-diagnostic\.json$/u;
+  return (
+    readdirSync(directoryUrl).reduce((maximum, filename) => {
+      const parsed = attemptPattern.exec(filename)?.[1];
+      if (parsed === undefined) return maximum;
+      const attempt = Number(parsed);
+      return Number.isSafeInteger(attempt) && attempt > maximum ? attempt : maximum;
+    }, 0) + 1
+  );
 }
 
 function writePhase13Report(report: unknown): void {

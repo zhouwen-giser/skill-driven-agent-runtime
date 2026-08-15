@@ -94,6 +94,10 @@ describe('GovernedControlInvocationAuthorizer', () => {
       serverId,
       toolName,
       argumentsHash: governedControlSnapshotHash(arguments_),
+      readinessArgumentsHash: governedControlSnapshotHash({
+        unresolved: false,
+        value: arguments_,
+      }),
     });
     expect(fixture.capabilities.load).toHaveBeenCalledExactlyOnceWith(
       capabilityId,
@@ -113,6 +117,133 @@ describe('GovernedControlInvocationAuthorizer', () => {
       consumedAt: '2026-08-13T01:01:00.000Z',
     });
     expect(fixture.physicalDeviceWrites).toBe(0);
+  });
+
+  it('authorizes an exact two-metre navigate dispatch under the five-call Task budget', async () => {
+    const authority = navigateAuthority({
+      resourceId: 'ugv-1',
+      mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+    });
+    const fixture = authorizerFixture({
+      snapshot: authority.snapshot,
+      capability: authority.capability,
+    });
+
+    await expect(
+      fixture.authorizer.authorizeAndConsume(authority.invocation),
+    ).resolves.toMatchObject({
+      confirmationId: 'control-confirmation-1',
+      argumentsHash: governedControlSnapshotHash(authority.invocation.arguments),
+    });
+    expect(fixture.store.consumeConfirmation).toHaveBeenCalledOnce();
+    expect(fixture.physicalDeviceWrites).toBe(0);
+  });
+
+  it('interprets movement values and nested argument paths only from frozen authority', async () => {
+    const authority = navigateAuthority({
+      resourceId: 'ugv-1',
+      movement: { kind: 'linear', heading: 'north', metres: 1.5 },
+    });
+    const genericConstraints = authority.snapshot.binding.constraintSnapshot.map((constraint) =>
+      constraint['type'] === 'bounded_movement_policy'
+        ? {
+            ...constraint,
+            missionType: 'linear',
+            missionTypeArgumentPath: ['movement', 'kind'],
+            directionArgumentPath: ['movement', 'heading'],
+            distanceArgumentPath: ['movement', 'metres'],
+            allowedDirections: ['north'],
+            exactDirection: 'north',
+            exactDistancePerDispatch: 1.5,
+            exactTotalDistance: 7.5,
+          }
+        : constraint,
+    );
+    const fixture = authorizerFixture({
+      snapshot: {
+        ...authority.snapshot,
+        binding: {
+          ...authority.snapshot.binding,
+          constraintSnapshot: genericConstraints,
+        },
+      },
+      capability: {
+        ...authority.capability,
+        definition: {
+          ...authority.capability.definition,
+          constraints: genericConstraints,
+        },
+      },
+    });
+
+    await expect(
+      fixture.authorizer.authorizeAndConsume(authority.invocation),
+    ).resolves.toMatchObject({ confirmationId: 'control-confirmation-1' });
+    expect(fixture.store.consumeConfirmation).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [
+      'zero distance',
+      { resourceId: 'ugv-1', mission: { type: 'distance', direction: 'forward', distanceM: 0 } },
+    ],
+    [
+      'distance above two metres',
+      {
+        resourceId: 'ugv-1',
+        mission: { type: 'distance', direction: 'forward', distanceM: 2.001 },
+      },
+    ],
+    [
+      'direction outside the exact sequence',
+      { resourceId: 'ugv-1', mission: { type: 'distance', direction: 'backward', distanceM: 2 } },
+    ],
+    [
+      'non-distance mission',
+      {
+        resourceId: 'ugv-1',
+        mission: { type: 'point', target: { latitude: 1, longitude: 2 } },
+      },
+    ],
+  ])('rejects bounded navigate %s before consuming confirmation', async (_case, arguments_) => {
+    const authority = navigateAuthority(arguments_);
+    const fixture = authorizerFixture({
+      snapshot: authority.snapshot,
+      capability: authority.capability,
+    });
+
+    await expect(
+      fixture.authorizer.authorizeAndConsume(authority.invocation),
+    ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_ARGUMENTS_OUT_OF_BOUNDS' });
+    expect(fixture.store.consumeConfirmation).not.toHaveBeenCalled();
+    expect(fixture.physicalDeviceWrites).toBe(0);
+  });
+
+  it('rejects an internally inconsistent exact movement constraint', async () => {
+    const authority = navigateAuthority({
+      resourceId: 'ugv-1',
+      mission: { type: 'distance', direction: 'forward', distanceM: 2 },
+    });
+    const widened = authority.snapshot.binding.constraintSnapshot.map((constraint) =>
+      constraint['type'] === 'bounded_movement_policy'
+        ? { ...constraint, exactTotalDistance: 11 }
+        : constraint,
+    );
+    const fixture = authorizerFixture({
+      snapshot: {
+        ...authority.snapshot,
+        binding: { ...authority.snapshot.binding, constraintSnapshot: widened },
+      },
+      capability: {
+        ...authority.capability,
+        definition: { ...authority.capability.definition, constraints: widened },
+      },
+    });
+
+    await expect(
+      fixture.authorizer.authorizeAndConsume(authority.invocation),
+    ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_CONSTRAINTS_INVALID' });
+    expect(fixture.store.consumeConfirmation).not.toHaveBeenCalled();
   });
 
   it('rejects a confirmation already consumed by a different invocation or dispatch hash', async () => {
@@ -402,7 +533,7 @@ function currentSnapshot(): GovernedControlRuntimeAuthoritySnapshot {
       confirmationRequired: false,
       serverId,
       operationName: toolName,
-      argumentsHash: governedControlSnapshotHash(arguments_),
+      argumentsHash: governedControlSnapshotHash({ unresolved: false, value: arguments_ }),
       availability: 'available',
       riskLevel: 'medium',
       validUntil: '2026-08-13T01:02:00.000Z',
@@ -504,5 +635,140 @@ function controlExecutionSemantics() {
     idempotency: 'server_managed' as const,
     replay: 'forbidden' as const,
     source: 'mcp_declared' as const,
+  };
+}
+
+function navigateAuthority(arguments_: Readonly<Record<string, unknown>>) {
+  const navigateSkillId = 'ugv.navigate';
+  const navigateCapabilityId = 'vehicle.ugv.navigate';
+  const navigateToolName = 'vehicle_navigate';
+  const constraints = [
+    ...controlConstraints().map((constraint) => {
+      if (constraint.type === 'provider_binding_policy')
+        return { ...constraint, mcpToolName: navigateToolName };
+      if (constraint.type === 'exact_skill_version')
+        return {
+          ...constraint,
+          skillId: navigateSkillId,
+          taskType: navigateToolName,
+        };
+      if (constraint.type === 'physical_side_effect_policy')
+        return { ...constraint, dispatchMaximum: 5 };
+      return constraint;
+    }),
+    {
+      type: 'bounded_movement_policy',
+      constraintId: 'vehicle-navigate-distance-per-dispatch',
+      toolName: navigateToolName,
+      missionType: 'distance',
+      missionTypeArgumentPath: ['mission', 'type'],
+      directionArgumentPath: ['mission', 'direction'],
+      distanceArgumentPath: ['mission', 'distanceM'],
+      allowedDirections: ['backward', 'forward', 'left', 'right'],
+      exclusiveMinimum: 0,
+      maximumInclusive: 2,
+      unit: 'm',
+      scope: 'per_dispatch',
+      exactDirection: 'forward',
+      exactDistancePerDispatch: 2,
+      exactDispatchCount: 5,
+      exactTotalDistance: 10,
+      strictSequential: true,
+      terminalBeforeNext: true,
+    },
+  ];
+  const base = currentSnapshot();
+  const argumentsHash = governedControlSnapshotHash(arguments_);
+  const snapshot: GovernedControlRuntimeAuthoritySnapshot = {
+    ...base,
+    task: {
+      ...base.task,
+      selectedSkillId: navigateSkillId,
+    },
+    binding: {
+      ...base.binding,
+      capabilityId: navigateCapabilityId,
+      inputSnapshot: arguments_,
+      constraintSnapshot: constraints,
+      initialImplementationRefs: [`skill:${navigateSkillId}:${String(skillVersion)}`],
+      bindingHash: governedControlSnapshotHash({
+        capabilityId: navigateCapabilityId,
+        arguments_,
+        constraints,
+      }),
+    },
+    attempt: {
+      ...base.attempt,
+      skillVersionRefs: [`skill:${navigateSkillId}:${String(skillVersion)}`],
+    },
+    skill: {
+      ...base.skill,
+      skillId: navigateSkillId,
+      capabilities: [navigateCapabilityId],
+      toolPolicy: {
+        required: [{ serverId, toolName: navigateToolName }],
+        optional: [],
+        forbidden: [{ serverId, toolName: 'vehicle_fire_weapon' }],
+      },
+      runtimePolicy: { autoConfirmPlan: false, maxMcpCalls: 5 },
+      outcomeSpecification: {
+        sideEffectPolicy: {
+          sideEffecting: true,
+          confirmation: 'required_before_execution',
+          autoConfirmPlan: false,
+          allowRealSideEffectsEnv: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
+          realTestRunIdEnv: 'REAL_UGV_TEST_RUN_ID',
+          exactResourceRequired: true,
+          remoteTaskIdentityRequired: true,
+          terminalObservationRequired: true,
+          redispatchAfterUncertain: false,
+          dispatchMaximum: 5,
+          requiredArgumentConstraintIds: ['vehicle-navigate-distance-per-dispatch'],
+        },
+      },
+    },
+    readiness: {
+      ...base.readiness,
+      operationName: navigateToolName,
+      argumentsHash: governedControlSnapshotHash({ unresolved: false, value: arguments_ }),
+    },
+    confirmation: {
+      ...base.confirmation,
+      capabilityId: navigateCapabilityId,
+      skillId: navigateSkillId,
+      toolName: navigateToolName,
+      argumentsHash,
+    },
+  };
+  const baseCapability = currentCapability();
+  const implementation = baseCapability.implementationBindings[0];
+  if (implementation === undefined) throw new Error('TEST_CONTROL_IMPLEMENTATION_MISSING');
+  const providerPolicy = implementation['provider_policy_override'];
+  const capability: CurrentGovernedCapabilityAuthority = {
+    definition: {
+      ...baseCapability.definition,
+      capability_id: navigateCapabilityId,
+      constraints,
+    },
+    implementationBindings: [
+      {
+        ...implementation,
+        capability_id: navigateCapabilityId,
+        implementation_id: navigateSkillId,
+        provider_policy_override: {
+          ...(typeof providerPolicy === 'object' && providerPolicy !== null ? providerPolicy : {}),
+          mcpToolName: navigateToolName,
+        },
+      },
+    ],
+  };
+  return {
+    snapshot,
+    capability,
+    invocation: {
+      ...invocation(),
+      toolName: navigateToolName,
+      arguments: arguments_,
+    },
   };
 }

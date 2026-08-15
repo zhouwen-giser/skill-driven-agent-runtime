@@ -24,3 +24,11 @@ Execution mode crosses the domain, LangGraph, child Workflow, Skill-call, MCP re
 MCP Servers can implement their own simulation/replay-safe behavior using explicit wire metadata. The runtime does not claim to block device operations; an incompatible MCP Server remains an external safety risk that operators must assess.
 
 Header-isolated clients create multiple MCP sessions for the same endpoint. The real loopback Mock MCP therefore implements official session-ID routing and tests concurrent live/non-live sessions. Live behavior and existing credential forwarding remain unchanged.
+
+## 2026-08-14 implementation note
+
+The UGV integration exposed a legacy Runtime path that still emitted the `live` value. A bounded
+rollout switch, `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit`, now restores this ADR's absent-header
+wire contract for explicit non-production deployments without changing the persisted invocation
+mode. Production rejects the compatibility switch until the legacy default is migrated separately;
+simulation and historical-replay headers remain mandatory and unaffected.

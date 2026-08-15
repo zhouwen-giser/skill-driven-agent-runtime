@@ -1618,6 +1618,27 @@ export function createNodeControlHttpApp(
     }
   });
 
+  app.get(
+    '/internal/v1/node-capabilities/:capabilityId/versions/:version/authority',
+    async (request, response, next) => {
+      try {
+        const capabilityId = request.params.capabilityId;
+        const version = positiveRevision(request.params.version);
+        const [definition, implementationBindings] = await Promise.all([
+          requiredCapabilities(configuration).get(capabilityId, version),
+          requiredCapabilities(configuration).listImplementations(capabilityId, version, 200),
+        ]);
+        response.status(200).json({
+          observedAt: new Date().toISOString(),
+          definition,
+          implementationBindings,
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   app.get('/internal/v1/tasks/:taskId/capability-binding', async (request, response, next) => {
     try {
       const binding = await requiredTaskCapabilities(configuration).findBinding(

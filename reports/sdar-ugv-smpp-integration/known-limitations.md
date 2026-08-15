@@ -1,15 +1,20 @@
 # Known limitations — SDAR × UGV SMPP
 
-- The credential-free PMS Web proxy exposes the frozen `sdar-registry-v1` projection. Projection
+- The credential-free PMS Web proxy was cleared and rebuilt. SDAR therefore created a new immutable
+  Source generation `ugv-smpp-r2` instead of overwriting the old revision-1 ledger. Projection
   200/304, explicit credential-free Source revision 1, native lineage and the exact
   Provider/Server tuple are proven. Source restart, Registry outage with unexpired LKG,
   expired-LKG rejection and bad-checksum rejection were not executed against this deployment.
-- The latest materialized authority is Provider Binding revision 2, Runtime tool revision 2 and
-  Catalog `2.0.0-rc.1:2` with 11 operations. Its availability/readiness windows are point-in-time
+- The latest materialized authority is the new Frozen Server `ugv-smpp-runtime-r2`, Provider
+  Binding `mcp-binding-ugv-smpp-r2` revision 1, Runtime tool revision 1 and Catalog
+  `2.0.0-rc.1:1` with 11 operations. Its availability/readiness windows are point-in-time
   observations and have not been promoted into current-liveness evidence.
-- Five read-only Skills are published at version 4 and five read Capabilities at version 2. Five
-  controls remain Draft/non-selectable without implementation bindings. Fire has no Capability or
-  Skill and was not invoked, but an unconditional Runtime hard deny for generic Workflow access to
+- The latest disposable integration database publishes five read-only Skills/Capabilities and one
+  explicitly activated coordinate-point navigate Skill/Capability at version 6; the other four
+  controls remain Draft/non-selectable. The reusable Capability bounds WGS84 input and requires
+  `stopOnObstacle=true`; the accepted TaskCapability, Availability snapshot, confirmed Plan and
+  one-shot confirmation freeze the exact request. Fire has no Capability or Skill and was not
+  invoked, but an unconditional Runtime hard deny for generic Workflow access to
   `vehicle_fire_weapon` is not proven.
 - The live contract does not declare execution semantics. Tool effect and task behavior therefore
   use reviewed `admin_override` values; this is not Runtime-declared semantic authority and does
@@ -40,25 +45,76 @@
 - `a2a-readonly.json` is the primary real run016 failure report. Detailed Task/Goal/Capability/MCP
   lineage is separately preserved in `failed-attempts/a2a-readonly-run016.redacted.json`; neither
   report is a passing A2A qualification.
-- The earlier deterministic live read and the latest A2A live read both failed at the external
-  execution-mode boundary. Successful deterministic reads, broader end-to-end restart recovery,
-  complete successful invocation lineage and a real physical UGV remain unproven.
+- Earlier deterministic and A2A live reads failed at the external execution-mode boundary. The
+  non-production `SDAR_MCP_LIVE_EXECUTION_MODE_HEADER=omit` compatibility switch now preserves
+  Runtime `live` evidence while omitting only that transport header; the latest no-header
+  availability probe did not reproduce `UGV_EXECUTION_MODE_UNSUPPORTED`. The latest exact
+  coordinate availability reads returned `disabled / UGV_CHASSIS_TRACK_BUSY` continuously for
+  more than 39 minutes, so physical dispatch remains unavailable.
+- Four one-A2A-Task attempts requested a native five-node navigate procedure totaling 10 m. Three
+  timed out during preparation. Latest Task `55496234-f5e7-4589-9a18-b24afd2439d6` reached Task
+  Understanding, Goal Contract generation and Goal Planning, but `interactive_plan_patch` failed
+  `MODEL_TRANSPORT_UPSTREAM_ERROR` while correcting an invalid six-Skill-Goal candidate to the
+  required one Skill Goal. All four attempts have zero MCP/navigate invocations, zero physical
+  writes and zero proven movement; see
+  `failed-attempts/a2a-move10-live-header-omit-20260814.redacted.json`.
+- The later exact coordinate A2A Task `2eb25439-8d9d-448a-9e04-5a4ed761170d` accepted a corrected
+  Goal and one exact `vehicle.ugv.navigate` Skill Goal, then failed before Workflow Plan persistence
+  because Provider task readiness was disabled. Twelve protocol-faithful read-only availability
+  checks from `10:40:27Z` through the post-integration retry at `11:25:57Z` consistently returned
+  `UGV_CHASSIS_TRACK_BUSY`; Runtime PostgreSQL had zero UGV remote bindings. No Plan or governed
+  confirmation was created and MCP Tool calls/physical writes remained zero. See
+  `failed-attempts/a2a-coordinate-navigation-20260814.redacted.json`.
+- The next Goal continuation read at `11:40:25Z` returned `unknown / UGV_STATE_STALE`. External
+  Runtime health is ready, but its Business Event inbox backlog is 113; no fresh vehicle-state
+  authority exists for navigation admission. The following read at `11:48:01Z` returned
+  `disabled / UGV_CHASSIS_TRACK_BUSY` again.
+- The Runtime was then restarted with the authorized local Node Control viewer/service credentials
+  and only `physical_control.confirm` / `physical_control.revoke`. The fifteenth and sixteenth exact
+  Availability reads through `12:01:54Z` still returned
+  `disabled / UGV_CHASSIS_TRACK_BUSY`; no Plan or physical dispatch was created.
+- After the SMPP rebuild, four new A2A attempts exercised the revision-1 `r2` authority. Two
+  exhausted interactive Goal budgets before a Plan. The third reached an exact confirmed Plan and
+  one-shot control confirmation but found a product defect: pre-invocation readiness hashed the
+  `TaskAvailabilityArguments` envelope while the authority Repository joined it as if it were the
+  raw Tool-argument hash. That defect is fixed with focused regression coverage; no invocation was
+  created by the failed attempt. The fourth attempt selected `ugv.navigate@6`, confirmed the exact
+  point Plan, consumed one one-shot physical confirmation and made exactly one real
+  `vehicle_navigate` call. The external Provider rejected admission with
+  `MCP_TOOL_BUSINESS_REJECTION / UGV_EXECUTION_MODE_UNSUPPORTED`, `retryable=false`; no remote Task
+  or movement was created. See
+  `failed-attempts/a2a-coordinate-navigation-r2-20260814.redacted.json`.
+- The same runs exposed model-generated Goal constraints and success criteria containing only
+  punctuation. Goal Contract validation now requires every constraint and success criterion to
+  contain at least one Unicode letter or number and still performs only the existing bounded two
+  model attempts. The affected live candidates were corrected through the audited Goal Patch path.
+- The five-dispatch code does not claim that remote command completion proves chassis stationarity.
+  The deployed `vehicle_get_state` output schema does not freeze authoritative
+  fresh/connected/stationary/unowned-task fields, and node-scoped one-shot sequence confirmation is
+  not yet implemented. Both remain closed prerequisites for physical dispatch.
 - The requested `unsafe_test_open` policy bypasses outbound authority membership and the
   HTTPS-required rule only for explicit development/test/integration deployments. It remains
   rejected in Production; HTTPS certificate validation, URL-credential rejection and scheme
   validation remain enabled.
-- All physical-write gates are closed. No movement, recon, gimbal, tracking, lifecycle control,
-  emergency stop or recovery-side-effect scenario has been attempted. Physical writes, control
-  calls and fire calls remain zero.
+- The latest coordinate attempt crossed the real Provider boundary exactly once, but Provider
+  admission rejected it before a remote Task existed. No movement, recon, gimbal, tracking,
+  lifecycle control, emergency stop or recovery-side-effect outcome is proven. Physical movement
+  and fire calls remain zero; the single navigate invocation is failed evidence, not a successful
+  physical write.
 - A historical disposable local bootstrap incorrectly published five control authorities. Its
   evidence remains under `failed-attempts/` and is excluded from qualification. Current governance
   correctly stages controls non-executable; the one-time remediation driver was not run against
   those historical databases.
-- The repository-wide `pnpm verify` did not pass. Main Integration passed 189/189, but the isolated
-  P11 evidence-export run timed out; an unchanged standalone rerun later passed 1/1. This does not
-  rewrite the failed aggregate gate.
-- Main E2E passed 72/72 with one skip, then failed protected Phase 13 baseline drift at
-  `22.939% > 15%`. Runtime regression (`1.7548%`) and append P95 (`3.410 ms`) passed. The official
+- The current repository-wide `pnpm verify` did not pass. Static/unit/contract/build passed 275
+  files/2,005 tests, Cognitive Replay passed, and all 56 Runtime plus 11 Control migrations passed.
+  Integration did not start because operator-managed PostgreSQL `template1` has invalid
+  collation-version metadata (`XX000`). The operator database was left unchanged; E2E and later
+  gates were not reached in this run.
+- An earlier isolated run passed Integration and Main E2E, then failed protected Phase 13 baseline
+  drift. The diagnostic writer's fixed attempt-8 defect was repaired to allocate immutable
+  attempts monotonically.
+- The unchanged Phase 13 rerun wrote immutable attempt 9 and failed baseline drift at
+  `15.828% > 15%`. Runtime regression (`7.128%`) and append P95 (`4.219 ms`) passed. The official
   A2A TCK could not start because the host lacks `python3-venv`; evidence demo 44/44 and all three
   smokes passed.
 - The aggregate deployment bootstrap is not qualified. The recorded preflight remains a

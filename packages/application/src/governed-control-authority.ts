@@ -232,6 +232,7 @@ export interface GovernedControlAuthorityStore {
       serverId: string;
       toolName: string;
       argumentsHash: string;
+      readinessArgumentsHash: string;
     }>,
   ): Promise<GovernedControlRuntimeAuthoritySnapshot | undefined>;
   consumeConfirmation(
@@ -318,6 +319,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
     const invocationId = required(input.invocationId, 'invocationId');
     const exactDispatchHash = dispatchHash(input.dispatchHash);
     const argumentsHash = canonicalHash(input.arguments);
+    const readinessArgumentsHash = canonicalHash({ unresolved: false, value: input.arguments });
     const snapshot = await this.#store.load({
       taskId: input.taskId,
       capabilityAttemptId: input.capabilityAttemptId,
@@ -325,6 +327,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       serverId: input.serverId,
       toolName: input.toolName,
       argumentsHash,
+      readinessArgumentsHash,
     });
     if (snapshot === undefined)
       fail(
@@ -332,7 +335,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
         'No complete durable control authority exists for this Task and Tool invocation.',
       );
     const capability = await this.#loadCurrentCapability(snapshot.binding);
-    this.#assertRuntimeAuthority(input, snapshot, argumentsHash);
+    this.#assertRuntimeAuthority(input, snapshot, argumentsHash, readinessArgumentsHash);
     this.#assertCurrentCapability(snapshot, capability, input);
     this.#assertConfirmation(input, snapshot, argumentsHash);
     const consumedAt = new Date(
@@ -387,12 +390,14 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
     input: GovernedControlInvocation,
     snapshot: GovernedControlRuntimeAuthoritySnapshot,
     argumentsHash: string,
+    readinessArgumentsHash: string,
   ): void {
     const { task, binding, attempt, plan, skill, readiness } = snapshot;
     const expectedSkillRef = `skill:${skill.skillId}:${String(skill.skillVersion)}`;
     const requiredTools = recordArray(skill.toolPolicy['required']);
     const requiredTool = requiredTools[0];
     const sideEffectPolicy = record(skill.outcomeSpecification?.['sideEffectPolicy']);
+    const dispatchMaximum = frozenDispatchMaximum(binding.constraintSnapshot);
     if (
       task.taskId !== input.taskId ||
       TERMINAL_TASK_PHASES.has(task.phase) ||
@@ -422,7 +427,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
         (tool) => tool['serverId'] === input.serverId && tool['toolName'] === 'vehicle_fire_weapon',
       ) ||
       skill.runtimePolicy['autoConfirmPlan'] !== false ||
-      skill.runtimePolicy['maxMcpCalls'] !== 1 ||
+      skill.runtimePolicy['maxMcpCalls'] !== dispatchMaximum ||
       sideEffectPolicy?.['sideEffecting'] !== true ||
       sideEffectPolicy['confirmation'] !== 'required_before_execution' ||
       sideEffectPolicy['autoConfirmPlan'] !== false ||
@@ -440,7 +445,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       readiness.confirmationRequired ||
       readiness.serverId !== input.serverId ||
       readiness.operationName !== input.toolName ||
-      readiness.argumentsHash !== argumentsHash ||
+      readiness.argumentsHash !== readinessArgumentsHash ||
       readiness.availability !== 'available' ||
       !PHYSICAL_CONTROL_RISK_LEVELS.has(readiness.riskLevel)
     )
@@ -566,12 +571,12 @@ function assertControlConstraints(
   const resource = exactlyOne(constraints, 'resource_policy');
   const exactSkill = exactlyOne(constraints, 'exact_skill_version');
   const resourceId = record(snapshot.binding.inputSnapshot)?.['resourceId'];
+  const dispatchMaximum = frozenDispatchMaximum(constraints);
   if (
     confirmation['required'] !== true ||
     confirmation['stage'] !== 'before_execution' ||
     confirmation['autoConfirmPlan'] !== false ||
     sideEffect['sideEffecting'] !== true ||
-    sideEffect['dispatchMaximum'] !== 1 ||
     sideEffect['uncertainDispatchPolicy'] !== 'reconcile_never_redispatch' ||
     sideEffect['remoteTaskTerminalEvidenceRequired'] !== true ||
     provider['mcpProviderBindingId'] !== input.providerBindingId ||
@@ -596,6 +601,149 @@ function assertControlConstraints(
       'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
       'The frozen Capability lacks exact confirmation, physical-side-effect, provider, Skill, or public resource policy.',
     );
+  assertBoundedMovementConstraint(constraints, snapshot, input, dispatchMaximum);
+}
+
+function assertBoundedMovementConstraint(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+  snapshot: GovernedControlRuntimeAuthoritySnapshot,
+  input: GovernedControlInvocation,
+  dispatchMaximum: number,
+): void {
+  const movementConstraints = constraints.filter(
+    (constraint) => constraint['type'] === 'bounded_movement_policy',
+  );
+  if (movementConstraints.length === 0) {
+    if (dispatchMaximum !== 1)
+      fail(
+        'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
+        'A multi-dispatch physical control requires one frozen bounded movement policy.',
+      );
+    return;
+  }
+  if (movementConstraints.length !== 1)
+    fail(
+      'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
+      'Governed control requires at most one frozen bounded movement policy.',
+    );
+  const movement = movementConstraints[0];
+  if (movement === undefined)
+    fail('GOVERNED_CONTROL_CONSTRAINTS_INVALID', 'Bounded movement policy is absent.');
+  const constraintId = movement['constraintId'];
+  const missionType = movement['missionType'];
+  const missionTypeArgumentPath = argumentPath(movement['missionTypeArgumentPath']);
+  const directionArgumentPath = argumentPath(movement['directionArgumentPath']);
+  const distanceArgumentPath = argumentPath(movement['distanceArgumentPath']);
+  const allowedDirections = nonEmptyStringArray(movement['allowedDirections']);
+  const exclusiveMinimum = movement['exclusiveMinimum'];
+  const maximumInclusive = movement['maximumInclusive'];
+  const exactDirection = movement['exactDirection'];
+  const exactDistancePerDispatch = movement['exactDistancePerDispatch'];
+  const exactDispatchCount = movement['exactDispatchCount'];
+  const exactTotalDistance = movement['exactTotalDistance'];
+  const sideEffectPolicy = record(snapshot.skill.outcomeSpecification?.['sideEffectPolicy']);
+  const requiredConstraintIds = stringArray(sideEffectPolicy?.['requiredArgumentConstraintIds']);
+  if (
+    typeof constraintId !== 'string' ||
+    constraintId.trim() === '' ||
+    movement['toolName'] !== input.toolName ||
+    typeof missionType !== 'string' ||
+    missionType.trim() === '' ||
+    missionTypeArgumentPath === undefined ||
+    directionArgumentPath === undefined ||
+    distanceArgumentPath === undefined ||
+    allowedDirections === undefined ||
+    typeof exclusiveMinimum !== 'number' ||
+    !Number.isFinite(exclusiveMinimum) ||
+    typeof maximumInclusive !== 'number' ||
+    !Number.isFinite(maximumInclusive) ||
+    maximumInclusive <= exclusiveMinimum ||
+    typeof exactDirection !== 'string' ||
+    exactDirection.trim() === '' ||
+    !allowedDirections.includes(exactDirection) ||
+    typeof exactDistancePerDispatch !== 'number' ||
+    !Number.isFinite(exactDistancePerDispatch) ||
+    exactDistancePerDispatch <= exclusiveMinimum ||
+    exactDistancePerDispatch > maximumInclusive ||
+    typeof exactDispatchCount !== 'number' ||
+    !Number.isSafeInteger(exactDispatchCount) ||
+    exactDispatchCount < 1 ||
+    exactDispatchCount !== dispatchMaximum ||
+    typeof exactTotalDistance !== 'number' ||
+    !Number.isFinite(exactTotalDistance) ||
+    exactTotalDistance !== exactDistancePerDispatch * exactDispatchCount ||
+    typeof movement['unit'] !== 'string' ||
+    movement['unit'].trim() === '' ||
+    movement['scope'] !== 'per_dispatch' ||
+    movement['strictSequential'] !== true ||
+    movement['terminalBeforeNext'] !== true ||
+    sideEffectPolicy?.['dispatchMaximum'] !== dispatchMaximum ||
+    requiredConstraintIds.length !== 1 ||
+    requiredConstraintIds[0] !== constraintId
+  )
+    fail(
+      'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
+      'The bounded movement policy is incomplete, internally inconsistent, or detached from the frozen Skill authority.',
+    );
+  const actualMissionType = valueAtArgumentPath(input.arguments, missionTypeArgumentPath);
+  const actualDirection = valueAtArgumentPath(input.arguments, directionArgumentPath);
+  const actualDistance = valueAtArgumentPath(input.arguments, distanceArgumentPath);
+  if (
+    actualMissionType !== missionType ||
+    actualDirection !== exactDirection ||
+    typeof actualDistance !== 'number' ||
+    !Number.isFinite(actualDistance) ||
+    actualDistance <= exclusiveMinimum ||
+    actualDistance > maximumInclusive ||
+    actualDistance !== exactDistancePerDispatch
+  )
+    fail(
+      'GOVERNED_CONTROL_ARGUMENTS_OUT_OF_BOUNDS',
+      'Control arguments differ from the exact frozen per-dispatch movement policy.',
+    );
+}
+
+function frozenDispatchMaximum(constraints: readonly Readonly<Record<string, unknown>>[]): number {
+  const sideEffect = exactlyOne(constraints, 'physical_side_effect_policy');
+  const dispatchMaximum = sideEffect['dispatchMaximum'];
+  if (
+    typeof dispatchMaximum !== 'number' ||
+    !Number.isSafeInteger(dispatchMaximum) ||
+    dispatchMaximum < 1
+  )
+    fail(
+      'GOVERNED_CONTROL_CONSTRAINTS_INVALID',
+      'Physical control requires a positive frozen dispatch maximum.',
+    );
+  return dispatchMaximum;
+}
+
+function argumentPath(value: unknown): readonly string[] | undefined {
+  const path = stringArray(value);
+  return path.length > 0 && path.every((segment) => segment.trim() !== '') ? path : undefined;
+}
+
+function nonEmptyStringArray(value: unknown): readonly string[] | undefined {
+  const values = stringArray(value);
+  return values.length > 0 &&
+    values.every((item) => item.trim() !== '') &&
+    new Set(values).size === values.length
+    ? values
+    : undefined;
+}
+
+function valueAtArgumentPath(
+  arguments_: Readonly<Record<string, unknown>>,
+  path: readonly string[],
+): unknown {
+  let current: unknown = arguments_;
+  for (const segment of path) {
+    const object = record(current);
+    if (object === undefined || !Object.prototype.hasOwnProperty.call(object, segment))
+      return undefined;
+    current = object[segment];
+  }
+  return current;
 }
 
 function assertTrustedHumanActor(
@@ -695,6 +843,7 @@ export function governedControlSnapshotHash(value: unknown): string {
 
 export type GovernedControlAuthorityErrorCode =
   | 'GOVERNED_CONTROL_AUTHORITY_NOT_FOUND'
+  | 'GOVERNED_CONTROL_ARGUMENTS_OUT_OF_BOUNDS'
   | 'GOVERNED_CONTROL_CAPABILITY_NOT_CURRENT'
   | 'GOVERNED_CONTROL_CLOCK_INVALID'
   | 'GOVERNED_CONTROL_CONFIRMATION_ACTOR_UNTRUSTED'

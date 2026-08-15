@@ -24,6 +24,9 @@ const nodeControlAuthorityReader =
     : new HttpNodeControlCapabilityEvidenceReader({
         baseUrl: environment.SDAR_NODE_CONTROL_BASE_URL,
         serviceToken: environment.SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN,
+        ...(environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN === undefined
+          ? {}
+          : { bindingServiceToken: environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN }),
         unsafeTestOpen: environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open',
       });
 const runtime = await startServerRuntime({
@@ -39,6 +42,8 @@ const runtime = await startServerRuntime({
       environment.SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST,
     ),
   },
+  mcpExecutionModeHeaderPolicy:
+    environment.SDAR_MCP_LIVE_EXECUTION_MODE_HEADER === 'omit' ? 'omit_live' : 'emit',
   ...(nodeControlAuthorityReader === undefined
     ? {}
     : {
@@ -47,6 +52,7 @@ const runtime = await startServerRuntime({
       }),
   a2aHost: environment.SDAR_A2A_HOST,
   a2aPort: environment.SDAR_A2A_PORT,
+  a2aWaitTimeoutMs: environment.SDAR_A2A_WAIT_TIMEOUT_MS,
   managementHost: environment.SDAR_MANAGEMENT_HOST,
   managementPort: environment.SDAR_MANAGEMENT_PORT,
   ...(environment.SDAR_RUNTIME_CONTROL_SERVICE_TOKEN === undefined

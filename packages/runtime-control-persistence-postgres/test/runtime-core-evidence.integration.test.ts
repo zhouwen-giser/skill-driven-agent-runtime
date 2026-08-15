@@ -225,6 +225,40 @@ describe('Runtime core canonical Evidence vertical', { concurrent: false }, () =
     await expect(source.pendingTaskIds(10)).resolves.toEqual([]);
   });
 
+  it('projects a terminal Task lifecycle even when no runtime terminal outcome was committed', async () => {
+    const taskId = 'task-v141-terminal-without-outcome';
+    await pool.query(
+      `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
+       VALUES('context-v141-terminal-without-outcome','user-v141-runtime-core',
+         '2026-08-04T03:02:00.000Z','2026-08-04T03:03:00.000Z')
+       ON CONFLICT(context_id) DO NOTHING`,
+    );
+    await pool.query(
+      `INSERT INTO agent_task(
+         task_id,context_id,user_id,phase,phase_message,created_at,updated_at,
+         request_text,request_metadata)
+       VALUES($1,'context-v141-terminal-without-outcome','user-v141-runtime-core','failed',
+         'Terminal failure before outcome authority','2026-08-04T03:02:00.000Z',
+         '2026-08-04T03:03:00.000Z','Inspect failed Runtime lifecycle','{}'::jsonb)
+       ON CONFLICT(task_id) DO NOTHING`,
+      [taskId],
+    );
+
+    await expect(source.pendingTaskIds(10)).resolves.toContain(taskId);
+    await projector.projectTask(taskId);
+    const stored = await store.pending(`runtime-core:${taskId}`, 10, '2026-08-04T04:11:00.000Z');
+
+    expect(stored.map(({ envelope }) => envelope.recordType)).toEqual([
+      'runtime.episode',
+      'runtime.request',
+      'runtime.a2a_task',
+    ]);
+    await expect(
+      pool.query(`SELECT 1 FROM runtime_terminal_outcome WHERE task_id=$1`, [taskId]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await expect(source.pendingTaskIds(10)).resolves.not.toContain(taskId);
+  });
+
   it('projects a reconstructable parent-child Skill tree with exact cross-family references and idempotent replay', async () => {
     await seedSkillPrerequisiteEvidence();
     await expect(skillSource.pendingTaskIds(10)).resolves.toEqual(['task-v141-runtime-core']);
@@ -708,9 +742,10 @@ describe('Runtime core canonical Evidence vertical', { concurrent: false }, () =
       clock: { now: () => '2026-08-04T04:45:00.000Z' },
     });
     const restartedPartitions = await restartedSource.pendingPartitions(100);
-    const second = await projectExperiencePartitions(restartedPartitions, restartedProjector);
+    expect(restartedPartitions).toEqual([]);
+    const second = await projectExperiencePartitions(partitions, restartedProjector);
     expect(second).toEqual([]);
-    const restartedStored = await storedExperiencePartitions(restartedPartitions);
+    const restartedStored = await storedExperiencePartitions(partitions);
     expect(restartedStored).toHaveLength(35);
     expect(new Set(restartedStored.map(({ envelope }) => envelope.recordId))).toEqual(
       new Set(stored.map(({ envelope }) => envelope.recordId)),
@@ -729,7 +764,7 @@ describe('Runtime core canonical Evidence vertical', { concurrent: false }, () =
     const late = await lateProjector.projectPartition(lateTaskPartition);
     expect(late.qualityIssueIds).toEqual([]);
     const afterLateArrival = await storedExperiencePartitions(
-      latePartitions,
+      partitions,
       '2026-08-04T04:51:00.000Z',
     );
     expect(afterLateArrival).toHaveLength(36);

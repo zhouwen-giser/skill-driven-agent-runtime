@@ -157,7 +157,11 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
 
     const navigate = api.runtimeSkill('ugv.navigate');
     expect(navigate?.['runtimePolicy']).toEqual(
-      expect.objectContaining({ autoConfirmPlan: false, maxDurationSeconds: 1800 }),
+      expect.objectContaining({
+        autoConfirmPlan: false,
+        maxDurationSeconds: 1800,
+        maxMcpCalls: 5,
+      }),
     );
     expect(navigate?.['status']).toBe('draft');
     expect(navigate?.['outcomeSpecification']).toEqual(
@@ -179,7 +183,36 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       expect.objectContaining({
         riskLevel: 'medium',
         status: 'draft',
+        successCriteria: expect.arrayContaining([
+          {
+            type: 'external_command_dispatch_count',
+            minimum: 5,
+            maximum: 5,
+          },
+        ]),
         supportedModes: ['plan_confirmed', 'remote_task'],
+        constraints: expect.arrayContaining([
+          {
+            type: 'bounded_movement_policy',
+            constraintId: 'vehicle-navigate-distance-per-dispatch',
+            toolName: 'vehicle_navigate',
+            missionType: 'distance',
+            missionTypeArgumentPath: ['mission', 'type'],
+            directionArgumentPath: ['mission', 'direction'],
+            distanceArgumentPath: ['mission', 'distanceM'],
+            allowedDirections: ['backward', 'forward', 'left', 'right'],
+            exclusiveMinimum: 0,
+            maximumInclusive: 2,
+            unit: 'm',
+            scope: 'per_dispatch',
+            exactDirection: 'forward',
+            exactDistancePerDispatch: 2,
+            exactDispatchCount: 5,
+            exactTotalDistance: 10,
+            strictSequential: true,
+            terminalBeforeNext: true,
+          },
+        ]),
       }),
     );
 
@@ -229,6 +262,185 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     }
     expect(JSON.stringify(report)).not.toContain(CONTROL_TOKEN);
     expect(JSON.stringify(report)).not.toContain('https://runtime.local');
+  });
+
+  it('governs the exact configured Provider Binding generation', async () => {
+    const root = workspaceRoot();
+    const bindingId = 'mcp-binding-ugv-smpp-r2';
+    const api = new FakeUgvGovernanceApis({
+      bindingId,
+      toolNames: ['vehicle_get_state'],
+    });
+    const report = await governUgvSmppCapabilities(
+      { ...configuration(root), bindingId },
+      { fetch: api.fetch, now: () => NOW },
+    );
+
+    expect(report.binding.bindingId).toBe(bindingId);
+    expect(
+      parseMcpProviderBindingPolicyOverride(
+        api.implementation('vehicle.ugv.read-state')?.['providerPolicyOverride'],
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        requirements: [expect.objectContaining({ mcpProviderBindingId: bindingId })],
+      }),
+    );
+  });
+
+  it('publishes only bounded vehicle_navigate behind its explicit activation', async () => {
+    const root = workspaceRoot();
+    const api = new FakeUgvGovernanceApis();
+    const staged = await governUgvSmppCapabilities(configuration(root), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+    expect(staged.stagedControls).toHaveLength(5);
+    const report = await governUgvSmppCapabilities(
+      { ...configuration(root), activateNavigateControl: true },
+      { fetch: api.fetch, now: () => NOW },
+    );
+
+    expect(report.skills.map(({ toolName }) => toolName)).toEqual([
+      ...READ_ONLY_TOOLS,
+      'vehicle_navigate',
+    ]);
+    expect(report.capabilities.map(({ toolName }) => toolName)).toEqual([
+      ...READ_ONLY_TOOLS,
+      'vehicle_navigate',
+    ]);
+    expect(report.skills.find(({ toolName }) => toolName === 'vehicle_navigate')?.action).toBe(
+      'reconciled',
+    );
+    expect(report.stagedControls.map(({ toolName }) => toolName)).toEqual(CONTROL_TOOLS.slice(1));
+    expect(report.catalog).toEqual({
+      discoveredToolCount: 12,
+      governedToolCount: 6,
+      stagedControlToolCount: 4,
+      unmappedToolNames: ['vehicle_diagnostics_extension'],
+    });
+    expect(api.runtimeSkill('ugv.navigate')).toEqual(
+      expect.objectContaining({
+        status: 'enabled',
+        runtimePolicy: expect.objectContaining({ maxMcpCalls: 5 }),
+        usageSpecification: expect.objectContaining({
+          taskBindings: [
+            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-1' }),
+            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-2' }),
+            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-3' }),
+            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-4' }),
+            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-5' }),
+          ],
+        }),
+      }),
+    );
+    expect(api.capability('vehicle.ugv.navigate')).toEqual(
+      expect.objectContaining({
+        status: 'published',
+        successCriteria: expect.arrayContaining([
+          {
+            type: 'external_command_dispatch_count',
+            minimum: 5,
+            maximum: 5,
+          },
+        ]),
+      }),
+    );
+    expect(api.implementation('vehicle.ugv.navigate')).toEqual(
+      expect.objectContaining({
+        implementationId: 'ugv.navigate',
+        status: 'active',
+      }),
+    );
+    for (const toolName of CONTROL_TOOLS.slice(1)) {
+      const staged = report.stagedControls.find((item) => item.toolName === toolName);
+      expect(staged).toEqual(
+        expect.objectContaining({
+          runtimeSkillStatus: 'draft',
+          capabilityStatus: 'draft',
+          implementationPersisted: false,
+          executionAuthorized: false,
+        }),
+      );
+    }
+    expect(api.uniqueMutations('skill-publish')).toBe(6);
+    expect(api.uniqueMutations('capability-implementation')).toBe(6);
+    expect(api.uniqueMutations('capability-publish')).toBe(6);
+    expect(api.uniqueMutations('capability-readiness')).toBe(6);
+    expect(api.runtimeSkill('ugv.fire-weapon')).toBeUndefined();
+    expect(api.capability('vehicle.ugv.fire-weapon')).toBeUndefined();
+  });
+
+  it('publishes a successor point-navigation authority with one obstacle-stopping dispatch', async () => {
+    const root = workspaceRoot();
+    const api = new FakeUgvGovernanceApis();
+    await governUgvSmppCapabilities(configuration(root), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+
+    const report = await governUgvSmppCapabilities(
+      {
+        ...configuration(root),
+        activateNavigateControl: true,
+        navigateControlMode: 'coordinate_point',
+      },
+      { fetch: api.fetch, now: () => NOW },
+    );
+
+    expect(report.navigateControl).toEqual({
+      activated: true,
+      mode: 'coordinate_point',
+      dispatchMaximum: 1,
+      stopOnObstacleRequired: true,
+    });
+    expect(api.runtimeSkill('ugv.navigate')).toEqual(
+      expect.objectContaining({
+        version: 2,
+        status: 'enabled',
+        runtimePolicy: expect.objectContaining({ maxMcpCalls: 1 }),
+        inputSchema: expect.objectContaining({
+          required: ['resourceId', 'mission', 'stopOnObstacle'],
+          properties: expect.objectContaining({
+            resourceId: expect.objectContaining({ const: RESOURCE_ID }),
+            stopOnObstacle: { type: 'boolean', const: true },
+            mission: expect.objectContaining({
+              properties: expect.objectContaining({ type: { const: 'point' } }),
+            }),
+          }),
+        }),
+        usageSpecification: expect.objectContaining({
+          taskBindings: [expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v2' })],
+        }),
+      }),
+    );
+    const capability = api.capability('vehicle.ugv.navigate');
+    expect(capability).toEqual(
+      expect.objectContaining({
+        version: 2,
+        status: 'published',
+        successCriteria: expect.arrayContaining([
+          {
+            type: 'external_command_dispatch_count',
+            minimum: 1,
+            maximum: 1,
+          },
+        ]),
+      }),
+    );
+    expect(
+      Array.isArray(capability?.['constraints']) &&
+        capability['constraints'].some(
+          (constraint) => isRecord(constraint) && constraint['type'] === 'bounded_movement_policy',
+        ),
+    ).toBe(false);
+    expect(api.implementation('vehicle.ugv.navigate')).toEqual(
+      expect.objectContaining({
+        implementationId: 'ugv.navigate',
+        implementationVersion: '2',
+        status: 'active',
+      }),
+    );
   });
 
   it('is idempotent for the same exact versions and fails closed on later exact-version drift', async () => {
@@ -455,6 +667,45 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-test-run',
     });
     expect(loaded.configuration.nodeControlBearerToken).toBe(CONTROL_TOKEN);
+    expect(loaded.configuration.activateNavigateControl).toBe(false);
+
+    const activated = await ugvSmppGovernanceConfigurationFromEnvironment({
+      SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:10080',
+      SDAR_CONTROL_API_TOKEN_FILE: secretFile,
+      SDAR_UGV_RUNTIME_MANAGEMENT_BASE_URL: 'http://127.0.0.1:9998',
+      SDAR_UGV_GOVERNANCE_PACKAGE_ROOT: root,
+      SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-test-run',
+      SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'YES',
+    });
+    expect(activated.configuration.activateNavigateControl).toBe(true);
+    expect(activated.configuration.navigateControlMode).toBe('distance_sequence');
+
+    const coordinate = await ugvSmppGovernanceConfigurationFromEnvironment({
+      SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:10080',
+      SDAR_CONTROL_API_TOKEN_FILE: secretFile,
+      SDAR_UGV_RUNTIME_MANAGEMENT_BASE_URL: 'http://127.0.0.1:9998',
+      SDAR_UGV_GOVERNANCE_PACKAGE_ROOT: root,
+      SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-coordinate-run',
+      SDAR_UGV_BINDING_ID: 'mcp-binding-ugv-smpp-r2',
+      SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'YES',
+      ALLOW_UGV_COORDINATE_NAVIGATION: 'YES',
+      UGV_TEST_SAFE_POINT_JSON: '{"longitude":106.81413978,"latitude":29.720426,"altitude":500}',
+    });
+    expect(coordinate.configuration.navigateControlMode).toBe('coordinate_point');
+    expect(coordinate.configuration.bindingId).toBe('mcp-binding-ugv-smpp-r2');
+
+    await expect(
+      ugvSmppGovernanceConfigurationFromEnvironment({
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:10080',
+        SDAR_CONTROL_API_TOKEN_FILE: secretFile,
+        SDAR_UGV_RUNTIME_MANAGEMENT_BASE_URL: 'http://127.0.0.1:9998',
+        SDAR_UGV_GOVERNANCE_PACKAGE_ROOT: root,
+        SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-coordinate-invalid',
+        SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'YES',
+        ALLOW_UGV_COORDINATE_NAVIGATION: 'YES',
+        UGV_TEST_SAFE_POINT_JSON: '{"longitude":106.81413978,"latitude":29.720426}',
+      }),
+    ).rejects.toMatchObject({ code: 'DRIVER_CONFIGURATION_INVALID' });
 
     const api = new FakeUgvGovernanceApis({ toolNames: ['vehicle_get_state'] });
     const report = await governUgvSmppCapabilities(loaded.configuration, {
@@ -476,6 +727,16 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-test-run',
       }),
     ).rejects.toMatchObject({ code: 'DRIVER_CONFIGURATION_INVALID' });
+    await expect(
+      ugvSmppGovernanceConfigurationFromEnvironment({
+        SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:10080',
+        SDAR_CONTROL_API_TOKEN_FILE: secretFile,
+        SDAR_UGV_RUNTIME_MANAGEMENT_BASE_URL: 'http://127.0.0.1:9998',
+        SDAR_UGV_GOVERNANCE_PACKAGE_ROOT: root,
+        SDAR_UGV_BOOTSTRAP_RUN_ID: 'ugv-bootstrap-test-run',
+        SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL: 'true',
+      }),
+    ).rejects.toMatchObject({ code: 'DRIVER_CONFIGURATION_INVALID' });
   });
 });
 
@@ -484,6 +745,7 @@ interface FakeOptions {
   readonly resourceSchema?: Record<string, unknown>;
   readonly availabilityValidUntil?: string;
   readonly changeCatalogOnFinalRead?: boolean;
+  readonly bindingId?: string;
 }
 
 class FakeUgvGovernanceApis {
@@ -597,7 +859,11 @@ class FakeUgvGovernanceApis {
     const url = new URL(input instanceof Request ? input.url : input.toString());
     const method = init?.method ?? 'GET';
 
-    if (method === 'GET' && url.pathname === '/api/v1/mcp-provider-bindings/mcp-binding-ugv-smpp') {
+    if (
+      method === 'GET' &&
+      url.pathname ===
+        `/api/v1/mcp-provider-bindings/${this.#options.bindingId ?? 'mcp-binding-ugv-smpp'}`
+    ) {
       this.#bindingReads += 1;
       if (this.#options.changeCatalogOnFinalRead === true && this.#bindingReads >= 2)
         this.replaceOutputSchema('vehicle_get_state', {
@@ -778,7 +1044,7 @@ class FakeUgvGovernanceApis {
 
   private binding() {
     return {
-      bindingId: 'mcp-binding-ugv-smpp',
+      bindingId: this.#options.bindingId ?? 'mcp-binding-ugv-smpp',
       localServerId: SERVER_ID,
       originType: 'smpp_registry',
       smppSourceId: 'smpp-source-ugv',
@@ -862,7 +1128,46 @@ function makeTools(
         additionalProperties: false,
         properties: {
           resourceId: resourceSchema,
-          ...(toolName === 'vehicle_navigate' ? { mission: { type: 'object' } } : {}),
+          ...(toolName === 'vehicle_navigate'
+            ? {
+                mission: {
+                  oneOf: [
+                    {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        type: { const: 'point' },
+                        target: {
+                          type: 'object',
+                          additionalProperties: false,
+                          properties: {
+                            latitude: { type: 'number', minimum: -90, maximum: 90 },
+                            longitude: { type: 'number', minimum: -180, maximum: 180 },
+                            altitude: { type: 'number' },
+                          },
+                          required: ['latitude', 'longitude'],
+                        },
+                      },
+                      required: ['type', 'target'],
+                    },
+                    {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        type: { const: 'distance' },
+                        direction: {
+                          type: 'string',
+                          enum: ['forward', 'backward', 'left', 'right'],
+                        },
+                        distanceM: { type: 'number', exclusiveMinimum: 0 },
+                      },
+                      required: ['type', 'direction', 'distanceM'],
+                    },
+                  ],
+                },
+                stopOnObstacle: { type: 'boolean' },
+              }
+            : {}),
         },
         required: ['resourceId', ...(toolName === 'vehicle_navigate' ? ['mission'] : [])],
       },

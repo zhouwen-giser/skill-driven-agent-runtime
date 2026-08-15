@@ -382,13 +382,13 @@ function applyResourceEnumerationPolicy(
   unresolvedFields: readonly string[];
   sourceRefs: readonly string[];
 }> {
-  if (input.policy.resourceEnumeration !== 'explicit_or_exact_text') {
-    return { candidate: input.candidate, unresolvedFields: [], sourceRefs: [] };
-  }
   const resourceEnums = topLevelResourceEnumerations(input.schema);
   if (resourceEnums.length === 0) {
     return { candidate: input.candidate, unresolvedFields: [], sourceRefs: [] };
   }
+  // Exact request/supplementary values outrank model extraction in every profile. The policy only
+  // controls whether an unmatched model candidate may choose among multiple governed resources.
+  const exactUserValueRequired = input.policy.resourceEnumeration === 'explicit_or_exact_text';
   const candidate = isRecord(input.candidate) ? { ...input.candidate } : {};
   const explicit = isRecord(input.explicitValue) ? input.explicitValue : undefined;
   const unresolvedFields: string[] = [];
@@ -428,8 +428,10 @@ function applyResourceEnumerationPolicy(
       }
       continue;
     }
-    Reflect.deleteProperty(candidate, resource.field);
-    unresolvedFields.push(resource.field);
+    if (values.length > 1 || exactUserValueRequired) {
+      Reflect.deleteProperty(candidate, resource.field);
+      unresolvedFields.push(resource.field);
+    }
   }
   return {
     candidate,

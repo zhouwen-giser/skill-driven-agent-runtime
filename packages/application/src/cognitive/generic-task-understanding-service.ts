@@ -420,7 +420,16 @@ function selectKnownTaskTypes(
   definitions: readonly TaskTypeDefinition[],
 ): readonly TaskTypeCandidate[] {
   const known = new Set(definitions.map((item) => `${item.taskTypeId}:${String(item.version)}`));
-  return candidates.filter((item) => known.has(`${item.taskTypeId}:${String(item.version)}`));
+  const selected = new Map<string, TaskTypeCandidate>();
+  for (const candidate of candidates) {
+    const identity = `${candidate.taskTypeId}:${String(candidate.version)}`;
+    if (!known.has(identity)) continue;
+    const current = selected.get(identity);
+    if (current === undefined || candidate.confidence > current.confidence) {
+      selected.set(identity, candidate);
+    }
+  }
+  return [...selected.values()];
 }
 
 function definitionsForCandidates(

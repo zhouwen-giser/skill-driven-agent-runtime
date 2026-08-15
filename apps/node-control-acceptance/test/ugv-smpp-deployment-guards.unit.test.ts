@@ -373,18 +373,36 @@ describe('UGV SMPP deployment guards', () => {
       ['--request-kind', 'coordinate_navigation'],
       environmentWith(controlEnvironment(), {
         ALLOW_UGV_COORDINATE_NAVIGATION: 'YES',
-        UGV_TEST_SAFE_POINT_JSON: '{"latitude":1,"longitude":2}',
-        UGV_TEST_SAFE_WAYPOINTS_JSON:
-          '[{"latitude":1,"longitude":2},{"latitude":1.1,"longitude":2.1}]',
+        UGV_TEST_DISTANCE_M: undefined,
+        UGV_TEST_SAFE_POINT_JSON: '{"latitude":29.720426,"longitude":106.81413978,"altitude":500}',
       }),
     );
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({
       requestKind: 'coordinate_navigation',
+      coordinateTargetConfigured: true,
       authorityGate: 'pending_live_driver_verification',
     });
     expect(result.stdout).not.toContain('latitude');
+  });
+
+  it('rejects an out-of-range or incomplete coordinate point before control execution', async () => {
+    const result = await runScript(
+      CONTROL_GATE_SCRIPT,
+      ['--request-kind', 'coordinate_navigation'],
+      environmentWith(controlEnvironment(), {
+        ALLOW_UGV_COORDINATE_NAVIGATION: 'YES',
+        UGV_TEST_DISTANCE_M: undefined,
+        UGV_TEST_SAFE_POINT_JSON: '{"latitude":103.1,"longitude":-36.6}',
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stderr)).toEqual({
+      status: 'failed',
+      code: 'SAFE_POINT_FIXTURE_INVALID',
+    });
   });
 });
 

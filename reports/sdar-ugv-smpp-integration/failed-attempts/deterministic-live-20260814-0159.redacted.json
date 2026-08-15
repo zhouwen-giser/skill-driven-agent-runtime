@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-failed-attempt/v1",
+  "status": "failed",
+  "evidenceClass": "real_external_runtime_failure_observation",
+  "observedAt": "2026-08-14T01:59:35.350Z",
+  "taskId": "task-ugv-read-db1dad9a90bab929b9a471d1ef303806",
+  "mcpInvocationId": "mcp-invocation-deterministic-6160523029e621b25c2f1a995c14d1ce",
+  "serverId": "ugv-smpp-runtime",
+  "operationName": "vehicle_get_state",
+  "executionMode": "live",
+  "invocationStatus": "failed",
+  "errorCode": "MCP_TOOL_BUSINESS_REJECTION",
+  "reasonCode": "UGV_EXECUTION_MODE_UNSUPPORTED",
+  "physicalSideEffectInvocationCount": 0,
+  "navigationInvocationCount": 0,
+  "movementOccurred": false,
+  "redaction": {
+    "secretsIncluded": false,
+    "credentialReferencesIncluded": false,
+    "endpointsIncluded": false,
+    "rawPayloadsIncluded": false
+  }
+}

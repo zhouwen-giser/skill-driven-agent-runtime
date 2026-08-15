@@ -1,25 +1,28 @@
 {
   "schemaVersion": "sdar.ugv-smpp-skill-map/v1",
-  "status": "passed_read_only_control_staged",
+  "status": "passed_read_only_and_coordinate_control_other_controls_staged",
   "evidenceClass": "derived_from_real_runtime_and_node_control_governance_authority",
   "derivedFrom": [
     "reports/sdar-ugv-smpp-integration/capability-skill-governance.redacted.json"
   ],
-  "observedAt": "2026-08-12T12:46:26.190Z",
+  "observedAt": "2026-08-14T13:11:59.151Z",
   "counts": {
     "publishedReadOnly": 5,
-    "stagedControl": 5,
+    "publishedCoordinateControl": 1,
+    "stagedControl": 4,
     "fire": 0
   },
   "readOnlySkills": [
-    {"skillId":"ugv.get-state","version":4,"capabilityId":"vehicle.ugv.read-state","toolName":"vehicle_get_state","status":"published"},
-    {"skillId":"ugv.get-capabilities","version":4,"capabilityId":"vehicle.ugv.read-capabilities","toolName":"vehicle_get_capabilities","status":"published"},
-    {"skillId":"ugv.get-payload-status","version":4,"capabilityId":"vehicle.ugv.read-payload","toolName":"vehicle_get_payload_status","status":"published"},
-    {"skillId":"ugv.get-targets","version":4,"capabilityId":"vehicle.ugv.read-targets","toolName":"vehicle_get_targets","status":"published"},
-    {"skillId":"ugv.laser-range","version":4,"capabilityId":"vehicle.ugv.laser-range","toolName":"vehicle_laser_range","status":"published"}
+    {"skillId":"ugv.get-state","version":6,"capabilityId":"vehicle.ugv.read-state","toolName":"vehicle_get_state","status":"published"},
+    {"skillId":"ugv.get-capabilities","version":6,"capabilityId":"vehicle.ugv.read-capabilities","toolName":"vehicle_get_capabilities","status":"published"},
+    {"skillId":"ugv.get-payload-status","version":6,"capabilityId":"vehicle.ugv.read-payload","toolName":"vehicle_get_payload_status","status":"published"},
+    {"skillId":"ugv.get-targets","version":6,"capabilityId":"vehicle.ugv.read-targets","toolName":"vehicle_get_targets","status":"published"},
+    {"skillId":"ugv.laser-range","version":6,"capabilityId":"vehicle.ugv.laser-range","toolName":"vehicle_laser_range","status":"published"}
+  ],
+  "publishedCoordinateControlSkills": [
+    {"skillId":"ugv.navigate","version":6,"capabilityId":"vehicle.ugv.navigate","toolName":"vehicle_navigate","runtimeStatus":"enabled","governanceStatus":"published","selectable":true}
   ],
   "stagedControlSkills": [
-    {"skillId":"ugv.navigate","capabilityId":"vehicle.ugv.navigate","toolName":"vehicle_navigate","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},
     {"skillId":"ugv.area-recon","capabilityId":"vehicle.ugv.recon","toolName":"vehicle_area_recon","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},
     {"skillId":"ugv.track-target","capabilityId":"vehicle.ugv.track-target","toolName":"vehicle_track_target","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},
     {"skillId":"ugv.control-gimbal","capabilityId":"vehicle.ugv.control-gimbal","toolName":"vehicle_control_gimbal","runtimeStatus":"draft","governanceStatus":"validated","selectable":false},

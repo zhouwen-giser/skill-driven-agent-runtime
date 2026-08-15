@@ -18,18 +18,33 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
       throw new Error('Runtime core Evidence pending limit must be between 1 and 1000.');
     const result = await this.#pool.query<{ task_id: string }>(
       `WITH candidate AS (
-         SELECT outcome.task_id,outcome.outcome_id,outcome.committed_at
-         FROM runtime_terminal_outcome outcome
-         WHERE outcome.task_id IS NOT NULL
+         SELECT task.task_id,
+                MIN(COALESCE(outcome.committed_at,task.updated_at)) AS first_observed_at,
+                MIN(COALESCE(outcome.outcome_id,task.task_id)) AS source_order
+         FROM agent_task task
+         LEFT JOIN runtime_terminal_outcome outcome ON outcome.task_id=task.task_id
+         LEFT JOIN evidence_source_checkpoint checkpoint
+           ON checkpoint.source_family='runtime'
+          AND checkpoint.source_partition='runtime-core:' || task.task_id
+         WHERE task.phase IN ('capability_gap','completed','canceled','failed','invalidated')
            AND (
-             NOT EXISTS (
-               SELECT 1 FROM evidence_outbox evidence
-               WHERE evidence.record_type='runtime.run_seal'
-                 AND evidence.source_record_id=outcome.outcome_id
+             checkpoint.source_partition IS NULL
+             OR checkpoint.projector_version IS DISTINCT FROM 'runtime-core/v1'
+             OR checkpoint.last_occurred_at IS NULL
+             OR checkpoint.last_occurred_at < task.updated_at
+             OR EXISTS (
+               SELECT 1
+               FROM runtime_terminal_outcome pending_outcome
+               WHERE pending_outcome.task_id=task.task_id
+                 AND NOT EXISTS (
+                   SELECT 1 FROM evidence_outbox evidence
+                   WHERE evidence.record_type='runtime.run_seal'
+                     AND evidence.source_record_id=pending_outcome.outcome_id
+                 )
              )
              OR EXISTS (
                SELECT 1 FROM evidence_projection_issue projection_issue
-               WHERE projection_issue.source_partition='runtime-core:' || outcome.task_id
+               WHERE projection_issue.source_partition='runtime-core:' || task.task_id
                  AND projection_issue.projector_version='runtime-core/v1'
                  AND projection_issue.evaluation_role='required'
                  AND projection_issue.severity='blocking'
@@ -37,6 +52,7 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
                  AND projection_issue.resolved_at IS NULL
              )
            )
+         GROUP BY task.task_id,task.updated_at
        )
        SELECT candidate.task_id
        FROM candidate
@@ -55,8 +71,8 @@ export class PostgresRuntimeCoreEvidenceSource implements RuntimeCoreEvidenceSou
        WHERE projection_issue.last_observed_at IS NULL
           OR projection_issue.last_observed_at + interval '5 seconds' <= clock_timestamp()
        ORDER BY COALESCE(
-         projection_issue.last_observed_at + interval '5 seconds',candidate.committed_at
-       ),candidate.outcome_id
+         projection_issue.last_observed_at + interval '5 seconds',candidate.first_observed_at
+       ),candidate.source_order
        LIMIT $1`,
       [limit],
     );

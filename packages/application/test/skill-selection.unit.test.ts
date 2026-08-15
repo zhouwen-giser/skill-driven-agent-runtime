@@ -266,6 +266,7 @@ describe('SkillSelectionService', () => {
 
   it('keeps the exact G07 procedure candidate when availability sees its public resource', async () => {
     const availabilityArguments: unknown[] = [];
+    let availability: 'available' | 'disabled' = 'available';
     const readiness = new FrozenSkillTaskReadinessAdapter({
       operations: {
         listTaskOperationCandidates: () => Promise.resolve([g07OperationCandidate()]),
@@ -281,8 +282,9 @@ describe('SkillSelectionService', () => {
               {
                 nodeId: 'task-binding-home.light.get-state-v1',
                 operationName: 'light_get_state',
-                availability: 'available' as const,
+                availability,
                 riskLevel: 'low' as const,
+                ...(availability === 'disabled' ? { reasonCode: 'UGV_CHASSIS_TRACK_BUSY' } : {}),
                 validUntil: '2026-07-11T10:01:00.000Z',
                 nextAvailableWindows: [],
                 reservationMode: 'none' as const,
@@ -369,6 +371,37 @@ describe('SkillSelectionService', () => {
     expect(availabilityArguments).toEqual([
       { unresolved: false, value: { resourceId: 'living-room-main-light' } },
     ]);
+
+    availability = 'disabled';
+    await expect(
+      service.selectFromCandidates(goalContract, [g07Skill()], {
+        observations: [
+          {
+            requirementId: 'public-resource-id',
+            source: 'authoritative_context',
+            status: 'available',
+            evidenceRef: 'public-resource:living-room-main-light',
+          },
+          {
+            requirementId: 'provider-binding-freshness',
+            source: 'authoritative_context',
+            status: 'available',
+            evidenceRef: 'node-control-provider-binding:mcp-binding-ha-light-lab',
+          },
+        ],
+        risk: 'low',
+        humanConfirmation: 'confirmed',
+        systemPolicy: {
+          allowedModes: ['procedure'],
+          preferredMode: 'procedure',
+          requireProcedureForHighRisk: true,
+          allowGuidanceWithIncompleteContext: false,
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'SKILL_SELECTION_NO_CANDIDATES',
+      message: expect.stringContaining('UGV_CHASSIS_TRACK_BUSY'),
+    });
   });
 });
 

@@ -98,6 +98,7 @@ import type {
   McpTaskOperationDefinition,
   McpTaskOperationCandidate,
   TaskAvailabilityCheckRequest,
+  TaskAvailabilityArguments,
   TaskAvailabilityReadResult,
   TaskAvailabilitySnapshot,
   DslExecutionReadiness,
@@ -531,6 +532,7 @@ export interface SkillTaskReadinessPort {
       skillVersion: number;
       taskBindings: readonly SkillTaskBinding[];
       allowPreferredProviderFallback: boolean;
+      arguments?: TaskAvailabilityArguments;
     }>,
   ): Promise<SkillTaskReadinessSummary>;
 }

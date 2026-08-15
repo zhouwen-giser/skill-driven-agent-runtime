@@ -45,6 +45,87 @@ afterEach(async () => {
 });
 
 describe('Node Control HTTP frozen contract', () => {
+  it('exposes exact Capability authority only through the runtime-service channel', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-14T01:00:00.000Z' },
+      ids: { next: () => 'audit-runtime-capability' },
+    });
+    await service.bootstrapNodeProfile({
+      nodeId: 'node-runtime-capability',
+      nodeType: 'sdar-runtime',
+      displayName: 'Runtime Capability Node',
+      environment: 'test',
+      runtimeEndpointRef: 'http://127.0.0.1:9998',
+    });
+    const configurationService = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-14T01:00:00.000Z' },
+      ids: { next: () => 'operation-runtime-capability' },
+    });
+    const capability = Object.freeze({
+      capabilityId: 'vehicle.ugv.read-state',
+      version: 1,
+      domain: 'vehicle.ugv',
+      name: 'Read UGV state',
+      description: 'Read one UGV state.',
+      inputSchema: Object.freeze({ type: 'object' }),
+      outputSchema: Object.freeze({ type: 'object' }),
+      successCriteria: Object.freeze([]),
+      requiredEvidence: Object.freeze([]),
+      effects: Object.freeze([]),
+      artifacts: Object.freeze([]),
+      constraints: Object.freeze([]),
+      supportedModes: Object.freeze([]),
+      riskLevel: 'low',
+      status: 'published',
+      definitionHash: 'a'.repeat(64),
+    });
+    const implementation = Object.freeze({
+      bindingId: 'binding-read-state-v1',
+      revision: 1,
+      capabilityId: capability.capabilityId,
+      capabilityVersion: capability.version,
+      implementationType: 'skill',
+      implementationId: 'ugv.get-state',
+      implementationVersion: '1',
+      role: 'primary',
+      priority: 0,
+      status: 'active',
+    });
+    const app = createNodeControlHttpApp(service, configurationService, {
+      bearerToken: token,
+      runtimeServiceToken: `${token}-runtime`,
+      nodeControlApiUrl: 'http://127.0.0.1:10080',
+      nodeEventsUrl: 'http://127.0.0.1:10080/api/v1/events',
+      a2aAgentCardUrl: 'http://127.0.0.1:9999/.well-known/agent-card.json',
+      capabilities: {
+        get: () => Promise.resolve(capability),
+        listImplementations: () => Promise.resolve([implementation]),
+      } as unknown as NodeControlCapabilityService,
+    });
+    server = await listen(app);
+    const baseUrl = address(server);
+    const path = `${baseUrl}/internal/v1/node-capabilities/vehicle.ugv.read-state/versions/1/authority`;
+
+    const unauthorized = await fetch(path, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(unauthorized.status).toBe(401);
+    const response = await fetch(path, {
+      headers: { authorization: `Bearer ${token}-runtime` },
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      definition: { capabilityId: 'vehicle.ugv.read-state', version: 1 },
+      implementationBindings: [
+        { bindingId: 'binding-read-state-v1', implementationId: 'ugv.get-state' },
+      ],
+    });
+  });
+
   it('exposes public liveness/discovery and authenticated Node/Audit projections', async () => {
     const repository = new MemoryRepository();
     const service = new NodeControlFoundationService({

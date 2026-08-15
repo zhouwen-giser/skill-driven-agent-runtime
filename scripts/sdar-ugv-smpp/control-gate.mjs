@@ -52,20 +52,26 @@ export function evaluateUgvControlGate(environment = process.env, request = {}) 
   if (!PUBLIC_RESOURCE.test(resourceId) || /[*?]/u.test(resourceId))
     fail('UGV_TEST_RESOURCE_ID_INVALID');
 
-  const distanceM = positiveDecimal(environment, 'UGV_TEST_DISTANCE_M');
   const configuredSiteLimit = optionalPositiveDecimal(environment, 'UGV_SITE_DISTANCE_LIMIT_M', 2);
   const maximumDistanceM = Math.min(2, configuredSiteLimit);
-  if (distanceM > maximumDistanceM) fail('UGV_TEST_DISTANCE_EXCEEDS_LIMIT');
+  const distanceM =
+    requestKind === 'bounded_movement'
+      ? positiveDecimal(environment, 'UGV_TEST_DISTANCE_M')
+      : undefined;
+  if (distanceM !== undefined && distanceM > maximumDistanceM)
+    fail('UGV_TEST_DISTANCE_EXCEEDS_LIMIT');
 
-  if (requestKind === 'coordinate_navigation') assertCoordinateGate(environment);
+  const coordinateTargetConfigured =
+    requestKind === 'coordinate_navigation' ? assertCoordinateGate(environment) : false;
   if (requestKind === 'reconnaissance') assertReconGate(environment);
 
   return Object.freeze({
     status: 'environment_gate_passed',
     requestKind,
     targetResourceId: resourceId,
-    requestedDistanceM: distanceM,
+    ...(distanceM === undefined ? {} : { requestedDistanceM: distanceM }),
     maximumDistanceM,
+    coordinateTargetConfigured,
     fireExecution: 'forbidden',
     authorityGate: 'pending_live_driver_verification',
     requiredBeforeEverySideEffect: Object.freeze([
@@ -94,10 +100,16 @@ function assertCoordinateGate(environment) {
   if (environment['ALLOW_UGV_COORDINATE_NAVIGATION']?.trim() !== 'YES')
     fail('COORDINATE_GATE_CLOSED');
   const point = boundedJson(required(environment, 'UGV_TEST_SAFE_POINT_JSON', 16_384));
-  const waypoints = boundedJson(required(environment, 'UGV_TEST_SAFE_WAYPOINTS_JSON', 65_536));
-  if (!isRecord(point)) fail('SAFE_POINT_FIXTURE_INVALID');
-  if (!Array.isArray(waypoints) || waypoints.length === 0 || !waypoints.every(isRecord))
-    fail('SAFE_WAYPOINT_FIXTURE_INVALID');
+  if (
+    !isRecord(point) ||
+    !sameKeys(point, ['altitude', 'latitude', 'longitude']) ||
+    !boundedCoordinate(point.latitude, -90, 90) ||
+    !boundedCoordinate(point.longitude, -180, 180) ||
+    typeof point.altitude !== 'number' ||
+    !Number.isFinite(point.altitude)
+  )
+    fail('SAFE_POINT_FIXTURE_INVALID');
+  return true;
 }
 
 /** @param {NodeJS.ProcessEnv} environment */
@@ -135,6 +147,19 @@ function assertJsonDepth(value, depth) {
 /** @param {unknown} value */
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** @param {Record<string, unknown>} value @param {readonly string[]} expected */
+function sameKeys(value, expected) {
+  const actual = Object.keys(value).sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+/** @param {unknown} value @param {number} minimum @param {number} maximum */
+function boundedCoordinate(value, minimum, maximum) {
+  return (
+    typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+  );
 }
 
 /** @param {NodeJS.ProcessEnv} environment @param {string} name @param {number} maximum */
