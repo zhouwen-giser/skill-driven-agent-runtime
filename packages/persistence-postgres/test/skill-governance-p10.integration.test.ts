@@ -62,15 +62,20 @@ describe('P10 exact Skill version governance authority', () => {
     const counts = await pool.query<{
       governance: number;
       commands: number;
+      catalog_events: number;
       immutable_status: string;
     }>(
       `SELECT
          (SELECT count(*)::integer FROM runtime_skill_version_governance WHERE skill_id=$1) AS governance,
          (SELECT count(*)::integer FROM runtime_skill_governance_command WHERE skill_id=$1) AS commands,
+         (SELECT count(*)::integer FROM cognitive_runtime_outbox
+           WHERE event_type='skill.catalog_changed' AND payload->>'skillId'=$1) AS catalog_events,
          (SELECT status FROM skill_version WHERE skill_id=$1 AND version=1) AS immutable_status`,
       [skillId],
     );
-    expect(counts.rows).toEqual([{ governance: 1, commands: 2, immutable_status: 'draft' }]);
+    expect(counts.rows).toEqual([
+      { governance: 1, commands: 2, catalog_events: 3, immutable_status: 'draft' },
+    ]);
   });
 
   it('rejects idempotency drift before changing authoritative Skill state', async () => {

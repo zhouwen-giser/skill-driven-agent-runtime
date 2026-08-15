@@ -5,7 +5,11 @@ import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runti
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
 import { ConfiguredBearerGovernedControlIdentity } from './governed-control-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
-import { homeLabReadOnlyTaskUnderstandingConfiguration } from './home-lab-task-understanding.js';
+import {
+  homeLabGovernedLightSkillUsageContext,
+  homeLabGovernedLightTaskUnderstandingConfiguration,
+  homeLabReadOnlyTaskUnderstandingConfiguration,
+} from './home-lab-task-understanding.js';
 import { managedCapabilityTaskUnderstandingConfiguration } from './managed-capability-task-understanding.js';
 import { modelRuntimeBootstrapConfiguration } from './model-runtime-bootstrap-configuration.js';
 import { startServerRuntime } from './runtime.js';
@@ -82,6 +86,7 @@ const runtime = await startServerRuntime({
     ? {}
     : { governedControlPrincipalResolver: governedControlIdentity }),
   ...(environment.BUSINESS_EVENTS_ENABLED === 'true' ||
+  environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' ||
   environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
     ? {
         frozenMcpTasks: { isolationAcknowledged: true as const },
@@ -100,14 +105,19 @@ const runtime = await startServerRuntime({
     : {}),
   ...(environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only'
     ? { taskUnderstanding: homeLabReadOnlyTaskUnderstandingConfiguration() }
-    : environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
+    : environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control'
       ? {
-          taskUnderstanding: {
-            ...managedCapabilityTaskUnderstandingConfiguration(),
-            modelTimeoutMs: environment.SDAR_UGV_MODEL_TIMEOUT_MS,
-          },
+          taskUnderstanding: homeLabGovernedLightTaskUnderstandingConfiguration(),
+          skillUsageContext: { resolve: homeLabGovernedLightSkillUsageContext },
         }
-      : {}),
+      : environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
+        ? {
+            taskUnderstanding: {
+              ...managedCapabilityTaskUnderstandingConfiguration(),
+              modelTimeoutMs: environment.SDAR_UGV_MODEL_TIMEOUT_MS,
+            },
+          }
+        : {}),
 });
 
 process.stdout.write(

@@ -34,7 +34,15 @@ const ProvidersSchema = z.object({
   ),
 });
 const RoutesSchema = z.object({
-  items: z.array(z.object({ stage: z.string().min(1), providerId: z.string().min(1) }).loose()),
+  items: z.array(
+    z
+      .object({
+        stage: z.string().min(1),
+        operation: z.enum(['structured_generation', 'embedding']),
+        providerId: z.string().min(1),
+      })
+      .loose(),
+  ),
 });
 const EmbeddingProbeSchema = z
   .object({
@@ -227,6 +235,20 @@ export async function bootstrapHomeLabA2AModelFixture(
       timeoutMs,
       204,
     );
+  await requestJson(
+    request,
+    new URL('/api/v1/models/routes/goal', management),
+    {
+      method: 'PUT',
+      headers: managementHeaders,
+      body: JSON.stringify({
+        providerId: HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+        operation: 'embedding',
+      }),
+    },
+    timeoutMs,
+    204,
+  );
 
   const providers = ProvidersSchema.parse(
     await requestJson(
@@ -252,11 +274,16 @@ export async function bootstrapHomeLabA2AModelFixture(
       200,
     ),
   );
-  const byStage = new Map(routes.items.map((route) => [route.stage, route.providerId]));
+  const byStageAndOperation = new Map(
+    routes.items.map((route) => [`${route.stage}:${route.operation}`, route.providerId]),
+  );
   if (
     HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES.some(
-      (stage) => byStage.get(stage) !== HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
-    )
+      (stage) =>
+        byStageAndOperation.get(`${stage}:structured_generation`) !==
+        HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
+    ) ||
+    byStageAndOperation.get('goal:embedding') !== HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID
   )
     throw new Error('HOME_LAB_A2A_MODEL_ROUTE_VERIFICATION_FAILED');
 

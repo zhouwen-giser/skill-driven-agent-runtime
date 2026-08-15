@@ -57,12 +57,13 @@ describe('home-lab A2A Model bootstrap', () => {
       Math.max(...promptWrites.map((call) => management.calls.indexOf(call))),
     );
     expect(management.routes).toEqual(
-      new Map(
-        HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES.map((stage) => [
-          stage,
-          HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID,
-        ]),
-      ),
+      new Map([
+        ...HOME_LAB_A2A_MODEL_CONFIGURED_ROUTES.map(
+          (stage) =>
+            [`${stage}:structured_generation`, HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID] as const,
+        ),
+        ['goal:embedding', HOME_LAB_A2A_MODEL_FIXTURE_PROVIDER_ID] as const,
+      ]),
     );
 
     const promptWriteCount = promptWrites.length;
@@ -219,14 +220,20 @@ function managementHarness(fixtureBaseUrl: string) {
     }
     const routeMatch = /^\/api\/v1\/models\/routes\/([^/]+)$/u.exec(url.pathname);
     if (method === 'PUT' && routeMatch !== null) {
-      routes.set(decodeURIComponent(routeMatch[1] ?? ''), String(body?.['providerId']));
+      routes.set(
+        `${decodeURIComponent(routeMatch[1] ?? '')}:${String(body?.['operation'] ?? 'structured_generation')}`,
+        String(body?.['providerId']),
+      );
       return empty();
     }
     if (method === 'GET' && url.pathname === '/api/v1/models/providers')
       return json({ items: provider === undefined ? [] : [provider] });
     if (method === 'GET' && url.pathname === '/api/v1/models/routes')
       return json({
-        items: [...routes].map(([stage, providerId]) => ({ stage, providerId })),
+        items: [...routes].map(([key, providerId]) => {
+          const [stage, operation] = key.split(':');
+          return { stage, operation, providerId };
+        }),
       });
     return json({ error: 'unexpected' }, 500);
   };

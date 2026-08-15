@@ -137,7 +137,7 @@ describe('Skill Usage Workflow planning', () => {
     });
   });
 
-  it('preserves requirementId evidence gates for non-synchronous MCP Task operations', () => {
+  it('uses Provider evidenceType gates for non-synchronous MCP Task operations', () => {
     const base = candidate('procedure');
     const taskCandidate: SkillUsageCandidateSnapshot = {
       ...base,
@@ -186,7 +186,7 @@ describe('Skill Usage Workflow planning', () => {
     if (definition === undefined) throw new Error('DETERMINISTIC_DEFINITION_EXPECTED');
 
     expect(definition.nodes.find((node) => node.nodeId === 'usage_evidence_0')).toMatchObject({
-      expression: { op: 'ref', path: ['evidence', 'final-position'] },
+      expression: { op: 'exists', path: ['evidence', 'position.observation'] },
     });
     expect(definition.nodes.find((node) => node.nodeId === 'usage_task_0')).toHaveProperty(
       'taskExecution',

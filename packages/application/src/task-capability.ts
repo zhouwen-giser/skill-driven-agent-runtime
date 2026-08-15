@@ -55,6 +55,7 @@ export interface TaskCapabilityAcceptanceStore {
   ): Promise<void>;
   findBinding(taskId: string): Promise<TaskCapabilityBinding | undefined>;
   listAttempts(taskId: string): Promise<readonly TaskCapabilityExecutionAttempt[]>;
+  bindInitialPlan?(taskId: string, planId: string): Promise<void>;
   appendAttempt(
     input: Omit<TaskCapabilityExecutionAttempt, 'attemptNo' | 'status'>,
   ): Promise<TaskCapabilityExecutionAttempt>;
@@ -337,6 +338,16 @@ export class RuntimeTaskCapabilityService {
     return this.#store.findBinding(taskId);
   }
 
+  async bindInitialPlan(taskId: string, planId: string): Promise<void> {
+    if ((await this.#store.findBinding(taskId)) === undefined) return;
+    if (this.#store.bindInitialPlan === undefined)
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_ATTEMPT_CONTEXT_INVALID',
+        'Capability execution attempt plan binding is unavailable.',
+      );
+    await this.#store.bindInitialPlan(taskId, planId);
+  }
+
   /**
    * Projects only context evidence already frozen by Capability admission. The
    * current Provider Binding is re-verified on both Control and Runtime sides;
@@ -572,7 +583,7 @@ export class RuntimeTaskCapabilityService {
           );
     for (const criterion of binding.successCriteriaSnapshot) {
       if (!criterionSatisfied(criterion, result, binding, invocations, context, physicalDispatches))
-        terminal('A frozen success criterion is not satisfied.');
+        terminal(`Frozen success criterion ${String(criterion['type'])} is not satisfied.`);
     }
     for (const requirement of binding.evidenceRequirementSnapshot) {
       if (!evidenceSatisfied(requirement, result, binding, invocations, physicalDispatches))
@@ -1045,6 +1056,18 @@ function criterionSatisfied(
     return context.outputSchemaValid === true;
   if (criterion['type'] === 'resource_identity_matches_request' && criterion['required'] === true)
     return resourceIdentityMatches(binding, result);
+  if (
+    criterion['type'] === 'state_confirmation_matches_request' &&
+    criterion['required'] === true
+  ) {
+    const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
+    return (
+      input !== undefined &&
+      result['resourceId'] === input['resourceId'] &&
+      result['power'] === input['power'] &&
+      result['confirmed'] === true
+    );
+  }
   if (criterion['type'] === 'required_evidence_complete' && criterion['required'] === true)
     return binding.evidenceRequirementSnapshot.every((requirement) =>
       evidenceSatisfied(requirement, result, binding, invocations, physicalDispatches),
@@ -1057,8 +1080,8 @@ function criterionSatisfied(
     return physicalDispatches?.valid === true;
   if (criterion['type'] === 'external_command_dispatch_count' && physicalDispatches?.valid === true)
     return exactDispatchCriterionCount(criterion) === physicalDispatches.expectedDispatchCount;
-  // State confirmation and restoration are write-side semantics. They remain
-  // fail-closed until an authoritative write lifecycle supplies those proofs.
+  // Baseline restoration is a cross-Task write lifecycle proof. It remains
+  // fail-closed until an authoritative lifecycle supplies that proof.
   return false;
 }
 

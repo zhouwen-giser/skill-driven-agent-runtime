@@ -7,7 +7,12 @@ import {
   SkillUsageCandidateAssessor,
 } from '../../../packages/application/src/index.js';
 
-import { resolveHomeLabReadOnlyTaskAvailabilityArguments } from './home-lab-task-understanding.js';
+import {
+  HOME_LAB_GOVERNED_LIGHT_BINDING_ID,
+  HOME_LAB_GOVERNED_LIGHT_SERVER_ID,
+  resolveHomeLabGovernedLightTaskAvailabilityArguments,
+  resolveHomeLabReadOnlyTaskAvailabilityArguments,
+} from './home-lab-task-understanding.js';
 
 type SelectionDependencies = ConstructorParameters<typeof SkillSelectionService>[0];
 type ReadinessDependencies = ConstructorParameters<typeof FrozenSkillTaskReadinessAdapter>[0];
@@ -82,6 +87,69 @@ export function createHomeLabReadOnlySkillSelectionService(
           selectedSkillId: candidate.skillId,
           decisionSummary:
             'The explicit home-lab profile selected its sole compatible ready Skill.',
+        });
+      },
+    },
+    mcpWarnings: dependencies.mcpWarnings,
+    usage,
+    clock: dependencies.clock,
+    ids: dependencies.ids,
+  });
+}
+
+/** Exact G09 selection over the two compatible v3 light Skills; capability admission narrows to one. */
+export function createHomeLabGovernedLightSkillSelectionService(
+  dependencies: HomeLabReadOnlySkillSelectionDependencies,
+): SkillSelectionService {
+  const exactProviderBindings: NonNullable<ReadinessDependencies['providerBindings']> = {
+    async loadCurrentMcpProviderBinding(input) {
+      if (input.localServerId !== HOME_LAB_GOVERNED_LIGHT_SERVER_ID)
+        throw new Error('HOME_LAB_GOVERNED_LIGHT_PROVIDER_NOT_EXACT');
+      const authority = await dependencies.providerBindings.loadCurrentMcpProviderBinding({
+        bindingId: HOME_LAB_GOVERNED_LIGHT_BINDING_ID,
+        localServerId: HOME_LAB_GOVERNED_LIGHT_SERVER_ID,
+      });
+      if (
+        authority.binding.bindingId !== HOME_LAB_GOVERNED_LIGHT_BINDING_ID ||
+        authority.binding.localServerId !== HOME_LAB_GOVERNED_LIGHT_SERVER_ID
+      )
+        throw new Error('HOME_LAB_GOVERNED_LIGHT_PROVIDER_BINDING_NOT_EXACT');
+      return authority;
+    },
+  };
+  const readiness = new FrozenSkillTaskReadinessAdapter({
+    operations: dependencies.operations,
+    availability: dependencies.availability,
+    clock: dependencies.clock,
+    providerBindings: exactProviderBindings,
+    resolveArguments: resolveHomeLabGovernedLightTaskAvailabilityArguments,
+  });
+  const usage = new SkillUsageCandidateAssessor({
+    applicability: new SkillApplicabilityAssessor({
+      contexts: new SkillContextRequirementResolver(),
+      readiness,
+    }),
+    modes: new SkillModeSelector(),
+  });
+  return new SkillSelectionService({
+    skills: dependencies.skills,
+    graph: dependencies.graph,
+    records: dependencies.records,
+    retriever: {
+      score: (_goalContract, candidates) =>
+        Promise.resolve(
+          Object.freeze(Object.fromEntries(candidates.map((candidate) => [candidate.skillId, 1]))),
+        ),
+    },
+    decider: {
+      decide: ({ candidates }) => {
+        const candidate = candidates[0];
+        if (candidate === undefined || candidates.length !== 1)
+          throw new Error('HOME_LAB_GOVERNED_LIGHT_SKILL_SELECTION_NOT_EXACT');
+        return Promise.resolve({
+          selectedSkillId: candidate.skillId,
+          decisionSummary:
+            'The G09 profile selected the sole exact compatible v3 main-light Skill.',
         });
       },
     },

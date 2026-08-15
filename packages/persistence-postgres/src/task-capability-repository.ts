@@ -201,6 +201,38 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
     return Object.freeze(result.rows.map(mapAttempt));
   }
 
+  async bindInitialPlan(taskId: string, planId: string): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await this.#commandContext?.fenceTransaction(client, taskId);
+      const updated = await client.query(
+        `UPDATE task_capability_execution_attempt
+            SET plan_id=$2
+          WHERE attempt_id=(SELECT attempt_id FROM task_capability_execution_attempt
+                             WHERE task_id=$1 ORDER BY attempt_no DESC LIMIT 1)
+            AND status='prepared' AND plan_id IS NULL`,
+        [taskId, planId],
+      );
+      if (updated.rowCount === 0) {
+        const existing = await client.query<{ plan_id: string | null; status: string }>(
+          `SELECT plan_id,status FROM task_capability_execution_attempt
+            WHERE task_id=$1 ORDER BY attempt_no DESC LIMIT 1`,
+          [taskId],
+        );
+        const row = existing.rows[0];
+        if (row?.status !== 'prepared' || row.plan_id !== planId)
+          throw new Error('TASK_CAPABILITY_INITIAL_PLAN_BINDING_INVALID');
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async appendAttempt(input: Omit<TaskCapabilityExecutionAttempt, 'attemptNo' | 'status'>) {
     const client = await this.#pool.connect();
     try {

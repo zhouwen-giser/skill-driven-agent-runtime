@@ -116,7 +116,10 @@ export interface PlanPreparationProcessorDependencies {
     TaskInputRepository,
     'findAttempt' | 'findResponseForAttempt' | 'listResponses' | 'updateAttempt'
   >;
-  readonly taskCapabilities?: Pick<RuntimeTaskCapabilityService, 'markLatestAttempt'>;
+  readonly taskCapabilities?: Pick<
+    RuntimeTaskCapabilityService,
+    'bindInitialPlan' | 'markLatestAttempt'
+  >;
   readonly closePendingGoalInput?: Readonly<{ close(taskId: string): Promise<void> }>;
   readonly requestTaskInput: (
     taskId: string,
@@ -1002,6 +1005,7 @@ export class PlanPreparationProcessor {
       timestamp: this.#dependencies.clock.now(),
     });
     await this.#dependencies.tasks.save(task);
+    await this.#dependencies.taskCapabilities?.bindInitialPlan(task.taskId, prepared.planId);
     if (!prepared.autoConfirmed) {
       await this.#transition(task, 'awaiting_plan_confirmation', 'Plan confirmation required.');
       return;

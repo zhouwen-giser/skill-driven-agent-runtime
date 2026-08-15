@@ -196,6 +196,15 @@ describe('RemoteTaskContinuationService', () => {
       status: 'failed',
       errorCode: 'LANGGRAPH_CONTINUATION_CRASH',
     });
+    expect(harness.failTask).toHaveBeenCalledWith(
+      'task-1',
+      'LANGGRAPH_CONTINUATION_CRASH',
+      'Remote Task terminal evidence could not continue the durable Workflow; the local Task and binding were quarantined without replaying the Provider call.',
+    );
+    expect(harness.continuations.finishInputs.at(-1)).toMatchObject({
+      status: 'failed',
+      bindingDisposition: 'quarantined',
+    });
   });
 
   it('retries only the durable callback after graph continuation was committed', async () => {
@@ -233,6 +242,36 @@ describe('RemoteTaskContinuationService', () => {
       onContinued.mock.calls[1]?.[0].continuationAttemptId,
     );
     expect(harness.continuations.control(event.eventId)).toMatchObject({ status: 'processed' });
+  });
+
+  it('quarantines an irrecoverable frozen Capability terminal rejection without callback replay', async () => {
+    const callbackError = Object.assign(new Error('frozen terminal criterion failed'), {
+      code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+    });
+    const onContinued = vi.fn().mockRejectedValue(callbackError);
+    const harness = createHarness({ onContinued });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'uncertain',
+      errorCode: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+    });
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+    expect(onContinued).toHaveBeenCalledTimes(1);
+    expect(harness.failTask).toHaveBeenCalledWith(
+      'task-1',
+      'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+      'The frozen Capability rejected the remote terminal result; the local Task and binding were quarantined without replaying the Provider call.',
+    );
+    expect(harness.continuations.control(event.eventId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
+    });
+    expect(harness.continuations.finishInputs.at(-1)).toMatchObject({
+      status: 'failed',
+      bindingDisposition: 'quarantined',
+    });
   });
 
   it('fails closed without replay when a running attempt has no durable graph outcome', async () => {
@@ -407,6 +446,7 @@ function createHarness(
 
 class InMemoryContinuationRepository implements WorkflowContinuationRepository {
   readonly attempts: WorkflowContinuationAttempt[] = [];
+  readonly finishInputs: Parameters<WorkflowContinuationRepository['finishControl']>[0][] = [];
   readonly #controls = new Map<string, RemoteTaskControlEvent>();
   readonly #claimTokens = new Map<string, string>();
   readonly snapshot: WorkflowContinuationSnapshot;
@@ -522,6 +562,7 @@ class InMemoryContinuationRepository implements WorkflowContinuationRepository {
   finishControl(
     input: Parameters<WorkflowContinuationRepository['finishControl']>[0],
   ): Promise<void> {
+    this.finishInputs.push(input);
     const current = this.#controls.get(input.eventId);
     if (current?.status !== 'claimed' || this.#claimTokens.get(input.eventId) !== input.claimToken)
       throw new Error('CONTROL_CLAIM_STALE');
