@@ -205,6 +205,9 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       skillAttemptId: 'skill-attempt-1',
     });
     expect(tasks.value).not.toHaveProperty('skillSelectionId');
+    expect(tasks.capabilityPlanBindings).toEqual([
+      { taskId: 'task-1', planId: 'plan-task-1' },
+    ]);
   });
 
   it('marks the Task failed when a configured decision model fails without fallback', async () => {
@@ -664,6 +667,10 @@ function processorWith(
       },
     },
     taskCapabilities: {
+      bindInitialPlan: (taskId, planId) => {
+        tasks.capabilityPlanBindings.push({ taskId, planId });
+        return Promise.resolve();
+      },
       markLatestAttempt: (taskId, status, transitionTimestamp) => {
         tasks.capabilityAttemptTransitions.push({
           taskId,
@@ -777,6 +784,7 @@ class MemoryTasks {
     status: 'succeeded' | 'failed' | 'canceled';
     timestamp: string;
   }>[] = [];
+  readonly capabilityPlanBindings: { taskId: string; planId: string }[] = [];
   findById() {
     return Promise.resolve(this.value);
   }

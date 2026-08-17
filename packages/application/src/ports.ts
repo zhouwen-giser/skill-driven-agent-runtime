@@ -983,7 +983,7 @@ export interface WorkflowContinuationRepository {
       status: 'processed' | 'failed';
       processedAt: string;
       errorCode?: string;
-      bindingDisposition?: 'reentered';
+      bindingDisposition?: 'reentered' | 'quarantined';
     }>,
   ): Promise<void>;
   deferControl(

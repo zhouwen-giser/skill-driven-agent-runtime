@@ -35,17 +35,18 @@ export interface A2ATerminalProjectionReconciliationResult {
 export class A2ATerminalProjectionReconciler {
   readonly #projections: ExternalTaskProjectionRepository;
   readonly #tasks: Pick<AgentTaskRepository, 'findById'>;
-  readonly #interaction:
-    ((taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>) | undefined;
 
   constructor(options: {
     projections: ExternalTaskProjectionRepository;
     tasks: Pick<AgentTaskRepository, 'findById'>;
+    /**
+     * @deprecated Terminal Tasks cannot require interaction. This input is
+     * retained for construction compatibility and is deliberately never read.
+     */
     interaction?: (taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>;
   }) {
     this.#projections = options.projections;
     this.#tasks = options.tasks;
-    this.#interaction = options.interaction;
   }
 
   async reconcile(): Promise<A2ATerminalProjectionReconciliationResult> {
@@ -77,7 +78,10 @@ export class A2ATerminalProjectionReconciler {
           continue;
         }
 
-        const task = toA2ATask(authoritative, await this.#interaction?.(projection.taskId));
+        // Interactive planning is write-through: reading a confirmed session may
+        // retry ConfirmedPlanHandoff. A terminal projection is rebuildable solely
+        // from the Runtime-owned Task and must never re-enter that write authority.
+        const task = toA2ATask(authoritative);
         const converged = projectionFromTask(task, projection);
         if (projectionEqual(projection, converged)) {
           alreadyConverged += 1;

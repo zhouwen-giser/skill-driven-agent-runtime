@@ -68,6 +68,12 @@ function fixture(
     .mockImplementation(() =>
       Promise.resolve(capabilityAttempt === undefined ? [] : [capabilityAttempt]),
     );
+  const bindInitialPlan = vi
+    .fn<NonNullable<TaskCapabilityAcceptanceStore['bindInitialPlan']>>()
+    .mockImplementation((_taskId, planId) => {
+      if (capabilityAttempt !== undefined) capabilityAttempt = { ...capabilityAttempt, planId };
+      return Promise.resolve();
+    });
   const store: TaskCapabilityAcceptanceStore = {
     resolveExposure,
     accept: vi.fn<TaskCapabilityAcceptanceStore['accept']>((input) => {
@@ -79,6 +85,7 @@ function fixture(
       .fn<TaskCapabilityAcceptanceStore['findBinding']>()
       .mockImplementation(() => Promise.resolve(binding)),
     listAttempts,
+    bindInitialPlan,
     appendAttempt: vi
       .fn<TaskCapabilityAcceptanceStore['appendAttempt']>()
       .mockRejectedValue(new Error('not used')),
@@ -175,6 +182,7 @@ function fixture(
     reconcileCanceledAttempts,
     reconcileFailedAttempts,
     listAttempts,
+    bindInitialPlan,
     assertRuntimeProviderBindingCurrent,
     task,
     inputAttempt,
@@ -183,6 +191,20 @@ function fixture(
 }
 
 describe('RuntimeTaskCapabilityService', () => {
+  it('binds the initial confirmed Workflow plan to the prepared Capability attempt', async () => {
+    const preparedFixture = await acceptedDefaultCapability();
+
+    await preparedFixture.service.bindInitialPlan(preparedFixture.task.taskId, 'plan-initial');
+
+    expect(preparedFixture.bindInitialPlan).toHaveBeenCalledWith(
+      preparedFixture.task.taskId,
+      'plan-initial',
+    );
+    await expect(preparedFixture.listAttempts(preparedFixture.task.taskId)).resolves.toEqual([
+      expect.objectContaining({ status: 'prepared', planId: 'plan-initial' }),
+    ]);
+  });
+
   it('projects exact frozen Task Capability authority into Skill usage context', async () => {
     const resolution: RuntimeCapabilityResolution = {
       exposureId: 'resource.read',
@@ -1144,6 +1166,7 @@ describe('RuntimeTaskCapabilityService', () => {
     const result = {
       resourceId: 'living-room-main-light',
       power: 'off',
+      confirmed: true,
       reachable: true,
       brightnessPercent: 0,
       observedAt: timestamp,
@@ -1202,7 +1225,7 @@ describe('RuntimeTaskCapabilityService', () => {
             requestId: 'request-fail-closed',
           },
         },
-        capabilityInput: { resourceId: 'living-room-main-light' },
+        capabilityInput: { resourceId: 'living-room-main-light', power: 'off' },
         inputAttempt: preparedFixture.inputAttempt,
         bindingId: 'binding-fail-closed',
         capabilityAttemptId: 'capability-attempt-fail-closed',
@@ -1238,6 +1261,18 @@ describe('RuntimeTaskCapabilityService', () => {
     await expect(exercise(baseResolution, [sideEffectingInvocation])).rejects.toMatchObject({
       code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
     });
+    await expect(
+      exercise(
+        {
+          ...baseResolution,
+          successCriteria: [
+            ...baseResolution.successCriteria,
+            { type: 'state_confirmation_matches_request', required: true },
+          ],
+        },
+        [providerInvocation(result, evidenceType, 'capability-attempt-fail-closed')],
+      ),
+    ).resolves.toMatchObject({ attemptId: 'capability-attempt-fail-closed' });
     await expect(
       exercise(
         {

@@ -35,6 +35,7 @@
     "start:home-lab-a2a-model-fixture": "tsx apps/node-control-acceptance/src/home-lab-a2a-model-fixture.ts",
     "configure:home-lab-a2a-model-fixture": "tsx apps/node-control-acceptance/src/home-lab-a2a-model-bootstrap.ts",
     "verify:home-lab-a2a-readonly": "tsx apps/node-control-acceptance/src/home-lab-a2a-read-only-driver.ts",
+    "verify:home-lab-g09-governed-light": "tsx apps/node-control-acceptance/src/home-lab-g09-governed-light-driver.ts",
     "verify:architecture": "node scripts/check-architecture.mjs",
     "verify:a2a-baseline": "node scripts/verify-a2a-baseline.mjs",
     "verify:management-openapi": "node scripts/check-management-openapi.mjs",

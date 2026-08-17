@@ -213,6 +213,26 @@ export class PostgresSkillExactVersionGovernanceRepository implements SkillExact
           input.occurredAt,
         ],
       );
+      const catalogEventId = `skill.catalog_changed:${input.skillId}:${String(input.version)}:governance:${String(resultRevision)}`;
+      await client.query(
+        `INSERT INTO cognitive_runtime_outbox(
+           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+           correlation,payload,occurred_at
+         ) VALUES ($1,'skill.catalog_changed','skill_governance',$2,$3,$4,$5,$6)`,
+        [
+          catalogEventId,
+          `${input.skillId}:${String(input.version)}`,
+          resultRevision,
+          JSON.stringify({ correlationId: catalogEventId }),
+          JSON.stringify({
+            skillId: input.skillId,
+            skillVersion: input.version,
+            governanceRevision: resultRevision,
+            status: lifecycleStatus,
+          }),
+          input.occurredAt,
+        ],
+      );
       await client.query('COMMIT');
       const updated = await this.#skills.findVersion(input.skillId, input.version);
       if (updated === undefined) throw notFound(input.skillId, input.version);

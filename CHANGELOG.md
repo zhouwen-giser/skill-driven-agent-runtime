@@ -7,7 +7,7 @@
   and Workflow execution.
 - Added bounded Goal Contract validation feedback and canonical Task Type ID indexing/admission for
   real-model output that used a Provider operation alias.
-- Added forward migrations 0164/0165 so current MCP catalog refresh does not invalidate immutable
+- Adopted the `main` forward migrations 0164/0165 so current MCP catalog refresh does not invalidate immutable
   governed-control or remote-admission history.
 - The final coordinate retry reached reviewed Goal and Skill Goal authorities but the external
   Provider returned `UGV_MQTT_UNAVAILABLE` before Plan creation; zero MCP calls and zero movement.
