@@ -364,6 +364,26 @@ redispatch. Remote completion/cancellation comes only from frozen `tasks/get`/ob
 
 ## Outcomes and Retrospective
 
+### 2026-08-17 simulation coordinate retry
+
+The Provider contract remains simulation-only; physical confirmation and Runtime execution mode
+are now carried as independent authorities. `runtime_execution_mode_policy` is frozen in the
+Capability/TaskCapability and reaches Skill readiness and Workflow execution, so a confirmed
+physical control can still call the Provider with `simulation` plus the frozen simulation ID.
+Goal Contract correction now receives bounded validation evidence, and the static Task Type index
+recognizes an exact canonical Task Type ID without treating a Provider operation alias as that ID.
+Catalog refresh can retain immutable governed-control and remote-admission history through forward
+migrations 0164/0165 instead of deleting that evidence.
+
+The final bounded retry targeted WGS84 `(106.81413978, 29.72042600, 500.000)` with
+`stopOnObstacle=true`, Source/Binding generation `r4`, navigate Capability v8 and Exposure v5. It
+passed Task Understanding, reviewed and accepted the Goal Contract, and reviewed and accepted the
+single Skill Goal DAG. Before an immutable Workflow Plan existed, the Provider's frozen
+`checkAvailability` returned `availability=unknown` and `UGV_MQTT_UNAVAILABLE` under the exact
+simulation headers. MCP invocation count remained zero; no Plan or physical confirmation was
+consumed and no movement is claimed. Evidence:
+`reports/sdar-ugv-smpp-integration/failed-attempts/a2a-coordinate-simulation-r4-20260817.redacted.json`.
+
 `SDAR_UGV_INTEGRATION_BLOCKED`. Real projection/native lineage/304, rebuilt Source generation
 `ugv-smpp-r2` revision 1, the exact candidate, Binding `mcp-binding-ugv-smpp-r2` revision 1,
 Runtime tool revision 1 and the live 11-operation adapter Catalog `2.0.0-rc.1:1` are proven. Five

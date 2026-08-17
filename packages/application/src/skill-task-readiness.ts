@@ -46,7 +46,12 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
   async inspect(input: Parameters<SkillTaskReadinessPort['inspect']>[0]) {
     const bindings = await Promise.all(
       input.taskBindings.map((binding) =>
-        this.#inspectBinding(binding, input.allowPreferredProviderFallback, input.arguments),
+        this.#inspectBinding(
+          binding,
+          input.allowPreferredProviderFallback,
+          input.arguments,
+          input.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
+        ),
       ),
     );
     return Object.freeze({
@@ -59,6 +64,9 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
     binding: SkillTaskBinding,
     allowPreferredFallback: boolean,
     arguments_: TaskAvailabilityArguments | undefined,
+    executionContext: Parameters<
+      TaskAvailabilityBatchReader['checkTaskAvailability']
+    >[0]['executionContext'],
   ): Promise<SkillTaskBindingReadiness> {
     const registered = await this.#operations.listTaskOperationCandidates(binding.taskType);
     const eligible = policyCandidates(registered, binding.providerPolicy, allowPreferredFallback);
@@ -90,7 +98,7 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
         const outcome = await this.#availability.checkTaskAvailability({
           serverId: candidate.providerId,
           requests: [request],
-          executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+          executionContext,
         });
         return candidateReadiness(
           candidate.providerId,

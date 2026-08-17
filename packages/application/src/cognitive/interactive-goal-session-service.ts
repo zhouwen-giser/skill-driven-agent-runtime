@@ -361,14 +361,28 @@ export class InteractiveGoalSessionService {
     understanding: GenericTaskUnderstandingRevision,
     createdAt: string,
   ): Promise<GoalContractCandidateSnapshot> {
-    const instruction = JSON.stringify({
+    const baseInstruction = {
       policy: 'Produce a candidate only. User confirmation is required before Goal creation.',
       taskUnderstanding: understanding,
-    });
+    } as const;
     let response: Awaited<ReturnType<CognitiveStructuredModelStageInvoker['generate']>> | undefined;
     let contract: CandidateUserGoalCompletionContract | undefined;
     let lastError: z.ZodError | undefined;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const instruction = JSON.stringify({
+        ...baseInstruction,
+        ...(lastError === undefined
+          ? {}
+          : {
+              correctionRequired: true,
+              validationErrors: lastError.issues.map((issue) => ({
+                path: issue.path.join('.'),
+                message: issue.message,
+              })),
+              correctionPolicy:
+                'Return a complete replacement object. Every constraints and successCriteria item must be a meaningful sentence containing at least one letter or number.',
+            }),
+      });
       response = await this.#model.generate({
         stage: 'goal_contract_generation',
         instruction,

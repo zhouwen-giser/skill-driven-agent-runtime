@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-08-17 — UGV simulation execution context and bounded cognitive correction
+
+- Kept governed physical confirmation independent from frozen Runtime execution mode, allowing the
+  simulation-only UGV Provider to remain in `simulation` through Task Capability, Skill readiness
+  and Workflow execution.
+- Added bounded Goal Contract validation feedback and canonical Task Type ID indexing/admission for
+  real-model output that used a Provider operation alias.
+- Added forward migrations 0164/0165 so current MCP catalog refresh does not invalidate immutable
+  governed-control or remote-admission history.
+- The final coordinate retry reached reviewed Goal and Skill Goal authorities but the external
+  Provider returned `UGV_MQTT_UNAVAILABLE` before Plan creation; zero MCP calls and zero movement.
+
 All notable changes to this project are documented here. The format follows Keep a Changelog, and planned commits use Conventional Commits.
 
 ## SDAR × UGV SMPP Integration (blocked handoff)

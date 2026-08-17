@@ -1,10 +1,12 @@
 import {
   ANONYMOUS_USER_ID,
+  createRuntimeExecutionContext,
   createTaskCapabilityBinding,
   createTaskCapabilityExecutionAttempt,
   type AgentTask,
   type McpInvocation,
   type RuntimeTaskCapabilityTerminalProof,
+  type RuntimeExecutionContext,
   type SkillUsageSelectionContext,
   type TaskCapabilityBinding,
   type TaskCapabilityExecutionAttempt,
@@ -337,6 +339,14 @@ export class RuntimeTaskCapabilityService {
     return this.#store.findBinding(taskId);
   }
 
+  async resolveRuntimeExecutionContext(
+    taskId: string,
+  ): Promise<RuntimeExecutionContext | undefined> {
+    const binding = await this.#store.findBinding(taskId);
+    if (binding === undefined) return undefined;
+    return runtimeExecutionModePolicy(binding.constraintSnapshot, skillUsageAuthorityInvalid);
+  }
+
   /**
    * Projects only context evidence already frozen by Capability admission. The
    * current Provider Binding is re-verified on both Control and Runtime sides;
@@ -414,6 +424,10 @@ export class RuntimeTaskCapabilityService {
         bindingId: providerBindingId,
         localServerId,
       });
+      const runtimeExecutionContext = runtimeExecutionModePolicy(
+        binding.constraintSnapshot,
+        skillUsageAuthorityInvalid,
+      );
       return Object.freeze({
         skillId: skillReference.skillId,
         skillVersion: skillReference.skillVersion,
@@ -440,6 +454,7 @@ export class RuntimeTaskCapabilityService {
             unresolved: false as const,
             value: Object.freeze(structuredClone(input)),
           }),
+          ...(runtimeExecutionContext === undefined ? {} : { runtimeExecutionContext }),
           systemPolicy: Object.freeze({
             allowedModes: Object.freeze(['guidance', 'template', 'procedure'] as const),
             requireProcedureForHighRisk: true,
@@ -711,6 +726,7 @@ function createPhysicalDispatchProof(
       ? rawExpectedDispatchCount
       : 0;
   const provider = providerBindingPolicy(binding.constraintSnapshot);
+  const executionContext = runtimeExecutionModePolicy(binding.constraintSnapshot, terminal);
   const expectedPlanNodes =
     provider === undefined
       ? undefined
@@ -790,7 +806,7 @@ function createPhysicalDispatchProof(
       dispatchEvidence.invocationPresent &&
       dispatchEvidence.capabilityAttemptId === capabilityAttemptId &&
       invocation.capabilityAttemptId === capabilityAttemptId &&
-      invocation.executionMode === 'live' &&
+      executionContextMatches(invocation, executionContext) &&
       invocation.status === 'succeeded' &&
       invocation.executionSemantics.effect === 'side_effecting' &&
       invocation.executionSemantics.execution === 'task_required' &&
@@ -828,7 +844,7 @@ function createPhysicalDispatchProof(
       remote.mcpInvocationId === invocation.invocationId &&
       remote.workflowPlanId === planId &&
       remote.workflowNodeId === expectedNode?.nodeId &&
-      remote.executionMode === 'live' &&
+      remote.executionMode === (executionContext?.mode ?? 'live') &&
       remote.protocolStatus === 'completed' &&
       remote.providerFailureCount === 0 &&
       remote.resultIsError === false &&
@@ -1155,7 +1171,10 @@ function providerResultEvidenceSatisfied(
   const matchingInvocations = invocations.filter(
     (invocation) =>
       invocation.status === 'succeeded' &&
-      invocation.executionMode === 'live' &&
+      executionContextMatches(
+        invocation,
+        runtimeExecutionModePolicy(binding.constraintSnapshot, terminal),
+      ) &&
       invocation.serverId === serverId &&
       invocation.toolName === toolName &&
       invocation.executionSemantics.effect === 'read_only' &&
@@ -1276,12 +1295,59 @@ function constraintSatisfied(
       constraint['uncertainDispatchPolicy'] === 'reconcile_never_redispatch' &&
       constraint['remoteTaskTerminalEvidenceRequired'] === true
     );
+  if (constraint['type'] === 'runtime_execution_mode_policy') {
+    const expected = runtimeExecutionModePolicy(binding.constraintSnapshot, terminal);
+    return (
+      expected !== undefined &&
+      invocations.length > 0 &&
+      invocations.every((invocation) => executionContextMatches(invocation, expected))
+    );
+  }
   if (constraint['type'] === 'bounded_movement_policy')
     return (
       physicalDispatches?.valid === true &&
       boundedMovementSatisfied(constraint, physicalDispatches, binding)
     );
   return false;
+}
+
+function runtimeExecutionModePolicy(
+  constraints: readonly Readonly<Record<string, unknown>>[],
+  invalid: (message: string) => never,
+): RuntimeExecutionContext | undefined {
+  const policies = constraints.filter(
+    (constraint) => constraint['type'] === 'runtime_execution_mode_policy',
+  );
+  if (policies.length === 0) return undefined;
+  const policy = policies[0];
+  if (policies.length !== 1 || policy === undefined)
+    invalid('Task Capability requires exactly one Runtime execution mode policy.');
+  const mode = policy['mode'];
+  const simulationId = policy['simulationId'];
+  if (
+    typeof mode !== 'string' ||
+    !['live', 'simulation', 'historical-replay'].includes(mode) ||
+    (simulationId !== undefined && typeof simulationId !== 'string')
+  )
+    invalid('Task Capability Runtime execution mode policy is invalid.');
+  try {
+    return createRuntimeExecutionContext({
+      mode: mode as RuntimeExecutionContext['mode'],
+      ...(simulationId === undefined ? {} : { simulationId }),
+    });
+  } catch {
+    return invalid('Task Capability Runtime execution context is invalid.');
+  }
+}
+
+function executionContextMatches(
+  invocation: Pick<McpInvocation, 'executionMode' | 'simulationId'>,
+  expected: RuntimeExecutionContext | undefined,
+): boolean {
+  const context = expected ?? { mode: 'live' as const };
+  return (
+    invocation.executionMode === context.mode && invocation.simulationId === context.simulationId
+  );
 }
 
 function exactDispatchCriterionCount(

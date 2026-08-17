@@ -129,9 +129,10 @@ export class StaticTaskTypeIndexSource implements TaskTypeIndexSource {
     const ranked = this.#definitions
       .map((definition) => ({
         definition,
-        score: definition.recognitionHints.filter((hint) =>
-          request.includes(hint.toLocaleLowerCase()),
-        ).length,
+        score:
+          (request.includes(definition.taskTypeId.toLocaleLowerCase()) ? 100 : 0) +
+          definition.recognitionHints.filter((hint) => request.includes(hint.toLocaleLowerCase()))
+            .length,
       }))
       .filter((item) => item.score > 0)
       .sort(
@@ -244,7 +245,14 @@ export class GenericTaskUnderstandingService {
       })),
     );
     const knownKinds = new Set(knownDimensions.map((dimension) => dimension.kind));
-    const matchingTaskTypes = selectKnownTaskTypes(generated.output.taskTypeCandidates, taskTypes);
+    const modelMatchedTaskTypes = selectKnownTaskTypes(
+      generated.output.taskTypeCandidates,
+      taskTypes,
+    );
+    const matchingTaskTypes =
+      modelMatchedTaskTypes.length > 0
+        ? modelMatchedTaskTypes
+        : explicitlyRequestedTaskType(input.requestText, taskTypes);
     const matchingTaskTypeDefinitions = definitionsForCandidates(matchingTaskTypes, taskTypes);
     const missingKnownTaskType =
       this.#taskTypeAdmission.requireKnownMatch && matchingTaskTypes.length === 0;
@@ -430,6 +438,24 @@ function selectKnownTaskTypes(
     }
   }
   return [...selected.values()];
+}
+
+function explicitlyRequestedTaskType(
+  requestText: string,
+  definitions: readonly TaskTypeDefinition[],
+): readonly TaskTypeCandidate[] {
+  const explicit = definitions.filter((definition) => requestText.includes(definition.taskTypeId));
+  if (explicit.length !== 1) return [];
+  const definition = explicit[0];
+  if (definition === undefined) return [];
+  return [
+    {
+      taskTypeId: definition.taskTypeId,
+      version: definition.version,
+      confidence: 1,
+      rationale: 'The request contains this exact admitted Task Type identifier.',
+    },
+  ];
 }
 
 function definitionsForCandidates(

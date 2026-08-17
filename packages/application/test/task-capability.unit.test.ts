@@ -334,6 +334,11 @@ describe('RuntimeTaskCapabilityService', () => {
         { type: 'exact_skill_version', skillId: 'vehicle.navigate', skillVersion: 4 },
         { type: 'confirmation_policy', required: true, stage: 'before_execution' },
         {
+          type: 'runtime_execution_mode_policy',
+          mode: 'simulation',
+          simulationId: 'ugv-simulation',
+        },
+        {
           type: 'physical_side_effect_policy',
           sideEffecting: true,
           dispatchMaximum: 1,
@@ -374,6 +379,7 @@ describe('RuntimeTaskCapabilityService', () => {
       context: {
         risk: 'high',
         humanConfirmation: 'pending',
+        runtimeExecutionContext: { mode: 'simulation', simulationId: 'ugv-simulation' },
         taskAvailabilityArguments: {
           unresolved: false,
           value: { resourceId: 'vehicle:ugv-1' },
@@ -385,6 +391,9 @@ describe('RuntimeTaskCapabilityService', () => {
         },
       },
     });
+    await expect(
+      accepted.service.resolveRuntimeExecutionContext(accepted.task.taskId),
+    ).resolves.toEqual({ mode: 'simulation', simulationId: 'ugv-simulation' });
     expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledTimes(2);
   });
 

@@ -1023,6 +1023,16 @@ EP-02 update (2026-07-11): approximately 30%. Persistent Skill Registry and remo
 
 ## Current authoritative stage status (2026-07-13)
 
+## UGV SMPP simulation coordinate update (2026-08-17)
+
+The Runtime now keeps physical confirmation separate from Provider execution mode and freezes the
+simulation context through Capability admission, Skill readiness and Workflow execution. Exact
+Task Type IDs participate in the static index, and Goal Contract retries receive validation
+evidence. Focused regressions and typecheck cover these paths. The latest coordinate A2A retry
+passed reviewed Goal and Skill Goal boundaries but stopped before Workflow Plan creation because
+the real Provider returned `UGV_MQTT_UNAVAILABLE` from frozen availability under simulation mode.
+No MCP Tool invocation or movement occurred; UGV overall qualification remains blocked.
+
 EP-05 Memory, Evaluation, and Evolution is complete (100%). The independent stage audit verifies FR-EVO-001–010, FR-MEM-001–006, FR-EVAL-001–005, related FR-SKL-015/FR-LLM-007 closure, migrations through 0049, and the full local gate. The legacy bootstrap table above is retained as historical text and is superseded by this status plus `reports/EP-05-memory-evaluation-evolution/EP-05-ACCEPTANCE-AUDIT.md`. Overall V1 remains incomplete pending EP-06 Console and EP-07 project-wide acceptance.
 
 ## SDAR v1.3 P04 Pattern Generalization and Plan Template Candidate Compiler (2026-07-28)

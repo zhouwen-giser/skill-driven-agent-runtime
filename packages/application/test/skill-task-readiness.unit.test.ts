@@ -16,6 +16,30 @@ import type {
 const now = '2026-07-17T12:00:00.000Z';
 
 describe('FrozenSkillTaskReadinessAdapter', () => {
+  it('uses the immutable simulation context for Provider planning availability', async () => {
+    const contexts: unknown[] = [];
+    const adapter = new FrozenSkillTaskReadinessAdapter({
+      operations: {
+        listTaskOperationCandidates: () => Promise.resolve([candidate('provider.sim')]),
+      },
+      availability: {
+        checkTaskAvailability: (input) => {
+          contexts.push(input.executionContext);
+          return Promise.resolve(result('available'));
+        },
+      },
+      clock: { now: () => now },
+      providerBindings: currentProviderBindings(),
+    });
+
+    await adapter.inspect({
+      ...inspectInput(binding(dynamicPolicy())),
+      executionContext: { mode: 'simulation', simulationId: 'ugv-simulation' },
+    });
+
+    expect(contexts).toEqual([{ mode: 'simulation', simulationId: 'ugv-simulation' }]);
+  });
+
   it('maps available and restricted candidates with earliest and multiple windows', async () => {
     const adapter = readiness(
       [candidate('provider.available'), candidate('provider.restricted')],

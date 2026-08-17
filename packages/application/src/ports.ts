@@ -533,6 +533,7 @@ export interface SkillTaskReadinessPort {
       taskBindings: readonly SkillTaskBinding[];
       allowPreferredProviderFallback: boolean;
       arguments?: TaskAvailabilityArguments;
+      executionContext?: RuntimeExecutionContext;
     }>,
   ): Promise<SkillTaskReadinessSummary>;
 }

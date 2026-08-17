@@ -110,6 +110,73 @@ describe('InteractiveGoalSessionService', () => {
     expect(repository.turns).toHaveLength(0);
     expect(repository.candidates).toHaveLength(0);
   });
+
+  it('feeds validation evidence into the bounded Goal Contract correction attempt', async () => {
+    const repository = new MemoryInteractiveGoalRepository();
+    const instructions: string[] = [];
+    let revised = false;
+    const service = new InteractiveGoalSessionService({
+      repository,
+      understandings: {
+        findCurrent: () =>
+          Promise.resolve(understanding(revised ? 'contract_candidate' : 'clarification_required')),
+        listRevisions: () => Promise.resolve([]),
+        saveRevision: () => Promise.resolve(),
+      },
+      reviseUnderstanding: () => {
+        revised = true;
+        return Promise.resolve(understanding('contract_candidate'));
+      },
+      model: {
+        generate: (input) => {
+          instructions.push(input.instruction);
+          return Promise.resolve({
+            invocationId: `model-invocation.goal-contract.${String(instructions.length)}`,
+            structuredResult:
+              instructions.length === 1
+                ? {
+                    title: 'Navigate the UGV',
+                    description: 'Navigate the declared UGV to the exact target.',
+                    constraints: [','],
+                    successCriteria: [','],
+                  }
+                : {
+                    title: 'Navigate the UGV',
+                    description: 'Navigate the declared UGV to the exact target.',
+                    constraints: ['Use the exact governed resource.'],
+                    successCriteria: ['Reach the requested coordinate.'],
+                  },
+          });
+        },
+      },
+      questions: new MissingDimensionQuestionService(),
+      candidates: new GoalContractCandidateFactory(),
+      clock: { now: () => '2026-08-17T00:00:00.000Z' },
+      ids: {
+        nextSessionId: () => 'goal-session.correction',
+        nextTurnId: () => 'goal-turn.correction',
+        nextCandidateId: () => 'goal-candidate.correction',
+      },
+      budgets: { maxClarificationRounds: 4, maxContractRevisions: 4, maxElapsedMs: 300_000 },
+    });
+    const started = await service.start({ taskId: 'task.interactive.correction' });
+
+    const reviewed = await service.applyAction({
+      sessionId: started.session.sessionId,
+      expectedVersion: 1,
+      idempotencyKey: 'action.answer.corrected-contract',
+      actorId: 'user.1',
+      action: 'answer',
+      payload: { answer: 'pump-17' },
+    });
+
+    expect(reviewed.session.state).toBe('goal_review');
+    expect(instructions).toHaveLength(2);
+    expect(JSON.parse(instructions[1] ?? '{}')).toMatchObject({
+      correctionRequired: true,
+      validationErrors: [{ path: 'constraints.0' }, { path: 'successCriteria.0' }],
+    });
+  });
 });
 
 function sessionService(

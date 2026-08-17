@@ -1,4 +1,5 @@
 import type { SkillExecutionMode, SkillContextSource } from './skill-usage.js';
+import type { RuntimeExecutionContext } from './runtime-execution.js';
 import type {
   TaskAvailabilityArguments,
   TaskAvailabilityPossibleEffect,
@@ -99,6 +100,8 @@ export interface SkillUsageSelectionContext {
   readonly systemPolicy: SkillModeSystemPolicy;
   /** Exact frozen Skill input used only for the Provider's read-only planning availability check. */
   readonly taskAvailabilityArguments?: TaskAvailabilityArguments;
+  /** Immutable execution context admitted for Provider planning and later execution. */
+  readonly runtimeExecutionContext?: RuntimeExecutionContext;
 }
 
 export type SkillModeDecision =

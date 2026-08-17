@@ -139,6 +139,7 @@ export class SkillApplicabilityAssessor {
     skill: SkillVersion,
     observations: readonly SkillContextObservation[],
     arguments_?: TaskAvailabilityArguments,
+    executionContext?: SkillUsageSelectionContext['runtimeExecutionContext'],
   ): Promise<SkillApplicabilityAssessment> {
     const usage = resolveUsage(skill);
     const requirementIds = new Set(usage.contextRequirements.map((item) => item.requirementId));
@@ -152,6 +153,7 @@ export class SkillApplicabilityAssessor {
       taskBindings: usage.taskBindings,
       allowPreferredProviderFallback: usage.adaptive.allowPreferredProviderFallback,
       ...(arguments_ === undefined ? {} : { arguments: arguments_ }),
+      ...(executionContext === undefined ? {} : { executionContext }),
     });
     const readiness = validateReadiness(usage.taskBindings, reported);
     const status = applicabilityStatus(context, readiness);
@@ -244,6 +246,7 @@ export class SkillUsageCandidateAssessor {
       skill,
       context.observations,
       context.taskAvailabilityArguments,
+      context.runtimeExecutionContext,
     );
     return Object.freeze({
       skillId: skill.skillId,
