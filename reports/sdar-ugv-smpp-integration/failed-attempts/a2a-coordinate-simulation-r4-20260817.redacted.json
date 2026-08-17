@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "sdar.ugv-smpp.failed-attempt/v1",
+  "observedAt": "2026-08-17T02:03:46.799Z",
+  "classification": "external_provider_unavailable",
+  "task": {
+    "taskId": "b50cb892-f7ae-4bd9-9210-1cff0ea28444",
+    "contextId": "695ea6f2-5d3a-4fc8-9026-c493c04e06a7",
+    "requestedCapabilityId": "vehicle.ugv.navigate",
+    "capabilityVersion": 8,
+    "taskTypeId": "task-type.vehicle.navigate",
+    "taskTypeVersion": 1
+  },
+  "target": {
+    "resourceId": "vehicle:ugv1",
+    "coordinateSystem": "WGS84",
+    "longitude": 106.81413978,
+    "latitude": 29.720426,
+    "altitude": 500,
+    "stopOnObstacle": true
+  },
+  "executionContext": {
+    "mode": "simulation",
+    "simulationId": "ugv-simulation-20260817",
+    "physicalConfirmationIndependentFromExecutionMode": true
+  },
+  "authority": {
+    "smppSourceId": "ugv-smpp-r4",
+    "providerBindingId": "mcp-binding-ugv-smpp-r4",
+    "localServerId": "ugv-smpp-runtime-r4",
+    "exposureId": "a2a.vehicle.ugv.navigate",
+    "exposureVersion": 5
+  },
+  "progress": {
+    "taskUnderstandingAccepted": true,
+    "goalContractReviewedAndAccepted": true,
+    "skillGoalDagReviewedAndAccepted": true,
+    "immutableWorkflowPlanCreated": false,
+    "planConfirmed": false,
+    "physicalControlConfirmed": false,
+    "mcpInvocationCount": 0,
+    "externalOperationPerformed": false
+  },
+  "availability": {
+    "method": "io.sdar/taskExecution/checkAvailability",
+    "operationName": "vehicle_navigate",
+    "availability": "unknown",
+    "reasonCode": "UGV_MQTT_UNAVAILABLE",
+    "riskLevel": "medium",
+    "reservationMode": "none",
+    "retryableByRedispatch": false
+  },
+  "implementationFixesVerified": [
+    "runtime_execution_context_frozen_from_capability_policy",
+    "goal_contract_validation_errors_forwarded_to_bounded_correction",
+    "canonical_task_type_id_indexed_and_exactly_admitted",
+    "historical_governed_control_and_remote_admission_rows_survive_catalog_refresh"
+  ],
+  "result": {
+    "status": "blocked",
+    "reasonCode": "UGV_MQTT_UNAVAILABLE",
+    "movementClaimed": false,
+    "productionEligible": false
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "providerEndpointIncluded": false,
+    "rawModelOutputIncluded": false
+  }
+}

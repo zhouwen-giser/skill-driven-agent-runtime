@@ -325,6 +325,23 @@ describe('Workflow outer controller', () => {
     expect(fixture.evaluator.inputs[0]?.instance).toBe(failed);
   });
 
+  it('preserves the admitted simulation context after Plan confirmation', async () => {
+    const resolveExecutionContext = vi.fn(() =>
+      Promise.resolve({ mode: 'simulation' as const, simulationId: 'ugv-simulation' }),
+    );
+    const fixture = createFixture({ maxReplans: 1, autoConfirm: true, resolveExecutionContext });
+    fixture.evaluator.decisions.push({ decision: 'achieved', summary: 'Completed in simulation.' });
+
+    await fixture.controller.start(startInput());
+
+    expect(resolveExecutionContext).toHaveBeenCalledWith('task-control');
+    expect(fixture.execution.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionContext: { mode: 'simulation', simulationId: 'ugv-simulation' },
+      }),
+    );
+  });
+
   it('does not promote evaluator achievement when execution did not succeed', async () => {
     const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
     fixture.execution.execute.mockResolvedValueOnce({
@@ -590,7 +607,13 @@ function startInput() {
   };
 }
 
-function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
+function createFixture(input: {
+  maxReplans: number;
+  autoConfirm: boolean;
+  resolveExecutionContext?: (
+    taskId: string,
+  ) => Promise<{ mode: 'live' } | { mode: 'simulation'; simulationId: string }>;
+}) {
   const plans = new MemoryPlans([plan('plan-initial', 1, 'confirmed')]);
   const controls = new MemoryControls();
   const goals = new MemoryGoals();
@@ -684,6 +707,9 @@ function createFixture(input: { maxReplans: number; autoConfirm: boolean }) {
     experiences,
     memories,
     taskOutcomes,
+    ...(input.resolveExecutionContext === undefined
+      ? {}
+      : { resolveExecutionContext: input.resolveExecutionContext }),
     terminalAuthority: new UserGoalPlanController({ terminal: terminalOutcomes }),
     reportWarning,
     clock: { now: () => `2026-07-12T00:00:${String(tick++).padStart(2, '0')}.000Z` },

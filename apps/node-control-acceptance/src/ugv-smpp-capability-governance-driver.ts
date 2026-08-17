@@ -169,6 +169,11 @@ export interface UgvSmppCapabilityGovernanceConfiguration {
   readonly activateNavigateControl?: boolean;
   /** Selects the immutable native navigate procedure published by this run. */
   readonly navigateControlMode?: NavigateControlMode;
+  /** Provider-declared execution mode, independent from physical confirmation authority. */
+  readonly runtimeExecutionContext?: Readonly<{
+    mode: 'live' | 'simulation';
+    simulationId?: string;
+  }>;
 }
 
 export interface UgvSmppCapabilityGovernanceReport {
@@ -1669,6 +1674,7 @@ function buildCapability(
         downstreamResourceBinding: 'forbidden',
       }),
       providerBindingConstraint(binding, tool, resourceId),
+      runtimeExecutionModeConstraint(configuration),
       Object.freeze({
         type: 'exact_skill_version',
         skillId: spec.skillId,
@@ -1737,6 +1743,18 @@ function boundedMovementConstraint(): JsonObject {
     exactTotalDistance: NAVIGATE_EXACT_TOTAL_DISTANCE_METERS,
     strictSequential: true,
     terminalBeforeNext: true,
+  });
+}
+
+function runtimeExecutionModeConstraint(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+): JsonObject {
+  const context: NonNullable<UgvSmppCapabilityGovernanceConfiguration['runtimeExecutionContext']> =
+    configuration.runtimeExecutionContext ?? Object.freeze({ mode: 'live' as const });
+  return Object.freeze({
+    type: 'runtime_execution_mode_policy',
+    mode: context.mode,
+    ...(context.simulationId === undefined ? {} : { simulationId: context.simulationId }),
   });
 }
 
@@ -2376,6 +2394,17 @@ function validateConfiguration(
       'DRIVER_CONFIGURATION_INVALID',
       'Coordinate navigation requires explicit navigate activation.',
     );
+  const runtimeExecutionContext = input.runtimeExecutionContext ?? { mode: 'live' as const };
+  if (
+    !['live', 'simulation'].includes(runtimeExecutionContext.mode) ||
+    (runtimeExecutionContext.mode === 'live' &&
+      runtimeExecutionContext.simulationId !== undefined) ||
+    (runtimeExecutionContext.mode === 'simulation' &&
+      (runtimeExecutionContext.simulationId === undefined ||
+        runtimeExecutionContext.simulationId.trim() === '' ||
+        runtimeExecutionContext.simulationId.length > 256))
+  )
+    fail('DRIVER_CONFIGURATION_INVALID', 'Runtime execution context is invalid.');
   if (
     input.resourceId !== undefined &&
     (input.resourceId.trim() === '' || input.resourceId.length > 256)
@@ -2390,6 +2419,7 @@ function validateConfiguration(
     nodeControlBaseUrl,
     runtimeManagementBaseUrl,
     packageWorkspaceRoot: resolve(input.packageWorkspaceRoot),
+    runtimeExecutionContext: Object.freeze({ ...runtimeExecutionContext }),
   });
 }
 
@@ -2555,6 +2585,8 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
   const configuredBindingId = environment['SDAR_UGV_BINDING_ID']?.trim();
   const activateNavigateControl = explicitYes(environment, 'SDAR_UGV_ACTIVATE_NAVIGATE_CONTROL');
   const coordinateNavigation = optionalYesNo(environment, 'ALLOW_UGV_COORDINATE_NAVIGATION');
+  const executionMode = environment['SDAR_UGV_EXECUTION_MODE']?.trim() ?? 'live';
+  const simulationId = environment['SDAR_UGV_SIMULATION_ID']?.trim();
   if (coordinateNavigation) {
     if (!activateNavigateControl)
       fail(
@@ -2579,6 +2611,17 @@ export async function ugvSmppGovernanceConfigurationFromEnvironment(
           : configuredBindingId,
       activateNavigateControl,
       navigateControlMode: coordinateNavigation ? 'coordinate_point' : 'distance_sequence',
+      runtimeExecutionContext:
+        executionMode === 'simulation'
+          ? simulationId === undefined || simulationId === ''
+            ? fail(
+                'DRIVER_CONFIGURATION_INVALID',
+                'SDAR_UGV_SIMULATION_ID is required for simulation mode.',
+              )
+            : Object.freeze({ mode: 'simulation' as const, simulationId })
+          : executionMode === 'live'
+            ? Object.freeze({ mode: 'live' as const })
+            : fail('DRIVER_CONFIGURATION_INVALID', 'SDAR_UGV_EXECUTION_MODE is invalid.'),
       ...(configuredResource === undefined || configuredResource === ''
         ? {}
         : { resourceId: configuredResource }),

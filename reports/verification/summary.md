@@ -1,16 +1,16 @@
 # Verification Summary
 
 - Status: **failed**
-- Commit: `7246c263bbb5554d01a7aa343ef6f857378e7bf4` (dirty working tree)
-- Started: 2026-08-14T14:13:11.839Z
-- Finished: 2026-08-14T14:17:20.861Z
-- Duration: 249022 ms
+- Commit: `888ab8f2d7a5c95c27586673a65cc914919a0280` (dirty working tree)
+- Started: 2026-08-17T02:06:50.006Z
+- Finished: 2026-08-17T02:12:16.528Z
+- Duration: 326522 ms
 - Environment: Node v22.23.1, linux/x64
 - Infrastructure mode: operator-managed
 
 | Gate | Command | Result | Duration |
 | --- | --- | --- | ---: |
-| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 218666 ms |
-| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 767 ms |
-| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 28933 ms |
-| postgres-redis-integration | `pnpm test:integration` | failed | 652 ms |
+| static-unit-contract-build | `pnpm verify:bootstrap` | passed | 292983 ms |
+| cognitive-replay-no-physical-provider | `pnpm verify:cognitive-replay` | passed | 954 ms |
+| clean-baseline-reset-seed | `pnpm verify:migrations` | passed | 31767 ms |
+| postgres-redis-integration | `pnpm test:integration` | failed | 815 ms |

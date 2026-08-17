@@ -4,8 +4,30 @@ import type { GenericTaskUnderstandingRevision } from '../../domain/src/index.js
 import {
   CognitiveEntryRouter,
   GenericTaskUnderstandingService,
+  StaticTaskTypeIndexSource,
   type TaskUnderstandingRepository,
 } from '../src/cognitive/index.js';
+
+describe('StaticTaskTypeIndexSource', () => {
+  it('retrieves an exact Task Type identifier even when no recognition hint is present', async () => {
+    const definition = {
+      taskTypeId: 'task-type.vehicle.navigate',
+      version: 1,
+      title: 'Navigate vehicle',
+      recognitionHints: ['向前移动'],
+      requiredDimensions: [],
+      capabilityRequirements: ['vehicle.ugv.navigate'],
+      risks: ['physical_side_effect'],
+    } as const;
+
+    await expect(
+      new StaticTaskTypeIndexSource([definition]).search({
+        requestText: 'Use exact Task Type task-type.vehicle.navigate for the declared target.',
+        limit: 8,
+      }),
+    ).resolves.toEqual([definition]);
+  });
+});
 
 describe('CognitiveEntryRouter', () => {
   it('routes explicit requests directly and ambiguous requests through Understanding', () => {
@@ -308,6 +330,85 @@ describe('GenericTaskUnderstandingService', () => {
       disposition: 'clarification_required',
       taskTypeCandidates: [],
       missingDimensions: [expect.objectContaining({ kind: 'target', severity: 'blocking' })],
+    });
+  });
+
+  it('uses one exact admitted Task Type identifier from the request when the model aliases it', async () => {
+    const taskType = {
+      taskTypeId: 'task-type.vehicle.navigate',
+      version: 1,
+      title: 'Navigate vehicle',
+      recognitionHints: ['navigate'],
+      requiredDimensions: [],
+      capabilityRequirements: ['vehicle.ugv.navigate'],
+      risks: ['physical_side_effect'],
+    } as const;
+    const service = new GenericTaskUnderstandingService({
+      repository: new MemoryUnderstandingRepository(),
+      capabilities: {
+        getSummary: () =>
+          Promise.resolve({
+            summary: {
+              summaryId: 'summary.alias',
+              revision: 1,
+              catalogHash: `sha256:${'3'.repeat(64)}`,
+              generationPolicyVersion: 'capability-policy-v1',
+              items: [
+                {
+                  capabilityId: 'vehicle.ugv.navigate',
+                  public: true,
+                  exactSkillVersionRefs: ['ugv.navigate:8'],
+                },
+              ],
+            },
+            index: {},
+          } as never),
+      },
+      taskTypes: { search: () => Promise.resolve([taskType]) },
+      model: {
+        generate: () =>
+          Promise.resolve({
+            invocationId: 'model-invocation.alias',
+            structuredResult: {
+              interpretedObjective: 'Navigate the declared vehicle.',
+              taskTypeCandidates: [
+                {
+                  taskTypeId: 'vehicle_navigate',
+                  version: 1,
+                  confidence: 0.99,
+                  rationale: 'Provider operation alias.',
+                },
+              ],
+              capabilityRequirements: [],
+              knownConstraints: [],
+              knownDimensions: [],
+              missingDimensions: [],
+              assumptions: [],
+              confidence: 0.95,
+            },
+          }),
+      },
+      policyVersion: 'task-understanding-v1',
+      clock: { now: () => '2026-08-17T00:00:00.000Z' },
+      nextUnderstandingId: () => 'understanding.alias',
+      taskTypeAdmission: {
+        requireKnownMatch: true,
+        requirePublicCapabilitySupport: true,
+      },
+    });
+
+    await expect(
+      service.understand({
+        taskId: 'task.alias',
+        contextId: 'context.alias',
+        requestText: 'Use exact Task Type task-type.vehicle.navigate for vehicle ugv1.',
+        conversationContext: {},
+        worldStateSummary: {},
+        lowRiskUserPreferences: [],
+      }),
+    ).resolves.toMatchObject({
+      disposition: 'contract_candidate',
+      taskTypeCandidates: [{ taskTypeId: 'task-type.vehicle.navigate', version: 1, confidence: 1 }],
     });
   });
 

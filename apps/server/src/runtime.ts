@@ -3833,6 +3833,7 @@ export async function startServerRuntime(
     execution: workflowExecution,
     evaluator: new StructuredGoalEvaluator(modelRuntime, memories),
     recovery: userGoalRecovery,
+    resolveExecutionContext: (taskId) => taskCapabilities.resolveRuntimeExecutionContext(taskId),
     experiences: evolutionExperiences,
     memories,
     taskOutcomes: {

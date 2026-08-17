@@ -193,6 +193,11 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         supportedModes: ['plan_confirmed', 'remote_task'],
         constraints: expect.arrayContaining([
           {
+            type: 'runtime_execution_mode_policy',
+            mode: 'simulation',
+            simulationId: 'ugv-simulation',
+          },
+          {
             type: 'bounded_movement_policy',
             constraintId: 'vehicle-navigate-distance-per-dispatch',
             toolName: 'vehicle_navigate',
@@ -1245,6 +1250,10 @@ function configuration(packageWorkspaceRoot: string): UgvSmppCapabilityGovernanc
     runtimeManagementBaseUrl: 'http://127.0.0.1:9998',
     packageWorkspaceRoot,
     runId: 'ugv-smpp-governance-test-run',
+    runtimeExecutionContext: {
+      mode: 'simulation' as const,
+      simulationId: 'ugv-simulation',
+    },
   });
 }
 

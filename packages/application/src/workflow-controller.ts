@@ -6,6 +6,7 @@ import {
   type GoalEvaluationResult,
   type ProcessedResultRecord,
   type RuntimeEnhancementWarning,
+  type RuntimeExecutionContext,
   type RuntimeTaskCapabilityTerminalProof,
   type RuntimeTerminalOutcomeRecord,
   type WorkflowControlRecord,
@@ -137,6 +138,8 @@ export class WorkflowControllerService {
   >;
   readonly #reportWarning: ((warning: RuntimeEnhancementWarning) => void) | undefined;
   readonly #recovery: Pick<UserGoalRecoveryService, 'recoverWorkflow'> | undefined;
+  readonly #resolveExecutionContext:
+    ((taskId: string) => Promise<RuntimeExecutionContext | undefined>) | undefined;
   readonly #onTerminalCommitted:
     | ((
         input: Readonly<{
@@ -172,6 +175,7 @@ export class WorkflowControllerService {
         'adjudicateAchieved' | 'adjudicateUnachievable' | 'appendEnhancementWarning'
       >;
       recovery?: Pick<UserGoalRecoveryService, 'recoverWorkflow'>;
+      resolveExecutionContext?: (taskId: string) => Promise<RuntimeExecutionContext | undefined>;
       onTerminalCommitted?: (
         input: Readonly<{
           outcome: RuntimeTerminalOutcomeRecord;
@@ -199,6 +203,7 @@ export class WorkflowControllerService {
     this.#taskOutcomes = dependencies.taskOutcomes;
     this.#terminalAuthority = dependencies.terminalAuthority;
     this.#recovery = dependencies.recovery;
+    this.#resolveExecutionContext = dependencies.resolveExecutionContext;
     this.#onTerminalCommitted = dependencies.onTerminalCommitted;
     this.#reportWarning = dependencies.reportWarning;
     this.#clock = dependencies.clock;
@@ -467,12 +472,17 @@ export class WorkflowControllerService {
         continuationResult = undefined;
       } else
         try {
+          const executionContext =
+            control.taskId === undefined || this.#resolveExecutionContext === undefined
+              ? undefined
+              : await this.#resolveExecutionContext(control.taskId);
           instance = await this.#execution.execute({
             instanceId,
             planId: plan.planId,
             input: control.input,
             skillIds: control.skillIds,
             replanCount: control.replanCount,
+            ...(executionContext === undefined ? {} : { executionContext }),
             ...(control.taskId === undefined
               ? {}
               : {
