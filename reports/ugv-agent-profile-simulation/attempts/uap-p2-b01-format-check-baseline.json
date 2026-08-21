@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "observedAt": "2026-08-21T02:22:00.000Z",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm format:check",
+  "exitCode": 1,
+  "status": "BASELINE_FAILURE",
+  "failure": {
+    "summary": "The repository-wide Prettier check reported three untouched baseline files.",
+    "files": [
+      "packages/application/src/skill-usage-planning.ts",
+      "packages/application/test/plan-preparation-processor.unit.test.ts",
+      "packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts"
+    ],
+    "ownershipCheck": "git status --short returned no changes for all three files",
+    "reasonNotModified": "They are outside UAP-P2-B01 and changing unrelated baseline files would violate the task boundary."
+  },
+  "scopedVerification": {
+    "command": "pnpm exec prettier --check <all UAP-P2-B01 implementation, test, and evidence files>",
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  "minimumUnblockCondition": "The baseline owners format the three listed files or accept their current formatting as the repository baseline.",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

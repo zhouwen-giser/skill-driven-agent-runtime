@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T03:11:30.097Z",
+  "observedAt": "2026-08-21T03:10:30.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm typecheck",
+  "exitCode": 2,
+  "failure": {
+    "code": "TS2554",
+    "file": "apps/server/test/ugv-agent-profile.unit.test.ts",
+    "summary": "The read-only Profile repository implementation temporarily narrowed saveVersionAndSetCurrent to zero parameters while its concrete unit test intentionally passed the interface parameters."
+  },
+  "fix": {
+    "summary": "Restored the exact SkillRepository parameter tuple, consumed it without mutation, and retained the rejected read-only Promise. The immediate rerun of pnpm typecheck passed with exit code 0.",
+    "stateMutation": "none"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

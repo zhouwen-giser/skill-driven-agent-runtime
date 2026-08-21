@@ -13,6 +13,10 @@ import {
 import { managedCapabilityTaskUnderstandingConfiguration } from './managed-capability-task-understanding.js';
 import { modelRuntimeBootstrapConfiguration } from './model-runtime-bootstrap-configuration.js';
 import { startServerRuntime } from './runtime.js';
+import {
+  UGV_AGENT_PROFILE_ID,
+  ugvAgentProfileTaskUnderstandingConfiguration,
+} from './ugv-agent-profile.js';
 
 const environment = loadServerEnvironment();
 const modelBootstrap = await modelRuntimeBootstrapConfiguration(environment);
@@ -37,6 +41,7 @@ const runtime = await startServerRuntime({
   postgresUrl: environment.SDAR_POSTGRES_URL,
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
+  evidenceEnvironment: environment.SDAR_CONTROL_ENVIRONMENT,
   applyMigrations: true,
   ...(modelBootstrap === undefined ? {} : { modelBootstrap }),
   outboundEndpointPolicy: {
@@ -87,7 +92,8 @@ const runtime = await startServerRuntime({
     : { governedControlPrincipalResolver: governedControlIdentity }),
   ...(environment.BUSINESS_EVENTS_ENABLED === 'true' ||
   environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' ||
-  environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability'
+  environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability' ||
+  environment.SDAR_TASK_UNDERSTANDING_PROFILE === UGV_AGENT_PROFILE_ID
     ? {
         frozenMcpTasks: { isolationAcknowledged: true as const },
         ...(environment.BUSINESS_EVENTS_ENABLED !== 'true'
@@ -117,7 +123,9 @@ const runtime = await startServerRuntime({
               modelTimeoutMs: environment.SDAR_UGV_MODEL_TIMEOUT_MS,
             },
           }
-        : {}),
+        : environment.SDAR_TASK_UNDERSTANDING_PROFILE === UGV_AGENT_PROFILE_ID
+          ? { taskUnderstanding: ugvAgentProfileTaskUnderstandingConfiguration() }
+          : {}),
 });
 
 process.stdout.write(

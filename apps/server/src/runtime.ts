@@ -461,6 +461,14 @@ import {
 import { assertManagedCapabilityRuntimeConfiguration } from './managed-capability-task-understanding.js';
 import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
 import {
+  UGV_AGENT_PROFILE_ID,
+  UGV_AGENT_PROFILE_SKILL_ID,
+  UGV_AGENT_PROFILE_SKILL_VERSION,
+  UgvAgentProfileSkillRepositoryView,
+  assertUgvAgentProfileRuntimeConfiguration,
+  useManagedAgentCardForProfile,
+} from './ugv-agent-profile.js';
+import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
   BullMqRemoteTaskPollQueue,
@@ -575,7 +583,10 @@ export interface ServerRuntimeOptions {
   readonly capabilityNarrative?: CognitiveStructuredModelStageInvoker;
   readonly taskUnderstanding?: Readonly<{
     readonly profile?:
-      'home_lab_read_only' | 'home_lab_governed_light_control' | 'managed_capability';
+      | 'home_lab_read_only'
+      | 'home_lab_governed_light_control'
+      | 'managed_capability'
+      | 'ugv-agent-profile';
     readonly taskTypes: readonly TaskTypeDefinition[];
     readonly entryPolicy?: 'ambiguous_only' | 'all_requests';
     readonly skillSelectionMode?: 'exact_compatible_only' | 'model_ranked';
@@ -811,10 +822,12 @@ export async function startServerRuntime(
   assertHomeLabReadOnlyRuntimeConfiguration(options);
   assertHomeLabGovernedLightRuntimeConfiguration(options);
   assertManagedCapabilityRuntimeConfiguration(options);
+  assertUgvAgentProfileRuntimeConfiguration(options);
   const homeLabReadOnlyProfile = options.taskUnderstanding?.profile === 'home_lab_read_only';
   const homeLabGovernedLightProfile =
     options.taskUnderstanding?.profile === HOME_LAB_GOVERNED_LIGHT_PROFILE;
   const managedCapabilityProfile = options.taskUnderstanding?.profile === 'managed_capability';
+  const ugvAgentProfile = options.taskUnderstanding?.profile === UGV_AGENT_PROFILE_ID;
   const mcpOutboundFetch = createMcpOutboundFetch({
     allowedAuthorities: options.outboundEndpointPolicy?.mcpAllowedAuthorities,
     unsafeTestOpen: options.outboundEndpointPolicy?.unsafeTestOpen === true,
@@ -908,6 +921,7 @@ export async function startServerRuntime(
   const events = new PostgresRuntimeEventPublisher(pool, taskCommands);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
+  const profileSkills = ugvAgentProfile ? new UgvAgentProfileSkillRepositoryView(skills) : skills;
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
   const resolveSkillUsageContext = (
@@ -1121,19 +1135,23 @@ export async function startServerRuntime(
     `experience-worker-${randomUUID()}`,
   );
   const capabilitySummaries = new CapabilitySummaryService({
-    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    catalog: { listEnabledSkillVersions: () => profileSkills.listEnabledVersions() },
     repository: new PostgresCapabilitySummaryRepository(pool),
-    generationPolicyVersion: 'capability-policy-v1',
+    generationPolicyVersion: ugvAgentProfile
+      ? 'capability-policy-v1:ugv-agent-profile-v1'
+      : 'capability-policy-v1',
     clock,
     nextSummaryId: () => `capability-summary-${randomUUID()}`,
   });
   const capabilityCards = new CapabilityCardPublisher({
     summaries: capabilitySummaries,
-    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    catalog: { listEnabledSkillVersions: () => profileSkills.listEnabledVersions() },
     repository: new PostgresCapabilityCardRepository(pool),
-    ...(options.capabilityNarrative === undefined
-      ? {}
-      : { narrative: options.capabilityNarrative }),
+    ...(ugvAgentProfile
+      ? { agentName: UGV_AGENT_PROFILE_ID, requireCurrentCatalogOnRead: true }
+      : options.capabilityNarrative === undefined
+        ? {}
+        : { narrative: options.capabilityNarrative }),
     clock,
     nextCardId: () => `capability-card-${randomUUID()}`,
   });
@@ -1391,7 +1409,7 @@ export async function startServerRuntime(
       `task-type-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
   });
   const capabilitySkillMapper = new CapabilitySkillMapper({
-    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    catalog: { listEnabledSkillVersions: () => profileSkills.listEnabledVersions() },
   });
   const capabilityPatternInduction = new CapabilityPatternInductionService({
     repository: capabilityPatternRepository,
@@ -2262,8 +2280,45 @@ export async function startServerRuntime(
       },
     });
   };
-  const skillSelection =
-    options.skillSelection !== undefined || managedCapabilityProfile
+  const skillSelection = ugvAgentProfile
+    ? new SkillSelectionService({
+        skills: profileSkills,
+        graph: skillGraphRepository,
+        records: skillSelectionRepository,
+        retriever: {
+          score: (_goalContract, candidates) =>
+            Promise.resolve(
+              Object.freeze(
+                Object.fromEntries(candidates.map((candidate) => [candidate.skillId, 1])),
+              ),
+            ),
+        },
+        decider: {
+          decide: ({ candidates }) => {
+            const candidate = candidates[0];
+            if (
+              candidate === undefined ||
+              candidates.length !== 1 ||
+              candidate.skillId !== UGV_AGENT_PROFILE_SKILL_ID ||
+              candidate.skillVersion !== UGV_AGENT_PROFILE_SKILL_VERSION
+            )
+              throw new Error('UGV_AGENT_PROFILE_SKILL_SELECTION_NOT_EXACT');
+            return Promise.resolve({
+              selectedSkillId: candidate.skillId,
+              decisionSummary:
+                'The UGV Agent Profile selected its sole enabled exact SkillVersion.',
+            });
+          },
+        },
+        mcpWarnings: mcpRepository,
+        usage: skillUsage,
+        clock,
+        ids: {
+          nextSelectionId: () => `skill-selection-ugv-agent-profile-${randomUUID()}`,
+          nextReplacementPlanId: () => `skill-replacement-ugv-agent-profile-${randomUUID()}`,
+        },
+      })
+    : options.skillSelection !== undefined || managedCapabilityProfile
       ? new SkillSelectionService({
           skills,
           graph: skillGraphRepository,
@@ -4423,14 +4478,14 @@ export async function startServerRuntime(
       candidates: {
         async list(skillGoal, planId, agentTaskId) {
           if (skillGoal.requiredResult.includes('TEMPORARY_SKILL_GOAL:')) return [];
-          if (skillSelection === undefined) return skills.listEnabledVersions();
+          if (skillSelection === undefined) return profileSkills.listEnabledVersions();
           const userGoalPlan = await userGoalRuntimeRepository.findPlan(planId);
           if (userGoalPlan === undefined) throw new Error('USER_GOAL_PLAN_NOT_FOUND');
           const goal = await goals.findById(userGoalPlan.goalId);
           if (goal?.version !== userGoalPlan.goalVersion)
             throw new Error('USER_GOAL_PLAN_GOAL_STALE');
           const goalContract = createGoalExecutionContract(goal);
-          const compatible = (await skills.listEnabledVersions()).filter((candidate) =>
+          const compatible = (await profileSkills.listEnabledVersions()).filter((candidate) =>
             isSkillGoalCompatible(skillGoal, candidate),
           );
           const task = agentTaskId === undefined ? undefined : await tasks.findById(agentTaskId);
@@ -6330,7 +6385,7 @@ export async function startServerRuntime(
       ),
       skillProvider: {
         async listEnabled() {
-          return (await skills.listEnabledVersions()).map((skill) => ({
+          return (await profileSkills.listEnabledVersions()).map((skill) => ({
             id: skill.skillId,
             name: skill.name,
             description: skill.summary,
@@ -6363,12 +6418,16 @@ export async function startServerRuntime(
             },
           }),
       capabilityCardProvider: capabilityCards,
-      agentCardProvider: {
-        async findActive() {
-          const card = await managedAgentCards.findActiveCard();
-          return card === undefined ? undefined : parseOfficialAgentCard(card);
-        },
-      },
+      ...(useManagedAgentCardForProfile(options.taskUnderstanding?.profile)
+        ? {
+            agentCardProvider: {
+              async findActive() {
+                const card = await managedAgentCards.findActiveCard();
+                return card === undefined ? undefined : parseOfficialAgentCard(card);
+              },
+            },
+          }
+        : {}),
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
     });

@@ -77,7 +77,7 @@ describe('A2A 1.0.1 compatibility baseline', () => {
       generationPolicyVersion: 'capability-policy-v1',
       profileVersion: '1.0',
       status: 'active',
-      agentName: 'Skill-Driven Agent Runtime',
+      agentName: 'profile-specific-agent',
       description: 'Provides one public inspection capability.',
       profile: {
         profileVersion: '1.0',
@@ -106,6 +106,7 @@ describe('A2A 1.0.1 compatibility baseline', () => {
     const wire = AgentCard.toJSON(new A2AAgentCardBuilder().buildFromSnapshot(snapshot));
 
     expect(wire).toMatchObject({
+      name: snapshot.agentName,
       description: snapshot.description,
       skills: [expect.objectContaining({ id: 'skill.public', inputModes: ['text/plain'] })],
       capabilities: {

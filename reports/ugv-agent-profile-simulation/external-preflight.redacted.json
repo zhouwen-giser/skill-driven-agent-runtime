@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "ugv-agent-profile.external-preflight-ref/v1",
+  "generatedAt": "2026-08-21T01:30:36.809Z",
+  "status": "PASS_WITH_UPSTREAM_DRIFT",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "southboundOwner": "sdar-mcp-provider-platform",
+  "sourceEvidence": {
+    "repositoryCommit": "ce57d3d7ac2f99c0c95fa61bd9746abe862ed507",
+    "path": "reports/ugv-agent-profile-simulation/external-preflight.redacted.json",
+    "sha256": "3664c5a0057ed94c2f6e2da0c923a19266ed6de16bd6431c68366f363737a147"
+  },
+  "qualificationLayers": {
+    "networkReachability": "PASS",
+    "protocolReachability": "PASS",
+    "contractUsability": "PASS",
+    "authoritativeStateFreshness": "UNVERIFIED_PAYLOAD_NOT_RETAINED"
+  },
+  "contract": {
+    "deviceMcpServer": "ugv-mcp-server/1.26.0",
+    "deviceMcpProtocolVersion": "2025-11-25",
+    "deviceMcpToolCount": 15,
+    "deviceMcpContractHash": "3725dba7b92e587ecb3fd670bc54e00633828370e9063f96809b8f7c1400935a",
+    "mqttLockedProfileHash": "5ebe7992d93d813a749f96aa83faea34fe3dff09d2797d21d6f44859151c40cd",
+    "mqttWireMode": "ros_bridge_json",
+    "mqttSubscriptionCount": 18,
+    "mqttSampleCount": 12
+  },
+  "upstreamDrift": [
+    "MQTT_CANONICAL_STATUS_TOPIC_NOT_OBSERVED",
+    "MQTT_SPEED_PUBLISHER_QOS_0_NOT_1"
+  ],
+  "safety": {
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

@@ -14,6 +14,7 @@ export class A2AAgentCardBuilder {
     const base = buildAgentCard(snapshot.publicSkills, endpoint);
     return {
       ...base,
+      name: snapshot.agentName,
       description: snapshot.description,
       capabilities: {
         ...base.capabilities,
