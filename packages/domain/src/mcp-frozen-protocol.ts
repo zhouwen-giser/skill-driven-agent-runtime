@@ -4,12 +4,23 @@ import type { InternalToolResult, McpTaskStatus } from './mcp-task.js';
 export type McpProviderProtocolMode = 'frozen_v1';
 export type McpTaskBehavior = 'synchronous_only' | 'server_directed' | 'task_required';
 
+export interface McpProviderCatalogIdentity {
+  readonly providerId: string;
+  readonly providerType: string;
+  readonly providerVersion: string;
+  readonly manifestHash: string;
+}
+
 export interface McpTaskExecutionProfile {
   readonly profileVersion: '1.0';
   readonly taskBehavior: McpTaskBehavior;
   readonly availability: 'not_supported' | 'dynamic';
   readonly supportsScheduling: boolean;
   readonly supportsMaxElapsed: boolean;
+  /** Additive lifecycle declaration. Older Frozen V1 Runtimes may omit it. */
+  readonly supportsCancellation?: boolean | undefined;
+  /** Additive lifecycle declaration. Older Frozen V1 Runtimes may omit it. */
+  readonly supportsPauseResume?: boolean | undefined;
   readonly supportsObservations: boolean;
   readonly supportsInputRequired: boolean;
   readonly idempotency: 'none' | 'client_request_key' | 'server_managed' | 'unknown';
@@ -34,6 +45,8 @@ export interface McpProtocolDiscoverySnapshot {
   readonly supportedVersions: readonly string[];
   readonly capabilities: Readonly<Record<string, unknown>>;
   readonly serverInfo: Readonly<Record<string, unknown>>;
+  /** Validated Provider manifest identity advertised by server/discover. */
+  readonly providerCatalog?: McpProviderCatalogIdentity;
   readonly taskNotifications: boolean;
   readonly discoveredAt: string;
   readonly validUntil?: string | undefined;
@@ -104,6 +117,8 @@ export type FrozenTaskReadinessAttribute =
   | 'availability:dynamic'
   | 'scheduling'
   | 'max_elapsed'
+  | 'cancellation'
+  | 'pause_resume'
   | 'observations'
   | 'input_required'
   | 'idempotency:client_request_key'
@@ -118,6 +133,8 @@ export function frozenTaskReadinessAttributes(
   if (profile.availability === 'dynamic') attributes.push('availability:dynamic');
   if (profile.supportsScheduling) attributes.push('scheduling');
   if (profile.supportsMaxElapsed) attributes.push('max_elapsed');
+  if (profile.supportsCancellation === true) attributes.push('cancellation');
+  if (profile.supportsPauseResume === true) attributes.push('pause_resume');
   if (profile.supportsObservations) attributes.push('observations');
   if (profile.supportsInputRequired) attributes.push('input_required');
   if (profile.idempotency === 'client_request_key')

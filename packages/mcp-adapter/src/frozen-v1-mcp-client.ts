@@ -5,6 +5,14 @@ import type { McpProtocolDiscoverySnapshot } from '../../domain/src/index.js';
 export const FROZEN_MCP_PROTOCOL_VERSION = '2026-07-28' as const;
 export const FROZEN_MCP_TASKS_EXTENSION = 'io.modelcontextprotocol/tasks' as const;
 const MAX_SSE_PENDING_BYTES = 1_048_576;
+const ProviderCatalogSchema = z
+  .object({
+    providerId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u),
+    providerType: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u),
+    providerVersion: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/u),
+    manifestHash: z.string().regex(/^[0-9a-f]{64}$/u),
+  })
+  .strict();
 
 export type FrozenMcpMethod =
   | 'server/discover'
@@ -51,6 +59,7 @@ const DiscoverySchema = z
             'io.sdar/taskExecution': z
               .object({ profileVersion: z.literal('1.0'), taskNotifications: z.literal(true) })
               .strict(),
+            'io.sdar/providerCatalog': ProviderCatalogSchema.optional(),
           })
           .catchall(z.unknown()),
       })
@@ -232,6 +241,7 @@ export class FrozenV1McpClient {
   ): Promise<McpProtocolDiscoverySnapshot> {
     const discovery = await this.discover(input);
     const taskProfile = discovery.capabilities.extensions['io.sdar/taskExecution'];
+    const providerCatalog = discovery.capabilities.extensions['io.sdar/providerCatalog'];
     return Object.freeze({
       snapshotId: input.snapshotId,
       serverId: input.serverId,
@@ -243,6 +253,9 @@ export class FrozenV1McpClient {
       serverInfo: Object.freeze({
         ...discovery._meta['io.modelcontextprotocol/serverInfo'],
       }),
+      ...(providerCatalog === undefined
+        ? {}
+        : { providerCatalog: Object.freeze({ ...providerCatalog }) }),
       taskNotifications: taskProfile.taskNotifications,
       discoveredAt: input.discoveredAt,
       ...(discovery.ttlMs === undefined

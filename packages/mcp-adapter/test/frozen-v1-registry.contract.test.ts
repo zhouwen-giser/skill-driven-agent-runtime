@@ -40,9 +40,19 @@ describe('Frozen V1 registry adapter', () => {
           replay: 'unknown',
           source: 'default_unknown',
         },
-        taskExecutionProfile: expect.objectContaining({ taskBehavior: 'task_required' }),
+        taskExecutionProfile: expect.objectContaining({
+          taskBehavior: 'task_required',
+          supportsCancellation: true,
+          supportsPauseResume: true,
+        }),
       }),
     ]);
+    expect(result.snapshot.providerCatalog).toEqual({
+      providerId: 'isr.vehicle.ugv.ugv1',
+      providerType: 'isr.vehicle.ugv',
+      providerVersion: '1.0.0',
+      manifestHash: 'b'.repeat(64),
+    });
   });
 
   it('retains a complete exact Frozen Tool execution-semantics declaration', async () => {
@@ -157,6 +167,12 @@ function discovery() {
       extensions: {
         'io.modelcontextprotocol/tasks': {},
         'io.sdar/taskExecution': { profileVersion: '1.0', taskNotifications: true },
+        'io.sdar/providerCatalog': {
+          providerId: 'isr.vehicle.ugv.ugv1',
+          providerType: 'isr.vehicle.ugv',
+          providerVersion: '1.0.0',
+          manifestHash: 'b'.repeat(64),
+        },
       },
     },
     _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'Provider 1', version: '1.0.0' } },
@@ -177,6 +193,8 @@ function tools(executionSemantics?: unknown) {
             availability: 'dynamic',
             supportsScheduling: true,
             supportsMaxElapsed: true,
+            supportsCancellation: true,
+            supportsPauseResume: true,
             supportsObservations: true,
             supportsInputRequired: true,
             idempotency: 'client_request_key',

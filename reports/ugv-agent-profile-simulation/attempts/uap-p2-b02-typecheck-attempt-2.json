@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:02:01.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm typecheck",
+  "exitCode": 2,
+  "failure": {
+    "code": "TYPESCRIPT_LITERAL_IDENTITY_ERROR",
+    "summary": "The native Skill binding ID was still typed as an arbitrary string while the exact Profile snapshot requires the literal move-resource identity."
+  },
+  "fix": {
+    "summary": "Required the imported Skill declaration to equal move-resource and froze that literal separately from the current Provider Binding ID. Every later pnpm typecheck run passed.",
+    "stateMutation": "source_and_tests_only"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

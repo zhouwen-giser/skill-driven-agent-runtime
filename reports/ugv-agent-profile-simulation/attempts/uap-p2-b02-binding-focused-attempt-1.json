@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:02:02.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm exec vitest run apps/server/test/ugv-move-binding.unit.test.ts apps/server/test/ugv-move-input-adapter.unit.test.ts apps/server/test/ugv-move-position-result.unit.test.ts",
+  "exitCode": 1,
+  "failure": {
+    "code": "TEST_FIXTURE_AUTHORITY_MISMATCH",
+    "summary": "Four binding cases failed because the first fixture shadowed its fixture factory name and derived the catalog with Provider Binding revision 7 while the real Runtime verifier derives it with Runtime Tool revision 9."
+  },
+  "fix": {
+    "summary": "Removed the lexical shadow and made the fixture derive the catalog exactly as McpRuntimeBindingAuthorityVerifier does. The binding suite then passed 5/5 and the expanded B02 focused suite passed 83/83.",
+    "stateMutation": "test_fixture_only"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

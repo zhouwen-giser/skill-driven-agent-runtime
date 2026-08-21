@@ -3639,6 +3639,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
       availability: 'dynamic' as const,
       supportsScheduling: true,
       supportsMaxElapsed: true,
+      supportsCancellation: true,
+      supportsPauseResume: true,
       supportsObservations: true,
       supportsInputRequired: true,
       idempotency: 'client_request_key' as const,
@@ -3658,8 +3660,24 @@ describe('PostgreSQL protocol-domain repositories', () => {
       protocolVersion: '2026-07-28',
       baselineSha256: 'a'.repeat(64),
       supportedVersions: ['2026-07-28'],
-      capabilities: { tasks: { list: {}, cancel: {}, requests: { tools: { call: {} } } } },
+      capabilities: {
+        tasks: { list: {}, cancel: {}, requests: { tools: { call: {} } } },
+        extensions: {
+          'io.sdar/providerCatalog': {
+            providerId: 'isr.vehicle.ugv.ugv1',
+            providerType: 'isr.vehicle.ugv',
+            providerVersion: '1.0.0',
+            manifestHash: 'b'.repeat(64),
+          },
+        },
+      },
       serverInfo: { name: 'Frozen Provider', version: '1.0.0' },
+      providerCatalog: {
+        providerId: 'isr.vehicle.ugv.ugv1',
+        providerType: 'isr.vehicle.ugv',
+        providerVersion: '1.0.0',
+        manifestHash: 'b'.repeat(64),
+      },
       taskNotifications: true,
       discoveredAt: '2026-07-18T00:00:00.000Z',
       validUntil: '2026-07-18T01:00:00.000Z',
@@ -3722,6 +3740,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
         operationName: 'embodied.move',
         attributes: expect.arrayContaining([
           'task_behavior:task_required',
+          'cancellation',
+          'pause_resume',
           'effect:side_effecting',
           'execution:task_required',
           `catalog_checksum:${catalog.catalogChecksum}`,

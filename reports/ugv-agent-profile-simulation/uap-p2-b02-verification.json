@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:47:14.224Z",
+  "status": "PASS_WITH_DISCLOSED_ENVIRONMENT_AND_BASELINE_GAPS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_contract",
+  "observationClass": "deterministic_contract_and_persistence_projection",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "repository": {
+    "name": "skill-driven-agent-runtime",
+    "branch": "codex/sdar-ugv-smpp-integration",
+    "baselineCommit": "2a5aa2288295a987e8f1df949c125d657eac0258",
+    "dirty": true
+  },
+  "scope": {
+    "semanticTaskType": "embodied.move",
+    "operation": "vehicle_navigate",
+    "resourceId": "vehicle:ugv1",
+    "providerId": "isr.vehicle.ugv.ugv1",
+    "simulationOnly": true,
+    "externalExecutionPerformed": false
+  },
+  "commands": [
+    {
+      "command": "pnpm exec vitest run apps/server/test/ugv-move-binding.unit.test.ts apps/server/test/ugv-move-input-adapter.unit.test.ts apps/server/test/ugv-move-position-result.unit.test.ts",
+      "exitCode": 0,
+      "result": "3 files, 76 tests passed"
+    },
+    {
+      "command": "pnpm exec vitest run apps/server/test/ugv-move-binding.unit.test.ts apps/server/test/ugv-move-input-adapter.unit.test.ts apps/server/test/ugv-move-position-result.unit.test.ts packages/mcp-adapter/test/frozen-v1-availability.contract.test.ts packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/mcp-adapter/test/frozen-v1-registry.contract.test.ts packages/mcp-adapter/test/node-control-catalog-authority.unit.test.ts packages/persistence-postgres/test/skill-package-authority-reader.unit.test.ts packages/runtime-control-persistence-postgres/test/runtime-mcp-catalog-authority-reader.unit.test.ts",
+      "exitCode": 0,
+      "result": "9 files, 117 tests passed"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "result": "strict TypeScript check passed"
+    },
+    {
+      "command": "pnpm test:contract",
+      "exitCode": 1,
+      "result": "50 files and 316 tests passed; unrelated Node Control operation-conformance test exceeded its fixed 5000ms timeout under default concurrency"
+    },
+    {
+      "command": "pnpm exec vitest run --project contract apps/node-control-api/test/operation-conformance.contract.test.ts",
+      "exitCode": 0,
+      "result": "1 file, 6 tests passed"
+    },
+    {
+      "command": "pnpm exec vitest run --project contract --maxWorkers=1",
+      "exitCode": 0,
+      "result": "51 files, 317 tests passed"
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 1,
+      "result": "22 errors in seven non-B02 Home-Lab/Node-Control baseline files; scoped B02 ESLint passed"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "result": "TypeScript and console production builds passed"
+    },
+    {
+      "command": "pnpm verify:architecture",
+      "exitCode": 0,
+      "result": "architecture boundaries passed across 812 TypeScript source files"
+    },
+    {
+      "command": "pnpm format:check",
+      "exitCode": 1,
+      "result": "three non-B02 baseline files remain unformatted; all B02 files pass scoped Prettier"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "result": "no whitespace errors"
+    }
+  ],
+  "postgresIntegration": {
+    "assertionPresent": true,
+    "executed": false,
+    "status": "ENVIRONMENT_BLOCKED",
+    "sandboxFailure": "EPERM connecting to 127.0.0.1:55432",
+    "approvedHostFailure": "PostgreSQL XX000: template database template1 collation version has no determinable actual version",
+    "minimumUnblockCondition": "Provide a PostgreSQL test cluster whose template1 can create an isolated database, or authorize the repository helper to select template0 for this suite."
+  },
+  "safety": {
+    "authorizationGrantedByThisArtifact": false,
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

@@ -90,6 +90,8 @@ const taskExecutionProfileSchema = z
     availability: z.enum(['not_supported', 'dynamic']),
     supportsScheduling: z.boolean(),
     supportsMaxElapsed: z.boolean(),
+    supportsCancellation: z.boolean().optional(),
+    supportsPauseResume: z.boolean().optional(),
     supportsObservations: z.boolean(),
     supportsInputRequired: z.boolean(),
     idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),

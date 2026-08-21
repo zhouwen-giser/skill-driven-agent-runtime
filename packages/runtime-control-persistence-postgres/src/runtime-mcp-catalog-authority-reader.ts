@@ -39,6 +39,7 @@ interface RuntimeMcpServerAuthorityRow extends QueryResultRow {
 interface RuntimeMcpSnapshotAuthorityRow extends QueryResultRow {
   protocol_mode: string;
   protocol_version: string;
+  capabilities_json: unknown;
   server_info_json: unknown;
   tool_revision: number;
   valid_until: Date | string | null;
@@ -76,9 +77,19 @@ const McpTaskExecutionProfileSchema: z.ZodType<McpTaskExecutionProfile> = z
     availability: z.enum(['not_supported', 'dynamic']),
     supportsScheduling: z.boolean(),
     supportsMaxElapsed: z.boolean(),
+    supportsCancellation: z.boolean().optional(),
+    supportsPauseResume: z.boolean().optional(),
     supportsObservations: z.boolean(),
     supportsInputRequired: z.boolean(),
     idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+  })
+  .strict();
+const McpProviderCatalogIdentitySchema = z
+  .object({
+    providerId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u),
+    providerType: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u),
+    providerVersion: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/u),
+    manifestHash: z.string().regex(/^[0-9a-f]{64}$/u),
   })
   .strict();
 
@@ -103,7 +114,7 @@ export class PostgresRuntimeMcpCatalogAuthorityReader implements RuntimeMcpCatal
         [serverId],
       );
       const snapshotResult = await client.query<RuntimeMcpSnapshotAuthorityRow>(
-        `SELECT snapshot.protocol_mode,snapshot.protocol_version,
+        `SELECT snapshot.protocol_mode,snapshot.protocol_version,snapshot.capabilities_json,
                 snapshot.server_info_json,snapshot.tool_revision,snapshot.valid_until
            FROM mcp_server server
            JOIN mcp_protocol_snapshot snapshot
@@ -145,19 +156,15 @@ function mapAuthority(
   toolRows: readonly RuntimeMcpToolAuthorityRow[],
 ): RuntimeMcpCatalogAuthority {
   const tools = Object.freeze(toolRows.map(mapTool));
-  const catalog = deriveFrozenMcpCatalogAuthority(
-    {
-      protocolVersion: snapshot.protocol_version,
-      serverInfo: Object.freeze(z.record(z.string(), z.unknown()).parse(snapshot.server_info_json)),
-    },
-    tools,
-    server.tool_revision,
-  );
+  const providerCatalog = providerCatalogFromCapabilities(snapshot.capabilities_json);
+  const catalogSnapshot = {
+    protocolVersion: snapshot.protocol_version,
+    serverInfo: Object.freeze(z.record(z.string(), z.unknown()).parse(snapshot.server_info_json)),
+    ...(providerCatalog === undefined ? {} : { providerCatalog }),
+  };
+  const catalog = deriveFrozenMcpCatalogAuthority(catalogSnapshot, tools, server.tool_revision);
   const discoveredCatalog = deriveFrozenMcpCatalogAuthority(
-    {
-      protocolVersion: snapshot.protocol_version,
-      serverInfo: Object.freeze(z.record(z.string(), z.unknown()).parse(snapshot.server_info_json)),
-    },
+    catalogSnapshot,
     toolRows.map(mapDiscoveredTool),
     server.tool_revision,
   );
@@ -176,6 +183,15 @@ function mapAuthority(
     operationCount: catalog.operationCount,
     toolNames: Object.freeze(tools.map((tool) => tool.toolName)),
   });
+}
+
+function providerCatalogFromCapabilities(value: unknown) {
+  const capabilities = z.record(z.string(), z.unknown()).parse(value);
+  const extensions = z.record(z.string(), z.unknown()).optional().parse(capabilities['extensions']);
+  const providerCatalog = extensions?.['io.sdar/providerCatalog'];
+  return providerCatalog === undefined
+    ? undefined
+    : Object.freeze(McpProviderCatalogIdentitySchema.parse(providerCatalog));
 }
 
 function mapDiscoveredTool(row: RuntimeMcpToolAuthorityRow): McpTool {

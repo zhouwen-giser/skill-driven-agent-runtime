@@ -14,6 +14,7 @@ export * from './remote-task-input.js';
 export * from './skill-registry.js';
 export * from './skill-governance.js';
 export * from './skill-package-loader.js';
+export * from './skill-package-authority.js';
 export * from './skill-usage-selection.js';
 export * from './skill-task-readiness.js';
 export * from './skill-usage-planning.js';

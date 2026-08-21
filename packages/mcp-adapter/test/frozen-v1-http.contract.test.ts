@@ -94,6 +94,62 @@ describe('Frozen V1 stateless HTTP client', () => {
     expect(bodies.every((body) => body['method'] !== 'initialize')).toBe(true);
   });
 
+  it('strictly validates and retains the optional Provider Catalog manifest identity', async () => {
+    const providerCatalog = {
+      providerId: 'isr.vehicle.ugv.ugv1',
+      providerType: 'isr.vehicle.ugv',
+      providerVersion: '1.0.0',
+      manifestHash: 'b'.repeat(64),
+    };
+    const discovery = discoveryResult();
+    const withProvider = {
+      ...discovery,
+      capabilities: {
+        ...discovery.capabilities,
+        extensions: {
+          ...discovery.capabilities.extensions,
+          'io.sdar/providerCatalog': providerCatalog,
+        },
+      },
+    };
+    const client = new FrozenV1McpClient(() => Promise.resolve(jsonResponse(withProvider)));
+
+    await expect(
+      client.discoverSnapshot({
+        endpoint,
+        headers: {},
+        snapshotId: 'snapshot-provider-catalog',
+        serverId: 'provider-1',
+        baselineSha256: 'a'.repeat(64),
+        discoveredAt: '2026-07-18T00:00:00.000Z',
+        toolRevision: 1,
+      }),
+    ).resolves.toMatchObject({ providerCatalog });
+
+    for (const malformed of [
+      { ...providerCatalog, manifestHash: 'A'.repeat(64) },
+      { ...providerCatalog, providerType: 'isr vehicle ugv' },
+      { ...providerCatalog, readiness: 'online' },
+    ]) {
+      const invalid = {
+        ...withProvider,
+        capabilities: {
+          ...withProvider.capabilities,
+          extensions: {
+            ...withProvider.capabilities.extensions,
+            'io.sdar/providerCatalog': malformed,
+          },
+        },
+      };
+      await expect(
+        new FrozenV1McpClient(() => Promise.resolve(jsonResponse(invalid))).discover({
+          endpoint,
+          headers: {},
+        }),
+      ).rejects.toMatchObject({ code: 'FROZEN_MCP_DISCOVERY_INVALID' });
+    }
+  });
+
   it('accepts a correlated SSE JSON-RPC response', async () => {
     const client = new FrozenV1McpClient((_url, init) => {
       const body = parseRequestBody(init);
