@@ -5,7 +5,12 @@ import type {
   GovernedControlConfirmation,
   GovernedControlConfirmationConsumption,
 } from '../../application/src/index.js';
-import { PostgresGovernedControlAuthorityRepository } from '../src/index.js';
+import { hashCanonicalEvidenceJson } from '../../domain/src/index.js';
+import { selectedUgvTaskOperation } from '../../../apps/server/test/ugv-move-workflow-test-fixture.js';
+import {
+  PostgresGovernedControlAuthorityRepository,
+  PostgresUgvGovernedControlAuthorityReader,
+} from '../src/index.js';
 
 const confirmedAt = '2026-08-13T01:00:00.000Z';
 const expiresAt = '2026-08-13T01:05:00.000Z';
@@ -45,6 +50,59 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
       confirmedAt,
       expiresAt,
     ]);
+  });
+
+  it('issues once and replays the exact existing confirmation after a lost response', async () => {
+    const candidate = confirmation();
+    let queryCount = 0;
+    const query = vi.fn((text: string, values?: readonly unknown[]) => {
+      queryCount += 1;
+      void values;
+      if (queryCount === 1) {
+        expect(text).toContain('ON CONFLICT (confirmation_id) DO NOTHING');
+        return Promise.resolve({ rows: [] });
+      }
+      expect(text).toContain('AND actor_roles_json=$18::jsonb');
+      expect(text).toContain('AND reason=$19');
+      return Promise.resolve({ rows: [confirmationRow()] });
+    });
+    const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
+
+    await expect(repository.issueOnce(candidate)).resolves.toEqual({
+      confirmation: candidate,
+      replayed: true,
+    });
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[1]?.[1]).toEqual([
+      candidate.confirmationId,
+      candidate.taskId,
+      candidate.capabilityBindingId,
+      candidate.capabilityId,
+      candidate.capabilityVersion,
+      candidate.capabilityAttemptId,
+      candidate.planId,
+      candidate.planHash,
+      candidate.skillId,
+      candidate.skillVersion,
+      candidate.providerBindingId,
+      candidate.serverId,
+      candidate.toolName,
+      candidate.argumentsHash,
+      candidate.actorId,
+      candidate.actorKind,
+      candidate.authenticationMethod,
+      JSON.stringify(candidate.actorRoles),
+      candidate.reason,
+    ]);
+  });
+
+  it('rejects a deterministic-id collision with different immutable scope', async () => {
+    const query = vi.fn(() => Promise.resolve({ rows: [] }));
+    const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
+
+    await expect(repository.issueOnce(confirmation())).rejects.toMatchObject({
+      code: 'GOVERNED_CONTROL_CONFIRMATION_ISSUE_CONFLICT',
+    });
   });
 
   it('loads an exact durable authority snapshot suitable for restart recheck', async () => {
@@ -198,6 +256,292 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     ]);
     await expect(repository.consumeConfirmation(consumption)).resolves.toBeUndefined();
   });
+
+  it('finds the one complete consumed confirmation by exact invocation id', async () => {
+    const consumption = confirmationConsumption();
+    const query = vi.fn((text: string, values?: readonly unknown[]) => {
+      void text;
+      void values;
+      return Promise.resolve({
+        rows: [
+          {
+            ...confirmationRow(),
+            consumed_invocation_id: consumption.invocationId,
+            consumed_dispatch_hash: consumption.dispatchHash,
+            consumed_at: consumption.consumedAt,
+          },
+        ],
+      });
+    });
+    const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
+
+    await expect(
+      repository.findConsumedByInvocation(consumption.invocationId),
+    ).resolves.toMatchObject({
+      confirmationId: 'control-confirmation-1',
+      consumedInvocationId: consumption.invocationId,
+      consumedDispatchHash: consumption.dispatchHash,
+      consumedAt: consumption.consumedAt,
+    });
+    expect(query.mock.calls[0]?.[0]).toContain('WHERE consumed_invocation_id=$1');
+    expect(query.mock.calls[0]?.[0]).toContain('consumed_at IS NOT NULL');
+    expect(query.mock.calls[0]?.[0]).toContain('consumed_dispatch_hash IS NOT NULL');
+    expect(query.mock.calls[0]?.[0]).toContain('revoked_at IS NULL');
+    expect(query.mock.calls[0]?.[0]).toContain('LIMIT 2');
+    expect(query.mock.calls[0]?.[1]).toEqual([consumption.invocationId]);
+  });
+
+  it('returns undefined when no consumed confirmation has the invocation id', async () => {
+    const query = vi.fn(() => Promise.resolve({ rows: [] }));
+    const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
+
+    await expect(
+      repository.findConsumedByInvocation('unknown-invocation'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('fails closed if persisted state returns more than one consumed confirmation', async () => {
+    const consumption = confirmationConsumption();
+    const consumed = {
+      ...confirmationRow(),
+      consumed_invocation_id: consumption.invocationId,
+      consumed_dispatch_hash: consumption.dispatchHash,
+      consumed_at: consumption.consumedAt,
+    };
+    const query = vi.fn(() =>
+      Promise.resolve({ rows: [consumed, { ...consumed, confirmation_id: 'ambiguous' }] }),
+    );
+    const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
+
+    await expect(
+      repository.findConsumedByInvocation(consumption.invocationId),
+    ).rejects.toMatchObject({
+      code: 'UGV_GOVERNED_CONTROL_PERSISTED_AUTHORITY_INVALID',
+    });
+  });
+});
+
+describe('PostgresUgvGovernedControlAuthorityReader', () => {
+  it('combines one persisted Selected/confirmation snapshot with refreshed mutable authority', async () => {
+    const selected = selectedUgvTaskOperation();
+    const constraint = {
+      type: 'physical_side_effect_policy',
+      sideEffecting: true,
+      dispatchMaximum: 1,
+    };
+    const query = vi.fn((text: string) => {
+      void text;
+      return Promise.resolve({ rows: [ugvAuthorityRow(selected, constraint)] });
+    });
+    const loadCurrentMcpProviderBinding = vi.fn(() =>
+      Promise.resolve({
+        observedAt: '2026-08-21T12:01:00.000Z',
+        binding: {
+          bindingId: selected.providerBinding.bindingId,
+          revision: selected.providerBinding.revision,
+          localServerId: selected.server.serverId,
+          originType: 'smpp_registry' as const,
+          providerId: selected.provider.providerId,
+          externalServerId: 'external-ugv',
+          endpointRef: 'http://127.0.0.1:10070/mcp',
+          catalogRevision: selected.server.catalogRevision,
+          catalogChecksum: selected.server.catalogChecksum,
+          operationCount: 2,
+          availabilityValidUntil: '2026-08-21T12:05:00.000Z',
+        },
+      }),
+    );
+    const runtime = {
+      record: {
+        server: {
+          serverId: selected.server.serverId,
+          name: 'UGV',
+          endpoint: 'http://127.0.0.1:10070/mcp',
+          transport: 'streamable_http' as const,
+          status: 'enabled' as const,
+          toolRevision: selected.server.toolRevision,
+          protocolMode: 'frozen_v1' as const,
+          currentProtocolSnapshotId: selected.server.discoverySnapshotId,
+          createdAt: selected.selectedAt,
+          updatedAt: selected.selectedAt,
+        },
+        encryptedCredential: '',
+      },
+      snapshot: {
+        snapshotId: selected.server.discoverySnapshotId,
+        serverId: selected.server.serverId,
+        protocolMode: 'frozen_v1' as const,
+        protocolVersion: '2025-03-26',
+        baselineSha256: 'f'.repeat(64),
+        supportedVersions: ['2025-03-26'],
+        capabilities: {},
+        serverInfo: { name: 'UGV', version: '1.0.0' },
+        providerCatalog: selected.provider,
+        taskNotifications: true,
+        discoveredAt: selected.selectedAt,
+        validUntil: '2026-08-21T12:05:00.000Z',
+        toolRevision: selected.server.toolRevision,
+      },
+      tools: [
+        {
+          serverId: selected.server.serverId,
+          toolName: selected.operation.operationName,
+          inputSchema: selected.operation.inputSchema,
+          outputSchema: selected.operation.outputSchema,
+          protocolMode: 'frozen_v1' as const,
+          executionSemantics: selected.operation.executionSemantics,
+          taskExecutionProfile: selected.operation.taskExecutionProfile,
+          discoveredAt: selected.selectedAt,
+        },
+        {
+          serverId: selected.server.serverId,
+          toolName: selected.finalStateRead.operationName,
+          inputSchema: selected.finalStateRead.inputSchema,
+          outputSchema: selected.finalStateRead.outputSchema,
+          protocolMode: 'frozen_v1' as const,
+          executionSemantics: selected.finalStateRead.executionSemantics,
+          taskExecutionProfile: selected.finalStateRead.taskExecutionProfile,
+          discoveredAt: selected.selectedAt,
+        },
+      ],
+      catalogAuthority: {
+        catalogRevision: selected.server.catalogRevision,
+        catalogChecksum: selected.server.catalogChecksum,
+        operationCount: 2,
+      },
+    };
+    const assertCurrent = vi.fn(() => Promise.resolve());
+    const adapt = vi.fn(adaptUgvBindingInput);
+    const checkTaskAvailability = vi.fn(() =>
+      Promise.resolve({
+        kind: 'results' as const,
+        protocolRevision: selected.availability.protocolRevision,
+        availabilitySchemaRevision: selected.availability.schemaRevision,
+        results: [
+          {
+            nodeId: 'ugv-governed-control:task-uap-p2-b03:attempt-uap-p2-b03',
+            operationName: selected.operation.operationName,
+            availability: 'available' as const,
+            riskLevel: 'high' as const,
+            validUntil: '2026-08-21T12:04:00.000Z',
+            nextAvailableWindows: [],
+            reservationMode: 'none' as const,
+            possibleEffects: ['task_pause' as const],
+          },
+        ],
+      }),
+    );
+    const reader = new PostgresUgvGovernedControlAuthorityReader({
+      pool: { query } as unknown as Pool,
+      capabilities: {
+        load: () =>
+          Promise.resolve({
+            definition: {
+              capability_id: 'embodied.move',
+              version: 1,
+              status: 'published',
+              risk_level: 'high',
+              supported_modes: ['plan_confirmed', 'remote_task'],
+              constraints: [constraint],
+            },
+            implementationBindings: [
+              {
+                capability_id: 'embodied.move',
+                capability_version: 1,
+                implementation_type: 'skill',
+                implementation_id: 'embodied.move_to',
+                implementation_version: '1',
+                role: 'primary',
+                status: 'active',
+                provider_policy_override: {
+                  selection: 'required',
+                  mcpProviderBindingId: selected.providerBinding.bindingId,
+                  localServerId: selected.server.serverId,
+                  mcpToolName: selected.operation.operationName,
+                  requireActive: true,
+                  requireAvailable: true,
+                  requireUnexpiredFreshness: true,
+                  denyFallback: true,
+                },
+              },
+            ],
+          }),
+      },
+      providerBindings: { loadCurrentMcpProviderBinding },
+      runtimeBindings: {
+        loadRuntimeAuthority: () => Promise.resolve(runtime),
+        assertCurrent,
+      },
+      availability: { checkTaskAvailability },
+      inputAdapter: { adapt },
+      clock: { now: () => '2026-08-21T12:01:00.000Z' },
+    });
+
+    await expect(reader.loadForIssue('task-uap-p2-b03')).resolves.toMatchObject({
+      selectedTaskOperation: { snapshotHash: selected.snapshotHash },
+      capability: { dispatchMaximum: 1 },
+      skill: { runtimePolicy: { maxMcpCalls: 8 } },
+      readiness: { argumentsHash: selected.argumentsHash, disposition: 'ready' },
+    });
+    await expect(
+      reader.loadForPreInvocation({
+        taskId: 'task-uap-p2-b03',
+        capabilityAttemptId: 'attempt-uap-p2-b03',
+      }),
+    ).resolves.toMatchObject({
+      confirmation: { confirmationId: 'ugv-control-confirmation' },
+    });
+    expect(loadCurrentMcpProviderBinding).toHaveBeenCalledTimes(2);
+    expect(assertCurrent).toHaveBeenCalledTimes(2);
+    expect(checkTaskAvailability).toHaveBeenCalledTimes(2);
+    expect(adapt).toHaveBeenCalledTimes(2);
+    expect(adapt).toHaveBeenCalledWith(ugvBindingInput());
+    expect(query.mock.calls[0]?.[0]).toContain('binding.input_snapshot');
+    expect(query.mock.calls[0]?.[0]).toContain(
+      'count(*) OVER()::integer AS selected_reference_count',
+    );
+    expect(query.mock.calls[0]?.[0]).toContain('count(*) OVER()::integer AS confirmation_count');
+  });
+
+  it('rejects raw Binding target A against persisted Selected target B before mutable reads', async () => {
+    const selected = selectedUgvTaskOperation();
+    const constraint = {
+      type: 'physical_side_effect_policy',
+      sideEffecting: true,
+      dispatchMaximum: 1,
+    };
+    const inputSnapshot = ugvBindingInput(113, 29);
+    const query = vi.fn(() =>
+      Promise.resolve({ rows: [ugvAuthorityRow(selected, constraint, inputSnapshot)] }),
+    );
+    const loadCapability = vi.fn(() => Promise.reject(new Error('must not load Capability')));
+    const loadProviderBinding = vi.fn(() => Promise.reject(new Error('must not load Binding')));
+    const loadRuntimeAuthority = vi.fn(() => Promise.reject(new Error('must not load Catalog')));
+    const assertCurrent = vi.fn(() => Promise.reject(new Error('must not revalidate Binding')));
+    const checkTaskAvailability = vi.fn(() =>
+      Promise.reject(new Error('must not check readiness')),
+    );
+    const adapt = vi.fn(adaptUgvBindingInput);
+    const reader = new PostgresUgvGovernedControlAuthorityReader({
+      pool: { query } as unknown as Pool,
+      capabilities: { load: loadCapability },
+      providerBindings: { loadCurrentMcpProviderBinding: loadProviderBinding },
+      runtimeBindings: { loadRuntimeAuthority, assertCurrent },
+      availability: { checkTaskAvailability },
+      inputAdapter: { adapt },
+      clock: { now: () => '2026-08-21T12:01:00.000Z' },
+    });
+
+    await expect(reader.loadForIssue('task-uap-p2-b03')).rejects.toMatchObject({
+      code: 'UGV_GOVERNED_CONTROL_PERSISTED_AUTHORITY_INVALID',
+    });
+    expect(adapt).toHaveBeenCalledWith(inputSnapshot);
+    expect(loadCapability).not.toHaveBeenCalled();
+    expect(loadProviderBinding).not.toHaveBeenCalled();
+    expect(loadRuntimeAuthority).not.toHaveBeenCalled();
+    expect(assertCurrent).not.toHaveBeenCalled();
+    expect(checkTaskAvailability).not.toHaveBeenCalled();
+  });
 });
 
 function confirmation(): GovernedControlConfirmation {
@@ -271,6 +615,135 @@ function confirmationConsumption(): GovernedControlConfirmationConsumption {
     dispatchHash: `sha256:${'d'.repeat(64)}`,
     consumedAt: '2026-08-13T01:01:00.000Z',
   };
+}
+
+function ugvAuthorityRow(
+  selected: ReturnType<typeof selectedUgvTaskOperation>,
+  constraint: Readonly<Record<string, unknown>>,
+  inputSnapshot: unknown = ugvBindingInput(),
+) {
+  return {
+    task_id: 'task-uap-p2-b03',
+    task_phase: 'executing',
+    task_plan_id: 'plan-uap-p2-b03',
+    selected_skill_id: 'embodied.move_to',
+    selected_skill_version: 1,
+    binding_id: 'capability-binding-uap-p2-b03',
+    capability_id: 'embodied.move',
+    capability_version: 1,
+    input_snapshot: inputSnapshot,
+    constraint_snapshot: [constraint],
+    binding_hash: 'e'.repeat(64),
+    attempt_id: 'attempt-uap-p2-b03',
+    attempt_status: 'running',
+    attempt_plan_id: 'plan-uap-p2-b03',
+    skill_version_refs: ['skill:embodied.move_to:1'],
+    provider_binding_refs: [selected.providerBinding.bindingId],
+    plan_id: 'plan-uap-p2-b03',
+    plan_confirmation_status: 'confirmed',
+    plan_definition: { workflowDefinitionId: 'workflow-uap-p2-b03' },
+    skill_id: 'embodied.move_to',
+    skill_version: 1,
+    current_skill_version: 1,
+    skill_status: 'enabled',
+    skill_validation_passed: true,
+    skill_capabilities: ['embodied.move', 'embodied.navigation'],
+    skill_runtime_policy: { autoConfirmPlan: false, maxMcpCalls: 8 },
+    skill_usage_specification: {
+      evidencePolicy: {
+        requirements: [
+          {
+            requirementId: 'final-position',
+            evidenceType: 'position.observation',
+            required: true,
+            hardGate: true,
+          },
+        ],
+        rejectSuccessWithoutRequiredEvidence: true,
+      },
+    },
+    skill_outcome_specification: {
+      effects: ['effect.final_position'],
+      evidence: ['evidence.final_position'],
+    },
+    package_checksum: selected.skill.packageChecksum,
+    selected_reference_count: 1,
+    selected_reference_kind: 'remote_task_binding',
+    selected_reference_id: selected.snapshotHash,
+    selected_reference_type: 'ugv.selected_task_operation/v1',
+    selected_reference_source_system: 'ugv-agent-profile',
+    selected_reference_checksum: selected.snapshotHash.slice('sha256:'.length),
+    selected_reference_produced_at: selected.selectedAt,
+    selected_reference_producer_refs: [
+      selected.skill.packageChecksum,
+      selected.provider.manifestHash,
+      selected.server.catalogChecksum,
+    ],
+    selected_reference_metadata: {
+      schemaVersion: 'ugv.selected_task_operation/v1',
+      snapshot: selected,
+    },
+    confirmation_count: 1,
+    ugv_confirmation_id: 'ugv-control-confirmation',
+    ugv_confirmation_task_id: 'task-uap-p2-b03',
+    ugv_confirmation_capability_binding_id: 'capability-binding-uap-p2-b03',
+    ugv_confirmation_capability_id: 'embodied.move',
+    ugv_confirmation_capability_version: 1,
+    ugv_confirmation_capability_attempt_id: 'attempt-uap-p2-b03',
+    ugv_confirmation_plan_id: 'plan-uap-p2-b03',
+    ugv_confirmation_plan_hash: 'a'.repeat(64),
+    ugv_confirmation_skill_id: 'embodied.move_to',
+    ugv_confirmation_skill_version: 1,
+    ugv_confirmation_provider_binding_id: selected.providerBinding.bindingId,
+    ugv_confirmation_server_id: selected.server.serverId,
+    ugv_confirmation_tool_name: selected.operation.operationName,
+    ugv_confirmation_arguments_hash: selected.argumentsHash.slice('sha256:'.length),
+    ugv_confirmation_actor_id: 'human:operator-1',
+    ugv_confirmation_actor_kind: 'human' as const,
+    ugv_confirmation_authentication_method: 'oidc-mfa',
+    ugv_confirmation_actor_roles: ['physical_control_approver'],
+    ugv_confirmation_reason: 'Approve exact UGV point navigation.',
+    ugv_confirmation_confirmed_at: '2026-08-21T12:00:30.000Z',
+    ugv_confirmation_expires_at: '2026-08-21T12:02:00.000Z',
+    ugv_confirmation_revoked_at: null,
+    ugv_confirmation_revoked_by: null,
+    ugv_confirmation_consumed_invocation_id: null,
+    ugv_confirmation_consumed_dispatch_hash: null,
+    ugv_confirmation_consumed_at: null,
+  };
+}
+
+function ugvBindingInput(longitude = 112, latitude = 28) {
+  return Object.freeze({
+    resourceId: 'vehicle:ugv1',
+    target: Object.freeze({ x: longitude, y: latitude, frame: 'WGS84' as const }),
+  });
+}
+
+function adaptUgvBindingInput(input: unknown) {
+  if (typeof input !== 'object' || input === null || Array.isArray(input))
+    throw new Error('invalid fixture input');
+  const record = input as Readonly<Record<string, unknown>>;
+  const targetValue = record['target'];
+  if (typeof targetValue !== 'object' || targetValue === null || Array.isArray(targetValue))
+    throw new Error('invalid fixture target');
+  const target = targetValue as Readonly<Record<string, unknown>>;
+  const longitude = target['x'];
+  const latitude = target['y'];
+  if (typeof longitude !== 'number' || typeof latitude !== 'number')
+    throw new Error('invalid fixture coordinates');
+  const providerArguments = Object.freeze({
+    resourceId: record['resourceId'],
+    mission: Object.freeze({
+      type: 'point' as const,
+      target: Object.freeze({ longitude, latitude }),
+    }),
+    stopOnObstacle: true as const,
+  });
+  return Object.freeze({
+    providerArguments,
+    argumentsHash: hashCanonicalEvidenceJson(providerArguments),
+  });
 }
 
 function authorityRow() {

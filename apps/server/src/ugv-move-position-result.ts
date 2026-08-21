@@ -9,6 +9,13 @@ export interface UgvMovePositionPolicy {
   readonly maxFinalStateAgeMs: number;
 }
 
+/** Freezes the deployment-owned evidence thresholds before any external state is opened. */
+export function snapshotUgvMovePositionPolicy(
+  policy: UgvMovePositionPolicy | undefined,
+): UgvMovePositionPolicy {
+  return validatePolicy(policy);
+}
+
 export interface UgvMoveStateRead {
   readonly operationName: 'vehicle_get_state';
   readonly startedAt: string;
@@ -261,7 +268,7 @@ function validatePolicy(policy: UgvMovePositionPolicy | undefined): UgvMovePosit
       'UGV_MOVE_POSITION_POLICY_REQUIRED',
       'UGV move requires explicit positive tolerance, displacement, and freshness limits.',
     );
-  return policy;
+  return Object.freeze({ ...policy });
 }
 
 function providerResult(value: unknown) {

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T06:43:30.658Z",
+  "status": "TIMING_FAILURE_WITH_ISOLATED_PASS",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic_focused_approved_host",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm exec vitest run <12 UAP-P2-B03 focused files>",
+  "exitCode": 1,
+  "failure": {
+    "code": "A2A_NOTIFICATION_WAIT_READ_COUNT_TIMING",
+    "summary": "Eleven files and 130 tests passed. One pre-existing notification-wait timing test observed four reads instead of its at-most-three assertion under concurrent load."
+  },
+  "corroboration": {
+    "isolatedCommand": "pnpm exec vitest run packages/a2a-adapter/test/task-service-executor.unit.test.ts",
+    "isolatedResult": "1 file and 9 tests passed with exactly three reads; no assertion or wait budget changed.",
+    "finalFocusedReplay": "PENDING_FINAL_GATE"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

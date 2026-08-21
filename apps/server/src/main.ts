@@ -124,7 +124,14 @@ const runtime = await startServerRuntime({
             },
           }
         : environment.SDAR_TASK_UNDERSTANDING_PROFILE === UGV_AGENT_PROFILE_ID
-          ? { taskUnderstanding: ugvAgentProfileTaskUnderstandingConfiguration() }
+          ? {
+              taskUnderstanding: ugvAgentProfileTaskUnderstandingConfiguration(),
+              ugvMovePositionPolicy: {
+                toleranceM: environment.UGV_TEST_TOLERANCE_M,
+                minimumDisplacementM: environment.UGV_TEST_MINIMUM_DISPLACEMENT_M,
+                maxFinalStateAgeMs: environment.UGV_TEST_MAX_FINAL_STATE_AGE_MS,
+              },
+            }
           : {}),
 });
 

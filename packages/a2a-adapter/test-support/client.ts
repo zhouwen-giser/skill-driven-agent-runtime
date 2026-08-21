@@ -10,6 +10,11 @@ export interface A2ATestTaskSnapshot {
   readonly state: A2ATestTaskState;
 }
 
+/** Keeps SDK request normalization inside the A2A adapter boundary for cross-package tests. */
+export function createA2ATestSendMessageBody(input: unknown): unknown {
+  return SendMessageRequest.toJSON(SendMessageRequest.fromJSON(input));
+}
+
 export async function submitA2ATestTask(
   client: A2AHttpEndpointHandle['client'],
   text: string,

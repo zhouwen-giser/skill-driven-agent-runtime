@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T06:43:30.658Z",
+  "status": "ENVIRONMENT_BLOCKED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "local_postgresql_environment",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm test:integration",
+  "executionContext": "approved host using operator-managed PostgreSQL and Redis",
+  "exitCode": 1,
+  "failure": {
+    "code": "XX000_TEMPLATE1_COLLATION_VERSION_UNAVAILABLE",
+    "summary": "The integration runner connected to PostgreSQL but failed before tests started because template1 has a collation version with no determinable actual version."
+  },
+  "minimumUnblockCondition": "Repair the operator-managed template1 collation metadata or make the full integration runner use an independently approved template0 database. No shared-cluster repair was attempted.",
+  "stateMutation": "No repository data or shared PostgreSQL configuration was changed.",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

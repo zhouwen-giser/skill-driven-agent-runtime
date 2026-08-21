@@ -1,6 +1,14 @@
-import { SendMessageRequest, TaskState } from '@a2a-js/sdk';
+import { SendMessageRequest, Task, TaskState } from '@a2a-js/sdk';
+import {
+  AgentEvent,
+  InMemoryTaskStore,
+  type AgentExecutor,
+  type ExecutionEventBus,
+  type RequestContext,
+} from '@a2a-js/sdk/server';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { ConfiguredBearerGovernedControlIdentity } from '../../../apps/server/src/governed-control-management-identity.js';
 import {
   createProbeRequest,
   startA2aHttpSpike,
@@ -8,6 +16,7 @@ import {
   type A2aHttpSpikeHandle,
 } from '../src/http-endpoint-spike.js';
 import { buildAgentCard } from '../src/compatibility.js';
+import { startA2AHttpEndpoint } from '../src/http-endpoint.js';
 
 describe('A2A 1.0 HTTP endpoint compatibility', () => {
   let handle: A2aHttpSpikeHandle | undefined;
@@ -110,6 +119,105 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     expect(response.headers.get('content-type')).toMatch(/^application\/json\b/u);
   });
 
+  it('authenticates a bearer exactly once before dispatching a Task follow-up', async () => {
+    const token = 'ugv-confirmation-token-1234567890abcdef';
+    const identity = new ConfiguredBearerGovernedControlIdentity({
+      token,
+      actorId: 'ugv-operator-1',
+      permissions: ['physical_control.confirm'],
+    });
+    let identityResolutions = 0;
+    let followUpExecutions = 0;
+    const executor: AgentExecutor = {
+      execute(request: RequestContext, eventBus: ExecutionEventBus): Promise<void> {
+        if (request.task !== undefined) followUpExecutions += 1;
+        eventBus.publish(
+          AgentEvent.task(
+            Task.fromJSON({
+              id: request.taskId,
+              contextId: request.contextId,
+              status: {
+                state: 'TASK_STATE_INPUT_REQUIRED',
+                timestamp: '2026-08-21T00:00:00.000Z',
+              },
+              history: [],
+              artifacts: [],
+            }),
+          ),
+        );
+        eventBus.finished();
+        return Promise.resolve();
+      },
+      cancelTask: () => Promise.reject(new Error('UNUSED')),
+    };
+    handle = await startA2AHttpEndpoint({
+      executor,
+      taskStore: new InMemoryTaskStore(),
+      skills: [
+        {
+          id: 'embodied.move_to',
+          name: 'Move UGV',
+          description: 'Authentication contract probe.',
+          tags: ['ugv'],
+        },
+      ],
+      confirmationPrincipalResolver: {
+        resolve(input) {
+          identityResolutions += 1;
+          return identity.resolve(input);
+        },
+      },
+    });
+
+    const initial = await postA2AMessage(
+      handle.baseUrl,
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: 'message-auth-initial',
+          role: 'ROLE_USER',
+          parts: [{ text: 'Prepare a UGV plan.', mediaType: 'text/plain' }],
+        },
+      }),
+      `Bearer ${token}`,
+    );
+    expect(initial.status).toBe(200);
+    const initialBody = (await initial.json()) as {
+      task?: Readonly<{ id?: string; contextId?: string }>;
+    };
+    const taskId = initialBody.task?.id;
+    const contextId = initialBody.task?.contextId;
+    if (taskId === undefined || contextId === undefined) throw new Error('A2A_AUTH_TASK_MISSING');
+    const followUp = SendMessageRequest.fromJSON({
+      message: {
+        messageId: 'message-auth-confirm',
+        taskId,
+        contextId,
+        role: 'ROLE_USER',
+        parts: [{ text: 'Confirm the plan.', mediaType: 'text/plain' }],
+        metadata: { sdar_action: 'confirm_plan' },
+      },
+    });
+
+    const missing = await postA2AMessage(handle.baseUrl, followUp);
+    expect(missing.status).toBe(401);
+    const missingBody = await missing.text();
+    expect(missingBody).toContain('GOVERNED_CONTROL_AUTHENTICATION_REQUIRED');
+    expect(missingBody).not.toContain(token);
+    expect(followUpExecutions).toBe(0);
+
+    const wrong = await postA2AMessage(handle.baseUrl, followUp, 'Bearer wrong-token');
+    expect(wrong.status).toBe(401);
+    const wrongBody = await wrong.text();
+    expect(wrongBody).not.toContain(token);
+    expect(wrongBody).not.toContain('ugv-operator-1');
+    expect(followUpExecutions).toBe(0);
+
+    const correct = await postA2AMessage(handle.baseUrl, followUp, `Bearer ${token}`);
+    expect(correct.status).toBe(200);
+    expect(followUpExecutions).toBe(1);
+    expect(identityResolutions).toBe(4);
+  });
+
   it('streams the standard task lifecycle without custom states', async () => {
     handle = await startA2aHttpSpike();
     const cases: string[] = [];
@@ -151,3 +259,19 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     expect(state).toBe(TaskState.TASK_STATE_COMPLETED);
   });
 });
+
+function postA2AMessage(
+  baseUrl: string,
+  request: SendMessageRequest,
+  authorization?: string,
+): Promise<Response> {
+  return fetch(`${baseUrl}/a2a/v1/message:send`, {
+    method: 'POST',
+    headers: {
+      'A2A-Version': '1.0',
+      'content-type': 'application/json',
+      ...(authorization === undefined ? {} : { authorization }),
+    },
+    body: JSON.stringify(SendMessageRequest.toJSON(request)),
+  });
+}

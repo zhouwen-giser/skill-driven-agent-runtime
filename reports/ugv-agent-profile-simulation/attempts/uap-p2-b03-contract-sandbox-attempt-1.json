@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T06:43:30.658Z",
+  "status": "ENVIRONMENT_BLOCKED_WITH_HOST_REPLAY",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic_contract_sandbox",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm test:contract",
+  "executionContext": "workspace sandbox",
+  "exitCode": 1,
+  "failure": {
+    "code": "SANDBOX_LOCAL_LISTEN_AND_CHILD_PROCESS_EPERM",
+    "summary": "The sandbox denied loopback listen and Node child-process operations. Nine files failed, 42 passed; 111 tests failed and 207 passed. Representative errors were listen EPERM on 127.0.0.1 and spawnSync node EPERM."
+  },
+  "corroboration": {
+    "approvedHostReplay": "The identical command ran outside the sandbox; all sandbox EPERM failures disappeared and only the separately preserved Node Control fixed-timeout baseline remained."
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:08:24.425Z",
+  "recordedAt": "2026-08-21T09:08:24.425Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command results did not include wall-clock execution timestamps; the evidence recording time is not substituted.",
+  "status": "BASELINE_FAILURE_WITH_CHANGED_FILE_PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "static_verification",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "fullCommand": "pnpm format:check",
+  "fullExitCode": 1,
+  "failure": {
+    "files": [
+      "packages/application/src/skill-usage-planning.ts",
+      "packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts"
+    ],
+    "unchangedByTask": true,
+    "summary": "The repository-wide format gate retains two pre-existing unchanged files outside P2-B03 scope."
+  },
+  "scopedReplay": {
+    "command": "git status --porcelain=v1 | cut -c4- | rg '\\.(ts|tsx|json|mjs|mts|md)$' | xargs pnpm exec prettier --check",
+    "exitCode": 0,
+    "result": "All P2-B03 changed files selected by the final gate runner passed Prettier."
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

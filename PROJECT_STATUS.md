@@ -1,5 +1,48 @@
 # Project Status
 
+## UGV Agent Profile external-simulation Goal (2026-08-21)
+
+The current `ugv-agent-profile` Goal is `IN_PROGRESS`; this status does not replace or upgrade the
+historical blocked UGV handoff below. P0, SMPP P1 qualification and SDAR P2-B01/P2-B02/P2-B03 local
+milestones are complete. P3 external execution and P4 final Goal acceptance remain pending.
+The user-selected current SMPP intake is
+`codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`;
+`90466127aee7c01014eef29a1e346b071de3704e` remains the immutable P1 qualification evidence
+checkpoint and `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
+
+P2-B03 passes its formal local Runtime E2E with real isolated PostgreSQL/Redis,
+`startServerRuntime`, the official A2A HTTP+JSON path and a strict loopback frozen Provider fixture.
+Exact `embodied.move_to@1` admission flows through Skill Usage and the formal nine-node Planner path;
+an authenticated outer confirmation precedes one `TASK_REQUIRED` navigate, `waiting_external` is
+materialized, restart reconstructs the saved frontier without replay, and the final read/hard position
+gate yields an exact completed A2A artifact. The E2E passed 1/1 in 16.93 seconds. The exact final
+focused matrix passes 21 files/210 tests; approved-host Unit passes 244 files/1913 tests plus the
+22-test performance phase; approved-host Contract passes 51 files/318 tests; isolated Integration
+passes 38 files/219 tests plus its 1/1 evidence export. Typecheck, build, 835-source architecture,
+frozen UGV package 3/3, SMPP provenance/clean checks, scoped lint/format and diff checks pass.
+
+P2-B03 is accepted with disclosed repository baseline gaps. Full generic E2E passes 69, fails three
+old Task Service endpoint cases and skips one of 73; the exact isolated failures reproduce identically
+at a pure `git archive` of pre-P2 HEAD `4c0b1f7`, proving they are not P2 regressions. `pnpm lint`
+retains 22 errors in seven unchanged Home-Lab files and `pnpm format:check` retains two unchanged
+files, while every changed TypeScript/Prettier-scoped file passes. Sandbox Unit/Contract attempts fail
+only on denied loopback listen or child-process operations and are corroborated by identical
+approved-host passes. Earlier default-contract, PostgreSQL `template1`, isolated fixture and Runtime
+E2E failures remain immutable evidence rather than being rewritten by the final passes.
+`implementationCommit` remains null until the parent handoff creates the checkpoint; no commit
+identity is invented.
+
+Current P2-B03 evidence is local only: `evidenceClass=external_simulation`,
+`observationClass=local_runtime_and_postgresql`, `productionEligible=false`,
+`physicalVehicleQualified=false` and `externalExecution=false`. The loopback fixture observes one
+taskless read, three task-scoped Tool calls and one local navigation; external SMPP Tool calls,
+navigation dispatches and MQTT publishes remain zero. Local artifact SHA-256 values and the P2 task
+acceptance state are frozen in `reports/ugv-agent-profile-simulation/uap-p2-b03-verification.json`.
+P2 smoke verified LLM configuration loading and database bootstrap through the local `.env`
+mechanism without recording secrets or values and with zero model calls. P3 will exercise external
+model inference through that path; UGV target authorization, side-effect admission, continuation
+proof and terminal success remain deterministic and model-independent.
+
 SDAR × UGV SMPP integration is `SDAR_UGV_INTEGRATION_BLOCKED` (updated 2026-08-14). Discovery readiness is
 `true`; Read, A2A, Control, Workflow, Resilience and Production readiness are all `false`. Real
 projection 200/304 and native lineage, credential-free Source revision 1, exact Provider/Server,

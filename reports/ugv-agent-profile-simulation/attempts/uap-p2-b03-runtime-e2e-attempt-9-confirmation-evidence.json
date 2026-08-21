@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 9,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The original execution timestamp was not retained in the supplied run summary.",
+  "status": "FAILED_FIXED_CONFIRMATION_EVIDENCE",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": null,
+  "commandMissingReason": "The exact original argv was not retained.",
+  "exitCode": null,
+  "exitCodeMissingReason": "The summary records the failed test but not its original process exit code.",
+  "failureClass": "UGV_MOVE_WORKFLOW_EVIDENCE_CONFIRMATION_INVALID",
+  "observedFailure": "The restarted run reached Provider terminal with get_state/navigate/get_state and one navigate, but the dispatch hash omitted the current Provider identity required by terminal evidence.",
+  "resolution": "The UGV path now resolves the exact current Provider Binding by bindingId and localServerId, verifies Provider/Binding/Catalog identity and includes providerId in the dispatch hash before authorization or transport.",
+  "localFixtureCounts": {
+    "providerGetStateCallCount": 3,
+    "providerNavigateCallCount": 1,
+    "navigateReplayCount": 0
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0
+  }
+}

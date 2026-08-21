@@ -1,10 +1,11 @@
-import { Message, TaskState } from '@a2a-js/sdk';
+import { Message, Task, TaskState } from '@a2a-js/sdk';
 import {
   DefaultExecutionEventBus,
   RequestContext,
   ServerCallContext,
   type AgentExecutionEvent,
 } from '@a2a-js/sdk/server';
+import type { Request as ExpressRequest } from 'express';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -13,6 +14,7 @@ import {
   type SubmitTaskResult,
   type TaskFollowUpCommand,
   type TaskStateNotifier,
+  type GovernedControlPrincipal,
 } from '../../application/src/index.js';
 import {
   createAgentTask,
@@ -23,6 +25,7 @@ import {
   MIN_A2A_SAFETY_POLL_INTERVAL_MS,
   TaskServiceAgentExecutor,
 } from '../src/task-service-executor.js';
+import { createGovernedControlA2AAuthentication } from '../src/authenticated-confirm-user.js';
 
 describe('TaskServiceAgentExecutor notification wait', () => {
   it.each([
@@ -190,6 +193,90 @@ describe('TaskServiceAgentExecutor notification wait', () => {
     });
     expect(tasks.submitCalls).toBe(0);
   });
+
+  it('passes the same header-authenticated principal on confirm and ignores spoofed metadata', async () => {
+    const principal: GovernedControlPrincipal = Object.freeze({
+      actorId: 'authenticated-operator',
+      kind: 'human',
+      authenticationMethod: 'configured_bearer',
+      permissions: new Set(['physical_control.confirm'] as const),
+      requestId: 'request-authenticated-confirm',
+      sourceIp: '127.0.0.1',
+    });
+    let resolutions = 0;
+    const authentication = createGovernedControlA2AAuthentication({
+      resolve: () => {
+        resolutions += 1;
+        return Promise.resolve(principal);
+      },
+    });
+    const httpRequest = {
+      header(name: string) {
+        if (name.toLowerCase() === 'authorization') return 'Bearer valid-token';
+        if (name.toLowerCase() === 'x-request-id') return principal.requestId;
+        return undefined;
+      },
+      ip: principal.sourceIp,
+    } as unknown as ExpressRequest;
+    const user = await authentication.userBuilder(httpRequest);
+    await expect(authentication.userBuilder(httpRequest)).resolves.toBe(user);
+    expect(resolutions).toBe(1);
+
+    const taskId = 'task-authenticated-confirm';
+    const contextId = 'context-authenticated-confirm';
+    const tasks = new FakeTasks('awaiting_plan_confirmation');
+    await tasks.submit({
+      taskId,
+      contextId,
+      messageText: 'Navigate.',
+      metadata: {},
+    });
+    const executor = new TaskServiceAgentExecutor({
+      tasks,
+      notifier: new InMemoryTaskStateNotifier(),
+    });
+    const previous = Task.fromJSON({
+      id: taskId,
+      contextId,
+      status: {
+        state: 'TASK_STATE_INPUT_REQUIRED',
+        timestamp: '2026-08-21T00:00:00.000Z',
+      },
+      history: [],
+      artifacts: [],
+    });
+    const followUpMessage = Message.fromJSON({
+      messageId: 'message-authenticated-confirm',
+      taskId,
+      contextId,
+      role: 'ROLE_USER',
+      parts: [{ text: 'Confirm.', mediaType: 'text/plain' }],
+      metadata: {
+        sdar_action: 'confirm_plan',
+        user_id: 'metadata-spoofed-operator',
+      },
+    });
+    const { bus } = eventCollector();
+
+    await executor.execute(
+      new RequestContext(
+        followUpMessage,
+        taskId,
+        contextId,
+        new ServerCallContext({ requestedVersion: '1.0', user }),
+        previous,
+      ),
+      bus,
+    );
+
+    expect(tasks.followUpCommands).toHaveLength(1);
+    expect(tasks.followUpCommands[0]).not.toHaveProperty('userId');
+    expect(tasks.followUpCommands[0]?.confirmationAuthority?.principal).toBe(principal);
+    expect(tasks.followUpCommands[0]?.confirmationAuthority?.principal.actorId).toBe(
+      'authenticated-operator',
+    );
+    executor.close();
+  });
 });
 
 class ManualSafetyPollNotifier implements TaskStateNotifier {
@@ -238,6 +325,7 @@ class ManualSafetyPollNotifier implements TaskStateNotifier {
 class FakeTasks {
   readonly #tasks = new Map<string, AgentTask>();
   readonly #initialPhase: AgentTask['phase'];
+  readonly followUpCommands: TaskFollowUpCommand[] = [];
   getCalls = 0;
   submitCalls = 0;
 
@@ -277,6 +365,7 @@ class FakeTasks {
   }
 
   followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
+    this.followUpCommands.push(command);
     return this.get(command.taskId);
   }
 

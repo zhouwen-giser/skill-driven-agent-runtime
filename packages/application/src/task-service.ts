@@ -35,6 +35,7 @@ import type { ResultCandidate, ResultProcessor } from './result-processor.js';
 import type { MemoryService } from './memory-service.js';
 import type { ImplicitFeedbackService } from './implicit-feedback.js';
 import type { RuntimeTaskCapabilityService } from './task-capability.js';
+import type { GovernedControlPrincipal } from './governed-control-management.js';
 
 export interface SubmitTaskCommand {
   readonly taskId?: string;
@@ -69,11 +70,26 @@ export interface TaskFollowUpCommand {
   readonly inputRequestId?: string;
   /** Protocol-neutral structured supplementary input supplied by an adapter. */
   readonly inputContent?: unknown;
+  /**
+   * Authenticated authority supplied by a protocol adapter. Request metadata
+   * is never an authority source, and only confirm_plan may carry this field.
+   */
+  readonly confirmationAuthority?: TaskPlanConfirmationAuthority;
 }
 
 export const MAX_TASK_INPUT_RESPONSE_CHARACTERS = 64_000;
 
 export type TaskPlanConfirmationTarget = 'task_plan' | 'nested_skill_plan';
+
+export interface TaskPlanConfirmationAuthority {
+  readonly principal: GovernedControlPrincipal;
+}
+
+export interface BeforeTaskPlanExecutionInput {
+  readonly task: AgentTask;
+  readonly confirmationTarget: 'task_plan';
+  readonly confirmationAuthority?: TaskPlanConfirmationAuthority;
+}
 
 export interface TaskServiceDependencies {
   readonly contexts: ConversationContextRepository;
@@ -94,6 +110,12 @@ export interface TaskServiceDependencies {
     ImplicitFeedbackService,
     'observeSubmission' | 'observeRevision' | 'observeSkillSwitch'
   >;
+  /**
+   * Projects an already-confirmed outer plan into any additional governed
+   * execution authority before the Task can enter executing. Implementations
+   * must be idempotent for the immutable Task/plan identity.
+   */
+  readonly beforePlanExecution?: (input: BeforeTaskPlanExecutionInput) => Promise<void>;
   readonly planActions?: Readonly<{
     confirm(task: AgentTask): Promise<TaskPlanConfirmationTarget>;
     reject(task: AgentTask): Promise<void>;
@@ -384,6 +406,11 @@ export class TaskService {
   }
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
+    if (command.action !== 'confirm_plan' && command.confirmationAuthority !== undefined)
+      throw new TaskApplicationError(
+        'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID',
+        'Authenticated confirmation authority may be supplied only for confirm_plan.',
+      );
     if (command.action === 'confirm_plan' || command.action === 'reject_plan')
       return this.#withTaskDecisionLock(command.taskId, () => this.#followUp(command));
     return this.#followUp(command);
@@ -514,6 +541,20 @@ export class TaskService {
           'Task plan confirmation is unavailable.',
         );
       confirmationTarget = await this.#dependencies.planActions.confirm(task);
+      if (
+        confirmationTarget === 'task_plan' &&
+        this.#dependencies.beforePlanExecution !== undefined
+      ) {
+        await this.#dependencies.beforePlanExecution(
+          Object.freeze({
+            task,
+            confirmationTarget,
+            ...(command.confirmationAuthority === undefined
+              ? {}
+              : { confirmationAuthority: command.confirmationAuthority }),
+          }),
+        );
+      }
     }
     if (command.action === 'reject_plan' && this.#dependencies.planActions !== undefined)
       await this.#dependencies.planActions.reject(task);
@@ -981,6 +1022,7 @@ export type TaskApplicationErrorCode =
   | 'TASK_PLAN_ACTIONS_UNAVAILABLE'
   | 'TASK_PLAN_NOT_ATTACHED'
   | 'TASK_RUNTIME_CANCELLATION_INCOMPLETE'
+  | 'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID'
   | 'TASK_PLAN_DECISION_NOT_AWAITING';
 
 export class TaskApplicationError extends Error {

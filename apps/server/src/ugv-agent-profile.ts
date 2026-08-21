@@ -2,6 +2,7 @@ import type { SkillRepository } from '../../../packages/application/src/index.js
 import type { SkillVersion } from '../../../packages/domain/src/index.js';
 
 import type { ServerRuntimeOptions } from './runtime.js';
+import { snapshotUgvMovePositionPolicy } from './ugv-move-position-result.js';
 
 export const UGV_AGENT_PROFILE_ID = 'ugv-agent-profile' as const;
 export const UGV_AGENT_PROFILE_SKILL_ID = 'embodied.move_to' as const;
@@ -66,6 +67,7 @@ type UgvAgentProfileRuntimeConfigurationInput = Pick<
   | 'frozenMcpTasks'
   | 'governedControlPrincipalResolver'
   | 'evidenceEnvironment'
+  | 'ugvMovePositionPolicy'
 >;
 
 export function ugvAgentProfileTaskUnderstandingConfiguration(): NonNullable<
@@ -121,6 +123,7 @@ export function assertUgvAgentProfileRuntimeConfiguration(
     throw new Error('UGV_AGENT_PROFILE_FROZEN_MCP_TASKS_REQUIRED');
   if (options.governedControlPrincipalResolver === undefined)
     throw new Error('UGV_AGENT_PROFILE_CONTROL_IDENTITY_REQUIRED');
+  snapshotUgvMovePositionPolicy(options.ugvMovePositionPolicy);
 }
 
 /**

@@ -1,0 +1,438 @@
+{
+  "schemaVersion": "ugv-agent-profile.task-verification/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:26:55.797Z",
+  "status": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "finalResult": "PASS_LOCAL_INTEGRATION",
+  "taskAcceptance": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+  "repository": {
+    "name": "skill-driven-agent-runtime",
+    "branch": "codex/sdar-ugv-smpp-integration",
+    "baselineCommit": "4c0b1f7a398b5f79e05df2103d1e5191436b3129",
+    "implementationCommit": null,
+    "dirty": true,
+    "missingReason": "P2-B03 local acceptance evidence is frozen before the parent handoff creates its checkpoint commit; no commit identity is invented."
+  },
+  "smppBaseline": {
+    "repository": "sdar-mcp-provider-platform",
+    "branch": "codex/goal-ugv-runtime-telemetry-joint-integration",
+    "currentIntakeCommit": "b5f3ba2076468695c781bea1e5e6d3045e60f70e",
+    "p1QualificationEvidenceCheckpoint": "90466127aee7c01014eef29a1e346b071de3704e",
+    "p0ContractFreezeSource": "ce57d3d7ac2f99c0c95fa61bd9746abe862ed507",
+    "p0AndP1AreCurrentAncestors": true,
+    "executedByThisP2Task": false,
+    "note": "P2 used a strict loopback frozen Provider fixture. The current SMPP checkout is provenance only until P3 starts and qualifies the real stack."
+  },
+  "scope": {
+    "profileId": "ugv-agent-profile",
+    "skill": "embodied.move_to@1",
+    "semanticTaskType": "embodied.move",
+    "operation": "vehicle_navigate",
+    "resourceId": "vehicle:ugv1",
+    "simulationOnly": true,
+    "genericRuntimeBehaviorChanged": true,
+    "genericRuntimeChange": "Remote Task admission recovery now accepts a receipt-recorded stale-CAS race only after re-reading and exactly verifying the same open binding, an equal-or-newer Runtime revision and the same active continuation; every drift remains fail-closed."
+  },
+  "architectureReview": {
+    "status": "PASS",
+    "decision": "ADR-138",
+    "singleLangGraphRuntime": true,
+    "newDslNodeType": false,
+    "newPollingWorkflow": false,
+    "newPersistenceAuthority": false,
+    "externalSdkTypeLeak": false,
+    "dynamicCode": false,
+    "generatedFixtureIsAuthority": false,
+    "genericRecoveryRaceFixDisclosed": true
+  },
+  "acceptance": {
+    "formalPlannerAndSkillUsagePath": "PASS",
+    "exactBindingToSelectedTarget": "PASS",
+    "preConfirmationToolCallsZero": "PASS_TASK_SCOPED_ONLY",
+    "preConfirmationTaskScopedMcpCallCount": 0,
+    "preConfirmationTasklessQualificationReadCount": 1,
+    "preConfirmationNavigateCallCount": 0,
+    "authenticatedOuterConfirmation": "PASS",
+    "taskRequiredNavigate": "PASS",
+    "waitingExternalAndContinuation": "PASS",
+    "restartWithoutNavigateReplay": "PASS",
+    "finalPositionHardGate": "PASS",
+    "deterministicTerminalAuthority": "PASS",
+    "forbiddenOperationsRejected": "PASS",
+    "externalSmppQualification": "NOT_RUN_P3_OWNS_EXTERNAL_EXECUTION"
+  },
+  "localRuntimeE2e": {
+    "status": "PASS",
+    "providerClass": "strict_loopback_frozen_provider_fixture",
+    "postgresql": "real_isolated_template0_database",
+    "redis": "real_loopback_redis",
+    "a2a": "official_adapter_http_json_path",
+    "isolationCleanup": {
+      "isolatedDatabaseDropped": true,
+      "sharedPostgresqlContainerStopped": false,
+      "sharedRedisContainerStopped": false
+    },
+    "testFilesPassed": 1,
+    "testsPassed": 1,
+    "testBodyDurationSeconds": 3.752,
+    "totalDurationSeconds": 16.93,
+    "commandWallDurationSeconds": 18.42,
+    "runtimeIdentifiers": {
+      "a2aTaskId": null,
+      "goalId": null,
+      "workflowPlanId": null,
+      "workflowDefinitionId": null,
+      "workflowInstanceId": null,
+      "capabilityAttemptId": null,
+      "remoteTaskBindingId": null,
+      "missingReason": "The test asserted generated PostgreSQL identities and their exact relations but the verbose reporter did not persist their random values; identifiers are not invented after the isolated database was dropped."
+    },
+    "formalAdmissionThroughSkillUsageAndPlanner": true,
+    "modelInvocationCount": 0,
+    "tasklessQualification": {
+      "operation": "vehicle_get_state",
+      "callCount": 1,
+      "taskScoped": false
+    },
+    "preConfirmation": {
+      "taskScopedMcpCallCount": 0,
+      "navigateCallCount": 0
+    },
+    "postConfirmationTaskScopedSequence": [
+      "vehicle_get_state",
+      "vehicle_navigate",
+      "vehicle_get_state"
+    ],
+    "taskScopedMcpCallCount": 3,
+    "localProviderGetStateCallCount": 3,
+    "localProviderNavigateCallCount": 1,
+    "localProviderTotalCallCount": 4,
+    "waitingExternalObserved": true,
+    "admissionIntentMaterializedBeforeStableRestart": true,
+    "persistedContinuationSnapshotObserved": true,
+    "runtimeRestartedFromPostgresql": true,
+    "navigateNodeStartCount": 1,
+    "navigateReplayCount": 0,
+    "remoteTerminal": {
+      "protocolStatus": "completed",
+      "localState": "reentered"
+    },
+    "terminal": {
+      "task": "completed",
+      "workflow": "succeeded",
+      "continuationAttempt": "succeeded",
+      "capabilityAttempt": "succeeded",
+      "runtimeOutcome": "achieved",
+      "a2aState": "TASK_STATE_COMPLETED",
+      "a2aArtifactExactlyMatchedDeterministicResult": true,
+      "finalPositionHardGatePassed": true
+    }
+  },
+  "packageFreeze": {
+    "skill": "embodied.move_to@1",
+    "packageChecksum": "6d5fc9c8e093de18a8b11c8377b96788336606b25d0df0f27efef7b4d9f6a48c",
+    "manifestSha256": "9da5a4fe6d0a97df71ea8cd7cb809e9c8fe9128fb16d9d6cac0267755817c0ce",
+    "modifiedForP2B03": false,
+    "profileReplayConstraint": "profile.ugv-agent-profile.side_effect_replay=forbidden",
+    "genericReplayConstraintAddedToPackage": false
+  },
+  "mandatoryVerification": [
+    {
+      "environment": {
+        "SDAR_TEST_POSTGRES_URL": "<redacted-55444>",
+        "SDAR_REDIS_PORT": "56379"
+      },
+      "command": "./node_modules/.bin/vitest",
+      "argv": [
+        "run",
+        "--maxWorkers=1",
+        "apps/server/test/task-provider-binding-context.unit.test.ts",
+        "apps/server/test/ugv-agent-profile-admission.unit.test.ts",
+        "apps/server/test/ugv-agent-profile-execution.integration.test.ts",
+        "apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+        "apps/server/test/ugv-agent-profile.unit.test.ts",
+        "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+        "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+        "apps/server/test/ugv-move-workflow-authority.unit.test.ts",
+        "apps/server/test/ugv-move-workflow-continuation.integration.test.ts",
+        "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+        "apps/server/test/ugv-move-workflow.unit.test.ts",
+        "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+        "packages/a2a-adapter/test/http-endpoint.contract.test.ts",
+        "packages/a2a-adapter/test/task-service-executor.unit.test.ts",
+        "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+        "packages/application/test/plan-preparation-processor.unit.test.ts",
+        "packages/application/test/remote-task-admission-recovery.unit.test.ts",
+        "packages/application/test/task-service.unit.test.ts",
+        "packages/persistence-postgres/test/governed-control-authority-repository.unit.test.ts",
+        "packages/persistence-postgres/test/governed-control-authority.integration.test.ts",
+        "packages/persistence-postgres/test/workflow-continuation.integration.test.ts"
+      ],
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "21 files and 210 tests passed in 63.82 seconds."
+    },
+    {
+      "command": "SDAR_TEST_POSTGRES_URL=postgresql://sdar:<redacted>@127.0.0.1:55444/sdar SDAR_REDIS_PORT=56379 pnpm exec vitest run apps/server/test/ugv-agent-profile-execution.integration.test.ts --reporter=verbose",
+      "status": "PASS",
+      "exitCode": 0,
+      "attemptReference": "attempts/uap-p2-b03-runtime-e2e-attempt-11-pass.json",
+      "result": "1 file and 1 test passed; test body 3.752 seconds, total 16.93 seconds."
+    },
+    {
+      "command": "pnpm exec vitest run apps/server/test/task-provider-binding-context.unit.test.ts apps/server/test/ugv-move-terminal-outcome.unit.test.ts --reporter=verbose",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "2 files and 27 tests passed; Vitest duration 8.44 seconds and command wall duration 10.30 seconds."
+    },
+    {
+      "command": "pnpm test:unit",
+      "status": "PASS_ON_APPROVED_HOST_AFTER_SANDBOX_EPERM",
+      "exitCode": 0,
+      "attemptReferences": [
+        "attempts/uap-p2-b03-unit-sandbox-attempt-1-final-gate.json",
+        "attempts/uap-p2-b03-unit-approved-host-attempt-2-pass.json"
+      ],
+      "sandboxResult": "EXIT 1; 6 of 244 files and 48 tests failed on denied loopback listen or child-process output.",
+      "approvedHostResult": "EXIT 0; 244 files and 1913 tests passed in 65.28 seconds; nested performance passed 1 file and 22 tests in 3.97 seconds."
+    },
+    {
+      "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=postgresql://sdar:<redacted>@127.0.0.1:55444/sdar SDAR_REDIS_PORT=56379 pnpm test:e2e",
+      "status": "BASELINE_FAILURE_REPRODUCED_AT_CLEAN_PRE_P2_HEAD",
+      "exitCode": 1,
+      "attemptReferences": [
+        "attempts/uap-p2-b03-e2e-full-attempt-1-baseline.json",
+        "attempts/uap-p2-b03-e2e-current-isolated-attempt-2-baseline.json",
+        "attempts/uap-p2-b03-e2e-clean-head-attempt-3-baseline-reproduced.json"
+      ],
+      "result": "Phase one ran 6 files: 69 tests passed, 3 failed and 1 skipped of 73 in 103.11 seconds. The three failures are unchanged generic task-service endpoint cases.",
+      "baselineDiagnostic": "The isolated regex replay failed 7 tests and skipped 55 in both the current worktree (23.05 seconds) and a pure git archive of pre-P2 HEAD 4c0b1f7a398b5f79e05df2103d1e5191436b3129 (23.10 seconds). The identical clean-snapshot result proves this is not a P2 regression.",
+      "formalP2RuntimeE2eUnaffected": true
+    },
+    {
+      "command": "pnpm typecheck",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "Strict TypeScript check passed."
+    },
+    {
+      "command": "pnpm verify:architecture",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "Architecture boundaries passed across 835 TypeScript source files."
+    },
+    {
+      "command": "pnpm test:contract",
+      "status": "PASS_ON_APPROVED_HOST_AFTER_SANDBOX_EPERM",
+      "exitCode": 0,
+      "attemptReferences": [
+        "attempts/uap-p2-b03-contract-sandbox-attempt-3-final-gate.json",
+        "attempts/uap-p2-b03-contract-approved-host-attempt-4-pass.json"
+      ],
+      "sandboxResult": "EXIT 1; 42 of 51 files passed, 9 failed; 207 tests passed and 111 failed on denied listen/spawn operations.",
+      "approvedHostResult": "EXIT 0; the identical command passed 51 files and 318 tests in 17.78 seconds."
+    },
+    {
+      "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=<redacted-loopback-55444> SDAR_REDIS_PORT=56379 pnpm test:integration",
+      "status": "PASS_AFTER_FIXED_CONCURRENCY_FIXTURE",
+      "exitCode": 0,
+      "attemptReferences": [
+        "attempts/uap-p2-b03-integration-attempt-1.json",
+        "attempts/uap-p2-b03-integration-isolated-attempt-2.json",
+        "attempts/uap-p2-b03-integration-isolated-attempt-3-concurrency-winner.json",
+        "attempts/uap-p2-b03-integration-isolated-attempt-4-pass.json"
+      ],
+      "result": "38 files and 219 tests passed in 298.56 seconds; the inherited-environment evidence-export phase passed 1 file and 1 test in 42.68 seconds.",
+      "targetedCorrection": {
+        "command": "SDAR_TEST_POSTGRES_URL=postgresql://sdar:<redacted>@127.0.0.1:55444/sdar SDAR_REDIS_PORT=56379 ./node_modules/.bin/vitest run packages/persistence-postgres/test/governed-control-authority.integration.test.ts --maxWorkers=1 --reporter=dot",
+        "exitCode": 0,
+        "result": "1 file and 3 tests passed in 10.04 seconds."
+      },
+      "historicalEvidencePreserved": true
+    },
+    {
+      "command": "pnpm lint",
+      "status": "BASELINE_FAILURE_CHANGED_FILES_PASS",
+      "exitCode": 1,
+      "attemptReference": "attempts/uap-p2-b03-lint-baseline-final.json",
+      "result": "22 errors remain in seven unchanged Home-Lab files.",
+      "scopedCommand": "git status --porcelain=v1 | cut -c4- | rg '\\.(ts|tsx|mts|cts)$' | xargs pnpm exec eslint",
+      "scopedExitCode": 0,
+      "scopedResult": "46 changed TypeScript files passed."
+    },
+    {
+      "command": "pnpm build",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "Production build passed."
+    },
+    {
+      "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=postgresql://sdar:<redacted>@127.0.0.1:55444/sdar SDAR_REDIS_PORT=56379 pnpm smoke:server",
+      "status": "FAILED_ENVIRONMENT_CONFIGURATION_PRECEDENCE",
+      "exitCode": 1,
+      "attemptReference": "attempts/uap-p2-b03-smoke-attempt-1-dotenv-test-url-shadowed.json",
+      "result": "Build passed. Module-import .env loading made SDAR_POSTGRES_URL=127.0.0.1:55432/sdar authoritative over SDAR_TEST_POSTGRES_URL; subsequent template1 database creation hit the host's existing XX000 collation defect."
+    },
+    {
+      "command": "pnpm smoke:server",
+      "suppliedEnvironment": {
+        "SDAR_REUSE_EXISTING_INFRA": "true",
+        "SDAR_TEST_POSTGRES_URL": "<redacted-loopback-55444-dedicated-template0-database>",
+        "SDAR_REDIS_PORT": "56379"
+      },
+      "exactEnvironmentMissingReason": "The evidence supplied the environment semantics but not an exact redacted argv for this second attempt; it is not reconstructed.",
+      "status": "FAILED_ENVIRONMENT_CONFIGURATION_PRECEDENCE",
+      "exitCode": 1,
+      "attemptReference": "attempts/uap-p2-b03-smoke-attempt-2-test-url-shadowed-ledger.json",
+      "result": "The dedicated template0 database was not used because local .env SDAR_POSTGRES_URL again won; the effective 127.0.0.1:55432/sdar database failed with SDAR_V123_MIGRATION_LEDGER_INVALID."
+    },
+    {
+      "command": "SDAR_POSTGRES_URL=postgresql://sdar:<redacted>@127.0.0.1:55444/sdar_uap_p2_b03_smoke_gate SDAR_REUSE_EXISTING_INFRA=true SDAR_SMOKE_REUSE_DATABASE=true SDAR_REDIS_PORT=56379 pnpm smoke:server",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": {
+        "build": "PASS",
+        "modelRuntimeBootstrapReconciled": {
+          "providerId": "ugv-real-model",
+          "providerRegistered": true,
+          "routeCountCreated": 42
+        },
+        "serverReadyObserved": true,
+        "smokePassed": true,
+        "explicitPostgresqlOverrideEffective": true,
+        "modelInvocationCount": 0,
+        "credentialsOutput": false
+      },
+      "scope": "The smoke proves local .env model configuration loading and bootstrap only. It made no model call and does not qualify P3 external LLM use.",
+      "cleanup": {
+        "statement": "DROP DATABASE sdar_uap_p2_b03_smoke_gate WITH (FORCE)",
+        "exitCode": 0,
+        "databaseDropped": true
+      }
+    },
+    {
+      "command": "pnpm format:check",
+      "status": "BASELINE_FAILURE_CHANGED_FILES_PASS",
+      "exitCode": 1,
+      "attemptReference": "attempts/uap-p2-b03-format-baseline-final.json",
+      "result": "Two unchanged baseline files remain unformatted.",
+      "scopedCommand": "git status --porcelain=v1 | cut -c4- | rg '\\.(ts|tsx|json|mjs|mts|md)$' | xargs pnpm exec prettier --check",
+      "scopedExitCode": 0
+    },
+    {
+      "command": "pnpm exec vitest run packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "1 file and 3 frozen UGV package contract tests passed."
+    },
+    {
+      "command": "git -C /home/zhouwen/web-download/sdar-mcp-provider-platform rev-parse HEAD; git -C /home/zhouwen/web-download/sdar-mcp-provider-platform status --short; git -C /home/zhouwen/web-download/sdar-mcp-provider-platform merge-base --is-ancestor 90466127aee7c01014eef29a1e346b071de3704e b5f3ba2076468695c781bea1e5e6d3045e60f70e; git -C /home/zhouwen/web-download/sdar-mcp-provider-platform merge-base --is-ancestor ce57d3d7ac2f99c0c95fa61bd9746abe862ed507 b5f3ba2076468695c781bea1e5e6d3045e60f70e",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "SMPP HEAD is b5f3ba2076468695c781bea1e5e6d3045e60f70e, the worktree is clean, and both historical P1/P0 commits are ancestors."
+    },
+    {
+      "command": "git diff --check",
+      "status": "PASS",
+      "exitCode": 0
+    }
+  ],
+  "knownAttemptFilesPreservedUnchanged": [
+    "attempts/uap-p2-b03-contract-default-concurrency-attempt-2.json",
+    "attempts/uap-p2-b03-contract-sandbox-attempt-1.json",
+    "attempts/uap-p2-b03-focused-concurrency-attempt-1.json",
+    "attempts/uap-p2-b03-integration-attempt-1.json",
+    "attempts/uap-p2-b03-integration-isolated-attempt-2.json",
+    "attempts/uap-p2-b03-typecheck-attempt-1.json"
+  ],
+  "runtimeE2eAttemptFiles": [
+    "attempts/uap-p2-b03-runtime-e2e-attempt-1-sandbox.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-2-safety-interval.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-3-terminal-reconcile-interval.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-4-taskless-serialization.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-5-skill-selection.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-6-source-ref.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-7-governed-control-clock.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-8-restart-stale-cas.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-9-confirmation-evidence.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-10-workflow-input-envelope.json",
+    "attempts/uap-p2-b03-runtime-e2e-attempt-11-pass.json"
+  ],
+  "finalGateAttemptFiles": [
+    "attempts/uap-p2-b03-unit-sandbox-attempt-1-final-gate.json",
+    "attempts/uap-p2-b03-unit-approved-host-attempt-2-pass.json",
+    "attempts/uap-p2-b03-contract-sandbox-attempt-3-final-gate.json",
+    "attempts/uap-p2-b03-contract-approved-host-attempt-4-pass.json",
+    "attempts/uap-p2-b03-integration-isolated-attempt-3-concurrency-winner.json",
+    "attempts/uap-p2-b03-integration-isolated-attempt-4-pass.json",
+    "attempts/uap-p2-b03-e2e-full-attempt-1-baseline.json",
+    "attempts/uap-p2-b03-e2e-current-isolated-attempt-2-baseline.json",
+    "attempts/uap-p2-b03-e2e-clean-head-attempt-3-baseline-reproduced.json",
+    "attempts/uap-p2-b03-smoke-attempt-1-dotenv-test-url-shadowed.json",
+    "attempts/uap-p2-b03-smoke-attempt-2-test-url-shadowed-ledger.json",
+    "attempts/uap-p2-b03-lint-baseline-final.json",
+    "attempts/uap-p2-b03-format-baseline-final.json"
+  ],
+  "artifacts": [
+    {
+      "path": "reports/ugv-agent-profile-simulation/workflow-plan.redacted.json",
+      "sha256": "6540718758469b2b08009edd39875db7a171da869cbafa3bd12da709698438ea",
+      "status": "FROZEN_LOCAL_EVIDENCE"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/skill-selection.redacted.json",
+      "sha256": "b79882d83bf29021a3ad5838df4fc365c118146b32e1a1b97ce6d2c21e8dbd92",
+      "status": "FROZEN_LOCAL_EVIDENCE"
+    },
+    {
+      "path": "examples/ugv-agent-profile-workflow.json",
+      "sha256": "555965e76da7f2eb1813bf9cf6fda20115735dcc8641dfafc37dcfc9f43319fe",
+      "status": "FROZEN_LOCAL_FIXTURE_NOT_RUNTIME_AUTHORITY"
+    }
+  ],
+  "safety": {
+    "authorizationGrantedByThisArtifact": false,
+    "localFixture": {
+      "simulationSideEffectGateEnabledDuringTest": true,
+      "tasklessReadCallCount": 1,
+      "taskScopedToolCallCount": 3,
+      "navigationDispatchCount": 1,
+      "governedConfirmationIssuedCount": 1,
+      "governedConfirmationConsumedCount": 1,
+      "forbiddenOperationCallCount": 0
+    },
+    "externalSmpp": {
+      "deploymentStarted": false,
+      "sideEffectAuthorityGranted": false,
+      "toolCallCount": 0,
+      "navigationDispatchCount": 0,
+      "mqttPublishCount": 0,
+      "controlInvocationCount": 0,
+      "forbiddenOperationCallCount": 0,
+      "sdarDirectSouthboundAccessCount": 0
+    }
+  },
+  "llmConfiguration": {
+    "externalLlmUseOwnedBy": "UAP-P3-B01_and_later",
+    "localDotEnvConfigurationLoadObservedByP2Smoke": true,
+    "bootstrapProviderId": "ugv-real-model",
+    "bootstrapProviderRegistered": true,
+    "bootstrapRouteCountCreated": 42,
+    "externalLlmInvocationExercisedByThisP2Task": false,
+    "modelInvocationCountInLocalE2e": 0,
+    "modelInvocationCountInLocalSmoke": 0,
+    "modelInvocationCountInP2": 0,
+    "secretsRecorded": false
+  },
+  "completion": {
+    "milestoneStateChanged": true,
+    "finalShaGenerated": true,
+    "nextAction": "Proceed to UAP-P3-B01 isolated dual-repository startup. Reuse the local .env LLM loading and bootstrap path already verified by the P2 smoke, exercise external model inference only in P3, keep external side-effect gates default-closed, and retain complete external identifier lineage."
+  }
+}

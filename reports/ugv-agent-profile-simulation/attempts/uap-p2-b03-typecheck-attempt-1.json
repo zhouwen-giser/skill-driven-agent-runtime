@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T06:43:30.658Z",
+  "status": "FAILED_FIXED_PENDING_FINAL_REPLAY",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm typecheck",
+  "exitCode": 2,
+  "failure": {
+    "code": "STRICT_COMPOSITION_AND_FIXTURE_NARROWING",
+    "summary": "The first combined replay found strict narrowing defects in the UGV Runtime binding branch, qualification helper/test fixtures, explicit position-policy fixture, and deterministic terminal fixtures."
+  },
+  "fix": {
+    "summary": "The branches now narrow their persisted authorities explicitly and the fixtures reproduce the exact frozen types. Subsequent combined typechecks passed before the final admission hardening; a final replay remains required.",
+    "stateMutation": "source_and_tests_only"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

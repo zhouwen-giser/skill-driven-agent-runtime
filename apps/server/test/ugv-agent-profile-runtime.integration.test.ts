@@ -70,6 +70,11 @@ beforeAll(async () => {
       isolationAcknowledged: true,
       queueName: `uap-p2-b01-remote-${randomUUID()}`,
     },
+    ugvMovePositionPolicy: {
+      toleranceM: 2,
+      minimumDisplacementM: 0.5,
+      maxFinalStateAgeMs: 3_000,
+    },
     taskUnderstanding: ugvAgentProfileTaskUnderstandingConfiguration(),
   });
   runtimeStarted = true;

@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026-08-21 — UGV Agent Profile P2-B03 local Runtime integration
+
+- Added a Profile-only deterministic Skill Usage admission that derives an exact bounded WGS84
+  simulation target from one persisted taskless state receipt and requires the immutable Task
+  Capability binding and `SelectedTaskOperation` to carry the same target.
+- Added the formal nine-node initial-state/context/navigate/final-state/evidence/result Workflow
+  candidate through the existing Planner, validator, Skill Usage compliance and single LangGraph.js
+  runtime. The selected operation uses the existing append-only Skill execution reference lineage.
+- Bound A2A `confirm_plan` to an adapter-authenticated human principal and one retry-safe exact-scope
+  governed confirmation, consumed only after refreshed authority and a default-closed simulation
+  side-effect gate. Generic A2A and governed-control paths are unchanged.
+- Reused the existing MCP Tasks `waiting_external` and persisted continuation path and added a
+  Profile-only model-free terminal authority that requires exact invocation, remote lifecycle,
+  consumed confirmation, continuation and final-position evidence before existing atomic terminal
+  persistence.
+- Preserved the P0-frozen `embodied.move_to@1` package byte-for-byte and moved no-replay narrowing to
+  the Profile-owned `profile.ugv-agent-profile.side_effect_replay=forbidden` marker. The immutable
+  package and manifest hashes remain unchanged.
+- Fixed four Runtime-evidenced authority defects: confirmation time is captured after refreshed
+  readiness; current `providerId` is verified and included in the dispatch hash; and a
+  `receipt_recorded` stale-CAS restart race is accepted only after the exact same open binding,
+  equal-or-newer Runtime revision and exact active continuation are re-read. Missing or drifted state
+  remains fail-closed and no navigate is replayed. Terminal authority now validates the exact Workflow
+  input envelope and compares its `skillInput` member, rather than the whole envelope, with the frozen
+  Task Capability input snapshot.
+- Passed the formal local PostgreSQL/Redis/Runtime/A2A E2E: one taskless qualification read, zero
+  task-scoped MCP/navigation calls before authenticated confirmation, task-scoped
+  `get_state`/`navigate`/`get_state`, one materialized external wait, restart without replay, objective
+  final-position success and an exact completed A2A artifact. The strict loopback Provider fixture
+  observes one local navigate; external SMPP, Device MCP and MQTT counts remain zero.
+- Added ADR-138, traceability, local Runtime evidence and eleven immutable Runtime E2E attempt envelopes.
+  Final local verification passes the exact 21-file/210-test focused matrix, approved-host Unit
+  244 files/1913 tests plus performance 22/22, approved-host Contract 51/318, isolated Integration
+  38/219 plus evidence export 1/1, typecheck, build, 835-source architecture, frozen package 3/3,
+  SMPP provenance/clean checks and diff checks. Current sandbox, integration-fixture and Runtime
+  failures remain immutable attempts rather than being rewritten.
+- Accepted P2-B03 local integration with disclosed repository-baseline exceptions. Full generic E2E
+  retains three old Task Service endpoint failures; the exact isolated seven-failure result reproduces
+  at a pure archive of pre-P2 HEAD `4c0b1f7`, so it is not a P2 regression. Full lint retains 22 errors
+  in seven unchanged Home-Lab files and full format retains two unchanged files. Exact P2 Runtime E2E,
+  changed-file ESLint and Prettier scopes pass. Final local artifact SHA-256 values are frozen; the
+  checkpoint commit remains unset until the parent handoff creates it.
+- Advanced current SMPP intake provenance to `b5f3ba2076468695c781bea1e5e6d3045e60f70e`
+  while preserving P1 checkpoint `90466127aee7c01014eef29a1e346b071de3704e` and P0 source
+  `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` as immutable historical layers. P2 did not execute the
+  SMPP checkout.
+- P2 smoke verified LLM configuration loading and database bootstrap from the local `.env` deployment
+  mechanism without documenting secrets or values and with zero model invocations. P3 will exercise
+  external inference through that path; UGV safety admission and terminal success do not depend on
+  model output.
+
 ## 2026-08-17 — UGV simulation execution context and bounded cognitive correction
 
 - Kept governed physical confirmation independent from frozen Runtime execution mode, allowing the

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { RemoteTaskBinding } from '../../domain/src/index.js';
 import {
   RemoteTaskAdmissionRecoveryService,
   type RemoteTaskAdmissionIntent,
@@ -196,6 +197,114 @@ describe('RemoteTaskAdmissionRecoveryService', () => {
     expect(recordExternalSnapshot).not.toHaveBeenCalled();
     expect(failTask).not.toHaveBeenCalled();
   });
+
+  it('materializes a CAS-stale receipt only after the same open binding has an equal or newer Runtime revision', async () => {
+    const intent = admissionIntent('receipt_recorded');
+    const current = recoveredBinding(intent, { runtimeRevision: '4', version: 7 });
+    const admit = vi.fn().mockResolvedValue({
+      binding: { bindingId: current.bindingId, version: 6 },
+      created: false,
+      pollScheduled: true,
+    });
+    const recordExternalSnapshot = vi.fn().mockResolvedValue({
+      applied: false,
+      reason: 'stale',
+    });
+    const findById = vi.fn().mockResolvedValue(current);
+    const findCurrentByBinding = vi.fn().mockResolvedValue(continuationSnapshot());
+    const markMaterialized = vi.fn().mockResolvedValue({
+      applied: true,
+      intent: { ...intent, status: 'materialized' },
+    });
+    const failTask = vi.fn().mockResolvedValue(undefined);
+    const service = recoveryService({
+      intents: [intent],
+      admit,
+      recordExternalSnapshot,
+      findById,
+      findCurrentByBinding,
+      markMaterialized,
+      failTask,
+    });
+
+    await expect(service.reconcile()).resolves.toEqual({
+      examined: 1,
+      materialized: 1,
+      uncertain: 0,
+      closedPrepared: 0,
+    });
+    expect(admit).toHaveBeenCalledOnce();
+    expect(recordExternalSnapshot).toHaveBeenCalledOnce();
+    expect(findById).toHaveBeenCalledWith(intent.envelope.bindingId);
+    expect(findCurrentByBinding).toHaveBeenCalledOnce();
+    expect(markMaterialized).toHaveBeenCalledOnce();
+    expect(failTask).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      case: 'binding identity drift',
+      binding: (intent: RemoteTaskAdmissionIntent) =>
+        recoveredBinding(intent, { mcpInvocationId: 'mcp-invocation-conflict' }),
+      continuation: continuationSnapshot(),
+      error: 'REMOTE_TASK_ADMISSION_RECOVERY_STALE_BINDING_CONFLICT',
+    },
+    {
+      case: 'closed binding',
+      binding: (intent: RemoteTaskAdmissionIntent) =>
+        recoveredBinding(intent, {
+          localState: 'closed',
+          terminalAt: '2026-08-13T03:00:00.900Z',
+        }),
+      continuation: continuationSnapshot(),
+      error: 'REMOTE_TASK_ADMISSION_RECOVERY_STALE_BINDING_CLOSED',
+    },
+    {
+      case: 'older Runtime revision',
+      binding: (intent: RemoteTaskAdmissionIntent) =>
+        recoveredBinding(intent, { runtimeRevision: '2' }),
+      continuation: continuationSnapshot(),
+      error: 'REMOTE_TASK_ADMISSION_RECOVERY_STALE_REVISION_OLDER',
+    },
+    {
+      case: 'continuation drift',
+      binding: (intent: RemoteTaskAdmissionIntent) => recoveredBinding(intent),
+      continuation: {
+        ...continuationSnapshot(),
+        waitingNodeRuns: [
+          {
+            ...continuationSnapshot().waitingNodeRuns[0],
+            nodeRunId: 'move:conflict',
+          },
+        ],
+      },
+      error: 'REMOTE_TASK_ADMISSION_RECOVERY_CONTINUATION_CONFLICT',
+    },
+  ])('fails closed on a stale CAS with $case', async ({ binding, continuation, error }) => {
+    const intent = admissionIntent('receipt_recorded');
+    const markMaterialized = vi.fn();
+    const failTask = vi.fn().mockResolvedValue(undefined);
+    const service = recoveryService({
+      intents: [intent],
+      admit: vi.fn().mockResolvedValue({
+        binding: { bindingId: intent.envelope.bindingId, version: 6 },
+        created: false,
+        pollScheduled: true,
+      }),
+      recordExternalSnapshot: vi.fn().mockResolvedValue({
+        applied: false,
+        reason: 'stale',
+      }),
+      findById: vi.fn().mockResolvedValue(binding(intent)),
+      findCurrentByBinding: vi.fn().mockResolvedValue(continuation),
+      markMaterialized,
+      failTask,
+    });
+
+    await expect(service.reconcile()).rejects.toThrow(error);
+    expect(markMaterialized).not.toHaveBeenCalled();
+    expect(failTask).not.toHaveBeenCalled();
+  });
 });
 
 function recoveryService(
@@ -207,6 +316,7 @@ function recoveryService(
     markMaterialized?: ReturnType<typeof vi.fn>;
     admit?: ReturnType<typeof vi.fn>;
     recordExternalSnapshot?: ReturnType<typeof vi.fn>;
+    findById?: ReturnType<typeof vi.fn>;
     findCurrentByBinding?: ReturnType<typeof vi.fn>;
     failTask?: (taskId: string, errorCode: string, summary: string) => Promise<void>;
   }>,
@@ -224,6 +334,7 @@ function recoveryService(
     admission: { admit: input.admit ?? vi.fn() } as never,
     remoteTasks: {
       recordExternalSnapshot: input.recordExternalSnapshot ?? vi.fn(),
+      findById: input.findById ?? vi.fn(),
     } as never,
     continuations: {
       findCurrentByBinding:
@@ -283,7 +394,7 @@ function admissionIntent(status: 'dispatching' | 'receipt_recorded'): RemoteTask
               pollIntervalMs: 100,
               protocolRevision: '2026-07-28',
               tasksSchemaRevision: 'tasks-v1',
-              runtimeRevision: 'runtime-2',
+              runtimeRevision: '2',
             },
             reconciledTask: {
               protocolMode: 'frozen_v1' as const,
@@ -295,7 +406,7 @@ function admissionIntent(status: 'dispatching' | 'receipt_recorded'): RemoteTask
               expiresAt: '2026-08-13T03:01:00.000Z',
               protocolRevision: '2026-07-28',
               tasksSchemaRevision: 'tasks-v1',
-              runtimeRevision: 'runtime-3',
+              runtimeRevision: '3',
             },
             credentialRevision: 'credential-restart',
             sessionRevision: 'session-restart',
@@ -318,6 +429,71 @@ function admissionIntent(status: 'dispatching' | 'receipt_recorded'): RemoteTask
     createdAt,
     updatedAt: createdAt,
     version: status === 'receipt_recorded' ? 3 : 2,
+  };
+}
+
+function recoveredBinding(
+  intent: RemoteTaskAdmissionIntent,
+  overrides: Partial<RemoteTaskBinding> = {},
+): RemoteTaskBinding {
+  const receipt = intent.receipt;
+  if (receipt === undefined) throw new Error('TEST_RECEIPT_REQUIRED');
+  const authoritySnapshot = receipt.authoritySnapshot;
+  if (authoritySnapshot === undefined) throw new Error('TEST_AUTHORITY_SNAPSHOT_REQUIRED');
+  const remote = receipt.reconciledTask ?? receipt.remoteTask;
+  return {
+    bindingId: intent.envelope.bindingId,
+    serverId: intent.envelope.serverId,
+    operationName: intent.envelope.operationName,
+    remoteTaskId: receipt.remoteTask.remoteTaskId,
+    agentTaskId: intent.envelope.agentTaskId,
+    contextId: intent.envelope.contextId,
+    goalId: intent.envelope.goalId,
+    goalVersion: intent.envelope.goalVersion,
+    workflowPlanId: intent.envelope.workflowPlanId,
+    ...(intent.envelope.skillGoalId === undefined
+      ? {}
+      : { skillGoalId: intent.envelope.skillGoalId }),
+    ...(intent.envelope.skillAttemptId === undefined
+      ? {}
+      : { skillAttemptId: intent.envelope.skillAttemptId }),
+    workflowDefinitionId: intent.envelope.workflowDefinitionId,
+    workflowDefinitionVersion: intent.envelope.workflowDefinitionVersion,
+    workflowInstanceId: intent.envelope.workflowInstanceId,
+    workflowNodeId: intent.envelope.workflowNodeId,
+    workflowNodeRunId: intent.envelope.workflowNodeRunId,
+    ...(intent.envelope.parentWorkflowInstanceId === undefined
+      ? {}
+      : { parentWorkflowInstanceId: intent.envelope.parentWorkflowInstanceId }),
+    ...(intent.envelope.parentSkillCallId === undefined
+      ? {}
+      : { parentSkillCallId: intent.envelope.parentSkillCallId }),
+    mcpInvocationId: intent.envelope.mcpInvocationId,
+    protocolStatus: remote.status,
+    protocolRevision: receipt.remoteTask.protocolRevision,
+    tasksSchemaRevision: receipt.remoteTask.tasksSchemaRevision,
+    protocolContract: receipt.protocolContract,
+    taskBehavior: receipt.taskBehavior,
+    taskCancellation: receipt.taskCancellation,
+    ...(remote.runtimeRevision === undefined ? {} : { runtimeRevision: remote.runtimeRevision }),
+    ...(remote.providerRevision === undefined ? {} : { providerRevision: remote.providerRevision }),
+    localState: 'polling',
+    ...(intent.envelope.requestedTiming === undefined
+      ? {}
+      : { requestedTiming: intent.envelope.requestedTiming }),
+    executionContext: intent.envelope.executionContext,
+    authoritySnapshot,
+    credentialRevision: receipt.credentialRevision,
+    sessionRevision: receipt.sessionRevision,
+    lastProviderUpdatedAt: remote.lastUpdatedAt,
+    pollIntervalMs: 100,
+    nextPollAt: '2026-08-13T03:00:01.000Z',
+    pollAttempt: 1,
+    providerFailureCount: 0,
+    createdAt: intent.createdAt,
+    updatedAt: intent.updatedAt,
+    version: 7,
+    ...overrides,
   };
 }
 

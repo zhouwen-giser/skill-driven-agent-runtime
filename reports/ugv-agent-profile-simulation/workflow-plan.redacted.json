@@ -1,0 +1,137 @@
+{
+  "schemaVersion": "ugv-agent-profile.workflow-plan-evidence/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:19:45.542Z",
+  "status": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "finalResult": "PASS_LOCAL_INTEGRATION",
+  "repository": {
+    "name": "skill-driven-agent-runtime",
+    "branch": "codex/sdar-ugv-smpp-integration",
+    "implementationCommit": null,
+    "missingReason": "P2-B03 local acceptance evidence is frozen before the pending checkpoint commit; no commit identity is invented."
+  },
+  "authority": {
+    "profileId": "ugv-agent-profile",
+    "skillId": "embodied.move_to",
+    "skillVersion": 1,
+    "taskType": "embodied.move",
+    "resourceId": "vehicle:ugv1",
+    "missionType": "point",
+    "executionMode": "simulation",
+    "selectedTaskOperationHash": null,
+    "workflowPlanId": null,
+    "workflowDefinitionId": null,
+    "workflowInstanceId": null,
+    "localPostgresqlMaterializationObserved": true,
+    "missingReason": "The test asserted the generated plan, definition, instance, selected-operation self-hash and their exact relations but did not export random identifiers before dropping the isolated database."
+  },
+  "formalPath": {
+    "planningEntry": "prepareSkillUsagePlan",
+    "candidateGuard": "UgvMoveWorkflowCandidateGuard",
+    "validatorReused": true,
+    "skillUsageComplianceReused": true,
+    "runtime": "LangGraph.js",
+    "secondRuntimeAdded": false,
+    "deterministicCandidateUsed": true,
+    "modelInvocationCount": 0,
+    "generatedFixture": "examples/ugv-agent-profile-workflow.json",
+    "fixtureIsAuthority": false
+  },
+  "requiredGraph": {
+    "nodeCount": 9,
+    "entry": "ugv_initial_state",
+    "sequence": [
+      "vehicle_get_state",
+      "current-position context gate",
+      "resource-state context gate",
+      "permission-context gate",
+      "vehicle_navigate",
+      "waiting_external / persisted continuation",
+      "vehicle_get_state",
+      "position.observation evidence gate",
+      "success or failure result"
+    ],
+    "navigateTaskBehavior": "task_required",
+    "navigateCardinality": 1,
+    "finalPositionHardGate": true,
+    "successResultReference": "nodes.ugv_final_state.data.metadata.ugvSkillResult",
+    "forbiddenOperations": [
+      "vehicle_area_recon",
+      "vehicle_track_target",
+      "vehicle_control_gimbal",
+      "vehicle_fire_weapon",
+      "vehicle_emergency_stop"
+    ],
+    "localRuntimeValidated": true
+  },
+  "confirmation": {
+    "boundary": "outer_plan_confirmation",
+    "authenticatedHumanRequired": true,
+    "oneShotGovernedConfirmationRequired": true,
+    "inGraphConfirmationAdded": false,
+    "preConfirmationTaskScopedMcpCallCount": 0,
+    "preConfirmationTasklessQualificationReadCount": 1,
+    "preConfirmationNavigateCallCount": 0,
+    "localRuntimeConfirmationObserved": true,
+    "externalConfirmationObserved": false
+  },
+  "continuation": {
+    "existingRemoteTaskBindingReused": true,
+    "existingContinuationRepositoryReused": true,
+    "waitingExternalIsSuccess": false,
+    "persistedFrontierRequired": true,
+    "navigateReplayAllowed": false,
+    "localWaitingExternalObserved": true,
+    "localMaterializedSnapshotObserved": true,
+    "localRestartReconstructionObserved": true,
+    "localNavigateReplayCount": 0,
+    "localContinuationAttemptStatus": "succeeded",
+    "externalContinuationObserved": false
+  },
+  "terminal": {
+    "task": "completed",
+    "workflow": "succeeded",
+    "capabilityAttempt": "succeeded",
+    "remoteProtocolStatus": "completed",
+    "remoteLocalState": "reentered",
+    "runtimeOutcome": "achieved",
+    "a2aState": "TASK_STATE_COMPLETED",
+    "a2aArtifactExactlyMatchedDeterministicResult": true,
+    "finalPositionHardGatePassed": true
+  },
+  "counts": {
+    "localFixture": {
+      "tasklessQualificationReadCount": 1,
+      "taskScopedToolCallCount": 3,
+      "taskScopedSequence": [
+        "vehicle_get_state",
+        "vehicle_navigate",
+        "vehicle_get_state"
+      ],
+      "providerGetStateCallCount": 3,
+      "providerNavigateCallCount": 1,
+      "providerTotalCallCount": 4,
+      "navigateNodeStartCount": 1,
+      "navigateReplayCount": 0,
+      "forbiddenOperationCallCount": 0
+    },
+    "externalSmpp": {
+      "toolCallCount": 0,
+      "navigationDispatchCount": 0,
+      "mqttPublishCount": 0,
+      "forbiddenOperationCallCount": 0
+    }
+  },
+  "verification": {
+    "status": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+    "localRuntimeResult": "PASS",
+    "finalGateResult": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+    "report": "uap-p2-b03-verification.json"
+  }
+}

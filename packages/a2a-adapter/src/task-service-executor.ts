@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import type { TaskService, TaskStateNotifier } from '../../application/src/index.js';
 import type { AgentTask } from '../../domain/src/index.js';
+import { governedControlPrincipalForA2AUser } from './authenticated-confirm-user.js';
 import { buildStatusUpdate } from './compatibility.js';
 import {
   taskPhaseToA2AState,
@@ -62,7 +63,19 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
       );
     if (request.task !== undefined) {
       const followUp = toTaskFollowUp(request.userMessage);
-      const updated = await this.#tasks.followUp({ taskId: request.taskId, ...followUp });
+      const confirmationPrincipal =
+        followUp.action === 'confirm_plan'
+          ? governedControlPrincipalForA2AUser(request.context.user)
+          : undefined;
+      const updated = await this.#tasks.followUp({
+        taskId: request.taskId,
+        ...followUp,
+        ...(confirmationPrincipal === undefined
+          ? {}
+          : {
+              confirmationAuthority: Object.freeze({ principal: confirmationPrincipal }),
+            }),
+      });
       eventBus.publish(
         AgentEvent.task(
           withUserHistory(await this.#project(updated), request.userMessage, request.task),

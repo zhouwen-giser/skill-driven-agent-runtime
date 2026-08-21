@@ -29,6 +29,51 @@ function skillAttempt() {
 }
 
 describe('PlanPreparationProcessor LLM decisions', () => {
+  it('accepts a persisted formal initial admission before any model-backed path', async () => {
+    const tasks = new MemoryTasks();
+    tasks.value = task();
+    const neverUnderstanding: NonNullable<
+      PlanPreparationProcessorDependencies['taskUnderstanding']
+    > = {
+      route: () => {
+        throw new Error('TASK_UNDERSTANDING_MUST_NOT_RUN');
+      },
+      understand: () => Promise.reject(new Error('TASK_UNDERSTANDING_MUST_NOT_RUN')),
+    };
+    const neverGateway: NonNullable<PlanPreparationProcessorDependencies['fastGateway']> = {
+      evaluate: () => Promise.reject(new Error('FAST_GATEWAY_MUST_NOT_RUN')),
+    };
+
+    await processorWith(tasks, false, 'none', undefined, neverUnderstanding, neverGateway, {
+      admit: () =>
+        Promise.resolve({
+          goal: {
+            goalId: 'goal-1',
+            contextId: 'context-1',
+            version: 1,
+            title: 'Goal',
+            description: 'Complete the task.',
+            constraints: [],
+            successCriteria: ['Completed'],
+            status: 'active',
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+          userGoalPlanId: 'user-goal-plan-1',
+          summary: 'Admitted exact formal authority.',
+        }),
+    }).process(initialJob);
+
+    expect(tasks.goalFormulations).toBe(0);
+    expect(tasks.userGoalPlanningInputs).toHaveLength(0);
+    expect(tasks.userGoalRuntimeCalls).toEqual(['skill_goal_scheduling']);
+    expect(tasks.value).toMatchObject({
+      goalId: 'goal-1',
+      userGoalPlanId: 'user-goal-plan-1',
+      phase: 'awaiting_plan_confirmation',
+    });
+  });
+
   it('keeps the original planning path when P10 returns cognitive fallback', async () => {
     const tasks = new MemoryTasks();
     tasks.value = task();
@@ -205,9 +250,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
       skillAttemptId: 'skill-attempt-1',
     });
     expect(tasks.value).not.toHaveProperty('skillSelectionId');
-    expect(tasks.capabilityPlanBindings).toEqual([
-      { taskId: 'task-1', planId: 'plan-task-1' },
-    ]);
+    expect(tasks.capabilityPlanBindings).toEqual([{ taskId: 'task-1', planId: 'plan-task-1' }]);
   });
 
   it('marks the Task failed when a configured decision model fails without fallback', async () => {
@@ -404,6 +447,7 @@ function processorWith(
   submitRemoteInput?: (inputRequestId: string, inputResponses: unknown) => Promise<void>,
   taskUnderstanding?: PlanPreparationProcessorDependencies['taskUnderstanding'],
   fastGateway?: PlanPreparationProcessorDependencies['fastGateway'],
+  initialAdmission?: PlanPreparationProcessorDependencies['initialAdmission'],
 ) {
   let event = 0;
   let attemptStatus: 'queued' | 'running' | 'completed' | 'failed' = 'queued';
@@ -693,6 +737,7 @@ function processorWith(
       : { remoteTaskInput: { submitAnswer: submitRemoteInput } }),
     ...(taskUnderstanding === undefined ? {} : { taskUnderstanding }),
     ...(fastGateway === undefined ? {} : { fastGateway }),
+    ...(initialAdmission === undefined ? {} : { initialAdmission }),
     taskPlanning: {
       prepare: (input) => {
         tasks.planningInput = input;

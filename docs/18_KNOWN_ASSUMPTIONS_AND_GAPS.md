@@ -1,5 +1,49 @@
 # 已知假设、冲突与待验证项
 
+## UGV Agent Profile P2-B03 local-integration boundary (2026-08-21)
+
+- The task card says there must be zero MCP calls before Plan confirmation, while the frozen Profile
+  admission requires one already-persisted taskless `vehicle_get_state` qualification receipt. ADR-138
+  resolves this as zero **Task-scoped Workflow** MCP calls and zero navigation/side-effect calls before
+  confirmation. The read-only taskless qualification is recorded separately and never receives Task,
+  confirmation or movement authority. The passing local E2E observes one such qualification read and
+  zero Task-scoped calls before confirmation; reports must not collapse these counts.
+- P2-B03 temporarily enables the default-closed simulation gate only inside an isolated test process
+  connected to a strict loopback frozen Provider fixture. It observes one local fixture navigation to
+  verify `TASK_REQUIRED`, `waiting_external`, restart continuation and no replay. This is not SMPP,
+  Device MCP or MQTT execution and cannot qualify P3 or the external Goal. All P2 external counts remain
+  zero.
+- The local E2E creates random Task/Goal/Plan/Workflow/Invocation/Remote Binding identifiers in a
+  template0-backed disposable PostgreSQL database, asserts their exact relationships, then drops that
+  database. The reporter did not export those random identifiers, so P2 reports retain `null` plus a
+  missing-reason instead of inventing values. P3 external evidence must retain the complete identifier
+  lineage required by the Goal package.
+- SMPP provenance has three immutable layers: P0 contract source
+  `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507`, P1 qualification evidence checkpoint
+  `90466127aee7c01014eef29a1e346b071de3704e`, and current intake
+  `b5f3ba2076468695c781bea1e5e6d3045e60f70e`. The first two are ancestors of the third and historical
+  P0/P1 reports are not rewritten. P2 did not execute the current SMPP checkout.
+- The P2 local smoke verified that the Server loads and bootstraps LLM configuration from `.env` while
+  making zero model invocations. External model inference begins in P3; no `.env` value or secret is
+  recorded as evidence.
+- The P2-B03 local milestone is accepted with two repository-baseline exceptions, not a clean
+  whole-repository lint/format claim. `pnpm lint` still reports 22 errors in seven unchanged Home-Lab
+  files, while `pnpm format:check` still reports two unchanged files
+  (`packages/application/src/skill-usage-planning.ts` and
+  `packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts`). All 46 changed
+  TypeScript files pass scoped ESLint, and all P2-B03 changed supported files pass scoped Prettier.
+- Sandbox Unit and Contract replays fail only where loopback listen or child-process operations are
+  denied with `EPERM`. The identical `pnpm test:unit` and `pnpm test:contract` commands pass on the
+  approved host (244 files/1913 tests plus the 22-test performance phase; 51 files/318 tests). Both
+  sandbox attempts and their host corroborations remain immutable evidence; they do not qualify any
+  external SMPP action.
+- The full generic E2E gate is not clean: phase one passes 69 tests, fails three old generic
+  `task-service-endpoint` cases and skips one. The exact isolated regex run fails seven and skips 55
+  both in the current worktree and in a pure `git archive` of pre-P2 HEAD
+  `4c0b1f7a398b5f79e05df2103d1e5191436b3129` (23.05 versus 23.10 seconds). This reproducible unchanged
+  baseline is retained as three immutable attempts. It does not invalidate the formal P2 Runtime E2E
+  1/1 pass, but it prevents a clean whole-repository E2E claim.
+
 ## v1.2.2 G00 decisions and external gates (2026-07-22)
 
 - The frozen clean-slate decision conflicts intentionally with ADR-108's retained `legacy_v11` product

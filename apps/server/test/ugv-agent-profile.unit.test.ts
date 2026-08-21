@@ -138,6 +138,18 @@ describe('UGV Agent Profile composition', () => {
     expect(() => {
       assertUgvAgentProfileRuntimeConfiguration(missingFrozenMcpTasks);
     }).toThrow('UGV_AGENT_PROFILE_FROZEN_MCP_TASKS_REQUIRED');
+    const { ugvMovePositionPolicy, ...missingPositionPolicy } = valid;
+    expect(ugvMovePositionPolicy).toBeDefined();
+    if (ugvMovePositionPolicy === undefined) throw new Error('TEST_POSITION_POLICY_REQUIRED');
+    expect(() => {
+      assertUgvAgentProfileRuntimeConfiguration(missingPositionPolicy);
+    }).toThrow('explicit positive tolerance');
+    expect(() => {
+      assertUgvAgentProfileRuntimeConfiguration({
+        ...valid,
+        ugvMovePositionPolicy: { ...ugvMovePositionPolicy, toleranceM: 2.001 },
+      });
+    }).toThrow('explicit positive tolerance');
   });
 
   it('rejects a direct production start before opening infrastructure', async () => {
@@ -166,6 +178,18 @@ describe('UGV Agent Profile composition', () => {
     });
 
     expect(environment.SDAR_TASK_UNDERSTANDING_PROFILE).toBe(UGV_AGENT_PROFILE_ID);
+    expect(environment).toMatchObject({
+      UGV_TEST_TOLERANCE_M: 2,
+      UGV_TEST_MINIMUM_DISPLACEMENT_M: 0.5,
+      UGV_TEST_MAX_FINAL_STATE_AGE_MS: 3_000,
+    });
+    expect(() =>
+      parseServerEnvironment({
+        NODE_ENV: 'test',
+        SDAR_MASTER_KEY_BASE64: Buffer.alloc(32, 7).toString('base64'),
+        UGV_TEST_TOLERANCE_M: '2.001',
+      }),
+    ).toThrow();
     expect(useManagedAgentCardForProfile(environment.SDAR_TASK_UNDERSTANDING_PROFILE)).toBe(false);
     expect(useManagedAgentCardForProfile('managed_capability')).toBe(true);
 
@@ -203,6 +227,11 @@ function validRuntimeConfiguration(): Parameters<
         Promise.reject(new Error('startup validation must not query authority')),
     },
     frozenMcpTasks: { isolationAcknowledged: true },
+    ugvMovePositionPolicy: {
+      toleranceM: 2,
+      minimumDisplacementM: 0.5,
+      maxFinalStateAgeMs: 3_000,
+    },
     governedControlPrincipalResolver: {
       resolve: () => Promise.reject(new Error('startup validation must not resolve identity')),
     },

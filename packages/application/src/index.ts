@@ -58,6 +58,8 @@ export * from './workflow-template.js';
 export * from './mcp-registry.js';
 export * from './governed-control-authority.js';
 export * from './governed-control-management.js';
+export * from './governed-control-ugv-authority.js';
+export * from './governed-control-ugv-management.js';
 export * from './mcp-runtime-binding-authority.js';
 export * from './mcp-protocol-operations.js';
 export * from './frozen-mcp-registry.js';

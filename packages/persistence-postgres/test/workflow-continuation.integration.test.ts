@@ -380,7 +380,9 @@ describe('PostgreSQL remote Task continuation authority', () => {
     ).resolves.toBeUndefined();
     await expect(remoteTasks.findById('continuation-binding')).resolves.toMatchObject({
       localState: 'reentered',
-      version: 3,
+      // Cancellation observation and every claim/defer/finalize binding transition are durable
+      // authority changes, so the admitted version 1 advances exactly six times.
+      version: 7,
     });
 
     const successor = createWorkflowContinuationSnapshot({

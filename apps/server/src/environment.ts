@@ -125,6 +125,9 @@ const EnvironmentSchema = z
     SDAR_UGV_MODEL_API_KEY: OptionalSecretSchema,
     SDAR_UGV_MODEL_API_KEY_FILE: OptionalNonBlankStringSchema,
     SDAR_UGV_MODEL_TIMEOUT_MS: z.coerce.number().int().positive().max(300_000).default(30_000),
+    UGV_TEST_TOLERANCE_M: z.coerce.number().positive().max(2).default(2),
+    UGV_TEST_MINIMUM_DISPLACEMENT_M: z.coerce.number().positive().max(2).default(0.5),
+    UGV_TEST_MAX_FINAL_STATE_AGE_MS: z.coerce.number().int().min(1).max(3_000).default(3_000),
     SDAR_TASK_UNDERSTANDING_PROFILE: z
       .enum([
         'off',

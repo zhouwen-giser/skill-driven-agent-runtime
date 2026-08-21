@@ -24,7 +24,10 @@ import {
   type IdentifierGenerator,
   type RuntimeEventPublisher,
   type RuntimeTaskEvent,
+  type GovernedControlPermission,
+  type GovernedControlPrincipal,
   type SkillDraftRepository,
+  type TaskServiceDependencies,
   type TaskInputRepository,
 } from '../src/index.js';
 
@@ -857,6 +860,164 @@ describe('TaskService', () => {
     ).toEqual(['plan.confirm:plan-parent']);
   });
 
+  it('projects authenticated authority after plan confirmation and before execution starts', async () => {
+    const principal: GovernedControlPrincipal = Object.freeze({
+      actorId: 'operator-1',
+      kind: 'human',
+      authenticationMethod: 'configured_bearer',
+      permissions: new Set<GovernedControlPermission>(['physical_control.confirm']),
+      requestId: 'request-confirm-1',
+    });
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      beforePlanExecution: (input) => {
+        expect(Object.isFrozen(input)).toBe(true);
+        expect(input).toMatchObject({
+          task: { phase: 'awaiting_plan_confirmation', planId: 'plan-governed' },
+          confirmationTarget: 'task_plan',
+          confirmationAuthority: { principal },
+        });
+        harness.operations.push('before-plan-execution');
+        return Promise.resolve();
+      },
+      executeConfirmed: () => {
+        harness.operations.push('plan.execute');
+        return Promise.resolve();
+      },
+    });
+    const submitted = await harness.service.submit({ messageText: 'Navigate.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-governed', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm navigation.',
+        confirmationAuthority: Object.freeze({ principal }),
+      }),
+    ).resolves.toMatchObject({ phase: 'executing' });
+
+    expect(harness.operations).toEqual([
+      'plan.confirm:plan-governed',
+      'before-plan-execution',
+      `task.save:${task.taskId}:executing`,
+      `event:task.phase_changed:${task.taskId}`,
+      'plan.execute',
+    ]);
+  });
+
+  it('keeps the Task awaiting when projection fails and retries an already-confirmed plan idempotently', async () => {
+    let confirmationWrites = 0;
+    let planConfirmed = false;
+    let projectionAttempts = 0;
+    let executions = 0;
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      confirm: () => {
+        if (!planConfirmed) {
+          planConfirmed = true;
+          confirmationWrites += 1;
+        }
+        return Promise.resolve('task_plan');
+      },
+      beforePlanExecution: () => {
+        projectionAttempts += 1;
+        return projectionAttempts === 1
+          ? Promise.reject(new Error('PROJECTOR_INTERRUPTED'))
+          : Promise.resolve();
+      },
+      executeConfirmed: () => {
+        executions += 1;
+        return Promise.resolve();
+      },
+    });
+    const submitted = await harness.service.submit({ messageText: 'Navigate.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-retry', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    const command = {
+      taskId: task.taskId,
+      action: 'confirm_plan' as const,
+      messageText: 'Confirm navigation.',
+    };
+    await expect(harness.service.followUp(command)).rejects.toThrow('PROJECTOR_INTERRUPTED');
+    await expect(harness.service.get(task.taskId)).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+    });
+    expect(harness.operations).not.toContain(`task.save:${task.taskId}:executing`);
+    expect(executions).toBe(0);
+
+    await expect(harness.service.followUp(command)).resolves.toMatchObject({ phase: 'executing' });
+    expect(confirmationWrites).toBe(1);
+    expect(projectionAttempts).toBe(2);
+    expect(executions).toBe(1);
+  });
+
+  it('does not project outer-plan authority for nested confirmation and rejects authority on other actions', async () => {
+    const beforePlanExecution = vi.fn(() => Promise.resolve());
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      confirm: () => Promise.resolve('nested_skill_plan'),
+      beforePlanExecution,
+    });
+    const submitted = await harness.service.submit({ messageText: 'Run nested.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-parent', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm child.',
+      }),
+    ).resolves.toMatchObject({ phase: 'executing' });
+    expect(beforePlanExecution).not.toHaveBeenCalled();
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'pause',
+        messageText: 'Spoof authority.',
+        confirmationAuthority: {
+          principal: {
+            actorId: 'metadata-attacker',
+            kind: 'human',
+            authenticationMethod: 'body',
+            permissions: new Set(['physical_control.confirm']),
+            requestId: 'spoofed',
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID' });
+  });
+
   it('rejects confirmation on an already canceled parent before any plan side effect', async () => {
     const harness = createHarness();
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
@@ -923,6 +1084,11 @@ function createHarness(
   runtimeCancellation = false,
   remotePrepare?: (inputRequestId: string, inputContent: unknown) => Promise<unknown>,
   taskCapabilities?: RuntimeTaskCapabilityService,
+  options: Readonly<{
+    beforePlanExecution?: NonNullable<TaskServiceDependencies['beforePlanExecution']>;
+    confirm?: NonNullable<TaskServiceDependencies['planActions']>['confirm'];
+    executeConfirmed?: NonNullable<TaskServiceDependencies['planActions']>['executeConfirmed'];
+  }> = {},
 ): Readonly<{
   service: TaskService;
   contexts: Map<string, ConversationContext>;
@@ -1087,16 +1253,21 @@ function createHarness(
       },
       clock: { now: () => timestamp },
       ids,
+      ...(options.beforePlanExecution === undefined
+        ? {}
+        : { beforePlanExecution: options.beforePlanExecution }),
       planActions: {
-        confirm: (task) => {
-          operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
-          return Promise.resolve('task_plan');
-        },
+        confirm:
+          options.confirm ??
+          ((task) => {
+            operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
+            return Promise.resolve('task_plan');
+          }),
         reject: (task) => {
           operations.push(`plan.reject:${task.planId ?? 'missing'}`);
           return Promise.resolve();
         },
-        executeConfirmed: () => Promise.resolve(),
+        executeConfirmed: options.executeConfirmed ?? (() => Promise.resolve()),
         reviseNaturalLanguage: (task) => {
           operations.push(`plan.revise:${task.planId ?? 'missing'}`);
           return Promise.resolve({

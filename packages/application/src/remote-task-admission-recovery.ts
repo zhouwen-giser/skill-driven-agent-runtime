@@ -6,12 +6,14 @@ import type {
   McpProtocolContractSnapshot,
   McpTaskBehavior,
   McpToolCancellation,
+  RemoteTaskBinding,
   RemoteTaskAuthoritySnapshot,
   RemoteTaskCreated,
   RemoteTaskSnapshot,
   RuntimeExecutionContext,
   TaskExecutionTiming,
 } from '../../domain/src/index.js';
+import { compareRuntimeRevisions } from '../../domain/src/index.js';
 
 import type {
   Clock,
@@ -330,6 +332,7 @@ export class RemoteTaskAdmissionRecoveryService {
         pollIntervalMs: Math.max(100, remote.pollIntervalMs ?? 1_000),
       });
       const reconciled = intent.receipt.reconciledTask;
+      let staleVerifiedSnapshot: WorkflowContinuationSnapshot | undefined;
       if (reconciled !== undefined) {
         const snapshot = await this.#remoteTasks.recordExternalSnapshot({
           bindingId: admitted.binding.bindingId,
@@ -345,14 +348,35 @@ export class RemoteTaskAdmissionRecoveryService {
               }),
           observedAt: at,
         });
-        if (!snapshot.applied && snapshot.reason !== 'closed')
+        if (!snapshot.applied && snapshot.reason === 'stale') {
+          const current = await this.#remoteTasks.findById(admitted.binding.bindingId);
+          if (current === undefined)
+            throw new Error('REMOTE_TASK_ADMISSION_RECOVERY_STALE_BINDING_MISSING');
+          if (!matchesRecoveredBindingIdentity(intent, current))
+            throw new Error('REMOTE_TASK_ADMISSION_RECOVERY_STALE_BINDING_CONFLICT');
+          if (!isRecoveredBindingOpen(current))
+            throw new Error('REMOTE_TASK_ADMISSION_RECOVERY_STALE_BINDING_CLOSED');
+          if (
+            current.runtimeRevision === undefined ||
+            reconciled.runtimeRevision === undefined ||
+            compareRuntimeRevisions(current.runtimeRevision, reconciled.runtimeRevision) < 0
+          )
+            throw new Error('REMOTE_TASK_ADMISSION_RECOVERY_STALE_REVISION_OLDER');
+          staleVerifiedSnapshot = await this.#continuations.findCurrentByBinding(current.bindingId);
+          if (
+            staleVerifiedSnapshot === undefined ||
+            !matchesRecoveredContinuation(intent, staleVerifiedSnapshot, current.bindingId)
+          )
+            throw new Error('REMOTE_TASK_ADMISSION_RECOVERY_CONTINUATION_CONFLICT');
+        } else if (!snapshot.applied && snapshot.reason !== 'closed') {
           throw new Error(
             `REMOTE_TASK_ADMISSION_RECOVERY_SNAPSHOT_${snapshot.reason.toUpperCase()}`,
           );
+        }
       }
-      let activeSnapshot = await this.#continuations.findCurrentByBinding(
-        admitted.binding.bindingId,
-      );
+      let activeSnapshot =
+        staleVerifiedSnapshot ??
+        (await this.#continuations.findCurrentByBinding(admitted.binding.bindingId));
       if (activeSnapshot === undefined) {
         if (intent.receipt.continuation.completeness === 'requires_graph_merge') {
           await this.#failTask(
@@ -392,6 +416,58 @@ export class RemoteTaskAdmissionRecoveryService {
     }
     return { examined: intents.length, materialized, uncertain, closedPrepared };
   }
+}
+
+function matchesRecoveredBindingIdentity(
+  intent: RemoteTaskAdmissionIntent,
+  binding: RemoteTaskBinding,
+): boolean {
+  const receipt = intent.receipt;
+  if (receipt === undefined) return false;
+  const envelope = intent.envelope;
+  return (
+    binding.bindingId === envelope.bindingId &&
+    binding.serverId === envelope.serverId &&
+    binding.operationName === envelope.operationName &&
+    binding.remoteTaskId === receipt.remoteTask.remoteTaskId &&
+    binding.agentTaskId === envelope.agentTaskId &&
+    binding.contextId === envelope.contextId &&
+    binding.goalId === envelope.goalId &&
+    binding.goalVersion === envelope.goalVersion &&
+    binding.workflowPlanId === envelope.workflowPlanId &&
+    binding.skillGoalId === envelope.skillGoalId &&
+    binding.skillAttemptId === envelope.skillAttemptId &&
+    binding.workflowDefinitionId === envelope.workflowDefinitionId &&
+    binding.workflowDefinitionVersion === envelope.workflowDefinitionVersion &&
+    binding.workflowInstanceId === envelope.workflowInstanceId &&
+    binding.workflowNodeId === envelope.workflowNodeId &&
+    binding.workflowNodeRunId === envelope.workflowNodeRunId &&
+    binding.parentWorkflowInstanceId === envelope.parentWorkflowInstanceId &&
+    binding.parentSkillCallId === envelope.parentSkillCallId &&
+    binding.mcpInvocationId === envelope.mcpInvocationId &&
+    binding.protocolRevision === receipt.remoteTask.protocolRevision &&
+    binding.tasksSchemaRevision === receipt.remoteTask.tasksSchemaRevision &&
+    canonicalHash(binding.protocolContract) === canonicalHash(receipt.protocolContract) &&
+    binding.taskBehavior === receipt.taskBehavior &&
+    binding.taskCancellation === receipt.taskCancellation &&
+    canonicalHash(binding.requestedTiming ?? null) ===
+      canonicalHash(envelope.requestedTiming ?? null) &&
+    canonicalHash(binding.executionContext) === canonicalHash(envelope.executionContext) &&
+    canonicalHash(binding.authoritySnapshot ?? null) ===
+      canonicalHash(receipt.authoritySnapshot ?? null) &&
+    binding.credentialRevision === receipt.credentialRevision &&
+    binding.sessionRevision === receipt.sessionRevision
+  );
+}
+
+function isRecoveredBindingOpen(binding: RemoteTaskBinding): boolean {
+  return (
+    binding.invalidatedAt === undefined &&
+    binding.terminalAt === undefined &&
+    (binding.localState === 'polling' ||
+      binding.localState === 'cancel_observing' ||
+      binding.localState === 'awaiting_input')
+  );
 }
 
 function matchesRecoveredContinuation(
