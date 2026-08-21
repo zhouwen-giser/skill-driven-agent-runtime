@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-08-21 — UGV Agent Profile P3-B01 clean-stack runtime evidence
+
+- Added a task-owned clean dual-repository orchestration path with fixed inventory, isolated Compose
+  projects/databases/networks/volumes, bounded ownership checks and granular preflight, SMPP start and
+  qualification, SDAR start, authority bootstrap, readiness, down and clean commands. Only the SMPP
+  Adapter owns Device MCP/MQTT southbound access.
+- Qualified the user-selected latest SMPP baseline
+  `codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`
+  from a clean, read-only worktree. The live northbound Catalog contains the exact reviewed ten tools;
+  historical P0/P1 provenance remains unchanged.
+- Loaded generation and embedding model configuration only through the host Server's existing local
+  repository-root `.env` path. Redacted audits prove two Providers, 42 stage routes and model invocation
+  count zero; `.env` is not sourced, copied, mounted or rendered into Compose, and no value or secret is
+  included in public evidence.
+- Bootstrapped exactly one Source, Provider Binding/Catalog, `embodied.move_to@1`,
+  `embodied.move@1`, implementation, Exposure and active managed Card through existing authorities.
+  Immediate bootstrap replay passes without duplicates. Repeated readiness runs prove Skill
+  suspend/restore and Profile public-Card removal/restoration while preserving the separate managed
+  Exposure Card boundary.
+- Connected 60-second readiness expiry to a non-overlapping five-second evaluation schedule and a
+  serialized managed-Card rebuild. Bootstrap now recovers only exact, hash-valid, coherently partitioned
+  expired/unavailable readiness and a stale same-Exposure Card. An exact stability-window result receives
+  one retry after 10,250 ms; the second fails closed. Identity, partition, timestamp, reason and Card
+  drift regressions remain fail-closed. A live bounded observation saw readiness v2→v3 and the active
+  managed Card revision 2→3.
+- Preserved all failed startup, seed, Source, Provider, readiness and bootstrap attempts, including the
+  `UAP_CAPABILITY_READINESS_INVALID` expired-readiness recovery deadlock and revision-zero/stability
+  corrections. Passing official clean/up/bootstrap/readiness/verify envelopes do not overwrite them.
+- Disclosed the remaining Provider-authority-TTL gap: after the configured 300-second TTL,
+  materialization can advance Binding revision N to N+1 while immutable Capability v1 still freezes N.
+  Long-running recovery then requires a task-owned clean database or a reviewed new Capability version;
+  it is not claimed by B01.
+- Kept `ALLOW_UGV_SIMULATION_SIDE_EFFECTS=NO`. Navigation, mutation, forbidden/weapon and model counts
+  are zero. The SMPP qualifier made one correlated read-only Device Tool call. No movement, physical
+  qualification, P3-B02/P3-B03, P4 or overall Goal completion is claimed.
+- Published a redacted P3-B01 verification index and evidence note and accepted the bounded clean-stack
+  milestone. Focused 10-file/163-test and independent 9-file/160-test matrices, both typechecks/builds,
+  842-source architecture, changed-file lint/format, SMPP full lint and both diff checks pass; fifteen
+  evidence hashes are frozen. SDAR full lint retains 22 errors in seven committed out-of-scope Home-Lab
+  files. SDAR full format retains two existing files and SMPP full format retains one historical P1-B02
+  report; all three commands exit 1 and are disclosed baseline gaps, not whole-repository pass claims.
+
 ## 2026-08-21 — UGV Agent Profile P2-B03 local Runtime integration
 
 - Added a Profile-only deterministic Skill Usage admission that derives an exact bounded WGS84

@@ -1,0 +1,180 @@
+services:
+  ugv-agent-profile-pms-postgres:
+    profiles: [ugv-agent-profile-simulation]
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: uap_pms
+      POSTGRES_DB: uap_pms
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - ugv-agent-profile-pms-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U uap_pms -d uap_pms]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    networks: [ugv-agent-profile-simulation]
+    security_opt: [no-new-privileges:true]
+
+  ugv-agent-profile-adapter-postgres:
+    networks: [ugv-agent-profile-simulation]
+
+  ugv-agent-profile-runtime-postgres:
+    networks: [ugv-agent-profile-simulation]
+
+  ugv-agent-profile-adapter:
+    environment:
+      UGV_MQTT_CLIENT_ID: sdar-uap-p3-b01-ugv1
+    networks: [ugv-agent-profile-simulation, ugv-agent-profile-southbound]
+
+  ugv-agent-profile-pms-api:
+    profiles: [ugv-agent-profile-simulation]
+    image: sdar/ugv-agent-profile-pms-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pms-api
+    init: true
+    read_only: true
+    restart: unless-stopped
+    environment:
+      PMS_API_HOST: 0.0.0.0
+      PMS_API_PORT: '8090'
+      PMS_API_MANAGEMENT_AUTH_MODE: anonymous_intranet
+      ALLOW_INSECURE_INTERNAL_TRANSPORT: 'true'
+      PMS_DATABASE_URL_FILE: /run/uap-pms/pms-database-url
+      PMS_RUNTIME_CREDENTIAL_FILE: /run/uap-pms/runtime-credentials.json
+      PMS_API_RUNTIME_HEARTBEAT_TTL_MS: '30000'
+      SDAR_REGISTRY_PROJECTION_TTL_SECONDS: '3600'
+    ports:
+      - '127.0.0.1:18092:8090'
+    volumes:
+      - type: bind
+        source: ${UAP_PMS_STATE_ROOT:?UAP_PMS_STATE_ROOT is required}/pms-database-url
+        target: /run/uap-pms/pms-database-url
+        read_only: true
+      - type: bind
+        source: ${UAP_PMS_STATE_ROOT:?UAP_PMS_STATE_ROOT is required}/runtime-credentials.json
+        target: /run/uap-pms/runtime-credentials.json
+        read_only: true
+      - type: bind
+        source: ${UAP_PMS_STATE_ROOT:?UAP_PMS_STATE_ROOT is required}/runtime-registration.token
+        target: /run/uap-pms/runtime-registration.token
+        read_only: true
+    tmpfs: ['/tmp:size=32m,mode=0700,uid=1000,gid=1000']
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:8090/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+    depends_on:
+      ugv-agent-profile-pms-postgres:
+        condition: service_healthy
+    networks:
+      ugv-agent-profile-simulation:
+        aliases: [pms-api]
+      ugv-agent-profile-northbound: {}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  ugv-agent-profile-pms-worker:
+    profiles: [ugv-agent-profile-simulation]
+    image: sdar/ugv-agent-profile-pms-worker:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pms-worker-ugv-production
+    init: true
+    read_only: true
+    restart: unless-stopped
+    environment:
+      ALLOW_INSECURE_INTERNAL_TRANSPORT: 'true'
+      PMS_DATABASE_URL_FILE: /run/uap-pms/pms-database-url
+      PMS_WORKER_ID: uap-p3-b01-pms-worker
+      PMS_WORKER_POLL_INTERVAL_MS: '1000'
+      PMS_WORKER_LEASE_DURATION_MS: '30000'
+      PMS_WORKER_CLAIM_LIMIT: '10'
+      PMS_WORKER_RETRY_DELAY_MS: '5000'
+      PMS_WORKSPACE_ROOT: /app
+      PMS_POSTGRES_PROVISIONING_CREDENTIAL_FILE: /run/uap-pms/postgres-provisioning.json
+      PMS_RUNTIME_RELEASE_ROOT: /app/runtime-releases
+      PMS_RUNTIME_SECRET_ROOT: /var/lib/sdar/runtime-secrets
+      PMS_RUNTIME_CONFIG_CACHE_ROOT: /var/lib/sdar/runtime-cache
+      PMS_RUNTIME_CONTROL_PLANE_URL: http://ugv-agent-profile-pms-api:8090
+      PMS_RUNTIME_CONTROL_PLANE_CREDENTIAL_ROOT: /var/lib/sdar/runtime-control-plane
+      PMS_EXTERNAL_RUNTIME_CATALOG_AUTH_MODE: anonymous_intranet
+      PMS_PM2_HOME: /var/lib/sdar/pm2
+      PMS_RUNTIME_RECONCILE_INTERVAL_MS: '1000'
+      PMS_RUNTIME_RECONCILE_TIMEOUT_MS: '30000'
+      PMS_RUNTIME_HEALTH_TIMEOUT_MS: '3000'
+    volumes:
+      - type: bind
+        source: ${UAP_PMS_STATE_ROOT:?UAP_PMS_STATE_ROOT is required}/pms-database-url
+        target: /run/uap-pms/pms-database-url
+        read_only: true
+      - type: bind
+        source: ${UAP_PMS_STATE_ROOT:?UAP_PMS_STATE_ROOT is required}/postgres-provisioning.json
+        target: /run/uap-pms/postgres-provisioning.json
+        read_only: true
+      - ugv-agent-profile-pms-worker-state:/var/lib/sdar
+    tmpfs: ['/tmp:size=64m,mode=0700,uid=1000,gid=1000']
+    depends_on:
+      ugv-agent-profile-pms-postgres:
+        condition: service_healthy
+      ugv-agent-profile-pms-api:
+        condition: service_healthy
+      ugv-agent-profile-runtime:
+        condition: service_healthy
+    networks: [ugv-agent-profile-simulation]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  ugv-agent-profile-runtime:
+    environment:
+      PMS_RUNTIME_REGISTRATION_URL: http://ugv-agent-profile-pms-api:8090
+      PMS_RUNTIME_REGISTRATION_TOKEN_FILE: /run/uap-pms/runtime-registration.token
+      PMS_RUNTIME_HEARTBEAT_INTERVAL_MS: '1000'
+      PMS_DEPLOYMENT_ID: uap-p3-b01-runtime
+      PMS_INSTANCE_ID: uap-p3-b01-runtime-1
+    volumes:
+      - type: bind
+        source: ${UAP_PMS_STATE_ROOT:?UAP_PMS_STATE_ROOT is required}/runtime-registration.token
+        target: /run/uap-pms/runtime-registration.token
+        read_only: true
+    depends_on:
+      ugv-agent-profile-pms-api:
+        condition: service_healthy
+    networks: [ugv-agent-profile-simulation, ugv-agent-profile-northbound]
+
+networks:
+  ugv-agent-profile-simulation:
+    name: sdar-uap-p3-b01-smpp-control
+    driver: bridge
+    internal: true
+  ugv-agent-profile-southbound:
+    name: sdar-uap-p3-b01-smpp-southbound
+    driver: bridge
+  ugv-agent-profile-northbound:
+    name: sdar-uap-p3-b01-smpp-northbound
+    driver: bridge
+
+volumes:
+  ugv-agent-profile-adapter-postgres-data:
+    name: sdar-uap-p3-b01-smpp-adapter-postgres-data
+  ugv-agent-profile-runtime-postgres-data:
+    name: sdar-uap-p3-b01-smpp-runtime-postgres-data
+  ugv-agent-profile-adapter-state:
+    name: sdar-uap-p3-b01-smpp-adapter-state
+  ugv-agent-profile-pms-postgres-data:
+    name: sdar-uap-p3-b01-smpp-pms-postgres-data
+  ugv-agent-profile-pms-worker-state:
+    name: sdar-uap-p3-b01-smpp-pms-worker-state

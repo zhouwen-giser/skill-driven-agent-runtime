@@ -1,5 +1,49 @@
 # 已知假设、冲突与待验证项
 
+## UGV Agent Profile P3-B01 clean-stack and authority boundary (2026-08-21)
+
+- P3-B01 qualifies only the clean dual-repository startup, read-only SMPP surface, SDAR authority
+  bootstrap/replay and Skill/readiness/Card lifecycle. It does not run an A2A movement task. Counts are
+  navigation `0`, mutating operations `0`, forbidden/weapon operations `0` and model invocations `0`.
+  The SMPP qualifier separately records one correlated read-only Device Tool call; reports must not
+  collapse that read into a control or movement call.
+- The SMPP checkout remained clean and read-only at
+  `codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`.
+  P0 source `ce57d3d7` and P1 checkpoint `90466127` remain immutable ancestors; B01 does not rewrite
+  their reports.
+- The SDAR host Server loads generation and embedding configuration through the repository-root local
+  `.env`. Public evidence records only that the configuration is exact, two Providers and 42 routes
+  exist, and baseline/final model invocation counts are zero. `.env` is not sourced, copied, mounted or
+  rendered into Compose; no secret, endpoint, Provider, model or credential value is evidence.
+- Capability readiness expires after 60 seconds. The periodic Node Control path evaluates expired
+  snapshots on a non-overlapping five-second schedule and rebuilds the managed Card through the same
+  serialized P08 authority. Bootstrap can reconcile an expired/unavailable snapshot only when its
+  capability identity, body hash, implementation partition, timestamps and reason semantics are exact;
+  a stale Card is tolerated only for the same sole Exposure. Rogue or ambiguous authority fails before
+  Source/Provider mutation. A bounded live observation at 15:34Z saw readiness v2→v3 and the active
+  managed Card revision 2→3.
+- `READINESS_STABILITY_WINDOW` is bounded to two evaluations with one 10,250 ms wait. A second stability
+  result fails with `UAP_CAPABILITY_READINESS_STABILITY_TIMEOUT`; other unavailable states fail directly
+  as `UAP_CAPABILITY_READINESS_INVALID`. The earlier readiness/bootstrap failure envelopes, including
+  the expired-readiness preflight deadlock, remain immutable under `reports/ugv-agent-profile-simulation/attempts/`.
+- **Open Provider-authority-TTL gap:** readiness recovery is proven only inside the current Provider
+  authority generation. After the configured 300-second TTL, Provider materialization can advance the
+  Binding from revision N to N+1; immutable `embodied.move@1` still freezes revision N and cannot be
+  patched in place. The safe recovery is a task-owned clean database or a reviewed new Capability
+  version bound to N+1. B01 therefore does not claim unbounded long-running bootstrap recovery across
+  Provider authority generations.
+- Runtime evidence, focused 10-file/163-test and independent 9-file/160-test matrices, both typechecks
+  and builds, 842-source architecture, B01 changed-file lint/format, SMPP full lint and both diff checks
+  pass. Fifteen evidence hashes are frozen in
+  `reports/ugv-agent-profile-simulation/uap-p3-b01-verification.json`. SDAR full lint exits 1 with 22
+  errors only in seven committed out-of-scope Home-Lab files. SDAR full format exits 1 only for
+  `packages/application/src/skill-usage-planning.ts` and
+  `packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts`; SMPP full format
+  exits 1 only for the historical P1-B02 report
+  `reports/ugv-agent-profile-simulation/attempts/deployment-preflight-uap-p1b02-20260821t032832z.redacted.json`.
+  These nonblocking baselines are not represented as full-repository passes. P3-B01 is complete with
+  those disclosures; P3-B02, P3-B03, P4, P3 overall and the Goal remain pending.
+
 ## UGV Agent Profile P2-B03 local-integration boundary (2026-08-21)
 
 - The task card says there must be zero MCP calls before Plan confirmation, while the frozen Profile

@@ -3,9 +3,10 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 import {
-  hashConfigurationRequest,
-  type JsonValue,
-} from '../../../packages/node-control-domain/src/index.js';
+  deriveFrozenMcpCatalogAuthority,
+  type McpTaskExecutionProfile,
+  type McpTool,
+} from '../../../packages/domain/src/index.js';
 
 const CHECKSUM = /^[a-f0-9]{64}$/u;
 const REGISTRY_PROJECTION_CONTRACT = 'sdar-registry-v1' as const;
@@ -153,10 +154,20 @@ const BindingSchema = z
   })
   .strict();
 
+const ProviderCatalogSchema = z
+  .object({
+    providerId: z.string().min(1),
+    providerType: z.string().min(1),
+    providerVersion: z.string().min(1),
+    manifestHash: z.string().regex(CHECKSUM),
+  })
+  .strict();
+
 const DiscoverySchema = z
   .object({
     protocolVersion: z.string().min(1),
     serverInfo: z.record(z.string(), z.unknown()),
+    providerCatalog: ProviderCatalogSchema.optional(),
     discoveredAt: z.iso.datetime(),
     validUntil: z.iso.datetime(),
     toolRevision: z.number().int().positive(),
@@ -185,6 +196,20 @@ const RuntimeExecutionSemanticsSchema = z
     source: z.enum(EXECUTION_SEMANTICS_SOURCES),
   })
   .strict();
+const RuntimeTaskExecutionProfileSchema = z
+  .object({
+    profileVersion: z.literal('1.0'),
+    taskBehavior: z.enum(TASK_BEHAVIORS),
+    availability: z.enum(['not_supported', 'dynamic']),
+    supportsScheduling: z.boolean(),
+    supportsMaxElapsed: z.boolean(),
+    supportsCancellation: z.boolean().optional(),
+    supportsPauseResume: z.boolean().optional(),
+    supportsObservations: z.boolean(),
+    supportsInputRequired: z.boolean(),
+    idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+  })
+  .strict();
 const RuntimeToolSchema = z
   .object({
     serverId: z.string().min(1),
@@ -195,12 +220,7 @@ const RuntimeToolSchema = z
     outputSchema: JsonSchema.optional(),
     protocolMode: z.literal('frozen_v1'),
     executionSemantics: RuntimeExecutionSemanticsSchema,
-    taskExecutionProfile: z
-      .object({
-        profileVersion: z.literal('1.0'),
-        taskBehavior: z.enum(TASK_BEHAVIORS),
-      })
-      .loose(),
+    taskExecutionProfile: RuntimeTaskExecutionProfileSchema,
   })
   .loose();
 
@@ -898,26 +918,47 @@ function trustedSemanticsEqual(
 }
 
 function runtimeCatalogChecksum(runtime: RuntimeRefresh): string {
-  return hashConfigurationRequest(
-    JSON.parse(
-      JSON.stringify({
-        protocolVersion: runtime.snapshot.protocolVersion,
-        serverInfo: runtime.snapshot.serverInfo,
-        tools: [...runtime.tools]
-          .sort((left, right) => compare(left.toolName, right.toolName))
-          .map((tool) => ({
-            name: tool.toolName,
-            title: tool.title ?? null,
-            description: tool.description ?? null,
-            inputSchema: tool.inputSchema,
-            outputSchema: tool.outputSchema ?? null,
-            protocolMode: tool.protocolMode,
-            executionSemantics: tool.executionSemantics,
-            taskExecutionProfile: tool.taskExecutionProfile,
-          })),
-      }),
-    ) as JsonValue,
-  );
+  const snapshot = Object.freeze({
+    protocolVersion: runtime.snapshot.protocolVersion,
+    serverInfo: runtime.snapshot.serverInfo,
+    ...(runtime.snapshot.providerCatalog === undefined
+      ? {}
+      : { providerCatalog: runtime.snapshot.providerCatalog }),
+  });
+  return deriveFrozenMcpCatalogAuthority(
+    snapshot,
+    runtime.tools.map((tool): McpTool => {
+      const taskExecutionProfile: McpTaskExecutionProfile = Object.freeze({
+        profileVersion: tool.taskExecutionProfile.profileVersion,
+        taskBehavior: tool.taskExecutionProfile.taskBehavior,
+        availability: tool.taskExecutionProfile.availability,
+        supportsScheduling: tool.taskExecutionProfile.supportsScheduling,
+        supportsMaxElapsed: tool.taskExecutionProfile.supportsMaxElapsed,
+        ...(tool.taskExecutionProfile.supportsCancellation === undefined
+          ? {}
+          : { supportsCancellation: tool.taskExecutionProfile.supportsCancellation }),
+        ...(tool.taskExecutionProfile.supportsPauseResume === undefined
+          ? {}
+          : { supportsPauseResume: tool.taskExecutionProfile.supportsPauseResume }),
+        supportsObservations: tool.taskExecutionProfile.supportsObservations,
+        supportsInputRequired: tool.taskExecutionProfile.supportsInputRequired,
+        idempotency: tool.taskExecutionProfile.idempotency,
+      });
+      return Object.freeze({
+        serverId: tool.serverId,
+        toolName: tool.toolName,
+        ...(tool.title === undefined ? {} : { title: tool.title }),
+        ...(tool.description === undefined ? {} : { description: tool.description }),
+        inputSchema: tool.inputSchema,
+        ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
+        protocolMode: tool.protocolMode,
+        executionSemantics: tool.executionSemantics,
+        taskExecutionProfile,
+        discoveredAt: runtime.snapshot.discoveredAt,
+      });
+    }),
+    runtime.server.toolRevision,
+  ).catalogChecksum;
 }
 
 function safeManagementBaseUrl(value: string): string {

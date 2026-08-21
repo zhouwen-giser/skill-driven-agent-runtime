@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  hashConfigurationRequest,
-  type JsonValue,
-} from '../../../packages/node-control-domain/src/index.js';
+  deriveFrozenMcpCatalogAuthority,
+  type McpTool,
+} from '../../../packages/domain/src/index.js';
 import {
   materializeSmppProviders,
   type SmppProviderMaterializationConfiguration,
@@ -147,6 +147,30 @@ describe('generic SMPP Provider materializer', () => {
     );
   });
 
+  it('binds the Runtime checksum to the validated Provider Catalog identity', async () => {
+    const api = new FakeApis({ existing: true });
+    api.bindingCatalogChecksumOverride = catalogChecksum([runtimeTool()], PROVIDER_CATALOG);
+    api.providerCatalog = { ...PROVIDER_CATALOG, manifestHash: 'c'.repeat(64) };
+
+    await expect(
+      materializeSmppProviders(configuration(), { fetch: api.fetch, now: () => NOW }),
+    ).rejects.toMatchObject({ code: 'CATALOG_CHECKSUM_MISMATCH' });
+    expect(api.commands).toEqual(['control:approve', 'runtime:refresh']);
+  });
+
+  it('preserves the generic legacy contract when Provider Catalog identity is absent', async () => {
+    const api = new FakeApis({ existing: true });
+    api.providerCatalog = null;
+
+    const report = await materializeSmppProviders(configuration(), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+
+    expect(report.providers[0]).toEqual(expect.objectContaining({ runtimeAction: 'reused' }));
+    expect(api.commands).toEqual([]);
+  });
+
   it('rejects unknown configured semantics without guessing from Tool names', async () => {
     const input = configuration() as unknown as {
       providers: { tools: Record<string, { executionSemantics: { effect: string } }> }[];
@@ -209,6 +233,8 @@ class FakeApis {
   runtimeEndpoint = candidate().serverEndpoint;
   runtimeSemanticsUnknown = false;
   bindingCatalogDrift = false;
+  bindingCatalogChecksumOverride: string | undefined;
+  providerCatalog: typeof PROVIDER_CATALOG | null = PROVIDER_CATALOG;
   #bindingRevision: number | undefined;
   #runtimeRevision: number | undefined;
   #semanticsOverridden = false;
@@ -232,7 +258,13 @@ class FakeApis {
         items:
           this.#runtimeRevision === undefined
             ? []
-            : [runtimeListedServer(this.#runtimeRevision, this.runtimeEndpoint)],
+            : [
+                runtimeListedServer(
+                  this.#runtimeRevision,
+                  this.runtimeEndpoint,
+                  this.providerCatalog,
+                ),
+              ],
       });
     if (url.pathname === '/api/v1/mcp/servers' && init?.method === 'POST') {
       this.#runtimeRevision = 1;
@@ -274,7 +306,7 @@ class FakeApis {
     return json(500, { code: 'UNEXPECTED_FAKE_ROUTE' });
   };
 
-  private runtimeTools() {
+  private runtimeTools(): readonly RuntimeToolFixture[] {
     const tool = runtimeTool();
     if (!this.runtimeSemanticsUnknown || this.#semanticsOverridden)
       return [
@@ -301,7 +333,7 @@ class FakeApis {
   }
 
   private runtimeResult(revision: number) {
-    return runtimeResult(revision, this.runtimeEndpoint, this.runtimeTools());
+    return runtimeResult(revision, this.runtimeEndpoint, this.runtimeTools(), this.providerCatalog);
   }
 
   private binding(revision: number) {
@@ -317,7 +349,8 @@ class FakeApis {
       catalogRevision: `1.0.0:${String(revision)}`,
       catalogChecksum: this.bindingCatalogDrift
         ? 'd'.repeat(64)
-        : catalogChecksum(this.runtimeTools()),
+        : (this.bindingCatalogChecksumOverride ??
+          catalogChecksum(this.runtimeTools(), this.providerCatalog)),
       endpointRef: candidate().serverEndpoint,
       status: this.bindingCatalogDrift ? 'degraded' : 'active',
       availabilityStatus: 'available',
@@ -348,7 +381,9 @@ function candidate() {
   };
 }
 
-function runtimeTool() {
+type RuntimeToolFixture = Omit<McpTool, 'discoveredAt'>;
+
+function runtimeTool(): RuntimeToolFixture {
   return {
     serverId: 'sdar-ugv-smpp',
     toolName: 'vehicle_get_state',
@@ -381,6 +416,7 @@ function runtimeResult(
   revision: number,
   endpoint: string,
   tools: readonly ReturnType<typeof runtimeTool>[] = [runtimeTool()],
+  providerCatalog: typeof PROVIDER_CATALOG | null = PROVIDER_CATALOG,
 ) {
   return {
     server: {
@@ -393,6 +429,7 @@ function runtimeResult(
     snapshot: {
       protocolVersion: '2026-07-28',
       serverInfo: { name: 'ugv-runtime', version: '1.0.0' },
+      ...(providerCatalog === null ? {} : { providerCatalog }),
       discoveredAt: NOW,
       validUntil: VALID_UNTIL,
       toolRevision: revision,
@@ -401,32 +438,33 @@ function runtimeResult(
   };
 }
 
-function runtimeListedServer(revision: number, endpoint: string) {
-  const current = runtimeResult(revision, endpoint);
+function runtimeListedServer(
+  revision: number,
+  endpoint: string,
+  providerCatalog: typeof PROVIDER_CATALOG | null = PROVIDER_CATALOG,
+) {
+  const current = runtimeResult(revision, endpoint, [runtimeTool()], providerCatalog);
   return { ...current.server, currentDiscovery: current.snapshot };
 }
 
-function catalogChecksum(tools: readonly ReturnType<typeof runtimeTool>[]): string {
-  const current = runtimeResult(1, candidate().serverEndpoint, tools);
-  return hashConfigurationRequest(
-    JSON.parse(
-      JSON.stringify({
-        protocolVersion: current.snapshot.protocolVersion,
-        serverInfo: current.snapshot.serverInfo,
-        tools: current.tools.map((tool) => ({
-          name: tool.toolName,
-          title: null,
-          description: tool.description,
-          inputSchema: tool.inputSchema,
-          outputSchema: tool.outputSchema,
-          protocolMode: tool.protocolMode,
-          executionSemantics: tool.executionSemantics,
-          taskExecutionProfile: tool.taskExecutionProfile,
-        })),
-      }),
-    ) as JsonValue,
-  );
+function catalogChecksum(
+  tools: readonly ReturnType<typeof runtimeTool>[],
+  providerCatalog: typeof PROVIDER_CATALOG | null = PROVIDER_CATALOG,
+): string {
+  const current = runtimeResult(1, candidate().serverEndpoint, tools, providerCatalog);
+  return deriveFrozenMcpCatalogAuthority(
+    current.snapshot,
+    current.tools.map((tool) => ({ ...tool, discoveredAt: current.snapshot.discoveredAt })),
+    current.server.toolRevision,
+  ).catalogChecksum;
 }
+
+const PROVIDER_CATALOG = Object.freeze({
+  providerId: 'isr.vehicle.ugv.ugv1',
+  providerType: 'isr.vehicle.ugv',
+  providerVersion: '1.0.0',
+  manifestHash: 'e'.repeat(64),
+});
 
 function parsedBody(init: RequestInit | undefined): Record<string, unknown> {
   if (typeof init?.body !== 'string') throw new Error('FAKE_REQUEST_BODY_INVALID');

@@ -8,6 +8,7 @@ import {
   type SkillRepository,
   type SkillTaskOperationCandidateCatalog,
   type TaskAvailabilityBatchReader,
+  resolveUgvProfileProviderSuccessOutputSchema,
 } from '../../../packages/application/src/index.js';
 import {
   createRuntimeExecutionContext,
@@ -443,6 +444,7 @@ function assertNavigateContract(
   schemas: JsonSchemaValidator,
 ): void {
   const profile = tool.taskExecutionProfile;
+  const successOutputSchema = resolveUgvProfileProviderSuccessOutputSchema(tool.outputSchema);
   if (
     candidate.operationName !== NAVIGATE_OPERATION ||
     !sameJson(candidate.taskExecutionProfile, profile) ||
@@ -463,7 +465,8 @@ function assertNavigateContract(
     tool.executionSemantics.idempotency !== 'server_managed' ||
     tool.executionSemantics.replay !== 'simulation_only' ||
     !navigateSchemaDeclaresExactPointResource(tool.inputSchema) ||
-    !navigateOutputDeclaresOutcomeAuthority(tool.outputSchema) ||
+    successOutputSchema === undefined ||
+    !navigateOutputDeclaresOutcomeAuthority(successOutputSchema) ||
     !schemas.checkSchema(tool.inputSchema).valid ||
     !schemas.checkSchema(tool.outputSchema).valid ||
     !schemas.validate(tool.inputSchema, input.providerArguments).valid
@@ -480,6 +483,7 @@ function assertGetStateContract(
   schemas: JsonSchemaValidator,
 ): void {
   const profile = tool.taskExecutionProfile;
+  const successOutputSchema = resolveUgvProfileProviderSuccessOutputSchema(tool.outputSchema);
   if (
     profile.taskBehavior !== 'synchronous_only' ||
     profile.availability !== 'dynamic' ||
@@ -495,7 +499,8 @@ function assertGetStateContract(
     tool.executionSemantics.cancellation !== 'unsupported' ||
     tool.executionSemantics.idempotency !== 'server_managed' ||
     tool.executionSemantics.replay !== 'allowed' ||
-    !stateOutputDeclaresPositionAuthority(tool.outputSchema) ||
+    successOutputSchema === undefined ||
+    !stateOutputDeclaresPositionAuthority(successOutputSchema) ||
     !schemas.checkSchema(tool.inputSchema).valid ||
     !schemas.checkSchema(tool.outputSchema).valid ||
     resourceId !== UGV_MOVE_RESOURCE_ID ||
@@ -570,7 +575,7 @@ function navigateOutputDeclaresOutcomeAuthority(value: unknown): boolean {
     ]) &&
     schemaAllowsString(positionProperties?.['field']) &&
     record(positionProperties?.['topic'])?.['type'] === 'string' &&
-    record(positionProperties?.['observedAt'])?.['format'] === 'date-time' &&
+    record(positionProperties?.['observedAt'])?.['type'] === 'string' &&
     arrayIncludes(timeAuthority?.['enum'], 'source') &&
     arrayIncludes(timeAuthority?.['enum'], 'ingest') &&
     record(positionProperties?.['cursor'])?.['type'] === 'string'

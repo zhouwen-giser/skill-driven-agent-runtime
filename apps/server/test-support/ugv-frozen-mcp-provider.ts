@@ -411,6 +411,10 @@ function navigateInputSchema(): Readonly<Record<string, unknown>> {
 }
 
 function navigateOutputSchema(): Readonly<Record<string, unknown>> {
+  return providerOutputSchema(navigateSuccessOutputSchema());
+}
+
+function navigateSuccessOutputSchema(): Readonly<Record<string, unknown>> {
   return Object.freeze({
     type: 'object',
     additionalProperties: false,
@@ -458,6 +462,10 @@ function stateInputSchema(): Readonly<Record<string, unknown>> {
 }
 
 function stateOutputSchema(): Readonly<Record<string, unknown>> {
+  return providerOutputSchema(stateSuccessOutputSchema());
+}
+
+function stateSuccessOutputSchema(): Readonly<Record<string, unknown>> {
   return Object.freeze({
     type: 'object',
     additionalProperties: false,
@@ -517,6 +525,29 @@ function stateOutputSchema(): Readonly<Record<string, unknown>> {
       observedAt: { type: 'string', format: 'date-time' },
       mqttIngressSequence: { type: 'integer', minimum: 0 },
     },
+  });
+}
+
+function providerOutputSchema(
+  success: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    type: 'object',
+    anyOf: Object.freeze([success, businessResultSchema()]),
+  });
+}
+
+function businessResultSchema(): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    type: 'object',
+    properties: Object.freeze({
+      outcome: Object.freeze({ type: 'string', minLength: 1 }),
+      reasonCode: Object.freeze({ type: 'string', minLength: 1 }),
+      retryable: Object.freeze({ type: 'boolean' }),
+      completedAt: Object.freeze({ type: 'string', format: 'date-time' }),
+    }),
+    required: Object.freeze(['outcome', 'reasonCode', 'retryable', 'completedAt']),
+    additionalProperties: true,
   });
 }
 

@@ -9,6 +9,7 @@ import type {
   RuntimeCapabilityReadinessInput,
   RuntimeCapabilityReadinessRepository,
   RuntimeImplementationReadiness,
+  RuntimeSkillProviderDependencyPolicy,
   StoredCapabilityReadiness,
 } from '../../runtime-control-application/src/index.js';
 import { parseMcpProviderBindingPolicyOverride } from '../../node-control-domain/src/index.js';
@@ -42,6 +43,8 @@ interface SkillDependencyRow {
     optional?: readonly Readonly<{ serverId: string; toolName: string }>[];
   }> | null;
   runtime_policy: unknown;
+  usage_specification: unknown;
+  package_checksum: string | null;
 }
 
 interface CurrentBindingAuthorityRepository {
@@ -68,14 +71,17 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
   readonly #pool: Pool;
   readonly #providerBindings: CurrentBindingAuthorityRepository | undefined;
   readonly #runtimeMcp: RuntimeMcpCatalogAuthorityReader | undefined;
+  readonly #skillProviderDependencyPolicy: RuntimeSkillProviderDependencyPolicy | undefined;
   constructor(
     pool: Pool,
     providerBindings?: CurrentBindingAuthorityRepository,
     runtimeMcp?: RuntimeMcpCatalogAuthorityReader,
+    skillProviderDependencyPolicy?: RuntimeSkillProviderDependencyPolicy,
   ) {
     this.#pool = pool;
     this.#providerBindings = providerBindings;
     this.#runtimeMcp = runtimeMcp;
+    this.#skillProviderDependencyPolicy = skillProviderDependencyPolicy;
   }
 
   async findLatest(capabilityId: string, capabilityVersion: number) {
@@ -129,14 +135,7 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
       if (binding.status !== 'active') continue;
       assessments.push(
         binding.implementationType === 'skill'
-          ? await this.assessSkill(
-              binding.bindingId,
-              binding.implementationId,
-              binding.implementationVersion,
-              binding.providerPolicyOverride,
-              evaluatedAt,
-              input.ttlMs,
-            )
+          ? await this.assessSkill(input, binding, evaluatedAt)
           : await this.assessPlanTemplate(
               binding.bindingId,
               binding.implementationId,
@@ -249,13 +248,14 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
   }
 
   private async assessSkill(
-    bindingId: string,
-    skillId: string,
-    implementationVersion: string,
-    providerPolicyOverride: unknown,
+    input: RuntimeCapabilityReadinessInput,
+    implementation: RuntimeCapabilityReadinessInput['implementations'][number],
     evaluatedAt: string,
-    ttlMs: number,
   ): Promise<RuntimeImplementationReadiness> {
+    const bindingId = implementation.bindingId;
+    const skillId = implementation.implementationId;
+    const implementationVersion = implementation.implementationVersion;
+    const providerPolicyOverride = implementation.providerPolicyOverride;
     const result = await this.#pool.query<SkillDependencyRow>(
       `SELECT true AS exists,
               COALESCE(
@@ -268,11 +268,16 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
               )='published' AS enabled,
               version.validation_passed,
               version.tool_policy_json AS tool_policy,
-              version.runtime_policy_json AS runtime_policy
+              version.runtime_policy_json AS runtime_policy,
+              version.usage_specification_json AS usage_specification,
+              package.package_checksum
          FROM skill_version version
          LEFT JOIN runtime_skill_version_governance governance
            ON governance.skill_id=version.skill_id
           AND governance.skill_version=version.version
+         LEFT JOIN skill_package_import_audit package
+           ON package.skill_id=version.skill_id
+          AND package.skill_version=version.version
         WHERE version.skill_id=$1 AND version.version=$2`,
       [skillId, Number(implementationVersion)],
     );
@@ -311,7 +316,7 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
       );
       const fact = tool.rows[0];
       const fresh =
-        fact !== undefined && Date.parse(evaluatedAt) - fact.updated_at.getTime() <= ttlMs;
+        fact !== undefined && Date.parse(evaluatedAt) - fact.updated_at.getTime() <= input.ttlMs;
       const available = fact?.status === 'enabled' && fact.tool_exists && fresh;
       catalogParts.push(
         `${reference.serverId}:${reference.toolName}:${fact?.status ?? 'missing'}:${String(fact?.tool_revision ?? 0)}:${fresh ? 'fresh' : 'stale'}`,
@@ -331,15 +336,54 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
         );
       }
     }
-    if (providerPolicyOverride !== undefined) {
+    const dependencyAssessment = this.#skillProviderDependencyPolicy?.assess({
+      definition: input.definition,
+      implementations: input.implementations,
+      implementation,
+      skill: {
+        ...(row?.package_checksum === null || row?.package_checksum === undefined
+          ? {}
+          : { packageChecksum: row.package_checksum }),
+        toolPolicy: row?.tool_policy,
+        runtimePolicy: row?.runtime_policy,
+        usageSpecification: row?.usage_specification,
+      },
+    });
+    const dynamicAuthorization =
+      dependencyAssessment?.decision === 'authorized'
+        ? dependencyAssessment.authorization
+        : undefined;
+    const dependencyPolicyApplies =
+      dependencyAssessment !== undefined && dependencyAssessment.decision !== 'not_applicable';
+    if (providerPolicyOverride !== undefined || dependencyPolicyApplies) {
       const exactRequiredTools =
         exactBindingTools.every((reference) => reference !== undefined) &&
         (providerBindingPolicy.mode !== 'required_all' ||
           (required.length === 2 && optional.length === 0));
+      const dynamicRequirementsExact =
+        dynamicAuthorization?.requirements.length === providerBindingPolicy.requirements.length &&
+        dynamicAuthorization.requirements.every((requirement, index) => {
+          const declared = providerBindingPolicy.requirements[index];
+          return (
+            requirement.mcpProviderBindingId === declared?.mcpProviderBindingId &&
+            requirement.localServerId === declared.localServerId &&
+            requirement.mcpToolName === declared.mcpToolName
+          );
+        }) &&
+        dynamicAuthorization.expectedBindings.length === dynamicAuthorization.requirements.length &&
+        dynamicAuthorization.requirements.every(
+          (requirement) =>
+            dynamicAuthorization.expectedBindings.filter(
+              (expected) =>
+                expected.mcpProviderBindingId === requirement.mcpProviderBindingId &&
+                expected.localServerId === requirement.localServerId,
+            ).length === 1,
+        );
       if (
         providerBindingPolicy.mode === 'absent' ||
         providerBindingPolicy.mode === 'invalid' ||
-        !exactRequiredTools
+        dependencyAssessment?.decision === 'denied' ||
+        (dynamicAuthorization === undefined ? !exactRequiredTools : !dynamicRequirementsExact)
       ) {
         requiredUnavailable = true;
         reasons.push(
@@ -350,8 +394,17 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
           ),
         );
       } else {
-        for (const policy of providerBindingPolicy.requirements) {
+        if (dynamicAuthorization !== undefined)
+          bindingPolicyParts.push(...dynamicAuthorization.policyParts);
+        const requirements =
+          dynamicAuthorization?.requirements ?? providerBindingPolicy.requirements;
+        for (const policy of requirements) {
           bindingPolicyParts.push(JSON.stringify(policy));
+          const expectedBinding = dynamicAuthorization?.expectedBindings.find(
+            (value) =>
+              value.mcpProviderBindingId === policy.mcpProviderBindingId &&
+              value.localServerId === policy.localServerId,
+          );
           if (this.#providerBindings === undefined) {
             requiredUnavailable = true;
             reasons.push(
@@ -379,6 +432,27 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
             requiredUnavailable = true;
             reasons.push(
               reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
+            );
+            continue;
+          }
+          if (
+            expectedBinding !== undefined &&
+            authority.binding.revision !== expectedBinding.bindingRevision
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
+            );
+            continue;
+          }
+          if (
+            expectedBinding !== undefined &&
+            (authority.binding.catalogRevision !== expectedBinding.catalogRevision ||
+              authority.binding.catalogChecksum !== expectedBinding.catalogChecksum)
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_CATALOG_DRIFT', 'blocking', policy.mcpProviderBindingId),
             );
             continue;
           }

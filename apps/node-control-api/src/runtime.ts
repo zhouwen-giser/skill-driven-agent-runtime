@@ -48,6 +48,7 @@ import {
   NodeControlEvidenceProjectionPipeline,
   NodeControlEvidenceProjector,
   RuntimeCapabilityReadinessService,
+  UgvAgentProfileSkillProviderDependencyPolicy,
 } from '../../../packages/runtime-control-application/src/index.js';
 import {
   PostgresEvidenceStore,
@@ -62,6 +63,7 @@ import { NodeControlCapabilityReadinessCoordinator } from './capability-readines
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
 import { assertOutboundEndpoint, type OutboundEndpointPolicy } from './outbound-endpoint-policy.js';
+import { reconcileExpiredReadinessAgentCard } from './readiness-agent-card-reconciler.js';
 
 export interface NodeControlApiRuntime {
   readonly baseUrl: string;
@@ -178,6 +180,7 @@ export async function startNodeControlApi(
       runtimePool,
       mcpBindingRepository,
       runtimeMcpCatalogAuthority,
+      new UgvAgentProfileSkillProviderDependencyPolicy(),
     ),
     clock: { now: () => new Date().toISOString() },
   });
@@ -198,14 +201,23 @@ export async function startNodeControlApi(
     nodeId: environment.SDAR_CONTROL_NODE_ID,
     a2aUrl: new URL('/a2a', environment.SDAR_CONTROL_A2A_AGENT_CARD_URL).toString(),
   });
-  const readinessTimer = setInterval(() => {
-    void runtimeReadiness.evaluateExpired().catch((error: unknown) => {
-      process.stderr.write(
-        `${JSON.stringify({ event: 'capability_readiness.expiry_recalculation_failed', error: error instanceof Error ? error.message : 'UNKNOWN' })}\n`,
-      );
-    });
-  }, 5_000);
-  readinessTimer.unref();
+  let readinessReconciliationInFlight: Promise<void> | undefined;
+  const reconcileReadiness = () => {
+    if (readinessReconciliationInFlight !== undefined) return;
+    const current = reconcileExpiredReadinessAgentCard(runtimeReadiness, a2aExposure)
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'capability_readiness.expiry_recalculation_failed', error: error instanceof Error ? error.message : 'UNKNOWN' })}\n`,
+        );
+      })
+      .finally(() => {
+        if (readinessReconciliationInFlight === current)
+          readinessReconciliationInFlight = undefined;
+      });
+    readinessReconciliationInFlight = current;
+  };
+  let readinessTimer: ReturnType<typeof setInterval> | undefined;
   let controlEvidenceTimer: ReturnType<typeof setInterval> | undefined;
   let healthObservationTimer: ReturnType<typeof setInterval> | undefined;
   let controlEvidenceInFlight: Promise<void> | undefined;
@@ -371,6 +383,8 @@ export async function startNodeControlApi(
       environment.SDAR_CONTROL_API_HOST,
       environment.SDAR_CONTROL_API_PORT,
     );
+    readinessTimer = setInterval(reconcileReadiness, 5_000);
+    readinessTimer.unref();
     const address = server.address();
     if (address === null || typeof address === 'string')
       throw new Error('NODE_CONTROL_ADDRESS_INVALID');
@@ -378,13 +392,16 @@ export async function startNodeControlApi(
     return {
       baseUrl,
       async close() {
-        clearInterval(readinessTimer);
+        if (readinessTimer !== undefined) clearInterval(readinessTimer);
         if (controlEvidenceTimer !== undefined) clearInterval(controlEvidenceTimer);
         if (healthObservationTimer !== undefined) clearInterval(healthObservationTimer);
         await Promise.allSettled(
-          [controlEvidenceInFlight, telemetryEvidenceInFlight, healthObservationInFlight].filter(
-            (item): item is Promise<void> => item !== undefined,
-          ),
+          [
+            readinessReconciliationInFlight,
+            controlEvidenceInFlight,
+            telemetryEvidenceInFlight,
+            healthObservationInFlight,
+          ].filter((item): item is Promise<void> => item !== undefined),
         );
         await closeServer(server);
         await pool.end();
@@ -392,13 +409,16 @@ export async function startNodeControlApi(
       },
     };
   } catch (error) {
-    clearInterval(readinessTimer);
+    if (readinessTimer !== undefined) clearInterval(readinessTimer);
     if (controlEvidenceTimer !== undefined) clearInterval(controlEvidenceTimer);
     if (healthObservationTimer !== undefined) clearInterval(healthObservationTimer);
     await Promise.allSettled(
-      [controlEvidenceInFlight, telemetryEvidenceInFlight, healthObservationInFlight].filter(
-        (item): item is Promise<void> => item !== undefined,
-      ),
+      [
+        readinessReconciliationInFlight,
+        controlEvidenceInFlight,
+        telemetryEvidenceInFlight,
+        healthObservationInFlight,
+      ].filter((item): item is Promise<void> => item !== undefined),
     );
     await pool.end().catch(() => undefined);
     await runtimePool.end().catch(() => undefined);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   NodeControlA2aExposureService,
@@ -13,6 +13,73 @@ import {
 } from '../../node-control-domain/src/index.js';
 
 describe('NodeControlA2aExposureService', () => {
+  it('serializes every managed Card rebuild in the single Node Control process', async () => {
+    const now = '2026-08-02T15:00:00.000Z';
+    let releaseFirstList: ((value: readonly never[]) => void) | undefined;
+    const firstList = new Promise<readonly never[]>((resolve) => {
+      releaseFirstList = resolve;
+    });
+    let listCalls = 0;
+    let nextRevision = 0;
+    let candidate: AgentCardRevision | undefined;
+    let active: AgentCardRevision | undefined;
+    const repository: NodeControlA2aExposureRepository = {
+      find: () => Promise.resolve(undefined),
+      list: () => Promise.resolve([]),
+      create: (value) => Promise.resolve(value),
+      findCommandReplay: () => Promise.resolve(undefined),
+      transition: (_prior, _next, operation) => Promise.resolve(operation),
+      listPublished: () => {
+        listCalls += 1;
+        return listCalls === 1 ? firstList : Promise.resolve([]);
+      },
+      nextAgentCardRevision: () => Promise.resolve((nextRevision += 1)),
+      findActiveAgentCard: () => Promise.resolve(active),
+      saveCandidate: (value) => {
+        candidate = value.revision;
+        return Promise.resolve(value.revision);
+      },
+      markAgentCard: (_revision, status, activatedAt) => {
+        const updated = {
+          ...(candidate ?? active),
+          status,
+          ...(activatedAt === undefined ? {} : { activatedAt }),
+        } as AgentCardRevision;
+        if (status === 'active') active = updated;
+        return Promise.resolve(updated);
+      },
+      listAgentCards: () => Promise.resolve(active === undefined ? [] : [active]),
+      findAgentCard: () => Promise.resolve(active),
+      transitionOperation: (_operation, _command, completed) => Promise.resolve(completed),
+    };
+    const service = new NodeControlA2aExposureService({
+      repository,
+      runtime: {
+        stage: () => Promise.resolve(),
+        activate: () => Promise.resolve(),
+        rollback: () => Promise.resolve(),
+      },
+      capabilities: { get: () => Promise.reject(new Error('UNIT_UNEXPECTED_CAPABILITY_READ')) },
+      readiness: { get: () => Promise.reject(new Error('UNIT_UNEXPECTED_READINESS_READ')) },
+      validator: { validate: () => undefined },
+      clock: { now: () => now },
+      nodeId: 'node.test',
+      a2aUrl: 'http://127.0.0.1:9999/a2a',
+    });
+
+    const first = service.rebuild('p08-serialized-card-first', 'First rebuild.');
+    await vi.waitFor(() => {
+      expect(listCalls).toBe(1);
+    });
+    const second = service.rebuild('p08-serialized-card-second', 'Second rebuild.');
+    await Promise.resolve();
+    expect(listCalls).toBe(1);
+    releaseFirstList?.([]);
+
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    expect(listCalls).toBe(2);
+  });
+
   it('rolls Runtime back to the prior Active card when the Control ack fails', async () => {
     const now = '2026-08-02T15:00:00.000Z';
     const exposure = createA2aExposureVersion({

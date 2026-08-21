@@ -17,3 +17,4 @@ export * from './evidence-infrastructure-projector.js';
 export * from './evidence-quality-evaluator.js';
 export * from './catalog-validating-evidence-writer.js';
 export * from './capability-readiness.js';
+export * from './skill-provider-dependency-policy.js';

@@ -4,11 +4,46 @@
 
 The current `ugv-agent-profile` Goal is `IN_PROGRESS`; this status does not replace or upgrade the
 historical blocked UGV handoff below. P0, SMPP P1 qualification and SDAR P2-B01/P2-B02/P2-B03 local
-milestones are complete. P3 external execution and P4 final Goal acceptance remain pending.
+milestones are complete. P3-B01 clean-stack runtime and changed-scope static gates are accepted with
+disclosed out-of-scope lint/format baselines and fifteen frozen artifact hashes. P3-B02/P3-B03
+external movement/recovery and P4 final Goal acceptance remain pending.
 The user-selected current SMPP intake is
 `codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`;
 `90466127aee7c01014eef29a1e346b071de3704e` remains the immutable P1 qualification evidence
 checkpoint and `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
+
+P3-B01 ran the current SMPP checkout without modifying it. A task-owned clean operation followed by
+preflight and ordered `up.sh` started seven SMPP services, three SDAR infrastructure services and
+three host processes using isolated projects, databases, networks and volumes. Only the SMPP Adapter
+owns Device MCP/MQTT southbound access; SDAR uses the governed Runtime MCP northbound path. The
+official authority bootstrap passes twice without duplicate Source, Binding, Skill, Capability,
+implementation or Exposure records. Repeated readiness passes prove exact Skill suspend/restore and
+Profile public-Card removal/restoration; the separate managed Card remains Exposure authority.
+
+The host Server loaded generation and embedding configuration from the local repository-root `.env`.
+Redacted baseline/final audits prove two exact model Providers, 42 routes and zero model invocations;
+`.env` content was not sent to Compose or recorded as evidence. B01 side effects stayed `NO` with
+navigation, mutation, forbidden/weapon and model counts all zero. The SMPP qualifier made one
+correlated read-only Device Tool call and no execution, mutation-journal or command-ack entry.
+
+Readiness TTL recovery is now bounded and fail-closed. The 60-second expiry path evaluates on a
+non-overlapping five-second timer, rebuilds the managed Card through serialized P08 authority, and
+bootstrap can reconcile only an exact hash-valid/coherently partitioned expired or unavailable
+snapshot. One exact stability-window result may be retried after 10,250 ms; a second fails. A live
+bounded observation saw readiness v2→v3 and active managed Card revision 2→3 at 15:34Z. Retained
+`UAP_CAPABILITY_READINESS_INVALID` attempts document the earlier recovery deadlock and are not
+rewritten. Provider-generation rollover after the configured 300-second authority TTL remains open:
+immutable `embodied.move@1` freezes Binding revision N and cannot absorb revision N+1, so recovery
+requires a clean task-owned database or a reviewed new Capability version.
+
+`reports/ugv-agent-profile-simulation/uap-p3-b01-verification.json` is
+`PASS_WITH_DISCLOSED_BASELINE_GAPS`. The focused matrix passes 10 files/163 tests in 58.05 seconds;
+independent partitioned replay passes 9 files/160 tests. Both typechecks/builds, 842-source SDAR
+architecture, B01 changed-file ESLint/Prettier, SMPP full lint and both diff checks pass. SDAR full lint
+retains 22 errors in seven committed out-of-scope Home-Lab files; SDAR full format retains two existing
+files and SMPP full format retains one historical P1-B02 report. Fifteen primary artifact hashes are
+frozen. P3-B01 is complete with those baseline disclosures. No movement, P3-B02, P3-B03, P4 or overall
+Goal completion is claimed.
 
 P2-B03 passes its formal local Runtime E2E with real isolated PostgreSQL/Redis,
 `startServerRuntime`, the official A2A HTTP+JSON path and a strict loopback frozen Provider fixture.
@@ -39,9 +74,10 @@ taskless read, three task-scoped Tool calls and one local navigation; external S
 navigation dispatches and MQTT publishes remain zero. Local artifact SHA-256 values and the P2 task
 acceptance state are frozen in `reports/ugv-agent-profile-simulation/uap-p2-b03-verification.json`.
 P2 smoke verified LLM configuration loading and database bootstrap through the local `.env`
-mechanism without recording secrets or values and with zero model calls. P3 will exercise external
-model inference through that path; UGV target authorization, side-effect admission, continuation
-proof and terminal success remain deterministic and model-independent.
+mechanism without recording secrets or values and with zero model calls. P3-B01 reloaded and audited
+that path in the clean stack, again with zero model calls; external inference remains for a later P3
+movement task. UGV target authorization, side-effect admission, continuation proof and terminal success
+remain deterministic and model-independent.
 
 SDAR × UGV SMPP integration is `SDAR_UGV_INTEGRATION_BLOCKED` (updated 2026-08-14). Discovery readiness is
 `true`; Read, A2A, Control, Workflow, Resilience and Production readiness are all `false`. Real

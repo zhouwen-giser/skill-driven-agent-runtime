@@ -128,6 +128,14 @@ describe('UGV move governed Task binding', () => {
     });
     expect(resolved.selected.operation.inputSchemaHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
     expect(resolved.selected.operation.outputSchemaHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    expect(resolved.selected.operation.outputSchema).toEqual(navigateOutputSchema());
+    expect(resolved.selected.operation.outputSchemaHash).toBe(
+      hashCanonicalEvidenceJson(navigateOutputSchema()),
+    );
+    expect(resolved.selected.finalStateRead.outputSchema).toEqual(stateOutputSchema());
+    expect(resolved.selected.finalStateRead.outputSchemaHash).toBe(
+      hashCanonicalEvidenceJson(stateOutputSchema()),
+    );
     expect(resolved.selected.argumentsHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
     expect(resolved.selected.snapshotHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
     expect(resolved.selected.finalStateRead.catalogChecksum).toBe(
@@ -338,6 +346,67 @@ describe('UGV move governed Task binding', () => {
     await expect(restricted.resolver.resolve(request())).rejects.toMatchObject({
       code: 'UGV_PROFILE_READINESS_NOT_ADMITTED',
     });
+  });
+
+  it.each([
+    {
+      label: 'direct success Schema',
+      mutateNavigate: (tool: McpTool): McpTool => ({
+        ...tool,
+        outputSchema: navigateSuccessOutputSchema(),
+      }),
+    },
+    {
+      label: 'ambiguous duplicate business-result branches',
+      mutateNavigate: (tool: McpTool): McpTool => ({
+        ...tool,
+        outputSchema: providerOutputSchema(businessResultSchema()),
+      }),
+    },
+    {
+      label: 'weakened business-result authority',
+      mutateNavigate: (tool: McpTool): McpTool => ({
+        ...tool,
+        outputSchema: {
+          type: 'object',
+          anyOf: [
+            navigateSuccessOutputSchema(),
+            { ...businessResultSchema(), additionalProperties: false },
+          ],
+        },
+      }),
+    },
+    {
+      label: 'success branch drift',
+      mutateGetState: (tool: McpTool): McpTool => ({
+        ...tool,
+        outputSchema: providerOutputSchema({
+          ...stateSuccessOutputSchema(),
+          required: ['identity'],
+        }),
+      }),
+    },
+    {
+      label: 'missing nested position-authority observedAt',
+      mutateNavigate: (tool: McpTool): McpTool => ({
+        ...tool,
+        outputSchema: providerOutputSchema(navigateSuccessOutputSchema(null)),
+      }),
+    },
+    {
+      label: 'non-string nested position-authority observedAt',
+      mutateNavigate: (tool: McpTool): McpTool => ({
+        ...tool,
+        outputSchema: providerOutputSchema(navigateSuccessOutputSchema({ type: 'number' })),
+      }),
+    },
+  ])('rejects formal Provider output wrapper drift: $label', async (options) => {
+    const item = await fixture(options);
+
+    await expect(item.resolver.resolve(request())).rejects.toMatchObject({
+      code: 'UGV_PROFILE_SCHEMA_DRIFT',
+    });
+    expect(item.availability).not.toHaveBeenCalled();
   });
 
   it('requires simulation context before reading any authority', async () => {
@@ -711,6 +780,12 @@ function navigateInputSchema() {
 }
 
 function navigateOutputSchema() {
+  return providerOutputSchema(navigateSuccessOutputSchema());
+}
+
+function navigateSuccessOutputSchema(
+  nestedObservedAtSchema: Readonly<Record<string, unknown>> | null = { type: 'string' },
+) {
   return {
     title: 'VehicleTaskResultV1',
     type: 'object',
@@ -723,7 +798,7 @@ function navigateOutputSchema() {
         properties: {
           field: { anyOf: [{ type: 'string' }, { type: 'null' }] },
           topic: { type: 'string' },
-          observedAt: { type: 'string', format: 'date-time' },
+          ...(nestedObservedAtSchema === null ? {} : { observedAt: nestedObservedAtSchema }),
           timeAuthority: { type: 'string', enum: ['source', 'ingest'] },
           cursor: { type: 'string' },
         },
@@ -789,6 +864,10 @@ function stateTool(serverId: string): McpTool {
 }
 
 function stateOutputSchema() {
+  return providerOutputSchema(stateSuccessOutputSchema());
+}
+
+function stateSuccessOutputSchema() {
   return {
     title: 'VehicleStateV1',
     type: 'object',
@@ -834,6 +913,27 @@ function stateOutputSchema() {
       'mqttIngressSequence',
     ],
     additionalProperties: false,
+  };
+}
+
+function providerOutputSchema(success: Readonly<Record<string, unknown>>) {
+  return {
+    type: 'object',
+    anyOf: [success, businessResultSchema()],
+  };
+}
+
+function businessResultSchema(): Readonly<Record<string, unknown>> {
+  return {
+    type: 'object',
+    properties: {
+      outcome: { type: 'string', minLength: 1 },
+      reasonCode: { type: 'string', minLength: 1 },
+      retryable: { type: 'boolean' },
+      completedAt: { type: 'string', format: 'date-time' },
+    },
+    required: ['outcome', 'reasonCode', 'retryable', 'completedAt'],
+    additionalProperties: true,
   };
 }
 
