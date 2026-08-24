@@ -99,6 +99,7 @@ export class NodeControlA2aExposureService {
   readonly #clock: Readonly<{ now(): string }>;
   readonly #nodeId: string;
   readonly #a2aUrl: string;
+  #rebuildTail: Promise<void> = Promise.resolve();
 
   constructor(
     dependencies: Readonly<{
@@ -189,7 +190,16 @@ export class NodeControlA2aExposureService {
     return card;
   }
 
-  async rebuild(idempotencyKey: string, reason: string): Promise<ManagementOperation> {
+  rebuild(idempotencyKey: string, reason: string): Promise<ManagementOperation> {
+    const result = this.#rebuildTail.then(() => this.#rebuild(idempotencyKey, reason));
+    this.#rebuildTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  async #rebuild(idempotencyKey: string, reason: string): Promise<ManagementOperation> {
     const command = this.command('agent-card:rebuild', idempotencyKey, { reason });
     const replay = await this.#repository.findCommandReplay(command.scope, command);
     if (replay !== undefined) return replay;

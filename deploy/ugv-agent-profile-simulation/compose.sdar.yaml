@@ -1,0 +1,93 @@
+services:
+  uap-sdar-postgres:
+    build:
+      context: .
+      dockerfile: infra/postgres/Dockerfile.pgvector-hardened
+      args:
+        SOURCE_DATE_EPOCH: '0'
+      provenance: false
+      sbom: false
+    image: sdar/uap-p3-b01-postgres-pgvector:17.10-0.8.5-alpine3.23
+    pull_policy: never
+    platform: linux/amd64
+    restart: 'no'
+    environment:
+      POSTGRES_DB: sdar_uap
+      POSTGRES_USER: sdar_uap
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - '127.0.0.1:55462:5432'
+    volumes:
+      - uap-sdar-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sdar_uap -d sdar_uap']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    networks: [uap-sdar, uap-sdar-northbound]
+    security_opt: [no-new-privileges:true]
+
+  uap-control-postgres:
+    build:
+      context: .
+      dockerfile: infra/postgres/Dockerfile.pgvector-hardened
+      args:
+        SOURCE_DATE_EPOCH: '0'
+      provenance: false
+      sbom: false
+    image: sdar/uap-p3-b01-postgres-pgvector:17.10-0.8.5-alpine3.23
+    pull_policy: never
+    platform: linux/amd64
+    restart: 'no'
+    environment:
+      POSTGRES_DB: sdar_uap_control
+      POSTGRES_USER: sdar_uap_control
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - '127.0.0.1:55463:5432'
+    volumes:
+      - uap-control-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sdar_uap_control -d sdar_uap_control']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    networks: [uap-sdar, uap-sdar-northbound]
+    security_opt: [no-new-privileges:true]
+
+  uap-redis:
+    image: redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb
+    platform: linux/amd64
+    restart: 'no'
+    command: [redis-server, --appendonly, 'yes', --appendfsync, everysec, --save, '60', '1']
+    ports:
+      - '127.0.0.1:56391:6379'
+    volumes:
+      - uap-redis-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+    networks: [uap-sdar, uap-sdar-northbound]
+    security_opt: [no-new-privileges:true]
+
+networks:
+  uap-sdar:
+    name: sdar-uap-p3-b01-sdar-control
+    driver: bridge
+    internal: true
+  uap-sdar-northbound:
+    name: sdar-uap-p3-b01-sdar-northbound
+    driver: bridge
+
+volumes:
+  uap-sdar-postgres-data:
+    name: sdar-uap-p3-b01-runtime-postgres-data
+  uap-control-postgres-data:
+    name: sdar-uap-p3-b01-control-postgres-data
+  uap-redis-data:
+    name: sdar-uap-p3-b01-redis-data

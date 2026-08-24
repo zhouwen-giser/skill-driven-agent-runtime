@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.authority-bootstrap-index/v1",
+  "status": "passed",
+  "task": "UAP-P3-B01",
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "evidenceClass": "external_simulation",
+  "canonicalSemantics": "immutable_first_pass",
+  "firstPassAttemptFile": "reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821145401955-79b2492736183428.redacted.json",
+  "firstPassAttemptSha256": "36be74a29302fa64fa05eeb07d3ab472ad8dd2c1ad5403ae2749ec6c4fe2378a",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "modelConfigurationIncluded": false
+}

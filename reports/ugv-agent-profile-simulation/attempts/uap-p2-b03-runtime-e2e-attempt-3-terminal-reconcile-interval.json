@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 3,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The original execution timestamp was not retained in the supplied run summary.",
+  "status": "FAILED_FIXED_CONFIGURATION_FIXTURE",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_configuration",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": null,
+  "commandMissingReason": "The exact original argv was not retained.",
+  "exitCode": null,
+  "exitCodeMissingReason": "The summary records the failed test but not its original process exit code.",
+  "failureClass": "A2A_TERMINAL_RECONCILIATION_INTERVAL_BELOW_MINIMUM",
+  "observedFailure": "The fixture configured terminal reconciliation at 100 ms while the Runtime requires at least 1000 ms.",
+  "resolution": "The fixture interval was raised to the valid 1000 ms minimum without weakening Runtime validation.",
+  "localFixtureCounts": null,
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0
+  }
+}

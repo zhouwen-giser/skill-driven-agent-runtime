@@ -3,19 +3,30 @@ import { createServer, type Server as HttpServer } from 'node:http';
 
 import { AgentCard, type AgentSkill } from '@a2a-js/sdk';
 import { ClientFactory, type Client } from '@a2a-js/sdk/client';
-import { DefaultRequestHandler, type AgentExecutor, type TaskStore } from '@a2a-js/sdk/server';
+import {
+  DefaultRequestHandler,
+  type AgentExecutor,
+  type ExecutionEventBusManager,
+  type TaskStore,
+} from '@a2a-js/sdk/server';
 import { UserBuilder, agentCardHandler, restHandler } from '@a2a-js/sdk/server/express';
 import express from 'express';
 
-import type { EnabledSkillCapabilityProvider } from '../../application/src/index.js';
+import type {
+  EnabledSkillCapabilityProvider,
+  GovernedControlPrincipalResolver,
+} from '../../application/src/index.js';
 import type { PublicCapabilityCardSnapshot } from '../../domain/src/index.js';
 import type { A2AArtifactProjection } from '../../domain/src/index.js';
+import { createGovernedControlA2AAuthentication } from './authenticated-confirm-user.js';
 import { A2AAgentCardBuilder } from './capability-card-projection.js';
 import { buildAgentCard } from './compatibility.js';
+import { ReplaySafeExecutionEventBusManager } from './replay-safe-event-bus-manager.js';
 
 export interface A2AHttpEndpointOptions {
   readonly executor: AgentExecutor;
   readonly taskStore: TaskStore;
+  readonly eventBusManager?: ExecutionEventBusManager;
   readonly skills?: readonly Readonly<Pick<AgentSkill, 'id' | 'name' | 'description' | 'tags'>>[];
   readonly skillProvider?: EnabledSkillCapabilityProvider;
   readonly capabilityCardProvider?: Readonly<{
@@ -27,6 +38,7 @@ export interface A2AHttpEndpointOptions {
   readonly artifactProjectionProvider?: Readonly<{
     projectPublic(): Promise<A2AArtifactProjection>;
   }>;
+  readonly confirmationPrincipalResolver?: GovernedControlPrincipalResolver;
   readonly host?: string;
   readonly port?: number;
 }
@@ -96,7 +108,16 @@ export async function startA2AHttpEndpoint(
     });
   };
   const card = await loadCard();
-  const handler = new DefaultRequestHandler(card, options.taskStore, options.executor);
+  const handler = new DefaultRequestHandler(
+    card,
+    options.taskStore,
+    options.executor,
+    options.eventBusManager ?? new ReplaySafeExecutionEventBusManager(),
+  );
+  const confirmationAuthentication =
+    options.confirmationPrincipalResolver === undefined
+      ? undefined
+      : createGovernedControlA2AAuthentication(options.confirmationPrincipalResolver);
   app.use(
     '/.well-known/agent-card.json',
     agentCardHandler({
@@ -141,9 +162,14 @@ export async function startA2AHttpEndpoint(
       );
     next();
   });
+  if (confirmationAuthentication !== undefined)
+    app.use('/a2a', confirmationAuthentication.authenticateBeforeProtocol);
   app.use(
     '/a2a',
-    restHandler({ requestHandler: handler, userBuilder: UserBuilder.noAuthentication }),
+    restHandler({
+      requestHandler: handler,
+      userBuilder: confirmationAuthentication?.userBuilder ?? UserBuilder.noAuthentication,
+    }),
   );
   const client = await new ClientFactory().createFromUrl(baseUrl);
   return { baseUrl, client, close: () => closeServer(server) };

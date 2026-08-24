@@ -35,6 +35,14 @@ import type { ResultCandidate, ResultProcessor } from './result-processor.js';
 import type { MemoryService } from './memory-service.js';
 import type { ImplicitFeedbackService } from './implicit-feedback.js';
 import type { RuntimeTaskCapabilityService } from './task-capability.js';
+import type { GovernedControlPrincipal } from './governed-control-management.js';
+import {
+  initialTaskAdmissionRequestHash,
+  normalizeInitialTaskAdmissionIdempotencyKey,
+  type InitialTaskAdmissionCommand,
+  type InitialTaskAdmissionRecord,
+  type InitialTaskAdmissionStore,
+} from './initial-task-admission.js';
 
 export interface SubmitTaskCommand {
   readonly taskId?: string;
@@ -43,6 +51,7 @@ export interface SubmitTaskCommand {
   readonly messageText: string;
   readonly metadata: Readonly<Record<string, unknown>>;
   readonly capabilityInput?: unknown;
+  readonly initialAdmission?: InitialTaskAdmissionCommand;
   readonly skillDraftIntent?: 'create' | 'update';
 }
 
@@ -50,6 +59,8 @@ export interface SubmitTaskResult {
   readonly task: AgentTask;
   readonly context: ConversationContext;
   readonly createdContext: boolean;
+  readonly admissionStatus?: 'accepted' | 'replayed';
+  readonly queueDispatchStatus?: 'enqueued' | 'deferred_recovery' | 'not_dispatched';
 }
 
 export type TaskFollowUpAction =
@@ -69,11 +80,26 @@ export interface TaskFollowUpCommand {
   readonly inputRequestId?: string;
   /** Protocol-neutral structured supplementary input supplied by an adapter. */
   readonly inputContent?: unknown;
+  /**
+   * Authenticated authority supplied by a protocol adapter. Request metadata
+   * is never an authority source, and only confirm_plan may carry this field.
+   */
+  readonly confirmationAuthority?: TaskPlanConfirmationAuthority;
 }
 
 export const MAX_TASK_INPUT_RESPONSE_CHARACTERS = 64_000;
 
 export type TaskPlanConfirmationTarget = 'task_plan' | 'nested_skill_plan';
+
+export interface TaskPlanConfirmationAuthority {
+  readonly principal: GovernedControlPrincipal;
+}
+
+export interface BeforeTaskPlanExecutionInput {
+  readonly task: AgentTask;
+  readonly confirmationTarget: 'task_plan';
+  readonly confirmationAuthority?: TaskPlanConfirmationAuthority;
+}
 
 export interface TaskServiceDependencies {
   readonly contexts: ConversationContextRepository;
@@ -83,6 +109,7 @@ export interface TaskServiceDependencies {
   readonly skillDrafts: SkillDraftRepository;
   readonly taskInputs: TaskInputRepository;
   readonly taskCapabilities?: RuntimeTaskCapabilityService;
+  readonly initialAdmissions?: InitialTaskAdmissionStore;
   readonly remoteTaskInputs?: Readonly<{
     prepareResponse(inputRequestId: string, inputContent: unknown): Promise<unknown>;
   }>;
@@ -94,6 +121,12 @@ export interface TaskServiceDependencies {
     ImplicitFeedbackService,
     'observeSubmission' | 'observeRevision' | 'observeSkillSwitch'
   >;
+  /**
+   * Projects an already-confirmed outer plan into any additional governed
+   * execution authority before the Task can enter executing. Implementations
+   * must be idempotent for the immutable Task/plan identity.
+   */
+  readonly beforePlanExecution?: (input: BeforeTaskPlanExecutionInput) => Promise<void>;
   readonly planActions?: Readonly<{
     confirm(task: AgentTask): Promise<TaskPlanConfirmationTarget>;
     reject(task: AgentTask): Promise<void>;
@@ -134,14 +167,46 @@ export class TaskService {
 
   async #submit(command: SubmitTaskCommand, enqueue: boolean): Promise<SubmitTaskResult> {
     const timestamp = this.#dependencies.clock.now();
+    const requestedUserId = normalizeUserId(command.userId);
+    const capabilityInput = command.capabilityInput ?? { messageText: command.messageText };
+    const initialAdmission =
+      command.initialAdmission === undefined
+        ? undefined
+        : Object.freeze({
+            idempotencyKey: normalizeInitialTaskAdmissionIdempotencyKey(
+              command.initialAdmission.idempotencyKey,
+            ),
+            requestHash: initialTaskAdmissionRequestHash({
+              messageText: command.messageText,
+              userId: requestedUserId,
+              metadata: command.metadata,
+              capabilityInput,
+            }),
+          });
+    if (initialAdmission !== undefined) {
+      if (command.skillDraftIntent !== undefined)
+        throw new TaskApplicationError(
+          'TASK_INITIAL_ADMISSION_SKILL_DRAFT_UNSUPPORTED',
+          'Durable initial Capability admission cannot also create or update a Skill draft.',
+        );
+      if (this.#dependencies.initialAdmissions === undefined)
+        throw new TaskApplicationError(
+          'TASK_INITIAL_ADMISSION_RUNTIME_NOT_COMPOSED',
+          'Durable initial Task admission is unavailable.',
+        );
+      const existingAdmission = await this.#dependencies.initialAdmissions.findByIdempotencyKey(
+        initialAdmission.idempotencyKey,
+      );
+      if (existingAdmission !== undefined)
+        return this.#replayInitialAdmission(initialAdmission.requestHash, existingAdmission);
+    }
     const requestedContextId = command.contextId?.trim();
     const contextId =
       requestedContextId === undefined || requestedContextId === ''
         ? this.#dependencies.ids.nextId('context')
         : requestedContextId;
-    const requestedUserId = normalizeUserId(command.userId);
     const existing = await this.#dependencies.contexts.findById(contextId);
-    const context =
+    let context =
       existing ??
       createConversationContext({
         contextId,
@@ -185,21 +250,56 @@ export class TaskService {
     const capabilityAcceptance = await this.#dependencies.taskCapabilities?.prepareAcceptance({
       task,
       metadata: command.metadata,
-      capabilityInput: command.capabilityInput ?? { messageText: command.messageText },
+      capabilityInput,
       inputAttempt: attempt,
       bindingId: `binding-${task.taskId}`,
       capabilityAttemptId: `capability-attempt-${task.taskId}-1`,
+      ...(initialAdmission === undefined
+        ? {}
+        : { initialAdmissionIdempotencyKey: initialAdmission.idempotencyKey }),
       event: createdEvent,
     });
-    if (existing === undefined) await this.#dependencies.contexts.save(context);
-    if (capabilityAcceptance === undefined) {
-      await this.#dependencies.tasks.save(task);
-      await this.#dependencies.taskInputs.createInitialAttempt(attempt);
-      await this.#dependencies.events.publish(createdEvent);
+    let admissionStatus: SubmitTaskResult['admissionStatus'];
+    let queueDispatchStatus: SubmitTaskResult['queueDispatchStatus'];
+    let createdContext = existing === undefined;
+    if (initialAdmission !== undefined) {
+      if (capabilityAcceptance === undefined)
+        throw new TaskApplicationError(
+          'TASK_INITIAL_ADMISSION_CAPABILITY_REQUIRED',
+          'Durable initial Task admission requires an explicit Capability acceptance.',
+        );
+      const accepted = await this.#dependencies.initialAdmissions?.acceptInitial({
+        ...initialAdmission,
+        context,
+        capabilityAcceptance,
+        acceptedAt: timestamp,
+      });
+      if (accepted === undefined) throw new Error('TASK_INITIAL_ADMISSION_STORE_MISSING');
+      if (accepted.status === 'conflict')
+        throw new TaskApplicationError(
+          'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT',
+          'The initial Task idempotency key is already bound to a different request.',
+        );
+      if (accepted.status === 'replayed')
+        return this.#replayInitialAdmission(initialAdmission.requestHash, accepted.record);
+      admissionStatus = 'accepted';
+      createdContext = accepted.record.createdContext;
+      context = accepted.context;
     } else {
-      await this.#dependencies.taskCapabilities?.accept(capabilityAcceptance);
+      if (existing === undefined) await this.#dependencies.contexts.save(context);
+      if (capabilityAcceptance === undefined) {
+        await this.#dependencies.tasks.save(task);
+        await this.#dependencies.taskInputs.createInitialAttempt(attempt);
+        await this.#dependencies.events.publish(createdEvent);
+      } else {
+        await this.#dependencies.taskCapabilities?.accept(capabilityAcceptance);
+      }
     }
-    await this.#dependencies.feedback?.observeSubmission(task);
+    // Formal Capability admission is not a natural-language continuation and
+    // its durable transaction must remain the final fallible persistence step
+    // before dispatch. Implicit feedback therefore applies only to legacy
+    // natural-language submission.
+    if (initialAdmission === undefined) await this.#dependencies.feedback?.observeSubmission(task);
     if (command.skillDraftIntent !== undefined) {
       await this.#dependencies.skillDrafts.save(
         createSkillDraft({
@@ -215,18 +315,65 @@ export class TaskService {
       );
     }
     if (enqueue) {
-      await this.#dependencies.queue.enqueue({
-        taskId: task.taskId,
-        contextId: task.contextId,
-        attemptId: attempt.attemptId,
-        mode: 'initial',
-      });
+      try {
+        await this.#dependencies.queue.enqueue({
+          taskId: task.taskId,
+          contextId: task.contextId,
+          attemptId: attempt.attemptId,
+          mode: 'initial',
+        });
+        queueDispatchStatus = 'enqueued';
+      } catch (error: unknown) {
+        // Formal initial admission already committed a durable queued attempt.
+        // Startup recovery dispatches that exact attempt; surfacing this error
+        // would make the A2A SDK persist a false terminal failure projection.
+        if (initialAdmission === undefined) throw error;
+        queueDispatchStatus = 'deferred_recovery';
+      }
     } else {
       await this.#dependencies.taskInputs.updateAttempt(attempt.attemptId, 'running', timestamp);
       await this.#dependencies.taskInputs.updateAttempt(attempt.attemptId, 'completed', timestamp);
     }
 
-    return { task, context, createdContext: existing === undefined };
+    return {
+      task,
+      context,
+      createdContext,
+      ...(admissionStatus === undefined ? {} : { admissionStatus }),
+      ...(queueDispatchStatus === undefined ? {} : { queueDispatchStatus }),
+    };
+  }
+
+  async #replayInitialAdmission(
+    requestHash: `sha256:${string}`,
+    admission: InitialTaskAdmissionRecord,
+  ): Promise<SubmitTaskResult> {
+    if (admission.requestHash !== requestHash)
+      throw new TaskApplicationError(
+        'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT',
+        'The initial Task idempotency key is already bound to a different request.',
+      );
+    const [task, context] = await Promise.all([
+      this.#dependencies.tasks.findById(admission.taskId),
+      this.#dependencies.contexts.findById(admission.contextId),
+    ]);
+    if (
+      task === undefined ||
+      task.contextId !== context?.contextId ||
+      task.taskId !== admission.taskId ||
+      task.userId !== context.userId
+    )
+      throw new TaskApplicationError(
+        'TASK_INITIAL_ADMISSION_AUTHORITY_CORRUPT',
+        'The durable initial Task admission references missing or inconsistent authority.',
+      );
+    return {
+      task,
+      context,
+      createdContext: admission.createdContext,
+      admissionStatus: 'replayed',
+      queueDispatchStatus: 'not_dispatched',
+    };
   }
 
   /**
@@ -384,6 +531,11 @@ export class TaskService {
   }
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
+    if (command.action !== 'confirm_plan' && command.confirmationAuthority !== undefined)
+      throw new TaskApplicationError(
+        'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID',
+        'Authenticated confirmation authority may be supplied only for confirm_plan.',
+      );
     if (command.action === 'confirm_plan' || command.action === 'reject_plan')
       return this.#withTaskDecisionLock(command.taskId, () => this.#followUp(command));
     return this.#followUp(command);
@@ -514,6 +666,20 @@ export class TaskService {
           'Task plan confirmation is unavailable.',
         );
       confirmationTarget = await this.#dependencies.planActions.confirm(task);
+      if (
+        confirmationTarget === 'task_plan' &&
+        this.#dependencies.beforePlanExecution !== undefined
+      ) {
+        await this.#dependencies.beforePlanExecution(
+          Object.freeze({
+            task,
+            confirmationTarget,
+            ...(command.confirmationAuthority === undefined
+              ? {}
+              : { confirmationAuthority: command.confirmationAuthority }),
+          }),
+        );
+      }
     }
     if (command.action === 'reject_plan' && this.#dependencies.planActions !== undefined)
       await this.#dependencies.planActions.reject(task);
@@ -981,6 +1147,12 @@ export type TaskApplicationErrorCode =
   | 'TASK_PLAN_ACTIONS_UNAVAILABLE'
   | 'TASK_PLAN_NOT_ATTACHED'
   | 'TASK_RUNTIME_CANCELLATION_INCOMPLETE'
+  | 'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID'
+  | 'TASK_INITIAL_ADMISSION_RUNTIME_NOT_COMPOSED'
+  | 'TASK_INITIAL_ADMISSION_CAPABILITY_REQUIRED'
+  | 'TASK_INITIAL_ADMISSION_SKILL_DRAFT_UNSUPPORTED'
+  | 'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT'
+  | 'TASK_INITIAL_ADMISSION_AUTHORITY_CORRUPT'
   | 'TASK_PLAN_DECISION_NOT_AWAITING';
 
 export class TaskApplicationError extends Error {

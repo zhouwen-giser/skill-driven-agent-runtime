@@ -36,6 +36,9 @@ import {
   GovernedControlInvocationAuthorizer,
   GovernedControlConfirmationService,
   GovernedControlManagementService,
+  UgvGovernedControlConfirmationService,
+  UgvGovernedControlInvocationAuthorizer,
+  UgvGovernedControlManagementService,
   McpRuntimeBindingAuthorityVerifier,
   McpProtocolOperationsService,
   FrozenMcpRegistryService,
@@ -242,6 +245,8 @@ import {
   type OperatorIdentityPort,
   type ManagementPrincipalResolver,
   type GovernedControlPrincipalResolver,
+  type TaskAvailabilityBatchReader,
+  type WorkflowCandidateGuard,
   type ArtifactShadowCurrentStateReader,
   type ArtifactShadowEnrollment,
   type TemplateRuntimeStateReader,
@@ -346,6 +351,7 @@ import {
   PostgresTaskCapabilityPhysicalEvidenceRepository,
   PostgresGovernedControlAuthorityRepository,
   PostgresGovernedControlManagementAuthorityReader,
+  PostgresUgvGovernedControlAuthorityReader,
   PostgresConversationContextRepository,
   PostgresExternalTaskProjectionRepository,
   PostgresMcpRegistryRepository,
@@ -358,6 +364,7 @@ import {
   PostgresSkillEmbeddingRepository,
   PostgresSkillGraphRepository,
   PostgresSkillRepository,
+  PostgresExactSkillPackageAuthorityReader,
   PostgresSkillExactVersionGovernanceRepository,
   PostgresCapabilitySummaryRepository,
   PostgresCapabilityCatalogChangeSource,
@@ -461,6 +468,44 @@ import {
 import { assertManagedCapabilityRuntimeConfiguration } from './managed-capability-task-understanding.js';
 import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
 import {
+  UGV_AGENT_PROFILE_ID,
+  UGV_AGENT_PROFILE_SKILL_ID,
+  UGV_AGENT_PROFILE_SKILL_VERSION,
+  UgvAgentProfileSkillRepositoryView,
+  assertUgvAgentProfileRuntimeConfiguration,
+  useManagedAgentCardForProfile,
+} from './ugv-agent-profile.js';
+import {
+  assertUgvAgentProfileMoveInputAuthority,
+  UgvAgentProfileExactSkillInputResolver,
+  UgvAgentProfileInitialAdmission,
+  UgvAgentProfileTaskCapabilityUserGoalPlanAuthorityResolver,
+  UgvAgentProfileUserGoalPlanCandidateGuard,
+} from './ugv-agent-profile-admission.js';
+import { UgvMoveTaskBindingResolver } from './ugv-move-binding.js';
+import { adaptUgvMoveInput } from './ugv-move-input-adapter.js';
+import {
+  resolveUgvMoveSkillUsageContext,
+  UgvMoveSkillTaskReadinessAdapter,
+} from './ugv-move-skill-usage.js';
+import {
+  prepareUgvMoveWorkflowPlan,
+  UgvMoveWorkflowCandidateGuard,
+  UGV_MOVE_WORKFLOW_NODE_IDS,
+} from './ugv-move-workflow.js';
+import { UgvMoveWorkflowAuthority } from './ugv-move-workflow-authority.js';
+import { projectUgvMoveWorkflowEvidence } from './ugv-move-workflow-evidence.js';
+import {
+  UgvMoveDeterministicGoalEvaluator,
+  UgvMoveTerminalOutcomeAuthority,
+} from './ugv-move-terminal-outcome.js';
+import {
+  snapshotUgvMovePositionPolicy,
+  type UgvMovePositionPolicy,
+} from './ugv-move-position-result.js';
+import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
+import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
+import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
   BullMqRemoteTaskPollQueue,
@@ -496,6 +541,8 @@ export interface ServerRuntimeOptions {
   /** Optional startup-only seed; persisted Provider/Prompt/route rows remain authoritative. */
   readonly modelBootstrap?: InitialModelProviderConfiguration;
   readonly evidenceEnvironment?: string;
+  /** Required frozen thresholds for the external-simulation UGV final-position hard gate. */
+  readonly ugvMovePositionPolicy?: UgvMovePositionPolicy;
   /** Authenticated full-state reader for Control-owned Capability definitions and bindings. */
   readonly capabilityAuthorityReader?: CapabilityAuthorityReader;
   /** Authenticated current-state authority for Node Control-owned MCP Provider Bindings. */
@@ -575,7 +622,10 @@ export interface ServerRuntimeOptions {
   readonly capabilityNarrative?: CognitiveStructuredModelStageInvoker;
   readonly taskUnderstanding?: Readonly<{
     readonly profile?:
-      'home_lab_read_only' | 'home_lab_governed_light_control' | 'managed_capability';
+      | 'home_lab_read_only'
+      | 'home_lab_governed_light_control'
+      | 'managed_capability'
+      | 'ugv-agent-profile';
     readonly taskTypes: readonly TaskTypeDefinition[];
     readonly entryPolicy?: 'ambiguous_only' | 'all_requests';
     readonly skillSelectionMode?: 'exact_compatible_only' | 'model_ranked';
@@ -811,10 +861,15 @@ export async function startServerRuntime(
   assertHomeLabReadOnlyRuntimeConfiguration(options);
   assertHomeLabGovernedLightRuntimeConfiguration(options);
   assertManagedCapabilityRuntimeConfiguration(options);
+  assertUgvAgentProfileRuntimeConfiguration(options);
   const homeLabReadOnlyProfile = options.taskUnderstanding?.profile === 'home_lab_read_only';
   const homeLabGovernedLightProfile =
     options.taskUnderstanding?.profile === HOME_LAB_GOVERNED_LIGHT_PROFILE;
   const managedCapabilityProfile = options.taskUnderstanding?.profile === 'managed_capability';
+  const ugvAgentProfile = options.taskUnderstanding?.profile === UGV_AGENT_PROFILE_ID;
+  const ugvMovePositionPolicy = ugvAgentProfile
+    ? snapshotUgvMovePositionPolicy(options.ugvMovePositionPolicy)
+    : undefined;
   const mcpOutboundFetch = createMcpOutboundFetch({
     allowedAuthorities: options.outboundEndpointPolicy?.mcpAllowedAuthorities,
     unsafeTestOpen: options.outboundEndpointPolicy?.unsafeTestOpen === true,
@@ -908,6 +963,7 @@ export async function startServerRuntime(
   const events = new PostgresRuntimeEventPublisher(pool, taskCommands);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
+  const profileSkills = ugvAgentProfile ? new UgvAgentProfileSkillRepositoryView(skills) : skills;
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
   const resolveSkillUsageContext = (
@@ -1121,19 +1177,23 @@ export async function startServerRuntime(
     `experience-worker-${randomUUID()}`,
   );
   const capabilitySummaries = new CapabilitySummaryService({
-    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    catalog: { listEnabledSkillVersions: () => profileSkills.listEnabledVersions() },
     repository: new PostgresCapabilitySummaryRepository(pool),
-    generationPolicyVersion: 'capability-policy-v1',
+    generationPolicyVersion: ugvAgentProfile
+      ? 'capability-policy-v1:ugv-agent-profile-v1'
+      : 'capability-policy-v1',
     clock,
     nextSummaryId: () => `capability-summary-${randomUUID()}`,
   });
   const capabilityCards = new CapabilityCardPublisher({
     summaries: capabilitySummaries,
-    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    catalog: { listEnabledSkillVersions: () => profileSkills.listEnabledVersions() },
     repository: new PostgresCapabilityCardRepository(pool),
-    ...(options.capabilityNarrative === undefined
-      ? {}
-      : { narrative: options.capabilityNarrative }),
+    ...(ugvAgentProfile
+      ? { agentName: UGV_AGENT_PROFILE_ID, requireCurrentCatalogOnRead: true }
+      : options.capabilityNarrative === undefined
+        ? {}
+        : { narrative: options.capabilityNarrative }),
     clock,
     nextCardId: () => `capability-card-${randomUUID()}`,
   });
@@ -1198,6 +1258,13 @@ export async function startServerRuntime(
     clock,
     nextId: (kind) => `skill-execution-${kind}-${randomUUID()}`,
   });
+  const ugvMoveWorkflowAuthority = ugvAgentProfile
+    ? new UgvMoveWorkflowAuthority({
+        repository: skillExecutionRepository,
+        clock,
+        nextReferenceId: () => `skill-execution-reference-ugv-${randomUUID()}`,
+      })
+    : undefined;
   const recordSkillProjectionSafely = async (operation: () => Promise<unknown>): Promise<void> => {
     try {
       await operation();
@@ -1264,8 +1331,13 @@ export async function startServerRuntime(
     repository: mcpRepository,
     clock,
   });
+  const taskCapabilityRepository = new PostgresTaskCapabilityRepository(
+    pool,
+    publishTaskState,
+    taskCommands,
+  );
   const taskCapabilities = new RuntimeTaskCapabilityService({
-    store: new PostgresTaskCapabilityRepository(pool, publishTaskState, taskCommands),
+    store: taskCapabilityRepository,
     schemas: schemaValidator,
     evidence: mcpRepository,
     physicalEvidence: new PostgresTaskCapabilityPhysicalEvidenceRepository(pool),
@@ -1294,6 +1366,58 @@ export async function startServerRuntime(
           capabilities: options.capabilityAuthorityReader,
           clock,
         });
+  let ugvAvailabilityTarget: TaskAvailabilityBatchReader | undefined;
+  const ugvAvailabilityProxy: TaskAvailabilityBatchReader = {
+    checkTaskAvailability(input) {
+      if (ugvAvailabilityTarget === undefined)
+        throw new Error('UGV_AGENT_PROFILE_AVAILABILITY_RUNTIME_NOT_READY');
+      return ugvAvailabilityTarget.checkTaskAvailability(input);
+    },
+  };
+  const ugvGovernedControlAuthority =
+    !ugvAgentProfile ||
+    options.capabilityAuthorityReader === undefined ||
+    options.currentMcpProviderBindingAuthorityReader === undefined
+      ? undefined
+      : new PostgresUgvGovernedControlAuthorityReader({
+          pool,
+          capabilities: options.capabilityAuthorityReader,
+          providerBindings: options.currentMcpProviderBindingAuthorityReader,
+          runtimeBindings: runtimeMcpBindingAuthority,
+          availability: ugvAvailabilityProxy,
+          inputAdapter: { adapt: adaptUgvMoveInput },
+          clock,
+        });
+  const ugvGovernedControlConfirmation =
+    ugvGovernedControlAuthority === undefined
+      ? undefined
+      : new UgvGovernedControlConfirmationService({
+          store: governedControlAuthorityRepository,
+          clock,
+        });
+  const ugvGovernedControlManagement =
+    ugvGovernedControlAuthority === undefined || ugvGovernedControlConfirmation === undefined
+      ? undefined
+      : new UgvGovernedControlManagementService({
+          authority: ugvGovernedControlAuthority,
+          confirmations: ugvGovernedControlConfirmation,
+          clock,
+        });
+  const ugvGovernedControlInvocationAuthorizer =
+    ugvGovernedControlAuthority === undefined
+      ? undefined
+      : new UgvGovernedControlInvocationAuthorizer({
+          authority: ugvGovernedControlAuthority,
+          confirmations: governedControlAuthorityRepository,
+          simulationSideEffectGate: new EnvironmentUgvSimulationSideEffectGate(process.env),
+          clock,
+        });
+  if (
+    ugvAgentProfile &&
+    (ugvGovernedControlManagement === undefined ||
+      ugvGovernedControlInvocationAuthorizer === undefined)
+  )
+    throw new Error('UGV_AGENT_PROFILE_GOVERNED_CONTROL_RUNTIME_REQUIRED');
   const modelRuntime = new ModelRuntimeService({
     repository: new PostgresModelRuntimeRepository(pool),
     transport: new CompositeModelTransportAdapter({
@@ -1391,7 +1515,7 @@ export async function startServerRuntime(
       `task-type-${fingerprint.slice('sha256:'.length, 'sha256:'.length + 24)}`,
   });
   const capabilitySkillMapper = new CapabilitySkillMapper({
-    catalog: { listEnabledSkillVersions: () => skills.listEnabledVersions() },
+    catalog: { listEnabledSkillVersions: () => profileSkills.listEnabledVersions() },
   });
   const capabilityPatternInduction = new CapabilityPatternInductionService({
     repository: capabilityPatternRepository,
@@ -2091,6 +2215,12 @@ export async function startServerRuntime(
       ? { policy: { resourceEnumeration: 'explicit_or_exact_text' as const } }
       : {}),
   });
+  const ugvExactSkillInputResolver = ugvAgentProfile
+    ? new UgvAgentProfileExactSkillInputResolver({
+        bindings: taskCapabilities,
+        delegate: skillInputResolution,
+      })
+    : undefined;
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
     cipher: secretCipher,
@@ -2103,9 +2233,13 @@ export async function startServerRuntime(
     ...(options.currentMcpProviderBindingAuthorityReader === undefined
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
-    ...(governedControlInvocationAuthorizer === undefined
-      ? {}
-      : { controlAuthority: governedControlInvocationAuthorizer }),
+    ...(ugvAgentProfile
+      ? ugvGovernedControlInvocationAuthorizer === undefined
+        ? {}
+        : { controlAuthority: ugvGovernedControlInvocationAuthorizer }
+      : governedControlInvocationAuthorizer === undefined
+        ? {}
+        : { controlAuthority: governedControlInvocationAuthorizer }),
     ...(options.mcpExecutionModeHeaderPolicy === undefined
       ? {}
       : { executionModeHeaderPolicy: options.mcpExecutionModeHeaderPolicy }),
@@ -2116,6 +2250,7 @@ export async function startServerRuntime(
       nextManagementOperationId: () => `mcp-management-operation-${randomUUID()}`,
     },
   });
+  if (ugvAgentProfile) ugvAvailabilityTarget = mcpRegistry;
   const mcpProtocolOperations = new McpProtocolOperationsService({
     repository: mcpRepository,
     expectedBaselineSha256: '9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708',
@@ -2147,6 +2282,29 @@ export async function startServerRuntime(
             nextSnapshotId: () => `task-availability-${randomUUID()}`,
           },
         });
+  const ugvMoveBindingResolver =
+    !ugvAgentProfile || options.currentMcpProviderBindingAuthorityReader === undefined
+      ? undefined
+      : new UgvMoveTaskBindingResolver({
+          skills: profileSkills,
+          packages: new PostgresExactSkillPackageAuthorityReader(pool),
+          operations: mcpRepository,
+          availability: mcpRegistry,
+          providerBindings: options.currentMcpProviderBindingAuthorityReader,
+          runtimeBindings: runtimeMcpBindingAuthority,
+          schemas: schemaValidator,
+          clock,
+        });
+  if (ugvAgentProfile && ugvMoveBindingResolver === undefined)
+    throw new Error('UGV_AGENT_PROFILE_MOVE_BINDING_RUNTIME_REQUIRED');
+  const ugvSimulationQualification =
+    ugvMoveBindingResolver === undefined
+      ? undefined
+      : new UgvSimulationQualificationService({
+          registry: mcpRegistry,
+          authority: ugvMoveBindingResolver,
+          clock,
+        });
   const skillTaskReadiness = new FrozenSkillTaskReadinessAdapter({
     operations: mcpRepository,
     availability: mcpRegistry,
@@ -2162,6 +2320,16 @@ export async function startServerRuntime(
     }),
     modes: new SkillModeSelector(),
   });
+  const ugvSkillUsage =
+    ugvMoveBindingResolver === undefined
+      ? undefined
+      : new SkillUsageCandidateAssessor({
+          applicability: new SkillApplicabilityAssessor({
+            contexts: new SkillContextRequirementResolver(),
+            readiness: new UgvMoveSkillTaskReadinessAdapter(ugvMoveBindingResolver),
+          }),
+          modes: new SkillModeSelector(),
+        });
   const createDeterministicSkillSelection = (
     input: DeterministicCapabilityExecutionInput,
     contract: Pick<ManagedDeterministicReadOnlyAdmission, 'readinessAttributes'>,
@@ -2262,8 +2430,49 @@ export async function startServerRuntime(
       },
     });
   };
-  const skillSelection =
-    options.skillSelection !== undefined || managedCapabilityProfile
+  const skillSelection = ugvAgentProfile
+    ? new SkillSelectionService({
+        skills: profileSkills,
+        graph: skillGraphRepository,
+        records: skillSelectionRepository,
+        retriever: {
+          score: (_goalContract, candidates) =>
+            Promise.resolve(
+              Object.freeze(
+                Object.fromEntries(candidates.map((candidate) => [candidate.skillId, 1])),
+              ),
+            ),
+        },
+        decider: {
+          decide: ({ candidates }) => {
+            const candidate = candidates[0];
+            if (
+              candidate === undefined ||
+              candidates.length !== 1 ||
+              candidate.skillId !== UGV_AGENT_PROFILE_SKILL_ID ||
+              candidate.skillVersion !== UGV_AGENT_PROFILE_SKILL_VERSION
+            )
+              throw new Error('UGV_AGENT_PROFILE_SKILL_SELECTION_NOT_EXACT');
+            return Promise.resolve({
+              selectedSkillId: candidate.skillId,
+              decisionSummary:
+                'The UGV Agent Profile selected its sole enabled exact SkillVersion.',
+            });
+          },
+        },
+        mcpWarnings: mcpRepository,
+        usage:
+          ugvSkillUsage ??
+          (() => {
+            throw new Error('UGV_AGENT_PROFILE_SKILL_USAGE_RUNTIME_REQUIRED');
+          })(),
+        clock,
+        ids: {
+          nextSelectionId: () => `skill-selection-ugv-agent-profile-${randomUUID()}`,
+          nextReplacementPlanId: () => `skill-replacement-ugv-agent-profile-${randomUUID()}`,
+        },
+      })
+    : options.skillSelection !== undefined || managedCapabilityProfile
       ? new SkillSelectionService({
           skills,
           graph: skillGraphRepository,
@@ -2316,6 +2525,21 @@ export async function startServerRuntime(
             },
           })
         : undefined;
+  const ugvWorkflowCandidateGuard = new AsyncLocalStorage<UgvMoveWorkflowCandidateGuard>();
+  const ugvWorkflowCandidateGuardDispatcher: WorkflowCandidateGuard = {
+    validate(input) {
+      const guard = ugvWorkflowCandidateGuard.getStore();
+      return guard === undefined
+        ? Object.freeze([
+            Object.freeze({
+              code: 'UGV_MOVE_WORKFLOW_AUTHORITY_REQUIRED',
+              path: 'definition',
+              message: 'UGV planning requires one request-scoped immutable Workflow authority.',
+            }),
+          ])
+        : guard.validate(input);
+    },
+  };
   const workflowPlanner = new WorkflowPlannerService({
     model: modelRuntime,
     validator: workflowValidator,
@@ -2330,7 +2554,9 @@ export async function startServerRuntime(
       ? { candidateGuard: new HomeLabReadOnlyWorkflowCandidateGuard() }
       : homeLabGovernedLightProfile
         ? { candidateGuard: new HomeLabGovernedLightWorkflowCandidateGuard() }
-        : {}),
+        : ugvAgentProfile
+          ? { candidateGuard: ugvWorkflowCandidateGuardDispatcher }
+          : {}),
     ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
   });
   const remoteTaskRepository =
@@ -2487,6 +2713,9 @@ export async function startServerRuntime(
       lease: CognitiveManagementActionLeaseGuard;
     }>
   >();
+  const ugvRemoteTaskLifecycle = ugvAgentProfile
+    ? new PostgresRemoteTaskLifecycleQuery(pool)
+    : undefined;
   const workflowPorts: WorkflowRuntimePorts = {
     async executeLlm({ executionId, instruction, context, responseSchema }) {
       const instance = await workflowInstances.findInstance(executionId);
@@ -2578,7 +2807,21 @@ export async function startServerRuntime(
       const providerBindingContext =
         authorityTask === undefined
           ? undefined
-          : await currentTaskProviderBindingContext(authorityTask, tool.serverId, taskCapabilities);
+          : await currentTaskProviderBindingContext(
+              authorityTask,
+              tool.serverId,
+              taskCapabilities,
+              ugvAgentProfile ? options.currentMcpProviderBindingAuthorityReader : undefined,
+              !ugvAgentProfile
+                ? undefined
+                : await loadExactUgvTaskProviderBindingExpectation({
+                    task: authorityTask,
+                    instance,
+                    plan,
+                    definition: planDefinition,
+                    workflowAuthority: ugvMoveWorkflowAuthority,
+                  }),
+            );
       const preTransportFence =
         deterministicLease === undefined
           ? undefined
@@ -2790,7 +3033,69 @@ export async function startServerRuntime(
               ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
             },
       );
-      if (receipt.outcome.kind === 'immediate') return receipt.outcome;
+      if (receipt.outcome.kind === 'immediate') {
+        if (!ugvAgentProfile || workflowNodeId !== UGV_MOVE_WORKFLOW_NODE_IDS.finalState)
+          return receipt.outcome;
+        if (
+          authorityTask === undefined ||
+          instance === undefined ||
+          plan === undefined ||
+          planDefinition === undefined ||
+          ugvMoveWorkflowAuthority === undefined ||
+          ugvRemoteTaskLifecycle === undefined ||
+          ugvMovePositionPolicy === undefined ||
+          authorityTask.selectedSkillId !== UGV_AGENT_PROFILE_SKILL_ID ||
+          authorityTask.selectedSkillVersion !== UGV_AGENT_PROFILE_SKILL_VERSION ||
+          tool.toolName !== 'vehicle_get_state'
+        )
+          throw new Error('UGV_MOVE_FINAL_EVIDENCE_RUNTIME_AUTHORITY_REQUIRED');
+        const [invocations, remoteTaskLifecycle, continuationAttempts] = await Promise.all([
+          mcpRepository.listInvocationsByTask(authorityTask.taskId),
+          ugvRemoteTaskLifecycle.listByAgentTaskId(authorityTask.taskId),
+          workflowContinuations.listAttempts(instance.instanceId),
+        ]);
+        const navigationInvocations = invocations.filter(
+          (invocation) => invocation.toolName === 'vehicle_navigate',
+        );
+        const navigationInvocation = navigationInvocations[0];
+        const continuationAttempt = continuationAttempts[0];
+        if (
+          navigationInvocations.length !== 1 ||
+          navigationInvocation === undefined ||
+          continuationAttempts.length !== 1 ||
+          continuationAttempt?.status !== 'running'
+        )
+          throw new Error('UGV_MOVE_FINAL_EVIDENCE_CARDINALITY_INVALID');
+        const confirmation = await governedControlAuthorityRepository.findConsumedByInvocation(
+          navigationInvocation.invocationId,
+        );
+        if (confirmation === undefined)
+          throw new Error('UGV_MOVE_FINAL_EVIDENCE_CONFIRMATION_REQUIRED');
+        const selectedTaskOperation = await ugvMoveWorkflowAuthority.loadExact({
+          taskId: authorityTask.taskId,
+          workflowPlanId: plan.planId,
+          workflowDefinitionId: planDefinition.workflowDefinitionId,
+          workflowDefinitionVersion: planDefinition.version,
+          goalId: instance.goalId,
+          goalVersion: instance.goalVersion,
+          skillId: authorityTask.selectedSkillId,
+          skillVersion: authorityTask.selectedSkillVersion,
+        });
+        return Object.freeze({
+          kind: 'immediate' as const,
+          result: projectUgvMoveWorkflowEvidence({
+            taskId: authorityTask.taskId,
+            selectedTaskOperation,
+            confirmation,
+            invocations,
+            remoteTaskLifecycle,
+            continuationAttempt,
+            finalToolResult: receipt.outcome.result,
+            assessedAt: clock.now(),
+            policy: ugvMovePositionPolicy,
+          }).result,
+        });
+      }
       const remote = receipt.outcome.task;
       if (
         remoteTaskAdmission === undefined ||
@@ -3315,6 +3620,15 @@ export async function startServerRuntime(
   });
   const goalService = new GoalService({ goals, contexts, clock });
   const userGoalRuntimeRepository = new PostgresUserGoalRuntimeRepository(pool);
+  const ugvUserGoalPlanAuthority = ugvAgentProfile
+    ? new UgvAgentProfileTaskCapabilityUserGoalPlanAuthorityResolver({
+        bindings: taskCapabilities,
+        skills: profileSkills,
+      })
+    : undefined;
+  const ugvUserGoalPlanGuard = ugvAgentProfile
+    ? new UgvAgentProfileUserGoalPlanCandidateGuard()
+    : undefined;
   const goalCancellationRepository = new PostgresGoalCancellationRepository(
     pool,
     publishTaskState,
@@ -3330,18 +3644,34 @@ export async function startServerRuntime(
     repository: userGoalRuntimeRepository,
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
-    ...(managedCapabilityProfile || homeLabGovernedLightProfile
-      ? {
-          candidateAuthority: new TaskCapabilityUserGoalPlanAuthorityResolver({
-            bindings: taskCapabilities,
-            skills,
-          }),
-        }
-      : {}),
+    ...(ugvUserGoalPlanAuthority !== undefined
+      ? { candidateAuthority: ugvUserGoalPlanAuthority }
+      : managedCapabilityProfile || homeLabGovernedLightProfile
+        ? {
+            candidateAuthority: new TaskCapabilityUserGoalPlanAuthorityResolver({
+              bindings: taskCapabilities,
+              skills,
+            }),
+          }
+        : {}),
     ...(homeLabReadOnlyProfile
       ? { candidateGuard: new HomeLabReadOnlyUserGoalPlanCandidateGuard() }
-      : {}),
+      : ugvUserGoalPlanGuard === undefined
+        ? {}
+        : { candidateGuard: ugvUserGoalPlanGuard }),
   });
+  const ugvInitialAdmission =
+    ugvUserGoalPlanAuthority === undefined || ugvUserGoalPlanGuard === undefined
+      ? undefined
+      : new UgvAgentProfileInitialAdmission({
+          bindings: taskCapabilities,
+          authority: ugvUserGoalPlanAuthority,
+          goals: goalService,
+          planning: userGoalPlanning,
+          plans: userGoalRuntimeRepository,
+          guard: ugvUserGoalPlanGuard,
+          clock,
+        });
   const experiencePlanning = new ExperienceEnrichedUserGoalPlanningService({
     base: userGoalPlanning,
     contexts: new PlanningExperienceContextBuilder(planningKnowledge, {
@@ -3549,6 +3879,7 @@ export async function startServerRuntime(
     skillDrafts,
     taskInputs,
     taskCapabilities,
+    initialAdmissions: taskCapabilityRepository,
     ...(options.frozenMcpTasks === undefined
       ? {}
       : {
@@ -3566,6 +3897,22 @@ export async function startServerRuntime(
     ids,
     memories,
     feedback: implicitFeedback,
+    ...(ugvAgentProfile
+      ? {
+          async beforePlanExecution(input) {
+            if (
+              input.confirmationAuthority === undefined ||
+              ugvGovernedControlManagement === undefined
+            )
+              throw new Error('UGV_AGENT_PROFILE_OUTER_CONFIRMATION_AUTHORITY_REQUIRED');
+            await ugvGovernedControlManagement.issue({
+              taskId: input.task.taskId,
+              reason: 'Confirmed the immutable UGV point-navigation outer Workflow plan.',
+              principal: input.confirmationAuthority.principal,
+            });
+          },
+        }
+      : {}),
     planActions: {
       async confirm(task) {
         if (task.planId === undefined) throw new Error('TASK_PLAN_NOT_ATTACHED');
@@ -3821,6 +4168,26 @@ export async function startServerRuntime(
       throw error;
     }
   }
+  let ugvMoveTerminalOutcomeAuthority: UgvMoveTerminalOutcomeAuthority | undefined;
+  if (ugvAgentProfile) {
+    if (
+      ugvMoveWorkflowAuthority === undefined ||
+      ugvRemoteTaskLifecycle === undefined ||
+      ugvMovePositionPolicy === undefined
+    )
+      throw new Error('UGV_MOVE_TERMINAL_OUTCOME_RUNTIME_REQUIRED');
+    ugvMoveTerminalOutcomeAuthority = new UgvMoveTerminalOutcomeAuthority({
+      taskCapabilities,
+      skills,
+      workflowAuthority: ugvMoveWorkflowAuthority,
+      invocations: mcpRepository,
+      remoteTasks: ugvRemoteTaskLifecycle,
+      confirmations: governedControlAuthorityRepository,
+      continuations: workflowContinuations,
+      resultProcessor,
+      positionPolicy: ugvMovePositionPolicy,
+    });
+  }
   // Assigned once after WorkflowController construction because each side exposes a callback to the other.
   // eslint-disable-next-line prefer-const
   let processor: PlanPreparationProcessor;
@@ -3831,7 +4198,10 @@ export async function startServerRuntime(
     confirmation: skillConfirmation,
     planner: workflowPlanner,
     execution: workflowExecution,
-    evaluator: new StructuredGoalEvaluator(modelRuntime, memories),
+    evaluator:
+      ugvMoveTerminalOutcomeAuthority === undefined
+        ? new StructuredGoalEvaluator(modelRuntime, memories)
+        : new UgvMoveDeterministicGoalEvaluator(ugvMoveTerminalOutcomeAuthority),
     recovery: userGoalRecovery,
     resolveExecutionContext: (taskId) => taskCapabilities.resolveRuntimeExecutionContext(taskId),
     experiences: evolutionExperiences,
@@ -3888,6 +4258,15 @@ export async function startServerRuntime(
         processor.continueUserGoalPlan(taskId, userGoalPlanId),
       async prepareAchieved(taskId, instance) {
         const task = await service.get(taskId);
+        if (ugvAgentProfile) {
+          if (
+            task.selectedSkillId !== UGV_AGENT_PROFILE_SKILL_ID ||
+            task.selectedSkillVersion !== UGV_AGENT_PROFILE_SKILL_VERSION ||
+            ugvMoveTerminalOutcomeAuthority === undefined
+          )
+            throw new Error('UGV_MOVE_TERMINAL_OUTCOME_TASK_AUTHORITY_REQUIRED');
+          return ugvMoveTerminalOutcomeAuthority.prepare(taskId, instance);
+        }
         const homeLabReadOnlyErrors = requireHomeLabReadOnlyTerminalPreparation(
           options.taskUnderstanding?.profile,
           task,
@@ -4416,28 +4795,37 @@ export async function startServerRuntime(
     decisions: new StructuredTaskDecisionService(modelRuntime, memories),
     goals: goalService,
     skills,
-    skillInputs: skillInputResolution,
+    skillInputs: ugvExactSkillInputResolver ?? skillInputResolution,
     userGoalPlanning,
+    ...(ugvInitialAdmission === undefined ? {} : { initialAdmission: ugvInitialAdmission }),
     skillGoalScheduler: new SkillGoalScheduler({
       repository: userGoalRuntimeRepository,
       candidates: {
         async list(skillGoal, planId, agentTaskId) {
           if (skillGoal.requiredResult.includes('TEMPORARY_SKILL_GOAL:')) return [];
-          if (skillSelection === undefined) return skills.listEnabledVersions();
+          if (skillSelection === undefined) return profileSkills.listEnabledVersions();
           const userGoalPlan = await userGoalRuntimeRepository.findPlan(planId);
           if (userGoalPlan === undefined) throw new Error('USER_GOAL_PLAN_NOT_FOUND');
           const goal = await goals.findById(userGoalPlan.goalId);
           if (goal?.version !== userGoalPlan.goalVersion)
             throw new Error('USER_GOAL_PLAN_GOAL_STALE');
           const goalContract = createGoalExecutionContract(goal);
-          const compatible = (await skills.listEnabledVersions()).filter((candidate) =>
+          const compatible = (await profileSkills.listEnabledVersions()).filter((candidate) =>
             isSkillGoalCompatible(skillGoal, candidate),
           );
           const task = agentTaskId === undefined ? undefined : await tasks.findById(agentTaskId);
           const taskCapabilityUsage =
-            !managedCapabilityProfile || agentTaskId === undefined
+            (!managedCapabilityProfile && !ugvAgentProfile) || agentTaskId === undefined
               ? undefined
               : await taskCapabilities.resolveSkillUsageAuthority(agentTaskId);
+          if (ugvAgentProfile && taskCapabilityUsage === undefined)
+            throw new Error('UGV_AGENT_PROFILE_TASK_CAPABILITY_AUTHORITY_REQUIRED');
+          const ugvTaskCapabilityBinding =
+            !ugvAgentProfile || agentTaskId === undefined
+              ? undefined
+              : await taskCapabilities.findBinding(agentTaskId);
+          if (ugvAgentProfile && ugvTaskCapabilityBinding === undefined)
+            throw new Error('UGV_AGENT_PROFILE_TASK_CAPABILITY_BINDING_REQUIRED');
           const admitted =
             taskCapabilityUsage === undefined
               ? compatible
@@ -4446,10 +4834,25 @@ export async function startServerRuntime(
                     candidate.skillId === taskCapabilityUsage.skillId &&
                     candidate.version === taskCapabilityUsage.skillVersion,
                 );
+          const selectionContext =
+            taskCapabilityUsage === undefined
+              ? await resolveSkillUsageContext(goalContract, task)
+              : !ugvAgentProfile
+                ? taskCapabilityUsage.context
+                : ugvTaskCapabilityBinding === undefined
+                  ? (() => {
+                      throw new Error('UGV_AGENT_PROFILE_TASK_CAPABILITY_BINDING_REQUIRED');
+                    })()
+                  : await resolveUgvMoveSkillUsageContext({
+                      authority: taskCapabilityUsage,
+                      binding: ugvTaskCapabilityBinding,
+                      invocations: mcpRepository,
+                      clock,
+                    });
           const selected = await skillSelection.selectFromCandidates(
             goalContract,
             admitted,
-            taskCapabilityUsage?.context ?? (await resolveSkillUsageContext(goalContract, task)),
+            selectionContext,
           );
           skillGoalSelectionRecords.set(skillGoal.skillGoalId, selected.selectionId);
           const exact = await skills.findVersion(
@@ -4556,19 +4959,8 @@ export async function startServerRuntime(
           throw new Error('SELECTED_SKILL_NOT_EXECUTABLE');
         if (skill?.status === 'enabled' && input.skillInputResolution === undefined)
           throw new Error('SELECTED_SKILL_INPUT_NOT_RESOLVED');
-        const planningToolPolicy = skill?.toolPolicy ?? {
-          required: temporary?.tools ?? [],
-          optional: [],
-          forbidden: [],
-        };
-        const toolPlanningMetadata = await buildMcpToolPlanningMetadata(
-          planningToolPolicy,
-          async (reference) =>
-            (await mcpRepository.listTools(reference.serverId)).find(
-              (tool) => tool.toolName === reference.toolName,
-            ),
-        );
         const planId = `plan-task-${input.task.taskId}-${randomUUID()}`;
+        const workflowDefinitionId = `workflow-task-${input.task.taskId}`;
         const usageSelectionId = resolveSkillUsageSelectionId({
           selectedSkill: skill !== undefined,
           skillSelectionConfigured: skillSelection !== undefined,
@@ -4603,6 +4995,50 @@ export async function startServerRuntime(
                   candidate.modeDecision,
                   composition,
                 );
+                if (ugvAgentProfile) {
+                  if (
+                    ugvMoveBindingResolver === undefined ||
+                    input.skillInputResolution === undefined
+                  )
+                    throw new Error('UGV_AGENT_PROFILE_MOVE_BINDING_RUNTIME_REQUIRED');
+                  const executionContext = await taskCapabilities.resolveRuntimeExecutionContext(
+                    input.task.taskId,
+                  );
+                  if (
+                    executionContext?.mode !== 'simulation' ||
+                    executionContext.simulationId === undefined
+                  )
+                    throw new Error('UGV_AGENT_PROFILE_SIMULATION_CONTEXT_REQUIRED');
+                  const resolved = await ugvMoveBindingResolver.resolve({
+                    skillInput: input.skillInputResolution.structuredInput,
+                    executionContext,
+                  });
+                  const [taskCapabilityBinding, formalResolution] = await Promise.all([
+                    taskCapabilities.findBinding(input.task.taskId),
+                    skillInputResolutionRepository.find(input.skillInputResolution.resolutionId),
+                  ]);
+                  if (taskCapabilityBinding === undefined || formalResolution === undefined)
+                    throw new Error('UGV_AGENT_PROFILE_SKILL_INPUT_AUTHORITY_REQUIRED');
+                  assertUgvAgentProfileMoveInputAuthority({
+                    binding: taskCapabilityBinding,
+                    resolution: formalResolution,
+                    selectedTaskOperation: resolved.selected,
+                  });
+                  return {
+                    applicabilityStatus: candidate.applicability.status,
+                    prepared: prepareUgvMoveWorkflowPlan({
+                      skill,
+                      candidate,
+                      interpretation,
+                      goalContract: input.goalContract,
+                      workflowDefinitionId,
+                      workflowVersion: 1,
+                      selectedTaskOperation: resolved.selected,
+                    }),
+                    selectedTaskOperation: resolved.selected,
+                    executionContext,
+                  } as const;
+                }
                 return {
                   applicabilityStatus: candidate.applicability.status,
                   prepared: prepareSkillUsagePlan({
@@ -4610,15 +5046,51 @@ export async function startServerRuntime(
                     candidate,
                     interpretation,
                     goalContract: input.goalContract,
-                    workflowDefinitionId: `workflow-task-${input.task.taskId}`,
+                    workflowDefinitionId,
                     workflowVersion: 1,
                   }),
                 } as const;
               })();
         const preparedUsage = preparedUsageEvidence?.prepared;
-        const plan = await workflowPlanner.plan({
+        const selectedTaskOperation =
+          preparedUsageEvidence !== undefined && 'selectedTaskOperation' in preparedUsageEvidence
+            ? preparedUsageEvidence.selectedTaskOperation
+            : undefined;
+        const executionContext =
+          preparedUsageEvidence !== undefined && 'executionContext' in preparedUsageEvidence
+            ? preparedUsageEvidence.executionContext
+            : undefined;
+        const planningToolPolicy =
+          selectedTaskOperation === undefined
+            ? (skill?.toolPolicy ?? {
+                required: temporary?.tools ?? [],
+                optional: [],
+                forbidden: [],
+              })
+            : {
+                required: [
+                  {
+                    serverId: selectedTaskOperation.finalStateRead.serverId,
+                    toolName: selectedTaskOperation.finalStateRead.operationName,
+                  },
+                  {
+                    serverId: selectedTaskOperation.server.serverId,
+                    toolName: selectedTaskOperation.operation.operationName,
+                  },
+                ],
+                optional: [],
+                forbidden: skill?.toolPolicy.forbidden ?? [],
+              };
+        const toolPlanningMetadata = await buildMcpToolPlanningMetadata(
+          planningToolPolicy,
+          async (reference) =>
+            (await mcpRepository.listTools(reference.serverId)).find(
+              (tool) => tool.toolName === reference.toolName,
+            ),
+        );
+        const planInput = {
           planId,
-          workflowDefinitionId: `workflow-task-${input.task.taskId}`,
+          workflowDefinitionId,
           workflowVersion: 1,
           goalId: input.goalId,
           goalVersion: input.goalVersion,
@@ -4626,6 +5098,7 @@ export async function startServerRuntime(
           ...(input.skillGoalId === undefined ? {} : { skillGoalId: input.skillGoalId }),
           ...(input.skillAttemptId === undefined ? {} : { skillAttemptId: input.skillAttemptId }),
           toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
+          ...(executionContext === undefined ? {} : { executionContext }),
           ...(skill === undefined
             ? {}
             : {
@@ -4636,6 +5109,7 @@ export async function startServerRuntime(
               }),
           taskId: input.task.taskId,
           templateQuery: input.goalDescription,
+          ...(selectedTaskOperation === undefined ? {} : { deterministicOnly: true as const }),
           ...(preparedUsage === undefined
             ? {}
             : {
@@ -4647,7 +5121,7 @@ export async function startServerRuntime(
           planningInstruction: JSON.stringify({
             operation: 'task_initial_plan',
             workflowIdentity: {
-              workflowDefinitionId: `workflow-task-${input.task.taskId}`,
+              workflowDefinitionId,
               version: 1,
               goalId: input.goalId,
               goalVersion: input.goalVersion,
@@ -4681,7 +5155,23 @@ export async function startServerRuntime(
                   },
                 }),
           }),
-        });
+        };
+        const plan =
+          selectedTaskOperation === undefined || preparedUsage === undefined
+            ? await workflowPlanner.plan(planInput)
+            : await ugvWorkflowCandidateGuard.run(
+                new UgvMoveWorkflowCandidateGuard({
+                  selectedTaskOperation,
+                  skillUsagePolicy: preparedUsage.policy,
+                  taskId: input.task.taskId,
+                  workflowDefinitionId,
+                  workflowVersion: 1,
+                  goalId: input.goalId,
+                  goalVersion: input.goalVersion,
+                  clock,
+                }),
+                () => workflowPlanner.plan(planInput),
+              );
         if (plan.definition === undefined) throw new Error('TASK_PLAN_GENERATION_FAILED');
         const toolPolicyViolations = validateSkillToolPolicies(
           plan.definition,
@@ -4705,7 +5195,7 @@ export async function startServerRuntime(
           preparedUsage !== undefined &&
           preparedUsageEvidence !== undefined &&
           input.task.skillSelectionId !== undefined
-        )
+        ) {
           await skillExecutionRecording.recordPlanning({
             executionId: `skill-execution-${plan.planId}`,
             taskId: input.task.taskId,
@@ -4722,6 +5212,24 @@ export async function startServerRuntime(
               preparedUsage.policy.mode === 'procedure',
             planCompliancePassed: true,
           });
+          if (selectedTaskOperation !== undefined) {
+            if (ugvMoveWorkflowAuthority === undefined)
+              throw new Error('UGV_MOVE_WORKFLOW_AUTHORITY_RUNTIME_REQUIRED');
+            await ugvMoveWorkflowAuthority.append(
+              {
+                taskId: input.task.taskId,
+                workflowPlanId: plan.planId,
+                workflowDefinitionId: plan.definition.workflowDefinitionId,
+                workflowDefinitionVersion: plan.definition.version,
+                goalId: input.goalId,
+                goalVersion: input.goalVersion,
+                skillId: skill.skillId,
+                skillVersion: skill.version,
+              },
+              selectedTaskOperation,
+            );
+          }
+        }
         if (autoConfirmed) await workflowExecution.confirm(plan.planId, input.task.taskId);
         return {
           planId: plan.planId,
@@ -6185,7 +6693,7 @@ export async function startServerRuntime(
             },
           }),
       ...(artifactManagement === undefined ? {} : { artifactManagement }),
-      ...(options.governedControlPrincipalResolver === undefined
+      ...(options.governedControlPrincipalResolver === undefined || ugvAgentProfile
         ? {}
         : {
             governedControl: {
@@ -6260,6 +6768,7 @@ export async function startServerRuntime(
               evidenceExport,
               evidenceOperations,
               taskRevisionAuthority: new PostgresRuntimeTaskRevisionAuthority(pool, taskCommands),
+              ...(ugvSimulationQualification === undefined ? {} : { ugvSimulationQualification }),
               actorId: 'sdar-node-control',
               ...(options.runtimeControlArtifactPrincipalResolver === undefined
                 ? {}
@@ -6278,6 +6787,13 @@ export async function startServerRuntime(
         foregroundActivity.run(() => service.followUp(command)),
       cancel: (taskId: string) => foregroundActivity.run(() => service.cancel(taskId)),
     };
+    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool);
+    const a2aTaskStore = new A2AProjectionTaskStore(
+      a2aProjections,
+      tasks,
+      createA2ACancelReconciliationHandler(foregroundAwareTasks),
+      interactiveGoalMetadata,
+    );
     const taskExecutor = new TaskServiceAgentExecutor({
       tasks: foregroundAwareTasks,
       notifier: taskStateNotifier,
@@ -6289,10 +6805,10 @@ export async function startServerRuntime(
         ? {}
         : { safetyPollIntervalMs: options.a2aSafetyPollIntervalMs }),
     });
-    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool);
     const a2aTerminalProjectionReconciler = new A2ATerminalProjectionReconciler({
       projections: a2aProjections,
       tasks,
+      taskStore: a2aTaskStore,
       interaction: interactiveGoalMetadata,
     });
     await a2aTerminalProjectionReconciler.reconcile();
@@ -6322,15 +6838,10 @@ export async function startServerRuntime(
     a2aTerminalProjectionReconciliationTimer.unref();
     const a2a = await startA2AHttpEndpoint({
       executor: taskExecutor,
-      taskStore: new A2AProjectionTaskStore(
-        a2aProjections,
-        tasks,
-        createA2ACancelReconciliationHandler(foregroundAwareTasks),
-        interactiveGoalMetadata,
-      ),
+      taskStore: a2aTaskStore,
       skillProvider: {
         async listEnabled() {
-          return (await skills.listEnabledVersions()).map((skill) => ({
+          return (await profileSkills.listEnabledVersions()).map((skill) => ({
             id: skill.skillId,
             name: skill.name,
             description: skill.summary,
@@ -6363,12 +6874,19 @@ export async function startServerRuntime(
             },
           }),
       capabilityCardProvider: capabilityCards,
-      agentCardProvider: {
-        async findActive() {
-          const card = await managedAgentCards.findActiveCard();
-          return card === undefined ? undefined : parseOfficialAgentCard(card);
-        },
-      },
+      ...(ugvAgentProfile && options.governedControlPrincipalResolver !== undefined
+        ? { confirmationPrincipalResolver: options.governedControlPrincipalResolver }
+        : {}),
+      ...(useManagedAgentCardForProfile(options.taskUnderstanding?.profile)
+        ? {
+            agentCardProvider: {
+              async findActive() {
+                const card = await managedAgentCards.findActiveCard();
+                return card === undefined ? undefined : parseOfficialAgentCard(card);
+              },
+            },
+          }
+        : {}),
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
     });
@@ -6692,13 +7210,15 @@ function assertDeterministicUsageCandidate(
     );
 }
 
-async function currentTaskProviderBindingContext(
+export async function currentTaskProviderBindingContext(
   task: AgentTask,
   localServerId: string,
   taskCapabilities: Pick<
     RuntimeTaskCapabilityService,
     'resolveCurrentProviderBindingId' | 'resolveCurrentCapabilityAttemptId'
   >,
+  providerBindings?: CurrentMcpProviderBindingAuthorityReader,
+  strictExpected?: UgvTaskProviderBindingExpectation,
 ): Promise<
   | Readonly<{
       providerBindingId?: string;
@@ -6709,7 +7229,7 @@ async function currentTaskProviderBindingContext(
 > {
   const capabilityAttemptId = await taskCapabilities.resolveCurrentCapabilityAttemptId(task.taskId);
   const deterministic = task.requestMetadata['io.sdar/deterministicCapabilityExecution'];
-  if (isRecord(deterministic)) {
+  if (isRecord(deterministic) && strictExpected === undefined) {
     const bindingId = deterministic['mcpProviderBindingId'];
     const providerId = deterministic['providerId'];
     const serverId = deterministic['serverId'];
@@ -6731,10 +7251,108 @@ async function currentTaskProviderBindingContext(
     task.taskId,
     localServerId,
   );
+  if (
+    strictExpected !== undefined &&
+    (!validUgvTaskProviderBindingExpectation(strictExpected) ||
+      providerBindingId === undefined ||
+      providerBindingId !== strictExpected.bindingId ||
+      capabilityAttemptId === undefined ||
+      providerBindings === undefined ||
+      localServerId !== strictExpected.localServerId)
+  )
+    throw new Error('TASK_MCP_PROVIDER_BINDING_CONTEXT_INVALID');
   if (providerBindingId === undefined && capabilityAttemptId === undefined) return undefined;
+  let providerBinding: CurrentMcpProviderBindingAuthoritySnapshot | undefined;
+  try {
+    providerBinding =
+      providerBindingId === undefined || providerBindings === undefined
+        ? undefined
+        : await providerBindings.loadCurrentMcpProviderBinding({
+            bindingId: providerBindingId,
+            localServerId,
+          });
+  } catch {
+    throw new Error('TASK_MCP_PROVIDER_BINDING_CONTEXT_INVALID');
+  }
+  if (
+    (strictExpected !== undefined && providerBinding === undefined) ||
+    (providerBinding !== undefined &&
+      (providerBinding.binding.bindingId !== providerBindingId ||
+        providerBinding.binding.localServerId !== localServerId ||
+        providerBinding.binding.providerId.trim() === '' ||
+        (strictExpected !== undefined &&
+          (providerBinding.binding.providerId !== strictExpected.providerId ||
+            providerBinding.binding.revision !== strictExpected.bindingRevision ||
+            providerBinding.binding.catalogRevision !== strictExpected.catalogRevision ||
+            providerBinding.binding.catalogChecksum !== strictExpected.catalogChecksum)))) ||
+    (strictExpected !== undefined && deterministic !== undefined)
+  )
+    throw new Error('TASK_MCP_PROVIDER_BINDING_CONTEXT_INVALID');
   return Object.freeze({
     ...(providerBindingId === undefined ? {} : { providerBindingId }),
+    ...(providerBinding === undefined ? {} : { providerId: providerBinding.binding.providerId }),
     ...(capabilityAttemptId === undefined ? {} : { capabilityAttemptId }),
+  });
+}
+
+export interface UgvTaskProviderBindingExpectation {
+  readonly bindingId: string;
+  readonly bindingRevision: number;
+  readonly providerId: string;
+  readonly localServerId: string;
+  readonly catalogRevision: string;
+  readonly catalogChecksum: string;
+}
+
+function validUgvTaskProviderBindingExpectation(value: UgvTaskProviderBindingExpectation): boolean {
+  return (
+    value.bindingId.trim() !== '' &&
+    Number.isSafeInteger(value.bindingRevision) &&
+    value.bindingRevision > 0 &&
+    value.providerId.trim() !== '' &&
+    value.localServerId.trim() !== '' &&
+    value.catalogRevision.trim() !== '' &&
+    /^[0-9a-f]{64}$/u.test(value.catalogChecksum)
+  );
+}
+
+async function loadExactUgvTaskProviderBindingExpectation(
+  input: Readonly<{
+    task: AgentTask;
+    instance: WorkflowInstance | undefined;
+    plan: Awaited<ReturnType<PostgresWorkflowPlanRepository['findPlan']>>;
+    definition: NonNullable<
+      Awaited<ReturnType<PostgresWorkflowPlanRepository['findPlan']>>
+    >['definition'];
+    workflowAuthority: UgvMoveWorkflowAuthority | undefined;
+  }>,
+): Promise<UgvTaskProviderBindingExpectation> {
+  if (
+    input.instance === undefined ||
+    input.plan === undefined ||
+    input.definition === undefined ||
+    input.workflowAuthority === undefined ||
+    input.task.selectedSkillId !== UGV_AGENT_PROFILE_SKILL_ID ||
+    input.task.selectedSkillVersion !== UGV_AGENT_PROFILE_SKILL_VERSION
+  )
+    throw new Error('TASK_MCP_PROVIDER_BINDING_CONTEXT_INVALID');
+  const selected = await input.workflowAuthority.loadExact({
+    taskId: input.task.taskId,
+    workflowPlanId: input.plan.planId,
+    workflowDefinitionId: input.definition.workflowDefinitionId,
+    workflowDefinitionVersion: input.definition.version,
+    goalId: input.instance.goalId,
+    goalVersion: input.instance.goalVersion,
+    skillId: input.task.selectedSkillId,
+    skillVersion: input.task.selectedSkillVersion,
+  });
+  return Object.freeze({
+    bindingId: selected.providerBinding.bindingId,
+    bindingRevision: selected.providerBinding.revision,
+    providerId: selected.provider.providerId,
+    localServerId: selected.server.serverId,
+    catalogRevision: selected.server.catalogRevision,
+    catalogChecksum: selected.server.catalogChecksum,
   });
 }
 

@@ -125,11 +125,31 @@ const EnvironmentSchema = z
     SDAR_UGV_MODEL_API_KEY: OptionalSecretSchema,
     SDAR_UGV_MODEL_API_KEY_FILE: OptionalNonBlankStringSchema,
     SDAR_UGV_MODEL_TIMEOUT_MS: z.coerce.number().int().positive().max(300_000).default(30_000),
+    UGV_TEST_TOLERANCE_M: z.coerce.number().positive().max(2).default(2),
+    UGV_TEST_MINIMUM_DISPLACEMENT_M: z.coerce.number().positive().max(2).default(0.5),
+    UGV_TEST_MAX_FINAL_STATE_AGE_MS: z.coerce.number().int().min(1).max(3_000).default(3_000),
     SDAR_TASK_UNDERSTANDING_PROFILE: z
-      .enum(['off', 'home_lab_read_only', 'home_lab_governed_light_control', 'managed_capability'])
+      .enum([
+        'off',
+        'home_lab_read_only',
+        'home_lab_governed_light_control',
+        'managed_capability',
+        'ugv-agent-profile',
+      ])
       .default('off'),
   })
   .superRefine((environment, context) => {
+    if (
+      environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'ugv-agent-profile' &&
+      (environment.NODE_ENV !== 'test' ||
+        !['test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_TASK_UNDERSTANDING_PROFILE'],
+        message:
+          'ugv-agent-profile is external-simulation-only and requires NODE_ENV=test with SDAR_CONTROL_ENVIRONMENT=test or integration.',
+      });
     if (
       environment.SDAR_MCP_LIVE_EXECUTION_MODE_HEADER === 'omit' &&
       (environment.NODE_ENV === undefined ||
@@ -267,7 +287,8 @@ const EnvironmentSchema = z
     if (
       (environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_read_only' ||
         environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' ||
-        environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability') &&
+        environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability' ||
+        environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'ugv-agent-profile') &&
       environment.SDAR_NODE_CONTROL_BASE_URL === undefined
     ) {
       context.addIssue({
@@ -343,7 +364,8 @@ const EnvironmentSchema = z
         message: 'Governed control bearer authentication requires explicit permissions.',
       });
     if (
-      environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' &&
+      (environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' ||
+        environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'ugv-agent-profile') &&
       (environment.SDAR_GOVERNED_CONTROL_BEARER_TOKEN === undefined ||
         environment.SDAR_GOVERNED_CONTROL_ACTOR_ID === undefined ||
         !environment.SDAR_GOVERNED_CONTROL_PERMISSIONS?.includes('physical_control.confirm'))
@@ -352,7 +374,7 @@ const EnvironmentSchema = z
         code: 'custom',
         path: ['SDAR_GOVERNED_CONTROL_BEARER_TOKEN'],
         message:
-          'The governed light profile requires an authenticated human physical_control.confirm identity.',
+          'The selected physical-control profile requires an authenticated human physical_control.confirm identity.',
       });
     const exposedHosts = [environment.SDAR_A2A_HOST, environment.SDAR_MANAGEMENT_HOST].filter(
       (host) => !isLoopbackHost(host),

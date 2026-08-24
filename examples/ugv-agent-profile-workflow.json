@@ -1,0 +1,183 @@
+{
+  "schemaVersion": "ugv-agent-profile.generated-workflow/v1",
+  "generatedAt": "2026-08-21T05:12:52.795Z",
+  "status": "PASS",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic_local_component",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "authority": {
+    "selectedTaskOperationHash": "sha256:dd59d9f5ba1a4b046d8c109043a4a4d71b1dfb02302155997f3d20ec086dbaba",
+    "navigateArgumentsHash": "sha256:b86c1872ff16eeaba4f18ad650ba1db821ab870588127733fef951be7d8d66ed",
+    "finalStateArgumentsHash": "sha256:60f2e269c7de3cfcb27540c0a99e0e35fd5ce1e81750a74803908274cdf63be1",
+    "skillUsagePolicyHash": "sha256:ea8573b9d108ae2e3ae81d2ba1549211cc0a50b485385071fc661b0898063da3"
+  },
+  "workflowDefinition": {
+    "workflowDefinitionId": "workflow-uap-p2-b03",
+    "version": 1,
+    "goalId": "goal-uap-p2-b03",
+    "goalVersion": 1,
+    "entryNodeId": "ugv_initial_state",
+    "exitNodeIds": ["ugv_success", "ugv_failure"],
+    "nodes": [
+      {
+        "nodeId": "ugv_initial_state",
+        "name": "Read authoritative initial UGV state",
+        "type": "mcp_tool",
+        "tool": {
+          "serverId": "ugv-runtime-1",
+          "toolName": "vehicle_get_state"
+        },
+        "arguments": {
+          "resourceId": "vehicle:ugv1",
+          "include": ["chassis", "health"]
+        }
+      },
+      {
+        "nodeId": "ugv_context_current_position",
+        "name": "Require current-position context",
+        "type": "condition",
+        "expression": {
+          "op": "ref",
+          "path": ["context", "current-position"]
+        }
+      },
+      {
+        "nodeId": "ugv_context_resource_state",
+        "name": "Require resource-state context",
+        "type": "condition",
+        "expression": {
+          "op": "ref",
+          "path": ["context", "resource-state"]
+        }
+      },
+      {
+        "nodeId": "ugv_context_permission",
+        "name": "Require permission context",
+        "type": "condition",
+        "expression": {
+          "op": "ref",
+          "path": ["context", "permission-context"]
+        }
+      },
+      {
+        "nodeId": "ugv_navigate",
+        "name": "Dispatch exactly one governed point-navigation Task",
+        "type": "mcp_tool",
+        "tool": {
+          "serverId": "ugv-runtime-1",
+          "toolName": "vehicle_navigate"
+        },
+        "arguments": {
+          "resourceId": "vehicle:ugv1",
+          "mission": {
+            "type": "point",
+            "target": {
+              "longitude": 112,
+              "latitude": 28
+            }
+          },
+          "stopOnObstacle": true
+        },
+        "taskExecution": {
+          "protocolMode": "frozen_v1",
+          "availabilityCheck": "required"
+        }
+      },
+      {
+        "nodeId": "ugv_final_state",
+        "name": "Read authoritative final UGV state after continuation",
+        "type": "mcp_tool",
+        "tool": {
+          "serverId": "ugv-runtime-1",
+          "toolName": "vehicle_get_state"
+        },
+        "arguments": {
+          "resourceId": "vehicle:ugv1",
+          "include": ["chassis", "health"]
+        }
+      },
+      {
+        "nodeId": "ugv_evidence_final_position",
+        "name": "Require verified final-position evidence",
+        "type": "condition",
+        "expression": {
+          "op": "exists",
+          "path": ["evidence", "position.observation"]
+        }
+      },
+      {
+        "nodeId": "ugv_success",
+        "name": "Return schema-valid UGV Skill result after final-position evidence",
+        "type": "result",
+        "value": {
+          "op": "ref",
+          "path": ["nodes", "ugv_final_state", "data", "metadata", "ugvSkillResult"]
+        }
+      },
+      {
+        "nodeId": "ugv_failure",
+        "name": "Fail the governed UGV move",
+        "type": "result",
+        "value": {
+          "op": "literal",
+          "value": false
+        }
+      }
+    ],
+    "edges": [
+      {
+        "sourceNodeId": "ugv_initial_state",
+        "targetNodeId": "ugv_context_current_position"
+      },
+      {
+        "sourceNodeId": "ugv_context_current_position",
+        "targetNodeId": "ugv_context_resource_state",
+        "outcome": "true"
+      },
+      {
+        "sourceNodeId": "ugv_context_current_position",
+        "targetNodeId": "ugv_failure",
+        "outcome": "false"
+      },
+      {
+        "sourceNodeId": "ugv_context_resource_state",
+        "targetNodeId": "ugv_context_permission",
+        "outcome": "true"
+      },
+      {
+        "sourceNodeId": "ugv_context_resource_state",
+        "targetNodeId": "ugv_failure",
+        "outcome": "false"
+      },
+      {
+        "sourceNodeId": "ugv_context_permission",
+        "targetNodeId": "ugv_navigate",
+        "outcome": "true"
+      },
+      {
+        "sourceNodeId": "ugv_context_permission",
+        "targetNodeId": "ugv_failure",
+        "outcome": "false"
+      },
+      {
+        "sourceNodeId": "ugv_navigate",
+        "targetNodeId": "ugv_final_state"
+      },
+      {
+        "sourceNodeId": "ugv_final_state",
+        "targetNodeId": "ugv_evidence_final_position"
+      },
+      {
+        "sourceNodeId": "ugv_evidence_final_position",
+        "targetNodeId": "ugv_success",
+        "outcome": "true"
+      },
+      {
+        "sourceNodeId": "ugv_evidence_final_position",
+        "targetNodeId": "ugv_failure",
+        "outcome": "false"
+      }
+    ]
+  }
+}

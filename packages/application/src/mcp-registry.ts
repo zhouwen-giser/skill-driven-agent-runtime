@@ -4,11 +4,13 @@ import {
   createMcpToolExecutionSemantics,
   withMcpToolAdminExecutionSemanticsOverride,
   createMcpToolEnhancement,
+  createMcpTaskCallProfile,
   createRemoteTaskAuthoritySnapshot,
   type McpInvocation,
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
+  type McpTaskCallProfile,
   type McpToolCancellation,
   type RemoteTaskOperationAck,
   type RemoteTaskAuthoritySnapshot,
@@ -127,6 +129,7 @@ export interface FrozenTaskLifecycleRuntimePort {
       headers: Readonly<Record<string, string>>;
       toolName: string;
       arguments: Readonly<Record<string, unknown>>;
+      taskCallProfile?: McpTaskCallProfile;
       outputSchema?: unknown;
       outputValidator: JsonSchemaValidator;
       signal?: AbortSignal;
@@ -263,6 +266,12 @@ export class McpRegistryService {
         'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT',
         'Remote admission and deterministic dispatch must share one invocation identity.',
       );
+    const taskCallProfile = this.#taskCallProfile(
+      tool,
+      frozenAuthority.taskBehavior,
+      context.taskExecution,
+      invocationId,
+    );
     const startedAt = this.#clock.now();
     const authoritySnapshot = remoteTaskAuthoritySnapshot(
       runtimeAuthority,
@@ -301,6 +310,7 @@ export class McpRegistryService {
       ),
       toolName,
       arguments: arguments_,
+      ...(taskCallProfile === undefined ? {} : { taskCallProfile }),
       outputValidator: this.#schemas,
       ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
       ...(transportSignal === undefined ? {} : { signal: transportSignal }),
@@ -503,6 +513,35 @@ export class McpRegistryService {
       taskCancellation: tool.executionSemantics.cancellation,
       catalogAuthority,
     };
+  }
+
+  #taskCallProfile(
+    tool: McpTool,
+    taskBehavior: McpTaskBehavior,
+    taskExecution: ResolvedMcpTaskExecution | undefined,
+    invocationId: string,
+  ): McpTaskCallProfile | undefined {
+    if (taskExecution === undefined) return undefined;
+    if (
+      tool.protocolMode !== 'frozen_v1' ||
+      taskBehavior !== 'task_required' ||
+      tool.executionSemantics.execution !== 'task_required'
+    )
+      throw new McpRegistryError(
+        'MCP_TASK_CALL_PROFILE_CONFLICT',
+        'MCP Task call data is valid only for an exact Frozen task-required Tool.',
+      );
+    return createMcpTaskCallProfile({
+      profileVersion: '1.0',
+      ...(tool.executionSemantics.idempotency === 'client_request_key' ||
+      tool.executionSemantics.idempotency === 'server_managed'
+        ? { idempotencyKey: invocationId }
+        : {}),
+      ...(taskExecution.timing === undefined ? {} : { timing: taskExecution.timing }),
+      ...(taskExecution.reservationRef === undefined
+        ? {}
+        : { reservationRef: taskExecution.reservationRef }),
+    });
   }
 
   async #assertCurrentProviderBinding(
@@ -1131,6 +1170,7 @@ export type McpRegistryErrorCode =
   | 'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE'
   | 'MCP_PROVIDER_BINDING_NOT_CURRENT'
   | 'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT'
+  | 'MCP_TASK_CALL_PROFILE_CONFLICT'
   | 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_ENABLED'

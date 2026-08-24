@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "ugv-agent-profile.baseline-drift/v1",
+  "generatedAt": "2026-08-21T01:23:24.088Z",
+  "status": "reviewed_compatible_drift",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "referenceCommit": "2275bc52759914bc80113358a9083e6f00d59e6d",
+  "currentCommit": "928c645702f9e05e32cc001335898b79444ef9f6",
+  "mergeBase": "0da6075f2581279909efb69fc8e48cb01d95552c",
+  "history": {
+    "referenceOnly": [
+      "2275bc52759914bc80113358a9083e6f00d59e6d Merge pull request #24 from zhouwen-giser/codex/sdar-ugv-smpp-integration"
+    ],
+    "currentOnly": [
+      "928c645702f9e05e32cc001335898b79444ef9f6 fix: add .codex to .gitignore"
+    ]
+  },
+  "treeChanges": [
+    {
+      "status": "modified",
+      "path": ".gitignore",
+      "assessment": "repository hygiene only; no UGV runtime or protocol behavior changed"
+    }
+  ],
+  "decision": "Keep the current clean feature branch and implement the Goal additively; do not reset or rewrite history."
+}

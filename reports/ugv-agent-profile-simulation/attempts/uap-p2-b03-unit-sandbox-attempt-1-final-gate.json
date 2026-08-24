@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:08:24.425Z",
+  "recordedAt": "2026-08-21T09:08:24.425Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command result did not include a wall-clock execution timestamp; the evidence recording time is not substituted.",
+  "status": "ENVIRONMENT_BLOCKED_WITH_APPROVED_HOST_REPLAY",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "deterministic_unit_sandbox",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": "pnpm test:unit",
+  "executionContext": "workspace sandbox",
+  "exitCode": 1,
+  "result": {
+    "testFilesTotal": 244,
+    "testFilesFailed": 6,
+    "testsFailed": 48
+  },
+  "failure": {
+    "code": "SANDBOX_LOCAL_LISTEN_OR_CHILD_PROCESS_EPERM",
+    "summary": "Six files failed because sandbox-denied loopback listen operations returned EPERM or a denied child process returned empty output."
+  },
+  "corroboration": {
+    "approvedHostAttempt": "attempts/uap-p2-b03-unit-approved-host-attempt-2-pass.json",
+    "sameCommand": true,
+    "result": "The identical command passed outside the sandbox."
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

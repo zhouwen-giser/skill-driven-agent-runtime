@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "ugv-agent-profile.task-verification/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T03:14:53.476Z",
+  "status": "PASS_WITH_BASELINE_LINT_AND_FORMAT_GAPS",
+  "taskAcceptance": "PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationScope": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "verification": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "Already up to date; pnpm 11.7.0."
+    },
+    {
+      "command": "./node_modules/.bin/vitest run apps/server/test/ugv-agent-profile.unit.test.ts apps/server/test/ugv-agent-profile-card.unit.test.ts packages/application/test/capability-card-publisher.unit.test.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "5 test files, 27 tests passed."
+    },
+    {
+      "command": "./node_modules/.bin/vitest run apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "1 real isolated PostgreSQL/Redis startServerRuntime integration test passed; the logged P0001 was the intentional stale-projection failure injection."
+    },
+    {
+      "command": "./node_modules/.bin/vitest run apps/server/test/ugv-agent-profile.unit.test.ts apps/server/test/ugv-agent-profile-card.unit.test.ts apps/server/test/environment.unit.test.ts apps/server/test/home-lab-governed-light-profile.unit.test.ts apps/server/test/managed-capability-task-understanding.unit.test.ts packages/application/test/capability-card-publisher.unit.test.ts packages/application/test/capability-summary-builder.unit.test.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "9 test files, 65 tests passed."
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm exec eslint <all UAP-P2-B01 TypeScript implementation and test files>",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 1,
+      "status": "BASELINE_GAP",
+      "summary": "22 errors remain in seven unchanged Home-Lab/Node-Control files; see attempts/uap-p2-b01-lint-baseline.json."
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "TypeScript production build and Console build passed."
+    },
+    {
+      "command": "pnpm verify:architecture",
+      "exitCode": 0,
+      "status": "PASS",
+      "summary": "Architecture boundaries verified across 802 TypeScript source files."
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm exec prettier --check <all UAP-P2-B01 implementation, test, and evidence files>",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm format:check",
+      "exitCode": 1,
+      "status": "BASELINE_GAP",
+      "summary": "Three untouched baseline files fail Prettier; see attempts/uap-p2-b01-format-check-baseline.json."
+    }
+  ],
+  "acceptance": {
+    "existingRuntimeReused": true,
+    "cardShowsEmbodiedMoveTo": true,
+    "exactSkillVersionTraceable": true,
+    "enableDisableRebuildCovered": true,
+    "realPostgresRuntimeLifecycleCovered": true,
+    "providerAuthorityIndependenceCovered": true,
+    "providerAuthorityReaderCallCount": 0,
+    "sameCatalogCardContentHashStable": true,
+    "staleCardFailClosedCovered": true,
+    "pendingCatalogOutboxRecoveryCovered": true,
+    "duplicatePublicMovementSkillAbsent": true,
+    "providerOperationReverseSkillProjectionAbsent": true,
+    "managedCardPrecedenceResolvedForProfile": true,
+    "otherProfilesUnchangedByRegression": true,
+    "externalSimulationOnlyStartupGateCovered": true,
+    "packageChecksumClaimedAsRuntimeCardAuthority": false,
+    "externalSimulatorQualifiedByThisTask": false
+  },
+  "artifacts": [
+    {
+      "path": "reports/ugv-agent-profile-simulation/agent-profile.json",
+      "sha256": "7e3c32cda3044d0cd0da7c1fa367184b04bd0199a9ce9ec32ca60bb7aaa2ea4c"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/agent-card.redacted.json",
+      "sha256": "e956763b8a4cd3e955cf5512ee55ebb0914f837f02b5401ca7f52a71a135730f"
+    }
+  ],
+  "safety": {
+    "authorizationGrantedByThisTask": false,
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

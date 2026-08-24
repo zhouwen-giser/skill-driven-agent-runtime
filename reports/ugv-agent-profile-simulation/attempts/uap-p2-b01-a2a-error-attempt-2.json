@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "observedAt": "2026-08-21T02:49:13.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "./node_modules/.bin/vitest run apps/server/test/ugv-agent-profile.unit.test.ts apps/server/test/ugv-agent-profile-card.unit.test.ts packages/application/test/capability-card-publisher.unit.test.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts packages/a2a-adapter/test/http-endpoint.contract.test.ts packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+  "exitCode": 1,
+  "failure": {
+    "expected": "503 application/problem+json",
+    "actual": "500 application/json",
+    "summary": "One new assertion expected a custom 503 problem body, but the official A2A SDK agentCardHandler owns failures and returns its stable 500 JSON response.",
+    "rootCause": "The proposed Express error middleware cannot observe an error already caught by the official SDK handler."
+  },
+  "fix": {
+    "summary": "Removed the unnecessary custom A2A wrapper/middleware and retained the official SDK boundary. The real Runtime integration asserts the official exact 500 body and the management API's domain code CAPABILITY_CARD_NOT_AVAILABLE.",
+    "stateMutation": "none",
+    "productBoundaryChangeRetained": false
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

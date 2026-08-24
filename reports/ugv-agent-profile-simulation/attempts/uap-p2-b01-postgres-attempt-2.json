@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "observedAt": "2026-08-21T02:52:57.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+  "exitCode": 1,
+  "failure": {
+    "code": "POSTGRES_TEMPLATE_COLLATION_VERSION_UNAVAILABLE",
+    "summary": "PostgreSQL rejected CREATE DATABASE because its default template1 reports a collation version without a discoverable host version. The test body was skipped."
+  },
+  "fix": {
+    "summary": "Added a narrowly typed optional template0 selection to the existing isolated database helper; its default remains unchanged and identifiers remain quoted. This test explicitly selects template0.",
+    "sharedClusterRepairAttempted": false,
+    "databaseCreated": false
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

@@ -8,6 +8,7 @@ import type {
   McpProtocolDiscoverySnapshot,
   McpServer,
   McpTool,
+  ResolvedMcpTaskExecution,
 } from '../../domain/src/index.js';
 import {
   deriveFrozenMcpCatalogAuthority,
@@ -673,6 +674,221 @@ describe('MCP Registry invocation boundary', () => {
     expect(fixture.repository.invocations[0]).toMatchObject({ status: 'succeeded' });
   });
 
+  it('constructs the full Task call profile from authoritative dispatch identity and readiness', async () => {
+    const fixture = createFixture({
+      outcome: remoteTaskOutcome(),
+      toolName: 'vehicle_navigate',
+      toolEffect: 'side_effecting',
+      toolExecution: 'task_required',
+      toolIdempotency: 'server_managed',
+      taskBehavior: 'task_required',
+    });
+    const enter = vi.fn(() => Promise.resolve());
+
+    const result = await fixture.service.callDetailed(
+      'provider-1',
+      'vehicle_navigate',
+      { resourceId: 'vehicle:ugv1' },
+      undefined,
+      {
+        taskId: 'task-navigate-1',
+        capabilityAttemptId: 'attempt-navigate-1',
+        providerBindingId: 'binding-provider-1',
+        providerId: 'external-provider-1',
+        preTransportFence: {
+          invocationId: 'invocation-authoritative-navigate-1',
+          signal: new AbortController().signal,
+          enter,
+        },
+        taskExecution: {
+          protocolMode: 'frozen_v1',
+          availabilityCheck: 'required',
+          timing: {
+            start: {
+              mode: 'scheduled',
+              scheduledAt: '2026-08-11T01:10:00+00:00',
+              startToleranceMs: 2_500,
+            },
+            maxElapsedMs: 60_000,
+          },
+          reservationRef: 'reservation-navigate-1',
+        },
+      },
+    );
+
+    expect(result.invocationId).toBe('invocation-authoritative-navigate-1');
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        taskCallProfile: {
+          profileVersion: '1.0',
+          idempotencyKey: 'invocation-authoritative-navigate-1',
+          timing: {
+            start: {
+              mode: 'scheduled',
+              scheduledAt: '2026-08-11T01:10:00.000Z',
+              startToleranceMs: 2_500,
+            },
+            maxElapsedMs: 60_000,
+          },
+          reservationRef: 'reservation-navigate-1',
+        },
+      }),
+    );
+    expect(enter).toHaveBeenCalledOnce();
+  });
+
+  it('sends a key-only profile for idempotent Task-required operations', async () => {
+    const fixture = createFixture({
+      toolName: 'task_operation',
+      toolExecution: 'task_required',
+      toolIdempotency: 'client_request_key',
+      taskBehavior: 'task_required',
+    });
+
+    await fixture.service.callDetailed('provider-1', 'task_operation', {}, undefined, {
+      taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
+    });
+
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        taskCallProfile: { profileVersion: '1.0', idempotencyKey: 'invocation-1' },
+      }),
+    );
+  });
+
+  it('does not invent an idempotency key when Task semantics declare none', async () => {
+    const fixture = createFixture({
+      toolName: 'task_without_idempotency',
+      toolExecution: 'task_required',
+      toolIdempotency: 'none',
+      taskBehavior: 'task_required',
+    });
+
+    await fixture.service.callDetailed('provider-1', 'task_without_idempotency', {}, undefined, {
+      taskExecution: {
+        protocolMode: 'frozen_v1',
+        availabilityCheck: 'required',
+        timing: {
+          start: { mode: 'immediate', startToleranceMs: 0 },
+          maxElapsedMs: null,
+        },
+      },
+    });
+
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        taskCallProfile: {
+          profileVersion: '1.0',
+          timing: {
+            start: { mode: 'immediate', startToleranceMs: 0 },
+            maxElapsedMs: null,
+          },
+        },
+      }),
+    );
+    expect(fixture.call.mock.calls[0]?.[0].taskCallProfile).not.toHaveProperty('idempotencyKey');
+  });
+
+  it('omits the Task call profile when Task execution was not resolved', async () => {
+    const fixture = createFixture({
+      toolName: 'task_without_readiness',
+      toolExecution: 'task_required',
+      toolIdempotency: 'server_managed',
+      taskBehavior: 'task_required',
+    });
+
+    await fixture.service.callDetailed('provider-1', 'task_without_readiness', {});
+
+    expect(fixture.call).toHaveBeenCalledOnce();
+    expect(fixture.call.mock.calls[0]?.[0]).not.toHaveProperty('taskCallProfile');
+  });
+
+  it('keeps synchronous reads free of Task call metadata', async () => {
+    const fixture = createFixture({ toolIdempotency: 'server_managed' });
+
+    await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+
+    expect(fixture.call).toHaveBeenCalledOnce();
+    expect(fixture.call.mock.calls[0]?.[0]).not.toHaveProperty('taskCallProfile');
+  });
+
+  it.each([
+    [
+      'an unknown timing field',
+      {
+        start: { mode: 'immediate', startToleranceMs: 0 },
+        maxElapsedMs: null,
+        unexpected: true,
+      },
+    ],
+    ['an undefined start', { start: undefined, maxElapsedMs: null }],
+    [
+      'an undefined maximum elapsed value',
+      { start: { mode: 'immediate', startToleranceMs: 0 }, maxElapsedMs: undefined },
+    ],
+  ])('rejects %s before entering a fence or crossing transport', async (_case, timing) => {
+    const fixture = createFixture({
+      toolName: 'task_invalid_timing',
+      toolExecution: 'task_required',
+      toolIdempotency: 'server_managed',
+      taskBehavior: 'task_required',
+    });
+    const enter = vi.fn(() => Promise.resolve());
+    const malformed = {
+      protocolMode: 'frozen_v1',
+      availabilityCheck: 'required',
+      timing,
+    } as unknown as ResolvedMcpTaskExecution;
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'task_invalid_timing', {}, undefined, {
+        taskExecution: malformed,
+        preTransportFence: {
+          invocationId: 'invocation-invalid-timing-1',
+          signal: new AbortController().signal,
+          enter,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_CALL_PROFILE_INVALID', name: 'DomainError' });
+    expect(enter).not.toHaveBeenCalled();
+    expect(fixture.call).not.toHaveBeenCalled();
+  });
+
+  it('rejects an overlong authoritative idempotency key before transport', async () => {
+    const fixture = createFixture({
+      toolName: 'task_invalid_key',
+      toolExecution: 'task_required',
+      toolIdempotency: 'server_managed',
+      taskBehavior: 'task_required',
+    });
+    const enter = vi.fn(() => Promise.resolve());
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'task_invalid_key', {}, undefined, {
+        taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
+        preTransportFence: {
+          invocationId: 'i'.repeat(257),
+          signal: new AbortController().signal,
+          enter,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_CALL_PROFILE_INVALID', name: 'DomainError' });
+    expect(enter).not.toHaveBeenCalled();
+    expect(fixture.call).not.toHaveBeenCalled();
+  });
+
+  it('rejects Task call data for a synchronous read before transport', async () => {
+    const fixture = createFixture();
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'light_get_state', {}, undefined, {
+        taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
+      }),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_CALL_PROFILE_CONFLICT' });
+    expect(fixture.call).not.toHaveBeenCalled();
+    expect(fixture.decrypt).not.toHaveBeenCalled();
+  });
+
   it('enters the exact durable dispatch fence after catalog and binding checks and before transport', async () => {
     const order: string[] = [];
     const fixture = createFixture({ order });
@@ -896,6 +1112,9 @@ function createFixture(
     }>;
     toolName?: string;
     toolEffect?: McpTool['executionSemantics']['effect'];
+    toolExecution?: McpTool['executionSemantics']['execution'];
+    toolIdempotency?: McpTool['executionSemantics']['idempotency'];
+    taskBehavior?: NonNullable<McpTool['taskExecutionProfile']>['taskBehavior'];
     executionModeHeaderPolicy?: 'emit' | 'omit_live';
   }> = {},
 ) {
@@ -907,6 +1126,9 @@ function createFixture(
         ? 'light_get_state'
         : 'light_set_state'),
     options.toolEffect,
+    options.toolExecution,
+    options.toolIdempotency,
+    options.taskBehavior,
   );
   const snapshotValue = Object.prototype.hasOwnProperty.call(options, 'protocolSnapshot')
     ? options.protocolSnapshot
@@ -1118,6 +1340,9 @@ function server(status: McpServer['status']): McpServer {
 function tool(
   toolName = 'light_get_state',
   effect: McpTool['executionSemantics']['effect'] = 'read_only',
+  execution: McpTool['executionSemantics']['execution'] = 'synchronous',
+  idempotency: McpTool['executionSemantics']['idempotency'] = 'none',
+  taskBehavior: NonNullable<McpTool['taskExecutionProfile']>['taskBehavior'] = 'synchronous_only',
 ): McpTool {
   return {
     serverId: 'provider-1',
@@ -1127,21 +1352,21 @@ function tool(
     protocolMode: 'frozen_v1',
     executionSemantics: {
       effect,
-      execution: 'synchronous',
+      execution,
       cancellation: 'unsupported',
-      idempotency: 'none',
+      idempotency,
       replay: 'allowed',
       source: 'mcp_declared',
     },
     taskExecutionProfile: {
       profileVersion: '1.0',
-      taskBehavior: 'synchronous_only',
-      availability: 'not_supported',
-      supportsScheduling: false,
-      supportsMaxElapsed: false,
-      supportsObservations: false,
+      taskBehavior,
+      availability: taskBehavior === 'task_required' ? 'dynamic' : 'not_supported',
+      supportsScheduling: taskBehavior === 'task_required',
+      supportsMaxElapsed: taskBehavior === 'task_required',
+      supportsObservations: taskBehavior === 'task_required',
       supportsInputRequired: false,
-      idempotency: 'none',
+      idempotency,
     },
     discoveredAt: timestamp,
   };

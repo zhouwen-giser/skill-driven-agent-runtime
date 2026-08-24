@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import type { TaskService, TaskStateNotifier } from '../../application/src/index.js';
 import type { AgentTask } from '../../domain/src/index.js';
+import { governedControlPrincipalForA2AUser } from './authenticated-confirm-user.js';
 import { buildStatusUpdate } from './compatibility.js';
 import {
   taskPhaseToA2AState,
@@ -62,7 +63,19 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
       );
     if (request.task !== undefined) {
       const followUp = toTaskFollowUp(request.userMessage);
-      const updated = await this.#tasks.followUp({ taskId: request.taskId, ...followUp });
+      const confirmationPrincipal =
+        followUp.action === 'confirm_plan'
+          ? governedControlPrincipalForA2AUser(request.context.user)
+          : undefined;
+      const updated = await this.#tasks.followUp({
+        taskId: request.taskId,
+        ...followUp,
+        ...(confirmationPrincipal === undefined
+          ? {}
+          : {
+              confirmationAuthority: Object.freeze({ principal: confirmationPrincipal }),
+            }),
+      });
       eventBus.publish(
         AgentEvent.task(
           withUserHistory(await this.#project(updated), request.userMessage, request.task),
@@ -73,7 +86,34 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
       return;
     }
     const command = toSubmitTaskCommand(request.userMessage, request.taskId, request.contextId);
-    const submitted = await this.#tasks.submit(command);
+    let submitted: Awaited<ReturnType<TaskService['submit']>>;
+    try {
+      submitted = await this.#tasks.submit(command);
+    } catch (error: unknown) {
+      if (!isInitialAdmissionConflict(error)) throw error;
+      eventBus.publish(
+        AgentEvent.message(
+          Message.fromJSON({
+            messageId: `${request.userMessage.messageId}:idempotency-conflict`,
+            role: 'ROLE_AGENT',
+            parts: [
+              {
+                text: 'The idempotency key is already bound to a different initial request.',
+                mediaType: 'text/plain',
+              },
+            ],
+            metadata: {
+              'io.sdar/error': {
+                code: 'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT',
+                retryable: false,
+              },
+            },
+          }),
+        ),
+      );
+      eventBus.finished();
+      return;
+    }
     const initial = withUserHistory(await this.#project(submitted.task), request.userMessage);
     eventBus.publish(AgentEvent.task(initial));
 
@@ -143,13 +183,21 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
 
 function withUserHistory(task: Task, message: Message, previous?: Task): Task {
   const document = z.record(z.string(), z.unknown()).parse(Task.toJSON(task));
+  const normalizedMessage = withTaskIdentity(message, task.id, task.contextId);
   return Task.fromJSON({
     ...document,
     history: [
-      ...(previous?.history ?? []).map((item) => Message.toJSON(withoutMetadata(item))),
-      Message.toJSON(withoutMetadata(message)),
+      ...(previous?.history ?? []).map((item) =>
+        Message.toJSON(withoutMetadata(withTaskIdentity(item, task.id, task.contextId))),
+      ),
+      Message.toJSON(withoutMetadata(normalizedMessage)),
     ],
   });
+}
+
+function withTaskIdentity(message: Message, taskId: string, contextId: string): Message {
+  const document = z.record(z.string(), z.unknown()).parse(Message.toJSON(message));
+  return Message.fromJSON({ ...document, taskId, contextId });
 }
 
 function withoutMetadata(message: Message): Message {
@@ -182,6 +230,15 @@ function taskProjectionChanged(previous: AgentTask, current: AgentTask): boolean
     previous.phase !== current.phase ||
     previous.updatedAt !== current.updatedAt ||
     previous.phaseMessage !== current.phaseMessage
+  );
+}
+
+function isInitialAdmissionConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT'
   );
 }
 

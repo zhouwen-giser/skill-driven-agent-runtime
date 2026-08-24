@@ -958,6 +958,16 @@ export interface ManagementHttpEndpointHandle {
   close(): Promise<void>;
 }
 
+export interface UgvSimulationQualificationOperation {
+  capture(input: Readonly<{ simulationId: string }>): Promise<unknown>;
+}
+
+const UgvSimulationQualificationRequestSchema = z
+  .object({
+    simulationId: z.string().regex(/^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u),
+  })
+  .strict();
+
 type RuntimeEvidenceOperationsSurface = Pick<
   EvidenceOperationsService,
   | 'configuration'
@@ -1005,6 +1015,7 @@ interface RuntimeControlRouteOptions {
     evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
     evidenceOperations?: RuntimeEvidenceOperationsSurface;
     taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
+    ugvSimulationQualification?: UgvSimulationQualificationOperation;
     actorId?: string;
     artifactPrincipalResolver?: ManagementPrincipalResolver;
   }>;
@@ -1055,6 +1066,7 @@ export async function startManagementHttpEndpoint(
       evidenceExport?: Pick<RuntimeEvidenceExportService, 'apply' | 'status'>;
       evidenceOperations?: RuntimeEvidenceOperationsSurface;
       taskRevisionAuthority?: RuntimeTaskRevisionAuthority;
+      ugvSimulationQualification?: UgvSimulationQualificationOperation;
       actorId?: string;
       artifactPrincipalResolver?: ManagementPrincipalResolver;
     }>;
@@ -3519,6 +3531,18 @@ function registerRuntimeControlGovernanceRoutes(
   options: RuntimeControlRouteOptions,
 ): void {
   registerRuntimeTaskCommandRoutes(app, options);
+  app.post(
+    '/internal/v1/ugv-agent-profile/qualification-state',
+    asyncRoute(async (request, response) => {
+      const runtime = requireRuntimeControl(request, options.runtimeControl);
+      const qualification = requiredUgvSimulationQualification(runtime.ugvSimulationQualification);
+      response
+        .status(200)
+        .json(
+          await qualification.capture(UgvSimulationQualificationRequestSchema.parse(request.body)),
+        );
+    }),
+  );
   app.get(
     '/internal/v1/runtime/health',
     asyncRoute(async (request, response) => {
@@ -4362,6 +4386,17 @@ function requiredRuntimeEvidenceExport(
       code: 'RUNTIME_EVIDENCE_EXPORT_UNAVAILABLE',
       status: 503,
     });
+  return value;
+}
+
+function requiredUgvSimulationQualification(
+  value: UgvSimulationQualificationOperation | undefined,
+): UgvSimulationQualificationOperation {
+  if (value === undefined)
+    throw runtimeControlUnavailable(
+      'UGV_SIMULATION_QUALIFICATION_UNAVAILABLE',
+      'UGV Agent Profile qualification is unavailable.',
+    );
   return value;
 }
 

@@ -11,7 +11,10 @@ export interface FrozenMcpCatalogAuthority {
 
 /** Canonical frozen Catalog identity shared by Node Control discovery and Runtime admission. */
 export function deriveFrozenMcpCatalogAuthority(
-  snapshot: Pick<McpProtocolDiscoverySnapshot, 'protocolVersion' | 'serverInfo'>,
+  snapshot: Pick<
+    McpProtocolDiscoverySnapshot,
+    'protocolVersion' | 'serverInfo' | 'providerCatalog'
+  >,
   tools: readonly McpTool[],
   bindingRevision: number,
 ): FrozenMcpCatalogAuthority {
@@ -26,20 +29,29 @@ export function deriveFrozenMcpCatalogAuthority(
 }
 
 export function frozenMcpCatalogCanonicalJson(
-  snapshot: Pick<McpProtocolDiscoverySnapshot, 'protocolVersion' | 'serverInfo'>,
+  snapshot: Pick<
+    McpProtocolDiscoverySnapshot,
+    'protocolVersion' | 'serverInfo' | 'providerCatalog'
+  >,
   tools: readonly McpTool[],
 ): string {
   return canonicalJson(frozenMcpCatalogDocument(snapshot, tools));
 }
 
 export function frozenMcpCatalogDocument(
-  snapshot: Pick<McpProtocolDiscoverySnapshot, 'protocolVersion' | 'serverInfo'>,
+  snapshot: Pick<
+    McpProtocolDiscoverySnapshot,
+    'protocolVersion' | 'serverInfo' | 'providerCatalog'
+  >,
   tools: readonly McpTool[],
 ): unknown {
   return JSON.parse(
     JSON.stringify({
       protocolVersion: snapshot.protocolVersion,
       serverInfo: snapshot.serverInfo,
+      ...(snapshot.providerCatalog === undefined
+        ? {}
+        : { providerCatalog: snapshot.providerCatalog }),
       tools: [...tools]
         .sort((left, right) => compareToolName(left.toolName, right.toolName))
         .map((tool) => ({

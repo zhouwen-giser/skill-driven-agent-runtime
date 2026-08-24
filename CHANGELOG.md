@@ -1,5 +1,152 @@
 # Changelog
 
+## 2026-08-24 — UGV A2A navigation terminal-safe repair and handoff
+
+- Executed one authorized real A2A navigation attempt through SDAR Runtime, Frozen MCP Tasks and the
+  external UGV Provider. Provider Task `5dfbc557-907d-4767-99a8-ca38eebe079c` reached
+  `TERMINAL_COMPLETED`, the Adapter execution reached `SUCCEEDED`, and the simulator moved from
+  approximately `106.81179413,29.72049014` to `106.81344283,29.72040457` for target
+  `106.81344630,29.72034353` (about 6.8 metres horizontal error). This is real Provider movement
+  evidence, not a completed SDAR A2A result.
+- Diagnosed the SDAR failure as a strict Frozen MCP lifecycle compatibility defect: the Provider
+  legally returned CreateTask `working` with substate `accepted`, while the Adapter rejected it as
+  `FROZEN_CREATE_TASK_RESULT_INVALID` before saving a successful remote continuation.
+- Added `accepted` to the Domain/Adapter remote-task substate contract, migration
+  `0173_remote_task_accepted_substate` with rollback, migration contract coverage and lifecycle
+  regression proving CreateTask `accepted` reconciles to later `running`.
+- Added strict `terminal_provider_safe` reconciliation. A dispatched run is recovery-eligible only
+  when the Provider Task is terminal-completed, Adapter execution succeeded, idempotency/admission
+  and mutation identities match, the SDAR failure is exactly the known CreateTask parsing defect,
+  and no active continuation or terminal outcome was fabricated.
+- Sealed the failed public artifact at
+  `reports/ugv-agent-profile-simulation/attempts/uap-p3-b02-failure-uap-p3-b02-mt6s71d2-3a99d891d86bc8778e65-20260824052702017-e0945cf9beaafe32.redacted.json`
+  (SHA-256 `fe5f32e7d51051739ac0d5694e506b8c8ecf9accdf32d5c2b11b05f192960377`) and the
+  terminal-safe reconciliation at
+  `reports/ugv-agent-profile-simulation/attempts/uap-p3-b02-recovery-reconciliation-uap-p3-b02-mt6t3gvq-34504d0f48c6e48aeff4.redacted.json`
+  (SHA-256 `a394a4992643bc59a339f731707b92663bb21ee385bdc4fcff2023a8c841fd1a`).
+- Passed the final affected matrix (5 files/165 tests), TypeScript typecheck, production build,
+  849-source architecture verification, scoped ESLint and diff checks. The user then cancelled
+  further simulator validation because another client was using it. The task-owned containers and
+  volumes are absent and the host supervisor is stopped; no new YES window was opened. P3-B02 remains
+  incomplete because no post-fix A2A terminal success was observed.
+
+## 2026-08-24 — UGV Agent Profile P3-B02 authorized attempt failed closed
+
+- Added persistent A2A initial-admission idempotency, canonical replay/conflict handling, projection
+  serialization, deferred queue recovery, Frozen MCP Task execution lineage, Profile-only
+  qualification, append-only recovery attempt identity, Source/runway gates, private ledger
+  reconciliation and crash-safe Supervisor `NO`/`YES`/`NO` evidence.
+- Fixed a live-only Source recovery defect: the validated private Runtime authority snapshot contains
+  the legitimate discovery field `authorizationModel`, which the public evidence canonicalizer must
+  reject. Internal pre/post equality now uses a private canonical SHA-256 while the public redaction
+  boundary remains unchanged; the focused Source driver/runner matrix passes 40/40.
+- Rebuilt the exact task-owned stack from fresh databases/volumes, applied migration `0172`, passed
+  bootstrap/readiness and clean 28-collection ledger checks, and sealed a runway gate with remaining
+  Source/Binding/Runtime/readiness TTL values `271174/2446184/2445972/59113ms` above the frozen
+  `240000/1200000/1200000/30000ms` budgets.
+- Executed the recovery-issued simulation identity exactly once. The wrapper entered `YES`, persisted
+  one taskless `vehicle_get_state` and one accepted Device `get_status`, then rejected the external
+  `chassis.mission.state=0` before A2A admission because the frozen contract accepts only
+  `[-1,3,4,5]`. It restored Supervisor revision 3 to `NO` and did not retry.
+- Reconciled the failure to zero physical mutation: Provider Task/admission/idempotency, Adapter
+  execution/mutation/ACK, and SDAR Task/Goal/Plan/Workflow/model/confirmation/remote/terminal counts
+  are all zero. Host/SMPP/SDAR secret scans, public failure schema validation and private evidence
+  validation pass. Canonical P3-B02 PASS is absent; P3-B02/P3-B03/P4 and overall Goal completion remain
+  pending.
+
+## 2026-08-21 — UGV Agent Profile P3-B01 clean-stack runtime evidence
+
+- Added a task-owned clean dual-repository orchestration path with fixed inventory, isolated Compose
+  projects/databases/networks/volumes, bounded ownership checks and granular preflight, SMPP start and
+  qualification, SDAR start, authority bootstrap, readiness, down and clean commands. Only the SMPP
+  Adapter owns Device MCP/MQTT southbound access.
+- Qualified the user-selected latest SMPP baseline
+  `codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`
+  from a clean, read-only worktree. The live northbound Catalog contains the exact reviewed ten tools;
+  historical P0/P1 provenance remains unchanged.
+- Loaded generation and embedding model configuration only through the host Server's existing local
+  repository-root `.env` path. Redacted audits prove two Providers, 42 stage routes and model invocation
+  count zero; `.env` is not sourced, copied, mounted or rendered into Compose, and no value or secret is
+  included in public evidence.
+- Bootstrapped exactly one Source, Provider Binding/Catalog, `embodied.move_to@1`,
+  `embodied.move@1`, implementation, Exposure and active managed Card through existing authorities.
+  Immediate bootstrap replay passes without duplicates. Repeated readiness runs prove Skill
+  suspend/restore and Profile public-Card removal/restoration while preserving the separate managed
+  Exposure Card boundary.
+- Connected 60-second readiness expiry to a non-overlapping five-second evaluation schedule and a
+  serialized managed-Card rebuild. Bootstrap now recovers only exact, hash-valid, coherently partitioned
+  expired/unavailable readiness and a stale same-Exposure Card. An exact stability-window result receives
+  one retry after 10,250 ms; the second fails closed. Identity, partition, timestamp, reason and Card
+  drift regressions remain fail-closed. A live bounded observation saw readiness v2→v3 and the active
+  managed Card revision 2→3.
+- Preserved all failed startup, seed, Source, Provider, readiness and bootstrap attempts, including the
+  `UAP_CAPABILITY_READINESS_INVALID` expired-readiness recovery deadlock and revision-zero/stability
+  corrections. Passing official clean/up/bootstrap/readiness/verify envelopes do not overwrite them.
+- Disclosed the remaining Provider-authority-TTL gap: after the configured 300-second TTL,
+  materialization can advance Binding revision N to N+1 while immutable Capability v1 still freezes N.
+  Long-running recovery then requires a task-owned clean database or a reviewed new Capability version;
+  it is not claimed by B01.
+- Kept `ALLOW_UGV_SIMULATION_SIDE_EFFECTS=NO`. Navigation, mutation, forbidden/weapon and model counts
+  are zero. The SMPP qualifier made one correlated read-only Device Tool call. No movement, physical
+  qualification, P3-B02/P3-B03, P4 or overall Goal completion is claimed.
+- Published a redacted P3-B01 verification index and evidence note and accepted the bounded clean-stack
+  milestone. Focused 10-file/163-test and independent 9-file/160-test matrices, both typechecks/builds,
+  842-source architecture, changed-file lint/format, SMPP full lint and both diff checks pass; fifteen
+  evidence hashes are frozen. SDAR full lint retains 22 errors in seven committed out-of-scope Home-Lab
+  files. SDAR full format retains two existing files and SMPP full format retains one historical P1-B02
+  report; all three commands exit 1 and are disclosed baseline gaps, not whole-repository pass claims.
+
+## 2026-08-21 — UGV Agent Profile P2-B03 local Runtime integration
+
+- Added a Profile-only deterministic Skill Usage admission that derives an exact bounded WGS84
+  simulation target from one persisted taskless state receipt and requires the immutable Task
+  Capability binding and `SelectedTaskOperation` to carry the same target.
+- Added the formal nine-node initial-state/context/navigate/final-state/evidence/result Workflow
+  candidate through the existing Planner, validator, Skill Usage compliance and single LangGraph.js
+  runtime. The selected operation uses the existing append-only Skill execution reference lineage.
+- Bound A2A `confirm_plan` to an adapter-authenticated human principal and one retry-safe exact-scope
+  governed confirmation, consumed only after refreshed authority and a default-closed simulation
+  side-effect gate. Generic A2A and governed-control paths are unchanged.
+- Reused the existing MCP Tasks `waiting_external` and persisted continuation path and added a
+  Profile-only model-free terminal authority that requires exact invocation, remote lifecycle,
+  consumed confirmation, continuation and final-position evidence before existing atomic terminal
+  persistence.
+- Preserved the P0-frozen `embodied.move_to@1` package byte-for-byte and moved no-replay narrowing to
+  the Profile-owned `profile.ugv-agent-profile.side_effect_replay=forbidden` marker. The immutable
+  package and manifest hashes remain unchanged.
+- Fixed four Runtime-evidenced authority defects: confirmation time is captured after refreshed
+  readiness; current `providerId` is verified and included in the dispatch hash; and a
+  `receipt_recorded` stale-CAS restart race is accepted only after the exact same open binding,
+  equal-or-newer Runtime revision and exact active continuation are re-read. Missing or drifted state
+  remains fail-closed and no navigate is replayed. Terminal authority now validates the exact Workflow
+  input envelope and compares its `skillInput` member, rather than the whole envelope, with the frozen
+  Task Capability input snapshot.
+- Passed the formal local PostgreSQL/Redis/Runtime/A2A E2E: one taskless qualification read, zero
+  task-scoped MCP/navigation calls before authenticated confirmation, task-scoped
+  `get_state`/`navigate`/`get_state`, one materialized external wait, restart without replay, objective
+  final-position success and an exact completed A2A artifact. The strict loopback Provider fixture
+  observes one local navigate; external SMPP, Device MCP and MQTT counts remain zero.
+- Added ADR-138, traceability, local Runtime evidence and eleven immutable Runtime E2E attempt envelopes.
+  Final local verification passes the exact 21-file/210-test focused matrix, approved-host Unit
+  244 files/1913 tests plus performance 22/22, approved-host Contract 51/318, isolated Integration
+  38/219 plus evidence export 1/1, typecheck, build, 835-source architecture, frozen package 3/3,
+  SMPP provenance/clean checks and diff checks. Current sandbox, integration-fixture and Runtime
+  failures remain immutable attempts rather than being rewritten.
+- Accepted P2-B03 local integration with disclosed repository-baseline exceptions. Full generic E2E
+  retains three old Task Service endpoint failures; the exact isolated seven-failure result reproduces
+  at a pure archive of pre-P2 HEAD `4c0b1f7`, so it is not a P2 regression. Full lint retains 22 errors
+  in seven unchanged Home-Lab files and full format retains two unchanged files. Exact P2 Runtime E2E,
+  changed-file ESLint and Prettier scopes pass. Final local artifact SHA-256 values are frozen; the
+  checkpoint commit remains unset until the parent handoff creates it.
+- Advanced current SMPP intake provenance to `b5f3ba2076468695c781bea1e5e6d3045e60f70e`
+  while preserving P1 checkpoint `90466127aee7c01014eef29a1e346b071de3704e` and P0 source
+  `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` as immutable historical layers. P2 did not execute the
+  SMPP checkout.
+- P2 smoke verified LLM configuration loading and database bootstrap from the local `.env` deployment
+  mechanism without documenting secrets or values and with zero model invocations. P3 will exercise
+  external inference through that path; UGV safety admission and terminal success do not depend on
+  model output.
+
 ## 2026-08-17 — UGV simulation execution context and bounded cognitive correction
 
 - Kept governed physical confirmation independent from frozen Runtime execution mode, allowing the

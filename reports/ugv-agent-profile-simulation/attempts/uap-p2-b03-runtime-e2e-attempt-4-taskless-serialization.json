@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 4,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The original execution timestamp was not retained in the supplied run summary.",
+  "status": "FAILED_FIXED_SERIALIZATION",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": null,
+  "commandMissingReason": "The exact original argv was not retained.",
+  "exitCode": null,
+  "exitCodeMissingReason": "The summary records the failed test but not its original process exit code.",
+  "failureClass": "TASKLESS_INVOCATION_UNDEFINED_TASK_ID_SERIALIZATION",
+  "observedFailure": "The taskless qualification receipt serialized an explicit undefined taskId instead of omitting the property.",
+  "resolution": "Taskless invocation projection now omits taskId and retains taskless authority explicitly.",
+  "localFixtureCounts": null,
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0
+  }
+}

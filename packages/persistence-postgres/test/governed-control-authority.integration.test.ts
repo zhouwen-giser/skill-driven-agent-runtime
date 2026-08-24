@@ -156,7 +156,9 @@ beforeAll(async () => {
       [databaseName],
     );
     await admin.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-    await admin.query(`CREATE DATABASE ${databaseName}`);
+    // `template0` keeps the integration fixture independent of a host-specific template1
+    // collation-version mismatch while preserving the same migrated schema under test.
+    await admin.query(`CREATE DATABASE ${databaseName} TEMPLATE template0`);
     databaseCreated = true;
   } finally {
     await admin.end();
@@ -236,7 +238,6 @@ describe('PostgreSQL governed physical-control authority', () => {
         serverId,
         toolName,
         argumentsHash,
-        readinessArgumentsHash,
       },
       authority: {
         capabilityBindingId: bindingId,
@@ -249,6 +250,9 @@ describe('PostgreSQL governed physical-control authority', () => {
         arguments: arguments_,
       },
     });
+    // Readiness is a separate, refreshed pre-invocation authority and must not be copied into the
+    // immutable human confirmation. Its wrapped-arguments hash is asserted on the loaded snapshot.
+    expect(issued.confirmation).not.toHaveProperty('readinessArgumentsHash');
 
     const catalog = deriveFrozenMcpCatalogAuthority(
       registration.snapshot,
@@ -890,6 +894,92 @@ describe('PostgreSQL governed physical-control authority', () => {
     ).rejects.toMatchObject({ code: '23503' });
     physicalDeviceWrites += 0;
     expect(physicalDeviceWrites).toBe(0);
+  });
+
+  it('issues one exact confirmation under concurrency and survives response loss without replaying consumption', async () => {
+    const confirmationId = `ugv-control-${'1'.repeat(64)}`;
+    const candidate = {
+      ...confirmationRecord(confirmationId, '2026-08-13T01:05:00.000Z'),
+      reason: 'Approve exact UGV profile point navigation once.',
+    };
+    const firstRepository = new PostgresGovernedControlAuthorityRepository(pool);
+    const secondRepository = new PostgresGovernedControlAuthorityRepository(pool);
+
+    const issued = await Promise.all([
+      firstRepository.issueOnce(candidate),
+      secondRepository.issueOnce({
+        ...candidate,
+        confirmedAt: '2026-08-13T01:00:01.000Z',
+        expiresAt: '2026-08-13T01:05:01.000Z',
+      }),
+    ]);
+    expect(issued.filter((result) => !result.replayed)).toHaveLength(1);
+    expect(issued.filter((result) => result.replayed)).toHaveLength(1);
+    expect(new Set(issued.map((result) => result.confirmation.confirmationId))).toEqual(
+      new Set([confirmationId]),
+    );
+    // Either valid issuance candidate may win the primary-key race; both callers must observe it.
+    expect(issued[0].confirmation).toEqual(issued[1].confirmation);
+    const persistedWinner = issued[0].confirmation;
+
+    const restarted = await openRestartedRepository();
+    try {
+      await expect(restarted.repository.findExact(candidate)).resolves.toMatchObject({
+        confirmationId,
+        confirmedAt: persistedWinner.confirmedAt,
+        expiresAt: persistedWinner.expiresAt,
+      });
+      await expect(
+        restarted.repository.issueOnce({ ...candidate, reason: 'Conflicting approval scope.' }),
+      ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_CONFIRMATION_ISSUE_CONFLICT' });
+
+      const consumed = await Promise.all([
+        restarted.repository.consumeConfirmation({
+          confirmationId,
+          taskId,
+          capabilityBindingId: bindingId,
+          capabilityAttemptId: attemptId,
+          providerBindingId,
+          serverId,
+          toolName,
+          argumentsHash,
+          invocationId: 'ugv-invocation-concurrent-a',
+          dispatchHash: `sha256:${'f'.repeat(64)}`,
+          consumedAt: '2026-08-13T01:01:00.000Z',
+        }),
+        restarted.repository.consumeConfirmation({
+          confirmationId,
+          taskId,
+          capabilityBindingId: bindingId,
+          capabilityAttemptId: attemptId,
+          providerBindingId,
+          serverId,
+          toolName,
+          argumentsHash,
+          invocationId: 'ugv-invocation-concurrent-b',
+          dispatchHash: `sha256:${'e'.repeat(64)}`,
+          consumedAt: '2026-08-13T01:01:00.000Z',
+        }),
+      ]);
+      expect(consumed.filter((result) => result !== undefined)).toHaveLength(1);
+      expect(consumed.filter((result) => result === undefined)).toHaveLength(1);
+      const winner = consumed.find((result) => result !== undefined);
+      if (winner?.consumedInvocationId === undefined)
+        throw new Error('Expected one consumed UGV confirmation winner.');
+      await expect(
+        restarted.repository.findConsumedByInvocation(winner.consumedInvocationId),
+      ).resolves.toMatchObject({
+        confirmationId,
+        consumedInvocationId: winner.consumedInvocationId,
+        consumedDispatchHash: winner.consumedDispatchHash,
+        consumedAt: winner.consumedAt,
+      });
+      await expect(
+        restarted.repository.findConsumedByInvocation('ugv-invocation-not-consumed'),
+      ).resolves.toBeUndefined();
+    } finally {
+      await restarted.pool.end();
+    }
   });
 });
 

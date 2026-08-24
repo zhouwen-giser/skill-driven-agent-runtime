@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.pms-seed/v1",
+  "status": "passed",
+  "task": "UAP-P3-B01",
+  "generatedAt": "2026-08-24T05:43:06.990Z",
+  "command": "deploy/ugv-agent-profile-simulation/seed-smpp.sh",
+  "exitCode": 0,
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "formalPmsProfileSeed": true,
+  "environment": "simulation",
+  "providerTypeIdentityValidated": true,
+  "providerIdentityValidated": true,
+  "resourceIdentityValidated": true,
+  "resourceMetadataSha256": "57f85aa0ca6d191d69a83faec5cb67fbfe91c54d8b4eadd77d196b7576655513",
+  "exactProviderResourceBindingValidated": true,
+  "resourceBindingTimestampValid": true,
+  "directContainerDeploymentIdentityValidated": true,
+  "runtimeInstanceIdentityValidated": true,
+  "packageSynchronization": {
+    "controlledPackageCount": 1,
+    "inserted": 1,
+    "updated": 0,
+    "unchanged": 0,
+    "packageProjectionSha256": "ef3a3a2b61e1cc3a6d8136d8df3ddc1ccc4c336f1b1350ad62a2cd2988619c52"
+  },
+  "publicApiComparedBeforeMutation": true,
+  "runtimeAuthority": "direct_container",
+  "registryAuthority": "pms_worker",
+  "deploymentStatus": "ACTIVE",
+  "runtimeProcess": {
+    "observedHealth": "READY",
+    "readyForActive": true,
+    "registrationState": "registered",
+    "registrationFreshness": "registered",
+    "configState": "externally_managed",
+    "heartbeatFresh": true
+  },
+  "registry": {
+    "revision": 1,
+    "checksum": "e42810048d7d2aaeb64a17733b9b2a29af166af1922ff3a106155b95f423f56f",
+    "catalogToolCount": 10,
+    "catalogToolNamesSha256": "1bb79ef42e90b3caf3c1e76e1f7b79255b4b458cce477455d5efe8ed907f4159",
+    "effectiveEndpointSha256": "c945531dda8ce6059f8a21b06b908c622a7ddd227c5b10d3fe3188243ff9da84"
+  },
+  "productionQualificationClaimed": false,
+  "navigationCallCount": 0,
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "modelConfigurationIncluded": false
+}

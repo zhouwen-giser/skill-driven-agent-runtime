@@ -17,6 +17,7 @@ export function isolatedDatabaseUrl(adminConnection: string, databaseName: strin
 export async function createIsolatedRuntimeDatabase(
   adminConnection: string,
   databaseName: string,
+  options: Readonly<{ template?: 'template0' }> = {},
 ): Promise<string> {
   const admin = new Pool({ connectionString: adminConnection });
   try {
@@ -25,7 +26,11 @@ export async function createIsolatedRuntimeDatabase(
       [databaseName],
     );
     await admin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
-    await admin.query(`CREATE DATABASE ${quoteIdentifier(databaseName)}`);
+    await admin.query(
+      `CREATE DATABASE ${quoteIdentifier(databaseName)}${
+        options.template === undefined ? '' : ` TEMPLATE ${quoteIdentifier(options.template)}`
+      }`,
+    );
   } finally {
     await admin.end();
   }

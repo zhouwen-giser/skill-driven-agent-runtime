@@ -1,3 +1,4 @@
+import { DomainError } from './errors.js';
 import type { McpProviderProtocolMode, McpTaskExecutionProfile } from './mcp-frozen-protocol.js';
 
 export type McpTaskAvailabilityCheckMode = 'required' | 'best_effort';
@@ -29,6 +30,37 @@ export type TaskExecutionStart =
 export interface TaskExecutionTiming {
   readonly start: TaskExecutionStart;
   readonly maxElapsedMs: number | null;
+}
+
+/**
+ * Protocol-neutral dispatch data for one MCP Task-producing Tool call. The MCP adapter owns the
+ * concrete `_meta` mapping; the Domain owns the bounded identity and timing snapshot.
+ */
+export interface McpTaskCallProfile {
+  readonly profileVersion: '1.0';
+  readonly idempotencyKey?: string | undefined;
+  readonly timing?: TaskExecutionTiming | undefined;
+  readonly reservationRef?: string | undefined;
+}
+
+export function createMcpTaskCallProfile(input: McpTaskCallProfile): McpTaskCallProfile {
+  const raw: unknown = input;
+  if (!isRecord(raw)) invalidTaskCallProfile();
+  const actualKeys = Object.keys(raw);
+  const allowedKeys = ['profileVersion', 'idempotencyKey', 'timing', 'reservationRef'];
+  if (actualKeys.some((key) => !allowedKeys.includes(key)) || raw['profileVersion'] !== '1.0')
+    invalidTaskCallProfile();
+  const idempotencyKey = raw['idempotencyKey'];
+  if (idempotencyKey !== undefined && !boundedString(idempotencyKey)) invalidTaskCallProfile();
+  const reservationRef = raw['reservationRef'];
+  if (reservationRef !== undefined && !boundedString(reservationRef)) invalidTaskCallProfile();
+  const timing = raw['timing'] === undefined ? undefined : snapshotTaskCallTiming(raw['timing']);
+  return Object.freeze({
+    profileVersion: '1.0',
+    ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    ...(timing === undefined ? {} : { timing }),
+    ...(reservationRef === undefined ? {} : { reservationRef }),
+  });
 }
 
 interface ResolvedMcpTaskExecutionBase {
@@ -192,4 +224,78 @@ export class TaskTimingValidationError extends Error {
     super('Timestamp must be a real RFC 3339 value with an explicit timezone.');
     this.name = 'TaskTimingValidationError';
   }
+}
+
+function snapshotTaskCallTiming(value: unknown): TaskExecutionTiming {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).some((key) => !['start', 'maxElapsedMs'].includes(key)) ||
+    !Object.hasOwn(value, 'start') ||
+    !Object.hasOwn(value, 'maxElapsedMs') ||
+    !isRecord(value['start'])
+  )
+    invalidTaskCallProfile();
+  const start = value['start'];
+  const maxElapsedMs = value['maxElapsedMs'];
+  if (
+    !Number.isSafeInteger(start['startToleranceMs']) ||
+    (start['startToleranceMs'] as number) < 0 ||
+    (start['startToleranceMs'] as number) > 86_400_000 ||
+    (maxElapsedMs !== null &&
+      (!Number.isSafeInteger(maxElapsedMs) ||
+        (maxElapsedMs as number) < 1 ||
+        (maxElapsedMs as number) > 31_536_000_000))
+  )
+    invalidTaskCallProfile();
+  if (start['mode'] === 'immediate') {
+    if (
+      Object.keys(start).some((key) => !['mode', 'startToleranceMs'].includes(key)) ||
+      !Object.hasOwn(start, 'startToleranceMs')
+    )
+      invalidTaskCallProfile();
+    return Object.freeze({
+      start: Object.freeze({
+        mode: 'immediate',
+        startToleranceMs: start['startToleranceMs'] as number,
+      }),
+      maxElapsedMs: maxElapsedMs as number | null,
+    });
+  }
+  if (
+    start['mode'] !== 'scheduled' ||
+    Object.keys(start).some((key) => !['mode', 'scheduledAt', 'startToleranceMs'].includes(key)) ||
+    !Object.hasOwn(start, 'scheduledAt') ||
+    !Object.hasOwn(start, 'startToleranceMs') ||
+    typeof start['scheduledAt'] !== 'string'
+  )
+    invalidTaskCallProfile();
+  let scheduledAt: string;
+  try {
+    scheduledAt = normalizeTaskTimestamp(start['scheduledAt']);
+  } catch {
+    return invalidTaskCallProfile();
+  }
+  return Object.freeze({
+    start: Object.freeze({
+      mode: 'scheduled',
+      scheduledAt,
+      startToleranceMs: start['startToleranceMs'] as number,
+    }),
+    maxElapsedMs: maxElapsedMs as number | null,
+  });
+}
+
+function boundedString(value: unknown): value is string {
+  return typeof value === 'string' && value.length >= 1 && value.length <= 256;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function invalidTaskCallProfile(): never {
+  throw new DomainError(
+    'MCP_TASK_CALL_PROFILE_INVALID',
+    'MCP Task call profile identity, timing, or reservation data is invalid.',
+  );
 }

@@ -4,6 +4,7 @@ export * from './task-capability-physical-evidence-repository.js';
 export * from './governed-control-authority-repository.js';
 export * from './governed-control-management-authority-reader.js';
 export * from './skill-governance-repository.js';
+export * from './skill-package-authority-reader.js';
 export * from './compiler/index.js';
 export * from './remote-task-repository.js';
 export * from './remote-task-admission-intent-store.js';

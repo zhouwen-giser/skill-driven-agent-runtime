@@ -8,6 +8,7 @@ import type {
   ExternalTaskProjectionRepository,
 } from '../../application/src/index.js';
 import { isTerminalTaskPhase } from '../../domain/src/index.js';
+import type { A2AProjectionTaskStore } from './postgres-task-store.js';
 import { toA2ATask } from './task-mapping.js';
 
 const StoredDocumentSchema = z.record(z.string(), z.unknown());
@@ -35,10 +36,12 @@ export interface A2ATerminalProjectionReconciliationResult {
 export class A2ATerminalProjectionReconciler {
   readonly #projections: ExternalTaskProjectionRepository;
   readonly #tasks: Pick<AgentTaskRepository, 'findById'>;
+  readonly #taskStore: Pick<A2AProjectionTaskStore, 'saveCanonical'>;
 
   constructor(options: {
     projections: ExternalTaskProjectionRepository;
     tasks: Pick<AgentTaskRepository, 'findById'>;
+    taskStore: Pick<A2AProjectionTaskStore, 'saveCanonical'>;
     /**
      * @deprecated Terminal Tasks cannot require interaction. This input is
      * retained for construction compatibility and is deliberately never read.
@@ -47,6 +50,7 @@ export class A2ATerminalProjectionReconciler {
   }) {
     this.#projections = options.projections;
     this.#tasks = options.tasks;
+    this.#taskStore = options.taskStore;
   }
 
   async reconcile(): Promise<A2ATerminalProjectionReconciliationResult> {
@@ -87,7 +91,7 @@ export class A2ATerminalProjectionReconciler {
           alreadyConverged += 1;
           continue;
         }
-        await this.#projections.save(converged);
+        await this.#taskStore.saveCanonical(task);
         reconciled += 1;
       }
       const lastTaskId = page.items.at(-1)?.taskId;

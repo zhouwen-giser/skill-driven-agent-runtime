@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.b02-recovery-reconciliation/v1",
+  "status": "verified_zero_dispatch",
+  "task": "UAP-P3-B02",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "generatedAt": "2026-08-24T03:55:28.920Z",
+  "predecessorSimulationIdSha256": "sha256:b0bade909d392de0c31671111bd9b70c8b17161b6a093150da8cdb9bc17e6e44",
+  "issuedSimulationIdSha256": "sha256:464f03c69f59ecd9a1894260a402eab3419658de4cb592dac9a296ae846a0a60",
+  "failureReport": {
+    "relativePath": "attempts/uap-p3-b02-failure-uap-p3-b02-mt6kdjmv-38f9f84f9cebfb999bab-20260824025148997-4ab396c5b97b2dca.redacted.json",
+    "sha256": "sha256:dd3cb5b542c5d6ef8955cdc09eb0bb2a1b34fbfcf5aadaa32231fb46549e3025"
+  },
+  "privateLedgers": {
+    "beforeSha256": "sha256:96999068f5e270887dd7a933c2de67f2b58eead8aaa1f0dc4137f9ead213d4e8",
+    "afterSha256": "sha256:e8cd3ea268f270540c33074e90d1666b51120f25536e2c16e863f6d7a2627a41"
+  },
+  "zeroDispatchAssessment": {
+    "classification": "zero_dispatch",
+    "resultCode": "UAP_B02_RECOVERY_ZERO_DISPATCH_VERIFIED",
+    "deltas": {
+      "runtimeIdempotencyRecords": 0,
+      "runtimeProviderTasks": 0,
+      "runtimeAdmissionIntents": 0,
+      "adapterExecutions": 0,
+      "adapterDeviceToolCalls": 1,
+      "adapterMutationJournal": 0,
+      "adapterCommandAcks": 0,
+      "sdarModelInvocations": 0,
+      "sdarMcpInvocations": 1,
+      "sdarStageModelRoutes": 0,
+      "sdarModelProviders": 0,
+      "sdarInitialTaskAdmissions": 0,
+      "sdarCapabilityAttempts": 0,
+      "sdarGovernedConfirmations": 0,
+      "sdarRemoteAdmissionIntents": 0,
+      "sdarContinuationSnapshots": 0,
+      "sdarContinuationAttempts": 0,
+      "sdarTerminalOutcomes": 0,
+      "sdarWorkflowNodeEvents": 0,
+      "sdarTasks": 0,
+      "sdarGoals": 0,
+      "sdarGoalContracts": 0,
+      "sdarUserGoalPlans": 0,
+      "sdarWorkflowPlans": 0,
+      "sdarWorkflowInstances": 0,
+      "sdarSkillExecutions": 0,
+      "sdarSkillExecutionEvents": 0,
+      "sdarProcessedResults": 0
+    }
+  },
+  "ledgerObservationWindow": {
+    "beforeCapturedAt": "2026-08-24T02:51:04.042Z",
+    "failureGeneratedAt": "2026-08-24T02:51:48.996Z",
+    "afterCapturedAt": "2026-08-24T02:52:46.147Z",
+    "assessedAt": "2026-08-24T03:55:28.920Z"
+  },
+  "supervisor": {
+    "restoredSideEffects": "NO",
+    "restoreVerified": true
+  },
+  "issuanceCode": "UAP_B02_RECOVERY_IDENTITY_ISSUED",
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "simulationIdentifiersIncluded": true,
+  "downstreamDeviceIdentifiersIncluded": false,
+  "providerIdentifiersIncluded": false
+}

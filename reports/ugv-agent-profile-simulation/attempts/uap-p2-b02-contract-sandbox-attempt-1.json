@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:02:03.000Z",
+  "status": "ENVIRONMENT_RETRIED_PASS",
+  "evidenceClass": "external_simulation",
+  "observationClass": "sandbox_environment",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm test:contract",
+  "exitCode": 1,
+  "failure": {
+    "code": "SANDBOX_LOOPBACK_AND_SPAWN_EPERM",
+    "summary": "The sandbox denied 127.0.0.1 listen and a repository-pinned Node child process. Forty-two files passed; nine transport/process-dependent files produced 110 collateral failures."
+  },
+  "retry": {
+    "command": "pnpm test:contract",
+    "executionContext": "approved_host",
+    "exitCode": 0,
+    "summary": "51 files and 317 tests passed without source changes between attempts."
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

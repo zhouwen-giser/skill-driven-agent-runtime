@@ -1,5 +1,135 @@
 # 已知假设、冲突与待验证项
 
+## UGV Agent Profile P3-B01 clean-stack and authority boundary (2026-08-21)
+
+- P3-B01 qualifies only the clean dual-repository startup, read-only SMPP surface, SDAR authority
+  bootstrap/replay and Skill/readiness/Card lifecycle. It does not run an A2A movement task. Counts are
+  navigation `0`, mutating operations `0`, forbidden/weapon operations `0` and model invocations `0`.
+  The SMPP qualifier separately records one correlated read-only Device Tool call; reports must not
+  collapse that read into a control or movement call.
+- The SMPP checkout remained clean and read-only at
+  `codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`.
+  P0 source `ce57d3d7` and P1 checkpoint `90466127` remain immutable ancestors; B01 does not rewrite
+  their reports.
+- The SDAR host Server loads generation and embedding configuration through the repository-root local
+  `.env`. Public evidence records only that the configuration is exact, two Providers and 42 routes
+  exist, and baseline/final model invocation counts are zero. `.env` is not sourced, copied, mounted or
+  rendered into Compose; no secret, endpoint, Provider, model or credential value is evidence.
+- Capability readiness expires after 60 seconds. The periodic Node Control path evaluates expired
+  snapshots on a non-overlapping five-second schedule and rebuilds the managed Card through the same
+  serialized P08 authority. Bootstrap can reconcile an expired/unavailable snapshot only when its
+  capability identity, body hash, implementation partition, timestamps and reason semantics are exact;
+  a stale Card is tolerated only for the same sole Exposure. Rogue or ambiguous authority fails before
+  Source/Provider mutation. A bounded live observation at 15:34Z saw readiness v2→v3 and the active
+  managed Card revision 2→3.
+- `READINESS_STABILITY_WINDOW` is bounded to two evaluations with one 10,250 ms wait. A second stability
+  result fails with `UAP_CAPABILITY_READINESS_STABILITY_TIMEOUT`; other unavailable states fail directly
+  as `UAP_CAPABILITY_READINESS_INVALID`. The earlier readiness/bootstrap failure envelopes, including
+  the expired-readiness preflight deadlock, remain immutable under `reports/ugv-agent-profile-simulation/attempts/`.
+- **Open Provider-authority-TTL gap:** readiness recovery is proven only inside the current Provider
+  authority generation. After the configured 300-second TTL, Provider materialization can advance the
+  Binding from revision N to N+1; immutable `embodied.move@1` still freezes revision N and cannot be
+  patched in place. The safe recovery is a task-owned clean database or a reviewed new Capability
+  version bound to N+1. B01 therefore does not claim unbounded long-running bootstrap recovery across
+  Provider authority generations.
+- Runtime evidence, focused 10-file/163-test and independent 9-file/160-test matrices, both typechecks
+  and builds, 842-source architecture, B01 changed-file lint/format, SMPP full lint and both diff checks
+  pass. Fifteen evidence hashes are frozen in
+  `reports/ugv-agent-profile-simulation/uap-p3-b01-verification.json`. SDAR full lint exits 1 with 22
+  errors only in seven committed out-of-scope Home-Lab files. SDAR full format exits 1 only for
+  `packages/application/src/skill-usage-planning.ts` and
+  `packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts`; SMPP full format
+  exits 1 only for the historical P1-B02 report
+  `reports/ugv-agent-profile-simulation/attempts/deployment-preflight-uap-p1b02-20260821t032832z.redacted.json`.
+  These nonblocking baselines are not represented as full-repository passes. P3-B01 is complete with
+  those disclosures; P3-B02, P3-B03, P4, P3 overall and the Goal remain pending.
+
+## UGV Agent Profile P3-B02 external qualification failure (2026-08-24)
+
+- The one recovery-issued YES window is consumed and must not be retried. It reached only the fixed
+  taskless `vehicle_get_state` qualification. The receipt and corresponding Device `get_status` are
+  durable and succeeded, but the external aggregate reported `chassis.mission.state=0`; the reviewed
+  Profile accepts only `[-1,3,4,5]`. No local fallback, state coercion or widened admission set is
+  assumed.
+- The failure is not movement evidence. Formal A2A admission, Task, Goal, Plan, model invocation,
+  confirmation, `vehicle_navigate`, Provider Task, remote binding, continuation and terminal outcome
+  counts are zero. Provider admission/idempotency and Adapter execution/mutation/ACK counts are also
+  zero. The only post-preledger delta is one taskless Runtime MCP receipt and one accepted read-only
+  Device call.
+- The wrapper restored `NO` and the public failure artifact is immutable. A future attempt requires a
+  new user authorization, new append-only identity and fresh external qualification. Before any such
+  attempt, the simulator/operator must establish why mission state `0` is emitted and either restore
+  an already-reviewed admissible idle state or pursue a separately reviewed contract change; this
+  run supplies no authority to choose between those options.
+- The live Source recovery exposed a private hashing category error: formal Runtime discovery contains
+  `authorizationModel`, a legitimate protocol field that the public evidence canonicalizer rejects by
+  name. Internal schema-validated pre/post snapshots now use a private canonical hash; the public
+  redaction boundary remains unchanged. This repair is implementation evidence only and does not
+  upgrade the failed external attempt.
+
+## UGV Agent Profile P3-B02 terminal Provider / failed SDAR continuation (2026-08-24)
+
+- A later separately authorized attempt reached exactly one real `vehicle_navigate`. The Provider Task
+  is terminal-completed and the Adapter execution succeeded. This proves a real external movement but
+  does not prove the SDAR Goal because the final horizontal error was approximately 6.8 metres and no
+  SDAR continuation, final-state node, result processing or terminal A2A projection completed.
+- The immediate SDAR failure was deterministic: the Provider returned a legal CreateTask state
+  `working` with substate `accepted`, which the Frozen lifecycle parser omitted and normalized to
+  `FROZEN_CREATE_TASK_RESULT_INVALID`. The bounded fix adds only `accepted`, migration `0173` updates
+  the PostgreSQL check constraint, and regression coverage proves later reconciliation to `running`.
+- `terminal_provider_safe` is evidence/recovery authority, not success authority. It permits issuing a
+  fresh append-only attempt only when the Provider/Adapter are safely terminal, the exact SDAR parser
+  failure is present and there is no active continuation or fabricated terminal outcome. It never
+  retries the failed invocation or upgrades the old Task.
+- Post-fix live verification is intentionally unverified. The user cancelled further simulator access
+  because another client was using it. The task-owned stack was removed/stopped before another YES
+  window; therefore the implementation may be merged, while P3-B02/P3-B03 and overall Goal acceptance
+  remain open.
+
+## UGV Agent Profile P2-B03 local-integration boundary (2026-08-21)
+
+- The task card says there must be zero MCP calls before Plan confirmation, while the frozen Profile
+  admission requires one already-persisted taskless `vehicle_get_state` qualification receipt. ADR-138
+  resolves this as zero **Task-scoped Workflow** MCP calls and zero navigation/side-effect calls before
+  confirmation. The read-only taskless qualification is recorded separately and never receives Task,
+  confirmation or movement authority. The passing local E2E observes one such qualification read and
+  zero Task-scoped calls before confirmation; reports must not collapse these counts.
+- P2-B03 temporarily enables the default-closed simulation gate only inside an isolated test process
+  connected to a strict loopback frozen Provider fixture. It observes one local fixture navigation to
+  verify `TASK_REQUIRED`, `waiting_external`, restart continuation and no replay. This is not SMPP,
+  Device MCP or MQTT execution and cannot qualify P3 or the external Goal. All P2 external counts remain
+  zero.
+- The local E2E creates random Task/Goal/Plan/Workflow/Invocation/Remote Binding identifiers in a
+  template0-backed disposable PostgreSQL database, asserts their exact relationships, then drops that
+  database. The reporter did not export those random identifiers, so P2 reports retain `null` plus a
+  missing-reason instead of inventing values. P3 external evidence must retain the complete identifier
+  lineage required by the Goal package.
+- SMPP provenance has three immutable layers: P0 contract source
+  `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507`, P1 qualification evidence checkpoint
+  `90466127aee7c01014eef29a1e346b071de3704e`, and current intake
+  `b5f3ba2076468695c781bea1e5e6d3045e60f70e`. The first two are ancestors of the third and historical
+  P0/P1 reports are not rewritten. P2 did not execute the current SMPP checkout.
+- The P2 local smoke verified that the Server loads and bootstraps LLM configuration from `.env` while
+  making zero model invocations. External model inference begins in P3; no `.env` value or secret is
+  recorded as evidence.
+- The P2-B03 local milestone is accepted with two repository-baseline exceptions, not a clean
+  whole-repository lint/format claim. `pnpm lint` still reports 22 errors in seven unchanged Home-Lab
+  files, while `pnpm format:check` still reports two unchanged files
+  (`packages/application/src/skill-usage-planning.ts` and
+  `packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts`). All 46 changed
+  TypeScript files pass scoped ESLint, and all P2-B03 changed supported files pass scoped Prettier.
+- Sandbox Unit and Contract replays fail only where loopback listen or child-process operations are
+  denied with `EPERM`. The identical `pnpm test:unit` and `pnpm test:contract` commands pass on the
+  approved host (244 files/1913 tests plus the 22-test performance phase; 51 files/318 tests). Both
+  sandbox attempts and their host corroborations remain immutable evidence; they do not qualify any
+  external SMPP action.
+- The full generic E2E gate is not clean: phase one passes 69 tests, fails three old generic
+  `task-service-endpoint` cases and skips one. The exact isolated regex run fails seven and skips 55
+  both in the current worktree and in a pure `git archive` of pre-P2 HEAD
+  `4c0b1f7a398b5f79e05df2103d1e5191436b3129` (23.05 versus 23.10 seconds). This reproducible unchanged
+  baseline is retained as three immutable attempts. It does not invalidate the formal P2 Runtime E2E
+  1/1 pass, but it prevents a clean whole-repository E2E claim.
+
 ## v1.2.2 G00 decisions and external gates (2026-07-22)
 
 - The frozen clean-slate decision conflicts intentionally with ADR-108's retained `legacy_v11` product

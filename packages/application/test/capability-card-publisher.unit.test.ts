@@ -128,6 +128,37 @@ describe('CapabilityCardPublisher', () => {
 
     await expect(publisher.publish()).rejects.toThrow('CAPABILITY_CARD_CATALOG_HASH_MISMATCH');
   });
+
+  it('keeps legacy active-Card reads compatible unless strict current-catalog validation is enabled', async () => {
+    const repository = new InMemoryCapabilityCardRepository();
+    const initial = new CapabilityCardPublisher({
+      summaries: { getSummary: () => Promise.resolve({ summary: summary(), index: index() }) },
+      catalog: { listEnabledSkillVersions: () => Promise.resolve([publicSkill()]) },
+      repository,
+      clock: { now: () => '2026-07-23T02:00:00.000Z' },
+      nextCardId: () => 'card.public.current-read',
+    });
+    const active = await initial.publish();
+    const staleSummaries = { getSummary: () => Promise.resolve(undefined) };
+    const compatible = new CapabilityCardPublisher({
+      summaries: staleSummaries,
+      catalog: { listEnabledSkillVersions: () => Promise.resolve([]) },
+      repository,
+      clock: { now: () => '2026-07-23T02:00:00.000Z' },
+      nextCardId: () => 'unused.compatible',
+    });
+    const strict = new CapabilityCardPublisher({
+      summaries: staleSummaries,
+      catalog: { listEnabledSkillVersions: () => Promise.resolve([]) },
+      repository,
+      requireCurrentCatalogOnRead: true,
+      clock: { now: () => '2026-07-23T02:00:00.000Z' },
+      nextCardId: () => 'unused.strict',
+    });
+
+    await expect(compatible.findActive()).resolves.toEqual(active);
+    await expect(strict.findActive()).resolves.toBeUndefined();
+  });
 });
 
 function summary() {

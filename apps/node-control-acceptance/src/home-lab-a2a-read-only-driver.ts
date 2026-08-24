@@ -726,6 +726,10 @@ async function executeScenario(
   dependencies: DriverDependencies,
 ): Promise<HomeLabA2AReadOnlyTaskReport> {
   const randomId = dependencies.randomId ?? randomUUID;
+  const structuredInput = Object.fromEntries(
+    scenario.operations.map((operation) => [operation.inputField, operation.resourceId]),
+  );
+  const idempotencyKey = `${configuration.runId}:composite-read`;
   const submitted = await client.sendMessage(
     SendMessageRequest.fromJSON({
       message: {
@@ -734,18 +738,18 @@ async function executeScenario(
         parts: [
           { text: scenario.requestText, mediaType: 'text/plain' },
           {
-            data: Object.fromEntries(
-              scenario.operations.map((operation) => [operation.inputField, operation.resourceId]),
-            ),
+            data: structuredInput,
             mediaType: 'application/json',
           },
         ],
         metadata: {
           user_id: 'home-lab-a2a-read-only',
+          structured_input: structuredInput,
+          idempotency_key: idempotencyKey,
           'io.sdar/requestedCapability': {
             exposureId: scenario.exposureId,
             versionConstraint: '1',
-            requestId: `${configuration.runId}:composite-read`,
+            requestId: idempotencyKey,
           },
         },
       },

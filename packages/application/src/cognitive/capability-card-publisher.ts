@@ -82,6 +82,8 @@ export class CapabilityCardPublisher {
   readonly #repository: CapabilityCardRepository;
   readonly #narrative: CognitiveStructuredModelStageInvoker | undefined;
   readonly #policy: PublicCapabilityProjectionPolicy;
+  readonly #agentName: string;
+  readonly #requireCurrentCatalogOnRead: boolean;
   readonly #catalogBuilder = new CapabilityCatalogSnapshotBuilder();
   readonly #clock: Readonly<{ now(): string }>;
   readonly #nextCardId: () => string;
@@ -93,6 +95,10 @@ export class CapabilityCardPublisher {
       repository: CapabilityCardRepository;
       narrative?: CognitiveStructuredModelStageInvoker;
       policy?: PublicCapabilityProjectionPolicy;
+      /** Deployment composition identity; omitted deployments retain the existing runtime Card. */
+      agentName?: string;
+      /** Fail closed when the active Card no longer matches the currently enabled Skill catalog. */
+      requireCurrentCatalogOnRead?: boolean;
       clock: Readonly<{ now(): string }>;
       nextCardId(): string;
     }>,
@@ -102,12 +108,23 @@ export class CapabilityCardPublisher {
     this.#repository = dependencies.repository;
     this.#narrative = dependencies.narrative;
     this.#policy = dependencies.policy ?? new PublicCapabilityProjectionPolicy();
+    this.#agentName = normalizedAgentName(dependencies.agentName);
+    this.#requireCurrentCatalogOnRead = dependencies.requireCurrentCatalogOnRead ?? false;
     this.#clock = dependencies.clock;
     this.#nextCardId = dependencies.nextCardId;
   }
 
-  findActive(): Promise<PublicCapabilityCardSnapshot | undefined> {
-    return this.#repository.findActive();
+  async findActive(): Promise<PublicCapabilityCardSnapshot | undefined> {
+    const active = await this.#repository.findActive();
+    if (!this.#requireCurrentCatalogOnRead || active === undefined) return active;
+    const current = await this.#summaries.getSummary();
+    if (
+      active.catalogHash !== current?.summary.catalogHash ||
+      active.generationPolicyVersion !== current.summary.generationPolicyVersion
+    ) {
+      return undefined;
+    }
+    return active;
   }
 
   findById(cardId: string): Promise<PublicCapabilityCardSnapshot | undefined> {
@@ -140,7 +157,7 @@ export class CapabilityCardPublisher {
 
     const generatedAt = this.#clock.now();
     const profile = this.#policy.project(view.summary, generatedAt);
-    const deterministicDescription = deterministicNarrative(profile);
+    const deterministicDescription = deterministicNarrative(profile, this.#agentName);
     const narrative = await this.#optionalNarrative(profile);
     const description = narrative ?? deterministicDescription;
     const generationMode =
@@ -151,7 +168,7 @@ export class CapabilityCardPublisher {
         : ('model_narrative' as const);
     const publicSkills = publicSkillSnapshots(skills);
     const publicContent = {
-      agentName: 'Skill-Driven Agent Runtime',
+      agentName: this.#agentName,
       description,
       profile,
       publicSkills,
@@ -263,10 +280,17 @@ function publicLimitations(codes: readonly string[]): readonly PublicCapabilityL
   );
 }
 
-function deterministicNarrative(profile: PublicCapabilityProfile): string {
+function deterministicNarrative(profile: PublicCapabilityProfile, agentName: string): string {
   const capabilityWord = profile.capabilities.length === 1 ? 'capability' : 'capabilities';
   const domainWord = profile.domains.length === 1 ? 'domain' : 'domains';
-  return `Skill-Driven Agent Runtime provides ${String(profile.capabilities.length)} public ${capabilityWord} across ${String(profile.domains.length)} ${domainWord}.`;
+  return `${agentName} provides ${String(profile.capabilities.length)} public ${capabilityWord} across ${String(profile.domains.length)} ${domainWord}.`;
+}
+
+function normalizedAgentName(value: string | undefined): string {
+  const normalized = value?.trim() ?? 'Skill-Driven Agent Runtime';
+  if (normalized.length === 0 || normalized.length > 128)
+    throw new Error('CAPABILITY_CARD_AGENT_NAME_INVALID');
+  return normalized;
 }
 
 function hashCanonical(value: unknown): string {

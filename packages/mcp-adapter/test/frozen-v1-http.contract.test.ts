@@ -4,6 +4,7 @@ import {
   FROZEN_MCP_PROTOCOL_VERSION,
   FrozenMcpProtocolError,
   FrozenV1McpClient,
+  FrozenV1RuntimeLifecycleAdapter,
 } from '../src/index.js';
 
 const endpoint = 'https://provider.example.test/mcp';
@@ -92,6 +93,141 @@ describe('Frozen V1 stateless HTTP client', () => {
       null,
     ]);
     expect(bodies.every((body) => body['method'] !== 'initialize')).toBe(true);
+  });
+
+  it('preserves full, key-only, and absent Task call profiles through the Runtime adapter', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const client = new FrozenV1McpClient((_url, init) => {
+      const body = parseRequestBody(init);
+      bodies.push(body);
+      return Promise.resolve(
+        jsonResponse(
+          { resultType: 'complete', content: [], structuredContent: {}, isError: false },
+          body['id'],
+        ),
+      );
+    });
+    const adapter = new FrozenV1RuntimeLifecycleAdapter({ client });
+    const base = {
+      endpoint,
+      headers: {},
+      arguments: {},
+      outputValidator: {
+        checkSchema: () => ({ valid: true as const, errors: [] }),
+        validate: () => ({ valid: true as const, errors: [] }),
+      },
+    };
+
+    await adapter.call({
+      ...base,
+      toolName: 'vehicle_navigate',
+      taskCallProfile: {
+        profileVersion: '1.0',
+        idempotencyKey: 'invocation-navigate-1',
+        timing: {
+          start: {
+            mode: 'scheduled',
+            scheduledAt: '2026-08-11T01:10:00.000Z',
+            startToleranceMs: 2_500,
+          },
+          maxElapsedMs: 60_000,
+        },
+        reservationRef: 'reservation-navigate-1',
+      },
+    });
+    await adapter.call({
+      ...base,
+      toolName: 'task_key_only',
+      taskCallProfile: {
+        profileVersion: '1.0',
+        idempotencyKey: 'invocation-key-only-1',
+      },
+    });
+    await adapter.call({ ...base, toolName: 'vehicle_get_state' });
+
+    const profiles = bodies.map((body) => {
+      const params = body['params'] as Record<string, unknown>;
+      const meta = params['_meta'] as Record<string, unknown>;
+      return meta['io.sdar/taskExecution'];
+    });
+    expect(profiles).toEqual([
+      {
+        profileVersion: '1.0',
+        idempotencyKey: 'invocation-navigate-1',
+        timing: {
+          start: {
+            mode: 'scheduled',
+            scheduledAt: '2026-08-11T01:10:00.000Z',
+            startToleranceMs: 2_500,
+          },
+          maxElapsedMs: 60_000,
+        },
+        reservationRef: 'reservation-navigate-1',
+      },
+      { profileVersion: '1.0', idempotencyKey: 'invocation-key-only-1' },
+      undefined,
+    ]);
+    expect(bodies.map((body) => body['method'])).toEqual([
+      'tools/call',
+      'tools/call',
+      'tools/call',
+    ]);
+  });
+
+  it('strictly validates and retains the optional Provider Catalog manifest identity', async () => {
+    const providerCatalog = {
+      providerId: 'isr.vehicle.ugv.ugv1',
+      providerType: 'isr.vehicle.ugv',
+      providerVersion: '1.0.0',
+      manifestHash: 'b'.repeat(64),
+    };
+    const discovery = discoveryResult();
+    const withProvider = {
+      ...discovery,
+      capabilities: {
+        ...discovery.capabilities,
+        extensions: {
+          ...discovery.capabilities.extensions,
+          'io.sdar/providerCatalog': providerCatalog,
+        },
+      },
+    };
+    const client = new FrozenV1McpClient(() => Promise.resolve(jsonResponse(withProvider)));
+
+    await expect(
+      client.discoverSnapshot({
+        endpoint,
+        headers: {},
+        snapshotId: 'snapshot-provider-catalog',
+        serverId: 'provider-1',
+        baselineSha256: 'a'.repeat(64),
+        discoveredAt: '2026-07-18T00:00:00.000Z',
+        toolRevision: 1,
+      }),
+    ).resolves.toMatchObject({ providerCatalog });
+
+    for (const malformed of [
+      { ...providerCatalog, manifestHash: 'A'.repeat(64) },
+      { ...providerCatalog, providerType: 'isr vehicle ugv' },
+      { ...providerCatalog, readiness: 'online' },
+    ]) {
+      const invalid = {
+        ...withProvider,
+        capabilities: {
+          ...withProvider.capabilities,
+          extensions: {
+            ...withProvider.capabilities.extensions,
+            'io.sdar/providerCatalog': malformed,
+          },
+        },
+      };
+      await expect(
+        new FrozenV1McpClient(() => Promise.resolve(jsonResponse(invalid))).discover({
+          endpoint,
+          headers: {},
+        }),
+      ).rejects.toMatchObject({ code: 'FROZEN_MCP_DISCOVERY_INVALID' });
+    }
   });
 
   it('accepts a correlated SSE JSON-RPC response', async () => {

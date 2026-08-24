@@ -50,6 +50,72 @@ describe('Frozen V1 Task lifecycle', () => {
     expect(methods).toEqual(['tools/call']);
   });
 
+  it('maps the complete protocol-neutral Task call profile to exact tools/call metadata', async () => {
+    const requests: Record<string, unknown>[] = [];
+    const lifecycle = createLifecycle((body) => {
+      requests.push(body);
+      return toolResult();
+    });
+
+    await lifecycle.callTool({
+      name: 'vehicle_navigate',
+      arguments: { resourceId: 'vehicle:ugv1' },
+      taskCallProfile: {
+        profileVersion: '1.0',
+        idempotencyKey: 'invocation-navigate-1',
+        timing: {
+          start: {
+            mode: 'scheduled',
+            scheduledAt: '2026-08-11T01:10:00.000Z',
+            startToleranceMs: 2_500,
+          },
+          maxElapsedMs: 60_000,
+        },
+        reservationRef: 'reservation-navigate-1',
+      },
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.['params']).toEqual({
+      name: 'vehicle_navigate',
+      arguments: { resourceId: 'vehicle:ugv1' },
+      _meta: {
+        'io.sdar/taskExecution': {
+          profileVersion: '1.0',
+          idempotencyKey: 'invocation-navigate-1',
+          timing: {
+            start: {
+              mode: 'scheduled',
+              scheduledAt: '2026-08-11T01:10:00.000Z',
+              startToleranceMs: 2_500,
+            },
+            maxElapsedMs: 60_000,
+          },
+          reservationRef: 'reservation-navigate-1',
+        },
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientInfo': { name: 'sdar', version: '1.2.1' },
+        'io.modelcontextprotocol/clientCapabilities': {
+          extensions: { 'io.modelcontextprotocol/tasks': {} },
+        },
+      },
+    });
+  });
+
+  it('does not add Task execution metadata when a lifecycle call has no profile', async () => {
+    const requests: Record<string, unknown>[] = [];
+    const lifecycle = createLifecycle((body) => {
+      requests.push(body);
+      return toolResult();
+    });
+
+    await lifecycle.callTool({ name: 'vehicle_get_state', arguments: {} });
+
+    const params = requests[0]?.['params'] as Record<string, unknown>;
+    const meta = params['_meta'] as Record<string, unknown>;
+    expect(meta).not.toHaveProperty('io.sdar/taskExecution');
+  });
+
   it('accepts a flat CreateTaskResult then immediately reconciles exactly once', async () => {
     const methods: string[] = [];
     const lifecycle = createLifecycle((body) => {
@@ -68,6 +134,39 @@ describe('Frozen V1 Task lifecycle', () => {
       reconciled: { resultType: 'complete', observation: { runtimeRevision: '2' } },
     });
     expect(methods).toEqual(['tools/call', 'tasks/get']);
+  });
+
+  it('admits the Provider accepted substate on CreateTaskResult before reconciliation', async () => {
+    const lifecycle = createLifecycle((body) =>
+      body['method'] === 'tools/call'
+        ? task('working', '1', {
+            resultType: 'task',
+            _meta: {
+              'io.sdar/taskExecution': {
+                profileVersion: '1.0',
+                runtimeRevision: '1',
+                substate: 'accepted',
+              },
+            },
+          })
+        : task('working', '2', {
+            _meta: {
+              'io.sdar/taskExecution': {
+                profileVersion: '1.0',
+                runtimeRevision: '2',
+                substate: 'running',
+              },
+            },
+          }),
+    );
+
+    await expect(
+      lifecycle.callTool({ name: 'vehicle_navigate', arguments: {} }),
+    ).resolves.toMatchObject({
+      kind: 'remote_task',
+      created: { observation: { runtimeRevision: '1', substate: 'accepted' } },
+      reconciled: { observation: { runtimeRevision: '2', substate: 'running' } },
+    });
   });
 
   it('upgrades a base-only CreateTaskResult to its first DetailedTask at the same revision', async () => {

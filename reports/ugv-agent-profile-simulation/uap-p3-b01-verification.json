@@ -1,0 +1,342 @@
+{
+  "schemaVersion": "ugv-agent-profile.task-verification/v1",
+  "taskId": "UAP-P3-B01",
+  "generatedAt": "2026-08-21T15:49:12.883Z",
+  "status": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P3_clean_cross_repository_bootstrap",
+  "observationClass": "isolated_local_stack_and_external_read_only_smpp",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalMovementExecuted": false,
+  "finalResult": "PASS_BOUNDED_CLEAN_STACK_AUTHORITY",
+  "taskAcceptance": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+  "requirementsAffected": [
+    "UAP-P3-B01",
+    "SC-01",
+    "SC-02",
+    "SC-05",
+    "SC-07",
+    "FR-A2A-006",
+    "FR-MCP-004",
+    "FR-MCP-005",
+    "FR-MCP-009",
+    "FR-LLM-001",
+    "FR-LLM-002",
+    "NFR-MNT-001"
+  ],
+  "requirementsBoundary": "B01 adds clean-stack and authority evidence for these requirements; it does not complete SC-02 movement binding at execution, SC-05 movement evidence, P3 or the overall Goal.",
+  "repository": {
+    "name": "skill-driven-agent-runtime",
+    "branch": "codex/sdar-ugv-smpp-integration",
+    "baselineCommit": "928c645702f9e05e32cc001335898b79444ef9f6",
+    "implementationCommit": null,
+    "dirty": true,
+    "missingReason": "P3-B01 acceptance is frozen before a parent handoff checkpoint commit; no commit identity is invented."
+  },
+  "smppBaseline": {
+    "repository": "sdar-mcp-provider-platform",
+    "branch": "codex/goal-ugv-runtime-telemetry-joint-integration",
+    "commit": "b5f3ba2076468695c781bea1e5e6d3045e60f70e",
+    "worktreeClean": true,
+    "readOnlyByThisTask": true,
+    "p1QualificationEvidenceCheckpoint": "90466127aee7c01014eef29a1e346b071de3704e",
+    "p0ContractFreezeSource": "ce57d3d7ac2f99c0c95fa61bd9746abe862ed507",
+    "historicalLayersRewritten": false
+  },
+  "stack": {
+    "cleanStartObserved": true,
+    "taskOwnedCleanupOnly": true,
+    "smppComposeProject": "sdar-uap-p3-b01-smpp",
+    "smppServiceCount": 7,
+    "sdarComposeProject": "sdar-uap-p3-b01-sdar",
+    "sdarInfrastructureServiceCount": 3,
+    "sdarHostProcessCount": 3,
+    "isolatedDatabasesAndVolumes": true,
+    "productionDatabaseUsed": false,
+    "sdarDirectSouthboundAccessAllowed": false,
+    "southboundOwner": "SMPP Adapter only",
+    "simulationSideEffectsEnabled": false
+  },
+  "llmConfiguration": {
+    "source": "repository_root_dotenv_loaded_by_host_server",
+    "configurationLoadedFromDotEnv": true,
+    "dotenvRegularFile": true,
+    "dotenvSymlink": false,
+    "dotenvMode": "0600",
+    "masterKeyConfigurationValid": true,
+    "generationAndEmbeddingConfigurationPresent": true,
+    "exactlyOneCredentialSourcePerProvider": true,
+    "openAiCompatibleConfiguration": true,
+    "dotenvCopiedMountedSourcedOrRenderedIntoCompose": false,
+    "generationProviderExact": true,
+    "embeddingProviderExact": true,
+    "modelProviderCount": 2,
+    "stageModelRouteCount": 42,
+    "baselineInvocationCount": 0,
+    "finalInvocationCount": 0,
+    "externalInferenceClaimed": false,
+    "secretOrConfigurationValueRecorded": false
+  },
+  "authority": {
+    "sourceCount": 1,
+    "providerBindingCount": 1,
+    "catalogToolCount": 10,
+    "skill": "embodied.move_to@1",
+    "skillCount": 1,
+    "capability": "embodied.move@1",
+    "capabilityCount": 1,
+    "implementationCount": 1,
+    "exposure": "a2a.embodied.move@1",
+    "exposureCount": 1,
+    "readinessStatus": "available",
+    "managedCardActiveCount": 1,
+    "profilePublicCardAuthority": "enabled_skill_version",
+    "repeatedBootstrapDuplicateAuthorityCount": 0
+  },
+  "readinessRecovery": {
+    "readinessTtlMs": 60000,
+    "periodicEvaluationIntervalMs": 5000,
+    "managedCardRebuildAfterExpiredEvaluation": true,
+    "managedCardRebuildSerializedInSingleProcess": true,
+    "bootstrapAcceptsOnlyStructurallyExactReconciliableExpiredOrUnavailableSnapshot": true,
+    "bootstrapStabilityWindowAttemptCount": 2,
+    "bootstrapStabilityWindowDelayMs": 10250,
+    "failClosedAfterSecondStabilityWindow": "UAP_CAPABILITY_READINESS_STABILITY_TIMEOUT",
+    "runtimeRecoveryObserved": true,
+    "liveExpiryObservation": {
+      "observationWindowUtc": "2026-08-21T15:34Z",
+      "readinessSnapshotVersionBefore": 2,
+      "readinessSnapshotVersionAfter": 3,
+      "activeManagedCardRevisionBefore": 2,
+      "activeManagedCardRevisionAfter": 3,
+      "status": "PASS"
+    },
+    "runtimeRecoveryAttemptReferences": [
+      "attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821150943502-79768043dc89913b.redacted.json",
+      "attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821151821872-ac70edcff65977a9.redacted.json",
+      "attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821152109147-663e9b84f7a2089a.redacted.json",
+      "attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821152113139-034813186d2d8764.redacted.json"
+    ],
+    "scopeLimit": "Recovery is proven only while the frozen Provider Binding/Catalog authority still matches immutable embodied.move@1."
+  },
+  "knownGap": {
+    "id": "UAP-P3-B01-PROVIDER-AUTHORITY-TTL",
+    "status": "OPEN",
+    "providerAuthorityTtlSeconds": 300,
+    "trigger": "After the configured 300-second Provider authority TTL, materialization can advance the Binding from revision N to revision N+1.",
+    "conflict": "Immutable embodied.move@1 freezes Binding revision N in its Provider policy and cannot be rewritten to revision N+1.",
+    "currentRecovery": "Use a task-owned clean database or publish a reviewed new Capability version bound to revision N+1.",
+    "notClaimed": "Unbounded long-running bootstrap recovery across Provider authority generations is not proven."
+  },
+  "runtimeVerification": [
+    {
+      "command": "deploy/ugv-agent-profile-simulation/clean.sh",
+      "status": "PASS",
+      "exitCode": 0,
+      "attemptReference": "attempts/clean-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153029631-0aac92aef6bec4ac.redacted.json"
+    },
+    {
+      "command": "deploy/ugv-agent-profile-simulation/preflight.sh",
+      "status": "PASS",
+      "exitCode": 0,
+      "attemptReference": "attempts/preflight-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153057706-ef1feb1d8f6ac322.redacted.json"
+    },
+    {
+      "command": "deploy/ugv-agent-profile-simulation/up.sh",
+      "status": "PASS",
+      "exitCode": 0,
+      "attemptReference": "attempts/up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153226230-7612415ccad8e3f2.redacted.json"
+    },
+    {
+      "command": "deploy/ugv-agent-profile-simulation/bootstrap-authority.sh",
+      "status": "PASS_AND_IDEMPOTENT_REPLAY",
+      "exitCode": 0,
+      "attemptReferences": [
+        "attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153240289-edfb191b0d86d4a7.redacted.json",
+        "attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153259818-7b9eef2b676e9a22.redacted.json"
+      ]
+    },
+    {
+      "command": "deploy/ugv-agent-profile-simulation/readiness.sh",
+      "status": "PASS_AND_REPEAT_PASS",
+      "exitCode": 0,
+      "attemptReferences": [
+        "attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153439475-4a38090224908fb8.redacted.json",
+        "attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153459502-3afc5e9906dcf06f.redacted.json"
+      ]
+    },
+    {
+      "command": "deploy/ugv-agent-profile-simulation/verify.sh",
+      "status": "PASS",
+      "exitCode": 0,
+      "attemptReference": "attempts/verify-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153514746-77733aa01ab32c78.redacted.json"
+    },
+    {
+      "command": "pnpm exec vitest run apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts apps/node-control-acceptance/test/smpp-provider-materializer.unit.test.ts apps/node-control-api/test/readiness-agent-card-reconciler.unit.test.ts packages/node-control-application/test/a2a-exposure-service.unit.test.ts packages/runtime-control-application/test/skill-provider-dependency-policy.unit.test.ts packages/runtime-control-persistence-postgres/test/dynamic-skill-provider-readiness.unit.test.ts packages/application/test/ugv-profile-provider-output-schema.unit.test.ts apps/server/test/ugv-move-binding.unit.test.ts packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts --maxWorkers=1",
+      "status": "PASS",
+      "exitCode": 0,
+      "result": "10 files and 163 tests passed in 58.05 seconds."
+    }
+  ],
+  "failedAttemptLineage": {
+    "preserved": true,
+    "rewrittenOrDeleted": false,
+    "categories": [
+      "PMS seed and startup ordering corrections",
+      "host-process startup and clean-stack corrections",
+      "Source projection and Provider catalog authority corrections",
+      "readiness revision-zero projection and stability-window corrections",
+      "expired readiness preflight recovery after UAP_CAPABILITY_READINESS_INVALID"
+    ],
+    "readinessFailureReferences": [
+      "attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821145435949-4bdb37bfb6535315.redacted.json",
+      "attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821145604763-4a435404bab73ea9.redacted.json",
+      "attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821150943502-79768043dc89913b.redacted.json",
+      "attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821151821872-ac70edcff65977a9.redacted.json"
+    ]
+  },
+  "safety": {
+    "authorizationGrantedByThisArtifact": false,
+    "sideEffectsMode": "NO",
+    "navigationDispatchCount": 0,
+    "mutatingOperationCount": 0,
+    "weaponOrForbiddenOperationCallCount": 0,
+    "modelInvocationCount": 0,
+    "providerToolCallCountFromAuthorityBootstrap": 0,
+    "readOnlyQualificationDeviceToolCallCount": 1,
+    "externalMovementClaimed": false
+  },
+  "artifacts": [
+    {
+      "path": "reports/ugv-agent-profile-simulation/authority-bootstrap.redacted.json",
+      "sha256": "a50a627399771e95b49f9ea57f6826834adc6561b864bc71616e0da1b168af31"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/authority-readiness.redacted.json",
+      "sha256": "0269c398985b27a7b324c236d817bc72c45772c02ca50f4891e1608f119963ab"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/model-invocation-baseline.redacted.json",
+      "sha256": "3bad730f10ef0a28b8a85506b1ab5e5104a0ce7ced620afcf6a9adcce495c7a8"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/model-invocation-final.redacted.json",
+      "sha256": "71a16f2a3ffe24455d86bb5b30cf1b7b3644f6b04f13e7437faadf05ad1b17ad"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/smpp-readonly-qualification.redacted.json",
+      "sha256": "f60e72cd0eb9d3d7c6f0f0f3017522b6b69a2f03128845a88a4f8dffd420e6a4"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/clean-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153029631-0aac92aef6bec4ac.redacted.json",
+      "sha256": "1c907cb24d734e4e209fb4929543deb62a8a5e3d1f9e19d8ca3a3ae21164eeb1"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153226230-7612415ccad8e3f2.redacted.json",
+      "sha256": "9575944282b9c13f8abd012d94c7abc6e4d4a776ffc6a167221ae811afdc2a1d"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153240289-edfb191b0d86d4a7.redacted.json",
+      "sha256": "5b22fa07ed7c14d312b0079988f36fe28c828dcac4fbc1105743689a938e3974"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153259818-7b9eef2b676e9a22.redacted.json",
+      "sha256": "c3dbac2584e8c752b0c630abf7d8a61aafb72edf9081c2e268f6952aebc7fbca"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153439475-4a38090224908fb8.redacted.json",
+      "sha256": "449f08fee6368310874df8465e4451433ece7fd27d50775354670eef3fcca883"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153459502-3afc5e9906dcf06f.redacted.json",
+      "sha256": "8826a96ebbd4624f64c5873948dcdcafb0da9e3558ffa79ccf0f52c4e188d3e8"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/model-invocation-baseline-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153226007-2e1c05d76b04f384.redacted.json",
+      "sha256": "263a2fb08b9846d9fc8975764df7c499cf22b15046442201df80eb23c8e0d1b6"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/model-invocation-final-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153507525-9512e6db45287738.redacted.json",
+      "sha256": "f8ce00e1e57b72558d390b93ec52ba74e848aaae08873a2d27a3134b999a3beb"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/smpp-readonly-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153507078-1e381e19b7eafac0.redacted.json",
+      "sha256": "4667fd0f67d0cd94d13f13b03dd14758712bab080683bc70b61527c38c04244c"
+    },
+    {
+      "path": "reports/ugv-agent-profile-simulation/attempts/verify-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821153514746-77733aa01ab32c78.redacted.json",
+      "sha256": "140bfc306c1c8ed710d6d879cdc543bd0403360c08fb173f5fc7853ab5a15a08"
+    }
+  ],
+  "finalStaticGate": {
+    "status": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+    "focusedTests": {
+      "status": "PASS",
+      "filesPassed": 10,
+      "testsPassed": 163,
+      "durationSeconds": 58.05
+    },
+    "independentTests": {
+      "status": "PASS",
+      "filesPassed": 9,
+      "testsPassed": 160,
+      "partitions": [
+        "4 files and 97 tests passed: authority bootstrap, deployment contract, readiness reconciler and Exposure service.",
+        "5 files and 63 tests passed: materializer, Provider output schema, dependency policy, dynamic readiness and UGV binding."
+      ]
+    },
+    "sdarTypecheck": "PASS",
+    "smppTypecheck": "PASS",
+    "sdarBuild": "PASS",
+    "smppBuild": "PASS",
+    "smppFullLint": "PASS",
+    "sdarFullLint": {
+      "status": "BASELINE_FAILURE_CHANGED_SCOPE_PASS",
+      "exitCode": 1,
+      "errorCount": 22,
+      "scope": "Seven committed out-of-scope Home-Lab files; every B01 changed TypeScript/MJS file passes scoped ESLint."
+    },
+    "architecture": {
+      "status": "PASS",
+      "typescriptSourceFileCount": 842
+    },
+    "scopedLint": {
+      "status": "PASS",
+      "typescriptAndTestFileCount": 21,
+      "mjsFileCount": 13,
+      "diagnosticAttempt": "One earlier audit-only command named nonexistent script paths and exited 2 before a product check; the corrected exact 13-script enumeration passed."
+    },
+    "sdarFullFormat": {
+      "status": "BASELINE_FAILURE_CHANGED_SCOPE_PASS",
+      "exitCode": 1,
+      "baselinePaths": [
+        "packages/application/src/skill-usage-planning.ts",
+        "packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts"
+      ]
+    },
+    "smppFullFormat": {
+      "status": "BASELINE_FAILURE_CHANGED_SCOPE_PASS",
+      "exitCode": 1,
+      "baselinePaths": [
+        "reports/ugv-agent-profile-simulation/attempts/deployment-preflight-uap-p1b02-20260821t032832z.redacted.json"
+      ]
+    },
+    "changedScopePrettier": "PASS",
+    "sdarDiffCheck": "PASS",
+    "smppDiffCheck": "PASS",
+    "skippedOrWeakenedTests": false,
+    "placeholderSuccessEvidence": false,
+    "dynamicCode": false,
+    "secretsIncluded": false,
+    "artifactHashesFinalized": true
+  },
+  "completion": {
+    "milestoneStateChanged": true,
+    "finalShaGenerated": true,
+    "p3B02Status": "PENDING",
+    "p3B03Status": "PENDING",
+    "p4Status": "PENDING",
+    "nextAction": "Proceed to UAP-P3-B02 without widening the B01 zero-side-effect evidence or the disclosed Provider-generation recovery boundary."
+  }
+}

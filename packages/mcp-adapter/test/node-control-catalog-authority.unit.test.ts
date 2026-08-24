@@ -52,6 +52,49 @@ describe('Frozen MCP Catalog canonical authority', () => {
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
   });
+
+  it('binds validated Provider manifest identity into the Catalog checksum while preserving legacy omission', () => {
+    const snapshot = protocolSnapshot();
+    const tools = [defaultTool()];
+    const legacy = deriveFrozenMcpCatalogAuthority(snapshot, tools, 1);
+    const providerCatalog = {
+      providerId: 'isr.vehicle.ugv.ugv1',
+      providerType: 'isr.vehicle.ugv',
+      providerVersion: '1.0.0',
+      manifestHash: 'b'.repeat(64),
+    } as const;
+    const frozen = deriveFrozenMcpCatalogAuthority({ ...snapshot, providerCatalog }, tools, 1);
+    const drifted = deriveFrozenMcpCatalogAuthority(
+      { ...snapshot, providerCatalog: { ...providerCatalog, manifestHash: 'c'.repeat(64) } },
+      tools,
+      1,
+    );
+    const lifecycleTool = defaultTool();
+    if (lifecycleTool.taskExecutionProfile === undefined)
+      throw new Error('TEST_TASK_EXECUTION_PROFILE_REQUIRED');
+    const lifecycleDeclared = deriveFrozenMcpCatalogAuthority(
+      { ...snapshot, providerCatalog },
+      [
+        {
+          ...lifecycleTool,
+          taskExecutionProfile: {
+            ...lifecycleTool.taskExecutionProfile,
+            supportsCancellation: false,
+            supportsPauseResume: false,
+          },
+        },
+      ],
+      1,
+    );
+
+    expect(frozen.catalogChecksum).not.toBe(legacy.catalogChecksum);
+    expect(drifted.catalogChecksum).not.toBe(frozen.catalogChecksum);
+    expect(lifecycleDeclared.catalogChecksum).not.toBe(frozen.catalogChecksum);
+    expect(frozenMcpCatalogDocument({ ...snapshot, providerCatalog }, tools)).toMatchObject({
+      providerCatalog,
+    });
+    expect(frozenMcpCatalogDocument(snapshot, tools)).not.toHaveProperty('providerCatalog');
+  });
 });
 
 describe('NodeControlFrozenMcpCatalogClient governed Runtime authority', () => {

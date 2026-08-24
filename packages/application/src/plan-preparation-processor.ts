@@ -171,6 +171,20 @@ export interface PlanPreparationProcessorDependencies {
         Readonly<{ requestMetadata: Readonly<Record<string, unknown>> }>,
     ): ReturnType<GenericTaskUnderstandingService['understand']>;
   }>;
+  /**
+   * Optional deployment-owned admission into already persisted formal Goal and
+   * User Goal Plan authority. It may not select a Skill or prepare a Workflow;
+   * those steps remain below in the unchanged scheduler/planner path.
+   */
+  readonly initialAdmission?: Readonly<{
+    admit(task: AgentTask): Promise<
+      Readonly<{
+        goal: Awaited<ReturnType<GoalService['get']>>;
+        userGoalPlanId: string;
+        summary: string;
+      }>
+    >;
+  }>;
   readonly goalSessions?: Pick<
     InteractiveGoalSessionService,
     'start' | 'getByTask' | 'applyAction'
@@ -333,6 +347,26 @@ export class PlanPreparationProcessor {
   async #prepare(initialTask: AgentTask): Promise<void> {
     let task = initialTask;
     task = await this.#transition(task, 'context_loading', 'Context loaded.');
+    const admitted = await this.#dependencies.initialAdmission?.admit(task);
+    if (admitted !== undefined) {
+      task = await this.#transition(task, 'goal_deliberation', admitted.summary);
+      task = bindTaskGoal(task, {
+        goalId: admitted.goal.goalId,
+        goalVersion: admitted.goal.version,
+        timestamp: this.#dependencies.clock.now(),
+      });
+      await this.#dependencies.tasks.save(task);
+      await this.#dependencies.events.publish({
+        eventId: this.#dependencies.ids.nextId('event'),
+        taskId: task.taskId,
+        contextId: task.contextId,
+        eventType: 'task.phase_changed',
+        timestamp: this.#dependencies.clock.now(),
+        summary: admitted.summary,
+      });
+      await this.#scheduleUserGoalPlan(task, admitted.goal, admitted.userGoalPlanId);
+      return;
+    }
     let requestText = task.requestText;
     const gateway = await this.#dependencies.fastGateway?.evaluate({ task, requestText });
     if (gateway !== undefined) {

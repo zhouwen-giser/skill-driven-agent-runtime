@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "observedAt": "2026-08-21T02:52:05.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+  "exitCode": 1,
+  "failure": {
+    "code": "ECONNREFUSED",
+    "endpoint": "127.0.0.1:55432",
+    "summary": "The repository PostgreSQL test container was stopped, so beforeAll could not create the isolated database. The test body was skipped.",
+    "secondaryFixtureIssue": "afterAll attempted to close uninitialized handles."
+  },
+  "fix": {
+    "summary": "Made cleanup conditional, started only the existing sdar-postgres-1 and sdar-redis-1 repository containers, and verified their explicit 55432/56379 loopback mappings and healthy state.",
+    "destructiveAction": false,
+    "databaseCreated": false
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

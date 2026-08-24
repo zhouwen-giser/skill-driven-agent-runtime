@@ -10,6 +10,7 @@ import {
   type FrozenTaskObservationMeta,
   type FrozenTaskOperationAck,
   type InternalToolResult,
+  type McpTaskCallProfile,
 } from '../../domain/src/index.js';
 
 import type { FrozenMcpRequestInput, FrozenV1McpClient } from './frozen-v1-mcp-client.js';
@@ -53,7 +54,7 @@ const taskExecutionMetaSchema = z
     eventId: z.string().min(1).max(256).optional(),
     observedAt: timestampSchema.optional(),
     substate: z
-      .enum(['scheduled', 'queued', 'running', 'paused', 'resuming', 'stopping'])
+      .enum(['accepted', 'scheduled', 'queued', 'running', 'paused', 'resuming', 'stopping'])
       .optional(),
     progress: z
       .object({ percent: z.number().min(0).max(100) })
@@ -198,13 +199,20 @@ export class FrozenTaskLifecycleClient {
     input: Readonly<{
       name: string;
       arguments: unknown;
+      taskCallProfile?: McpTaskCallProfile;
       outputValidation?: FrozenToolOutputValidation;
     }>,
   ): Promise<FrozenTaskInvocationOutcome> {
     const raw = await this.#client.request({
       ...this.#requestBase,
       method: 'tools/call',
-      params: { name: input.name, arguments: input.arguments },
+      params: {
+        name: input.name,
+        arguments: input.arguments,
+        ...(input.taskCallProfile === undefined
+          ? {}
+          : { _meta: { 'io.sdar/taskExecution': input.taskCallProfile } }),
+      },
     });
     const immediate = toolResultSchema.safeParse(raw);
     if (immediate.success)

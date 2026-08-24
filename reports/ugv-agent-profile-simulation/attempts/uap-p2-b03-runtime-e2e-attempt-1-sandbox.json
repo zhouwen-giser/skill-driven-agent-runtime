@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 1,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The original sandbox execution timestamp was not retained in the supplied run summary.",
+  "status": "ENVIRONMENT_BLOCKED",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_sandbox",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": null,
+  "commandMissingReason": "The exact original argv was not retained; it is not reconstructed from the later passing command.",
+  "exitCode": null,
+  "exitCodeMissingReason": "The summary records the failure but not the original process exit code.",
+  "failureClass": "SANDBOX_LOOPBACK_EPERM",
+  "observedFailure": "The E2E was denied a required loopback operation with EPERM before the composition could run.",
+  "resolution": "Replay on the approved local host with the same isolated PostgreSQL/Redis scope.",
+  "localFixtureCounts": null,
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0
+  }
+}

@@ -1,0 +1,283 @@
+{
+  "schemaVersion": "ugv-agent-profile.contract-freeze/v1",
+  "generatedAt": "2026-08-21T01:52:04.245Z",
+  "status": "FROZEN",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "contractCanonicalHash": "dd2dced5831f5784741466a31141b047af116f480dc776784dddbd51af74342b",
+  "verification": [
+    {
+      "repository": "sdar-mcp-provider-platform",
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "summary": "workspace lockfile current"
+    },
+    {
+      "repository": "sdar-mcp-provider-platform",
+      "command": "node --import tsx scripts/ugv-agent-profile-simulation/freeze-contracts.mjs --check",
+      "exitCode": 0,
+      "summary": "both frozen artifacts byte-for-byte reproducible"
+    },
+    {
+      "repository": "sdar-mcp-provider-platform",
+      "command": "pnpm exec vitest run tests/ugv-simulation/external-contract-freeze.test.ts",
+      "exitCode": 0,
+      "summary": "1 file, 3 tests passed"
+    },
+    {
+      "repository": "sdar-mcp-provider-platform",
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "summary": "TypeScript no-emit check passed"
+    },
+    {
+      "repository": "skill-driven-agent-runtime",
+      "command": "pnpm exec vitest run packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "exitCode": 0,
+      "summary": "1 file, 3 tests passed"
+    },
+    {
+      "repository": "skill-driven-agent-runtime",
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "summary": "TypeScript no-emit check passed"
+    },
+    {
+      "repository": "both",
+      "command": "git diff --check",
+      "exitCode": 0,
+      "summary": "no whitespace errors"
+    }
+  ],
+  "contract": {
+    "hashContract": {
+      "algorithm": "sha256",
+      "canonicalization": "recursive_object_key_sort_json_scalars_v1"
+    },
+    "sourceAuthorities": {
+      "sdar": {
+        "repositoryCommit": "928c645702f9e05e32cc001335898b79444ef9f6",
+        "skillPackageRoot": "skills/embodied.move_to",
+        "packageChecksum": "6d5fc9c8e093de18a8b11c8377b96788336606b25d0df0f27efef7b4d9f6a48c",
+        "manifestSha256": "9da5a4fe6d0a97df71ea8cd7cb809e9c8fe9128fb16d9d6cac0267755817c0ce",
+        "inputSchemaCanonicalHash": "bb57361cfe6a91636d651ad76aca592f28e838f6cd9a76538d73d2023eb59390",
+        "outputSchemaCanonicalHash": "6e9b923637b5410ddef6667e1356e9deaccd9dff52412224acdcf35af43e9909"
+      },
+      "smpp": {
+        "repositoryCommit": "ce57d3d7ac2f99c0c95fa61bd9746abe862ed507",
+        "deviceContract": {
+          "path": "reports/ugv-agent-profile-simulation/device-mcp-contract.redacted.json",
+          "fileSha256": "451730964d065fadda4ec36f0ccbfb6b9eadc1c6e05db483717c5957ed7b5760",
+          "contractCanonicalHash": "472e482c64d7f71f167cfb60461570068c7948108a46aa7614ea9bfccaea4c72"
+        },
+        "mqttContract": {
+          "path": "reports/ugv-agent-profile-simulation/mqtt-contract.redacted.json",
+          "fileSha256": "1078dca42e3d183036975705da2bba35e61f75cf92fe81cd919b5d2bce71da95",
+          "contractCanonicalHash": "a374f360ae1b2008c7ca80c1aed78548c38140c311250da819d253f83e20fffa"
+        }
+      }
+    },
+    "profile": {
+      "profileId": "ugv-agent-profile",
+      "exactSkillAllowlist": [
+        {
+          "skillId": "embodied.move_to",
+          "version": 1,
+          "reference": "embodied.move_to@1"
+        }
+      ],
+      "semanticTaskType": "embodied.move",
+      "bindingId": "ugv-agent-profile/move-resource",
+      "resource": {
+        "resourceId": "vehicle:ugv1",
+        "resourceType": "vehicle"
+      },
+      "provider": {
+        "providerId": "isr.vehicle.ugv.ugv1",
+        "providerVersion": "1.0.0",
+        "repositoryAuthority": "sdar-mcp-provider-platform"
+      },
+      "operations": {
+        "initialState": {
+          "operationName": "vehicle_get_state",
+          "executionSemantics": "SYNCHRONOUS",
+          "arguments": {
+            "resourceId": "vehicle:ugv1",
+            "include": ["chassis", "health"]
+          }
+        },
+        "navigate": {
+          "operationName": "vehicle_navigate",
+          "executionSemantics": "TASK_REQUIRED",
+          "executionMode": "simulation",
+          "missionType": "point",
+          "argumentTemplate": {
+            "resourceId": "vehicle:ugv1",
+            "mission": {
+              "type": "point",
+              "target": {
+                "longitude": "$skillInput.target.x",
+                "latitude": "$skillInput.target.y"
+              }
+            },
+            "stopOnObstacle": true
+          },
+          "southboundSequence": [
+            {
+              "toolName": "ugv_path_follow_mission",
+              "purpose": "allocate_point_mission"
+            },
+            {
+              "toolName": "ugv_mission_control",
+              "action": "start",
+              "purpose": "start_mission"
+            }
+          ]
+        },
+        "finalState": {
+          "operationName": "vehicle_get_state",
+          "executionSemantics": "SYNCHRONOUS",
+          "arguments": {
+            "resourceId": "vehicle:ugv1",
+            "include": ["chassis", "health"]
+          }
+        }
+      }
+    },
+    "coordinateContract": {
+      "acceptedFrames": ["EPSG:4326", "WGS84"],
+      "canonicalFrame": "WGS84",
+      "x": {
+        "meaning": "longitude",
+        "minimum": -180,
+        "maximum": 180
+      },
+      "y": {
+        "meaning": "latitude",
+        "minimum": -90,
+        "maximum": 90
+      },
+      "axisSwapAllowed": false,
+      "undeclaredCrsTransformationAllowed": false,
+      "sourcePackageSchemaRequiresProfileNarrowing": true,
+      "stableRejectionCodes": {
+        "resource": "UGV_PROFILE_RESOURCE_NOT_ALLOWED",
+        "frame": "UGV_PROFILE_CRS_UNSUPPORTED",
+        "longitude": "UGV_PROFILE_LONGITUDE_INVALID",
+        "latitude": "UGV_PROFILE_LATITUDE_INVALID"
+      }
+    },
+    "mqttContract": {
+      "wireMode": "ros_bridge_json",
+      "wireModeSource": "external_read_only_preflight",
+      "autoDetectionAllowedAfterFreeze": false,
+      "lockedProfile": "vehicle-mqtt-ingress/UGV_MQTT_SUBSCRIPTIONS",
+      "subscriptionCount": 18,
+      "subscriptionsCanonicalHash": "5ebe7992d93d813a749f96aa83faea34fe3dff09d2797d21d6f44859151c40cd",
+      "wildcardsAllowed": false,
+      "freshnessMs": {
+        "chassis": 3000,
+        "mission": 3000,
+        "health": 5000,
+        "target": 3000,
+        "payload": 3000
+      },
+      "maximumFutureSkewMs": 1000,
+      "positionTimeAuthority": {
+        "sourceTimestampPreferred": true,
+        "ingestFallbackAllowed": true,
+        "zeroEpochAcceptedAsSourceTime": false,
+        "olderSameAuthorityObservation": "ignored"
+      },
+      "observedUpstreamDrift": [
+        "MQTT_CANONICAL_STATUS_TOPIC_NOT_OBSERVED",
+        "MQTT_SPEED_PUBLISHER_QOS_0_NOT_1"
+      ]
+    },
+    "bindingFreeze": {
+      "requiredFields": [
+        "skillId",
+        "skillVersion",
+        "skillPackageChecksum",
+        "taskType",
+        "bindingId",
+        "bindingRevision",
+        "providerId",
+        "providerVersion",
+        "serverId",
+        "catalogRevision",
+        "catalogHash",
+        "providerManifestHash",
+        "resourceId",
+        "resourceType",
+        "operationName",
+        "operationInputSchemaHash",
+        "operationOutputSchemaHash",
+        "resolvedArguments",
+        "argumentsHash",
+        "availabilitySourceRevision",
+        "availabilityValidUntil",
+        "executionSemantics",
+        "riskLevel",
+        "confirmationPolicy"
+      ],
+      "selectionCardinality": "exactly_one",
+      "missingCode": "UGV_PROFILE_BINDING_NOT_FOUND",
+      "ambiguousCode": "UGV_PROFILE_BINDING_AMBIGUOUS",
+      "firstMatchAllowed": false
+    },
+    "workflow": {
+      "shape": [
+        "initial_vehicle_get_state",
+        "vehicle_navigate_point",
+        "waiting_external",
+        "persisted_frontier_continuation",
+        "final_vehicle_get_state",
+        "final_position_gate",
+        "result"
+      ],
+      "navigationDispatchCount": 1,
+      "continuationMayRestartAtStart": false,
+      "outerPlanConfirmationIsOnlyBusinessConfirmation": true,
+      "governedControlAuthorityBypassAllowed": false
+    },
+    "finalPositionEvidence": {
+      "evidenceType": "position.observation",
+      "field": "chassis.position.geodetic",
+      "resourceId": "vehicle:ugv1",
+      "coordinateFrame": "WGS84",
+      "postDispatchRequired": true,
+      "freshRequired": true,
+      "revisionRequired": true,
+      "cursorRequired": true,
+      "correlationMismatchAllowed": false,
+      "distanceFormula": "haversine",
+      "defaultToleranceM": 2,
+      "discernibleDisplacementRequired": true,
+      "providerCompletedNecessaryButNotSufficient": true
+    },
+    "mockContractDecision": {
+      "configurationKey": "UGV_DEVICE_MCP_ALLOW_MOCK_CONTRACT",
+      "resolvedValue": false,
+      "goalPolicy": "forbidden",
+      "reasonCode": "UGV_EXTERNAL_SIMULATION_REAL_TOOLS_LIST_REQUIRED"
+    },
+    "safety": {
+      "authorizationGrantedByThisArtifact": false,
+      "toolsCallCount": 0,
+      "mqttPublishCount": 0,
+      "controlInvocationCount": 0,
+      "forbiddenOperationCallCount": 0,
+      "sdarDirectSouthboundAccessCount": 0,
+      "forbiddenPlannerOperations": [
+        "vehicle_area_recon",
+        "vehicle_track_target",
+        "vehicle_control_gimbal",
+        "vehicle_fire_weapon",
+        "vehicle_emergency_stop"
+      ],
+      "emergencyStopAuthority": "manual_operator_only"
+    }
+  }
+}

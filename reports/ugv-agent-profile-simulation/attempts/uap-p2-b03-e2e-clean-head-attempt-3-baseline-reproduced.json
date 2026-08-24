@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:19:45.542Z",
+  "recordedAt": "2026-08-21T09:19:45.542Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command result included a duration but not a wall-clock execution timestamp; the evidence recording time is not substituted.",
+  "status": "BASELINE_REPRODUCED_NOT_P2_REGRESSION",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "clean_head_e2e_regression_diagnostic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "snapshot": {
+    "method": "git archive HEAD into a temporary directory with the workspace node_modules symlinked read-only for execution",
+    "sourceCommit": "4c0b1f7a398b5f79e05df2103d1e5191436b3129",
+    "containsP2DirtyChanges": false,
+    "temporaryPath": null,
+    "temporaryPathMissingReason": "The diagnostic supplied the snapshot method and source commit but not the temporary path; it is not invented."
+  },
+  "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=<redacted-loopback-55444> SDAR_REDIS_PORT=56379 node scripts/test-e2e.mjs -- packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern 'rejects ungoverned embodied.move_to|blocks embodied.move_to for forbidden area permission|persists a LangGraph human interrupt' --reporter=dot --silent",
+  "executionContext": "pure git-archive snapshot of pre-P2 HEAD with dependencies symlinked",
+  "exitCode": 1,
+  "result": {
+    "testsFailed": 7,
+    "testsSkipped": 55,
+    "durationSeconds": 23.1
+  },
+  "conclusion": {
+    "currentWorktreeAttempt": "attempts/uap-p2-b03-e2e-current-isolated-attempt-2-baseline.json",
+    "identicalFailureCount": true,
+    "baselineReproduced": true,
+    "p2Regression": false,
+    "p2AcceptanceImpact": "Disclosed unchanged E2E baseline gap; the focused formal P2 Runtime E2E remains PASS."
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

@@ -503,6 +503,8 @@ async function executeScenario(
   dependencies: DriverDependencies,
 ): Promise<UgvA2AScenarioReport> {
   const randomId = dependencies.randomId ?? randomUUID;
+  const structuredInput = Object.freeze({ resourceId: authority.target.resourceId });
+  const idempotencyKey = `${configuration.runId}:${authority.target.toolName}`;
   const submitted = await client.sendMessage(
     SendMessageRequest.fromJSON({
       message: {
@@ -510,15 +512,16 @@ async function executeScenario(
         role: 'ROLE_USER',
         parts: [
           { text: authority.target.requestText, mediaType: 'text/plain' },
-          { data: { resourceId: authority.target.resourceId }, mediaType: 'application/json' },
+          { data: structuredInput, mediaType: 'application/json' },
         ],
         metadata: {
           user_id: 'ugv-a2a-read-only',
-          structured_input: { resourceId: authority.target.resourceId },
+          structured_input: structuredInput,
+          idempotency_key: idempotencyKey,
           'io.sdar/requestedCapability': {
             exposureId: exposure.exposureId,
             versionConstraint: String(exposure.version),
-            requestId: `${configuration.runId}:${authority.target.toolName}`,
+            requestId: idempotencyKey,
           },
         },
       },

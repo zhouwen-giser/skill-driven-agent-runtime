@@ -1,5 +1,122 @@
 # Project Status
 
+## UGV Agent Profile external-simulation Goal (2026-08-21)
+
+The current `ugv-agent-profile` Goal is `IN_PROGRESS`; this status does not replace or upgrade the
+historical blocked UGV handoff below. P0, SMPP P1 qualification and SDAR P2-B01/P2-B02/P2-B03 local
+milestones are complete. P3-B01 clean-stack runtime and changed-scope static gates are accepted with
+disclosed out-of-scope lint/format baselines and fifteen frozen artifact hashes. P3-B02/P3-B03
+external movement/recovery and P4 final Goal acceptance remain pending.
+The user-selected current SMPP intake is
+`codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`;
+`90466127aee7c01014eef29a1e346b071de3704e` remains the immutable P1 qualification evidence
+checkpoint and `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
+
+The latest authorized real attempt reached A2A admission, immutable planning and confirmation, then
+dispatched exactly one `vehicle_navigate` through Frozen MCP Tasks. The Provider Task completed and
+the Adapter execution succeeded; the simulator ended near `106.81344283,29.72040457` for target
+`106.81344630,29.72034353` (approximately 6.8 metres horizontal error). SDAR did not complete the
+A2A Task because its Adapter rejected the Provider's legal CreateTask state `working` with substate
+`accepted`, producing `FROZEN_CREATE_TASK_RESULT_INVALID`. The failure is sealed as
+`terminal_provider_safe`: no redispatch is permitted and no SDAR continuation or terminal outcome is
+invented.
+
+The compatibility defect is implemented and locally verified: Domain/Adapter contracts now accept
+the bounded `accepted` substate, migration `0173_remote_task_accepted_substate` updates and can roll
+back the PostgreSQL constraint, and the terminal-safe reconciliation contract is strict. The final
+affected matrix passes 5 files/165 tests; typecheck, build, 849-source architecture verification,
+scoped lint and diff checks pass. The user cancelled post-fix simulator validation because the
+simulator was being used by another client. The task-owned containers and volumes are absent and the
+host supervisor is stopped. Therefore code handoff is ready, but P3-B02/P3-B03 and overall Goal
+acceptance remain pending; no successful SDAR A2A terminal result is claimed.
+
+An earlier recovery-issued P3-B02 attempt was executed exactly once on 2026-08-24 after fresh A3/A4 and
+strict A5 gates. The task-owned stack had seven healthy SMPP services, three healthy SDAR services,
+three host processes in `NO`, migration `0172` applied, an empty initial-admission ledger, clean
+28-collection execution ledgers, and measured authority runways above the exact
+240s/1200s/1200s/30s budgets. A live-only private-authority hashing defect was fixed without relaxing
+the public evidence redaction boundary; Source driver/runner regressions pass 40/40.
+
+The one YES window failed closed at `prepare-unique-admission`. The taskless
+`vehicle_get_state`/Device `get_status` succeeded and was durably recorded, but the external state
+reported `chassis.mission.state=0`, outside the frozen qualification set `[-1,3,4,5]`. No formal A2A
+admission, Task, Goal, Plan, model invocation, confirmation, navigate, Provider Task, remote binding,
+continuation, Adapter execution, mutation journal or command ACK was created. The finalizer restored
+the Server from Supervisor revision 2/YES to revision 3/NO while both control-process identities
+remained stable. The public immutable failure artifact is
+`reports/ugv-agent-profile-simulation/attempts/uap-p3-b02-failure-uap-p3-b02-mt6kdjmv-38f9f84f9cebfb999bab-20260824025148997-4ab396c5b97b2dca.redacted.json`
+(SHA-256 `dd3cb5b542c5d6ef8955cdc09eb0bb2a1b34fbfcf5aadaa32231fb46549e3025`).
+Canonical P3-B02 PASS remains absent. Current verdict is `BLOCKED_EXTERNAL_QUALIFICATION`; the used
+simulation identity is sealed and will not be retried. This is safety/failure evidence, not movement
+or Goal completion.
+
+P3-B01 ran the current SMPP checkout without modifying it. A task-owned clean operation followed by
+preflight and ordered `up.sh` started seven SMPP services, three SDAR infrastructure services and
+three host processes using isolated projects, databases, networks and volumes. Only the SMPP Adapter
+owns Device MCP/MQTT southbound access; SDAR uses the governed Runtime MCP northbound path. The
+official authority bootstrap passes twice without duplicate Source, Binding, Skill, Capability,
+implementation or Exposure records. Repeated readiness passes prove exact Skill suspend/restore and
+Profile public-Card removal/restoration; the separate managed Card remains Exposure authority.
+
+The host Server loaded generation and embedding configuration from the local repository-root `.env`.
+Redacted baseline/final audits prove two exact model Providers, 42 routes and zero model invocations;
+`.env` content was not sent to Compose or recorded as evidence. B01 side effects stayed `NO` with
+navigation, mutation, forbidden/weapon and model counts all zero. The SMPP qualifier made one
+correlated read-only Device Tool call and no execution, mutation-journal or command-ack entry.
+
+Readiness TTL recovery is now bounded and fail-closed. The 60-second expiry path evaluates on a
+non-overlapping five-second timer, rebuilds the managed Card through serialized P08 authority, and
+bootstrap can reconcile only an exact hash-valid/coherently partitioned expired or unavailable
+snapshot. One exact stability-window result may be retried after 10,250 ms; a second fails. A live
+bounded observation saw readiness v2→v3 and active managed Card revision 2→3 at 15:34Z. Retained
+`UAP_CAPABILITY_READINESS_INVALID` attempts document the earlier recovery deadlock and are not
+rewritten. Provider-generation rollover after the configured 300-second authority TTL remains open:
+immutable `embodied.move@1` freezes Binding revision N and cannot absorb revision N+1, so recovery
+requires a clean task-owned database or a reviewed new Capability version.
+
+`reports/ugv-agent-profile-simulation/uap-p3-b01-verification.json` is
+`PASS_WITH_DISCLOSED_BASELINE_GAPS`. The focused matrix passes 10 files/163 tests in 58.05 seconds;
+independent partitioned replay passes 9 files/160 tests. Both typechecks/builds, 842-source SDAR
+architecture, B01 changed-file ESLint/Prettier, SMPP full lint and both diff checks pass. SDAR full lint
+retains 22 errors in seven committed out-of-scope Home-Lab files; SDAR full format retains two existing
+files and SMPP full format retains one historical P1-B02 report. Fifteen primary artifact hashes are
+frozen. P3-B01 is complete with those baseline disclosures. No movement, P3-B02, P3-B03, P4 or overall
+Goal completion is claimed.
+
+P2-B03 passes its formal local Runtime E2E with real isolated PostgreSQL/Redis,
+`startServerRuntime`, the official A2A HTTP+JSON path and a strict loopback frozen Provider fixture.
+Exact `embodied.move_to@1` admission flows through Skill Usage and the formal nine-node Planner path;
+an authenticated outer confirmation precedes one `TASK_REQUIRED` navigate, `waiting_external` is
+materialized, restart reconstructs the saved frontier without replay, and the final read/hard position
+gate yields an exact completed A2A artifact. The E2E passed 1/1 in 16.93 seconds. The exact final
+focused matrix passes 21 files/210 tests; approved-host Unit passes 244 files/1913 tests plus the
+22-test performance phase; approved-host Contract passes 51 files/318 tests; isolated Integration
+passes 38 files/219 tests plus its 1/1 evidence export. Typecheck, build, 835-source architecture,
+frozen UGV package 3/3, SMPP provenance/clean checks, scoped lint/format and diff checks pass.
+
+P2-B03 is accepted with disclosed repository baseline gaps. Full generic E2E passes 69, fails three
+old Task Service endpoint cases and skips one of 73; the exact isolated failures reproduce identically
+at a pure `git archive` of pre-P2 HEAD `4c0b1f7`, proving they are not P2 regressions. `pnpm lint`
+retains 22 errors in seven unchanged Home-Lab files and `pnpm format:check` retains two unchanged
+files, while every changed TypeScript/Prettier-scoped file passes. Sandbox Unit/Contract attempts fail
+only on denied loopback listen or child-process operations and are corroborated by identical
+approved-host passes. Earlier default-contract, PostgreSQL `template1`, isolated fixture and Runtime
+E2E failures remain immutable evidence rather than being rewritten by the final passes.
+`implementationCommit` remains null until the parent handoff creates the checkpoint; no commit
+identity is invented.
+
+Current P2-B03 evidence is local only: `evidenceClass=external_simulation`,
+`observationClass=local_runtime_and_postgresql`, `productionEligible=false`,
+`physicalVehicleQualified=false` and `externalExecution=false`. The loopback fixture observes one
+taskless read, three task-scoped Tool calls and one local navigation; external SMPP Tool calls,
+navigation dispatches and MQTT publishes remain zero. Local artifact SHA-256 values and the P2 task
+acceptance state are frozen in `reports/ugv-agent-profile-simulation/uap-p2-b03-verification.json`.
+P2 smoke verified LLM configuration loading and database bootstrap through the local `.env`
+mechanism without recording secrets or values and with zero model calls. P3-B01 reloaded and audited
+that path in the clean stack, again with zero model calls; external inference remains for a later P3
+movement task. UGV target authorization, side-effect admission, continuation proof and terminal success
+remain deterministic and model-independent.
+
 SDAR × UGV SMPP integration is `SDAR_UGV_INTEGRATION_BLOCKED` (updated 2026-08-14). Discovery readiness is
 `true`; Read, A2A, Control, Workflow, Resilience and Production readiness are all `false`. Real
 projection 200/304 and native lineage, credential-free Source revision 1, exact Provider/Server,

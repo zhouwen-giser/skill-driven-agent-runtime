@@ -22,9 +22,14 @@ import {
   type ContextTaskQueue,
   type ConversationContextRepository,
   type IdentifierGenerator,
+  type InitialTaskAdmissionRecord,
+  type InitialTaskAdmissionStore,
   type RuntimeEventPublisher,
   type RuntimeTaskEvent,
+  type GovernedControlPermission,
+  type GovernedControlPrincipal,
   type SkillDraftRepository,
+  type TaskServiceDependencies,
   type TaskInputRepository,
 } from '../src/index.js';
 
@@ -206,6 +211,209 @@ describe('TaskService', () => {
     expect(harness.tasks.size).toBe(0);
     expect(harness.events).toHaveLength(0);
     expect(harness.operations).toEqual(['context.save:context-1', 'queue:context-1:task-1']);
+  });
+
+  it('replays one durable initial admission across new SDK Task and Context ids without enqueueing twice', async () => {
+    const taskCapabilities = capabilityService();
+    const authoritativeContext: ConversationContext = {
+      contextId: 'sdk-context-first',
+      userId: 'operator-1',
+      createdAt: '2026-07-11T09:59:00.000Z',
+      updatedAt: '2026-07-11T09:59:00.000Z',
+    };
+    const harness = createHarness('resumed', false, undefined, taskCapabilities, {
+      initialAdmissionEnabled: true,
+      initialAdmissionContextOverride: authoritativeContext,
+    });
+    const command = {
+      messageText: 'Inspect device alpha.',
+      userId: 'operator-1',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata: {
+        structured_input: { deviceId: 'alpha' },
+        idempotency_key: 'request-capability-replay',
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-capability-replay',
+        },
+      },
+      initialAdmission: { idempotencyKey: 'request-capability-replay' },
+    } as const;
+
+    const accepted = await harness.service.submit({
+      ...command,
+      taskId: 'sdk-task-first',
+      contextId: 'sdk-context-first',
+    });
+    const replayed = await harness.service.submit({
+      ...command,
+      taskId: 'sdk-task-retry',
+      contextId: 'sdk-context-retry',
+    });
+
+    expect(accepted.admissionStatus).toBe('accepted');
+    expect(accepted.queueDispatchStatus).toBe('enqueued');
+    expect(accepted.context).toEqual(authoritativeContext);
+    expect(replayed).toMatchObject({
+      admissionStatus: 'replayed',
+      queueDispatchStatus: 'not_dispatched',
+      task: { taskId: 'sdk-task-first', contextId: 'sdk-context-first' },
+      context: { contextId: 'sdk-context-first' },
+    });
+    expect(harness.admissions.size).toBe(1);
+    expect(harness.tasks.size).toBe(1);
+    expect(
+      harness.operations.filter((operation) => operation.startsWith('admission:')),
+    ).toHaveLength(1);
+    expect(harness.operations.filter((operation) => operation.startsWith('queue:'))).toHaveLength(
+      1,
+    );
+
+    harness.contexts.set(authoritativeContext.contextId, {
+      ...authoritativeContext,
+      userId: 'operator-corrupt',
+    });
+    await expect(
+      harness.service.submit({
+        ...command,
+        taskId: 'sdk-task-corrupt-retry',
+        contextId: 'sdk-context-corrupt-retry',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INITIAL_ADMISSION_AUTHORITY_CORRUPT' });
+  });
+
+  it('defers a durable formal admission when immediate queue dispatch fails', async () => {
+    const harness = createHarness('resumed', false, undefined, capabilityService(), {
+      initialAdmissionEnabled: true,
+      initialQueueFailure: true,
+    });
+    const command = {
+      messageText: 'Inspect device alpha.',
+      userId: 'operator-1',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata: {
+        structured_input: { deviceId: 'alpha' },
+        idempotency_key: 'request-capability-deferred',
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-capability-deferred',
+        },
+      },
+      initialAdmission: { idempotencyKey: 'request-capability-deferred' },
+    } as const;
+
+    const accepted = await harness.service.submit({
+      ...command,
+      taskId: 'sdk-task-deferred-first',
+      contextId: 'sdk-context-deferred-first',
+    });
+    const replayed = await harness.service.submit({
+      ...command,
+      taskId: 'sdk-task-deferred-retry',
+      contextId: 'sdk-context-deferred-retry',
+    });
+
+    expect(accepted).toMatchObject({
+      admissionStatus: 'accepted',
+      queueDispatchStatus: 'deferred_recovery',
+      task: { taskId: 'sdk-task-deferred-first', phase: 'queued' },
+    });
+    expect(replayed).toMatchObject({
+      admissionStatus: 'replayed',
+      queueDispatchStatus: 'not_dispatched',
+      task: { taskId: 'sdk-task-deferred-first', phase: 'queued' },
+    });
+    expect(harness.admissions.size).toBe(1);
+    expect(harness.operations.filter((operation) => operation.startsWith('queue:'))).toHaveLength(
+      1,
+    );
+  });
+
+  it('keeps formal admission free of post-commit feedback and Skill-draft side effects', async () => {
+    const observeSubmission = vi.fn(() => Promise.reject(new Error('FEEDBACK_WRITE_FAILED')));
+    const harness = createHarness('resumed', false, undefined, capabilityService(), {
+      initialAdmissionEnabled: true,
+      feedback: {
+        observeSubmission,
+        observeRevision: () => Promise.reject(new Error('UNUSED')),
+        observeSkillSwitch: () => Promise.reject(new Error('UNUSED')),
+      },
+    });
+    const command = {
+      messageText: 'Inspect device alpha.',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata: {
+        structured_input: { deviceId: 'alpha' },
+        idempotency_key: 'request-capability-no-feedback',
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-capability-no-feedback',
+        },
+      },
+      initialAdmission: { idempotencyKey: 'request-capability-no-feedback' },
+    } as const;
+
+    await expect(harness.service.submit(command)).resolves.toMatchObject({
+      admissionStatus: 'accepted',
+      queueDispatchStatus: 'enqueued',
+    });
+    expect(observeSubmission).not.toHaveBeenCalled();
+    const operationCount = harness.operations.length;
+
+    await expect(
+      harness.service.submit({
+        ...command,
+        metadata: {
+          ...command.metadata,
+          idempotency_key: 'request-capability-skill-draft',
+          'io.sdar/requestedCapability': {
+            ...command.metadata['io.sdar/requestedCapability'],
+            requestId: 'request-capability-skill-draft',
+          },
+        },
+        initialAdmission: { idempotencyKey: 'request-capability-skill-draft' },
+        skillDraftIntent: 'create',
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INITIAL_ADMISSION_SKILL_DRAFT_UNSUPPORTED' });
+    expect(harness.operations).toHaveLength(operationCount);
+    expect(harness.drafts.size).toBe(0);
+  });
+
+  it('rejects the same initial admission key when canonical request content changes', async () => {
+    const harness = createHarness('resumed', false, undefined, capabilityService(), {
+      initialAdmissionEnabled: true,
+    });
+    const metadata = {
+      structured_input: { deviceId: 'alpha' },
+      idempotency_key: 'request-capability-conflict',
+      'io.sdar/requestedCapability': {
+        exposureId: 'device.inspect',
+        versionConstraint: '1',
+        requestId: 'request-capability-conflict',
+      },
+    } as const;
+    await harness.service.submit({
+      messageText: 'Inspect device alpha.',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata,
+      initialAdmission: { idempotencyKey: 'request-capability-conflict' },
+    });
+
+    await expect(
+      harness.service.submit({
+        messageText: 'Inspect device beta.',
+        capabilityInput: { deviceId: 'alpha' },
+        metadata,
+        initialAdmission: { idempotencyKey: 'request-capability-conflict' },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT' });
+    expect(harness.admissions.size).toBe(1);
+    expect(harness.operations.filter((operation) => operation.startsWith('queue:'))).toHaveLength(
+      1,
+    );
   });
 
   it('fails closed instead of downgrading an explicit Capability request when admission is unavailable', async () => {
@@ -857,6 +1065,164 @@ describe('TaskService', () => {
     ).toEqual(['plan.confirm:plan-parent']);
   });
 
+  it('projects authenticated authority after plan confirmation and before execution starts', async () => {
+    const principal: GovernedControlPrincipal = Object.freeze({
+      actorId: 'operator-1',
+      kind: 'human',
+      authenticationMethod: 'configured_bearer',
+      permissions: new Set<GovernedControlPermission>(['physical_control.confirm']),
+      requestId: 'request-confirm-1',
+    });
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      beforePlanExecution: (input) => {
+        expect(Object.isFrozen(input)).toBe(true);
+        expect(input).toMatchObject({
+          task: { phase: 'awaiting_plan_confirmation', planId: 'plan-governed' },
+          confirmationTarget: 'task_plan',
+          confirmationAuthority: { principal },
+        });
+        harness.operations.push('before-plan-execution');
+        return Promise.resolve();
+      },
+      executeConfirmed: () => {
+        harness.operations.push('plan.execute');
+        return Promise.resolve();
+      },
+    });
+    const submitted = await harness.service.submit({ messageText: 'Navigate.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-governed', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm navigation.',
+        confirmationAuthority: Object.freeze({ principal }),
+      }),
+    ).resolves.toMatchObject({ phase: 'executing' });
+
+    expect(harness.operations).toEqual([
+      'plan.confirm:plan-governed',
+      'before-plan-execution',
+      `task.save:${task.taskId}:executing`,
+      `event:task.phase_changed:${task.taskId}`,
+      'plan.execute',
+    ]);
+  });
+
+  it('keeps the Task awaiting when projection fails and retries an already-confirmed plan idempotently', async () => {
+    let confirmationWrites = 0;
+    let planConfirmed = false;
+    let projectionAttempts = 0;
+    let executions = 0;
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      confirm: () => {
+        if (!planConfirmed) {
+          planConfirmed = true;
+          confirmationWrites += 1;
+        }
+        return Promise.resolve('task_plan');
+      },
+      beforePlanExecution: () => {
+        projectionAttempts += 1;
+        return projectionAttempts === 1
+          ? Promise.reject(new Error('PROJECTOR_INTERRUPTED'))
+          : Promise.resolve();
+      },
+      executeConfirmed: () => {
+        executions += 1;
+        return Promise.resolve();
+      },
+    });
+    const submitted = await harness.service.submit({ messageText: 'Navigate.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-retry', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    const command = {
+      taskId: task.taskId,
+      action: 'confirm_plan' as const,
+      messageText: 'Confirm navigation.',
+    };
+    await expect(harness.service.followUp(command)).rejects.toThrow('PROJECTOR_INTERRUPTED');
+    await expect(harness.service.get(task.taskId)).resolves.toMatchObject({
+      phase: 'awaiting_plan_confirmation',
+    });
+    expect(harness.operations).not.toContain(`task.save:${task.taskId}:executing`);
+    expect(executions).toBe(0);
+
+    await expect(harness.service.followUp(command)).resolves.toMatchObject({ phase: 'executing' });
+    expect(confirmationWrites).toBe(1);
+    expect(projectionAttempts).toBe(2);
+    expect(executions).toBe(1);
+  });
+
+  it('does not project outer-plan authority for nested confirmation and rejects authority on other actions', async () => {
+    const beforePlanExecution = vi.fn(() => Promise.resolve());
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      confirm: () => Promise.resolve('nested_skill_plan'),
+      beforePlanExecution,
+    });
+    const submitted = await harness.service.submit({ messageText: 'Run nested.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-parent', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm child.',
+      }),
+    ).resolves.toMatchObject({ phase: 'executing' });
+    expect(beforePlanExecution).not.toHaveBeenCalled();
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'pause',
+        messageText: 'Spoof authority.',
+        confirmationAuthority: {
+          principal: {
+            actorId: 'metadata-attacker',
+            kind: 'human',
+            authenticationMethod: 'body',
+            permissions: new Set(['physical_control.confirm']),
+            requestId: 'spoofed',
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID' });
+  });
+
   it('rejects confirmation on an already canceled parent before any plan side effect', async () => {
     const harness = createHarness();
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
@@ -923,6 +1289,15 @@ function createHarness(
   runtimeCancellation = false,
   remotePrepare?: (inputRequestId: string, inputContent: unknown) => Promise<unknown>,
   taskCapabilities?: RuntimeTaskCapabilityService,
+  options: Readonly<{
+    beforePlanExecution?: NonNullable<TaskServiceDependencies['beforePlanExecution']>;
+    confirm?: NonNullable<TaskServiceDependencies['planActions']>['confirm'];
+    executeConfirmed?: NonNullable<TaskServiceDependencies['planActions']>['executeConfirmed'];
+    initialAdmissionEnabled?: boolean;
+    initialQueueFailure?: boolean;
+    initialAdmissionContextOverride?: ConversationContext;
+    feedback?: NonNullable<TaskServiceDependencies['feedback']>;
+  }> = {},
 ): Readonly<{
   service: TaskService;
   contexts: Map<string, ConversationContext>;
@@ -935,6 +1310,7 @@ function createHarness(
   attempts: Map<string, TaskExecutionAttempt>;
   skillInputResolutions: Map<string, SkillInputResolutionRecord>;
   queue: ContextTaskQueue;
+  admissions: Map<string, InitialTaskAdmissionRecord>;
 }> {
   const contexts = new Map<string, ConversationContext>();
   const tasks = new Map<string, AgentTask>();
@@ -945,6 +1321,7 @@ function createHarness(
   const attempts = new Map<string, TaskExecutionAttempt>();
   const skillInputResolutions = new Map<string, SkillInputResolutionRecord>();
   const operations: string[] = [];
+  const admissions = new Map<string, InitialTaskAdmissionRecord>();
   const contextRepository: ConversationContextRepository = {
     findById: (contextId) => Promise.resolve(contexts.get(contextId)),
     save: (context) => {
@@ -967,7 +1344,9 @@ function createHarness(
   const queue: ContextTaskQueue = {
     enqueue: ({ contextId, taskId }) => {
       operations.push(`queue:${contextId}:${taskId}`);
-      return Promise.resolve();
+      return options.initialQueueFailure === true
+        ? Promise.reject(new Error('QUEUE_TEMPORARILY_UNAVAILABLE'))
+        : Promise.resolve();
     },
   };
   const publisher: RuntimeEventPublisher = {
@@ -1065,6 +1444,35 @@ function createHarness(
       return `${kind}-${String(++eventSequence)}`;
     },
   };
+  const initialAdmissions: InitialTaskAdmissionStore | undefined = options.initialAdmissionEnabled
+    ? {
+        findByIdempotencyKey: (idempotencyKey) => Promise.resolve(admissions.get(idempotencyKey)),
+        acceptInitial: (input) => {
+          const existing = admissions.get(input.idempotencyKey);
+          if (existing !== undefined)
+            return Promise.resolve({
+              status: existing.requestHash === input.requestHash ? 'replayed' : 'conflict',
+              record: existing,
+            });
+          const record: InitialTaskAdmissionRecord = Object.freeze({
+            idempotencyKey: input.idempotencyKey,
+            requestHash: input.requestHash,
+            taskId: input.capabilityAcceptance.task.taskId,
+            contextId: input.context.contextId,
+            capabilityBindingId: input.capabilityAcceptance.binding.bindingId,
+            capabilityAttemptId: input.capabilityAcceptance.capabilityAttempt.attemptId,
+            createdContext: !contexts.has(input.context.contextId),
+            acceptedAt: input.acceptedAt,
+          });
+          const authoritativeContext = options.initialAdmissionContextOverride ?? input.context;
+          contexts.set(input.context.contextId, authoritativeContext);
+          tasks.set(input.capabilityAcceptance.task.taskId, input.capabilityAcceptance.task);
+          admissions.set(input.idempotencyKey, record);
+          operations.push(`admission:${input.idempotencyKey}`);
+          return Promise.resolve({ status: 'accepted', record, context: authoritativeContext });
+        },
+      }
+    : undefined;
   return {
     service: new TaskService({
       contexts: contextRepository,
@@ -1074,6 +1482,8 @@ function createHarness(
       skillDrafts,
       taskInputs,
       ...(taskCapabilities === undefined ? {} : { taskCapabilities }),
+      ...(initialAdmissions === undefined ? {} : { initialAdmissions }),
+      ...(options.feedback === undefined ? {} : { feedback: options.feedback }),
       ...(remotePrepare === undefined
         ? {}
         : { remoteTaskInputs: { prepareResponse: remotePrepare } }),
@@ -1087,16 +1497,21 @@ function createHarness(
       },
       clock: { now: () => timestamp },
       ids,
+      ...(options.beforePlanExecution === undefined
+        ? {}
+        : { beforePlanExecution: options.beforePlanExecution }),
       planActions: {
-        confirm: (task) => {
-          operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
-          return Promise.resolve('task_plan');
-        },
+        confirm:
+          options.confirm ??
+          ((task) => {
+            operations.push(`plan.confirm:${task.planId ?? 'missing'}`);
+            return Promise.resolve('task_plan');
+          }),
         reject: (task) => {
           operations.push(`plan.reject:${task.planId ?? 'missing'}`);
           return Promise.resolve();
         },
-        executeConfirmed: () => Promise.resolve(),
+        executeConfirmed: options.executeConfirmed ?? (() => Promise.resolve()),
         reviseNaturalLanguage: (task) => {
           operations.push(`plan.revise:${task.planId ?? 'missing'}`);
           return Promise.resolve({
@@ -1137,5 +1552,39 @@ function createHarness(
     attempts,
     skillInputResolutions,
     queue,
+    admissions,
   };
+}
+
+function capabilityService(): RuntimeTaskCapabilityService {
+  return new RuntimeTaskCapabilityService({
+    schemas: new AjvJsonSchemaValidator(),
+    store: {
+      resolveExposure: () =>
+        Promise.resolve({
+          exposureId: 'device.inspect',
+          exposureVersion: 1,
+          requestedCapabilityId: 'device.inspect.capability',
+          capabilityVersion: 1,
+          requestSchema: {
+            type: 'object',
+            required: ['deviceId'],
+            properties: { deviceId: { type: 'string' } },
+            additionalProperties: false,
+          },
+          successCriteria: [{ type: 'field_equals', field: 'inspected', value: true }],
+          requiredEvidence: [{ type: 'provider_result', field: 'evidence' }],
+          constraints: [],
+          implementationRefs: ['skill:device.inspect:1'],
+          providerBindingRefs: [],
+        }),
+      accept: () => Promise.reject(new Error('INITIAL_ADMISSION_STORE_MUST_ACCEPT_ATOMICALLY')),
+      findBinding: () => Promise.resolve(undefined),
+      listAttempts: () => Promise.resolve([]),
+      appendAttempt: () => Promise.reject(new Error('UNUSED')),
+      updateLatestAttempt: () => Promise.resolve(),
+      reconcileCanceledAttempts: () => Promise.resolve(0),
+      reconcileFailedAttempts: () => Promise.resolve(0),
+    },
+  });
 }

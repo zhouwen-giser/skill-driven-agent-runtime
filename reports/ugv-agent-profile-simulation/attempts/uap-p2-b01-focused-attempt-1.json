@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "attempt": 1,
+  "observedAt": "2026-08-21T02:13:46.000Z",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile.unit.test.ts apps/server/test/ugv-agent-profile-card.integration.test.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts packages/application/test/capability-card-publisher.unit.test.ts",
+  "exitCode": 1,
+  "status": "FAILED_FIXED",
+  "failure": {
+    "suite": "apps/server/test/ugv-agent-profile-card.unit.test.ts",
+    "code": "ERR_MODULE_NOT_FOUND",
+    "summary": "The new integration test imported a package-local index that does not exist.",
+    "rootCause": "packages/a2a-adapter exposes A2AAgentCardBuilder from capability-card-projection.ts and has no src/index.ts barrel."
+  },
+  "fix": {
+    "summary": "Changed the test import to the existing capability-card-projection module. A subsequent typecheck also replaced direct NodeSkillPackageReader result access with the normal validated SkillPackageImporter pipeline and corrected exactOptionalPropertyTypes fixtures.",
+    "files": [
+      "apps/server/test/ugv-agent-profile-card.unit.test.ts",
+      "apps/server/test/ugv-agent-profile-test-fixture.ts",
+      "apps/server/test/ugv-agent-profile.unit.test.ts"
+    ]
+  },
+  "subsequentVerification": {
+    "focusedTests": { "status": "PASS", "testFiles": 4, "tests": 22 },
+    "typecheck": { "status": "PASS", "exitCode": 0 }
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

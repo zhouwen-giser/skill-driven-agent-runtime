@@ -543,9 +543,19 @@ const McpTaskExecutionProfileSchema: z.ZodType<McpTaskExecutionProfile> = z
     availability: z.enum(['not_supported', 'dynamic']),
     supportsScheduling: z.boolean(),
     supportsMaxElapsed: z.boolean(),
+    supportsCancellation: z.boolean().optional(),
+    supportsPauseResume: z.boolean().optional(),
     supportsObservations: z.boolean(),
     supportsInputRequired: z.boolean(),
     idempotency: z.enum(['none', 'client_request_key', 'server_managed', 'unknown']),
+  })
+  .strict();
+const McpProviderCatalogIdentitySchema = z
+  .object({
+    providerId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u),
+    providerType: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u),
+    providerVersion: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/u),
+    manifestHash: z.string().regex(/^[0-9a-f]{64}$/u),
   })
   .strict();
 const McpProtocolContractSchema: z.ZodType<McpProtocolContractSnapshot> = z
@@ -7822,6 +7832,10 @@ function mapMcpServerRow(row: McpServerRow): McpServer {
 }
 
 function mapMcpProtocolSnapshotRow(row: McpProtocolSnapshotRow): McpProtocolDiscoverySnapshot {
+  const capabilities = Object.freeze(
+    z.record(z.string(), z.unknown()).parse(row.capabilities_json),
+  );
+  const providerCatalog = providerCatalogFromCapabilities(capabilities);
   return {
     snapshotId: row.snapshot_id,
     serverId: row.server_id,
@@ -7829,13 +7843,24 @@ function mapMcpProtocolSnapshotRow(row: McpProtocolSnapshotRow): McpProtocolDisc
     protocolVersion: row.protocol_version,
     baselineSha256: row.baseline_sha256,
     supportedVersions: Object.freeze(StringArraySchema.parse(row.supported_versions_json)),
-    capabilities: Object.freeze(z.record(z.string(), z.unknown()).parse(row.capabilities_json)),
+    capabilities,
     serverInfo: Object.freeze(z.record(z.string(), z.unknown()).parse(row.server_info_json)),
+    ...(providerCatalog === undefined ? {} : { providerCatalog }),
     taskNotifications: row.task_notifications,
     discoveredAt: toIsoString(row.discovered_at),
     ...(row.valid_until === null ? {} : { validUntil: toIsoString(row.valid_until) }),
     toolRevision: row.tool_revision,
   };
+}
+
+function providerCatalogFromCapabilities(
+  capabilities: Readonly<Record<string, unknown>>,
+): McpProtocolDiscoverySnapshot['providerCatalog'] {
+  const extensions = z.record(z.string(), z.unknown()).optional().parse(capabilities['extensions']);
+  const value = extensions?.['io.sdar/providerCatalog'];
+  return value === undefined
+    ? undefined
+    : Object.freeze(McpProviderCatalogIdentitySchema.parse(value));
 }
 
 function mapModelProviderRow(row: ModelProviderRow): ModelProviderRecord {

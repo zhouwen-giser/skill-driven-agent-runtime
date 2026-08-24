@@ -6,3 +6,4 @@ coverage/
 .env
 *.log
 reports/**/raw/
+.codex/
