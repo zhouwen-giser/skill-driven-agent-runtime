@@ -32,6 +32,7 @@ export class FrozenV1RuntimeLifecycleAdapter implements FrozenTaskLifecycleRunti
     const outcome = await this.#client(input).callTool({
       name: input.toolName,
       arguments: input.arguments,
+      ...(input.taskCallProfile === undefined ? {} : { taskCallProfile: input.taskCallProfile }),
       ...(input.outputSchema === undefined
         ? {}
         : {

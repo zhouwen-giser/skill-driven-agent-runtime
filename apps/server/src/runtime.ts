@@ -503,6 +503,7 @@ import {
   snapshotUgvMovePositionPolicy,
   type UgvMovePositionPolicy,
 } from './ugv-move-position-result.js';
+import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
 import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
 import {
   BullMqContextTaskQueue,
@@ -1330,8 +1331,13 @@ export async function startServerRuntime(
     repository: mcpRepository,
     clock,
   });
+  const taskCapabilityRepository = new PostgresTaskCapabilityRepository(
+    pool,
+    publishTaskState,
+    taskCommands,
+  );
   const taskCapabilities = new RuntimeTaskCapabilityService({
-    store: new PostgresTaskCapabilityRepository(pool, publishTaskState, taskCommands),
+    store: taskCapabilityRepository,
     schemas: schemaValidator,
     evidence: mcpRepository,
     physicalEvidence: new PostgresTaskCapabilityPhysicalEvidenceRepository(pool),
@@ -2291,6 +2297,14 @@ export async function startServerRuntime(
         });
   if (ugvAgentProfile && ugvMoveBindingResolver === undefined)
     throw new Error('UGV_AGENT_PROFILE_MOVE_BINDING_RUNTIME_REQUIRED');
+  const ugvSimulationQualification =
+    ugvMoveBindingResolver === undefined
+      ? undefined
+      : new UgvSimulationQualificationService({
+          registry: mcpRegistry,
+          authority: ugvMoveBindingResolver,
+          clock,
+        });
   const skillTaskReadiness = new FrozenSkillTaskReadinessAdapter({
     operations: mcpRepository,
     availability: mcpRegistry,
@@ -3865,6 +3879,7 @@ export async function startServerRuntime(
     skillDrafts,
     taskInputs,
     taskCapabilities,
+    initialAdmissions: taskCapabilityRepository,
     ...(options.frozenMcpTasks === undefined
       ? {}
       : {
@@ -6753,6 +6768,7 @@ export async function startServerRuntime(
               evidenceExport,
               evidenceOperations,
               taskRevisionAuthority: new PostgresRuntimeTaskRevisionAuthority(pool, taskCommands),
+              ...(ugvSimulationQualification === undefined ? {} : { ugvSimulationQualification }),
               actorId: 'sdar-node-control',
               ...(options.runtimeControlArtifactPrincipalResolver === undefined
                 ? {}
@@ -6771,6 +6787,13 @@ export async function startServerRuntime(
         foregroundActivity.run(() => service.followUp(command)),
       cancel: (taskId: string) => foregroundActivity.run(() => service.cancel(taskId)),
     };
+    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool);
+    const a2aTaskStore = new A2AProjectionTaskStore(
+      a2aProjections,
+      tasks,
+      createA2ACancelReconciliationHandler(foregroundAwareTasks),
+      interactiveGoalMetadata,
+    );
     const taskExecutor = new TaskServiceAgentExecutor({
       tasks: foregroundAwareTasks,
       notifier: taskStateNotifier,
@@ -6782,10 +6805,10 @@ export async function startServerRuntime(
         ? {}
         : { safetyPollIntervalMs: options.a2aSafetyPollIntervalMs }),
     });
-    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool);
     const a2aTerminalProjectionReconciler = new A2ATerminalProjectionReconciler({
       projections: a2aProjections,
       tasks,
+      taskStore: a2aTaskStore,
       interaction: interactiveGoalMetadata,
     });
     await a2aTerminalProjectionReconciler.reconcile();
@@ -6815,12 +6838,7 @@ export async function startServerRuntime(
     a2aTerminalProjectionReconciliationTimer.unref();
     const a2a = await startA2AHttpEndpoint({
       executor: taskExecutor,
-      taskStore: new A2AProjectionTaskStore(
-        a2aProjections,
-        tasks,
-        createA2ACancelReconciliationHandler(foregroundAwareTasks),
-        interactiveGoalMetadata,
-      ),
+      taskStore: a2aTaskStore,
       skillProvider: {
         async listEnabled() {
           return (await profileSkills.listEnabledVersions()).map((skill) => ({

@@ -77,6 +77,7 @@ export * from './model-decisions.js';
 export * from './plan-preparation-processor.js';
 export * from './prompt-service.js';
 export * from './task-service.js';
+export * from './initial-task-admission.js';
 export * from './task-capability.js';
 export * from './task-capability-user-goal-plan-authority.js';
 export * from './task-state-notifier.js';

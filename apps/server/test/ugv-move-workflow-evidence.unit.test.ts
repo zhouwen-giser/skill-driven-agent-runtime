@@ -802,7 +802,7 @@ function governedConfirmation(selected: SelectedTaskOperation): GovernedControlC
     taskId: TASK_ID,
     capabilityBindingId: 'capability-binding-uap-p2-b03',
     capabilityId: selected.task.semanticTaskType,
-    capabilityVersion: 1,
+    capabilityVersion: 2,
     capabilityAttemptId: CAPABILITY_ATTEMPT_ID,
     planId: 'plan-uap-p2-b03',
     planHash: 'f'.repeat(64),

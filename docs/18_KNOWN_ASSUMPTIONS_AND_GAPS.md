@@ -44,6 +44,48 @@
   These nonblocking baselines are not represented as full-repository passes. P3-B01 is complete with
   those disclosures; P3-B02, P3-B03, P4, P3 overall and the Goal remain pending.
 
+## UGV Agent Profile P3-B02 external qualification failure (2026-08-24)
+
+- The one recovery-issued YES window is consumed and must not be retried. It reached only the fixed
+  taskless `vehicle_get_state` qualification. The receipt and corresponding Device `get_status` are
+  durable and succeeded, but the external aggregate reported `chassis.mission.state=0`; the reviewed
+  Profile accepts only `[-1,3,4,5]`. No local fallback, state coercion or widened admission set is
+  assumed.
+- The failure is not movement evidence. Formal A2A admission, Task, Goal, Plan, model invocation,
+  confirmation, `vehicle_navigate`, Provider Task, remote binding, continuation and terminal outcome
+  counts are zero. Provider admission/idempotency and Adapter execution/mutation/ACK counts are also
+  zero. The only post-preledger delta is one taskless Runtime MCP receipt and one accepted read-only
+  Device call.
+- The wrapper restored `NO` and the public failure artifact is immutable. A future attempt requires a
+  new user authorization, new append-only identity and fresh external qualification. Before any such
+  attempt, the simulator/operator must establish why mission state `0` is emitted and either restore
+  an already-reviewed admissible idle state or pursue a separately reviewed contract change; this
+  run supplies no authority to choose between those options.
+- The live Source recovery exposed a private hashing category error: formal Runtime discovery contains
+  `authorizationModel`, a legitimate protocol field that the public evidence canonicalizer rejects by
+  name. Internal schema-validated pre/post snapshots now use a private canonical hash; the public
+  redaction boundary remains unchanged. This repair is implementation evidence only and does not
+  upgrade the failed external attempt.
+
+## UGV Agent Profile P3-B02 terminal Provider / failed SDAR continuation (2026-08-24)
+
+- A later separately authorized attempt reached exactly one real `vehicle_navigate`. The Provider Task
+  is terminal-completed and the Adapter execution succeeded. This proves a real external movement but
+  does not prove the SDAR Goal because the final horizontal error was approximately 6.8 metres and no
+  SDAR continuation, final-state node, result processing or terminal A2A projection completed.
+- The immediate SDAR failure was deterministic: the Provider returned a legal CreateTask state
+  `working` with substate `accepted`, which the Frozen lifecycle parser omitted and normalized to
+  `FROZEN_CREATE_TASK_RESULT_INVALID`. The bounded fix adds only `accepted`, migration `0173` updates
+  the PostgreSQL check constraint, and regression coverage proves later reconciliation to `running`.
+- `terminal_provider_safe` is evidence/recovery authority, not success authority. It permits issuing a
+  fresh append-only attempt only when the Provider/Adapter are safely terminal, the exact SDAR parser
+  failure is present and there is no active continuation or fabricated terminal outcome. It never
+  retries the failed invocation or upgrades the old Task.
+- Post-fix live verification is intentionally unverified. The user cancelled further simulator access
+  because another client was using it. The task-owned stack was removed/stopped before another YES
+  window; therefore the implementation may be merged, while P3-B02/P3-B03 and overall Goal acceptance
+  remain open.
+
 ## UGV Agent Profile P2-B03 local-integration boundary (2026-08-21)
 
 - The task card says there must be zero MCP calls before Plan confirmation, while the frozen Profile

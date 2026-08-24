@@ -454,6 +454,10 @@ describe('UGV Agent Profile authority bootstrap', () => {
         providerToolCallCount: 0,
       },
     });
+    expect(api.exposureRequesterPolicy()).toEqual({
+      allowAnonymous: false,
+      allowedRequesterIds: ['uap-p3-b02-requester'],
+    });
     expect(second.skill.exactVersionCount).toBe(1);
     expect(verified.status).toBe('passed');
     for (const readiness of [readinessOne, readinessTwo]) {
@@ -620,7 +624,7 @@ describe('UGV Agent Profile authority bootstrap', () => {
         evaluatedAt: '2026-08-20T23:58:00.000Z',
         validUntil: '2026-08-20T23:59:00.000Z',
         reasons: [{ code: 'READINESS_STABILITY_WINDOW', severity: 'info' }],
-        availableImplementations: ['capability-binding-embodied.move-v1'],
+        availableImplementations: ['capability-binding-embodied.move-v2'],
         unavailableImplementations: [],
       },
       true,
@@ -756,8 +760,8 @@ describe('UGV Agent Profile authority bootstrap', () => {
       drift: 'a duplicated implementation partition',
       patch: {
         status: 'unavailable',
-        availableImplementations: ['capability-binding-embodied.move-v1'],
-        unavailableImplementations: ['capability-binding-embodied.move-v1'],
+        availableImplementations: ['capability-binding-embodied.move-v2'],
+        unavailableImplementations: ['capability-binding-embodied.move-v2'],
       },
     },
     {
@@ -780,7 +784,7 @@ describe('UGV Agent Profile authority bootstrap', () => {
         status: 'suspended',
         reasons: [{ code: 'UNIT_KILL_SWITCH', severity: 'blocking' }],
         availableImplementations: [],
-        unavailableImplementations: ['capability-binding-embodied.move-v1'],
+        unavailableImplementations: ['capability-binding-embodied.move-v2'],
       },
     },
   ])(
@@ -1269,6 +1273,10 @@ class AuthorityApis {
     };
   }
 
+  exposureRequesterPolicy(): unknown {
+    return requiredRecord(required(this.#exposure)['requesterPolicy']);
+  }
+
   driftToolReplay(toolName: string, replay: string): void {
     this.#tools = this.#tools.map((tool) =>
       tool['toolName'] === toolName
@@ -1379,29 +1387,29 @@ class AuthorityApis {
       this.#capability = body(init);
       return json(this.#capability, 201);
     }
-    if (method === 'GET' && path === '/api/v1/node-capabilities/embodied.move/versions/1')
+    if (method === 'GET' && path === '/api/v1/node-capabilities/embodied.move/versions/2')
       return optionalJson(this.#capability);
     if (
       method === 'GET' &&
-      path === '/api/v1/node-capabilities/embodied.move/versions/1/implementations'
+      path === '/api/v1/node-capabilities/embodied.move/versions/2/implementations'
     )
       return page(this.#implementation);
     if (
       method === 'POST' &&
-      path === '/api/v1/node-capabilities/embodied.move/versions/1/implementations'
+      path === '/api/v1/node-capabilities/embodied.move/versions/2/implementations'
     ) {
       this.#implementation = body(init);
       return json(this.#implementation, 201);
     }
-    if (method === 'POST' && path.endsWith('/embodied.move/versions/1/validate')) {
+    if (method === 'POST' && path.endsWith('/embodied.move/versions/2/validate')) {
       this.#capability = { ...required(this.#capability), status: 'validating' };
       return json(this.#capability);
     }
-    if (method === 'POST' && path.endsWith('/embodied.move/versions/1/publish')) {
+    if (method === 'POST' && path.endsWith('/embodied.move/versions/2/publish')) {
       this.#capability = { ...required(this.#capability), status: 'published' };
       return json(operation('capability.publish', this.#capability), 202);
     }
-    if (method === 'GET' && path === '/api/v1/capability-readiness/embodied.move/1')
+    if (method === 'GET' && path === '/api/v1/capability-readiness/embodied.move/2')
       return this.#readiness === undefined
         ? json({ code: 'CAPABILITY_READINESS_NOT_FOUND' }, 404)
         : json(this.#readiness, 200, {
@@ -1411,16 +1419,16 @@ class AuthorityApis {
                 : String(this.#readinessHash)
             }"`,
           });
-    if (method === 'POST' && path.endsWith('/capability-readiness/embodied.move/1/evaluate'))
+    if (method === 'POST' && path.endsWith('/capability-readiness/embodied.move/2/evaluate'))
       return this.evaluateReadiness();
     if (method === 'GET' && path === '/api/v1/a2a-exposures') return page(this.#exposure);
     if (method === 'POST' && path === '/api/v1/a2a-exposures') {
       this.#exposure = body(init);
       return json(this.#exposure, 201);
     }
-    if (method === 'GET' && path === '/api/v1/a2a-exposures/a2a.embodied.move/versions/1')
+    if (method === 'GET' && path === '/api/v1/a2a-exposures/a2a.embodied.move/versions/2')
       return optionalJson(this.#exposure);
-    if (method === 'POST' && path.endsWith('/a2a.embodied.move/versions/1/publish')) {
+    if (method === 'POST' && path.endsWith('/a2a.embodied.move/versions/2/publish')) {
       this.#exposure = { ...required(this.#exposure), status: 'published' };
       return json(operation('a2a-exposure.publish', this.#exposure), 202);
     }
@@ -1544,7 +1552,7 @@ class AuthorityApis {
     if (stabilityWindow) this.readinessStabilityResponsesRemaining -= 1;
     const snapshot = {
       capabilityId: 'embodied.move',
-      capabilityVersion: 1,
+      capabilityVersion: 2,
       snapshotVersion: Number(this.#readiness?.['snapshotVersion'] ?? 0) + 1,
       status: stabilityWindow ? 'unavailable' : 'available',
       evaluatedAt: this.readinessEvaluatedAt,
@@ -1559,7 +1567,7 @@ class AuthorityApis {
             },
           ]
         : [],
-      availableImplementations: ['capability-binding-embodied.move-v1'],
+      availableImplementations: ['capability-binding-embodied.move-v2'],
       unavailableImplementations: [],
       ...this.readinessEvaluationPatch,
     };
@@ -1575,7 +1583,7 @@ class AuthorityApis {
         values: [
           {
             capabilityId: 'embodied.move',
-            capabilityVersion: 1,
+            capabilityVersion: 2,
             exposureHash,
             readinessHash: this.#readinessHash,
           },
@@ -1584,7 +1592,7 @@ class AuthorityApis {
     );
     this.#managedCard = {
       revision: Number(this.#managedCard?.['revision'] ?? 0) + 1,
-      exposureRefs: ['a2a.embodied.move:1'],
+      exposureRefs: ['a2a.embodied.move:2'],
       contentHash: sha(`managed:${capabilityCatalogHash}`),
       capabilityCatalogHash,
       status: 'active',

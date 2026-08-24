@@ -40,21 +40,21 @@ export interface RuntimeCapabilityResolution {
   readonly providerPolicySnapshot?: unknown;
 }
 
+export interface TaskCapabilityAcceptance {
+  readonly task: AgentTask;
+  readonly inputAttempt: TaskExecutionAttempt;
+  readonly binding: TaskCapabilityBinding;
+  readonly capabilityAttempt: TaskCapabilityExecutionAttempt;
+  readonly event: RuntimeTaskEvent;
+}
+
 export interface TaskCapabilityAcceptanceStore {
   resolveExposure(
     exposureId: string,
     exposureVersion: number,
     now: string,
   ): Promise<RuntimeCapabilityResolution | undefined>;
-  accept(
-    input: Readonly<{
-      task: AgentTask;
-      inputAttempt: TaskExecutionAttempt;
-      binding: TaskCapabilityBinding;
-      capabilityAttempt: TaskCapabilityExecutionAttempt;
-      event: RuntimeTaskEvent;
-    }>,
-  ): Promise<void>;
+  accept(input: TaskCapabilityAcceptance): Promise<void>;
   findBinding(taskId: string): Promise<TaskCapabilityBinding | undefined>;
   listAttempts(taskId: string): Promise<readonly TaskCapabilityExecutionAttempt[]>;
   bindInitialPlan?(taskId: string, planId: string): Promise<void>;
@@ -222,11 +222,20 @@ export class RuntimeTaskCapabilityService {
       inputAttempt: TaskExecutionAttempt;
       bindingId: string;
       capabilityAttemptId: string;
+      initialAdmissionIdempotencyKey?: string;
       event: RuntimeTaskEvent;
     }>,
   ) {
     const request = requestedCapability(input.metadata);
     if (request === undefined) return undefined;
+    if (
+      input.initialAdmissionIdempotencyKey !== undefined &&
+      request.requestId !== input.initialAdmissionIdempotencyKey
+    )
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_REQUEST_INVALID',
+        'The Capability requestId must equal the durable initial admission idempotency key.',
+      );
     const resolution = await this.#store.resolveExposure(
       request.exposureId,
       request.exposureVersion,
@@ -678,7 +687,11 @@ function requestedCapability(metadata: Readonly<Record<string, unknown>>) {
     requestId.trim() === ''
   )
     invalidRequest();
-  return { exposureId: exposureId.trim(), exposureVersion: Number(versionConstraint) };
+  return {
+    exposureId: exposureId.trim(),
+    exposureVersion: Number(versionConstraint),
+    requestId: requestId.trim(),
+  };
 }
 
 function assertRequester(policy: Readonly<Record<string, unknown>> | undefined, userId: string) {

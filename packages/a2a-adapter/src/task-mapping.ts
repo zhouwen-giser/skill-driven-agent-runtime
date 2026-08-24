@@ -1,7 +1,13 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import { Artifact, Message, Task, TaskState, type Part } from '@a2a-js/sdk';
 import { z } from 'zod';
 
 import type { SubmitTaskCommand, TaskFollowUpAction } from '../../application/src/index.js';
+import {
+  INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY,
+  normalizeInitialTaskAdmissionIdempotencyKey,
+} from '../../application/src/initial-task-admission.js';
 import {
   snapshotRemoteTaskInputValue,
   type AgentTask,
@@ -26,6 +32,11 @@ const FollowUpMetadataSchema = z.strictObject({
   user_id: z.string().min(1).max(1_024).optional(),
 });
 const SkillDraftActionSchema = z.enum(['create_skill_draft', 'update_skill_draft']);
+const RequestedCapabilitySchema = z.strictObject({
+  exposureId: z.string().min(1).max(1_024),
+  versionConstraint: z.string().regex(/^[1-9][0-9]*$/u),
+  requestId: z.string().min(1).max(256),
+});
 
 export class A2AMappingError extends Error {
   readonly code:
@@ -33,6 +44,8 @@ export class A2AMappingError extends Error {
     | 'A2A_METADATA_INVALID'
     | 'A2A_ACTION_INVALID'
     | 'A2A_INPUT_CONTENT_INVALID'
+    | 'A2A_INITIAL_ADMISSION_INVALID'
+    | 'A2A_STRUCTURED_INPUT_MISMATCH'
     | 'A2A_CAPABILITY_GAP_EVIDENCE_INVALID'
     | 'A2A_USER_ID_INVALID';
 
@@ -118,11 +131,68 @@ export function toSubmitTaskCommand(
     (part): part is Part & { content: { $case: 'data'; value: unknown } } =>
       part.content?.$case === 'data',
   );
-  if (dataParts.length > 1)
+  const formalInitialAdmission =
+    metadata['io.sdar/requestedCapability'] !== undefined ||
+    metadata[INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY] !== undefined;
+  if (formalInitialAdmission && dataParts.length !== 1)
+    throw new A2AMappingError(
+      'A2A_INPUT_CONTENT_INVALID',
+      'Formal A2A Capability admission requires exactly one structured data part.',
+    );
+  if (!formalInitialAdmission && dataParts.length > 1)
     throw new A2AMappingError(
       'A2A_INPUT_CONTENT_INVALID',
       'A2A capability submission accepts at most one structured data part.',
     );
+  let capabilityInput: unknown;
+  let initialAdmission: SubmitTaskCommand['initialAdmission'];
+  if (formalInitialAdmission) {
+    const structuredInput = metadata['structured_input'];
+    if (structuredInput === undefined)
+      throw new A2AMappingError(
+        'A2A_INITIAL_ADMISSION_INVALID',
+        'Formal A2A Capability admission requires metadata.structured_input.',
+      );
+    const dataSnapshot = snapshotA2AStructuredInput(dataParts[0]?.content.value);
+    const metadataSnapshot = snapshotA2AStructuredInput(structuredInput);
+    if (!isDeepStrictEqual(dataSnapshot, metadataSnapshot))
+      throw new A2AMappingError(
+        'A2A_STRUCTURED_INPUT_MISMATCH',
+        'The A2A data Part and metadata.structured_input must be canonically equal.',
+      );
+    const requestedCapability = RequestedCapabilitySchema.safeParse(
+      metadata['io.sdar/requestedCapability'],
+    );
+    if (!requestedCapability.success)
+      throw new A2AMappingError(
+        'A2A_INITIAL_ADMISSION_INVALID',
+        'Formal A2A Capability admission requires an exact io.sdar/requestedCapability shape.',
+      );
+    const rawIdempotencyKey = metadata[INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY];
+    if (typeof rawIdempotencyKey !== 'string')
+      throw new A2AMappingError(
+        'A2A_INITIAL_ADMISSION_INVALID',
+        `Formal A2A Capability admission requires metadata.${INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY}.`,
+      );
+    let idempotencyKey: string;
+    try {
+      idempotencyKey = normalizeInitialTaskAdmissionIdempotencyKey(rawIdempotencyKey);
+    } catch {
+      throw new A2AMappingError(
+        'A2A_INITIAL_ADMISSION_INVALID',
+        'Formal A2A Capability admission idempotency_key is not a bounded token.',
+      );
+    }
+    if (requestedCapability.data.requestId !== idempotencyKey)
+      throw new A2AMappingError(
+        'A2A_INITIAL_ADMISSION_INVALID',
+        'io.sdar/requestedCapability.requestId must equal metadata.idempotency_key.',
+      );
+    capabilityInput = dataSnapshot;
+    initialAdmission = Object.freeze({ idempotencyKey });
+  } else if (dataParts[0] !== undefined) {
+    capabilityInput = snapshotA2AStructuredInput(dataParts[0].content.value);
+  }
   const rawUserId = metadata['user_id'];
   if (rawUserId !== undefined && typeof rawUserId !== 'string') {
     throw new A2AMappingError('A2A_USER_ID_INVALID', 'A2A metadata user_id must be a string.');
@@ -134,9 +204,8 @@ export function toSubmitTaskCommand(
     ...(rawUserId === undefined ? {} : { userId: rawUserId }),
     messageText: text,
     metadata,
-    ...(dataParts[0] === undefined
-      ? {}
-      : { capabilityInput: snapshotRemoteTaskInputValue(dataParts[0].content.value) }),
+    ...(capabilityInput === undefined ? {} : { capabilityInput }),
+    ...(initialAdmission === undefined ? {} : { initialAdmission }),
     ...(SkillDraftActionSchema.safeParse(metadata['sdar_action']).success
       ? {
           skillDraftIntent:
@@ -146,6 +215,17 @@ export function toSubmitTaskCommand(
         }
       : {}),
   };
+}
+
+function snapshotA2AStructuredInput(value: unknown): unknown {
+  try {
+    return snapshotRemoteTaskInputValue(value);
+  } catch {
+    throw new A2AMappingError(
+      'A2A_INPUT_CONTENT_INVALID',
+      'A2A structured input must be bounded JSON.',
+    );
+  }
 }
 
 function textContent(message: Message): string {

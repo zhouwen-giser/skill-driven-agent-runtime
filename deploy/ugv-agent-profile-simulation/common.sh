@@ -83,6 +83,29 @@ uap_simulation_run_id() {
   node "$uap_repo_root/scripts/ugv-agent-profile-simulation/initialize-state.mjs" --print-simulation-run-id
 }
 
+uap_existing_simulation_run_id() {
+  node "$uap_repo_root/scripts/ugv-agent-profile-simulation/initialize-state.mjs" \
+    --print-existing-simulation-run-id
+}
+
+uap_authorize_b02_simulation_run_id() {
+  if (($# != 1)); then
+    echo "UAP_B02_SIMULATION_ID_REQUIRED" >&2
+    return 64
+  fi
+  node "$uap_repo_root/scripts/ugv-agent-profile-simulation/b02-attempt-identity.mjs" \
+    authorize "$1"
+}
+
+uap_authority_simulation_run_id() {
+  local simulation_id="${UGV_SIMULATION_RUN_ID:-}"
+  if [[ -z "$simulation_id" ]]; then
+    simulation_id="$(uap_simulation_run_id)"
+  fi
+  uap_authorize_b02_simulation_run_id "$simulation_id" >/dev/null
+  printf '%s\n' "$simulation_id"
+}
+
 uap_smpp_compose() {
   env \
     UAP_PMS_STATE_ROOT="$UAP_PMS_STATE_ROOT" \

@@ -12,7 +12,7 @@ export interface InternalToolResult {
 export type McpTaskStatus = 'working' | 'input_required' | 'completed' | 'failed' | 'cancelled';
 
 export type RemoteTaskProviderSubstate =
-  'scheduled' | 'queued' | 'running' | 'paused' | 'resuming' | 'stopping';
+  'accepted' | 'scheduled' | 'queued' | 'running' | 'paused' | 'resuming' | 'stopping';
 
 export interface RemoteTaskProviderObservation {
   readonly revision: '1.0';

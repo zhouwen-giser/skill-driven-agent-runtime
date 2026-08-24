@@ -1159,7 +1159,7 @@ function governedConfirmation(
     taskId: UGV_WORKFLOW_IDENTITY.taskId,
     capabilityBindingId: 'capability-binding-uap-p2-b03',
     capabilityId: selected.task.semanticTaskType,
-    capabilityVersion: 1,
+    capabilityVersion: 2,
     capabilityAttemptId: CAPABILITY_ATTEMPT_ID,
     planId: plan.planId,
     planHash: canonicalHash(plan.definition),

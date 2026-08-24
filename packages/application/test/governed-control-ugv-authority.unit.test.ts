@@ -219,6 +219,74 @@ describe('UGV governed-control profile authority', () => {
     expect(consumeConfirmation).toHaveBeenCalledTimes(2);
   });
 
+  it('uses refreshed pre-invocation readiness after the persisted selection availability expires', async () => {
+    const authority = currentAuthority();
+    const { snapshotHash, ...selectedDraft } = authority.selectedTaskOperation;
+    const selected = createSelectedTaskOperation({
+      ...selectedDraft,
+      availability: {
+        ...selectedDraft.availability,
+        validUntil: '2026-08-21T01:00:59.999Z',
+      },
+    });
+    expect(selected.snapshotHash).not.toBe(snapshotHash);
+    const refreshedAuthority: UgvGovernedControlAuthoritySnapshot = Object.freeze({
+      ...authority,
+      selectedTaskOperation: selected,
+      binding: Object.freeze({
+        ...authority.binding,
+        selectedTaskOperationSnapshotHash: selected.snapshotHash,
+      }),
+      plan: Object.freeze({
+        ...authority.plan,
+        selectedTaskOperationSnapshotHash: selected.snapshotHash,
+      }),
+      readiness: Object.freeze({
+        ...authority.readiness,
+        selectedTaskOperationSnapshotHash: selected.snapshotHash,
+      }),
+    });
+    const confirmation = confirmed(refreshedAuthority);
+    const snapshot: UgvGovernedControlDispatchAuthoritySnapshot = Object.freeze({
+      ...refreshedAuthority,
+      task: Object.freeze({ ...refreshedAuthority.task, phase: 'executing' }),
+      plan: Object.freeze({
+        ...refreshedAuthority.plan,
+        confirmationStatus: 'confirmed',
+      }),
+      confirmation,
+    });
+    const consumeConfirmation = vi.fn((consumption: GovernedControlConfirmationConsumption) =>
+      Promise.resolve({
+        ...confirmation,
+        consumedInvocationId: consumption.invocationId,
+        consumedDispatchHash: consumption.dispatchHash,
+        consumedAt: consumption.consumedAt,
+      }),
+    );
+    const authorizer = new UgvGovernedControlInvocationAuthorizer({
+      authority: { loadForPreInvocation: () => Promise.resolve(snapshot) },
+      confirmations: { consumeConfirmation },
+      simulationSideEffectGate: { assertAuthorized: () => Promise.resolve() },
+      clock: { now: () => now },
+    });
+
+    await expect(
+      authorizer.authorizeAndConsume({
+        invocationId: 'invocation-refreshed-readiness',
+        dispatchHash: `sha256:${'f'.repeat(64)}`,
+        taskId: snapshot.task.taskId,
+        capabilityAttemptId: snapshot.attempt.capabilityAttemptId,
+        providerBindingId: selected.providerBinding.bindingId,
+        serverId: selected.server.serverId,
+        toolName: selected.operation.operationName,
+        arguments: selected.resolvedArguments,
+        executionSemantics: selected.operation.executionSemantics,
+      }),
+    ).resolves.toMatchObject({ invocationId: 'invocation-refreshed-readiness' });
+    expect(consumeConfirmation).toHaveBeenCalledOnce();
+  });
+
   it.each([
     [
       'adapted arguments tamper',

@@ -594,8 +594,7 @@ function assertCurrentReadiness(
     checkedAt > now ||
     validUntil <= now ||
     parseTimestamp(selected.availability.checkedAt, 'UGV_GOVERNED_CONTROL_READINESS_STALE') > now ||
-    parseTimestamp(selected.selectedAt, 'UGV_GOVERNED_CONTROL_READINESS_STALE') > now ||
-    parseTimestamp(selected.availability.validUntil, 'UGV_GOVERNED_CONTROL_READINESS_STALE') <= now
+    parseTimestamp(selected.selectedAt, 'UGV_GOVERNED_CONTROL_READINESS_STALE') > now
   )
     fail(
       'UGV_GOVERNED_CONTROL_READINESS_STALE',

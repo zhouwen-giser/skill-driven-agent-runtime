@@ -101,14 +101,13 @@ const NAVIGATE_OPERATION = 'vehicle_navigate';
 export const UGV_SIMULATION_QUALIFICATION_MAX_ADMISSION_AGE_MS = 3_000;
 const HEALTH_FRESHNESS_MS = 5_000;
 const MAXIMUM_FUTURE_SKEW_MS = 1_000;
-const EARTH_RADIUS_M = 6_371_008.8;
 const PLAIN_SHA256 = /^[0-9a-f]{64}$/u;
 const BOUNDED_REFERENCE_ID = /^[A-Za-z0-9._-]{1,128}$/u;
 const BOUNDED_POLICY_ID = /^[A-Za-z0-9._/-]{1,128}$/u;
 
 export const UGV_SIMULATION_TARGET_POLICY_TYPE = 'ugv_simulation_target_policy' as const;
 
-export interface UgvSimulationShortMoveTarget {
+export interface UgvSimulationTarget {
   readonly x: number;
   readonly y: number;
   readonly frame: 'WGS84';
@@ -120,9 +119,9 @@ export interface UgvSimulationTargetPolicyInput {
 }
 
 /**
- * Creates the only target permission accepted by this external-simulation profile. The caller must
- * persist the returned object in the Task Capability binding; mutable request metadata is never
- * consulted by the resolver.
+ * Creates the only target permission accepted by this external-simulation profile. The explicit
+ * WGS84 target is admitted from the formal A2A request and then frozen in the PostgreSQL Task
+ * Capability binding. Qualification state is deliberately not a target authority.
  */
 export function createUgvSimulationTargetPolicy(
   input: UgvSimulationTargetPolicyInput,
@@ -140,40 +139,12 @@ export function createUgvSimulationTargetPolicy(
     executionMode: 'simulation',
     resourceId: UGV_RESOURCE_ID,
     frame: 'WGS84',
-    targetDerivation: 'deterministic_short_distance',
-    bearingDegrees: 90,
-    distanceM: 1,
-    maximumDistanceM: 2,
+    targetAuthority: 'task_capability_input_snapshot',
+    targetDerivation: 'forbidden',
+    distanceLimit: 'none',
+    altitudePolicy: 'not_commanded_not_terminally_evaluated',
     forbiddenRegions: Object.freeze([]),
   });
-}
-
-/** Deterministic no-history/no-randomness fallback defined by the simulation task package. */
-export function deriveUgvSimulationShortMoveTarget(
-  position: Readonly<{ longitude: number; latitude: number }>,
-): UgvSimulationShortMoveTarget {
-  if (!validPosition(position)) invalid('The UGV qualification position is invalid.');
-  const angularDistance = 1 / EARTH_RADIUS_M;
-  const bearing = Math.PI / 2;
-  const latitude = radians(position.latitude);
-  const longitude = radians(position.longitude);
-  const targetLatitude = Math.asin(
-    Math.sin(latitude) * Math.cos(angularDistance) +
-      Math.cos(latitude) * Math.sin(angularDistance) * Math.cos(bearing),
-  );
-  const targetLongitude =
-    longitude +
-    Math.atan2(
-      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latitude),
-      Math.cos(angularDistance) - Math.sin(latitude) * Math.sin(targetLatitude),
-    );
-  const target = Object.freeze({
-    x: (((targetLongitude * 180) / Math.PI + 540) % 360) - 180,
-    y: (targetLatitude * 180) / Math.PI,
-    frame: 'WGS84' as const,
-  });
-  if (!validTarget(target)) invalid('The derived UGV simulation target is outside WGS84.');
-  return target;
 }
 
 /**
@@ -209,6 +180,7 @@ export async function resolveUgvMoveSkillUsageContext(
     input.authority.skillVersion !== 1 ||
     !BOUNDED_REFERENCE_ID.test(input.binding.bindingId) ||
     input.binding.requestedCapabilityId !== 'embodied.move' ||
+    input.binding.capabilityVersion !== 2 ||
     !sameStrings(input.binding.initialImplementationRefs, ['skill:embodied.move_to:1']) ||
     exactSkill['skillId'] !== 'embodied.move_to' ||
     exactSkill['skillVersion'] !== 1 ||
@@ -255,20 +227,13 @@ export async function resolveUgvMoveSkillUsageContext(
   if (candidates.length !== 1 || receipt === undefined) {
     invalid('The UGV simulation run requires exactly one taskless qualification state receipt.');
   }
-  const state = assertQualificationReceipt(
+  validateUgvSimulationQualificationReceipt(
     receipt,
     serverId as string,
     simulationId,
     input.clock.now(),
     input.binding.boundAt,
   );
-  const expectedTarget = deriveUgvSimulationShortMoveTarget(state.position);
-  if (
-    !sameJson(expectedTarget, target) ||
-    distanceM(state.position, { longitude: target.x, latitude: target.y }) > policy.maximumDistanceM
-  )
-    invalid('The frozen UGV target is not derived from the qualified current position.');
-
   const resultHash = hashCanonicalEvidenceJson(receipt.result);
   const invocationPrefix = `mcp-invocation:${receipt.invocationId}:result-hash:${resultHash}:context:`;
   const policyHash = hashCanonicalEvidenceJson(targetPolicy);
@@ -383,10 +348,15 @@ function exactTargetPolicy(value: Readonly<Record<string, unknown>>) {
     invalid('The frozen UGV simulation target policy identity is invalid.');
   const expected = createUgvSimulationTargetPolicy({ policyId, revision });
   if (!sameJson(value, expected)) invalid('The frozen UGV simulation target policy is not exact.');
-  return Object.freeze({ policyId, revision, maximumDistanceM: 2 });
+  return Object.freeze({ policyId, revision });
 }
 
-function assertQualificationReceipt(
+/**
+ * Shared fail-closed validator for the one durable taskless state receipt used by qualification
+ * and later formal Skill Usage admission. Supplying the same instant for `nowText` and
+ * `boundAtText` validates a just-recorded receipt before a Task Capability binding exists.
+ */
+export function validateUgvSimulationQualificationReceipt(
   receipt: McpInvocation,
   serverId: string,
   simulationId: string,
@@ -410,15 +380,25 @@ function assertQualificationReceipt(
     receipt.simulationId !== simulationId ||
     receipt.serverId !== serverId ||
     receipt.toolName !== STATE_OPERATION ||
-    !sameJson(receipt.executionSemantics, {
-      effect: 'read_only',
-      execution: 'synchronous',
-      cancellation: 'unsupported',
-      idempotency: 'server_managed',
-      replay: 'allowed',
-      source: 'mcp_declared',
-    }) ||
-    !sameJson(receipt.arguments, stateReadArguments()) ||
+    ![
+      {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'unsupported',
+        idempotency: 'server_managed',
+        replay: 'allowed',
+        source: 'mcp_declared',
+      },
+      {
+        effect: 'read_only',
+        execution: 'synchronous',
+        cancellation: 'unsupported',
+        idempotency: 'server_managed',
+        replay: 'allowed',
+        source: 'admin_override',
+      },
+    ].some((expected) => sameJson(receipt.executionSemantics, expected)) ||
+    !sameJson(receipt.arguments, ugvSimulationQualificationStateReadArguments()) ||
     receipt.status !== 'succeeded' ||
     receipt.errorCode !== undefined ||
     receipt.errorMessage !== undefined ||
@@ -446,7 +426,8 @@ function assertQualificationReceipt(
   const mission = record(chassis?.['mission']);
   const health = record(state?.['health']);
   const components = record(health?.['components']);
-  const observedAt = timestamp(state?.['observedAt']);
+  const observedAtText = state?.['observedAt'];
+  const observedAt = timestamp(observedAtText);
   const chassisObservedAt = timestamp(freshness?.['chassisObservedAt']);
   const healthObservedAt = timestamp(freshness?.['healthObservedAt']);
   const normalizedPosition = {
@@ -470,7 +451,7 @@ function assertQualificationReceipt(
     chassis['speedKmh'] < 0 ||
     chassis['speedKmh'] > 0.1 ||
     mission === undefined ||
-    ![-1, 3, 4, 5].includes(mission['state'] as number) ||
+    ![-1, 0, 3, 4, 5].includes(mission['state'] as number) ||
     health === undefined ||
     !Array.isArray(health['chassisErrorCodes']) ||
     !Array.isArray(health['payloadErrorCodes']) ||
@@ -483,6 +464,7 @@ function assertQualificationReceipt(
     typeof state['mqttIngressSequence'] !== 'number' ||
     !Number.isSafeInteger(state['mqttIngressSequence']) ||
     state['mqttIngressSequence'] < 1 ||
+    typeof observedAtText !== 'string' ||
     observedAt > completedAt + MAXIMUM_FUTURE_SKEW_MS ||
     chassisObservedAt > completedAt + MAXIMUM_FUTURE_SKEW_MS ||
     healthObservedAt > completedAt + MAXIMUM_FUTURE_SKEW_MS ||
@@ -502,6 +484,9 @@ function assertQualificationReceipt(
       longitude: normalizedPosition.longitude,
       latitude: normalizedPosition.latitude,
     }),
+    observedAt: observedAtText,
+    revision: state['revision'],
+    mqttIngressSequence: state['mqttIngressSequence'],
   });
 }
 
@@ -557,8 +542,8 @@ function exactInputKeys(
 }
 
 function validTarget(
-  value: Readonly<Record<string, unknown>> | UgvSimulationShortMoveTarget | undefined,
-): value is UgvSimulationShortMoveTarget {
+  value: Readonly<Record<string, unknown>> | UgvSimulationTarget | undefined,
+): value is UgvSimulationTarget {
   return (
     value?.frame === 'WGS84' &&
     typeof value.x === 'number' &&
@@ -628,30 +613,12 @@ function parsePermissionEvidence(evidenceRef: string | undefined): boolean {
   );
 }
 
-function stateReadArguments(): Readonly<Record<string, unknown>> {
+/** The qualification entry point cannot accept caller-selected Tool arguments. */
+export function ugvSimulationQualificationStateReadArguments(): Readonly<Record<string, unknown>> {
   return Object.freeze({
     resourceId: UGV_RESOURCE_ID,
     include: Object.freeze(['chassis', 'health']),
   });
-}
-
-function distanceM(
-  left: Readonly<{ longitude: number; latitude: number }>,
-  right: Readonly<{ longitude: number; latitude: number }>,
-): number {
-  const latitude1 = radians(left.latitude);
-  const latitude2 = radians(right.latitude);
-  const latitudeDelta = latitude2 - latitude1;
-  const longitudeDelta = radians(right.longitude - left.longitude);
-  const a =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(latitude1) * Math.cos(latitude2) * Math.sin(longitudeDelta / 2) ** 2;
-  const clamped = Math.min(1, Math.max(0, a));
-  return 2 * EARTH_RADIUS_M * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
-}
-
-function radians(value: number): number {
-  return (value * Math.PI) / 180;
 }
 
 function timestamp(value: unknown): number {

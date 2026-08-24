@@ -9,7 +9,7 @@ import { parseEnv } from 'node:util';
 import { fileURLToPath, URL } from 'node:url';
 
 import { readValidatedFirstPassIndex } from './evidence-files.mjs';
-import { initializeState } from './initialize-state.mjs';
+import { initializeState, readExistingState } from './initialize-state.mjs';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const SMPP_ROOT = resolve(REPOSITORY_ROOT, '../sdar-mcp-provider-platform');
@@ -82,6 +82,7 @@ const CANONICAL_INDEX_SCHEMA_BY_FILE = Object.freeze({
   'model-invocation-baseline.redacted.json':
     'sdar.ugv-agent-profile.model-invocation-baseline-index/v1',
   'model-invocation-final.redacted.json': 'sdar.ugv-agent-profile.model-invocation-final-index/v1',
+  'uap-p3-b02-verification.json': 'sdar.ugv-agent-profile.a2a-move-index/v1',
 });
 
 export class UapValidationError extends Error {
@@ -688,9 +689,11 @@ async function readPrivateBounded(path, maximumBytes, allowEmpty = false) {
   return readFile(path, 'utf8');
 }
 
-async function readPublicArtifactWithFirstPass(path) {
+async function readPublicArtifactWithFirstPass(path, options = {}) {
   const target = resolve(path);
-  if (target !== REPORT_ROOT && !target.startsWith(`${REPORT_ROOT}/`))
+  const reportRoot = resolve(options.reportRoot ?? REPORT_ROOT);
+  const repositoryRoot = resolve(options.repositoryRoot ?? REPOSITORY_ROOT);
+  if (target !== reportRoot && !target.startsWith(`${reportRoot}/`))
     throw new UapValidationError('UAP_ARTIFACT_PATH_INVALID');
   const source = await readPrivateBounded(target, 8 * 1024 * 1024);
   let parsed;
@@ -703,12 +706,17 @@ async function readPublicArtifactWithFirstPass(path) {
     return Object.freeze([{ path: target, source }]);
   const schemaVersion = CANONICAL_INDEX_SCHEMA_BY_FILE[basename(target)];
   if (schemaVersion === undefined) throw new UapValidationError('UAP_CANONICAL_ATTEMPT_INVALID');
-  const state = await initializeState();
+  const expectedTask =
+    schemaVersion === 'sdar.ugv-agent-profile.a2a-move-index/v1' ? 'UAP-P3-B02' : 'UAP-P3-B01';
+  const state =
+    expectedTask === 'UAP-P3-B02'
+      ? await readExistingState(options.stateRoot)
+      : await initializeState(options.stateRoot);
   let validated;
   try {
-    validated = await readValidatedFirstPassIndex(target, REPOSITORY_ROOT, {
+    validated = await readValidatedFirstPassIndex(target, repositoryRoot, {
       schemaVersion,
-      task: 'UAP-P3-B01',
+      task: expectedTask,
       bootstrapRunId: state.bootstrapRunId,
       evidenceClass: 'external_simulation',
     });
@@ -719,6 +727,24 @@ async function readPublicArtifactWithFirstPass(path) {
     { path: validated.indexPath, source: validated.indexSource },
     { path: validated.attemptPath, source: validated.attemptSource },
   ]);
+}
+
+export async function validatePublicArtifacts(paths, options = {}) {
+  if (!Array.isArray(paths) || paths.length < 1)
+    throw new UapValidationError('UAP_ARTIFACT_FILE_REQUIRED');
+  const dotEnv = await validateDotEnv(options.dotEnvPath);
+  const taskSecrets = await taskOwnedCredentialMaterial(options.stateRoot);
+  let artifactCount = 0;
+  for (const path of paths)
+    for (const artifact of await readPublicArtifactWithFirstPass(path, options)) {
+      assertNoDotEnvMaterial(
+        artifact.source,
+        publicConfigurationMaterial(dotEnv.values, [...dotEnv.secretValues, ...taskSecrets]),
+        [...Object.keys(dotEnv.values), ...TASK_SENSITIVE_KEYS],
+      );
+      artifactCount += 1;
+    }
+  return Object.freeze({ artifactCount });
 }
 
 function expectPrivateBindMounts(serviceValue, expectedRoot, expectedNames) {
@@ -869,22 +895,10 @@ async function main() {
     return;
   }
   if (mode === 'artifacts') {
-    const dotEnv = await validateDotEnv();
-    const taskSecrets = await taskOwnedCredentialMaterial();
     const fileArguments = process.argv.filter(
       (value, index) => process.argv[index - 1] === '--file',
     );
-    if (fileArguments.length < 1) throw new UapValidationError('UAP_ARTIFACT_FILE_REQUIRED');
-    let artifactCount = 0;
-    for (const path of fileArguments)
-      for (const artifact of await readPublicArtifactWithFirstPass(path)) {
-        assertNoDotEnvMaterial(
-          artifact.source,
-          publicConfigurationMaterial(dotEnv.values, [...dotEnv.secretValues, ...taskSecrets]),
-          [...Object.keys(dotEnv.values), ...TASK_SENSITIVE_KEYS],
-        );
-        artifactCount += 1;
-      }
+    const { artifactCount } = await validatePublicArtifacts(fileArguments);
     process.stdout.write(
       `${JSON.stringify({ status: 'passed', artifactCount, secretsIncluded: false })}\n`,
     );

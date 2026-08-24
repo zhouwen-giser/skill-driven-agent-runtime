@@ -10,7 +10,6 @@ import {
 } from '../../../packages/domain/src/index.js';
 import {
   createUgvSimulationTargetPolicy,
-  deriveUgvSimulationShortMoveTarget,
   projectUgvMoveSkillUsageContext,
   resolveUgvMoveSkillUsageContext,
   UgvMoveSkillTaskReadinessAdapter,
@@ -127,14 +126,14 @@ describe('UGV move formal Skill Usage adapter', () => {
     expect(targetPolicy).toEqual({
       type: 'ugv_simulation_target_policy',
       policyId: POLICY_ID,
-      revision: 1,
+      revision: 2,
       executionMode: 'simulation',
       resourceId: 'vehicle:ugv1',
       frame: 'WGS84',
-      targetDerivation: 'deterministic_short_distance',
-      bearingDegrees: 90,
-      distanceM: 1,
-      maximumDistanceM: 2,
+      targetAuthority: 'task_capability_input_snapshot',
+      targetDerivation: 'forbidden',
+      distanceLimit: 'none',
+      altitudePolicy: 'not_commanded_not_terminally_evaluated',
       forbiddenRegions: [],
     });
     expect(listInvocations).toHaveBeenCalledOnce();
@@ -156,7 +155,7 @@ describe('UGV move formal Skill Usage adapter', () => {
         requirementId: 'permission-context',
         source: 'authoritative_context',
         status: 'available',
-        evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}:policy-id:${POLICY_ID}:revision:1:policy-hash:${hashCanonicalEvidenceJson(targetPolicy)}:context:permission-context`,
+        evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}:policy-id:${POLICY_ID}:revision:2:policy-hash:${hashCanonicalEvidenceJson(targetPolicy)}:context:permission-context`,
       },
     ]);
     expect(resolved.taskAvailabilityArguments).toEqual({
@@ -240,14 +239,37 @@ describe('UGV move formal Skill Usage adapter', () => {
     ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_QUALIFICATION_STALE' });
   });
 
-  it('fails closed for missing, duplicate, or drifted permission and target policy', async () => {
+  it('accepts Provider mission ready state 0 but rejects running or paused qualification', async () => {
+    const binding = capabilityBinding();
+    for (const missionState of [0, -1, 3, 4, 5])
+      await expect(
+        resolveUgvMoveSkillUsageContext({
+          authority: capabilityAuthority(binding),
+          binding,
+          invocations: {
+            listInvocations: () => Promise.resolve([qualificationReceipt({ missionState })]),
+          },
+          clock: { now: () => NOW },
+        }),
+      ).resolves.toBeDefined();
+    for (const missionState of [1, 2])
+      await expect(
+        resolveUgvMoveSkillUsageContext({
+          authority: capabilityAuthority(binding),
+          binding,
+          invocations: {
+            listInvocations: () => Promise.resolve([qualificationReceipt({ missionState })]),
+          },
+          clock: { now: () => NOW },
+        }),
+      ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
+  });
+
+  it('fails closed for missing, duplicate, or drifted permission policy', async () => {
     for (const binding of [
       capabilityBinding({ omitTargetPolicy: true }),
       capabilityBinding({ duplicateTargetPolicy: true }),
-      capabilityBinding({ policy: { ...targetPolicy(), bearingDegrees: 91 } }),
-      capabilityBinding({
-        target: { ...deriveTarget(), x: deriveTarget().x + 0.000_01 },
-      }),
+      capabilityBinding({ policy: { ...targetPolicy(), targetAuthority: 'request_metadata' } }),
     ]) {
       await expect(
         resolveUgvMoveSkillUsageContext({
@@ -291,18 +313,18 @@ const RUN_ID = 'uap-p3-b02-run-1';
 const SERVER_ID = 'ugv-runtime-1';
 const PROVIDER_BINDING_ID = 'binding-ugv-runtime-1';
 const INVOCATION_ID = 'qualification-invocation-1';
-const POLICY_ID = 'ugv-agent-profile/simulation-short-move';
+const POLICY_ID = 'ugv-agent-profile/explicit-wgs84-target';
 const NOW = '2026-08-21T12:00:03.000Z';
 const EXACT_BOUNDARY_NOW = '2026-08-21T12:00:04.000Z';
 const EXPIRED_PLANNING_NOW = '2026-08-21T12:00:04.001Z';
 const INITIAL_POSITION = Object.freeze({ longitude: 106.813_980_425_914_1, latitude: 29.720_4 });
 
 function deriveTarget() {
-  return deriveUgvSimulationShortMoveTarget(INITIAL_POSITION);
+  return Object.freeze({ x: 106.8134463, y: 29.72034353, frame: 'WGS84' as const });
 }
 
 function targetPolicy() {
-  return createUgvSimulationTargetPolicy({ policyId: POLICY_ID, revision: 1 });
+  return createUgvSimulationTargetPolicy({ policyId: POLICY_ID, revision: 2 });
 }
 
 function capabilityBinding(
@@ -355,7 +377,7 @@ function capabilityBinding(
     bindingId: 'capability-binding-1',
     taskId: 'task-1',
     requestedCapabilityId: 'embodied.move',
-    capabilityVersion: 1,
+    capabilityVersion: 2,
     inputSnapshot: Object.freeze({
       resourceId: 'vehicle:ugv1',
       target: Object.freeze({ ...(options.target ?? deriveTarget()) }),
@@ -427,6 +449,7 @@ function qualificationReceipt(
     providerId?: string;
     taskId?: string;
     controlConfirmationId?: string;
+    missionState?: number;
   }> = {},
 ): McpInvocation {
   const result = Object.freeze({
@@ -454,7 +477,7 @@ function qualificationReceipt(
       chassis: Object.freeze({
         position: INITIAL_POSITION,
         speedKmh: 0,
-        mission: Object.freeze({ state: 4 }),
+        mission: Object.freeze({ state: options.missionState ?? 4 }),
       }),
       health: Object.freeze({
         chassisErrorCodes: Object.freeze([]),

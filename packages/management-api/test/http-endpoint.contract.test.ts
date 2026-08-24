@@ -1065,6 +1065,83 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('keeps UGV qualification bearer-protected and unavailable outside the composed Profile', async () => {
+    const serviceToken = 'ugv-qualification-service-token-0000000000000';
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+      },
+    });
+    const request = (authorization?: string) =>
+      fetch(`${endpoint?.baseUrl ?? ''}/internal/v1/ugv-agent-profile/qualification-state`, {
+        method: 'POST',
+        headers: {
+          ...(authorization === undefined ? {} : { authorization }),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ simulationId: 'uap-p3-b02-run-00000001' }),
+      });
+
+    const unauthenticated = await request();
+    expect(unauthenticated.status).toBe(401);
+    await expect(unauthenticated.json()).resolves.toMatchObject({
+      code: 'RUNTIME_CONTROL_UNAUTHORIZED',
+    });
+    const unavailable = await request(`Bearer ${serviceToken}`);
+    expect(unavailable.status).toBe(503);
+    await expect(unavailable.json()).resolves.toMatchObject({
+      code: 'UGV_SIMULATION_QUALIFICATION_UNAVAILABLE',
+    });
+  });
+
+  it('admits only the exact B02 run shape into the composed UGV qualification operation', async () => {
+    const serviceToken = 'ugv-qualification-profile-token-00000000000000';
+    const receipt = {
+      simulationId: 'uap-p3-b02-run-00000001',
+      invocationId: 'qualification-invocation-1',
+      resultHash: `sha256:${'a'.repeat(64)}`,
+      completedAt: '2026-08-21T12:00:01.000Z',
+      observedAt: '2026-08-21T12:00:01.000Z',
+      revision: 'b'.repeat(64),
+      mqttIngressSequence: 42,
+      sourcePosition: { longitude: 106.8, latitude: 29.7 },
+      target: { x: 106.800_01, y: 29.7, frame: 'WGS84' },
+    };
+    const capture = vi.fn(() => Promise.resolve(receipt));
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        ugvSimulationQualification: { capture },
+      },
+    });
+    const post = (body: unknown) =>
+      fetch(`${endpoint?.baseUrl ?? ''}/internal/v1/ugv-agent-profile/qualification-state`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${serviceToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+    const invalid = await post({
+      simulationId: 'uap-p3-b02-run-00000001',
+      serverId: 'caller-selected-provider',
+    });
+    expect(invalid.status).toBe(400);
+    expect(capture).not.toHaveBeenCalled();
+
+    const qualified = await post({ simulationId: 'uap-p3-b02-run-00000001' });
+    expect(qualified.status).toBe(200);
+    await expect(qualified.json()).resolves.toEqual(receipt);
+    expect(capture).toHaveBeenCalledOnce();
+    expect(capture).toHaveBeenCalledWith({ simulationId: 'uap-p3-b02-run-00000001' });
+  });
+
   it('delegates catalog stage and activate only to an explicitly composed Runtime authority', async () => {
     const serviceToken = 'runtime-catalog-service-token-000000000000000';
     const stage = vi.fn((input: { command: { reason: string } }) =>

@@ -56,6 +56,58 @@ describe('A2AProjectionTaskStore Runtime authority', () => {
     );
     expect(projections.saved).toBeUndefined();
   });
+
+  it('atomically appends concurrent replay history by messageId and normalizes Task identity', async () => {
+    const projections = new CapturingProjectionRepository();
+    const authoritative = completedTask();
+    const store = new A2AProjectionTaskStore(projections, {
+      findById: () => Promise.resolve(authoritative),
+    });
+
+    await Promise.all([
+      store.save(
+        a2aTask(TaskState.TASK_STATE_INPUT_REQUIRED, 'message-1', 'Inspect one.'),
+        callContext(),
+      ),
+      store.save(
+        a2aTask(TaskState.TASK_STATE_INPUT_REQUIRED, 'message-2', 'Inspect two.'),
+        callContext(),
+      ),
+      store.save(
+        a2aTask(TaskState.TASK_STATE_INPUT_REQUIRED, 'message-2', 'Inspect two.'),
+        callContext(),
+      ),
+    ]);
+
+    const loaded = await store.load(authoritative.taskId, callContext());
+    expect(loaded?.history.map((message) => message.messageId)).toEqual(['message-1', 'message-2']);
+    expect(
+      loaded?.history.every(
+        (message) =>
+          message.taskId === authoritative.taskId &&
+          message.contextId === authoritative.contextId &&
+          Object.keys(message.metadata ?? {}).length === 0,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects reuse of one history messageId for different canonical content', async () => {
+    const projections = new CapturingProjectionRepository();
+    const store = new A2AProjectionTaskStore(projections);
+    await store.save(
+      a2aTask(TaskState.TASK_STATE_INPUT_REQUIRED, 'message-conflict', 'Inspect one.'),
+      callContext(),
+    );
+
+    await expect(
+      store.save(
+        a2aTask(TaskState.TASK_STATE_INPUT_REQUIRED, 'message-conflict', 'Inspect two.'),
+        callContext(),
+      ),
+    ).rejects.toMatchObject({
+      code: 'A2A_TASK_HISTORY_MESSAGE_ID_CONFLICT',
+    });
+  });
 });
 
 class CapturingProjectionRepository implements ExternalTaskProjectionRepository {
@@ -93,18 +145,19 @@ function completedTask(): AgentTask {
   };
 }
 
-function a2aTask(state: TaskState): Task {
+function a2aTask(state: TaskState, messageId = 'message-1', messageText = 'Inspect.'): Task {
   return Task.fromJSON({
     id: 'task-1',
     contextId: 'context-1',
     status: { state, timestamp: '2026-08-13T00:02:00Z' },
     history: [
       {
-        messageId: 'message-1',
-        taskId: 'task-1',
-        contextId: 'context-1',
+        messageId,
+        taskId: 'sdk-generated-task',
+        contextId: 'sdk-generated-context',
         role: 'ROLE_USER',
-        parts: [{ text: 'Inspect.' }],
+        parts: [{ text: messageText }],
+        metadata: { private: 'discarded' },
       },
     ],
   });

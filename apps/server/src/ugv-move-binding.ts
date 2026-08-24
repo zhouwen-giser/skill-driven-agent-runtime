@@ -50,6 +50,12 @@ export interface UgvMoveBindingResolution {
   readonly adaptedInput: AdaptedUgvMoveInput;
 }
 
+export interface UgvMoveQualificationAuthority {
+  readonly serverId: string;
+  readonly providerBindingId: string;
+  readonly providerId: string;
+}
+
 type RuntimeBindingVerifier = Pick<
   McpRuntimeBindingAuthorityVerifier,
   'loadRuntimeAuthority' | 'assertCurrent'
@@ -98,45 +104,11 @@ export class UgvMoveTaskBindingResolver {
         'UGV Task binding is restricted to an explicit simulation execution context.',
       );
     const adaptedInput = adaptUgvMoveInput(input.skillInput);
-    const skill = await this.#skills.findCurrentVersion('embodied.move_to');
-    const exactSkill = exactSkillBinding(skill);
+    const exactSkill = await this.#requireExactSkillAuthority();
     const currentSkill = exactSkill.skill;
     const taskBinding = exactSkill.binding;
-    const packageAuthority = await this.#packages
-      .loadExactSkillPackageAuthority('embodied.move_to', 1)
-      .catch(() =>
-        fail(
-          'UGV_PROFILE_SKILL_PACKAGE_AUTHORITY_REQUIRED',
-          'UGV Task binding requires the exact PostgreSQL Skill package import authority.',
-        ),
-      );
-    if (
-      packageAuthority.skillId !== currentSkill.skillId ||
-      packageAuthority.skillVersion !== currentSkill.version
-    )
-      fail(
-        'UGV_PROFILE_SKILL_PACKAGE_AUTHORITY_REQUIRED',
-        'UGV Skill and package import authority identities differ.',
-      );
-
-    const registered = await this.#operations.listTaskOperationCandidates(NAVIGATE_OPERATION);
-    if (registered.length === 0)
-      fail('UGV_PROFILE_BINDING_NOT_FOUND', 'No vehicle_navigate Task candidate is registered.');
-    const inspected = await Promise.all(
-      registered.map((candidate) => this.#inspectCandidate(candidate, adaptedInput)),
-    );
-    const compatible = inspected.filter(
-      (item): item is CompatibleCandidate => item.kind === 'compatible',
-    );
-    if (compatible.length === 0) failForRejectedCandidates(inspected);
-    if (compatible.length !== 1)
-      fail(
-        'UGV_PROFILE_BINDING_AMBIGUOUS',
-        'More than one authority-exact UGV point-navigation candidate is current.',
-      );
-    const exact = compatible[0];
-    if (exact === undefined)
-      fail('UGV_PROFILE_BINDING_NOT_FOUND', 'No exact UGV Task candidate remains.');
+    const packageAuthority = exactSkill.packageAuthority;
+    const exact = await this.#requireCompatibleCandidate(adaptedInput);
 
     const capturedAvailability = new CapturingAvailabilityReader(this.#availability);
     const readiness = new FrozenSkillTaskReadinessAdapter({
@@ -259,6 +231,70 @@ export class UgvMoveTaskBindingResolver {
       }),
     });
     return Object.freeze({ selected, adaptedInput });
+  }
+
+  /**
+   * Resolves the same exact Skill package, Provider Binding, Runtime Catalog, navigate contract,
+   * and get-state contract as normal profile execution, without an availability call or Tool call.
+   * The fixed coordinate is used only as a schema probe and is never persisted or dispatched.
+   */
+  async resolveQualificationAuthority(): Promise<UgvMoveQualificationAuthority> {
+    await this.#requireExactSkillAuthority();
+    const exact = await this.#requireCompatibleCandidate(
+      adaptUgvMoveInput({
+        resourceId: UGV_MOVE_RESOURCE_ID,
+        target: { x: 0, y: 0, frame: 'WGS84' },
+      }),
+    );
+    return Object.freeze({
+      serverId: exact.runtime.record.server.serverId,
+      providerBindingId: exact.binding.binding.bindingId,
+      providerId: exact.binding.binding.providerId,
+    });
+  }
+
+  async #requireExactSkillAuthority() {
+    const skill = await this.#skills.findCurrentVersion('embodied.move_to');
+    const exactSkill = exactSkillBinding(skill);
+    const packageAuthority = await this.#packages
+      .loadExactSkillPackageAuthority('embodied.move_to', 1)
+      .catch(() =>
+        fail(
+          'UGV_PROFILE_SKILL_PACKAGE_AUTHORITY_REQUIRED',
+          'UGV Task binding requires the exact PostgreSQL Skill package import authority.',
+        ),
+      );
+    if (
+      packageAuthority.skillId !== exactSkill.skill.skillId ||
+      packageAuthority.skillVersion !== exactSkill.skill.version
+    )
+      fail(
+        'UGV_PROFILE_SKILL_PACKAGE_AUTHORITY_REQUIRED',
+        'UGV Skill and package import authority identities differ.',
+      );
+    return Object.freeze({ ...exactSkill, packageAuthority });
+  }
+
+  async #requireCompatibleCandidate(input: AdaptedUgvMoveInput): Promise<CompatibleCandidate> {
+    const registered = await this.#operations.listTaskOperationCandidates(NAVIGATE_OPERATION);
+    if (registered.length === 0)
+      fail('UGV_PROFILE_BINDING_NOT_FOUND', 'No vehicle_navigate Task candidate is registered.');
+    const inspected = await Promise.all(
+      registered.map((candidate) => this.#inspectCandidate(candidate, input)),
+    );
+    const compatible = inspected.filter(
+      (item): item is CompatibleCandidate => item.kind === 'compatible',
+    );
+    if (compatible.length === 0) failForRejectedCandidates(inspected);
+    if (compatible.length !== 1)
+      fail(
+        'UGV_PROFILE_BINDING_AMBIGUOUS',
+        'More than one authority-exact UGV point-navigation candidate is current.',
+      );
+    const exact = compatible[0];
+    if (exact === undefined)
+      fail('UGV_PROFILE_BINDING_NOT_FOUND', 'No exact UGV Task candidate remains.');
+    return exact;
   }
 
   async #inspectCandidate(

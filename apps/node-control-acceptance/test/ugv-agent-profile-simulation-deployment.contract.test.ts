@@ -1,5 +1,5 @@
-import { execFile } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { execFile, spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   chmod,
   lstat,
@@ -7,12 +7,16 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
+  readlink,
   rm,
   symlink,
+  unlink,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -56,6 +60,14 @@ const SUPERVISOR = resolve(
   REPOSITORY_ROOT,
   'scripts/ugv-agent-profile-simulation/host-process-supervisor.mjs',
 );
+const OFFLINE_SUPERVISOR_FIXTURE = resolve(
+  REPOSITORY_ROOT,
+  'apps/node-control-acceptance/test/fixtures/ugv-host-process-supervisor.fixture.mjs',
+);
+const OFFLINE_SUPERVISOR_FIXTURE_ACKNOWLEDGEMENT =
+  'I_ACKNOWLEDGE_INTERNAL_OFFLINE_HOST_PROCESS_SUPERVISOR_TEST_FIXTURE';
+const OFFLINE_SUPERVISOR_FIXTURE_CAPABILITY_ENV = 'SDAR_UAP_OFFLINE_SUPERVISOR_FIXTURE_CAPABILITY';
+const OFFLINE_SUPERVISOR_FIXTURE_ROOT_PREFIX = resolve(tmpdir(), 'sdar-uap-supervisor-fixture-');
 const MODEL_INVOCATION_AUDIT = resolve(
   REPOSITORY_ROOT,
   'scripts/ugv-agent-profile-simulation/model-invocation-audit.mjs',
@@ -172,12 +184,62 @@ interface SupervisorModule {
   ): Promise<Record<string, unknown>>;
   releaseAtomicLock(anchor: Record<string, unknown>): Promise<void>;
   listPrivateLogFiles(path: string): Promise<readonly string[]>;
+  restartServer(
+    sideEffects: string,
+    acknowledgement?: string,
+    simulationRunId?: string,
+  ): Promise<Record<string, unknown>>;
   processEnvironment(
     name: string,
     sideEffects: string,
     stateRoot: string,
     dotEnvPath: string,
+    sideEffectSimulationRunId?: string,
+    reportRoot?: string,
   ): Promise<Readonly<Record<string, string>>>;
+  parseProcessSafetyEnvironment(source: Buffer | string): Readonly<{
+    allowSideEffects?: string;
+    simulationRunId?: string;
+  }>;
+  parseRestartServerArguments(arguments_: readonly string[]): Readonly<{
+    sideEffects: string;
+    acknowledgement?: string;
+    simulationRunId?: string;
+  }>;
+  readProcessSafetyEnvironment(pid: number): Promise<
+    Readonly<{
+      allowSideEffects?: string;
+      simulationRunId?: string;
+    }>
+  >;
+  resolveSideEffectSimulationRunId(
+    sideEffects: string,
+    simulationRunId?: string,
+    options?: {
+      readonly stateRoot?: string;
+      readonly reportRoot?: string;
+      readonly authorizeSimulationId?: (
+        simulationRunId: string,
+        options: Readonly<Record<string, string>>,
+      ) => Promise<Record<string, unknown>>;
+    },
+  ): Promise<string | null>;
+  validateManifestSideEffectSimulationIdentity(
+    manifest: Record<string, unknown>,
+    state: Record<string, unknown>,
+  ): Promise<string | null>;
+  validateProcessSafetyEnvironment(
+    entry: Record<string, unknown>,
+    sideEffects?: string,
+    simulationRunId?: string,
+    dependencies?: {
+      readonly readSafetyEnvironment?: (
+        pid: number,
+      ) => Promise<Readonly<{ allowSideEffects?: string; simulationRunId?: string }>>;
+      readonly validateEntry?: (entry: Record<string, unknown>) => Promise<unknown>;
+      readonly legacyNoSimulationRunId?: string;
+    },
+  ): Promise<boolean>;
   rollbackSpawnedCandidate(
     candidate: Record<string, unknown>,
     dependencies: {
@@ -200,9 +262,13 @@ interface SupervisorModule {
       [key: string]: unknown;
     }>,
     sideEffects: string,
+    sideEffectSimulationRunId: string | null,
     dependencies: {
       readonly stop: (entries: readonly Record<string, unknown>[]) => Promise<void>;
-      readonly spawn: (mode: string) => Promise<Record<string, unknown>>;
+      readonly spawn: (
+        mode: string,
+        simulationRunId: string | null,
+      ) => Promise<Record<string, unknown>>;
       readonly readManifest: () => Promise<Record<string, unknown>>;
       readonly replaceManifest: (
         prior: Record<string, unknown>,
@@ -293,6 +359,269 @@ interface AuthorityProjectorModule {
 }
 
 const temporaryDirectories: string[] = [];
+
+function offlineFixtureExecution(
+  fixtureRoot: string | null,
+  fixtureCapability: string,
+  ...arguments_: string[]
+) {
+  const fixtureArguments = [
+    OFFLINE_SUPERVISOR_FIXTURE,
+    '--acknowledge-offline-fixture',
+    OFFLINE_SUPERVISOR_FIXTURE_ACKNOWLEDGEMENT,
+    ...(fixtureRoot === null ? [] : ['--fixture-root', fixtureRoot]),
+    ...arguments_,
+  ];
+  return execFileAsync(process.execPath, fixtureArguments, {
+    cwd: REPOSITORY_ROOT,
+    env: {
+      PATH: process.env['PATH'] ?? '/usr/bin:/bin',
+      ALLOW_UGV_SIMULATION_SIDE_EFFECTS: 'YES',
+      UGV_SIMULATION_RUN_ID: 'uap-p3-b02-ambient-wrong-12345678',
+      [OFFLINE_SUPERVISOR_FIXTURE_CAPABILITY_ENV]: fixtureCapability,
+    },
+  });
+}
+
+async function offlineFixtureCommand(
+  fixtureRoot: string | null,
+  fixtureCapability: string,
+  ...arguments_: string[]
+): Promise<Record<string, unknown>> {
+  const result = await offlineFixtureExecution(fixtureRoot, fixtureCapability, ...arguments_);
+  if (result.stderr !== '') throw new Error('OFFLINE_FIXTURE_STDERR_NOT_EMPTY');
+  const lines = result.stdout.trim().split(/\r?\n/u);
+  const [line] = lines;
+  if (line === undefined || lines.length !== 1) throw new Error('OFFLINE_FIXTURE_STDOUT_INVALID');
+  return asRecord(JSON.parse(line));
+}
+
+function offlineFixtureStatus(value: Record<string, unknown>): Record<string, unknown> {
+  if (value['secretsIncluded'] !== false) throw new Error('OFFLINE_FIXTURE_STATUS_INVALID');
+  const { secretsIncluded: _secretsIncluded, ...status } = value;
+  void _secretsIncluded;
+  return status;
+}
+
+interface EmergencyProcessAnchor {
+  readonly pid: number;
+  readonly processGroupId: number;
+}
+
+async function validateEmergencyFixtureRoot(fixtureRoot: string): Promise<string> {
+  const root = resolve(fixtureRoot);
+  const suffix = root.slice(OFFLINE_SUPERVISOR_FIXTURE_ROOT_PREFIX.length);
+  const [status, canonical] = await Promise.all([lstat(root), realpath(root)]);
+  if (
+    !root.startsWith(OFFLINE_SUPERVISOR_FIXTURE_ROOT_PREFIX) ||
+    !/^[A-Za-z0-9]{6}$/u.test(suffix) ||
+    canonical !== root ||
+    status.isSymbolicLink() ||
+    !status.isDirectory() ||
+    (status.mode & 0o777) !== 0o700 ||
+    (process.getuid !== undefined && status.uid !== process.getuid())
+  )
+    throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+  return canonical;
+}
+
+async function inspectEmergencyProcess(pid: number): Promise<
+  | {
+      readonly startTicks: string;
+      readonly uid: number;
+      readonly processGroupId: number;
+      readonly sessionId: number;
+      readonly argv: readonly string[];
+      readonly cwd: string;
+    }
+  | undefined
+> {
+  try {
+    const [stat, status, cmdline, cwd] = await Promise.all([
+      readFile(`/proc/${String(pid)}/stat`, 'utf8'),
+      readFile(`/proc/${String(pid)}/status`, 'utf8'),
+      readFile(`/proc/${String(pid)}/cmdline`, 'utf8'),
+      readlink(`/proc/${String(pid)}/cwd`),
+    ]);
+    const close = stat.lastIndexOf(') ');
+    const fields =
+      close < 0
+        ? []
+        : stat
+            .slice(close + 2)
+            .trim()
+            .split(/\s+/u);
+    const startTicks = fields[19];
+    const processGroupId = Number(fields[2]);
+    const sessionId = Number(fields[3]);
+    const uidMatch = /^Uid:\s+([0-9]+)\s/mu.exec(status);
+    const uid = uidMatch?.[1] === undefined ? Number.NaN : Number(uidMatch[1]);
+    if (
+      startTicks === undefined ||
+      !/^[0-9]+$/u.test(startTicks) ||
+      !Number.isSafeInteger(processGroupId) ||
+      !Number.isSafeInteger(sessionId) ||
+      !Number.isSafeInteger(uid)
+    )
+      throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+    return {
+      startTicks,
+      uid,
+      processGroupId,
+      sessionId,
+      argv: cmdline.split('\0').filter((value) => value !== ''),
+      cwd: resolve(cwd),
+    };
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
+      return undefined;
+    throw error;
+  }
+}
+
+async function inspectEmergencyProcessGroupMembership(
+  pid: number,
+  expectedProcessGroupId: number,
+): Promise<{ readonly pid: number; readonly uid: number; readonly sessionId: number } | undefined> {
+  try {
+    const stat = await readFile(`/proc/${String(pid)}/stat`, 'utf8');
+    const close = stat.lastIndexOf(') ');
+    const fields =
+      close < 0
+        ? []
+        : stat
+            .slice(close + 2)
+            .trim()
+            .split(/\s+/u);
+    if (Number(fields[2]) !== expectedProcessGroupId) return undefined;
+    const sessionId = Number(fields[3]);
+    const status = await readFile(`/proc/${String(pid)}/status`, 'utf8');
+    const uidMatch = /^Uid:\s+([0-9]+)\s/mu.exec(status);
+    const uid = uidMatch?.[1] === undefined ? Number.NaN : Number(uidMatch[1]);
+    if (!Number.isSafeInteger(sessionId) || !Number.isSafeInteger(uid))
+      throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+    return { pid, uid, sessionId };
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
+      return undefined;
+    throw error;
+  }
+}
+
+async function validateEmergencyProcessGroupClosure(
+  entry: EmergencyProcessAnchor & { readonly uid: number; readonly sessionId: number },
+): Promise<void> {
+  const processNames = await readdir('/proc');
+  const members = (
+    await Promise.all(
+      processNames
+        .filter((name) => /^[0-9]+$/u.test(name))
+        .map((name) => inspectEmergencyProcessGroupMembership(Number(name), entry.processGroupId)),
+    )
+  ).filter((member) => member !== undefined);
+  if (
+    members.length !== 1 ||
+    members[0]?.pid !== entry.pid ||
+    members[0].uid !== entry.uid ||
+    members[0].sessionId !== entry.sessionId
+  )
+    throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+}
+
+async function validateEmergencyProcessAnchors(
+  manifest: Record<string, unknown>,
+  fixtureRoot: string,
+  allowExited: boolean,
+): Promise<readonly EmergencyProcessAnchor[]> {
+  const canonicalFixtureRoot = await validateEmergencyFixtureRoot(fixtureRoot);
+  const processes = manifest['processes'];
+  if (!Array.isArray(processes) || processes.length !== 3)
+    throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+  const anchors: EmergencyProcessAnchor[] = [];
+  for (const rawEntry of processes) {
+    const entry = asRecord(rawEntry);
+    const pid = entry['pid'];
+    const name = entry['name'];
+    const expectedCwd =
+      name === 'server' ? canonicalFixtureRoot : join(canonicalFixtureRoot, 'host-work');
+    if (
+      !['server', 'node-control-api', 'node-control-worker'].includes(String(name)) ||
+      !Number.isSafeInteger(pid) ||
+      Number(pid) < 2 ||
+      typeof entry['startTicks'] !== 'string' ||
+      !/^[0-9]+$/u.test(entry['startTicks']) ||
+      entry['uid'] !== (process.getuid?.() ?? 0) ||
+      entry['processGroupId'] !== pid ||
+      entry['sessionId'] !== pid ||
+      entry['entrypoint'] !== OFFLINE_SUPERVISOR_FIXTURE ||
+      entry['cwd'] !== expectedCwd
+    )
+      throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+    const observed = await inspectEmergencyProcess(Number(pid));
+    if (observed === undefined) {
+      if (allowExited) continue;
+      throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+    }
+    if (
+      observed.startTicks !== entry['startTicks'] ||
+      observed.uid !== entry['uid'] ||
+      observed.processGroupId !== entry['processGroupId'] ||
+      observed.sessionId !== entry['sessionId'] ||
+      observed.argv.length !== 2 ||
+      observed.argv[0] !== process.execPath ||
+      observed.argv[1] !== OFFLINE_SUPERVISOR_FIXTURE ||
+      observed.cwd !== expectedCwd
+    )
+      throw new Error('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+    await validateEmergencyProcessGroupClosure({
+      pid: Number(pid),
+      processGroupId: observed.processGroupId,
+      uid: observed.uid,
+      sessionId: observed.sessionId,
+    });
+    anchors.push({ pid: Number(pid), processGroupId: observed.processGroupId });
+  }
+  return anchors;
+}
+
+async function emergencyStopOfflineFixture(
+  fixtureRoot: string,
+  signal: (processGroupId: number, signal: NodeJS.Signals) => void = (processGroupId, value) =>
+    process.kill(-processGroupId, value),
+): Promise<void> {
+  const canonicalFixtureRoot = await validateEmergencyFixtureRoot(fixtureRoot);
+  let manifest: Record<string, unknown>;
+  try {
+    manifest = asRecord(
+      JSON.parse(await readFile(join(canonicalFixtureRoot, 'processes.json'), 'utf8')),
+    );
+  } catch {
+    return;
+  }
+  const anchored = await validateEmergencyProcessAnchors(manifest, canonicalFixtureRoot, false);
+  for (const entry of anchored) signal(entry.processGroupId, 'SIGTERM');
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const live = anchored.filter(({ pid }) => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (live.length === 0) return;
+    await delay(25);
+  }
+  const remaining = await validateEmergencyProcessAnchors(manifest, canonicalFixtureRoot, true);
+  for (const entry of remaining) {
+    try {
+      signal(entry.processGroupId, 'SIGKILL');
+    } catch {
+      // The exact fixture process group already exited.
+    }
+  }
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -600,13 +929,254 @@ describe('UGV Agent Profile simulation deployment contract', () => {
     expect(server['SDAR_MASTER_KEY_BASE64']).toBeUndefined();
     expect(Object.keys(server).some((key) => key.startsWith('SDAR_UGV_MODEL_'))).toBe(false);
     expect(server['ALLOW_UGV_SIMULATION_SIDE_EFFECTS']).toBe('NO');
-    expect(server['UGV_SIMULATION_RUN_ID']).toMatch(/^uap-p3-b02-/u);
+    expect(server['UGV_SIMULATION_RUN_ID']).toBeUndefined();
     expect(server['SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST']).toBe(
       'embeddings.example.test,models.example.test',
     );
     for (const environment of [controlApi, controlWorker]) {
       expect(environment['SDAR_MASTER_KEY_BASE64']).toBeUndefined();
       expect(Object.keys(environment).some((key) => key.startsWith('SDAR_UGV_MODEL_'))).toBe(false);
+      expect(environment['ALLOW_UGV_SIMULATION_SIDE_EFFECTS']).toBeUndefined();
+      expect(environment['UGV_SIMULATION_RUN_ID']).toBeUndefined();
+    }
+    const initialSimulationRunId = (
+      await readFile(join(stateRoot, 'simulation-run-id'), 'utf8')
+    ).trim();
+    const reportRoot = join(directory, 'reports');
+    const yesServer = await supervisor.processEnvironment(
+      'server',
+      'YES',
+      stateRoot,
+      envPath,
+      initialSimulationRunId,
+      reportRoot,
+    );
+    expect(yesServer['ALLOW_UGV_SIMULATION_SIDE_EFFECTS']).toBe('YES');
+    expect(yesServer['UGV_SIMULATION_RUN_ID']).toBe(initialSimulationRunId);
+
+    const issuedSimulationRunId = 'uap-p3-b02-recovery-issued-12345678';
+    let authorizationCalls = 0;
+    await expect(
+      supervisor.resolveSideEffectSimulationRunId('YES', issuedSimulationRunId, {
+        stateRoot,
+        reportRoot,
+        authorizeSimulationId: (simulationRunId) => {
+          authorizationCalls += 1;
+          return Promise.resolve({ simulationId: simulationRunId, kind: 'recovery_issued' });
+        },
+      }),
+    ).resolves.toBe(issuedSimulationRunId);
+    expect(authorizationCalls).toBe(1);
+    await expect(
+      supervisor.resolveSideEffectSimulationRunId('YES', 'uap-p3-b02-unissued-12345678', {
+        stateRoot,
+        reportRoot,
+        authorizeSimulationId: () => Promise.reject(new Error('not issued')),
+      }),
+    ).rejects.toMatchObject({ code: 'UAP_SIDE_EFFECT_SIMULATION_ID_NOT_AUTHORIZED' });
+    await expect(
+      supervisor.resolveSideEffectSimulationRunId('YES', 'wrong', {
+        authorizeSimulationId: () => Promise.resolve({}),
+      }),
+    ).rejects.toMatchObject({ code: 'UAP_SIDE_EFFECT_SIMULATION_ID_REQUIRED' });
+    let noAuthorizationCalled = false;
+    await expect(
+      supervisor.resolveSideEffectSimulationRunId('NO', undefined, {
+        authorizeSimulationId: () => {
+          noAuthorizationCalled = true;
+          return Promise.reject(new Error('identity authority unavailable'));
+        },
+      }),
+    ).resolves.toBeNull();
+    expect(noAuthorizationCalled).toBe(false);
+    await expect(
+      supervisor.resolveSideEffectSimulationRunId('NO', initialSimulationRunId),
+    ).rejects.toMatchObject({ code: 'UAP_SIDE_EFFECT_SIMULATION_ID_FORBIDDEN' });
+
+    expect(supervisor.parseRestartServerArguments(['--side-effects', 'NO'])).toEqual({
+      sideEffects: 'NO',
+    });
+    expect(
+      supervisor.parseRestartServerArguments([
+        '--side-effects',
+        'YES',
+        '--simulation-run-id',
+        issuedSimulationRunId,
+        '--acknowledge',
+        'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS',
+      ]),
+    ).toEqual({
+      sideEffects: 'YES',
+      acknowledgement: 'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS',
+      simulationRunId: issuedSimulationRunId,
+    });
+    await expect(supervisor.restartServer('NO', 'unexpected')).rejects.toMatchObject({
+      code: 'UAP_SIDE_EFFECT_ACKNOWLEDGEMENT_FORBIDDEN',
+    });
+    await expect(supervisor.restartServer('YES')).rejects.toMatchObject({
+      code: 'UAP_SIDE_EFFECT_ACKNOWLEDGEMENT_REQUIRED',
+    });
+    for (const arguments_ of [
+      ['--side-effects', 'NO', '--simulation-run-id', initialSimulationRunId],
+      ['--side-effects', 'NO', '--acknowledge', 'unexpected'],
+      [
+        '--side-effects',
+        'YES',
+        '--acknowledge',
+        'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS',
+        '--simulation-run-id',
+        issuedSimulationRunId,
+      ],
+      ['--side-effects', 'YES', '--simulation-run-id', issuedSimulationRunId],
+    ])
+      expect(() => supervisor.parseRestartServerArguments(arguments_)).toThrow(
+        expect.objectContaining({ code: 'UAP_ARGUMENT_INVALID' }),
+      );
+    for (const arguments_ of [
+      ['restart-server', '--side-effects', 'NO', '--acknowledge', 'unexpected'],
+      [
+        'restart-server',
+        '--side-effects',
+        'YES',
+        '--acknowledge',
+        'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS',
+        '--simulation-run-id',
+        issuedSimulationRunId,
+      ],
+    ])
+      await expect(
+        execFileAsync(process.execPath, [SUPERVISOR, ...arguments_], {
+          cwd: REPOSITORY_ROOT,
+          env: { PATH: process.env['PATH'] ?? '/usr/bin:/bin' },
+        }),
+      ).rejects.toMatchObject({ code: 2, stderr: 'UAP_ARGUMENT_INVALID\n' });
+
+    const stateIdentity = { simulationRunId: initialSimulationRunId };
+    await expect(
+      supervisor.validateManifestSideEffectSimulationIdentity(
+        { simulationRunId: initialSimulationRunId, sideEffects: 'NO' },
+        stateIdentity,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      supervisor.validateManifestSideEffectSimulationIdentity(
+        {
+          simulationRunId: initialSimulationRunId,
+          sideEffects: 'YES',
+          sideEffectSimulationRunId: issuedSimulationRunId,
+        },
+        stateIdentity,
+      ),
+    ).resolves.toBe(issuedSimulationRunId);
+    await expect(
+      supervisor.validateManifestSideEffectSimulationIdentity(
+        { simulationRunId: initialSimulationRunId, sideEffects: 'YES' },
+        stateIdentity,
+      ),
+    ).rejects.toMatchObject({ code: 'UAP_PROCESS_MANIFEST_INVALID' });
+
+    expect(
+      supervisor.parseProcessSafetyEnvironment(
+        Buffer.from(
+          `UNRELATED_SECRET=must-not-be-returned\0ALLOW_UGV_SIMULATION_SIDE_EFFECTS=YES\0UGV_SIMULATION_RUN_ID=${issuedSimulationRunId}\0`,
+        ),
+      ),
+    ).toEqual({ allowSideEffects: 'YES', simulationRunId: issuedSimulationRunId });
+    for (const unsafeEnvironment of [
+      'ALLOW_UGV_SIMULATION_SIDE_EFFECTS\0',
+      'UGV_SIMULATION_RUN_ID\0',
+      'ALLOW_UGV_SIMULATION_SIDE_EFFECTS=NO\0ALLOW_UGV_SIMULATION_SIDE_EFFECTS=YES\0',
+    ])
+      expect(() => supervisor.parseProcessSafetyEnvironment(unsafeEnvironment)).toThrow(
+        expect.objectContaining({ code: 'UAP_PROCESS_ENVIRONMENT_INVALID' }),
+      );
+
+    const validationEntry = { name: 'server', pid: 43_210 };
+    const anchorValidation = { validateEntry: () => Promise.resolve(true) };
+    await expect(
+      supervisor.validateProcessSafetyEnvironment(validationEntry, 'NO', undefined, {
+        ...anchorValidation,
+        readSafetyEnvironment: () => Promise.resolve({ allowSideEffects: 'NO' }),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      supervisor.validateProcessSafetyEnvironment(validationEntry, 'NO', undefined, {
+        ...anchorValidation,
+        readSafetyEnvironment: () =>
+          Promise.resolve({
+            allowSideEffects: 'NO',
+            simulationRunId: initialSimulationRunId,
+          }),
+      }),
+    ).rejects.toMatchObject({ code: 'UAP_PROCESS_ENVIRONMENT_INVALID' });
+    await expect(
+      supervisor.validateProcessSafetyEnvironment(validationEntry, 'NO', undefined, {
+        ...anchorValidation,
+        legacyNoSimulationRunId: initialSimulationRunId,
+        readSafetyEnvironment: () =>
+          Promise.resolve({
+            allowSideEffects: 'NO',
+            simulationRunId: initialSimulationRunId,
+          }),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      supervisor.validateProcessSafetyEnvironment(validationEntry, 'NO', undefined, {
+        ...anchorValidation,
+        legacyNoSimulationRunId: initialSimulationRunId,
+        readSafetyEnvironment: () =>
+          Promise.resolve({
+            allowSideEffects: 'NO',
+            simulationRunId: 'uap-p3-b02-wrong-legacy-12345678',
+          }),
+      }),
+    ).rejects.toMatchObject({ code: 'UAP_PROCESS_ENVIRONMENT_INVALID' });
+
+    const environmentChild = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+      env: {
+        PATH: process.env['PATH'] ?? '/usr/bin:/bin',
+        ALLOW_UGV_SIMULATION_SIDE_EFFECTS: 'YES',
+        UGV_SIMULATION_RUN_ID: issuedSimulationRunId,
+        UNRELATED_SECRET: 'must-not-be-returned',
+      },
+      stdio: 'ignore',
+    });
+    try {
+      await new Promise<void>((resolveSpawn, rejectSpawn) => {
+        environmentChild.once('spawn', resolveSpawn);
+        environmentChild.once('error', rejectSpawn);
+      });
+      expect(environmentChild.pid).toBeTypeOf('number');
+      const environmentPid = environmentChild.pid;
+      if (environmentPid === undefined) throw new Error('TEST_CHILD_PID_REQUIRED');
+      await expect(supervisor.readProcessSafetyEnvironment(environmentPid)).resolves.toEqual({
+        allowSideEffects: 'YES',
+        simulationRunId: issuedSimulationRunId,
+      });
+      let anchorRevalidated = false;
+      await expect(
+        supervisor.validateProcessSafetyEnvironment(
+          { name: 'server', pid: environmentPid },
+          'YES',
+          issuedSimulationRunId,
+          {
+            validateEntry: () => {
+              anchorRevalidated = true;
+              return Promise.resolve(true);
+            },
+          },
+        ),
+      ).resolves.toBe(true);
+      expect(anchorRevalidated).toBe(true);
+    } finally {
+      environmentChild.kill('SIGTERM');
+      await new Promise<void>((resolveExit) => {
+        if (environmentChild.exitCode !== null) resolveExit();
+        else
+          environmentChild.once('exit', () => {
+            resolveExit();
+          });
+      });
     }
     const processSpecs = Object.fromEntries(
       supervisor.UAP_HOST_PROCESS_SPECS.map((specification) => [specification.name, specification]),
@@ -691,6 +1261,7 @@ describe('UGV Agent Profile simulation deployment contract', () => {
 
     const priorManifest = {
       sideEffects: 'NO',
+      sideEffectSimulationRunId: null,
       revision: 1,
       processes: [
         { name: 'server', pid: 1 },
@@ -701,10 +1272,10 @@ describe('UGV Agent Profile simulation deployment contract', () => {
     const spawnModes: string[] = [];
     let restoredManifest: Record<string, unknown> | undefined;
     await expect(
-      supervisor.transactionalRestartServer(priorManifest, 'YES', {
+      supervisor.transactionalRestartServer(priorManifest, 'YES', issuedSimulationRunId, {
         stop: () => Promise.resolve(),
-        spawn: (mode) => {
-          spawnModes.push(mode);
+        spawn: (mode, simulationRunId) => {
+          spawnModes.push(`${mode}:${String(simulationRunId)}`);
           return mode === 'YES'
             ? Promise.reject(new Error('replacement failed'))
             : Promise.resolve({ name: 'server', pid: 4 });
@@ -718,9 +1289,59 @@ describe('UGV Agent Profile simulation deployment contract', () => {
         now: () => '2026-08-21T00:00:00.000Z',
       }),
     ).rejects.toThrow('replacement failed');
-    expect(spawnModes).toEqual(['YES', 'NO']);
+    expect(spawnModes).toEqual([`YES:${issuedSimulationRunId}`, 'NO:null']);
     expect(restoredManifest?.['sideEffects']).toBe('NO');
+    expect(restoredManifest?.['sideEffectSimulationRunId']).toBeNull();
     expect((restoredManifest?.['processes'] as Record<string, unknown>[])[0]?.['pid']).toBe(4);
+
+    const priorYesManifest = {
+      ...priorManifest,
+      sideEffects: 'YES',
+      sideEffectSimulationRunId: issuedSimulationRunId,
+    };
+    const noRecoverySpawns: string[] = [];
+    let noRecoveryAttempt = 0;
+    let noRestoredManifest: Record<string, unknown> | undefined;
+    await expect(
+      supervisor.transactionalRestartServer(priorYesManifest, 'NO', null, {
+        stop: () => Promise.resolve(),
+        spawn: (mode, simulationRunId) => {
+          noRecoverySpawns.push(`${mode}:${String(simulationRunId)}`);
+          noRecoveryAttempt += 1;
+          return noRecoveryAttempt === 1
+            ? Promise.reject(new Error('NO replacement failed'))
+            : Promise.resolve({ name: 'server', pid: 5 });
+        },
+        readManifest: () => Promise.resolve(priorYesManifest),
+        replaceManifest: (_prior, next) => {
+          noRestoredManifest = next;
+          return Promise.resolve();
+        },
+        validate: () => Promise.resolve(),
+        now: () => '2026-08-21T00:00:01.000Z',
+      }),
+    ).rejects.toThrow('NO replacement failed');
+    expect(noRecoverySpawns).toEqual(['NO:null', 'NO:null']);
+    expect(noRestoredManifest?.['sideEffects']).toBe('NO');
+    expect(noRestoredManifest?.['sideEffectSimulationRunId']).toBeNull();
+
+    let failedNoRecoveryAttempt = 0;
+    await expect(
+      supervisor.transactionalRestartServer(priorYesManifest, 'NO', null, {
+        stop: () => Promise.resolve(),
+        spawn: (mode, simulationRunId) => {
+          expect(mode).toBe('NO');
+          expect(simulationRunId).toBeNull();
+          failedNoRecoveryAttempt += 1;
+          return Promise.reject(new Error('NO unavailable'));
+        },
+        readManifest: () => Promise.resolve(priorYesManifest),
+        replaceManifest: () => Promise.resolve(),
+        validate: () => Promise.resolve(),
+        now: () => '2026-08-21T00:00:02.000Z',
+      }),
+    ).rejects.toMatchObject({ code: 'UAP_SERVER_RESTART_ROLLBACK_FAILED' });
+    expect(failedNoRecoveryAttempt).toBe(2);
 
     const concurrentOwnerBase = {
       schemaVersion: 'sdar.ugv-agent-profile.supervisor-lock/v1',
@@ -782,6 +1403,389 @@ describe('UGV Agent Profile simulation deployment contract', () => {
       "if (allowMissing) throw new UapSupervisorError('UAP_PROCESS_ORPHAN_RISK')",
     );
   });
+
+  it('crosses the real offline supervisor spawn, manifest, status, restart, and B02 capture boundary', async () => {
+    const supervisor = await supervisorModule();
+    const running = await runningStackModule();
+    const fixtureCapability = randomBytes(32).toString('hex');
+    let fixtureRoot: string | undefined;
+    try {
+      const initialized = await offlineFixtureCommand(null, fixtureCapability, 'init');
+      expect(initialized).toMatchObject({ status: 'initialized', secretsIncluded: false });
+      fixtureRoot = String(initialized['fixtureRoot']);
+      expect(fixtureRoot).toMatch(/^\/tmp\/sdar-uap-supervisor-fixture-[A-Za-z0-9]{6}$/u);
+      temporaryDirectories.push(fixtureRoot);
+      const manifestPath = join(fixtureRoot, 'processes.json');
+      const readManifest = async () => asRecord(JSON.parse(await readFile(manifestPath, 'utf8')));
+      const fixtureSessionSource = await readFile(
+        join(fixtureRoot, '.offline-host-process-supervisor-fixture.json'),
+        'utf8',
+      );
+      expect(fixtureSessionSource).not.toContain(fixtureCapability);
+      expect(await readdir(fixtureRoot)).not.toContain(
+        '.offline-host-process-supervisor-fixture.capability',
+      );
+      await expect(
+        offlineFixtureExecution(fixtureRoot, randomBytes(32).toString('hex'), 'status'),
+      ).rejects.toMatchObject({
+        code: 2,
+        stderr: 'UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID\n',
+      });
+      const secondCapability = randomBytes(32).toString('hex');
+      const secondInitialized = await offlineFixtureCommand(null, secondCapability, 'init');
+      const secondFixtureRoot = String(secondInitialized['fixtureRoot']);
+      temporaryDirectories.push(secondFixtureRoot);
+      await expect(
+        offlineFixtureExecution(fixtureRoot, secondCapability, 'status'),
+      ).rejects.toMatchObject({
+        code: 2,
+        stderr: 'UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID\n',
+      });
+
+      await expect(
+        offlineFixtureExecution(
+          fixtureRoot,
+          fixtureCapability,
+          'restart-server',
+          '--side-effects',
+          'NO',
+          '--acknowledge',
+          'unexpected',
+        ),
+      ).rejects.toMatchObject({
+        code: 2,
+        stderr: 'UAP_ARGUMENT_INVALID\n',
+      });
+
+      expect(await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'start')).toMatchObject({
+        status: 'started',
+        processCount: 3,
+        sideEffects: 'NO',
+        secretsIncluded: false,
+      });
+      const manifestStatus = await lstat(manifestPath);
+      expect(manifestStatus.isFile()).toBe(true);
+      expect(manifestStatus.isSymbolicLink()).toBe(false);
+      expect(manifestStatus.mode & 0o777).toBe(0o600);
+
+      const preManifest = await readManifest();
+      expect(preManifest).toMatchObject({
+        schemaVersion: 'sdar.ugv-agent-profile.host-processes/v1',
+        revision: 1,
+        sideEffects: 'NO',
+        sideEffectSimulationRunId: null,
+      });
+      const preProcesses = (preManifest['processes'] as Record<string, unknown>[]).map((entry) =>
+        asRecord(entry),
+      );
+      expect(preProcesses.map((entry) => entry['name'])).toEqual([
+        'server',
+        'node-control-api',
+        'node-control-worker',
+      ]);
+      expect(new Set(preProcesses.map((entry) => entry['pid'])).size).toBe(3);
+      for (const entry of preProcesses) {
+        expect(entry).toMatchObject({
+          uid: process.getuid?.() ?? 0,
+          processGroupId: entry['pid'],
+          sessionId: entry['pid'],
+          entrypoint: OFFLINE_SUPERVISOR_FIXTURE,
+        });
+        expect(entry['startTicks']).toMatch(/^[0-9]+$/u);
+        expect((await lstat(String(entry['logFile']))).mode & 0o777).toBe(0o600);
+      }
+
+      const preStatus = offlineFixtureStatus(
+        await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'status'),
+      );
+      expect(Object.keys(preStatus).sort()).toEqual(
+        [
+          'activeSimulationRunId',
+          'bootstrapRunId',
+          'manifestRevision',
+          'processCount',
+          'processIdentitySha256',
+          'schemaVersion',
+          'sideEffects',
+          'status',
+        ].sort(),
+      );
+      expect(preStatus).toMatchObject({
+        schemaVersion: 'sdar.ugv-agent-profile.host-process-status/v2',
+        status: 'running',
+        processCount: 3,
+        sideEffects: 'NO',
+        manifestRevision: 1,
+        activeSimulationRunId: null,
+      });
+      expect(running.validateSupervisorStatus(preStatus)).toEqual({
+        processCount: 3,
+        sideEffects: 'NO',
+      });
+      const externalCaptureRoot = await temporaryDirectory();
+      await chmod(externalCaptureRoot, 0o750);
+      const sentinelPath = join(externalCaptureRoot, 'sentinel.bin');
+      const sentinelSource = randomBytes(32).toString('hex');
+      const sentinelSha256 = createHash('sha256').update(sentinelSource).digest('hex');
+      await writeFile(sentinelPath, sentinelSource, { mode: 0o600, flag: 'wx' });
+      const capturesPath = join(fixtureRoot, 'captures');
+      await symlink(externalCaptureRoot, capturesPath);
+      await expect(
+        offlineFixtureExecution(fixtureRoot, fixtureCapability, 'capture', 'NO', 'pre'),
+      ).rejects.toMatchObject({
+        code: 2,
+        stderr: 'UAP_OFFLINE_FIXTURE_CAPTURE_ROOT_INVALID\n',
+      });
+      const preservedSentinelSource = await readFile(sentinelPath, 'utf8');
+      const preservedSentinelStatus = await lstat(sentinelPath);
+      expect((await lstat(externalCaptureRoot)).mode & 0o777).toBe(0o750);
+      expect(await readdir(externalCaptureRoot)).toEqual(['sentinel.bin']);
+      expect(preservedSentinelStatus.isFile()).toBe(true);
+      expect(preservedSentinelStatus.isSymbolicLink()).toBe(false);
+      expect(preservedSentinelStatus.mode & 0o777).toBe(0o600);
+      expect(preservedSentinelSource).toBe(sentinelSource);
+      expect(createHash('sha256').update(preservedSentinelSource).digest('hex')).toBe(
+        sentinelSha256,
+      );
+      await unlink(capturesPath);
+      const preCaptureResult = await offlineFixtureCommand(
+        fixtureRoot,
+        fixtureCapability,
+        'capture',
+        'NO',
+        'pre',
+      );
+      const preCapturePath = join(fixtureRoot, 'captures', 'pre.json');
+      expect(preCaptureResult['outputPath']).toBe(preCapturePath);
+      expect((await lstat(preCapturePath)).mode & 0o777).toBe(0o600);
+      const preCapture = asRecord(JSON.parse(await readFile(preCapturePath, 'utf8')));
+      expect(preCapture).toEqual(preStatus);
+
+      for (const entry of preProcesses) {
+        const safetyEnvironment = await supervisor.readProcessSafetyEnvironment(
+          Number(entry['pid']),
+        );
+        expect(safetyEnvironment).toEqual(
+          entry['name'] === 'server'
+            ? { allowSideEffects: 'NO', simulationRunId: undefined }
+            : { allowSideEffects: undefined, simulationRunId: undefined },
+        );
+      }
+
+      const issuedResult = await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'issued-id');
+      const issuedSimulationRunId = String(issuedResult['simulationRunId']);
+      expect(issuedSimulationRunId).toMatch(/^uap-p3-b02-offline-fixture-[a-f0-9]{24}$/u);
+      let productionAuthorizerCalled = false;
+      await expect(
+        supervisor.resolveSideEffectSimulationRunId('YES', issuedSimulationRunId, {
+          authorizeSimulationId: () => {
+            productionAuthorizerCalled = true;
+            return Promise.resolve({});
+          },
+        }),
+      ).rejects.toMatchObject({ code: 'UAP_SIDE_EFFECT_SIMULATION_ID_NOT_AUTHORIZED' });
+      expect(productionAuthorizerCalled).toBe(false);
+
+      await expect(
+        offlineFixtureExecution(
+          fixtureRoot,
+          fixtureCapability,
+          'restart-server',
+          '--side-effects',
+          'YES',
+          '--simulation-run-id',
+          'uap-p3-b02-offline-fixture-000000000000000000000000',
+          '--acknowledge',
+          'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS',
+        ),
+      ).rejects.toMatchObject({
+        code: 2,
+        stderr: 'UAP_SIDE_EFFECT_SIMULATION_ID_NOT_AUTHORIZED\n',
+      });
+      expect(
+        offlineFixtureStatus(await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'status')),
+      ).toEqual(preStatus);
+
+      expect(
+        await offlineFixtureCommand(
+          fixtureRoot,
+          fixtureCapability,
+          'restart-server',
+          '--side-effects',
+          'YES',
+          '--simulation-run-id',
+          issuedSimulationRunId,
+          '--acknowledge',
+          'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS',
+        ),
+      ).toMatchObject({ status: 'restarted', processCount: 3, sideEffects: 'YES' });
+      const executionManifest = await readManifest();
+      const executionStatus = offlineFixtureStatus(
+        await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'status'),
+      );
+      expect(executionStatus).toMatchObject({
+        sideEffects: 'YES',
+        manifestRevision: 2,
+        activeSimulationRunId: issuedSimulationRunId,
+      });
+      const executionProcesses = (executionManifest['processes'] as Record<string, unknown>[]).map(
+        (entry) => asRecord(entry),
+      );
+      expect(executionProcesses[0]?.['pid']).not.toBe(preProcesses[0]?.['pid']);
+      expect(executionProcesses.slice(1).map((entry) => entry['pid'])).toEqual(
+        preProcesses.slice(1).map((entry) => entry['pid']),
+      );
+      expect(
+        await supervisor.readProcessSafetyEnvironment(Number(executionProcesses[0]?.['pid'])),
+      ).toEqual({ allowSideEffects: 'YES', simulationRunId: issuedSimulationRunId });
+      await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'capture', 'YES', 'execution');
+      const executionCapture = asRecord(
+        JSON.parse(await readFile(join(fixtureRoot, 'captures', 'execution.json'), 'utf8')),
+      );
+      expect(executionCapture).toEqual(executionStatus);
+
+      const originalManifestSource = await readFile(manifestPath, 'utf8');
+      try {
+        await writeFile(
+          manifestPath,
+          `${JSON.stringify({
+            ...executionManifest,
+            sideEffectSimulationRunId: 'uap-p3-b02-offline-fixture-111111111111111111111111',
+          })}\n`,
+          { mode: 0o600 },
+        );
+        await expect(
+          offlineFixtureExecution(fixtureRoot, fixtureCapability, 'status'),
+        ).rejects.toMatchObject({
+          code: 2,
+          stderr: 'UAP_PROCESS_ENVIRONMENT_INVALID\n',
+        });
+      } finally {
+        await writeFile(manifestPath, originalManifestSource, { mode: 0o600 });
+      }
+      try {
+        const signals: { readonly processGroupId: number; readonly signal: NodeJS.Signals }[] = [];
+        await writeFile(
+          manifestPath,
+          `${JSON.stringify({
+            ...executionManifest,
+            processes: executionProcesses.map((entry, index) =>
+              index === 0
+                ? {
+                    ...entry,
+                    pid: 2_147_483_647,
+                    processGroupId: 2_147_483_647,
+                    sessionId: 2_147_483_647,
+                  }
+                : entry,
+            ),
+          })}\n`,
+          { mode: 0o600 },
+        );
+        await expect(
+          emergencyStopOfflineFixture(fixtureRoot, (processGroupId, signal) => {
+            signals.push({ processGroupId, signal });
+          }),
+        ).rejects.toThrow('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+        expect(signals).toEqual([]);
+      } finally {
+        await writeFile(manifestPath, originalManifestSource, { mode: 0o600 });
+      }
+      try {
+        const signals: { readonly processGroupId: number; readonly signal: NodeJS.Signals }[] = [];
+        await writeFile(
+          manifestPath,
+          `${JSON.stringify({
+            ...executionManifest,
+            processes: executionProcesses.map((entry, index) =>
+              index === 0 ? { ...entry, startTicks: '1' } : entry,
+            ),
+          })}\n`,
+          { mode: 0o600 },
+        );
+        await expect(
+          emergencyStopOfflineFixture(fixtureRoot, (processGroupId, signal) => {
+            signals.push({ processGroupId, signal });
+          }),
+        ).rejects.toThrow('OFFLINE_FIXTURE_EMERGENCY_STOP_UNSAFE');
+        expect(signals).toEqual([]);
+        await expect(
+          offlineFixtureExecution(fixtureRoot, fixtureCapability, 'status'),
+        ).rejects.toMatchObject({
+          code: 2,
+          stderr: 'UAP_PROCESS_IDENTITY_MISMATCH\n',
+        });
+      } finally {
+        await writeFile(manifestPath, originalManifestSource, { mode: 0o600 });
+      }
+
+      expect(
+        await offlineFixtureCommand(
+          fixtureRoot,
+          fixtureCapability,
+          'restart-server',
+          '--side-effects',
+          'NO',
+        ),
+      ).toMatchObject({ status: 'restarted', processCount: 3, sideEffects: 'NO' });
+      const finalManifest = await readManifest();
+      const finalStatus = offlineFixtureStatus(
+        await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'status'),
+      );
+      expect(finalStatus).toMatchObject({
+        sideEffects: 'NO',
+        manifestRevision: 3,
+        activeSimulationRunId: null,
+      });
+      const finalProcesses = (finalManifest['processes'] as Record<string, unknown>[]).map(
+        (entry) => asRecord(entry),
+      );
+      expect(finalProcesses[0]?.['pid']).not.toBe(executionProcesses[0]?.['pid']);
+      expect(finalProcesses.slice(1).map((entry) => entry['pid'])).toEqual(
+        preProcesses.slice(1).map((entry) => entry['pid']),
+      );
+      expect(
+        await supervisor.readProcessSafetyEnvironment(Number(finalProcesses[0]?.['pid'])),
+      ).toEqual({ allowSideEffects: 'NO', simulationRunId: undefined });
+      await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'capture', 'NO', 'final');
+      const finalCapture = asRecord(
+        JSON.parse(await readFile(join(fixtureRoot, 'captures', 'final.json'), 'utf8')),
+      );
+      expect(finalCapture).toEqual(finalStatus);
+
+      const preIdentity = asRecord(preStatus['processIdentitySha256']);
+      const executionIdentity = asRecord(executionStatus['processIdentitySha256']);
+      const finalIdentity = asRecord(finalStatus['processIdentitySha256']);
+      expect([
+        preIdentity['server'],
+        executionIdentity['server'],
+        finalIdentity['server'],
+      ]).toHaveLength(3);
+      expect(
+        new Set([preIdentity['server'], executionIdentity['server'], finalIdentity['server']]).size,
+      ).toBe(3);
+      for (const control of ['nodeControlApi', 'nodeControlWorker'])
+        expect([preIdentity[control], executionIdentity[control], finalIdentity[control]]).toEqual([
+          preIdentity[control],
+          preIdentity[control],
+          preIdentity[control],
+        ]);
+      expect([
+        preCapture['manifestRevision'],
+        executionCapture['manifestRevision'],
+        finalCapture['manifestRevision'],
+      ]).toEqual([1, 2, 3]);
+    } finally {
+      if (fixtureRoot !== undefined) {
+        try {
+          await offlineFixtureCommand(fixtureRoot, fixtureCapability, 'stop');
+        } catch {
+          await emergencyStopOfflineFixture(fixtureRoot);
+        }
+        await emergencyStopOfflineFixture(fixtureRoot);
+      }
+    }
+  }, 30_000);
 
   it('anchors the zero-model baseline and rejects any observed external model invocation', async () => {
     const audit = await modelInvocationAuditModule();
@@ -1481,13 +2485,43 @@ describe('UGV Agent Profile simulation deployment contract', () => {
         expectedServices: SMPP_SERVICES,
       }),
     ).toEqual({ serviceCount: 0 });
-    expect(
-      running.validateSupervisorStatus({ status: 'running', processCount: 3, sideEffects: 'NO' }),
-    ).toEqual({ processCount: 3, sideEffects: 'NO' });
+    const supervisorStatus = {
+      schemaVersion: 'sdar.ugv-agent-profile.host-process-status/v2',
+      status: 'running',
+      processCount: 3,
+      sideEffects: 'NO',
+      bootstrapRunId: 'uap-p3-b01-test-12345678',
+      manifestRevision: 7,
+      activeSimulationRunId: null,
+      processIdentitySha256: {
+        server: `sha256:${'a'.repeat(64)}`,
+        nodeControlApi: `sha256:${'b'.repeat(64)}`,
+        nodeControlWorker: `sha256:${'c'.repeat(64)}`,
+      },
+    };
+    expect(running.validateSupervisorStatus(supervisorStatus)).toEqual({
+      processCount: 3,
+      sideEffects: 'NO',
+    });
     for (const unsafe of [
-      { status: 'running', processCount: 3, sideEffects: 'YES' },
-      { status: 'running', processCount: 3, sideEffects: 'NO', extra: true },
-      { status: 'running', processCount: 2, sideEffects: 'NO' },
+      {
+        ...supervisorStatus,
+        sideEffects: 'YES',
+        activeSimulationRunId: 'uap-p3-b02-recovery-issued-12345678',
+      },
+      { ...supervisorStatus, extra: true },
+      { ...supervisorStatus, processCount: 2 },
+      {
+        ...supervisorStatus,
+        processIdentitySha256: {
+          ...supervisorStatus.processIdentitySha256,
+          server: 'sha256:wrong',
+        },
+      },
+      {
+        ...supervisorStatus,
+        activeSimulationRunId: 'uap-p3-b02-initial-reserved-12345678',
+      },
     ])
       expect(() => running.validateSupervisorStatus(unsafe)).toThrow(
         'UAP_SUPERVISOR_STATUS_INVALID',
@@ -1646,6 +2680,9 @@ describe('UGV Agent Profile simulation deployment contract', () => {
 
     const bootstrap = await readFile(join(DEPLOY_ROOT, 'bootstrap-authority.sh'), 'utf8');
     expect(bootstrap).toContain('uap_assert_owned_stack_running');
+    expect(bootstrap).toContain('uap_authority_simulation_id="$(uap_authority_simulation_run_id)"');
+    expect(bootstrap).toContain('UGV_SIMULATION_RUN_ID="$uap_authority_simulation_id"');
+    expect(bootstrap).not.toContain('UGV_SIMULATION_RUN_ID="$(uap_simulation_run_id)"');
     expect(bootstrap.indexOf('uap_assert_owned_stack_running')).toBeLessThan(
       bootstrap.indexOf('authority-bootstrap-driver.ts'),
     );
@@ -1672,6 +2709,9 @@ describe('UGV Agent Profile simulation deployment contract', () => {
     expect(aggregateBootstrap).not.toContain('up-sdar.sh');
 
     const readiness = await readFile(join(DEPLOY_ROOT, 'readiness.sh'), 'utf8');
+    expect(readiness).toContain('uap_authority_simulation_id="$(uap_authority_simulation_run_id)"');
+    expect(readiness).toContain('UGV_SIMULATION_RUN_ID="$uap_authority_simulation_id"');
+    expect(readiness).not.toContain('UGV_SIMULATION_RUN_ID="$(uap_simulation_run_id)"');
     expect(readiness).toMatch(/authority-bootstrap-driver\.ts" \\\n+\s+readiness/gu);
     expect(readiness.indexOf('uap_assert_owned_stack_running')).toBeLessThan(
       readiness.indexOf('authority-bootstrap-driver.ts'),
@@ -1687,12 +2727,39 @@ describe('UGV Agent Profile simulation deployment contract', () => {
       '`/api/v1/registry/simulation/consumers/sdar/v1/sources/${SDAR_SOURCE_ID}/latest`',
     );
     expect(common).toContain('if ! active_output="$(uap_supervisor log-files)"');
+    expect(common).toContain('uap_authority_simulation_run_id()');
+    expect(common).toContain('local simulation_id="${UGV_SIMULATION_RUN_ID:-}"');
+    expect(common).toContain('uap_authorize_b02_simulation_run_id "$simulation_id" >/dev/null');
     expect(common).toContain('if ! stored_output="$(uap_supervisor stored-log-files)"');
     expect(common).toContain('(${#active_log_files[@]} != UAP_HOST_PROCESS_COUNT)');
     expect(common).toContain('uap_docker ps -a');
     expect(common).toContain('label=com.docker.compose.project=$project');
     expect(common).toContain('supervisor-status.json');
     expect(common).toContain('if ! uap_supervisor status >"$render_root/supervisor-status.json"');
+    await expect(
+      execFileAsync(
+        'bash',
+        [
+          '-c',
+          'source "$1"; uap_simulation_run_id(){ printf "%s\\n" state-run; }; uap_authorize_b02_simulation_run_id(){ [[ "$1" == issued-run ]]; }; UGV_SIMULATION_RUN_ID=issued-run; [[ "$(uap_authority_simulation_run_id)" == issued-run ]]',
+          'uap-contract',
+          join(DEPLOY_ROOT, 'common.sh'),
+        ],
+        { cwd: REPOSITORY_ROOT },
+      ),
+    ).resolves.toMatchObject({ stdout: '', stderr: '' });
+    await expect(
+      execFileAsync(
+        'bash',
+        [
+          '-c',
+          'source "$1"; uap_simulation_run_id(){ printf "%s\\n" state-run; }; uap_authorize_b02_simulation_run_id(){ [[ "$1" == state-run ]]; }; unset UGV_SIMULATION_RUN_ID; [[ "$(uap_authority_simulation_run_id)" == state-run ]]',
+          'uap-contract',
+          join(DEPLOY_ROOT, 'common.sh'),
+        ],
+        { cwd: REPOSITORY_ROOT },
+      ),
+    ).resolves.toMatchObject({ stdout: '', stderr: '' });
     const down = await readFile(join(DEPLOY_ROOT, 'down.sh'), 'utf8');
     expect(down.indexOf('uap_assert_owned_project_closure')).toBeLessThan(
       down.indexOf('uap_supervisor stop'),
@@ -2027,7 +3094,7 @@ function readinessAuthorityFixture(
     },
     managedCardSeparation: {
       authority: 'node_control_exposure',
-      exposureRef: 'a2a.embodied.move:1',
+      exposureRef: 'a2a.embodied.move:2',
       revision: 3,
       contentHash: 'c'.repeat(64),
       unchangedAcrossSkillLifecycle: true,
@@ -2081,10 +3148,10 @@ function bootstrapAuthorityFixture(mode: 'bootstrap' | 'verify'): Record<string,
     },
     capability: {
       capabilityId: 'embodied.move',
-      version: 1,
+      version: 2,
       status: 'published',
       definitionHash: 'd'.repeat(64),
-      implementationBindingId: 'capability-binding-embodied.move-v1',
+      implementationBindingId: 'capability-binding-embodied.move-v2',
       implementationCount: 1,
       constraintCount: 7,
     },
@@ -2096,7 +3163,7 @@ function bootstrapAuthorityFixture(mode: 'bootstrap' | 'verify'): Record<string,
     },
     exposure: {
       exposureId: 'a2a.embodied.move',
-      version: 1,
+      version: 2,
       agentSkillId: 'embodied.move_to',
       status: 'published',
       exposureHash: 'f'.repeat(64),
@@ -2107,7 +3174,7 @@ function bootstrapAuthorityFixture(mode: 'bootstrap' | 'verify'): Record<string,
       distinctFromProfilePublicCard: true,
       status: 'active',
       revision: 3,
-      exposureRefs: ['a2a.embodied.move:1'],
+      exposureRefs: ['a2a.embodied.move:2'],
       contentHash: '1'.repeat(64),
       capabilityCatalogHash: '2'.repeat(64),
     },

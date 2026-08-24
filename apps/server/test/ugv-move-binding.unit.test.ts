@@ -225,6 +225,33 @@ describe('UGV move governed Task binding', () => {
     ).toThrow(expect.objectContaining({ code: 'SELECTED_TASK_OPERATION_INVALID' }));
   });
 
+  it('resolves qualification authority through the production binding chain without Provider availability', async () => {
+    const runtimeFixture = await fixture();
+
+    await expect(runtimeFixture.resolver.resolveQualificationAuthority()).resolves.toEqual({
+      serverId: 'ugv-runtime-1',
+      providerBindingId: 'binding-ugv-runtime-1',
+      providerId: 'isr.vehicle.ugv.ugv1',
+    });
+    expect(runtimeFixture.listCandidates).toHaveBeenCalledOnce();
+    expect(runtimeFixture.listCandidates).toHaveBeenCalledWith('vehicle_navigate');
+    expect(runtimeFixture.availability).not.toHaveBeenCalled();
+  });
+
+  it('rejects drifted Provider Binding authority on the qualification-only path', async () => {
+    const runtimeFixture = await fixture({
+      mutateBinding: (binding) => ({
+        ...binding,
+        binding: { ...binding.binding, providerId: 'isr.vehicle.ugv.other' },
+      }),
+    });
+
+    await expect(runtimeFixture.resolver.resolveQualificationAuthority()).rejects.toMatchObject({
+      code: 'UGV_PROFILE_BINDING_NOT_FOUND',
+    });
+    expect(runtimeFixture.availability).not.toHaveBeenCalled();
+  });
+
   it('fails closed for zero and multiple exact candidates without changing generic matching', async () => {
     const none = await fixture({ serverIds: [] });
     await expect(none.resolver.resolve(request())).rejects.toMatchObject({

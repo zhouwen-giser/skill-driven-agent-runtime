@@ -14,6 +14,8 @@ describe('A2A Task submission mapping', () => {
       ],
       metadata: {
         user_id: 'operator-1',
+        structured_input: { deviceId: 'alpha' },
+        idempotency_key: 'request-1',
         'io.sdar/requestedCapability': {
           exposureId: 'device.inspect',
           versionConstraint: '1',
@@ -28,8 +30,11 @@ describe('A2A Task submission mapping', () => {
       userId: 'operator-1',
       messageText: 'Inspect device alpha.',
       capabilityInput: { deviceId: 'alpha' },
+      initialAdmission: { idempotencyKey: 'request-1' },
       metadata: {
         user_id: 'operator-1',
+        structured_input: { deviceId: 'alpha' },
+        idempotency_key: 'request-1',
         'io.sdar/requestedCapability': {
           exposureId: 'device.inspect',
           versionConstraint: '1',
@@ -48,6 +53,115 @@ describe('A2A Task submission mapping', () => {
     expect(() => toSubmitTaskCommand(message, 'task-1', 'context-1')).toThrow(
       expect.objectContaining({ code: 'A2A_INPUT_CONTENT_INVALID' }),
     );
+  });
+
+  it('requires exact formal admission metadata and canonical Data Part equality', () => {
+    const formalMessage = (
+      input: Readonly<{ data?: unknown; metadata: Record<string, unknown> }>,
+    ) =>
+      Message.fromJSON({
+        messageId: 'message-capability-formal-invalid',
+        role: 'ROLE_USER',
+        parts: [
+          { text: 'Inspect.', mediaType: 'text/plain' },
+          ...(input.data === undefined ? [] : [{ data: input.data }]),
+        ],
+        metadata: input.metadata,
+      });
+    const requestedCapability = {
+      exposureId: 'device.inspect',
+      versionConstraint: '1',
+      requestId: 'request-formal',
+    };
+
+    expect(() =>
+      toSubmitTaskCommand(
+        formalMessage({
+          metadata: {
+            structured_input: { deviceId: 'alpha' },
+            idempotency_key: 'request-formal',
+            'io.sdar/requestedCapability': requestedCapability,
+          },
+        }),
+        'task-generated-1',
+        'context-generated-1',
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_INPUT_CONTENT_INVALID' }));
+    expect(() =>
+      toSubmitTaskCommand(
+        formalMessage({
+          data: { deviceId: 'beta' },
+          metadata: {
+            structured_input: { deviceId: 'alpha' },
+            idempotency_key: 'request-formal',
+            'io.sdar/requestedCapability': requestedCapability,
+          },
+        }),
+        'task-generated-2',
+        'context-generated-2',
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_STRUCTURED_INPUT_MISMATCH' }));
+    expect(() =>
+      toSubmitTaskCommand(
+        formalMessage({
+          data: { deviceId: 'alpha' },
+          metadata: {
+            structured_input: { deviceId: 'alpha' },
+            idempotency_key: 'request-formal-other',
+            'io.sdar/requestedCapability': requestedCapability,
+          },
+        }),
+        'task-generated-3',
+        'context-generated-3',
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_INITIAL_ADMISSION_INVALID' }));
+    expect(() =>
+      toSubmitTaskCommand(
+        formalMessage({
+          data: { deviceId: 'alpha' },
+          metadata: {
+            idempotency_key: 'request-formal',
+            'io.sdar/requestedCapability': requestedCapability,
+          },
+        }),
+        'task-generated-4',
+        'context-generated-4',
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_INITIAL_ADMISSION_INVALID' }));
+    expect(() =>
+      toSubmitTaskCommand(
+        formalMessage({
+          data: { deviceId: 'alpha' },
+          metadata: {
+            structured_input: { deviceId: 'alpha' },
+            idempotency_key: 'request-formal',
+            'io.sdar/requestedCapability': {
+              ...requestedCapability,
+              unexpected: true,
+            },
+          },
+        }),
+        'task-generated-5',
+        'context-generated-5',
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_INITIAL_ADMISSION_INVALID' }));
+  });
+
+  it('keeps legacy structured_input-only submissions outside formal Capability admission', () => {
+    const command = toSubmitTaskCommand(
+      Message.fromJSON({
+        messageId: 'message-legacy-structured-input',
+        role: 'ROLE_USER',
+        parts: [{ text: 'Use legacy planning metadata.' }],
+        metadata: { structured_input: { deviceId: 'alpha' } },
+      }),
+      'task-legacy',
+      'context-legacy',
+    );
+
+    expect(command.initialAdmission).toBeUndefined();
+    expect(command.capabilityInput).toBeUndefined();
+    expect(command.metadata).toEqual({ structured_input: { deviceId: 'alpha' } });
   });
 });
 

@@ -80,13 +80,13 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
   ): RuntimeSkillProviderDependencyAssessment {
     const implementation = input.implementation;
     const applies =
-      (input.definition.capabilityId === 'embodied.move' && input.definition.version === 1) ||
+      (input.definition.capabilityId === 'embodied.move' && input.definition.version === 2) ||
       (implementation.implementationId === 'embodied.move_to' &&
         implementation.implementationVersion === '1');
     if (!applies) return NOT_APPLICABLE;
     if (
       input.definition.capabilityId !== 'embodied.move' ||
-      input.definition.version !== 1 ||
+      input.definition.version !== 2 ||
       input.definition.status !== 'published' ||
       !exactUgvDefinitionPromises(input.definition) ||
       input.implementations.length !== 1 ||
@@ -280,15 +280,15 @@ function exactUgvCapabilityConstraints(
     !exactRuntimeMode(runtimeMode) ||
     !sameCanonical(target, {
       type: 'ugv_simulation_target_policy',
-      policyId: 'ugv-agent-profile/simulation-short-move',
-      revision: 1,
+      policyId: 'ugv-agent-profile/explicit-wgs84-target',
+      revision: 2,
       executionMode: 'simulation',
       resourceId: 'vehicle:ugv1',
       frame: 'WGS84',
-      targetDerivation: 'deterministic_short_distance',
-      bearingDegrees: 90,
-      distanceM: 1,
-      maximumDistanceM: 2,
+      targetAuthority: 'task_capability_input_snapshot',
+      targetDerivation: 'forbidden',
+      distanceLimit: 'none',
+      altitudePolicy: 'not_commanded_not_terminally_evaluated',
       forbiddenRegions: [],
     }) ||
     provider === undefined ||

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { chmod, link, lstat, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { chmod, link, lstat, mkdir, open, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 
@@ -40,14 +40,35 @@ export async function readValidatedFirstPassIndex(path, repositoryRoot, expected
 }
 
 async function validateFirstPassIndex(winner, expected, repositoryRoot, indexPath, indexSource) {
-  const keys = [
+  const { attemptPath } = validateFirstPassIndexEnvelope(
+    winner,
+    expected,
+    repositoryRoot,
+    indexPath,
+  );
+  let attemptSource;
+  let attempt;
+  try {
+    attemptSource = await readPrivateText(attemptPath);
+    attempt = JSON.parse(attemptSource);
+  } catch {
+    throw new Error('UAP_CANONICAL_ATTEMPT_INVALID');
+  }
+  return validateFirstPassPairDocuments(winner, attempt, expected, repositoryRoot, indexPath, {
+    indexSource,
+    attemptSource,
+  });
+}
+
+function validateFirstPassIndexEnvelope(winner, expected, repositoryRoot, indexPath) {
+  const b02Move = winner?.schemaVersion === 'sdar.ugv-agent-profile.a2a-move-index/v1';
+  const commonKeys = [
     'bootstrapRunId',
     'canonicalSemantics',
     'endpointsIncluded',
     'evidenceClass',
     'firstPassAttemptFile',
     'firstPassAttemptSha256',
-    'modelConfigurationIncluded',
     'physicalVehicleQualified',
     'productionEligible',
     'schemaVersion',
@@ -55,6 +76,16 @@ async function validateFirstPassIndex(winner, expected, repositoryRoot, indexPat
     'status',
     'task',
   ];
+  const keys = b02Move
+    ? [
+        ...commonKeys,
+        'downstreamDeviceIdsIncluded',
+        'modelCredentialsIncluded',
+        'modelEndpointsIncluded',
+        'modelRouteIdentityHashesIncluded',
+        'modelValuesIncluded',
+      ]
+    : [...commonKeys, 'modelConfigurationIncluded'];
   if (
     typeof winner !== 'object' ||
     winner === null ||
@@ -78,7 +109,13 @@ async function validateFirstPassIndex(winner, expected, repositoryRoot, indexPat
     winner.physicalVehicleQualified !== false ||
     winner.secretsIncluded !== false ||
     winner.endpointsIncluded !== false ||
-    winner.modelConfigurationIncluded !== false ||
+    (!b02Move && winner.modelConfigurationIncluded !== false) ||
+    (b02Move &&
+      (winner.downstreamDeviceIdsIncluded !== true ||
+        winner.modelRouteIdentityHashesIncluded !== true ||
+        winner.modelValuesIncluded !== false ||
+        winner.modelEndpointsIncluded !== false ||
+        winner.modelCredentialsIncluded !== false)) ||
     typeof winner.firstPassAttemptFile !== 'string' ||
     typeof winner.firstPassAttemptSha256 !== 'string' ||
     !/^[a-f0-9]{64}$/u.test(winner.firstPassAttemptSha256)
@@ -93,14 +130,86 @@ async function validateFirstPassIndex(winner, expected, repositoryRoot, indexPat
     attemptPath === resolve(indexPath)
   )
     throw new Error('UAP_CANONICAL_ATTEMPT_PATH_INVALID');
-  let attemptSource;
-  let attempt;
-  try {
-    attemptSource = await readPrivateText(attemptPath);
-    attempt = JSON.parse(attemptSource);
-  } catch {
-    throw new Error('UAP_CANONICAL_ATTEMPT_INVALID');
-  }
+  return Object.freeze({ b02Move, attemptPath });
+}
+
+export function validateFirstPassPairDocuments(
+  winner,
+  attempt,
+  expected,
+  repositoryRoot,
+  indexPath,
+  sources = {},
+) {
+  const b02Move = winner?.schemaVersion === 'sdar.ugv-agent-profile.a2a-move-index/v1';
+  const commonKeys = [
+    'bootstrapRunId',
+    'canonicalSemantics',
+    'endpointsIncluded',
+    'evidenceClass',
+    'firstPassAttemptFile',
+    'firstPassAttemptSha256',
+    'physicalVehicleQualified',
+    'productionEligible',
+    'schemaVersion',
+    'secretsIncluded',
+    'status',
+    'task',
+  ];
+  const keys = b02Move
+    ? [
+        ...commonKeys,
+        'downstreamDeviceIdsIncluded',
+        'modelCredentialsIncluded',
+        'modelEndpointsIncluded',
+        'modelRouteIdentityHashesIncluded',
+        'modelValuesIncluded',
+      ]
+    : [...commonKeys, 'modelConfigurationIncluded'];
+  if (
+    typeof winner !== 'object' ||
+    winner === null ||
+    Array.isArray(winner) ||
+    Object.keys(winner).sort().join(',') !== keys.sort().join(',') ||
+    typeof winner.schemaVersion !== 'string' ||
+    !/^sdar\.ugv-agent-profile\.[a-z0-9.-]+-index\/v1$/u.test(winner.schemaVersion) ||
+    (expected.schemaVersion !== undefined && winner.schemaVersion !== expected.schemaVersion) ||
+    winner.status !== 'passed' ||
+    (expected.task !== undefined && winner.task !== expected.task) ||
+    (expected.bootstrapRunId !== undefined && winner.bootstrapRunId !== expected.bootstrapRunId) ||
+    (expected.evidenceClass !== undefined && winner.evidenceClass !== expected.evidenceClass) ||
+    typeof winner.task !== 'string' ||
+    winner.task === '' ||
+    typeof winner.bootstrapRunId !== 'string' ||
+    winner.bootstrapRunId === '' ||
+    typeof winner.evidenceClass !== 'string' ||
+    winner.evidenceClass === '' ||
+    winner.canonicalSemantics !== 'immutable_first_pass' ||
+    winner.productionEligible !== false ||
+    winner.physicalVehicleQualified !== false ||
+    winner.secretsIncluded !== false ||
+    winner.endpointsIncluded !== false ||
+    (!b02Move && winner.modelConfigurationIncluded !== false) ||
+    (b02Move &&
+      (winner.downstreamDeviceIdsIncluded !== true ||
+        winner.modelRouteIdentityHashesIncluded !== true ||
+        winner.modelValuesIncluded !== false ||
+        winner.modelEndpointsIncluded !== false ||
+        winner.modelCredentialsIncluded !== false)) ||
+    typeof winner.firstPassAttemptFile !== 'string' ||
+    typeof winner.firstPassAttemptSha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/u.test(winner.firstPassAttemptSha256)
+  )
+    throw new Error('UAP_CANONICAL_EVIDENCE_DRIFT');
+  const root = resolve(repositoryRoot);
+  const attemptsRoot = resolve(root, 'reports/ugv-agent-profile-simulation/attempts');
+  const attemptPath = resolve(root, winner.firstPassAttemptFile);
+  if (
+    !attemptPath.startsWith(`${attemptsRoot}/`) ||
+    !attemptPath.endsWith('.redacted.json') ||
+    attemptPath === resolve(indexPath)
+  )
+    throw new Error('UAP_CANONICAL_ATTEMPT_PATH_INVALID');
   const attemptSchemaVersion = winner.schemaVersion.replace(/-index\/v1$/u, '/v1');
   if (
     attempt?.schemaVersion !== attemptSchemaVersion ||
@@ -112,7 +221,13 @@ async function validateFirstPassIndex(winner, expected, repositoryRoot, indexPat
     attempt?.physicalVehicleQualified !== false ||
     attempt?.secretsIncluded !== false ||
     attempt?.endpointsIncluded !== false ||
-    attempt?.modelConfigurationIncluded !== false ||
+    (!b02Move && attempt?.modelConfigurationIncluded !== false) ||
+    (b02Move &&
+      (attempt?.downstreamDeviceIdsIncluded !== true ||
+        attempt?.modelRouteIdentityHashesIncluded !== true ||
+        attempt?.modelValuesIncluded !== false ||
+        attempt?.modelEndpointsIncluded !== false ||
+        attempt?.modelCredentialsIncluded !== false)) ||
     sha256CanonicalJson(attempt) !== winner.firstPassAttemptSha256
   )
     throw new Error('UAP_CANONICAL_ATTEMPT_INVALID');
@@ -121,8 +236,8 @@ async function validateFirstPassIndex(winner, expected, repositoryRoot, indexPat
     attempt: Object.freeze(attempt),
     indexPath: resolve(indexPath),
     attemptPath,
-    indexSource,
-    attemptSource,
+    indexSource: sources.indexSource,
+    attemptSource: sources.attemptSource,
   });
 }
 
@@ -143,6 +258,123 @@ export async function writeImmutableAttemptJson(directory, prefix, document) {
   await publishCompleteFile(target, content);
   if ((await readPrivateText(target)) !== content) throw new Error('UAP_ATTEMPT_EVIDENCE_DRIFT');
   return target;
+}
+
+export async function writeFirstPassPairTransactional(
+  { attemptDirectory, prefix, document, indexPath, createIndex, repositoryRoot },
+  dependencies = {},
+) {
+  const operations = {
+    mkdir: dependencies.mkdir ?? mkdir,
+    chmod: dependencies.chmod ?? chmod,
+    link: dependencies.link ?? link,
+    unlink: dependencies.unlink ?? unlink,
+    writeSyncedCandidate: dependencies.writeSyncedCandidate ?? writeSyncedCandidate,
+    syncDirectory: dependencies.syncDirectory ?? syncDirectory,
+    validatePair: dependencies.validatePair ?? validateFirstPassPairDocuments,
+  };
+  const attemptsRoot = resolve(attemptDirectory);
+  const canonicalIndexPath = resolve(indexPath);
+  await operations.mkdir(attemptsRoot, { recursive: true, mode: 0o700 });
+  await operations.chmod(attemptsRoot, 0o700);
+  await operations.mkdir(dirname(canonicalIndexPath), { recursive: true, mode: 0o700 });
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/gu, '');
+  const attemptPath = join(
+    attemptsRoot,
+    `${prefix}-${timestamp}-${randomBytes(8).toString('hex')}.redacted.json`,
+  );
+  const index = createIndex(attemptPath);
+  const attemptContent = `${JSON.stringify(document, null, 2)}\n`;
+  const indexContent = `${JSON.stringify(index, null, 2)}\n`;
+  const attemptCandidate = `${attemptPath}.${String(process.pid)}.${randomBytes(8).toString('hex')}.candidate`;
+  const indexCandidate = `${canonicalIndexPath}.${String(process.pid)}.${randomBytes(8).toString('hex')}.candidate`;
+  let attemptPublished = false;
+  let indexPublished = false;
+  try {
+    await operations.writeSyncedCandidate(attemptCandidate, attemptContent);
+    await operations.writeSyncedCandidate(indexCandidate, indexContent);
+    await operations.validatePair(
+      index,
+      document,
+      {
+        schemaVersion: index.schemaVersion,
+        task: index.task,
+        bootstrapRunId: index.bootstrapRunId,
+        evidenceClass: index.evidenceClass,
+      },
+      repositoryRoot,
+      canonicalIndexPath,
+    );
+    await operations.link(attemptCandidate, attemptPath);
+    attemptPublished = true;
+    await operations.syncDirectory(attemptsRoot);
+    await operations.link(indexCandidate, canonicalIndexPath);
+    indexPublished = true;
+    await operations.syncDirectory(attemptsRoot);
+    if (dirname(canonicalIndexPath) !== attemptsRoot)
+      await operations.syncDirectory(dirname(canonicalIndexPath));
+    return Object.freeze({
+      attemptPath,
+      indexPath: canonicalIndexPath,
+      index: Object.freeze(index),
+    });
+  } catch (error) {
+    const rollbackErrors = [];
+    if (indexPublished) {
+      try {
+        await operations.unlink(canonicalIndexPath);
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+    if (attemptPublished) {
+      try {
+        await operations.unlink(attemptPath);
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+    if (indexPublished || attemptPublished) {
+      const directories = new Set([attemptsRoot, dirname(canonicalIndexPath)]);
+      for (const directory of directories) {
+        try {
+          await operations.syncDirectory(directory);
+        } catch (rollbackError) {
+          rollbackErrors.push(rollbackError);
+        }
+      }
+    }
+    if (rollbackErrors.length > 0)
+      throw new AggregateError(rollbackErrors, 'UAP_FIRST_PASS_PAIR_ROLLBACK_FAILED', {
+        cause: error,
+      });
+    throw error;
+  } finally {
+    await Promise.all([
+      operations.unlink(attemptCandidate).catch(() => undefined),
+      operations.unlink(indexCandidate).catch(() => undefined),
+    ]);
+  }
+}
+
+async function writeSyncedCandidate(path, content) {
+  const handle = await open(path, 'wx', 0o600);
+  try {
+    await handle.writeFile(content, { encoding: 'utf8' });
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  await chmod(path, 0o600);
+}
+
+async function syncDirectory(path) {
+  const handle = await open(path, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
 }
 
 async function publishCompleteFile(target, content) {

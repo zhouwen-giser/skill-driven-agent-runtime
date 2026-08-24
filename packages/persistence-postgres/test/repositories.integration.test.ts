@@ -43,8 +43,13 @@ import {
   ReciprocalRankFusion,
   TaskTypePromotionTarget,
   TaskService,
+  RuntimeTaskCapabilityService,
+  TaskAttemptDispatchService,
+  type ContextTaskQueue,
+  type TaskCapabilityAcceptanceStore,
 } from '../../application/src/index.js';
 import { Aes256GcmSecretCipher } from '../../crypto-adapter/src/index.js';
+import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
   PostgresAgentTaskRepository,
   PostgresConversationContextRepository,
@@ -118,7 +123,10 @@ import {
 import {
   bindTaskGoal,
   createAgentTask,
+  createConversationContext,
   createSkillAttempt,
+  createTaskCapabilityBinding,
+  createTaskCapabilityExecutionAttempt,
   createTaskExecutionAttempt,
   createTaskInputRequest,
   createRemoteTaskBinding,
@@ -3976,6 +3984,536 @@ describe('PostgreSQL protocol-domain repositories', () => {
         selectedSkillId: 'skill.task-link.db',
       }),
     ]);
+  });
+
+  it('serializes initial Task admission across concurrent requests and replays after restart', async () => {
+    const repository = new PostgresTaskCapabilityRepository(pool);
+    const requestHash = `sha256:${'a'.repeat(64)}` as const;
+    const candidate = (
+      suffix: string,
+      options: Readonly<{
+        idempotencyKey?: string;
+        contextId?: string;
+        userId?: string;
+        acceptedAt?: string;
+      }> = {},
+    ) => {
+      const acceptedAt = options.acceptedAt ?? '2026-08-22T10:00:00.000Z';
+      const idempotencyKey = options.idempotencyKey ?? 'initial-admission-key-1';
+      const context = createConversationContext({
+        contextId: options.contextId ?? `context.initial-admission.${suffix}`,
+        userId: options.userId ?? 'operator.initial-admission',
+        timestamp: acceptedAt,
+      });
+      const task = createAgentTask({
+        taskId: `task.initial-admission.${suffix}`,
+        contextId: context.contextId,
+        userId: context.userId,
+        requestText: 'Inspect device alpha.',
+        requestMetadata: {
+          structured_input: { deviceId: 'alpha' },
+          idempotency_key: idempotencyKey,
+          'io.sdar/requestedCapability': {
+            exposureId: 'device.inspect',
+            versionConstraint: '1',
+            requestId: idempotencyKey,
+          },
+        },
+        timestamp: acceptedAt,
+      });
+      const binding = createTaskCapabilityBinding({
+        bindingId: `binding.initial-admission.${suffix}`,
+        taskId: task.taskId,
+        requestedCapabilityId: 'device.inspect',
+        capabilityVersion: 1,
+        exposureId: 'device.inspect',
+        exposureVersion: 1,
+        inputSnapshot: { deviceId: 'alpha' },
+        successCriteriaSnapshot: [{ type: 'field_equals', field: 'inspected', value: true }],
+        evidenceRequirementSnapshot: [],
+        constraintSnapshot: [],
+        initialImplementationRefs: ['skill:device.inspect:1'],
+        boundAt: acceptedAt,
+      });
+      const capabilityAttempt = createTaskCapabilityExecutionAttempt({
+        attemptId: `capability-attempt.initial-admission.${suffix}`,
+        taskId: task.taskId,
+        capabilityBindingId: binding.bindingId,
+        attemptNo: 1,
+        skillVersionRefs: ['skill:device.inspect:1'],
+        providerBindingRefs: [],
+        reason: 'initial',
+        status: 'prepared',
+      });
+      return {
+        idempotencyKey,
+        requestHash,
+        context,
+        capabilityAcceptance: {
+          task,
+          inputAttempt: createTaskExecutionAttempt({
+            attemptId: `attempt.initial-admission.${suffix}`,
+            taskId: task.taskId,
+            contextId: task.contextId,
+            reason: 'initial',
+            createdAt: acceptedAt,
+          }),
+          binding,
+          capabilityAttempt,
+          event: {
+            eventId: `event.initial-admission.${suffix}`,
+            taskId: task.taskId,
+            contextId: task.contextId,
+            eventType: 'task.created' as const,
+            timestamp: acceptedAt,
+            summary: 'Initial Capability Task accepted.',
+          },
+        },
+        acceptedAt,
+      };
+    };
+
+    const concurrent = await Promise.all([
+      repository.acceptInitial(candidate('concurrent-a')),
+      repository.acceptInitial(candidate('concurrent-b')),
+    ]);
+    expect(concurrent.map((result) => result.status).sort()).toEqual(['accepted', 'replayed']);
+    const authority = concurrent.find((result) => result.status === 'accepted')?.record;
+    if (authority === undefined) throw new Error('INITIAL_ADMISSION_AUTHORITY_MISSING');
+    expect(concurrent.every((result) => result.record.taskId === authority.taskId)).toBe(true);
+
+    const restartedRepository = new PostgresTaskCapabilityRepository(pool);
+    const replayed = await restartedRepository.acceptInitial(candidate('after-restart'));
+    expect(replayed).toMatchObject({
+      status: 'replayed',
+      record: { taskId: authority.taskId, contextId: authority.contextId },
+    });
+    const conflicting = await restartedRepository.acceptInitial({
+      ...candidate('conflict'),
+      requestHash: `sha256:${'b'.repeat(64)}`,
+    });
+    expect(conflicting).toMatchObject({
+      status: 'conflict',
+      record: { taskId: authority.taskId },
+    });
+
+    const counts = await pool.query<{
+      admissions: string;
+      contexts: string;
+      tasks: string;
+      bindings: string;
+      execution_attempts: string;
+      capability_attempts: string;
+      events: string;
+      outbox: string;
+    }>(
+      `SELECT
+         (SELECT count(*) FROM initial_task_admission WHERE idempotency_key=$1)::text admissions,
+         (SELECT count(*) FROM conversation_context
+           WHERE context_id LIKE 'context.initial-admission.concurrent-%')::text contexts,
+         (SELECT count(*) FROM agent_task WHERE task_id LIKE 'task.initial-admission.%')::text tasks,
+         (SELECT count(*) FROM task_capability_binding WHERE task_id LIKE 'task.initial-admission.%')::text bindings,
+         (SELECT count(*) FROM task_execution_attempt WHERE task_id LIKE 'task.initial-admission.%')::text execution_attempts,
+         (SELECT count(*) FROM task_capability_execution_attempt WHERE task_id LIKE 'task.initial-admission.%')::text capability_attempts,
+         (SELECT count(*) FROM runtime_event WHERE task_id LIKE 'task.initial-admission.%'
+           AND event_type='task.created')::text events,
+         (SELECT count(*) FROM cognitive_runtime_outbox outbox
+           JOIN task_capability_binding binding ON binding.binding_id=outbox.aggregate_id
+          WHERE binding.task_id LIKE 'task.initial-admission.%'
+            AND outbox.event_type='node.task.capability_bound')::text outbox`,
+      ['initial-admission-key-1'],
+    );
+    expect(counts.rows[0]).toEqual({
+      admissions: '1',
+      contexts: '1',
+      tasks: '1',
+      bindings: '1',
+      execution_attempts: '1',
+      capability_attempts: '1',
+      events: '1',
+      outbox: '1',
+    });
+
+    const conflictRaceKey = 'initial-admission-conflict-race';
+    const conflictRace = await Promise.all([
+      repository.acceptInitial(candidate('conflict-race-a', { idempotencyKey: conflictRaceKey })),
+      repository.acceptInitial({
+        ...candidate('conflict-race-b', { idempotencyKey: conflictRaceKey }),
+        requestHash: `sha256:${'b'.repeat(64)}`,
+      }),
+    ]);
+    expect(conflictRace.map((result) => result.status).sort()).toEqual(['accepted', 'conflict']);
+    const conflictRaceAuthority = conflictRace.find(
+      (result) => result.status === 'accepted',
+    )?.record;
+    if (conflictRaceAuthority === undefined)
+      throw new Error('INITIAL_ADMISSION_CONFLICT_RACE_AUTHORITY_MISSING');
+    expect(
+      conflictRace.every((result) => result.record.taskId === conflictRaceAuthority.taskId),
+    ).toBe(true);
+    const conflictRaceCounts = await pool.query<{
+      admissions: string;
+      contexts: string;
+      tasks: string;
+      bindings: string;
+      execution_attempts: string;
+      capability_attempts: string;
+      events: string;
+      outbox: string;
+    }>(
+      `SELECT
+         (SELECT count(*) FROM initial_task_admission WHERE idempotency_key=$1)::text admissions,
+         (SELECT count(*) FROM conversation_context
+           WHERE context_id LIKE 'context.initial-admission.conflict-race-%')::text contexts,
+         (SELECT count(*) FROM agent_task
+           WHERE task_id LIKE 'task.initial-admission.conflict-race-%')::text tasks,
+         (SELECT count(*) FROM task_capability_binding
+           WHERE task_id LIKE 'task.initial-admission.conflict-race-%')::text bindings,
+         (SELECT count(*) FROM task_execution_attempt
+           WHERE task_id LIKE 'task.initial-admission.conflict-race-%')::text execution_attempts,
+         (SELECT count(*) FROM task_capability_execution_attempt
+           WHERE task_id LIKE 'task.initial-admission.conflict-race-%')::text capability_attempts,
+         (SELECT count(*) FROM runtime_event
+           WHERE task_id LIKE 'task.initial-admission.conflict-race-%'
+             AND event_type='task.created')::text events,
+         (SELECT count(*) FROM cognitive_runtime_outbox outbox
+           JOIN task_capability_binding binding ON binding.binding_id=outbox.aggregate_id
+          WHERE binding.task_id LIKE 'task.initial-admission.conflict-race-%'
+            AND outbox.event_type='node.task.capability_bound')::text outbox`,
+      [conflictRaceKey],
+    );
+    expect(conflictRaceCounts.rows[0]).toEqual({
+      admissions: '1',
+      contexts: '1',
+      tasks: '1',
+      bindings: '1',
+      execution_attempts: '1',
+      capability_attempts: '1',
+      events: '1',
+      outbox: '1',
+    });
+
+    const sharedContextId = 'context.initial-admission.shared-user';
+    const sharedUser = await Promise.all([
+      repository.acceptInitial(
+        candidate('shared-user-a', {
+          idempotencyKey: 'initial-admission-shared-user-a',
+          contextId: sharedContextId,
+          userId: 'operator.shared-user',
+          acceptedAt: '2026-08-22T10:00:01.000Z',
+        }),
+      ),
+      repository.acceptInitial(
+        candidate('shared-user-b', {
+          idempotencyKey: 'initial-admission-shared-user-b',
+          contextId: sharedContextId,
+          userId: 'operator.shared-user',
+          acceptedAt: '2026-08-22T10:00:02.000Z',
+        }),
+      ),
+    ]);
+    expect(sharedUser.map((result) => result.status)).toEqual(['accepted', 'accepted']);
+    expect(sharedUser.map((result) => result.record.createdContext).sort()).toEqual([false, true]);
+    const authoritativeSharedContext = await new PostgresConversationContextRepository(
+      pool,
+    ).findById(sharedContextId);
+    if (authoritativeSharedContext === undefined)
+      throw new Error('INITIAL_ADMISSION_SHARED_CONTEXT_MISSING');
+    for (const result of sharedUser) {
+      if (result.status !== 'accepted') throw new Error('INITIAL_ADMISSION_NOT_ACCEPTED');
+      expect(result.context).toEqual(authoritativeSharedContext);
+    }
+    const sharedUserCounts = await pool.query<{
+      contexts: string;
+      admissions: string;
+      tasks: string;
+      bindings: string;
+      execution_attempts: string;
+      capability_attempts: string;
+      events: string;
+      outbox: string;
+    }>(
+      `SELECT
+         (SELECT count(*) FROM conversation_context WHERE context_id=$1)::text contexts,
+         (SELECT count(*) FROM initial_task_admission WHERE context_id=$1)::text admissions,
+         (SELECT count(*) FROM agent_task WHERE context_id=$1)::text tasks,
+         (SELECT count(*) FROM task_capability_binding binding
+            JOIN agent_task task ON task.task_id=binding.task_id
+           WHERE task.context_id=$1)::text bindings,
+         (SELECT count(*) FROM task_execution_attempt attempt
+            JOIN agent_task task ON task.task_id=attempt.task_id
+           WHERE task.context_id=$1)::text execution_attempts,
+         (SELECT count(*) FROM task_capability_execution_attempt attempt
+            JOIN agent_task task ON task.task_id=attempt.task_id
+           WHERE task.context_id=$1)::text capability_attempts,
+         (SELECT count(*) FROM runtime_event event
+            JOIN agent_task task ON task.task_id=event.task_id
+           WHERE task.context_id=$1 AND event.event_type='task.created')::text events,
+         (SELECT count(*) FROM cognitive_runtime_outbox outbox
+            JOIN task_capability_binding binding ON binding.binding_id=outbox.aggregate_id
+            JOIN agent_task task ON task.task_id=binding.task_id
+           WHERE task.context_id=$1
+             AND outbox.event_type='node.task.capability_bound')::text outbox`,
+      [sharedContextId],
+    );
+    expect(sharedUserCounts.rows[0]).toEqual({
+      contexts: '1',
+      admissions: '2',
+      tasks: '2',
+      bindings: '2',
+      execution_attempts: '2',
+      capability_attempts: '2',
+      events: '2',
+      outbox: '2',
+    });
+
+    const conflictingContextId = 'context.initial-admission.conflicting-user';
+    const conflictingUsers = await Promise.allSettled([
+      repository.acceptInitial(
+        candidate('conflicting-user-a', {
+          idempotencyKey: 'initial-admission-conflicting-user-a',
+          contextId: conflictingContextId,
+          userId: 'operator.conflicting-a',
+        }),
+      ),
+      repository.acceptInitial(
+        candidate('conflicting-user-b', {
+          idempotencyKey: 'initial-admission-conflicting-user-b',
+          contextId: conflictingContextId,
+          userId: 'operator.conflicting-b',
+        }),
+      ),
+    ]);
+    const fulfilled = conflictingUsers.filter(
+      (result): result is PromiseFulfilledResult<(typeof sharedUser)[number]> =>
+        result.status === 'fulfilled',
+    );
+    const rejected = conflictingUsers.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(fulfilled[0]?.value).toMatchObject({
+      status: 'accepted',
+      record: { createdContext: true },
+    });
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toMatchObject({
+      code: 'TASK_INITIAL_ADMISSION_CONTEXT_USER_CONFLICT',
+    });
+    const conflictingUserCounts = await pool.query<{
+      contexts: string;
+      admissions: string;
+      tasks: string;
+      bindings: string;
+      execution_attempts: string;
+      capability_attempts: string;
+      events: string;
+      outbox: string;
+    }>(
+      `SELECT
+         (SELECT count(*) FROM conversation_context WHERE context_id=$1)::text contexts,
+         (SELECT count(*) FROM initial_task_admission WHERE context_id=$1)::text admissions,
+         (SELECT count(*) FROM agent_task WHERE context_id=$1)::text tasks,
+         (SELECT count(*) FROM task_capability_binding binding
+            JOIN agent_task task ON task.task_id=binding.task_id
+           WHERE task.context_id=$1)::text bindings,
+         (SELECT count(*) FROM task_execution_attempt attempt
+            JOIN agent_task task ON task.task_id=attempt.task_id
+           WHERE task.context_id=$1)::text execution_attempts,
+         (SELECT count(*) FROM task_capability_execution_attempt attempt
+            JOIN agent_task task ON task.task_id=attempt.task_id
+           WHERE task.context_id=$1)::text capability_attempts,
+         (SELECT count(*) FROM runtime_event event
+            JOIN agent_task task ON task.task_id=event.task_id
+           WHERE task.context_id=$1 AND event.event_type='task.created')::text events,
+         (SELECT count(*) FROM cognitive_runtime_outbox outbox
+            JOIN task_capability_binding binding ON binding.binding_id=outbox.aggregate_id
+            JOIN agent_task task ON task.task_id=binding.task_id
+           WHERE task.context_id=$1
+             AND outbox.event_type='node.task.capability_bound')::text outbox`,
+      [conflictingContextId],
+    );
+    expect(conflictingUserCounts.rows[0]).toEqual({
+      contexts: '1',
+      admissions: '1',
+      tasks: '1',
+      bindings: '1',
+      execution_attempts: '1',
+      capability_attempts: '1',
+      events: '1',
+      outbox: '1',
+    });
+  });
+
+  it('replays a committed initial admission after queue failure and recovers its one durable job', async () => {
+    const buildCapabilityService = (repository: PostgresTaskCapabilityRepository) => {
+      const store: TaskCapabilityAcceptanceStore = {
+        resolveExposure: () =>
+          Promise.resolve({
+            exposureId: 'device.inspect',
+            exposureVersion: 1,
+            requestedCapabilityId: 'device.inspect',
+            capabilityVersion: 1,
+            requestSchema: {
+              type: 'object',
+              required: ['deviceId'],
+              properties: { deviceId: { type: 'string' } },
+              additionalProperties: false,
+            },
+            successCriteria: [{ type: 'field_equals', field: 'inspected', value: true }],
+            requiredEvidence: [],
+            constraints: [],
+            implementationRefs: ['skill:device.inspect:1'],
+            providerBindingRefs: [],
+          }),
+        accept: (input) => repository.accept(input),
+        findBinding: (taskId) => repository.findBinding(taskId),
+        listAttempts: (taskId) => repository.listAttempts(taskId),
+        bindInitialPlan: (taskId, planId) => repository.bindInitialPlan(taskId, planId),
+        appendAttempt: (input) => repository.appendAttempt(input),
+        updateLatestAttempt: (taskId, status, timestamp) =>
+          repository.updateLatestAttempt(taskId, status, timestamp),
+        reconcileCanceledAttempts: () => repository.reconcileCanceledAttempts(),
+        reconcileFailedAttempts: () => repository.reconcileFailedAttempts(),
+      };
+      return new RuntimeTaskCapabilityService({
+        store,
+        schemas: new AjvJsonSchemaValidator(),
+      });
+    };
+    const buildService = (
+      repository: PostgresTaskCapabilityRepository,
+      enqueue: ContextTaskQueue['enqueue'],
+    ) =>
+      new TaskService({
+        contexts: new PostgresConversationContextRepository(pool),
+        tasks: new PostgresAgentTaskRepository(pool),
+        taskInputs: new PostgresTaskInputRepository(pool),
+        events: new PostgresRuntimeEventPublisher(pool),
+        skillDrafts: new PostgresSkillDraftRepository(pool),
+        queue: { enqueue },
+        clock: { now: () => '2026-08-22T11:00:00.000Z' },
+        ids: sequenceIds(),
+        taskCapabilities: buildCapabilityService(repository),
+        initialAdmissions: repository,
+      });
+    const command = {
+      taskId: 'sdk-task.queue-failure-a',
+      contextId: 'sdk-context.queue-failure-a',
+      userId: 'operator.queue-failure',
+      messageText: 'Inspect device alpha.',
+      capabilityInput: { deviceId: 'alpha' },
+      metadata: {
+        structured_input: { deviceId: 'alpha' },
+        idempotency_key: 'initial-admission-queue-failure',
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'initial-admission-queue-failure',
+        },
+      },
+      initialAdmission: { idempotencyKey: 'initial-admission-queue-failure' },
+    } as const;
+    let firstQueueCalls = 0;
+    const firstRepository = new PostgresTaskCapabilityRepository(pool);
+    const firstService = buildService(firstRepository, () => {
+      firstQueueCalls += 1;
+      return Promise.reject(new Error('QUEUE_TEMPORARILY_UNAVAILABLE'));
+    });
+
+    await expect(firstService.submit(command)).resolves.toMatchObject({
+      task: { taskId: 'sdk-task.queue-failure-a', contextId: 'sdk-context.queue-failure-a' },
+      admissionStatus: 'accepted',
+      queueDispatchStatus: 'deferred_recovery',
+    });
+    expect(firstQueueCalls).toBe(1);
+    const authority = await firstRepository.findByIdempotencyKey('initial-admission-queue-failure');
+    expect(authority).toMatchObject({
+      taskId: 'sdk-task.queue-failure-a',
+      contextId: 'sdk-context.queue-failure-a',
+    });
+
+    let replayQueueCalls = 0;
+    const restartedRepository = new PostgresTaskCapabilityRepository(pool);
+    const restartedService = buildService(restartedRepository, () => {
+      replayQueueCalls += 1;
+      return Promise.resolve();
+    });
+    const replayed = await restartedService.submit({
+      ...command,
+      taskId: 'sdk-task.queue-failure-b',
+      contextId: 'sdk-context.queue-failure-b',
+    });
+    expect(replayed).toMatchObject({
+      task: { taskId: 'sdk-task.queue-failure-a', contextId: 'sdk-context.queue-failure-a' },
+      admissionStatus: 'replayed',
+      queueDispatchStatus: 'not_dispatched',
+    });
+    expect(replayQueueCalls).toBe(0);
+
+    const recoveredJobs: unknown[] = [];
+    const dispatcher = new TaskAttemptDispatchService({
+      attempts: new PostgresTaskInputRepository(pool),
+      queue: {
+        enqueue: (job) => {
+          recoveredJobs.push(job);
+          return Promise.resolve();
+        },
+      },
+    });
+    await expect(dispatcher.dispatchQueued()).resolves.toBe(1);
+    expect(recoveredJobs).toEqual([
+      {
+        taskId: 'sdk-task.queue-failure-a',
+        contextId: 'sdk-context.queue-failure-a',
+        attemptId: expect.any(String),
+        mode: 'initial',
+      },
+    ]);
+    const counts = await pool.query<{
+      admissions: string;
+      tasks: string;
+      bindings: string;
+      execution_attempts: string;
+      capability_attempts: string;
+      events: string;
+      outbox: string;
+      projections: string;
+      task_phase: string;
+      attempt_status: string;
+    }>(
+      `SELECT
+         (SELECT count(*) FROM initial_task_admission WHERE idempotency_key=$1)::text admissions,
+         (SELECT count(*) FROM agent_task WHERE task_id LIKE 'sdk-task.queue-failure-%')::text tasks,
+         (SELECT count(*) FROM task_capability_binding WHERE task_id LIKE 'sdk-task.queue-failure-%')::text bindings,
+         (SELECT count(*) FROM task_execution_attempt WHERE task_id LIKE 'sdk-task.queue-failure-%')::text execution_attempts,
+         (SELECT count(*) FROM task_capability_execution_attempt WHERE task_id LIKE 'sdk-task.queue-failure-%')::text capability_attempts,
+         (SELECT count(*) FROM runtime_event WHERE task_id LIKE 'sdk-task.queue-failure-%'
+           AND event_type='task.created')::text events,
+         (SELECT count(*) FROM cognitive_runtime_outbox outbox
+           JOIN task_capability_binding binding ON binding.binding_id=outbox.aggregate_id
+          WHERE binding.task_id LIKE 'sdk-task.queue-failure-%'
+            AND outbox.event_type='node.task.capability_bound')::text outbox,
+         (SELECT count(*) FROM external_task_projection
+           WHERE task_id LIKE 'sdk-task.queue-failure-%')::text projections,
+         (SELECT phase FROM agent_task
+           WHERE task_id='sdk-task.queue-failure-a')::text task_phase,
+         (SELECT status FROM task_execution_attempt
+           WHERE task_id='sdk-task.queue-failure-a')::text attempt_status`,
+      ['initial-admission-queue-failure'],
+    );
+    expect(counts.rows[0]).toEqual({
+      admissions: '1',
+      tasks: '1',
+      bindings: '1',
+      execution_attempts: '1',
+      capability_attempts: '1',
+      events: '1',
+      outbox: '1',
+      projections: '0',
+      task_phase: 'queued',
+      attempt_status: 'queued',
+    });
   });
 
   it('answers a persisted waiting request after service restart and creates a new attempt', async () => {

@@ -312,10 +312,10 @@ function exactBinding(
   if (
     exact.taskId !== taskId ||
     exact.requestedCapabilityId !== CAPABILITY_ID ||
-    exact.capabilityVersion !== 1 ||
+    exact.capabilityVersion !== 2 ||
     !sameStrings(exact.initialImplementationRefs, [SKILL_REFERENCE])
   )
-    guard('The frozen Task binding is not the exact embodied.move@1 authority.');
+    guard('The frozen Task binding is not the exact embodied.move@2 authority.');
   return exact;
 }
 

@@ -813,6 +813,7 @@ async function submitTask(
     resourceId: HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID,
     ...(scenario.kind === 'control' ? { power: scenario.power } : {}),
   });
+  const idempotencyKey = `${configuration.runId}:${scenario.kind === 'read' ? 'baseline' : scenario.purpose}`;
   const submitted = await client.sendMessage(
     SendMessageRequest.fromJSON({
       message: {
@@ -828,10 +829,11 @@ async function submitTask(
         metadata: {
           user_id: USER_ID,
           structured_input: structuredInput,
+          idempotency_key: idempotencyKey,
           'io.sdar/requestedCapability': {
             exposureId: scenario.exposureId,
             versionConstraint: '1',
-            requestId: `${configuration.runId}:${scenario.kind === 'read' ? 'baseline' : scenario.purpose}`,
+            requestId: idempotencyKey,
           },
         },
       },

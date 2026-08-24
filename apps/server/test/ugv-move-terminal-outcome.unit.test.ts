@@ -79,7 +79,7 @@ describe('UGV deterministic terminal outcome authority', () => {
       bindingHash: fixture.binding.bindingHash,
       attemptId: CAPABILITY_ATTEMPT_ID,
       requestedCapabilityId: 'embodied.move',
-      capabilityVersion: 1,
+      capabilityVersion: 2,
     });
     expect(prepared.verifiedOutcomeRefs).toEqual({
       effectRefs: ['effect.final_position'],
@@ -323,7 +323,7 @@ function taskBinding(overrides: Readonly<{ targetX?: number }> = {}): TaskCapabi
     bindingId: CAPABILITY_BINDING_ID,
     taskId: TASK_ID,
     requestedCapabilityId: 'embodied.move',
-    capabilityVersion: 1,
+    capabilityVersion: 2,
     exposureId: 'a2a.vehicle.ugv.navigate',
     exposureVersion: 1,
     inputSnapshot: Object.freeze({ resourceId: 'vehicle:ugv1', target }),
@@ -388,8 +388,8 @@ function taskBinding(overrides: Readonly<{ targetX?: number }> = {}): TaskCapabi
         simulationId: 'sim-uap-p2-b03',
       }),
       createUgvSimulationTargetPolicy({
-        policyId: 'ugv-agent-profile/simulation-short-move',
-        revision: 1,
+        policyId: 'ugv-agent-profile/explicit-wgs84-target',
+        revision: 2,
       }),
     ]),
     initialImplementationRefs: Object.freeze(['skill:embodied.move_to:1']),

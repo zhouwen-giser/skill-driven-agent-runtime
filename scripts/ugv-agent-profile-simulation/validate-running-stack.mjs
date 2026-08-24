@@ -97,15 +97,40 @@ export function validateProjectInventory(document, options = {}) {
 }
 
 export function validateSupervisorStatus(document) {
+  const identities = document?.processIdentitySha256;
   if (
     typeof document !== 'object' ||
     document === null ||
     Array.isArray(document) ||
     Object.keys(document).sort().join(',') !==
-      ['processCount', 'sideEffects', 'status'].join(',') ||
+      [
+        'activeSimulationRunId',
+        'bootstrapRunId',
+        'manifestRevision',
+        'processCount',
+        'processIdentitySha256',
+        'schemaVersion',
+        'sideEffects',
+        'status',
+      ].join(',') ||
+    document.schemaVersion !== 'sdar.ugv-agent-profile.host-process-status/v2' ||
     document.status !== 'running' ||
     document.processCount !== 3 ||
-    document.sideEffects !== 'NO'
+    document.sideEffects !== 'NO' ||
+    typeof document.bootstrapRunId !== 'string' ||
+    !/^[a-z0-9][a-z0-9._-]{0,95}$/u.test(document.bootstrapRunId) ||
+    document.bootstrapRunId.includes('..') ||
+    !Number.isSafeInteger(document.manifestRevision) ||
+    document.manifestRevision < 1 ||
+    document.activeSimulationRunId !== null ||
+    typeof identities !== 'object' ||
+    identities === null ||
+    Array.isArray(identities) ||
+    Object.keys(identities).sort().join(',') !==
+      ['nodeControlApi', 'nodeControlWorker', 'server'].join(',') ||
+    Object.values(identities).some(
+      (value) => typeof value !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(value),
+    )
   )
     throw new Error('UAP_SUPERVISOR_STATUS_INVALID');
   return Object.freeze({ processCount: 3, sideEffects: 'NO' });

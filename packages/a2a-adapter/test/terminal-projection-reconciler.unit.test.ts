@@ -7,6 +7,7 @@ import type {
   ExternalTaskProjectionRepository,
 } from '../../application/src/index.js';
 import type { AgentTask, TaskPhase } from '../../domain/src/index.js';
+import { A2AProjectionTaskStore } from '../src/postgres-task-store.js';
 import {
   A2A_TERMINAL_RECONCILIATION_PAGE_SIZE,
   A2ATerminalProjectionReconciler,
@@ -40,6 +41,9 @@ describe('A2ATerminalProjectionReconciler', () => {
     const reconciler = new A2ATerminalProjectionReconciler({
       projections,
       tasks: { findById: (taskId) => Promise.resolve(tasks.get(taskId)) },
+      taskStore: new A2AProjectionTaskStore(projections, {
+        findById: (taskId) => Promise.resolve(tasks.get(taskId)),
+      }),
     });
 
     await expect(reconciler.reconcile()).resolves.toEqual({
@@ -78,6 +82,9 @@ describe('A2ATerminalProjectionReconciler', () => {
     const reconciler = new A2ATerminalProjectionReconciler({
       projections,
       tasks: { findById: (taskId) => Promise.resolve(tasks.get(taskId)) },
+      taskStore: new A2AProjectionTaskStore(projections, {
+        findById: (taskId) => Promise.resolve(tasks.get(taskId)),
+      }),
     });
 
     expect((await reconciler.reconcile()).reconciled).toBe(1);
@@ -97,6 +104,9 @@ describe('A2ATerminalProjectionReconciler', () => {
     const reconciler = new A2ATerminalProjectionReconciler({
       projections,
       tasks: { findById: () => Promise.resolve(completed) },
+      taskStore: new A2AProjectionTaskStore(projections, {
+        findById: () => Promise.resolve(completed),
+      }),
       interaction,
     });
 
@@ -123,6 +133,9 @@ describe('A2ATerminalProjectionReconciler', () => {
     const reconciler = new A2ATerminalProjectionReconciler({
       projections,
       tasks: { findById: (taskId) => Promise.resolve(tasks.get(taskId)) },
+      taskStore: new A2AProjectionTaskStore(projections, {
+        findById: (taskId) => Promise.resolve(tasks.get(taskId)),
+      }),
     });
 
     await expect(reconciler.reconcile()).resolves.toMatchObject({
@@ -130,6 +143,74 @@ describe('A2ATerminalProjectionReconciler', () => {
       reconciled: count,
     });
     expect(projections.terminalCount()).toBe(count);
+  });
+
+  it('preserves replay history when a reconciliation tick holds a stale projection snapshot', async () => {
+    const completed = terminalTask('completed', 1);
+    const projections = new FakeProjectionRepository([
+      staleProjection(completed.taskId, completed.contextId, TaskState.TASK_STATE_INPUT_REQUIRED),
+    ]);
+    let releaseLookup: () => void = () => undefined;
+    let signalLookupStarted: () => void = () => undefined;
+    const lookupStarted = new Promise<void>((resolve) => {
+      signalLookupStarted = resolve;
+    });
+    const lookupGate = new Promise<void>((resolve) => {
+      releaseLookup = resolve;
+    });
+    let lookupCount = 0;
+    const tasks = {
+      findById: async () => {
+        lookupCount += 1;
+        if (lookupCount === 1) {
+          signalLookupStarted();
+          await lookupGate;
+        }
+        return completed;
+      },
+    };
+    const taskStore = new A2AProjectionTaskStore(projections, tasks);
+    const reconciler = new A2ATerminalProjectionReconciler({
+      projections,
+      tasks,
+      taskStore,
+    });
+
+    const tick = reconciler.reconcile();
+    await lookupStarted;
+    await taskStore.saveCanonical(
+      Task.fromJSON({
+        id: completed.taskId,
+        contextId: completed.contextId,
+        status: {
+          state: TaskState.TASK_STATE_INPUT_REQUIRED,
+          timestamp: '2026-08-13T00:00:01Z',
+        },
+        history: [
+          {
+            messageId: 'message-concurrent-replay',
+            taskId: 'sdk-generated-retry-task',
+            contextId: 'sdk-generated-retry-context',
+            role: 'ROLE_USER',
+            parts: [{ text: 'Inspect.' }],
+          },
+        ],
+      }),
+    );
+    releaseLookup();
+
+    await expect(tick).resolves.toMatchObject({ reconciled: 1 });
+    const stored = Task.fromJSON(projections.document(completed.taskId));
+    expect(stored.history.map((message) => message.messageId)).toEqual([
+      `${completed.taskId}:request`,
+      'message-concurrent-replay',
+    ]);
+    expect(
+      stored.history.every(
+        (message) =>
+          message.taskId === completed.taskId && message.contextId === completed.contextId,
+      ),
+    ).toBe(true);
   });
 
   it('keeps periodic reconciliation configuration bounded', () => {

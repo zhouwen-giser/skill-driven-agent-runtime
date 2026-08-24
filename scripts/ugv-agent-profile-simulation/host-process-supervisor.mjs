@@ -1,25 +1,31 @@
 #!/usr/bin/env node
 
+import { Buffer } from 'node:buffer';
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
 import {
   chmod,
   link,
   lstat,
+  mkdtemp,
   mkdir,
   open,
   readFile,
   readdir,
+  realpath,
   readlink,
   rename,
   unlink,
   writeFile,
 } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, URL } from 'node:url';
 
+import { authorizeB02SimulationId } from './b02-attempt-identity.mjs';
 import { initializeState } from './initialize-state.mjs';
 import {
   assertPrivateProcessLogSafe,
@@ -29,9 +35,20 @@ import {
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const STATE_ROOT = `/tmp/sdar-uap-p3-b01-${String(process.getuid?.() ?? 0)}`;
+const REPORT_ROOT = resolve(REPOSITORY_ROOT, 'reports/ugv-agent-profile-simulation');
 const MANIFEST_PATH = join(STATE_ROOT, 'processes.json');
 const LOCK_PATH = join(STATE_ROOT, 'host-process.lock');
 const TSX_CLI = resolve(REPOSITORY_ROOT, 'node_modules/tsx/dist/cli.mjs');
+const B02_SIMULATION_RUN_ID = /^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u;
+const OFFLINE_FIXTURE_SIMULATION_RUN_ID = /^uap-p3-b02-offline-fixture-[a-f0-9]{24}$/u;
+const OFFLINE_FIXTURE_ACKNOWLEDGEMENT =
+  'I_ACKNOWLEDGE_INTERNAL_OFFLINE_HOST_PROCESS_SUPERVISOR_TEST_FIXTURE';
+const OFFLINE_FIXTURE_ENTRYPOINT = resolve(
+  REPOSITORY_ROOT,
+  'apps/node-control-acceptance/test/fixtures/ugv-host-process-supervisor.fixture.mjs',
+);
+const OFFLINE_FIXTURE_ROOT_PREFIX = resolve(tmpdir(), 'sdar-uap-supervisor-fixture-');
+const OFFLINE_FIXTURE_SESSION_FILE = '.offline-host-process-supervisor-fixture.json';
 const PROCESS_SPECS = Object.freeze([
   Object.freeze({
     name: 'server',
@@ -76,12 +93,245 @@ const ARTIFACT_FLAGS = Object.freeze({
   SDAR_V13_ARTIFACT_ALLOWLIST: '',
 });
 
+const PRODUCTION_SUPERVISOR_CONFIGURATION = Object.freeze({
+  kind: 'production',
+  stateRoot: STATE_ROOT,
+  reportRoot: REPORT_ROOT,
+  manifestPath: MANIFEST_PATH,
+  lockPath: LOCK_PATH,
+  processSpecs: PROCESS_SPECS,
+  executableInputs: Object.freeze([TSX_CLI, ...PROCESS_SPECS.map((entry) => entry.entrypoint)]),
+  initializeState: () => initializeState(),
+  authorizeSimulationId: (simulationRunId) =>
+    authorizeB02SimulationId(simulationRunId, {
+      stateRoot: STATE_ROOT,
+      reportRoot: REPORT_ROOT,
+    }),
+  processEnvironment: (name, sideEffects, simulationRunId) =>
+    processEnvironment(
+      name,
+      sideEffects,
+      STATE_ROOT,
+      resolve(REPOSITORY_ROOT, '.env'),
+      simulationRunId,
+      REPORT_ROOT,
+    ),
+  spawnCommand: (specification) =>
+    Object.freeze({
+      executable: process.execPath,
+      arguments: Object.freeze([TSX_CLI, specification.entrypoint]),
+    }),
+  readinessEvents: Object.freeze({
+    server: 'server.ready',
+    'node-control-api': 'node_control.api.ready',
+    'node-control-worker': 'node_control.worker.ready',
+  }),
+  healthUrls: Object.freeze({
+    server: 'http://127.0.0.1:10998/api/v1/health',
+    'node-control-api': 'http://127.0.0.1:10091/health/ready',
+  }),
+  readinessTimeoutMs: 180_000,
+  readinessPollMs: 250,
+  assertProcessLogSafe: (logFile) => assertProcessLogSafe(logFile),
+});
+
 export class UapSupervisorError extends Error {
   constructor(code) {
     super(code);
     this.name = 'UapSupervisorError';
     this.code = code;
   }
+}
+
+export async function createOfflineHostProcessSupervisorTestFixture(options) {
+  if (
+    typeof options !== 'object' ||
+    options === null ||
+    Array.isArray(options) ||
+    Object.keys(options).sort().join(',') !==
+      ['acknowledgement', 'fixtureCapability', 'fixtureEntrypoint', 'fixtureRoot'].join(',') ||
+    options.acknowledgement !== OFFLINE_FIXTURE_ACKNOWLEDGEMENT
+  )
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  const fixtureEntrypoint = await validateOfflineFixtureEntrypoint(options.fixtureEntrypoint);
+  const fixtureCapability = validateOfflineFixtureCapability(options.fixtureCapability);
+  let fixtureSession;
+  if (options.fixtureRoot === null)
+    fixtureSession = await initializeOfflineFixtureSession(fixtureEntrypoint, fixtureCapability);
+  else
+    fixtureSession = await validateOfflineFixtureSession(
+      options.fixtureRoot,
+      fixtureEntrypoint,
+      fixtureCapability,
+    );
+  const stateRoot = fixtureSession.root;
+  const reportRoot = join(stateRoot, 'reports');
+  const processSpecs = Object.freeze([
+    Object.freeze({ name: 'server', entrypoint: fixtureEntrypoint, cwd: stateRoot }),
+    Object.freeze({
+      name: 'node-control-api',
+      entrypoint: fixtureEntrypoint,
+      cwd: join(stateRoot, 'host-work'),
+    }),
+    Object.freeze({
+      name: 'node-control-worker',
+      entrypoint: fixtureEntrypoint,
+      cwd: join(stateRoot, 'host-work'),
+    }),
+  ]);
+  const authorizeSimulationId = async (simulationRunId) => {
+    const state = await initializeState(stateRoot);
+    const issuedSimulationRunId = offlineFixtureIssuedSimulationRunId(state.bootstrapRunId);
+    if (simulationRunId === state.simulationRunId)
+      return Object.freeze({ simulationId: simulationRunId, kind: 'initial_reserved' });
+    if (simulationRunId === issuedSimulationRunId)
+      return Object.freeze({ simulationId: simulationRunId, kind: 'recovery_issued' });
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_NOT_AUTHORIZED');
+  };
+  let configuration;
+  configuration = Object.freeze({
+    kind: 'offline_test_fixture',
+    stateRoot,
+    reportRoot,
+    manifestPath: join(stateRoot, 'processes.json'),
+    lockPath: join(stateRoot, 'host-process.lock'),
+    processSpecs,
+    executableInputs: Object.freeze([fixtureEntrypoint]),
+    initializeState: () => initializeState(stateRoot),
+    authorizeSimulationId,
+    processEnvironment: (name, sideEffects, simulationRunId) =>
+      offlineFixtureProcessEnvironment(name, sideEffects, simulationRunId, configuration),
+    spawnCommand: (specification) =>
+      Object.freeze({
+        executable: process.execPath,
+        arguments: Object.freeze([specification.entrypoint]),
+      }),
+    readinessEvents: Object.freeze({
+      server: 'offline_fixture.server.ready',
+      'node-control-api': 'offline_fixture.node-control-api.ready',
+      'node-control-worker': 'offline_fixture.node-control-worker.ready',
+    }),
+    healthUrls: Object.freeze({}),
+    readinessTimeoutMs: 5_000,
+    readinessPollMs: 25,
+    assertProcessLogSafe: (logFile) => assertOfflineFixtureProcessLogSafe(logFile),
+  });
+  return Object.freeze({
+    fixtureRoot: stateRoot,
+    manifestPath: configuration.manifestPath,
+    startProcesses: () => startProcessesWithConfiguration(configuration),
+    processStatus: () => processStatusWithConfiguration(configuration),
+    stopProcesses: () => stopProcessesWithConfiguration(configuration),
+    restartServer: (sideEffects, acknowledgement, requestedSimulationRunId) =>
+      restartServerWithConfiguration(
+        sideEffects,
+        acknowledgement,
+        requestedSimulationRunId,
+        configuration,
+      ),
+    processLogFiles: (allowMissingProcesses = false) =>
+      processLogFilesWithConfiguration(allowMissingProcesses, configuration),
+    issuedSimulationRunId: async () => {
+      const state = await initializeState(stateRoot);
+      return offlineFixtureIssuedSimulationRunId(state.bootstrapRunId);
+    },
+  });
+}
+
+async function validateOfflineFixtureEntrypoint(value) {
+  if (value !== OFFLINE_FIXTURE_ENTRYPOINT)
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  const [status, canonical] = await Promise.all([lstat(value), realpath(value)]).catch(() => {
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  });
+  if (status.isSymbolicLink() || !status.isFile() || canonical !== OFFLINE_FIXTURE_ENTRYPOINT)
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  return canonical;
+}
+
+function validateOfflineFixtureCapability(value) {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/u.test(value))
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  return value;
+}
+
+async function initializeOfflineFixtureSession(fixtureEntrypoint, fixtureCapability) {
+  const root = await mkdtemp(OFFLINE_FIXTURE_ROOT_PREFIX);
+  await chmod(root, 0o700);
+  const document = Object.freeze({
+    schemaVersion: 'sdar.ugv-agent-profile.offline-supervisor-fixture/v1',
+    creationMethod: 'node.fs.mkdtemp',
+    root,
+    fixtureEntrypoint,
+    capabilitySha256: createHash('sha256').update(fixtureCapability).digest('hex'),
+  });
+  await writeFile(join(root, OFFLINE_FIXTURE_SESSION_FILE), `${JSON.stringify(document)}\n`, {
+    encoding: 'utf8',
+    mode: 0o600,
+    flag: 'wx',
+  });
+  await chmod(join(root, OFFLINE_FIXTURE_SESSION_FILE), 0o600);
+  return validateOfflineFixtureSession(root, fixtureEntrypoint, fixtureCapability);
+}
+
+async function validateOfflineFixtureSession(rootValue, fixtureEntrypoint, fixtureCapability) {
+  if (typeof rootValue !== 'string')
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  const root = resolve(rootValue);
+  const suffix = root.slice(OFFLINE_FIXTURE_ROOT_PREFIX.length);
+  let status;
+  let canonical;
+  try {
+    [status, canonical] = await Promise.all([lstat(root), realpath(root)]);
+  } catch {
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  }
+  if (
+    !root.startsWith(OFFLINE_FIXTURE_ROOT_PREFIX) ||
+    !/^[A-Za-z0-9]{6}$/u.test(suffix) ||
+    canonical !== root ||
+    status.isSymbolicLink() ||
+    !status.isDirectory() ||
+    (status.mode & 0o777) !== 0o700 ||
+    (process.getuid !== undefined && status.uid !== process.getuid())
+  )
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  let session;
+  try {
+    session = JSON.parse(await readPrivateFile(join(root, OFFLINE_FIXTURE_SESSION_FILE), 16_384));
+  } catch {
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  }
+  if (
+    typeof session !== 'object' ||
+    session === null ||
+    Array.isArray(session) ||
+    Object.keys(session).sort().join(',') !==
+      ['capabilitySha256', 'creationMethod', 'fixtureEntrypoint', 'root', 'schemaVersion'].join(
+        ',',
+      ) ||
+    session.schemaVersion !== 'sdar.ugv-agent-profile.offline-supervisor-fixture/v1' ||
+    session.creationMethod !== 'node.fs.mkdtemp' ||
+    session.root !== root ||
+    session.fixtureEntrypoint !== fixtureEntrypoint ||
+    typeof session.capabilitySha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/u.test(session.capabilitySha256) ||
+    !timingSafeEqual(
+      Buffer.from(session.capabilitySha256, 'hex'),
+      Buffer.from(createHash('sha256').update(fixtureCapability).digest('hex'), 'hex'),
+    )
+  )
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  return Object.freeze({ root });
+}
+
+function offlineFixtureIssuedSimulationRunId(bootstrapRunId) {
+  if (typeof bootstrapRunId !== 'string')
+    throw new UapSupervisorError('UAP_OFFLINE_FIXTURE_CONFIGURATION_INVALID');
+  return `uap-p3-b02-offline-fixture-${createHash('sha256')
+    .update(bootstrapRunId)
+    .digest('hex')
+    .slice(0, 24)}`;
 }
 
 export function sanitizedBaseEnvironment(environment = process.env) {
@@ -133,10 +383,12 @@ export async function processEnvironment(
   sideEffects = 'NO',
   stateRoot = STATE_ROOT,
   dotEnvPath = resolve(REPOSITORY_ROOT, '.env'),
+  sideEffectSimulationRunId,
+  reportRoot = REPORT_ROOT,
 ) {
   if (!['NO', 'YES'].includes(sideEffects))
     throw new UapSupervisorError('UAP_SIDE_EFFECT_MODE_INVALID');
-  const state = await initializeState(stateRoot);
+  await initializeState(stateRoot);
   const base = { ...sanitizedBaseEnvironment() };
   if (name === 'node-control-api')
     return Object.freeze({
@@ -187,6 +439,11 @@ export async function processEnvironment(
       SDAR_CONTROL_WORKER_ONCE: 'false',
     });
   if (name !== 'server') throw new UapSupervisorError('UAP_PROCESS_NAME_INVALID');
+  const resolvedSideEffectSimulationRunId = await resolveSideEffectSimulationRunId(
+    sideEffects,
+    sideEffectSimulationRunId,
+    { stateRoot, reportRoot },
+  );
   const dotEnv = await validateDotEnv(dotEnvPath);
   const providerAuthorities = exactProviderAuthorities(dotEnv.values);
   return Object.freeze({
@@ -239,19 +496,82 @@ export async function processEnvironment(
     UGV_TEST_MAX_FINAL_STATE_AGE_MS: '3000',
     SDAR_TASK_UNDERSTANDING_PROFILE: 'ugv-agent-profile',
     ALLOW_UGV_SIMULATION_SIDE_EFFECTS: sideEffects,
-    UGV_SIMULATION_RUN_ID: state.simulationRunId,
+    ...(resolvedSideEffectSimulationRunId === null
+      ? {}
+      : { UGV_SIMULATION_RUN_ID: resolvedSideEffectSimulationRunId }),
     ...ARTIFACT_FLAGS,
   });
 }
 
+async function offlineFixtureProcessEnvironment(
+  name,
+  sideEffects,
+  sideEffectSimulationRunId,
+  configuration,
+) {
+  if (!configuration.processSpecs.some((entry) => entry.name === name))
+    throw new UapSupervisorError('UAP_PROCESS_NAME_INVALID');
+  await configuration.initializeState();
+  const environment = {
+    NODE_ENV: 'test',
+    SDAR_UAP_OFFLINE_SUPERVISOR_FIXTURE_CHILD:
+      'I_ACKNOWLEDGE_INTERNAL_OFFLINE_HOST_PROCESS_SUPERVISOR_TEST_CHILD',
+    SDAR_UAP_OFFLINE_SUPERVISOR_FIXTURE_PROCESS_NAME: name,
+  };
+  if (name !== 'server') return Object.freeze(environment);
+  const resolvedSimulationRunId = await resolveConfiguredSideEffectSimulationRunId(
+    sideEffects,
+    sideEffectSimulationRunId,
+    configuration,
+  );
+  return Object.freeze({
+    ...environment,
+    ALLOW_UGV_SIMULATION_SIDE_EFFECTS: sideEffects,
+    ...(resolvedSimulationRunId === null ? {} : { UGV_SIMULATION_RUN_ID: resolvedSimulationRunId }),
+  });
+}
+
+export async function resolveSideEffectSimulationRunId(
+  sideEffects,
+  requestedSimulationRunId,
+  options = {},
+) {
+  if (sideEffects === 'NO') {
+    if (requestedSimulationRunId !== undefined && requestedSimulationRunId !== null)
+      throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_FORBIDDEN');
+    return null;
+  }
+  if (sideEffects !== 'YES') throw new UapSupervisorError('UAP_SIDE_EFFECT_MODE_INVALID');
+  if (
+    typeof requestedSimulationRunId !== 'string' ||
+    !B02_SIMULATION_RUN_ID.test(requestedSimulationRunId)
+  )
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_REQUIRED');
+  if (OFFLINE_FIXTURE_SIMULATION_RUN_ID.test(requestedSimulationRunId))
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_NOT_AUTHORIZED');
+  try {
+    await (options.authorizeSimulationId ?? authorizeB02SimulationId)(requestedSimulationRunId, {
+      stateRoot: resolve(options.stateRoot ?? STATE_ROOT),
+      reportRoot: resolve(options.reportRoot ?? REPORT_ROOT),
+    });
+  } catch {
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_NOT_AUTHORIZED');
+  }
+  return requestedSimulationRunId;
+}
+
 export async function startProcesses() {
+  return startProcessesWithConfiguration(PRODUCTION_SUPERVISOR_CONFIGURATION);
+}
+
+async function startProcessesWithConfiguration(configuration) {
   return withLock(async () => {
-    const state = await initializeState();
-    await ensurePrivateDirectory(join(STATE_ROOT, 'host-work'));
-    await assertExecutableInputs();
-    const existing = await optionalManifest();
+    const state = await configuration.initializeState();
+    await ensurePrivateDirectory(join(configuration.stateRoot, 'host-work'));
+    await assertExecutableInputs(configuration);
+    const existing = await optionalManifest(configuration);
     if (existing !== undefined) {
-      await validateManifest(existing, { allowMissingProcesses: false });
+      await validateManifest(existing, { allowMissingProcesses: false }, configuration);
       return Object.freeze({
         status: 'already_running',
         processCount: 3,
@@ -261,90 +581,177 @@ export async function startProcesses() {
     const processes = [];
     let publishedManifest;
     try {
-      for (const spec of PROCESS_SPECS)
-        processes.push(await spawnProcess(spec, spec.name === 'server' ? 'NO' : undefined));
+      for (const spec of configuration.processSpecs)
+        processes.push(
+          await spawnProcess(
+            spec,
+            spec.name === 'server' ? 'NO' : undefined,
+            undefined,
+            configuration,
+          ),
+        );
       const manifest = Object.freeze({
         schemaVersion: 'sdar.ugv-agent-profile.host-processes/v1',
         bootstrapRunId: state.bootstrapRunId,
         simulationRunId: state.simulationRunId,
+        sideEffectSimulationRunId: null,
         revision: 1,
         sideEffects: 'NO',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         processes: Object.freeze(processes),
       });
-      await publishManifestFirstWriter(manifest);
+      await publishManifestFirstWriter(manifest, configuration);
       publishedManifest = manifest;
-      await validateManifest(manifest, { allowMissingProcesses: false });
+      await validateManifest(manifest, { allowMissingProcesses: false }, configuration);
       return Object.freeze({ status: 'started', processCount: 3, sideEffects: 'NO' });
     } catch (error) {
-      await stopEntries([...processes].reverse());
-      if (publishedManifest !== undefined) await cleanupPublishedManifest(publishedManifest);
+      await stopEntries([...processes].reverse(), configuration);
+      if (publishedManifest !== undefined)
+        await cleanupPublishedManifest(publishedManifest, {
+          read: () => requireManifest(configuration),
+          remove: () => unlinkPrivateManifest(configuration),
+        });
       throw error;
     }
-  });
+  }, configuration);
 }
 
 export async function processStatus() {
-  const manifest = await requireManifest();
-  await validateManifest(manifest, { allowMissingProcesses: false });
+  return processStatusWithConfiguration(PRODUCTION_SUPERVISOR_CONFIGURATION);
+}
+
+async function processStatusWithConfiguration(configuration) {
+  const manifest = await requireManifest(configuration);
+  await validateManifest(manifest, { allowMissingProcesses: false }, configuration);
+  const identities = processIdentityHashes(manifest.processes);
   return Object.freeze({
+    schemaVersion: 'sdar.ugv-agent-profile.host-process-status/v2',
     status: 'running',
     processCount: manifest.processes.length,
     sideEffects: manifest.sideEffects,
+    bootstrapRunId: manifest.bootstrapRunId,
+    manifestRevision: manifest.revision,
+    activeSimulationRunId: manifest.sideEffectSimulationRunId ?? null,
+    processIdentitySha256: identities,
   });
 }
 
 export async function stopProcesses() {
+  return stopProcessesWithConfiguration(PRODUCTION_SUPERVISOR_CONFIGURATION);
+}
+
+async function stopProcessesWithConfiguration(configuration) {
   return withLock(async () => {
-    const manifest = await optionalManifest();
+    const manifest = await optionalManifest(configuration);
     if (manifest === undefined)
       return Object.freeze({ status: 'already_stopped', processCount: 0 });
-    await validateManifest(manifest, { allowMissingProcesses: true });
-    await stopEntries([...manifest.processes].reverse());
-    await unlinkPrivateManifest();
+    await validateManifest(manifest, { allowMissingProcesses: true }, configuration);
+    await stopEntries([...manifest.processes].reverse(), configuration);
+    await unlinkPrivateManifest(configuration);
     return Object.freeze({ status: 'stopped', processCount: manifest.processes.length });
-  });
+  }, configuration);
 }
 
-export async function restartServer(sideEffects, acknowledgement) {
+export async function restartServer(sideEffects, acknowledgement, requestedSimulationRunId) {
+  return restartServerWithConfiguration(
+    sideEffects,
+    acknowledgement,
+    requestedSimulationRunId,
+    PRODUCTION_SUPERVISOR_CONFIGURATION,
+  );
+}
+
+async function restartServerWithConfiguration(
+  sideEffects,
+  acknowledgement,
+  requestedSimulationRunId,
+  configuration,
+) {
+  if (sideEffects !== 'NO' && sideEffects !== 'YES')
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_MODE_INVALID');
+  if (sideEffects === 'NO' && acknowledgement !== undefined)
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_ACKNOWLEDGEMENT_FORBIDDEN');
+  if (
+    sideEffects === 'YES' &&
+    acknowledgement !== 'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS'
+  )
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_ACKNOWLEDGEMENT_REQUIRED');
   return withLock(async () => {
-    if (sideEffects !== 'NO' && sideEffects !== 'YES')
-      throw new UapSupervisorError('UAP_SIDE_EFFECT_MODE_INVALID');
-    if (
-      sideEffects === 'YES' &&
-      acknowledgement !== 'I_ACKNOWLEDGE_UAP_P3_B02_SIMULATION_SIDE_EFFECTS'
-    )
-      throw new UapSupervisorError('UAP_SIDE_EFFECT_ACKNOWLEDGEMENT_REQUIRED');
-    const manifest = await requireManifest();
-    await validateManifest(manifest, { allowMissingProcesses: false });
-    if (manifest.sideEffects === sideEffects)
+    const targetSimulationRunId = await resolveConfiguredSideEffectSimulationRunId(
+      sideEffects,
+      requestedSimulationRunId,
+      configuration,
+    );
+    const manifest = await requireManifest(configuration);
+    await validateManifest(manifest, { allowMissingProcesses: false }, configuration);
+    const currentSimulationRunId = manifest.sideEffectSimulationRunId ?? null;
+    if (manifest.sideEffects === sideEffects && currentSimulationRunId === targetSimulationRunId)
       return Object.freeze({ status: 'already_running', processCount: 3, sideEffects });
-    const serverSpec = PROCESS_SPECS.find((entry) => entry.name === 'server');
+    if (manifest.sideEffects === 'YES' && sideEffects === 'YES')
+      throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_CONFLICT');
+    const serverSpec = configuration.processSpecs.find((entry) => entry.name === 'server');
     if (serverSpec === undefined) throw new UapSupervisorError('UAP_PROCESS_SPEC_INVALID');
-    return transactionalRestartServer(manifest, sideEffects, {
-      stop: stopEntries,
-      spawn: (mode) => spawnProcess(serverSpec, mode),
-      readManifest: requireManifest,
-      replaceManifest,
-      validate: (value) => validateManifest(value, { allowMissingProcesses: false }),
+    return transactionalRestartServer(manifest, sideEffects, targetSimulationRunId, {
+      stop: (entries) => stopEntries(entries, configuration),
+      spawn: (mode, simulationRunId) =>
+        spawnProcess(serverSpec, mode, simulationRunId, configuration),
+      readManifest: () => requireManifest(configuration),
+      replaceManifest: (prior, next) => replaceManifest(prior, next, configuration),
+      validate: (value) => validateManifest(value, { allowMissingProcesses: false }, configuration),
       now: () => new Date().toISOString(),
     });
-  });
+  }, configuration);
 }
 
-export async function transactionalRestartServer(manifest, sideEffects, dependencies) {
+async function resolveConfiguredSideEffectSimulationRunId(
+  sideEffects,
+  requestedSimulationRunId,
+  configuration,
+) {
+  if (configuration.kind === 'production')
+    return resolveSideEffectSimulationRunId(sideEffects, requestedSimulationRunId, {
+      stateRoot: configuration.stateRoot,
+      reportRoot: configuration.reportRoot,
+      authorizeSimulationId: configuration.authorizeSimulationId,
+    });
+  if (sideEffects === 'NO') {
+    if (requestedSimulationRunId !== undefined && requestedSimulationRunId !== null)
+      throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_FORBIDDEN');
+    return null;
+  }
+  if (
+    sideEffects !== 'YES' ||
+    typeof requestedSimulationRunId !== 'string' ||
+    !OFFLINE_FIXTURE_SIMULATION_RUN_ID.test(requestedSimulationRunId)
+  )
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_REQUIRED');
+  try {
+    await configuration.authorizeSimulationId(requestedSimulationRunId);
+  } catch {
+    throw new UapSupervisorError('UAP_SIDE_EFFECT_SIMULATION_ID_NOT_AUTHORIZED');
+  }
+  return requestedSimulationRunId;
+}
+
+export async function transactionalRestartServer(
+  manifest,
+  sideEffects,
+  sideEffectSimulationRunId,
+  dependencies,
+) {
   const server = manifest.processes.find((entry) => entry.name === 'server');
   if (server === undefined) throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
   await dependencies.stop([server]);
   let replacement;
   let next;
   try {
-    replacement = await dependencies.spawn(sideEffects);
+    replacement = await dependencies.spawn(sideEffects, sideEffectSimulationRunId);
     next = Object.freeze({
       ...manifest,
       revision: manifest.revision + 1,
       sideEffects,
+      sideEffectSimulationRunId,
       updatedAt: dependencies.now(),
       processes: Object.freeze(
         manifest.processes.map((entry) => (entry.name === 'server' ? replacement : entry)),
@@ -362,8 +769,11 @@ export async function transactionalRestartServer(manifest, sideEffects, dependen
       }
     }
     let restoredServer;
+    const restoredSideEffects = sideEffects === 'NO' ? 'NO' : manifest.sideEffects;
+    const restoredSimulationRunId =
+      restoredSideEffects === 'YES' ? manifest.sideEffectSimulationRunId : null;
     try {
-      restoredServer = await dependencies.spawn(manifest.sideEffects);
+      restoredServer = await dependencies.spawn(restoredSideEffects, restoredSimulationRunId);
       const current = await dependencies.readManifest();
       if (
         JSON.stringify(current) !== JSON.stringify(manifest) &&
@@ -375,6 +785,8 @@ export async function transactionalRestartServer(manifest, sideEffects, dependen
       const restored = Object.freeze({
         ...manifest,
         revision: current.revision + 1,
+        sideEffects: restoredSideEffects,
+        sideEffectSimulationRunId: restoredSimulationRunId,
         updatedAt: dependencies.now(),
         processes: Object.freeze(
           current.processes.map((entry) => (entry.name === 'server' ? restoredServer : entry)),
@@ -393,9 +805,16 @@ export async function transactionalRestartServer(manifest, sideEffects, dependen
 }
 
 export async function processLogFiles(allowMissingProcesses = false) {
-  if (allowMissingProcesses) return listPrivateLogFiles(join(STATE_ROOT, 'logs'));
-  const manifest = await requireManifest();
-  await validateManifest(manifest, { allowMissingProcesses: false });
+  return processLogFilesWithConfiguration(
+    allowMissingProcesses,
+    PRODUCTION_SUPERVISOR_CONFIGURATION,
+  );
+}
+
+async function processLogFilesWithConfiguration(allowMissingProcesses, configuration) {
+  if (allowMissingProcesses) return listPrivateLogFiles(join(configuration.stateRoot, 'logs'));
+  const manifest = await requireManifest(configuration);
+  await validateManifest(manifest, { allowMissingProcesses: false }, configuration);
   return Object.freeze(manifest.processes.map((entry) => entry.logFile));
 }
 
@@ -449,10 +868,10 @@ function containsControlCharacter(value) {
   return false;
 }
 
-async function spawnProcess(spec, sideEffects) {
+async function spawnProcess(spec, sideEffects, sideEffectSimulationRunId, configuration) {
   if (spec === undefined) throw new UapSupervisorError('UAP_PROCESS_SPEC_INVALID');
   const logFile = join(
-    STATE_ROOT,
+    configuration.stateRoot,
     'logs',
     `${spec.name}-${new Date().toISOString().replace(/[-:.TZ]/gu, '')}-${randomBytes(6).toString('hex')}.jsonl`,
   );
@@ -460,8 +879,13 @@ async function spawnProcess(spec, sideEffects) {
   let child;
   let candidate;
   try {
-    const environment = await processEnvironment(spec.name, sideEffects ?? 'NO');
-    child = spawn(process.execPath, [TSX_CLI, spec.entrypoint], {
+    const environment = await configuration.processEnvironment(
+      spec.name,
+      sideEffects ?? 'NO',
+      sideEffectSimulationRunId,
+    );
+    const command = configuration.spawnCommand(spec);
+    child = spawn(command.executable, command.arguments, {
       cwd: spec.cwd,
       env: environment,
       detached: true,
@@ -474,7 +898,7 @@ async function spawnProcess(spec, sideEffects) {
   }
   const pid = child.pid;
   try {
-    const observed = await waitForExactIdentity(pid, spec);
+    const observed = await waitForExactIdentity(pid, spec, configuration);
     candidate = Object.freeze({
       name: spec.name,
       pid,
@@ -486,16 +910,16 @@ async function spawnProcess(spec, sideEffects) {
       cwd: spec.cwd,
       logFile,
     });
-    await validateProcessEntry(candidate, false, false);
-    const readyAt = await waitForReadiness(candidate);
+    await validateProcessEntry(candidate, false, false, configuration);
+    const readyAt = await waitForReadiness(candidate, configuration);
     const entry = Object.freeze({ ...candidate, readyAt });
-    await validateProcessEntry(entry, false, true);
-    await assertProcessLogSafe(logFile);
+    await validateProcessEntry(entry, false, true, configuration);
+    await configuration.assertProcessLogSafe(logFile);
     return entry;
   } catch (error) {
     let logFailure;
     try {
-      await assertProcessLogSafe(logFile);
+      await configuration.assertProcessLogSafe(logFile);
     } catch (scanError) {
       logFailure = scanError;
     }
@@ -565,7 +989,9 @@ function candidateIdentityAnchorMatches(candidate, observed) {
   );
 }
 
-async function waitForExactIdentity(pid, spec) {
+async function waitForExactIdentity(pid, spec, configuration) {
+  const command = configuration.spawnCommand(spec);
+  const expectedArguments = [command.executable, ...command.arguments];
   for (let attempt = 0; attempt < 80; attempt += 1) {
     const observed = await inspectProcess(pid);
     if (observed === undefined) {
@@ -577,10 +1003,8 @@ async function waitForExactIdentity(pid, spec) {
       observed.processGroupId === pid &&
       observed.sessionId === pid &&
       observed.cwd === spec.cwd &&
-      observed.argv.length === 3 &&
-      observed.argv[0] === process.execPath &&
-      observed.argv[1] === TSX_CLI &&
-      observed.argv[2] === spec.entrypoint
+      observed.argv.length === expectedArguments.length &&
+      observed.argv.every((value, index) => value === expectedArguments[index])
     )
       return observed;
     await delay(25);
@@ -588,33 +1012,24 @@ async function waitForExactIdentity(pid, spec) {
   throw new UapSupervisorError('UAP_PROCESS_IDENTITY_MISMATCH');
 }
 
-async function waitForReadiness(entry) {
-  const eventByProcess = {
-    server: 'server.ready',
-    'node-control-api': 'node_control.api.ready',
-    'node-control-worker': 'node_control.worker.ready',
-  };
-  const healthByProcess = {
-    server: 'http://127.0.0.1:10998/api/v1/health',
-    'node-control-api': 'http://127.0.0.1:10091/health/ready',
-  };
-  const deadline = Date.now() + 180_000;
+async function waitForReadiness(entry, configuration) {
+  const deadline = Date.now() + configuration.readinessTimeoutMs;
   while (Date.now() <= deadline) {
-    await validateProcessEntry(entry, false, false);
+    await validateProcessEntry(entry, false, false, configuration);
     const source = await readPrivateFile(entry.logFile, 8 * 1024 * 1024);
     const readyEventObserved = source.split(/\r?\n/u).some((line) => {
       try {
-        return JSON.parse(line)?.event === eventByProcess[entry.name];
+        return JSON.parse(line)?.event === configuration.readinessEvents[entry.name];
       } catch {
         return false;
       }
     });
     if (readyEventObserved) {
-      const healthUrl = healthByProcess[entry.name];
+      const healthUrl = configuration.healthUrls[entry.name];
       if (healthUrl === undefined || (await healthReady(healthUrl)))
         return new Date().toISOString();
     }
-    await delay(250);
+    await delay(configuration.readinessPollMs);
   }
   throw new UapSupervisorError('UAP_PROCESS_READINESS_TIMEOUT');
 }
@@ -640,8 +1055,32 @@ async function assertProcessLogSafe(logFile) {
   assertPrivateProcessLogSafe(source, dotEnv.values, [...dotEnv.secretValues, ...taskSecrets]);
 }
 
-async function validateManifest(manifest, { allowMissingProcesses }) {
-  const state = await initializeState();
+async function assertOfflineFixtureProcessLogSafe(logFile) {
+  const source = await readPrivateFile(logFile, 8 * 1024 * 1024);
+  const lines = source.split(/\r?\n/u).filter((line) => line !== '');
+  if (lines.length !== 1) throw new UapSupervisorError('UAP_PROCESS_LOG_SAFETY_INVALID');
+  let event;
+  try {
+    event = JSON.parse(lines[0]);
+  } catch {
+    throw new UapSupervisorError('UAP_PROCESS_LOG_SAFETY_INVALID');
+  }
+  if (
+    typeof event !== 'object' ||
+    event === null ||
+    Array.isArray(event) ||
+    Object.keys(event).sort().join(',') !== ['event', 'processName', 'secretsIncluded'].join(',') ||
+    !['server', 'node-control-api', 'node-control-worker'].includes(event.processName) ||
+    event.event !== `offline_fixture.${String(event.processName)}.ready` ||
+    event.secretsIncluded !== false ||
+    source.includes('ALLOW_UGV_SIMULATION_SIDE_EFFECTS') ||
+    source.includes('UGV_SIMULATION_RUN_ID')
+  )
+    throw new UapSupervisorError('UAP_PROCESS_LOG_SAFETY_INVALID');
+}
+
+async function validateManifest(manifest, { allowMissingProcesses }, configuration) {
+  const state = await configuration.initializeState();
   if (
     manifest?.schemaVersion !== 'sdar.ugv-agent-profile.host-processes/v1' ||
     manifest.bootstrapRunId !== state.bootstrapRunId ||
@@ -650,18 +1089,168 @@ async function validateManifest(manifest, { allowMissingProcesses }) {
     manifest.revision < 1 ||
     !['NO', 'YES'].includes(manifest.sideEffects) ||
     !Array.isArray(manifest.processes) ||
-    manifest.processes.length !== PROCESS_SPECS.length ||
-    manifest.processes.some((entry, index) => entry?.name !== PROCESS_SPECS[index]?.name)
+    manifest.processes.length !== configuration.processSpecs.length ||
+    manifest.processes.some(
+      (entry, index) => entry?.name !== configuration.processSpecs[index]?.name,
+    )
   )
     throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
-  for (const entry of manifest.processes) await validateProcessEntry(entry, allowMissingProcesses);
-  const server = manifest.processes.find((entry) => entry.name === 'server');
-  if (server === undefined) throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
+  const sideEffectSimulationRunId = await validateManifestSideEffectSimulationIdentity(
+    manifest,
+    state,
+  );
+  for (const entry of manifest.processes)
+    await validateProcessEntry(entry, allowMissingProcesses, true, configuration);
+  for (const entry of manifest.processes) {
+    const dependencies = {
+      validateEntry: (candidate) => validateProcessEntry(candidate, false, false, configuration),
+      ...(entry.name === 'server' &&
+      manifest.sideEffects === 'NO' &&
+      !Object.hasOwn(manifest, 'sideEffectSimulationRunId')
+        ? { legacyNoSimulationRunId: state.simulationRunId }
+        : {}),
+    };
+    await validateProcessSafetyEnvironment(
+      entry,
+      entry.name === 'server' ? manifest.sideEffects : undefined,
+      entry.name === 'server' ? sideEffectSimulationRunId : undefined,
+      dependencies,
+    );
+  }
   return manifest;
 }
 
-async function validateProcessEntry(entry, allowMissing, requireReady = true) {
-  const spec = PROCESS_SPECS.find((candidate) => candidate.name === entry?.name);
+export async function validateManifestSideEffectSimulationIdentity(manifest, state) {
+  if (manifest.simulationRunId !== state.simulationRunId)
+    throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
+  const hasProjection = Object.hasOwn(manifest, 'sideEffectSimulationRunId');
+  if (!hasProjection) {
+    if (manifest.sideEffects !== 'NO') throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
+    return null;
+  }
+  const active = manifest.sideEffectSimulationRunId;
+  if (manifest.sideEffects === 'NO') {
+    if (active !== null) throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
+    return null;
+  }
+  if (
+    manifest.sideEffects !== 'YES' ||
+    typeof active !== 'string' ||
+    !B02_SIMULATION_RUN_ID.test(active)
+  )
+    throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
+  return active;
+}
+
+export async function readProcessSafetyEnvironment(pid) {
+  if (!Number.isSafeInteger(pid) || pid < 2)
+    throw new UapSupervisorError('UAP_PROCESS_ENVIRONMENT_INVALID');
+  let source;
+  try {
+    source = await readFile(`/proc/${String(pid)}/environ`);
+  } catch {
+    throw new UapSupervisorError('UAP_PROCESS_ENVIRONMENT_INVALID');
+  }
+  return parseProcessSafetyEnvironment(source);
+}
+
+export function parseProcessSafetyEnvironment(source) {
+  const bytes = Buffer.isBuffer(source) ? source : Buffer.from(source);
+  if (bytes.byteLength > 1024 * 1024)
+    throw new UapSupervisorError('UAP_PROCESS_ENVIRONMENT_INVALID');
+  const selected = {
+    allowSideEffects: undefined,
+    simulationRunId: undefined,
+  };
+  const observed = new Set();
+  for (const entry of bytes.toString('utf8').split('\0')) {
+    if (entry === '') continue;
+    const separator = entry.indexOf('=');
+    if (separator < 1) {
+      if (entry === 'ALLOW_UGV_SIMULATION_SIDE_EFFECTS' || entry === 'UGV_SIMULATION_RUN_ID')
+        throw new UapSupervisorError('UAP_PROCESS_ENVIRONMENT_INVALID');
+      continue;
+    }
+    const name = entry.slice(0, separator);
+    const value = entry.slice(separator + 1);
+    if (name !== 'ALLOW_UGV_SIMULATION_SIDE_EFFECTS' && name !== 'UGV_SIMULATION_RUN_ID') continue;
+    if (observed.has(name)) throw new UapSupervisorError('UAP_PROCESS_ENVIRONMENT_INVALID');
+    observed.add(name);
+    if (name === 'ALLOW_UGV_SIMULATION_SIDE_EFFECTS') selected.allowSideEffects = value;
+    else selected.simulationRunId = value;
+  }
+  return Object.freeze(selected);
+}
+
+export async function validateProcessSafetyEnvironment(
+  entry,
+  expectedSideEffects,
+  expectedSimulationRunId,
+  dependencies = {},
+) {
+  const readSafetyEnvironment = dependencies.readSafetyEnvironment ?? readProcessSafetyEnvironment;
+  const safetyEnvironment = await readSafetyEnvironment(entry.pid);
+  if (entry.name === 'server') {
+    const noSimulationRunIdAccepted =
+      safetyEnvironment.simulationRunId === undefined ||
+      (typeof dependencies.legacyNoSimulationRunId === 'string' &&
+        safetyEnvironment.simulationRunId === dependencies.legacyNoSimulationRunId);
+    if (
+      !['NO', 'YES'].includes(expectedSideEffects) ||
+      safetyEnvironment.allowSideEffects !== expectedSideEffects ||
+      (expectedSideEffects === 'NO' && !noSimulationRunIdAccepted) ||
+      (expectedSideEffects === 'YES' &&
+        safetyEnvironment.simulationRunId !== expectedSimulationRunId)
+    )
+      throw new UapSupervisorError('UAP_PROCESS_ENVIRONMENT_INVALID');
+  } else if (
+    safetyEnvironment.allowSideEffects !== undefined ||
+    safetyEnvironment.simulationRunId !== undefined
+  )
+    throw new UapSupervisorError('UAP_PROCESS_ENVIRONMENT_INVALID');
+  const validateEntry =
+    dependencies.validateEntry ??
+    ((candidate) =>
+      validateProcessEntry(candidate, false, false, PRODUCTION_SUPERVISOR_CONFIGURATION));
+  await validateEntry(entry);
+  return true;
+}
+
+function processIdentityHashes(entries) {
+  const identities = Object.fromEntries(
+    entries.map((entry) => [entry.name, processIdentityHash(entry)]),
+  );
+  if (
+    typeof identities.server !== 'string' ||
+    typeof identities['node-control-api'] !== 'string' ||
+    typeof identities['node-control-worker'] !== 'string'
+  )
+    throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
+  return Object.freeze({
+    server: identities.server,
+    nodeControlApi: identities['node-control-api'],
+    nodeControlWorker: identities['node-control-worker'],
+  });
+}
+
+function processIdentityHash(entry) {
+  const identity = {
+    name: entry.name,
+    pid: entry.pid,
+    startTicks: entry.startTicks,
+    uid: entry.uid,
+    processGroupId: entry.processGroupId,
+    sessionId: entry.sessionId,
+    entrypoint: entry.entrypoint,
+    cwd: entry.cwd,
+  };
+  return `sha256:${createHash('sha256').update(JSON.stringify(identity)).digest('hex')}`;
+}
+
+async function validateProcessEntry(entry, allowMissing, requireReady, configuration) {
+  const spec = configuration.processSpecs.find((candidate) => candidate.name === entry?.name);
+  const command = spec === undefined ? undefined : configuration.spawnCommand(spec);
+  const expectedArguments = command === undefined ? [] : [command.executable, ...command.arguments];
   if (
     spec === undefined ||
     !Number.isSafeInteger(entry.pid) ||
@@ -674,7 +1263,7 @@ async function validateProcessEntry(entry, allowMissing, requireReady = true) {
     entry.entrypoint !== spec.entrypoint ||
     entry.cwd !== spec.cwd ||
     typeof entry.logFile !== 'string' ||
-    !resolve(entry.logFile).startsWith(`${resolve(STATE_ROOT, 'logs')}/`) ||
+    !resolve(entry.logFile).startsWith(`${resolve(configuration.stateRoot, 'logs')}/`) ||
     (requireReady &&
       (typeof entry.readyAt !== 'string' || !Number.isFinite(Date.parse(entry.readyAt))))
   )
@@ -690,10 +1279,8 @@ async function validateProcessEntry(entry, allowMissing, requireReady = true) {
     observed.processGroupId !== entry.processGroupId ||
     observed.sessionId !== entry.sessionId ||
     observed.cwd !== spec.cwd ||
-    observed.argv.length !== 3 ||
-    observed.argv[0] !== process.execPath ||
-    observed.argv[1] !== TSX_CLI ||
-    observed.argv[2] !== spec.entrypoint
+    observed.argv.length !== expectedArguments.length ||
+    observed.argv.some((value, index) => value !== expectedArguments[index])
   )
     throw new UapSupervisorError('UAP_PROCESS_IDENTITY_MISMATCH');
   return true;
@@ -743,9 +1330,10 @@ async function inspectProcess(pid) {
   }
 }
 
-async function stopEntries(entries) {
+async function stopEntries(entries, configuration) {
   const live = [];
-  for (const entry of entries) if (await validateProcessEntry(entry, true)) live.push(entry);
+  for (const entry of entries)
+    if (await validateProcessEntry(entry, true, true, configuration)) live.push(entry);
   for (const entry of live) await signalProcessGroup(entry, 'SIGTERM');
   const remaining = [];
   for (const entry of live) if (!(await waitForGroupExit(entry, 10_000))) remaining.push(entry);
@@ -869,23 +1457,23 @@ async function ensurePrivateDirectory(path) {
   await chmod(path, 0o700);
 }
 
-async function assertExecutableInputs() {
-  for (const path of [TSX_CLI, ...PROCESS_SPECS.map((entry) => entry.entrypoint)]) {
+async function assertExecutableInputs(configuration) {
+  for (const path of configuration.executableInputs) {
     const status = await lstat(path);
     if (status.isSymbolicLink() || !status.isFile())
       throw new UapSupervisorError('UAP_PROCESS_ENTRYPOINT_INVALID');
   }
 }
 
-async function requireManifest() {
-  const value = await optionalManifest();
+async function requireManifest(configuration) {
+  const value = await optionalManifest(configuration);
   if (value === undefined) throw new UapSupervisorError('UAP_PROCESS_MANIFEST_REQUIRED');
   return value;
 }
 
-async function optionalManifest() {
+async function optionalManifest(configuration) {
   try {
-    return JSON.parse(await readPrivateFile(MANIFEST_PATH, 262_144));
+    return JSON.parse(await readPrivateFile(configuration.manifestPath, 262_144));
   } catch (error) {
     if (isNodeError(error) && error.code === 'ENOENT') return undefined;
     if (error instanceof SyntaxError) throw new UapSupervisorError('UAP_PROCESS_MANIFEST_INVALID');
@@ -893,14 +1481,14 @@ async function optionalManifest() {
   }
 }
 
-async function publishManifestFirstWriter(manifest) {
+async function publishManifestFirstWriter(manifest, configuration) {
   const content = `${JSON.stringify(manifest, null, 2)}\n`;
-  const temporary = `${MANIFEST_PATH}.${String(process.pid)}.${randomBytes(8).toString('hex')}.candidate`;
+  const temporary = `${configuration.manifestPath}.${String(process.pid)}.${randomBytes(8).toString('hex')}.candidate`;
   try {
     await writeFile(temporary, content, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
     await chmod(temporary, 0o600);
     try {
-      await link(temporary, MANIFEST_PATH);
+      await link(temporary, configuration.manifestPath);
     } catch (error) {
       if (!isNodeError(error) || error.code !== 'EEXIST') throw error;
       throw new UapSupervisorError('UAP_PROCESS_MANIFEST_ALREADY_EXISTS');
@@ -912,28 +1500,31 @@ async function publishManifestFirstWriter(manifest) {
   }
 }
 
-async function replaceManifest(prior, next) {
-  const current = await requireManifest();
+async function replaceManifest(prior, next, configuration) {
+  const current = await requireManifest(configuration);
   if (JSON.stringify(current) !== JSON.stringify(prior))
     throw new UapSupervisorError('UAP_PROCESS_MANIFEST_DRIFT');
-  const temporary = `${MANIFEST_PATH}.${String(process.pid)}.${randomBytes(8).toString('hex')}.next`;
+  const temporary = `${configuration.manifestPath}.${String(process.pid)}.${randomBytes(8).toString('hex')}.next`;
   await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, {
     encoding: 'utf8',
     mode: 0o600,
     flag: 'wx',
   });
   await chmod(temporary, 0o600);
-  await rename(temporary, MANIFEST_PATH);
+  await rename(temporary, configuration.manifestPath);
 }
 
-async function unlinkPrivateManifest() {
-  await readPrivateFile(MANIFEST_PATH, 262_144);
-  await unlink(MANIFEST_PATH);
+async function unlinkPrivateManifest(configuration) {
+  await readPrivateFile(configuration.manifestPath, 262_144);
+  await unlink(configuration.manifestPath);
 }
 
 export async function cleanupPublishedManifest(
   expected,
-  dependencies = { read: requireManifest, remove: unlinkPrivateManifest },
+  dependencies = {
+    read: () => requireManifest(PRODUCTION_SUPERVISOR_CONFIGURATION),
+    remove: () => unlinkPrivateManifest(PRODUCTION_SUPERVISOR_CONFIGURATION),
+  },
 ) {
   const current = await dependencies.read();
   if (JSON.stringify(current) !== JSON.stringify(expected))
@@ -941,9 +1532,9 @@ export async function cleanupPublishedManifest(
   await dependencies.remove();
 }
 
-async function withLock(action) {
-  await initializeState();
-  const anchor = await acquireLock();
+async function withLock(action, configuration) {
+  await configuration.initializeState();
+  const anchor = await acquireLock(configuration);
   try {
     return await action();
   } finally {
@@ -951,18 +1542,18 @@ async function withLock(action) {
   }
 }
 
-async function acquireLock() {
+async function acquireLock(configuration) {
   const observed = await inspectProcess(process.pid);
   if (observed === undefined || observed.uid !== Number(process.getuid?.() ?? 0))
     throw new UapSupervisorError('UAP_SUPERVISOR_LOCK_INVALID');
-  const prepared = await prepareAtomicLockCandidate(LOCK_PATH, {
+  const prepared = await prepareAtomicLockCandidate(configuration.lockPath, {
     schemaVersion: 'sdar.ugv-agent-profile.supervisor-lock/v1',
     pid: process.pid,
     uid: observed.uid,
     startTicks: observed.startTicks,
   });
   try {
-    return await publishAtomicLockCandidate(LOCK_PATH, prepared);
+    return await publishAtomicLockCandidate(configuration.lockPath, prepared);
   } catch (error) {
     await unlink(prepared.candidatePath).catch((unlinkError) => {
       if (!isNodeError(unlinkError) || unlinkError.code !== 'ENOENT') throw unlinkError;
@@ -1111,6 +1702,32 @@ function isNodeError(error) {
   return error instanceof Error && 'code' in error;
 }
 
+export function parseRestartServerArguments(arguments_) {
+  if (
+    Array.isArray(arguments_) &&
+    arguments_.length === 2 &&
+    arguments_[0] === '--side-effects' &&
+    arguments_[1] === 'NO'
+  )
+    return Object.freeze({ sideEffects: 'NO' });
+  if (
+    Array.isArray(arguments_) &&
+    arguments_.length === 6 &&
+    arguments_[0] === '--side-effects' &&
+    arguments_[1] === 'YES' &&
+    arguments_[2] === '--simulation-run-id' &&
+    typeof arguments_[3] === 'string' &&
+    arguments_[4] === '--acknowledge' &&
+    typeof arguments_[5] === 'string'
+  )
+    return Object.freeze({
+      sideEffects: 'YES',
+      acknowledgement: arguments_[5],
+      simulationRunId: arguments_[3],
+    });
+  throw new UapSupervisorError('UAP_ARGUMENT_INVALID');
+}
+
 async function main() {
   const command = process.argv[2];
   let result;
@@ -1125,13 +1742,12 @@ async function main() {
       process.stdout.write(`${path}\n`);
     return;
   } else if (command === 'restart-server') {
-    const modeIndex = process.argv.indexOf('--side-effects');
-    const acknowledgementIndex = process.argv.indexOf('--acknowledge');
-    const mode = modeIndex < 0 ? undefined : process.argv[modeIndex + 1];
-    const acknowledgement =
-      acknowledgementIndex < 0 ? undefined : process.argv[acknowledgementIndex + 1];
-    if (mode === undefined) throw new UapSupervisorError('UAP_ARGUMENT_INVALID');
-    result = await restartServer(mode, acknowledgement);
+    const arguments_ = parseRestartServerArguments(process.argv.slice(3));
+    result = await restartServer(
+      arguments_.sideEffects,
+      arguments_.acknowledgement,
+      arguments_.simulationRunId,
+    );
   } else throw new UapSupervisorError('UAP_ARGUMENT_INVALID');
   process.stdout.write(
     `${JSON.stringify(command === 'status' ? result : { ...result, secretsIncluded: false })}\n`,
@@ -1142,9 +1758,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     await main();
   } catch (error) {
-    process.stderr.write(
-      `${error instanceof UapSupervisorError ? error.code : 'UAP_PROCESS_SUPERVISOR_FAILED'}\n`,
-    );
+    const stableCode =
+      error instanceof UapSupervisorError ? error.code : 'UAP_PROCESS_SUPERVISOR_FAILED';
+    writeFileSync(process.stderr.fd, `${stableCode}\n`, { encoding: 'utf8' });
     process.exitCode = 2;
   }
 }

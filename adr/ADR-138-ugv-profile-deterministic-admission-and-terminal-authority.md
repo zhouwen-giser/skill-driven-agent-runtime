@@ -7,6 +7,11 @@ local PostgreSQL/Redis/Runtime/A2A E2E and P2-focused command matrix pass. The f
 repository-wide lint and repository-wide format gates retain disclosed unchanged pre-P2 baselines.
 P3 external SMPP simulation qualification is still pending.
 
+The deterministic one-metre target and two-metre start-to-target cap in this decision are superseded
+for new external-simulation admissions by ADR-139 and the versioned `embodied.move@2` authority.
+ADR-138 remains authoritative for historical `embodied.move@1` evidence and for every unchanged
+confirmation, continuation, terminal and single-runtime boundary.
+
 ## Context
 
 The `ugv-agent-profile` must execute the exact `embodied.move_to@1` contract through the existing

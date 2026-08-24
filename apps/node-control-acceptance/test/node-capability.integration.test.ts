@@ -503,6 +503,8 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
       userId: 'requester.p09',
       requestText: 'Inspect device alpha.',
       requestMetadata: {
+        structured_input: { deviceId: 'alpha' },
+        idempotency_key: 'request.p09',
         'io.sdar/requestedCapability': {
           exposureId: 'exposure.p08.inspect',
           versionConstraint: '1',

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.a2a-move-failure/v1",
+  "status": "failed",
+  "task": "UAP-P3-B02",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "generatedAt": "2026-08-24T04:45:55.011Z",
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "simulationId": "uap-p3-b02-mt6qvplk-6aa27511bb5cadf11530",
+  "stage": "prepare-unique-admission",
+  "exitCode": 1,
+  "sideEffectWindow": {
+    "yesEntered": true,
+    "restoreAttempted": true,
+    "restoredSideEffects": "NO",
+    "restoreVerified": true
+  },
+  "activityAssessment": "unknown_unless_private_ledgers_are_reconciled",
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "downstreamDeviceIdsIncluded": false,
+  "modelValuesIncluded": false,
+  "modelEndpointsIncluded": false,
+  "modelCredentialsIncluded": false
+}

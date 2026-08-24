@@ -8,7 +8,7 @@ import { dirname, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
 
-import { initializeState } from './initialize-state.mjs';
+import { initializeState, readExistingState } from './initialize-state.mjs';
 import {
   sha256CanonicalJson,
   writeCanonicalFirstPassIndex,
@@ -56,8 +56,9 @@ export async function qualifySmppReadOnly({
   outputFile,
   fetchImplementation = globalThis.fetch,
   readAdapterAuditImplementation = readAdapterAudit,
+  existingStateOnly = false,
 }) {
-  const state = await initializeState();
+  const state = existingStateOnly ? await readExistingState() : await initializeState();
   const services = await validateComposePs(psFile);
   let auditBefore;
   try {
@@ -835,15 +836,21 @@ export function assessFailureAudit(before, after) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
-    if (process.argv.length !== 4 || process.argv[2] !== '--ps-json')
+    const existingStateOnly = process.argv.includes('--existing-state-only');
+    if (
+      ![4, 5].includes(process.argv.length) ||
+      process.argv[2] !== '--ps-json' ||
+      (process.argv.length === 5 && process.argv[4] !== '--existing-state-only')
+    )
       throw new Error('UAP_ARGUMENT_INVALID');
-    const state = await initializeState();
+    const state = existingStateOnly ? await readExistingState() : await initializeState();
     const report = await qualifySmppReadOnly({
       psFile: process.argv[3],
       outputFile: resolve(
         fileURLToPath(new URL('../..', import.meta.url)),
         'reports/ugv-agent-profile-simulation/smpp-readonly-qualification.redacted.json',
       ),
+      existingStateOnly,
     });
     process.stdout.write(
       `${JSON.stringify({ status: report.status, bootstrapRunId: state.bootstrapRunId, secretsIncluded: false })}\n`,

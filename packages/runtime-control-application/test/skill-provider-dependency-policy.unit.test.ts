@@ -278,9 +278,9 @@ describe('UGV Agent Profile Skill Provider dependency policy', () => {
 
 function input(): RuntimeSkillProviderDependencyPolicyInput {
   const implementation: CapabilityImplementationBinding = {
-    bindingId: 'capability-binding-embodied.move-v1',
+    bindingId: 'capability-binding-embodied.move-v2',
     capabilityId: 'embodied.move',
-    capabilityVersion: 1,
+    capabilityVersion: 2,
     implementationType: 'skill',
     implementationId: 'embodied.move_to',
     implementationVersion: '1',
@@ -302,7 +302,7 @@ function input(): RuntimeSkillProviderDependencyPolicyInput {
   };
   const definition: NodeCapabilityDefinitionVersion = {
     capabilityId: 'embodied.move',
-    version: 1,
+    version: 2,
     domain: 'embodied',
     name: 'Move UGV',
     description: 'Move the exact simulated UGV with terminal position evidence.',
@@ -442,15 +442,15 @@ function constraints(): NonNullable<NodeCapabilityDefinitionVersion['constraints
     },
     {
       type: 'ugv_simulation_target_policy',
-      policyId: 'ugv-agent-profile/simulation-short-move',
-      revision: 1,
+      policyId: 'ugv-agent-profile/explicit-wgs84-target',
+      revision: 2,
       executionMode: 'simulation',
       resourceId: 'vehicle:ugv1',
       frame: 'WGS84',
-      targetDerivation: 'deterministic_short_distance',
-      bearingDegrees: 90,
-      distanceM: 1,
-      maximumDistanceM: 2,
+      targetAuthority: 'task_capability_input_snapshot',
+      targetDerivation: 'forbidden',
+      distanceLimit: 'none',
+      altitudePolicy: 'not_commanded_not_terminally_evaluated',
       forbiddenRegions: [],
     },
   ];

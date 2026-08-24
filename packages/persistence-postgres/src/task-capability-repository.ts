@@ -1,12 +1,16 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import type {
+  InitialTaskAdmissionRecord,
+  InitialTaskAdmissionStore,
   RuntimeCapabilityResolution,
+  TaskCapabilityAcceptance,
   TaskCapabilityAcceptanceStore,
 } from '../../application/src/index.js';
 import {
   createTaskCapabilityBinding,
   createTaskCapabilityExecutionAttempt,
+  type ConversationContext,
   type TaskCapabilityBinding,
   type TaskCapabilityExecutionAttempt,
 } from '../../domain/src/index.js';
@@ -71,7 +75,35 @@ interface ArtifactPolicyRow extends QueryResultRow {
   dependency_snapshot: unknown;
 }
 
-export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanceStore {
+interface InitialTaskAdmissionRow extends QueryResultRow {
+  idempotency_key: string;
+  request_hash: string;
+  task_id: string;
+  context_id: string;
+  capability_binding_id: string;
+  capability_attempt_id: string;
+  created_context: boolean;
+  accepted_at: Date | string;
+}
+
+interface InitialTaskAdmissionContextRow extends QueryResultRow {
+  context_id: string;
+  user_id: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+const INITIAL_TASK_ADMISSION_KEY_LOCK_NAMESPACE = 14_201;
+const INITIAL_TASK_ADMISSION_CONTEXT_LOCK_NAMESPACE = 14_202;
+
+const initialTaskAdmissionSelect = `SELECT idempotency_key,request_hash,task_id,context_id,
+                                            capability_binding_id,capability_attempt_id,
+                                            created_context,accepted_at
+                                       FROM initial_task_admission`;
+
+export class PostgresTaskCapabilityRepository
+  implements TaskCapabilityAcceptanceStore, InitialTaskAdmissionStore
+{
   readonly #pool: Pool;
   readonly #onTaskStateCommitted:
     ((task: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]['task']) => void) | undefined;
@@ -114,70 +146,110 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
     return mapResolution(row, policies);
   }
 
-  async accept(input: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]): Promise<void> {
+  async accept(input: TaskCapabilityAcceptance): Promise<void> {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `task-capability-accept:${input.task.taskId}`,
       ]);
-      await insertTask(client, input.task);
-      await client.query(
-        `INSERT INTO task_execution_attempt(
-           attempt_id,task_id,context_id,reason,status,input_request_id,created_at,
-           started_at,completed_at,error_code)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [
-          input.inputAttempt.attemptId,
-          input.inputAttempt.taskId,
-          input.inputAttempt.contextId,
-          input.inputAttempt.reason,
-          input.inputAttempt.status,
-          input.inputAttempt.inputRequestId ?? null,
-          input.inputAttempt.createdAt,
-          input.inputAttempt.startedAt ?? null,
-          input.inputAttempt.completedAt ?? null,
-          input.inputAttempt.errorCode ?? null,
-        ],
-      );
-      await insertBinding(client, input.binding);
-      await insertAttempt(client, input.capabilityAttempt);
-      await client.query(
-        `INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary)
-         VALUES($1,$2,$3,$4,$5,$6)`,
-        [
-          input.event.eventId,
-          input.event.taskId,
-          input.event.contextId,
-          input.event.eventType,
-          input.event.timestamp,
-          input.event.summary,
-        ],
-      );
-      await client.query(
-        `INSERT INTO cognitive_runtime_outbox(
-           event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
-           correlation,payload,occurred_at)
-         VALUES($1,'node.task.capability_bound','task_capability_binding',$2,1,$3::jsonb,$4::jsonb,$5)
-         ON CONFLICT(aggregate_type,aggregate_id,aggregate_version,event_type) DO NOTHING`,
-        [
-          `node-task-capability-bound:${input.binding.bindingId}`,
-          input.binding.bindingId,
-          JSON.stringify({ taskId: input.task.taskId, contextId: input.task.contextId }),
-          JSON.stringify({
-            resourceRef: {
-              type: 'task_capability_binding',
-              id: input.task.taskId,
-              revision: 1,
-            },
-            changeCode: 'TASK_CAPABILITY_BOUND',
-          }),
-          input.binding.boundAt,
-        ],
-      );
+      await insertCapabilityAcceptance(client, input);
       await client.query('COMMIT');
       this.#onTaskStateCommitted?.(input.task);
     } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async findByIdempotencyKey(
+    idempotencyKey: string,
+  ): Promise<InitialTaskAdmissionRecord | undefined> {
+    const result = await this.#pool.query<InitialTaskAdmissionRow>(
+      `${initialTaskAdmissionSelect}
+       WHERE idempotency_key=$1`,
+      [idempotencyKey],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapInitialTaskAdmission(row);
+  }
+
+  async acceptInitial(
+    input: Parameters<InitialTaskAdmissionStore['acceptInitial']>[0],
+  ): ReturnType<InitialTaskAdmissionStore['acceptInitial']> {
+    if (
+      input.capabilityAcceptance.task.contextId !== input.context.contextId ||
+      input.capabilityAcceptance.task.userId !== input.context.userId
+    )
+      throw new InitialTaskAdmissionPersistenceError(
+        'TASK_INITIAL_ADMISSION_ACCEPTANCE_CONTEXT_MISMATCH',
+        'Initial Task admission acceptance does not match its requested Context identity.',
+      );
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Every initial admission acquires the two lock classes in this order.
+      // Separate advisory namespaces prevent cross-class hash collisions from
+      // reversing that order and introducing a deadlock cycle.
+      await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))', [
+        INITIAL_TASK_ADMISSION_KEY_LOCK_NAMESPACE,
+        input.idempotencyKey,
+      ]);
+      const existingResult = await client.query<InitialTaskAdmissionRow>(
+        `${initialTaskAdmissionSelect}
+         WHERE idempotency_key=$1
+         FOR SHARE`,
+        [input.idempotencyKey],
+      );
+      const existingRow = existingResult.rows[0];
+      if (existingRow !== undefined) {
+        const record = mapInitialTaskAdmission(existingRow);
+        await client.query('COMMIT');
+        return Object.freeze({
+          status: record.requestHash === input.requestHash ? 'replayed' : 'conflict',
+          record,
+        });
+      }
+      await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))', [
+        INITIAL_TASK_ADMISSION_CONTEXT_LOCK_NAMESPACE,
+        input.context.contextId,
+      ]);
+      const contextAuthority = await insertOrValidateInitialAdmissionContext(client, input.context);
+      await insertCapabilityAcceptance(client, input.capabilityAcceptance);
+      await client.query(
+        `INSERT INTO initial_task_admission(
+           idempotency_key,request_hash,task_id,context_id,capability_binding_id,
+           capability_attempt_id,created_context,accepted_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          input.idempotencyKey,
+          input.requestHash,
+          input.capabilityAcceptance.task.taskId,
+          input.context.contextId,
+          input.capabilityAcceptance.binding.bindingId,
+          input.capabilityAcceptance.capabilityAttempt.attemptId,
+          contextAuthority.createdContext,
+          input.acceptedAt,
+        ],
+      );
+      await client.query('COMMIT');
+      const record = Object.freeze({
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+        taskId: input.capabilityAcceptance.task.taskId,
+        contextId: input.context.contextId,
+        capabilityBindingId: input.capabilityAcceptance.binding.bindingId,
+        capabilityAttemptId: input.capabilityAcceptance.capabilityAttempt.attemptId,
+        createdContext: contextAuthority.createdContext,
+        acceptedAt: input.acceptedAt,
+      });
+      // The A2A executor publishes this returned initial Task itself. Avoid an
+      // optional post-commit notifier here: a notifier exception after COMMIT
+      // must never turn durable formal acceptance into a synthetic failure.
+      return Object.freeze({ status: 'accepted', record, context: contextAuthority.context });
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
@@ -341,6 +413,110 @@ export class PostgresTaskCapabilityRepository implements TaskCapabilityAcceptanc
   }
 }
 
+async function insertOrValidateInitialAdmissionContext(
+  client: PoolClient,
+  context: Parameters<InitialTaskAdmissionStore['acceptInitial']>[0]['context'],
+): Promise<Readonly<{ createdContext: boolean; context: ConversationContext }>> {
+  const inserted = await client.query<InitialTaskAdmissionContextRow>(
+    `INSERT INTO conversation_context(context_id,user_id,created_at,updated_at)
+     VALUES($1,$2,$3,$4)
+     ON CONFLICT(context_id) DO NOTHING
+     RETURNING context_id,user_id,created_at,updated_at`,
+    [context.contextId, context.userId, context.createdAt, context.updatedAt],
+  );
+  const authoritative = await client.query<InitialTaskAdmissionContextRow>(
+    `SELECT context_id,user_id,created_at,updated_at
+       FROM conversation_context
+      WHERE context_id=$1
+      FOR SHARE`,
+    [context.contextId],
+  );
+  const row = authoritative.rows[0];
+  if (row === undefined)
+    throw new InitialTaskAdmissionPersistenceError(
+      'TASK_INITIAL_ADMISSION_CONTEXT_AUTHORITY_INVALID',
+      'Initial Task admission could not establish its authoritative Context.',
+    );
+  if (row.user_id !== context.userId)
+    throw new InitialTaskAdmissionPersistenceError(
+      'TASK_INITIAL_ADMISSION_CONTEXT_USER_CONFLICT',
+      'The requested Context is already bound to a different user.',
+    );
+  return Object.freeze({
+    createdContext: inserted.rowCount === 1,
+    context: Object.freeze({
+      contextId: row.context_id,
+      userId: row.user_id,
+      createdAt: isoTimestamp(row.created_at),
+      updatedAt: isoTimestamp(row.updated_at),
+    }),
+  });
+}
+
+function isoTimestamp(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+async function insertCapabilityAcceptance(
+  client: PoolClient,
+  input: TaskCapabilityAcceptance,
+): Promise<void> {
+  await insertTask(client, input.task);
+  await client.query(
+    `INSERT INTO task_execution_attempt(
+       attempt_id,task_id,context_id,reason,status,input_request_id,created_at,
+       started_at,completed_at,error_code)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [
+      input.inputAttempt.attemptId,
+      input.inputAttempt.taskId,
+      input.inputAttempt.contextId,
+      input.inputAttempt.reason,
+      input.inputAttempt.status,
+      input.inputAttempt.inputRequestId ?? null,
+      input.inputAttempt.createdAt,
+      input.inputAttempt.startedAt ?? null,
+      input.inputAttempt.completedAt ?? null,
+      input.inputAttempt.errorCode ?? null,
+    ],
+  );
+  await insertBinding(client, input.binding);
+  await insertAttempt(client, input.capabilityAttempt);
+  await client.query(
+    `INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary)
+     VALUES($1,$2,$3,$4,$5,$6)`,
+    [
+      input.event.eventId,
+      input.event.taskId,
+      input.event.contextId,
+      input.event.eventType,
+      input.event.timestamp,
+      input.event.summary,
+    ],
+  );
+  await client.query(
+    `INSERT INTO cognitive_runtime_outbox(
+       event_id,event_type,aggregate_type,aggregate_id,aggregate_version,
+       correlation,payload,occurred_at)
+     VALUES($1,'node.task.capability_bound','task_capability_binding',$2,1,$3::jsonb,$4::jsonb,$5)
+     ON CONFLICT(aggregate_type,aggregate_id,aggregate_version,event_type) DO NOTHING`,
+    [
+      `node-task-capability-bound:${input.binding.bindingId}`,
+      input.binding.bindingId,
+      JSON.stringify({ taskId: input.task.taskId, contextId: input.task.contextId }),
+      JSON.stringify({
+        resourceRef: {
+          type: 'task_capability_binding',
+          id: input.task.taskId,
+          revision: 1,
+        },
+        changeCode: 'TASK_CAPABILITY_BOUND',
+      }),
+      input.binding.boundAt,
+    ],
+  );
+}
+
 async function insertTask(
   client: PoolClient,
   task: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]['task'],
@@ -381,6 +557,37 @@ async function insertTask(
       task.updatedAt,
     ],
   );
+}
+
+function mapInitialTaskAdmission(row: InitialTaskAdmissionRow): InitialTaskAdmissionRecord {
+  if (!/^sha256:[0-9a-f]{64}$/u.test(row.request_hash))
+    throw new Error('INITIAL_TASK_ADMISSION_REQUEST_HASH_INVALID');
+  return Object.freeze({
+    idempotencyKey: row.idempotency_key,
+    requestHash: row.request_hash as `sha256:${string}`,
+    taskId: row.task_id,
+    contextId: row.context_id,
+    capabilityBindingId: row.capability_binding_id,
+    capabilityAttemptId: row.capability_attempt_id,
+    createdContext: row.created_context,
+    acceptedAt:
+      typeof row.accepted_at === 'string' ? row.accepted_at : row.accepted_at.toISOString(),
+  });
+}
+
+export type InitialTaskAdmissionPersistenceErrorCode =
+  | 'TASK_INITIAL_ADMISSION_ACCEPTANCE_CONTEXT_MISMATCH'
+  | 'TASK_INITIAL_ADMISSION_CONTEXT_AUTHORITY_INVALID'
+  | 'TASK_INITIAL_ADMISSION_CONTEXT_USER_CONFLICT';
+
+export class InitialTaskAdmissionPersistenceError extends Error {
+  readonly code: InitialTaskAdmissionPersistenceErrorCode;
+
+  constructor(code: InitialTaskAdmissionPersistenceErrorCode, message: string) {
+    super(message);
+    this.name = 'InitialTaskAdmissionPersistenceError';
+    this.code = code;
+  }
 }
 
 function insertBinding(client: PoolClient, binding: TaskCapabilityBinding) {

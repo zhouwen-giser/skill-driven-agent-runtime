@@ -1,5 +1,59 @@
 # Changelog
 
+## 2026-08-24 — UGV A2A navigation terminal-safe repair and handoff
+
+- Executed one authorized real A2A navigation attempt through SDAR Runtime, Frozen MCP Tasks and the
+  external UGV Provider. Provider Task `5dfbc557-907d-4767-99a8-ca38eebe079c` reached
+  `TERMINAL_COMPLETED`, the Adapter execution reached `SUCCEEDED`, and the simulator moved from
+  approximately `106.81179413,29.72049014` to `106.81344283,29.72040457` for target
+  `106.81344630,29.72034353` (about 6.8 metres horizontal error). This is real Provider movement
+  evidence, not a completed SDAR A2A result.
+- Diagnosed the SDAR failure as a strict Frozen MCP lifecycle compatibility defect: the Provider
+  legally returned CreateTask `working` with substate `accepted`, while the Adapter rejected it as
+  `FROZEN_CREATE_TASK_RESULT_INVALID` before saving a successful remote continuation.
+- Added `accepted` to the Domain/Adapter remote-task substate contract, migration
+  `0173_remote_task_accepted_substate` with rollback, migration contract coverage and lifecycle
+  regression proving CreateTask `accepted` reconciles to later `running`.
+- Added strict `terminal_provider_safe` reconciliation. A dispatched run is recovery-eligible only
+  when the Provider Task is terminal-completed, Adapter execution succeeded, idempotency/admission
+  and mutation identities match, the SDAR failure is exactly the known CreateTask parsing defect,
+  and no active continuation or terminal outcome was fabricated.
+- Sealed the failed public artifact at
+  `reports/ugv-agent-profile-simulation/attempts/uap-p3-b02-failure-uap-p3-b02-mt6s71d2-3a99d891d86bc8778e65-20260824052702017-e0945cf9beaafe32.redacted.json`
+  (SHA-256 `fe5f32e7d51051739ac0d5694e506b8c8ecf9accdf32d5c2b11b05f192960377`) and the
+  terminal-safe reconciliation at
+  `reports/ugv-agent-profile-simulation/attempts/uap-p3-b02-recovery-reconciliation-uap-p3-b02-mt6t3gvq-34504d0f48c6e48aeff4.redacted.json`
+  (SHA-256 `a394a4992643bc59a339f731707b92663bb21ee385bdc4fcff2023a8c841fd1a`).
+- Passed the final affected matrix (5 files/165 tests), TypeScript typecheck, production build,
+  849-source architecture verification, scoped ESLint and diff checks. The user then cancelled
+  further simulator validation because another client was using it. The task-owned containers and
+  volumes are absent and the host supervisor is stopped; no new YES window was opened. P3-B02 remains
+  incomplete because no post-fix A2A terminal success was observed.
+
+## 2026-08-24 — UGV Agent Profile P3-B02 authorized attempt failed closed
+
+- Added persistent A2A initial-admission idempotency, canonical replay/conflict handling, projection
+  serialization, deferred queue recovery, Frozen MCP Task execution lineage, Profile-only
+  qualification, append-only recovery attempt identity, Source/runway gates, private ledger
+  reconciliation and crash-safe Supervisor `NO`/`YES`/`NO` evidence.
+- Fixed a live-only Source recovery defect: the validated private Runtime authority snapshot contains
+  the legitimate discovery field `authorizationModel`, which the public evidence canonicalizer must
+  reject. Internal pre/post equality now uses a private canonical SHA-256 while the public redaction
+  boundary remains unchanged; the focused Source driver/runner matrix passes 40/40.
+- Rebuilt the exact task-owned stack from fresh databases/volumes, applied migration `0172`, passed
+  bootstrap/readiness and clean 28-collection ledger checks, and sealed a runway gate with remaining
+  Source/Binding/Runtime/readiness TTL values `271174/2446184/2445972/59113ms` above the frozen
+  `240000/1200000/1200000/30000ms` budgets.
+- Executed the recovery-issued simulation identity exactly once. The wrapper entered `YES`, persisted
+  one taskless `vehicle_get_state` and one accepted Device `get_status`, then rejected the external
+  `chassis.mission.state=0` before A2A admission because the frozen contract accepts only
+  `[-1,3,4,5]`. It restored Supervisor revision 3 to `NO` and did not retry.
+- Reconciled the failure to zero physical mutation: Provider Task/admission/idempotency, Adapter
+  execution/mutation/ACK, and SDAR Task/Goal/Plan/Workflow/model/confirmation/remote/terminal counts
+  are all zero. Host/SMPP/SDAR secret scans, public failure schema validation and private evidence
+  validation pass. Canonical P3-B02 PASS is absent; P3-B02/P3-B03/P4 and overall Goal completion remain
+  pending.
+
 ## 2026-08-21 — UGV Agent Profile P3-B01 clean-stack runtime evidence
 
 - Added a task-owned clean dual-repository orchestration path with fixed inventory, isolated Compose

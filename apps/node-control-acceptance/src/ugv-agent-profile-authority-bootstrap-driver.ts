@@ -62,8 +62,11 @@ const EXPECTED_EXTERNAL_SERVER_ID = 'uap-p3-b01-runtime-1';
 const EXPECTED_RESOURCE_ID = 'vehicle:ugv1';
 const SKILL_ID = 'embodied.move_to';
 const CAPABILITY_ID = 'embodied.move';
-const EXPOSURE_ID = 'a2a.embodied.move';
-const IMPLEMENTATION_BINDING_ID = 'capability-binding-embodied.move-v1';
+export const UAP_UGV_MOVE_EXPOSURE_ID = 'a2a.embodied.move' as const;
+export const UAP_UGV_MOVE_CAPABILITY_VERSION = 2 as const;
+export const UAP_UGV_MOVE_EXPOSURE_VERSION = 2 as const;
+const EXPOSURE_ID = UAP_UGV_MOVE_EXPOSURE_ID;
+const IMPLEMENTATION_BINDING_ID = 'capability-binding-embodied.move-v2';
 const NAVIGATE_TOOL = 'vehicle_navigate';
 const TOOL_NAMES = Object.freeze([
   'vehicle_area_recon',
@@ -132,7 +135,7 @@ export interface UgvAgentProfileAuthorityBootstrapReport {
   }>;
   readonly capability: Readonly<{
     capabilityId: typeof CAPABILITY_ID;
-    version: 1;
+    version: typeof UAP_UGV_MOVE_CAPABILITY_VERSION;
     status: 'published';
     definitionHash: string;
     implementationBindingId: typeof IMPLEMENTATION_BINDING_ID;
@@ -147,7 +150,7 @@ export interface UgvAgentProfileAuthorityBootstrapReport {
   }>;
   readonly exposure: Readonly<{
     exposureId: typeof EXPOSURE_ID;
-    version: 1;
+    version: typeof UAP_UGV_MOVE_EXPOSURE_VERSION;
     agentSkillId: typeof SKILL_ID;
     status: 'published';
     exposureHash: string;
@@ -158,7 +161,7 @@ export interface UgvAgentProfileAuthorityBootstrapReport {
     distinctFromProfilePublicCard: true;
     status: 'active';
     revision: number;
-    exposureRefs: readonly [`${typeof EXPOSURE_ID}:1`];
+    exposureRefs: readonly [`${typeof EXPOSURE_ID}:2`];
     contentHash: string;
     capabilityCatalogHash: string;
   }>;
@@ -228,7 +231,7 @@ export interface UgvAgentProfileAuthorityReadinessReport {
   }>;
   readonly managedCardSeparation: Readonly<{
     authority: 'node_control_exposure';
-    exposureRef: `${typeof EXPOSURE_ID}:1`;
+    exposureRef: `${typeof EXPOSURE_ID}:2`;
     revision: number;
     contentHash: string;
     unchangedAcrossSkillLifecycle: true;
@@ -1440,7 +1443,7 @@ export async function verifyUgvAgentProfileAuthorityReadiness(
     }),
     managedCardSeparation: Object.freeze({
       authority: 'node_control_exposure',
-      exposureRef: 'a2a.embodied.move:1',
+      exposureRef: 'a2a.embodied.move:2',
       revision: managedBefore.revision,
       contentHash: managedBefore.contentHash,
       unchangedAcrossSkillLifecycle: true,
@@ -1680,7 +1683,9 @@ async function assertManagedCardUnchanged(
     actual.revision !== expected.revision ||
     actual.contentHash !== expected.contentHash ||
     actual.capabilityCatalogHash !== expected.capabilityCatalogHash ||
-    !sameStrings(actual.exposureRefs ?? [], [`${EXPOSURE_ID}:1`])
+    !sameStrings(actual.exposureRefs ?? [], [
+      `${EXPOSURE_ID}:${String(UAP_UGV_MOVE_EXPOSURE_VERSION)}`,
+    ])
   )
     fail(
       'UAP_MANAGED_CARD_AUTHORITY_DRIFT',
@@ -2169,9 +2174,14 @@ async function assertGovernanceInventoryExact(
     controlSkills.some((skill) => skill.skillId !== SKILL_ID || Number(skill.version) !== 1) ||
     runtimeSkills.some((skill) => skill.skillId !== SKILL_ID || skill.version !== 1) ||
     capabilities.some(
-      (capability) => capability.capabilityId !== CAPABILITY_ID || capability.version !== 1,
+      (capability) =>
+        capability.capabilityId !== CAPABILITY_ID ||
+        capability.version !== UAP_UGV_MOVE_CAPABILITY_VERSION,
     ) ||
-    exposures.some((exposure) => exposure.exposureId !== EXPOSURE_ID || exposure.version !== 1)
+    exposures.some(
+      (exposure) =>
+        exposure.exposureId !== EXPOSURE_ID || exposure.version !== UAP_UGV_MOVE_EXPOSURE_VERSION,
+    )
   )
     fail(
       'UAP_EXTRA_GOVERNANCE_AUTHORITY_FORBIDDEN',
@@ -2208,7 +2218,7 @@ async function assertGovernanceInventoryExact(
     loadImplementations(configuration, request),
     controlGetOptionalWithEtag(
       configuration,
-      `/api/v1/capability-readiness/${encodeURIComponent(CAPABILITY_ID)}/1`,
+      `/api/v1/capability-readiness/${encodeURIComponent(CAPABILITY_ID)}/${String(UAP_UGV_MOVE_CAPABILITY_VERSION)}`,
       ReadinessSchema,
       request,
     ),
@@ -2256,7 +2266,7 @@ async function assertGovernanceInventoryExact(
     canonical([
       {
         capabilityId: CAPABILITY_ID,
-        capabilityVersion: 1,
+        capabilityVersion: UAP_UGV_MOVE_CAPABILITY_VERSION,
         exposureHash: existingExposure.exposureHash,
         readinessHash: etagHash(readiness.etag),
       },
@@ -2264,7 +2274,9 @@ async function assertGovernanceInventoryExact(
   );
   if (
     canonical(activeManagedCard) !== canonical(directManagedCard) ||
-    !sameStrings(activeManagedCard.exposureRefs ?? [], [`${EXPOSURE_ID}:1`]) ||
+    !sameStrings(activeManagedCard.exposureRefs ?? [], [
+      `${EXPOSURE_ID}:${String(UAP_UGV_MOVE_EXPOSURE_VERSION)}`,
+    ]) ||
     Date.parse(activeManagedCard.generatedAt) > Date.parse(observedAt) ||
     (!allowMissing && activeManagedCard.capabilityCatalogHash !== expectedCatalogHash)
   )
@@ -2586,21 +2598,21 @@ function plannedGovernance(
     }),
     Object.freeze({
       type: 'ugv_simulation_target_policy',
-      policyId: 'ugv-agent-profile/simulation-short-move',
-      revision: 1,
+      policyId: 'ugv-agent-profile/explicit-wgs84-target',
+      revision: 2,
       executionMode: 'simulation',
       resourceId: EXPECTED_RESOURCE_ID,
       frame: 'WGS84',
-      targetDerivation: 'deterministic_short_distance',
-      bearingDegrees: 90,
-      distanceM: 1,
-      maximumDistanceM: 2,
+      targetAuthority: 'task_capability_input_snapshot',
+      targetDerivation: 'forbidden',
+      distanceLimit: 'none',
+      altitudePolicy: 'not_commanded_not_terminally_evaluated',
       forbiddenRegions: Object.freeze([]),
     }),
   ]);
   const definition = createNodeCapabilityDefinition({
     capabilityId: CAPABILITY_ID,
-    version: 1,
+    version: UAP_UGV_MOVE_CAPABILITY_VERSION,
     domain: 'embodied',
     name: 'Move UGV',
     description: 'Move the exact simulated UGV with terminal position evidence.',
@@ -2632,7 +2644,7 @@ function plannedGovernance(
   const implementation = createCapabilityImplementationBinding({
     bindingId: IMPLEMENTATION_BINDING_ID,
     capabilityId: CAPABILITY_ID,
-    capabilityVersion: 1,
+    capabilityVersion: UAP_UGV_MOVE_CAPABILITY_VERSION,
     implementationType: 'skill',
     implementationId: SKILL_ID,
     implementationVersion: '1',
@@ -2654,15 +2666,15 @@ function plannedGovernance(
   });
   const exposure = createA2aExposureVersion({
     exposureId: EXPOSURE_ID,
-    version: 1,
+    version: UAP_UGV_MOVE_EXPOSURE_VERSION,
     capabilityId: CAPABILITY_ID,
-    capabilityVersion: 1,
+    capabilityVersion: UAP_UGV_MOVE_CAPABILITY_VERSION,
     agentSkillId: SKILL_ID,
     name: definition.name,
     description: definition.description,
     tags: Object.freeze(['ugv-agent-profile', 'external-simulation', 'embodied-move']),
     examples: Object.freeze([
-      'Move vehicle:ugv1 to the exact authorized short-distance simulation target.',
+      'Move vehicle:ugv1 to an explicitly authorized WGS84 simulation target.',
     ]),
     inputModes: Object.freeze(['text/plain', 'application/json']),
     outputModes: Object.freeze(['application/json']),
@@ -2671,7 +2683,7 @@ function plannedGovernance(
     visibility: 'public',
     requesterPolicy: Object.freeze({
       allowAnonymous: false,
-      allowedRequesterIds: Object.freeze(['ugv-agent-profile']),
+      allowedRequesterIds: Object.freeze(['uap-p3-b02-requester']),
     }),
     readinessPublicationPolicy: 'publish_when_available',
     status: 'draft',
@@ -2689,7 +2701,7 @@ async function ensureCapability(
   planned: PlannedGovernance,
   request: typeof fetch,
 ): Promise<Capability> {
-  const path = `/api/v1/node-capabilities/${encodeURIComponent(CAPABILITY_ID)}/versions/1`;
+  const path = `/api/v1/node-capabilities/${encodeURIComponent(CAPABILITY_ID)}/versions/${String(UAP_UGV_MOVE_CAPABILITY_VERSION)}`;
   let current = await controlGetOptional(configuration, path, CapabilitySchema, request);
   current ??= CapabilitySchema.parse(
     await controlPost(
@@ -2726,7 +2738,7 @@ async function ensureCapability(
   )
     fail(
       'UAP_CAPABILITY_IMPLEMENTATION_INVALID',
-      'embodied.move@1 must have one exact active primary Skill implementation.',
+      'embodied.move@2 must have one exact active primary Skill implementation.',
     );
   if (current.status === 'draft') {
     current = CapabilitySchema.parse(
@@ -2734,7 +2746,7 @@ async function ensureCapability(
         configuration,
         `${path}/validate`,
         stableKey(configuration.runId, 'capability-validate', planned.definition.definitionHash),
-        { reason: 'Validate exact embodied.move@1 UGV Profile authority.' },
+        { reason: 'Validate exact embodied.move@2 UGV Profile authority.' },
         200,
         request,
         nodeCapabilityEtag(current as NodeCapabilityDefinitionVersion),
@@ -2747,7 +2759,7 @@ async function ensureCapability(
         configuration,
         `${path}/publish`,
         stableKey(configuration.runId, 'capability-publish', planned.definition.definitionHash),
-        { reason: 'Publish exact embodied.move@1 UGV Profile authority.' },
+        { reason: 'Publish exact embodied.move@2 UGV Profile authority.' },
         202,
         request,
         nodeCapabilityEtag(current as NodeCapabilityDefinitionVersion),
@@ -2756,7 +2768,7 @@ async function ensureCapability(
     current = CapabilitySchema.parse(await controlGet(configuration, path, request));
   }
   if (current.status !== 'published')
-    fail('UAP_CAPABILITY_NOT_PUBLISHED', 'The exact embodied.move@1 Capability is not published.');
+    fail('UAP_CAPABILITY_NOT_PUBLISHED', 'The exact embodied.move@2 Capability is not published.');
   assertCapabilityExact(current, planned.definition);
   return current;
 }
@@ -2767,7 +2779,7 @@ async function loadImplementations(
 ): Promise<readonly Implementation[]> {
   return controlCollection(
     configuration,
-    `/api/v1/node-capabilities/${encodeURIComponent(CAPABILITY_ID)}/versions/1/implementations?pageSize=200`,
+    `/api/v1/node-capabilities/${encodeURIComponent(CAPABILITY_ID)}/versions/${String(UAP_UGV_MOVE_CAPABILITY_VERSION)}/implementations?pageSize=200`,
     ImplementationSchema,
     request,
   );
@@ -2779,14 +2791,14 @@ function assertCapabilityExact(
 ): void {
   if (
     actual.capabilityId !== CAPABILITY_ID ||
-    actual.version !== 1 ||
+    actual.version !== UAP_UGV_MOVE_CAPABILITY_VERSION ||
     actual.definitionHash !== expected.definitionHash ||
     canonical({ ...actual, status: 'draft' }) !== canonical({ ...expected, status: 'draft' }) ||
     actual.constraints?.length !== 7
   )
     fail(
       'UAP_CAPABILITY_DEFINITION_DRIFT',
-      'The existing embodied.move@1 business promises differ from the exact Profile definition.',
+      'The existing embodied.move@2 business promises differ from the exact Profile definition.',
     );
 }
 
@@ -2799,7 +2811,7 @@ async function ensureReadiness(
   pause: (milliseconds: number) => Promise<void>,
   request: typeof fetch,
 ): Promise<Readonly<{ snapshot: Readiness; snapshotHash: string }>> {
-  const path = `/api/v1/capability-readiness/${encodeURIComponent(CAPABILITY_ID)}/1`;
+  const path = `/api/v1/capability-readiness/${encodeURIComponent(CAPABILITY_ID)}/${String(UAP_UGV_MOVE_CAPABILITY_VERSION)}`;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const prior = await controlGetOptionalWithEtag(configuration, path, ReadinessSchema, request);
     const fingerprint = sha256(
@@ -2816,7 +2828,7 @@ async function ensureReadiness(
         configuration,
         `${path}/evaluate`,
         stableKey(configuration.runId, `capability-readiness-${String(attempt)}`, fingerprint),
-        { reason: `Evaluate exact embodied.move@1 Profile readiness (${fingerprint}).` },
+        { reason: `Evaluate exact embodied.move@2 Profile readiness (${fingerprint}).` },
         202,
         request,
       ),
@@ -2841,7 +2853,7 @@ async function ensureReadiness(
     if (attempt === 2)
       fail(
         'UAP_CAPABILITY_READINESS_STABILITY_TIMEOUT',
-        'embodied.move@1 readiness did not leave its bounded stability window.',
+        'embodied.move@2 readiness did not leave its bounded stability window.',
       );
     await pause(10_250);
   }
@@ -2851,7 +2863,7 @@ async function ensureReadiness(
 function exactFreshReadiness(value: Readiness, observedAt: string): boolean {
   return (
     value.capabilityId === CAPABILITY_ID &&
-    value.capabilityVersion === 1 &&
+    value.capabilityVersion === UAP_UGV_MOVE_CAPABILITY_VERSION &&
     value.status === 'available' &&
     Date.parse(value.evaluatedAt) <= Date.parse(observedAt) &&
     Date.parse(value.validUntil) > Date.parse(observedAt) &&
@@ -2867,7 +2879,7 @@ function assertReadinessExact(value: Readiness, observedAt: string): void {
   if (!exactFreshReadiness(value, observedAt))
     fail(
       'UAP_CAPABILITY_READINESS_INVALID',
-      'embodied.move@1 readiness is not fresh, available, and exact to the sole implementation.',
+      'embodied.move@2 readiness is not fresh, available, and exact to the sole implementation.',
     );
 }
 
@@ -2888,21 +2900,21 @@ function assertReadinessReconciliable(value: Readiness, observedAt: string): voi
     readinessStabilityWindow(value);
   if (
     value.capabilityId !== CAPABILITY_ID ||
-    value.capabilityVersion !== 1 ||
+    value.capabilityVersion !== UAP_UGV_MOVE_CAPABILITY_VERSION ||
     evaluatedAt > observation ||
     validUntil <= evaluatedAt ||
     !coherentAuthority
   )
     fail(
       'UAP_CAPABILITY_READINESS_INVALID',
-      'Pre-existing embodied.move@1 readiness is not an exact, safely reconcilable snapshot.',
+      'Pre-existing embodied.move@2 readiness is not an exact, safely reconcilable snapshot.',
     );
 }
 
 function readinessStabilityWindow(value: Readiness, observedAt?: string): boolean {
   return (
     value.capabilityId === CAPABILITY_ID &&
-    value.capabilityVersion === 1 &&
+    value.capabilityVersion === UAP_UGV_MOVE_CAPABILITY_VERSION &&
     ['degraded', 'unavailable'].includes(value.status) &&
     sameStrings(value.availableImplementations ?? [], [IMPLEMENTATION_BINDING_ID]) &&
     (value.unavailableImplementations ?? []).length === 0 &&
@@ -2927,7 +2939,7 @@ async function ensureExposure(
   expected: A2aExposureVersion,
   request: typeof fetch,
 ): Promise<Exposure> {
-  const path = `/api/v1/a2a-exposures/${encodeURIComponent(EXPOSURE_ID)}/versions/1`;
+  const path = `/api/v1/a2a-exposures/${encodeURIComponent(EXPOSURE_ID)}/versions/${String(UAP_UGV_MOVE_EXPOSURE_VERSION)}`;
   let current = await controlGetOptional(configuration, path, ExposureSchema, request);
   current ??= ExposureSchema.parse(
     await controlPost(
@@ -2952,7 +2964,7 @@ async function ensureExposure(
           'exposure-publish',
           `${expected.exposureHash}:${current.status}`,
         ),
-        { reason: 'Publish exact a2a.embodied.move@1 Exposure.' },
+        { reason: 'Publish exact a2a.embodied.move@2 Exposure.' },
         202,
         request,
         a2aExposureEtag(current as A2aExposureVersion),
@@ -2972,9 +2984,9 @@ async function ensureExposure(
 function assertExposureExact(actual: Exposure, expected: A2aExposureVersion): void {
   if (
     actual.exposureId !== EXPOSURE_ID ||
-    actual.version !== 1 ||
+    actual.version !== UAP_UGV_MOVE_EXPOSURE_VERSION ||
     actual.capabilityId !== CAPABILITY_ID ||
-    actual.capabilityVersion !== 1 ||
+    actual.capabilityVersion !== UAP_UGV_MOVE_CAPABILITY_VERSION ||
     actual.agentSkillId !== SKILL_ID ||
     actual.exposureHash !== expected.exposureHash ||
     canonical({ ...actual, status: 'draft' }) !== canonical({ ...expected, status: 'draft' })
@@ -2992,7 +3004,7 @@ async function ensureManagedCard(
     canonical([
       {
         capabilityId: CAPABILITY_ID,
-        capabilityVersion: 1,
+        capabilityVersion: UAP_UGV_MOVE_CAPABILITY_VERSION,
         exposureHash: exposure.exposureHash,
         readinessHash: readiness.snapshotHash,
       },
@@ -3001,7 +3013,9 @@ async function ensureManagedCard(
   let active = await loadActiveManagedCard(configuration, request);
   if (
     active === undefined ||
-    !sameStrings(active.exposureRefs ?? [], [`${EXPOSURE_ID}:1`]) ||
+    !sameStrings(active.exposureRefs ?? [], [
+      `${EXPOSURE_ID}:${String(UAP_UGV_MOVE_EXPOSURE_VERSION)}`,
+    ]) ||
     active.capabilityCatalogHash !== desiredCatalogHash
   ) {
     const prior =
@@ -3025,7 +3039,9 @@ async function ensureManagedCard(
   }
   if (
     active?.status !== 'active' ||
-    !sameStrings(active.exposureRefs ?? [], [`${EXPOSURE_ID}:1`]) ||
+    !sameStrings(active.exposureRefs ?? [], [
+      `${EXPOSURE_ID}:${String(UAP_UGV_MOVE_EXPOSURE_VERSION)}`,
+    ]) ||
     active.capabilityCatalogHash !== desiredCatalogHash
   )
     fail(
@@ -3082,19 +3098,19 @@ async function loadExactGovernanceAuthority(
     controlGet(configuration, `/api/v1/skills/${encodeURIComponent(SKILL_ID)}/versions/1`, request),
     controlGet(
       configuration,
-      `/api/v1/node-capabilities/${encodeURIComponent(CAPABILITY_ID)}/versions/1`,
+      `/api/v1/node-capabilities/${encodeURIComponent(CAPABILITY_ID)}/versions/${String(UAP_UGV_MOVE_CAPABILITY_VERSION)}`,
       request,
     ),
     loadImplementations(configuration, request),
     controlGetWithEtag(
       configuration,
-      `/api/v1/capability-readiness/${encodeURIComponent(CAPABILITY_ID)}/1`,
+      `/api/v1/capability-readiness/${encodeURIComponent(CAPABILITY_ID)}/${String(UAP_UGV_MOVE_CAPABILITY_VERSION)}`,
       ReadinessSchema,
       request,
     ),
     controlGet(
       configuration,
-      `/api/v1/a2a-exposures/${encodeURIComponent(EXPOSURE_ID)}/versions/1`,
+      `/api/v1/a2a-exposures/${encodeURIComponent(EXPOSURE_ID)}/versions/${String(UAP_UGV_MOVE_EXPOSURE_VERSION)}`,
       request,
     ),
   ]);
@@ -3131,7 +3147,7 @@ async function loadExactGovernanceAuthority(
     canonical([
       {
         capabilityId: CAPABILITY_ID,
-        capabilityVersion: 1,
+        capabilityVersion: UAP_UGV_MOVE_CAPABILITY_VERSION,
         exposureHash: exposureValue.exposureHash,
         readinessHash,
       },
@@ -3139,7 +3155,9 @@ async function loadExactGovernanceAuthority(
   );
   if (
     managedCard === undefined ||
-    !sameStrings(managedCard.exposureRefs ?? [], [`${EXPOSURE_ID}:1`]) ||
+    !sameStrings(managedCard.exposureRefs ?? [], [
+      `${EXPOSURE_ID}:${String(UAP_UGV_MOVE_EXPOSURE_VERSION)}`,
+    ]) ||
     managedCard.capabilityCatalogHash !== expectedCatalogHash
   )
     fail(
@@ -3216,7 +3234,7 @@ function report(
     }),
     capability: Object.freeze({
       capabilityId: CAPABILITY_ID,
-      version: 1,
+      version: UAP_UGV_MOVE_CAPABILITY_VERSION,
       status: 'published',
       definitionHash: governance.capability.definitionHash,
       implementationBindingId: IMPLEMENTATION_BINDING_ID,
@@ -3231,7 +3249,7 @@ function report(
     }),
     exposure: Object.freeze({
       exposureId: EXPOSURE_ID,
-      version: 1,
+      version: UAP_UGV_MOVE_EXPOSURE_VERSION,
       agentSkillId: SKILL_ID,
       status: 'published',
       exposureHash: governance.exposure.exposureHash,
@@ -3242,7 +3260,7 @@ function report(
       distinctFromProfilePublicCard: true,
       status: 'active',
       revision: governance.managedCard.revision,
-      exposureRefs: Object.freeze([`${EXPOSURE_ID}:1`] as const),
+      exposureRefs: Object.freeze([`${EXPOSURE_ID}:2`] as const),
       contentHash: governance.managedCard.contentHash,
       capabilityCatalogHash: governance.managedCard.capabilityCatalogHash,
     }),

@@ -332,7 +332,7 @@ async function requireBinding(
   if (
     exact.taskId !== taskId ||
     exact.requestedCapabilityId !== CAPABILITY_ID ||
-    exact.capabilityVersion !== 1 ||
+    exact.capabilityVersion !== 2 ||
     !sameStrings(exact.initialImplementationRefs, [`skill:${SKILL_ID}:${String(SKILL_VERSION)}`]) ||
     !hasExactConstraint(exact, 'exact_skill_version', {
       skillId: SKILL_ID,

@@ -204,7 +204,7 @@ export async function ugvWorkflowPlanningFixture(): Promise<
   const contextEvidenceRefs = Object.freeze({
     'current-position': `mcp-invocation:qualification-invocation-1:result-hash:${contextResultHash}:context:current-position`,
     'resource-state': `mcp-invocation:qualification-invocation-1:result-hash:${contextResultHash}:context:resource-state`,
-    'permission-context': `task-capability-binding:capability-binding-1:hash:${'b'.repeat(64)}:policy-id:ugv-agent-profile/simulation-short-move:revision:1:policy-hash:sha256:${'c'.repeat(64)}:context:permission-context`,
+    'permission-context': `task-capability-binding:capability-binding-1:hash:${'b'.repeat(64)}:policy-id:ugv-agent-profile/explicit-wgs84-target:revision:2:policy-hash:sha256:${'c'.repeat(64)}:context:permission-context`,
   });
   const candidate: SkillUsageCandidateSnapshot = {
     skillId: skill.skillId,

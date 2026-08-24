@@ -96,6 +96,50 @@ export async function initializeState(stateRoot = EXPECTED_STATE_ROOT) {
   });
 }
 
+export async function readExistingState(stateRoot = EXPECTED_STATE_ROOT) {
+  const root = resolve(stateRoot);
+  const status = await lstat(root).catch(() => {
+    throw new UapStateError('UAP_EXISTING_STATE_REQUIRED');
+  });
+  if (
+    status.isSymbolicLink() ||
+    !status.isDirectory() ||
+    (status.mode & 0o777) !== 0o700 ||
+    (process.getuid !== undefined && status.uid !== process.getuid())
+  )
+    throw new UapStateError('UAP_EXISTING_STATE_INVALID');
+  const [bootstrapRunId, simulationRunId, manifestSource] = await Promise.all([
+    readPrivateFile(join(root, 'run-id')),
+    readPrivateFile(join(root, 'simulation-run-id')),
+    readPrivateFile(join(root, 'state-manifest.json')),
+  ]).catch((error) => {
+    if (error instanceof UapStateError) throw error;
+    throw new UapStateError('UAP_EXISTING_STATE_REQUIRED');
+  });
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestSource);
+  } catch {
+    throw new UapStateError('UAP_EXISTING_STATE_INVALID');
+  }
+  if (
+    !IDENTIFIER.test(bootstrapRunId) ||
+    !/^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u.test(simulationRunId) ||
+    typeof manifest !== 'object' ||
+    manifest === null ||
+    Array.isArray(manifest) ||
+    manifest?.schemaVersion !== 'ugv-agent-profile.local-state/v1' ||
+    manifest?.owner !== 'UAP-P3-B01' ||
+    manifest?.repositoryRoot !== REPOSITORY_ROOT ||
+    manifest?.smppComposeProject !== 'sdar-uap-p3-b01-smpp' ||
+    manifest?.sdarComposeProject !== 'sdar-uap-p3-b01-sdar' ||
+    manifest?.secretsIncluded !== false ||
+    Object.keys(manifest).length !== 6
+  )
+    throw new UapStateError('UAP_EXISTING_STATE_INVALID');
+  return Object.freeze({ root, bootstrapRunId, simulationRunId });
+}
+
 async function ensurePrivateDirectory(path) {
   try {
     const before = await lstat(path);
@@ -237,11 +281,19 @@ function isNodeError(error) {
 async function main() {
   const printRunId = process.argv.slice(2).includes('--print-run-id');
   const printSimulationRunId = process.argv.slice(2).includes('--print-simulation-run-id');
+  const printExistingSimulationRunId = process.argv
+    .slice(2)
+    .includes('--print-existing-simulation-run-id');
   if (
-    (printRunId && printSimulationRunId) ||
-    process.argv.length > (printRunId || printSimulationRunId ? 3 : 2)
+    [printRunId, printSimulationRunId, printExistingSimulationRunId].filter(Boolean).length > 1 ||
+    process.argv.length >
+      (printRunId || printSimulationRunId || printExistingSimulationRunId ? 3 : 2)
   )
     throw new UapStateError('UAP_ARGUMENT_INVALID');
+  if (printExistingSimulationRunId) {
+    process.stdout.write(`${(await readExistingState()).simulationRunId}\n`);
+    return;
+  }
   const state = await initializeState();
   if (printRunId) process.stdout.write(`${state.runId}\n`);
   else if (printSimulationRunId) process.stdout.write(`${state.simulationRunId}\n`);

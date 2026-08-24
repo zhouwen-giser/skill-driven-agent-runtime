@@ -3,7 +3,12 @@ import { createServer, type Server as HttpServer } from 'node:http';
 
 import { AgentCard, type AgentSkill } from '@a2a-js/sdk';
 import { ClientFactory, type Client } from '@a2a-js/sdk/client';
-import { DefaultRequestHandler, type AgentExecutor, type TaskStore } from '@a2a-js/sdk/server';
+import {
+  DefaultRequestHandler,
+  type AgentExecutor,
+  type ExecutionEventBusManager,
+  type TaskStore,
+} from '@a2a-js/sdk/server';
 import { UserBuilder, agentCardHandler, restHandler } from '@a2a-js/sdk/server/express';
 import express from 'express';
 
@@ -16,10 +21,12 @@ import type { A2AArtifactProjection } from '../../domain/src/index.js';
 import { createGovernedControlA2AAuthentication } from './authenticated-confirm-user.js';
 import { A2AAgentCardBuilder } from './capability-card-projection.js';
 import { buildAgentCard } from './compatibility.js';
+import { ReplaySafeExecutionEventBusManager } from './replay-safe-event-bus-manager.js';
 
 export interface A2AHttpEndpointOptions {
   readonly executor: AgentExecutor;
   readonly taskStore: TaskStore;
+  readonly eventBusManager?: ExecutionEventBusManager;
   readonly skills?: readonly Readonly<Pick<AgentSkill, 'id' | 'name' | 'description' | 'tags'>>[];
   readonly skillProvider?: EnabledSkillCapabilityProvider;
   readonly capabilityCardProvider?: Readonly<{
@@ -101,7 +108,12 @@ export async function startA2AHttpEndpoint(
     });
   };
   const card = await loadCard();
-  const handler = new DefaultRequestHandler(card, options.taskStore, options.executor);
+  const handler = new DefaultRequestHandler(
+    card,
+    options.taskStore,
+    options.executor,
+    options.eventBusManager ?? new ReplaySafeExecutionEventBusManager(),
+  );
   const confirmationAuthentication =
     options.confirmationPrincipalResolver === undefined
       ? undefined

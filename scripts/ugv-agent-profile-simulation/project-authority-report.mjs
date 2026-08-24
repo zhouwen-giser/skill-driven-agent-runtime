@@ -211,10 +211,10 @@ function validateBootstrapAuthorityPayload(value, mode) {
     !checksum(value?.skill?.packageChecksum) ||
     value?.skill?.exactVersionCount !== 1 ||
     value?.capability?.capabilityId !== 'embodied.move' ||
-    value?.capability?.version !== 1 ||
+    value?.capability?.version !== 2 ||
     value?.capability?.status !== 'published' ||
     !checksum(value?.capability?.definitionHash) ||
-    value?.capability?.implementationBindingId !== 'capability-binding-embodied.move-v1' ||
+    value?.capability?.implementationBindingId !== 'capability-binding-embodied.move-v2' ||
     value?.capability?.implementationCount !== 1 ||
     value?.capability?.constraintCount !== 7 ||
     value?.readiness?.status !== 'available' ||
@@ -222,7 +222,7 @@ function validateBootstrapAuthorityPayload(value, mode) {
     !checksum(value?.readiness?.snapshotHash) ||
     !Number.isFinite(Date.parse(value?.readiness?.validUntil)) ||
     value?.exposure?.exposureId !== 'a2a.embodied.move' ||
-    value?.exposure?.version !== 1 ||
+    value?.exposure?.version !== 2 ||
     value?.exposure?.agentSkillId !== 'embodied.move_to' ||
     value?.exposure?.status !== 'published' ||
     !checksum(value?.exposure?.exposureHash) ||
@@ -231,7 +231,7 @@ function validateBootstrapAuthorityPayload(value, mode) {
     value?.managedCard?.distinctFromProfilePublicCard !== true ||
     value?.managedCard?.status !== 'active' ||
     !positiveInteger(value?.managedCard?.revision) ||
-    JSON.stringify(value?.managedCard?.exposureRefs) !== JSON.stringify(['a2a.embodied.move:1']) ||
+    JSON.stringify(value?.managedCard?.exposureRefs) !== JSON.stringify(['a2a.embodied.move:2']) ||
     !checksum(value?.managedCard?.contentHash) ||
     !checksum(value?.managedCard?.capabilityCatalogHash) ||
     value?.profilePublicCard?.authority !== 'enabled_skill_version' ||
@@ -337,7 +337,7 @@ function validateReadinessPayload(value) {
     !profileCardPhase(restored, 1, 1, 2) ||
     card?.semanticRestored !== true ||
     value?.managedCardSeparation?.authority !== 'node_control_exposure' ||
-    value?.managedCardSeparation?.exposureRef !== 'a2a.embodied.move:1' ||
+    value?.managedCardSeparation?.exposureRef !== 'a2a.embodied.move:2' ||
     !positiveInteger(value?.managedCardSeparation?.revision) ||
     !checksum(value?.managedCardSeparation?.contentHash) ||
     value?.managedCardSeparation?.unchangedAcrossSkillLifecycle !== true ||

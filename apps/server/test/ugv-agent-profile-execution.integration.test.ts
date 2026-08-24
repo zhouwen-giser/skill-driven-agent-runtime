@@ -34,7 +34,6 @@ import {
 } from '../test-support/postgres.js';
 import {
   startUgvFrozenMcpProvider,
-  UGV_FROZEN_INITIAL_POSITION,
   type UgvFrozenMcpProviderHandle,
 } from '../test-support/ugv-frozen-mcp-provider.js';
 import { ConfiguredBearerGovernedControlIdentity } from '../src/governed-control-management-identity.js';
@@ -43,10 +42,7 @@ import {
   UGV_AGENT_PROFILE_ID,
   ugvAgentProfileTaskUnderstandingConfiguration,
 } from '../src/ugv-agent-profile.js';
-import {
-  createUgvSimulationTargetPolicy,
-  deriveUgvSimulationShortMoveTarget,
-} from '../src/ugv-move-skill-usage.js';
+import { createUgvSimulationTargetPolicy } from '../src/ugv-move-skill-usage.js';
 import { adaptUgvMoveInput } from '../src/ugv-move-input-adapter.js';
 import { UGV_MOVE_WORKFLOW_NODE_IDS } from '../src/ugv-move-workflow.js';
 
@@ -65,7 +61,7 @@ const bearerToken = 'uap-p2-b03-confirmation-token-1234567890abcdef';
 const masterKeyBase64 = randomBytes(32).toString('base64');
 const queueName = `uap-p2-b03-context-${randomUUID()}`;
 const remoteQueueName = `uap-p2-b03-remote-${randomUUID()}`;
-const target = deriveUgvSimulationShortMoveTarget(UGV_FROZEN_INITIAL_POSITION);
+const target = Object.freeze({ x: 106.8134463, y: 29.72034353, frame: 'WGS84' as const });
 const capabilityInput = Object.freeze({
   resourceId: 'vehicle:ugv1',
   target: Object.freeze({ ...target }),
@@ -209,10 +205,37 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
     expect(frozenProvider.getStateCallCount).toBe(1);
     expect(frozenProvider.navigateCallCount).toBe(0);
 
-    const submitted = await sendA2a(firstRuntime.a2a.baseUrl, initialRequest(), bearerToken);
+    const initialAdmissionKey = `ugv-p2-b03-${randomUUID()}`;
+    const submitted = await sendA2a(
+      firstRuntime.a2a.baseUrl,
+      initialRequest(initialAdmissionKey),
+      bearerToken,
+    );
     const task = responseTask(submitted);
     const taskId = text(task['id'], 'A2A_TASK_ID_MISSING');
     const contextId = text(task['contextId'], 'A2A_CONTEXT_ID_MISSING');
+    const replayedSubmission = responseTask(
+      await sendA2a(firstRuntime.a2a.baseUrl, initialRequest(initialAdmissionKey), bearerToken),
+    );
+    expect(replayedSubmission).toMatchObject({ id: taskId, contextId });
+    const admissionCounts = await database.query<{
+      admissions: number;
+      tasks: number;
+      bindings: number;
+      attempts: number;
+    }>(
+      `SELECT
+         (SELECT count(*)::integer FROM initial_task_admission WHERE idempotency_key=$1) admissions,
+         (SELECT count(*)::integer FROM agent_task WHERE request_metadata->>'idempotency_key'=$1) tasks,
+         (SELECT count(*)::integer FROM task_capability_binding binding
+           JOIN agent_task task ON task.task_id=binding.task_id
+          WHERE task.request_metadata->>'idempotency_key'=$1) bindings,
+         (SELECT count(*)::integer FROM task_capability_execution_attempt attempt
+           JOIN agent_task task ON task.task_id=attempt.task_id
+          WHERE task.request_metadata->>'idempotency_key'=$1) attempts`,
+      [initialAdmissionKey],
+    );
+    expect(admissionCounts.rows).toEqual([{ admissions: 1, tasks: 1, bindings: 1, attempts: 1 }]);
 
     const prepared = await eventually(async () => {
       const result = await database.query<{
@@ -588,20 +611,20 @@ function fullCapabilityConstraints(
   executionSemantics: McpToolExecutionSemantics,
 ): readonly EvidenceRecord[] {
   const targetPolicy = createUgvSimulationTargetPolicy({
-    policyId: 'ugv-agent-profile/simulation-short-move',
-    revision: 1,
+    policyId: 'ugv-agent-profile/explicit-wgs84-target',
+    revision: 2,
   });
   const targetPolicyEvidence: EvidenceRecord = Object.freeze({
     type: 'ugv_simulation_target_policy',
-    policyId: 'ugv-agent-profile/simulation-short-move',
-    revision: 1,
+    policyId: 'ugv-agent-profile/explicit-wgs84-target',
+    revision: 2,
     executionMode: 'simulation',
     resourceId: 'vehicle:ugv1',
     frame: 'WGS84',
-    targetDerivation: 'deterministic_short_distance',
-    bearingDegrees: 90,
-    distanceM: 1,
-    maximumDistanceM: 2,
+    targetAuthority: 'task_capability_input_snapshot',
+    targetDerivation: 'forbidden',
+    distanceLimit: 'none',
+    altitudePolicy: 'not_commanded_not_terminally_evaluated',
     forbiddenRegions: Object.freeze([]),
   });
   if (hashCanonicalEvidenceJson(targetPolicy) !== hashCanonicalEvidenceJson(targetPolicyEvidence))
@@ -708,7 +731,7 @@ function createCapabilityAuthority(
   return Object.freeze({
     definition: Object.freeze({
       capability_id: 'embodied.move',
-      version: 1,
+      version: 2,
       status: 'published',
       risk_level: 'high',
       supported_modes: Object.freeze(['plan_confirmed', 'remote_task']),
@@ -717,7 +740,7 @@ function createCapabilityAuthority(
     implementationBindings: Object.freeze([
       Object.freeze({
         capability_id: 'embodied.move',
-        capability_version: 1,
+        capability_version: 2,
         implementation_type: 'skill',
         implementation_id: 'embodied.move_to',
         implementation_version: '1',
@@ -804,7 +827,7 @@ async function seedFormalCapabilityAuthority(
        VALUES($1,'node-ugv-p2-b03',$2::jsonb,$3,$4,'active',$5::jsonb,$6,$6)`,
       [
         revision,
-        JSON.stringify([`${exposureId}:1`]),
+        JSON.stringify([`${exposureId}:2`]),
         randomBytes(32).toString('hex'),
         randomBytes(32).toString('hex'),
         JSON.stringify({
@@ -834,7 +857,7 @@ async function seedFormalCapabilityAuthority(
       `INSERT INTO runtime_agent_card_exposure_snapshot(
          revision,exposure_id,exposure_version,capability_id,capability_version,agent_skill_id,
          request_schema,result_schema,requester_policy,exposure_hash)
-       VALUES($1,$2,1,'embodied.move',1,'embodied.move_to',$3::jsonb,$4::jsonb,
+       VALUES($1,$2,2,'embodied.move',2,'embodied.move_to',$3::jsonb,$4::jsonb,
               '{"allowAnonymous":false}'::jsonb,$5)`,
       [
         revision,
@@ -849,7 +872,7 @@ async function seedFormalCapabilityAuthority(
          capability_id,capability_version,snapshot_version,status,raw_status,evaluated_at,
          valid_until,catalog_hash,policy_hash,snapshot_hash,reasons,available_implementations,
          unavailable_implementations,evaluation_input,trigger_reason)
-       VALUES('embodied.move',1,1,'available','available',$1,$2,$3,$4,$5,'[]'::jsonb,
+       VALUES('embodied.move',2,1,'available','available',$1,$2,$3,$4,$5,'[]'::jsonb,
               $6::jsonb,'[]'::jsonb,$7::jsonb,'integration')`,
       [
         now,
@@ -1005,14 +1028,14 @@ async function assertGovernedControlIssueAuthority(
   });
 }
 
-function initialRequest(): unknown {
+function initialRequest(idempotencyKey: string): unknown {
   return createA2ATestSendMessageBody({
     message: {
       messageId: `ugv-p2-b03-initial-${randomUUID()}`,
       role: 'ROLE_USER',
       parts: [
         {
-          text: 'Move the simulation UGV to the formally authorized short-distance point.',
+          text: 'Move the simulation UGV to the explicitly authorized WGS84 point.',
           mediaType: 'text/plain',
         },
         { data: capabilityInput, mediaType: 'application/json' },
@@ -1020,10 +1043,11 @@ function initialRequest(): unknown {
       metadata: {
         user_id: 'uap-p2-b03-requester',
         structured_input: capabilityInput,
+        idempotency_key: idempotencyKey,
         'io.sdar/requestedCapability': {
           exposureId,
-          versionConstraint: '1',
-          requestId: `ugv-p2-b03-${randomUUID()}`,
+          versionConstraint: '2',
+          requestId: idempotencyKey,
         },
       },
     },

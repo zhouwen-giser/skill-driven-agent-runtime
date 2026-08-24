@@ -416,7 +416,7 @@ function capabilityBinding(
     bindingId: 'capability-binding-uap-p2-b03',
     taskId: TASK_ID,
     requestedCapabilityId: 'embodied.move',
-    capabilityVersion: 1,
+    capabilityVersion: 2,
     inputSnapshot: input,
     successCriteriaSnapshot: Object.freeze([
       Object.freeze({ type: 'required_evidence_complete', required: true }),

@@ -10,7 +10,7 @@
     "selectedTaskOperationHash": "sha256:dd59d9f5ba1a4b046d8c109043a4a4d71b1dfb02302155997f3d20ec086dbaba",
     "navigateArgumentsHash": "sha256:b86c1872ff16eeaba4f18ad650ba1db821ab870588127733fef951be7d8d66ed",
     "finalStateArgumentsHash": "sha256:60f2e269c7de3cfcb27540c0a99e0e35fd5ce1e81750a74803908274cdf63be1",
-    "skillUsagePolicyHash": "sha256:450b81a7383de739ed290803d1cf5d62c2d66a865a9731e2516c91b0b5f8f4f4"
+    "skillUsagePolicyHash": "sha256:ea8573b9d108ae2e3ae81d2ba1549211cc0a50b485385071fc661b0898063da3"
   },
   "workflowDefinition": {
     "workflowDefinitionId": "workflow-uap-p2-b03",

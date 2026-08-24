@@ -12,6 +12,44 @@ The user-selected current SMPP intake is
 `90466127aee7c01014eef29a1e346b071de3704e` remains the immutable P1 qualification evidence
 checkpoint and `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
 
+The latest authorized real attempt reached A2A admission, immutable planning and confirmation, then
+dispatched exactly one `vehicle_navigate` through Frozen MCP Tasks. The Provider Task completed and
+the Adapter execution succeeded; the simulator ended near `106.81344283,29.72040457` for target
+`106.81344630,29.72034353` (approximately 6.8 metres horizontal error). SDAR did not complete the
+A2A Task because its Adapter rejected the Provider's legal CreateTask state `working` with substate
+`accepted`, producing `FROZEN_CREATE_TASK_RESULT_INVALID`. The failure is sealed as
+`terminal_provider_safe`: no redispatch is permitted and no SDAR continuation or terminal outcome is
+invented.
+
+The compatibility defect is implemented and locally verified: Domain/Adapter contracts now accept
+the bounded `accepted` substate, migration `0173_remote_task_accepted_substate` updates and can roll
+back the PostgreSQL constraint, and the terminal-safe reconciliation contract is strict. The final
+affected matrix passes 5 files/165 tests; typecheck, build, 849-source architecture verification,
+scoped lint and diff checks pass. The user cancelled post-fix simulator validation because the
+simulator was being used by another client. The task-owned containers and volumes are absent and the
+host supervisor is stopped. Therefore code handoff is ready, but P3-B02/P3-B03 and overall Goal
+acceptance remain pending; no successful SDAR A2A terminal result is claimed.
+
+An earlier recovery-issued P3-B02 attempt was executed exactly once on 2026-08-24 after fresh A3/A4 and
+strict A5 gates. The task-owned stack had seven healthy SMPP services, three healthy SDAR services,
+three host processes in `NO`, migration `0172` applied, an empty initial-admission ledger, clean
+28-collection execution ledgers, and measured authority runways above the exact
+240s/1200s/1200s/30s budgets. A live-only private-authority hashing defect was fixed without relaxing
+the public evidence redaction boundary; Source driver/runner regressions pass 40/40.
+
+The one YES window failed closed at `prepare-unique-admission`. The taskless
+`vehicle_get_state`/Device `get_status` succeeded and was durably recorded, but the external state
+reported `chassis.mission.state=0`, outside the frozen qualification set `[-1,3,4,5]`. No formal A2A
+admission, Task, Goal, Plan, model invocation, confirmation, navigate, Provider Task, remote binding,
+continuation, Adapter execution, mutation journal or command ACK was created. The finalizer restored
+the Server from Supervisor revision 2/YES to revision 3/NO while both control-process identities
+remained stable. The public immutable failure artifact is
+`reports/ugv-agent-profile-simulation/attempts/uap-p3-b02-failure-uap-p3-b02-mt6kdjmv-38f9f84f9cebfb999bab-20260824025148997-4ab396c5b97b2dca.redacted.json`
+(SHA-256 `dd3cb5b542c5d6ef8955cdc09eb0bb2a1b34fbfcf5aadaa32231fb46549e3025`).
+Canonical P3-B02 PASS remains absent. Current verdict is `BLOCKED_EXTERNAL_QUALIFICATION`; the used
+simulation identity is sealed and will not be retried. This is safety/failure evidence, not movement
+or Goal completion.
+
 P3-B01 ran the current SMPP checkout without modifying it. A task-owned clean operation followed by
 preflight and ordered `up.sh` started seven SMPP services, three SDAR infrastructure services and
 three host processes using isolated projects, databases, networks and volumes. Only the SMPP Adapter
