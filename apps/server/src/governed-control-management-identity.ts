@@ -59,6 +59,44 @@ export class ConfiguredBearerGovernedControlIdentity implements GovernedControlP
   }
 }
 
+export class ConfiguredTrustedIntranetGovernedControlIdentity implements GovernedControlPrincipalResolver {
+  readonly #actorId: string;
+  readonly #permissions: ReadonlySet<GovernedControlPermission>;
+
+  constructor(
+    options: Readonly<{
+      actorId: string;
+      permissions: readonly GovernedControlPermission[];
+    }>,
+  ) {
+    if (
+      options.actorId.trim() === '' ||
+      /^(?:agent|assistant|llm|model):/iu.test(options.actorId) ||
+      options.permissions.length === 0 ||
+      options.permissions.some((permission) => !CONTROL_PERMISSIONS.has(permission)) ||
+      new Set(options.permissions).size !== options.permissions.length
+    )
+      throw new Error('GOVERNED_CONTROL_IDENTITY_CONFIG_INVALID');
+    this.#actorId = options.actorId.trim();
+    this.#permissions = immutableReadonlySet(options.permissions);
+  }
+
+  resolve(
+    input: Parameters<GovernedControlPrincipalResolver['resolve']>[0],
+  ): Promise<GovernedControlPrincipal> {
+    return Promise.resolve(
+      Object.freeze({
+        actorId: this.#actorId,
+        kind: 'human' as const,
+        authenticationMethod: 'trusted_intranet',
+        permissions: this.#permissions,
+        requestId: input.requestId,
+        ...(input.sourceIp === undefined ? {} : { sourceIp: input.sourceIp }),
+      }),
+    );
+  }
+}
+
 function digest(value: string): Buffer {
   return createHash('sha256').update(value, 'utf8').digest();
 }

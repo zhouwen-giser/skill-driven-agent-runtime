@@ -8,7 +8,10 @@ import {
 } from '@a2a-js/sdk/server';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ConfiguredBearerGovernedControlIdentity } from '../../../apps/server/src/governed-control-management-identity.js';
+import {
+  ConfiguredBearerGovernedControlIdentity,
+  ConfiguredTrustedIntranetGovernedControlIdentity,
+} from '../../../apps/server/src/governed-control-management-identity.js';
 import {
   InMemoryTaskStateNotifier,
   type ExternalTaskProjection,
@@ -435,6 +438,63 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     expect(correct.status).toBe(200);
     expect(followUpExecutions).toBe(1);
     expect(identityResolutions).toBe(4);
+  });
+
+  it('accepts an anonymous initial A2A request in explicit trusted-intranet mode', async () => {
+    const identity = new ConfiguredTrustedIntranetGovernedControlIdentity({
+      actorId: 'ugv-local-operator',
+      permissions: ['physical_control.confirm'],
+    });
+    let executions = 0;
+    const executor: AgentExecutor = {
+      execute(request: RequestContext, eventBus: ExecutionEventBus): Promise<void> {
+        executions += 1;
+        eventBus.publish(
+          AgentEvent.task(
+            Task.fromJSON({
+              id: request.taskId,
+              contextId: request.contextId,
+              status: {
+                state: 'TASK_STATE_INPUT_REQUIRED',
+                timestamp: '2026-08-21T00:00:00.000Z',
+              },
+              history: [],
+              artifacts: [],
+            }),
+          ),
+        );
+        eventBus.finished();
+        return Promise.resolve();
+      },
+      cancelTask: () => Promise.reject(new Error('UNUSED')),
+    };
+    handle = await startA2AHttpEndpoint({
+      executor,
+      taskStore: new InMemoryTaskStore(),
+      skills: [
+        {
+          id: 'embodied.move_to',
+          name: 'Move UGV',
+          description: 'Trusted intranet contract probe.',
+          tags: ['ugv'],
+        },
+      ],
+      confirmationPrincipalResolver: identity,
+    });
+
+    const initial = await postA2AMessage(
+      handle.baseUrl,
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: 'message-trusted-intranet-initial',
+          role: 'ROLE_USER',
+          parts: [{ text: 'Prepare a UGV plan.', mediaType: 'text/plain' }],
+        },
+      }),
+    );
+
+    expect(initial.status).toBe(200);
+    expect(executions).toBe(1);
   });
 
   it('streams the standard task lifecycle without custom states', async () => {

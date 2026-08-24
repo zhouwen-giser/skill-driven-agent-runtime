@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { ConfiguredBearerGovernedControlIdentity } from '../src/governed-control-management-identity.js';
+import {
+  ConfiguredBearerGovernedControlIdentity,
+  ConfiguredTrustedIntranetGovernedControlIdentity,
+} from '../src/governed-control-management-identity.js';
 
 const token = 'governed-control-test-token-000001';
 
@@ -70,5 +73,30 @@ describe('ConfiguredBearerGovernedControlIdentity', () => {
           permissions: ['physical_control.confirm', 'physical_control.confirm'],
         }),
     ).toThrow('GOVERNED_CONTROL_IDENTITY_CONFIG_INVALID');
+  });
+});
+
+describe('ConfiguredTrustedIntranetGovernedControlIdentity', () => {
+  it('derives the configured human principal without inspecting Authorization', async () => {
+    const identity = new ConfiguredTrustedIntranetGovernedControlIdentity({
+      actorId: 'human:local-operator',
+      permissions: ['physical_control.confirm'],
+    });
+
+    for (const authorization of [undefined, 'Bearer ignored-by-trusted-intranet-mode']) {
+      const principal = await identity.resolve({
+        ...(authorization === undefined ? {} : { authorization }),
+        requestId: 'request-trusted-intranet',
+        sourceIp: '127.0.0.1',
+      });
+      expect(principal).toMatchObject({
+        actorId: 'human:local-operator',
+        kind: 'human',
+        authenticationMethod: 'trusted_intranet',
+        requestId: 'request-trusted-intranet',
+        sourceIp: '127.0.0.1',
+      });
+      expect([...principal.permissions]).toEqual(['physical_control.confirm']);
+    }
   });
 });

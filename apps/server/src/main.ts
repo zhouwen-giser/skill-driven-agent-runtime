@@ -3,7 +3,10 @@ import process from 'node:process';
 import { ConfiguredOperatorIdentityPort } from '../../../packages/application/src/index.js';
 import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runtime-control-http-client/src/index.js';
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
-import { ConfiguredBearerGovernedControlIdentity } from './governed-control-management-identity.js';
+import {
+  ConfiguredBearerGovernedControlIdentity,
+  ConfiguredTrustedIntranetGovernedControlIdentity,
+} from './governed-control-management-identity.js';
 import { loadServerEnvironment } from './environment.js';
 import {
   homeLabGovernedLightSkillUsageContext,
@@ -170,13 +173,14 @@ function createArtifactManagementIdentity(
   });
 }
 
-function createGovernedControlIdentity(): ConfiguredBearerGovernedControlIdentity | undefined {
+function createGovernedControlIdentity() {
   const token = environment.SDAR_GOVERNED_CONTROL_BEARER_TOKEN;
-  if (token === undefined) return undefined;
   const actorId = environment.SDAR_GOVERNED_CONTROL_ACTOR_ID;
   const permissions = environment.SDAR_GOVERNED_CONTROL_PERMISSIONS;
-  if (actorId === undefined || permissions === undefined)
-    throw new Error('GOVERNED_CONTROL_IDENTITY_CONFIG_INVALID');
+  if (actorId === undefined || permissions === undefined) return undefined;
+  if (environment.SDAR_GOVERNED_CONTROL_AUTHENTICATION_MODE === 'trusted_intranet')
+    return new ConfiguredTrustedIntranetGovernedControlIdentity({ actorId, permissions });
+  if (token === undefined) throw new Error('GOVERNED_CONTROL_IDENTITY_CONFIG_INVALID');
   return new ConfiguredBearerGovernedControlIdentity({ token, actorId, permissions });
 }
 
