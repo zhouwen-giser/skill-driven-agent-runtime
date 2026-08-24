@@ -1,5 +1,24 @@
 # Project Status
 
+## SACS v0.3 natural-language admission compatibility (2026-08-24)
+
+ADR-140 is implemented for the SACS v0.3 client while preserving the A2A `1.0` wire and normative
+1.0.1 baseline. A metadata-free `text/plain` UGV request now enters an Application-owned,
+deterministic resolver, produces the existing `a2a.embodied.move@2` candidate input and is accepted
+only after the current PostgreSQL Exposure/readiness/Provider authority is re-resolved. The public
+UGV Agent Card exposes a safe optional admission contract, including Exposure/capability versions
+and request schema, so SACS does not need private SDAR metadata or management API access.
+
+The trusted-intranet deployment remains consistent with empty Card security requirements: initial
+A2A admission can be anonymous, while plan confirmation, governed-control identity and the physical
+side-effect gate remain independent execution boundaries. The focused matrix passes 8 files/204
+tests and the real local Runtime integration with isolated PostgreSQL/Redis passes 1/1. That
+integration proves one durable Task/Binding/Attempt, same-message replay, zero navigate before
+confirmation, one navigate after confirmation and restart recovery using a frozen local Provider.
+Typecheck, production build, 852-source architecture, changed-scope lint/format and diff checks pass.
+Full lint/format retain only the disclosed out-of-scope Home-Lab/two-file baselines. No test contacted
+the external UGV/simulator or opened a live YES window, and this does not upgrade the external P3 Goal.
+
 ## UGV Agent Profile external-simulation Goal (2026-08-21)
 
 The current `ugv-agent-profile` Goal is `IN_PROGRESS`; this status does not replace or upgrade the

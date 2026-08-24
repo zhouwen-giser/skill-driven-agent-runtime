@@ -83,6 +83,59 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     expect(result).toHaveProperty('status.state', TaskState.TASK_STATE_COMPLETED);
   });
 
+  it('publishes a safe server-resolved natural-language admission contract', async () => {
+    handle = await startA2aHttpSpike({
+      naturalLanguageAdmissionContractProvider: {
+        findCurrent: () =>
+          Promise.resolve({
+            exposureId: 'a2a.embodied.move',
+            exposureVersion: 2,
+            capabilityId: 'embodied.move',
+            capabilityVersion: 2,
+            requestSchema: {
+              type: 'object',
+              required: ['resourceId', 'target'],
+              additionalProperties: false,
+            },
+            requesterPolicy: { allowAnonymous: true, allowedRequesterIds: [] },
+          }),
+      },
+    });
+
+    const response = await fetch(`${handle.baseUrl}/.well-known/agent-card.json`);
+    const card = (await response.json()) as Record<string, unknown>;
+    const serialized = JSON.stringify(card);
+
+    expect(response.status).toBe(200);
+    expect(card).toMatchObject({
+      capabilities: {
+        extensions: expect.arrayContaining([
+          expect.objectContaining({
+            uri: 'io.sdar/naturalLanguageCapabilityAdmission',
+            required: false,
+            params: {
+              version: '1.0',
+              inputMode: 'text/plain',
+              externalCapabilityMetadataRequired: false,
+              clientRequestIdentity: 'a2a.messageId',
+              exposureId: 'a2a.embodied.move',
+              exposureVersion: 2,
+              capabilityId: 'embodied.move',
+              capabilityVersion: 2,
+              requestSchema: {
+                type: 'object',
+                required: ['resourceId', 'target'],
+                additionalProperties: false,
+              },
+              requesterPolicy: { allowAnonymous: true, allowedRequesterIds: [] },
+            },
+          }),
+        ]),
+      },
+    });
+    expect(serialized).not.toMatch(/credential|token|bindingId|providerId/iu);
+  });
+
   it('uses a Runtime-active Capability Agent Card instead of directly exposing internal Skills', async () => {
     handle = await startA2aHttpSpike({
       agentCardProvider: {

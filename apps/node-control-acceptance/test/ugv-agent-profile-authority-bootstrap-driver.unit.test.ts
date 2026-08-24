@@ -455,8 +455,8 @@ describe('UGV Agent Profile authority bootstrap', () => {
       },
     });
     expect(api.exposureRequesterPolicy()).toEqual({
-      allowAnonymous: false,
-      allowedRequesterIds: ['uap-p3-b02-requester'],
+      allowAnonymous: true,
+      allowedRequesterIds: [],
     });
     expect(second.skill.exactVersionCount).toBe(1);
     expect(verified.status).toBe('passed');

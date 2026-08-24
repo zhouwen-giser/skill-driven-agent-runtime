@@ -20,6 +20,7 @@ import type {
 } from './ports.js';
 import type { RuntimeMcpProviderBindingAdmissionVerifier } from './mcp-runtime-binding-authority.js';
 import { canonicalHash } from './mcp-task-readiness.js';
+import type { NaturalLanguageCapabilityAdmissionRequest } from './natural-language-capability-admission.js';
 
 export interface RuntimeCapabilityResolution {
   readonly exposureId: string;
@@ -222,11 +223,18 @@ export class RuntimeTaskCapabilityService {
       inputAttempt: TaskExecutionAttempt;
       bindingId: string;
       capabilityAttemptId: string;
+      requestedCapability?: NaturalLanguageCapabilityAdmissionRequest;
       initialAdmissionIdempotencyKey?: string;
       event: RuntimeTaskEvent;
     }>,
   ) {
-    const request = requestedCapability(input.metadata);
+    const metadataRequest = requestedCapability(input.metadata);
+    if (metadataRequest !== undefined && input.requestedCapability !== undefined)
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_REQUEST_INVALID',
+        'Capability admission cannot combine metadata and server-resolved requests.',
+      );
+    const request = input.requestedCapability ?? metadataRequest;
     if (request === undefined) return undefined;
     if (
       input.initialAdmissionIdempotencyKey !== undefined &&
@@ -347,6 +355,21 @@ export class RuntimeTaskCapabilityService {
 
   findBinding(taskId: string) {
     return this.#store.findBinding(taskId);
+  }
+
+  async describeAdmissionExposure(exposureId: string, exposureVersion: number, now: string) {
+    const resolution = await this.#store.resolveExposure(exposureId, exposureVersion, now);
+    if (resolution === undefined) return undefined;
+    return Object.freeze({
+      exposureId: resolution.exposureId,
+      exposureVersion: resolution.exposureVersion,
+      capabilityId: resolution.requestedCapabilityId,
+      capabilityVersion: resolution.capabilityVersion,
+      requestSchema: structuredClone(resolution.requestSchema),
+      ...(resolution.requesterPolicy === undefined
+        ? {}
+        : { requesterPolicy: Object.freeze(structuredClone(resolution.requesterPolicy)) }),
+    });
   }
 
   async resolveRuntimeExecutionContext(

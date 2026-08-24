@@ -2682,8 +2682,8 @@ function plannedGovernance(
     resultSchema: definition.outputSchema,
     visibility: 'public',
     requesterPolicy: Object.freeze({
-      allowAnonymous: false,
-      allowedRequesterIds: Object.freeze(['uap-p3-b02-requester']),
+      allowAnonymous: true,
+      allowedRequesterIds: Object.freeze([]),
     }),
     readinessPublicationPolicy: 'publish_when_available',
     status: 'draft',
