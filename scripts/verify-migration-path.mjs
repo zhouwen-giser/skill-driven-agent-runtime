@@ -34,7 +34,11 @@ const seedFile = resolve(root, 'infra', 'postgres', 'seed', '0001_sdar_v1_2_2_mi
 const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
 const controlMigrationDirectory = resolve(root, 'infra', 'postgres-control', 'migrations');
 const postBaselineMigrationFiles = (await readdir(migrationDirectory))
-  .filter((file) => /^01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+\.up\.sql$/u.test(file))
+  .filter((file) =>
+    /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate)\.up\.sql$/u.test(
+      file,
+    ),
+  )
   .sort();
 const v123MigrationFiles = postBaselineMigrationFiles.filter(
   (file) => file.startsWith('01') && file.slice(0, 4) <= '0124',

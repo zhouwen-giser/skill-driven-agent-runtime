@@ -35,7 +35,11 @@ const seeds = await Promise.all(
 const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
 const migrations = await Promise.all(
   (await readdir(migrationDirectory))
-    .filter((file) => /^01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+\.up\.sql$/u.test(file))
+    .filter((file) =>
+      /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate)\.up\.sql$/u.test(
+        file,
+      ),
+    )
     .sort()
     .map((file) => readFile(resolve(migrationDirectory, file), 'utf8')),
 );

@@ -7563,8 +7563,24 @@ async function applyPostV122Migrations(
   appliedVersions: readonly string[],
 ): Promise<void> {
   const migrationDirectory = resolve(process.cwd(), 'infra', 'postgres', 'migrations');
-  const migrationFiles = (await readdir(migrationDirectory))
-    .filter((file) => /^01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+\.up\.sql$/u.test(file))
+  const migrationFiles = planPostV122MigrationFiles(
+    await readdir(migrationDirectory),
+    appliedVersions,
+  );
+  for (const file of migrationFiles) {
+    await pool.query(await readFile(resolve(migrationDirectory, file), 'utf8'));
+  }
+}
+
+const POST_V122_MIGRATION_FILE_PATTERN =
+  /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate)\.up\.sql$/u;
+
+export function planPostV122MigrationFiles(
+  availableFiles: readonly string[],
+  appliedVersions: readonly string[],
+): readonly string[] {
+  const migrationFiles = availableFiles
+    .filter((file) => POST_V122_MIGRATION_FILE_PATTERN.test(file))
     .sort();
   const expectedVersions = [
     'v1.2.2_clean_slate_baseline',
@@ -7576,9 +7592,7 @@ async function applyPostV122Migrations(
   ) {
     throw new Error('SDAR_V123_MIGRATION_LEDGER_INVALID');
   }
-  for (const file of migrationFiles.slice(Math.max(0, appliedVersions.length - 1))) {
-    await pool.query(await readFile(resolve(migrationDirectory, file), 'utf8'));
-  }
+  return migrationFiles.slice(Math.max(0, appliedVersions.length - 1));
 }
 
 async function assertV122RuntimeReady(pool: Pick<PoolClient, 'query'>): Promise<void> {
