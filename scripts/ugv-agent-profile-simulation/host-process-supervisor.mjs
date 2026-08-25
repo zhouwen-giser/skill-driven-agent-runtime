@@ -435,7 +435,7 @@ export async function processEnvironment(
       SDAR_CONTROL_ENVIRONMENT: 'integration',
       SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'safe',
       SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: '127.0.0.1:18092',
-      SDAR_CONTROL_WORKER_POLL_MS: '1000',
+      SDAR_CONTROL_WORKER_POLL_MS: '60000',
       SDAR_CONTROL_WORKER_ONCE: 'false',
     });
   if (name !== 'server') throw new UapSupervisorError('UAP_PROCESS_NAME_INVALID');

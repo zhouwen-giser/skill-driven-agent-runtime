@@ -50,6 +50,12 @@ PostgreSQL authority transaction.
 - Preserve the strict explicit structured admission for clients that choose it. Natural admission is
   attempted only for metadata-free, Data-free text requests, so it cannot silently reinterpret an
   explicit or partially formal request.
+- Generic Skill Usage must not require the private P3-B02 taskless qualification receipt. Planning
+  derives contextual references from the immutable Task Capability Binding and current Provider
+  snapshot; the UGV Workflow performs its actual `vehicle_get_state` read only after confirmation.
+- Keep Source/readiness current through the existing Node Control authority path: the UGV Source uses
+  `poll`, the worker cadence is 60 seconds, and Source TTL remains 300 seconds. A longer TTL or a
+  currentness bypass is not an acceptable substitute for periodic authority synchronization.
 
 ## Consequences
 
@@ -85,3 +91,9 @@ Implementation and test evidence is tracked by
 Runtime/PostgreSQL/Redis integration, typecheck, production build, 852-source architecture and
 changed-scope lint/format/diff gates, all passing. The integration uses a frozen local Provider and
 does not claim external UGV or simulator acceptance.
+
+On 2026-08-25 the rebuilt live local stack also passed bootstrap/readiness and exposed the extension
+for `a2a.embodied.move@2`. One metadata-free text request reached plan confirmation with zero MCP,
+confirmation and remote-execution rows while Supervisor remained `NO`. A subsequent 60-second Source
+poll renewed the authority and consecutive readiness snapshots remained available. This is
+trusted-intranet admission/currentness evidence, not physical navigation acceptance.

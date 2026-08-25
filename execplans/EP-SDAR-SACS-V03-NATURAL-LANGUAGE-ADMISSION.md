@@ -78,6 +78,15 @@ baseline remains A2A 1.0 / specification 1.0.1 under ADR-069.
       metadata-free, text-only SACS request, replay and one post-confirm dispatch.
 - [x] 2026-08-24 Ran the final implementation gate and updated ADR-140, traceability, assumptions,
       project status, the active UGV plan and changelog.
+- [x] 2026-08-25 Removed the private P3-B02 taskless qualification receipt from generic natural-
+      language planning. Planning now derives its context references from the immutable Task
+      Capability Binding and Provider authority snapshot; the Workflow still performs the live
+      `vehicle_get_state` read only after plan confirmation.
+- [x] 2026-08-25 Made UGV Source currentness self-maintaining (`poll`, 60-second worker cadence,
+      300-second Source TTL) and kept the Node Control worker alive with a referenced interval.
+- [x] 2026-08-25 Rebuilt the task-owned stack, bootstrapped the same Runtime/Control PostgreSQL pair,
+      passed readiness, observed an automatic Source renewal, and admitted one metadata-free text
+      request to `awaiting_plan_confirmation` with zero MCP, confirmation or remote execution rows.
 
 ## Discoveries and Surprises
 
@@ -89,6 +98,12 @@ baseline remains A2A 1.0 / specification 1.0.1 under ADR-069.
   cannot disclose the Exposure authority that the Runtime itself requires.
 - The A2A endpoint already supports trusted-intranet identity. SACS does not need a bearer in that
   deployment mode; bearer mode remains an explicit, separately advertised operator choice.
+- Generic UGV Skill Usage had accidentally inherited the P3-B02 private qualification contract: it
+  required a fresh three-second taskless `vehicle_get_state` receipt before public planning. That
+  receipt is an acceptance-only seam and cannot be a prerequisite for SACS admission.
+- A manually synchronized 300-second Source made the Card extension disappear after the pointer
+  expired. The existing Node Control worker already supports `poll`; the missing pieces were the
+  profile Source mode and a referenced worker timer.
 
 ## Decision Log
 
@@ -102,6 +117,11 @@ baseline remains A2A 1.0 / specification 1.0.1 under ADR-069.
 - 2026-08-24: Keep the existing enabled-Skill UGV Card projection and add the current managed
   Exposure contract as an optional public extension; do not switch Card ownership or duplicate the
   Exposure authority.
+- 2026-08-25: Generic natural-language planning may use only immutable Task Binding/Provider context
+  authority. P3-B02 taskless qualification remains an independent acceptance seam; actual vehicle
+  state remains a post-confirmation Workflow read.
+- 2026-08-25: Keep the 300-second Source TTL and maintain it through a 60-second `poll` worker. Do
+  not lengthen readiness or bypass currentness checks to keep the Card extension visible.
 
 ## Implementation Steps
 
@@ -149,6 +169,17 @@ trusted-intranet text request creates one Task/Context/Binding/Capability Attemp
 same Task, pre-confirm navigation remains zero, and the existing confirmation path emits one navigate
 then resumes to terminal after restart. No external UGV or live side-effect window was used.
 
+The 2026-08-25 live trusted-intranet recheck used the rebuilt task-owned stack while the Supervisor
+remained `NO`. The current A2A process connected to `postgresql://sdar_uap@127.0.0.1:55462/sdar_uap`;
+formal bootstrap populated that Runtime database and the paired Control database on port 55463.
+The public Card advertised `io.sdar/naturalLanguageCapabilityAdmission` for
+`a2a.embodied.move@2`. Source `poll` advanced `last_sync_at` from `02:04:57Z` to `02:05:57Z` and
+readiness remained available through versions 4, 5 and 6. Message
+`sacs-v03-natural-live-20260825-0207` created Task
+`4d1c02a6-fc43-4066-b7eb-e86be6f62533` in `awaiting_plan_confirmation`; task/all MCP,
+confirmation and remote-binding counts were all zero. No confirmation, Provider tool or Device call
+was sent.
+
 Final evidence:
 
 - focused Application/Profile/A2A matrix: 8 files, 204 tests, PASS;
@@ -160,3 +191,9 @@ Final evidence:
   retains the two pre-existing files `packages/application/src/skill-usage-planning.ts` and
   `packages/persistence-postgres/test/remote-task-catalog-lineage.contract.test.ts`. These are
   disclosed baselines, not full-gate pass claims.
+
+The 2026-08-25 current-authority repair gate supersedes the affected focused evidence with 14 files,
+301 tests, PASS, and independently reruns the real isolated Runtime/PostgreSQL/Redis integration 1/1,
+PASS. Full typecheck, production build, 852-source architecture, changed-scope ESLint/Prettier,
+shell/Node syntax and diff checks pass. The isolated PostgreSQL/Redis containers were stopped and
+auto-removed after the test.

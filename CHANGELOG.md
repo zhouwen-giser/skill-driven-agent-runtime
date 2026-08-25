@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-08-25 — Stable UGV natural-language authority and live no-side-effect proof
+
+- Removed an acceptance-only P3-B02 qualification leak from generic UGV Skill Usage. Public
+  natural-language planning now derives context references from the immutable Task Capability
+  Binding and Provider snapshot; the Workflow retains its actual state read after plan confirmation.
+- Changed the UGV Source to `poll`, set the host Node Control worker cadence to 60 seconds against a
+  300-second Source TTL, and kept the worker timer referenced so the process cannot exit while idle.
+- Rebuilt the clean task-owned stack and confirmed the current A2A process uses the same Runtime
+  PostgreSQL populated by bootstrap, with its paired Control PostgreSQL holding the Source/Binding/
+  Exposure authority. The public Card now advertises `a2a.embodied.move@2` through
+  `io.sdar/naturalLanguageCapabilityAdmission`.
+- Observed a real automatic Source renewal and consecutive available readiness versions. Submitted
+  one metadata-free text A2A message and received `TASK_STATE_INPUT_REQUIRED` /
+  `awaiting_plan_confirmation`, with zero MCP, confirmation and remote-binding rows. Physical side
+  effects stayed `NO`; no confirmation, simulator validation or Device call was made.
+- Updated the task-owned Provider pin to the immutable-registry revision fix so same-content PMS
+  publication can create a new immutable revision during a clean authority bootstrap.
+
 ## 2026-08-24 — SACS v0.3 natural-language A2A admission
 
 - Corrected the compatibility boundary: SACS v0.3 is the client/product version, not an A2A v0.3

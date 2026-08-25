@@ -1,6 +1,4 @@
 import type {
-  Clock,
-  McpRegistryRepository,
   SkillTaskReadinessPort,
   TaskCapabilitySkillUsageAuthority,
 } from '../../../packages/application/src/index.js';
@@ -148,17 +146,17 @@ export function createUgvSimulationTargetPolicy(
 }
 
 /**
- * Resolves three exact Skill context requirements from durable server-owned facts only. This method
- * reads an already-recorded taskless qualification invocation and therefore performs no MCP call.
+ * Resolves the three exact Skill context requirements from the immutable Task Capability binding.
+ * The current-position requirement represents authority for the Workflow's post-confirmation state
+ * read, not a pre-confirmation device observation. This keeps public natural-language admission free
+ * of MCP calls while the deterministic Workflow still obtains live state before navigation.
  */
-export async function resolveUgvMoveSkillUsageContext(
+export function resolveUgvMoveSkillUsageContext(
   input: Readonly<{
     authority: TaskCapabilitySkillUsageAuthority;
     binding: TaskCapabilityBinding;
-    invocations: Pick<McpRegistryRepository, 'listInvocations'>;
-    clock: Pick<Clock, 'now'>;
   }>,
-): Promise<SkillUsageSelectionContext> {
+): SkillUsageSelectionContext {
   assertBinding(input.binding);
   const context = input.authority.context;
   const execution = context.runtimeExecutionContext;
@@ -215,32 +213,13 @@ export async function resolveUgvMoveSkillUsageContext(
     invalid('The formal UGV Task Capability context is not exact.');
 
   const policy = exactTargetPolicy(targetPolicy);
-  const allInvocations = await input.invocations.listInvocations(serverId as string);
-  const candidates = allInvocations.filter(
-    (invocation) =>
-      invocation.serverId === serverId &&
-      invocation.toolName === STATE_OPERATION &&
-      invocation.executionMode === 'simulation' &&
-      invocation.simulationId === simulationId,
-  );
-  const receipt = candidates[0];
-  if (candidates.length !== 1 || receipt === undefined) {
-    invalid('The UGV simulation run requires exactly one taskless qualification state receipt.');
-  }
-  validateUgvSimulationQualificationReceipt(
-    receipt,
-    serverId as string,
-    simulationId,
-    input.clock.now(),
-    input.binding.boundAt,
-  );
-  const resultHash = hashCanonicalEvidenceJson(receipt.result);
-  const invocationPrefix = `mcp-invocation:${receipt.invocationId}:result-hash:${resultHash}:context:`;
+  const providerContextHash = hashCanonicalEvidenceJson(context.observations);
+  const authorityPrefix = `task-capability-binding:${input.binding.bindingId}:hash:${input.binding.bindingHash}:provider-context-hash:${providerContextHash}:workflow-read:${STATE_OPERATION}:context:`;
   const policyHash = hashCanonicalEvidenceJson(targetPolicy);
   const permissionRef = `task-capability-binding:${input.binding.bindingId}:hash:${input.binding.bindingHash}:policy-id:${policy.policyId}:revision:${String(policy.revision)}:policy-hash:${policyHash}:context:permission-context`;
   if (
-    `${invocationPrefix}current-position`.length > 512 ||
-    `${invocationPrefix}resource-state`.length > 512 ||
+    `${authorityPrefix}current-position`.length > 512 ||
+    `${authorityPrefix}resource-state`.length > 512 ||
     permissionRef.length > 512
   )
     invalid('The UGV context evidence reference exceeds the bounded Skill contract.');
@@ -248,15 +227,15 @@ export async function resolveUgvMoveSkillUsageContext(
     observations: Object.freeze([
       Object.freeze({
         requirementId: 'current-position',
-        source: 'read_only_query' as const,
+        source: 'authoritative_context' as const,
         status: 'available' as const,
-        evidenceRef: `${invocationPrefix}current-position`,
+        evidenceRef: `${authorityPrefix}current-position`,
       }),
       Object.freeze({
         requirementId: 'resource-state',
-        source: 'read_only_query' as const,
+        source: 'authoritative_context' as const,
         status: 'available' as const,
-        evidenceRef: `${invocationPrefix}resource-state`,
+        evidenceRef: `${authorityPrefix}resource-state`,
       }),
       Object.freeze({
         requirementId: 'permission-context',
@@ -291,8 +270,8 @@ export function hasExactUgvMoveSkillUsageContextEvidence(
   const current = context.requirements[0];
   const resource = context.requirements[1];
   const permission = context.requirements[2];
-  const currentEvidence = parseInvocationEvidence(current?.evidenceRef, 'current-position');
-  const resourceEvidence = parseInvocationEvidence(resource?.evidenceRef, 'resource-state');
+  const currentEvidence = parseProviderContextEvidence(current?.evidenceRef, 'current-position');
+  const resourceEvidence = parseProviderContextEvidence(resource?.evidenceRef, 'resource-state');
   return (
     context.requirements.length === 3 &&
     context.satisfied === 3 &&
@@ -301,20 +280,19 @@ export function hasExactUgvMoveSkillUsageContextEvidence(
     context.inputRequiredIds.length === 0 &&
     context.unsatisfiedIds.length === 0 &&
     context.unknownIds.length === 0 &&
-    exactResolution(current, 'current-position', 'read_only_query', [
+    exactResolution(current, 'current-position', 'authoritative_context', [
       'authoritative_context',
-      'read_only_query',
     ]) &&
-    exactResolution(resource, 'resource-state', 'read_only_query', [
+    exactResolution(resource, 'resource-state', 'authoritative_context', [
       'authoritative_context',
-      'read_only_query',
     ]) &&
     exactResolution(permission, 'permission-context', 'authoritative_context', [
       'authoritative_context',
     ]) &&
     currentEvidence !== undefined &&
-    resourceEvidence?.invocationId === currentEvidence.invocationId &&
-    resourceEvidence.resultHash === currentEvidence.resultHash &&
+    resourceEvidence?.bindingId === currentEvidence.bindingId &&
+    resourceEvidence.bindingHash === currentEvidence.bindingHash &&
+    resourceEvidence.providerContextHash === currentEvidence.providerContextHash &&
     parsePermissionEvidence(permission?.evidenceRef)
   );
 }
@@ -590,20 +568,21 @@ function exactResolution(
   );
 }
 
-function parseInvocationEvidence(
+function parseProviderContextEvidence(
   evidenceRef: string | undefined,
   requirementId: 'current-position' | 'resource-state',
-): Readonly<{ invocationId: string; resultHash: string }> | undefined {
+): Readonly<{ bindingId: string; bindingHash: string; providerContextHash: string }> | undefined {
   if (evidenceRef === undefined || evidenceRef.length > 512) return undefined;
   const match = new RegExp(
-    `^mcp-invocation:([A-Za-z0-9._-]{1,128}):result-hash:(sha256:[0-9a-f]{64}):context:${requirementId}$`,
+    `^task-capability-binding:([A-Za-z0-9._-]{1,128}):hash:([0-9a-f]{64}):provider-context-hash:(sha256:[0-9a-f]{64}):workflow-read:${STATE_OPERATION}:context:${requirementId}$`,
     'u',
   ).exec(evidenceRef);
-  const invocationId = match?.[1];
-  const resultHash = match?.[2];
-  return invocationId === undefined || resultHash === undefined
+  const bindingId = match?.[1];
+  const bindingHash = match?.[2];
+  const providerContextHash = match?.[3];
+  return bindingId === undefined || bindingHash === undefined || providerContextHash === undefined
     ? undefined
-    : Object.freeze({ invocationId, resultHash });
+    : Object.freeze({ bindingId, bindingHash, providerContextHash });
 }
 
 function parsePermissionEvidence(evidenceRef: string | undefined): boolean {

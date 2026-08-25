@@ -4851,11 +4851,9 @@ export async function startServerRuntime(
                   ? (() => {
                       throw new Error('UGV_AGENT_PROFILE_TASK_CAPABILITY_BINDING_REQUIRED');
                     })()
-                  : await resolveUgvMoveSkillUsageContext({
+                  : resolveUgvMoveSkillUsageContext({
                       authority: taskCapabilityUsage,
                       binding: ugvTaskCapabilityBinding,
-                      invocations: mcpRepository,
-                      clock,
                     });
           const selected = await skillSelection.selectFromCandidates(
             goalContract,

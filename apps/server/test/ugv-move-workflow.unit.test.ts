@@ -310,7 +310,7 @@ describe('UGV move Workflow Profile adapter', () => {
       [0, 'context:current-position'],
       [
         1,
-        `mcp-invocation:qualification-invocation-1:result-hash:sha256:${'d'.repeat(64)}:context:resource-state`,
+        `task-capability-binding:capability-binding-1:hash:${'b'.repeat(64)}:provider-context-hash:sha256:${'d'.repeat(64)}:workflow-read:vehicle_get_state:context:resource-state`,
       ],
       [2, 'task-capability:outer-plan-confirmation-required'],
     ] as const) {

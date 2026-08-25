@@ -1,8 +1,16 @@
+import { readFile } from 'node:fs/promises';
+
 import { describe, expect, it } from 'vitest';
 
 import { parseNodeControlWorkerEnvironment } from '../src/environment.js';
 
 describe('Node Control Worker environment', () => {
+  it('keeps the scheduled worker timer referenced for process liveness', async () => {
+    const main = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
+    expect(main).toContain('const timer = setInterval(');
+    expect(main).not.toContain('timer.unref()');
+  });
+
   it('keeps safe outbound policy as the default', () => {
     expect(parseNodeControlWorkerEnvironment({})).toMatchObject({
       SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'safe',

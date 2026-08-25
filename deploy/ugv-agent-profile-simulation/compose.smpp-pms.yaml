@@ -47,7 +47,7 @@ services:
       PMS_DATABASE_URL_FILE: /run/uap-pms/pms-database-url
       PMS_RUNTIME_CREDENTIAL_FILE: /run/uap-pms/runtime-credentials.json
       PMS_API_RUNTIME_HEARTBEAT_TTL_MS: '30000'
-      SDAR_REGISTRY_PROJECTION_TTL_SECONDS: '3600'
+      SDAR_REGISTRY_PROJECTION_TTL_SECONDS: '2592000'
     ports:
       - '127.0.0.1:18092:8090'
     volumes:

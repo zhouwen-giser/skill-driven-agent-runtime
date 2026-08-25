@@ -50,7 +50,8 @@ if (environment.SDAR_CONTROL_WORKER_ONCE === 'true') {
       );
     });
   }, environment.SDAR_CONTROL_WORKER_POLL_MS);
-  timer.unref();
+  // The worker is a long-lived process. Keeping the timer referenced prevents a quiet PostgreSQL
+  // pool from allowing the process to exit before the next scheduled Source refresh.
   let closing = false;
   const close = async () => {
     if (closing) return;

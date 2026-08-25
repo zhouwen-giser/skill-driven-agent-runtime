@@ -1,5 +1,24 @@
 # Project Status
 
+## SACS v0.3 live current-authority recheck (2026-08-25)
+
+The task-owned UGV stack was rebuilt and the old process PID `1333129` was replaced by the current
+A2A/management process PID `2856666`. Its safe environment projection confirms Runtime PostgreSQL
+`postgresql://sdar_uap@127.0.0.1:55462/sdar_uap`, A2A port 10999, management port 10998 and physical
+side effects `NO`; formal bootstrap used that Runtime database and the paired Control PostgreSQL on
+port 55463. Bootstrap and readiness pass with `a2a.embodied.move@2` published/current/available, and
+the public Card now exposes `io.sdar/naturalLanguageCapabilityAdmission` with the exact v2 request
+schema and anonymous trusted-intranet requester policy.
+
+Currentness is no longer a one-shot manual refresh. The Profile Source uses `poll` with a 300-second
+TTL and the long-lived Node Control worker polls every 60 seconds. Live evidence observed Source
+`last_sync_at` advance from `02:04:57Z` to `02:05:57Z` with `active_snapshot_valid_until` extended to
+`02:10:57Z`; seven attempts were one `applied` plus six `not_modified`, and Runtime readiness versions
+4/5/6 remained `available`. A metadata-free text-only A2A 1.0 message created Task
+`4d1c02a6-fc43-4066-b7eb-e86be6f62533` in `awaiting_plan_confirmation`. Task MCP, total MCP,
+confirmation and remote-binding counts were all zero, and Supervisor remained `NO`. No plan
+confirmation, simulator validation, Provider tool call or Device action was performed.
+
 ## SACS v0.3 natural-language admission compatibility (2026-08-24)
 
 ADR-140 is implemented for the SACS v0.3 client while preserving the A2A `1.0` wire and normative

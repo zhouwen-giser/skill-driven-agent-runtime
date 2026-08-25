@@ -275,7 +275,7 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
     );
     expect(taskScopedBeforeConfirmation.rows).toEqual([{ count: 0 }]);
     expect(frozenProvider.navigateCallCount).toBe(0);
-    await assertFormalAdmissionAndPlanning(database, taskId, qualification[0]?.invocationId);
+    await assertFormalAdmissionAndPlanning(database, taskId);
     await assertGovernedControlIssueAuthority(database, frozenProvider.endpoint, taskId);
 
     const confirmed = await sendA2a(
@@ -887,12 +887,7 @@ async function seedFormalCapabilityAuthority(
   }
 }
 
-async function assertFormalAdmissionAndPlanning(
-  database: Pool,
-  taskId: string,
-  qualificationInvocationId: string | undefined,
-): Promise<void> {
-  if (qualificationInvocationId === undefined) throw new Error('QUALIFICATION_INVOCATION_MISSING');
+async function assertFormalAdmissionAndPlanning(database: Pool, taskId: string): Promise<void> {
   const result = await database.query<{
     task: Readonly<Record<string, unknown>>;
     user_plan: Readonly<Record<string, unknown>>;
@@ -934,8 +929,9 @@ async function assertFormalAdmissionAndPlanning(
     selected_skill_version: 1,
   });
   expect(JSON.stringify(row.selection['candidates_json'])).toContain(
-    `mcp-invocation:${qualificationInvocationId}`,
+    'provider-context-hash:sha256:',
   );
+  expect(JSON.stringify(row.selection['candidates_json'])).not.toContain('mcp-invocation:');
   expect(row.resolution).toMatchObject({
     skill_id: 'embodied.move_to',
     skill_version: 1,

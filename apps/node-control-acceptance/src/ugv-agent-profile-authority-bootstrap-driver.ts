@@ -1126,7 +1126,7 @@ async function assertControlPlaneInventoryPreflight(
     (normalizedEndpoint(source.registryEndpoint) !== EXPECTED_SOURCE_ENDPOINT ||
       source.credentialRef !== SMPP_UNAUTHENTICATED_CREDENTIAL_REF ||
       source.environment !== 'simulation' ||
-      source.syncMode !== 'manual' ||
+      source.syncMode !== 'poll' ||
       source.snapshotTtlSeconds !== configuration.source.snapshotTtlSeconds ||
       source.lkgPolicy !== 'deny_when_unavailable' ||
       (requireComplete
@@ -3525,7 +3525,7 @@ function validateConfiguration(
     input.source.smppSourceId !== EXPECTED_SOURCE_ID ||
     normalizedEndpoint(input.source.registryEndpoint) !== EXPECTED_SOURCE_ENDPOINT ||
     input.source.registryCredentialRef !== SMPP_UNAUTHENTICATED_CREDENTIAL_REF ||
-    input.source.syncMode !== 'manual' ||
+    input.source.syncMode !== 'poll' ||
     input.source.lkgPolicy !== 'deny_when_unavailable' ||
     !Number.isSafeInteger(input.source.snapshotTtlSeconds) ||
     input.source.snapshotTtlSeconds <= 0 ||
@@ -3720,7 +3720,7 @@ export async function ugvAgentProfileAuthorityConfigurationFromEnvironment(
       smppEnvironment: requiredEnvironment(environment, 'SMPP_ENVIRONMENT', 63),
       registryEndpoint: requiredEnvironment(environment, 'SMPP_SDAR_REGISTRY_ENDPOINT'),
       registryCredentialRef: requiredEnvironment(environment, 'SMPP_REGISTRY_CREDENTIAL_REF', 512),
-      syncMode: 'manual',
+      syncMode: 'poll',
       snapshotTtlSeconds: Number(environment['SMPP_SNAPSHOT_TTL_SECONDS'] ?? '300'),
       lkgPolicy: 'deny_when_unavailable',
       externalProviderId: requiredEnvironment(environment, 'SMPP_UGV_EXTERNAL_PROVIDER_ID', 256),
