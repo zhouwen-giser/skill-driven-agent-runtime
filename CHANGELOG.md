@@ -15,8 +15,8 @@
   one metadata-free text A2A message and received `TASK_STATE_INPUT_REQUIRED` /
   `awaiting_plan_confirmation`, with zero MCP, confirmation and remote-binding rows. Physical side
   effects stayed `NO`; no confirmation, simulator validation or Device call was made.
-- Updated the task-owned Provider pin to the immutable-registry revision fix so same-content PMS
-  publication can create a new immutable revision during a clean authority bootstrap.
+- Updated the task-owned Provider pin to merged `main@b6f0f645f1ce01d717420abe342aa16e3a22ee6e`, including immutable
+  same-content registry republication, migration 011, patched `tar@7.5.21` and the refreshed SBOM.
 
 ## 2026-08-24 — SACS v0.3 natural-language A2A admission
 

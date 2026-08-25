@@ -15,7 +15,7 @@ Deliver a reproducible `ugv-agent-profile` whose public capabilities are project
 - Repository branch/HEAD: `codex/sdar-ugv-smpp-integration@928c645702f9e05e32cc001335898b79444ef9f6`; the initial worktree was clean.
 - Task-package reference `2275bc52759914bc80113358a9083e6f00d59e6d` is a sibling history with a one-file `.gitignore` tree difference. The reviewed drift is recorded under `reports/ugv-agent-profile-simulation/`.
 - Reuse `skills/embodied.move_to/**`, the v1.2 Skill Usage path, the existing governed UGV/Home-Lab adapters, Workflow DSL validator/compiler, MCP Task readiness, `RemoteTaskBinding`, `WorkflowContinuationSnapshot`, A2A adapter, and existing UGV integration drivers.
-- The sibling SMPP authority is the user-selected latest relevant branch `codex/goal-ugv-runtime-telemetry-joint-integration`, currently `b5f3ba2076468695c781bea1e5e6d3045e60f70e`. Work began from the immutable P0 source `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507`; `90466127aee7c01014eef29a1e346b071de3704e` is the accepted P1-B02 qualification evidence checkpoint. Both are ancestors of the current intake and neither historical layer is rewritten.
+- The sibling SMPP authority is the merged `main` revision `b6f0f645f1ce01d717420abe342aa16e3a22ee6e`. Work began from the immutable P0 source `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507`; `90466127aee7c01014eef29a1e346b071de3704e` is the accepted P1-B02 qualification evidence checkpoint and `b5f3ba2076468695c781bea1e5e6d3045e60f70e` is the historical P3-B01 intake. Those layers remain immutable ancestors rather than current deployment pins.
 
 ## Architecture and Interfaces
 
@@ -111,6 +111,7 @@ SMPP remains the only southbound owner of `mqtt://192.168.2.63:1883` and `http:/
 - 2026-08-21: Treat readiness-TTL recovery and Provider-authority rollover as separate boundaries. Reconcile exact expired/unavailable readiness and stale same-Exposure Card within the current Provider generation; do not mutate immutable Capability v1 to follow Binding revision N+1.
 - 2026-08-24: Adopt ADR-139 for the separately authorized recovery run. Preserve historical `embodied.move@1` evidence; publish `embodied.move@2` / `a2a.embodied.move@2`, accept the explicit A2A WGS84 point as Task-binding authority, remove target derivation/start-distance limits, accept Provider ready state `0`, and omit altitude from both dispatch and terminal proof.
 - 2026-08-24: Adopt ADR-140 for SACS v0.3 natural-language admission. “v0.3” is the SACS product version, not an A2A protocol version; keep A2A wire 1.0 and derive only a bounded candidate input before the existing PostgreSQL Capability admission transition.
+- 2026-08-25: Advance the executable SMPP pin to merged `main@b6f0f645f1ce01d717420abe342aa16e3a22ee6e`, which contains immutable same-content registry republication, migration 011, aligned contracts, the patched transitive `tar@7.5.21` dependency and a current SBOM. Preserve the older P0/P1/P3-B01 revisions as historical evidence only.
 
 ## Implementation Steps
 

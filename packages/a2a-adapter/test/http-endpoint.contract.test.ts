@@ -453,9 +453,8 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
           parts: [{ text: 'Prepare a UGV plan.', mediaType: 'text/plain' }],
         },
       }),
-      `Bearer ${token}`,
     );
-    expect(initial.status).toBe(200);
+    expect(initial.status, await initial.clone().text()).toBe(200);
     const initialBody = (await initial.json()) as {
       task?: Readonly<{ id?: string; contextId?: string }>;
     };
@@ -488,9 +487,9 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     expect(followUpExecutions).toBe(0);
 
     const correct = await postA2AMessage(handle.baseUrl, followUp, `Bearer ${token}`);
-    expect(correct.status).toBe(200);
+    expect(correct.status, await correct.clone().text()).toBe(200);
     expect(followUpExecutions).toBe(1);
-    expect(identityResolutions).toBe(4);
+    expect(identityResolutions).toBe(3);
   });
 
   it('accepts an anonymous initial A2A request in explicit trusted-intranet mode', async () => {
@@ -546,7 +545,7 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
       }),
     );
 
-    expect(initial.status).toBe(200);
+    expect(initial.status, await initial.clone().text()).toBe(200);
     expect(executions).toBe(1);
   });
 

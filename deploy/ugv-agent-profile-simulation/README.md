@@ -1,7 +1,7 @@
 # UGV Agent Profile external-simulation stack
 
 This directory owns the `UAP-P3-B01` local orchestration boundary. It composes the read-only SMPP
-checkout at commit `2dfdeadaeacb9bb533cde2be9ab8140c9c7adf68` with an isolated SDAR Runtime and
+checkout at merged-main commit `b6f0f645f1ce01d717420abe342aa16e3a22ee6e` with an isolated SDAR Runtime and
 Node Control stack. It never starts a Device MCP or MQTT mock and never calls `vehicle_navigate`.
 
 The only southbound endpoints are configured on the SMPP Adapter:

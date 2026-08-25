@@ -7,7 +7,7 @@ uap_workspace_root="$(CDPATH= cd -- "$uap_repo_root/.." && pwd)"
 uap_smpp_root="$uap_workspace_root/sdar-mcp-provider-platform"
 
 readonly uap_deploy_dir uap_repo_root uap_workspace_root uap_smpp_root
-readonly UAP_SMPP_EXPECTED_HEAD="2dfdeadaeacb9bb533cde2be9ab8140c9c7adf68"
+readonly UAP_SMPP_EXPECTED_HEAD="b6f0f645f1ce01d717420abe342aa16e3a22ee6e"
 readonly UAP_SMPP_PROJECT="sdar-uap-p3-b01-smpp"
 readonly UAP_SMPP_PROFILE="ugv-agent-profile-simulation"
 readonly UAP_SDAR_PROJECT="sdar-uap-p3-b01-sdar"

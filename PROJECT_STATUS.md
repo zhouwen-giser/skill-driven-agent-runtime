@@ -45,10 +45,11 @@ historical blocked UGV handoff below. P0, SMPP P1 qualification and SDAR P2-B01/
 milestones are complete. P3-B01 clean-stack runtime and changed-scope static gates are accepted with
 disclosed out-of-scope lint/format baselines and fifteen frozen artifact hashes. P3-B02/P3-B03
 external movement/recovery and P4 final Goal acceptance remain pending.
-The user-selected current SMPP intake is
-`codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`;
+The current SMPP execution pin is merged
+`main@b6f0f645f1ce01d717420abe342aa16e3a22ee6e`;
 `90466127aee7c01014eef29a1e346b071de3704e` remains the immutable P1 qualification evidence
-checkpoint and `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
+checkpoint, `b5f3ba2076468695c781bea1e5e6d3045e60f70e` remains the historical P3-B01 intake, and
+`ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
 
 The latest authorized real attempt reached A2A admission, immutable planning and confirmation, then
 dispatched exactly one `vehicle_navigate` through Frozen MCP Tasks. The Provider Task completed and
