@@ -416,6 +416,7 @@ import {
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
   PostgresRemoteTaskAdmissionIntentStore,
+  PostgresRemoteTaskAdmissionObservationQuery,
   PostgresRemoteTaskInputRepository,
   PostgresRemoteTaskCancellationRepository,
   PostgresRemoteTaskLifecycleQuery,
@@ -6665,6 +6666,9 @@ export async function startServerRuntime(
           ? {}
           : {
               remoteTaskLifecycle: new PostgresRemoteTaskLifecycleQuery(pool),
+              remoteTaskAdmissionObservations: new PostgresRemoteTaskAdmissionObservationQuery(
+                pool,
+              ),
               ...(remoteTaskPolling === undefined ? {} : { remoteTaskPolling }),
               ...(remoteTaskCancellation === undefined ? {} : { remoteTaskCancellation }),
             }),

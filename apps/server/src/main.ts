@@ -4,7 +4,7 @@ import { ConfiguredOperatorIdentityPort } from '../../../packages/application/sr
 import { HttpNodeControlCapabilityEvidenceReader } from '../../../packages/runtime-control-http-client/src/index.js';
 import { ConfiguredBearerArtifactManagementIdentity } from './artifact-management-identity.js';
 import { ConfiguredBearerGovernedControlIdentity } from './governed-control-management-identity.js';
-import { loadServerEnvironment } from './environment.js';
+import { loadServerEnvironment, remoteTaskAdmissionObservationProfile } from './environment.js';
 import {
   homeLabGovernedLightSkillUsageContext,
   homeLabGovernedLightTaskUnderstandingConfiguration,
@@ -19,6 +19,7 @@ import {
 } from './ugv-agent-profile.js';
 
 const environment = loadServerEnvironment();
+const admissionObservationProfile = remoteTaskAdmissionObservationProfile(environment);
 const modelBootstrap = await modelRuntimeBootstrapConfiguration(environment);
 const artifactManagementIdentity = createArtifactManagementIdentity();
 const runtimeControlArtifactIdentity = createArtifactManagementIdentity(
@@ -91,6 +92,7 @@ const runtime = await startServerRuntime({
     ? {}
     : { governedControlPrincipalResolver: governedControlIdentity }),
   ...(environment.BUSINESS_EVENTS_ENABLED === 'true' ||
+  admissionObservationProfile === 'development' ||
   environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'home_lab_governed_light_control' ||
   environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'managed_capability' ||
   environment.SDAR_TASK_UNDERSTANDING_PROFILE === UGV_AGENT_PROFILE_ID
@@ -136,7 +138,7 @@ const runtime = await startServerRuntime({
 });
 
 process.stdout.write(
-  `${JSON.stringify({ event: 'server.ready', a2aUrl: runtime.a2a.baseUrl, managementUrl: runtime.management.baseUrl })}\n`,
+  `${JSON.stringify({ event: 'server.ready', a2aUrl: runtime.a2a.baseUrl, managementUrl: runtime.management.baseUrl, admissionObservationProfile })}\n`,
 );
 
 let closing = false;

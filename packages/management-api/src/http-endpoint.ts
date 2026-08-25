@@ -67,6 +67,7 @@ import type {
   TaskAvailabilityEvidenceRepository,
   RemoteTaskLifecycleQuery,
   RemoteTaskLifecycleEvidence,
+  RemoteTaskAdmissionObservationQuery,
   RemoteTaskPollingService,
   RemoteTaskCancellationService,
   SkillExecutionRepository,
@@ -909,6 +910,7 @@ export interface ManagementOperations {
     findRuntimeEvidenceByRequest(requestRef: string): Promise<unknown>;
   }>;
   readonly remoteTaskLifecycle?: RemoteTaskLifecycleQuery;
+  readonly remoteTaskAdmissionObservations?: RemoteTaskAdmissionObservationQuery;
   readonly remoteTaskPolling?: Pick<RemoteTaskPollingService, 'process'>;
   readonly remoteTaskCancellation?: Pick<RemoteTaskCancellationService, 'request'>;
   readonly businessEvents?: Readonly<{
@@ -1908,6 +1910,10 @@ export async function startManagementHttpEndpoint(
         options.operations.remoteTaskLifecycle === undefined
           ? []
           : await options.operations.remoteTaskLifecycle.listByAgentTaskId(taskId);
+      const admissionObservations =
+        options.operations.remoteTaskAdmissionObservations === undefined
+          ? []
+          : await options.operations.remoteTaskAdmissionObservations.listByAgentTaskId(taskId);
       response.json({
         warnings: [
           'Trusted-intranet V1 has no authentication; do not expose this management endpoint publicly.',
@@ -1915,6 +1921,12 @@ export async function startManagementHttpEndpoint(
           'A tasks/cancel acknowledgement or transport uncertainty does not prove Provider cancellation; observation continues until tasks/get is terminal.',
           'Side effects may already have occurred, and running local work is not automatically recovered after process failure.',
         ],
+        admissionObservationBoundary: {
+          profile: 'development',
+          authorityInference: 'none',
+          note: 'Raw admission response and Runtime-local identity are observation evidence only; this endpoint does not select, create, or mutate a cross-repository binding authority.',
+        },
+        admissionObservations,
         actions: {
           refreshEvidence: {
             method: 'GET',

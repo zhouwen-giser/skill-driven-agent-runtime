@@ -694,7 +694,7 @@ paths:
     parameters: [{ name: taskId, in: path, required: true, schema: { type: string } }]
     get:
       operationId: getTaskRemoteTaskLifecycle
-      description: Returns the credential-free PostgreSQL-authoritative correlation from Agent Task through MCP capability, availability evidence, remote binding, observations, controls, continuation, input rounds, cancellation delivery/Provider-terminal separation, timing, protocol attempts, and final Provider result. Refreshing this resource only reloads evidence and does not fabricate a Provider state transition.
+      description: Returns the credential-free PostgreSQL correlation from Agent Task through MCP capability, availability evidence, remote binding, observations, controls, continuation, input rounds, cancellation delivery/Provider-terminal separation, timing, protocol attempts, and final Provider result. In the trusted-network development profile it also exposes the exact persisted admission response, recovery receipt, and Runtime-local identity as observation-only evidence with authorityInference=none. Refreshing this resource only reloads evidence and does not fabricate a Provider state transition or select cross-repository binding authority.
       responses:
         '200':
           {

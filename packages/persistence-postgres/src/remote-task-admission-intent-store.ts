@@ -6,6 +6,8 @@ import type {
   RemoteTaskAdmissionIntentMutation,
   RemoteTaskAdmissionIntentStatus,
   RemoteTaskAdmissionIntentStore,
+  RemoteTaskAdmissionObservation,
+  RemoteTaskAdmissionObservationQuery,
   RemoteTaskAdmissionReceipt,
 } from '../../application/src/index.js';
 import { canonicalHash } from '../../application/src/index.js';
@@ -68,6 +70,62 @@ interface McpInvocationAuditRow extends QueryResultRow {
   started_at: Date | string;
   completed_at: Date | string;
   duration_ms: number;
+}
+
+interface RemoteTaskAdmissionObservationRow extends QueryResultRow {
+  intent_id: string;
+  invocation_id: string;
+  binding_id: string;
+  task_id: string;
+  capability_attempt_id: string | null;
+  context_id: string;
+  server_id: string;
+  operation_name: string;
+  local_envelope_json: unknown;
+  status: RemoteTaskAdmissionIntentStatus;
+  version: number | string;
+  dispatch_hash: string | null;
+  recorded_invocation_id: string | null;
+  materialized_binding_id: string | null;
+  reason_code: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+  receipt_recorded_at: Date | string | null;
+  raw_admission_response: unknown;
+  raw_admission_receipt: unknown;
+}
+
+/**
+ * Credential-free development projection of the admission boundary. It exposes
+ * persisted values exactly as observations and makes no cross-repository authority
+ * decision.
+ */
+export class PostgresRemoteTaskAdmissionObservationQuery implements RemoteTaskAdmissionObservationQuery {
+  readonly #pool: Pool;
+
+  constructor(pool: Pool) {
+    this.#pool = pool;
+  }
+
+  async listByAgentTaskId(agentTaskId: string): Promise<readonly RemoteTaskAdmissionObservation[]> {
+    const result = await this.#pool.query<RemoteTaskAdmissionObservationRow>(
+      `SELECT intent.intent_id,intent.invocation_id,intent.binding_id,intent.task_id,
+              intent.capability_attempt_id,intent.context_id,intent.server_id,
+              intent.operation_name,intent.local_envelope_json,intent.status,intent.version,
+              intent.dispatch_hash,intent.recorded_invocation_id,
+              intent.materialized_binding_id,intent.reason_code,intent.created_at,
+              intent.updated_at,intent.receipt_recorded_at,
+              invocation.result_json AS raw_admission_response,
+              intent.remote_receipt_json AS raw_admission_receipt
+         FROM remote_task_admission_intent intent
+         LEFT JOIN mcp_invocation invocation
+           ON invocation.invocation_id=intent.recorded_invocation_id
+        WHERE intent.task_id=$1
+        ORDER BY intent.created_at,intent.intent_id`,
+      [agentTaskId],
+    );
+    return result.rows.map(mapAdmissionObservationRow);
+  }
 }
 
 /** PostgreSQL journal for the Provider-return/admission crash boundary. */
@@ -537,6 +595,47 @@ function mapIntentRow(row: RemoteTaskAdmissionIntentRow): RemoteTaskAdmissionInt
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
     version: Number(row.version),
+  };
+}
+
+function mapAdmissionObservationRow(
+  row: RemoteTaskAdmissionObservationRow,
+): RemoteTaskAdmissionObservation {
+  return {
+    observationKind: 'runtime_remote_task_admission',
+    authorityInference: 'none',
+    runtimeLocalIdentity: {
+      intentId: row.intent_id,
+      invocationId: row.invocation_id,
+      bindingId: row.binding_id,
+      taskId: row.task_id,
+      ...(row.capability_attempt_id === null
+        ? {}
+        : { capabilityAttemptId: row.capability_attempt_id }),
+      contextId: row.context_id,
+      serverId: row.server_id,
+      operationName: row.operation_name,
+      localEnvelope: row.local_envelope_json,
+    },
+    rawAdmissionResponse: row.raw_admission_response ?? null,
+    rawAdmissionReceipt: row.raw_admission_receipt ?? null,
+    journal: {
+      status: row.status,
+      version: Number(row.version),
+      ...(row.dispatch_hash === null ? {} : { dispatchHash: row.dispatch_hash }),
+      ...(row.recorded_invocation_id === null
+        ? {}
+        : { recordedInvocationId: row.recorded_invocation_id }),
+      ...(row.materialized_binding_id === null
+        ? {}
+        : { materializedBindingId: row.materialized_binding_id }),
+      ...(row.reason_code === null ? {} : { reasonCode: row.reason_code }),
+      createdAt: toIsoString(row.created_at),
+      updatedAt: toIsoString(row.updated_at),
+      ...(row.receipt_recorded_at === null
+        ? {}
+        : { receiptRecordedAt: toIsoString(row.receipt_recorded_at) }),
+    },
   };
 }
 

@@ -402,6 +402,19 @@ export function parseServerEnvironment(environment: NodeJS.ProcessEnv): ServerEn
   return EnvironmentSchema.parse(environment);
 }
 
+/**
+ * The observation path is a trusted-network development capability. Production
+ * in either deployment dimension disables it; no authentication claim is implied.
+ */
+export function remoteTaskAdmissionObservationProfile(
+  environment: Pick<ServerEnvironment, 'NODE_ENV' | 'SDAR_CONTROL_ENVIRONMENT'>,
+): 'development' | 'off' {
+  return environment.NODE_ENV === 'production' ||
+    environment.SDAR_CONTROL_ENVIRONMENT === 'production'
+    ? 'off'
+    : 'development';
+}
+
 function loadEnvironmentFileIfPresent(envFilePath: string): void {
   try {
     process.loadEnvFile(envFilePath);

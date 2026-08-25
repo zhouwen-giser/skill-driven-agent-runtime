@@ -2276,6 +2276,43 @@ describe('management HTTP API contract', () => {
               },
             ]),
         },
+        remoteTaskAdmissionObservations: {
+          listByAgentTaskId: () =>
+            Promise.resolve([
+              {
+                observationKind: 'runtime_remote_task_admission' as const,
+                authorityInference: 'none' as const,
+                runtimeLocalIdentity: {
+                  intentId: 'admission-1',
+                  invocationId: 'invocation-1',
+                  bindingId: 'binding-1',
+                  taskId: 'task-1',
+                  contextId: 'context-1',
+                  serverId: 'mcp.devices',
+                  operationName: 'device_patrol',
+                  localEnvelope: {
+                    bindingId: 'binding-1',
+                    workflowNodeRunId: 'patrol:1',
+                  },
+                },
+                rawAdmissionResponse: {
+                  remoteTask: { taskId: 'provider-task-1', runtimeRevision: 'provider-raw-7' },
+                },
+                rawAdmissionReceipt: {
+                  remoteTask: { remoteTaskId: 'provider-task-1' },
+                },
+                journal: {
+                  status: 'materialized' as const,
+                  version: 4,
+                  recordedInvocationId: 'invocation-1',
+                  materializedBindingId: 'binding-1',
+                  createdAt: '2026-07-17T00:00:00.000Z',
+                  updatedAt: '2026-07-17T00:00:01.000Z',
+                  receiptRecordedAt: '2026-07-17T00:00:01.000Z',
+                },
+              },
+            ]),
+        },
         taskAvailability: {
           listByPlan: () =>
             Promise.resolve([
@@ -2328,6 +2365,24 @@ describe('management HTTP API contract', () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload).toMatchObject({
+      admissionObservationBoundary: {
+        profile: 'development',
+        authorityInference: 'none',
+      },
+      admissionObservations: [
+        {
+          authorityInference: 'none',
+          runtimeLocalIdentity: {
+            intentId: 'admission-1',
+            invocationId: 'invocation-1',
+            bindingId: 'binding-1',
+            taskId: 'task-1',
+          },
+          rawAdmissionResponse: {
+            remoteTask: { taskId: 'provider-task-1', runtimeRevision: 'provider-raw-7' },
+          },
+        },
+      ],
       correlationRoot: { taskId: 'task-1', skillId: 'skill.patrol' },
       items: [
         {
@@ -2342,6 +2397,9 @@ describe('management HTTP API contract', () => {
         },
       ],
     });
+    expect(
+      (payload as { admissionObservations: readonly unknown[] }).admissionObservations[0],
+    ).not.toHaveProperty('authoritative');
     expect(JSON.stringify(payload)).toContain('tasks/cancel acknowledgement');
     expect(JSON.stringify(payload)).not.toContain('must-not-leak');
     expect(JSON.stringify(payload)).not.toContain('Bearer');

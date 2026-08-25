@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-08-26 — Runtime admission observation readiness
+
+- Enabled the frozen remote-Task admission components for the existing trusted-network
+  development/integration profile while keeping either production dimension fail-closed.
+- Extended the existing remote-Task lifecycle read surface with the exact persisted MCP admission
+  response, Runtime recovery receipt and Runtime-local intent/invocation/binding identity. The
+  projection declares `authorityInference=none` and does not freeze or mutate the cross-repository
+  Runtime↔Provider binding contract.
+
 ## 2026-08-24 — UGV A2A navigation terminal-safe repair and handoff
 
 - Executed one authorized real A2A navigation attempt through SDAR Runtime, Frozen MCP Tasks and the
