@@ -8,7 +8,10 @@ import {
 } from '@a2a-js/sdk/server';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ConfiguredBearerGovernedControlIdentity } from '../../../apps/server/src/governed-control-management-identity.js';
+import {
+  ConfiguredBearerGovernedControlIdentity,
+  ConfiguredTrustedIntranetGovernedControlIdentity,
+} from '../../../apps/server/src/governed-control-management-identity.js';
 import {
   InMemoryTaskStateNotifier,
   type ExternalTaskProjection,
@@ -78,6 +81,59 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
 
     const result = await handle.client.sendMessage(createProbeRequest());
     expect(result).toHaveProperty('status.state', TaskState.TASK_STATE_COMPLETED);
+  });
+
+  it('publishes a safe server-resolved natural-language admission contract', async () => {
+    handle = await startA2aHttpSpike({
+      naturalLanguageAdmissionContractProvider: {
+        findCurrent: () =>
+          Promise.resolve({
+            exposureId: 'a2a.embodied.move',
+            exposureVersion: 2,
+            capabilityId: 'embodied.move',
+            capabilityVersion: 2,
+            requestSchema: {
+              type: 'object',
+              required: ['resourceId', 'target'],
+              additionalProperties: false,
+            },
+            requesterPolicy: { allowAnonymous: true, allowedRequesterIds: [] },
+          }),
+      },
+    });
+
+    const response = await fetch(`${handle.baseUrl}/.well-known/agent-card.json`);
+    const card = (await response.json()) as Record<string, unknown>;
+    const serialized = JSON.stringify(card);
+
+    expect(response.status).toBe(200);
+    expect(card).toMatchObject({
+      capabilities: {
+        extensions: expect.arrayContaining([
+          expect.objectContaining({
+            uri: 'io.sdar/naturalLanguageCapabilityAdmission',
+            required: false,
+            params: {
+              version: '1.0',
+              inputMode: 'text/plain',
+              externalCapabilityMetadataRequired: false,
+              clientRequestIdentity: 'a2a.messageId',
+              exposureId: 'a2a.embodied.move',
+              exposureVersion: 2,
+              capabilityId: 'embodied.move',
+              capabilityVersion: 2,
+              requestSchema: {
+                type: 'object',
+                required: ['resourceId', 'target'],
+                additionalProperties: false,
+              },
+              requesterPolicy: { allowAnonymous: true, allowedRequesterIds: [] },
+            },
+          }),
+        ]),
+      },
+    });
+    expect(serialized).not.toMatch(/credential|token|bindingId|providerId/iu);
   });
 
   it('uses a Runtime-active Capability Agent Card instead of directly exposing internal Skills', async () => {
@@ -397,9 +453,8 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
           parts: [{ text: 'Prepare a UGV plan.', mediaType: 'text/plain' }],
         },
       }),
-      `Bearer ${token}`,
     );
-    expect(initial.status).toBe(200);
+    expect(initial.status, await initial.clone().text()).toBe(200);
     const initialBody = (await initial.json()) as {
       task?: Readonly<{ id?: string; contextId?: string }>;
     };
@@ -432,9 +487,66 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     expect(followUpExecutions).toBe(0);
 
     const correct = await postA2AMessage(handle.baseUrl, followUp, `Bearer ${token}`);
-    expect(correct.status).toBe(200);
+    expect(correct.status, await correct.clone().text()).toBe(200);
     expect(followUpExecutions).toBe(1);
-    expect(identityResolutions).toBe(4);
+    expect(identityResolutions).toBe(3);
+  });
+
+  it('accepts an anonymous initial A2A request in explicit trusted-intranet mode', async () => {
+    const identity = new ConfiguredTrustedIntranetGovernedControlIdentity({
+      actorId: 'ugv-local-operator',
+      permissions: ['physical_control.confirm'],
+    });
+    let executions = 0;
+    const executor: AgentExecutor = {
+      execute(request: RequestContext, eventBus: ExecutionEventBus): Promise<void> {
+        executions += 1;
+        eventBus.publish(
+          AgentEvent.task(
+            Task.fromJSON({
+              id: request.taskId,
+              contextId: request.contextId,
+              status: {
+                state: 'TASK_STATE_INPUT_REQUIRED',
+                timestamp: '2026-08-21T00:00:00.000Z',
+              },
+              history: [],
+              artifacts: [],
+            }),
+          ),
+        );
+        eventBus.finished();
+        return Promise.resolve();
+      },
+      cancelTask: () => Promise.reject(new Error('UNUSED')),
+    };
+    handle = await startA2AHttpEndpoint({
+      executor,
+      taskStore: new InMemoryTaskStore(),
+      skills: [
+        {
+          id: 'embodied.move_to',
+          name: 'Move UGV',
+          description: 'Trusted intranet contract probe.',
+          tags: ['ugv'],
+        },
+      ],
+      confirmationPrincipalResolver: identity,
+    });
+
+    const initial = await postA2AMessage(
+      handle.baseUrl,
+      SendMessageRequest.fromJSON({
+        message: {
+          messageId: 'message-trusted-intranet-initial',
+          role: 'ROLE_USER',
+          parts: [{ text: 'Prepare a UGV plan.', mediaType: 'text/plain' }],
+        },
+      }),
+    );
+
+    expect(initial.status, await initial.clone().text()).toBe(200);
+    expect(executions).toBe(1);
   });
 
   it('streams the standard task lifecycle without custom states', async () => {

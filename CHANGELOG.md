@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-08-25 — Stable UGV natural-language authority and live no-side-effect proof
+
+- Removed an acceptance-only P3-B02 qualification leak from generic UGV Skill Usage. Public
+  natural-language planning now derives context references from the immutable Task Capability
+  Binding and Provider snapshot; the Workflow retains its actual state read after plan confirmation.
+- Changed the UGV Source to `poll`, set the host Node Control worker cadence to 60 seconds against a
+  300-second Source TTL, and kept the worker timer referenced so the process cannot exit while idle.
+- Rebuilt the clean task-owned stack and confirmed the current A2A process uses the same Runtime
+  PostgreSQL populated by bootstrap, with its paired Control PostgreSQL holding the Source/Binding/
+  Exposure authority. The public Card now advertises `a2a.embodied.move@2` through
+  `io.sdar/naturalLanguageCapabilityAdmission`.
+- Observed a real automatic Source renewal and consecutive available readiness versions. Submitted
+  one metadata-free text A2A message and received `TASK_STATE_INPUT_REQUIRED` /
+  `awaiting_plan_confirmation`, with zero MCP, confirmation and remote-binding rows. Physical side
+  effects stayed `NO`; no confirmation, simulator validation or Device call was made.
+- Updated the task-owned Provider pin to merged `main@b6f0f645f1ce01d717420abe342aa16e3a22ee6e`, including immutable
+  same-content registry republication, migration 011, patched `tar@7.5.21` and the refreshed SBOM.
+
+## 2026-08-24 — SACS v0.3 natural-language A2A admission
+
+- Corrected the compatibility boundary: SACS v0.3 is the client/product version, not an A2A v0.3
+  wire request. The Runtime stays on A2A wire `1.0`, normative specification 1.0.1 and the existing
+  pinned official SDK.
+- Added an Application-owned natural-language Capability admission seam and a Profile-only,
+  deterministic UGV coordinate resolver. A text-only Message with one labelled longitude and
+  latitude becomes the existing versioned WGS84 input; no model output, private caller metadata or
+  management write becomes authority.
+- Added stable server-derived idempotency from A2A `messageId`. Existing PostgreSQL initial-admission
+  transactions still own atomic Context/Task/Binding/Attempt creation, same-request replay and
+  different-content conflict handling.
+- Added a current public Agent Card extension for `a2a.embodied.move@2`, including request schema and
+  requester policy. Aligned the trusted-intranet Exposure with empty Card security requirements;
+  execution confirmation and physical side-effect gates remain mandatory.
+- Added parser, Application, A2A/Card and real local Runtime/PostgreSQL/Redis regressions. The focused
+  matrix passes 8 files/204 tests and the integration passes 1/1; the formal text-only path proves one
+  durable admission, zero pre-confirm navigation, exactly one confirmed local Provider dispatch and
+  restart recovery without contacting the external UGV or simulator. Typecheck, build, 852-source
+  architecture and changed-scope lint/format/diff gates pass.
+
 ## 2026-08-24 — UGV A2A navigation terminal-safe repair and handoff
 
 - Executed one authorized real A2A navigation attempt through SDAR Runtime, Frozen MCP Tasks and the

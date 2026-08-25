@@ -469,6 +469,8 @@ import { assertManagedCapabilityRuntimeConfiguration } from './managed-capabilit
 import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
 import {
   UGV_AGENT_PROFILE_ID,
+  UGV_AGENT_PROFILE_EXPOSURE_ID,
+  UGV_AGENT_PROFILE_EXPOSURE_VERSION,
   UGV_AGENT_PROFILE_SKILL_ID,
   UGV_AGENT_PROFILE_SKILL_VERSION,
   UgvAgentProfileSkillRepositoryView,
@@ -505,6 +507,7 @@ import {
 } from './ugv-move-position-result.js';
 import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
 import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
+import { UgvNaturalLanguageCapabilityAdmissionResolver } from './ugv-natural-language-capability-admission.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -3880,6 +3883,11 @@ export async function startServerRuntime(
     taskInputs,
     taskCapabilities,
     initialAdmissions: taskCapabilityRepository,
+    ...(ugvAgentProfile
+      ? {
+          naturalLanguageCapabilityAdmissions: new UgvNaturalLanguageCapabilityAdmissionResolver(),
+        }
+      : {}),
     ...(options.frozenMcpTasks === undefined
       ? {}
       : {
@@ -4843,11 +4851,9 @@ export async function startServerRuntime(
                   ? (() => {
                       throw new Error('UGV_AGENT_PROFILE_TASK_CAPABILITY_BINDING_REQUIRED');
                     })()
-                  : await resolveUgvMoveSkillUsageContext({
+                  : resolveUgvMoveSkillUsageContext({
                       authority: taskCapabilityUsage,
                       binding: ugvTaskCapabilityBinding,
-                      invocations: mcpRepository,
-                      clock,
                     });
           const selected = await skillSelection.selectFromCandidates(
             goalContract,
@@ -6874,6 +6880,18 @@ export async function startServerRuntime(
             },
           }),
       capabilityCardProvider: capabilityCards,
+      ...(ugvAgentProfile
+        ? {
+            naturalLanguageAdmissionContractProvider: {
+              findCurrent: () =>
+                taskCapabilities.describeAdmissionExposure(
+                  UGV_AGENT_PROFILE_EXPOSURE_ID,
+                  UGV_AGENT_PROFILE_EXPOSURE_VERSION,
+                  clock.now(),
+                ),
+            },
+          }
+        : {}),
       ...(ugvAgentProfile && options.governedControlPrincipalResolver !== undefined
         ? { confirmationPrincipalResolver: options.governedControlPrincipalResolver }
         : {}),

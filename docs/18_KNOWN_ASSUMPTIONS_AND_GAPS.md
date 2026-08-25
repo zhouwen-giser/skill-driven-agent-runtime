@@ -1,5 +1,29 @@
 # 已知假设、冲突与待验证项
 
+## SACS v0.3 natural-language A2A admission boundary (2026-08-24)
+
+- “v0.3” is the SACS client/product version. SDAR continues to use A2A wire version `1.0`, the
+  normative 1.0.1 baseline and the pinned official SDK; the SDK's unrelated v0.3 compatibility
+  module is neither enabled nor claimed.
+- SACS source code is not part of this repository. Compatibility evidence therefore uses the
+  reported SACS request shape through the official A2A endpoint: one `text/plain` Message with a
+  stable `messageId`, no private Capability metadata, no structured Data Part and no management API.
+- Natural-language admission is deliberately narrow. The UGV Profile recognizes only an explicit
+  move intent, UGV/vehicle subject and exactly one labelled longitude and latitude. Altitude is
+  ignored rather than becoming command or terminal authority; relative, duplicate, missing and
+  out-of-range coordinates fail before PostgreSQL admission.
+- The deterministic parser produces only a candidate. Current Exposure, readiness, requester policy,
+  schema and Provider Binding are still re-resolved by the existing Application service and the
+  immutable PostgreSQL Task Capability Binding remains the execution authority. No LLM output is
+  interpreted as control data.
+- Trusted-intranet mode permits an anonymous initial A2A request consistently with the Card's empty
+  security requirements. This does not bypass plan confirmation, governed-control identity at the
+  confirmation boundary, current Provider authority, the physical side-effect gate or exactly-once
+  MCP dispatch. Explicit bearer mode remains separately supported.
+- The local integration uses isolated PostgreSQL/Redis and a frozen local Provider. It proves public
+  text admission, replay/conflict behavior, zero pre-confirm navigation, one post-confirm dispatch and
+  restart recovery; it is not new external simulator or physical-vehicle acceptance evidence.
+
 ## UGV Agent Profile P3-B01 clean-stack and authority boundary (2026-08-21)
 
 - P3-B01 qualifies only the clean dual-repository startup, read-only SMPP surface, SDAR authority

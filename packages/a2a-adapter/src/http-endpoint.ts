@@ -38,6 +38,19 @@ export interface A2AHttpEndpointOptions {
   readonly artifactProjectionProvider?: Readonly<{
     projectPublic(): Promise<A2AArtifactProjection>;
   }>;
+  readonly naturalLanguageAdmissionContractProvider?: Readonly<{
+    findCurrent(): Promise<
+      | Readonly<{
+          exposureId: string;
+          exposureVersion: number;
+          capabilityId: string;
+          capabilityVersion: number;
+          requestSchema: unknown;
+          requesterPolicy?: Readonly<Record<string, unknown>>;
+        }>
+      | undefined
+    >;
+  }>;
   readonly confirmationPrincipalResolver?: GovernedControlPrincipalResolver;
   readonly host?: string;
   readonly port?: number;
@@ -79,8 +92,10 @@ export async function startA2AHttpEndpoint(
               throw new Error('A2A_CAPABILITY_CARD_SNAPSHOT_NOT_AVAILABLE');
             return cardBuilder.buildFromSnapshot(snapshot, `${baseUrl}/a2a`);
           })();
-    if (options.artifactProjectionProvider === undefined) return base;
-    const projection = await options.artifactProjectionProvider.projectPublic();
+    const projection = await options.artifactProjectionProvider?.projectPublic();
+    const naturalLanguageAdmission =
+      await options.naturalLanguageAdmissionContractProvider?.findCurrent();
+    if (projection === undefined && naturalLanguageAdmission === undefined) return base;
     const json = AgentCard.toJSON(base) as Record<string, unknown>;
     const capabilities =
       typeof json['capabilities'] === 'object' && json['capabilities'] !== null
@@ -96,13 +111,39 @@ export async function startA2AHttpEndpoint(
         ...capabilities,
         extensions: [
           ...extensions,
-          {
-            uri: 'urn:sdar:artifact-evidence:v1.1',
-            description:
-              'Safe evidence that planning may use validated, policy-governed experience.',
-            required: false,
-            params: projection,
-          },
+          ...(projection === undefined
+            ? []
+            : [
+                {
+                  uri: 'urn:sdar:artifact-evidence:v1.1',
+                  description:
+                    'Safe evidence that planning may use validated, policy-governed experience.',
+                  required: false,
+                  params: projection,
+                },
+              ]),
+          ...(naturalLanguageAdmission === undefined
+            ? []
+            : [
+                {
+                  uri: 'io.sdar/naturalLanguageCapabilityAdmission',
+                  description:
+                    'Server-resolved natural-language admission into a current Capability Exposure.',
+                  required: false,
+                  params: {
+                    version: '1.0',
+                    inputMode: 'text/plain',
+                    externalCapabilityMetadataRequired: false,
+                    clientRequestIdentity: 'a2a.messageId',
+                    exposureId: naturalLanguageAdmission.exposureId,
+                    exposureVersion: naturalLanguageAdmission.exposureVersion,
+                    capabilityId: naturalLanguageAdmission.capabilityId,
+                    capabilityVersion: naturalLanguageAdmission.capabilityVersion,
+                    requestSchema: naturalLanguageAdmission.requestSchema,
+                    requesterPolicy: naturalLanguageAdmission.requesterPolicy ?? {},
+                  },
+                },
+              ]),
         ],
       },
     });

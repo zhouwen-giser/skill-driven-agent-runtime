@@ -213,6 +213,104 @@ describe('TaskService', () => {
     expect(harness.operations).toEqual(['context.save:context-1', 'queue:context-1:task-1']);
   });
 
+  it('turns a metadata-free natural-language request into one durable formal admission', async () => {
+    const resolve = vi.fn(() =>
+      Promise.resolve({
+        idempotencyKey: 'nlcap-request-1',
+        requestedCapability: {
+          exposureId: 'device.inspect',
+          exposureVersion: 1,
+          requestId: 'nlcap-request-1',
+        },
+        capabilityInput: { deviceId: 'alpha' },
+      }),
+    );
+    const harness = createHarness('resumed', false, undefined, capabilityService(), {
+      initialAdmissionEnabled: true,
+      naturalLanguageCapabilityAdmissions: { resolve },
+    });
+    const command = {
+      clientRequestId: 'sacs-message-1',
+      messageText: 'Inspect device alpha.',
+      metadata: {},
+    } as const;
+
+    const first = await harness.service.submit(command);
+    const replay = await harness.service.submit(command);
+
+    expect(resolve).toHaveBeenCalledWith({
+      messageText: command.messageText,
+      userId: ANONYMOUS_USER_ID,
+      clientRequestId: command.clientRequestId,
+      receivedAt: timestamp,
+    });
+    expect(first.admissionStatus).toBe('accepted');
+    expect(replay).toMatchObject({
+      admissionStatus: 'replayed',
+      queueDispatchStatus: 'not_dispatched',
+      task: { taskId: first.task.taskId },
+    });
+    expect(harness.admissions.size).toBe(1);
+    expect(harness.operations.filter((value) => value.startsWith('admission:'))).toEqual([
+      'admission:nlcap-request-1',
+    ]);
+  });
+
+  it('preserves the durable conflict boundary when natural-language text changes for one client request', async () => {
+    const resolve = vi.fn(() =>
+      Promise.resolve({
+        idempotencyKey: 'nlcap-request-conflict',
+        requestedCapability: {
+          exposureId: 'device.inspect',
+          exposureVersion: 1,
+          requestId: 'nlcap-request-conflict',
+        },
+        capabilityInput: { deviceId: 'alpha' },
+      }),
+    );
+    const harness = createHarness('resumed', false, undefined, capabilityService(), {
+      initialAdmissionEnabled: true,
+      naturalLanguageCapabilityAdmissions: { resolve },
+    });
+
+    await harness.service.submit({
+      clientRequestId: 'sacs-message-conflict',
+      messageText: 'Inspect device alpha.',
+      metadata: {},
+    });
+
+    await expect(
+      harness.service.submit({
+        clientRequestId: 'sacs-message-conflict',
+        messageText: 'Inspect device beta.',
+        metadata: {},
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT' });
+    expect(harness.admissions.size).toBe(1);
+    expect(harness.operations.filter((operation) => operation.startsWith('queue:'))).toHaveLength(
+      1,
+    );
+  });
+
+  it('never invokes natural-language resolution for a partially formal request', async () => {
+    const resolve = vi.fn(() =>
+      Promise.reject(new Error('UNEXPECTED_NATURAL_LANGUAGE_RESOLUTION')),
+    );
+    const harness = createHarness('resumed', false, undefined, capabilityService(), {
+      initialAdmissionEnabled: true,
+      naturalLanguageCapabilityAdmissions: { resolve },
+    });
+
+    await expect(
+      harness.service.submit({
+        clientRequestId: 'sacs-message-explicit',
+        messageText: 'Inspect device alpha.',
+        metadata: { idempotency_key: 'partial-formal-request' },
+      }),
+    ).resolves.toMatchObject({ task: { requestText: 'Inspect device alpha.' } });
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
   it('replays one durable initial admission across new SDK Task and Context ids without enqueueing twice', async () => {
     const taskCapabilities = capabilityService();
     const authoritativeContext: ConversationContext = {
@@ -1297,6 +1395,9 @@ function createHarness(
     initialQueueFailure?: boolean;
     initialAdmissionContextOverride?: ConversationContext;
     feedback?: NonNullable<TaskServiceDependencies['feedback']>;
+    naturalLanguageCapabilityAdmissions?: NonNullable<
+      TaskServiceDependencies['naturalLanguageCapabilityAdmissions']
+    >;
   }> = {},
 ): Readonly<{
   service: TaskService;
@@ -1483,6 +1584,11 @@ function createHarness(
       taskInputs,
       ...(taskCapabilities === undefined ? {} : { taskCapabilities }),
       ...(initialAdmissions === undefined ? {} : { initialAdmissions }),
+      ...(options.naturalLanguageCapabilityAdmissions === undefined
+        ? {}
+        : {
+            naturalLanguageCapabilityAdmissions: options.naturalLanguageCapabilityAdmissions,
+          }),
       ...(options.feedback === undefined ? {} : { feedback: options.feedback }),
       ...(remotePrepare === undefined
         ? {}

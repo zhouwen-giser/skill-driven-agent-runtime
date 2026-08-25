@@ -196,14 +196,15 @@ export async function ugvWorkflowPlanningFixture(): Promise<
     consumedNodes: 0,
   });
   const requirements = [
-    ['current-position', 'read_only_query'],
-    ['resource-state', 'read_only_query'],
+    ['current-position', 'authoritative_context'],
+    ['resource-state', 'authoritative_context'],
     ['permission-context', 'authoritative_context'],
   ] as const;
-  const contextResultHash = `sha256:${'a'.repeat(64)}`;
+  const providerContextHash = `sha256:${'a'.repeat(64)}`;
+  const providerContextPrefix = `task-capability-binding:capability-binding-1:hash:${'b'.repeat(64)}:provider-context-hash:${providerContextHash}:workflow-read:vehicle_get_state:context:`;
   const contextEvidenceRefs = Object.freeze({
-    'current-position': `mcp-invocation:qualification-invocation-1:result-hash:${contextResultHash}:context:current-position`,
-    'resource-state': `mcp-invocation:qualification-invocation-1:result-hash:${contextResultHash}:context:resource-state`,
+    'current-position': `${providerContextPrefix}current-position`,
+    'resource-state': `${providerContextPrefix}resource-state`,
     'permission-context': `task-capability-binding:capability-binding-1:hash:${'b'.repeat(64)}:policy-id:ugv-agent-profile/explicit-wgs84-target:revision:2:policy-hash:sha256:${'c'.repeat(64)}:context:permission-context`,
   });
   const candidate: SkillUsageCandidateSnapshot = {
@@ -221,10 +222,7 @@ export async function ugvWorkflowPlanningFixture(): Promise<
           status: 'satisfied' as const,
           source,
           evidenceRef: contextEvidenceRefs[requirementId],
-          attemptedSources:
-            source === 'read_only_query'
-              ? (['authoritative_context', 'read_only_query'] as const)
-              : (['authoritative_context'] as const),
+          attemptedSources: ['authoritative_context'] as const,
         })),
         satisfied: 3,
         total: 3,

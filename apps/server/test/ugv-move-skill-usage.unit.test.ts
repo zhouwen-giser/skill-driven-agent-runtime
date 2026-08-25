@@ -4,7 +4,6 @@ import type { TaskCapabilitySkillUsageAuthority } from '../../../packages/applic
 import {
   createTaskCapabilityBinding,
   hashCanonicalEvidenceJson,
-  type McpInvocation,
   type SkillTaskBinding,
   type TaskCapabilityBinding,
 } from '../../../packages/domain/src/index.js';
@@ -106,20 +105,13 @@ describe('UGV move formal Skill Usage adapter', () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
-  it('resolves all three contexts from one durable taskless qualification receipt and policy', async () => {
+  it('resolves planning context from immutable Task and Provider authority without an MCP receipt', () => {
     const binding = capabilityBinding();
     const authority = capabilityAuthority(binding);
-    const receipt = qualificationReceipt();
-    const listInvocations = vi.fn().mockResolvedValue([receipt]);
 
-    const resolved = await resolveUgvMoveSkillUsageContext({
-      authority,
-      binding,
-      invocations: { listInvocations },
-      clock: { now: () => NOW },
-    });
+    const resolved = resolveUgvMoveSkillUsageContext({ authority, binding });
 
-    const resultHash = hashCanonicalEvidenceJson(receipt.result);
+    const providerContextHash = hashCanonicalEvidenceJson(authority.context.observations);
     const targetPolicy = binding.constraintSnapshot.find(
       (constraint) => constraint['type'] === 'ugv_simulation_target_policy',
     );
@@ -136,20 +128,18 @@ describe('UGV move formal Skill Usage adapter', () => {
       altitudePolicy: 'not_commanded_not_terminally_evaluated',
       forbiddenRegions: [],
     });
-    expect(listInvocations).toHaveBeenCalledOnce();
-    expect(listInvocations).toHaveBeenCalledWith(SERVER_ID);
     expect(resolved.observations).toEqual([
       {
         requirementId: 'current-position',
-        source: 'read_only_query',
+        source: 'authoritative_context',
         status: 'available',
-        evidenceRef: `mcp-invocation:${INVOCATION_ID}:result-hash:${resultHash}:context:current-position`,
+        evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}:provider-context-hash:${providerContextHash}:workflow-read:vehicle_get_state:context:current-position`,
       },
       {
         requirementId: 'resource-state',
-        source: 'read_only_query',
+        source: 'authoritative_context',
         status: 'available',
-        evidenceRef: `mcp-invocation:${INVOCATION_ID}:result-hash:${resultHash}:context:resource-state`,
+        evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}:provider-context-hash:${providerContextHash}:workflow-read:vehicle_get_state:context:resource-state`,
       },
       {
         requirementId: 'permission-context',
@@ -171,114 +161,15 @@ describe('UGV move formal Skill Usage adapter', () => {
     });
   });
 
-  it('fails closed for missing, duplicate, or wrong receipt authority', async () => {
-    const cases = [
-      { label: 'missing receipt', invocations: [] },
-      {
-        label: 'duplicate receipt',
-        invocations: [qualificationReceipt(), qualificationReceipt({ invocationId: 'qualify-2' })],
-      },
-      {
-        label: 'wrong Provider identity',
-        invocations: [qualificationReceipt({ providerId: 'isr.vehicle.ugv.other' })],
-      },
-      {
-        label: 'wrong simulation run',
-        invocations: [qualificationReceipt({ simulationId: 'sim-other' })],
-      },
-      {
-        label: 'wrong arguments',
-        invocations: [qualificationReceipt({ include: ['chassis'] })],
-      },
-      {
-        label: 'control-bearing receipt',
-        invocations: [qualificationReceipt({ controlConfirmationId: 'confirmation-1' })],
-      },
-      {
-        label: 'task-scoped receipt',
-        invocations: [qualificationReceipt({ taskId: 'task-1' })],
-      },
-    ];
-    for (const item of cases) {
-      const binding = capabilityBinding();
-      await expect(
-        resolveUgvMoveSkillUsageContext({
-          authority: capabilityAuthority(binding),
-          binding,
-          invocations: { listInvocations: () => Promise.resolve(item.invocations) },
-          clock: { now: () => NOW },
-        }),
-        item.label,
-      ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
-    }
-  });
-
-  it('accepts the exact 3 second planning boundary and fails closed at 3001ms', async () => {
-    const admittedBinding = capabilityBinding({ boundAt: EXACT_BOUNDARY_NOW });
-    await expect(
-      resolveUgvMoveSkillUsageContext({
-        authority: capabilityAuthority(admittedBinding),
-        binding: admittedBinding,
-        invocations: { listInvocations: () => Promise.resolve([qualificationReceipt()]) },
-        clock: { now: () => EXACT_BOUNDARY_NOW },
-      }),
-    ).resolves.toMatchObject({
-      observations: [
-        { requirementId: 'current-position', status: 'available' },
-        { requirementId: 'resource-state', status: 'available' },
-        { requirementId: 'permission-context', status: 'available' },
-      ],
-    });
-    await expect(
-      resolveUgvMoveSkillUsageContext({
-        authority: capabilityAuthority(admittedBinding),
-        binding: admittedBinding,
-        invocations: { listInvocations: () => Promise.resolve([qualificationReceipt()]) },
-        clock: { now: () => EXPIRED_PLANNING_NOW },
-      }),
-    ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_QUALIFICATION_STALE' });
-  });
-
-  it('accepts Provider mission ready state 0 but rejects running or paused qualification', async () => {
-    const binding = capabilityBinding();
-    for (const missionState of [0, -1, 3, 4, 5])
-      await expect(
-        resolveUgvMoveSkillUsageContext({
-          authority: capabilityAuthority(binding),
-          binding,
-          invocations: {
-            listInvocations: () => Promise.resolve([qualificationReceipt({ missionState })]),
-          },
-          clock: { now: () => NOW },
-        }),
-      ).resolves.toBeDefined();
-    for (const missionState of [1, 2])
-      await expect(
-        resolveUgvMoveSkillUsageContext({
-          authority: capabilityAuthority(binding),
-          binding,
-          invocations: {
-            listInvocations: () => Promise.resolve([qualificationReceipt({ missionState })]),
-          },
-          clock: { now: () => NOW },
-        }),
-      ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
-  });
-
-  it('fails closed for missing, duplicate, or drifted permission policy', async () => {
+  it('fails closed for missing, duplicate, or drifted permission policy', () => {
     for (const binding of [
       capabilityBinding({ omitTargetPolicy: true }),
       capabilityBinding({ duplicateTargetPolicy: true }),
       capabilityBinding({ policy: { ...targetPolicy(), targetAuthority: 'request_metadata' } }),
     ]) {
-      await expect(
-        resolveUgvMoveSkillUsageContext({
-          authority: capabilityAuthority(binding),
-          binding,
-          invocations: { listInvocations: () => Promise.resolve([qualificationReceipt()]) },
-          clock: { now: () => NOW },
-        }),
-      ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
+      expect(() =>
+        resolveUgvMoveSkillUsageContext({ authority: capabilityAuthority(binding), binding }),
+      ).toThrow(expect.objectContaining({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' }));
     }
   });
 
@@ -312,12 +203,7 @@ function skillInput() {
 const RUN_ID = 'uap-p3-b02-run-1';
 const SERVER_ID = 'ugv-runtime-1';
 const PROVIDER_BINDING_ID = 'binding-ugv-runtime-1';
-const INVOCATION_ID = 'qualification-invocation-1';
 const POLICY_ID = 'ugv-agent-profile/explicit-wgs84-target';
-const NOW = '2026-08-21T12:00:03.000Z';
-const EXACT_BOUNDARY_NOW = '2026-08-21T12:00:04.000Z';
-const EXPIRED_PLANNING_NOW = '2026-08-21T12:00:04.001Z';
-const INITIAL_POSITION = Object.freeze({ longitude: 106.813_980_425_914_1, latitude: 29.720_4 });
 
 function deriveTarget() {
   return Object.freeze({ x: 106.8134463, y: 29.72034353, frame: 'WGS84' as const });
@@ -438,87 +324,5 @@ function capabilityAuthority(binding: TaskCapabilityBinding): TaskCapabilitySkil
         allowGuidanceWithIncompleteContext: false,
       }),
     }),
-  });
-}
-
-function qualificationReceipt(
-  options: Readonly<{
-    invocationId?: string;
-    simulationId?: string;
-    include?: readonly string[];
-    providerId?: string;
-    taskId?: string;
-    controlConfirmationId?: string;
-    missionState?: number;
-  }> = {},
-): McpInvocation {
-  const result = Object.freeze({
-    content: Object.freeze([]),
-    isError: false,
-    structuredContent: Object.freeze({
-      identity: Object.freeze({
-        providerId: options.providerId ?? 'isr.vehicle.ugv.ugv1',
-        resourceId: 'vehicle:ugv1',
-        vehicleType: 'ugv',
-        executionMode: 'simulation',
-      }),
-      connectivity: Object.freeze({
-        mqttConnected: true,
-        deviceMcpConnected: true,
-        deviceAvailable: true,
-        packetLossRate: 0,
-        averageRoundTripTimeMs: 20,
-      }),
-      freshness: Object.freeze({
-        chassisObservedAt: '2026-08-21T12:00:01.000Z',
-        healthObservedAt: '2026-08-21T12:00:01.000Z',
-        missionObservedAt: '2026-08-21T12:00:01.000Z',
-      }),
-      chassis: Object.freeze({
-        position: INITIAL_POSITION,
-        speedKmh: 0,
-        mission: Object.freeze({ state: options.missionState ?? 4 }),
-      }),
-      health: Object.freeze({
-        chassisErrorCodes: Object.freeze([]),
-        payloadErrorCodes: Object.freeze([]),
-        components: Object.freeze({
-          communications: 'normal',
-          gnss: 'normal',
-          navigation: 'normal',
-        }),
-      }),
-      revision: 'd'.repeat(64),
-      observedAt: '2026-08-21T12:00:01.000Z',
-      mqttIngressSequence: 42,
-    }),
-  });
-  return Object.freeze({
-    invocationId: options.invocationId ?? INVOCATION_ID,
-    ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
-    ...(options.controlConfirmationId === undefined
-      ? {}
-      : { controlConfirmationId: options.controlConfirmationId }),
-    executionMode: 'simulation',
-    simulationId: options.simulationId ?? RUN_ID,
-    serverId: SERVER_ID,
-    toolName: 'vehicle_get_state',
-    executionSemantics: Object.freeze({
-      effect: 'read_only',
-      execution: 'synchronous',
-      cancellation: 'unsupported',
-      idempotency: 'server_managed',
-      replay: 'allowed',
-      source: 'mcp_declared',
-    }),
-    arguments: Object.freeze({
-      resourceId: 'vehicle:ugv1',
-      include: Object.freeze([...(options.include ?? ['chassis', 'health'])]),
-    }),
-    result,
-    status: 'succeeded',
-    startedAt: '2026-08-21T12:00:00.800Z',
-    completedAt: '2026-08-21T12:00:01.000Z',
-    durationMs: 200,
   });
 }

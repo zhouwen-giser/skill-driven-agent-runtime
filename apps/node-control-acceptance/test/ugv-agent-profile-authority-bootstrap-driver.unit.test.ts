@@ -108,7 +108,7 @@ describe('UGV Agent Profile authority bootstrap', () => {
                 'http://127.0.0.1:18092/api/v1/registry/simulation/consumers/sdar/v1/sources/smpp-source-ugv1-uap-p3-b01/latest',
               credentialRef: 'unauthenticated://none',
               environment: 'simulation',
-              syncMode: 'manual',
+              syncMode: 'poll',
               snapshotTtlSeconds: 300,
               lkgPolicy: 'deny_when_unavailable',
               status: 'active',
@@ -455,8 +455,8 @@ describe('UGV Agent Profile authority bootstrap', () => {
       },
     });
     expect(api.exposureRequesterPolicy()).toEqual({
-      allowAnonymous: false,
-      allowedRequesterIds: ['uap-p3-b02-requester'],
+      allowAnonymous: true,
+      allowedRequesterIds: [],
     });
     expect(second.skill.exactVersionCount).toBe(1);
     expect(verified.status).toBe('passed');
@@ -966,7 +966,7 @@ function configuration(): UgvAgentProfileAuthorityBootstrapConfiguration {
       registryEndpoint:
         'http://127.0.0.1:18092/api/v1/registry/simulation/consumers/sdar/v1/sources/smpp-source-ugv1-uap-p3-b01/latest',
       registryCredentialRef: 'unauthenticated://none',
-      syncMode: 'manual',
+      syncMode: 'poll',
       snapshotTtlSeconds: 300,
       lkgPolicy: 'deny_when_unavailable',
       externalProviderId: 'isr.vehicle.ugv.ugv1',
@@ -1180,7 +1180,7 @@ class AuthorityApis {
         'http://127.0.0.1:18092/api/v1/registry/simulation/consumers/sdar/v1/sources/smpp-source-ugv1-uap-p3-b01/latest',
       credentialRef: 'unauthenticated://none',
       environment: 'simulation',
-      syncMode: 'manual',
+      syncMode: 'poll',
       snapshotTtlSeconds: 300,
       lkgPolicy: 'deny_when_unavailable',
       status: 'active',

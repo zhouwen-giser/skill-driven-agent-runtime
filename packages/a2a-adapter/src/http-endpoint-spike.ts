@@ -23,6 +23,9 @@ export interface A2aHttpSpikeOptions {
     typeof startA2AHttpEndpoint
   >[0]['artifactProjectionProvider'];
   readonly agentCardProvider?: Parameters<typeof startA2AHttpEndpoint>[0]['agentCardProvider'];
+  readonly naturalLanguageAdmissionContractProvider?: Parameters<
+    typeof startA2AHttpEndpoint
+  >[0]['naturalLanguageAdmissionContractProvider'];
 }
 
 export async function startA2aHttpSpike(
@@ -101,6 +104,12 @@ export async function startA2aHttpSpike(
     ...(options.agentCardProvider === undefined
       ? {}
       : { agentCardProvider: options.agentCardProvider }),
+    ...(options.naturalLanguageAdmissionContractProvider === undefined
+      ? {}
+      : {
+          naturalLanguageAdmissionContractProvider:
+            options.naturalLanguageAdmissionContractProvider,
+        }),
   });
 }
 
