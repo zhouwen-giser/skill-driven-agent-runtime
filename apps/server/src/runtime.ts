@@ -2295,6 +2295,9 @@ export async function startServerRuntime(
           runtimeBindings: runtimeMcpBindingAuthority,
           schemas: schemaValidator,
           clock,
+          reportReadinessRejection: (diagnostic) => {
+            process.stderr.write(`${JSON.stringify(diagnostic)}\n`);
+          },
         });
   if (ugvAgentProfile && ugvMoveBindingResolver === undefined)
     throw new Error('UGV_AGENT_PROFILE_MOVE_BINDING_RUNTIME_REQUIRED');

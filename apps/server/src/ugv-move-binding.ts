@@ -21,6 +21,7 @@ import {
   type SelectedTaskOperation,
   type SkillContextRequirement,
   type SkillTaskBinding,
+  type SkillTaskReadinessSummary,
   type TaskAvailabilityCheckResult,
   type TaskAvailabilityReadResult,
 } from '../../../packages/domain/src/index.js';
@@ -56,6 +57,8 @@ export interface UgvMoveQualificationAuthority {
   readonly providerId: string;
 }
 
+export type UgvMoveReadinessRejectionDiagnostic = ReturnType<typeof readinessRejectionDiagnostic>;
+
 type RuntimeBindingVerifier = Pick<
   McpRuntimeBindingAuthorityVerifier,
   'loadRuntimeAuthority' | 'assertCurrent'
@@ -71,6 +74,8 @@ export class UgvMoveTaskBindingResolver {
   readonly #runtimeBindings: RuntimeBindingVerifier;
   readonly #schemas: JsonSchemaValidator;
   readonly #clock: Clock;
+  readonly #reportReadinessRejection:
+    ((diagnostic: UgvMoveReadinessRejectionDiagnostic) => void | Promise<void>) | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -82,6 +87,9 @@ export class UgvMoveTaskBindingResolver {
       runtimeBindings: RuntimeBindingVerifier;
       schemas: JsonSchemaValidator;
       clock: Clock;
+      reportReadinessRejection?: (
+        diagnostic: UgvMoveReadinessRejectionDiagnostic,
+      ) => void | Promise<void>;
     }>,
   ) {
     this.#skills = dependencies.skills;
@@ -92,6 +100,7 @@ export class UgvMoveTaskBindingResolver {
     this.#runtimeBindings = dependencies.runtimeBindings;
     this.#schemas = dependencies.schemas;
     this.#clock = dependencies.clock;
+    this.#reportReadinessRejection = dependencies.reportReadinessRejection;
   }
 
   async resolve(
@@ -111,11 +120,17 @@ export class UgvMoveTaskBindingResolver {
     const exact = await this.#requireCompatibleCandidate(adaptedInput);
 
     const capturedAvailability = new CapturingAvailabilityReader(this.#availability);
+    let readinessCheckedAt: string | undefined;
     const readiness = new FrozenSkillTaskReadinessAdapter({
       operations: exactCandidateCatalog(exact.candidate),
       availability: capturedAvailability,
       providerBindings: cachedBindingReader(exact.binding),
-      clock: this.#clock,
+      clock: {
+        now: () => {
+          readinessCheckedAt = this.#clock.now();
+          return readinessCheckedAt;
+        },
+      },
     });
     const reported = await readiness.inspect({
       skillId: currentSkill.skillId,
@@ -138,11 +153,28 @@ export class UgvMoveTaskBindingResolver {
       availability.result.validUntil === undefined ||
       Date.parse(availability.result.validUntil) <= Date.parse(selectedAt) ||
       Date.parse(exact.binding.binding.availabilityValidUntil) <= Date.parse(selectedAt)
-    )
+    ) {
+      try {
+        void Promise.resolve(
+          this.#reportReadinessRejection?.(
+            readinessRejectionDiagnostic({
+              exact,
+              reported,
+              availability,
+              selectedAt,
+              readinessCheckedAt,
+              simulationId: executionContext.simulationId,
+            }),
+          ),
+        ).catch(() => undefined);
+      } catch {
+        // Optional diagnostics must never replace the original readiness refusal.
+      }
       fail(
         'UGV_PROFILE_READINESS_NOT_ADMITTED',
         'Exact UGV navigation readiness is unavailable, stale, or uncorrelated.',
       );
+    }
 
     const provider = exact.runtime.snapshot.providerCatalog;
     if (provider === undefined)
@@ -723,9 +755,16 @@ function cachedBindingReader(
   });
 }
 
+interface CapturedAvailabilityRequest {
+  readonly serverId: string;
+  readonly nodeId: string | undefined;
+  readonly operationName: string | undefined;
+}
+
 class CapturingAvailabilityReader implements TaskAvailabilityBatchReader {
   readonly #source: TaskAvailabilityBatchReader;
   #outcomes: TaskAvailabilityReadResult[] = [];
+  #request: CapturedAvailabilityRequest | undefined;
 
   constructor(source: TaskAvailabilityBatchReader) {
     this.#source = source;
@@ -734,6 +773,11 @@ class CapturingAvailabilityReader implements TaskAvailabilityBatchReader {
   async checkTaskAvailability(
     input: Parameters<TaskAvailabilityBatchReader['checkTaskAvailability']>[0],
   ) {
+    this.#request = {
+      serverId: input.serverId,
+      nodeId: input.requests[0]?.nodeId,
+      operationName: input.requests[0]?.operationName,
+    };
     const outcome = await this.#source.checkTaskAvailability(input);
     this.#outcomes.push(outcome);
     return outcome;
@@ -742,6 +786,7 @@ class CapturingAvailabilityReader implements TaskAvailabilityBatchReader {
   exactResult(operationName: string): Readonly<{
     outcome: Extract<TaskAvailabilityReadResult, { kind: 'results' }>;
     result: TaskAvailabilityCheckResult;
+    request: CapturedAvailabilityRequest | undefined;
   }> {
     const outcome = this.#outcomes[0];
     if (this.#outcomes.length !== 1 || outcome?.kind !== 'results')
@@ -756,8 +801,148 @@ class CapturingAvailabilityReader implements TaskAvailabilityBatchReader {
         'UGV_PROFILE_READINESS_NOT_ADMITTED',
         'UGV readiness response does not contain one exact navigation result.',
       );
-    return Object.freeze({ outcome, result });
+    return Object.freeze({ outcome, result, request: this.#request });
   }
+}
+
+function readinessRejectionDiagnostic(
+  input: Readonly<{
+    exact: CompatibleCandidate;
+    reported: SkillTaskReadinessSummary;
+    availability: ReturnType<CapturingAvailabilityReader['exactResult']>;
+    selectedAt: string;
+    readinessCheckedAt: string | undefined;
+    simulationId: string;
+  }>,
+) {
+  const { exact, reported, availability, selectedAt, readinessCheckedAt } = input;
+  const binding = reported.bindings[0];
+  const result = availability.result;
+  const rejectedChecks = {
+    bindingCountNotOne: reported.bindings.length !== 1,
+    selectedProviderMismatch: binding?.selectedProviderId !== exact.candidate.providerId,
+    selectedOperationMismatch: binding?.selectedOperationName !== NAVIGATE_OPERATION,
+    dispositionNotReady: binding?.disposition !== 'ready',
+    operationNotAvailable: result.availability !== 'available',
+    resultValidUntilMissing: result.validUntil === undefined,
+    resultExpiredAtSelection:
+      result.validUntil !== undefined && Date.parse(result.validUntil) <= Date.parse(selectedAt),
+    bindingExpiredAtSelection:
+      Date.parse(exact.binding.binding.availabilityValidUntil) <= Date.parse(selectedAt),
+  };
+  return {
+    event: 'ugv_profile.navigation_readiness_rejected' as const,
+    errorCode: 'UGV_PROFILE_READINESS_NOT_ADMITTED' as const,
+    simulationId: diagnosticIdentifier(input.simulationId),
+    providerBindingId: diagnosticIdentifier(exact.binding.binding.bindingId),
+    providerBindingRevision: exact.binding.binding.revision,
+    providerId: diagnosticIdentifier(exact.binding.binding.providerId),
+    runtimeServerId: diagnosticIdentifier(exact.candidate.providerId),
+    runtimeToolRevision: exact.runtime.record.server.toolRevision,
+    selectedAt: diagnosticTimestamp(selectedAt),
+    readinessCheckedAt: diagnosticTimestamp(readinessCheckedAt),
+    bindingValidUntil: diagnosticTimestamp(exact.binding.binding.availabilityValidUntil),
+    rejectedChecks,
+    failedChecks: Object.entries(rejectedChecks)
+      .filter(([, failed]) => failed)
+      .map(([name]) => name),
+    request: {
+      serverId: diagnosticIdentifier(availability.request?.serverId),
+      nodeId: diagnosticIdentifier(availability.request?.nodeId),
+      operationName: diagnosticIdentifier(availability.request?.operationName),
+    },
+    result: {
+      protocolRevision: diagnosticEnum(availability.outcome.protocolRevision, [
+        'smpp-task-execution/1.0',
+      ]),
+      schemaRevision: diagnosticEnum(availability.outcome.availabilitySchemaRevision, [
+        'smpp-availability/1.0',
+      ]),
+      nodeId: diagnosticIdentifier(result.nodeId),
+      operationName: diagnosticIdentifier(result.operationName),
+      nodeIdMatchesRequest: result.nodeId === availability.request?.nodeId,
+      operationMatchesRequest: result.operationName === availability.request?.operationName,
+      availability: diagnosticEnum(result.availability, [
+        'available',
+        'restricted',
+        'disabled',
+        'unknown',
+      ]),
+      validUntil: diagnosticTimestamp(result.validUntil),
+      riskLevel: diagnosticEnum(result.riskLevel, ['low', 'medium', 'high', 'critical']),
+      reservationMode: diagnosticEnum(result.reservationMode, [
+        'none',
+        'best_effort',
+        'guaranteed',
+      ]),
+      reservationRefPresent:
+        result.reservationRef !== undefined && result.reservationRef.trim() !== '',
+      reasonCodes: diagnosticReasonCodes(
+        result.reasonCode === undefined ? [] : [result.reasonCode],
+      ),
+    },
+    readiness: {
+      bindingCount: reported.bindings.length,
+      selectedProviderId: diagnosticIdentifier(binding?.selectedProviderId),
+      selectedOperationName: diagnosticIdentifier(binding?.selectedOperationName),
+      disposition: diagnosticEnum(binding?.disposition, [
+        'ready',
+        'restricted',
+        'unavailable',
+        'unknown',
+      ]),
+      reasonCodes: diagnosticReasonCodes(binding?.reasonCodes ?? []),
+      candidates: (binding?.candidates ?? []).slice(0, 1).map((candidate) => ({
+        providerId: diagnosticIdentifier(candidate.providerId),
+        operationName: diagnosticIdentifier(candidate.operationName),
+        disposition: diagnosticEnum(candidate.disposition, [
+          'ready',
+          'restricted',
+          'unavailable',
+          'unknown',
+        ]),
+        reasonCodes: diagnosticReasonCodes(candidate.reasonCodes),
+      })),
+    },
+  };
+}
+
+function diagnosticIdentifier(value: string | undefined): string | null {
+  return value !== undefined && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/u.test(value) ? value : null;
+}
+
+function diagnosticTimestamp(value: string | undefined): string | null {
+  return value !== undefined &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/u.test(value) &&
+    Number.isFinite(Date.parse(value))
+    ? value
+    : null;
+}
+
+function diagnosticEnum<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+): T | null {
+  return allowed.find((candidate) => candidate === value) ?? null;
+}
+
+function diagnosticReasonCodes(reasons: readonly string[]): readonly string[] {
+  // Provider reasonCode is free text. Only known Runtime normalization codes may be echoed.
+  const allowed = [
+    'MCP_TASK_AVAILABILITY_RESPONSE_INVALID',
+    'MCP_TASK_AVAILABILITY_EXPIRED',
+    'MCP_TASK_AVAILABILITY_RESTRICTED_HINTS_MISSING',
+    'MCP_TASK_AVAILABILITY_RESERVATION_INVALID',
+    'MCP_PROVIDER_BINDING_NOT_CURRENT',
+    'SKILL_TASK_PROVIDER_CANDIDATE_UNAVAILABLE',
+  ];
+  return [
+    ...new Set(
+      reasons
+        .slice(0, 8)
+        .map((reason) => (allowed.includes(reason) ? reason : 'REDACTED_REASON_CODE')),
+    ),
+  ];
 }
 
 function failForRejectedCandidates(candidates: readonly CandidateInspection[]): never {

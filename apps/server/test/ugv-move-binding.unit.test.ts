@@ -16,10 +16,14 @@ import {
   type McpTaskExecutionProfile,
   type McpTaskOperationCandidate,
   type McpTool,
+  type TaskAvailabilityCheckResult,
 } from '../../../packages/domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import type { CurrentMcpProviderBindingAuthoritySnapshot } from '../../../packages/runtime-control-application/src/index.js';
-import { UgvMoveTaskBindingResolver } from '../src/ugv-move-binding.js';
+import {
+  UgvMoveTaskBindingResolver,
+  type UgvMoveReadinessRejectionDiagnostic,
+} from '../src/ugv-move-binding.js';
 
 import {
   InMemoryMutableSkillRepository,
@@ -375,6 +379,190 @@ describe('UGV move governed Task binding', () => {
     });
   });
 
+  it('reports precise readiness rejection checks for an available result without a TTL', async () => {
+    const reportReadinessRejection = vi.fn();
+    const item = await fixture({
+      reportReadinessRejection,
+      mutateAvailabilityResult: (result) => ({ ...result, validUntil: undefined }),
+    });
+
+    await expect(item.resolver.resolve(request())).rejects.toMatchObject({
+      code: 'UGV_PROFILE_READINESS_NOT_ADMITTED',
+      message: 'Exact UGV navigation readiness is unavailable, stale, or uncorrelated.',
+    });
+
+    expect(reportReadinessRejection).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        event: 'ugv_profile.navigation_readiness_rejected',
+        providerBindingId: 'binding-ugv-runtime-1',
+        providerBindingRevision: 7,
+        providerId: 'isr.vehicle.ugv.ugv1',
+        runtimeServerId: 'ugv-runtime-1',
+        selectedAt: NOW,
+        readinessCheckedAt: NOW,
+        bindingValidUntil: VALID_UNTIL,
+        rejectedChecks: {
+          bindingCountNotOne: false,
+          selectedProviderMismatch: false,
+          selectedOperationMismatch: false,
+          dispositionNotReady: false,
+          operationNotAvailable: false,
+          resultValidUntilMissing: true,
+          resultExpiredAtSelection: false,
+          bindingExpiredAtSelection: false,
+        },
+        failedChecks: ['resultValidUntilMissing'],
+        request: {
+          serverId: 'ugv-runtime-1',
+          nodeId: 'move-resource',
+          operationName: 'vehicle_navigate',
+        },
+        result: expect.objectContaining({
+          nodeId: 'move-resource',
+          operationName: 'vehicle_navigate',
+          nodeIdMatchesRequest: true,
+          operationMatchesRequest: true,
+          availability: 'available',
+          validUntil: null,
+        }),
+        readiness: expect.objectContaining({
+          selectedProviderId: 'ugv-runtime-1',
+          selectedOperationName: 'vehicle_navigate',
+          disposition: 'ready',
+          reasonCodes: [],
+        }),
+      }),
+    );
+    expect(item.availability).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      label: 'operation expiry during the read',
+      options: { advanceClockDuringAvailabilityTo: '2026-08-21T12:05:00.001Z' },
+      failedCheck: 'resultExpiredAtSelection',
+      reasonCode: 'MCP_TASK_AVAILABILITY_EXPIRED',
+      nodeIdMatchesRequest: true,
+    },
+    {
+      label: 'result node correlation',
+      options: {
+        mutateAvailabilityResult: (result: TaskAvailabilityCheckResult) => ({
+          ...result,
+          nodeId: 'different-node',
+        }),
+      },
+      failedCheck: 'dispositionNotReady',
+      reasonCode: 'MCP_TASK_AVAILABILITY_RESPONSE_INVALID',
+      nodeIdMatchesRequest: false,
+    },
+  ])(
+    'reports original readiness rejection evidence for $label',
+    async ({ options, failedCheck, reasonCode, nodeIdMatchesRequest }) => {
+      const reportReadinessRejection = vi.fn();
+      const item = await fixture({ ...options, reportReadinessRejection });
+
+      await expect(item.resolver.resolve(request())).rejects.toMatchObject({
+        code: 'UGV_PROFILE_READINESS_NOT_ADMITTED',
+      });
+
+      expect(reportReadinessRejection).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          selectedAt:
+            'advanceClockDuringAvailabilityTo' in options
+              ? options.advanceClockDuringAvailabilityTo
+              : NOW,
+          readinessCheckedAt:
+            'advanceClockDuringAvailabilityTo' in options
+              ? options.advanceClockDuringAvailabilityTo
+              : NOW,
+          failedChecks: expect.arrayContaining([failedCheck]),
+          result: expect.objectContaining({
+            availability: 'available',
+            validUntil: VALID_UNTIL,
+            nodeIdMatchesRequest,
+          }),
+          readiness: expect.objectContaining({
+            candidates: [
+              expect.objectContaining({ disposition: 'unknown', reasonCodes: [reasonCode] }),
+            ],
+          }),
+        }),
+      );
+    },
+  );
+
+  it('excludes unknown fields and free-text secrets from readiness rejection diagnostics', async () => {
+    const reportReadinessRejection =
+      vi.fn<(diagnostic: UgvMoveReadinessRejectionDiagnostic) => void>();
+    const secret = 'Bearer TOP_SECRET\nhttps://user:password@private.invalid/token';
+    const item = await fixture({
+      reportReadinessRejection,
+      mutateAvailabilityResult: (result) => ({
+        ...result,
+        availability: 'disabled',
+        reasonCode: secret,
+        description: secret,
+        reservationRef: secret,
+        headers: { authorization: secret },
+        unknownSecret: secret,
+      }),
+    });
+
+    await expect(item.resolver.resolve(request())).rejects.toMatchObject({
+      code: 'UGV_PROFILE_READINESS_NOT_ADMITTED',
+    });
+
+    const diagnostic = required(reportReadinessRejection.mock.calls[0]?.[0]);
+    expect(diagnostic.result).toMatchObject({
+      availability: 'disabled',
+      reasonCodes: ['REDACTED_REASON_CODE'],
+    });
+    expect(diagnostic.readiness.candidates[0]?.reasonCodes).toEqual(['REDACTED_REASON_CODE']);
+    const serialized = JSON.stringify(diagnostic);
+    for (const forbidden of [
+      'TOP_SECRET',
+      'Bearer',
+      'https://',
+      'password',
+      'headers',
+      'description',
+      'unknownSecret',
+      'arguments',
+    ]) {
+      expect(serialized).not.toContain(forbidden);
+    }
+  });
+
+  it.each(['throw', 'reject'] as const)(
+    'preserves the original readiness rejection when the diagnostic logger fails with %s',
+    async (failure) => {
+      const reportReadinessRejection = vi.fn(() => {
+        const error = new Error('SECRET_LOGGER_FAILURE');
+        if (failure === 'throw') throw error;
+        return Promise.reject(error);
+      });
+      const item = await fixture({ availabilityValidUntil: NOW, reportReadinessRejection });
+
+      await expect(item.resolver.resolve(request())).rejects.toMatchObject({
+        name: 'UgvMoveBindingError',
+        code: 'UGV_PROFILE_READINESS_NOT_ADMITTED',
+        message: 'Exact UGV navigation readiness is unavailable, stale, or uncorrelated.',
+      });
+      expect(reportReadinessRejection).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not report readiness rejection diagnostics for admitted navigation', async () => {
+    const reportReadinessRejection = vi.fn();
+    const item = await fixture({ reportReadinessRejection });
+
+    await item.resolver.resolve(request());
+
+    expect(reportReadinessRejection).not.toHaveBeenCalled();
+    expect(item.availability).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     {
       label: 'direct success Schema',
@@ -523,6 +711,12 @@ interface FixtureOptions {
   readonly bindingAvailabilityValidUntil?: string;
   readonly advanceClockDuringAvailabilityTo?: string;
   readonly availability?: 'available' | 'restricted';
+  readonly reportReadinessRejection?: (
+    diagnostic: UgvMoveReadinessRejectionDiagnostic,
+  ) => void | Promise<void>;
+  readonly mutateAvailabilityResult?: (
+    result: TaskAvailabilityCheckResult,
+  ) => TaskAvailabilityCheckResult;
   readonly mutateNavigate?: (tool: McpTool) => McpTool;
   readonly mutateGetState?: (tool: McpTool) => McpTool;
   readonly mutateBinding?: (
@@ -582,19 +776,22 @@ async function fixture(options: FixtureOptions = {}) {
       protocolRevision: 'smpp-task-execution/1.0',
       availabilitySchemaRevision: 'smpp-availability/1.0',
       results: Object.freeze([
-        {
-          nodeId: required(input.requests[0]).nodeId,
-          operationName: 'vehicle_navigate',
-          availability: options.availability ?? ('available' as const),
-          riskLevel: 'medium' as const,
-          validUntil: options.availabilityValidUntil ?? VALID_UNTIL,
-          ...(options.availability === 'restricted'
-            ? { earliestStartTime: '2026-08-21T12:00:30.000Z' }
-            : {}),
-          nextAvailableWindows: Object.freeze([]),
-          reservationMode: 'none' as const,
-          possibleEffects: Object.freeze(['task_pause' as const]),
-        },
+        mutateAvailabilityResult(
+          {
+            nodeId: required(input.requests[0]).nodeId,
+            operationName: 'vehicle_navigate',
+            availability: options.availability ?? ('available' as const),
+            riskLevel: 'medium' as const,
+            validUntil: options.availabilityValidUntil ?? VALID_UNTIL,
+            ...(options.availability === 'restricted'
+              ? { earliestStartTime: '2026-08-21T12:00:30.000Z' }
+              : {}),
+            nextAvailableWindows: Object.freeze([]),
+            reservationMode: 'none' as const,
+            possibleEffects: Object.freeze(['task_pause' as const]),
+          },
+          options,
+        ),
       ]),
     });
   });
@@ -625,8 +822,15 @@ async function fixture(options: FixtureOptions = {}) {
     runtimeBindings,
     schemas: new AjvJsonSchemaValidator(),
     clock: { now: () => currentTime },
+    ...(options.reportReadinessRejection === undefined
+      ? {}
+      : { reportReadinessRejection: options.reportReadinessRejection }),
   });
   return { resolver, listCandidates, availability };
+}
+
+function mutateAvailabilityResult(result: TaskAvailabilityCheckResult, options: FixtureOptions) {
+  return options.mutateAvailabilityResult?.(result) ?? result;
 }
 
 function runtime(
