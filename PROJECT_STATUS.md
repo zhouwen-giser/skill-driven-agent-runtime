@@ -1,5 +1,34 @@
 # Project Status
 
+## PR #26 integration (2026-08-26, published / ready for merge)
+
+`execplans/EP-PR26-DEBUG-INTEGRATION.md` tracks conflict resolution and publication of
+`codex/live-dev-evaluation-chain` to the existing PR with `main` as target. The integration preserves
+admission observation, trusted-intranet natural-language admission and the ADR-141 lifecycle repair.
+The committed `pnpm ugv:debug` entrypoint reuses the existing stack and defaults debug start/restart
+to YES per operator instruction, with explicit NO available and no implicit Task/Device call.
+All 295 relevant tests across 17 files, typecheck, production build, 858-source architecture and
+changed-scope lint/format/syntax checks pass. Integration commit `febab07` is pushed to the existing
+source branch; [PR #26](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/26) targets
+`main` and reports `MERGEABLE` / `CLEAN`. No actual main merge or hosted CI completion is claimed.
+Read-only inspection found no listener
+on 10999; no service restart or live movement acceptance is claimed here.
+
+## Persistent Provider authority repair (2026-08-26)
+
+ADR-141 / `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md` is complete. Binding registration
+is now independent of observation TTL; unchanged health does not create semantic revisions. Card
+publication reads current registered Skills rather than readiness. New Task snapshots resolve current
+semantic Binding authority while existing Task/Plan snapshots remain immutable. Background health,
+registration and Runtime Catalog reconciliation are wired. All 358 relevant unit/contract tests and
+21 isolated PostgreSQL integration tests pass, as do typecheck, production build and scoped static
+checks. Code `9fc5ae0` is pushed on `codex/provider-binding-lifecycle`; the three debug processes were
+restarted on the original Runtime/Control databases with migration 0012. At `02:34:09Z`, Binding
+revision remained 1 with fresh available health, readiness snapshot 1278 was fresh/available, and the
+public Card advertised the natural-language `a2a.embodied.move@2` contract. Actual A2A/management
+listener PID is `2416023`. No MCP invocation or remote Task was created; side effects remain `NO`.
+No navigation, Tool call, database reset or `main` merge is claimed by this repair.
+
 ## SACS v0.3 live current-authority recheck (2026-08-25)
 
 The task-owned UGV stack was rebuilt and the old process PID `1333129` was replaced by the current

@@ -16,11 +16,14 @@ const CATALOG_CHECKSUM = 'c'.repeat(64);
 describe('dynamic Skill Provider dependency readiness', () => {
   it.each([
     ['current', true, undefined],
-    ['binding-revision-drift', false, 'MCP_PROVIDER_BINDING_NOT_CURRENT'],
-    ['catalog-revision-drift', false, 'MCP_PROVIDER_BINDING_CATALOG_DRIFT'],
-    ['catalog-checksum-drift', false, 'MCP_PROVIDER_BINDING_CATALOG_DRIFT'],
+    ['new-binding-revision', true, undefined],
+    ['new-catalog-revision', true, undefined],
+    ['new-catalog-checksum', true, undefined],
+    ['runtime-catalog-not-refreshed', false, 'MCP_PROVIDER_BINDING_CATALOG_DRIFT'],
+    ['expired-health', false, 'PROVIDER_AVAILABILITY_EXPIRED'],
+    ['unavailable-health', false, 'MCP_PROVIDER_UNAVAILABLE'],
   ] as const)(
-    '%s compares the exact policy-frozen Binding and Catalog authority',
+    '%s uses current registered semantic authority while checking fresh Provider health',
     async (state, expectedAvailable, expectedReason) => {
       const query = vi.fn((statement: string) => {
         if (statement.includes('FROM skill_version version'))
@@ -42,20 +45,23 @@ describe('dynamic Skill Provider dependency readiness', () => {
         throw new Error(`DYNAMIC_SKILL_READINESS_QUERY_UNEXPECTED:${statement}`);
       });
       const liveCatalogRevision =
-        state === 'catalog-revision-drift' ? 'catalog-ugv1-profile-v2' : CATALOG_REVISION;
+        state === 'new-catalog-revision' ? 'catalog-ugv1-profile-v2' : CATALOG_REVISION;
       const liveCatalogChecksum =
-        state === 'catalog-checksum-drift' ? 'd'.repeat(64) : CATALOG_CHECKSUM;
+        state === 'new-catalog-checksum' ? 'd'.repeat(64) : CATALOG_CHECKSUM;
       const findCurrentAuthority = vi.fn(() =>
         Promise.resolve({
           binding: {
             bindingId: BINDING_ID,
-            revision: state === 'binding-revision-drift' ? 8 : 7,
+            revision: state === 'new-binding-revision' ? 8 : 7,
             localServerId: SERVER_ID,
             endpointRef: 'https://ugv-profile.example.test/mcp',
             catalogRevision: liveCatalogRevision,
             catalogChecksum: liveCatalogChecksum,
             operationCount: 2,
-            availabilityValidUntil: '2026-08-21T13:00:00.000Z',
+            availabilityStatus:
+              state === 'unavailable-health' ? ('unavailable' as const) : ('available' as const),
+            availabilityValidUntil:
+              state === 'expired-health' ? '2026-08-21T11:00:00.000Z' : '2026-08-21T13:00:00.000Z',
           },
         }),
       );
@@ -69,7 +75,8 @@ describe('dynamic Skill Provider dependency readiness', () => {
           protocolMode: 'frozen_v1' as const,
           snapshotToolRevision: 12,
           catalogRevision: liveCatalogRevision,
-          catalogChecksum: liveCatalogChecksum,
+          catalogChecksum:
+            state === 'runtime-catalog-not-refreshed' ? 'e'.repeat(64) : liveCatalogChecksum,
           discoveredCatalogChecksum: liveCatalogChecksum,
           operationCount: 2,
           toolNames: ['vehicle_get_state', 'vehicle_navigate'],
@@ -112,7 +119,9 @@ describe('dynamic Skill Provider dependency readiness', () => {
         expect(assessment?.reasons).toEqual([
           expect.objectContaining({ code: expectedReason, severity: 'blocking' }),
         ]);
-        expect(loadCurrentAuthority).not.toHaveBeenCalled();
+        if (state === 'runtime-catalog-not-refreshed')
+          expect(loadCurrentAuthority).toHaveBeenCalledOnce();
+        else expect(loadCurrentAuthority).not.toHaveBeenCalled();
       }
       expect(query.mock.calls[0]?.[0]).toContain('skill_package_import_audit');
       expect(query.mock.calls[0]?.[0]).toContain('usage_specification_json');

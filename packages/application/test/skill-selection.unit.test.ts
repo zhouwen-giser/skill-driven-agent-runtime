@@ -309,6 +309,7 @@ describe('SkillSelectionService', () => {
               catalogRevision: '1.0.0:1',
               catalogChecksum: 'a'.repeat(64),
               operationCount: 1,
+              availabilityStatus: 'available' as const,
               availabilityValidUntil: '2026-07-11T11:00:00.000Z',
             },
           }),

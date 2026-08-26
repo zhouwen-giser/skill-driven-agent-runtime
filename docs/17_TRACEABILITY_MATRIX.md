@@ -1,5 +1,41 @@
 # 需求追踪矩阵
 
+## PR #26 调试集成（2026-08-26，相关回归已验证）
+
+- FR-A2A-001/006、FR-EXE-001/002、FR-MCPT-009/010：合并保留
+  `apps/server/src/main.ts` 的开发环境 admission observation 与可信内网 identity；相关 environment、
+  UGV binding、migration selection、Management lifecycle observation 合同共同回归。
+- `deploy/ugv-agent-profile-simulation/debug.sh` / `package.json` 固化现有 supervisor 调试入口，
+  用户指定 start/restart 默认 YES，显式 NO 不依赖执行身份；没有新建业务 authority 或自动工具调用。
+  `apps/node-control-acceptance/test/ugv-debug-command.contract.test.ts` 覆盖授权先于启停、精确命令、
+  reload 顺序、NO 退出路径、失败传播与非法参数；真实进程边界沿用 supervisor 部署合同。
+- 17 个相关文件共 295 tests PASS（真实进程 13 项在宿主环境独立复跑通过）；typecheck、build、
+  858-source architecture、72 文件 scoped lint、format/syntax/diff 均 PASS。完整命令、环境重跑说明与
+  PR 发布状态见 `execplans/EP-PR26-DEBUG-INTEGRATION.md`，不升级外部导航验收状态。
+- `febab07` 已推送至 #26 原源分支；PR 目标为 `main`，GitHub 冲突状态 `MERGEABLE / CLEAN`，
+  保持 Open 等待合并，不声称已经合入 main 或完成托管 CI。
+
+## ADR-141 Provider 生命周期修复（2026-08-26，已验证）
+
+- FR-A2A-001/006、FR-SKL-006/007、v1.4 P08、SACS-V03：`a2a-exposure-service.ts`、
+  `runtime-implementation-catalog.ts`、`task-capability.ts` 和 Server Card callback 只读取登记态；
+  `a2a-exposure-service.unit.test.ts`、`governed-skill-capability-authority.unit.test.ts` 与
+  `node-capability.integration.test.ts` 覆盖健康不可用时合同仍公开、显式停用移除和 Card 无 revision churn。
+- v1.4 P05：`mcp-provider-binding-service.ts`、`mcp-provider-binding-repository.ts`、Control migration
+  `0012_mcp_binding_registration_health` 分离 semantic revision、治理状态和 append-only 健康观测；
+  同名 unit、`mcp-provider-binding.integration.test.ts`、`foundation.integration.test.ts` 覆盖健康同 revision、
+  实际合同变更、新表回填、旧历史保留和拒绝丢失状态的 rollback。
+- FR-EXE-001/002、FR-MCPT-009/010、v1.4 P07：`mcp-runtime-binding-authority.ts`、
+  `task-capability.ts`、`capability-readiness-repository.ts`、`frozen-mcp-registry.ts` 分开登记校验与执行健康门，
+  新 Task 冻结最新 semantic authority；同名/相关 unit 覆盖 unavailable/expired 拒绝执行、旧 Task 不被重定向、
+  unchanged discovery 保留 Runtime anchors。API/Server 的 provider reconciler unit 覆盖后台只读观测与同步。
+- 命令、结果与最终只读 live 验证记录见 `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md`。
+  26 个相关 unit/contract 文件 358/358、3 个隔离 PostgreSQL 集成文件 21/21、typecheck/build、
+  857-source architecture、changed-scope lint/format/diff 均通过。
+  `9fc5ae0` 推送后在原调试数据库重启：0012生效，Binding仍revision1且新健康观测available，
+  Card公开自然语言@2合同，readiness1278 fresh/available，MCP/remote Task增量均0，副作用门NO。
+  本修复不更新历史外部导航 Goal 的完成状态。
+
 ## SDAR v1.2.2 upgrade mapping (2026-07-22)
 
 The Master Goal, G00–G10 and every acceptance item AC-001–AC-078 are verified with implementation,

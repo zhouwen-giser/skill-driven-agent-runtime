@@ -312,6 +312,7 @@ export interface CurrentMcpProviderBindingAuthority {
     catalogRevision: string;
     catalogChecksum: string;
     endpointRef: string;
+    availabilityStatus: McpProviderBinding['availabilityStatus'];
     availabilityValidUntil: string;
     catalogObservedAt: string;
     operationCount: number;
@@ -366,6 +367,20 @@ export interface NodeControlMcpProviderBindingRepository {
     context: ConfigurationMutationContext,
     resultCode: string,
   ): Promise<ManagementOperation>;
+  completeObservation(
+    prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation>;
+  completeStatusTransition(
+    prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation>;
   recordImportFailure(
     bindingId: string,
     operation: ManagementOperation,
@@ -376,6 +391,11 @@ export interface NodeControlMcpProviderBindingRepository {
 
 export interface NodeControlCapabilityImplementationCatalog {
   exists(
+    implementationType: CapabilityImplementationType,
+    implementationId: string,
+    implementationVersion: string,
+  ): Promise<boolean>;
+  isPubliclyRegistered(
     implementationType: CapabilityImplementationType,
     implementationId: string,
     implementationVersion: string,

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { writeSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -416,6 +417,7 @@ import {
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
   PostgresRemoteTaskAdmissionIntentStore,
+  PostgresRemoteTaskAdmissionObservationQuery,
   PostgresRemoteTaskInputRepository,
   PostgresRemoteTaskCancellationRepository,
   PostgresRemoteTaskLifecycleQuery,
@@ -508,6 +510,7 @@ import {
 import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
 import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
 import { UgvNaturalLanguageCapabilityAdmissionResolver } from './ugv-natural-language-capability-admission.js';
+import { reconcileRegisteredProviderBindings } from './provider-binding-reconciler.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -2297,6 +2300,9 @@ export async function startServerRuntime(
           runtimeBindings: runtimeMcpBindingAuthority,
           schemas: schemaValidator,
           clock,
+          reportReadinessRejection: (diagnostic) => {
+            writeSync(2, `${JSON.stringify(diagnostic)}\n`);
+          },
         });
   if (ugvAgentProfile && ugvMoveBindingResolver === undefined)
     throw new Error('UGV_AGENT_PROFILE_MOVE_BINDING_RUNTIME_REQUIRED');
@@ -5530,6 +5536,36 @@ export async function startServerRuntime(
       });
   }, 250);
   capabilityCatalogRefreshTimer.unref();
+  let providerBindingReconciliationInFlight: Promise<void> | undefined;
+  const reconcileProviderBindings = () => {
+    const authority = options.currentMcpProviderBindingAuthorityReader;
+    if (authority === undefined || providerBindingReconciliationInFlight !== undefined) return;
+    providerBindingReconciliationInFlight = reconcileRegisteredProviderBindings({
+      servers: mcpRepository,
+      authority,
+      synchronize: (current) => frozenMcpRegistry.reconcileProviderBinding(current),
+      onFailure(serverId, error) {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'provider_binding_reconciliation.failed', serverId, errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      },
+    })
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'provider_binding_reconciliation.failed', errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        providerBindingReconciliationInFlight = undefined;
+      });
+  };
+  const providerBindingReconciliationTimer =
+    options.currentMcpProviderBindingAuthorityReader === undefined
+      ? undefined
+      : setInterval(reconcileProviderBindings, 30_000);
+  providerBindingReconciliationTimer?.unref();
+  reconcileProviderBindings();
   let experienceDispatchRunning = false;
   const experienceDispatchTimer = setInterval(() => {
     if (experienceDispatchRunning) return;
@@ -6671,6 +6707,9 @@ export async function startServerRuntime(
           ? {}
           : {
               remoteTaskLifecycle: new PostgresRemoteTaskLifecycleQuery(pool),
+              remoteTaskAdmissionObservations: new PostgresRemoteTaskAdmissionObservationQuery(
+                pool,
+              ),
               ...(remoteTaskPolling === undefined ? {} : { remoteTaskPolling }),
               ...(remoteTaskCancellation === undefined ? {} : { remoteTaskCancellation }),
             }),
@@ -6883,12 +6922,14 @@ export async function startServerRuntime(
       ...(ugvAgentProfile
         ? {
             naturalLanguageAdmissionContractProvider: {
-              findCurrent: () =>
-                taskCapabilities.describeAdmissionExposure(
+              async findCurrent() {
+                if ((await profileSkills.listEnabledVersions()).length === 0) return undefined;
+                return taskCapabilities.describeAdmissionExposure(
                   UGV_AGENT_PROFILE_EXPOSURE_ID,
                   UGV_AGENT_PROFILE_EXPOSURE_VERSION,
                   clock.now(),
-                ),
+                );
+              },
             },
           }
         : {}),
@@ -6999,6 +7040,8 @@ export async function startServerRuntime(
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
         clearInterval(capabilityCatalogRefreshTimer);
+        if (providerBindingReconciliationTimer !== undefined)
+          clearInterval(providerBindingReconciliationTimer);
         clearInterval(experienceDispatchTimer);
         clearInterval(evidenceExportTimer);
         clearInterval(evidenceOperationsMaintenanceTimer);
@@ -7047,6 +7090,7 @@ export async function startServerRuntime(
         await evidenceExportInFlight;
         await evidenceOperationsMaintenanceInFlight;
         await runtimeCoreEvidenceProjection;
+        await providerBindingReconciliationInFlight;
         await pool.end();
         if (backgroundExecutionErrors.length > 0) {
           throw new AggregateError(
@@ -7060,6 +7104,8 @@ export async function startServerRuntime(
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
     clearInterval(capabilityCatalogRefreshTimer);
+    if (providerBindingReconciliationTimer !== undefined)
+      clearInterval(providerBindingReconciliationTimer);
     clearInterval(experienceDispatchTimer);
     clearInterval(evidenceExportTimer);
     clearInterval(evidenceOperationsMaintenanceTimer);
@@ -7102,6 +7148,7 @@ export async function startServerRuntime(
     await evidenceExportInFlight;
     await evidenceOperationsMaintenanceInFlight;
     await runtimeCoreEvidenceProjection;
+    await providerBindingReconciliationInFlight;
     await pool.end();
     throw error;
   }
@@ -7392,6 +7439,7 @@ async function requireDeterministicProviderBindingAuthority(
       authority.binding.bindingId !== input.mcpProviderBindingId ||
       authority.binding.localServerId !== input.serverId ||
       authority.binding.providerId !== input.providerId ||
+      authority.binding.availabilityStatus !== 'available' ||
       Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(authority.observedAt)
     )
       throw new Error('MCP_PROVIDER_BINDING_NOT_CURRENT');
@@ -7581,8 +7629,24 @@ async function applyPostV122Migrations(
   appliedVersions: readonly string[],
 ): Promise<void> {
   const migrationDirectory = resolve(process.cwd(), 'infra', 'postgres', 'migrations');
-  const migrationFiles = (await readdir(migrationDirectory))
-    .filter((file) => /^01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+\.up\.sql$/u.test(file))
+  const migrationFiles = planPostV122MigrationFiles(
+    await readdir(migrationDirectory),
+    appliedVersions,
+  );
+  for (const file of migrationFiles) {
+    await pool.query(await readFile(resolve(migrationDirectory, file), 'utf8'));
+  }
+}
+
+const POST_V122_MIGRATION_FILE_PATTERN =
+  /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate)\.up\.sql$/u;
+
+export function planPostV122MigrationFiles(
+  availableFiles: readonly string[],
+  appliedVersions: readonly string[],
+): readonly string[] {
+  const migrationFiles = availableFiles
+    .filter((file) => POST_V122_MIGRATION_FILE_PATTERN.test(file))
     .sort();
   const expectedVersions = [
     'v1.2.2_clean_slate_baseline',
@@ -7594,9 +7658,7 @@ async function applyPostV122Migrations(
   ) {
     throw new Error('SDAR_V123_MIGRATION_LEDGER_INVALID');
   }
-  for (const file of migrationFiles.slice(Math.max(0, appliedVersions.length - 1))) {
-    await pool.query(await readFile(resolve(migrationDirectory, file), 'utf8'));
-  }
+  return migrationFiles.slice(Math.max(0, appliedVersions.length - 1));
 }
 
 async function assertV122RuntimeReady(pool: Pick<PoolClient, 'query'>): Promise<void> {

@@ -4,11 +4,41 @@ import {
   MCP_UNAUTHENTICATED_CREDENTIAL_REF,
   createMcpProviderBindingRecord,
   mcpBindingSelectable,
+  sameMcpProviderBindingContract,
   type McpProviderBinding,
   type McpProviderBindingRecord,
 } from '../src/index.js';
 
 describe('P05 MCP Provider Binding domain', () => {
+  it('separates semantic Provider identity from health, governance and Registry observations', () => {
+    const record = validRecord();
+    const health = createMcpProviderBindingRecord({
+      ...record,
+      binding: {
+        ...record.binding,
+        status: 'suspended',
+        availabilityStatus: 'unavailable',
+        registryRevision: 4,
+        registryChecksum: 'c'.repeat(64),
+        catalogRevision: 'observation-only-counter',
+      },
+      availabilityValidUntil: record.catalogObservedAt,
+    });
+    expect(sameMcpProviderBindingContract(record, health)).toBe(true);
+    for (const binding of [
+      { ...record.binding, endpointRef: 'https://provider.example.test/changed' },
+      { ...record.binding, externalProviderId: 'provider-b' },
+      { ...record.binding, catalogChecksum: 'c'.repeat(64) },
+    ]) {
+      expect(
+        sameMcpProviderBindingContract(
+          record,
+          createMcpProviderBindingRecord({ ...record, binding }),
+        ),
+      ).toBe(false);
+    }
+  });
+
   it('preserves exact SMPP lineage and selects only active fresh catalogs', () => {
     const record = validRecord();
     expect(record.binding).toMatchObject({

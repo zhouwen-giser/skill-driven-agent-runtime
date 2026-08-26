@@ -163,6 +163,7 @@ describe('TaskService', () => {
     const taskCapabilities = new RuntimeTaskCapabilityService({
       schemas: new AjvJsonSchemaValidator(),
       store: {
+        describeExposure: () => Promise.resolve(undefined),
         resolveExposure: () =>
           Promise.resolve({
             exposureId: 'device.inspect',
@@ -1666,6 +1667,7 @@ function capabilityService(): RuntimeTaskCapabilityService {
   return new RuntimeTaskCapabilityService({
     schemas: new AjvJsonSchemaValidator(),
     store: {
+      describeExposure: () => Promise.resolve(undefined),
       resolveExposure: () =>
         Promise.resolve({
           exposureId: 'device.inspect',

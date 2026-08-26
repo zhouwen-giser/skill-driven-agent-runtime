@@ -6,7 +6,10 @@ import type {
   RemoteTaskAdmissionReceipt,
 } from '../../application/src/index.js';
 import type { McpInvocation } from '../../domain/src/index.js';
-import { PostgresRemoteTaskAdmissionIntentStore } from '../src/index.js';
+import {
+  PostgresRemoteTaskAdmissionIntentStore,
+  PostgresRemoteTaskAdmissionObservationQuery,
+} from '../src/index.js';
 
 const preparedAt = '2026-08-13T02:00:00.000Z';
 const dispatchedAt = '2026-08-13T02:00:00.100Z';
@@ -361,6 +364,66 @@ describe('PostgresRemoteTaskAdmissionIntentStore', () => {
         receipt: expect.objectContaining({ taskCancellation: 'unknown' }),
       }),
     ]);
+  });
+
+  it('exposes raw admission values with Runtime local identity and no authority inference', async () => {
+    const rawAdmissionResponse = {
+      remoteTask: { taskId: 'provider-task-1', runtimeRevision: 'provider-raw-7' },
+    };
+    const rawAdmissionReceipt = {
+      remoteTask: { remoteTaskId: 'provider-task-1' },
+      providerClaim: { bindingRevision: 91 },
+    };
+    const query = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          ...intentRow({
+            status: 'receipt_recorded',
+            dispatch_hash: dispatchHash,
+            recorded_invocation_id: 'mcp-invocation-1',
+            receipt_recorded_at: receiptAt,
+            updated_at: receiptAt,
+            version: 3,
+          }),
+          raw_admission_response: rawAdmissionResponse,
+          raw_admission_receipt: rawAdmissionReceipt,
+        },
+      ],
+    });
+    const observations = new PostgresRemoteTaskAdmissionObservationQuery({
+      query,
+    } as unknown as Pool);
+
+    await expect(observations.listByAgentTaskId('agent-task-1')).resolves.toEqual([
+      {
+        observationKind: 'runtime_remote_task_admission',
+        authorityInference: 'none',
+        runtimeLocalIdentity: {
+          intentId: 'remote-admission-intent-1',
+          invocationId: 'mcp-invocation-1',
+          bindingId: 'remote-binding-1',
+          taskId: 'agent-task-1',
+          capabilityAttemptId: 'capability-attempt-1',
+          contextId: 'context-1',
+          serverId: 'provider-1',
+          operationName: 'embodied.move',
+          localEnvelope: envelope(),
+        },
+        rawAdmissionResponse,
+        rawAdmissionReceipt,
+        journal: {
+          status: 'receipt_recorded',
+          version: 3,
+          dispatchHash,
+          recordedInvocationId: 'mcp-invocation-1',
+          createdAt: preparedAt,
+          updatedAt: receiptAt,
+          receiptRecordedAt: receiptAt,
+        },
+      },
+    ]);
+    expect(query.mock.calls[0]?.[0]).toContain('LEFT JOIN mcp_invocation');
+    expect(query.mock.calls[0]?.[1]).toEqual(['agent-task-1']);
   });
 });
 

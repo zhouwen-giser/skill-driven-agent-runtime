@@ -5,7 +5,11 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { loadServerEnvironment, parseServerEnvironment } from '../src/environment.js';
+import {
+  loadServerEnvironment,
+  parseServerEnvironment,
+  remoteTaskAdmissionObservationProfile,
+} from '../src/environment.js';
 
 describe('server environment', () => {
   const isolatedEnvironmentKeys = [
@@ -111,6 +115,23 @@ describe('server environment', () => {
       SDAR_MANAGEMENT_HOST: '10.10.0.5',
       SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: 'true',
     });
+  });
+
+  it('enables admission observation only for a non-production trusted-network profile', () => {
+    const masterKey = randomBytes(32).toString('base64');
+    const integration = parseServerEnvironment({
+      SDAR_MASTER_KEY_BASE64: masterKey,
+      NODE_ENV: 'test',
+      SDAR_CONTROL_ENVIRONMENT: 'integration',
+    });
+    const production = parseServerEnvironment({
+      SDAR_MASTER_KEY_BASE64: masterKey,
+      NODE_ENV: 'production',
+      SDAR_CONTROL_ENVIRONMENT: 'production',
+    });
+
+    expect(remoteTaskAdmissionObservationProfile(integration)).toBe('development');
+    expect(remoteTaskAdmissionObservationProfile(production)).toBe('off');
   });
 
   it('parses a complete Artifact management bearer identity', () => {

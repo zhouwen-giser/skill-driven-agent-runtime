@@ -586,6 +586,8 @@ export interface CurrentMcpProviderBindingAuthorityPort {
         catalogRevision: string;
         catalogChecksum: string;
         operationCount: number;
+        /** Latest health observation; not the lifetime of the registered Binding. */
+        availabilityStatus: 'unknown' | 'available' | 'degraded' | 'unavailable';
         availabilityValidUntil: string;
       }>;
       sourceCandidateLineage?: Readonly<{

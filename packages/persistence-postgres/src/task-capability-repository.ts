@@ -3,6 +3,7 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type {
   InitialTaskAdmissionRecord,
   InitialTaskAdmissionStore,
+  RuntimeCapabilityExposure,
   RuntimeCapabilityResolution,
   TaskCapabilityAcceptance,
   TaskCapabilityAcceptanceStore,
@@ -20,15 +21,17 @@ import {
 } from '../../node-control-domain/src/index.js';
 import type { PostgresAgentTaskCommandContext } from './repositories.js';
 
-interface ResolutionRow extends QueryResultRow {
+interface ExposureRow extends QueryResultRow {
   exposure_id: string;
   exposure_version: number;
   capability_id: string;
   capability_version: number;
   request_schema: unknown;
   requester_policy: Record<string, unknown> | null;
+}
+
+interface ResolutionRow extends ExposureRow {
   evaluation_input: Record<string, unknown>;
-  available_implementations: string[];
   catalog_hash: string;
   policy_hash: string;
   snapshot_hash: string;
@@ -121,27 +124,51 @@ export class PostgresTaskCapabilityRepository
     this.#commandContext = commandContext;
   }
 
+  async describeExposure(
+    exposureId: string,
+    exposureVersion: number,
+  ): Promise<RuntimeCapabilityExposure | undefined> {
+    const result = await this.#pool.query<ExposureRow>(
+      `SELECT exposure.exposure_id,exposure.exposure_version,exposure.capability_id,
+              exposure.capability_version,exposure.request_schema,exposure.requester_policy
+         FROM runtime_agent_card_revision card
+         JOIN runtime_agent_card_exposure_snapshot exposure ON exposure.revision=card.revision
+        WHERE card.status='active' AND exposure.exposure_id=$1 AND exposure.exposure_version=$2`,
+      [exposureId, exposureVersion],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapExposure(row);
+  }
+
   async resolveExposure(exposureId: string, exposureVersion: number, now: string) {
+    // Health is rechecked at execution; Task admission freezes the registered contract.
+    void now;
     const result = await this.#pool.query<ResolutionRow>(
       `SELECT exposure.exposure_id,exposure.exposure_version,exposure.capability_id,
               exposure.capability_version,exposure.request_schema,exposure.requester_policy,
-              readiness.evaluation_input,readiness.available_implementations,
+              readiness.evaluation_input,
               readiness.catalog_hash,readiness.policy_hash,readiness.snapshot_hash
          FROM runtime_agent_card_revision card
          JOIN runtime_agent_card_exposure_snapshot exposure ON exposure.revision=card.revision
          JOIN LATERAL (
-           SELECT evaluation_input,available_implementations,catalog_hash,policy_hash,snapshot_hash
+           SELECT evaluation_input,catalog_hash,policy_hash,snapshot_hash
              FROM capability_readiness_snapshot
             WHERE capability_id=exposure.capability_id
               AND capability_version=exposure.capability_version
-              AND status IN ('available','degraded') AND valid_until>$3
             ORDER BY snapshot_version DESC LIMIT 1
          ) readiness ON true
         WHERE card.status='active' AND exposure.exposure_id=$1 AND exposure.exposure_version=$2`,
-      [exposureId, exposureVersion, now],
+      [exposureId, exposureVersion],
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
+    const definition = record(row.evaluation_input['definition']);
+    if (
+      definition['status'] !== 'published' ||
+      row.evaluation_input['maintenanceMode'] !== false ||
+      row.evaluation_input['killSwitch'] !== false
+    )
+      return undefined;
     const policies = await snapshotImplementationPolicies(this.#pool, row);
     return mapResolution(row, policies);
   }
@@ -641,6 +668,25 @@ function insertAttempt(client: PoolClient, attempt: TaskCapabilityExecutionAttem
   );
 }
 
+function mapExposure(row: ExposureRow): RuntimeCapabilityExposure {
+  return Object.freeze({
+    exposureId: row.exposure_id,
+    exposureVersion: row.exposure_version,
+    requestedCapabilityId: row.capability_id,
+    capabilityVersion: row.capability_version,
+    requestSchema: row.request_schema,
+    ...(row.requester_policy === null ? {} : { requesterPolicy: row.requester_policy }),
+  });
+}
+
+function registeredImplementations(row: ResolutionRow) {
+  return records(row.evaluation_input['implementations']).filter(
+    (binding) =>
+      binding['status'] === 'active' &&
+      (binding['role'] === 'primary' || binding['role'] === 'alternative'),
+  );
+}
+
 function mapResolution(
   row: ResolutionRow,
   policies: Readonly<{
@@ -650,26 +696,16 @@ function mapResolution(
   }>,
 ): RuntimeCapabilityResolution {
   const definition = record(row.evaluation_input['definition']);
-  const bindings = records(row.evaluation_input['implementations']);
-  const available = new Set(row.available_implementations);
-  const implementationRefs = bindings
-    .filter(
-      (binding) => typeof binding['bindingId'] === 'string' && available.has(binding['bindingId']),
-    )
-    .map((binding) => {
-      const type = text(binding['implementationType'], 'implementationType');
-      const id = text(binding['implementationId'], 'implementationId');
-      const version = text(binding['implementationVersion'], 'implementationVersion');
-      return `${type}:${id}:${version}`;
-    });
-  if (implementationRefs.length === 0) throw new Error('TASK_CAPABILITY_NO_READY_IMPLEMENTATION');
+  const implementationRefs = registeredImplementations(row).map((binding) => {
+    const type = text(binding['implementationType'], 'implementationType');
+    const id = text(binding['implementationId'], 'implementationId');
+    const version = text(binding['implementationVersion'], 'implementationVersion');
+    return `${type}:${id}:${version}`;
+  });
+  if (implementationRefs.length === 0)
+    throw new Error('TASK_CAPABILITY_NO_REGISTERED_IMPLEMENTATION');
   return Object.freeze({
-    exposureId: row.exposure_id,
-    exposureVersion: row.exposure_version,
-    requestedCapabilityId: row.capability_id,
-    capabilityVersion: row.capability_version,
-    requestSchema: row.request_schema,
-    ...(row.requester_policy === null ? {} : { requesterPolicy: row.requester_policy }),
+    ...mapExposure(row),
     successCriteria: records(definition['successCriteria']),
     requiredEvidence: records(definition['requiredEvidence']),
     constraints: records(definition['constraints'] ?? []),
@@ -695,10 +731,7 @@ async function snapshotImplementationPolicies(
     providerBindingRequirements: readonly Readonly<{ bindingId: string; localServerId: string }>[];
   }>
 > {
-  const available = new Set(row.available_implementations);
-  const bindings = records(row.evaluation_input['implementations']).filter(
-    (binding) => typeof binding['bindingId'] === 'string' && available.has(binding['bindingId']),
-  );
+  const bindings = registeredImplementations(row);
   const implementations: Readonly<Record<string, unknown>>[] = [];
   const providerBindingRequirements = new Map<
     string,

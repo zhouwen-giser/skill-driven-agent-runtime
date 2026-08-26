@@ -273,6 +273,7 @@ function exactFixture() {
       catalogRevision: catalog.catalogRevision,
       catalogChecksum: catalog.catalogChecksum,
       endpointRef: runtimeServer.endpoint,
+      availabilityStatus: 'available' as const,
       availabilityValidUntil: VALID_UNTIL,
       catalogObservedAt: NOW,
       operationCount: catalog.operationCount,

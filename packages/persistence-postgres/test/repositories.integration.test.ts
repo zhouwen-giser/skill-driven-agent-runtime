@@ -4348,6 +4348,8 @@ describe('PostgreSQL protocol-domain repositories', () => {
   it('replays a committed initial admission after queue failure and recovers its one durable job', async () => {
     const buildCapabilityService = (repository: PostgresTaskCapabilityRepository) => {
       const store: TaskCapabilityAcceptanceStore = {
+        describeExposure: (exposureId, exposureVersion) =>
+          repository.describeExposure(exposureId, exposureVersion),
         resolveExposure: () =>
           Promise.resolve({
             exposureId: 'device.inspect',

@@ -707,6 +707,29 @@ describe('P06 Capability Definition and implementation authority', { concurrent:
     });
     expect(persisted).toMatchObject({ status: 'unavailable', snapshotVersion: 3 });
     await expect(
+      taskCapabilities.describeAdmissionExposure(
+        'exposure.p08.inspect',
+        1,
+        new Date().toISOString(),
+      ),
+    ).resolves.toMatchObject({
+      exposureId: 'exposure.p08.inspect',
+      capabilityId: 'device.inspect.p06',
+      capabilityVersion: 1,
+      requestSchema: draft.inputSchema,
+    });
+    await expect(
+      capabilityStore.resolveExposure('exposure.p08.inspect', 1, new Date().toISOString()),
+    ).resolves.toMatchObject({ implementationRefs: ['skill:skill.p06.inspect:1'] });
+    await expect(
+      request('/api/v1/a2a-agent-card-revisions/rebuild', {
+        method: 'POST',
+        body: { reason: 'Readiness expiry must not unpublish a registered Skill.' },
+        idempotencyKey: 'p08-rebuild-after-health-expiry',
+        expectedStatus: 202,
+      }),
+    ).resolves.toMatchObject({ result: { revision: activeRevision, status: 'active' } });
+    await expect(
       runtimePool.query(
         `UPDATE capability_readiness_snapshot SET status='available'
           WHERE capability_id='device.inspect.p06' AND capability_version=1`,
@@ -859,6 +882,7 @@ async function cleanup() {
               sdar_control.a2a_exposure_version,
               sdar_control.node_capability_definition_version,
               sdar_control.mcp_provider_catalog_observation,
+              sdar_control.mcp_provider_binding_state,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
               sdar_control.smpp_registry_snapshot_lineage,

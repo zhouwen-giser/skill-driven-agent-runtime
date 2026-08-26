@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026-08-26 — PR #26 integration and repeatable debug startup
+
+- Combine the Runtime admission observation work with current `main`, trusted-intranet natural-language
+  admission and the validated ADR-141 Provider lifecycle repair; preserve both sides of the startup
+  import and release-note conflicts.
+- Add `pnpm ugv:debug start|restart|status|stop` for the existing local stack. Debug startup/restart
+  defaults to YES per operator instruction, with explicit NO available; the existing supervisor
+  validates the selected run identity and owns the acknowledged transition. No automatic Task,
+  qualification, tool invocation, bootstrap or database/volume cleanup is added.
+- Document the actual local ports, same-DB configuration, private model/credential sources and
+  repeatable code-reload path. This integration does not itself restart the live services.
+- Verification: 295 relevant tests across 17 files, typecheck, production build, 858-source
+  architecture and changed-scope lint/format/syntax checks pass; real process tests use the host
+  namespace, not the sandbox's process view.
+- Pushed integration commit `febab07` to the original #26 source branch and retargeted the existing
+  PR to `main`; GitHub reports mergeable/clean. The PR remains open for merge.
+
+## 2026-08-26 — Runtime admission observation readiness
+
+- Enabled the frozen remote-Task admission components for the existing trusted-network
+  development/integration profile while keeping either production dimension fail-closed.
+- Extended the existing remote-Task lifecycle read surface with the exact persisted MCP admission
+  response, Runtime recovery receipt and Runtime-local intent/invocation/binding identity. The
+  projection declares `authorityInference=none` and does not freeze or mutate the cross-repository
+  Runtime↔Provider binding contract.
+
+## 2026-08-26 — Persistent Provider registration and stable Skill discovery
+
+- Separate durable Provider Binding registration from expiring health observations (ADR-141,
+  additive Control migration 0012). Unchanged discovery, failure and lifecycle status updates do
+  not create semantic Binding revisions; validated contract changes do.
+- Keep enabled, published Skills and their natural-language admission contract on Agent Card
+  regardless of Provider readiness. Explicit disable/withdraw remains effective; unchanged
+  registration reconciliation does not write new Card revisions.
+- Resolve current semantic Binding/Catalog authority for new Task snapshots without retargeting
+  existing Tasks or editing immutable Capability versions. Execution still checks real readiness.
+- Add periodic read-only health renewal and semantic Catalog synchronization, preserving Runtime
+  anchors on unchanged discovery and reviewed tool execution-semantics overrides on contract drift.
+- Handle the official SDK's omitted empty `skills` default without publishing an empty managed
+  Card when no managed registrations exist. Verification: 358 focused unit/contract tests and
+  21 isolated PostgreSQL integration tests, typecheck, production build and scoped static checks pass.
+- Pushed the repair branch and restarted the existing debug processes without resetting databases.
+  Live read-only verification confirms migration 0012, fresh available health at unchanged Binding
+  revision 1, available readiness and the public natural-language @2 admission contract. No Tool or
+  remote Task was created; the physical side-effect gate remains `NO`.
+
 ## 2026-08-25 — Stable UGV natural-language authority and live no-side-effect proof
 
 - Removed an acceptance-only P3-B02 qualification leak from generic UGV Skill Usage. Public

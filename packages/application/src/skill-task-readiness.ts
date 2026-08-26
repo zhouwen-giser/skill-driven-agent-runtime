@@ -143,6 +143,7 @@ export class FrozenSkillTaskReadinessAdapter implements SkillTaskReadinessPort {
       });
       if (
         authority.binding.localServerId !== localServerId ||
+        authority.binding.availabilityStatus !== 'available' ||
         Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(this.#clock.now())
       )
         return 'MCP_PROVIDER_BINDING_NOT_CURRENT';

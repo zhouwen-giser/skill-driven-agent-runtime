@@ -24,6 +24,15 @@ export interface RuntimeMcpCatalogAuthority {
 }
 
 export interface RuntimeMcpProviderBindingAdmissionVerifier {
+  assertRegistered(
+    input: Readonly<{
+      authority: CurrentMcpProviderBindingAuthority;
+      bindingId: string;
+      localServerId: string;
+      providerId?: string;
+      runtimeAuthority?: RuntimeMcpCatalogAuthority;
+    }>,
+  ): Promise<void>;
   assertCurrent(
     input: Readonly<{
       authority: CurrentMcpProviderBindingAuthority;
@@ -96,7 +105,7 @@ export class McpRuntimeBindingAuthorityVerifier implements RuntimeMcpProviderBin
     });
   }
 
-  async assertCurrent(
+  async assertRegistered(
     input: Readonly<{
       authority: CurrentMcpProviderBindingAuthority;
       bindingId: string;
@@ -116,12 +125,27 @@ export class McpRuntimeBindingAuthorityVerifier implements RuntimeMcpProviderBin
       binding.endpointRef !== runtime.record.server.endpoint ||
       binding.catalogRevision !== runtime.catalogAuthority.catalogRevision ||
       binding.catalogChecksum !== runtime.catalogAuthority.catalogChecksum ||
-      binding.operationCount !== runtime.catalogAuthority.operationCount ||
-      Date.parse(binding.availabilityValidUntil) <= Date.parse(this.#clock.now())
+      binding.operationCount !== runtime.catalogAuthority.operationCount
     )
       throw new McpRuntimeBindingAuthorityError(
         'MCP_PROVIDER_BINDING_NOT_CURRENT',
         'Current MCP Provider Binding authority differs from the Runtime target.',
+      );
+  }
+
+  async assertCurrent(
+    input: Parameters<RuntimeMcpProviderBindingAdmissionVerifier['assertCurrent']>[0],
+  ): Promise<void> {
+    await this.assertRegistered(input);
+    const { binding } = input.authority;
+    if (
+      binding.availabilityStatus !== 'available' ||
+      !Number.isFinite(Date.parse(binding.availabilityValidUntil)) ||
+      Date.parse(binding.availabilityValidUntil) <= Date.parse(this.#clock.now())
+    )
+      throw new McpRuntimeBindingAuthorityError(
+        'MCP_PROVIDER_NOT_READY',
+        'The registered MCP Provider has no fresh available health observation.',
       );
   }
 }
@@ -130,6 +154,7 @@ export type McpRuntimeBindingAuthorityErrorCode =
   | 'MCP_SERVER_NOT_FOUND'
   | 'MCP_SERVER_NOT_ENABLED'
   | 'MCP_FROZEN_PROTOCOL_SNAPSHOT_REQUIRED'
+  | 'MCP_PROVIDER_NOT_READY'
   | 'MCP_PROVIDER_BINDING_NOT_CURRENT';
 
 export class McpRuntimeBindingAuthorityError extends Error {

@@ -13,6 +13,8 @@ export interface CurrentMcpProviderBindingAuthoritySnapshot {
     catalogRevision: string;
     catalogChecksum: string;
     endpointRef: string;
+    /** Health observation status; registration itself has no expiry. */
+    availabilityStatus: 'unknown' | 'available' | 'degraded' | 'unavailable';
     availabilityValidUntil: string;
     catalogObservedAt: string;
     operationCount: number;

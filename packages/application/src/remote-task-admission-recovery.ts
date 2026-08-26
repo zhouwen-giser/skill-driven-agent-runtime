@@ -92,6 +92,48 @@ export interface RemoteTaskAdmissionIntent {
   readonly version: number;
 }
 
+/**
+ * Read-only development observation of the Provider-return/admission boundary.
+ *
+ * The two raw payloads deliberately remain `unknown`: this projection reports the
+ * bytes admitted into Runtime persistence without promoting any Provider claim to
+ * Runtime authority. The cross-repository binding contract is resolved elsewhere.
+ */
+export interface RemoteTaskAdmissionObservation {
+  readonly observationKind: 'runtime_remote_task_admission';
+  readonly authorityInference: 'none';
+  readonly runtimeLocalIdentity: Readonly<{
+    intentId: string;
+    invocationId: string;
+    bindingId: string;
+    taskId: string;
+    capabilityAttemptId?: string;
+    contextId: string;
+    serverId: string;
+    operationName: string;
+    localEnvelope: unknown;
+  }>;
+  /** Exact JSON value recorded on the MCP invocation, or null before receipt recording. */
+  readonly rawAdmissionResponse: unknown;
+  /** Exact Runtime recovery receipt JSON, kept separate from the Provider response. */
+  readonly rawAdmissionReceipt: unknown;
+  readonly journal: Readonly<{
+    status: RemoteTaskAdmissionIntentStatus;
+    version: number;
+    dispatchHash?: string;
+    recordedInvocationId?: string;
+    materializedBindingId?: string;
+    reasonCode?: string;
+    createdAt: string;
+    updatedAt: string;
+    receiptRecordedAt?: string;
+  }>;
+}
+
+export interface RemoteTaskAdmissionObservationQuery {
+  listByAgentTaskId(agentTaskId: string): Promise<readonly RemoteTaskAdmissionObservation[]>;
+}
+
 export type RemoteTaskAdmissionIntentMutation =
   | Readonly<{ applied: true; intent: RemoteTaskAdmissionIntent }>
   | Readonly<{

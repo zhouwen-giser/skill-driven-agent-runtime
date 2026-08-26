@@ -140,6 +140,28 @@ export class NodeControlCapabilityService {
     return this.#repository.listImplementations(capabilityId, version, boundedLimit(limit));
   }
 
+  /** Registration lifecycle only: Provider health never changes public capability identity. */
+  async hasPublishedImplementation(capabilityId: string, version: number): Promise<boolean> {
+    const implementations = await this.#repository.listImplementations(
+      capabilityId,
+      version,
+      1_000,
+    );
+    for (const binding of implementations) {
+      if (
+        binding.status === 'active' &&
+        (binding.role === 'primary' || binding.role === 'alternative') &&
+        (await this.#catalog.isPubliclyRegistered(
+          binding.implementationType,
+          binding.implementationId,
+          binding.implementationVersion,
+        ))
+      )
+        return true;
+    }
+    return false;
+  }
+
   async validate(
     capabilityId: string,
     version: number,

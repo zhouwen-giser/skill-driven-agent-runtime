@@ -64,6 +64,14 @@ describe('PostgresRuntimeMcpCatalogAuthorityReader', () => {
                 source: 'admin_override',
               },
               declared_execution_semantics_json: null,
+              admin_execution_semantics_override_json: {
+                effect: 'read_only',
+                execution: 'synchronous',
+                cancellation: 'unsupported',
+                idempotency: 'server_managed',
+                replay: 'allowed',
+                source: 'admin_override',
+              },
               task_execution_json: {
                 profileVersion: '1.0',
                 taskBehavior: 'synchronous_only',
@@ -105,6 +113,16 @@ describe('PostgresRuntimeMcpCatalogAuthorityReader', () => {
       discoveredCatalogChecksum: expect.stringMatching(/^[a-f0-9]{64}$/u),
       operationCount: 1,
       toolNames: ['light_get_state'],
+      executionSemanticsOverrides: {
+        light_get_state: {
+          effect: 'read_only',
+          execution: 'synchronous',
+          cancellation: 'unsupported',
+          idempotency: 'server_managed',
+          replay: 'allowed',
+          source: 'admin_override',
+        },
+      },
     });
     expect(authority?.catalogChecksum).not.toBe(authority?.discoveredCatalogChecksum);
 

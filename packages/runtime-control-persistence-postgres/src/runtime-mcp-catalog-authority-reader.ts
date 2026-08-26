@@ -8,6 +8,7 @@ import {
   type McpServer,
   type McpTaskExecutionProfile,
   type McpTool,
+  type McpToolExecutionSemantics,
 } from '../../domain/src/index.js';
 
 export interface RuntimeMcpCatalogAuthority {
@@ -23,6 +24,7 @@ export interface RuntimeMcpCatalogAuthority {
   readonly discoveredCatalogChecksum: string;
   readonly operationCount: number;
   readonly toolNames: readonly string[];
+  readonly executionSemanticsOverrides?: Readonly<Record<string, McpToolExecutionSemantics>>;
 }
 
 export interface RuntimeMcpCatalogAuthorityReader {
@@ -55,6 +57,7 @@ interface RuntimeMcpToolAuthorityRow extends QueryResultRow {
   protocol_mode: NonNullable<McpServer['protocolMode']>;
   execution_semantics_json: unknown;
   declared_execution_semantics_json: unknown;
+  admin_execution_semantics_override_json?: unknown;
   task_execution_json: unknown;
   discovered_at: Date | string;
 }
@@ -126,6 +129,7 @@ export class PostgresRuntimeMcpCatalogAuthorityReader implements RuntimeMcpCatal
         `SELECT tool.server_id,tool.tool_name,tool.title,tool.description,
                 tool.input_schema_json,tool.output_schema_json,server.protocol_mode,
                 tool.execution_semantics_json,tool.declared_execution_semantics_json,
+                tool.admin_execution_semantics_override_json,
                 tool.task_execution_json,tool.discovered_at
            FROM mcp_tool tool
            JOIN mcp_server server ON server.server_id=tool.server_id
@@ -182,6 +186,18 @@ function mapAuthority(
     discoveredCatalogChecksum: discoveredCatalog.catalogChecksum,
     operationCount: catalog.operationCount,
     toolNames: Object.freeze(tools.map((tool) => tool.toolName)),
+    executionSemanticsOverrides: Object.freeze(
+      Object.fromEntries(
+        toolRows.flatMap((row) => {
+          const value = row.admin_execution_semantics_override_json;
+          if (value === null || value === undefined) return [];
+          const semantics = McpExecutionSemanticsSchema.parse(value);
+          if (semantics.source !== 'admin_override')
+            throw new Error('MCP_RUNTIME_ADMIN_OVERRIDE_SOURCE_INVALID');
+          return [[row.tool_name, createMcpToolExecutionSemantics(semantics, 'admin_override')]];
+        }),
+      ),
+    ),
   });
 }
 

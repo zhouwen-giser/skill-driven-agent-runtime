@@ -20,7 +20,12 @@ export class OfficialA2aAgentCardValidator implements A2aAgentCardValidator {
       if (
         typeof wire !== 'object' ||
         wire === null ||
-        !Array.isArray((wire as Readonly<{ skills?: unknown }>).skills)
+        (!Array.isArray((wire as Readonly<{ skills?: unknown }>).skills) &&
+          // The official SDK omits a protobuf-default empty repeated field in JSON.
+          !(
+            (wire as Readonly<{ skills?: unknown }>).skills === undefined &&
+            parsed.skills.length === 0
+          ))
       )
         throw new Error('AGENT_CARD_SCHEMA_INVALID');
     } catch {
