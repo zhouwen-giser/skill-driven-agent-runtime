@@ -1,0 +1,191 @@
+{
+  "schemaVersion": "wi070-runtime-pg-schema-correction/v1",
+  "workItemId": "WI-070",
+  "createdAt": "2026-08-26T10:45:34.885221+00:00",
+  "owner": "sdar-runtime-wi070",
+  "agent": "/root/wi070_live_profile_finish",
+  "status": "SCHEMA_CORRECTION_COMMITTED_WITH_LOCAL_STATIC_CHECKS_PENDING_ACTUAL_PG_RERUN",
+  "parentCommit": "2137d68e6adc2038615f5cc97497b094547d640d",
+  "parentTree": "d57764c239e137b7c54d44c739319ec727bc075c",
+  "candidate": "Exact commit/tree and detached pin supplied in phase handoff after commit; no self-referential hash.",
+  "diagnosis": {
+    "path": "/tmp/wi075-pg-failure-diagnosis-20260826T103001Z.json",
+    "sha256": "sha256:87920a11314a38f190e6ee40bed7a452b146d37a18e563883b36117d62147d29",
+    "bytes": 16063
+  },
+  "failedRun": {
+    "runId": "g04-wi075-pg-20260826T103001Z",
+    "runtimeReceipt": "runs/g04-wi075-pg-20260826T103001Z/raw/test-runtime.json",
+    "receiptSha256": "sha256:8e4b408360eea3017a9acc19c074f881bf6165f294e33e52a4d090006e9d2c35",
+    "result": {
+      "total": 9,
+      "passed": 6,
+      "failed": 3,
+      "bindingPassed": 2,
+      "bindingFailed": 3,
+      "qualificationPassed": 4
+    },
+    "providerTests": "NOT_RUN",
+    "source": "Controller actual PG receipt analyzed by the hash-bound read-only diagnosis; this writer did not run PostgreSQL.",
+    "preservedUnchanged": true
+  },
+  "changes": [
+    "0174 up reconciles the clean-baseline task_input_request_source_check to include remote_task while retaining goal_deliberation,skill_input_resolution,goal_evaluation,workflow.",
+    "0174 up replaces remote_task_observation_frozen_revision_idx with a nonunique same-key lookup so rejected observations and accepted create-to-detailed refinement can coexist at a revision. Existing accepted Provider-event uniqueness, binding locks/classifier and ON CONFLICT behavior are unchanged.",
+    "0174 down restores the old source check and unique revision index inside its existing BEGIN/COMMIT transaction. Existing incompatible data must fail constraint/index validation; no row deletion, rewrite or backfill is introduced. This rollback reasoning is source-reviewed only, not an executed database result.",
+    "One regression added to the existing migration-selection contract test covers the selected migration text and preserves provider-event uniqueness and transactional fail-closed rollback. The nine actual PG tests/assertions are unchanged."
+  ],
+  "sourceManifest": [
+    {
+      "path": "infra/postgres/migrations/0174_runtime_provider_binding_authority.up.sql",
+      "sha256": "sha256:d5cab7dd1058276ffbae61fa163d74f3b2c1dc8c1601b62ad587a57a85761de7",
+      "bytes": 9440
+    },
+    {
+      "path": "infra/postgres/migrations/0174_runtime_provider_binding_authority.down.sql",
+      "sha256": "sha256:7f1317713fea40c447f525ca03b97ae4808218b7e15769dd600a6ad4c0e93316",
+      "bytes": 2795
+    },
+    {
+      "path": "apps/server/test/runtime-migration-selection.contract.test.ts",
+      "sha256": "sha256:10ebc0749f9039623581a79f35713211512d9b361d0b0bd94a0f5c309b471653",
+      "bytes": 4068
+    }
+  ],
+  "unchangedScope": {
+    "historicalBaselineAnd0103": true,
+    "runtimeProtocolAuthorityAndGuards": true,
+    "allNinePgFixtures": true,
+    "liveTargetOrExecutionLogic": true,
+    "providerAndOtherRepositories": true,
+    "controlAndSharedEnvironment": true,
+    "allPriorImmutablePins": true
+  },
+  "verification": {
+    "focused": {
+      "file": "apps/server/test/runtime-migration-selection.contract.test.ts",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "kind": "Local static migration/router contract; not PostgreSQL execution"
+    },
+    "commands": [
+      {
+        "command": [
+          "./node_modules/.bin/vitest",
+          "run",
+          "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "--reporter=json",
+          "--outputFile=reports/wi070-pg-schema-correction-tests.json",
+          "--cache=false"
+        ],
+        "startedAt": "2026-08-26T10:44:28.013641+00:00",
+        "completedAt": "2026-08-26T10:44:38.433058+00:00",
+        "exitCode": 0
+      },
+      {
+        "command": [
+          "./node_modules/.bin/eslint",
+          "apps/server/test/runtime-migration-selection.contract.test.ts"
+        ],
+        "startedAt": "2026-08-26T10:44:28.225334+00:00",
+        "completedAt": "2026-08-26T10:44:40.231355+00:00",
+        "exitCode": 0
+      },
+      {
+        "command": [
+          "./node_modules/.bin/prettier",
+          "--check",
+          "apps/server/test/runtime-migration-selection.contract.test.ts"
+        ],
+        "startedAt": "2026-08-26T10:44:40.231379+00:00",
+        "completedAt": "2026-08-26T10:44:40.491171+00:00",
+        "exitCode": 0
+      },
+      {
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "startedAt": "2026-08-26T10:44:40.491197+00:00",
+        "completedAt": "2026-08-26T10:44:40.498364+00:00",
+        "exitCode": 0
+      }
+    ],
+    "rawArtifacts": [
+      {
+        "path": "reports/wi070-pg-schema-correction-diff.log",
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "path": "reports/wi070-pg-schema-correction-format.log",
+        "sha256": "sha256:17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+        "bytes": 66
+      },
+      {
+        "path": "reports/wi070-pg-schema-correction-lint.log",
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "path": "reports/wi070-pg-schema-correction-static-execution.json",
+        "sha256": "sha256:5aee1ae0ca5455bfaf7d68138d8dadeaa25e3773c5368d30e70d438e4fe720b9",
+        "bytes": 754
+      },
+      {
+        "path": "reports/wi070-pg-schema-correction-tests-execution.json",
+        "sha256": "sha256:79aca73b69895445343597a570e59807cd510faed57643cae06652787987e770",
+        "bytes": 367
+      },
+      {
+        "path": "reports/wi070-pg-schema-correction-tests.json",
+        "sha256": "sha256:634e6e40031cc72e9f94f49030702915b37ff7aad7a17bc48769a8154552336b",
+        "bytes": 2565
+      },
+      {
+        "path": "reports/wi070-pg-schema-correction-tests.log",
+        "sha256": "sha256:6e4c29b1baf5b60d730edf1cb451182f58a25cc9eca6e8d36104ee148b398bbd",
+        "bytes": 164
+      }
+    ],
+    "postgresFixtures": [
+      {
+        "path": "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+        "cases": 5,
+        "database": "sdar_wi070_binding_authority_integration",
+        "sha256": "sha256:a4f73afcc807c4a67c8ff50c023d55e41a4c7c2d95b2775fb0735273c31e8425",
+        "unchangedFrom2137": true,
+        "execution": "PENDING_NEW_CONTROLLER_RUN"
+      },
+      {
+        "path": "packages/persistence-postgres/test/ugv-live-qualification.integration.test.ts",
+        "cases": 4,
+        "database": "sdar_wi070_live_qualification_integration",
+        "sha256": "sha256:7f648a0e278524f1e255116938fd371242fef565f8cf7cc375bb11d0e034529d",
+        "unchangedFrom2137": true,
+        "execution": "PENDING_NEW_CONTROLLER_RUN"
+      }
+    ],
+    "newPgRun": "NOT_RUN",
+    "providerPg": "NOT_RUN",
+    "full459TypecheckBuild": "NOT_RERUN_FOR_SQL_ONLY_DELTA",
+    "uncollectedSessions": []
+  },
+  "parentEvidence": {
+    "path": "reports/runtime-live-profile-implementation.json",
+    "sha256": "sha256:9b2c75b0e30b775a786bbd94a90aa15baca1fbb5d44a2efae48ef72290999650",
+    "scope": "Preserved report describes2137 source/checks. This correction manifest supersedes only the three listed source hashes; do not reinterpret prior459/HTTP3 results as a new execution."
+  },
+  "next": "Independent review of this narrow correction, then RunController reruns unchanged Runtime9 from the new immutable pin under a new lease/permit; Provider5 only after Runtime passes.",
+  "claims": {
+    "gatePass": false,
+    "workItemCompletion": false,
+    "pgPass": false,
+    "navigationDispatch": false,
+    "physicalArrival": false,
+    "pushPrAdoption": false
+  }
+}

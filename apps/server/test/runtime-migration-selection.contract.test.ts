@@ -29,6 +29,35 @@ describe('post-v1.2.2 Runtime migration selection', () => {
     expect(down).toContain(`DELETE FROM schema_migration WHERE version='${version}'`);
   });
 
+  it('reconciles clean-baseline remote input and preserves same-revision observation history', async () => {
+    const version = '0174_runtime_provider_binding_authority';
+    const [up, down] = await Promise.all([
+      readFile(new URL(`${version}.up.sql`, migrationDirectory), 'utf8'),
+      readFile(new URL(`${version}.down.sql`, migrationDirectory), 'utf8'),
+    ]);
+    expect(up).toContain(
+      "CHECK (source IN ('goal_deliberation','skill_input_resolution','goal_evaluation','workflow','remote_task'))",
+    );
+    expect(up).toMatch(
+      /DROP INDEX remote_task_observation_frozen_revision_idx;\s*CREATE INDEX remote_task_observation_frozen_revision_idx\s+ON remote_task_observation\(binding_id,runtime_revision\) WHERE runtime_revision IS NOT NULL;/u,
+    );
+    expect(up).toMatch(
+      /CREATE UNIQUE INDEX remote_task_observation_provider_event_idx\s+ON remote_task_observation\(binding_id,provider_event_id,runtime_revision\)\s+WHERE provider_event_id IS NOT NULL AND accepted;/u,
+    );
+    // Both restored constraints validate existing data inside one transaction;
+    // incompatible evidence must fail rollback rather than be deleted or rewritten.
+    expect(down.trim()).toMatch(/^BEGIN;[\s\S]*COMMIT;$/u);
+    expect(down).toContain(
+      "CHECK (source IN ('goal_deliberation','skill_input_resolution','goal_evaluation','workflow'))",
+    );
+    expect(down).toMatch(
+      /CREATE UNIQUE INDEX remote_task_observation_frozen_revision_idx\s+ON remote_task_observation\(binding_id,runtime_revision\) WHERE runtime_revision IS NOT NULL;/u,
+    );
+    expect(down).not.toMatch(
+      /\b(?:DELETE FROM|UPDATE) (?:remote_task_observation|task_input_request)\b/u,
+    );
+  });
+
   it('does not select migrations already recorded in the complete ledger', async () => {
     const availableFiles = await readdir(migrationDirectory);
     const initialPlan = planPostV122MigrationFiles(availableFiles, [baselineVersion]);

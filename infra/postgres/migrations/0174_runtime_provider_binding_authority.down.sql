@@ -1,5 +1,13 @@
 BEGIN;
 -- Rollback is only for the disposable development database; no identity backfill is provided.
+-- Restoring either old constraint validates all rows and aborts this transaction if
+-- remote_task inputs or repeated revisions exist. Never delete observations to make it fit.
+ALTER TABLE task_input_request DROP CONSTRAINT task_input_request_source_check;
+ALTER TABLE task_input_request ADD CONSTRAINT task_input_request_source_check
+  CHECK (source IN ('goal_deliberation','skill_input_resolution','goal_evaluation','workflow'));
+DROP INDEX remote_task_observation_frozen_revision_idx;
+CREATE UNIQUE INDEX remote_task_observation_frozen_revision_idx
+  ON remote_task_observation(binding_id,runtime_revision) WHERE runtime_revision IS NOT NULL;
 DROP TRIGGER runtime_provider_binding_immutable ON remote_task_binding;
 DROP FUNCTION runtime_provider_binding_immutable();
 DROP TRIGGER runtime_remote_admission_immutable ON remote_task_admission_intent;

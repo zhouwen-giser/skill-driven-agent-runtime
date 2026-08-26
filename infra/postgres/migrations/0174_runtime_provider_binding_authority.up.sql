@@ -1,5 +1,10 @@
 BEGIN;
 
+-- The clean v1.2.2 baseline predates remote Task input; legacy 0103 is not replayed.
+ALTER TABLE task_input_request DROP CONSTRAINT task_input_request_source_check;
+ALTER TABLE task_input_request ADD CONSTRAINT task_input_request_source_check
+  CHECK (source IN ('goal_deliberation','skill_input_resolution','goal_evaluation','workflow','remote_task'));
+
 -- Development-only clean bootstrap. Existing incomplete bindings must be reset, not backfilled.
 ALTER TABLE remote_task_binding
   ALTER COLUMN authority_snapshot_json SET NOT NULL,
@@ -95,6 +100,12 @@ ALTER TABLE remote_task_observation DROP CONSTRAINT remote_task_observation_reje
 ALTER TABLE remote_task_observation ADD CONSTRAINT remote_task_observation_rejection_reason_check
   CHECK (rejection_reason IS NULL OR rejection_reason IN (
     'stale_provider_revision','binding_closed','identity_conflict','revision_content_conflict','terminal_conflict','input_key_conflict'));
+-- A revision is a lookup key, not observation identity: rejected observations and the
+-- accepted create-to-detailed refinement may legitimately share the same revision.
+-- The locked binding classifier and accepted Provider event key still govern duplicates.
+DROP INDEX remote_task_observation_frozen_revision_idx;
+CREATE INDEX remote_task_observation_frozen_revision_idx
+  ON remote_task_observation(binding_id,runtime_revision) WHERE runtime_revision IS NOT NULL;
 -- Conflicting replay of a Provider event must remain visible, not be discarded by its event key.
 DROP INDEX remote_task_observation_provider_event_idx;
 CREATE UNIQUE INDEX remote_task_observation_provider_event_idx
