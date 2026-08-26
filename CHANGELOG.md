@@ -15,6 +15,10 @@
 - Handle the official SDK's omitted empty `skills` default without publishing an empty managed
   Card when no managed registrations exist. Verification: 358 focused unit/contract tests and
   21 isolated PostgreSQL integration tests, typecheck, production build and scoped static checks pass.
+- Pushed the repair branch and restarted the existing debug processes without resetting databases.
+  Live read-only verification confirms migration 0012, fresh available health at unchanged Binding
+  revision 1, available readiness and the public natural-language @2 admission contract. No Tool or
+  remote Task was created; the physical side-effect gate remains `NO`.
 
 ## 2026-08-25 — Stable UGV natural-language authority and live no-side-effect proof
 

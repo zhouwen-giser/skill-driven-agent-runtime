@@ -35,7 +35,7 @@ the existing Task snapshot. Public description reads are separate from readiness
 - [x] Implement Binding observation/lifecycle migration and periodic renewal.
 - [x] Separate Card registration from readiness and resolve new Task authority automatically.
 - [x] Run focused unit/contract and isolated PostgreSQL regressions plus static/build checks.
-- [ ] Commit/push, restart debug services and verify same databases/Card/authority without Tool calls.
+- [x] Commit/push, restart debug services and verify same databases/Card/authority without Tool calls.
 
 ## Discoveries and Surprises
 
@@ -111,7 +111,39 @@ Restart uses the existing supervisor; preserve the current side-effect mode and 
 - Focused test paths and command results recorded below when actually run.
 - Existing untracked historical reports remain untouched and are excluded from the commit.
 
+### Deployment observation (2026-08-26)
+
+Code commit `9fc5ae01a969b6e0d4406d7d23daee61be0f3619` was pushed to
+`origin/codex/provider-binding-lifecycle` before restarting the existing three supervisor-owned
+processes. No Docker/Provider service, database volume, Task or historical evidence was removed.
+The supervisor restarted with `NO` and verified all three process identities.
+
+At `02:32:29Z`, the running processes still used Runtime `127.0.0.1:55462/sdar_uap` and Control
+`127.0.0.1:55463/sdar_uap_control`; Control's Runtime URL exactly matched the server's actual URL.
+Control migration 0012 was installed. Binding `ugv-smpp-uap-p3-b01-binding` remained semantic revision
+1 with Catalog `2.0.0-rc.1:1` and checksum `65d2386183eae1eb823aedf8a4b991b13b3de7d77f6811c44e4d6ac9eb847534`.
+Its real health observation advanced from `2026-08-25T03:39:38.242Z` to
+`2026-08-26T02:31:47.424Z`, with fresh available health valid until `03:31:47.424Z`.
+The immutable Binding count remained 1, observations became 2, Runtime tool revision remained 1,
+protocol snapshot count remained 1, and Runtime `updated_at` remained unchanged.
+
+The public Card returned HTTP 200 and retained `embodied.move_to`. At `02:33:08Z` its
+`io.sdar/naturalLanguageCapabilityAdmission` extension explicitly advertised `text/plain`,
+`externalCapabilityMetadataRequired=false`, `a2a.embodied.move@2`, `embodied.move@2`, the WGS84 input
+schema and anonymous requester policy. This was already public while readiness was still converging
+from the old unavailable observation, directly proving registration/readiness separation.
+Task count remained 1 (the pre-existing canceled Task), MCP invocations and remote bindings both 0.
+
+At `02:34:09Z`, readiness snapshot 1278 was `available` / `available`, fresh through `02:34:57Z`,
+with no reasons. It was evaluated at `02:33:57Z` after the existing improvement-stability window.
+The active managed Card was revision 60. MCP invocations, remote bindings and active workflows
+remained zero. Actual listener PID `2416023` owns ports 10998/10999; PID `2416838` owns Control 10091.
+The original databases and evidence were retained, and the side-effect gate remains `NO`.
+
 ## Outcomes and Retrospective
 
-Implementation and targeted validation complete. Commit/push and debug restart/read-only verification
-are pending. No external movement acceptance or device execution is claimed.
+All requested lifecycle changes, targeted validation, code push and debug restart/read-only checks
+are complete. Card discovery recovered independently of readiness and stayed present while readiness
+converged; real health renewal did not create a Binding revision or rotate Runtime anchors. No
+external movement acceptance, Tool execution or merge into `main` is claimed. The repair is pushed
+on `codex/provider-binding-lifecycle`; this deployment uses that tested source revision.

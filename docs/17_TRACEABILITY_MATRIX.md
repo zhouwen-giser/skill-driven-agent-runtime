@@ -1,6 +1,6 @@
 # 需求追踪矩阵
 
-## ADR-141 Provider 生命周期修复（2026-08-26，本地已验证，部署验证待完成）
+## ADR-141 Provider 生命周期修复（2026-08-26，已验证）
 
 - FR-A2A-001/006、FR-SKL-006/007、v1.4 P08、SACS-V03：`a2a-exposure-service.ts`、
   `runtime-implementation-catalog.ts`、`task-capability.ts` 和 Server Card callback 只读取登记态；
@@ -17,6 +17,8 @@
 - 命令、结果与最终只读 live 验证记录见 `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md`。
   26 个相关 unit/contract 文件 358/358、3 个隔离 PostgreSQL 集成文件 21/21、typecheck/build、
   857-source architecture、changed-scope lint/format/diff 均通过。
+  `9fc5ae0` 推送后在原调试数据库重启：0012生效，Binding仍revision1且新健康观测available，
+  Card公开自然语言@2合同，readiness1278 fresh/available，MCP/remote Task增量均0，副作用门NO。
   本修复不更新历史外部导航 Goal 的完成状态。
 
 ## SDAR v1.2.2 upgrade mapping (2026-07-22)

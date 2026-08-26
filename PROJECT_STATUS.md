@@ -2,14 +2,18 @@
 
 ## Persistent Provider authority repair (2026-08-26)
 
-ADR-141 / `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md` has passed targeted validation. Binding registration
+ADR-141 / `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md` is complete. Binding registration
 is now independent of observation TTL; unchanged health does not create semantic revisions. Card
 publication reads current registered Skills rather than readiness. New Task snapshots resolve current
 semantic Binding authority while existing Task/Plan snapshots remain immutable. Background health,
 registration and Runtime Catalog reconciliation are wired. All 358 relevant unit/contract tests and
 21 isolated PostgreSQL integration tests pass, as do typecheck, production build and scoped static
-checks. Commit/push and debug restart/read-only verification follow.
-No navigation, Tool call or debug database reset is part of this repair.
+checks. Code `9fc5ae0` is pushed on `codex/provider-binding-lifecycle`; the three debug processes were
+restarted on the original Runtime/Control databases with migration 0012. At `02:34:09Z`, Binding
+revision remained 1 with fresh available health, readiness snapshot 1278 was fresh/available, and the
+public Card advertised the natural-language `a2a.embodied.move@2` contract. Actual A2A/management
+listener PID is `2416023`. No MCP invocation or remote Task was created; side effects remain `NO`.
+No navigation, Tool call, database reset or `main` merge is claimed by this repair.
 
 ## SACS v0.3 live current-authority recheck (2026-08-25)
 
