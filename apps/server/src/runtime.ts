@@ -556,6 +556,7 @@ export interface ServerRuntimeOptions {
   readonly queueName?: string;
   readonly applyMigrations?: boolean;
   readonly a2aHost?: string;
+  readonly a2aPublicBaseUrl?: string;
   readonly a2aPort?: number;
   readonly managementHost?: string;
   readonly managementPort?: number;
@@ -6947,6 +6948,9 @@ export async function startServerRuntime(
           }
         : {}),
       ...(options.a2aHost === undefined ? {} : { host: options.a2aHost }),
+      ...(options.a2aPublicBaseUrl === undefined
+        ? {}
+        : { publicBaseUrl: options.a2aPublicBaseUrl }),
       ...(options.a2aPort === undefined ? {} : { port: options.a2aPort }),
     });
     return {

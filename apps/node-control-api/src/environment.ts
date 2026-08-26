@@ -17,6 +17,7 @@ const EnvironmentSchema = z
       .min(1)
       .default('postgresql://sdar:sdar_local_only@127.0.0.1:5432/sdar'),
     SDAR_CONTROL_API_HOST: z.string().min(1).default('127.0.0.1'),
+    SDAR_DEVELOPMENT_PUBLIC_ACCESS: z.enum(['open', 'off']).default('off'),
     SDAR_CONTROL_API_PORT: z.coerce.number().int().positive().max(65_535).default(10_080),
     SDAR_CONTROL_API_TOKEN: z.string().min(32).regex(/^\S+$/u),
     SDAR_CONTROL_OPERATOR_API_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
@@ -44,6 +45,16 @@ const EnvironmentSchema = z
     SDAR_CONTROL_REQUEST_BODY_LIMIT_KB: z.coerce.number().int().min(1).max(1_024).default(64),
   })
   .superRefine((environment, context) => {
+    if (
+      environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open' &&
+      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+        !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_DEVELOPMENT_PUBLIC_ACCESS'],
+        message: 'Open public access is restricted to explicit development environments.',
+      });
     const publicCredentials = [
       environment.SDAR_CONTROL_API_TOKEN,
       environment.SDAR_CONTROL_OPERATOR_API_TOKEN,
@@ -130,6 +141,7 @@ export type NodeControlApiEnvironment = Omit<
   | 'SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY'
   | 'SDAR_CONTROL_RATE_LIMIT_PER_MINUTE'
   | 'SDAR_CONTROL_REQUEST_BODY_LIMIT_KB'
+  | 'SDAR_DEVELOPMENT_PUBLIC_ACCESS'
 > &
   Readonly<{
     SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST?: string;
@@ -139,6 +151,7 @@ export type NodeControlApiEnvironment = Omit<
     SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY?: 'safe' | 'unsafe_test_open';
     SDAR_CONTROL_RATE_LIMIT_PER_MINUTE?: number;
     SDAR_CONTROL_REQUEST_BODY_LIMIT_KB?: number;
+    SDAR_DEVELOPMENT_PUBLIC_ACCESS?: 'open' | 'off';
   }>;
 
 export function loadNodeControlApiEnvironment(envFilePath = '.env'): NodeControlApiEnvironment {

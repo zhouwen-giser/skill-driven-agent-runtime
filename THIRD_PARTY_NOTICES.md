@@ -4,6 +4,8 @@ Generated from the exact pnpm lockfile installation and pinned adapted sources. 
 
 ## Adapted protocol source
 
+- OpenTelemetry Collector contrib v0.157.0, commit `89e43555904cd97c2d36605347c5d5237b1bdc8c` — Apache-2.0. The joint debug profile runs the unmodified Collector container; native ClickHouse table templates are adapted in the sibling `smpp-telemetry-platform/telemetry-schema/migrations/008_otel_diagnostics.sql`. That repository retains the complete upstream LICENSE/NOTICE and adaptation record under `third_party/opentelemetry/`. No Collector implementation is embedded in SDAR.
+
 - modelcontextprotocol/ext-tasks commit 8966bea9c4f4e6d71060cc8284a539086e9e234f, schema.ts blob 2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc — Apache-2.0. The bounded client Schema in packages/mcp-adapter/src/mcp-tasks-contract.ts was modified by zhouwen and carries its source/modification notice. No upstream runtime implementation is vendored.
 - modelcontextprotocol/modelcontextprotocol commit 26897cc322f356487da89113451bd16b520b9288, `schema/draft/schema.json` blob cc44564e33305dbc07e820cdd0a97648f3852019 — exact LICENSE records an Apache-2.0 transition, retained MIT contributions and CC-BY-4.0 non-specification documentation; no root NOTICE is present. The source Schema is vendored unmodified under `protocol/source`; SDAR-derived schemas are separate modified works under `protocol/schemas`.
 

@@ -64,6 +64,8 @@ const EnvironmentSchema = z
     SDAR_REDIS_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_REDIS_PORT: z.coerce.number().int().positive().default(56379),
     SDAR_A2A_HOST: z.string().min(1).default('127.0.0.1'),
+    SDAR_A2A_PUBLIC_BASE_URL: z.url().optional(),
+    SDAR_DEVELOPMENT_PUBLIC_ACCESS: z.enum(['open', 'off']).default('off'),
     SDAR_A2A_PORT: z.coerce.number().int().positive().default(9999),
     SDAR_A2A_WAIT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(900_000).default(30_000),
     SDAR_MANAGEMENT_HOST: z.string().min(1).default('127.0.0.1'),
@@ -142,6 +144,34 @@ const EnvironmentSchema = z
       .default('off'),
   })
   .superRefine((environment, context) => {
+    if (
+      environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open' &&
+      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+        !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_DEVELOPMENT_PUBLIC_ACCESS'],
+        message: 'Open public access is restricted to explicit development environments.',
+      });
+    }
+    if (environment.SDAR_A2A_PUBLIC_BASE_URL !== undefined) {
+      const url = new URL(environment.SDAR_A2A_PUBLIC_BASE_URL);
+      if (
+        !['http:', 'https:'].includes(url.protocol) ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        url.pathname !== '/' ||
+        ['0.0.0.0', '[::]'].includes(url.hostname)
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['SDAR_A2A_PUBLIC_BASE_URL'],
+          message: 'A2A public base URL must be a credential-free reachable HTTP(S) origin.',
+        });
+    }
     if (
       environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'ugv-agent-profile' &&
       (environment.NODE_ENV !== 'test' ||

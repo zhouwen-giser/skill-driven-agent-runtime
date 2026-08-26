@@ -53,6 +53,7 @@ export interface A2AHttpEndpointOptions {
   }>;
   readonly confirmationPrincipalResolver?: GovernedControlPrincipalResolver;
   readonly host?: string;
+  readonly publicBaseUrl?: string;
   readonly port?: number;
 }
 
@@ -77,6 +78,7 @@ export async function startA2AHttpEndpoint(
     throw new Error('A2A_ENDPOINT_ADDRESS_UNAVAILABLE');
   }
   const baseUrl = `http://${host}:${String(address.port)}`;
+  const publicBaseUrl = options.publicBaseUrl?.replace(/\/$/u, '') ?? baseUrl;
   const loadSkills = async () => options.skillProvider?.listEnabled() ?? options.skills ?? [];
   const cardBuilder = new A2AAgentCardBuilder();
   const loadCard = async () => {
@@ -85,12 +87,12 @@ export async function startA2AHttpEndpoint(
     const capabilityProvider = options.capabilityCardProvider;
     const base =
       capabilityProvider === undefined
-        ? buildAgentCard(await loadSkills(), `${baseUrl}/a2a`)
+        ? buildAgentCard(await loadSkills(), `${publicBaseUrl}/a2a`)
         : await (async () => {
             const snapshot = await capabilityProvider.findActive();
             if (snapshot === undefined)
               throw new Error('A2A_CAPABILITY_CARD_SNAPSHOT_NOT_AVAILABLE');
-            return cardBuilder.buildFromSnapshot(snapshot, `${baseUrl}/a2a`);
+            return cardBuilder.buildFromSnapshot(snapshot, `${publicBaseUrl}/a2a`);
           })();
     const projection = await options.artifactProjectionProvider?.projectPublic();
     const naturalLanguageAdmission =

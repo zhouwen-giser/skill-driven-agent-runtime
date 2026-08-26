@@ -12,6 +12,29 @@ import {
 } from '../src/environment.js';
 
 describe('server environment', () => {
+  it('scopes anonymous public access to explicit development and separates the announced URL', () => {
+    const config = {
+      SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+      NODE_ENV: 'development',
+      SDAR_CONTROL_ENVIRONMENT: 'development',
+      SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open',
+      SDAR_A2A_PUBLIC_BASE_URL: 'http://192.168.6.7:10999',
+    };
+    expect(parseServerEnvironment(config)).toMatchObject({
+      SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open',
+      SDAR_A2A_PUBLIC_BASE_URL: 'http://192.168.6.7:10999',
+    });
+    expect(() => parseServerEnvironment({ ...config, NODE_ENV: 'production' })).toThrow();
+    expect(() =>
+      parseServerEnvironment({ ...config, SDAR_A2A_PUBLIC_BASE_URL: 'http://0.0.0.0:10999' }),
+    ).toThrow();
+    expect(() =>
+      parseServerEnvironment({
+        ...config,
+        SDAR_A2A_PUBLIC_BASE_URL: 'http://user:password@host.test',
+      }),
+    ).toThrow();
+  });
   const isolatedEnvironmentKeys = [
     'SDAR_MASTER_KEY_BASE64',
     'SDAR_REDIS_PORT',

@@ -37,6 +37,12 @@ pnpm install --frozen-lockfile
 
 ## One-command local acceptance demo
 
+For the real-device **UGV + SMPP + Telemetry** development stack (not the acceptance demo), use
+`pnpm ugv:debug start`. It defaults to YES, exposes anonymous interfaces on the trusted LAN,
+retains databases on restart/stop and does not submit Tasks or invoke Device tools. Use
+`pnpm ugv:debug start NO` to keep the physical gate closed. Grafana is not included.
+See [the joint-debug guide](docs/UGV_DEBUG_TELEMETRY.md) for ports, queries and recovery.
+
 ```powershell
 pnpm demo:acceptance
 ```

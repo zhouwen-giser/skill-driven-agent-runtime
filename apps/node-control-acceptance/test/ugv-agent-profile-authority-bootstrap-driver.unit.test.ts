@@ -14,6 +14,7 @@ import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/sr
 import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import {
   bootstrapUgvAgentProfileAuthority,
+  ensureUgvDebugAuthority,
   type UgvAgentProfileAuthorityBootstrapReport,
   type UgvAgentProfileAuthorityBootstrapConfiguration,
   verifyUgvAgentProfileAuthority,
@@ -35,6 +36,28 @@ interface AuthorityProjectorModule {
 }
 
 describe('UGV Agent Profile authority bootstrap', () => {
+  it('reuses published debug registration using GET only without refreshing health or running tasks', async () => {
+    const { api, dependencies } = await authorityFixture();
+    api.fetch.mockClear();
+    dependencies.bootstrapSource.mockClear();
+    dependencies.materializeProviders.mockClear();
+    await expect(ensureUgvDebugAuthority(configuration(), dependencies)).resolves.toEqual({
+      status: 'registered',
+      created: false,
+    });
+    expect(api.fetch.mock.calls).toHaveLength(5);
+    expect(api.fetch.mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true);
+    expect(dependencies.bootstrapSource).not.toHaveBeenCalled();
+    expect(dependencies.materializeProviders).not.toHaveBeenCalled();
+    expect(api.providerToolCallCount).toBe(0);
+    await expect(
+      ensureUgvDebugAuthority(
+        { ...configuration(), simulationRunId: 'uap-p3-b02-different-run' },
+        dependencies,
+      ),
+    ).rejects.toMatchObject({ code: 'UAP_DEBUG_REGISTRATION_CONFLICT' });
+    expect(api.fetch.mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true);
+  });
   it('rejects rogue governance before Source or Provider mutation', async () => {
     const bootstrapSource = vi.fn<typeof bootstrapUgvSmppSource>();
     const materializeProviders = vi.fn<typeof materializeSmppProviders>();

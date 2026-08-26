@@ -1,5 +1,22 @@
 # Project Status
 
+## UGV / SMPP / Telemetry development integration (2026-08-26)
+
+ADR-142 / `execplans/EP-UGV-DEBUG-TELEMETRY.md` implement the complete `pnpm ugv:debug` stack
+without Grafana. Actual LAN access, anonymous public management, separate Agent Card announcement,
+NO startup and default YES have been verified. All required ports are public except databases/Redis;
+3000 is absent. Repeated startup retains one Binding (revision 1), Capability/Exposure version 2,
+five pre-existing Tasks and zero MCP invocations. No new Task or Device action was submitted.
+Real events/metrics/traces persist, and ClickHouse outage plus Collector restart restores queued
+metrics while preserving volumes and seven-day diagnostic TTLs. See the joint-debug guide and
+`reports/ugv-debug/verification-2026-08-26.md` for commands and coverage.
+
+Affected SDAR/SMPP typechecks and builds pass. Telemetry's 69 tests/build and affected-module strict
+typecheck pass; its whole-repository strict typecheck remains blocked by 450 pre-existing diagnostics
+outside this change. This is not a claim of a clean all-project release gate or navigation acceptance.
+Implementation evidence was captured before the separately authorized Git publication;
+publication status is recorded by the commits and pull requests, not by the live smoke result.
+
 ## PR #26 integration (2026-08-26, published / ready for merge)
 
 `execplans/EP-PR26-DEBUG-INTEGRATION.md` tracks conflict resolution and publication of

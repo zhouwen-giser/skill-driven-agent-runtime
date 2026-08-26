@@ -3,6 +3,32 @@ import { describe, expect, it } from 'vitest';
 import { parseNodeControlApiEnvironment } from '../src/environment.js';
 
 describe('Node Control API environment', () => {
+  it('requires an explicit non-production environment for anonymous public management', () => {
+    const base = {
+      SDAR_CONTROL_API_TOKEN: 'a'.repeat(32),
+      SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: 'b'.repeat(32),
+      SDAR_CONTROL_NODE_ID: 'debug',
+      SDAR_CONTROL_NODE_DISPLAY_NAME: 'debug',
+    };
+    expect(parseNodeControlApiEnvironment(base).SDAR_DEVELOPMENT_PUBLIC_ACCESS).toBe('off');
+    expect(
+      parseNodeControlApiEnvironment({
+        ...base,
+        NODE_ENV: 'development',
+        SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open',
+      }).SDAR_DEVELOPMENT_PUBLIC_ACCESS,
+    ).toBe('open');
+    expect(() =>
+      parseNodeControlApiEnvironment({
+        ...base,
+        NODE_ENV: 'production',
+        SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open',
+      }),
+    ).toThrow();
+    expect(() =>
+      parseNodeControlApiEnvironment({ ...base, SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open' }),
+    ).toThrow();
+  });
   it('requires a deployment bearer token and stable Node identity', () => {
     expect(() => parseNodeControlApiEnvironment({})).toThrow();
   });
