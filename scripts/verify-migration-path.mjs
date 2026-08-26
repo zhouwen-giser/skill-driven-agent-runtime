@@ -52,6 +52,7 @@ const requiredRuntimeEvidenceLedgerMigration = '0146_v14_evidence_export_observa
 const requiredControlEvidenceAuthorityMigration = '0009_canonical_evidence_authority.up.sql';
 const requiredControlLineageMigration = '0010_smpp_registry_lineage_revalidation.up.sql';
 const requiredControlCredentialMigration = '0011_explicit_unauthenticated_credentials.up.sql';
+const requiredControlBindingHealthMigration = '0012_mcp_binding_registration_health.up.sql';
 if (!postBaselineMigrationFiles.includes(requiredRuntimeEvidenceLedgerMigration)) {
   throw new Error(`V141_RUNTIME_EVIDENCE_LEDGER_MIGRATION_MISSING`);
 }
@@ -64,6 +65,9 @@ if (!controlMigrationFiles.includes(requiredControlLineageMigration)) {
 if (!controlMigrationFiles.includes(requiredControlCredentialMigration)) {
   throw new Error(`UGV_CONTROL_CREDENTIAL_MIGRATION_MISSING`);
 }
+if (!controlMigrationFiles.includes(requiredControlBindingHealthMigration)) {
+  throw new Error('CONTROL_BINDING_HEALTH_MIGRATION_MISSING');
+}
 await assertMigrationFilePairs(migrationDirectory, postBaselineMigrationFiles, 'V13');
 await assertMigrationFilePairs(controlMigrationDirectory, controlMigrationFiles, 'V14_CONTROL');
 assertContiguousControlMigrationVersions(controlMigrationVersions);
@@ -73,11 +77,20 @@ const controlEvidenceAuthorityVersion = requiredControlEvidenceAuthorityMigratio
 );
 const controlLineageVersion = requiredControlLineageMigration.slice(0, -'.up.sql'.length);
 const controlCredentialVersion = requiredControlCredentialMigration.slice(0, -'.up.sql'.length);
+const controlBindingHealthVersion = requiredControlBindingHealthMigration.slice(
+  0,
+  -'.up.sql'.length,
+);
 if (
-  JSON.stringify(controlMigrationVersions.slice(-3)) !==
-  JSON.stringify([controlEvidenceAuthorityVersion, controlLineageVersion, controlCredentialVersion])
+  JSON.stringify(controlMigrationVersions.slice(-4)) !==
+  JSON.stringify([
+    controlEvidenceAuthorityVersion,
+    controlLineageVersion,
+    controlCredentialVersion,
+    controlBindingHealthVersion,
+  ])
 ) {
-  throw new Error('UGV_CONTROL_CREDENTIAL_MIGRATION_ORDER_INVALID');
+  throw new Error('CONTROL_BINDING_HEALTH_MIGRATION_ORDER_INVALID');
 }
 const expectedVersions = [
   'v1.2.2_clean_slate_baseline',
@@ -183,6 +196,20 @@ try {
     await verifyControlBaseline(controlPool);
     await applyControlMigrations(controlPool, controlMigrationDirectory);
     await verifyControlBaseline(controlPool);
+    const rolledBackBindingHealth = await rollbackLatestControlMigration(
+      controlPool,
+      controlMigrationDirectory,
+    );
+    if (rolledBackBindingHealth !== controlBindingHealthVersion) {
+      throw new Error('CONTROL_BINDING_HEALTH_ROLLBACK_HEAD_INVALID');
+    }
+    const healthProjection = await controlPool.query(
+      `SELECT to_regclass('sdar_control.mcp_provider_binding_projection') AS projection,
+              to_regclass('sdar_control.mcp_provider_binding_state') AS state`,
+    );
+    if (healthProjection.rows[0]?.projection !== null || healthProjection.rows[0]?.state !== null) {
+      throw new Error('CONTROL_BINDING_HEALTH_ROLLBACK_INCOMPLETE');
+    }
     const rolledBackCredential = await rollbackLatestControlMigration(
       controlPool,
       controlMigrationDirectory,

@@ -1,5 +1,19 @@
 # 已知假设、冲突与待验证项
 
+## Provider registration versus health (2026-08-26)
+
+- ADR-141 records the operator's explicit replacement of health-TTL-as-registration and
+  readiness-filtered Agent Card behavior. Existing `availabilityValidUntil` is a health observation
+  deadline, not a Binding lease; `readinessPublicationPolicy` remains stored for compatibility but
+  no longer removes registered Skills from discovery.
+- New Task authority automatically resolves the current semantic Binding/Catalog at its existing
+  registered endpoint. Existing Tasks/confirmations are not retargeted. A cross-endpoint or
+  credential move still requires explicit rebind/materialization; background discovery must not
+  forward a stored credential to a different endpoint. Legacy Runtime revision counters ahead of
+  Binding require explicit forward reconciliation, not silent rollback of remote-task anchors.
+- This repair validates lifecycle and read-only discovery, not external movement. The debug
+  database, prior Task/evidence and side-effect mode are preserved.
+
 ## SACS v0.3 natural-language A2A admission boundary (2026-08-24)
 
 - “v0.3” is the SACS client/product version. SDAR continues to use A2A wire version `1.0`, the

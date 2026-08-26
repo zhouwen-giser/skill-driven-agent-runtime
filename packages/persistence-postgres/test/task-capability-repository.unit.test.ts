@@ -4,6 +4,63 @@ import { describe, expect, it, vi } from 'vitest';
 import { PostgresTaskCapabilityRepository } from '../src/index.js';
 
 describe('PostgresTaskCapabilityRepository Provider Binding policy snapshot', () => {
+  it('describes only the active registered Card contract without a readiness join', async () => {
+    const row = resolutionRow(exactSingleBindingPolicy('binding', 'server', 'read_state'));
+    const query = vi.fn().mockResolvedValue({ rows: [row] });
+    const repository = new PostgresTaskCapabilityRepository({ query } as unknown as Pool);
+
+    await expect(repository.describeExposure('home-lab-living-room-read', 1)).resolves.toEqual({
+      exposureId: row.exposure_id,
+      exposureVersion: row.exposure_version,
+      requestedCapabilityId: row.capability_id,
+      capabilityVersion: row.capability_version,
+      requestSchema: row.request_schema,
+    });
+    const statement = String(query.mock.calls[0]?.[0]);
+    expect(statement).toContain("card.status='active'");
+    expect(statement).not.toContain('capability_readiness_snapshot');
+    expect(query.mock.calls[0]?.[1]).toEqual(['home-lab-living-room-read', 1]);
+  });
+
+  it('resolves registered Task contracts even when latest readiness has no available implementations', async () => {
+    const row = resolutionRow(exactSingleBindingPolicy('binding', 'server', 'read_state'));
+    row.available_implementations = [];
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [row] })
+      .mockResolvedValueOnce({
+        rows: [{ tool_policy: { required: [], optional: [] }, runtime_policy: { maxLlmCalls: 0 } }],
+      });
+    const repository = new PostgresTaskCapabilityRepository({ query } as unknown as Pool);
+
+    await expect(
+      repository.resolveExposure('home-lab-living-room-read', 1, '2026-08-26T12:00:00.000Z'),
+    ).resolves.toMatchObject({
+      implementationRefs: ['skill:home.living-room.get-state:1'],
+      providerBindingRequirements: [{ bindingId: 'binding', localServerId: 'server' }],
+    });
+    const statement = String(query.mock.calls[0]?.[0]);
+    expect(statement).toContain('ORDER BY snapshot_version DESC LIMIT 1');
+    expect(statement).not.toContain("status IN ('available','degraded')");
+    expect(statement).not.toContain('valid_until>');
+  });
+
+  it.each(['suspended', 'kill-switch', 'maintenance'] as const)(
+    'retains explicit registration and governance rejection for %s',
+    async (state) => {
+      const row = resolutionRow(exactSingleBindingPolicy('binding', 'server', 'read_state'));
+      if (state === 'suspended') row.evaluation_input.definition.status = 'suspended';
+      else if (state === 'kill-switch') row.evaluation_input.killSwitch = true;
+      else row.evaluation_input.maintenanceMode = true;
+      const query = vi.fn().mockResolvedValueOnce({ rows: [row] });
+      const repository = new PostgresTaskCapabilityRepository({ query } as unknown as Pool);
+      await expect(
+        repository.resolveExposure('home-lab-living-room-read', 1, '2026-08-26T12:00:00.000Z'),
+      ).resolves.toBeUndefined();
+      expect(query).toHaveBeenCalledOnce();
+    },
+  );
+
   it('rejects a declared but incomplete exact Provider Binding policy', async () => {
     const query = vi.fn().mockResolvedValueOnce({
       rows: [
@@ -15,13 +72,22 @@ describe('PostgresTaskCapabilityRepository Provider Binding policy snapshot', ()
           request_schema: { type: 'object' },
           requester_policy: null,
           evaluation_input: {
-            definition: { successCriteria: [], requiredEvidence: [], constraints: [] },
+            definition: {
+              status: 'published',
+              successCriteria: [],
+              requiredEvidence: [],
+              constraints: [],
+            },
+            maintenanceMode: false,
+            killSwitch: false,
             implementations: [
               {
                 bindingId: 'capability-binding-home-light-read-v1',
                 implementationType: 'skill',
                 implementationId: 'home.light.get-state',
                 implementationVersion: '1',
+                status: 'active',
+                role: 'primary',
                 providerPolicyOverride: {
                   selection: 'required',
                   mcpProviderBindingId: 'mcp-binding-ha-light-lab',
@@ -314,6 +380,8 @@ function skillImplementation(
 ) {
   return {
     bindingId,
+    status: 'active',
+    role: 'primary',
     implementationType: 'skill',
     implementationId,
     implementationVersion: '1',
@@ -342,7 +410,14 @@ function resolutionRowWithImplementations(
     request_schema: { type: 'object' },
     requester_policy: null,
     evaluation_input: {
-      definition: { successCriteria: [], requiredEvidence: [], constraints: [] },
+      definition: {
+        status: 'published',
+        successCriteria: [],
+        requiredEvidence: [],
+        constraints: [],
+      },
+      maintenanceMode: false,
+      killSwitch: false,
       implementations,
     },
     available_implementations: implementations.map((implementation) =>

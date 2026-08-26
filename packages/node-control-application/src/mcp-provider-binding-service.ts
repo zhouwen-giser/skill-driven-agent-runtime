@@ -4,6 +4,7 @@ import {
   createManagementOperation,
   createMcpProviderBindingRecord,
   hashConfigurationRequest,
+  sameMcpProviderBindingContract,
   type JsonObject,
   type ManagementOperation,
   type McpProviderBinding,
@@ -211,13 +212,11 @@ export class NodeControlMcpProviderBindingService {
       prior.binding.smppSourceId === request.smppSourceId &&
       prior.binding.externalProviderId === request.externalProviderId &&
       prior.binding.externalServerId === request.externalServerId &&
-      prior.binding.registryRevision === request.registryRevision &&
-      prior.binding.registryChecksum === request.registryChecksum &&
       prior.binding.endpointRef === request.endpointRef
     )
       throw new NodeControlMcpBindingError(
         'MCP_PROVIDER_BINDING_CONFLICT',
-        'Candidate lineage is unchanged; use refresh instead of rebind.',
+        'Provider contract identity is unchanged; use refresh instead of rebind.',
       );
     const nextRevision = prior.binding.revision + 1;
     const operation = this.operation(
@@ -303,21 +302,13 @@ export class NodeControlMcpProviderBindingService {
         'MCP_PROVIDER_BINDING_CONFLICT',
         'Suspended or removed MCP Provider Bindings cannot approve Catalog drift.',
       );
-    const approved = await this.#repository.findLatestActive(prior.binding.bindingId);
-    const nextRevision = prior.binding.revision + 1;
-    const operation = this.operation(
-      'mcp_provider_binding.refresh',
-      prior.binding.bindingId,
-      nextRevision,
-      context,
-    );
     let discovery: McpCatalogDiscoveryResult;
     try {
       discovery = await this.#catalog.discover({
         localServerId: prior.binding.localServerId,
         endpointRef: prior.binding.endpointRef,
         credentialRef: prior.credentialRef,
-        bindingRevision: nextRevision,
+        bindingRevision: prior.binding.revision,
         observedAt: context.occurredAt,
         snapshotId: this.#ids.next(),
       });
@@ -332,26 +323,7 @@ export class NodeControlMcpProviderBindingService {
         'MCP_PROVIDER_BINDING_STALE',
         'Discovered Catalog checksum does not match the explicitly approved checksum.',
       );
-    if (approved === undefined || discovery.catalogChecksum === approved.binding.catalogChecksum)
-      throw new NodeControlMcpBindingError(
-        'MCP_PROVIDER_BINDING_CONFLICT',
-        'Catalog approval requires drift from the latest active Binding authority.',
-      );
-    const record = createMcpProviderBindingRecord({
-      binding: {
-        ...prior.binding,
-        catalogRevision: discovery.catalogRevision,
-        catalogChecksum: discovery.catalogChecksum,
-        status: 'active',
-        availabilityStatus: 'available',
-        revision: nextRevision,
-      },
-      credentialRef: prior.credentialRef,
-      availabilityValidUntil: discovery.availabilityValidUntil,
-      catalogObservedAt: discovery.observedAt,
-      operationCount: discovery.operationCount,
-    });
-    return this.#repository.completeRevision(prior, record, operation, context, 'catalog_approved');
+    return this.persistDiscovery(prior, discovery, context, 'catalog_approved');
   }
 
   private async rediscover(
@@ -359,7 +331,6 @@ export class NodeControlMcpProviderBindingService {
     idempotencyKey: string,
     reason: string,
   ): Promise<ManagementOperation> {
-    const nextRevision = prior.binding.revision + 1;
     const request = Object.freeze({ bindingId: prior.binding.bindingId });
     const context = this.context('mcp-binding:refresh', idempotencyKey, reason, request);
     const replay = await this.#repository.findCommandReplay('mcp-binding:refresh', context);
@@ -369,64 +340,112 @@ export class NodeControlMcpProviderBindingService {
         'MCP_PROVIDER_BINDING_CONFLICT',
         'Suspended or removed MCP Provider Bindings cannot be refreshed.',
       );
-    const operation = this.operation(
-      'mcp_provider_binding.refresh',
-      prior.binding.bindingId,
-      nextRevision,
-      context,
-    );
+    let discovery: McpCatalogDiscoveryResult;
     try {
-      const approved = await this.#repository.findLatestActive(prior.binding.bindingId);
-      const discovery = await this.#catalog.discover({
+      discovery = await this.#catalog.discover({
         localServerId: prior.binding.localServerId,
         endpointRef: prior.binding.endpointRef,
         credentialRef: prior.credentialRef,
-        bindingRevision: nextRevision,
+        bindingRevision: prior.binding.revision,
         observedAt: context.occurredAt,
         snapshotId: this.#ids.next(),
       });
-      const drift = discovery.catalogChecksum !== approved?.binding.catalogChecksum;
-      const record = createMcpProviderBindingRecord({
-        binding: {
-          ...prior.binding,
-          catalogRevision: discovery.catalogRevision,
-          catalogChecksum: discovery.catalogChecksum,
-          status: drift ? 'degraded' : 'active',
-          availabilityStatus: drift ? 'degraded' : 'available',
-          revision: nextRevision,
-        },
-        credentialRef: prior.credentialRef,
-        availabilityValidUntil: discovery.availabilityValidUntil,
-        catalogObservedAt: discovery.observedAt,
-        operationCount: discovery.operationCount,
-      });
-      return await this.#repository.completeRevision(
-        prior,
-        record,
-        operation,
-        context,
-        drift ? 'MCP_CATALOG_DRIFT_DETECTED' : 'refreshed',
-      );
     } catch (error: unknown) {
-      const record = createMcpProviderBindingRecord({
-        ...prior,
-        binding: {
-          ...prior.binding,
-          status: 'degraded',
-          availabilityStatus: 'unavailable',
-          revision: nextRevision,
-        },
-        availabilityValidUntil: new Date(Date.parse(context.occurredAt) + 1).toISOString(),
-        catalogObservedAt: context.occurredAt,
-      });
-      return this.#repository.completeRevision(
-        prior,
-        record,
-        operation,
-        context,
-        safeCatalogError(error),
-      );
+      return this.recordUnavailable(prior, context, error);
     }
+    return this.persistDiscovery(prior, discovery, context, 'catalog_changed');
+  }
+
+  private async persistDiscovery(
+    prior: McpProviderBindingRecord,
+    discovery: McpCatalogDiscoveryResult,
+    context: ConfigurationMutationContext,
+    changedResultCode: string,
+  ): Promise<ManagementOperation> {
+    let observed = createMcpProviderBindingRecord({
+      binding: {
+        ...prior.binding,
+        catalogRevision: discovery.catalogRevision,
+        catalogChecksum: discovery.catalogChecksum,
+        status: 'active',
+        availabilityStatus: discovery.availabilityStatus,
+      },
+      credentialRef: prior.credentialRef,
+      availabilityValidUntil: discovery.availabilityValidUntil,
+      catalogObservedAt: discovery.observedAt,
+      operationCount: discovery.operationCount,
+    });
+    const changed = !sameMcpProviderBindingContract(prior, observed);
+    if (changed) {
+      try {
+        // Only genuine drift needs a second discovery to obtain the adapter-owned next
+        // Catalog revision. Never parse or rewrite its opaque version in Application.
+        const next = await this.#catalog.discover({
+          localServerId: prior.binding.localServerId,
+          endpointRef: prior.binding.endpointRef,
+          credentialRef: prior.credentialRef,
+          bindingRevision: prior.binding.revision + 1,
+          observedAt: context.occurredAt,
+          snapshotId: this.#ids.next(),
+        });
+        if (
+          next.catalogChecksum !== discovery.catalogChecksum ||
+          next.operationCount !== discovery.operationCount
+        )
+          throw new Error('MCP_CATALOG_CHANGED_DURING_REFRESH');
+        observed = createMcpProviderBindingRecord({
+          ...observed,
+          binding: { ...observed.binding, catalogRevision: next.catalogRevision },
+          catalogObservedAt: next.observedAt,
+          availabilityValidUntil: next.availabilityValidUntil,
+        });
+      } catch (error: unknown) {
+        return this.recordUnavailable(prior, context, error);
+      }
+    }
+    const record = createMcpProviderBindingRecord({
+      ...observed,
+      binding: {
+        ...observed.binding,
+        // A transport discovery counter cannot silently rewrite an unchanged contract identity.
+        catalogRevision: changed ? observed.binding.catalogRevision : prior.binding.catalogRevision,
+        revision: changed ? prior.binding.revision + 1 : prior.binding.revision,
+      },
+    });
+    const operation = this.operation(
+      'mcp_provider_binding.refresh',
+      prior.binding.bindingId,
+      record.binding.revision,
+      context,
+    );
+    return changed
+      ? this.#repository.completeRevision(prior, record, operation, context, changedResultCode)
+      : this.#repository.completeObservation(prior, record, operation, context, 'refreshed');
+  }
+
+  private recordUnavailable(
+    prior: McpProviderBindingRecord,
+    context: ConfigurationMutationContext,
+    error: unknown,
+  ): Promise<ManagementOperation> {
+    const record = createMcpProviderBindingRecord({
+      ...prior,
+      binding: { ...prior.binding, availabilityStatus: 'unavailable' },
+      availabilityValidUntil: context.occurredAt,
+      catalogObservedAt: context.occurredAt,
+    });
+    return this.#repository.completeObservation(
+      prior,
+      record,
+      this.operation(
+        'mcp_provider_binding.refresh',
+        prior.binding.bindingId,
+        prior.binding.revision,
+        context,
+      ),
+      context,
+      safeCatalogError(error),
+    );
   }
 
   private async transition(
@@ -436,7 +455,6 @@ export class NodeControlMcpProviderBindingService {
     reason: string,
   ): Promise<ManagementOperation> {
     const prior = await this.requireRecord(bindingId);
-    const nextRevision = prior.binding.revision + 1;
     const context = this.context(
       `mcp-binding:${status}`,
       idempotencyKey,
@@ -453,14 +471,14 @@ export class NodeControlMcpProviderBindingService {
     const operation = this.operation(
       `mcp_provider_binding.${status}`,
       bindingId,
-      nextRevision,
+      prior.binding.revision,
       context,
     );
     const record = createMcpProviderBindingRecord({
       ...prior,
-      binding: { ...prior.binding, status, revision: nextRevision },
+      binding: { ...prior.binding, status },
     });
-    return this.#repository.completeRevision(prior, record, operation, context, status);
+    return this.#repository.completeStatusTransition(prior, record, operation, context, status);
   }
 
   private async resolveImport(request: McpBindingImportRequest, observedAt: string) {

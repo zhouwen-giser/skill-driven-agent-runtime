@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-08-26 — Persistent Provider registration and stable Skill discovery
+
+- Separate durable Provider Binding registration from expiring health observations (ADR-141,
+  additive Control migration 0012). Unchanged discovery, failure and lifecycle status updates do
+  not create semantic Binding revisions; validated contract changes do.
+- Keep enabled, published Skills and their natural-language admission contract on Agent Card
+  regardless of Provider readiness. Explicit disable/withdraw remains effective; unchanged
+  registration reconciliation does not write new Card revisions.
+- Resolve current semantic Binding/Catalog authority for new Task snapshots without retargeting
+  existing Tasks or editing immutable Capability versions. Execution still checks real readiness.
+- Add periodic read-only health renewal and semantic Catalog synchronization, preserving Runtime
+  anchors on unchanged discovery and reviewed tool execution-semantics overrides on contract drift.
+- Handle the official SDK's omitted empty `skills` default without publishing an empty managed
+  Card when no managed registrations exist. Verification: 358 focused unit/contract tests and
+  21 isolated PostgreSQL integration tests, typecheck, production build and scoped static checks pass.
+
 ## 2026-08-25 — Stable UGV natural-language authority and live no-side-effect proof
 
 - Removed an acceptance-only P3-B02 qualification leak from generic UGV Skill Usage. Public

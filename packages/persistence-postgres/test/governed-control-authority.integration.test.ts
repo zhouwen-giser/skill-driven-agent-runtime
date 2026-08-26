@@ -283,6 +283,7 @@ describe('PostgreSQL governed physical-control authority', () => {
               catalogRevision: catalog.catalogRevision,
               catalogChecksum: catalog.catalogChecksum,
               operationCount: catalog.operationCount,
+              availabilityStatus: 'available' as const,
               availabilityValidUntil: '2026-08-13T01:10:00.000Z',
             },
           }),

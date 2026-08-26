@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createMcpProviderBindingRecord,
@@ -188,7 +188,7 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
       target: { id: 'binding-home-lab', revision: 2 },
       result: { revision: 2, status: 'active', resultCode: 'catalog_approved' },
     });
-    expect(events).toEqual(['discover', 'complete']);
+    expect(events).toEqual(['discover', 'discover', 'complete']);
     expect(repository.completed?.binding).toMatchObject({
       revision: 2,
       status: 'active',
@@ -225,7 +225,7 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
     expect(mismatchRepository.completed).toBeUndefined();
   });
 
-  it('does not treat explicit approval as a substitute for an unchanged refresh', async () => {
+  it('treats unchanged explicit approval as health refresh without inventing a revision', async () => {
     const events: string[] = [];
     const repository = new MemoryBindingRepository(record(), candidate(), events);
     const service = new NodeControlMcpProviderBindingService({
@@ -247,17 +247,168 @@ describe('NodeControlMcpProviderBindingService CAS rebind', () => {
         'Reject approval when no Catalog drift exists.',
         { expectedRevision: 1, expectedCatalogChecksum: OLD_CHECKSUM },
       ),
-    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
-    expect(events).toEqual(['discover']);
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      result: { revision: 1, status: 'active', resultCode: 'refreshed' },
+    });
+    expect(events).toEqual(['discover', 'observe']);
     expect(repository.completed).toBeUndefined();
+    expect(repository.observations).toHaveLength(1);
+  });
+
+  it('renews expired health without changing registration, contract revision or Catalog identity', async () => {
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(record(), candidate(), events);
+    const discover = vi.fn(() =>
+      Promise.resolve({
+        ...discovery(),
+        catalogChecksum: OLD_CHECKSUM,
+        catalogRevision: 'transport-counter-must-not-rewrite-authority',
+        observedAt: '2026-08-10T14:00:00.000Z',
+        availabilityValidUntil: '2026-08-10T15:00:00.000Z',
+      }),
+    );
+    const service = new NodeControlMcpProviderBindingService({
+      repository,
+      catalog: { discover },
+      clock: { now: () => '2026-08-10T14:00:00.000Z' },
+      ids: { next: () => 'refresh-health' },
+    });
+
+    await expect(
+      service.refresh('binding-home-lab', 'health-renewal-key', 'Renew health.'),
+    ).resolves.toMatchObject({ result: { revision: 1, resultCode: 'refreshed' } });
+    expect(discover).toHaveBeenCalledOnce();
+    expect(discover).toHaveBeenCalledWith(expect.objectContaining({ bindingRevision: 1 }));
+    expect(repository.completed).toBeUndefined();
+    expect(await service.getBinding('binding-home-lab')).toMatchObject({
+      revision: 1,
+      status: 'active',
+      catalogRevision: '1.0.0:1',
+      catalogObservedAt: '2026-08-10T14:00:00.000Z',
+      availabilityValidUntil: '2026-08-10T15:00:00.000Z',
+    });
+  });
+
+  it('records failure and recovery as health observations on the same active revision', async () => {
+    const repository = new MemoryBindingRepository(record(), candidate(), []);
+    const discover = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Provider offline'))
+      .mockResolvedValueOnce({ ...discovery(), catalogChecksum: OLD_CHECKSUM });
+    const service = new NodeControlMcpProviderBindingService({
+      repository,
+      catalog: { discover },
+      clock: { now: () => NOW },
+      ids: { next: () => 'failure-recovery' },
+    });
+
+    await expect(
+      service.refresh('binding-home-lab', 'health-failure-key', 'Observe offline.'),
+    ).resolves.toMatchObject({ status: 'failed', errorCode: 'MCP_PROVIDER_DISCOVERY_FAILED' });
+    expect(await service.getBinding('binding-home-lab')).toMatchObject({
+      revision: 1,
+      status: 'active',
+      availabilityStatus: 'unavailable',
+      availabilityValidUntil: NOW,
+      catalogObservedAt: NOW,
+    });
+    await expect(
+      service.refresh('binding-home-lab', 'health-recovery-key', 'Observe recovered.'),
+    ).resolves.toMatchObject({ result: { revision: 1, availabilityStatus: 'available' } });
+    expect(repository.observations).toHaveLength(2);
+    expect(repository.completed).toBeUndefined();
+  });
+
+  it('creates one active revision for semantic Catalog drift and no revision for subsequent health', async () => {
+    const events: string[] = [];
+    const repository = new MemoryBindingRepository(record(), candidate(), events);
+    const service = createService(repository, events);
+
+    await expect(
+      service.refresh('binding-home-lab', 'semantic-change-key', 'Discover changed schema.'),
+    ).resolves.toMatchObject({
+      result: { revision: 2, status: 'active', resultCode: 'catalog_changed' },
+    });
+    expect(events).toEqual(['discover', 'discover', 'complete']);
+    await expect(
+      service.refresh('binding-home-lab', 'semantic-stable-key', 'Observe same schema.'),
+    ).resolves.toMatchObject({ result: { revision: 2, resultCode: 'refreshed' } });
+    expect(events).toEqual(['discover', 'discover', 'complete', 'discover', 'observe']);
+  });
+
+  it('retains the contract when a drifted Catalog changes again before revision creation', async () => {
+    const repository = new MemoryBindingRepository(record(), candidate(), []);
+    const discover = vi
+      .fn()
+      .mockResolvedValueOnce(discovery())
+      .mockResolvedValueOnce({ ...discovery(), catalogChecksum: 'd'.repeat(64) });
+    const service = new NodeControlMcpProviderBindingService({
+      repository,
+      catalog: { discover },
+      clock: { now: () => NOW },
+      ids: { next: () => 'unstable-schema' },
+    });
+
+    await expect(
+      service.refresh('binding-home-lab', 'unstable-schema-key', 'Observe schema drift.'),
+    ).resolves.toMatchObject({ status: 'failed', errorCode: 'MCP_PROVIDER_DISCOVERY_FAILED' });
+    expect(repository.completed).toBeUndefined();
+    expect(repository.current.binding).toMatchObject({
+      revision: 1,
+      status: 'active',
+      availabilityStatus: 'unavailable',
+      catalogChecksum: OLD_CHECKSUM,
+    });
+  });
+
+  it('does not turn Registry observation counters into a semantic rebind', async () => {
+    const current = record();
+    const events: string[] = [];
+    const observedCandidate = {
+      ...candidate(),
+      externalServerId: 'server-v1',
+      serverEndpoint: current.binding.endpointRef,
+    };
+    const repository = new MemoryBindingRepository(current, observedCandidate, events);
+    await expect(
+      createService(repository, events).rebind(
+        'binding-home-lab',
+        {
+          ...rebindRequest(),
+          externalServerId: 'server-v1',
+          endpointRef: current.binding.endpointRef,
+        },
+        'same-provider-lineage-key',
+        'A newer Registry observation is not a new Provider contract.',
+      ),
+    ).rejects.toMatchObject({ code: 'MCP_PROVIDER_BINDING_CONFLICT' });
+    expect(events).toEqual(['candidate']);
+    expect(repository.completed).toBeUndefined();
+  });
+
+  it('suspends and removes registration without changing semantic revision or manufacturing health', async () => {
+    const repository = new MemoryBindingRepository(record(), candidate(), []);
+    const service = createService(repository, []);
+    await expect(
+      service.suspend('binding-home-lab', 'suspend-state-key', 'Suspend registration.'),
+    ).resolves.toMatchObject({ result: { revision: 1, status: 'suspended' } });
+    await expect(
+      service.remove('binding-home-lab', 'remove-state-key', 'Remove registration.'),
+    ).resolves.toMatchObject({ result: { revision: 1, status: 'removed' } });
+    expect(repository.completed).toBeUndefined();
+    expect(repository.observations).toHaveLength(0);
+    expect(repository.transitions).toHaveLength(2);
   });
 });
 
 class MemoryBindingRepository implements NodeControlMcpProviderBindingRepository {
   completed: McpProviderBindingRecord | undefined;
+  readonly observations: McpProviderBindingRecord[] = [];
+  readonly transitions: McpProviderBindingRecord[] = [];
 
   constructor(
-    readonly current: McpProviderBindingRecord,
+    public current: McpProviderBindingRecord,
     readonly currentCandidate: SmppProviderCandidateDirectoryEntry | undefined,
     readonly events: string[],
   ) {}
@@ -313,6 +464,7 @@ class MemoryBindingRepository implements NodeControlMcpProviderBindingRepository
         catalogRevision: binding.catalogRevision,
         catalogChecksum: binding.catalogChecksum,
         endpointRef: binding.endpointRef,
+        availabilityStatus: binding.availabilityStatus,
         availabilityValidUntil: this.current.availabilityValidUntil,
         catalogObservedAt: this.current.catalogObservedAt,
         operationCount: this.current.operationCount,
@@ -357,6 +509,50 @@ class MemoryBindingRepository implements NodeControlMcpProviderBindingRepository
   ): Promise<ManagementOperation> {
     this.events.push('complete');
     this.completed = record;
+    this.current = record;
+    return this.result(record, operation, context, resultCode);
+  }
+
+  completeObservation(
+    _prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation> {
+    this.events.push('observe');
+    this.observations.push(record);
+    this.current = record;
+    return this.result(record, operation, context, resultCode);
+  }
+
+  completeStatusTransition(
+    _prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation> {
+    this.transitions.push(record);
+    this.current = record;
+    return this.result(record, operation, context, resultCode);
+  }
+
+  private result(
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation> {
+    if (resultCode === 'MCP_PROVIDER_DISCOVERY_FAILED')
+      return Promise.resolve(
+        transitionManagementOperation(
+          transitionManagementOperation(operation, 'running', context.occurredAt),
+          'failed',
+          context.occurredAt,
+          { errorCode: resultCode },
+        ),
+      );
     return Promise.resolve(
       transitionManagementOperation(
         transitionManagementOperation(operation, 'running', context.occurredAt),
@@ -366,6 +562,7 @@ class MemoryBindingRepository implements NodeControlMcpProviderBindingRepository
           result: {
             revision: record.binding.revision,
             status: record.binding.status,
+            availabilityStatus: record.binding.availabilityStatus,
             catalogRevision: record.binding.catalogRevision,
             resultCode,
           },

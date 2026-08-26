@@ -508,6 +508,7 @@ import {
 import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
 import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
 import { UgvNaturalLanguageCapabilityAdmissionResolver } from './ugv-natural-language-capability-admission.js';
+import { reconcileRegisteredProviderBindings } from './provider-binding-reconciler.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -5530,6 +5531,36 @@ export async function startServerRuntime(
       });
   }, 250);
   capabilityCatalogRefreshTimer.unref();
+  let providerBindingReconciliationInFlight: Promise<void> | undefined;
+  const reconcileProviderBindings = () => {
+    const authority = options.currentMcpProviderBindingAuthorityReader;
+    if (authority === undefined || providerBindingReconciliationInFlight !== undefined) return;
+    providerBindingReconciliationInFlight = reconcileRegisteredProviderBindings({
+      servers: mcpRepository,
+      authority,
+      synchronize: (current) => frozenMcpRegistry.reconcileProviderBinding(current),
+      onFailure(serverId, error) {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'provider_binding_reconciliation.failed', serverId, errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      },
+    })
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'provider_binding_reconciliation.failed', errorCode: runtimeErrorCode(error) })}\n`,
+        );
+      })
+      .finally(() => {
+        providerBindingReconciliationInFlight = undefined;
+      });
+  };
+  const providerBindingReconciliationTimer =
+    options.currentMcpProviderBindingAuthorityReader === undefined
+      ? undefined
+      : setInterval(reconcileProviderBindings, 30_000);
+  providerBindingReconciliationTimer?.unref();
+  reconcileProviderBindings();
   let experienceDispatchRunning = false;
   const experienceDispatchTimer = setInterval(() => {
     if (experienceDispatchRunning) return;
@@ -6883,12 +6914,14 @@ export async function startServerRuntime(
       ...(ugvAgentProfile
         ? {
             naturalLanguageAdmissionContractProvider: {
-              findCurrent: () =>
-                taskCapabilities.describeAdmissionExposure(
+              async findCurrent() {
+                if ((await profileSkills.listEnabledVersions()).length === 0) return undefined;
+                return taskCapabilities.describeAdmissionExposure(
                   UGV_AGENT_PROFILE_EXPOSURE_ID,
                   UGV_AGENT_PROFILE_EXPOSURE_VERSION,
                   clock.now(),
-                ),
+                );
+              },
             },
           }
         : {}),
@@ -6999,6 +7032,8 @@ export async function startServerRuntime(
         clearInterval(waitSweepTimer);
         clearInterval(attemptDispatchTimer);
         clearInterval(capabilityCatalogRefreshTimer);
+        if (providerBindingReconciliationTimer !== undefined)
+          clearInterval(providerBindingReconciliationTimer);
         clearInterval(experienceDispatchTimer);
         clearInterval(evidenceExportTimer);
         clearInterval(evidenceOperationsMaintenanceTimer);
@@ -7047,6 +7082,7 @@ export async function startServerRuntime(
         await evidenceExportInFlight;
         await evidenceOperationsMaintenanceInFlight;
         await runtimeCoreEvidenceProjection;
+        await providerBindingReconciliationInFlight;
         await pool.end();
         if (backgroundExecutionErrors.length > 0) {
           throw new AggregateError(
@@ -7060,6 +7096,8 @@ export async function startServerRuntime(
     clearInterval(waitSweepTimer);
     clearInterval(attemptDispatchTimer);
     clearInterval(capabilityCatalogRefreshTimer);
+    if (providerBindingReconciliationTimer !== undefined)
+      clearInterval(providerBindingReconciliationTimer);
     clearInterval(experienceDispatchTimer);
     clearInterval(evidenceExportTimer);
     clearInterval(evidenceOperationsMaintenanceTimer);
@@ -7102,6 +7140,7 @@ export async function startServerRuntime(
     await evidenceExportInFlight;
     await evidenceOperationsMaintenanceInFlight;
     await runtimeCoreEvidenceProjection;
+    await providerBindingReconciliationInFlight;
     await pool.end();
     throw error;
   }
@@ -7392,6 +7431,7 @@ async function requireDeterministicProviderBindingAuthority(
       authority.binding.bindingId !== input.mcpProviderBindingId ||
       authority.binding.localServerId !== input.serverId ||
       authority.binding.providerId !== input.providerId ||
+      authority.binding.availabilityStatus !== 'available' ||
       Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(authority.observedAt)
     )
       throw new Error('MCP_PROVIDER_BINDING_NOT_CURRENT');

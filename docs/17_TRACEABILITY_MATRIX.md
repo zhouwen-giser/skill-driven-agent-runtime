@@ -1,5 +1,24 @@
 # 需求追踪矩阵
 
+## ADR-141 Provider 生命周期修复（2026-08-26，本地已验证，部署验证待完成）
+
+- FR-A2A-001/006、FR-SKL-006/007、v1.4 P08、SACS-V03：`a2a-exposure-service.ts`、
+  `runtime-implementation-catalog.ts`、`task-capability.ts` 和 Server Card callback 只读取登记态；
+  `a2a-exposure-service.unit.test.ts`、`governed-skill-capability-authority.unit.test.ts` 与
+  `node-capability.integration.test.ts` 覆盖健康不可用时合同仍公开、显式停用移除和 Card 无 revision churn。
+- v1.4 P05：`mcp-provider-binding-service.ts`、`mcp-provider-binding-repository.ts`、Control migration
+  `0012_mcp_binding_registration_health` 分离 semantic revision、治理状态和 append-only 健康观测；
+  同名 unit、`mcp-provider-binding.integration.test.ts`、`foundation.integration.test.ts` 覆盖健康同 revision、
+  实际合同变更、新表回填、旧历史保留和拒绝丢失状态的 rollback。
+- FR-EXE-001/002、FR-MCPT-009/010、v1.4 P07：`mcp-runtime-binding-authority.ts`、
+  `task-capability.ts`、`capability-readiness-repository.ts`、`frozen-mcp-registry.ts` 分开登记校验与执行健康门，
+  新 Task 冻结最新 semantic authority；同名/相关 unit 覆盖 unavailable/expired 拒绝执行、旧 Task 不被重定向、
+  unchanged discovery 保留 Runtime anchors。API/Server 的 provider reconciler unit 覆盖后台只读观测与同步。
+- 命令、结果与最终只读 live 验证记录见 `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md`。
+  26 个相关 unit/contract 文件 358/358、3 个隔离 PostgreSQL 集成文件 21/21、typecheck/build、
+  857-source architecture、changed-scope lint/format/diff 均通过。
+  本修复不更新历史外部导航 Goal 的完成状态。
+
 ## SDAR v1.2.2 upgrade mapping (2026-07-22)
 
 The Master Goal, G00–G10 and every acceptance item AC-001–AC-078 are verified with implementation,

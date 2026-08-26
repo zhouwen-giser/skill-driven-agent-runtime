@@ -582,6 +582,7 @@ function createProviderAuthority(
       catalogRevision: catalog.catalogRevision,
       catalogChecksum: catalog.catalogChecksum,
       endpointRef: endpoint.toString(),
+      availabilityStatus: 'available' as const,
       availabilityValidUntil: new Date(Date.now() + 30 * 60 * 1_000).toISOString(),
       catalogObservedAt: observedAt,
       operationCount: catalog.operationCount,

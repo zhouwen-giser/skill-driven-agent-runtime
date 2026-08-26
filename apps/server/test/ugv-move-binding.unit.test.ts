@@ -709,6 +709,7 @@ function providerBinding(
       catalogRevision: catalog.catalogRevision,
       catalogChecksum: catalog.catalogChecksum,
       endpointRef: server.endpoint,
+      availabilityStatus: 'available' as const,
       availabilityValidUntil: VALID_UNTIL,
       catalogObservedAt: NOW,
       operationCount: catalog.operationCount,

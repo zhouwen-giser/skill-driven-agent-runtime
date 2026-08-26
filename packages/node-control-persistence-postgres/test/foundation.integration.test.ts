@@ -13,6 +13,7 @@ import {
 } from '../../node-control-domain/src/index.js';
 import {
   NodeControlFoundationService,
+  NodeControlMcpProviderBindingService,
   NodeControlTaskControlService,
 } from '../../node-control-application/src/index.js';
 import {
@@ -20,6 +21,7 @@ import {
   PostgresNodeControlEventRepository,
   PostgresNodeControlEvidenceSource,
   PostgresNodeControlFoundationRepository,
+  PostgresNodeControlMcpProviderBindingRepository,
   PostgresNodeHealthObservationProducer,
   rollbackLatestControlMigration,
 } from '../src/index.js';
@@ -43,6 +45,7 @@ beforeEach(async () => {
               sdar_control.node_profile_command_receipt,
               sdar_control.node_profile_revision,
               sdar_control.mcp_provider_catalog_observation,
+              sdar_control.mcp_provider_binding_state,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
               sdar_control.smpp_registry_snapshot_lineage,
@@ -83,6 +86,7 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
       { version: '0009_canonical_evidence_authority' },
       { version: '0010_smpp_registry_lineage_revalidation' },
       { version: '0011_explicit_unauthenticated_credentials' },
+      { version: '0012_mcp_binding_registration_health' },
     ]);
     const runtimeLedger = await pool.query<{ exists: boolean }>(
       `SELECT to_regclass('public.schema_migration') IS NOT NULL AS exists`,
@@ -123,6 +127,9 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
   });
 
   it('migrates both credential authorities to the one explicit unauthenticated sentinel', async () => {
+    await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
+      '0012_mcp_binding_registration_health',
+    );
     const constraints = await credentialConstraintDefinitions();
     expect(constraints).toEqual([
       expect.objectContaining({
@@ -213,6 +220,9 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
 
   it('rolls back and reapplies 0010 without fabricating legacy lineage', async () => {
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
+      '0012_mcp_binding_registration_health',
+    );
+    await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
       '0011_explicit_unauthenticated_credentials',
     );
     await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
@@ -286,6 +296,116 @@ describe('P01 Control PostgreSQL foundation', { concurrent: false }, () => {
     );
     expect(attemptColumns.rows).toHaveLength(4);
     await expect(repository.probe()).resolves.toBe(true);
+  });
+
+  it('projects current health and governance without mutating a registered Provider contract', async () => {
+    const bindings = new PostgresNodeControlMcpProviderBindingRepository(pool);
+    let available = true;
+    const observedAt = '2026-08-26T01:00:00.000Z';
+    const service = new NodeControlMcpProviderBindingService({
+      repository: bindings,
+      catalog: {
+        discover: () => {
+          if (!available) return Promise.reject(new Error('Provider offline'));
+          return Promise.resolve({
+            catalogRevision: '1.0.0:1',
+            catalogChecksum: 'a'.repeat(64),
+            availabilityStatus: 'available' as const,
+            observedAt,
+            availabilityValidUntil: '2026-08-26T01:05:00.000Z',
+            operationCount: 1,
+          });
+        },
+      },
+      clock: { now: () => observedAt },
+      ids: { next: () => randomUUID() },
+    });
+    await expect(
+      service.importBinding(
+        {
+          bindingId: 'binding-health-projection',
+          localServerId: 'server-health-projection',
+          originType: 'direct',
+          endpointRef: 'https://provider.example.test/mcp',
+          credentialRef: 'unauthenticated://none',
+        },
+        'projection-import-key',
+        'Register stable Provider contract.',
+      ),
+    ).resolves.toMatchObject({
+      status: 'succeeded',
+      result: { revision: 1 },
+    });
+
+    // An unchanged initial observation permits rollback; upgrade backfills the registered state.
+    await expect(rollbackLatestControlMigration(pool)).resolves.toBe(
+      '0012_mcp_binding_registration_health',
+    );
+    await applyControlMigrations(pool);
+    await expect(
+      bindings.findCurrentAuthority({
+        bindingId: 'binding-health-projection',
+        localServerId: 'server-health-projection',
+        observedAt: '2026-08-27T01:00:00.000Z',
+      }),
+    ).resolves.toMatchObject({ binding: { revision: 1 } });
+
+    available = false;
+    await expect(
+      service.refresh('binding-health-projection', 'projection-offline-key', 'Observe offline.'),
+    ).resolves.toMatchObject({ status: 'failed', errorCode: 'MCP_PROVIDER_DISCOVERY_FAILED' });
+    await expect(bindings.find('binding-health-projection')).resolves.toMatchObject({
+      binding: { revision: 1, status: 'active', availabilityStatus: 'unavailable' },
+      availabilityValidUntil: observedAt,
+    });
+    await expect(
+      bindings.findCurrentAuthority({
+        localServerId: 'server-health-projection',
+        observedAt,
+      }),
+    ).resolves.toMatchObject({ binding: { revision: 1, availabilityStatus: 'unavailable' } });
+    await expect(
+      bindings.findSelectable('server-health-projection', observedAt),
+    ).resolves.toBeUndefined();
+
+    available = true;
+    await expect(
+      service.refresh('binding-health-projection', 'projection-recovery-key', 'Observe recovery.'),
+    ).resolves.toMatchObject({ status: 'succeeded', result: { revision: 1 } });
+    await expect(bindings.find('binding-health-projection')).resolves.toMatchObject({
+      binding: { revision: 1, status: 'active', availabilityStatus: 'available' },
+    });
+    // Same observedAt still resolves to the latest committed observation, never random UUID order.
+    const rows = await pool.query<{ revisions: string; observations: string }>(
+      `SELECT (SELECT count(*)::text FROM sdar_control.mcp_provider_binding
+                WHERE binding_id='binding-health-projection') AS revisions,
+              (SELECT count(*)::text FROM sdar_control.mcp_provider_catalog_observation
+                WHERE binding_id='binding-health-projection') AS observations`,
+    );
+    expect(rows.rows).toEqual([{ revisions: '1', observations: '3' }]);
+    await expect(
+      service.suspend(
+        'binding-health-projection',
+        'projection-suspend-key',
+        'Suspend registration.',
+      ),
+    ).resolves.toMatchObject({ result: { revision: 1, status: 'suspended' } });
+    await expect(
+      bindings.findCurrentAuthority({
+        localServerId: 'server-health-projection',
+        observedAt,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(rollbackLatestControlMigration(pool)).rejects.toMatchObject({
+      code: '55000',
+      message: expect.stringContaining('CONTROL_MCP_BINDING_HEALTH_STATE_REQUIRES_RECONCILIATION'),
+    });
+    await expect(
+      pool.query("UPDATE sdar_control.mcp_provider_binding SET status='removed'"),
+    ).rejects.toMatchObject({ code: '55000' });
+    await expect(
+      pool.query("UPDATE sdar_control.mcp_provider_catalog_observation SET result_code='changed'"),
+    ).rejects.toMatchObject({ code: '55000' });
   });
 
   it('persists ordered hint events and resumes strictly after Last-Event-ID', async () => {

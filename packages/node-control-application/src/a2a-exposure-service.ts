@@ -57,23 +57,7 @@ export interface A2aCommandContext {
 
 export interface A2aCapabilitySource {
   get(capabilityId: string, capabilityVersion: number): Promise<NodeCapabilityDefinitionVersion>;
-}
-
-export interface A2aReadinessSource {
-  get(
-    capabilityId: string,
-    capabilityVersion: number,
-  ): Promise<
-    | Readonly<{
-        snapshot: Readonly<{
-          status: 'available' | 'degraded' | 'unavailable' | 'suspended';
-          snapshotVersion: number;
-          validUntil: string;
-        }>;
-        snapshotHash: string;
-      }>
-    | undefined
-  >;
+  hasPublishedImplementation(capabilityId: string, capabilityVersion: number): Promise<boolean>;
 }
 
 export interface RuntimeAgentCardDeployment {
@@ -90,10 +74,17 @@ export interface A2aAgentCardValidator {
   validate(card: JsonObject): void;
 }
 
+interface RegisteredAgentCardProjection {
+  readonly card: JsonObject;
+  readonly exposures: readonly A2aExposureVersion[];
+  readonly exposureRefs: readonly string[];
+  readonly contentHash: string;
+  readonly capabilityCatalogHash: string;
+}
+
 export class NodeControlA2aExposureService {
   readonly #repository: NodeControlA2aExposureRepository;
   readonly #capabilities: A2aCapabilitySource;
-  readonly #readiness: A2aReadinessSource;
   readonly #runtime: RuntimeAgentCardDeployment;
   readonly #validator: A2aAgentCardValidator;
   readonly #clock: Readonly<{ now(): string }>;
@@ -105,7 +96,6 @@ export class NodeControlA2aExposureService {
     dependencies: Readonly<{
       repository: NodeControlA2aExposureRepository;
       capabilities: A2aCapabilitySource;
-      readiness: A2aReadinessSource;
       runtime: RuntimeAgentCardDeployment;
       validator: A2aAgentCardValidator;
       clock: Readonly<{ now(): string }>;
@@ -115,7 +105,6 @@ export class NodeControlA2aExposureService {
   ) {
     this.#repository = dependencies.repository;
     this.#capabilities = dependencies.capabilities;
-    this.#readiness = dependencies.readiness;
     this.#runtime = dependencies.runtime;
     this.#validator = dependencies.validator;
     this.#clock = dependencies.clock;
@@ -199,64 +188,102 @@ export class NodeControlA2aExposureService {
     return result;
   }
 
-  async #rebuild(idempotencyKey: string, reason: string): Promise<ManagementOperation> {
-    const command = this.command('agent-card:rebuild', idempotencyKey, { reason });
-    const replay = await this.#repository.findCommandReplay(command.scope, command);
-    if (replay !== undefined) return replay;
+  /** Polls registration lifecycle, not health; unchanged declarations produce no writes. */
+  reconcileRegistration(): Promise<Readonly<{ changed: boolean }>> {
+    const result = this.#rebuildTail.then(async () => {
+      const registered = await this.registeredProjection();
+      const current = await this.#repository.findActiveAgentCard();
+      // An unconfigured managed catalog must not replace the Runtime's registered-Skill Card.
+      if (current === undefined && registered.exposures.length === 0)
+        return Object.freeze({ changed: false });
+      if (
+        current?.status === 'active' &&
+        current.contentHash === registered.contentHash &&
+        current.capabilityCatalogHash === registered.capabilityCatalogHash
+      )
+        return Object.freeze({ changed: false });
+      const latest = (await this.#repository.listAgentCards(1))[0];
+      const identity = hash(
+        canonical({
+          activeRevision: current?.revision ?? 0,
+          latestRevision: latest?.revision ?? 0,
+          contentHash: registered.contentHash,
+          capabilityCatalogHash: registered.capabilityCatalogHash,
+        }),
+      );
+      const operation = await this.#rebuild(
+        `registered-agent-card-${identity}`,
+        'Reconcile public Agent Card with registered Capability and Skill lifecycle.',
+        registered,
+      );
+      if (operation.status !== 'succeeded') throw new Error('AGENT_CARD_REGISTRATION_APPLY_FAILED');
+      return Object.freeze({ changed: true });
+    });
+    this.#rebuildTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  private async registeredProjection(): Promise<RegisteredAgentCardProjection> {
     const exposures = await this.#repository.listPublished();
-    const generatedAt = command.occurredAt;
-    const eligible: Readonly<{
-      exposure: A2aExposureVersion;
-      readinessStatus: string;
-      readinessHash: string;
-    }>[] = [];
+    const eligible: A2aExposureVersion[] = [];
     for (const exposure of exposures) {
       const capability = await this.#capabilities.get(
         exposure.capabilityId,
         exposure.capabilityVersion,
       );
       if (capability.status !== 'published') continue;
-      const readiness = await this.#readiness.get(
-        exposure.capabilityId,
-        exposure.capabilityVersion,
-      );
       if (
-        readiness === undefined ||
-        Date.parse(readiness.snapshot.validUntil) <= Date.parse(generatedAt) ||
-        !publishableReadiness(
-          readiness.snapshot.status,
-          exposure.readinessPublicationPolicy ?? 'publish_when_available',
-        )
+        !(await this.#capabilities.hasPublishedImplementation(
+          exposure.capabilityId,
+          exposure.capabilityVersion,
+        ))
       )
         continue;
       if (exposure.visibility !== 'public') continue;
-      eligible.push({
-        exposure,
-        readinessStatus: readiness.snapshot.status,
-        readinessHash: readiness.snapshotHash,
-      });
+      eligible.push(exposure);
     }
     const sorted = [...eligible].sort((left, right) =>
-      left.exposure.agentSkillId.localeCompare(right.exposure.agentSkillId),
+      left.agentSkillId.localeCompare(right.agentSkillId),
     );
-    if (new Set(sorted.map((value) => value.exposure.agentSkillId)).size !== sorted.length)
+    if (new Set(sorted.map((value) => value.agentSkillId)).size !== sorted.length)
       throw new Error('A2A_AGENT_SKILL_ID_CONFLICT');
     const exposureRefs = Object.freeze(
-      sorted.map(({ exposure }) => `${exposure.exposureId}:${String(exposure.version)}`),
+      sorted.map((exposure) => `${exposure.exposureId}:${String(exposure.version)}`),
     );
     const capabilityCatalogHash = hash(
       canonical(
-        sorted.map(({ exposure, readinessHash }) => ({
+        sorted.map((exposure) => ({
           capabilityId: exposure.capabilityId,
           capabilityVersion: exposure.capabilityVersion,
           exposureHash: exposure.exposureHash,
-          readinessHash,
         })),
       ),
     );
     const card = buildCard(this.#a2aUrl, sorted);
-    this.#validator.validate(card);
     const contentHash = hash(canonical(card));
+    return Object.freeze({
+      card,
+      exposures: Object.freeze(sorted),
+      exposureRefs,
+      contentHash,
+      capabilityCatalogHash,
+    });
+  }
+
+  async #rebuild(
+    idempotencyKey: string,
+    reason: string,
+    registered?: RegisteredAgentCardProjection,
+  ): Promise<ManagementOperation> {
+    const command = this.command('agent-card:rebuild', idempotencyKey, { reason });
+    const replay = await this.#repository.findCommandReplay(command.scope, command);
+    if (replay !== undefined) return replay;
+    const projection = registered ?? (await this.registeredProjection());
+    const { card, exposureRefs, contentHash, capabilityCatalogHash } = projection;
+    const generatedAt = command.occurredAt;
     const current = await this.#repository.findActiveAgentCard();
     if (
       current?.status === 'active' &&
@@ -284,6 +311,7 @@ export class NodeControlA2aExposureService {
         ),
       );
     }
+    this.#validator.validate(card);
     const revisionNumber = await this.#repository.nextAgentCardRevision();
     const candidate: RuntimeAgentCardCandidate = Object.freeze({
       revision: Object.freeze({
@@ -296,7 +324,7 @@ export class NodeControlA2aExposureService {
         generatedAt,
       }),
       card,
-      exposureSnapshots: Object.freeze(sorted.map(({ exposure }) => exposure)),
+      exposureSnapshots: projection.exposures,
     });
     await this.#repository.saveCandidate(candidate);
     const operation = operationFor(
@@ -374,14 +402,7 @@ export class NodeControlA2aExposureService {
   }
 }
 
-function buildCard(
-  url: string,
-  entries: readonly Readonly<{
-    exposure: A2aExposureVersion;
-    readinessStatus: string;
-    readinessHash: string;
-  }>[],
-): JsonObject {
+function buildCard(url: string, entries: readonly A2aExposureVersion[]): JsonObject {
   return {
     name: 'Skill-Driven Agent Runtime',
     description: 'Capability-governed A2A endpoint.',
@@ -394,15 +415,11 @@ function buildCard(
     securityRequirements: [],
     defaultInputModes: ['text/plain'],
     defaultOutputModes: ['application/json'],
-    skills: entries.map(({ exposure, readinessStatus }) => ({
+    skills: entries.map((exposure) => ({
       id: exposure.agentSkillId,
       name: exposure.name,
       description: exposure.description,
-      tags: [
-        ...(exposure.tags ?? []),
-        `capability:${exposure.capabilityId}`,
-        `readiness:${readinessStatus}`,
-      ],
+      tags: [...(exposure.tags ?? []), `capability:${exposure.capabilityId}`],
       examples: [...(exposure.examples ?? [])],
       inputModes: [...(exposure.inputModes ?? ['application/json'])],
       outputModes: [...(exposure.outputModes ?? ['application/json'])],
@@ -410,14 +427,6 @@ function buildCard(
     })),
     signatures: [],
   };
-}
-
-function publishableReadiness(status: string, policy: string): boolean {
-  return policy === 'always_publish_with_status'
-    ? true
-    : policy === 'publish_degraded'
-      ? status === 'available' || status === 'degraded'
-      : status === 'available';
 }
 
 function operationFor(

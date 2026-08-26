@@ -26,6 +26,11 @@ function fixture(
     invocations?: readonly McpInvocation[];
     physicalEvidence?: TaskCapabilityPhysicalEvidenceSnapshot;
     providerBindingCurrent?: boolean;
+    providerBindingRevision?: number;
+    providerCatalogRevision?: string;
+    providerCatalogChecksum?: string;
+    providerAvailabilityStatus?: 'unknown' | 'available' | 'degraded' | 'unavailable';
+    providerAvailabilityValidUntil?: string;
     runtimeProviderBindingCurrent?: boolean;
     runtimeProviderBindingsConfigured?: boolean;
   }> = {},
@@ -54,6 +59,9 @@ function fixture(
   const resolveExposure = vi
     .fn<TaskCapabilityAcceptanceStore['resolveExposure']>()
     .mockResolvedValue(resolution);
+  const describeExposure = vi
+    .fn<TaskCapabilityAcceptanceStore['describeExposure']>()
+    .mockResolvedValue(resolution);
   const updateLatestAttempt = vi
     .fn<TaskCapabilityAcceptanceStore['updateLatestAttempt']>()
     .mockResolvedValue(undefined);
@@ -75,6 +83,7 @@ function fixture(
       return Promise.resolve();
     });
   const store: TaskCapabilityAcceptanceStore = {
+    describeExposure,
     resolveExposure,
     accept: vi.fn<TaskCapabilityAcceptanceStore['accept']>((input) => {
       binding = input.binding;
@@ -96,10 +105,22 @@ function fixture(
   const assertRuntimeProviderBindingCurrent = vi.fn<
     RuntimeMcpProviderBindingAdmissionVerifier['assertCurrent']
   >(() =>
+    options.runtimeProviderBindingCurrent === false ||
+    (options.providerAvailabilityStatus !== undefined &&
+      options.providerAvailabilityStatus !== 'available') ||
+    (options.providerAvailabilityValidUntil !== undefined &&
+      Date.parse(options.providerAvailabilityValidUntil) <= Date.parse(timestamp))
+      ? Promise.reject(new Error('MCP_PROVIDER_BINDING_NOT_CURRENT'))
+      : Promise.resolve(),
+  );
+  const assertRuntimeProviderBindingRegistered = vi.fn<
+    RuntimeMcpProviderBindingAdmissionVerifier['assertRegistered']
+  >(() =>
     options.runtimeProviderBindingCurrent === false
       ? Promise.reject(new Error('MCP_PROVIDER_BINDING_NOT_CURRENT'))
       : Promise.resolve(),
   );
+  let providerBindingRevision = options.providerBindingRevision ?? 1;
   const physicalEvidence = options.physicalEvidence;
   const service = new RuntimeTaskCapabilityService({
     store,
@@ -129,15 +150,17 @@ function fixture(
                 observedAt: timestamp,
                 binding: {
                   bindingId: bindingId ?? 'binding-current',
-                  revision: 1,
+                  revision: providerBindingRevision,
                   localServerId,
                   originType: 'direct' as const,
                   providerId: 'provider-current',
                   endpointRef: 'https://provider.example.test/mcp',
-                  catalogRevision: '1.0.0:1',
-                  catalogChecksum: 'a'.repeat(64),
+                  catalogRevision: options.providerCatalogRevision ?? '1.0.0:1',
+                  catalogChecksum: options.providerCatalogChecksum ?? 'a'.repeat(64),
                   operationCount: 1,
-                  availabilityValidUntil: '2026-08-02T01:00:00.000Z',
+                  availabilityStatus: options.providerAvailabilityStatus ?? ('available' as const),
+                  availabilityValidUntil:
+                    options.providerAvailabilityValidUntil ?? '2026-08-02T01:00:00.000Z',
                 },
               });
             },
@@ -147,6 +170,7 @@ function fixture(
             : {
                 runtimeProviderBindings: {
                   assertCurrent: assertRuntimeProviderBindingCurrent,
+                  assertRegistered: assertRuntimeProviderBindingRegistered,
                 },
               }),
         }),
@@ -177,6 +201,7 @@ function fixture(
   return {
     service,
     resolution,
+    describeExposure,
     resolveExposure,
     updateLatestAttempt,
     reconcileCanceledAttempts,
@@ -184,6 +209,10 @@ function fixture(
     listAttempts,
     bindInitialPlan,
     assertRuntimeProviderBindingCurrent,
+    assertRuntimeProviderBindingRegistered,
+    advanceProviderBindingRevision: () => {
+      providerBindingRevision += 1;
+    },
     task,
     inputAttempt,
     event,
@@ -191,6 +220,62 @@ function fixture(
 }
 
 describe('RuntimeTaskCapabilityService', () => {
+  it('describes registered Exposure independently of readiness or provider calls', async () => {
+    const accepted = fixture();
+    accepted.resolveExposure.mockResolvedValue(undefined);
+
+    await expect(
+      accepted.service.describeAdmissionExposure('device.inspect', 1, timestamp),
+    ).resolves.toMatchObject({
+      exposureId: 'device.inspect',
+      exposureVersion: 1,
+      capabilityId: 'device.inspect.capability',
+      capabilityVersion: 3,
+      requestSchema: accepted.resolution.requestSchema,
+    });
+    expect(accepted.describeExposure).toHaveBeenCalledWith('device.inspect', 1);
+    expect(accepted.resolveExposure).not.toHaveBeenCalled();
+    expect(accepted.assertRuntimeProviderBindingCurrent).not.toHaveBeenCalled();
+    expect(accepted.assertRuntimeProviderBindingRegistered).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['unavailable' as const, '2026-08-02T01:00:00.000Z'],
+    ['available' as const, '2026-08-01T23:59:59.000Z'],
+  ])(
+    'admits registered Task without treating %s Provider health as contract expiry',
+    async (status, validUntil) => {
+      const base = fixture().resolution;
+      const accepted = fixture({
+        resolution: {
+          ...base,
+          providerBindingRequirements: [{ bindingId: 'binding-current', localServerId: 'server' }],
+        },
+        providerAvailabilityStatus: status,
+        providerAvailabilityValidUntil: validUntil,
+      });
+      await expect(
+        accepted.service.prepareAcceptance({
+          task: accepted.task,
+          metadata: {
+            'io.sdar/requestedCapability': {
+              exposureId: base.exposureId,
+              versionConstraint: '1',
+              requestId: `health-${status}`,
+            },
+          },
+          capabilityInput: { deviceId: 'alpha' },
+          inputAttempt: accepted.inputAttempt,
+          bindingId: 'binding-health',
+          capabilityAttemptId: 'attempt-health',
+          event: accepted.event,
+        }),
+      ).resolves.toMatchObject({ binding: { requestedCapabilityId: base.requestedCapabilityId } });
+      expect(accepted.assertRuntimeProviderBindingRegistered).toHaveBeenCalledOnce();
+      expect(accepted.assertRuntimeProviderBindingCurrent).not.toHaveBeenCalled();
+    },
+  );
+
   it('binds the initial confirmed Workflow plan to the prepared Capability attempt', async () => {
     const preparedFixture = await acceptedDefaultCapability();
 
@@ -205,114 +290,143 @@ describe('RuntimeTaskCapabilityService', () => {
     ]);
   });
 
-  it('projects exact frozen Task Capability authority into Skill usage context', async () => {
-    const resolution: RuntimeCapabilityResolution = {
-      exposureId: 'resource.read',
-      exposureVersion: 1,
-      requestedCapabilityId: 'resource.read.capability',
-      capabilityVersion: 2,
-      requestSchema: {
-        type: 'object',
-        required: ['resourceId'],
-        properties: { resourceId: { const: 'resource:42' } },
-        additionalProperties: false,
-      },
-      successCriteria: [{ type: 'output_schema_valid', required: true }],
-      requiredEvidence: [
-        {
-          type: 'required_evidence',
-          evidenceType: 'resource.state.observation',
-          required: true,
-          hardGate: true,
+  it.each([1, 2])(
+    'freezes current Provider revision %s for new Tasks without rewriting published Capability or prior Tasks',
+    async (revision) => {
+      const resolution: RuntimeCapabilityResolution = {
+        exposureId: 'resource.read',
+        exposureVersion: 1,
+        requestedCapabilityId: 'resource.read.capability',
+        capabilityVersion: 2,
+        requestSchema: {
+          type: 'object',
+          required: ['resourceId'],
+          properties: { resourceId: { const: 'resource:42' } },
+          additionalProperties: false,
         },
-      ],
-      constraints: [
-        {
-          type: 'resource_policy',
-          selection: 'exact_value',
-          allowedResourceIds: ['resource:42'],
-        },
-        {
-          type: 'provider_binding_policy',
-          mcpProviderBindingId: 'binding-current',
-          localServerId: 'server.example',
-          bindingRevision: 1,
-          catalogRevision: '1.0.0:1',
-          catalogChecksum: 'a'.repeat(64),
-          requiredStatus: 'active',
-          requiredAvailabilityStatus: 'available',
-          requiredFreshness: 'unexpired',
-          fallback: 'deny',
-        },
-        {
-          type: 'exact_skill_version',
-          skillId: 'resource.read',
-          skillVersion: 2,
-        },
-        { type: 'confirmation_policy', required: false },
-        { type: 'side_effect_policy', sideEffecting: false },
-      ],
-      implementationRefs: ['skill:resource.read:2'],
-      providerBindingRefs: ['binding-current'],
-      providerBindingRequirements: [
-        { bindingId: 'binding-current', localServerId: 'server.example' },
-      ],
-    };
-    const accepted = fixture({ resolution });
-    const prepared = await accepted.service.prepareAcceptance({
-      task: accepted.task,
-      metadata: {
-        'io.sdar/requestedCapability': {
-          exposureId: resolution.exposureId,
-          versionConstraint: '1',
-          requestId: 'request-skill-usage-authority',
-        },
-      },
-      capabilityInput: { resourceId: 'resource:42' },
-      inputAttempt: accepted.inputAttempt,
-      bindingId: 'task-capability-binding',
-      capabilityAttemptId: 'capability-attempt-skill-usage',
-      event: accepted.event,
-    });
-    if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
-    await accepted.service.accept(prepared);
-
-    await expect(
-      accepted.service.resolveSkillUsageAuthority(accepted.task.taskId),
-    ).resolves.toEqual({
-      skillId: 'resource.read',
-      skillVersion: 2,
-      context: {
-        observations: [
+        successCriteria: [{ type: 'output_schema_valid', required: true }],
+        requiredEvidence: [
           {
-            requirementId: 'public-resource-id',
-            source: 'authoritative_context',
-            status: 'available',
-            evidenceRef: `task-capability-binding:task-capability-binding:hash:${prepared.binding.bindingHash}`,
-          },
-          {
-            requirementId: 'provider-binding-freshness',
-            source: 'authoritative_context',
-            status: 'available',
-            evidenceRef:
-              'node-control-provider-binding:binding-current:revision:1:observed-at:2026-08-02T00:00:00.000Z',
+            type: 'required_evidence',
+            evidenceType: 'resource.state.observation',
+            required: true,
+            hardGate: true,
           },
         ],
-        risk: 'low',
-        humanConfirmation: 'not_requested',
-        taskAvailabilityArguments: {
-          unresolved: false,
-          value: { resourceId: 'resource:42' },
+        constraints: [
+          {
+            type: 'resource_policy',
+            selection: 'exact_value',
+            allowedResourceIds: ['resource:42'],
+          },
+          {
+            type: 'provider_binding_policy',
+            mcpProviderBindingId: 'binding-current',
+            localServerId: 'server.example',
+            bindingRevision: 1,
+            catalogRevision: '1.0.0:1',
+            catalogChecksum: 'a'.repeat(64),
+            requiredStatus: 'active',
+            requiredAvailabilityStatus: 'available',
+            requiredFreshness: 'unexpired',
+            fallback: 'deny',
+          },
+          {
+            type: 'exact_skill_version',
+            skillId: 'resource.read',
+            skillVersion: 2,
+          },
+          { type: 'confirmation_policy', required: false },
+          { type: 'side_effect_policy', sideEffecting: false },
+        ],
+        implementationRefs: ['skill:resource.read:2'],
+        providerBindingRefs: ['binding-current'],
+        providerBindingRequirements: [
+          { bindingId: 'binding-current', localServerId: 'server.example' },
+        ],
+      };
+      const currentCatalogRevision = `1.0.0:${String(revision)}`;
+      const currentCatalogChecksum = (revision === 1 ? 'a' : 'b').repeat(64);
+      const accepted = fixture({
+        resolution,
+        providerBindingRevision: revision,
+        providerCatalogRevision: currentCatalogRevision,
+        providerCatalogChecksum: currentCatalogChecksum,
+      });
+      const prepared = await accepted.service.prepareAcceptance({
+        task: accepted.task,
+        metadata: {
+          'io.sdar/requestedCapability': {
+            exposureId: resolution.exposureId,
+            versionConstraint: '1',
+            requestId: 'request-skill-usage-authority',
+          },
         },
-        systemPolicy: {
-          allowedModes: ['guidance', 'template', 'procedure'],
-          requireProcedureForHighRisk: true,
-          allowGuidanceWithIncompleteContext: false,
+        capabilityInput: { resourceId: 'resource:42' },
+        inputAttempt: accepted.inputAttempt,
+        bindingId: 'task-capability-binding',
+        capabilityAttemptId: 'capability-attempt-skill-usage',
+        event: accepted.event,
+      });
+      if (prepared === undefined) throw new Error('Expected an explicit Capability binding.');
+      await accepted.service.accept(prepared);
+
+      await expect(
+        accepted.service.resolveSkillUsageAuthority(accepted.task.taskId),
+      ).resolves.toEqual({
+        skillId: 'resource.read',
+        skillVersion: 2,
+        context: {
+          observations: [
+            {
+              requirementId: 'public-resource-id',
+              source: 'authoritative_context',
+              status: 'available',
+              evidenceRef: `task-capability-binding:task-capability-binding:hash:${prepared.binding.bindingHash}`,
+            },
+            {
+              requirementId: 'provider-binding-freshness',
+              source: 'authoritative_context',
+              status: 'available',
+              evidenceRef: `node-control-provider-binding:binding-current:revision:${String(revision)}:observed-at:2026-08-02T00:00:00.000Z`,
+            },
+          ],
+          risk: 'low',
+          humanConfirmation: 'not_requested',
+          taskAvailabilityArguments: {
+            unresolved: false,
+            value: { resourceId: 'resource:42' },
+          },
+          systemPolicy: {
+            allowedModes: ['guidance', 'template', 'procedure'],
+            requireProcedureForHighRisk: true,
+            allowGuidanceWithIncompleteContext: false,
+          },
         },
-      },
-    });
-    expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledTimes(2);
-  });
+      });
+      expect(accepted.assertRuntimeProviderBindingRegistered).toHaveBeenCalledOnce();
+      expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledOnce();
+      expect(prepared.binding.constraintSnapshot).toContainEqual(
+        expect.objectContaining({
+          type: 'provider_binding_policy',
+          bindingRevision: revision,
+          catalogRevision: currentCatalogRevision,
+          catalogChecksum: currentCatalogChecksum,
+        }),
+      );
+      expect(resolution.constraints).toContainEqual(
+        expect.objectContaining({ type: 'provider_binding_policy', bindingRevision: 1 }),
+      );
+      const frozenHash = prepared.binding.bindingHash;
+      accepted.advanceProviderBindingRevision();
+      await expect(
+        accepted.service.resolveSkillUsageAuthority(accepted.task.taskId),
+      ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_SKILL_USAGE_AUTHORITY_INVALID' });
+      expect((await accepted.service.findBinding(accepted.task.taskId))?.bindingHash).toBe(
+        frozenHash,
+      );
+    },
+  );
 
   it('projects an exact physical side-effect policy as high-risk confirmation-pending context', async () => {
     const resolution: RuntimeCapabilityResolution = {
@@ -416,7 +530,8 @@ describe('RuntimeTaskCapabilityService', () => {
     await expect(
       accepted.service.resolveRuntimeExecutionContext(accepted.task.taskId),
     ).resolves.toEqual({ mode: 'simulation', simulationId: 'ugv-simulation' });
-    expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledTimes(2);
+    expect(accepted.assertRuntimeProviderBindingRegistered).toHaveBeenCalledOnce();
+    expect(accepted.assertRuntimeProviderBindingCurrent).toHaveBeenCalledOnce();
   });
 
   it('delegates canceled-attempt recovery to the authoritative store', async () => {
@@ -860,12 +975,13 @@ describe('RuntimeTaskCapabilityService', () => {
       event: preparedFixture.event,
     });
     if (prepared === undefined) throw new Error('Expected a multi-Provider binding.');
-    expect(preparedFixture.assertRuntimeProviderBindingCurrent).toHaveBeenCalledTimes(2);
-    expect(preparedFixture.assertRuntimeProviderBindingCurrent).toHaveBeenNthCalledWith(
+    expect(preparedFixture.assertRuntimeProviderBindingCurrent).not.toHaveBeenCalled();
+    expect(preparedFixture.assertRuntimeProviderBindingRegistered).toHaveBeenCalledTimes(2);
+    expect(preparedFixture.assertRuntimeProviderBindingRegistered).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ bindingId: 'binding-light', localServerId: 'server-light' }),
     );
-    expect(preparedFixture.assertRuntimeProviderBindingCurrent).toHaveBeenNthCalledWith(
+    expect(preparedFixture.assertRuntimeProviderBindingRegistered).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ bindingId: 'binding-climate', localServerId: 'server-climate' }),
     );

@@ -63,7 +63,11 @@ import { NodeControlCapabilityReadinessCoordinator } from './capability-readines
 import type { NodeControlApiEnvironment } from './environment.js';
 import { createNodeControlHttpApp } from './http-endpoint.js';
 import { assertOutboundEndpoint, type OutboundEndpointPolicy } from './outbound-endpoint-policy.js';
-import { reconcileExpiredReadinessAgentCard } from './readiness-agent-card-reconciler.js';
+import { reconcileExpiredReadiness } from './readiness-agent-card-reconciler.js';
+import {
+  NodeControlProviderHealthReconciler,
+  PROVIDER_HEALTH_RECONCILIATION_INTERVAL_MS,
+} from './provider-health-reconciler.js';
 
 export interface NodeControlApiRuntime {
   readonly baseUrl: string;
@@ -194,21 +198,26 @@ export async function startNodeControlApi(
   const a2aExposure = new NodeControlA2aExposureService({
     repository: new PostgresNodeControlA2aExposureRepository(pool),
     capabilities: capabilityService,
-    readiness: runtimeReadiness,
     runtime: runtimeAgentCards,
     validator: agentCardValidator,
     clock: { now: () => new Date().toISOString() },
     nodeId: environment.SDAR_CONTROL_NODE_ID,
     a2aUrl: new URL('/a2a', environment.SDAR_CONTROL_A2A_AGENT_CARD_URL).toString(),
   });
+  const providerHealth = new NodeControlProviderHealthReconciler({
+    bindings: mcpBindingService,
+    clock: { now: () => new Date().toISOString() },
+  });
   let readinessReconciliationInFlight: Promise<void> | undefined;
+  let registrationReconciliationInFlight: Promise<void> | undefined;
+  let providerHealthReconciliationInFlight: Promise<void> | undefined;
   const reconcileReadiness = () => {
     if (readinessReconciliationInFlight !== undefined) return;
-    const current = reconcileExpiredReadinessAgentCard(runtimeReadiness, a2aExposure)
+    const current = reconcileExpiredReadiness(runtimeReadiness)
       .then(() => undefined)
       .catch((error: unknown) => {
         process.stderr.write(
-          `${JSON.stringify({ event: 'capability_readiness.expiry_recalculation_failed', error: error instanceof Error ? error.message : 'UNKNOWN' })}\n`,
+          `${JSON.stringify({ event: 'capability_readiness.expiry_recalculation_failed', errorCode: safeErrorCode(error, 'CAPABILITY_READINESS_RECALCULATION_FAILED') })}\n`,
         );
       })
       .finally(() => {
@@ -217,7 +226,45 @@ export async function startNodeControlApi(
       });
     readinessReconciliationInFlight = current;
   };
+  const reconcileRegistration = () => {
+    if (registrationReconciliationInFlight !== undefined) return;
+    const current = a2aExposure
+      .reconcileRegistration()
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'agent_card.registration_reconciliation_failed', errorCode: safeErrorCode(error, 'AGENT_CARD_REGISTRATION_RECONCILIATION_FAILED') })}\n`,
+        );
+      })
+      .finally(() => {
+        if (registrationReconciliationInFlight === current)
+          registrationReconciliationInFlight = undefined;
+      });
+    registrationReconciliationInFlight = current;
+  };
+  const reconcileProviderHealth = () => {
+    if (providerHealthReconciliationInFlight !== undefined) return;
+    const current = providerHealth
+      .reconcile()
+      .then((result) => {
+        for (const failure of result.failures)
+          process.stderr.write(
+            `${JSON.stringify({ event: 'mcp_provider.health_observation_failed', ...failure })}\n`,
+          );
+      })
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `${JSON.stringify({ event: 'mcp_provider.health_reconciliation_failed', errorCode: safeErrorCode(error, 'MCP_PROVIDER_HEALTH_RECONCILIATION_FAILED') })}\n`,
+        );
+      })
+      .finally(() => {
+        if (providerHealthReconciliationInFlight === current)
+          providerHealthReconciliationInFlight = undefined;
+      });
+    providerHealthReconciliationInFlight = current;
+  };
   let readinessTimer: ReturnType<typeof setInterval> | undefined;
+  let providerHealthTimer: ReturnType<typeof setInterval> | undefined;
   let controlEvidenceTimer: ReturnType<typeof setInterval> | undefined;
   let healthObservationTimer: ReturnType<typeof setInterval> | undefined;
   let controlEvidenceInFlight: Promise<void> | undefined;
@@ -383,8 +430,19 @@ export async function startNodeControlApi(
       environment.SDAR_CONTROL_API_HOST,
       environment.SDAR_CONTROL_API_PORT,
     );
-    readinessTimer = setInterval(reconcileReadiness, 5_000);
+    readinessTimer = setInterval(() => {
+      reconcileReadiness();
+      reconcileRegistration();
+    }, 5_000);
     readinessTimer.unref();
+    providerHealthTimer = setInterval(
+      reconcileProviderHealth,
+      PROVIDER_HEALTH_RECONCILIATION_INTERVAL_MS,
+    );
+    providerHealthTimer.unref();
+    reconcileProviderHealth();
+    reconcileRegistration();
+    reconcileReadiness();
     const address = server.address();
     if (address === null || typeof address === 'string')
       throw new Error('NODE_CONTROL_ADDRESS_INVALID');
@@ -393,11 +451,14 @@ export async function startNodeControlApi(
       baseUrl,
       async close() {
         if (readinessTimer !== undefined) clearInterval(readinessTimer);
+        if (providerHealthTimer !== undefined) clearInterval(providerHealthTimer);
         if (controlEvidenceTimer !== undefined) clearInterval(controlEvidenceTimer);
         if (healthObservationTimer !== undefined) clearInterval(healthObservationTimer);
         await Promise.allSettled(
           [
             readinessReconciliationInFlight,
+            registrationReconciliationInFlight,
+            providerHealthReconciliationInFlight,
             controlEvidenceInFlight,
             telemetryEvidenceInFlight,
             healthObservationInFlight,
@@ -410,11 +471,14 @@ export async function startNodeControlApi(
     };
   } catch (error) {
     if (readinessTimer !== undefined) clearInterval(readinessTimer);
+    if (providerHealthTimer !== undefined) clearInterval(providerHealthTimer);
     if (controlEvidenceTimer !== undefined) clearInterval(controlEvidenceTimer);
     if (healthObservationTimer !== undefined) clearInterval(healthObservationTimer);
     await Promise.allSettled(
       [
         readinessReconciliationInFlight,
+        registrationReconciliationInFlight,
+        providerHealthReconciliationInFlight,
         controlEvidenceInFlight,
         telemetryEvidenceInFlight,
         healthObservationInFlight,
