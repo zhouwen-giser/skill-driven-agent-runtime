@@ -25,10 +25,51 @@ import {
   type GovernedControlInvocation,
 } from '../src/governed-control-authority.js';
 import type { McpRegistryRepository, McpServerRecord } from '../src/ports.js';
+import { McpRuntimeBindingAuthorityVerifier } from '../src/mcp-runtime-binding-authority.js';
 
 const timestamp = '2026-08-11T01:00:00.000Z';
 
 describe('MCP Registry invocation boundary', () => {
+  it.each([
+    {
+      availabilityStatus: 'unavailable' as const,
+      availabilityValidUntil: '2026-08-11T02:00:00.000Z',
+    },
+    { availabilityStatus: 'available' as const, availabilityValidUntil: timestamp },
+  ])(
+    'keeps registered authority but rejects execution without fresh available health: %j',
+    async (health) => {
+      const fixture = createFixture();
+      const verifier = new McpRuntimeBindingAuthorityVerifier({
+        repository: fixture.repository,
+        clock: { now: () => timestamp },
+      });
+      const runtime = await verifier.loadRuntimeAuthority('provider-1');
+      const input = {
+        bindingId: 'binding-provider-1',
+        localServerId: 'provider-1',
+        authority: {
+          observedAt: timestamp,
+          binding: {
+            bindingId: 'binding-provider-1',
+            revision: 1,
+            localServerId: 'provider-1',
+            providerId: 'external-provider-1',
+            originType: 'direct' as const,
+            endpointRef: runtime.record.server.endpoint,
+            ...runtime.catalogAuthority,
+            ...health,
+          },
+        },
+      };
+      await expect(verifier.assertRegistered(input)).resolves.toBeUndefined();
+      await expect(verifier.assertCurrent(input)).rejects.toMatchObject({
+        code: 'MCP_PROVIDER_NOT_READY',
+      });
+      expect(fixture.call).not.toHaveBeenCalled();
+      expect(fixture.repository.invocations).toHaveLength(0);
+    },
+  );
   it('can omit only the live execution-mode header while retaining live invocation evidence', async () => {
     const fixture = createFixture({ executionModeHeaderPolicy: 'omit_live' });
 
@@ -1229,6 +1270,7 @@ function createFixture(
                     options.bindingCatalogChecksum ??
                     catalogAuthority.catalogChecksum,
                   operationCount: options.bindingOperationCount ?? catalogAuthority.operationCount,
+                  availabilityStatus: 'available' as const,
                   availabilityValidUntil:
                     current.bindingAvailabilityValidUntil ??
                     options.bindingAvailabilityValidUntil ??

@@ -6,6 +6,7 @@ import {
   deriveFrozenMcpCatalogAuthority,
   frozenMcpCatalogCanonicalJson,
   frozenMcpCatalogDocument,
+  withMcpToolAdminExecutionSemanticsOverride,
   type McpProtocolDiscoverySnapshot,
   type McpTool,
 } from '../../domain/src/index.js';
@@ -160,9 +161,9 @@ describe('NodeControlFrozenMcpCatalogClient governed Runtime authority', () => {
         endpoint: 'https://provider.example.test/mcp',
         status: 'enabled',
         serverUpdatedAt: timestamp,
-        toolRevision: 1,
+        toolRevision: 17,
         protocolMode: 'frozen_v1',
-        snapshotToolRevision: 1,
+        snapshotToolRevision: 17,
         catalogChecksum: governedCatalog.catalogChecksum,
         discoveredCatalogChecksum: discoveredCatalog.catalogChecksum,
         operationCount: 1,
@@ -194,7 +195,7 @@ describe('NodeControlFrozenMcpCatalogClient governed Runtime authority', () => {
     expect(loadCurrentAuthority).toHaveBeenCalledWith('provider-1');
   });
 
-  it('fails closed when the remotely discovered Catalog differs from Runtime discovery authority', async () => {
+  it('reports actual semantic discovery drift instead of substituting stale Runtime authority', async () => {
     vi.stubEnv('MCP_HOME_LAB_TOKEN', 'home-lab-provider-secret');
     const snapshot = {
       ...protocolSnapshot(),
@@ -232,6 +233,141 @@ describe('NodeControlFrozenMcpCatalogClient governed Runtime authority', () => {
         bindingRevision: 2,
         observedAt: timestamp,
         snapshotId: 'binding-snapshot-2',
+      }),
+    ).resolves.toMatchObject({
+      catalogRevision: '1.0.0:2',
+      catalogChecksum: deriveFrozenMcpCatalogAuthority(snapshot, discoveredTools, 2)
+        .catalogChecksum,
+    });
+  });
+
+  it('derives one new effective Catalog on schema drift while retaining the exact Runtime admin override', async () => {
+    const snapshot = protocolSnapshot();
+    const previous = defaultTool();
+    const changed = {
+      ...defaultTool(),
+      inputSchema: { type: 'object', properties: { changedResourceId: { type: 'string' } } },
+    };
+    const override = governedTool().executionSemantics;
+    const expected = deriveFrozenMcpCatalogAuthority(
+      snapshot,
+      [withMcpToolAdminExecutionSemanticsOverride(changed, override)],
+      2,
+    );
+    const reader = {
+      loadCurrentAuthority: () =>
+        Promise.resolve({
+          endpoint: 'https://provider.example.test/mcp',
+          status: 'enabled',
+          serverUpdatedAt: timestamp,
+          toolRevision: 1,
+          protocolMode: 'frozen_v1',
+          snapshotToolRevision: 1,
+          catalogChecksum: deriveFrozenMcpCatalogAuthority(snapshot, [governedTool()], 1)
+            .catalogChecksum,
+          discoveredCatalogChecksum: deriveFrozenMcpCatalogAuthority(snapshot, [previous], 1)
+            .catalogChecksum,
+          operationCount: 1,
+          toolNames: ['light_get_state'],
+          executionSemanticsOverrides: { light_get_state: override },
+        }),
+    };
+    const client = new NodeControlFrozenMcpCatalogClient(
+      ['provider.example.test'],
+      {
+        discover: () => Promise.resolve({ snapshot, tools: [changed] }),
+      } as unknown as FrozenV1RegistryAdapter,
+      reader,
+    );
+    const result = await client.discover({
+      localServerId: 'provider-1',
+      endpointRef: 'https://provider.example.test/mcp',
+      credentialRef: MCP_UNAUTHENTICATED_CREDENTIAL_REF,
+      bindingRevision: 2,
+      observedAt: timestamp,
+      snapshotId: 'binding-effective-drift',
+    });
+    expect(result).toMatchObject(expected);
+    expect(result.catalogChecksum).not.toBe(
+      deriveFrozenMcpCatalogAuthority(snapshot, [changed], 2).catalogChecksum,
+    );
+    expect(result.catalogChecksum).not.toBe((await reader.loadCurrentAuthority()).catalogChecksum);
+  });
+
+  it('keeps the Provider-declared semantics precedence when retaining an administrative override', async () => {
+    const snapshot = protocolSnapshot();
+    const declared = tool({ currentResource: { type: 'string' } });
+    const fresh = { ...declared, declaredExecutionSemantics: declared.executionSemantics };
+    const reader = {
+      loadCurrentAuthority: () =>
+        Promise.resolve({
+          endpoint: 'https://provider.example.test/mcp',
+          status: 'enabled',
+          serverUpdatedAt: timestamp,
+          toolRevision: 1,
+          protocolMode: 'frozen_v1',
+          snapshotToolRevision: 1,
+          catalogChecksum: deriveFrozenMcpCatalogAuthority(snapshot, [governedTool()], 1)
+            .catalogChecksum,
+          discoveredCatalogChecksum: deriveFrozenMcpCatalogAuthority(snapshot, [defaultTool()], 1)
+            .catalogChecksum,
+          operationCount: 1,
+          toolNames: ['light_get_state'],
+          executionSemanticsOverrides: { light_get_state: governedTool().executionSemantics },
+        }),
+    };
+    const client = new NodeControlFrozenMcpCatalogClient(
+      ['provider.example.test'],
+      {
+        discover: () => Promise.resolve({ snapshot, tools: [fresh] }),
+      } as unknown as FrozenV1RegistryAdapter,
+      reader,
+    );
+    await expect(
+      client.discover({
+        localServerId: 'provider-1',
+        endpointRef: 'https://provider.example.test/mcp',
+        credentialRef: MCP_UNAUTHENTICATED_CREDENTIAL_REF,
+        bindingRevision: 2,
+        observedAt: timestamp,
+        snapshotId: 'binding-declared-precedence',
+      }),
+    ).resolves.toMatchObject(deriveFrozenMcpCatalogAuthority(snapshot, [fresh], 2));
+  });
+
+  it('still rejects mismatched Runtime endpoint identity', async () => {
+    const snapshot = protocolSnapshot();
+    const tools = [defaultTool()];
+    const checksum = deriveFrozenMcpCatalogAuthority(snapshot, tools, 1).catalogChecksum;
+    const client = new NodeControlFrozenMcpCatalogClient(
+      ['provider.example.test'],
+      {
+        discover: () => Promise.resolve({ snapshot, tools }),
+      } as unknown as FrozenV1RegistryAdapter,
+      {
+        loadCurrentAuthority: () =>
+          Promise.resolve({
+            endpoint: 'https://provider.example.test/another-provider',
+            status: 'enabled',
+            serverUpdatedAt: timestamp,
+            toolRevision: 1,
+            protocolMode: 'frozen_v1',
+            snapshotToolRevision: 1,
+            catalogChecksum: checksum,
+            discoveredCatalogChecksum: checksum,
+            operationCount: 1,
+            toolNames: ['light_get_state'],
+          }),
+      },
+    );
+    await expect(
+      client.discover({
+        localServerId: 'provider-1',
+        endpointRef: 'https://provider.example.test/mcp',
+        credentialRef: MCP_UNAUTHENTICATED_CREDENTIAL_REF,
+        bindingRevision: 1,
+        observedAt: timestamp,
+        snapshotId: 'binding-wrong-endpoint',
       }),
     ).rejects.toThrow('MCP_RUNTIME_CATALOG_AUTHORITY_MISMATCH');
   });

@@ -99,7 +99,7 @@ afterAll(async () => {
 });
 
 describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
-  it('imports only through real discovery and fails closed for drift, expiry and unsafe origins', async () => {
+  it('versions semantic Catalog changes and separately observes health and registration governance', async () => {
     await createAndSynchronizeRegistrySource();
     const candidate = await firstCandidate();
     await expect(
@@ -292,18 +292,18 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     );
     expect(refreshed).toMatchObject({
       status: 'succeeded',
-      result: { status: 'degraded', resultCode: 'MCP_CATALOG_DRIFT_DETECTED' },
+      result: { revision: 3, status: 'active', resultCode: 'catalog_changed' },
     });
     await expect(
       repository.findSelectable('catalog-from-smpp', new Date().toISOString()),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ revision: 3, status: 'active' });
     await expect(
       command('/api/v1/mcp-provider-bindings/binding-smpp/refresh', 'p05-refresh-same-drift', {
-        reason: 'Repeated observation must not approve a drifted Catalog.',
+        reason: 'Repeated observation does not create another semantic Catalog revision.',
       }),
     ).resolves.toMatchObject({
       status: 'succeeded',
-      result: { status: 'degraded', resultCode: 'MCP_CATALOG_DRIFT_DETECTED' },
+      result: { revision: 3, status: 'active', resultCode: 'refreshed' },
     });
     await expect(
       publicGet('/api/v1/mcp-provider-bindings/binding-smpp?revision=1'),
@@ -312,18 +312,18 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       string,
       unknown
     >;
-    expect(drifted).toMatchObject({ revision: 4, status: 'degraded' });
+    expect(drifted).toMatchObject({ revision: 3, status: 'active' });
     const driftedChecksum = String(drifted['catalogChecksum']);
     expect(driftedChecksum).toMatch(/^[a-f0-9]{64}$/u);
     await expect(
       command('/api/v1/mcp-provider-bindings/binding-smpp/refresh', 'p05-approve-drift', {
         reason: 'Explicitly approve the exact observed Catalog checksum.',
-        expectedRevision: 4,
+        expectedRevision: 3,
         payload: { approval: 'catalog_checksum', catalogChecksum: driftedChecksum },
       }),
     ).resolves.toMatchObject({
       status: 'succeeded',
-      result: { revision: 5, status: 'active', resultCode: 'catalog_approved' },
+      result: { revision: 3, status: 'active', resultCode: 'refreshed' },
     });
 
     provider.setCatalog('2.0.0', 'changed-field', 5);
@@ -342,6 +342,12 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     await expect(
       repository.findSelectable('catalog-expiring', new Date().toISOString()),
     ).resolves.toBeUndefined();
+    await expect(
+      repository.findCurrentAuthority({
+        localServerId: 'catalog-expiring',
+        observedAt: new Date().toISOString(),
+      }),
+    ).resolves.toMatchObject({ binding: { bindingId: 'binding-expiring', revision: 1 } });
 
     const suspended = await command(
       '/api/v1/mcp-provider-bindings/binding-smpp/suspend',
@@ -361,7 +367,7 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
       }),
     ).resolves.toEqual(suspended);
     await expect(publicGet('/api/v1/mcp-provider-bindings/binding-smpp')).resolves.toMatchObject({
-      revision: 7,
+      revision: 3,
       status: 'removed',
     });
     await expect(
@@ -439,7 +445,7 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
     });
   });
 
-  it('projects only exact current secret-free Binding authority and native lineage', async () => {
+  it('projects registered secret-free Binding authority regardless of health or Source TTL', async () => {
     const observedAt = new Date().toISOString();
     await seedSmppAuthority('current', observedAt, { immutableSnapshotExpired: true });
     await expect(
@@ -462,9 +468,6 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
 
     for (const [caseId, options] of [
       ['suspended', { bindingStatus: 'suspended' }],
-      ['availability-expired', { bindingExpired: true }],
-      ['source-pointer-expired', { sourcePointerExpired: true }],
-      ['source-checksum-drift', { sourceChecksumDrift: true }],
       ['candidate-endpoint-drift', { candidateEndpointDrift: true }],
       ['lineage-missing', { lineageMissing: true }],
     ] as const) {
@@ -476,6 +479,24 @@ describe('P05 MCP Provider Binding governance', { concurrent: false }, () => {
           observedAt,
         }),
       ).resolves.toBeUndefined();
+    }
+
+    for (const [caseId, options] of [
+      ['availability-expired', { bindingExpired: true }],
+      ['source-pointer-expired', { sourcePointerExpired: true }],
+      ['source-checksum-drift', { sourceChecksumDrift: true }],
+    ] as const) {
+      await seedSmppAuthority(caseId, observedAt, options);
+      await expect(
+        repository.findCurrentAuthority({
+          bindingId: `authority-binding-${caseId}`,
+          localServerId: `authority-server-${caseId}`,
+          observedAt,
+        }),
+      ).resolves.toMatchObject({
+        binding: { bindingId: `authority-binding-${caseId}`, revision: 1 },
+        sourceCandidateLineage: { registryRevision: 41, registryChecksum: 'a'.repeat(64) },
+      });
     }
 
     await seedDirectAuthority('direct', 'authority-server-direct', observedAt);
@@ -854,6 +875,7 @@ function runtimeAuthoritySnapshot(
 async function truncateControl(): Promise<void> {
   await controlPool.query(
     `TRUNCATE sdar_control.mcp_provider_catalog_observation,
+              sdar_control.mcp_provider_binding_state,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
               sdar_control.smpp_registry_snapshot_lineage,

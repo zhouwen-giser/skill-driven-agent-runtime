@@ -16,6 +16,23 @@ export class PostgresRuntimeCapabilityImplementationCatalog implements NodeContr
     implementationId: string,
     implementationVersion: string,
   ): Promise<boolean> {
+    return this.lookup(implementationType, implementationId, implementationVersion, false);
+  }
+
+  async isPubliclyRegistered(
+    implementationType: CapabilityImplementationType,
+    implementationId: string,
+    implementationVersion: string,
+  ): Promise<boolean> {
+    return this.lookup(implementationType, implementationId, implementationVersion, true);
+  }
+
+  private async lookup(
+    implementationType: CapabilityImplementationType,
+    implementationId: string,
+    implementationVersion: string,
+    requireCurrentSkill: boolean,
+  ): Promise<boolean> {
     if (!/^[1-9][0-9]*$/u.test(implementationVersion)) return false;
     const version = Number(implementationVersion);
     if (!Number.isSafeInteger(version) || version < 1) return false;
@@ -28,6 +45,10 @@ export class PostgresRuntimeCapabilityImplementationCatalog implements NodeContr
                  ON governance.skill_id=version.skill_id
                 AND governance.skill_version=version.version
               WHERE version.skill_id=$1 AND version.version=$2
+                AND (NOT $3::boolean OR EXISTS (
+                  SELECT 1 FROM skill
+                   WHERE skill.skill_id=version.skill_id AND skill.current_version=version.version
+                ))
                 AND version.validation_passed=true
                 AND COALESCE(
                       governance.lifecycle_status,
@@ -38,7 +59,7 @@ export class PostgresRuntimeCapabilityImplementationCatalog implements NodeContr
                       END
                     )='published'
               LIMIT 1`,
-            [implementationId, version],
+            [implementationId, version, requireCurrentSkill],
           )
         : await this.#runtimePool.query(
             `SELECT 1 FROM compiled_artifact

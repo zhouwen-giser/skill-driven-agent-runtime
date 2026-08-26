@@ -347,6 +347,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
           catalogRevision: selected.server.catalogRevision,
           catalogChecksum: selected.server.catalogChecksum,
           operationCount: 2,
+          availabilityStatus: 'available' as const,
           availabilityValidUntil: '2026-08-21T12:05:00.000Z',
         },
       }),

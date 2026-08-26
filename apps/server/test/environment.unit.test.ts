@@ -197,6 +197,21 @@ describe('server environment', () => {
     ).toThrow('requires a bearer token');
   });
 
+  it('allows an explicit trusted-intranet governed-control identity without a bearer token', () => {
+    expect(
+      parseServerEnvironment({
+        SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+        SDAR_GOVERNED_CONTROL_AUTHENTICATION_MODE: 'trusted_intranet',
+        SDAR_GOVERNED_CONTROL_ACTOR_ID: 'human:local-operator',
+        SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm',
+      }),
+    ).toMatchObject({
+      SDAR_GOVERNED_CONTROL_AUTHENTICATION_MODE: 'trusted_intranet',
+      SDAR_GOVERNED_CONTROL_ACTOR_ID: 'human:local-operator',
+      SDAR_GOVERNED_CONTROL_PERMISSIONS: ['physical_control.confirm'],
+    });
+  });
+
   it('maps a distinct Runtime Control service token onto the configured Artifact identity', () => {
     expect(
       parseServerEnvironment({

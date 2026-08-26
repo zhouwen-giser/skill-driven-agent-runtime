@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-26 — PR #26 integration and repeatable debug startup
+
+- Combine the Runtime admission observation work with current `main`, trusted-intranet natural-language
+  admission and the validated ADR-141 Provider lifecycle repair; preserve both sides of the startup
+  import and release-note conflicts.
+- Add `pnpm ugv:debug start|restart|status|stop` for the existing local stack. Debug startup/restart
+  defaults to YES per operator instruction, with explicit NO available; the existing supervisor
+  validates the selected run identity and owns the acknowledged transition. No automatic Task,
+  qualification, tool invocation, bootstrap or database/volume cleanup is added.
+- Document the actual local ports, same-DB configuration, private model/credential sources and
+  repeatable code-reload path. This integration does not itself restart the live services.
+- Verification: 295 relevant tests across 17 files, typecheck, production build, 858-source
+  architecture and changed-scope lint/format/syntax checks pass; real process tests use the host
+  namespace, not the sandbox's process view.
+
 ## 2026-08-26 — Runtime admission observation readiness
 
 - Enabled the frozen remote-Task admission components for the existing trusted-network
@@ -8,6 +23,65 @@
   response, Runtime recovery receipt and Runtime-local intent/invocation/binding identity. The
   projection declares `authorityInference=none` and does not freeze or mutate the cross-repository
   Runtime↔Provider binding contract.
+
+## 2026-08-26 — Persistent Provider registration and stable Skill discovery
+
+- Separate durable Provider Binding registration from expiring health observations (ADR-141,
+  additive Control migration 0012). Unchanged discovery, failure and lifecycle status updates do
+  not create semantic Binding revisions; validated contract changes do.
+- Keep enabled, published Skills and their natural-language admission contract on Agent Card
+  regardless of Provider readiness. Explicit disable/withdraw remains effective; unchanged
+  registration reconciliation does not write new Card revisions.
+- Resolve current semantic Binding/Catalog authority for new Task snapshots without retargeting
+  existing Tasks or editing immutable Capability versions. Execution still checks real readiness.
+- Add periodic read-only health renewal and semantic Catalog synchronization, preserving Runtime
+  anchors on unchanged discovery and reviewed tool execution-semantics overrides on contract drift.
+- Handle the official SDK's omitted empty `skills` default without publishing an empty managed
+  Card when no managed registrations exist. Verification: 358 focused unit/contract tests and
+  21 isolated PostgreSQL integration tests, typecheck, production build and scoped static checks pass.
+- Pushed the repair branch and restarted the existing debug processes without resetting databases.
+  Live read-only verification confirms migration 0012, fresh available health at unchanged Binding
+  revision 1, available readiness and the public natural-language @2 admission contract. No Tool or
+  remote Task was created; the physical side-effect gate remains `NO`.
+
+## 2026-08-25 — Stable UGV natural-language authority and live no-side-effect proof
+
+- Removed an acceptance-only P3-B02 qualification leak from generic UGV Skill Usage. Public
+  natural-language planning now derives context references from the immutable Task Capability
+  Binding and Provider snapshot; the Workflow retains its actual state read after plan confirmation.
+- Changed the UGV Source to `poll`, set the host Node Control worker cadence to 60 seconds against a
+  300-second Source TTL, and kept the worker timer referenced so the process cannot exit while idle.
+- Rebuilt the clean task-owned stack and confirmed the current A2A process uses the same Runtime
+  PostgreSQL populated by bootstrap, with its paired Control PostgreSQL holding the Source/Binding/
+  Exposure authority. The public Card now advertises `a2a.embodied.move@2` through
+  `io.sdar/naturalLanguageCapabilityAdmission`.
+- Observed a real automatic Source renewal and consecutive available readiness versions. Submitted
+  one metadata-free text A2A message and received `TASK_STATE_INPUT_REQUIRED` /
+  `awaiting_plan_confirmation`, with zero MCP, confirmation and remote-binding rows. Physical side
+  effects stayed `NO`; no confirmation, simulator validation or Device call was made.
+- Updated the task-owned Provider pin to merged `main@b6f0f645f1ce01d717420abe342aa16e3a22ee6e`, including immutable
+  same-content registry republication, migration 011, patched `tar@7.5.21` and the refreshed SBOM.
+
+## 2026-08-24 — SACS v0.3 natural-language A2A admission
+
+- Corrected the compatibility boundary: SACS v0.3 is the client/product version, not an A2A v0.3
+  wire request. The Runtime stays on A2A wire `1.0`, normative specification 1.0.1 and the existing
+  pinned official SDK.
+- Added an Application-owned natural-language Capability admission seam and a Profile-only,
+  deterministic UGV coordinate resolver. A text-only Message with one labelled longitude and
+  latitude becomes the existing versioned WGS84 input; no model output, private caller metadata or
+  management write becomes authority.
+- Added stable server-derived idempotency from A2A `messageId`. Existing PostgreSQL initial-admission
+  transactions still own atomic Context/Task/Binding/Attempt creation, same-request replay and
+  different-content conflict handling.
+- Added a current public Agent Card extension for `a2a.embodied.move@2`, including request schema and
+  requester policy. Aligned the trusted-intranet Exposure with empty Card security requirements;
+  execution confirmation and physical side-effect gates remain mandatory.
+- Added parser, Application, A2A/Card and real local Runtime/PostgreSQL/Redis regressions. The focused
+  matrix passes 8 files/204 tests and the integration passes 1/1; the formal text-only path proves one
+  durable admission, zero pre-confirm navigation, exactly one confirmed local Provider dispatch and
+  restart recovery without contacting the external UGV or simulator. Typecheck, build, 852-source
+  architecture and changed-scope lint/format/diff gates pass.
 
 ## 2026-08-24 — UGV A2A navigation terminal-safe repair and handoff
 

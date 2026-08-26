@@ -8,6 +8,7 @@ import {
 } from '../../node-control-application/src/index.js';
 import {
   createMcpProviderBindingRecord,
+  sameMcpProviderBindingContract,
   transitionManagementOperation,
   type ManagementOperation,
   type McpProviderBinding,
@@ -100,7 +101,7 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
 
   async findLatestActive(bindingId: string): Promise<McpProviderBindingRecord | undefined> {
     const result = await this.#pool.query<BindingRow>(
-      `SELECT * FROM sdar_control.mcp_provider_binding
+      `SELECT * FROM sdar_control.mcp_provider_binding_projection
         WHERE binding_id=$1 AND status='active' ORDER BY revision DESC LIMIT 1`,
       [bindingId],
     );
@@ -109,7 +110,7 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
 
   async list(limit: number): Promise<readonly McpProviderBinding[]> {
     const result = await this.#pool.query<BindingRow>(
-      `SELECT DISTINCT ON (binding_id) * FROM sdar_control.mcp_provider_binding
+      `SELECT DISTINCT ON (binding_id) * FROM sdar_control.mcp_provider_binding_projection
         ORDER BY binding_id,revision DESC LIMIT $1`,
       [limit],
     );
@@ -122,7 +123,7 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
   ): Promise<McpProviderBinding | undefined> {
     const result = await this.#pool.query<BindingRow>(
       `SELECT * FROM (
-         SELECT DISTINCT ON (binding_id) * FROM sdar_control.mcp_provider_binding
+         SELECT DISTINCT ON (binding_id) * FROM sdar_control.mcp_provider_binding_projection
           ORDER BY binding_id,revision DESC
        ) binding
        WHERE local_server_id=$1 AND status='active' AND availability_status='available'
@@ -139,13 +140,9 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
     const result = await this.#pool.query<AuthorityRow>(
       `WITH latest_binding AS (
          SELECT DISTINCT ON (binding_id) *
-           FROM sdar_control.mcp_provider_binding
+           FROM sdar_control.mcp_provider_binding_projection
           WHERE local_server_id=$1 AND ($2::text IS NULL OR binding_id=$2)
           ORDER BY binding_id,revision DESC
-       ), latest_source AS (
-         SELECT DISTINCT ON (smpp_source_id) *
-           FROM sdar_control.smpp_registry_source
-          ORDER BY smpp_source_id,revision DESC
        )
        SELECT binding.*,
               candidate.smpp_source_id AS authority_smpp_source_id,
@@ -158,11 +155,10 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
               lineage.projection_contract AS authority_projection_contract,
               candidate.server_endpoint AS authority_candidate_endpoint
          FROM latest_binding binding
-         LEFT JOIN latest_source source
-           ON source.smpp_source_id=binding.smpp_source_id
          LEFT JOIN sdar_control.smpp_registry_snapshot snapshot
-           ON snapshot.smpp_source_id=source.smpp_source_id
-          AND snapshot.snapshot_revision=source.active_snapshot_revision
+           ON snapshot.smpp_source_id=binding.smpp_source_id
+          AND snapshot.snapshot_revision=binding.registry_revision
+          AND snapshot.checksum=binding.registry_checksum
          LEFT JOIN sdar_control.smpp_provider_candidate candidate
            ON candidate.smpp_source_id=snapshot.smpp_source_id
           AND candidate.snapshot_revision=snapshot.snapshot_revision
@@ -172,19 +168,10 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
            ON lineage.smpp_source_id=snapshot.smpp_source_id
           AND lineage.snapshot_revision=snapshot.snapshot_revision
         WHERE binding.status='active'
-          AND binding.availability_status='available'
-          AND binding.availability_valid_until>$3
           AND (
             binding.origin_type='direct'
             OR (
-              source.status='active'
-              AND source.active_snapshot_revision=binding.registry_revision
-              AND source.active_snapshot_checksum=binding.registry_checksum
-              AND snapshot.snapshot_revision=binding.registry_revision
-              AND snapshot.checksum=binding.registry_checksum
-              AND source.active_snapshot_valid_until>$3
-              AND (source.lkg_policy='allow_unexpired' OR source.last_error_code IS NULL)
-              AND candidate.smpp_source_id IS NOT NULL
+              candidate.smpp_source_id IS NOT NULL
               AND candidate.server_endpoint=binding.endpoint_ref
               AND lineage.native_revision IS NOT NULL
               AND lineage.native_checksum IS NOT NULL
@@ -193,7 +180,7 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
           )
         ORDER BY binding.binding_id
         LIMIT 2`,
-      [input.localServerId, input.bindingId ?? null, input.observedAt],
+      [input.localServerId, input.bindingId ?? null],
     );
     if (result.rows.length > 1)
       throw new NodeControlMcpBindingError(
@@ -287,6 +274,7 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
           'localServerId is already assigned to another Binding.',
         );
       await insertRecord(client, record, context.occurredAt);
+      await upsertBindingState(client, record, context.occurredAt);
       return finish(client, operation, context, record, 'imported', 'mcp-binding:import');
     });
   }
@@ -316,7 +304,10 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
         await assertCurrentRebindCandidate(client, record);
       }
       const current = await findRecord(client, prior.binding.bindingId);
-      if (current?.binding.revision !== prior.binding.revision)
+      if (
+        current?.binding.revision !== prior.binding.revision ||
+        current.binding.status !== prior.binding.status
+      )
         throw new NodeControlMcpBindingError(
           'MCP_PROVIDER_BINDING_CONFLICT',
           'MCP Provider Binding revision changed before the command completed.',
@@ -326,8 +317,76 @@ export class PostgresNodeControlMcpProviderBindingRepository implements NodeCont
           'MCP_PROVIDER_BINDING_CONFLICT',
           'MCP Provider Binding revisions must be contiguous.',
         );
+      if (sameMcpProviderBindingContract(prior, record))
+        throw new NodeControlMcpBindingError(
+          'MCP_PROVIDER_BINDING_CONFLICT',
+          'Only a semantic Provider contract change can create a Binding revision.',
+        );
       await insertRecord(client, record, context.occurredAt);
+      await upsertBindingState(client, record, context.occurredAt);
       return finish(client, operation, context, record, resultCode, scope);
+    });
+  }
+
+  completeObservation(
+    prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation> {
+    return this.completeProjection(prior, record, operation, context, resultCode, false);
+  }
+
+  completeStatusTransition(
+    prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+  ): Promise<ManagementOperation> {
+    return this.completeProjection(prior, record, operation, context, resultCode, true);
+  }
+
+  private completeProjection(
+    prior: McpProviderBindingRecord,
+    record: McpProviderBindingRecord,
+    operation: ManagementOperation,
+    context: ConfigurationMutationContext,
+    resultCode: string,
+    statusTransition: boolean,
+  ): Promise<ManagementOperation> {
+    const scope = scopeFor(operation.operationType);
+    return this.transaction(async (client) => {
+      await lockBinding(client, prior.binding.bindingId);
+      const replay = await lockedReplay(client, scope, context);
+      if (replay !== undefined) return replay;
+      const current = await findRecord(client, prior.binding.bindingId);
+      if (
+        current?.binding.revision !== prior.binding.revision ||
+        current.binding.status !== prior.binding.status ||
+        record.binding.revision !== prior.binding.revision ||
+        record.binding.catalogRevision !== prior.binding.catalogRevision ||
+        !sameMcpProviderBindingContract(prior, record)
+      )
+        throw new NodeControlMcpBindingError(
+          'MCP_PROVIDER_BINDING_CONFLICT',
+          'The Provider contract or governance state changed before its observation completed.',
+        );
+      if (statusTransition) {
+        if (!['suspended', 'removed'].includes(record.binding.status))
+          throw new NodeControlMcpBindingError(
+            'MCP_PROVIDER_BINDING_CONFLICT',
+            'Only explicit suspension or removal changes the governance projection.',
+          );
+        await upsertBindingState(client, record, context.occurredAt);
+      } else if (record.binding.status !== prior.binding.status) {
+        throw new NodeControlMcpBindingError(
+          'MCP_PROVIDER_BINDING_CONFLICT',
+          'A health observation cannot change Provider registration state.',
+        );
+      }
+      return finish(client, operation, context, record, resultCode, scope, !statusTransition);
     });
   }
 
@@ -384,6 +443,7 @@ async function finish(
   record: McpProviderBindingRecord,
   resultCode: string,
   scope: string,
+  appendObservation = true,
 ): Promise<ManagementOperation> {
   const failed = [
     'MCP_PROVIDER_DISCOVERY_FAILED',
@@ -416,7 +476,7 @@ async function finish(
     record.binding.revision,
     completed.operationId,
   );
-  await insertObservation(client, record, resultCode);
+  if (appendObservation) await insertObservation(client, record, resultCode);
   await insertAudit(client, record.binding.bindingId, record.binding.revision, context, resultCode);
   return completed;
 }
@@ -427,12 +487,28 @@ async function findRecord(
   revision?: number,
 ): Promise<McpProviderBindingRecord | undefined> {
   const result = await database.query<BindingRow>(
-    `SELECT * FROM sdar_control.mcp_provider_binding
+    `SELECT * FROM sdar_control.mcp_provider_binding_projection
       WHERE binding_id=$1 AND ($2::bigint IS NULL OR revision=$2)
       ORDER BY revision DESC LIMIT 1`,
     [bindingId, revision ?? null],
   );
   return result.rows[0] === undefined ? undefined : mapRecord(result.rows[0]);
+}
+
+function upsertBindingState(
+  client: PoolClient,
+  record: McpProviderBindingRecord,
+  updatedAt: string,
+) {
+  return client.query(
+    `INSERT INTO sdar_control.mcp_provider_binding_state(
+       binding_id,binding_revision,status,updated_at)
+     VALUES($1,$2,$3,$4)
+     ON CONFLICT (binding_id) DO UPDATE
+       SET binding_revision=EXCLUDED.binding_revision,status=EXCLUDED.status,
+           updated_at=EXCLUDED.updated_at`,
+    [record.binding.bindingId, record.binding.revision, record.binding.status, updatedAt],
+  );
 }
 
 function insertRecord(client: PoolClient, record: McpProviderBindingRecord, createdAt: string) {
@@ -727,6 +803,7 @@ function mapCurrentAuthority(
       catalogRevision: binding.catalogRevision,
       catalogChecksum: binding.catalogChecksum,
       endpointRef: binding.endpointRef,
+      availabilityStatus: binding.availabilityStatus,
       availabilityValidUntil: record.availabilityValidUntil,
       catalogObservedAt: record.catalogObservedAt,
       operationCount: record.operationCount,

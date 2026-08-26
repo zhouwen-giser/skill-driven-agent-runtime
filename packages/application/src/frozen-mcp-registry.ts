@@ -1,5 +1,6 @@
 import {
   createMcpServer,
+  deriveFrozenMcpCatalogAuthority,
   withMcpToolAdminExecutionSemanticsOverride,
   type McpDependencyWarningReason,
   type McpProtocolDiscoverySnapshot,
@@ -8,7 +9,12 @@ import {
   type McpToolDependencyChange,
 } from '../../domain/src/index.js';
 
-import type { Clock, McpServerRecord, SecretCipher } from './ports.js';
+import type {
+  Clock,
+  CurrentMcpProviderBindingAuthorityPort,
+  McpServerRecord,
+  SecretCipher,
+} from './ports.js';
 
 export interface FrozenMcpDiscoveryPort {
   discover(
@@ -30,6 +36,7 @@ export interface FrozenMcpDiscoveryPort {
 export interface FrozenMcpRegistryRepository {
   findServer(serverId: string): Promise<McpServerRecord | undefined>;
   listTools(serverId: string): Promise<readonly McpTool[]>;
+  findCurrentProtocolSnapshot?(serverId: string): Promise<McpProtocolDiscoverySnapshot | undefined>;
   replaceEncryptedCredential(
     serverId: string,
     encryptedCredential: string,
@@ -64,6 +71,7 @@ export class FrozenMcpRegistryService {
   readonly #clock: Clock;
   readonly #nextSnapshotId: () => string;
   readonly #baselineSha256: string;
+  #refreshTail: Promise<void> = Promise.resolve();
 
   constructor(
     input: Readonly<{
@@ -120,7 +128,34 @@ export class FrozenMcpRegistryService {
     });
   }
 
-  async refresh(serverId: string): Promise<FrozenMcpRefreshResult> {
+  refresh(serverId: string): Promise<FrozenMcpRefreshResult> {
+    return this.#serializeRefresh(() => this.#refresh(serverId));
+  }
+
+  /** Materialize a new registered semantic revision; health never mutates Runtime anchors. */
+  reconcileProviderBinding(
+    authority: Awaited<
+      ReturnType<CurrentMcpProviderBindingAuthorityPort['loadCurrentMcpProviderBinding']>
+    >,
+  ): Promise<FrozenMcpRefreshResult> {
+    return this.#serializeRefresh(() => this.#refresh(authority.binding.localServerId, authority));
+  }
+
+  #serializeRefresh(work: () => Promise<FrozenMcpRefreshResult>): Promise<FrozenMcpRefreshResult> {
+    const result = this.#refreshTail.then(work);
+    this.#refreshTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  async #refresh(
+    serverId: string,
+    authority?: Awaited<
+      ReturnType<CurrentMcpProviderBindingAuthorityPort['loadCurrentMcpProviderBinding']>
+    >,
+  ): Promise<FrozenMcpRefreshResult> {
     const record = await this.#repository.findServer(serverId);
     if (record === undefined)
       throw registryError('MCP_SERVER_NOT_FOUND', 'MCP Server was not found.');
@@ -129,30 +164,90 @@ export class FrozenMcpRegistryService {
         'MCP_PROTOCOL_MODE_MISMATCH',
         'Provider identity does not use the Frozen MCP Tasks V1 contract.',
       );
-    const previous = await this.#repository.listTools(serverId);
+    const [previous, previousSnapshot] = await Promise.all([
+      this.#repository.listTools(serverId),
+      this.#repository.findCurrentProtocolSnapshot?.(serverId),
+    ]);
+    const previousCatalog =
+      previousSnapshot === undefined
+        ? undefined
+        : deriveFrozenMcpCatalogAuthority(previousSnapshot, previous, record.server.toolRevision);
+    if (
+      authority !== undefined &&
+      (authority.binding.localServerId !== serverId ||
+        authority.binding.endpointRef !== record.server.endpoint ||
+        authority.binding.revision < record.server.toolRevision)
+    )
+      throw registryError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        'Registered Provider authority conflicts with the Runtime target.',
+      );
+    if (
+      authority !== undefined &&
+      previousSnapshot !== undefined &&
+      previousCatalog?.catalogChecksum === authority.binding.catalogChecksum &&
+      previousCatalog.catalogRevision === authority.binding.catalogRevision &&
+      previousCatalog.operationCount === authority.binding.operationCount &&
+      record.server.toolRevision === authority.binding.revision
+    )
+      return Object.freeze({
+        server: record.server,
+        snapshot: previousSnapshot,
+        tools: previous,
+        dependencyWarnings: Object.freeze([]),
+      });
     const timestamp = this.#clock.now();
     const server = createMcpServer({
       ...record.server,
-      toolRevision: record.server.toolRevision + 1,
+      toolRevision: authority?.binding.revision ?? record.server.toolRevision,
       updatedAt: timestamp,
     });
     const headers = this.#cipher.decrypt(record.encryptedCredential);
     const discovered = await this.#discover(server, headers, timestamp);
     const tools = retainAdminExecutionSemanticsOverrides(previous, discovered.tools);
+    const discoveredCatalog = deriveFrozenMcpCatalogAuthority(
+      discovered.snapshot,
+      tools,
+      server.toolRevision,
+    );
+    if (
+      authority !== undefined &&
+      (discoveredCatalog.catalogChecksum !== authority.binding.catalogChecksum ||
+        discoveredCatalog.catalogRevision !== authority.binding.catalogRevision ||
+        discoveredCatalog.operationCount !== authority.binding.operationCount)
+    )
+      throw registryError(
+        'MCP_PROVIDER_BINDING_CONFLICT',
+        'Discovery differs from the registered semantic Catalog.',
+      );
+    if (
+      authority === undefined &&
+      previousSnapshot !== undefined &&
+      previousCatalog?.catalogChecksum === discoveredCatalog.catalogChecksum
+    )
+      return Object.freeze({
+        server: record.server,
+        snapshot: previousSnapshot,
+        tools: previous,
+        dependencyWarnings: Object.freeze([]),
+      });
+    const toolRevision = authority?.binding.revision ?? record.server.toolRevision + 1;
+    const snapshot = Object.freeze({ ...discovered.snapshot, toolRevision });
     const persistedServer = createMcpServer({
       ...server,
-      currentProtocolSnapshotId: discovered.snapshot.snapshotId,
+      toolRevision,
+      currentProtocolSnapshotId: snapshot.snapshotId,
     });
     const changes = compareTools(previous, tools);
     await this.#repository.saveFrozenServerAndReplaceTools(
       { ...record, server: persistedServer },
       tools,
-      discovered.snapshot,
+      snapshot,
       changes,
     );
     return Object.freeze({
       server: persistedServer,
-      snapshot: discovered.snapshot,
+      snapshot,
       tools,
       dependencyWarnings: changes,
     });
@@ -246,6 +341,7 @@ export type FrozenMcpRegistryErrorCode =
   | 'MCP_SERVER_ALREADY_EXISTS'
   | 'MCP_SERVER_NOT_FOUND'
   | 'MCP_PROTOCOL_MODE_MISMATCH'
+  | 'MCP_PROVIDER_BINDING_CONFLICT'
   | 'MCP_RESERVED_HEADER_FORBIDDEN';
 
 export class FrozenMcpRegistryError extends Error {

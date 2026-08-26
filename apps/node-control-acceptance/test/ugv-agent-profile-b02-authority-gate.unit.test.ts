@@ -456,7 +456,7 @@ function fixture(): AuthorityFixture {
         'http://127.0.0.1:18092/api/v1/registry/simulation/consumers/sdar/v1/sources/smpp-source-ugv1-uap-p3-b01/latest',
       credentialRef: 'unauthenticated://none',
       environment: 'simulation',
-      syncMode: 'manual',
+      syncMode: 'poll',
       snapshotTtlSeconds: 300,
       lkgPolicy: 'deny_when_unavailable',
       status: 'active',

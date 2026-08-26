@@ -27,6 +27,7 @@ describe('A2A Task submission mapping', () => {
     expect(toSubmitTaskCommand(message, 'task-1', 'context-1')).toEqual({
       taskId: 'task-1',
       contextId: 'context-1',
+      clientRequestId: 'message-capability',
       userId: 'operator-1',
       messageText: 'Inspect device alpha.',
       capabilityInput: { deviceId: 'alpha' },
@@ -160,6 +161,7 @@ describe('A2A Task submission mapping', () => {
     );
 
     expect(command.initialAdmission).toBeUndefined();
+    expect(command.clientRequestId).toBe('message-legacy-structured-input');
     expect(command.capabilityInput).toBeUndefined();
     expect(command.metadata).toEqual({ structured_input: { deviceId: 'alpha' } });
   });

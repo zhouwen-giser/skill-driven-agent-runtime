@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  deriveFrozenMcpCatalogAuthority,
   withMcpToolAdminExecutionSemanticsOverride,
   type McpProtocolDiscoverySnapshot,
   type McpServer,
@@ -8,6 +9,7 @@ import {
 } from '../../domain/src/index.js';
 import {
   FrozenMcpRegistryService,
+  type CurrentMcpProviderBindingAuthorityPort,
   type FrozenMcpDiscoveryPort,
   type FrozenMcpRegistryRepository,
   type McpServerRecord,
@@ -51,6 +53,178 @@ describe('Frozen MCP registry', () => {
       { toolName: 'removed', reason: 'removed' },
       { toolName: 'move_to', reason: 'schema_changed' },
     ]);
+  });
+
+  it('keeps unchanged health discovery from rotating active remote Task anchors', async () => {
+    const repository = new MemoryRepository();
+    let now = timestamp;
+    let discoveries = 0;
+    const service = createService(repository, {
+      now: () => now,
+      onDiscover: () => {
+        discoveries += 1;
+      },
+    });
+    const registered = await service.register(registration());
+    const remoteTaskAnchor = {
+      serverUpdatedAt: registered.server.updatedAt,
+      toolRevision: registered.server.toolRevision,
+      snapshotId: registered.snapshot.snapshotId,
+    };
+    now = '2026-07-20T03:00:00.000Z';
+
+    const refreshed = await service.refresh('provider-1');
+
+    expect(discoveries).toBe(2);
+    expect(repository.writes).toBe(1);
+    expect(refreshed.server).toBe(registered.server);
+    expect(refreshed.snapshot).toBe(registered.snapshot);
+    expect(refreshed.dependencyWarnings).toEqual([]);
+    expect({
+      serverUpdatedAt: refreshed.server.updatedAt,
+      toolRevision: refreshed.server.toolRevision,
+      snapshotId: refreshed.snapshot.snapshotId,
+    }).toEqual(remoteTaskAnchor);
+  });
+
+  it('does not discover or write for unchanged registered authority despite stale health', async () => {
+    const repository = new MemoryRepository();
+    let discoveries = 0;
+    const service = createService(repository, {
+      onDiscover: () => {
+        discoveries += 1;
+      },
+    });
+    const registered = await service.register(registration());
+
+    const result = await service.reconcileProviderBinding(
+      providerAuthority(1, registered.tools, {
+        availabilityStatus: 'unavailable',
+        availabilityValidUntil: '2020-01-01T00:00:00.000Z',
+      }),
+    );
+
+    expect(discoveries).toBe(1);
+    expect(repository.writes).toBe(1);
+    expect(result.server).toBe(registered.server);
+    expect(result.snapshot).toBe(registered.snapshot);
+  });
+
+  it('materializes the exact new semantic Binding revision and Catalog without executing a Tool', async () => {
+    const repository = new MemoryRepository();
+    let currentTools = [tool('move_to')];
+    let discoveries = 0;
+    const service = createService(repository, {
+      tools: () => currentTools,
+      onDiscover: () => {
+        discoveries += 1;
+      },
+    });
+    await service.register(registration());
+    currentTools = [tool('move_to', { type: 'object', required: ['target'] }), tool('get_state')];
+    const authority = providerAuthority(7, currentTools);
+
+    const result = await service.reconcileProviderBinding(authority);
+
+    expect(result.server.toolRevision).toBe(7);
+    expect(result.snapshot.toolRevision).toBe(7);
+    expect(result.server.currentProtocolSnapshotId).toBe(result.snapshot.snapshotId);
+    expect(
+      deriveFrozenMcpCatalogAuthority(result.snapshot, result.tools, result.server.toolRevision),
+    ).toEqual({
+      catalogRevision: authority.binding.catalogRevision,
+      catalogChecksum: authority.binding.catalogChecksum,
+      operationCount: 2,
+    });
+    expect(result.dependencyWarnings).toEqual([{ toolName: 'move_to', reason: 'schema_changed' }]);
+    expect(repository.writes).toBe(2);
+    expect(discoveries).toBe(2);
+    await service.reconcileProviderBinding(authority);
+    expect(repository.writes).toBe(2);
+    expect(discoveries).toBe(2);
+  });
+
+  it.each(['checksum', 'revision', 'count', 'endpoint'] as const)(
+    'rejects registered %s mismatch before writing Runtime authority',
+    async (mismatch) => {
+      const repository = new MemoryRepository();
+      const service = createService(repository);
+      const registered = await service.register(registration());
+      const authority = providerAuthority(mismatch === 'count' ? 1 : 2, registered.tools, {
+        ...(mismatch === 'checksum' ? { catalogChecksum: 'f'.repeat(64) } : {}),
+        ...(mismatch === 'revision' ? { catalogRevision: 'unexpected:2' } : {}),
+        ...(mismatch === 'count' ? { operationCount: 2 } : {}),
+        ...(mismatch === 'endpoint' ? { endpointRef: 'https://other.example.test/mcp' } : {}),
+      });
+
+      await expect(service.reconcileProviderBinding(authority)).rejects.toMatchObject({
+        code: 'MCP_PROVIDER_BINDING_CONFLICT',
+      });
+      expect(repository.writes).toBe(1);
+      expect(repository.record?.server).toBe(registered.server);
+      expect(repository.snapshot).toBe(registered.snapshot);
+    },
+  );
+
+  it('retains approved admin overrides when reconciling a new registered semantic contract', async () => {
+    const repository = new MemoryRepository();
+    let discovered = tool('move_to');
+    const service = createService(repository, { tools: () => [discovered] });
+    await service.register(registration());
+    const override = {
+      effect: 'side_effecting',
+      execution: 'task_required',
+      cancellation: 'unsupported',
+      idempotency: 'server_managed',
+      replay: 'forbidden',
+      source: 'admin_override',
+    } as const;
+    repository.tools = [withMcpToolAdminExecutionSemanticsOverride(discovered, override)];
+    discovered = tool('move_to', { type: 'object', required: ['target'] });
+    const effective = withMcpToolAdminExecutionSemanticsOverride(discovered, override);
+
+    const result = await service.reconcileProviderBinding(providerAuthority(2, [effective]));
+
+    expect(result.tools).toEqual([effective]);
+    expect(repository.tools[0]?.adminExecutionSemanticsOverride).toEqual(override);
+    expect(repository.writes).toBe(2);
+  });
+
+  it('serializes refresh so overlapping health polls do not replace a semantic revision twice', async () => {
+    const repository = new MemoryRepository();
+    let signalEntered: (() => void) | undefined;
+    let releaseDiscovery: (() => void) | undefined;
+    const entered = new Promise<void>((resolve) => {
+      signalEntered = resolve;
+    });
+    const released = new Promise<void>((resolve) => {
+      releaseDiscovery = resolve;
+    });
+    let block = false;
+    let discoveries = 0;
+    const service = createService(repository, {
+      tools: () => (block ? [tool('move_to', { type: 'string' })] : [tool('move_to')]),
+      onDiscover: async () => {
+        discoveries += 1;
+        if (block) {
+          signalEntered?.();
+          await released;
+        }
+      },
+    });
+    await service.register(registration());
+    block = true;
+    const first = service.refresh('provider-1');
+    await entered;
+    const second = service.refresh('provider-1');
+    expect(discoveries).toBe(2);
+    releaseDiscovery?.();
+    const results = await Promise.all([first, second]);
+
+    expect(repository.writes).toBe(2);
+    expect(results[0].server.toolRevision).toBe(2);
+    expect(results[1].server).toBe(results[0].server);
+    expect(results[1].snapshot).toBe(results[0].snapshot);
   });
 
   it('retains the governed admin execution-semantics override across Frozen refresh', async () => {
@@ -145,6 +319,7 @@ class MemoryRepository implements FrozenMcpRegistryRepository {
   record: McpServerRecord | undefined;
   tools: readonly McpTool[] = [];
   snapshot: McpProtocolDiscoverySnapshot | undefined;
+  writes = 0;
   changes = [] as readonly Readonly<{ toolName: string; reason: 'removed' | 'schema_changed' }>[];
 
   findServer() {
@@ -152,6 +327,9 @@ class MemoryRepository implements FrozenMcpRegistryRepository {
   }
   listTools() {
     return Promise.resolve(this.tools);
+  }
+  findCurrentProtocolSnapshot() {
+    return Promise.resolve(this.snapshot);
   }
   replaceEncryptedCredential(_serverId: string, encryptedCredential: string, updatedAt: string) {
     if (this.record === undefined) return Promise.resolve(false);
@@ -167,6 +345,7 @@ class MemoryRepository implements FrozenMcpRegistryRepository {
     snapshot: McpProtocolDiscoverySnapshot,
     changes = [],
   ) {
+    this.writes += 1;
     this.record = record;
     this.tools = tools;
     this.snapshot = snapshot;
@@ -175,17 +354,61 @@ class MemoryRepository implements FrozenMcpRegistryRepository {
   }
 }
 
+function registration() {
+  return {
+    serverId: 'provider-1',
+    name: 'Provider 1',
+    endpoint: 'https://provider.test/mcp',
+    credentialHeaders: { Authorization: 'Bearer secret' },
+  };
+}
+
+type ProviderAuthority = Awaited<
+  ReturnType<CurrentMcpProviderBindingAuthorityPort['loadCurrentMcpProviderBinding']>
+>;
+
+function providerAuthority(
+  revision: number,
+  tools: readonly McpTool[],
+  overrides: Partial<ProviderAuthority['binding']> = {},
+): ProviderAuthority {
+  return {
+    observedAt: timestamp,
+    binding: {
+      bindingId: 'binding-provider-1',
+      revision,
+      localServerId: 'provider-1',
+      originType: 'direct',
+      providerId: 'provider-1',
+      endpointRef: 'https://provider.test/mcp',
+      ...deriveFrozenMcpCatalogAuthority(snapshot(revision, 'authority'), tools, revision),
+      availabilityStatus: 'available',
+      availabilityValidUntil: '2026-07-19T04:00:00.000Z',
+      ...overrides,
+    },
+  };
+}
+
 function createService(
   repository: MemoryRepository,
-  hooks: Readonly<{ onDiscover?: () => void; onDecrypt?: () => void }> = {},
+  hooks: Readonly<{
+    onDiscover?: () => void | Promise<void>;
+    onDecrypt?: () => void;
+    tools?: () => readonly McpTool[];
+    now?: () => string;
+  }> = {},
 ) {
+  let snapshotSequence = 0;
   const discovery: FrozenMcpDiscoveryPort = {
-    discover: (input) => {
-      hooks.onDiscover?.();
-      return Promise.resolve({
-        snapshot: snapshot(input.server.toolRevision, input.snapshotId),
-        tools: [tool('move_to')],
-      });
+    discover: async (input) => {
+      await hooks.onDiscover?.();
+      return {
+        snapshot: {
+          ...snapshot(input.server.toolRevision, input.snapshotId),
+          discoveredAt: input.discoveredAt,
+        },
+        tools: hooks.tools?.() ?? [tool('move_to')],
+      };
     },
   };
   return new FrozenMcpRegistryService({
@@ -198,8 +421,8 @@ function createService(
         return { Authorization: 'Bearer secret' };
       },
     },
-    clock: { now: () => timestamp },
-    nextSnapshotId: () => 'snapshot-1',
+    clock: { now: hooks.now ?? (() => timestamp) },
+    nextSnapshotId: () => `snapshot-${String(++snapshotSequence)}`,
     baselineSha256: 'a'.repeat(64),
   });
 }

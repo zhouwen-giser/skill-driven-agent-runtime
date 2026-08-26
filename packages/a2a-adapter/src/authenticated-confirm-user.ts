@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { User } from '@a2a-js/sdk/server';
-import type { UserBuilder } from '@a2a-js/sdk/server/express';
+import { UserBuilder } from '@a2a-js/sdk/server/express';
 import type { RequestHandler } from 'express';
 
 import {
@@ -29,6 +29,11 @@ export function createGovernedControlA2AAuthentication(
   const userBuilder: UserBuilder = (request) => {
     const existing = userByRequest.get(request);
     if (existing !== undefined) return existing;
+    if (!isGovernedControlConfirmationRequest(request.body)) {
+      const unauthenticated = UserBuilder.noAuthentication();
+      userByRequest.set(request, unauthenticated);
+      return unauthenticated;
+    }
     const pending = (async (): Promise<User> => {
       const authorization = request.header('authorization');
       const principal = await resolver.resolve({
@@ -36,7 +41,7 @@ export function createGovernedControlA2AAuthentication(
         requestId: request.header('x-request-id') ?? `a2a-confirmation-${randomUUID()}`,
         ...(request.ip === undefined ? {} : { sourceIp: request.ip }),
       });
-      const user: User = Object.freeze(new GovernedControlA2AUser(principal.actorId));
+      const user: User = Object.freeze(new GovernedControlA2AUser());
       principalByUser.set(user, principal);
       return user;
     })();
@@ -45,6 +50,10 @@ export function createGovernedControlA2AAuthentication(
   };
 
   const authenticateBeforeProtocol: RequestHandler = (request, response, next) => {
+    if (!isGovernedControlConfirmationRequest(request.body)) {
+      next();
+      return;
+    }
     void userBuilder(request).then(
       () => {
         next();
@@ -69,6 +78,19 @@ export function createGovernedControlA2AAuthentication(
   return Object.freeze({ userBuilder, authenticateBeforeProtocol });
 }
 
+function isGovernedControlConfirmationRequest(body: unknown): boolean {
+  const envelope = record(body);
+  const message = record(envelope?.['message']);
+  const metadata = record(message?.['metadata']);
+  return metadata?.['sdar_action'] === 'confirm_plan';
+}
+
+function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : undefined;
+}
+
 export function governedControlPrincipalForA2AUser(
   user: User | undefined,
 ): GovernedControlPrincipal | undefined {
@@ -76,14 +98,9 @@ export function governedControlPrincipalForA2AUser(
 }
 
 class GovernedControlA2AUser implements User {
-  readonly #actorId: string;
   readonly isAuthenticated = true;
-
-  constructor(actorId: string) {
-    this.#actorId = actorId;
-  }
-
-  get userName(): string {
-    return this.#actorId;
-  }
+  // Initial A2A admission is anonymous and the official SDK scopes Tasks by
+  // userName. Keep confirmation in that same public Task scope; the verified
+  // control principal remains available through principalByUser above.
+  readonly userName = '';
 }

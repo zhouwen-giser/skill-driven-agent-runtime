@@ -1,5 +1,39 @@
 # 需求追踪矩阵
 
+## PR #26 调试集成（2026-08-26，相关回归已验证）
+
+- FR-A2A-001/006、FR-EXE-001/002、FR-MCPT-009/010：合并保留
+  `apps/server/src/main.ts` 的开发环境 admission observation 与可信内网 identity；相关 environment、
+  UGV binding、migration selection、Management lifecycle observation 合同共同回归。
+- `deploy/ugv-agent-profile-simulation/debug.sh` / `package.json` 固化现有 supervisor 调试入口，
+  用户指定 start/restart 默认 YES，显式 NO 不依赖执行身份；没有新建业务 authority 或自动工具调用。
+  `apps/node-control-acceptance/test/ugv-debug-command.contract.test.ts` 覆盖授权先于启停、精确命令、
+  reload 顺序、NO 退出路径、失败传播与非法参数；真实进程边界沿用 supervisor 部署合同。
+- 17 个相关文件共 295 tests PASS（真实进程 13 项在宿主环境独立复跑通过）；typecheck、build、
+  858-source architecture、72 文件 scoped lint、format/syntax/diff 均 PASS。完整命令、环境重跑说明与
+  PR 发布状态见 `execplans/EP-PR26-DEBUG-INTEGRATION.md`，不升级外部导航验收状态。
+
+## ADR-141 Provider 生命周期修复（2026-08-26，已验证）
+
+- FR-A2A-001/006、FR-SKL-006/007、v1.4 P08、SACS-V03：`a2a-exposure-service.ts`、
+  `runtime-implementation-catalog.ts`、`task-capability.ts` 和 Server Card callback 只读取登记态；
+  `a2a-exposure-service.unit.test.ts`、`governed-skill-capability-authority.unit.test.ts` 与
+  `node-capability.integration.test.ts` 覆盖健康不可用时合同仍公开、显式停用移除和 Card 无 revision churn。
+- v1.4 P05：`mcp-provider-binding-service.ts`、`mcp-provider-binding-repository.ts`、Control migration
+  `0012_mcp_binding_registration_health` 分离 semantic revision、治理状态和 append-only 健康观测；
+  同名 unit、`mcp-provider-binding.integration.test.ts`、`foundation.integration.test.ts` 覆盖健康同 revision、
+  实际合同变更、新表回填、旧历史保留和拒绝丢失状态的 rollback。
+- FR-EXE-001/002、FR-MCPT-009/010、v1.4 P07：`mcp-runtime-binding-authority.ts`、
+  `task-capability.ts`、`capability-readiness-repository.ts`、`frozen-mcp-registry.ts` 分开登记校验与执行健康门，
+  新 Task 冻结最新 semantic authority；同名/相关 unit 覆盖 unavailable/expired 拒绝执行、旧 Task 不被重定向、
+  unchanged discovery 保留 Runtime anchors。API/Server 的 provider reconciler unit 覆盖后台只读观测与同步。
+- 命令、结果与最终只读 live 验证记录见 `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md`。
+  26 个相关 unit/contract 文件 358/358、3 个隔离 PostgreSQL 集成文件 21/21、typecheck/build、
+  857-source architecture、changed-scope lint/format/diff 均通过。
+  `9fc5ae0` 推送后在原调试数据库重启：0012生效，Binding仍revision1且新健康观测available，
+  Card公开自然语言@2合同，readiness1278 fresh/available，MCP/remote Task增量均0，副作用门NO。
+  本修复不更新历史外部导航 Goal 的完成状态。
+
 ## SDAR v1.2.2 upgrade mapping (2026-07-22)
 
 The Master Goal, G00–G10 and every acceptance item AC-001–AC-078 are verified with implementation,
@@ -1184,7 +1218,7 @@ classification subset and are not marked complete here.
 
 | Requirement                 | Status                   | Implementation / boundary                                                                                                                                                                                                                                                                                                                                                         | Tests / evidence                                                                                                                                                 |
 | --------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UAP-P3-B01-SMPP-BASELINE    | 已验证（只读）           | User-selected latest branch is exact clean `codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`; P0/P1 ancestors remain historical. SDAR does not modify the sibling checkout                                                                                                                                                            | Git HEAD/clean/ancestry checks; `smpp-readonly-qualification.redacted.json`; exact 10-tool live qualification                                                    |
+| UAP-P3-B01-SMPP-BASELINE    | 已验证（只读）           | Historical B01 evidence remains bound to `b5f3ba2076468695c781bea1e5e6d3045e60f70e`; the current executable Provider pin is merged `main@b6f0f645f1ce01d717420abe342aa16e3a22ee6e`. P0/P1/B01 ancestors remain immutable and SDAR does not modify the sibling checkout                                                                                                            | Git HEAD/clean/ancestry checks; Provider PR #18 merge; `smpp-readonly-qualification.redacted.json`; exact 10-tool live qualification                             |
 | UAP-P3-B01-CLEAN-STACK      | 已验证（外部仿真）       | Task-owned clean removes only labeled Profile volumes, then starts isolated SMPP/SDAR projects. Only the SMPP Adapter owns Device MCP/MQTT southbound access; SDAR reaches Runtime MCP northbound. Production databases and unrelated services are excluded                                                                                                                       | `deploy/ugv-agent-profile-simulation/{clean,preflight,up}.sh`; immutable clean/preflight/up attempt envelopes; deployment contract tests                         |
 | UAP-P3-B01-DOTENV-LLM       | 已验证配置；未调用模型   | Only the host Server loads repository-root `.env`; Compose receives none of it. Exact generation/embedding configuration materializes two Providers and 42 stage routes. Baseline and final invocation count is zero; no value or secret is recorded                                                                                                                              | `model-invocation-{baseline,final}.redacted.json`; private-log/redaction validation; `uap-p3-b01-verification.json`                                              |
 | UAP-P3-B01-AUTHORITY        | 已验证                   | Existing Source/Binding/Catalog path creates or reuses one exact Source, Binding, ten-tool Catalog, `embodied.move_to@1`, `embodied.move@1`, one implementation, one Exposure and one active managed Card. Immediate replay creates no duplicate authority. Profile public Card remains enabled-Skill authority, separate from the managed Exposure Card                          | Repeated `bootstrap-authority.sh` PASS attempts; `authority-bootstrap.redacted.json`; authority driver Unit and deployment contract tests                        |
@@ -1226,3 +1260,32 @@ continuation/final evidence and no post-fix external rerun was performed.
 | UAP-P3-B02-A2A-TERMINAL             | 未验证                        | The failed Task is not upgraded and no successful A2A terminal projection is inferred from Provider completion                                                                               | Failure artifact `uap-p3-b02-failure-uap-p3-b02-mt6s71d2-3a99d891d86bc8778e65-20260824052702017-e0945cf9beaafe32.redacted.json`, SHA `fe5f32e7...0377`                      |
 | UAP-P3-B02-POST-FIX-EXTERNAL-RETEST | 用户取消；未执行              | Another simulator client was active. Cleanup/rollback completed before another SDAR/A2A/YES window; the issued successor remains unused                                                      | Task-owned containers `0`, task-owned volumes `0`, supervisor stopped at handoff; no post-fix Device command                                                                |
 | UAP-P3-B02-OVERALL-CURRENT          | 代码可交付；Goal 验收仍待完成 | Implementation and affected gates pass, but P3-B02/P3-B03/P4 and overall Goal require a future separately authorized successful end-to-end run                                               | 5 files/165 tests, typecheck, build, 849-source architecture, scoped ESLint and diff checks PASS; full successful external A2A evidence absent                              |
+
+## SACS v0.3 natural-language A2A admission addendum (2026-08-24)
+
+This addendum uses “v0.3” only for the SACS client/product version. The A2A wire remains `1.0` under
+the normative 1.0.1 baseline and ADR-069. Evidence is local Runtime/PostgreSQL/Redis plus a frozen
+Provider and does not upgrade the external UGV Goal. The focused matrix passes 8 files/204 tests;
+the real local integration passes 1/1; typecheck, build, 852-source architecture and changed-scope
+lint/format/diff gates pass.
+
+| Requirement                        | Status         | Implementation / boundary                                                                                                                                                                                                                                                               | Tests / evidence                                                                                                                                                                                       |
+| ---------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FR-A2A-001/002/003/004             | 已验证（本地） | `packages/a2a-adapter/src/task-mapping.ts` supplies only official Message identity; `packages/a2a-adapter/src/http-endpoint.ts` publishes the current optional admission contract. A2A wire/version/SDK remain unchanged                                                                | `packages/a2a-adapter/test/{task-mapping.unit,a2a-compatibility.contract,http-endpoint.contract}.test.ts`; official A2A Runtime integration 1/1                                                        |
+| FR-SKL-001/003/005; FR-EXE-001/002 | 已验证（本地） | `packages/application/src/{natural-language-capability-admission,task-service,task-capability}.ts` and `apps/server/src/ugv-natural-language-capability-admission.ts` derive only a bounded candidate, then re-resolve and persist current Exposure/schema/readiness/Provider authority | `packages/application/test/task-service.unit.test.ts`; `apps/server/test/ugv-natural-language-capability-admission.unit.test.ts`; `apps/server/test/ugv-agent-profile-execution.integration.test.ts`   |
+| SACS-V03-PUBLIC-CONTRACT           | 已验证（本地） | Public `text/plain` requests require no `io.sdar/requestedCapability`, `idempotency_key`, structured Data Part or management API. The Card extension discloses exact Exposure/capability versions, request schema and requester policy without credentials or binding/provider IDs      | Card contract verifies safe projection; text-only integration verifies one admission/Task/Binding/Attempt, same-message replay, zero pre-confirm navigate, one confirmed navigate and restart recovery |
+| SACS-V03-TRUSTED-INTRANET-SECURITY | 已验证（合同） | Empty Card security requirements align with anonymous trusted-intranet admission. This does not remove confirmation identity, Provider authority, physical side-effect gating or exactly-once MCP dispatch; explicit bearer mode remains available                                      | `packages/a2a-adapter/test/http-endpoint.contract.test.ts` covers anonymous trusted-intranet initial admission and bearer failure/success boundaries; ADR-140                                          |
+| NFR-COMP-001                       | 已验证         | No A2A v0.3 transport module, new SDK or dependency was introduced. SDK types remain adapter-local and the Application resolver is protocol-neutral                                                                                                                                     | `packages/a2a-adapter/test/a2a-compatibility.contract.test.ts`; `pnpm verify:architecture`; `third_party/a2a-1.0.1-baseline.json`; ADR-069/140                                                         |
+
+## SACS v0.3 live current-authority addendum (2026-08-25)
+
+This addendum records a live local trusted-intranet check only. It does not confirm a plan, contact
+the simulator, dispatch a Provider/Device tool, or upgrade P3-B02/P3-B03/P4. The affected focused
+matrix passes 14 files/301 tests and the isolated Runtime/PostgreSQL/Redis integration passes 1/1;
+typecheck, build and 852-source architecture verification pass.
+
+| Requirement                | Status             | Implementation / boundary                                                                                                                                                                              | Tests / evidence                                                                                                                                                                                             |
+| -------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SACS-V03-CURRENT-AUTHORITY | 已验证（实跑）     | UGV Source is `poll` with TTL 300 seconds and a referenced 60-second worker interval. Exposure/readiness/Provider currentness remains PostgreSQL-owned; no TTL bypass or duplicate authority was added | Source `last_sync_at` advanced `02:04:57Z → 02:05:57Z`, `valid_until → 02:10:57Z`; sync outcomes `applied ×1, not_modified ×6`; readiness v4/v5/v6 all `available`                                           |
+| SACS-V03-SAME-DB           | 已验证（实跑）     | The current A2A process uses Runtime PostgreSQL `127.0.0.1:55462/sdar_uap`; bootstrap writes that Runtime database and the paired Control PostgreSQL `127.0.0.1:55463/sdar_uap_control`                | Current process PID `2856666` safe env projection; formal bootstrap/readiness PASS; Card contains `io.sdar/naturalLanguageCapabilityAdmission` for `a2a.embodied.move@2`                                     |
+| SACS-V03-TEXT-ONLY-LIVE    | 已验证（实跑、NO） | Generic Skill Usage uses immutable Task Binding/Provider context rather than the P3-B02 taskless qualification receipt. Actual vehicle state remains a post-confirmation Workflow read                 | Message `sacs-v03-natural-live-20260825-0207` created Task `4d1c02a6-fc43-4066-b7eb-e86be6f62533` in `awaiting_plan_confirmation`; task/all MCP `0`, confirmations `0`, remote bindings `0`, Supervisor `NO` |

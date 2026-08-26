@@ -1,5 +1,69 @@
 # Project Status
 
+## PR #26 integration (2026-08-26, verified / publication pending)
+
+`execplans/EP-PR26-DEBUG-INTEGRATION.md` tracks conflict resolution and publication of
+`codex/live-dev-evaluation-chain` to the existing PR with `main` as target. The integration preserves
+admission observation, trusted-intranet natural-language admission and the ADR-141 lifecycle repair.
+The committed `pnpm ugv:debug` entrypoint reuses the existing stack and defaults debug start/restart
+to YES per operator instruction, with explicit NO available and no implicit Task/Device call.
+All 295 relevant tests across 17 files, typecheck, production build, 858-source architecture and
+changed-scope lint/format/syntax checks pass; publication is pending. Read-only inspection found no listener
+on 10999; no service restart or live movement acceptance is claimed here.
+
+## Persistent Provider authority repair (2026-08-26)
+
+ADR-141 / `execplans/EP-SDAR-PERSISTENT-PROVIDER-AUTHORITY.md` is complete. Binding registration
+is now independent of observation TTL; unchanged health does not create semantic revisions. Card
+publication reads current registered Skills rather than readiness. New Task snapshots resolve current
+semantic Binding authority while existing Task/Plan snapshots remain immutable. Background health,
+registration and Runtime Catalog reconciliation are wired. All 358 relevant unit/contract tests and
+21 isolated PostgreSQL integration tests pass, as do typecheck, production build and scoped static
+checks. Code `9fc5ae0` is pushed on `codex/provider-binding-lifecycle`; the three debug processes were
+restarted on the original Runtime/Control databases with migration 0012. At `02:34:09Z`, Binding
+revision remained 1 with fresh available health, readiness snapshot 1278 was fresh/available, and the
+public Card advertised the natural-language `a2a.embodied.move@2` contract. Actual A2A/management
+listener PID is `2416023`. No MCP invocation or remote Task was created; side effects remain `NO`.
+No navigation, Tool call, database reset or `main` merge is claimed by this repair.
+
+## SACS v0.3 live current-authority recheck (2026-08-25)
+
+The task-owned UGV stack was rebuilt and the old process PID `1333129` was replaced by the current
+A2A/management process PID `2856666`. Its safe environment projection confirms Runtime PostgreSQL
+`postgresql://sdar_uap@127.0.0.1:55462/sdar_uap`, A2A port 10999, management port 10998 and physical
+side effects `NO`; formal bootstrap used that Runtime database and the paired Control PostgreSQL on
+port 55463. Bootstrap and readiness pass with `a2a.embodied.move@2` published/current/available, and
+the public Card now exposes `io.sdar/naturalLanguageCapabilityAdmission` with the exact v2 request
+schema and anonymous trusted-intranet requester policy.
+
+Currentness is no longer a one-shot manual refresh. The Profile Source uses `poll` with a 300-second
+TTL and the long-lived Node Control worker polls every 60 seconds. Live evidence observed Source
+`last_sync_at` advance from `02:04:57Z` to `02:05:57Z` with `active_snapshot_valid_until` extended to
+`02:10:57Z`; seven attempts were one `applied` plus six `not_modified`, and Runtime readiness versions
+4/5/6 remained `available`. A metadata-free text-only A2A 1.0 message created Task
+`4d1c02a6-fc43-4066-b7eb-e86be6f62533` in `awaiting_plan_confirmation`. Task MCP, total MCP,
+confirmation and remote-binding counts were all zero, and Supervisor remained `NO`. No plan
+confirmation, simulator validation, Provider tool call or Device action was performed.
+
+## SACS v0.3 natural-language admission compatibility (2026-08-24)
+
+ADR-140 is implemented for the SACS v0.3 client while preserving the A2A `1.0` wire and normative
+1.0.1 baseline. A metadata-free `text/plain` UGV request now enters an Application-owned,
+deterministic resolver, produces the existing `a2a.embodied.move@2` candidate input and is accepted
+only after the current PostgreSQL Exposure/readiness/Provider authority is re-resolved. The public
+UGV Agent Card exposes a safe optional admission contract, including Exposure/capability versions
+and request schema, so SACS does not need private SDAR metadata or management API access.
+
+The trusted-intranet deployment remains consistent with empty Card security requirements: initial
+A2A admission can be anonymous, while plan confirmation, governed-control identity and the physical
+side-effect gate remain independent execution boundaries. The focused matrix passes 8 files/204
+tests and the real local Runtime integration with isolated PostgreSQL/Redis passes 1/1. That
+integration proves one durable Task/Binding/Attempt, same-message replay, zero navigate before
+confirmation, one navigate after confirmation and restart recovery using a frozen local Provider.
+Typecheck, production build, 852-source architecture, changed-scope lint/format and diff checks pass.
+Full lint/format retain only the disclosed out-of-scope Home-Lab/two-file baselines. No test contacted
+the external UGV/simulator or opened a live YES window, and this does not upgrade the external P3 Goal.
+
 ## UGV Agent Profile external-simulation Goal (2026-08-21)
 
 The current `ugv-agent-profile` Goal is `IN_PROGRESS`; this status does not replace or upgrade the
@@ -7,10 +71,11 @@ historical blocked UGV handoff below. P0, SMPP P1 qualification and SDAR P2-B01/
 milestones are complete. P3-B01 clean-stack runtime and changed-scope static gates are accepted with
 disclosed out-of-scope lint/format baselines and fifteen frozen artifact hashes. P3-B02/P3-B03
 external movement/recovery and P4 final Goal acceptance remain pending.
-The user-selected current SMPP intake is
-`codex/goal-ugv-runtime-telemetry-joint-integration@b5f3ba2076468695c781bea1e5e6d3045e60f70e`;
+The current SMPP execution pin is merged
+`main@b6f0f645f1ce01d717420abe342aa16e3a22ee6e`;
 `90466127aee7c01014eef29a1e346b071de3704e` remains the immutable P1 qualification evidence
-checkpoint and `ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
+checkpoint, `b5f3ba2076468695c781bea1e5e6d3045e60f70e` remains the historical P3-B01 intake, and
+`ce57d3d7ac2f99c0c95fa61bd9746abe862ed507` remains the P0 contract source.
 
 The latest authorized real attempt reached A2A admission, immutable planning and confirmation, then
 dispatched exactly one `vehicle_navigate` through Frozen MCP Tasks. The Provider Task completed and

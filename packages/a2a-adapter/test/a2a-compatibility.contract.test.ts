@@ -149,6 +149,7 @@ describe('A2A 1.0.1 compatibility baseline', () => {
     expect(toSubmitTaskCommand(message, 'task-1', 'context-1')).toEqual({
       taskId: 'task-1',
       contextId: 'context-1',
+      clientRequestId: 'message-1',
       userId: 'user-1',
       messageText: 'Inspect device.',
       metadata: { user_id: 'user-1', trace_hint: 'visible' },

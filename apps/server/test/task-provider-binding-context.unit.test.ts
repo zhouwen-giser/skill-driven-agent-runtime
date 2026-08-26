@@ -254,6 +254,7 @@ function providerAuthority(
       catalogRevision: override.catalogRevision ?? 'catalog-revision-1',
       catalogChecksum: override.catalogChecksum ?? 'b'.repeat(64),
       endpointRef: 'http://127.0.0.1:10001/mcp',
+      availabilityStatus: 'available' as const,
       availabilityValidUntil: '2026-08-21T01:30:00.000Z',
       catalogObservedAt: '2026-08-21T01:00:00.000Z',
       operationCount: 2,

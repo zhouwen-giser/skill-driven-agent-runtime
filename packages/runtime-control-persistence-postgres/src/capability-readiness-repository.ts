@@ -60,6 +60,7 @@ interface CurrentBindingAuthorityRepository {
           catalogRevision: string;
           catalogChecksum: string;
           operationCount: number;
+          availabilityStatus: 'unknown' | 'available' | 'degraded' | 'unavailable';
           availabilityValidUntil: string;
         }>;
       }>
@@ -400,11 +401,6 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
           dynamicAuthorization?.requirements ?? providerBindingPolicy.requirements;
         for (const policy of requirements) {
           bindingPolicyParts.push(JSON.stringify(policy));
-          const expectedBinding = dynamicAuthorization?.expectedBindings.find(
-            (value) =>
-              value.mcpProviderBindingId === policy.mcpProviderBindingId &&
-              value.localServerId === policy.localServerId,
-          );
           if (this.#providerBindings === undefined) {
             requiredUnavailable = true;
             reasons.push(
@@ -426,33 +422,28 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
           }
           if (
             authority?.binding.bindingId !== policy.mcpProviderBindingId ||
-            authority.binding.localServerId !== policy.localServerId ||
+            authority.binding.localServerId !== policy.localServerId
+          ) {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
+            );
+            continue;
+          }
+          if (authority.binding.availabilityStatus !== 'available') {
+            requiredUnavailable = true;
+            reasons.push(
+              reason('MCP_PROVIDER_UNAVAILABLE', 'blocking', policy.mcpProviderBindingId),
+            );
+            continue;
+          }
+          if (
+            !Number.isFinite(Date.parse(authority.binding.availabilityValidUntil)) ||
             Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(evaluatedAt)
           ) {
             requiredUnavailable = true;
             reasons.push(
-              reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
-            );
-            continue;
-          }
-          if (
-            expectedBinding !== undefined &&
-            authority.binding.revision !== expectedBinding.bindingRevision
-          ) {
-            requiredUnavailable = true;
-            reasons.push(
-              reason('MCP_PROVIDER_BINDING_NOT_CURRENT', 'blocking', policy.mcpProviderBindingId),
-            );
-            continue;
-          }
-          if (
-            expectedBinding !== undefined &&
-            (authority.binding.catalogRevision !== expectedBinding.catalogRevision ||
-              authority.binding.catalogChecksum !== expectedBinding.catalogChecksum)
-          ) {
-            requiredUnavailable = true;
-            reasons.push(
-              reason('MCP_PROVIDER_BINDING_CATALOG_DRIFT', 'blocking', policy.mcpProviderBindingId),
+              reason('PROVIDER_AVAILABILITY_EXPIRED', 'blocking', policy.mcpProviderBindingId),
             );
             continue;
           }
@@ -486,19 +477,6 @@ export class PostgresRuntimeCapabilityReadinessRepository implements RuntimeCapa
                 'MCP_PROVIDER_BINDING_RUNTIME_AUTHORITY_UNAVAILABLE',
                 'blocking',
                 policy.mcpProviderBindingId,
-              ),
-            );
-          } else if (
-            runtimeAuthority.snapshotValidUntil === undefined ||
-            !Number.isFinite(Date.parse(runtimeAuthority.snapshotValidUntil)) ||
-            Date.parse(runtimeAuthority.snapshotValidUntil) <= Date.parse(evaluatedAt)
-          ) {
-            requiredUnavailable = true;
-            reasons.push(
-              reason(
-                'PROVIDER_AVAILABILITY_EXPIRED',
-                'blocking',
-                `${policy.localServerId}/${policy.mcpToolName}`,
               ),
             );
           } else if (!runtimeAuthority.toolNames.includes(policy.mcpToolName)) {

@@ -87,6 +87,7 @@ const CurrentMcpProviderBindingAuthoritySchema = z
         catalogRevision: z.string().min(1),
         catalogChecksum: ChecksumSchema,
         endpointRef: HttpEndpointSchema,
+        availabilityStatus: z.enum(['unknown', 'available', 'degraded', 'unavailable']),
         availabilityValidUntil: z.iso.datetime({ offset: true }),
         catalogObservedAt: z.iso.datetime({ offset: true }),
         operationCount: z.number().int().nonnegative().max(1024),
@@ -142,11 +143,8 @@ const CurrentMcpProviderBindingAuthoritySchema = z
         code: 'custom',
         message: 'Current SMPP Binding and source/candidate lineage identities differ.',
       });
-    if (Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(authority.observedAt))
-      context.addIssue({
-        code: 'custom',
-        message: 'Current MCP Binding availability has expired.',
-      });
+    // A registration remains current when its health observation expires. Execution
+    // consumers, not this authority reader, decide whether the Provider is ready.
   });
 
 export class HttpNodeControlCapabilityEvidenceReader
@@ -257,6 +255,7 @@ export class HttpNodeControlCapabilityEvidenceReader
         catalogRevision: authority.binding.catalogRevision,
         catalogChecksum: authority.binding.catalogChecksum,
         endpointRef: authority.binding.endpointRef,
+        availabilityStatus: authority.binding.availabilityStatus,
         availabilityValidUntil: authority.binding.availabilityValidUntil,
         catalogObservedAt: authority.binding.catalogObservedAt,
         operationCount: authority.binding.operationCount,

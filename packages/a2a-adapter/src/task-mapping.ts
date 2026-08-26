@@ -201,6 +201,7 @@ export function toSubmitTaskCommand(
   return {
     taskId,
     contextId,
+    clientRequestId: message.messageId,
     ...(rawUserId === undefined ? {} : { userId: rawUserId }),
     messageText: text,
     metadata,

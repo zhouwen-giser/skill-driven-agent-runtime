@@ -22,6 +22,7 @@
     "demo:evidence-e2e": "node scripts/run-v141-evidence-e2e.mjs",
     "integrate:home-lab-catalog": "tsx apps/node-control-acceptance/src/home-lab-catalog-materialization-driver.ts",
     "ugv:driver:preflight": "node scripts/sdar-ugv-smpp/preflight.mjs",
+    "ugv:debug": "bash deploy/ugv-agent-profile-simulation/debug.sh",
     "ugv:driver:bootstrap": "node scripts/sdar-ugv-smpp/driver-command.mjs bootstrap",
     "ugv:driver:bootstrap-source": "tsx apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.ts",
     "ugv:driver:bootstrap-provider": "tsx apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts",

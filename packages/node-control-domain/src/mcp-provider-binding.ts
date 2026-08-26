@@ -28,9 +28,32 @@ export interface McpProviderBinding {
 export interface McpProviderBindingRecord {
   readonly binding: McpProviderBinding;
   readonly credentialRef: string;
+  /** Latest health observation validity, never a registration or contract expiry. */
   readonly availabilityValidUntil: string;
+  /** Latest health/catalog observation time, independent of the immutable contract revision. */
   readonly catalogObservedAt: string;
   readonly operationCount: number;
+}
+
+/** Health, governance state and Registry observation counters are not semantic contract changes. */
+export function sameMcpProviderBindingContract(
+  left: McpProviderBindingRecord,
+  right: McpProviderBindingRecord,
+): boolean {
+  const a = left.binding;
+  const b = right.binding;
+  return (
+    a.bindingId === b.bindingId &&
+    a.localServerId === b.localServerId &&
+    a.originType === b.originType &&
+    a.smppSourceId === b.smppSourceId &&
+    a.externalProviderId === b.externalProviderId &&
+    a.externalServerId === b.externalServerId &&
+    a.endpointRef === b.endpointRef &&
+    a.catalogChecksum === b.catalogChecksum &&
+    left.credentialRef === right.credentialRef &&
+    left.operationCount === right.operationCount
+  );
 }
 
 export function createMcpProviderBinding(input: McpProviderBinding): McpProviderBinding {
@@ -91,7 +114,11 @@ export function createMcpProviderBindingRecord(
   const credentialRef = validateMcpCredentialRef(input.credentialRef);
   timestamp(input.availabilityValidUntil, 'availabilityValidUntil');
   timestamp(input.catalogObservedAt, 'catalogObservedAt');
-  if (Date.parse(input.availabilityValidUntil) <= Date.parse(input.catalogObservedAt))
+  if (
+    Date.parse(input.availabilityValidUntil) < Date.parse(input.catalogObservedAt) ||
+    (binding.availabilityStatus !== 'unavailable' &&
+      Date.parse(input.availabilityValidUntil) === Date.parse(input.catalogObservedAt))
+  )
     invalid('availabilityValidUntil must be later than catalogObservedAt.');
   if (
     !Number.isSafeInteger(input.operationCount) ||

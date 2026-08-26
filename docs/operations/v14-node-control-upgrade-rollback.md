@@ -21,6 +21,22 @@ credentials, processes and migration ledgers remain separate.
 
 ## Rollback
 
+### Persistent Binding lifecycle (Control migration 0012 / ADR-141)
+
+Apply `0012_mcp_binding_registration_health` before running the new Node Control API. It backfills
+`mcp_provider_binding_state` and adds `mcp_provider_binding_projection`; immutable Binding rows
+remain unchanged. Health timestamps still expire, but registration does not. The API observes
+Provider health through read-only discovery, and Runtime synchronizes changed semantic contracts.
+Do not clean Runtime/Control databases or republish a Capability simply to renew health.
+
+On an unused test database the down migration can remove this projection, then 0011 may be rolled
+back. Once independent lifecycle/health differs from the original immutable row, down fails with
+`CONTROL_MCP_BINDING_HEALTH_STATE_REQUIRES_RECONCILIATION`. Keep the database and roll forward, or
+restore a separately verified pre-upgrade backup into a different database. Never delete observations,
+reset lifecycle state or mutate immutable Binding rows to bypass that check.
+
+### General rollback
+
 - Before governance traffic resumes, stop the candidate and restore the pre-upgrade backup into a
   new database; verify hashes and repoint through the deployment control plane.
 - After new immutable revisions or events are accepted, do not run destructive down migrations.

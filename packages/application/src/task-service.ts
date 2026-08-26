@@ -37,17 +37,24 @@ import type { ImplicitFeedbackService } from './implicit-feedback.js';
 import type { RuntimeTaskCapabilityService } from './task-capability.js';
 import type { GovernedControlPrincipal } from './governed-control-management.js';
 import {
+  INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY,
   initialTaskAdmissionRequestHash,
   normalizeInitialTaskAdmissionIdempotencyKey,
   type InitialTaskAdmissionCommand,
   type InitialTaskAdmissionRecord,
   type InitialTaskAdmissionStore,
 } from './initial-task-admission.js';
+import {
+  validateNaturalLanguageCapabilityAdmission,
+  type NaturalLanguageCapabilityAdmissionResolver,
+} from './natural-language-capability-admission.js';
 
 export interface SubmitTaskCommand {
   readonly taskId?: string;
   readonly contextId?: string;
   readonly userId?: string;
+  /** Stable adapter-supplied request identity; never a Task/Context identity or user authority. */
+  readonly clientRequestId?: string;
   readonly messageText: string;
   readonly metadata: Readonly<Record<string, unknown>>;
   readonly capabilityInput?: unknown;
@@ -110,6 +117,7 @@ export interface TaskServiceDependencies {
   readonly taskInputs: TaskInputRepository;
   readonly taskCapabilities?: RuntimeTaskCapabilityService;
   readonly initialAdmissions?: InitialTaskAdmissionStore;
+  readonly naturalLanguageCapabilityAdmissions?: NaturalLanguageCapabilityAdmissionResolver;
   readonly remoteTaskInputs?: Readonly<{
     prepareResponse(inputRequestId: string, inputContent: unknown): Promise<unknown>;
   }>;
@@ -168,13 +176,39 @@ export class TaskService {
   async #submit(command: SubmitTaskCommand, enqueue: boolean): Promise<SubmitTaskResult> {
     const timestamp = this.#dependencies.clock.now();
     const requestedUserId = normalizeUserId(command.userId);
-    const capabilityInput = command.capabilityInput ?? { messageText: command.messageText };
+    const naturalLanguageAdmission =
+      command.initialAdmission === undefined &&
+      command.capabilityInput === undefined &&
+      command.metadata['io.sdar/requestedCapability'] === undefined &&
+      command.metadata[INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY] === undefined &&
+      command.metadata['structured_input'] === undefined &&
+      command.clientRequestId !== undefined
+        ? await this.#dependencies.naturalLanguageCapabilityAdmissions?.resolve({
+            messageText: command.messageText,
+            userId: requestedUserId,
+            clientRequestId: command.clientRequestId,
+            receivedAt: timestamp,
+          })
+        : undefined;
+    const validatedNaturalLanguageAdmission =
+      naturalLanguageAdmission === undefined
+        ? undefined
+        : validateNaturalLanguageCapabilityAdmission(naturalLanguageAdmission);
+    const capabilityInput =
+      command.capabilityInput ??
+      validatedNaturalLanguageAdmission?.capabilityInput ??
+      ({ messageText: command.messageText } as const);
+    const requestedInitialAdmission =
+      command.initialAdmission ??
+      (validatedNaturalLanguageAdmission === undefined
+        ? undefined
+        : { idempotencyKey: validatedNaturalLanguageAdmission.idempotencyKey });
     const initialAdmission =
-      command.initialAdmission === undefined
+      requestedInitialAdmission === undefined
         ? undefined
         : Object.freeze({
             idempotencyKey: normalizeInitialTaskAdmissionIdempotencyKey(
-              command.initialAdmission.idempotencyKey,
+              requestedInitialAdmission.idempotencyKey,
             ),
             requestHash: initialTaskAdmissionRequestHash({
               messageText: command.messageText,
@@ -254,6 +288,9 @@ export class TaskService {
       inputAttempt: attempt,
       bindingId: `binding-${task.taskId}`,
       capabilityAttemptId: `capability-attempt-${task.taskId}-1`,
+      ...(validatedNaturalLanguageAdmission === undefined
+        ? {}
+        : { requestedCapability: validatedNaturalLanguageAdmission.requestedCapability }),
       ...(initialAdmission === undefined
         ? {}
         : { initialAdmissionIdempotencyKey: initialAdmission.idempotencyKey }),

@@ -25,4 +25,24 @@ describe('governed Skill Capability implementation authority', () => {
     );
     expect(String(query.mock.calls[0]?.[0])).toContain("='published'");
   });
+
+  it('restricts public discovery to the current registered Skill without consulting Provider health', async () => {
+    const query = vi.fn((_statement: string, values: readonly unknown[]) =>
+      Promise.resolve({ rows: values[2] === true ? [{}] : [] }),
+    );
+    const catalog = new PostgresRuntimeCapabilityImplementationCatalog({
+      query,
+    } as unknown as Pool);
+
+    await expect(catalog.isPubliclyRegistered('skill', 'home.light.get-state', '1')).resolves.toBe(
+      true,
+    );
+
+    expect(query).toHaveBeenCalledOnce();
+    const [statement, values] = query.mock.calls[0] ?? [];
+    expect(values).toEqual(['home.light.get-state', 1, true]);
+    expect(statement).toContain('skill.current_version=version.version');
+    expect(statement).toContain('governance.lifecycle_status');
+    expect(statement).not.toMatch(/readiness|mcp_provider|availability|valid_until/u);
+  });
 });

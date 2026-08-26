@@ -20,6 +20,7 @@ import type {
 } from './ports.js';
 import type { RuntimeMcpProviderBindingAdmissionVerifier } from './mcp-runtime-binding-authority.js';
 import { canonicalHash } from './mcp-task-readiness.js';
+import type { NaturalLanguageCapabilityAdmissionRequest } from './natural-language-capability-admission.js';
 
 export interface RuntimeCapabilityResolution {
   readonly exposureId: string;
@@ -40,6 +41,16 @@ export interface RuntimeCapabilityResolution {
   readonly providerPolicySnapshot?: unknown;
 }
 
+export type RuntimeCapabilityExposure = Pick<
+  RuntimeCapabilityResolution,
+  | 'exposureId'
+  | 'exposureVersion'
+  | 'requestedCapabilityId'
+  | 'capabilityVersion'
+  | 'requestSchema'
+  | 'requesterPolicy'
+>;
+
 export interface TaskCapabilityAcceptance {
   readonly task: AgentTask;
   readonly inputAttempt: TaskExecutionAttempt;
@@ -49,6 +60,10 @@ export interface TaskCapabilityAcceptance {
 }
 
 export interface TaskCapabilityAcceptanceStore {
+  describeExposure(
+    exposureId: string,
+    exposureVersion: number,
+  ): Promise<RuntimeCapabilityExposure | undefined>;
   resolveExposure(
     exposureId: string,
     exposureVersion: number,
@@ -222,11 +237,18 @@ export class RuntimeTaskCapabilityService {
       inputAttempt: TaskExecutionAttempt;
       bindingId: string;
       capabilityAttemptId: string;
+      requestedCapability?: NaturalLanguageCapabilityAdmissionRequest;
       initialAdmissionIdempotencyKey?: string;
       event: RuntimeTaskEvent;
     }>,
   ) {
-    const request = requestedCapability(input.metadata);
+    const metadataRequest = requestedCapability(input.metadata);
+    if (metadataRequest !== undefined && input.requestedCapability !== undefined)
+      throw new TaskCapabilityError(
+        'TASK_CAPABILITY_REQUEST_INVALID',
+        'Capability admission cannot combine metadata and server-resolved requests.',
+      );
+    const request = input.requestedCapability ?? metadataRequest;
     if (request === undefined) return undefined;
     if (
       input.initialAdmissionIdempotencyKey !== undefined &&
@@ -244,7 +266,7 @@ export class RuntimeTaskCapabilityService {
     if (resolution === undefined)
       throw new TaskCapabilityError(
         'TASK_CAPABILITY_ADMISSION_REJECTED',
-        'The requested Exposure is not active, current, or ready.',
+        'The requested Exposure is not active or its registered contract is unavailable.',
       );
     const currentProviderBindings = await this.#requireCurrentProviderBindings(resolution);
     assertRequester(resolution.requesterPolicy, input.task.userId);
@@ -264,7 +286,10 @@ export class RuntimeTaskCapabilityService {
       inputSnapshot: input.capabilityInput,
       successCriteriaSnapshot: resolution.successCriteria,
       evidenceRequirementSnapshot: resolution.requiredEvidence,
-      constraintSnapshot: resolution.constraints,
+      constraintSnapshot: bindCurrentProviderConstraints(
+        resolution.constraints,
+        currentProviderBindings,
+      ),
       initialImplementationRefs: resolution.implementationRefs,
       ...(currentProviderBindings.length === 0
         ? resolution.providerPolicySnapshot === undefined
@@ -321,11 +346,10 @@ export class RuntimeTaskCapabilityService {
         });
         if (
           authority.binding.bindingId !== requirement.bindingId ||
-          authority.binding.localServerId !== requirement.localServerId ||
-          Date.parse(authority.binding.availabilityValidUntil) <= Date.parse(authority.observedAt)
+          authority.binding.localServerId !== requirement.localServerId
         )
           throw new Error('MCP_PROVIDER_BINDING_NOT_CURRENT');
-        await this.#runtimeProviderBindings.assertCurrent({
+        await this.#runtimeProviderBindings.assertRegistered({
           authority,
           bindingId: requirement.bindingId,
           localServerId: requirement.localServerId,
@@ -347,6 +371,23 @@ export class RuntimeTaskCapabilityService {
 
   findBinding(taskId: string) {
     return this.#store.findBinding(taskId);
+  }
+
+  async describeAdmissionExposure(exposureId: string, exposureVersion: number, now: string) {
+    // Kept for source compatibility; discovery is a registration contract, not a health lease.
+    void now;
+    const resolution = await this.#store.describeExposure(exposureId, exposureVersion);
+    if (resolution === undefined) return undefined;
+    return Object.freeze({
+      exposureId: resolution.exposureId,
+      exposureVersion: resolution.exposureVersion,
+      capabilityId: resolution.requestedCapabilityId,
+      capabilityVersion: resolution.capabilityVersion,
+      requestSchema: structuredClone(resolution.requestSchema),
+      ...(resolution.requesterPolicy === undefined
+        ? {}
+        : { requesterPolicy: Object.freeze(structuredClone(resolution.requesterPolicy)) }),
+    });
   }
 
   async resolveRuntimeExecutionContext(
@@ -1480,6 +1521,42 @@ function canonical(value: unknown): string {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonical(object[key])}`)
     .join(',')}}`;
+}
+
+/**
+ * A published Capability pins the Provider identity and operation contract, not an obsolete
+ * registration revision. Only a new Task resolves the current semantic revision; the resulting
+ * constraint is hashed into that Task's immutable binding and never refreshed in place.
+ */
+function bindCurrentProviderConstraints(
+  constraints: RuntimeCapabilityResolution['constraints'],
+  authorities: readonly Awaited<
+    ReturnType<CurrentMcpProviderBindingAuthorityPort['loadCurrentMcpProviderBinding']>
+  >[],
+): RuntimeCapabilityResolution['constraints'] {
+  if (authorities.length === 0) return constraints;
+  return Object.freeze(
+    constraints.map((constraint) => {
+      if (constraint['type'] !== 'provider_binding_policy') return constraint;
+      const matches = authorities.filter(
+        ({ binding }) =>
+          binding.bindingId === constraint['mcpProviderBindingId'] &&
+          binding.localServerId === constraint['localServerId'],
+      );
+      const current = matches[0]?.binding;
+      if (matches.length !== 1 || current === undefined)
+        throw new TaskCapabilityError(
+          'TASK_CAPABILITY_PROVIDER_BINDING_NOT_CURRENT',
+          'The registered Capability Provider policy does not match its current Binding identity.',
+        );
+      return Object.freeze({
+        ...constraint,
+        bindingRevision: current.revision,
+        catalogRevision: current.catalogRevision,
+        catalogChecksum: current.catalogChecksum,
+      });
+    }),
+  );
 }
 
 function currentProviderBindingAuthorities(

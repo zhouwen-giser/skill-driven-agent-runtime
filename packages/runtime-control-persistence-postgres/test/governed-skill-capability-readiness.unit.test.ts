@@ -272,7 +272,9 @@ describe('governed Skill Capability readiness', () => {
     ['catalog-drifted', 'catalog-drift'],
     ['revision-drifted', 'revision-drift'],
     ['required-tool-missing', 'tool-missing'],
-    ['runtime-catalog-stale', 'stale'],
+    ['healthy-with-old-discovery-snapshot', 'stale'],
+    ['Provider health unavailable', 'health-unavailable'],
+    ['Provider health expired', 'health-expired'],
     ['Binding reader unconfigured', 'binding-reader-unconfigured'],
     ['Runtime reader unconfigured', 'runtime-reader-unconfigured'],
     ['Runtime reader throws', 'runtime-reader-error'],
@@ -326,7 +328,14 @@ describe('governed Skill Capability readiness', () => {
                   catalogChecksum:
                     state === 'catalog-drift' ? 'b'.repeat(64) : runtimeCatalog.catalogChecksum,
                   operationCount: runtimeCatalog.operationCount,
-                  availabilityValidUntil: '2026-08-10T13:00:00.000Z',
+                  availabilityStatus:
+                    state === 'health-unavailable'
+                      ? ('unavailable' as const)
+                      : ('available' as const),
+                  availabilityValidUntil:
+                    state === 'health-expired'
+                      ? '2026-08-10T11:00:00.000Z'
+                      : '2026-08-10T13:00:00.000Z',
                 },
               },
         ),
@@ -421,13 +430,15 @@ describe('governed Skill Capability readiness', () => {
         });
       if (
         state === 'missing' ||
+        state === 'health-unavailable' ||
+        state === 'health-expired' ||
         state === 'binding-reader-unconfigured' ||
         state === 'runtime-reader-unconfigured'
       )
         expect(loadCurrentAuthority).not.toHaveBeenCalled();
       else expect(loadCurrentAuthority).toHaveBeenCalledOnce();
-      expect(assessment?.available).toBe(state === 'current');
-      if (state === 'current')
+      expect(assessment?.available).toBe(state === 'current' || state === 'stale');
+      if (state === 'current' || state === 'stale')
         expect(assessment?.catalogParts.join('|')).toContain('mcp-binding-ha-light-lab:11');
       else
         expect(assessment?.reasons).toEqual([
@@ -441,9 +452,11 @@ describe('governed Skill Capability readiness', () => {
                     ? 'MCP_PROVIDER_BINDING_CATALOG_DRIFT'
                     : state === 'tool-missing'
                       ? 'MCP_TOOL_UNAVAILABLE'
-                      : state === 'stale'
-                        ? 'PROVIDER_AVAILABILITY_EXPIRED'
-                        : 'MCP_PROVIDER_BINDING_RUNTIME_AUTHORITY_UNAVAILABLE',
+                      : state === 'health-unavailable'
+                        ? 'MCP_PROVIDER_UNAVAILABLE'
+                        : state === 'health-expired'
+                          ? 'PROVIDER_AVAILABILITY_EXPIRED'
+                          : 'MCP_PROVIDER_BINDING_RUNTIME_AUTHORITY_UNAVAILABLE',
             severity: 'blocking',
           }),
         ]);
@@ -493,6 +506,7 @@ describe('governed Skill Capability readiness', () => {
                       ? 'a'.repeat(64)
                       : 'b'.repeat(64),
                     operationCount: 1,
+                    availabilityStatus: 'available' as const,
                     availabilityValidUntil: '2026-08-10T13:00:00.000Z',
                   },
                 },

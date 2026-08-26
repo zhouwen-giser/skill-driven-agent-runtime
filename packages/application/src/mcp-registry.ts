@@ -647,6 +647,7 @@ export class McpRegistryService {
           current.binding.catalogRevision !== frozenProvider.catalogRevision) ||
         current.binding.catalogChecksum !== frozenProvider.catalogChecksum ||
         current.binding.operationCount !== frozenProvider.operationCount ||
+        current.binding.availabilityStatus !== 'available' ||
         Date.parse(current.binding.availabilityValidUntil) <= Date.parse(this.#clock.now())
       )
         throw new Error('REMOTE_TASK_PROVIDER_AUTHORITY_DRIFT');

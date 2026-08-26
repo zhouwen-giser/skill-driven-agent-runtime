@@ -11,6 +11,8 @@ import {
   createMcpServer,
   deriveFrozenMcpCatalogAuthority,
   frozenMcpCatalogDocument,
+  withMcpToolAdminExecutionSemanticsOverride,
+  type McpToolExecutionSemantics,
 } from '../../domain/src/index.js';
 import { FrozenV1RegistryAdapter } from './frozen-v1-registry.js';
 import { FrozenV1McpClient } from './frozen-v1-mcp-client.js';
@@ -31,6 +33,7 @@ export interface NodeControlRuntimeMcpCatalogAuthorityReader {
         discoveredCatalogChecksum: string;
         operationCount: number;
         toolNames: readonly string[];
+        executionSemanticsOverrides?: Readonly<Record<string, McpToolExecutionSemantics>>;
       }>
     | undefined
   >;
@@ -136,21 +139,47 @@ export class NodeControlFrozenMcpCatalogClient implements NodeControlMcpCatalogC
       this.#allowedPrivateHttpAuthorities,
       this.#unsafeTestOpen,
     );
-    const revisionAligned =
-      runtimeAuthority.toolRevision === input.bindingRevision ||
-      runtimeAuthority.toolRevision === input.bindingRevision - 1;
     if (
       runtimeEndpoint !== endpoint ||
       runtimeAuthority.status !== 'enabled' ||
       runtimeAuthority.protocolMode !== 'frozen_v1' ||
       runtimeAuthority.snapshotToolRevision !== runtimeAuthority.toolRevision ||
-      !revisionAligned ||
       !Number.isFinite(Date.parse(runtimeAuthority.serverUpdatedAt)) ||
-      runtimeAuthority.operationCount !== catalogAuthority.operationCount ||
-      runtimeAuthority.toolNames.length !== catalogAuthority.operationCount ||
+      runtimeAuthority.toolNames.length !== runtimeAuthority.operationCount ||
       !CHECKSUM.test(runtimeAuthority.catalogChecksum) ||
-      runtimeAuthority.discoveredCatalogChecksum !== catalogAuthority.catalogChecksum
+      !CHECKSUM.test(runtimeAuthority.discoveredCatalogChecksum)
     )
+      throw new Error('MCP_RUNTIME_CATALOG_AUTHORITY_MISMATCH');
+    const overrides = runtimeAuthority.executionSemanticsOverrides;
+    if (overrides !== undefined) {
+      const effectiveTools = discovered.tools.map((tool) => {
+        const override = Object.hasOwn(overrides, tool.toolName)
+          ? overrides[tool.toolName]
+          : undefined;
+        if (override === undefined) return tool;
+        if (override.source !== 'admin_override')
+          throw new Error('MCP_RUNTIME_ADMIN_OVERRIDE_SOURCE_INVALID');
+        return withMcpToolAdminExecutionSemanticsOverride(tool, override);
+      });
+      const effective = deriveFrozenMcpCatalogAuthority(
+        discovered.snapshot,
+        effectiveTools,
+        input.bindingRevision,
+      );
+      // Applying exactly the Runtime's override-retention rule to fresh discovery avoids a
+      // raw-Catalog revision followed by a second governance-only revision after reconciliation.
+      if (
+        runtimeAuthority.discoveredCatalogChecksum === catalogAuthority.catalogChecksum &&
+        (runtimeAuthority.operationCount !== catalogAuthority.operationCount ||
+          runtimeAuthority.catalogChecksum !== effective.catalogChecksum)
+      )
+        throw new Error('MCP_RUNTIME_CATALOG_AUTHORITY_MISMATCH');
+      return Object.freeze({ ...discovery, catalogChecksum: effective.catalogChecksum });
+    }
+    // Compatibility for older readers: never substitute stale authority for real remote drift.
+    if (runtimeAuthority.discoveredCatalogChecksum !== catalogAuthority.catalogChecksum)
+      return discovery;
+    if (runtimeAuthority.operationCount !== catalogAuthority.operationCount)
       throw new Error('MCP_RUNTIME_CATALOG_AUTHORITY_MISMATCH');
     return Object.freeze({ ...discovery, catalogChecksum: runtimeAuthority.catalogChecksum });
   }

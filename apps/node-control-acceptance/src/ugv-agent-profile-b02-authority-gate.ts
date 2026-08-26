@@ -545,7 +545,7 @@ function assertSourceAndBindingIdentity(
     source.registryEndpoint !== EXPECTED_SOURCE_ENDPOINT ||
     source.credentialRef !== 'unauthenticated://none' ||
     source.environment !== 'simulation' ||
-    source.syncMode !== 'manual' ||
+    source.syncMode !== 'poll' ||
     source.snapshotTtlSeconds !== 300 ||
     source.lkgPolicy !== 'deny_when_unavailable' ||
     source.status !== 'active' ||

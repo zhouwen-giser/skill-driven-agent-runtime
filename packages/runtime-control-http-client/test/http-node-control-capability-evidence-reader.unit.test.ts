@@ -147,6 +147,27 @@ describe('HttpNodeControlCapabilityEvidenceReader', () => {
     );
   });
 
+  it('returns registered authority after its health observation expires', async () => {
+    const authority = currentBindingAuthority();
+    authority.binding.availabilityStatus = 'unavailable';
+    authority.binding.availabilityValidUntil = '2026-08-10T00:00:00.000Z';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(Response.json(authority)));
+    const reader = new HttpNodeControlCapabilityEvidenceReader({
+      baseUrl: 'https://control.example.test/',
+      serviceToken: 'r'.repeat(32),
+    });
+    await expect(
+      reader.loadCurrentMcpProviderBinding({ localServerId: 'home-lab-light-mcp' }),
+    ).resolves.toMatchObject({
+      binding: {
+        bindingId: 'binding-light',
+        revision: 7,
+        availabilityStatus: 'unavailable',
+        availabilityValidUntil: '2026-08-10T00:00:00.000Z',
+      },
+    });
+  });
+
   it('uses a dedicated least-privilege token for internal Capability and current-Binding authority', async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
@@ -300,6 +321,7 @@ function currentBindingAuthority() {
       catalogRevision: '2.0.0:7',
       catalogChecksum: 'b'.repeat(64),
       endpointRef: 'http://127.0.0.1:18081/mcp',
+      availabilityStatus: 'available',
       availabilityValidUntil: '2026-08-11T03:00:00.000Z',
       catalogObservedAt: '2026-08-11T02:00:00.000Z',
       operationCount: 3,

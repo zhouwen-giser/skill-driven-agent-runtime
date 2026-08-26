@@ -354,6 +354,7 @@ function currentProviderBinding(bindingId: string | undefined, localServerId: st
       catalogRevision: '1.0.0:1',
       catalogChecksum: 'a'.repeat(64),
       operationCount: 1,
+      availabilityStatus: 'available' as const,
       availabilityValidUntil: validUntil,
       catalogObservedAt: now,
     },

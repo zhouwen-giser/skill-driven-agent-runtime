@@ -435,7 +435,7 @@ export async function processEnvironment(
       SDAR_CONTROL_ENVIRONMENT: 'integration',
       SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'safe',
       SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: '127.0.0.1:18092',
-      SDAR_CONTROL_WORKER_POLL_MS: '1000',
+      SDAR_CONTROL_WORKER_POLL_MS: '60000',
       SDAR_CONTROL_WORKER_ONCE: 'false',
     });
   if (name !== 'server') throw new UapSupervisorError('UAP_PROCESS_NAME_INVALID');
@@ -484,6 +484,7 @@ export async function processEnvironment(
     SDAR_ARTIFACT_MANAGEMENT_KIND: 'service',
     SDAR_ARTIFACT_MANAGEMENT_ROLES: 'administrator',
     SDAR_GOVERNED_CONTROL_BEARER_TOKEN: await privateToken(stateRoot, 'governed-control.token'),
+    SDAR_GOVERNED_CONTROL_AUTHENTICATION_MODE: 'trusted_intranet',
     SDAR_GOVERNED_CONTROL_ACTOR_ID: 'uap-p3-b01-human-operator',
     SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm,physical_control.revoke',
     SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: 'false',

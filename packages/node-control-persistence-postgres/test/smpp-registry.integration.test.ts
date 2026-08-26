@@ -41,6 +41,7 @@ beforeAll(async () => {
   await Promise.all([applyRuntimeMigrations(runtimePool), applyControlMigrations(controlPool)]);
   await controlPool.query(
     `TRUNCATE sdar_control.mcp_provider_catalog_observation,
+              sdar_control.mcp_provider_binding_state,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
               sdar_control.smpp_registry_snapshot_lineage,
@@ -87,6 +88,7 @@ afterAll(async () => {
   if (registryServer !== undefined) await close(registryServer);
   await controlPool.query(
     `TRUNCATE sdar_control.mcp_provider_catalog_observation,
+              sdar_control.mcp_provider_binding_state,
               sdar_control.mcp_provider_binding,
               sdar_control.smpp_registry_sync_attempt,
               sdar_control.smpp_registry_snapshot_lineage,

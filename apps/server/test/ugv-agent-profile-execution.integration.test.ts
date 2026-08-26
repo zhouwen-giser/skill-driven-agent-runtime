@@ -36,7 +36,7 @@ import {
   startUgvFrozenMcpProvider,
   type UgvFrozenMcpProviderHandle,
 } from '../test-support/ugv-frozen-mcp-provider.js';
-import { ConfiguredBearerGovernedControlIdentity } from '../src/governed-control-management-identity.js';
+import { ConfiguredTrustedIntranetGovernedControlIdentity } from '../src/governed-control-management-identity.js';
 import { startServerRuntime, type ServerRuntimeHandle } from '../src/runtime.js';
 import {
   UGV_AGENT_PROFILE_ID,
@@ -54,10 +54,9 @@ const postgresUrl = isolatedDatabaseUrl(postgresAdminUrl, databaseName);
 const redisPort = Number(process.env['SDAR_REDIS_PORT'] ?? '56379');
 const serverId = 'ugv-runtime-p2-b03';
 const providerBindingId = 'smpp-binding-ugv1-p2-b03';
-const exposureId = 'ugv.simulation.move';
+const exposureId = 'a2a.embodied.move';
 const implementationBindingId = 'embodied.move_to-primary-p2-b03';
 const runId = 'uap-p3-b02-p2b03-runtime-e2e';
-const bearerToken = 'uap-p2-b03-confirmation-token-1234567890abcdef';
 const masterKeyBase64 = randomBytes(32).toString('base64');
 const queueName = `uap-p2-b03-context-${randomUUID()}`;
 const remoteQueueName = `uap-p2-b03-remote-${randomUUID()}`;
@@ -95,7 +94,7 @@ const providerBindingAuthorityReader = Object.freeze({
 
 const capabilityAuthorityReader = Object.freeze({
   load(capabilityId: string, version: number): Promise<CapabilityAuthoritySnapshot> {
-    if (capabilityAuthority === undefined || capabilityId !== 'embodied.move' || version !== 1)
+    if (capabilityAuthority === undefined || capabilityId !== 'embodied.move' || version !== 2)
       return Promise.reject(new Error('UGV_P2_B03_CAPABILITY_AUTHORITY_UNAVAILABLE'));
     return Promise.resolve(capabilityAuthority);
   },
@@ -133,7 +132,7 @@ afterAll(async () => {
 });
 
 describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => {
-  it('admits formally, dispatches once only after authenticated confirmation, and resumes from PostgreSQL after restart', async () => {
+  it('admits SACS text on the trusted intranet, dispatches once only after confirmation, and resumes from PostgreSQL after restart', async () => {
     const firstRuntime = required(runtime, 'RUNTIME_NOT_STARTED');
     const database = required(pool, 'DATABASE_NOT_STARTED');
     const frozenProvider = required(provider, 'PROVIDER_NOT_STARTED');
@@ -205,17 +204,20 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
     expect(frozenProvider.getStateCallCount).toBe(1);
     expect(frozenProvider.navigateCallCount).toBe(0);
 
-    const initialAdmissionKey = `ugv-p2-b03-${randomUUID()}`;
-    const submitted = await sendA2a(
-      firstRuntime.a2a.baseUrl,
-      initialRequest(initialAdmissionKey),
-      bearerToken,
+    const publicCard = await fetch(`${firstRuntime.a2a.baseUrl}/.well-known/agent-card.json`).then(
+      (response) => response.json(),
     );
+    expect(JSON.stringify(publicCard)).toContain('io.sdar/naturalLanguageCapabilityAdmission');
+    expect(JSON.stringify(publicCard)).toContain('a2a.embodied.move');
+    expect(record(publicCard)['securityRequirements']).toEqual([]);
+
+    const initialMessageId = `sacs-v03-natural-${randomUUID()}`;
+    const submitted = await sendA2a(firstRuntime.a2a.baseUrl, initialRequest(initialMessageId));
     const task = responseTask(submitted);
     const taskId = text(task['id'], 'A2A_TASK_ID_MISSING');
     const contextId = text(task['contextId'], 'A2A_CONTEXT_ID_MISSING');
     const replayedSubmission = responseTask(
-      await sendA2a(firstRuntime.a2a.baseUrl, initialRequest(initialAdmissionKey), bearerToken),
+      await sendA2a(firstRuntime.a2a.baseUrl, initialRequest(initialMessageId)),
     );
     expect(replayedSubmission).toMatchObject({ id: taskId, contextId });
     const admissionCounts = await database.query<{
@@ -225,15 +227,11 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
       attempts: number;
     }>(
       `SELECT
-         (SELECT count(*)::integer FROM initial_task_admission WHERE idempotency_key=$1) admissions,
-         (SELECT count(*)::integer FROM agent_task WHERE request_metadata->>'idempotency_key'=$1) tasks,
-         (SELECT count(*)::integer FROM task_capability_binding binding
-           JOIN agent_task task ON task.task_id=binding.task_id
-          WHERE task.request_metadata->>'idempotency_key'=$1) bindings,
-         (SELECT count(*)::integer FROM task_capability_execution_attempt attempt
-           JOIN agent_task task ON task.task_id=attempt.task_id
-          WHERE task.request_metadata->>'idempotency_key'=$1) attempts`,
-      [initialAdmissionKey],
+         (SELECT count(*)::integer FROM initial_task_admission WHERE task_id=$1) admissions,
+         (SELECT count(*)::integer FROM agent_task WHERE task_id=$1) tasks,
+         (SELECT count(*)::integer FROM task_capability_binding WHERE task_id=$1) bindings,
+         (SELECT count(*)::integer FROM task_capability_execution_attempt WHERE task_id=$1) attempts`,
+      [taskId],
     );
     expect(admissionCounts.rows).toEqual([{ admissions: 1, tasks: 1, bindings: 1, attempts: 1 }]);
 
@@ -277,13 +275,12 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
     );
     expect(taskScopedBeforeConfirmation.rows).toEqual([{ count: 0 }]);
     expect(frozenProvider.navigateCallCount).toBe(0);
-    await assertFormalAdmissionAndPlanning(database, taskId, qualification[0]?.invocationId);
+    await assertFormalAdmissionAndPlanning(database, taskId);
     await assertGovernedControlIssueAuthority(database, frozenProvider.endpoint, taskId);
 
     const confirmed = await sendA2a(
       firstRuntime.a2a.baseUrl,
       confirmationRequest(taskId, contextId),
-      bearerToken,
     );
     expect(responseTask(confirmed)['id']).toBe(taskId);
 
@@ -361,9 +358,9 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
     );
     expect(consumed.rows).toEqual([
       {
-        actor_id: 'uap-p2-b03-operator',
+        actor_id: 'uap-p2-b03-local-operator',
         actor_kind: 'human',
-        authentication_method: 'configured_bearer',
+        authentication_method: 'trusted_intranet',
         consumed_invocation_id: beforeRestartInvocations[1]?.invocation_id,
       },
     ]);
@@ -501,9 +498,7 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
       }),
     ]);
 
-    const finalA2aTask = responseTask(
-      await getA2aTask(restartedRuntime.a2a.baseUrl, taskId, bearerToken),
-    );
+    const finalA2aTask = responseTask(await getA2aTask(restartedRuntime.a2a.baseUrl, taskId));
     expect(finalA2aTask['id']).toBe(taskId);
     expect(record(finalA2aTask['status'])['state']).toBe('TASK_STATE_COMPLETED');
     const artifacts = finalA2aTask['artifacts'];
@@ -539,9 +534,8 @@ function startRuntime(applyMigrations: boolean): Promise<ServerRuntimeHandle> {
     managementPort: 0,
     capabilityAuthorityReader,
     currentMcpProviderBindingAuthorityReader: providerBindingAuthorityReader,
-    governedControlPrincipalResolver: new ConfiguredBearerGovernedControlIdentity({
-      token: bearerToken,
-      actorId: 'uap-p2-b03-operator',
+    governedControlPrincipalResolver: new ConfiguredTrustedIntranetGovernedControlIdentity({
+      actorId: 'uap-p2-b03-local-operator',
       permissions: ['physical_control.confirm'],
     }),
     frozenMcpTasks: {
@@ -588,6 +582,7 @@ function createProviderAuthority(
       catalogRevision: catalog.catalogRevision,
       catalogChecksum: catalog.catalogChecksum,
       endpointRef: endpoint.toString(),
+      availabilityStatus: 'available' as const,
       availabilityValidUntil: new Date(Date.now() + 30 * 60 * 1_000).toISOString(),
       catalogObservedAt: observedAt,
       operationCount: catalog.operationCount,
@@ -858,7 +853,7 @@ async function seedFormalCapabilityAuthority(
          revision,exposure_id,exposure_version,capability_id,capability_version,agent_skill_id,
          request_schema,result_schema,requester_policy,exposure_hash)
        VALUES($1,$2,2,'embodied.move',2,'embodied.move_to',$3::jsonb,$4::jsonb,
-              '{"allowAnonymous":false}'::jsonb,$5)`,
+              '{"allowAnonymous":true,"allowedRequesterIds":[]}'::jsonb,$5)`,
       [
         revision,
         exposureId,
@@ -893,12 +888,7 @@ async function seedFormalCapabilityAuthority(
   }
 }
 
-async function assertFormalAdmissionAndPlanning(
-  database: Pool,
-  taskId: string,
-  qualificationInvocationId: string | undefined,
-): Promise<void> {
-  if (qualificationInvocationId === undefined) throw new Error('QUALIFICATION_INVOCATION_MISSING');
+async function assertFormalAdmissionAndPlanning(database: Pool, taskId: string): Promise<void> {
   const result = await database.query<{
     task: Readonly<Record<string, unknown>>;
     user_plan: Readonly<Record<string, unknown>>;
@@ -940,8 +930,9 @@ async function assertFormalAdmissionAndPlanning(
     selected_skill_version: 1,
   });
   expect(JSON.stringify(row.selection['candidates_json'])).toContain(
-    `mcp-invocation:${qualificationInvocationId}`,
+    'provider-context-hash:sha256:',
   );
+  expect(JSON.stringify(row.selection['candidates_json'])).not.toContain('mcp-invocation:');
   expect(row.resolution).toMatchObject({
     skill_id: 'embodied.move_to',
     skill_version: 1,
@@ -1028,28 +1019,18 @@ async function assertGovernedControlIssueAuthority(
   });
 }
 
-function initialRequest(idempotencyKey: string): unknown {
+function initialRequest(messageId: string): unknown {
   return createA2ATestSendMessageBody({
     message: {
-      messageId: `ugv-p2-b03-initial-${randomUUID()}`,
+      messageId,
       role: 'ROLE_USER',
       parts: [
         {
-          text: 'Move the simulation UGV to the explicitly authorized WGS84 point.',
+          text: `Move the UGV to WGS84 longitude ${String(target.x)}, latitude ${String(target.y)}.`,
           mediaType: 'text/plain',
         },
-        { data: capabilityInput, mediaType: 'application/json' },
       ],
-      metadata: {
-        user_id: 'uap-p2-b03-requester',
-        structured_input: capabilityInput,
-        idempotency_key: idempotencyKey,
-        'io.sdar/requestedCapability': {
-          exposureId,
-          versionConstraint: '2',
-          requestId: idempotencyKey,
-        },
-      },
+      metadata: {},
     },
     configuration: { returnImmediately: false },
   });
@@ -1071,11 +1052,10 @@ function confirmationRequest(taskId: string, contextId: string): unknown {
   });
 }
 
-async function sendA2a(baseUrl: string, request: unknown, token: string): Promise<unknown> {
+async function sendA2a(baseUrl: string, request: unknown): Promise<unknown> {
   const response = await fetch(`${baseUrl}/a2a/v1/message:send`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
       'A2A-Version': '1.0',
       'content-type': 'application/json',
     },
@@ -1086,9 +1066,9 @@ async function sendA2a(baseUrl: string, request: unknown, token: string): Promis
   return JSON.parse(body) as unknown;
 }
 
-async function getA2aTask(baseUrl: string, taskId: string, token: string): Promise<unknown> {
+async function getA2aTask(baseUrl: string, taskId: string): Promise<unknown> {
   const response = await fetch(`${baseUrl}/a2a/v1/tasks/${encodeURIComponent(taskId)}`, {
-    headers: { Authorization: `Bearer ${token}`, 'A2A-Version': '1.0' },
+    headers: { 'A2A-Version': '1.0' },
   });
   const body = await response.text();
   if (!response.ok) throw new Error(`A2A_GET_TASK_FAILED:${String(response.status)}:${body}`);
