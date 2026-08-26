@@ -1,6 +1,6 @@
 # Project Status
 
-## PR #26 integration (2026-08-26, verified / publication pending)
+## PR #26 integration (2026-08-26, published / ready for merge)
 
 `execplans/EP-PR26-DEBUG-INTEGRATION.md` tracks conflict resolution and publication of
 `codex/live-dev-evaluation-chain` to the existing PR with `main` as target. The integration preserves
@@ -8,7 +8,10 @@ admission observation, trusted-intranet natural-language admission and the ADR-1
 The committed `pnpm ugv:debug` entrypoint reuses the existing stack and defaults debug start/restart
 to YES per operator instruction, with explicit NO available and no implicit Task/Device call.
 All 295 relevant tests across 17 files, typecheck, production build, 858-source architecture and
-changed-scope lint/format/syntax checks pass; publication is pending. Read-only inspection found no listener
+changed-scope lint/format/syntax checks pass. Integration commit `febab07` is pushed to the existing
+source branch; [PR #26](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/26) targets
+`main` and reports `MERGEABLE` / `CLEAN`. No actual main merge or hosted CI completion is claimed.
+Read-only inspection found no listener
 on 10999; no service restart or live movement acceptance is claimed here.
 
 ## Persistent Provider authority repair (2026-08-26)

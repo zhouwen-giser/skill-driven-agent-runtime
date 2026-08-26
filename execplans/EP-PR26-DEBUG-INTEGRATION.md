@@ -21,7 +21,7 @@ LangGraph remains the only workflow runtime. No new dependency, protocol, author
       startup import sets and all CHANGELOG entries.
 - [x] Add a repeatable existing-stack debug command and configuration/runbook documentation.
 - [x] Run the relevant combined regressions and static/build checks; record actual results.
-- [ ] Commit and push to the existing #26 source branch; retarget the PR to `main` and verify status.
+- [x] Commit and push to the existing #26 source branch; retarget the PR to `main` and verify status.
 
 ## Discoveries
 
@@ -98,4 +98,13 @@ Executed on 2026-08-26 in the independent integration worktree:
 
 ## Outcomes
 
-Implementation and relevant verification complete; source-branch push and PR retarget pending.
+Merge commit `febab07349286fb9af2818ae29a0b1266e88755b` was pushed normally to
+`origin/codex/live-dev-evaluation-chain`. Existing [PR #26](https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/26)
+now targets `main` and GitHub reports `MERGEABLE` / `CLEAN`, open and non-draft. The API currently
+reports no status checks; this is not a claim of a completed hosted CI run or an actual main merge.
+
+Conflict resolution, the default-YES debug entrypoint, documentation, relevant verification and
+publication are complete. The original checkout remains at `codex/provider-binding-lifecycle@67dfb81`
+with no tracked changes; no live process, database or Device action was changed by this task. After
+updating a configured deployment checkout to this source revision or the eventual merged `main`,
+use `pnpm ugv:debug start` / `restart` (YES) or append `NO` explicitly.

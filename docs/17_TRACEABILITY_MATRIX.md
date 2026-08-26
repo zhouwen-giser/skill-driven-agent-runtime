@@ -12,6 +12,8 @@
 - 17 个相关文件共 295 tests PASS（真实进程 13 项在宿主环境独立复跑通过）；typecheck、build、
   858-source architecture、72 文件 scoped lint、format/syntax/diff 均 PASS。完整命令、环境重跑说明与
   PR 发布状态见 `execplans/EP-PR26-DEBUG-INTEGRATION.md`，不升级外部导航验收状态。
+- `febab07` 已推送至 #26 原源分支；PR 目标为 `main`，GitHub 冲突状态 `MERGEABLE / CLEAN`，
+  保持 Open 等待合并，不声称已经合入 main 或完成托管 CI。
 
 ## ADR-141 Provider 生命周期修复（2026-08-26，已验证）
 

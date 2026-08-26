@@ -14,6 +14,8 @@
 - Verification: 295 relevant tests across 17 files, typecheck, production build, 858-source
   architecture and changed-scope lint/format/syntax checks pass; real process tests use the host
   namespace, not the sandbox's process view.
+- Pushed integration commit `febab07` to the original #26 source branch and retargeted the existing
+  PR to `main`; GitHub reports mergeable/clean. The PR remains open for merge.
 
 ## 2026-08-26 — Runtime admission observation readiness
 
