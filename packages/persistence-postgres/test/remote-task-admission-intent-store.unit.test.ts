@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   RemoteTaskAdmissionIntent,
@@ -9,6 +9,7 @@ import type { McpInvocation } from '../../domain/src/index.js';
 import {
   PostgresRemoteTaskAdmissionIntentStore,
   PostgresRemoteTaskAdmissionObservationQuery,
+  PostgresRemoteTaskRepository,
 } from '../src/index.js';
 
 const preparedAt = '2026-08-13T02:00:00.000Z';
@@ -17,6 +18,13 @@ const receiptAt = '2026-08-13T02:00:00.200Z';
 const dispatchHash = `sha256:${'d'.repeat(64)}`;
 
 describe('PostgresRemoteTaskAdmissionIntentStore', () => {
+  let admitSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    admitSpy = vi
+      .spyOn(PostgresRemoteTaskRepository.prototype, 'admitWithClient')
+      .mockImplementation((_client, binding) => Promise.resolve({ binding, created: true }));
+  });
+  afterEach(() => vi.restoreAllMocks());
   it('prepares one frozen local envelope and returns an exact idempotent replay', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [{ ...intentRow(), inserted: true }] });
     const store = new PostgresRemoteTaskAdmissionIntentStore({ query } as unknown as Pool);
@@ -65,6 +73,7 @@ describe('PostgresRemoteTaskAdmissionIntentStore', () => {
         invocationId: 'mcp-invocation-1',
         dispatchHash,
         at: dispatchedAt,
+        authoritySnapshot: receipt().authoritySnapshot,
       }),
     ).resolves.toMatchObject({ applied: true, intent: { status: 'dispatching', version: 2 } });
     expect(query.mock.calls[0]?.[0]).toContain("status='prepared'");
@@ -131,6 +140,15 @@ describe('PostgresRemoteTaskAdmissionIntentStore', () => {
     expect(clientQuery.mock.calls[1]?.[0]).toContain('FOR UPDATE');
     expect(clientQuery.mock.calls[2]?.[0]).toContain('INSERT INTO mcp_invocation');
     expect(clientQuery.mock.calls[3]?.[0]).toContain("status='receipt_recorded'");
+    expect(admitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ query: clientQuery }),
+      expect.objectContaining({
+        bindingId: 'remote-binding-1',
+        bindingAuthority: { originType: 'direct' },
+        createdAt: receiptAt,
+      }),
+      'remote-admission-intent-1:accepted',
+    );
     expect(release).toHaveBeenCalledOnce();
   });
 
@@ -478,7 +496,7 @@ function receipt(): RemoteTaskAdmissionReceipt {
       pollIntervalMs: 100,
       protocolRevision: '2026-07-28',
       tasksSchemaRevision: 'tasks-v1',
-      runtimeRevision: 'runtime-1',
+      runtimeRevision: '1',
     },
     credentialRevision: 'credential-1',
     sessionRevision: 'session-1',
@@ -553,6 +571,8 @@ function intentRow(overrides: Readonly<Record<string, unknown>> = {}) {
     status: 'prepared',
     dispatch_hash: null,
     dispatched_at: null,
+    dispatch_authority_snapshot_json:
+      overrides['dispatched_at'] == null ? null : receipt().authoritySnapshot,
     recorded_invocation_id: null,
     remote_receipt_json: null,
     receipt_recorded_at: null,

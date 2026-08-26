@@ -12,6 +12,44 @@ const endpoint = 'https://provider.example.test/mcp';
 const now = '2026-07-18T03:10:00.000Z';
 
 describe('Frozen V1 Task lifecycle', () => {
+  it('strictly propagates Provider-local identity through admission, reads and Task notifications', async () => {
+    const identity = {
+      profileVersion: '1.0',
+      providerId: 'provider-1',
+      providerInstanceId: 'instance-distinct-from-server',
+    };
+    const wire = task('working', '1', {
+      _meta: {
+        'io.sdar/taskExecution': { profileVersion: '1.0', runtimeRevision: '1' },
+        'io.sdar/providerIdentity': identity,
+        'unrelated/trace': { value: 'not-authority' },
+      },
+    });
+    const lifecycle = createLifecycle((request) =>
+      request['method'] === 'tools/call' ? { ...wire, resultType: 'task' } : wire,
+    );
+    const outcome = await lifecycle.callTool({ name: 'navigate', arguments: {} });
+    expect(outcome).toMatchObject({
+      kind: 'remote_task',
+      created: { providerIdentity: identity },
+      reconciled: { providerIdentity: identity },
+    });
+    expect(lifecycle.admitNotification(wire)).toMatchObject({
+      accepted: false,
+      task: { providerIdentity: identity },
+    });
+    const invalid = {
+      ...wire,
+      _meta: {
+        'io.sdar/taskExecution': { profileVersion: '1.0', runtimeRevision: '1' },
+        'io.sdar/providerIdentity': { ...identity, episodeId: 'forbidden-extra' },
+      },
+    };
+    expect(() => parseDetailedTask(invalid, now)).toThrow(FrozenTaskLifecycleError);
+    expect(() => parseCreatedTask({ ...invalid, resultType: 'task' }, now)).toThrow(
+      FrozenTaskLifecycleError,
+    );
+  });
   it('enforces the discovered Tool output schema on the actual lifecycle result path', async () => {
     const lifecycle = createLifecycle(() => ({
       resultType: 'complete',

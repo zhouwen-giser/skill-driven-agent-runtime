@@ -14,6 +14,13 @@ export type McpTaskStatus = 'working' | 'input_required' | 'completed' | 'failed
 export type RemoteTaskProviderSubstate =
   'accepted' | 'scheduled' | 'queued' | 'running' | 'paused' | 'resuming' | 'stopping';
 
+/** Provider-local identity, never Runtime Episode/source/server authority. */
+export interface RemoteTaskProviderIdentity {
+  readonly profileVersion: '1.0';
+  readonly providerId: string;
+  readonly providerInstanceId: string;
+}
+
 export interface RemoteTaskProviderObservation {
   readonly revision: '1.0';
   readonly remoteRevision?: string;
@@ -24,6 +31,7 @@ export interface RemoteTaskProviderObservation {
 }
 
 export interface RemoteTaskCreated {
+  readonly providerIdentity?: RemoteTaskProviderIdentity;
   readonly protocolMode?: 'frozen_v1';
   readonly remoteTaskId: string;
   readonly status: McpTaskStatus;

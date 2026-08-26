@@ -1,5 +1,5 @@
 import { DomainError } from './errors.js';
-import type { InternalToolResult, McpTaskStatus } from './mcp-task.js';
+import type { InternalToolResult, McpTaskStatus, RemoteTaskProviderIdentity } from './mcp-task.js';
 
 export type McpProviderProtocolMode = 'frozen_v1';
 export type McpTaskBehavior = 'synchronous_only' | 'server_directed' | 'task_required';
@@ -155,6 +155,7 @@ export interface FrozenTaskObservationMeta {
 }
 
 export interface FrozenRemoteTaskBase {
+  readonly providerIdentity?: RemoteTaskProviderIdentity;
   readonly protocolMode: 'frozen_v1';
   readonly taskId: string;
   readonly status: McpTaskStatus;

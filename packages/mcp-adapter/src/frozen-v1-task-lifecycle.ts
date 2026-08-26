@@ -63,7 +63,17 @@ const taskExecutionMetaSchema = z
   })
   .strict();
 const taskMetaSchema = z
-  .object({ 'io.sdar/taskExecution': taskExecutionMetaSchema })
+  .object({
+    'io.sdar/taskExecution': taskExecutionMetaSchema,
+    'io.sdar/providerIdentity': z
+      .object({
+        profileVersion: z.literal('1.0'),
+        providerId: z.string().min(1).max(256),
+        providerInstanceId: z.string().min(1).max(256),
+      })
+      .strict()
+      .optional(),
+  })
   .catchall(z.unknown());
 const toolResultSchema = z
   .object({
@@ -515,6 +525,11 @@ function mapTaskBase(
     );
   return Object.freeze({
     protocolMode: 'frozen_v1',
+    ...(value._meta['io.sdar/providerIdentity'] === undefined
+      ? {}
+      : {
+          providerIdentity: Object.freeze(value._meta['io.sdar/providerIdentity']),
+        }),
     taskId: value.taskId,
     status: value.status,
     ...(value.statusMessage === undefined ? {} : { statusMessage: value.statusMessage }),

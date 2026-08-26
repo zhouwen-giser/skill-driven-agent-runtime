@@ -4,9 +4,21 @@ import type {
   McpTaskStatus,
   RemoteTaskProviderSubstate,
   RemoteTaskSnapshot,
+  RemoteTaskProviderIdentity,
+  RemoteTaskCreated,
 } from './mcp-task.js';
+import {
+  createRemoteBindingAuthority,
+  validateRuntimeBindingScope,
+  type RuntimeBindingScope,
+  type RemoteBindingAuthority,
+} from './remote-binding-authority.js';
 import type { TaskExecutionTiming } from './mcp-task-availability.js';
-import type { McpProtocolContractSnapshot, McpTaskBehavior } from './mcp-frozen-protocol.js';
+import {
+  validateRuntimeRevision,
+  type McpProtocolContractSnapshot,
+  type McpTaskBehavior,
+} from './mcp-frozen-protocol.js';
 import type { McpToolCancellation } from './mcp.js';
 import {
   createRuntimeExecutionContext,
@@ -38,20 +50,34 @@ export interface RemoteTaskAuthoritySnapshot {
     catalogChecksum: string;
     operationCount: number;
   }>;
-  readonly providerBinding?: Readonly<{
-    bindingId: string;
-    revision: number;
-    originType: 'direct' | 'smpp_registry';
-    providerId: string;
-    externalServerId?: string;
-    smppSourceId?: string;
-    endpointRef: string;
-    catalogRevision: string;
-    catalogChecksum: string;
-    operationCount: number;
-    availabilityValidUntil: string;
-    observedAt: string;
-  }>;
+  readonly providerBinding?: Readonly<
+    {
+      bindingId: string;
+      revision: number;
+      providerId: string;
+      endpointRef: string;
+      catalogRevision: string;
+      catalogChecksum: string;
+      operationCount: number;
+      availabilityValidUntil: string;
+      observedAt: string;
+    } & (
+      | {
+          originType: 'direct';
+          externalServerId?: never;
+          smppSourceId?: never;
+          registry?: never;
+          scope?: never;
+        }
+      | {
+          originType: 'smpp_registry';
+          externalServerId: string;
+          smppSourceId: string;
+          registry: Readonly<{ externalProviderId: string; revision: string; checksum: string }>;
+          scope?: RuntimeBindingScope;
+        }
+    )
+  >;
 }
 
 export type RemoteTaskCancellationProviderTerminalStatus = Extract<
@@ -121,6 +147,11 @@ export type RemoteTaskControlEventType =
 export type RemoteTaskControlEventStatus = 'pending' | 'claimed' | 'processed' | 'failed';
 
 export interface RemoteTaskBinding {
+  readonly admissionTask?: RemoteTaskCreated;
+  readonly lastTaskSnapshot?: RemoteTaskCreated | RemoteTaskSnapshot;
+  readonly lastTaskProjection?: 'create' | 'detailed';
+  readonly bindingAuthority: RemoteBindingAuthority;
+  readonly providerIdentity?: RemoteTaskProviderIdentity;
   readonly bindingId: string;
   readonly serverId: string;
   readonly operationName: string;
@@ -156,11 +187,8 @@ export interface RemoteTaskBinding {
   readonly localState: RemoteTaskLocalState;
   readonly requestedTiming?: TaskExecutionTiming;
   readonly executionContext: RuntimeExecutionContext;
-  /**
-   * Exact Runtime and optional Node Control Provider authority captured before tools/call.
-   * It is optional only while reading rows created before migration 0160.
-   */
-  readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+  /** Exact Runtime and optional Node Control Provider authority captured before tools/call. */
+  readonly authoritySnapshot: RemoteTaskAuthoritySnapshot;
   readonly credentialRevision: string;
   readonly sessionRevision: string;
   readonly lastProviderUpdatedAt: string;
@@ -188,6 +216,8 @@ export interface RemoteTaskFailureSnapshot {
 }
 
 export interface RemoteTaskAdmission {
+  readonly admissionTask?: RemoteTaskCreated;
+  readonly providerIdentity?: RemoteTaskProviderIdentity;
   readonly bindingId: string;
   readonly serverId: string;
   readonly operationName: string;
@@ -244,7 +274,12 @@ export interface RemoteTaskObservation {
   readonly subscriptionId?: string;
   readonly payload: unknown;
   readonly accepted: boolean;
-  readonly rejectionReason?: 'stale_provider_revision' | 'binding_closed';
+  readonly rejectionReason?:
+    | 'stale_provider_revision'
+    | 'binding_closed'
+    | 'identity_conflict'
+    | 'revision_content_conflict'
+    | 'terminal_conflict';
   readonly observedAt: string;
 }
 
@@ -343,6 +378,7 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
       'Frozen Remote Task admission requires taskBehavior, runtimeRevision, and valid cancellation authority.',
     );
   const authoritySnapshot = createRemoteTaskAuthoritySnapshot(input.authoritySnapshot);
+  validateRuntimeRevision(input.runtimeRevision);
   if (
     authoritySnapshot.runtime.serverId !== input.serverId ||
     authoritySnapshot.runtime.serverUpdatedAt !== input.credentialRevision ||
@@ -361,6 +397,11 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
     ...input,
     taskCancellation,
     authoritySnapshot,
+    bindingAuthority: createRemoteBindingAuthority(
+      input.agentTaskId,
+      authoritySnapshot,
+      input.providerIdentity,
+    ),
     protocolContract,
     executionContext: createRuntimeExecutionContext(input.executionContext),
     localState,
@@ -375,6 +416,18 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
 export function createRemoteTaskAuthoritySnapshot(
   input: RemoteTaskAuthoritySnapshot,
 ): RemoteTaskAuthoritySnapshot {
+  const rawInput: unknown = input;
+  const rawRuntime: unknown = (rawInput as Record<string, unknown> | null | undefined)?.['runtime'];
+  if (
+    typeof rawInput !== 'object' ||
+    rawInput === null ||
+    typeof rawRuntime !== 'object' ||
+    rawRuntime === null
+  )
+    throw new DomainError(
+      'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID',
+      'Remote Task requires a complete Runtime authority snapshot.',
+    );
   const rawSchemaVersion: unknown = (input as unknown as Record<string, unknown>)['schemaVersion'];
   const runtime = input.runtime;
   const runtimeStrings = [
@@ -400,6 +453,20 @@ export function createRemoteTaskAuthoritySnapshot(
       'Remote Task Runtime authority snapshot is invalid.',
     );
   const provider = input.providerBinding;
+  const rawProvider = provider as unknown as Record<string, unknown> | undefined;
+  if (provider?.originType === 'smpp_registry') {
+    if (provider.scope !== undefined) validateRuntimeBindingScope(provider.scope);
+    if (
+      rawProvider?.['registry'] === undefined ||
+      provider.registry.externalProviderId !== provider.providerId ||
+      !/^[1-9][0-9]*$/u.test(provider.registry.revision) ||
+      !/^[a-f0-9]{64}$/u.test(provider.registry.checksum)
+    )
+      throw new DomainError(
+        'REMOTE_TASK_REGISTRY_AUTHORITY_INVALID',
+        'Verified SMPP registry projection authority is required.',
+      );
+  }
   const rawProviderOriginType: unknown = (
     provider as unknown as Record<string, unknown> | undefined
   )?.['originType'];
@@ -421,11 +488,12 @@ export function createRemoteTaskAuthoritySnapshot(
       !validTimestamp(provider.observedAt) ||
       (rawProviderOriginType !== 'direct' && rawProviderOriginType !== 'smpp_registry') ||
       (provider.originType === 'direct'
-        ? provider.externalServerId !== undefined || provider.smppSourceId !== undefined
-        : provider.externalServerId?.trim() === '' ||
-          provider.externalServerId === undefined ||
-          provider.smppSourceId?.trim() === '' ||
-          provider.smppSourceId === undefined) ||
+        ? rawProvider?.['externalServerId'] !== undefined ||
+          rawProvider?.['smppSourceId'] !== undefined
+        : typeof rawProvider?.['externalServerId'] !== 'string' ||
+          provider.externalServerId.length === 0 ||
+          typeof rawProvider['smppSourceId'] !== 'string' ||
+          provider.smppSourceId.length === 0) ||
       provider.endpointRef !== runtime.endpoint ||
       provider.catalogRevision !== runtime.catalogRevision ||
       provider.catalogChecksum !== runtime.catalogChecksum ||
@@ -440,7 +508,20 @@ export function createRemoteTaskAuthoritySnapshot(
     schemaVersion: '1.0' as const,
     capturedAt: input.capturedAt,
     runtime: Object.freeze({ ...runtime }),
-    ...(provider === undefined ? {} : { providerBinding: Object.freeze({ ...provider }) }),
+    ...(provider === undefined
+      ? {}
+      : {
+          providerBinding:
+            provider.originType === 'direct'
+              ? Object.freeze({ ...provider })
+              : Object.freeze({
+                  ...provider,
+                  registry: Object.freeze({ ...provider.registry }),
+                  ...(provider.scope === undefined
+                    ? {}
+                    : { scope: Object.freeze({ ...provider.scope }) }),
+                }),
+        }),
   });
 }
 

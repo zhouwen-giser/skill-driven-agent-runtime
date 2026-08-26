@@ -159,3 +159,4 @@ export * from './task-input.js';
 export * from './task-capability.js';
 export * from './task-quality.js';
 export * from './task-wait-policy.js';
+export * from './remote-binding-authority.js';

@@ -14,6 +14,85 @@ import {
 } from '../src/index.js';
 
 describe('McpCapabilityEvidenceProjector', () => {
+  const canonicalBinding = {
+    tenant_id: 'tenant-explicit',
+    project_id: 'project-explicit',
+    environment: 'development',
+    binding_id: 'remote-binding-a',
+    episode_id: 'task-evidence',
+    sdar_task_id: 'task-evidence',
+    sdar_invocation_id: 'invocation-a',
+    a2a_task_id: 'task-evidence',
+    remote_task_id: 'remote-a',
+    provider_origin_type: 'smpp_registry',
+    provider_origin_source_id: 'source-exact',
+    external_provider_id: 'provider-exact',
+    external_provider_instance_id: 'instance-not-server',
+    external_server_id: 'external-server',
+    registry_revision: '7',
+    registry_checksum: 'a'.repeat(64),
+    binding_revision: '4',
+    protocol_status: 'working',
+    created_at: '2026-08-04T07:00:00.000Z',
+    updated_at: '2026-08-04T07:01:00.000Z',
+  };
+
+  async function projectBinding(fields: Readonly<Record<string, string>>) {
+    const base = snapshot();
+    const writer = new MemoryWriter();
+    await new McpCapabilityEvidenceProjector({
+      source: {
+        pendingTaskIds: () => Promise.resolve([]),
+        load: () =>
+          Promise.resolve({
+            ...base,
+            bindings: [
+              {
+                ...fields,
+                binding_id: 'remote-binding-a',
+                mcp_invocation_id: 'invocation-a',
+                agent_task_id: 'task-evidence',
+                version: 4,
+                local_state: 'polling',
+              },
+            ],
+          }),
+      },
+      writer,
+      environment: 'wrong-projector-default',
+      clock: { now: () => '2026-08-04T08:00:00.000Z' },
+    }).projectTask('task-evidence');
+    return writer;
+  }
+
+  it('emits the exact canonical 20 fields and persisted scope without deriving instance from server', async () => {
+    const writer = await projectBinding(canonicalBinding);
+    expect(Object.keys(canonicalBinding)).toHaveLength(20);
+    expect(record(writer, 'mcp_task.remote_binding')).toMatchObject({
+      tenantId: 'tenant-explicit',
+      projectId: 'project-explicit',
+      environment: 'development',
+      episodeId: 'task-evidence',
+      payload: canonicalBinding,
+    });
+  });
+
+  it.each(Object.keys(canonicalBinding).filter((field) => field !== 'binding_id'))(
+    'blocks incomplete canonical authority missing %s',
+    async (missing) => {
+      const fields = Object.fromEntries(
+        Object.entries(canonicalBinding).filter(([key]) => key !== missing),
+      );
+      const writer = await projectBinding(fields);
+      expect(writer.records.some((item) => item.recordType === 'mcp_task.remote_binding')).toBe(
+        false,
+      );
+      expect(writer.issues).toContainEqual(
+        expect.objectContaining({ severity: 'blocking', recordType: 'mcp_task.remote_binding' }),
+      );
+    },
+  );
+
   it('enriches Runtime bindings through the Control authority and exact governance evidence ref', async () => {
     const base = snapshot();
     const revisionRef = `evidence_${'9'.repeat(64)}`;
@@ -234,6 +313,7 @@ function snapshot(): McpCapabilityEvidenceSnapshot {
       {
         binding_id: 'remote-binding-a',
         mcp_invocation_id: 'invocation-a',
+        provider_origin_type: 'direct',
         remote_task_id: 'remote-a',
         version: 1,
         protocol_status: 'working',

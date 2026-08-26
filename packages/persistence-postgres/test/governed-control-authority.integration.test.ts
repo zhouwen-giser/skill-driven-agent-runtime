@@ -339,7 +339,11 @@ describe('PostgreSQL governed physical-control authority', () => {
     });
     const journal = {
       invocationId: remoteInvocationId,
-      async markDispatching(input: { invocationId: string; dispatchHash: string; at: string }) {
+      async markDispatching(
+        input: Parameters<
+          NonNullable<McpCallContext['remoteAdmissionJournal']>['markDispatching']
+        >[0],
+      ) {
         const mutation = await admissionIntents.markDispatching({
           intentId: admissionIntentId,
           ...input,
@@ -626,6 +630,7 @@ describe('PostgreSQL governed physical-control authority', () => {
         intentId: uncertainIntentId,
         invocationId: uncertainInvocationId,
         dispatchHash: `sha256:${'b'.repeat(64)}`,
+        authoritySnapshot: receipt.authoritySnapshot,
         at: '2026-08-13T01:01:03.000Z',
       }),
     ).resolves.toMatchObject({ applied: true, intent: { status: 'dispatching' } });

@@ -59,8 +59,7 @@ export interface RemoteTaskAdmissionReceipt {
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior: McpTaskBehavior;
   readonly taskCancellation: McpToolCancellation;
-  /** Missing only for a legacy receipt persisted before migration 0160. */
-  readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
+  readonly authoritySnapshot: RemoteTaskAuthoritySnapshot;
   readonly continuation: Readonly<{
     snapshot: WorkflowContinuationSnapshot;
     completeness: WorkflowExternalWaitCheckpointCompleteness;
@@ -80,6 +79,7 @@ export interface RemoteTaskAdmissionIntent {
   readonly status: RemoteTaskAdmissionIntentStatus;
   readonly dispatchHash?: string;
   readonly dispatchedAt?: string;
+  readonly dispatchAuthoritySnapshot?: RemoteTaskAuthoritySnapshot;
   readonly receipt?: RemoteTaskAdmissionReceipt;
   readonly receiptRecordedAt?: string;
   readonly materializedBindingId?: string;
@@ -151,6 +151,7 @@ export interface RemoteTaskAdmissionIntentStore {
       intentId: string;
       invocationId: string;
       dispatchHash: string;
+      authoritySnapshot: RemoteTaskAuthoritySnapshot;
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation>;
@@ -319,10 +320,12 @@ export class RemoteTaskAdmissionRecoveryService {
       if (intent.status !== 'receipt_recorded' || intent.receipt === undefined) continue;
       const remote = intent.receipt.remoteTask;
       const runtimeRevision = remote.runtimeRevision;
+      const rawAuthority: unknown = intent.receipt.authoritySnapshot;
       if (
         remote.protocolMode !== 'frozen_v1' ||
         runtimeRevision === undefined ||
-        intent.receipt.authoritySnapshot === undefined
+        typeof rawAuthority !== 'object' ||
+        rawAuthority === null
       ) {
         await this.#failTask(
           intent.taskId,
@@ -348,6 +351,11 @@ export class RemoteTaskAdmissionRecoveryService {
       const admitted = await this.#admission.admit({
         ...intent.envelope,
         remoteTaskId: remote.remoteTaskId,
+        ...(remote.providerIdentity === undefined
+          ? {}
+          : { providerIdentity: remote.providerIdentity }),
+        admissionTask: remote,
+        createdAt: intent.receiptRecordedAt ?? at,
         protocolStatus: remote.status,
         protocolRevision: remote.protocolRevision,
         tasksSchemaRevision: remote.tasksSchemaRevision,
@@ -495,8 +503,7 @@ function matchesRecoveredBindingIdentity(
     canonicalHash(binding.requestedTiming ?? null) ===
       canonicalHash(envelope.requestedTiming ?? null) &&
     canonicalHash(binding.executionContext) === canonicalHash(envelope.executionContext) &&
-    canonicalHash(binding.authoritySnapshot ?? null) ===
-      canonicalHash(receipt.authoritySnapshot ?? null) &&
+    canonicalHash(binding.authoritySnapshot) === canonicalHash(receipt.authoritySnapshot) &&
     binding.credentialRevision === receipt.credentialRevision &&
     binding.sessionRevision === receipt.sessionRevision
   );

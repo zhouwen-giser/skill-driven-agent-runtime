@@ -57,6 +57,7 @@ export class FrozenV1RuntimeNotificationAdapter implements FrozenTaskNotificatio
 function mapCreated(task: FrozenDetailedRemoteTask): RemoteTaskCreated {
   return {
     protocolMode: 'frozen_v1',
+    ...(task.providerIdentity === undefined ? {} : { providerIdentity: task.providerIdentity }),
     remoteTaskId: task.taskId,
     status: task.status,
     ...(task.statusMessage === undefined ? {} : { statusMessage: task.statusMessage }),

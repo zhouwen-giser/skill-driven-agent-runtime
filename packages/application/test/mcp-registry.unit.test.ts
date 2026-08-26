@@ -68,6 +68,11 @@ describe('MCP Registry invocation boundary', () => {
       task: {
         protocolMode: 'frozen_v1',
         remoteTaskId: 'remote-task-journal-1',
+        providerIdentity: {
+          profileVersion: '1.0',
+          providerId: 'external-provider-1',
+          providerInstanceId: 'instance-1',
+        },
         status: 'working',
         createdAt: '2026-08-13T00:00:00.000Z',
         lastUpdatedAt: '2026-08-13T00:00:00.000Z',
@@ -85,6 +90,7 @@ describe('MCP Registry invocation boundary', () => {
 
     await expect(
       fixture.service.callDetailed('provider-1', 'task_success', {}, undefined, {
+        taskId: 'task-journal-1',
         remoteAdmissionJournal: {
           invocationId: 'invocation-remote-journal',
           markDispatching,
@@ -121,6 +127,63 @@ describe('MCP Registry invocation boundary', () => {
     expect(markUncertain).not.toHaveBeenCalled();
   });
 
+  it.each(['scope', 'journal', 'registry'] as const)(
+    'rejects missing %s before SMPP task dispatch',
+    async (missing) => {
+      const fixture = createFixture({
+        outcome: remoteTaskOutcome(),
+        toolName: 'task_success',
+        taskBehavior: 'task_required',
+        ...(missing === 'scope' ? { omitBindingScope: true } : {}),
+        ...(missing === 'registry' ? { omitRegistryLineage: true } : {}),
+      });
+      const context =
+        missing === 'journal' ? { taskId: 'task-authority-1' } : runtimeAdmissionContext();
+      await expect(
+        fixture.service.callDetailed('provider-1', 'task_success', {}, undefined, context),
+      ).rejects.toThrow();
+      expect(fixture.call).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['missing', 'mismatch'] as const)(
+    'keeps %s Provider identity unresolved without a receipt or replay',
+    async (kind) => {
+      const outcome = remoteTaskOutcome();
+      if (outcome.kind !== 'remote_task') throw new Error('REMOTE_FIXTURE_REQUIRED');
+      const { providerIdentity, ...task } = outcome.task;
+      expect(providerIdentity).toBeDefined();
+      const fixture = createFixture({
+        toolName: 'task_success',
+        outcome: {
+          ...outcome,
+          task:
+            kind === 'missing'
+              ? task
+              : {
+                  ...task,
+                  providerIdentity: {
+                    profileVersion: '1.0',
+                    providerId: 'wrong-provider',
+                    providerInstanceId: 'instance-1',
+                  },
+                },
+        },
+      });
+      const context = runtimeAdmissionContext();
+      await expect(
+        fixture.service.callDetailed('provider-1', 'task_success', {}, undefined, context),
+      ).rejects.toThrow();
+      expect(fixture.call).toHaveBeenCalledOnce();
+      expect(context.remoteAdmissionJournal.markUncertain).toHaveBeenCalledOnce();
+      expect(context.remoteAdmissionJournal.recordRemoteReceipt).not.toHaveBeenCalled();
+      expect(context.remoteAdmissionJournal.close).not.toHaveBeenCalled();
+      expect(fixture.repository.invocations[0]?.result).toMatchObject({
+        unresolvedRemoteTask: { remoteTaskId: task.remoteTaskId },
+      });
+    },
+  );
+
   it('continues tasks/get when only Provider readiness observation timestamps refresh', async () => {
     let readCount = 0;
     const fixture = createFixture({
@@ -135,7 +198,13 @@ describe('MCP Registry invocation boundary', () => {
               observedAt: '2026-08-11T01:00:30.000Z',
             },
     });
-    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    const admitted = await fixture.service.callDetailed(
+      'provider-1',
+      'light_get_state',
+      {},
+      undefined,
+      runtimeAdmissionContext(),
+    );
     if (admitted.protocolContract === undefined) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
     const providerBinding = admitted.authoritySnapshot.providerBinding;
     if (providerBinding === undefined) throw new Error('TEST_PROVIDER_AUTHORITY_MISSING');
@@ -203,7 +272,13 @@ describe('MCP Registry invocation boundary', () => {
     ],
   ])('quarantines %s before tasks/get transport', async (_case, mutateAuthority) => {
     const fixture = createFixture({ outcome: remoteTaskOutcome() });
-    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    const admitted = await fixture.service.callDetailed(
+      'provider-1',
+      'light_get_state',
+      {},
+      undefined,
+      runtimeAdmissionContext(),
+    );
     if (admitted.protocolContract === undefined) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
     const decryptCountBeforeRead = fixture.decrypt.mock.calls.length;
     const authoritySnapshot = mutateAuthority(admitted.authoritySnapshot);
@@ -242,7 +317,13 @@ describe('MCP Registry invocation boundary', () => {
       outcome: remoteTaskOutcome(),
       currentBinding: () => (readCount++ === 0 ? {} : current),
     });
-    const admitted = await fixture.service.callDetailed('provider-1', 'light_get_state', {});
+    const admitted = await fixture.service.callDetailed(
+      'provider-1',
+      'light_get_state',
+      {},
+      undefined,
+      runtimeAdmissionContext(),
+    );
     if (admitted.protocolContract === undefined) throw new Error('TEST_PROTOCOL_CONTRACT_MISSING');
     const decryptCountBeforeRead = fixture.decrypt.mock.calls.length;
 
@@ -692,6 +773,8 @@ describe('MCP Registry invocation boundary', () => {
       undefined,
       {
         taskId: 'task-navigate-1',
+        remoteAdmissionJournal: runtimeAdmissionContext('invocation-authoritative-navigate-1')
+          .remoteAdmissionJournal,
         capabilityAttemptId: 'attempt-navigate-1',
         providerBindingId: 'binding-provider-1',
         providerId: 'external-provider-1',
@@ -746,6 +829,7 @@ describe('MCP Registry invocation boundary', () => {
     });
 
     await fixture.service.callDetailed('provider-1', 'task_operation', {}, undefined, {
+      ...runtimeAdmissionContext(),
       taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
     });
 
@@ -765,6 +849,7 @@ describe('MCP Registry invocation boundary', () => {
     });
 
     await fixture.service.callDetailed('provider-1', 'task_without_idempotency', {}, undefined, {
+      ...runtimeAdmissionContext(),
       taskExecution: {
         protocolMode: 'frozen_v1',
         availabilityCheck: 'required',
@@ -797,7 +882,13 @@ describe('MCP Registry invocation boundary', () => {
       taskBehavior: 'task_required',
     });
 
-    await fixture.service.callDetailed('provider-1', 'task_without_readiness', {});
+    await fixture.service.callDetailed(
+      'provider-1',
+      'task_without_readiness',
+      {},
+      undefined,
+      runtimeAdmissionContext(),
+    );
 
     expect(fixture.call).toHaveBeenCalledOnce();
     expect(fixture.call.mock.calls[0]?.[0]).not.toHaveProperty('taskCallProfile');
@@ -842,6 +933,7 @@ describe('MCP Registry invocation boundary', () => {
 
     await expect(
       fixture.service.callDetailed('provider-1', 'task_invalid_timing', {}, undefined, {
+        ...runtimeAdmissionContext('invocation-invalid-timing-1'),
         taskExecution: malformed,
         preTransportFence: {
           invocationId: 'invocation-invalid-timing-1',
@@ -865,6 +957,7 @@ describe('MCP Registry invocation boundary', () => {
 
     await expect(
       fixture.service.callDetailed('provider-1', 'task_invalid_key', {}, undefined, {
+        ...runtimeAdmissionContext('i'.repeat(257)),
         taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
         preTransportFence: {
           invocationId: 'i'.repeat(257),
@@ -1097,6 +1190,8 @@ function createFixture(
     bindingProviderId?: string;
     bindingAvailabilityValidUntil?: string;
     providerBindingsConfigured?: boolean;
+    omitBindingScope?: boolean;
+    omitRegistryLineage?: boolean;
     currentBinding?: () => Readonly<{
       revision?: number;
       providerId?: string;
@@ -1177,6 +1272,15 @@ function createFixture(
   });
   const service = new McpRegistryService({
     repository,
+    ...(options.omitBindingScope
+      ? {}
+      : {
+          runtimeBindingScope: {
+            tenantId: 'tenant-1',
+            projectId: 'project-1',
+            environment: 'development',
+          },
+        }),
     cipher: {
       encrypt: () => 'encrypted',
       decrypt,
@@ -1217,7 +1321,15 @@ function createFixture(
                   originType,
                   providerId:
                     current.providerId ?? options.bindingProviderId ?? 'external-provider-1',
-                  ...(originType === 'direct' ? {} : { externalServerId }),
+                  ...(originType === 'direct'
+                    ? {}
+                    : {
+                        externalServerId,
+                        externalProviderId:
+                          current.providerId ?? options.bindingProviderId ?? 'external-provider-1',
+                        registryRevision: 5,
+                        registryChecksum: 'a'.repeat(64),
+                      }),
                   endpointRef:
                     current.endpoint ?? options.bindingEndpoint ?? 'https://provider.test/mcp',
                   catalogRevision:
@@ -1234,11 +1346,15 @@ function createFixture(
                     options.bindingAvailabilityValidUntil ??
                     '2026-08-11T02:00:00.000Z',
                 },
-                ...(originType === 'direct'
+                ...(originType === 'direct' || options.omitRegistryLineage
                   ? {}
                   : {
                       sourceCandidateLineage: {
                         smppSourceId: current.smppSourceId ?? 'smpp-source-1',
+                        externalProviderId:
+                          current.providerId ?? options.bindingProviderId ?? 'external-provider-1',
+                        registryRevision: 5,
+                        registryChecksum: 'a'.repeat(64),
                         externalServerId,
                       },
                     }),
@@ -1407,6 +1523,11 @@ function remoteTaskOutcome(): McpInvocationOutcome {
     task: {
       protocolMode: 'frozen_v1',
       remoteTaskId: 'remote-task-read-1',
+      providerIdentity: {
+        profileVersion: '1.0',
+        providerId: 'external-provider-1',
+        providerInstanceId: 'instance-1',
+      },
       status: 'working',
       createdAt: timestamp,
       lastUpdatedAt: timestamp,
@@ -1414,6 +1535,19 @@ function remoteTaskOutcome(): McpInvocationOutcome {
       protocolRevision: '2026-07-28',
       tasksSchemaRevision: 'tasks-v1',
       runtimeRevision: 'runtime-1',
+    },
+  };
+}
+
+function runtimeAdmissionContext(invocationId = 'invocation-1') {
+  return {
+    taskId: 'task-authority-1',
+    remoteAdmissionJournal: {
+      invocationId,
+      markDispatching: vi.fn().mockResolvedValue(undefined),
+      recordRemoteReceipt: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+      markUncertain: vi.fn().mockResolvedValue(undefined),
     },
   };
 }

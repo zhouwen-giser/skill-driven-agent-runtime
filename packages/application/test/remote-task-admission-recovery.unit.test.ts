@@ -105,7 +105,7 @@ describe('RemoteTaskAdmissionRecoveryService', () => {
     const current = admissionIntent('receipt_recorded');
     if (current.receipt === undefined) throw new Error('TEST_RECEIPT_REQUIRED');
     const receipt = { ...current.receipt };
-    delete receipt.authoritySnapshot;
+    delete (receipt as Partial<typeof receipt>).authoritySnapshot;
     const intent = { ...current, receipt };
     const closeReceiptAsUncertain = vi.fn().mockResolvedValue({
       applied: true,
@@ -439,10 +439,10 @@ function recoveredBinding(
   const receipt = intent.receipt;
   if (receipt === undefined) throw new Error('TEST_RECEIPT_REQUIRED');
   const authoritySnapshot = receipt.authoritySnapshot;
-  if (authoritySnapshot === undefined) throw new Error('TEST_AUTHORITY_SNAPSHOT_REQUIRED');
   const remote = receipt.reconciledTask ?? receipt.remoteTask;
   return {
     bindingId: intent.envelope.bindingId,
+    bindingAuthority: { originType: 'direct' },
     serverId: intent.envelope.serverId,
     operationName: intent.envelope.operationName,
     remoteTaskId: receipt.remoteTask.remoteTaskId,

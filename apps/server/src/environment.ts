@@ -72,6 +72,8 @@ const EnvironmentSchema = z
     SDAR_NODE_CONTROL_BASE_URL: z.url().optional(),
     SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: z.string().min(32).regex(/^\S+$/u).optional(),
     SDAR_CONTROL_ENVIRONMENT: z.string().trim().min(1).max(128).default('development'),
+    SDAR_RUNTIME_TENANT_ID: z.string().min(1).max(256).optional(),
+    SDAR_RUNTIME_PROJECT_ID: z.string().min(1).max(256).optional(),
     SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: z.enum(['safe', 'unsafe_test_open']).default('safe'),
     SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
     SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: z.string().min(1).default('127.0.0.1,localhost'),
@@ -399,6 +401,21 @@ export function loadServerEnvironment(envFilePath = '.env'): ServerEnvironment {
 }
 
 export function parseServerEnvironment(environment: NodeJS.ProcessEnv): ServerEnvironment {
+  if (
+    environment['SDAR_RUNTIME_TENANT_ID'] !== undefined ||
+    environment['SDAR_RUNTIME_PROJECT_ID'] !== undefined
+  ) {
+    const scope = [
+      'SDAR_RUNTIME_TENANT_ID',
+      'SDAR_RUNTIME_PROJECT_ID',
+      'SDAR_CONTROL_ENVIRONMENT',
+    ].map((key) => environment[key]);
+    if (
+      scope.some((value) => value === undefined || value.length === 0) ||
+      environment['SDAR_CONTROL_ENVIRONMENT'] !== environment['SDAR_CONTROL_ENVIRONMENT']?.trim()
+    )
+      throw new Error('REMOTE_TASK_EXPLICIT_RUNTIME_SCOPE_REQUIRED');
+  }
   return EnvironmentSchema.parse(environment);
 }
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-08-26 — Frozen Runtime / Provider binding candidate
+
+- Capture explicit Runtime scope, Episode/Task/A2A identity and the verified registry
+  projection before SMPP Task dispatch. Require the exact Provider identity metadata.
+- Commit accepted admission receipt, MCP invocation and authoritative binding in one
+  PostgreSQL transaction; keep genuine direct MCP authority as a distinct variant.
+- Compare Provider runtimeRevision losslessly; retain conflicts without overwriting
+  identity or terminal state. Emit all 20 canonical binding fields from persisted rows.
+- Add development-only migration 0174 and narrow tests. Actual PostgreSQL verification
+  and the separately approved live UGV profile extension are pending; no Gate PASS.
+
 ## 2026-08-26 — Runtime admission observation readiness
 
 - Enabled the frozen remote-Task admission components for the existing trusted-network

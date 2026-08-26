@@ -12,6 +12,41 @@ import {
 } from '../src/environment.js';
 
 describe('server environment', () => {
+  it('requires the whole explicit binding scope and preserves opaque tenant/project identities', () => {
+    const base = { SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64') };
+    expect(parseServerEnvironment(base).SDAR_RUNTIME_TENANT_ID).toBeUndefined();
+    expect(() => parseServerEnvironment({ ...base, SDAR_RUNTIME_TENANT_ID: 'tenant' })).toThrow(
+      'REMOTE_TASK_EXPLICIT_RUNTIME_SCOPE_REQUIRED',
+    );
+    expect(() =>
+      parseServerEnvironment({
+        ...base,
+        SDAR_RUNTIME_TENANT_ID: 'tenant',
+        SDAR_RUNTIME_PROJECT_ID: 'project',
+      }),
+    ).toThrow('REMOTE_TASK_EXPLICIT_RUNTIME_SCOPE_REQUIRED');
+    expect(
+      parseServerEnvironment({
+        ...base,
+        SDAR_RUNTIME_TENANT_ID: ' tenant ',
+        SDAR_RUNTIME_PROJECT_ID: 'Project',
+        SDAR_CONTROL_ENVIRONMENT: 'development',
+      }),
+    ).toMatchObject({
+      SDAR_RUNTIME_TENANT_ID: ' tenant ',
+      SDAR_RUNTIME_PROJECT_ID: 'Project',
+      SDAR_CONTROL_ENVIRONMENT: 'development',
+    });
+    expect(() =>
+      parseServerEnvironment({
+        ...base,
+        SDAR_RUNTIME_TENANT_ID: 'tenant',
+        SDAR_RUNTIME_PROJECT_ID: 'project',
+        SDAR_CONTROL_ENVIRONMENT: ' development ',
+      }),
+    ).toThrow('REMOTE_TASK_EXPLICIT_RUNTIME_SCOPE_REQUIRED');
+  });
+
   const isolatedEnvironmentKeys = [
     'SDAR_MASTER_KEY_BASE64',
     'SDAR_REDIS_PORT',

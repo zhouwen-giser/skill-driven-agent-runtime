@@ -536,6 +536,8 @@ import {
   type RedisConnectionConfig,
 } from '../../../packages/runtime-redis/src/index.js';
 
+import type { RuntimeBindingScope } from '../../../packages/domain/src/index.js';
+
 export interface ServerRuntimeOptions {
   readonly postgresUrl: string;
   readonly redis: RedisConnectionConfig;
@@ -543,6 +545,7 @@ export interface ServerRuntimeOptions {
   /** Optional startup-only seed; persisted Provider/Prompt/route rows remain authoritative. */
   readonly modelBootstrap?: InitialModelProviderConfiguration;
   readonly evidenceEnvironment?: string;
+  readonly runtimeBindingScope?: RuntimeBindingScope;
   /** Required frozen thresholds for the external-simulation UGV final-position hard gate. */
   readonly ugvMovePositionPolicy?: UgvMovePositionPolicy;
   /** Authenticated full-state reader for Control-owned Capability definitions and bindings. */
@@ -2224,6 +2227,9 @@ export async function startServerRuntime(
       })
     : undefined;
   const mcpRegistry = new McpRegistryService({
+    ...(options.runtimeBindingScope === undefined
+      ? {}
+      : { runtimeBindingScope: options.runtimeBindingScope }),
     repository: mcpRepository,
     cipher: secretCipher,
     schemas: schemaValidator,
@@ -2931,6 +2937,7 @@ export async function startServerRuntime(
                 input: Readonly<{
                   invocationId: string;
                   dispatchHash: string;
+                  authoritySnapshot: RemoteTaskAuthoritySnapshot;
                   at: string;
                 }>,
               ) {
@@ -3136,6 +3143,10 @@ export async function startServerRuntime(
           serverId: tool.serverId,
           operationName: tool.toolName,
           remoteTaskId: remote.remoteTaskId,
+          ...(remote.providerIdentity === undefined
+            ? {}
+            : { providerIdentity: remote.providerIdentity }),
+          admissionTask: remote,
           agentTaskId: authorityTask.taskId,
           contextId: authorityTask.contextId,
           goalId: instance.goalId,
@@ -3185,7 +3196,7 @@ export async function startServerRuntime(
           sessionRevision: receipt.sessionRevision,
           lastProviderUpdatedAt: remote.lastUpdatedAt,
           pollIntervalMs: Math.max(100, remote.pollIntervalMs ?? 1_000),
-          createdAt: clock.now(),
+          createdAt: receipt.completedAt,
         });
         const reconciled = receipt.outcome.reconciledTask;
         const reconciliation =
@@ -7581,7 +7592,7 @@ async function applyPostV122Migrations(
 }
 
 const POST_V122_MIGRATION_FILE_PATTERN =
-  /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate)\.up\.sql$/u;
+  /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate|0174_runtime_provider_binding_authority)\.up\.sql$/u;
 
 export function planPostV122MigrationFiles(
   availableFiles: readonly string[],

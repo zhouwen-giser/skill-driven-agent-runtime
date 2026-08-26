@@ -6,6 +6,9 @@ import {
   createMcpToolEnhancement,
   createMcpTaskCallProfile,
   createRemoteTaskAuthoritySnapshot,
+  createRemoteBindingAuthority,
+  validateRuntimeBindingScope,
+  type RuntimeBindingScope,
   type McpInvocation,
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
@@ -65,7 +68,12 @@ export interface McpCallContext {
   readonly remoteAdmissionJournal?: Readonly<{
     invocationId: string;
     markDispatching(
-      input: Readonly<{ invocationId: string; dispatchHash: string; at: string }>,
+      input: Readonly<{
+        invocationId: string;
+        dispatchHash: string;
+        authoritySnapshot: RemoteTaskAuthoritySnapshot;
+        at: string;
+      }>,
     ): Promise<void>;
     recordRemoteReceipt(
       input: Readonly<{
@@ -98,6 +106,7 @@ export interface McpCallContext {
 }
 
 export interface RecordedMcpInvocationOutcome {
+  readonly completedAt: string;
   readonly invocationId: string;
   readonly outcome: McpInvocationOutcome;
   readonly credentialRevision: string;
@@ -176,6 +185,7 @@ export class McpRegistryService {
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
   readonly #executionModeHeaderPolicy: McpExecutionModeHeaderPolicy;
+  readonly #runtimeBindingScope: RuntimeBindingScope | undefined;
   readonly #runtimeBindingAuthority: McpRuntimeBindingAuthorityVerifier;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
 
@@ -189,12 +199,14 @@ export class McpRegistryService {
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
       controlAuthority?: GovernedControlInvocationAuthorityPort;
       executionModeHeaderPolicy?: McpExecutionModeHeaderPolicy;
+      runtimeBindingScope?: RuntimeBindingScope;
       runtimeBindingAuthority?: McpRuntimeBindingAuthorityVerifier;
       clock: Clock;
       ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
     }>,
   ) {
     this.#repository = dependencies.repository;
+    this.#runtimeBindingScope = dependencies.runtimeBindingScope;
     this.#cipher = dependencies.cipher;
     this.#schemas = dependencies.schemas;
     this.#frozenAvailability = dependencies.frozenAvailability;
@@ -253,6 +265,17 @@ export class McpRegistryService {
       context.providerBindingId,
       context.providerId,
     );
+    if (
+      providerBindingAuthority?.binding.originType === 'smpp_registry' &&
+      frozenAuthority.taskBehavior !== 'synchronous_only'
+    ) {
+      validateRuntimeBindingScope(this.#runtimeBindingScope);
+      if (context.taskId === undefined || context.remoteAdmissionJournal === undefined)
+        throw new McpRegistryError(
+          'REMOTE_TASK_LOCAL_IDENTITY_REQUIRED',
+          'SMPP remote admission requires a Runtime Task and durable admission journal before dispatch.',
+        );
+    }
     const invocationId =
       context.remoteAdmissionJournal?.invocationId ??
       context.preTransportFence?.invocationId ??
@@ -277,6 +300,7 @@ export class McpRegistryService {
       runtimeAuthority,
       providerBindingAuthority,
       startedAt,
+      this.#runtimeBindingScope,
     );
     const executionContext = createRuntimeExecutionContext(
       context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
@@ -293,7 +317,7 @@ export class McpRegistryService {
       toolName,
       arguments: arguments_,
     });
-    let outcome: McpInvocationOutcome;
+    let outcome: McpInvocationOutcome | undefined;
     const transportSignal =
       signal === undefined
         ? context.preTransportFence?.signal
@@ -339,6 +363,7 @@ export class McpRegistryService {
         await context.remoteAdmissionJournal.markDispatching({
           invocationId,
           dispatchHash,
+          authoritySnapshot,
           at: this.#clock.now(),
         });
     } catch (error: unknown) {
@@ -353,6 +378,30 @@ export class McpRegistryService {
       throwIfAborted(transportSignal);
       outcome = await lifecycle.call(transportInput);
       assertNoHomeAssistantEntityIdentity(outcome);
+      if (outcome.kind === 'remote_task') {
+        const authority = createRemoteBindingAuthority(
+          context.taskId ?? '',
+          authoritySnapshot,
+          outcome.task.providerIdentity,
+        );
+        if (authority.originType === 'smpp_registry' && context.taskId === undefined)
+          throw new McpRegistryError(
+            'REMOTE_TASK_LOCAL_IDENTITY_REQUIRED',
+            'SMPP Task admission requires a Runtime Task identity.',
+          );
+        if (outcome.reconciledTask !== undefined) {
+          const reconciledAuthority = createRemoteBindingAuthority(
+            context.taskId ?? '',
+            authoritySnapshot,
+            outcome.reconciledTask.providerIdentity,
+          );
+          if (JSON.stringify(reconciledAuthority) !== JSON.stringify(authority))
+            throw new McpRegistryError(
+              'REMOTE_TASK_PROVIDER_IDENTITY_CONFLICT',
+              'Admission and reconciliation Provider identity differ.',
+            );
+        }
+      }
     } catch (error: unknown) {
       const completedAt = this.#clock.now();
       const canceled = transportSignal?.aborted === true;
@@ -365,6 +414,9 @@ export class McpRegistryService {
         executionSemantics: tool.executionSemantics,
         arguments: arguments_,
         status: canceled ? 'canceled' : 'failed',
+        ...(outcome?.kind === 'remote_task'
+          ? { result: { unresolvedRemoteTask: outcome.task } }
+          : {}),
         errorCode: canceled ? 'MCP_CALL_CANCELED' : (stableErrorCode(error) ?? 'MCP_CALL_FAILED'),
         errorMessage: canceled ? 'MCP Tool call was canceled.' : 'MCP Tool call failed.',
         startedAt,
@@ -422,6 +474,7 @@ export class McpRegistryService {
       });
     }
     return {
+      completedAt,
       invocationId,
       outcome,
       credentialRevision: record.server.updatedAt,
@@ -953,6 +1006,7 @@ function remoteTaskAuthoritySnapshot(
   runtime: RuntimeMcpCatalogAuthority,
   provider: CurrentMcpProviderBindingAuthority | undefined,
   capturedAt: string,
+  scope?: RuntimeBindingScope,
 ): RemoteTaskAuthoritySnapshot {
   return createRemoteTaskAuthoritySnapshot({
     schemaVersion: '1.0',
@@ -973,14 +1027,8 @@ function remoteTaskAuthoritySnapshot(
           providerBinding: {
             bindingId: provider.binding.bindingId,
             revision: provider.binding.revision,
-            originType: provider.binding.originType,
             providerId: provider.binding.providerId,
-            ...(provider.binding.externalServerId === undefined
-              ? {}
-              : { externalServerId: provider.binding.externalServerId }),
-            ...(provider.sourceCandidateLineage === undefined
-              ? {}
-              : { smppSourceId: provider.sourceCandidateLineage.smppSourceId }),
+            ...frozenProviderRegistryAuthority(provider, scope),
             endpointRef: provider.binding.endpointRef,
             catalogRevision: provider.binding.catalogRevision,
             catalogChecksum: provider.binding.catalogChecksum,
@@ -990,6 +1038,40 @@ function remoteTaskAuthoritySnapshot(
           },
         }),
   });
+}
+
+function frozenProviderRegistryAuthority(
+  provider: CurrentMcpProviderBindingAuthority,
+  scope?: RuntimeBindingScope,
+) {
+  if (provider.binding.originType === 'direct') return { originType: 'direct' as const };
+  const binding = provider.binding;
+  const lineage = provider.sourceCandidateLineage;
+  if (
+    lineage === undefined ||
+    binding.externalProviderId !== binding.providerId ||
+    lineage.externalProviderId !== binding.externalProviderId ||
+    lineage.externalServerId !== binding.externalServerId ||
+    lineage.registryRevision !== binding.registryRevision ||
+    lineage.registryChecksum !== binding.registryChecksum ||
+    !Number.isSafeInteger(binding.registryRevision) ||
+    (binding.registryRevision ?? 0) < 1
+  )
+    throw new McpRegistryError(
+      'REMOTE_TASK_REGISTRY_AUTHORITY_INVALID',
+      'SMPP admission requires exact verified registry projection lineage.',
+    );
+  return {
+    originType: 'smpp_registry' as const,
+    smppSourceId: lineage.smppSourceId,
+    externalServerId: lineage.externalServerId,
+    registry: {
+      externalProviderId: lineage.externalProviderId,
+      revision: String(lineage.registryRevision),
+      checksum: lineage.registryChecksum,
+    },
+    ...(scope === undefined ? {} : { scope: validateRuntimeBindingScope(scope) }),
+  };
 }
 
 export function createMcpProviderDispatchHash(
@@ -1161,6 +1243,9 @@ function assertNoHomeAssistantEntityIdentity(value: unknown): void {
 }
 
 export type McpRegistryErrorCode =
+  | 'REMOTE_TASK_LOCAL_IDENTITY_REQUIRED'
+  | 'REMOTE_TASK_PROVIDER_IDENTITY_CONFLICT'
+  | 'REMOTE_TASK_REGISTRY_AUTHORITY_INVALID'
   | 'MCP_ARGUMENT_SCHEMA_MISMATCH'
   | 'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN'
   | 'MCP_CONTROL_AUTHORITY_REQUIRED'

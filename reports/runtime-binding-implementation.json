@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "WI-070",
+  "kind": "runtime-binding-implementation-candidate",
+  "recordedAt": "2026-08-26T08:24:05.975464+00:00",
+  "status": "candidate_not_independently_verified",
+  "workItemCompleted": false,
+  "gatePassClaimed": false,
+  "repository": "skill-driven-agent-runtime",
+  "branch": "codex/live-dev-evaluation-chain-runtime-binding",
+  "baseCommit": "bb1542cce174923b30c89bf02b91c945a53305cb",
+  "candidateIdentity": "the commit containing this report; assigned after commit",
+  "contract": {
+    "path": "contracts/runtime-provider-binding.v1.json",
+    "sha256": "sha256:9861742fa0480bd07a851741715f8c9e5d8401885c19ec3a6e89c341ac710edb"
+  },
+  "implemented": [
+    "Exact sibling Provider identity parsing/propagation",
+    "Explicit whole Runtime scope without implicit global scope",
+    "Pre-dispatch verified registry and local authority snapshot",
+    "Atomic accepted receipt/invocation/binding transaction",
+    "Direct authority discriminant, never nullable SMPP fallback",
+    "Lossless canonical Provider runtimeRevision; duplicate/stale/content/identity/terminal classifications shared by poll and external snapshots",
+    "Immutable canonical identity and monotonic binding version migration 0174",
+    "All canonical20 persisted columns and top-level binding evidence with exact scope"
+  ],
+  "validation": {
+    "focused": {
+      "command": "./node_modules/.bin/vitest run apps/server/test/environment.unit.test.ts apps/server/test/ugv-move-workflow-evidence.unit.test.ts packages/domain/test/mcp-frozen-protocol.unit.test.ts packages/domain/test/remote-task-authority.unit.test.ts packages/persistence-postgres/test/remote-task-admission-intent-store.unit.test.ts packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts packages/application/test/mcp-registry.unit.test.ts packages/application/test/remote-task-admission-recovery.unit.test.ts apps/server/test/runtime-migration-selection.contract.test.ts packages/mcp-adapter/test/frozen-v1-task-lifecycle.contract.test.ts --reporter=json --outputFile=reports/wi070-focused.json",
+      "exitCode": 0,
+      "passed": 202,
+      "failed": 0,
+      "report": "reports/wi070-focused.json",
+      "sha256": "sha256:dcb8d2c594e7aa1c5355be2f0a04acbde5cd0633202e4e9c7dfe9ef3e7af37e3"
+    },
+    "typecheck": {
+      "command": "./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false",
+      "exitCode": 0,
+      "execSession": 48151,
+      "includesNewPostgresFixture": true,
+      "report": "reports/wi070-typecheck.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lint": {
+      "scope": "28 changed TypeScript files plus final PostgreSQL fixture lint",
+      "exitCode": 0,
+      "report": "reports/wi070-eslint.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "fixtureReport": "reports/wi070-pg-fixture-lint.log",
+      "fixtureSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "format": {
+      "scope": "All changed TypeScript files written by Prettier; final focused check passed",
+      "exitCode": 0,
+      "report": "reports/wi070-format-check.log",
+      "sha256": "sha256:17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    "postgres": "NOT_RUN",
+    "build": "NOT_RUN; whole-workspace noEmit typecheck only",
+    "independentReview": "NOT_RUN",
+    "live": "NOT_RUN"
+  },
+  "postgresVerification": {
+    "controller": "/root/g04_external_admission under WI-075 root-reviewed GO and environment lease",
+    "file": "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+    "sha256": "sha256:182db18bcfff9ddc3509bc9b52078505b5542c02ae8c4acc2bd305de773e4da1",
+    "command": "./node_modules/.bin/vitest run packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+    "testCount": 3,
+    "environment": [
+      "SDAR_TEST_POSTGRES_URL"
+    ],
+    "requirements": "Explicit disposable development PostgreSQL admin connection supporting CREATE DATABASE and required migration extensions. No implicit localhost fallback.",
+    "database": "sdar_wi070_binding_authority_integration",
+    "lifecycle": "CREATE DATABASE ... TEMPLATE template0; fail existing name; apply entire migration chain; drop only database created by this suite",
+    "checks": [
+      "claimed poll semantic duplicates and terminal acceptance",
+      "receipt failure rollback across invocation/binding/observation",
+      "canonical20 joined accepted receipt/invocation/binding",
+      "identity and pre-dispatch immutability",
+      "BigInt revision vs wall clock; exact duplicate/equal revision conflict/stale/terminal rollback",
+      "event ID reused at later revisions does not hide accepted observation",
+      "new repository instance reloads exact identity and revisions"
+    ],
+    "externalServices": "PostgreSQL only; no Redis/HTTP/MCP/MQTT/device"
+  },
+  "migration": {
+    "up": "infra/postgres/migrations/0174_runtime_provider_binding_authority.up.sql",
+    "upSha256": "sha256:b28bbbba6583fd9f8082290e9d942cdb78e3d8f7af19d688a3217b4ed88f9b67",
+    "down": "infra/postgres/migrations/0174_runtime_provider_binding_authority.down.sql",
+    "downSha256": "sha256:5bf3a08c687310eec90564533450420d9521038fca8c79b23840f9629656f0c8",
+    "dataPolicy": "Empty development data only; no legacy backfill; reset before rollback with new rejection dispositions"
+  },
+  "remaining": [
+    "Actual leased empty PostgreSQL verification",
+    "Root review and authorized push/PR",
+    "Separate adopted live profile extension",
+    "Independent review/G04 acceptance",
+    "Final strict control handoff assembled by root"
+  ],
+  "boundaries": {
+    "sharedEnvironmentActions": false,
+    "deviceActions": false,
+    "authChanges": false,
+    "sourceLockOrControlWrites": false,
+    "pushed": false,
+    "pr": null,
+    "liveProfileImplemented": false
+  }
+}

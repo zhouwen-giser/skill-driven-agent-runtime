@@ -69,6 +69,12 @@ interface McpCapabilityEmitInput {
   readonly capabilityBindingId?: string;
   readonly remoteTaskBindingId?: string;
   readonly skillExecutionId?: string;
+  readonly bindingScope?: Readonly<{
+    tenantId: string;
+    projectId: string;
+    environment: string;
+    episodeId: string;
+  }>;
 }
 
 export class McpCapabilityEvidenceProjector {
@@ -146,10 +152,13 @@ export class McpCapabilityEvidenceProjector {
         schemaVersion: catalog.schemaVersion,
         recordFamily: catalog.recordFamily,
         recordType: catalog.recordType,
-        environment: this.#environment,
+        environment: input.bindingScope?.environment ?? this.#environment,
+        ...(input.bindingScope === undefined
+          ? {}
+          : { tenantId: input.bindingScope.tenantId, projectId: input.bindingScope.projectId }),
         taskId: cleanTaskId,
         ...(contextId === undefined ? {} : { contextId }),
-        episodeId: cleanTaskId,
+        episodeId: input.bindingScope?.episodeId ?? cleanTaskId,
         correlationId: cleanTaskId,
         occurredAt: input.occurredAt,
         recordedAt,
@@ -235,6 +244,29 @@ export class McpCapabilityEvidenceProjector {
     }
     for (const row of snapshot.bindings) {
       const id = text(row, 'binding_id');
+      let canonical: RuntimeCoreSourceRow = {};
+      let bindingScope: McpCapabilityEmitInput['bindingScope'];
+      if (row['provider_origin_type'] === 'smpp_registry') {
+        try {
+          canonical = canonicalRuntimeProviderBinding(row, cleanTaskId);
+          bindingScope = {
+            tenantId: text(canonical, 'tenant_id'),
+            projectId: text(canonical, 'project_id'),
+            environment: text(canonical, 'environment'),
+            episodeId: text(canonical, 'episode_id'),
+          };
+        } catch {
+          await issue('mcp_task.remote_binding', 'remote_task_binding', id, {
+            missingReference: 'complete_runtime_provider_binding_authority',
+          });
+          continue;
+        }
+      } else if (row['provider_origin_type'] !== 'direct') {
+        await issue('mcp_task.remote_binding', 'remote_task_binding', id, {
+          missingReference: 'explicit_remote_binding_authority',
+        });
+        continue;
+      }
       const callRef = ref('mcp_task.tool_call', text(row, 'mcp_invocation_id'));
       if (callRef === undefined)
         await issue('mcp_task.remote_binding', 'remote_task_binding', id, {
@@ -252,7 +284,9 @@ export class McpCapabilityEvidenceProjector {
           protocolStatus: value(row, 'protocol_status'),
           localState: value(row, 'local_state'),
           taskHandleReturned: true,
+          ...canonical,
         },
+        ...(bindingScope === undefined ? {} : { bindingScope }),
         refs: compact(callRef),
         remoteTaskBindingId: id,
       });
@@ -767,6 +801,60 @@ export class McpCapabilityEvidenceProjector {
       remoteTaskBindingId: bindingId,
     });
   }
+}
+
+/** Exact frozen contract fields, never camelCase aliases or latest registry reconstruction. */
+function canonicalRuntimeProviderBinding(
+  row: RuntimeCoreSourceRow,
+  taskId: string,
+): RuntimeCoreSourceRow {
+  const fields = [
+    'tenant_id',
+    'project_id',
+    'environment',
+    'binding_id',
+    'episode_id',
+    'sdar_task_id',
+    'sdar_invocation_id',
+    'a2a_task_id',
+    'remote_task_id',
+    'provider_origin_type',
+    'provider_origin_source_id',
+    'external_provider_id',
+    'external_provider_instance_id',
+    'external_server_id',
+    'registry_revision',
+    'registry_checksum',
+    'binding_revision',
+    'protocol_status',
+    'created_at',
+    'updated_at',
+  ];
+  const result: Record<string, string> = {};
+  for (const field of fields) {
+    if (field === 'created_at' || field === 'updated_at') result[field] = timestamp(row, field);
+    else {
+      const value = row[field];
+      if (typeof value !== 'string' || value.length === 0)
+        throw new Error('REMOTE_BINDING_FIELD_REQUIRED');
+      result[field] = value;
+    }
+  }
+  if (
+    result['episode_id'] !== taskId ||
+    result['sdar_task_id'] !== taskId ||
+    result['a2a_task_id'] !== taskId ||
+    result['sdar_invocation_id'] !== row['mcp_invocation_id'] ||
+    result['sdar_task_id'] !== row['agent_task_id'] ||
+    !/^[1-9][0-9]*$/u.test(result['registry_revision'] ?? '') ||
+    !/^[1-9][0-9]*$/u.test(result['binding_revision'] ?? '') ||
+    !/^[a-f0-9]{64}$/u.test(result['registry_checksum'] ?? '') ||
+    !['working', 'input_required', 'completed', 'failed', 'cancelled'].includes(
+      result['protocol_status'] ?? '',
+    )
+  )
+    throw new Error('REMOTE_BINDING_CANONICAL_AUTHORITY_INVALID');
+  return result;
 }
 
 function value(row: RuntimeCoreSourceRow, field: string): EvidenceJsonValue {

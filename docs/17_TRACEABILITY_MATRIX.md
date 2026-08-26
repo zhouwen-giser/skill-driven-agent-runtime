@@ -1226,3 +1226,15 @@ continuation/final evidence and no post-fix external rerun was performed.
 | UAP-P3-B02-A2A-TERMINAL             | 未验证                        | The failed Task is not upgraded and no successful A2A terminal projection is inferred from Provider completion                                                                               | Failure artifact `uap-p3-b02-failure-uap-p3-b02-mt6s71d2-3a99d891d86bc8778e65-20260824052702017-e0945cf9beaafe32.redacted.json`, SHA `fe5f32e7...0377`                      |
 | UAP-P3-B02-POST-FIX-EXTERNAL-RETEST | 用户取消；未执行              | Another simulator client was active. Cleanup/rollback completed before another SDAR/A2A/YES window; the issued successor remains unused                                                      | Task-owned containers `0`, task-owned volumes `0`, supervisor stopped at handoff; no post-fix Device command                                                                |
 | UAP-P3-B02-OVERALL-CURRENT          | 代码可交付；Goal 验收仍待完成 | Implementation and affected gates pass, but P3-B02/P3-B03/P4 and overall Goal require a future separately authorized successful end-to-end run                                               | 5 files/165 tests, typecheck, build, 849-source architecture, scoped ESLint and diff checks PASS; full successful external A2A evidence absent                              |
+
+## WI-070 frozen development binding — candidate verification
+
+| Acceptance | Implementation | Focused evidence | Pending verification |
+| --- | --- | --- | --- |
+| WI-070-A01 canonical20 | domain remote-binding-authority; migration0174 generated fields; MCP capability evidence projector | remote-task-authority and mcp-capability-evidence-projector unit tests | actual PostgreSQL row/evidence and independent G04 review |
+| WI-070-A02 atomic accepted identity | admission-intent-store recordRemoteReceiptAndInvocation + remote-task-repository admitWithClient | journal transaction spy; missing scope/registry/identity and no-redispatch recovery tests | Run Controller runtime-binding-authority.integration.test.ts fault rollback |
+| WI-070-A03 exact revisions/terminal | shared classifyRemoteTaskObservation in poll and external paths | BigInt, stale/equal-conflict/duplicate/terminal unit and protocol cases | actual claimed-poll/external-snapshot PostgreSQL tests and restart read |
+
+These rows track an unaccepted development candidate, not production qualification
+or completion of a Gate. Frozen authority: `runtime-provider-binding.v1.json`
+SHA-256 `9861742fa0480bd07a851741715f8c9e5d8401885c19ec3a6e89c341ac710edb`.

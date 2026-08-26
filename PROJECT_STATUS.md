@@ -1177,3 +1177,11 @@ without changing P02-P11 authorities. The Console uses the real API; A2A adds on
 safe extension; SSE is a bounded resumable PostgreSQL Outbox projection. Independent review
 findings covering runtime SQL, event aliases/tenant derivation, IDOR, filters, feature-off,
 promotion audit and redaction were repaired and regression tested.
+
+## WI-070 binding candidate — 2026-08-26
+
+Frozen Runtime/Provider binding implementation is complete as a candidate, with
+202 focused unit/contract cases passing. Whole-workspace typecheck and changed-file
+lint are recorded in the WI-070 implementation report. Actual PostgreSQL atomicity,
+independent review and Gate G04 remain pending; live UGV profile extension is a
+separately approved follow-up and is not claimed implemented by this candidate.

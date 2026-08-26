@@ -43,6 +43,16 @@ const runtime = await startServerRuntime({
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
   evidenceEnvironment: environment.SDAR_CONTROL_ENVIRONMENT,
+  ...(environment.SDAR_RUNTIME_TENANT_ID === undefined ||
+  environment.SDAR_RUNTIME_PROJECT_ID === undefined
+    ? {}
+    : {
+        runtimeBindingScope: {
+          tenantId: environment.SDAR_RUNTIME_TENANT_ID,
+          projectId: environment.SDAR_RUNTIME_PROJECT_ID,
+          environment: environment.SDAR_CONTROL_ENVIRONMENT,
+        },
+      }),
   applyMigrations: true,
   ...(modelBootstrap === undefined ? {} : { modelBootstrap }),
   outboundEndpointPolicy: {

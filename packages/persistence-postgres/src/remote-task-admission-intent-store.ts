@@ -13,9 +13,12 @@ import type {
 import { canonicalHash } from '../../application/src/index.js';
 import {
   createRemoteTaskAuthoritySnapshot,
+  createRemoteTaskBinding,
   createWorkflowContinuationSnapshot,
   type McpInvocation,
+  type RemoteTaskAuthoritySnapshot,
 } from '../../domain/src/index.js';
+import { PostgresRemoteTaskRepository } from './remote-task-repository.js';
 
 interface RemoteTaskAdmissionIntentRow extends QueryResultRow {
   intent_id: string;
@@ -31,6 +34,7 @@ interface RemoteTaskAdmissionIntentRow extends QueryResultRow {
   status: RemoteTaskAdmissionIntentStatus;
   dispatch_hash: string | null;
   dispatched_at: Date | string | null;
+  dispatch_authority_snapshot_json: unknown;
   recorded_invocation_id: string | null;
   remote_receipt_json: unknown;
   receipt_recorded_at: Date | string | null;
@@ -186,18 +190,26 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       intentId: string;
       invocationId: string;
       dispatchHash: string;
+      authoritySnapshot: RemoteTaskAuthoritySnapshot;
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
+    createRemoteTaskAuthoritySnapshot(input.authoritySnapshot);
     const result = await this.#pool.query<TransitionRow>(
       transitionQuery(
         `UPDATE remote_task_admission_intent
-            SET status='dispatching',dispatch_hash=$3,dispatched_at=$4,
+            SET status='dispatching',dispatch_hash=$3,dispatched_at=$4,dispatch_authority_snapshot_json=$5::jsonb,
                 updated_at=$4,version=version+1
           WHERE intent_id=$1 AND invocation_id=$2 AND status='prepared'
           RETURNING *`,
       ),
-      [input.intentId, input.invocationId, input.dispatchHash, input.at],
+      [
+        input.intentId,
+        input.invocationId,
+        input.dispatchHash,
+        input.at,
+        JSON.stringify(input.authoritySnapshot),
+      ],
     );
     return classifyTransition(
       result.rows[0],
@@ -205,6 +217,8 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
         intent.status === 'dispatching' &&
         intent.invocationId === input.invocationId &&
         intent.dispatchHash === input.dispatchHash &&
+        canonicalHash(intent.dispatchAuthoritySnapshot) ===
+          canonicalHash(input.authoritySnapshot) &&
         intent.dispatchedAt === input.at,
       (intent) =>
         intent.invocationId !== input.invocationId ||
@@ -218,8 +232,6 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
     receipt: RemoteTaskAdmissionReceipt,
     at: string,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
-    if (receipt.authoritySnapshot === undefined)
-      throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_AUTHORITY_REQUIRED');
     createRemoteTaskAuthoritySnapshot(receipt.authoritySnapshot);
     return withTransaction(this.#pool, async (client) => {
       const locked = await client.query<RemoteTaskAdmissionIntentRow>(
@@ -241,8 +253,59 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
         return { applied: false, reason: 'closed', intent: current };
       if (current.status !== 'dispatching')
         return { applied: false, reason: 'stale', intent: current };
+      if (
+        canonicalHash(current.dispatchAuthoritySnapshot) !==
+        canonicalHash(receipt.authoritySnapshot)
+      )
+        return { applied: false, reason: 'conflict', intent: current };
 
       await insertInvocation(client, invocation);
+      const remote = receipt.remoteTask;
+      const binding = createRemoteTaskBinding({
+        ...current.envelope,
+        remoteTaskId: remote.remoteTaskId,
+        ...(remote.providerIdentity === undefined
+          ? {}
+          : { providerIdentity: remote.providerIdentity }),
+        admissionTask: remote,
+        protocolStatus: remote.status,
+        protocolRevision: remote.protocolRevision,
+        tasksSchemaRevision: remote.tasksSchemaRevision,
+        protocolContract: receipt.protocolContract,
+        taskBehavior: receipt.taskBehavior,
+        taskCancellation: receipt.taskCancellation,
+        ...(remote.runtimeRevision === undefined
+          ? {}
+          : { runtimeRevision: remote.runtimeRevision }),
+        ...(remote.providerRevision === undefined
+          ? {}
+          : { providerRevision: remote.providerRevision }),
+        ...(remote.ttlMs === null
+          ? {}
+          : {
+              taskTtlMs: remote.ttlMs,
+              taskExpiresAt:
+                remote.expiresAt ??
+                new Date(Date.parse(remote.createdAt) + remote.ttlMs).toISOString(),
+            }),
+        ...(remote.providerObservation?.substate === undefined
+          ? {}
+          : { providerSubstate: remote.providerObservation.substate }),
+        ...(remote.providerObservation?.remoteRevision === undefined
+          ? {}
+          : { remoteRevision: remote.providerObservation.remoteRevision }),
+        authoritySnapshot: receipt.authoritySnapshot,
+        credentialRevision: receipt.credentialRevision,
+        sessionRevision: receipt.sessionRevision,
+        lastProviderUpdatedAt: remote.lastUpdatedAt,
+        pollIntervalMs: Math.max(100, remote.pollIntervalMs ?? 1000),
+        createdAt: at,
+      });
+      await new PostgresRemoteTaskRepository(this.#pool).admitWithClient(
+        client,
+        binding,
+        `${current.intentId}:accepted`,
+      );
       const updated = await client.query<RemoteTaskAdmissionIntentRow>(
         `UPDATE remote_task_admission_intent
             SET status='receipt_recorded',recorded_invocation_id=$2,
@@ -579,6 +642,13 @@ function mapIntentRow(row: RemoteTaskAdmissionIntentRow): RemoteTaskAdmissionInt
     status: row.status,
     ...(row.dispatch_hash === null ? {} : { dispatchHash: row.dispatch_hash }),
     ...(row.dispatched_at === null ? {} : { dispatchedAt: toIsoString(row.dispatched_at) }),
+    ...(row.dispatch_authority_snapshot_json === null
+      ? {}
+      : {
+          dispatchAuthoritySnapshot: createRemoteTaskAuthoritySnapshot(
+            row.dispatch_authority_snapshot_json as never,
+          ),
+        }),
     ...(receipt === undefined ? {} : { receipt }),
     ...(row.receipt_recorded_at === null
       ? {}
@@ -662,14 +732,11 @@ function parseReceipt(value: unknown): RemoteTaskAdmissionReceipt {
   )
     throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_INVALID');
   const authority = value['authoritySnapshot'];
-  if (authority !== undefined && !isRecord(authority))
-    throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_INVALID');
+  if (!isRecord(authority)) throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_INVALID');
   return {
     ...(value as unknown as Omit<RemoteTaskAdmissionReceipt, 'continuation'>),
     taskCancellation: value['taskCancellation'] ?? 'unknown',
-    ...(authority === undefined
-      ? {}
-      : { authoritySnapshot: createRemoteTaskAuthoritySnapshot(authority as never) }),
+    authoritySnapshot: createRemoteTaskAuthoritySnapshot(authority as never),
     continuation: {
       snapshot: createWorkflowContinuationSnapshot(value['continuation']['snapshot'] as never),
       completeness: value['continuation']['completeness'],
