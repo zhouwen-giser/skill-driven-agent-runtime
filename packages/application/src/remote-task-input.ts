@@ -24,7 +24,7 @@ import type {
 } from './ports.js';
 
 export class RemoteTaskInputService {
-  readonly #continuations: Pick<WorkflowContinuationRepository, 'claimControl'>;
+  readonly #continuations: Pick<WorkflowContinuationRepository, 'claimControl' | 'finishControl'>;
   readonly #remoteTasks: Pick<RemoteTaskRepository, 'findById'>;
   readonly #inputs: RemoteTaskInputRepository;
   readonly #tasks: Pick<AgentTaskRepository, 'findById'>;
@@ -45,7 +45,7 @@ export class RemoteTaskInputService {
 
   constructor(
     dependencies: Readonly<{
-      continuations: Pick<WorkflowContinuationRepository, 'claimControl'>;
+      continuations: Pick<WorkflowContinuationRepository, 'claimControl' | 'finishControl'>;
       remoteTasks: Pick<RemoteTaskRepository, 'findById'>;
       inputs: RemoteTaskInputRepository;
       tasks: Pick<AgentTaskRepository, 'findById'>;
@@ -126,6 +126,19 @@ export class RemoteTaskInputService {
       );
     const responses = normalizeRemoteTaskInputResponses(link.inputRequests, inputResponses);
     const startedAt = this.#clock.now();
+    const claim = await this.#inputs.claimUpdate({
+      inputRequestId,
+      expectedBindingVersion: binding.version,
+      startedAt,
+    });
+    if (claim === undefined || Object.keys(claim.inputRequests).length === 0)
+      throw new RemoteTaskInputError(
+        'REMOTE_TASK_INPUT_BINDING_STALE',
+        'The input keys are closed or this link lost its authoritative dispatch claim.',
+      );
+    const eligibleResponses = Object.fromEntries(
+      Object.keys(claim.inputRequests).map((key) => [key, responses[key]]),
+    );
     let status: RemoteTaskInputAttemptStatus = 'acknowledged';
     let protocolRevision: string | undefined;
     let errorCode: string | undefined;
@@ -133,7 +146,7 @@ export class RemoteTaskInputService {
       const ack = await this.#sender.updateRemoteTask({
         serverId: binding.serverId,
         remoteTaskId: binding.remoteTaskId,
-        inputResponses: responses,
+        inputResponses: eligibleResponses,
         executionContext: binding.executionContext,
       });
       protocolRevision = ack.protocolRevision;
@@ -145,7 +158,7 @@ export class RemoteTaskInputService {
       attemptId: this.#ids.nextProtocolAttemptId(),
       inputRequestId,
       bindingId: binding.bindingId,
-      expectedBindingVersion: binding.version,
+      expectedBindingVersion: claim.expectedBindingVersion,
       status,
       ...(protocolRevision === undefined ? {} : { protocolRevision }),
       ...(errorCode === undefined ? {} : { errorCode }),
@@ -155,7 +168,7 @@ export class RemoteTaskInputService {
     };
     const recorded = await this.#inputs.recordUpdateOutcome({
       inputRequestId,
-      expectedBindingVersion: binding.version,
+      expectedBindingVersion: claim.expectedBindingVersion,
       attempt,
       status: status === 'acknowledged' ? 'update_acknowledged' : 'update_uncertain',
       observedAt: completedAt,
@@ -191,13 +204,26 @@ export class RemoteTaskInputService {
     });
     if (control === undefined) return 'not_claimed';
     const snapshot = inputRequiredSnapshot(control);
+    const inputRequests = await this.#inputs.findEligibleRequests(
+      binding.bindingId,
+      snapshot.inputRequests,
+    );
+    if (Object.keys(inputRequests).length === 0) {
+      await this.#continuations.finishControl({
+        eventId: control.eventId,
+        claimToken,
+        status: 'processed',
+        processedAt: claimedAt,
+      });
+      return 'not_claimed';
+    }
     const inputRequestId = this.#ids.nextInputRequestId();
     const request = createTaskInputRequest({
       inputRequestId,
       taskId: binding.agentTaskId,
       contextId: binding.contextId,
       source: 'remote_task',
-      question: inputQuestion(snapshot.inputRequests),
+      question: inputQuestion(inputRequests),
       createdAt: claimedAt,
     });
     const link = createRemoteTaskInputLink({
@@ -210,7 +236,7 @@ export class RemoteTaskInputService {
       workflowNodeRunId: binding.workflowNodeRunId,
       remoteRevision: control.remoteRevision ?? binding.remoteRevision ?? binding.protocolRevision,
       resultHash: control.resultHash,
-      inputRequests: snapshot.inputRequests,
+      inputRequests,
       createdAt: claimedAt,
     });
     const phaseMessage = 'Remote MCP Task requires supplementary input.';

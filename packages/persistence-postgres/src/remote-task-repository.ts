@@ -39,6 +39,7 @@ import {
   type RuntimeExecutionMode,
   type TaskExecutionTiming,
 } from '../../domain/src/index.js';
+import { findEligibleRemoteTaskInputRequests } from './remote-task-input-repository.js';
 
 const InternalToolResultSchema = z
   .object({
@@ -527,15 +528,15 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         accepted: true,
         observedAt: input.observedAt,
       });
-      const answeredInputEcho =
+      const noEligibleInput =
         input.snapshot.status === 'input_required' &&
-        input.resultHash !== undefined &&
-        (await isAnsweredInputEcho(
-          client,
-          locked.bindingId,
-          input.snapshot.runtimeRevision,
-          input.resultHash,
-        ));
+        Object.keys(
+          await findEligibleRemoteTaskInputRequests(
+            client,
+            locked.bindingId,
+            input.snapshot.inputRequests,
+          ),
+        ).length === 0;
       const cancellationObservationContinues =
         locked.localState === 'cancel_observing' &&
         input.snapshot.status !== 'completed' &&
@@ -545,7 +546,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       if (
         input.snapshot.status !== 'working' &&
         !cancellationObservationContinues &&
-        !answeredInputEcho
+        !noEligibleInput
       ) {
         control = await insertControlEvent(client, locked, {
           snapshot: input.snapshot,
@@ -556,7 +557,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       }
       const localState = cancellationObservationContinues
         ? 'cancel_observing'
-        : answeredInputEcho
+        : noEligibleInput
           ? 'polling'
           : localStateForStatus(input.snapshot.status);
       const resultSnapshot = resultSnapshotFromRemoteTask(input.snapshot);
@@ -587,7 +588,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
           input.snapshot.lastUpdatedAt,
           localState,
           input.nextPollAt ??
-            (answeredInputEcho
+            (noEligibleInput
               ? new Date(Date.parse(input.observedAt) + locked.pollIntervalMs).toISOString()
               : null),
           toJsonParameter(resultSnapshot),
@@ -673,15 +674,15 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         accepted: true,
         observedAt: input.observedAt,
       });
-      const answeredInputEcho =
+      const noEligibleInput =
         input.snapshot.status === 'input_required' &&
-        input.resultHash !== undefined &&
-        (await isAnsweredInputEcho(
-          client,
-          locked.bindingId,
-          input.snapshot.runtimeRevision,
-          input.resultHash,
-        ));
+        Object.keys(
+          await findEligibleRemoteTaskInputRequests(
+            client,
+            locked.bindingId,
+            input.snapshot.inputRequests,
+          ),
+        ).length === 0;
       const cancellationObservationContinues =
         locked.localState === 'cancel_observing' &&
         input.snapshot.status !== 'completed' &&
@@ -691,7 +692,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       if (
         input.snapshot.status !== 'working' &&
         !cancellationObservationContinues &&
-        !answeredInputEcho
+        !noEligibleInput
       )
         control = await insertControlEvent(client, locked, {
           snapshot: input.snapshot,
@@ -701,7 +702,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         });
       const localState = cancellationObservationContinues
         ? 'cancel_observing'
-        : answeredInputEcho
+        : noEligibleInput
           ? 'polling'
           : localStateForStatus(input.snapshot.status);
       const keepPolling = localState === 'polling' || localState === 'cancel_observing';
@@ -1085,28 +1086,6 @@ async function classifyPersistedObservation(
     [binding.bindingId, JSON.stringify(snapshot.inputRequests)],
   );
   return prior.rows[0]?.conflict === true ? ('input_key_conflict' as const) : ('accept' as const);
-}
-
-async function isAnsweredInputEcho(
-  client: PoolClient,
-  bindingId: string,
-  remoteRevision: string | undefined,
-  resultHash: string,
-): Promise<boolean> {
-  if (remoteRevision === undefined) return false;
-  const installed = await client.query<{ present: boolean }>(
-    "SELECT to_regclass('remote_task_input_link') IS NOT NULL AS present",
-  );
-  if (installed.rows[0]?.present !== true) return false;
-  const result = await client.query<{ echoed: boolean }>(
-    `SELECT EXISTS(
-       SELECT 1 FROM remote_task_input_link
-       WHERE binding_id=$1 AND remote_revision=$2 AND result_hash=$3
-         AND status IN ('answered','update_acknowledged','update_uncertain')
-     ) AS echoed`,
-    [bindingId, remoteRevision, resultHash],
-  );
-  return result.rows[0]?.echoed === true;
 }
 
 async function nextObservationSequence(client: PoolClient, bindingId: string): Promise<number> {

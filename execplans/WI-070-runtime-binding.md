@@ -128,3 +128,31 @@ The standalone protocol API retains its own submitted-key replay handling.
 Correction evidence is indexed in `reports/runtime-binding-correction.json`.
 Raw `wi070-correction-*.json`/logs stay local and the a86a0ee report remains unchanged.
 The final report, not an in-progress test invocation, records completed check results.
+
+## Durable input-key correction checkpoint — 2026-08-26
+
+- [x] Reproduce the held `44a0834` cross-link replay through the real input service,
+      Runtime wire adapter and repositories with query doubles: ACK and lost-response
+      cases both sent `k`, then `k`, then `j+k` across new links/restarts.
+- [x] Derive eligibility from persisted accepted detailed observations and real
+      acknowledgement/attempt/reservation history. Preserve full raw Task snapshots.
+- [x] Keep unsent keys open across local question replacement. Basic input projections,
+      admission summaries, local failure evidence and rejected identity history do not
+      establish Provider supersession.
+- [x] Reserve uncertainty and pollability before wire dispatch under the binding lock;
+      return the incremented binding version for exact outcome CAS. Save actual ACK and
+      attempt before that CAS, including when a newer observation wins.
+- [x] Allow input controls through `claimControl` without a terminal state transition;
+      preserve the terminal and missing-continuation guards.
+- [x] Extend the existing PostgreSQL fixture with actual continuation/input activation,
+      open-link replacement, acknowledged later-revision/mixed-key filtering, two
+      concurrent reservations and restart polling. No schema addition was needed.
+- [x] Final 12-file selector: 247 passed, zero failed/pending. Whole-workspace typecheck,
+      seven-file ESLint, scoped formatting and `git diff --check` all exit zero.
+- [ ] Run Controller executes the exact five-case PostgreSQL fixture on the new pin.
+- [ ] Independent review, separate LIVE implementation, authorized push/PR and G04.
+
+The final focused commands, results and raw hashes are in
+`reports/runtime-binding-input-key-correction.json`. Query-double wire evidence is
+explicitly separate from SQL/locking/rollback evidence. All earlier reports and both
+the a86 and 44a verification pins remain unchanged.

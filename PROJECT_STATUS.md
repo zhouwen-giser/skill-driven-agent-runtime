@@ -1,5 +1,14 @@
 # Project Status
 
+## WI-070 durable input-key correction (2026-08-26)
+
+The held `44a0834` candidate's cross-link replay defect is reproduced and corrected
+in the exclusive Runtime worktree. Persisted accepted history and pre-send reservations
+govern eligibility; local link replacement does not itself close an unsent Provider key.
+Exact commands, raw hashes and verification boundaries are indexed in
+`reports/runtime-binding-input-key-correction.json`. Actual PostgreSQL execution,
+independent review, push/PR and the separate LIVE profile remain pending. No G04 PASS.
+
 ## WI-070 binding observation correction (2026-08-26)
 
 The held `a86a0ee` binding candidate has two reproduced defects corrected in the Runtime

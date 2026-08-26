@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-08-26 — Durable Provider input-key lifecycle correction
+
+- Keep acknowledged, uncertain and genuinely superseded Provider keys closed across
+  revisions, local input links and Runtime restarts; expose only still-eligible keys.
+- Reserve a send and re-arm polling atomically before transport. A crash never
+  authorizes resending the reserved input, and the reservation is not an acknowledgement.
+- Preserve still-open unsent keys when a newer local link replaces an obsolete question.
+  Ignore basic input projections and rejected identities when deriving supersession.
+- Allow input controls through the existing continuation claim path without a terminal
+  binding transition. Add wire-count regressions and a controller-only PostgreSQL lifecycle case.
+
 ## 2026-08-26 — Runtime binding observation correction
 
 - Keep Runtime transport observations stateless until the durable binding accepts them;

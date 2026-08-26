@@ -384,6 +384,8 @@ export class PostgresWorkflowContinuationRepository implements WorkflowContinuat
         [input.eventId, input.claimedAt, input.claimToken, input.expiresAt],
       );
       const claimed = requiredRow(updated.rows[0]);
+      // Input activation owns its own binding/version check. It is not terminal re-entry.
+      if (claimed.event_type === 'task.input_required') return mapControl(claimed);
       const binding = await client.query(
         `UPDATE remote_task_binding
          SET local_state='terminal_event_claimed',version=version+1,updated_at=$2

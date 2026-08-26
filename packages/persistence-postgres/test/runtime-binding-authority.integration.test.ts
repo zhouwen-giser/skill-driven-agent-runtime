@@ -7,9 +7,14 @@ import type {
   RemoteTaskAdmissionReceipt,
 } from '../../application/src/index.js';
 import type { McpInvocation, RemoteTaskSnapshot } from '../../domain/src/index.js';
+import { RemoteTaskInputService } from '../../application/src/index.js';
+import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
+import { FrozenV1McpClient, FrozenV1RuntimeLifecycleAdapter } from '../../mcp-adapter/src/index.js';
 import {
   PostgresRemoteTaskAdmissionIntentStore,
   PostgresRemoteTaskRepository,
+  PostgresRemoteTaskInputRepository,
+  PostgresWorkflowContinuationRepository,
 } from '../src/index.js';
 
 // Run Controller only: an explicitly leased development PostgreSQL instance, no implicit localhost.
@@ -57,6 +62,256 @@ afterAll(async () => {
 });
 
 describe('WI070 actual PostgreSQL binding authority', () => {
+  it('persists input-key closure across actual activation, ACK, revision replacement and restart', async () => {
+    const suffix = 'input-lifecycle';
+    const item = intent(suffix);
+    const response = receipt(suffix);
+    const store = new PostgresRemoteTaskAdmissionIntentStore(pool);
+    await store.prepare(item);
+    await store.markDispatching({
+      intentId: item.intentId,
+      invocationId: item.invocationId,
+      dispatchHash: `sha256:${'d'.repeat(64)}`,
+      authoritySnapshot: response.authoritySnapshot,
+      at,
+    });
+    await store.recordRemoteReceiptAndInvocation(item.intentId, invocation(suffix), response, at);
+    await new PostgresWorkflowContinuationRepository(pool).saveSnapshot(
+      response.continuation.snapshot,
+    );
+    const request = {
+      method: 'elicitation/create',
+      params: {
+        mode: 'form',
+        message: 'Approve?',
+        requestedSchema: {
+          type: 'object',
+          properties: { approved: { type: 'boolean' } },
+          required: ['approved'],
+        },
+      },
+    };
+    let tick = 0;
+    let id = 0;
+    let revision = 9007199254740993n;
+    const now = () => new Date(Date.parse(at) + ++tick * 1000).toISOString();
+    const sent: unknown[] = [];
+    const transport = new FrozenV1McpClient((_url, init) => {
+      if (typeof init?.body !== 'string') throw new Error('WI070_INPUT_REQUEST_REQUIRED');
+      const wire = JSON.parse(init.body) as {
+        id: number;
+        method: string;
+        params: { inputResponses: unknown };
+      };
+      expect(wire.method).toBe('tasks/update');
+      sent.push(wire.params.inputResponses);
+      return Promise.resolve(
+        Response.json({ jsonrpc: '2.0', id: wire.id, result: { resultType: 'complete' } }),
+      );
+    });
+    const service = () => {
+      const adapter = new FrozenV1RuntimeLifecycleAdapter({ client: transport });
+      return new RemoteTaskInputService({
+        inputs: new PostgresRemoteTaskInputRepository(pool),
+        remoteTasks: new PostgresRemoteTaskRepository(pool),
+        continuations: new PostgresWorkflowContinuationRepository(pool),
+        tasks: { findById: () => Promise.resolve(undefined) },
+        sender: {
+          updateRemoteTask: (input) =>
+            adapter.update({ ...input, endpoint: 'http://never-called.test/mcp', headers: {} }),
+        },
+        events: { publish: () => Promise.resolve() },
+        schemas: new AjvJsonSchemaValidator(),
+        serial: { run: (_context, operation) => operation() },
+        clock: { now },
+        ids: {
+          nextInputRequestId: () => `lifecycle-input-${String(++id)}`,
+          nextClaimToken: () => `lifecycle-claim-${String(++id)}`,
+          nextProtocolAttemptId: () => `lifecycle-attempt-${String(++id)}`,
+          nextEventId: () => `lifecycle-event-${String(++id)}`,
+        },
+        pollQueue: {
+          enqueue: () => Promise.resolve(),
+          state: () => Promise.resolve('missing'),
+          listDeadLetters: () => Promise.resolve([]),
+          retryDeadLetter: () => Promise.resolve(),
+        },
+      });
+    };
+    const observe = async (keys: string[], poll = false) => {
+      const repository = new PostgresRemoteTaskRepository(pool);
+      let current = await repository.findById(item.envelope.bindingId);
+      if (current === undefined) throw new Error('WI070_BINDING_REQUIRED');
+      const observedAt = now();
+      const runtimeRevision = String(++revision);
+      const common = {
+        bindingId: current.bindingId,
+        observedAt,
+        observationId: `lifecycle-observation-${runtimeRevision}`,
+        controlEventId: `lifecycle-control-${runtimeRevision}`,
+        resultHash: runtimeRevision.padStart(64, '0'),
+        snapshot: {
+          ...response.remoteTask,
+          status: 'input_required' as const,
+          runtimeRevision,
+          providerObservation: { revision: '1.0' as const, remoteRevision: runtimeRevision },
+          inputRequests: Object.fromEntries(keys.map((key) => [key, request])),
+        },
+      };
+      if (!poll)
+        return repository.recordExternalSnapshot({
+          ...common,
+          expectedVersion: current.version,
+          source: 'notification',
+        });
+      const claim = await repository.claimPoll({
+        bindingId: current.bindingId,
+        expectedVersion: current.version,
+        claimToken: runtimeRevision,
+        claimedAt: observedAt,
+        expiresAt: new Date(Date.parse(observedAt) + 1000).toISOString(),
+      });
+      if (!claim.claimed) throw new Error(`WI070_INPUT_POLL_${claim.reason}`);
+      current = claim.binding;
+      return repository.recordSnapshot({
+        ...common,
+        expectedVersion: current.version,
+        claimToken: runtimeRevision,
+        protocolAttempt: {
+          attemptId: `lifecycle-poll-${runtimeRevision}`,
+          bindingId: current.bindingId,
+          method: 'tasks/get',
+          expectedBindingVersion: current.version,
+          protocolRevision: current.protocolRevision,
+          status: 'succeeded',
+          startedAt: observedAt,
+          completedAt: observedAt,
+          durationMs: 0,
+        },
+      });
+    };
+    const activate = async (result: Awaited<ReturnType<typeof observe>>) => {
+      if (!result.applied || result.controlEvent === undefined)
+        throw new Error('WI070_INPUT_CONTROL_REQUIRED');
+      const before = await new PostgresRemoteTaskRepository(pool).findById(item.envelope.bindingId);
+      expect(
+        await service().process({
+          eventId: result.controlEvent.eventId,
+          bindingId: item.envelope.bindingId,
+          eventType: 'task.input_required',
+        }),
+      ).toBe('activated');
+      expect(
+        await new PostgresRemoteTaskRepository(pool).findById(item.envelope.bindingId),
+      ).toMatchObject({
+        version: before?.version,
+        localState: 'awaiting_input',
+      });
+      const rows = await pool.query<{ input_request_id: string }>(
+        'SELECT input_request_id FROM remote_task_input_link WHERE control_event_id=$1',
+        [result.controlEvent.eventId],
+      );
+      const inputRequestId = rows.rows[0]?.input_request_id;
+      if (inputRequestId === undefined) throw new Error('WI070_INPUT_LINK_REQUIRED');
+      return inputRequestId;
+    };
+    const prepareAnswer = async (inputRequestId: string, key: string) => {
+      const prepared = await service().prepareResponse(inputRequestId, {
+        [key]: { action: 'accept', content: { approved: true } },
+      });
+      // Fixture performs the existing Task-answer transaction; transport/outcome use the real service.
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          "UPDATE task_input_request SET status='answered',answered_at=$2 WHERE input_request_id=$1",
+          [inputRequestId, now()],
+        );
+        await client.query(
+          "UPDATE remote_task_input_link SET status='answered',updated_at=$2 WHERE input_request_id=$1",
+          [inputRequestId, now()],
+        );
+        await client.query("UPDATE agent_task SET phase='executing' WHERE task_id='wi070-task'");
+        await client.query('COMMIT');
+      } finally {
+        client.release();
+      }
+      return prepared;
+    };
+    const answer = async (inputRequestId: string, key: string) => {
+      await service().submitAnswer(inputRequestId, await prepareAnswer(inputRequestId, key));
+    };
+    const oldOpen = await activate(await observe(['k']));
+    const currentOpen = await activate(await observe(['k']));
+    expect(currentOpen).not.toBe(oldOpen);
+    expect(
+      (
+        await pool.query('SELECT status FROM task_input_request WHERE input_request_id=$1', [
+          oldOpen,
+        ])
+      ).rows[0],
+    ).toEqual({ status: 'canceled' });
+    expect((await new PostgresRemoteTaskInputRepository(pool).findLink(oldOpen))?.status).toBe(
+      'waiting',
+    );
+    await answer(currentOpen, 'k');
+    expect((await new PostgresRemoteTaskInputRepository(pool).findLink(currentOpen))?.status).toBe(
+      'update_acknowledged',
+    );
+    const echoed = await observe(['k'], true);
+    expect(echoed).toMatchObject({ snapshotAccepted: true, binding: { localState: 'polling' } });
+    expect(echoed.applied && echoed.controlEvent).toBeUndefined();
+    const mixed = await observe(['k', 'j'], true);
+    const fresh = await activate(mixed);
+    expect(
+      (await new PostgresRemoteTaskInputRepository(pool).findLink(fresh))?.inputRequests,
+    ).toEqual({ j: request });
+    await answer(fresh, 'j');
+    expect(sent).toEqual([
+      { k: { action: 'accept', content: { approved: true } } },
+      { j: { action: 'accept', content: { approved: true } } },
+    ]);
+    expect(
+      await new PostgresRemoteTaskRepository(pool).findById(item.envelope.bindingId),
+    ).toMatchObject({
+      lastTaskSnapshot: { inputRequests: { k: request, j: request } },
+    });
+    const reservedId = await activate(await observe(['k', 'j', 'q']));
+    await prepareAnswer(reservedId, 'q');
+    const beforeReserve = await new PostgresRemoteTaskRepository(pool).findById(
+      item.envelope.bindingId,
+    );
+    if (beforeReserve === undefined) throw new Error('WI070_BINDING_REQUIRED');
+    const reservation = {
+      inputRequestId: reservedId,
+      expectedBindingVersion: beforeReserve.version,
+      startedAt: now(),
+    };
+    const claims = await Promise.all([
+      new PostgresRemoteTaskInputRepository(pool).claimUpdate(reservation),
+      new PostgresRemoteTaskInputRepository(pool).claimUpdate(reservation),
+    ]);
+    expect(claims.filter((claim) => claim !== undefined)).toEqual([
+      {
+        inputRequests: { q: request },
+        expectedBindingVersion: beforeReserve.version + 1,
+      },
+    ]);
+    expect(
+      await new PostgresRemoteTaskRepository(pool).findById(item.envelope.bindingId),
+    ).toMatchObject({
+      localState: 'polling',
+      nextPollAt: reservation.startedAt,
+      version: beforeReserve.version + 1,
+    });
+    expect(await new PostgresRemoteTaskInputRepository(pool).listAttempts(reservedId)).toEqual([]);
+    expect(sent).toHaveLength(2); // Crash before transport: reservation is not Provider acceptance.
+    const recovered = await activate(await observe(['k', 'j', 'q', 'r'], true));
+    await answer(recovered, 'r');
+    expect(sent.at(-1)).toEqual({ r: { action: 'accept', content: { approved: true } } });
+    expect(sent).toHaveLength(3);
+  });
+
   it('rejects changed input keys from accepted history before poll or notification state advances', async () => {
     const store = new PostgresRemoteTaskAdmissionIntentStore(pool);
     const item = intent('input-history');
@@ -152,6 +407,12 @@ describe('WI070 actual PostgreSQL binding authority', () => {
       runtimeRevision: '9007199254740995',
     };
     expect(await observe(working)).toMatchObject({ snapshotAccepted: true });
+    expect(
+      await new PostgresRemoteTaskInputRepository(pool).findEligibleRequests(
+        item.envelope.bindingId,
+        request('original'),
+      ),
+    ).toEqual({});
     const conflict: RemoteTaskSnapshot = {
       ...first,
       runtimeRevision: '9007199254740996',
@@ -688,6 +949,14 @@ async function seed() {
   await pool.query(
     `INSERT INTO agent_task(task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,goal_id,goal_version,plan_id,created_at,updated_at)
     VALUES('wi070-task','wi070-context','wi070-user','No external calls','{}','executing','Testing','wi070-goal',1,'wi070-plan',$1,$1)`,
+    [at],
+  );
+  await pool.query(
+    `INSERT INTO workflow_control(
+       control_id,context_id,goal_id,goal_version,task_id,status,current_plan_id,input_json,
+       skill_ids_json,planning_instruction,round_count,replan_count,created_at,updated_at)
+     VALUES('wi070-control','wi070-context','wi070-goal',1,'wi070-task','running',
+       'wi070-plan','{}','[]','Run the bounded input lifecycle fixture.',0,0,$1,$1)`,
     [at],
   );
   await pool.query(

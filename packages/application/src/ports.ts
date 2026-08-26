@@ -851,6 +851,10 @@ export interface RemoteTaskInputAttempt {
 }
 
 export interface RemoteTaskInputRepository {
+  findEligibleRequests(
+    bindingId: string,
+    requests: Readonly<Record<string, unknown>>,
+  ): Promise<Readonly<Record<string, unknown>>>;
   activate(
     input: Readonly<{
       request: TaskInputRequest;
@@ -861,6 +865,20 @@ export interface RemoteTaskInputRepository {
     }>,
   ): Promise<boolean>;
   findLink(inputRequestId: string): Promise<RemoteTaskInputLink | undefined>;
+  /** Persist uncertainty before transport; an abandoned reservation must never be retried. */
+  claimUpdate(
+    input: Readonly<{
+      inputRequestId: string;
+      expectedBindingVersion: number;
+      startedAt: string;
+    }>,
+  ): Promise<
+    | Readonly<{
+        inputRequests: Readonly<Record<string, unknown>>;
+        expectedBindingVersion: number;
+      }>
+    | undefined
+  >;
   recordUpdateOutcome(
     input: Readonly<{
       inputRequestId: string;

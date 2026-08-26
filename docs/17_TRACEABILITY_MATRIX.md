@@ -1246,3 +1246,11 @@ SHA-256 `9861742fa0480bd07a851741715f8c9e5d8401885c19ec3a6e89c341ac710edb`.
 | WI-070-A03: rejected identity/content cannot advance accepted revision or terminal state | Runtime frozen wire adapter and `PostgresRemoteTaskRepository` acceptance under binding lock | `packages/application/test/mcp-registry.unit.test.ts`: A5/B100/A6 poll, notification and restart; query double only |
 | WI-070-A03: input keys remain immutable across accepted observations                     | Shared persisted input-key history check and migration 0174 `input_key_conflict`             | Controller-only `runtime-binding-authority.integration.test.ts`; not yet executed                                   |
 | WI-070-A03: valid Task duplicates/conflicts use the Task value contract                  | `remote-binding-authority.ts` deterministic Task comparison                                  | Domain 300 KB/schema-key/array and MCP one MiB wire regression; Evidence export validator unchanged                 |
+
+WI-070-A03 input-key lifecycle follow-up: `RemoteTaskInputService` and
+`PostgresRemoteTaskInputRepository` reserve eligible keys under the binding lock,
+retain actual ACKs after lost binding CAS, and derive true supersession from accepted
+details. `remote-task-input.unit.test.ts` counts real wire requests with query doubles;
+`runtime-binding-authority.integration.test.ts` adds actual activation, link replacement,
+mixed keys, concurrent reservation and restart polling (Run Controller execution pending).
+Full raw Task observations and the frozen authority contract remain unchanged.

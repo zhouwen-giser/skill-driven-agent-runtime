@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "kind": "runtime-binding-input-key-correction",
+  "workItemId": "WI-070",
+  "recordedAt": "2026-08-26T09:24:45.592518+00:00",
+  "agent": "/root/wi070_input_key_correction",
+  "owner": "sdar-runtime-wi070",
+  "branch": "codex/live-dev-evaluation-chain-runtime-binding",
+  "baseCommit": "44a0834461ce1ce2252c60cbc8ce10c2b1d58955",
+  "baseTree": "9ab22fcf01d0c5e4d6ba7e770f3ca391b866087c",
+  "normativeContractSha256": "9861742fa0480bd07a851741715f8c9e5d8401885c19ec3a6e89c341ac710edb",
+  "findings": ["WI070-AR-P2-003", "WI070-IV-44A-P2-001"],
+  "implementation": {
+    "authority": "Recompute eligible keys from PostgreSQL accepted detailed Provider observations and link/attempt history for the exact binding. No process-lifetime accepted-state cache. Original raw Task snapshots and same-key content guard are unchanged.",
+    "closure": "ACK, uncertain/pre-wire reservation, existing provider_advanced status, actual recorded attempt, or accepted detailed removal/non-input state closes the key. Rejected identity, local failure/admission evidence, and basic input_required without request details do not establish supersession.",
+    "openReplacement": "Waiting/answered unsent old links do not close keys. Activation checks current event.runtime_revision under the binding lock, cancels only an obsolete waiting local task_input_request, and leaves that old link status unchanged. The current link may send still-open same-content keys.",
+    "dispatch": "claimUpdate atomically marks link update_uncertain and binding polling/nextPollAt with version+1 before transport. It returns eligible requests and the actual reserved binding version. Zero eligible keys never send and never yield a fabricated Ack. Restart uses reads, never an uncertain tasks/update replay.",
+    "outcome": "Actual wire outcome and attempt persist before exact reserved-version binding CAS; a later accepted observation may win the binding CAS without reopening the acknowledged key.",
+    "activation": "Two-line task.input_required branch in existing claimControl avoids an inappropriate terminal-state mutation; terminal-state mismatch and absent-continuation guards remain.",
+    "schemaChanges": false,
+    "liveProfileChanges": false
+  },
+  "interfaces": {
+    "RemoteTaskInputRepository.findEligibleRequests": "(bindingId, requests) -> eligible request map; advisory read, rechecked under binding lock for activation/dispatch",
+    "RemoteTaskInputRepository.claimUpdate": "({inputRequestId,expectedBindingVersion,startedAt}) -> {inputRequests,expectedBindingVersion:reservedVersion} | undefined; durable uncertainty and polling before wire",
+    "RemoteTaskInputService.continuations": "Consumes existing claimControl and finishControl; closed-only control is processed without exposing an input or sending a request"
+  },
+  "validation": {
+    "exact44aRed": {
+      "command": "./node_modules/.bin/vitest run packages/application/test/remote-task-input.unit.test.ts -t does not resend --reporter=json --outputFile=reports/wi070-input-keys-exact44a-red.json --cache=false",
+      "exitCode": 1,
+      "selected": 2,
+      "passed": 0,
+      "failed": 2,
+      "unselected": 11,
+      "actualWireKeys": [["k"], ["k"], ["j", "k"]],
+      "expectedWireKeys": [["k"], ["j"]],
+      "method": "Five exact git-show 44a source modules temporarily loaded in exclusive writer worktree; new two replay regressions executed; every original working byte restored in finally. No pinned worktree mutation. Later test additions/cosmetic typing do not change those two scenario assertions.",
+      "sourceRestoreReceipt": "reports/wi070-input-keys-red-restore.json",
+      "raw": "reports/wi070-input-keys-exact44a-red.json",
+      "sha256": "sha256:a5773d91aea53f291b5520d4d96f1591de0918d5e69235a11d3a58b368d2c96a"
+    },
+    "focused": {
+      "command": "./node_modules/.bin/vitest run apps/server/test/environment.unit.test.ts apps/server/test/ugv-move-workflow-evidence.unit.test.ts packages/domain/test/mcp-frozen-protocol.unit.test.ts packages/domain/test/remote-task-authority.unit.test.ts packages/persistence-postgres/test/remote-task-admission-intent-store.unit.test.ts packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts packages/application/test/mcp-registry.unit.test.ts packages/application/test/remote-task-admission-recovery.unit.test.ts packages/application/test/remote-task-input.unit.test.ts apps/server/test/runtime-migration-selection.contract.test.ts packages/mcp-adapter/test/frozen-v1-task-lifecycle.contract.test.ts packages/mcp-adapter/test/frozen-v1-task-subscriptions.contract.test.ts --reporter=json --outputFile=reports/wi070-input-keys-focused-final2.json --cache=false",
+      "selector": [
+        "apps/server/test/environment.unit.test.ts",
+        "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+        "packages/domain/test/mcp-frozen-protocol.unit.test.ts",
+        "packages/domain/test/remote-task-authority.unit.test.ts",
+        "packages/persistence-postgres/test/remote-task-admission-intent-store.unit.test.ts",
+        "packages/runtime-control-application/test/mcp-capability-evidence-projector.unit.test.ts",
+        "packages/application/test/mcp-registry.unit.test.ts",
+        "packages/application/test/remote-task-admission-recovery.unit.test.ts",
+        "packages/application/test/remote-task-input.unit.test.ts",
+        "apps/server/test/runtime-migration-selection.contract.test.ts",
+        "packages/mcp-adapter/test/frozen-v1-task-lifecycle.contract.test.ts",
+        "packages/mcp-adapter/test/frozen-v1-task-subscriptions.contract.test.ts"
+      ],
+      "exitCode": 0,
+      "files": 12,
+      "passed": 247,
+      "failed": 0,
+      "pending": 0,
+      "newCases": 12,
+      "raw": "reports/wi070-input-keys-focused-final2.json",
+      "sha256": "sha256:8567410e64ad53915252ac913960b6f1bd26996e725a12b3984ca20e98a8f3c2",
+      "claimControlOnlyCommand": "./node_modules/.bin/vitest run packages/application/test/remote-task-input.unit.test.ts -t 'claims .* controls' --cache=false",
+      "claimControlOnlyCommandStatus": "NOT_RUN_SEPARATELY; all three cases executed in the full focused selector"
+    },
+    "typecheck": {
+      "command": "./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false > reports/wi070-input-keys-typecheck-final2.log 2>&1",
+      "exitCode": 0,
+      "scope": "whole workspace, including unexecuted PostgreSQL fixture",
+      "raw": "reports/wi070-input-keys-typecheck-final2.log"
+    },
+    "eslint": {
+      "command": "./node_modules/.bin/eslint packages/application/src/ports.ts packages/application/src/remote-task-input.ts packages/application/test/remote-task-input.unit.test.ts packages/persistence-postgres/src/remote-task-input-repository.ts packages/persistence-postgres/src/remote-task-repository.ts packages/persistence-postgres/src/workflow-continuation-repository.ts packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts > reports/wi070-input-keys-eslint-final.log 2>&1",
+      "exitCode": 0,
+      "raw": "reports/wi070-input-keys-eslint-final.log"
+    },
+    "format": {
+      "command": "./node_modules/.bin/prettier --check packages/application/src/ports.ts packages/application/src/remote-task-input.ts packages/application/test/remote-task-input.unit.test.ts packages/persistence-postgres/src/remote-task-input-repository.ts packages/persistence-postgres/src/remote-task-repository.ts packages/persistence-postgres/src/workflow-continuation-repository.ts packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts execplans/WI-070-runtime-binding.md CHANGELOG.md PROJECT_STATUS.md > reports/wi070-input-keys-format-initial.log 2>&1",
+      "exitCode": 0,
+      "raw": "reports/wi070-input-keys-format-initial.log",
+      "qualification": "Traceability append checked with git diff --check; historical table whitespace preserved."
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "postgres": {
+      "status": "NOT_RUN",
+      "path": "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+      "sha256": "sha256:ef403b6664ee8a6c6dfc1072c58a189c4024465b636ed5b16815f2a2230f4ec0",
+      "cases": 5,
+      "database": "sdar_wi070_binding_authority_integration",
+      "environment": "Explicit SDAR_TEST_POSTGRES_URL supplied only by Run Controller; create template0, fail preexisting, drop only own created database",
+      "newCoverage": "Actual continuation save/claim/input activation; waiting local link replacement; real input service with injected protocol Ack; later same-key/mixed-key polling; concurrent pre-wire reservations; restart pollability/no resend. Existing accepted vs rejected identity and true detailed supersession checked. No Redis or external device."
+    },
+    "independentReview": "PENDING",
+    "live": "NOT_RUN",
+    "pushPrAdoption": "NOT_PERFORMED_PARENT_HOLD",
+    "buildAndFullSuites": "NOT_RUN_OUT_OF_BOUNDED_SCOPE"
+  },
+  "limitations": [
+    "Application wire regressions use query doubles: not PostgreSQL SQL, lock, rollback or live evidence.",
+    "PostgreSQL fixture intentionally injects the Provider transport and uses direct fixture Task-answer writes; actual persistence/continuation/input-service paths are exercised when Run Controller runs it.",
+    "Conservative pre-wire uncertainty can leave an input unanswered after a crash before sending; no automatic replay is authorized. Polling remains possible."
+  ],
+  "intermediateFailures": [
+    "Initial 9 regression failures were fixture requests missing required mode=form; fixture corrected, failed output retained.",
+    "Initial typecheck reported strict index-signature access and missing test outputValidator; corrected only fixture typing.",
+    "Initial scoped lint reported missing await in query double and optional-chain style; both corrected."
+  ],
+  "sourceEvidence": [
+    {
+      "path": "packages/application/src/ports.ts",
+      "sha256": "sha256:3432b178a153c2ef91a9a952582d76f73737593919807d1eefa6030277599f4e"
+    },
+    {
+      "path": "packages/application/src/remote-task-input.ts",
+      "sha256": "sha256:1dbecf43428d61c5aa58f9efd4f13cba9d275a12b3f133159a44422a41224c49"
+    },
+    {
+      "path": "packages/application/test/remote-task-input.unit.test.ts",
+      "sha256": "sha256:bd42e8b09232633bc3fdd327a936007826b6620e9fb19646607587e3761ef80f"
+    },
+    {
+      "path": "packages/persistence-postgres/src/remote-task-input-repository.ts",
+      "sha256": "sha256:85475d401823a46f3865e0359dcd26592a1f904c0e8ce4f6f15536c96c314835"
+    },
+    {
+      "path": "packages/persistence-postgres/src/remote-task-repository.ts",
+      "sha256": "sha256:ec9c0475821e61f50232d0f90365fc4993aa55fc4a64a7d6d4da36f9a8033c34"
+    },
+    {
+      "path": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+      "sha256": "sha256:77aa746df6ea93e0bed813f3cf40feb694a7c62c64ec9196d925abe8f40e0669"
+    },
+    {
+      "path": "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+      "sha256": "sha256:ef403b6664ee8a6c6dfc1072c58a189c4024465b636ed5b16815f2a2230f4ec0"
+    }
+  ],
+  "rawEvidence": [
+    {
+      "path": "reports/wi070-input-keys-boundary.json",
+      "sha256": "sha256:3350ad46b4a03908d8524e89c0024818e6ddf2cfdf7d70f539d2781c440653aa"
+    },
+    {
+      "path": "reports/wi070-input-keys-eslint-final.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "reports/wi070-input-keys-eslint-initial.log",
+      "sha256": "sha256:0db9967b9397cb4174ab1b1845cbb91a1efee9aea5a1ac7fe7322b8167895cdf"
+    },
+    {
+      "path": "reports/wi070-input-keys-exact44a-red.json",
+      "sha256": "sha256:a5773d91aea53f291b5520d4d96f1591de0918d5e69235a11d3a58b368d2c96a"
+    },
+    {
+      "path": "reports/wi070-input-keys-exact44a-red.log",
+      "sha256": "sha256:87ce4963cdbf35d5249a74baf088f13bcca31b64ca8b53dfa47fa6813fe48fea"
+    },
+    {
+      "path": "reports/wi070-input-keys-focused-final.json",
+      "sha256": "sha256:2941821a17754d090183fb60328a1b4f989493b9be6d2cd76bb26426ddba13a6"
+    },
+    {
+      "path": "reports/wi070-input-keys-focused-final2.json",
+      "sha256": "sha256:8567410e64ad53915252ac913960b6f1bd26996e725a12b3984ca20e98a8f3c2"
+    },
+    {
+      "path": "reports/wi070-input-keys-format-initial.log",
+      "sha256": "sha256:17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    {
+      "path": "reports/wi070-input-keys-green-initial.json",
+      "sha256": "sha256:a07597b2422632289c8b891ade8c77cdc7c57a589e6e6095ecbe70da63089f97"
+    },
+    {
+      "path": "reports/wi070-input-keys-green-second.json",
+      "sha256": "sha256:6c7d8d4e1666d7be73b384feba8ef844f9e692c54f373b132f63160f49a02900"
+    },
+    {
+      "path": "reports/wi070-input-keys-red-restore.json",
+      "sha256": "sha256:02cebfc743908280ac68bf757fd9bf81fc9f53c54c944d827da093f4b75e1044"
+    },
+    {
+      "path": "reports/wi070-input-keys-typecheck-final.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "reports/wi070-input-keys-typecheck-final2.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "reports/wi070-input-keys-typecheck-initial.log",
+      "sha256": "sha256:a0c43eda04ee0b0a5a18a51fc2ec00d23ccad1219d346c242ca5c8f5a932561f"
+    }
+  ],
+  "preserve": [
+    "a86 and 44a verification pins",
+    "reports/runtime-binding-implementation.json",
+    "reports/runtime-binding-correction.json",
+    "all predecessor raw/interim reports",
+    "existing dependency symlinks"
+  ],
+  "sharedEnvironmentActions": false,
+  "workItemCompleted": false,
+  "gatePassClaimed": false
+}
