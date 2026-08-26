@@ -45,6 +45,26 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
     handle = undefined;
   });
 
+  it('announces the LAN address independently of its local listener without dispatching a Task', async () => {
+    handle = await startA2AHttpEndpoint({
+      taskStore: new InMemoryTaskStore(),
+      executor: {
+        execute: () => Promise.reject(new Error('NO_TASK_EXPECTED')),
+        cancelTask: () => Promise.reject(new Error('NO_TASK_EXPECTED')),
+      },
+      publicBaseUrl: 'http://192.168.6.7:10999',
+    });
+    const card: unknown = await fetch(`${handle.baseUrl}/.well-known/agent-card.json`).then((r) =>
+      r.json(),
+    );
+    expect(card).toMatchObject({
+      supportedInterfaces: expect.arrayContaining([
+        expect.objectContaining({ url: 'http://192.168.6.7:10999/a2a' }),
+      ]),
+    });
+    expect(handle.baseUrl).not.toBe('http://192.168.6.7:10999');
+  });
+
   it('discovers the Agent Card and completes a task through the official REST client', async () => {
     handle = await startA2aHttpSpike();
     const result = await handle.client.sendMessage(createProbeRequest());

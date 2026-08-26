@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-26 — Unified UGV / SMPP / Telemetry debug stack, no Grafana
+
+- Extend `pnpm ugv:debug` to compose infrastructure/migrations, Telemetry, Provider/PMS and SDAR.
+  Default final YES and explicit NO remain; stop/restart preserve data, configuration and reports.
+  Failures identify their stage and prevent a newly started SDAR from remaining YES.
+- Add explicit development-only anonymous Node Control/Artifact access and LAN listeners with
+  physical-interface Agent Card announcement; internal service credentials and production defaults
+  remain unchanged. Separate local debug identity from unrelated historical acceptance receipts.
+- Add the sibling Telemetry diagnostic migration, native Collector persistent queue/export,
+  seven-day metrics/trace retention and bounded source-aware query routes. No Grafana/3000 or new UI.
+- Fix Adapter catalog warmup ordering and SMPP's historical catalog checksum reactivation, preserving
+  immutable history and idempotence. Startup does not submit Tasks or invoke Device tools.
+- Verify real three-signal storage and queue recovery, anonymous LAN access, unchanged authority
+  counts and default YES. Document the remaining unrelated Telemetry full-typecheck baseline.
+
 ## 2026-08-26 — PR #26 integration and repeatable debug startup
 
 - Combine the Runtime admission observation work with current `main`, trusted-intranet natural-language

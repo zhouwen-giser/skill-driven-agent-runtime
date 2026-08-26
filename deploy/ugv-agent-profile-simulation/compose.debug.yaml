@@ -1,0 +1,17 @@
+# Development-only overlay. Acceptance/production defaults are untouched.
+services:
+  ugv-agent-profile-pms-api:
+    ports: !override ['0.0.0.0:18092:8090']
+  ugv-agent-profile-adapter:
+    ports: !override ['0.0.0.0:17031:7010']
+  ugv-agent-profile-runtime:
+    ports: !override ['0.0.0.0:19131:8080']
+    environment:
+      OTEL_ENABLED: 'true'
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_INSTANCE_ID: uap-p3-b01-runtime-1
+    networks: [ugv-agent-profile-simulation, ugv-agent-profile-northbound, observability]
+networks:
+  observability:
+    external: true
+    name: sdar-ugv-debug-observability

@@ -379,6 +379,7 @@ export async function startNodeControlApi(
     const taskSummaries = new PostgresRuntimeTaskSummaryQuery(runtimePool);
     const app = createNodeControlHttpApp(service, configurationService, {
       bearerToken: environment.SDAR_CONTROL_API_TOKEN,
+      trustedIntranetPublicAccess: environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open',
       ...(environment.SDAR_CONTROL_OPERATOR_API_TOKEN === undefined
         ? {}
         : { operatorBearerToken: environment.SDAR_CONTROL_OPERATOR_API_TOKEN }),

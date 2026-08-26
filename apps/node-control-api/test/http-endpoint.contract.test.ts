@@ -45,6 +45,46 @@ afterEach(async () => {
 });
 
 describe('Node Control HTTP frozen contract', () => {
+  it('opens developer public management without opening internal service credentials', async () => {
+    const repository = new MemoryRepository();
+    const service = new NodeControlFoundationService({
+      repository,
+      clock: { now: () => '2026-08-26T00:00:00.000Z' },
+      ids: { next: () => 'debug-audit' },
+    });
+    await service.bootstrapNodeProfile({
+      nodeId: 'debug',
+      nodeType: 'sdar-runtime',
+      displayName: 'debug',
+      environment: 'development',
+      runtimeEndpointRef: 'http://127.0.0.1:10998',
+    });
+    const config = new NodeControlConfigurationService({
+      configurations: new MemoryConfigurationRepository(),
+      foundation: repository,
+      clock: { now: () => '2026-08-26T00:00:00.000Z' },
+      ids: { next: () => 'debug-operation' },
+    });
+    server = await listen(
+      createNodeControlHttpApp(service, config, {
+        bearerToken: token,
+        runtimeServiceToken: `${token}-runtime`,
+        nodeControlApiUrl: 'http://192.168.6.7:10091',
+        nodeEventsUrl: 'http://192.168.6.7:10091/api/v1/events',
+        a2aAgentCardUrl: 'http://192.168.6.7:10999/.well-known/agent-card.json',
+        trustedIntranetPublicAccess: true,
+      }),
+    );
+    expect((await fetch(`${address(server)}/api/v1/node`)).status).toBe(200);
+    expect((await fetch(`${address(server)}/api/v1/audit-events`)).status).toBe(200);
+    expect(
+      (
+        await fetch(
+          `${address(server)}/internal/v1/mcp-provider-bindings/current?bindingId=x&localServerId=y`,
+        )
+      ).status,
+    ).toBe(401);
+  });
   it('exposes exact Capability authority only through the runtime-service channel', async () => {
     const repository = new MemoryRepository();
     const service = new NodeControlFoundationService({

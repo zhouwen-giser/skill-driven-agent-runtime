@@ -5,6 +5,27 @@ import { ConfiguredBearerArtifactManagementIdentity } from '../src/artifact-mana
 const token = 'artifact-management-test-token-0001';
 
 describe('ConfiguredBearerArtifactManagementIdentity', () => {
+  it('uses a fixed developer principal without a public bearer only when explicitly configured', async () => {
+    const identity = new ConfiguredBearerArtifactManagementIdentity({
+      token,
+      actorId: 'ugv-debug:trusted-intranet',
+      kind: 'service',
+      roles: ['administrator'],
+      trustedIntranet: true,
+    });
+    await expect(
+      identity.managementPrincipalResolver.resolve({ requestId: 'debug-anonymous' }),
+    ).resolves.toMatchObject({ actorId: 'ugv-debug:trusted-intranet', kind: 'service' });
+    await expect(
+      identity.externalOperatorIdentityProvider.resolve({
+        operatorId: 'forged-body-actor',
+        permissions: [],
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      configuredIdentity().managementPrincipalResolver.resolve({ requestId: 'internal' }),
+    ).rejects.toMatchObject({ status: 401 });
+  });
   it('accepts only the exact configured Bearer header and projects configured identity facts', async () => {
     const identity = configuredIdentity();
 

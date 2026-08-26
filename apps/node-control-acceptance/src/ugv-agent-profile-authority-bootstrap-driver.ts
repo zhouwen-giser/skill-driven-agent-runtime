@@ -928,6 +928,101 @@ function assertRuntimeMatchesNative(
   }
 }
 
+/** Development composition: initialize missing registration, never run acceptance tasks or
+ * readiness lifecycle probes. Registered contracts survive health expiry (ADR-141). */
+export async function ensureUgvDebugAuthority(
+  input: UgvAgentProfileAuthorityBootstrapConfiguration,
+  dependencies: UgvAgentProfileAuthorityBootstrapDependencies = {},
+): Promise<Readonly<{ status: 'registered'; created: boolean }>> {
+  const configuration = validateConfiguration({ ...input, mode: 'bootstrap' });
+  const request = dependencies.fetch ?? fetch;
+  const now = dependencies.now ?? (() => new Date().toISOString());
+  const packageAuthority = await loadPackageAuthority(configuration, dependencies);
+  const current = await controlGetOptional(
+    configuration,
+    `/api/v1/node-capabilities/${CAPABILITY_ID}/versions/2`,
+    CapabilitySchema,
+    request,
+  );
+  const exposure = await controlGetOptional(
+    configuration,
+    `/api/v1/a2a-exposures/${EXPOSURE_ID}/versions/2`,
+    ExposureSchema,
+    request,
+  );
+  const registeredBinding = await controlGetOptional(
+    configuration,
+    `/api/v1/mcp-provider-bindings/${encodeURIComponent(configuration.providerBindingId)}`,
+    BindingSchema.extend({ availabilityStatus: z.string().min(1).max(64) }),
+    request,
+  );
+  const runtimeServers = z
+    .object({ items: z.array(RuntimeServerSchema) })
+    .loose()
+    .parse(await runtimeGet(configuration, '/api/v1/mcp/servers', request));
+  const providerRegistered =
+    registeredBinding !== undefined &&
+    runtimeServers.items.some(
+      (s) =>
+        s.serverId === configuration.localServerId && s.endpoint === EXPECTED_PROVIDER_ENDPOINT,
+    );
+  if (
+    registeredBinding !== undefined &&
+    (registeredBinding.localServerId !== configuration.localServerId ||
+      registeredBinding.externalProviderId !== EXPECTED_PROVIDER_ID ||
+      registeredBinding.externalServerId !== EXPECTED_EXTERNAL_SERVER_ID)
+  )
+    fail(
+      'UAP_DEBUG_REGISTRATION_CONFLICT',
+      'Existing Provider registration has a different identity.',
+    );
+  if (!providerRegistered) {
+    await (dependencies.bootstrapSource ?? bootstrapUgvSmppSource)(
+      {
+        ...configuration.source,
+        nodeControlBaseUrl: configuration.nodeControlBaseUrl,
+        nodeControlAdminToken: configuration.nodeControlBearerToken,
+        runId: stableKey(configuration.runId, 'debug-source', now()),
+      },
+      { fetch: request },
+    );
+    await (dependencies.materializeProviders ?? materializeSmppProviders)(
+      providerMaterializationConfiguration(configuration),
+      { fetch: request },
+    );
+  }
+  if (current?.status === 'published' && exposure?.status === 'published') {
+    if (
+      exposure.capabilityId !== CAPABILITY_ID ||
+      exposure.capabilityVersion !== 2 ||
+      exposure.agentSkillId !== SKILL_ID ||
+      !current.constraints?.some(
+        (c) =>
+          c['type'] === 'runtime_execution_mode_policy' &&
+          c['simulationId'] === configuration.simulationRunId,
+      )
+    )
+      fail(
+        'UAP_DEBUG_REGISTRATION_CONFLICT',
+        'Existing registration targets a different run or Skill.',
+      );
+    const skill = RuntimeSkillSchema.parse(
+      await runtimeGet(configuration, `/api/v1/skills/${SKILL_ID}/versions/1`, request),
+    );
+    assertRuntimeSkillExact(skill, packageAuthority, true);
+    return Object.freeze({ status: 'registered', created: false });
+  }
+  // The formal source/materialization APIs above are idempotent; no direct DB writes.
+  const provider = await loadProviderAuthority(configuration, now(), request);
+  await ensureSkill(configuration, packageAuthority, request);
+  const planned = plannedGovernance(configuration, packageAuthority, provider);
+  await ensureCapability(configuration, planned, request);
+  await ensureExposure(configuration, planned.exposure, request);
+  // Registration-only reconciliation owns the Card. Readiness is execution authority,
+  // not a prerequisite for advertising an enabled Skill.
+  return Object.freeze({ status: 'registered', created: current === undefined });
+}
+
 export async function bootstrapUgvAgentProfileAuthority(
   input: UgvAgentProfileAuthorityBootstrapConfiguration,
   dependencies: UgvAgentProfileAuthorityBootstrapDependencies = {},

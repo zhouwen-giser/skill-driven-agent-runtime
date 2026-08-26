@@ -64,6 +64,9 @@ const runtime = await startServerRuntime({
         currentMcpProviderBindingAuthorityReader: nodeControlAuthorityReader,
       }),
   a2aHost: environment.SDAR_A2A_HOST,
+  ...(environment.SDAR_A2A_PUBLIC_BASE_URL === undefined
+    ? {}
+    : { a2aPublicBaseUrl: environment.SDAR_A2A_PUBLIC_BASE_URL }),
   a2aPort: environment.SDAR_A2A_PORT,
   a2aWaitTimeoutMs: environment.SDAR_A2A_WAIT_TIMEOUT_MS,
   managementHost: environment.SDAR_MANAGEMENT_HOST,
@@ -79,7 +82,8 @@ const runtime = await startServerRuntime({
                 runtimeControlArtifactIdentity.managementPrincipalResolver,
             }),
       }),
-  ...(environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN === undefined
+  ...(environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN === undefined ||
+  environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open'
     ? {}
     : { cognitiveManagementBearerToken: environment.SDAR_COGNITIVE_MANAGEMENT_BEARER_TOKEN }),
   ...(artifactManagementIdentity === undefined
@@ -165,6 +169,8 @@ function createArtifactManagementIdentity(
     throw new Error('ARTIFACT_MANAGEMENT_IDENTITY_CONFIG_INVALID');
   }
   return new ConfiguredBearerArtifactManagementIdentity({
+    trustedIntranet:
+      tokenOverride === undefined && environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open',
     token,
     actorId,
     ...(environment.SDAR_ARTIFACT_MANAGEMENT_TENANT_ID === undefined

@@ -26,6 +26,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, URL } from 'node:url';
 
 import { authorizeB02SimulationId } from './b02-attempt-identity.mjs';
+import { authorizeDebugSimulationId } from './debug-identity.mjs';
 import { initializeState } from './initialize-state.mjs';
 import {
   assertPrivateProcessLogSafe,
@@ -141,6 +142,53 @@ export class UapSupervisorError extends Error {
     this.name = 'UapSupervisorError';
     this.code = code;
   }
+}
+
+// Explicit joint-development composition; all existing exports retain their frozen defaults.
+export function developmentSupervisorConfiguration(publicHost) {
+  if (
+    typeof publicHost !== 'string' ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9.-]{0,252}$/u.test(publicHost) ||
+    publicHost === '0.0.0.0'
+  )
+    throw new UapSupervisorError('UAP_DEBUG_PUBLIC_HOST_INVALID');
+  return Object.freeze({
+    ...PRODUCTION_SUPERVISOR_CONFIGURATION,
+    debugPublicHost: publicHost,
+    authorizeSimulationId: authorizeDebugSimulationId,
+    processEnvironment: async (name, sideEffects, simulationRunId) => {
+      const env = {
+        ...(await processEnvironment(
+          name,
+          sideEffects,
+          STATE_ROOT,
+          resolve(REPOSITORY_ROOT, '.env'),
+          simulationRunId,
+          REPORT_ROOT,
+          authorizeDebugSimulationId,
+        )),
+      };
+      env.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY = 'unsafe_test_open';
+      if (name === 'node-control-api')
+        Object.assign(env, {
+          SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open',
+          SDAR_CONTROL_API_HOST: '0.0.0.0',
+          SDAR_CONTROL_PUBLIC_URL: `http://${publicHost}:10091`,
+          SDAR_CONTROL_NODE_EVENTS_URL: `http://${publicHost}:10091/api/v1/events`,
+          SDAR_CONTROL_A2A_AGENT_CARD_URL: `http://${publicHost}:10999/.well-known/agent-card.json`,
+        });
+      if (name === 'server')
+        Object.assign(env, {
+          SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open',
+          SDAR_A2A_HOST: '0.0.0.0',
+          SDAR_MANAGEMENT_HOST: '0.0.0.0',
+          SDAR_A2A_PUBLIC_BASE_URL: `http://${publicHost}:10999`,
+          SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: 'true',
+          SDAR_ARTIFACT_MANAGEMENT_ROLES: 'administrator,approver,security_operator',
+        });
+      return Object.freeze(env);
+    },
+  });
 }
 
 export async function createOfflineHostProcessSupervisorTestFixture(options) {
@@ -385,6 +433,7 @@ export async function processEnvironment(
   dotEnvPath = resolve(REPOSITORY_ROOT, '.env'),
   sideEffectSimulationRunId,
   reportRoot = REPORT_ROOT,
+  authorizeSimulationId = authorizeB02SimulationId,
 ) {
   if (!['NO', 'YES'].includes(sideEffects))
     throw new UapSupervisorError('UAP_SIDE_EFFECT_MODE_INVALID');
@@ -442,7 +491,7 @@ export async function processEnvironment(
   const resolvedSideEffectSimulationRunId = await resolveSideEffectSimulationRunId(
     sideEffects,
     sideEffectSimulationRunId,
-    { stateRoot, reportRoot },
+    { stateRoot, reportRoot, authorizeSimulationId },
   );
   const dotEnv = await validateDotEnv(dotEnvPath);
   const providerAuthorities = exactProviderAuthorities(dotEnv.values);
@@ -573,6 +622,28 @@ async function startProcessesWithConfiguration(configuration) {
     const existing = await optionalManifest(configuration);
     if (existing !== undefined) {
       await validateManifest(existing, { allowMissingProcesses: false }, configuration);
+      if (configuration.debugPublicHost !== undefined) {
+        for (const entry of existing.processes.filter(
+          (entry) => entry.name !== 'node-control-worker',
+        )) {
+          const source = await readFile(`/proc/${String(entry.pid)}/environ`, 'utf8');
+          const expected =
+            entry.name === 'server'
+              ? [
+                  `SDAR_A2A_HOST=0.0.0.0`,
+                  `SDAR_MANAGEMENT_HOST=0.0.0.0`,
+                  `SDAR_A2A_PUBLIC_BASE_URL=http://${configuration.debugPublicHost}:10999`,
+                ]
+              : ['SDAR_CONTROL_API_HOST=0.0.0.0'];
+          if (
+            !['SDAR_DEVELOPMENT_PUBLIC_ACCESS=open', ...expected].every((value) =>
+              source.split('\0').includes(value),
+            )
+          )
+            throw new UapSupervisorError('UGV_DEBUG_RESTART_REQUIRED');
+          await validateProcessEntry(entry, false, false, configuration);
+        }
+      }
       return Object.freeze({
         status: 'already_running',
         processCount: 3,
@@ -1730,24 +1801,33 @@ export function parseRestartServerArguments(arguments_) {
 }
 
 async function main() {
-  const command = process.argv[2];
+  const args = process.argv.slice(2);
+  const configuration =
+    args[0] === '--development-public-host'
+      ? developmentSupervisorConfiguration(args.splice(0, 2)[1])
+      : PRODUCTION_SUPERVISOR_CONFIGURATION;
+  const command = args[0];
   let result;
-  if (command === 'start' && process.argv.length === 3) result = await startProcesses();
-  else if (command === 'status' && process.argv.length === 3) result = await processStatus();
-  else if (command === 'stop' && process.argv.length === 3) result = await stopProcesses();
-  else if (
-    (command === 'log-files' || command === 'stored-log-files') &&
-    process.argv.length === 3
-  ) {
-    for (const path of await processLogFiles(command === 'stored-log-files'))
+  if (command === 'start' && args.length === 1)
+    result = await startProcessesWithConfiguration(configuration);
+  else if (command === 'status' && args.length === 1)
+    result = await processStatusWithConfiguration(configuration);
+  else if (command === 'stop' && args.length === 1)
+    result = await stopProcessesWithConfiguration(configuration);
+  else if ((command === 'log-files' || command === 'stored-log-files') && args.length === 1) {
+    for (const path of await processLogFilesWithConfiguration(
+      command === 'stored-log-files',
+      configuration,
+    ))
       process.stdout.write(`${path}\n`);
     return;
   } else if (command === 'restart-server') {
-    const arguments_ = parseRestartServerArguments(process.argv.slice(3));
-    result = await restartServer(
+    const arguments_ = parseRestartServerArguments(args.slice(1));
+    result = await restartServerWithConfiguration(
       arguments_.sideEffects,
       arguments_.acknowledgement,
       arguments_.simulationRunId,
+      configuration,
     );
   } else throw new UapSupervisorError('UAP_ARGUMENT_INVALID');
   process.stdout.write(

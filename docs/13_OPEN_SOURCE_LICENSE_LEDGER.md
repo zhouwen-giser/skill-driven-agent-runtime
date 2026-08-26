@@ -29,6 +29,13 @@ Skill-Driven Agent Runtime 由 zhouwen 以 Apache License 2.0 发布，SPDX 标�
 | Redis                     | AGPL-3.0-or-later（本项目选择）              | 未修改的独立容器                | 锁定 8.8.1 Alpine digest；保留商标和对应源码义务     |
 | Trivy                     | Apache-2.0                                   | P13 临时发布证据工具            | 锁定 0.70.0 资产校验和；不进入依赖或运行时           |
 
+联调观测侧采用 OpenTelemetry Collector contrib `0.157.0`，固定 commit
+`89e43555904cd97c2d36605347c5d5237b1bdc8c`，许可证 Apache-2.0。原生 ClickHouse
+exporter 的表模板经占位符展开用于相邻 Telemetry 项目的 migration 008；该项目
+`third_party/opentelemetry/` 保留完整 LICENSE、NOTICE、来源与修改说明。SDAR 不新增
+Collector SDK/Node 运行时依赖，仅使用独立容器。版本登记见 `third_party/sources.lock.yaml`
+及 ADR-142；指标支持为 alpha，升级需重新验证固定表结构与真实写入。
+
 v1.1 MCP Tasks 冻结说明：ADR-090 锁定 `@modelcontextprotocol/client@2.0.0-beta.4`
 用于 extension-era 协商与 legacy fallback；`@modelcontextprotocol/sdk@1.29.0` 在迁移期仅保留
 legacy loopback Server fixture，旧实验性 Tasks API 不是 v1.1 权威。`modelcontextprotocol/ext-tasks`

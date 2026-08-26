@@ -36,6 +36,8 @@ const ROLE_PERMISSIONS = Object.freeze({
 }) satisfies Readonly<Record<ManagementRole, readonly ArtifactPermission[]>>;
 
 export interface ConfiguredBearerArtifactManagementIdentityOptions {
+  /** Only composition may enable the explicitly acknowledged development profile. */
+  readonly trustedIntranet?: boolean;
   readonly token: string;
   readonly actorId: string;
   readonly tenantId?: string;
@@ -55,6 +57,7 @@ export class ConfiguredBearerArtifactManagementIdentity {
   readonly externalOperatorIdentityProvider: ExternalOperatorIdentityProvider;
 
   readonly #authorizationHash: Buffer;
+  readonly #trustedIntranet: boolean;
   readonly #actorId: string;
   readonly #tenantId: string | undefined;
   readonly #kind: 'human' | 'service';
@@ -74,6 +77,7 @@ export class ConfiguredBearerArtifactManagementIdentity {
     }
 
     this.#authorizationHash = digest(`Bearer ${options.token}`);
+    this.#trustedIntranet = options.trustedIntranet === true;
     this.#actorId = options.actorId.trim();
     this.#tenantId = options.tenantId?.trim();
     this.#kind = options.kind;
@@ -94,7 +98,7 @@ export class ConfiguredBearerArtifactManagementIdentity {
     input: Parameters<ManagementPrincipalResolver['resolve']>[0],
   ): Promise<ManagementPrincipal> {
     const authorizationHash = digest(input.authorization ?? '');
-    if (!timingSafeEqual(this.#authorizationHash, authorizationHash)) {
+    if (!this.#trustedIntranet && !timingSafeEqual(this.#authorizationHash, authorizationHash)) {
       return Promise.reject(new ArtifactManagementError('MANAGEMENT_AUTHENTICATION_REQUIRED', 401));
     }
     return Promise.resolve(

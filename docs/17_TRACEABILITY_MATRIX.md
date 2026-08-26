@@ -1,5 +1,23 @@
 # 需求追踪矩阵
 
+## UGV 联调 + Telemetry（2026-08-26，开发配置补充）
+
+- FR-A2A-001 / FR-ADM-001：`apps/server/src/{environment,main,artifact-management-identity}.ts`、
+  `apps/node-control-api/src/{environment,http-endpoint}.ts`、`packages/a2a-adapter/src/http-endpoint.ts`
+  增加显式开发免登录与独立公告地址；对应 environment、Artifact、HTTP contract 回归，真实 LAN
+  Card/Management/Artifact/Node Control 全部匿名 200，内部入口仍 401。
+- UGV-DEBUG-001（用户批准的部署场景，不新增业务基线）：`debug.sh`、`debug-common.sh`、
+  `debug-profile.mjs`、`debug-identity.mjs`、`ugv-debug-bootstrap.ts` 负责完整启动、缺失初始化、
+  默认 YES/显式 NO、重复启动和失败保留；`ugv-debug-{command,profile,identity}` tests 及
+  authority bootstrap / real supervisor contracts 验证。真实重复启动 authority/Task/MCP 数量不变。
+- UGV-DEBUG-OBS-001：相邻 Telemetry 的 migration 008、`deploy/ugv-debug`、
+  `query-api/src/observability-query.ts` 和 `tools/verify-ugv-debug.mjs` 负责三类信号、来源区分、
+  有界查询、持久发送队列和 7 天诊断 TTL；69 tests、受影响模块 strict tsc、真实 ClickHouse
+  断连/Collector 重启恢复通过。无来源的 metric kind 明示等待，不伪造事件与 Trace 关联。
+- 完整命令、结果及全仓类型基线例外见 `reports/ugv-debug/verification-2026-08-26.md` 与
+  `execplans/EP-UGV-DEBUG-TELEMETRY.md`。本轮不提交 A2A Task，不调用导航或其他 Device 工具，
+  不把开发部署证据升级为外部导航验收或整个项目的全绿发布门禁。
+
 ## PR #26 调试集成（2026-08-26，相关回归已验证）
 
 - FR-A2A-001/006、FR-EXE-001/002、FR-MCPT-009/010：合并保留

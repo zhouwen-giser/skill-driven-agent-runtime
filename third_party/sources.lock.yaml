@@ -1,241 +1,248 @@
 schema_version: 1
 updated_at: 2026-07-30
 sources:
+  - name: UGV joint-debug OpenTelemetry ClickHouse exporter
+    repository: https://github.com/open-telemetry/opentelemetry-collector-contrib
+    license: Apache-2.0; exact LICENSE and NOTICE retained in smpp-telemetry-platform/third_party/opentelemetry
+    use: external_container_and_schema_adaptation
+    pin: 'tag:v0.157.0#commit:89e43555904cd97c2d36605347c5d5237b1bdc8c'
+    allowed: 'existing Collector image and diagnostic SQL schema in sibling telemetry platform; ADR-142'
+    forbidden: 'SDAR runtime dependency, business authority, ProviderOps ACK replacement'
   - name: Gemini CLI Auto Memory
     repository: https://github.com/google-gemini/gemini-cli
     license: 'Apache-2.0; LICENSE blob 7a4a3ea2424c09fbe48d455aed1eaa94d9124835; no root NOTICE at pin'
     use: design_reference
-    pin: "commit:c776c665b00a39d55c470beb788a2b9a77a2feb7"
+    pin: 'commit:c776c665b00a39d55c470beb788a2b9a77a2feb7'
     allowed: 'candidate lifecycle, eligibility, bounded extraction and patch-safety behavior reference; a later small TypeScript port requires separate intake'
     forbidden: 'CLI/Core runtime integration, filesystem authority, unreviewed source copy, model client reuse, second runtime'
   - name: AutoSkill
     repository: https://github.com/ECNU-ICALK/AutoSkill
     license: 'UNCONFIRMED: README MIT badge; no LICENSE or NOTICE at pinned commit'
     use: design_reference
-    pin: "commit:94c47ca488d4ba4117d20272e66d49b9877e68cf"
+    pin: 'commit:94c47ca488d4ba4117d20272e66d49b9877e68cf'
     allowed: 'identity, lineage, replay-split and promotion-metric behavior reference only'
     forbidden: 'source or prompt copying, Python runtime, automatic Skill publication, file authority'
   - name: LangMem
     repository: https://github.com/langchain-ai/langmem
     license: 'MIT; LICENSE blob c38f6f284dc464af69e9f618bc0304d299d0bdf0; no root NOTICE at pin'
     use: design_reference
-    pin: "commit:a2d580946465137c89162e67dc0b18108bd4850c"
+    pin: 'commit:a2d580946465137c89162e67dc0b18108bd4850c'
     allowed: 'typed extraction, bounded consolidation and change-set behavior reference for clean-room TypeScript implementation'
     forbidden: 'Python/LangChain runtime integration, Store authority, copied source without a new intake'
   - name: ReMe
     repository: https://github.com/agentscope-ai/ReMe
     license: 'Apache-2.0; LICENSE blob 65c2c5cf06d722c79d8105cfce97016491a7a7f4; no root NOTICE at pin'
     use: design_reference
-    pin: "commit:46adb5ae1e94715ecdffe201a46933fbd419a5e1"
+    pin: 'commit:46adb5ae1e94715ecdffe201a46933fbd419a5e1'
     allowed: 'RRF, bounded relation expansion, staged processing and context-dedupe behavior reference'
     forbidden: 'Python service, FastAPI/FastMCP, file authority, external knowledge runtime'
   - name: Agent Workflow Memory
     repository: https://github.com/zorazrw/agent-workflow-memory
     license: 'Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; no root NOTICE at pin'
     use: design_reference
-    pin: "commit:8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1"
+    pin: 'commit:8c0ff8cd11d648c8fceb99e4e42f37e3b75381b1'
     allowed: 'task-type induction, abstract-pattern/exemplar and replay dataset-shape reference'
     forbidden: 'research runtime integration, plaintext workflow authority, Python product dependency'
   - name: ACE
     repository: https://github.com/ace-agent/ace
     license: 'Apache-2.0; LICENSE.txt blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; no root NOTICE at pin'
     use: design_reference
-    pin: "commit:bcb7cea0504afad6f55fec4845dd4864c9f9eee7"
+    pin: 'commit:bcb7cea0504afad6f55fec4845dd4864c9f9eee7'
     allowed: 'Generator/Reflector/Curator separation, typed delta and pre/post evaluation behavior reference'
     forbidden: 'free-text playbook authority, reasoning trace storage, Python/model client integration, direct active mutation'
   - name: Ajv
     repository: https://github.com/ajv-validator/ajv
     license: 'MIT'
     use: direct_dependency
-    pin: "npm:ajv@8.20.0#sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="
+    pin: 'npm:ajv@8.20.0#sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=='
     allowed: 'JSON Schema validation behind json-schema adapter'
     forbidden: 'remote schema loading, custom executable keywords, domain type leakage'
   - name: Fast URI
     repository: https://github.com/fastify/fast-uri
     license: 'BSD-3-Clause; LICENSE sha256 b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786; no NOTICE at pin'
     use: transitive_dependency_security_override
-    pin: "npm:fast-uri@3.1.4#tag:v3.1.4#commit:6aeece669e4166b2446a89f17c07a3b15dfb7ed4#sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=="
+    pin: 'npm:fast-uri@3.1.4#tag:v3.1.4#commit:6aeece669e4166b2446a89f17c07a3b15dfb7ed4#sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=='
     allowed: 'Ajv transitive RFC 3986 URI parsing at the existing JSON Schema adapter boundary'
     forbidden: 'direct product-network authority, unpinned downgrade to vulnerable 3.1.3 or earlier'
   - name: PostgreSQL 17 Alpine base image
     repository: https://github.com/docker-library/postgres
     license: 'PostgreSQL License for PostgreSQL; Alpine and bundled packages retain their individual licenses'
     use: container_build_base
-    pin: "oci:postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4"
+    pin: 'oci:postgres:17.10-alpine3.23@sha256:8189a1f6e40904781fc9e2612687877791d21679866db58b1de996b31fc312e4'
     allowed: 'digest-pinned base for the repository-owned PostgreSQL plus pgvector standalone container'
     forbidden: 'mutable tag-only pulls, domain ownership, a second PostgreSQL authority'
   - name: Dockerfile frontend 1.24.0
     repository: https://github.com/moby/buildkit
     license: 'Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64 at embedded revision; no root NOTICE'
     use: container_build_tool
-    pin: "oci:docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89#linux-amd64:sha256:e82bbc85c3cb06cf2a5a27b058208b43984448acbcd6a832cd1491933d4376dd#version:1.24.0#revision:dd2170e156c9633da1b2d1a58a6188e3f7d36fa4"
+    pin: 'oci:docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89#linux-amd64:sha256:e82bbc85c3cb06cf2a5a27b058208b43984448acbcd6a832cd1491933d4376dd#version:1.24.0#revision:dd2170e156c9633da1b2d1a58a6188e3f7d36fa4'
     allowed: 'build-only Dockerfile parsing and ADD --checksum support for the repository-owned PostgreSQL image'
     forbidden: 'mutable parser directive, application runtime or development dependency, bundled release artifact'
   - name: pgvector hardened local PostgreSQL image
     repository: https://github.com/pgvector/pgvector
     license: 'PostgreSQL License; LICENSE sha256 6bba9ebeb73e27477463b05e5ef1bf303bccbddb3db9bbc95905d351604d6a87; local image also contains PostgreSQL under its PostgreSQL License'
     use: modified_local_standalone_container
-    pin: "tag:v0.8.5#commit:159b79aaad5983fb7459c1e3df2897fbb2d11788#archive-sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44#apk-build-base:0.5-r3#dockerfile:infra/postgres/Dockerfile.pgvector-hardened#local-image:sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762"
+    pin: 'tag:v0.8.5#commit:159b79aaad5983fb7459c1e3df2897fbb2d11788#archive-sha256:6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44#apk-build-base:0.5-r3#dockerfile:infra/postgres/Dockerfile.pgvector-hardened#local-image:sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762'
     allowed: 'compile pgvector into the pinned PostgreSQL base for the compose-local standalone database service'
     forbidden: 'unchecksummed source fetch, silent node/runtime embedding, publishing the observed local image digest as a remote registry guarantee'
   - name: su-exec
     repository: https://github.com/ncopa/su-exec
     license: 'MIT; LICENSE blob f623b904e42568d5d8d96c8dee6740c9d456d407; content sha256 a0f3f75e286f08be153fd2b7a91788f0bbcd7d5155a40cdca6952742c293fb14 retained in image; no root NOTICE at pin'
     use: container_runtime_dependency
-    pin: "apk:su-exec@0.3-r0#tag:v0.3#tag-object:91277f44a686618f16b6ebcb1abe701e626ccb74#commit:89c016e6e08749d583efdeda04b9f73e1218e253#local-image:sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762"
+    pin: 'apk:su-exec@0.3-r0#tag:v0.3#tag-object:91277f44a686618f16b6ebcb1abe701e626ccb74#commit:89c016e6e08749d583efdeda04b9f73e1218e253#local-image:sha256:856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762'
     allowed: 'drop privileges in the repository-owned PostgreSQL container entrypoint after removing gosu'
     forbidden: 'host installation, application runtime dependency, unreviewed package-version drift on rebuild'
   - name: Redis 8 Alpine Docker Official Image
     repository: https://github.com/redis/redis
     license: 'AGPL-3.0-or-later option selected for Redis 8.8.1; LICENSE.txt blob 4657905cf699d1d5ac96a07d0969bc79e27c4eec; Alpine and bundled packages retain their individual licenses; Redis trademark rules apply'
     use: unmodified_external_standalone_container
-    pin: "tag:8.8.1#commit:77b6c308396c9700672390a210143a8496fb4b10#oci:redis:8.8.1-alpine3.23@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb"
+    pin: 'tag:8.8.1#commit:77b6c308396c9700672390a210143a8496fb4b10#oci:redis:8.8.1-alpine3.23@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb'
     allowed: 'ephemeral BullMQ queue, cache and wake-up state behind runtime-redis'
     forbidden: 'system-of-record authority, any Redis image redistribution without AGPL notice and Corresponding Source, modified network service without section 13 compliance, mutable tag-only pull'
   - name: Trivy release scanner
     repository: https://github.com/aquasecurity/trivy
     license: 'Apache-2.0; LICENSE blob 261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64; NOTICE blob 3fe97bf7d4b08dfdc5c8f3feab223403d651fec9'
     use: temporary_release_evidence_tool
-    pin: "tag:v0.70.0#commit:8a3177aedf7ee0864920eb1852eef031cd3742b8#asset:trivy_0.70.0_windows-64bit.zip#sha256:eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825#checksums-sha256:c45281240bb9211ea9e830fc0bf5cf8acf7c0ca830feb64ac8a0aa932c5c92d9"
+    pin: 'tag:v0.70.0#commit:8a3177aedf7ee0864920eb1852eef031cd3742b8#asset:trivy_0.70.0_windows-64bit.zip#sha256:eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825#checksums-sha256:c45281240bb9211ea9e830fc0bf5cf8acf7c0ca830feb64ac8a0aa932c5c92d9'
     allowed: 'temporary P13 container vulnerability and inventory evidence generation after official checksum verification'
     forbidden: 'runtime or development dependency, committed scanner binary, mutable latest download, GitHub Action integration, affected March 2026 releases'
   - name: LangGraph.js
     repository: https://github.com/langchain-ai/langgraphjs
     license: 'MIT'
     use: direct_dependency
-    pin: "npm:@langchain/langgraph@1.4.7#sha512-2tcyf3QGC7v89kqSxMCtRvzg/3L/4yHtOaWC49A8KieCciWJs7LGaxHoPB6QRxXyUgyR+Zg9Q1ss/XJIE+JuSQ=="
+    pin: 'npm:@langchain/langgraph@1.4.7#sha512-2tcyf3QGC7v89kqSxMCtRvzg/3L/4yHtOaWC49A8KieCciWJs7LGaxHoPB6QRxXyUgyR+Zg9Q1ss/XJIE+JuSQ=='
     allowed: 'published @langchain/langgraph APIs'
     forbidden: 'none; avoid hosted proprietary assumptions'
   - name: Mastra
     repository: https://github.com/mastra-ai/mastra
     license: 'Apache-2.0 core / enterprise ee'
     use: reference_only
-    pin: "commit:1b2f2cca30f04f2cb8e20df661733a1367d779a0"
+    pin: 'commit:1b2f2cca30f04f2cb8e20df661733a1367d779a0'
     allowed: 'core server/storage/eval/observability design'
     forbidden: 'all ee/ paths and runtime integration'
   - name: VoltAgent
     repository: https://github.com/VoltAgent/voltagent
     license: 'MIT'
     use: reference_only
-    pin: "commit:0d8c7f98a1086eddd09da07d55cf0b29320ddee7"
+    pin: 'commit:0d8c7f98a1086eddd09da07d55cf0b29320ddee7'
     allowed: 'model/tool/event/trace/eval patterns'
     forbidden: 'second agent/workflow runtime'
   - name: OpenHands
     repository: https://github.com/OpenHands/OpenHands
     license: 'MIT main repo'
     use: reference_only
-    pin: "commit:e3185990ddece1a8ffd31fcc5ece38789436d4c6"
+    pin: 'commit:e3185990ddece1a8ffd31fcc5ece38789436d4c6'
     allowed: 'skill/plugin packaging concepts'
     forbidden: 'commercial/non-MIT repos and Python runtime integration'
   - name: Dify
     repository: https://github.com/langgenius/dify
     license: 'Dify Open Source License (modified Apache-2.0)'
     use: design_reference_only
-    pin: "commit:6e5ba18d65e78f7ab04f46c5ba4e4b5011df07f8"
+    pin: 'commit:6e5ba18d65e78f7ab04f46c5ba4e4b5011df07f8'
     allowed: 'UX and information architecture observation'
     forbidden: 'source code copying or vendoring'
   - name: Google ADK JS
     repository: https://github.com/google/adk-js
     license: 'Apache-2.0'
     use: reference_only
-    pin: "commit:2ff0643133455ed748f3b4085ece32cb0027c12c"
+    pin: 'commit:2ff0643133455ed748f3b4085ece32cb0027c12c'
     allowed: 'workflow/session/eval/MCP tests'
     forbidden: 'runtime integration'
   - name: BeeAI Framework
     repository: https://github.com/i-am-bee/beeai-framework
     license: 'Apache-2.0'
     use: reference_only
-    pin: "commit:0689b10f87b3bba82049e49984996646c05bdb2a"
+    pin: 'commit:0689b10f87b3bba82049e49984996646c05bdb2a'
     allowed: 'constraints/events/serialization patterns'
     forbidden: 'workflow/A2A runtime integration'
   - name: Microsoft Agent Framework
     repository: https://github.com/microsoft/agent-framework
     license: 'MIT'
     use: reference_only
-    pin: "commit:68136ee081dbbee6983e6bb92a834f9ad30d20dc"
+    pin: 'commit:68136ee081dbbee6983e6bb92a834f9ad30d20dc'
     allowed: 'middleware/telemetry/HITL/dev UI patterns'
     forbidden: '.NET/Python runtime integration'
   - name: A2A JavaScript SDK
     repository: https://github.com/a2aproject/a2a-js
     license: 'Apache-2.0'
     use: direct_dependency
-    pin: "npm:@a2a-js/sdk@1.0.0-beta.0#commit:a005d2a118d3c1552ce6ea86b2917f2a9f56fea9"
+    pin: 'npm:@a2a-js/sdk@1.0.0-beta.0#commit:a005d2a118d3c1552ce6ea86b2917f2a9f56fea9'
     allowed: 'official protocol SDK behind adapter'
     forbidden: 'SDK models in domain'
   - name: MCP TypeScript SDK
     repository: https://github.com/modelcontextprotocol/typescript-sdk
     license: 'MIT'
     use: direct_dependency
-    pin: "npm:@modelcontextprotocol/sdk@1.29.0#commit:e12cbd7078db388152f6e839abdbe09ba01f3f32"
+    pin: 'npm:@modelcontextprotocol/sdk@1.29.0#commit:e12cbd7078db388152f6e839abdbe09ba01f3f32'
     allowed: 'client and Streamable HTTP behind adapter'
     forbidden: 'SDK models in domain; legacy experimental tasks/result or tasks/list as the v1.1 Task contract'
   - name: MCP TypeScript v2 Client Beta
     repository: https://github.com/modelcontextprotocol/typescript-sdk
     license: 'MIT package; repository transition license also contains Apache-2.0 and CC-BY-4.0 material'
     use: direct_dependency
-    pin: "npm:@modelcontextprotocol/client@2.0.0-beta.4#tag-object:5aa0a82829f83b6b62a8ce41531921b34180ff84#commit:e81758caed29f6568ce8873f7f9a3bd65b017d9c#sha512-VNHA/UXDk7mCpVl+jOg5B4WMRRD2OEl+it360Lhi6HiCbrIB2f6pZ0cqSDKXQVUtZvqnhdQHzZAM9h8EKWhq/A=="
+    pin: 'npm:@modelcontextprotocol/client@2.0.0-beta.4#tag-object:5aa0a82829f83b6b62a8ce41531921b34180ff84#commit:e81758caed29f6568ce8873f7f9a3bd65b017d9c#sha512-VNHA/UXDk7mCpVl+jOg5B4WMRRD2OEl+it360Lhi6HiCbrIB2f6pZ0cqSDKXQVUtZvqnhdQHzZAM9h8EKWhq/A=='
     allowed: 'official extension-era client and Streamable HTTP transport behind packages/mcp-adapter; transitive @modelcontextprotocol/core@2.0.0-beta.4 from the same commit'
     forbidden: 'SDK models outside adapter; unpinned beta upgrades; built-in legacy Tasks authority; second workflow runtime'
   - name: MCP Tasks Extension
     repository: https://github.com/modelcontextprotocol/ext-tasks
     license: 'Apache-2.0'
     use: source_adaptation
-    pin: "commit:8966bea9c4f4e6d71060cc8284a539086e9e234f#schema.json-blob:d6ccaff7e3fb2131b5d752dd8b6f34096e58e976#schema.ts-blob:2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc"
+    pin: 'commit:8966bea9c4f4e6d71060cc8284a539086e9e234f#schema.json-blob:d6ccaff7e3fb2131b5d752dd8b6f34096e58e976#schema.ts-blob:2634c47c2b25ac8fafe7fadaa7dd3f3b732c0abc'
     allowed: 'official io.modelcontextprotocol/tasks extension contract and attributed bounded Schema adaptation behind packages/mcp-adapter'
     forbidden: 'SDK/domain type leakage, unpinned schema use, legacy tasks/result or tasks/list, source copy without Apache-2.0 attribution'
   - name: MCP Frozen 2026-07-28 Protocol Source
     repository: https://github.com/modelcontextprotocol/modelcontextprotocol
     license: 'Apache-2.0 transition / retained MIT contributions / CC-BY-4.0 non-spec documentation'
     use: source_adaptation
-    pin: "commit:26897cc322f356487da89113451bd16b520b9288#schema/draft/schema.json-blob:cc44564e33305dbc07e820cdd0a97648f3852019#sha256:9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708"
+    pin: 'commit:26897cc322f356487da89113451bd16b520b9288#schema/draft/schema.json-blob:cc44564e33305dbc07e820cdd0a97648f3852019#sha256:9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708'
     allowed: 'unmodified pinned source schema under protocol/source; SEP-2663 and SEP-986 specification reference; attributed SDAR-derived schemas'
     forbidden: 'SDK/domain type leakage, unpinned online schema selection, Frozen-to-Legacy fallback, protocol translation, source modification without attribution'
   - name: SDAR MCP Tasks Provider Runtime Business Events Profile 1.0
     repository: https://github.com/zhouwen-giser/sdar-mcp-tasks-provider-runtime
     license: 'Apache-2.0; exact source commit has no NOTICE'
     use: source_adaptation
-    pin: "commit:8a81b1b02971fb124ed96372c440c449f9087c99#license-sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4#schema-event-sha256:dceb9ee64e414890813b784880a2d90f710c93faa0c8aaa8b4f2b7d6ba9b7e6f#schema-continuity-sha256:f92d0ad364a2f4ec068f99a0501a74a2d38748244ba6a04a85893527263807f0#schema-relation-sha256:7e3bbe9d9ac96d10b4ab399cf5c90621a070959c3bdfb092327400c96a216dc4"
+    pin: 'commit:8a81b1b02971fb124ed96372c440c449f9087c99#license-sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4#schema-event-sha256:dceb9ee64e414890813b784880a2d90f710c93faa0c8aaa8b4f2b7d6ba9b7e6f#schema-continuity-sha256:f92d0ad364a2f4ec068f99a0501a74a2d38748244ba6a04a85893527263807f0#schema-relation-sha256:7e3bbe9d9ac96d10b4ab399cf5c90621a070959c3bdfb092327400c96a216dc4'
     allowed: 'unmodified Business Events Profile schemas, fixtures, golden vectors, profile and Adapter proto under protocol/business-events/provider-v1.0'
     forbidden: 'Provider runtime/source worker/persistence/generator code, unpinned assets, Provider types outside the MCP adapter, Mock-as-interop claims'
   - name: React
     repository: https://github.com/facebook/react
     license: 'MIT'
     use: direct_dependency
-    pin: "npm:react@19.2.7#commit:6117d7cca4906492c51fe6a03381e35adfd86e7d#sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ=="
+    pin: 'npm:react@19.2.7#commit:6117d7cca4906492c51fe6a03381e35adfd86e7d#sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ=='
     allowed: 'apps/console presentation components and hooks'
     forbidden: 'domain authority or backend framework type leakage'
   - name: React DOM
     repository: https://github.com/facebook/react
     license: 'MIT'
     use: direct_dependency
-    pin: "npm:react-dom@19.2.7#commit:6117d7cca4906492c51fe6a03381e35adfd86e7d#sha512-t0BRVXvbiE/o20Hfw669rLbMCDWtYZLvmJigy2f0MxsXF+71pxhR3xOkspmsO8h3ZlNzyibAmtCa3l4lYKk6gQ=="
+    pin: 'npm:react-dom@19.2.7#commit:6117d7cca4906492c51fe6a03381e35adfd86e7d#sha512-t0BRVXvbiE/o20Hfw669rLbMCDWtYZLvmJigy2f0MxsXF+71pxhR3xOkspmsO8h3ZlNzyibAmtCa3l4lYKk6gQ=='
     allowed: 'apps/console browser rendering'
     forbidden: 'server or domain ownership'
   - name: Vite
     repository: https://github.com/vitejs/vite
     license: 'MIT'
     use: direct_development_dependency
-    pin: "npm:vite@8.1.4#tag:v8.1.4#sha512-bTT9PsdWO+MQMNG9ZXIP/qM9wGh37DFxTV/sPq9cFpHr3w4jkgef032PkAL9jAqhk3Nz8NQw3O8n6/xFkqO4QQ=="
+    pin: 'npm:vite@8.1.4#tag:v8.1.4#sha512-bTT9PsdWO+MQMNG9ZXIP/qM9wGh37DFxTV/sPq9cFpHr3w4jkgef032PkAL9jAqhk3Nz8NQw3O8n6/xFkqO4QQ=='
     allowed: 'apps/console development and production asset build'
     forbidden: 'independent production runtime process'
   - name: Vite React Plugin
     repository: https://github.com/vitejs/vite-plugin-react
     license: 'MIT'
     use: direct_development_dependency
-    pin: "npm:@vitejs/plugin-react@6.0.3#commit:640fd358a0e82393acfce4e92e19a6ac6e1641a7#sha512-vmFvco5/QuC2f9Oj+wTk0+9XeDFkHxSamwZKYc7MxYwKICfvUvlMhqKI0VuICPltGqh1neqBKDvO4kes1ya8vg=="
+    pin: 'npm:@vitejs/plugin-react@6.0.3#commit:640fd358a0e82393acfce4e92e19a6ac6e1641a7#sha512-vmFvco5/QuC2f9Oj+wTk0+9XeDFkHxSamwZKYc7MxYwKICfvUvlMhqKI0VuICPltGqh1neqBKDvO4kes1ya8vg=='
     allowed: 'apps/console JSX transform and Fast Refresh development integration'
     forbidden: 'production server authority'
   - name: React Type Definitions
     repository: https://github.com/DefinitelyTyped/DefinitelyTyped
     license: 'MIT'
     use: direct_development_dependency
-    pin: "npm:@types/react@19.2.17#sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw=="
+    pin: 'npm:@types/react@19.2.17#sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw=='
     allowed: 'strict TypeScript checking for apps/console'
     forbidden: 'runtime use'
   - name: React DOM Type Definitions
     repository: https://github.com/DefinitelyTyped/DefinitelyTyped
     license: 'MIT'
     use: direct_development_dependency
-    pin: "npm:@types/react-dom@19.2.3#sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=="
+    pin: 'npm:@types/react-dom@19.2.3#sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=='
     allowed: 'strict TypeScript checking for apps/console DOM rendering'
     forbidden: 'runtime use'
