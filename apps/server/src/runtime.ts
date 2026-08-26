@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { writeSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -2296,7 +2297,7 @@ export async function startServerRuntime(
           schemas: schemaValidator,
           clock,
           reportReadinessRejection: (diagnostic) => {
-            process.stderr.write(`${JSON.stringify(diagnostic)}\n`);
+            writeSync(2, `${JSON.stringify(diagnostic)}\n`);
           },
         });
   if (ugvAgentProfile && ugvMoveBindingResolver === undefined)
