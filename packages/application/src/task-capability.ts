@@ -188,7 +188,19 @@ export interface TaskCapabilitySkillUsageAuthority {
   readonly context: SkillUsageSelectionContext;
 }
 
+export interface UgvQualificationAcceptanceHook {
+  prepareAcceptance(
+    input: Readonly<{
+      requestId: string;
+      metadata: Readonly<Record<string, unknown>>;
+      boundAt: string;
+      resolution: RuntimeCapabilityResolution;
+    }>,
+  ): Promise<readonly Readonly<Record<string, unknown>>[]>;
+}
+
 export class RuntimeTaskCapabilityService {
+  readonly #ugvQualification: UgvQualificationAcceptanceHook | undefined;
   readonly #store: TaskCapabilityAcceptanceStore;
   readonly #schemas: JsonSchemaValidator;
   readonly #evidence: TaskCapabilityEvidenceSource | undefined;
@@ -198,6 +210,7 @@ export class RuntimeTaskCapabilityService {
 
   constructor(
     dependencies: Readonly<{
+      ugvQualification?: UgvQualificationAcceptanceHook;
       store: TaskCapabilityAcceptanceStore;
       schemas: JsonSchemaValidator;
       evidence?: TaskCapabilityEvidenceSource;
@@ -206,6 +219,7 @@ export class RuntimeTaskCapabilityService {
       runtimeProviderBindings?: RuntimeMcpProviderBindingAdmissionVerifier;
     }>,
   ) {
+    this.#ugvQualification = dependencies.ugvQualification;
     this.#store = dependencies.store;
     this.#schemas = dependencies.schemas;
     this.#evidence = dependencies.evidence;
@@ -254,6 +268,13 @@ export class RuntimeTaskCapabilityService {
         'TASK_CAPABILITY_INPUT_INVALID',
         'The requested Capability input does not match the frozen Exposure schema.',
       );
+    const qualificationConstraints =
+      (await this.#ugvQualification?.prepareAcceptance({
+        requestId: request.requestId,
+        metadata: input.metadata,
+        boundAt: input.task.createdAt,
+        resolution,
+      })) ?? [];
     const binding = createTaskCapabilityBinding({
       bindingId: input.bindingId,
       taskId: input.task.taskId,
@@ -264,7 +285,7 @@ export class RuntimeTaskCapabilityService {
       inputSnapshot: input.capabilityInput,
       successCriteriaSnapshot: resolution.successCriteria,
       evidenceRequirementSnapshot: resolution.requiredEvidence,
-      constraintSnapshot: resolution.constraints,
+      constraintSnapshot: [...resolution.constraints, ...qualificationConstraints],
       initialImplementationRefs: resolution.implementationRefs,
       ...(currentProviderBindings.length === 0
         ? resolution.providerPolicySnapshot === undefined

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { UgvQualificationAcceptanceHook } from '../src/task-capability.js';
 
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
@@ -22,6 +23,7 @@ const timestamp = '2026-08-02T00:00:00.000Z';
 
 function fixture(
   options: Readonly<{
+    ugvQualification?: UgvQualificationAcceptanceHook;
     resolution?: RuntimeCapabilityResolution;
     invocations?: readonly McpInvocation[];
     physicalEvidence?: TaskCapabilityPhysicalEvidenceSnapshot;
@@ -102,6 +104,9 @@ function fixture(
   );
   const physicalEvidence = options.physicalEvidence;
   const service = new RuntimeTaskCapabilityService({
+    ...(options.ugvQualification === undefined
+      ? {}
+      : { ugvQualification: options.ugvQualification }),
     store,
     schemas: new AjvJsonSchemaValidator(),
     ...(options.invocations === undefined
@@ -191,6 +196,59 @@ function fixture(
 }
 
 describe('RuntimeTaskCapabilityService', () => {
+  it('freezes only server-produced qualification constraints before binding creation', async () => {
+    const constraint = {
+      type: 'ugv_live_qualification',
+      requestId: 'request-1',
+      invocationId: 'durable-invocation',
+      resultHash: `sha256:${'a'.repeat(64)}`,
+    };
+    const prepareAcceptance = vi.fn(() => Promise.resolve([constraint]));
+    const f = fixture({ ugvQualification: { prepareAcceptance } });
+    const prepared = await f.service.prepareAcceptance({
+      task: f.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: 'device.inspect',
+          versionConstraint: '1',
+          requestId: 'request-1',
+        },
+      },
+      capabilityInput: { deviceId: 'device-1' },
+      inputAttempt: f.inputAttempt,
+      bindingId: 'binding-1',
+      capabilityAttemptId: 'attempt-1',
+      initialAdmissionIdempotencyKey: 'request-1',
+      event: f.event,
+    });
+    expect(prepareAcceptance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'request-1',
+        boundAt: f.task.createdAt,
+        resolution: f.resolution,
+      }),
+    );
+    expect(prepared?.binding.constraintSnapshot).toEqual([...f.resolution.constraints, constraint]);
+    expect(prepared?.binding.inputSnapshot).toEqual({ deviceId: 'device-1' });
+    prepareAcceptance.mockRejectedValueOnce(new Error('exact receipt missing'));
+    await expect(
+      f.service.prepareAcceptance({
+        task: f.task,
+        metadata: {
+          'io.sdar/requestedCapability': {
+            exposureId: 'device.inspect',
+            versionConstraint: '1',
+            requestId: 'request-1',
+          },
+        },
+        capabilityInput: { deviceId: 'device-1' },
+        inputAttempt: f.inputAttempt,
+        bindingId: 'binding-1',
+        capabilityAttemptId: 'attempt-1',
+        event: f.event,
+      }),
+    ).rejects.toThrow('exact receipt missing');
+  });
   it('binds the initial confirmed Workflow plan to the prepared Capability attempt', async () => {
     const preparedFixture = await acceptedDefaultCapability();
 

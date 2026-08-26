@@ -14,7 +14,7 @@ export const UGV_AGENT_PROFILE_TASK_TYPE_ID = 'task-type.ugv-point-navigation' a
 const UGV_AGENT_PROFILE_TASK_TYPE = Object.freeze({
   taskTypeId: UGV_AGENT_PROFILE_TASK_TYPE_ID,
   version: 1,
-  title: 'Move the simulation UGV to one permitted WGS84 point',
+  title: 'Move the UGV to one permitted WGS84 point',
   recognitionHints: Object.freeze([
     '无人车移动到目标点',
     '无人车点导航',
@@ -60,6 +60,8 @@ export const UGV_AGENT_PROFILE_OPERATION_POLICY = Object.freeze({
 
 type UgvAgentProfileRuntimeConfigurationInput = Pick<
   ServerRuntimeOptions,
+  | 'ugvExecutionMode'
+  | 'runtimeBindingScope'
   | 'taskUnderstanding'
   | 'capabilityAuthorityReader'
   | 'currentMcpProviderBindingAuthorityReader'
@@ -96,7 +98,12 @@ export function assertUgvAgentProfileRuntimeConfiguration(
 ): void {
   const configuration = options.taskUnderstanding;
   if (configuration?.profile !== UGV_AGENT_PROFILE_ID) return;
-  if (options.evidenceEnvironment !== 'test' && options.evidenceEnvironment !== 'integration')
+  if (
+    options.ugvExecutionMode === 'live'
+      ? options.evidenceEnvironment !== 'development' ||
+        options.runtimeBindingScope?.environment !== 'development'
+      : options.evidenceEnvironment !== 'test' && options.evidenceEnvironment !== 'integration'
+  )
     throw new Error('UGV_AGENT_PROFILE_SIMULATION_ENVIRONMENT_REQUIRED');
   const taskType = configuration.taskTypes[0];
   if (

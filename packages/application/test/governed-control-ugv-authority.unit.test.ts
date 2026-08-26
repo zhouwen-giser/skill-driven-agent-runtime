@@ -212,6 +212,7 @@ describe('UGV governed-control profile authority', () => {
     expect(loadForPreInvocation).toHaveBeenCalledTimes(2);
     expect(assertAuthorized).toHaveBeenCalledTimes(2);
     expect(assertAuthorized).toHaveBeenCalledWith({
+      mode: 'simulation',
       taskId: authority.task.taskId,
       simulationId: 'ugv-simulation-1',
       selectedSnapshotHash: authority.selectedTaskOperation.snapshotHash,

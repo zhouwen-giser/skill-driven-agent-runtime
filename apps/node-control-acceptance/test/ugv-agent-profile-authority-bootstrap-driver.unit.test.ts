@@ -14,6 +14,7 @@ import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/sr
 import { NodeSkillPackageReader } from '../../../packages/skill-package-adapter/src/index.js';
 import {
   bootstrapUgvAgentProfileAuthority,
+  ugvAgentProfileAuthorityConfigurationFromEnvironment,
   type UgvAgentProfileAuthorityBootstrapReport,
   type UgvAgentProfileAuthorityBootstrapConfiguration,
   verifyUgvAgentProfileAuthority,
@@ -35,6 +36,87 @@ interface AuthorityProjectorModule {
 }
 
 describe('UGV Agent Profile authority bootstrap', () => {
+  it('uses explicit LIVE registry configuration, exact environment checks, and no simulation identity', async () => {
+    const { simulationRunId, ...base } = configuration();
+    void simulationRunId;
+    const config = {
+      ...base,
+      executionMode: 'live' as const,
+      nativeRegistryEndpoint: 'http://127.0.0.1:18092/api/v1/registry/development/latest',
+      providerEndpoint: 'http://127.0.0.1:19131/mcp',
+      source: {
+        ...base.source,
+        smppEnvironment: 'development',
+        registryEndpoint:
+          'http://127.0.0.1:18092/api/v1/registry/development/consumers/sdar/v1/sources/configured-live/latest',
+        smppSourceId: 'configured-live',
+      },
+      providerDisplayName: 'Configured live UGV',
+    };
+    const native = nativeRegistrySnapshot();
+    const document = {
+      ...(native['document'] as Record<string, unknown>),
+      environment: 'development',
+    };
+    const snapshot = {
+      ...native,
+      environment: 'development',
+      document,
+      checksum: sha(stable(document)),
+    };
+    const inventory = inventoryFetch({});
+    const fetchLive = vi.fn<typeof fetch>((input, init) =>
+      (input instanceof Request ? input.url : input.toString()) === config.nativeRegistryEndpoint
+        ? Promise.resolve(
+            json(snapshot, 200, {
+              etag: `"${snapshot.checksum}"`,
+              'cache-control': 'private, no-cache',
+            }),
+          )
+        : inventory(input, init),
+    );
+    const bootstrapSource = vi.fn<typeof bootstrapUgvSmppSource>(() =>
+      Promise.reject(new Error('STOP_AFTER_VERIFIED_LIVE_REGISTRY')),
+    );
+    const dependencies = {
+      fetch: fetchLive,
+      bootstrapSource,
+      materializeProviders: vi.fn<typeof materializeSmppProviders>(),
+      now: () => '2026-08-21T00:00:00.000Z',
+    };
+    await expect(bootstrapUgvAgentProfileAuthority(config, dependencies)).rejects.toThrow(
+      'STOP_AFTER_VERIFIED_LIVE_REGISTRY',
+    );
+    expect(bootstrapSource).toHaveBeenCalledWith(
+      expect.objectContaining({ smppSourceId: 'configured-live', smppEnvironment: 'development' }),
+      expect.anything(),
+    );
+    expect(
+      fetchLive.mock.calls.some(([input]) =>
+        (input instanceof Request ? input.url : input.toString()).includes('/registry/simulation/'),
+      ),
+    ).toBe(false);
+    await expect(
+      bootstrapUgvAgentProfileAuthority({ ...config, simulationRunId: 'fake' }, dependencies),
+    ).rejects.toMatchObject({ code: 'UAP_CONFIGURATION_INVALID' });
+    await expect(
+      bootstrapUgvAgentProfileAuthority(
+        { ...config, source: { ...config.source, smppEnvironment: 'simulation' } },
+        dependencies,
+      ),
+    ).rejects.toMatchObject({ code: 'UAP_CONFIGURATION_INVALID' });
+    await expect(
+      ugvAgentProfileAuthorityConfigurationFromEnvironment('bootstrap', {
+        SDAR_UGV_EXECUTION_MODE: 'LIVE',
+      }),
+    ).rejects.toMatchObject({ code: 'UAP_CONFIGURATION_INVALID' });
+    await expect(
+      ugvAgentProfileAuthorityConfigurationFromEnvironment('bootstrap', {
+        SDAR_UGV_EXECUTION_MODE: 'live',
+        UGV_SIMULATION_RUN_ID: '',
+      }),
+    ).rejects.toMatchObject({ code: 'UAP_CONFIGURATION_INVALID' });
+  });
   it('rejects rogue governance before Source or Provider mutation', async () => {
     const bootstrapSource = vi.fn<typeof bootstrapUgvSmppSource>();
     const materializeProviders = vi.fn<typeof materializeSmppProviders>();

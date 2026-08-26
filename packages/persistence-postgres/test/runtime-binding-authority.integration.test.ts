@@ -254,8 +254,19 @@ describe('WI070 actual PostgreSQL binding authority', () => {
     expect((await new PostgresRemoteTaskInputRepository(pool).findLink(oldOpen))?.status).toBe(
       'waiting',
     );
-    await answer(currentOpen, 'k');
-    expect((await new PostgresRemoteTaskInputRepository(pool).findLink(currentOpen))?.status).toBe(
+    const obsoleteAnswer = await prepareAnswer(currentOpen, 'k');
+    const replacement = await activate(await observe(['k']));
+    await expect(service().submitAnswer(currentOpen, obsoleteAnswer)).resolves.toEqual({
+      kind: 'not_dispatched',
+      reason: 'obsolete_input',
+    });
+    expect(sent).toEqual([]);
+    expect(await new PostgresRemoteTaskInputRepository(pool).listAttempts(currentOpen)).toEqual([]);
+    expect(
+      (await pool.query("SELECT phase FROM agent_task WHERE task_id='wi070-task'")).rows[0],
+    ).toEqual({ phase: 'awaiting_user_input' });
+    await answer(replacement, 'k');
+    expect((await new PostgresRemoteTaskInputRepository(pool).findLink(replacement))?.status).toBe(
       'update_acknowledged',
     );
     const echoed = await observe(['k'], true);

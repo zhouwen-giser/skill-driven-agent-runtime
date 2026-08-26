@@ -1,3 +1,4 @@
+import { createSelectedTaskOperation } from '../../../packages/domain/src/index.js';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -44,6 +45,17 @@ const POLICY = Object.freeze({
 });
 
 describe('UGV move durable Workflow evidence projection', () => {
+  it('projects LIVE durable contexts with absent remote mode and the same GNSS arrival gate', () => {
+    const f = evidenceFixture({ executionMode: 'live' });
+    expect(projectUgvMoveWorkflowEvidence(f).assessment.status).toBe('completed');
+    expect(
+      f.invocations.every((i) => i.executionMode === 'live' && i.simulationId === undefined),
+    ).toBe(true);
+    const wrong = f.invocations.map((i, index) =>
+      index === 0 ? { ...i, executionMode: 'simulation' as const, simulationId: 'wrong' } : i,
+    );
+    expect(() => projectUgvMoveWorkflowEvidence({ ...f, invocations: wrong })).toThrow();
+  });
   it('projects schema-valid Skill output only after exact 3-call and terminal position proof', () => {
     const fixture = evidenceFixture();
 
@@ -521,10 +533,26 @@ function terminalEvidenceFixture() {
   };
 }
 
-function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolResult }> = {}) {
-  const selectedTaskOperation = selectedUgvTaskOperation();
+function evidenceFixture(
+  overrides: Readonly<{ finalToolResult?: InternalToolResult; executionMode?: 'live' }> = {},
+) {
+  const original = selectedUgvTaskOperation();
+  const { snapshotHash, ...draft } = original;
+  void snapshotHash;
+  const selectedTaskOperation =
+    overrides.executionMode === 'live'
+      ? createSelectedTaskOperation({
+          ...draft,
+          execution: {
+            mode: 'live',
+            confirmation: 'existing_outer_plan_confirmation',
+            confirmationRequired: true,
+          },
+        })
+      : original;
   const confirmation = governedConfirmation(selectedTaskOperation);
   const initial = stateResult({
+    ...(overrides.executionMode === undefined ? {} : { executionMode: overrides.executionMode }),
     observedAt: '2026-08-21T11:59:59.000Z',
     revision: 'state-revision-100',
     cursor: 100,
@@ -533,6 +561,7 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
   const finalToolResult =
     overrides.finalToolResult ??
     stateResult({
+      ...(overrides.executionMode === undefined ? {} : { executionMode: overrides.executionMode }),
       observedAt: '2026-08-21T12:00:10.400Z',
       revision: 'state-revision-102',
       cursor: 102,
@@ -544,6 +573,9 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
     selectedTaskOperation,
     invocations: Object.freeze([
       invocation({
+        ...(overrides.executionMode === undefined
+          ? {}
+          : { executionMode: overrides.executionMode }),
         invocationId: 'invocation-initial',
         toolName: 'vehicle_get_state',
         arguments: selectedTaskOperation.finalStateRead.resolvedArguments,
@@ -553,6 +585,9 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
         semantics: selectedTaskOperation.finalStateRead.executionSemantics,
       }),
       invocation({
+        ...(overrides.executionMode === undefined
+          ? {}
+          : { executionMode: overrides.executionMode }),
         invocationId: 'invocation-navigate',
         toolName: 'vehicle_navigate',
         arguments: selectedTaskOperation.resolvedArguments,
@@ -563,6 +598,9 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
         confirmation,
       }),
       invocation({
+        ...(overrides.executionMode === undefined
+          ? {}
+          : { executionMode: overrides.executionMode }),
         invocationId: 'invocation-final',
         toolName: 'vehicle_get_state',
         arguments: selectedTaskOperation.finalStateRead.resolvedArguments,
@@ -572,7 +610,7 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
         semantics: selectedTaskOperation.finalStateRead.executionSemantics,
       }),
     ]),
-    remoteTaskLifecycle: Object.freeze([remoteLifecycle(terminal)]),
+    remoteTaskLifecycle: Object.freeze([remoteLifecycle(terminal, overrides.executionMode)]),
     confirmation,
     continuationAttempt: continuationAttempt(),
     finalToolResult,
@@ -583,6 +621,7 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
 
 function invocation(
   input: Readonly<{
+    executionMode?: 'live';
     invocationId: string;
     toolName: string;
     arguments: Readonly<Record<string, unknown>>;
@@ -606,8 +645,8 @@ function invocation(
           controlDispatchHash: input.confirmation.consumedDispatchHash,
         }),
     contextId: CONTEXT_ID,
-    executionMode: 'simulation',
-    simulationId: 'sim-uap-p2-b03',
+    executionMode: input.executionMode ?? 'simulation',
+    ...(input.executionMode === 'live' ? {} : { simulationId: 'sim-uap-p2-b03' }),
     serverId: 'ugv-runtime-1',
     toolName: input.toolName,
     executionSemantics: input.semantics,
@@ -639,6 +678,7 @@ function requiredLifecycle(
 
 function remoteLifecycle(
   resultSnapshot: InternalToolResult | undefined,
+  executionMode?: 'live',
 ): RemoteTaskLifecycleEvidence {
   const controlPayload = completedRemoteTaskSnapshot(resultSnapshot);
   return Object.freeze({
@@ -694,7 +734,11 @@ function remoteLifecycle(
       providerRevision: 'provider-revision-101',
       remoteRevision: 'provider-task-revision-101',
       localState: 'terminal_event_claimed' as const,
-      executionContext: Object.freeze({ mode: 'simulation', simulationId: 'sim-uap-p2-b03' }),
+      executionContext: Object.freeze(
+        executionMode === 'live'
+          ? { mode: 'live' }
+          : { mode: 'simulation', simulationId: 'sim-uap-p2-b03' },
+      ),
       authoritySnapshot: Object.freeze({
         schemaVersion: '1.0' as const,
         capturedAt: '2026-08-21T12:00:00.000Z',
@@ -884,6 +928,7 @@ function terminalResult(): InternalToolResult {
 
 function stateResult(
   input: Readonly<{
+    executionMode?: 'live';
     observedAt: string;
     revision: string;
     cursor: number;
@@ -897,7 +942,7 @@ function stateResult(
         providerId: 'isr.vehicle.ugv.ugv1',
         resourceId: 'vehicle:ugv1',
         vehicleType: 'ugv',
-        executionMode: 'simulation',
+        ...(input.executionMode === 'live' ? {} : { executionMode: 'simulation' }),
       }),
       connectivity: Object.freeze({ mqttConnected: true, deviceMcpConnected: true }),
       observedAt: input.observedAt,

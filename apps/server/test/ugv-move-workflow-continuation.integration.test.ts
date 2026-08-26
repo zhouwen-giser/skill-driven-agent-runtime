@@ -1104,7 +1104,12 @@ function remoteTaskBinding(
     runtimeRevision: 'runtime-revision-7',
     providerRevision: 'provider-revision-100',
     remoteRevision: 'provider-task-revision-100',
-    executionContext: { mode: 'simulation', simulationId: selected.execution.simulationId },
+    executionContext: {
+      mode: selected.execution.mode,
+      ...(selected.execution.simulationId === undefined
+        ? {}
+        : { simulationId: selected.execution.simulationId }),
+    },
     authoritySnapshot: Object.freeze({
       schemaVersion: '1.0' as const,
       capturedAt: '2026-08-21T12:00:00.000Z',

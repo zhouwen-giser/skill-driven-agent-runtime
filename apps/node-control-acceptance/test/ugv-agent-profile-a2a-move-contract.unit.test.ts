@@ -9,6 +9,7 @@ import {
   assertUgvB02PlanConfirmation,
   assertUgvB02QualificationToInitial,
   buildUgvB02FormalAdmission,
+  buildUgvLiveFormalAdmission,
   buildUgvB02PlanConfirmation,
   compareUgvB02DurableLineage,
   compareUgvB02ModelRuntime,
@@ -34,6 +35,51 @@ const MISSION_ID = 'mission-1';
 const TARGET = Object.freeze({ x: 120.000_01, y: 30, frame: 'WGS84' as const });
 
 describe('UAP-P3-B02 exact contracts', () => {
+  it('builds a LIVE formal request with exact durable reference and caller-owned target', () => {
+    const { simulationId, ...base } = qualification();
+    void simulationId;
+    const receipt = {
+      ...base,
+      requestId: 'live-request',
+      executionContext: { mode: 'live' as const },
+    };
+    const admission = buildUgvLiveFormalAdmission({
+      messageId: 'live-message',
+      idempotencyKey: 'live-request',
+      qualification: receipt,
+      target: TARGET,
+    });
+    expect(admission.message.metadata).toMatchObject({
+      user_id: 'ugv-live-requester',
+      structured_input: { resourceId: 'vehicle:ugv1', target: TARGET },
+      'io.sdar/ugvQualification': {
+        requestId: 'live-request',
+        invocationId: receipt.invocationId,
+        resultHash: receipt.resultHash,
+      },
+    });
+    expect(JSON.stringify(admission)).not.toContain('simulation');
+    expect(() =>
+      buildUgvLiveFormalAdmission({
+        messageId: 'live-message',
+        idempotencyKey: 'other',
+        qualification: receipt,
+        target: TARGET,
+      }),
+    ).toThrow('UGV_LIVE_QUALIFICATION_REQUEST_CONFLICT');
+    const malformedReceipt = {
+      ...receipt,
+      executionContext: { mode: 'live' as const, simulationId: '' },
+    };
+    expect(() =>
+      buildUgvLiveFormalAdmission({
+        messageId: 'live-message',
+        idempotencyKey: 'live-request',
+        qualification: malformedReceipt,
+        target: TARGET,
+      }),
+    ).toThrow();
+  });
   it('inherits the frozen B01 Exposure and rejects admission or confirmation shape drift', () => {
     expect(UGV_B02_EXPOSURE_ID).toBe(UAP_UGV_MOVE_EXPOSURE_ID);
     const admission = buildUgvB02FormalAdmission({

@@ -1083,7 +1083,7 @@ interface McpWarningRow extends QueryResultRow {
   acknowledged_at: Date | string | null;
 }
 
-interface McpInvocationRow extends QueryResultRow {
+export interface McpInvocationRow extends QueryResultRow {
   invocation_id: string;
   task_id: string | null;
   capability_attempt_id: string | null;
@@ -7970,7 +7970,7 @@ function mapMcpWarningRow(row: McpWarningRow): McpDependencyWarning {
   };
 }
 
-function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
+export function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
   return {
     invocationId: row.invocation_id,
     ...(row.task_id === null ? {} : { taskId: row.task_id }),

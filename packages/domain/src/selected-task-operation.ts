@@ -87,8 +87,8 @@ export interface SelectedTaskOperation {
     possibleEffects: readonly TaskAvailabilityPossibleEffect[];
   }>;
   readonly execution: Readonly<{
-    mode: 'simulation';
-    simulationId: string;
+    mode: 'live' | 'simulation';
+    simulationId?: string;
     confirmation: 'existing_outer_plan_confirmation';
     confirmationRequired: true;
   }>;
@@ -207,8 +207,11 @@ export function createSelectedTaskOperation(
     input.resource.resourceId !== 'vehicle:ugv1' ||
     !isExactNavigateArguments(input.resolvedArguments, input.resource.resourceId) ||
     different(input.server.protocolMode, 'frozen_v1') ||
-    different(input.execution.mode, 'simulation') ||
-    input.execution.simulationId.trim() === '' ||
+    !['live', 'simulation'].includes(input.execution.mode) ||
+    (input.execution.mode === 'live'
+      ? 'simulationId' in input.execution
+      : typeof input.execution.simulationId !== 'string' ||
+        input.execution.simulationId.trim() === '') ||
     different(input.execution.confirmation, 'existing_outer_plan_confirmation') ||
     different(input.execution.confirmationRequired, true) ||
     !hashesMatch ||

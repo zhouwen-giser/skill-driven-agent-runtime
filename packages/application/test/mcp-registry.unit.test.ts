@@ -1259,6 +1259,7 @@ describe('MCP Registry invocation boundary', () => {
     ]);
     expect(receipt.invocationId).toBe('invocation-deterministic-1');
     expect(enter).toHaveBeenCalledExactlyOnceWith({
+      authoritySnapshot: receipt.authoritySnapshot,
       dispatchId: 'invocation-deterministic-1',
       dispatchHash: createMcpProviderDispatchHash({
         invocationId: 'invocation-deterministic-1',

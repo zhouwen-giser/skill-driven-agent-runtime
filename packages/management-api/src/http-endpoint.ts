@@ -961,14 +961,26 @@ export interface ManagementHttpEndpointHandle {
 }
 
 export interface UgvSimulationQualificationOperation {
-  capture(input: Readonly<{ simulationId: string }>): Promise<unknown>;
+  capture(
+    input:
+      | Readonly<{ simulationId: string }>
+      | Readonly<{ requestId: string; executionContext: Readonly<{ mode: 'live' }> }>,
+  ): Promise<unknown>;
 }
 
-const UgvSimulationQualificationRequestSchema = z
-  .object({
-    simulationId: z.string().regex(/^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u),
-  })
-  .strict();
+const UgvSimulationQualificationRequestSchema = z.union([
+  z
+    .object({
+      simulationId: z.string().regex(/^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u),
+    })
+    .strict(),
+  z
+    .object({
+      requestId: z.string().regex(/^[A-Za-z0-9._-]{1,128}$/u),
+      executionContext: z.object({ mode: z.literal('live') }).strict(),
+    })
+    .strict(),
+]);
 
 type RuntimeEvidenceOperationsSurface = Pick<
   EvidenceOperationsService,

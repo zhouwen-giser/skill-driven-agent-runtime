@@ -1,0 +1,1061 @@
+{
+  "schemaVersion": "wi070-runtime-live-profile-implementation/v1",
+  "workItemId": "WI-070",
+  "createdAt": "2026-08-26T10:15:17.074681+00:00",
+  "owner": "sdar-runtime-wi070",
+  "agent": "/root/wi070_live_profile_finish",
+  "status": "IMPLEMENTED_LOCAL_CHECKS_PASSED_PENDING_INDEPENDENT_AND_POSTGRES_VERIFICATION",
+  "source": {
+    "repository": "skill-driven-agent-runtime",
+    "branch": "codex/live-dev-evaluation-chain-runtime-binding",
+    "baseCommit": "9839f0f90d364fa76416ca53de68b31f5bf40988",
+    "baseTree": "d00a520855e7fcfe11510160f28f27d018be6818",
+    "candidate": "The commit containing this report; exact commit/tree and detached pin are supplied by the phase handoff to avoid a self-referential hash.",
+    "changedSourceFileCount": 52,
+    "manifest": [
+      {
+        "path": "apps/node-control-acceptance/src/ugv-agent-profile-a2a-move-contract.ts",
+        "sha256": "sha256:245e67e0783efb72b382866627b294970dc45e26fc02596baf89737f99567037",
+        "bytes": 62025
+      },
+      {
+        "path": "apps/node-control-acceptance/src/ugv-agent-profile-authority-bootstrap-driver.ts",
+        "sha256": "sha256:7d25b6ba2aa76f7e87dd3a9bf9e2493558d5042c9578c2f29f451834d0bdaa9b",
+        "bytes": 148253
+      },
+      {
+        "path": "apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts",
+        "sha256": "sha256:a253164b1191ddede2e36163a2c17f973de49e6987a2ff85505201c46938544c",
+        "bytes": 30092
+      },
+      {
+        "path": "apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts",
+        "sha256": "sha256:b6533b64956f5ed5d4703da9449f79d77217098a83f928fc9a4ef77f48e92b98",
+        "bytes": 84082
+      },
+      {
+        "path": "apps/server/src/environment.ts",
+        "sha256": "sha256:013e62ee0d2dd1d7ba939926f4741ee566b42f02458483f7c1fbfe9ea34119f7",
+        "bytes": 19443
+      },
+      {
+        "path": "apps/server/src/main.ts",
+        "sha256": "sha256:6dc54a84fb26fe3518fca9ff980594bc9f29496965f55c61e158aba59738c820",
+        "bytes": 9099
+      },
+      {
+        "path": "apps/server/src/runtime.ts",
+        "sha256": "sha256:13124d53c0b13e505ab5b92485fc526595ae3f1e5009f3c1d490ddc9d1bba263",
+        "bytes": 320779
+      },
+      {
+        "path": "apps/server/src/ugv-agent-profile-admission.ts",
+        "sha256": "sha256:32776068cdc05a34b4b476839e1c26b53782ddd2fdec6f2dc10e7cad9e962422",
+        "bytes": 24517
+      },
+      {
+        "path": "apps/server/src/ugv-agent-profile.ts",
+        "sha256": "sha256:15e425488d34728ca9ed4fd6bc63355a13928a38308e6fa1cc52b41c8b48958b",
+        "bytes": 9589
+      },
+      {
+        "path": "apps/server/src/ugv-live-qualification.ts",
+        "sha256": "sha256:898ea314ccafab989a831ab8928c0ccfea110d24d4107b1f59406b8d7b945337",
+        "bytes": 11911
+      },
+      {
+        "path": "apps/server/src/ugv-move-binding.ts",
+        "sha256": "sha256:c3882452d63ebdb14e8933a6affebc40f554f0f62545dfd07e0105bafc972134",
+        "bytes": 41092
+      },
+      {
+        "path": "apps/server/src/ugv-move-position-result.ts",
+        "sha256": "sha256:1761d13aac8e7b8e11707116b3092f4371dfb03071c9361f7125091af7a43519",
+        "bytes": 19382
+      },
+      {
+        "path": "apps/server/src/ugv-move-skill-usage.ts",
+        "sha256": "sha256:953c4e5f9d5240e8b0a59177bae33d979309972d7ed195602642ed19a4fe18c0",
+        "bytes": 28655
+      },
+      {
+        "path": "apps/server/src/ugv-move-terminal-outcome.ts",
+        "sha256": "sha256:7b4a9309558b7ccd0d883e0c8d6301b210f7ced3eb5db2fafc474205c3962abc",
+        "bytes": 23171
+      },
+      {
+        "path": "apps/server/src/ugv-move-workflow-evidence.ts",
+        "sha256": "sha256:5b3957450ffd2ae810a40e6acfa65873abac7496ca822f46580476599cf3fbc6",
+        "bytes": 29418
+      },
+      {
+        "path": "apps/server/src/ugv-simulation-side-effect-gate.ts",
+        "sha256": "sha256:87cf14ec09afdb56f968f78332c2f489ff2d882b413a40f0ff7ba8b09aa15f75",
+        "bytes": 1989
+      },
+      {
+        "path": "apps/server/test/environment.unit.test.ts",
+        "sha256": "sha256:920b666eeae1eadf63c56c428ca45005a728b3bb7427c02893494a9cbd1dd6f8",
+        "bytes": 18445
+      },
+      {
+        "path": "apps/server/test/runtime-migration-selection.contract.test.ts",
+        "sha256": "sha256:35e6bdbb40337aee14f73e5b82059669bf32602a5b346b77f1d76e4a582cf3cd",
+        "bytes": 2365
+      },
+      {
+        "path": "apps/server/test/ugv-agent-profile.unit.test.ts",
+        "sha256": "sha256:a923926f644501addd5c745d03a1e78633a37229c69e0c4a86394b4584b78072",
+        "bytes": 11434
+      },
+      {
+        "path": "apps/server/test/ugv-move-binding.unit.test.ts",
+        "sha256": "sha256:8b65a268ad020ce5dc2efd8348e1daab53d88c15a36aa0199c9804c9511d6cf1",
+        "bytes": 44050
+      },
+      {
+        "path": "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+        "sha256": "sha256:91cc64220235a2e198c8d2436e59371b7e3a90d8b4adc39d6b641ea507f5e81b",
+        "bytes": 18992
+      },
+      {
+        "path": "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+        "sha256": "sha256:51ea4dda29e3992da6a2ae224756bd0511cc6e6a0aadce1e05e236ab45df46c0",
+        "bytes": 24348
+      },
+      {
+        "path": "apps/server/test/ugv-move-workflow-continuation.integration.test.ts",
+        "sha256": "sha256:50ca583f26f525f38917b891584a8cf5997e32d44c504fcb43ca2a7e6f045609",
+        "bytes": 47069
+      },
+      {
+        "path": "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+        "sha256": "sha256:6a090fab2c8b7a1bd0440dce989f6aa9fd174ca75879aa575455d26152ff17fd",
+        "bytes": 34977
+      },
+      {
+        "path": "apps/server/test/ugv-simulation-qualification.unit.test.ts",
+        "sha256": "sha256:b4153000c26e9f9c04889a3524af9040f8370ffb8ad0e4411975a08f77ea2e33",
+        "bytes": 21993
+      },
+      {
+        "path": "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+        "sha256": "sha256:9c04c0b78ac44995b76b979ee996ad555efd6029d15b3feb67203ea126763679",
+        "bytes": 2783
+      },
+      {
+        "path": "infra/postgres/migrations/0175_ugv_live_qualification.down.sql",
+        "sha256": "sha256:9c8e2e8e3a200cc746e8250bac6ea6d06c6a16f7ea522d8c3951bcbe11362398",
+        "bytes": 155
+      },
+      {
+        "path": "infra/postgres/migrations/0175_ugv_live_qualification.up.sql",
+        "sha256": "sha256:6c18ef42b42d6853693d9f630efdf55a04f5176405c0e38fd8d840c1d9eb4114",
+        "bytes": 1515
+      },
+      {
+        "path": "packages/application/src/governed-control-authority.ts",
+        "sha256": "sha256:c73ae0ead186438b117024344f6e1ebdc4298394f16b2e8c9e15ccadcb80e93e",
+        "bytes": 34590
+      },
+      {
+        "path": "packages/application/src/governed-control-ugv-authority.ts",
+        "sha256": "sha256:eb3b3470dad17c44bc1e5b90f96ced2ff90320e15a5d0b66e1dcffb53819ee07",
+        "bytes": 31969
+      },
+      {
+        "path": "packages/application/src/index.ts",
+        "sha256": "sha256:2721f09cb98a437c8fa9494c6fe7e02c0da9945bbd2c87c24de4f300ed5261a9",
+        "bytes": 3718
+      },
+      {
+        "path": "packages/application/src/mcp-registry.ts",
+        "sha256": "sha256:2d85e9aa0e30624067d9a47f99f4c4a18e0d4b172fde6ef3b6cec96460f3d0d6",
+        "bytes": 47860
+      },
+      {
+        "path": "packages/application/src/plan-preparation-processor.ts",
+        "sha256": "sha256:390c9842dfd987fc2bd7c3cbc8f7116e4e382de2867facef28fa4cb063ad302a",
+        "bytes": 45055
+      },
+      {
+        "path": "packages/application/src/remote-task-input.ts",
+        "sha256": "sha256:1098775ddd6f33f2ccfa64eaf318e072ffebf4458282b2376e0aa696ffde6a87",
+        "bytes": 15423
+      },
+      {
+        "path": "packages/application/src/task-capability.ts",
+        "sha256": "sha256:3d71ef74d68d601a89f70a384e3e594431558ae227f2f4b5142225ac5fce9c04",
+        "bytes": 64992
+      },
+      {
+        "path": "packages/application/src/ugv-live-qualification.ts",
+        "sha256": "sha256:0fbd35cc2fd8156028550f26ae4fcbfeabca219749ee19f911cb3dbdcd143ca9",
+        "bytes": 1842
+      },
+      {
+        "path": "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+        "sha256": "sha256:17f313555354ffa8a7b7b1023a7a4b3c29b6b4d2b92bba10c057c5bc40c8ad80",
+        "bytes": 31156
+      },
+      {
+        "path": "packages/application/test/mcp-registry.unit.test.ts",
+        "sha256": "sha256:a8683fb806315e62a133b73635c2d218ecd5a6622f5c96d742b3e3559fc30425",
+        "bytes": 68144
+      },
+      {
+        "path": "packages/application/test/plan-preparation-processor.unit.test.ts",
+        "sha256": "sha256:527eb54cc9a32328a74242cca4d8dd06698d916d4a9ed03020f4c6f9c362a4f8",
+        "bytes": 29833
+      },
+      {
+        "path": "packages/application/test/remote-task-input.unit.test.ts",
+        "sha256": "sha256:8b2b51832ed3b032b386453de673bb8c49b7a6a40f62a6419440a7d25c0cfc3e",
+        "bytes": 39672
+      },
+      {
+        "path": "packages/application/test/task-capability.unit.test.ts",
+        "sha256": "sha256:160b1dcd4058266ac3f072f017091b6b1901bcdff8d007fbb736f166df6f4d88",
+        "bytes": 71795
+      },
+      {
+        "path": "packages/domain/src/selected-task-operation.ts",
+        "sha256": "sha256:0d6e5cba198db007da6d651580dbce7fd9e91a167f59c1369ded68e42dd11eb9",
+        "bytes": 14487
+      },
+      {
+        "path": "packages/management-api/src/http-endpoint.ts",
+        "sha256": "sha256:1ab5764689e0ed417c3c39cec866926feb6fc2d10d4dae3e7ccc47771287efe5",
+        "bytes": 189521
+      },
+      {
+        "path": "packages/management-api/test/http-endpoint.contract.test.ts",
+        "sha256": "sha256:e34588cb959fa24dada3b393949cb1504dda09b0b3c9d3881de0252098df8565",
+        "bytes": 203658
+      },
+      {
+        "path": "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+        "sha256": "sha256:1e5d6b1067d7899d85604c4452a93a8653c477ef77dc602c343ac50dd2dfb3bf",
+        "bytes": 63482
+      },
+      {
+        "path": "packages/persistence-postgres/src/index.ts",
+        "sha256": "sha256:57c75dcd48a88a354940b33ca7bec182055a14738bd0182497b9f3924189a036",
+        "bytes": 974
+      },
+      {
+        "path": "packages/persistence-postgres/src/repositories.ts",
+        "sha256": "sha256:58975db2ce4bb1a6806aadbcd78282b0848c513b4b43a2834ae0f71bc16481dd",
+        "bytes": 303329
+      },
+      {
+        "path": "packages/persistence-postgres/src/ugv-live-qualification-store.ts",
+        "sha256": "sha256:ef08ef217916de7cc66d64be6c0c6e7ac231fc26cf9101b5952629ea4a2008ef",
+        "bytes": 4751
+      },
+      {
+        "path": "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+        "sha256": "sha256:a4f73afcc807c4a67c8ff50c023d55e41a4c7c2d95b2775fb0735273c31e8425",
+        "bytes": 37794
+      },
+      {
+        "path": "packages/persistence-postgres/test/ugv-live-qualification.integration.test.ts",
+        "sha256": "sha256:7f648a0e278524f1e255116938fd371242fef565f8cf7cc375bb11d0e034529d",
+        "bytes": 7135
+      },
+      {
+        "path": "scripts/reset-v141-database.mjs",
+        "sha256": "sha256:13f8d753355ac6bf9bde726b47acd8c225629e94521dbc7c644ff52039844ef3",
+        "bytes": 2544
+      },
+      {
+        "path": "scripts/verify-migration-path.mjs",
+        "sha256": "sha256:fb60be2f5cd86af61e838fa9468ee2873949720f5e2a285096f094aebcca139d",
+        "bytes": 73525
+      }
+    ]
+  },
+  "transfer": {
+    "predecessorMaterial": {
+      "path": "reports/wi070-runtime-live-implementation-interim-20260826T100113Z.json",
+      "sha256": "sha256:2a06a3afbd143e746d350db505c477c07beff85dcd3bd9f29828ebcb8b5f4c3a",
+      "bytes": 40349
+    },
+    "verifiedDirtyFiles": 47,
+    "verifiedTrackedBinaryDiffSha256": "sha256:8545991c56a8e3011b47eff2d03256f91ec8c3a931fca39a90e42835554d5607",
+    "formalHandoff": "handoffs/WI-070/sdar-runtime-live-implementation-interim-root-20260826T100319Z.json",
+    "formalHandoffSha256": "sha256:58b61aaaa1d402c2842f41eb6d41e369e2d0b754ae2438f2fd92fda160aeb9dc"
+  },
+  "authority": {
+    "contract": "contracts/runtime-provider-binding.v1.json",
+    "contractSha256": "sha256:9861742fa0480bd07a851741715f8c9e5d8401885c19ec3a6e89c341ac710edb",
+    "decision": "decisions/DEC-G04-EXTERNAL-UGV-LIVE-PROFILE.md",
+    "decisionSha256": "sha256:6ea4e35ef78e1799f665a5205881173290fbd064fe9c05e072cc11bd153fae74",
+    "requiredBindingFields": 20,
+    "frozenContractChanged": false,
+    "sourceLockChanged": false,
+    "qualificationIsBindingAuthority": false
+  },
+  "implementation": [
+    "Persist taskless LIVE qualification request reservation, exact invocation join, pre-transport authority snapshot/dispatch hash and canonical result hash in new migration0175. Completed duplicate requests recover their exact receipt; dispatching/uncertain requests cannot redispatch.",
+    "Use strict live request/context without any simulationId. Capture actual remote fields unchanged; absent remote executionMode stays absent. Explicit wrong mode, stale/missing receipt, changed request/hash/binding and caller qualification constraints fail closed.",
+    "Freeze server-produced receipt constraint during formal Task Capability admission and validate that same durable receipt during Skill selection, planning and current governed authority. Preserve caller-owned WGS84 target input, targetAuthority=task_capability_input_snapshot and targetDerivation=forbidden.",
+    "Propagate explicit live mode through existing model-free A2A/Goal/Skill/Workflow/MCP path, current authorization and terminal/GPS evidence. Keep resource/provider/registry/availability/busy/fault/confirmation and freshness3000/5000/1000ms guards and at-most-once uncertainty behavior.",
+    "Complete explicit LIVE configuration and configuration-derived existing authority bootstrap/formal admission builder; retain actual simulation branch. No user target or external endpoint became a product default.",
+    "Resolve prior9839 queued-answer P2 with typed not_dispatched/obsolete_input. An unsent superseded answer cannot send wire or fail the healthy Runtime Task; missing binding, invalid answer, actual outcome persistence/CAS and transport uncertainty semantics are preserved.",
+    "Extend existing two replacement-order regressions through real TaskService followUp/answerAndCreateAttempt/queue and real PlanPreparationProcessor using an in-memory answer repository plus existing SQL query double; this is not real SQL evidence. Extend existing five-case PG lifecycle with obsolete-answer/no-wire/no-ACK/current-input checks.",
+    "Include0174/0175 in existing reset-v141/verify-migration-path script selectors and0175 in Runtime migration router and ledger-pair fixture. These are directly coupled selector edits; neither database script was executed."
+  ],
+  "interfaces": {
+    "qualification": {
+      "method": "POST",
+      "path": "/internal/v1/ugv-agent-profile/qualification-state",
+      "body": {
+        "requestId": "[A-Za-z0-9._-]{1,128}",
+        "executionContext": {
+          "mode": "live"
+        }
+      },
+      "receiptFields": [
+        "requestId",
+        "executionContext",
+        "invocationId",
+        "resultHash",
+        "completedAt",
+        "observedAt",
+        "revision",
+        "mqttIngressSequence",
+        "serverId",
+        "providerBindingId",
+        "providerId",
+        "operationName",
+        "resourceId",
+        "sourcePosition"
+      ],
+      "operationName": "vehicle_get_state",
+      "resourceId": "vehicle:ugv1",
+      "noSimulationId": true,
+      "duplicate": "Return only the original completed durable receipt; freshness still rechecked for admission."
+    },
+    "formalAdmission": {
+      "module": "apps/node-control-acceptance/src/ugv-agent-profile-a2a-move-contract.ts",
+      "export": "buildUgvLiveFormalAdmission",
+      "arguments": [
+        "messageId",
+        "idempotencyKey",
+        "qualification",
+        "target"
+      ],
+      "requestEquality": "qualification.requestId == idempotencyKey == requestedCapability.requestId",
+      "metadata": "io.sdar/ugvQualification:{requestId,invocationId,resultHash}",
+      "caller": "ugv-live-requester",
+      "target": "Explicit caller/run input only: x=longitude,y=latitude,frame=WGS84. stopOnObstacle remains true."
+    },
+    "environment": {
+      "SDAR_TASK_UNDERSTANDING_PROFILE": "ugv-agent-profile",
+      "SDAR_UGV_EXECUTION_MODE": "live",
+      "ALLOW_UGV_LIVE_SIDE_EFFECTS": "YES",
+      "NODE_ENV": "development",
+      "SDAR_CONTROL_ENVIRONMENT": "development",
+      "SDAR_MCP_LIVE_EXECUTION_MODE_HEADER": "emit",
+      "SDAR_UGV_REAL_MODEL_ENABLED": "NO",
+      "SDAR_RUNTIME_TENANT_ID": "explicit, controller planned global",
+      "SDAR_RUNTIME_PROJECT_ID": "explicit, controller planned global"
+    },
+    "bootstrap": {
+      "executionMode": "live",
+      "nativeRegistryEndpoint": "explicit; env SMPP_NATIVE_REGISTRY_ENDPOINT",
+      "providerEndpoint": "explicit; env SMPP_UGV_PROVIDER_ENDPOINT",
+      "source": "Existing explicit source configuration including development environment and actual registry identity; simulationRunId forbidden. Canonical run source comes from run config, no hardcoded device identity."
+    },
+    "sequence": "Complete all bootstrap/registry/setup before final exact durable qualification; immediately submit initial formal admission and normal confirmation once. Do not widen 3000ms admission/planning freshness to compensate for setup. Health5000ms/future-skew1000ms unchanged. No automatic uncertain replay/cancel."
+  },
+  "verification": {
+    "finalChecks": [
+      {
+        "command": [
+          "./node_modules/.bin/vitest",
+          "run",
+          "apps/server/test/ugv-simulation-qualification.unit.test.ts",
+          "apps/server/test/ugv-move-binding.unit.test.ts",
+          "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+          "apps/server/test/ugv-agent-profile-admission.unit.test.ts",
+          "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+          "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+          "apps/server/test/ugv-move-position-result.unit.test.ts",
+          "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+          "apps/server/test/ugv-agent-profile.unit.test.ts",
+          "apps/server/test/environment.unit.test.ts",
+          "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+          "packages/application/test/mcp-registry.unit.test.ts",
+          "packages/application/test/remote-task-input.unit.test.ts",
+          "packages/application/test/plan-preparation-processor.unit.test.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts",
+          "packages/application/test/task-capability.unit.test.ts",
+          "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "--reporter=json",
+          "--outputFile=reports/wi070-live-finish-focused.json",
+          "--cache=false"
+        ],
+        "startedAt": "2026-08-26T10:12:12.085365+00:00",
+        "sourceSelectorSha256": "2ee4063e7d67818d21dbf613a1c66957222ddda50f12636641db9bdc74ae5ecd",
+        "completedAt": "2026-08-26T10:12:53.979930+00:00",
+        "exitCode": 0,
+        "executionReceipt": {
+          "path": "reports/wi070-live-finish-focused-execution.json",
+          "sha256": "sha256:6a98da1afde30f86107bf075fac8302152638df6065bc37a05ea4859e503e8b3",
+          "bytes": 1583
+        },
+        "results": {
+          "numTotalTests": 459,
+          "numPassedTests": 459,
+          "numFailedTests": 0,
+          "numPendingTests": 0,
+          "success": true
+        },
+        "files": 18,
+        "report": {
+          "path": "reports/wi070-live-finish-focused.json",
+          "sha256": "sha256:1436ded507b98bf7733d3295fce5a32c99b80628da59f2091dfb45ed3b392714",
+          "bytes": 171501
+        },
+        "rawLog": {
+          "path": "reports/wi070-live-finish-focused.log",
+          "sha256": "sha256:5f1a512cfbb5f3018ff904105b3ac2bf0b883179b2cd378283f26721a30c7c19",
+          "bytes": 157
+        },
+        "check": "focused"
+      },
+      {
+        "command": [
+          "./node_modules/.bin/tsc",
+          "-p",
+          "tsconfig.json",
+          "--noEmit",
+          "--pretty",
+          "false"
+        ],
+        "startedAt": "2026-08-26T10:12:12.167909+00:00",
+        "completedAt": "2026-08-26T10:13:18.644585+00:00",
+        "exitCode": 0,
+        "executionReceipt": {
+          "path": "reports/wi070-live-finish-typecheck-execution.json",
+          "sha256": "sha256:d1f6e3c0cbaa5d2ff8a7be94c2beddd0e44f70d6301a0afbb79ffabd210c405c",
+          "bytes": 250
+        },
+        "rawLog": {
+          "path": "reports/wi070-live-finish-typecheck-final.log",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "check": "typecheck"
+      },
+      {
+        "command": [
+          "./node_modules/.bin/eslint",
+          "apps/node-control-acceptance/src/ugv-agent-profile-a2a-move-contract.ts",
+          "apps/node-control-acceptance/src/ugv-agent-profile-authority-bootstrap-driver.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts",
+          "apps/server/src/environment.ts",
+          "apps/server/src/main.ts",
+          "apps/server/src/runtime.ts",
+          "apps/server/src/ugv-agent-profile-admission.ts",
+          "apps/server/src/ugv-agent-profile.ts",
+          "apps/server/src/ugv-live-qualification.ts",
+          "apps/server/src/ugv-move-binding.ts",
+          "apps/server/src/ugv-move-position-result.ts",
+          "apps/server/src/ugv-move-skill-usage.ts",
+          "apps/server/src/ugv-move-terminal-outcome.ts",
+          "apps/server/src/ugv-move-workflow-evidence.ts",
+          "apps/server/src/ugv-simulation-side-effect-gate.ts",
+          "apps/server/test/environment.unit.test.ts",
+          "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "apps/server/test/ugv-agent-profile.unit.test.ts",
+          "apps/server/test/ugv-move-binding.unit.test.ts",
+          "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+          "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+          "apps/server/test/ugv-move-workflow-continuation.integration.test.ts",
+          "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+          "apps/server/test/ugv-simulation-qualification.unit.test.ts",
+          "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+          "packages/application/src/governed-control-authority.ts",
+          "packages/application/src/governed-control-ugv-authority.ts",
+          "packages/application/src/index.ts",
+          "packages/application/src/mcp-registry.ts",
+          "packages/application/src/plan-preparation-processor.ts",
+          "packages/application/src/remote-task-input.ts",
+          "packages/application/src/task-capability.ts",
+          "packages/application/src/ugv-live-qualification.ts",
+          "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+          "packages/application/test/mcp-registry.unit.test.ts",
+          "packages/application/test/plan-preparation-processor.unit.test.ts",
+          "packages/application/test/remote-task-input.unit.test.ts",
+          "packages/application/test/task-capability.unit.test.ts",
+          "packages/domain/src/selected-task-operation.ts",
+          "packages/management-api/src/http-endpoint.ts",
+          "packages/management-api/test/http-endpoint.contract.test.ts",
+          "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+          "packages/persistence-postgres/src/index.ts",
+          "packages/persistence-postgres/src/repositories.ts",
+          "packages/persistence-postgres/src/ugv-live-qualification-store.ts",
+          "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+          "packages/persistence-postgres/test/ugv-live-qualification.integration.test.ts",
+          "scripts/reset-v141-database.mjs",
+          "scripts/verify-migration-path.mjs"
+        ],
+        "startedAt": "2026-08-26T10:12:12.104890+00:00",
+        "completedAt": "2026-08-26T10:13:08.919252+00:00",
+        "exitCode": 0,
+        "executionReceipt": {
+          "path": "reports/wi070-live-finish-lint-execution.json",
+          "sha256": "sha256:fa63929b8b79fb5ef45154b2f14de8d53320a984985adeda1a853e4640a9bf99",
+          "bytes": 3173
+        },
+        "rawLog": {
+          "path": "reports/wi070-live-finish-lint-final.log",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "check": "lint"
+      },
+      {
+        "command": [
+          "./node_modules/.bin/prettier",
+          "--check",
+          "apps/node-control-acceptance/src/ugv-agent-profile-a2a-move-contract.ts",
+          "apps/node-control-acceptance/src/ugv-agent-profile-authority-bootstrap-driver.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts",
+          "apps/server/src/environment.ts",
+          "apps/server/src/main.ts",
+          "apps/server/src/runtime.ts",
+          "apps/server/src/ugv-agent-profile-admission.ts",
+          "apps/server/src/ugv-agent-profile.ts",
+          "apps/server/src/ugv-live-qualification.ts",
+          "apps/server/src/ugv-move-binding.ts",
+          "apps/server/src/ugv-move-position-result.ts",
+          "apps/server/src/ugv-move-skill-usage.ts",
+          "apps/server/src/ugv-move-terminal-outcome.ts",
+          "apps/server/src/ugv-move-workflow-evidence.ts",
+          "apps/server/src/ugv-simulation-side-effect-gate.ts",
+          "apps/server/test/environment.unit.test.ts",
+          "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "apps/server/test/ugv-agent-profile.unit.test.ts",
+          "apps/server/test/ugv-move-binding.unit.test.ts",
+          "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+          "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+          "apps/server/test/ugv-move-workflow-continuation.integration.test.ts",
+          "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+          "apps/server/test/ugv-simulation-qualification.unit.test.ts",
+          "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+          "packages/application/src/governed-control-authority.ts",
+          "packages/application/src/governed-control-ugv-authority.ts",
+          "packages/application/src/index.ts",
+          "packages/application/src/mcp-registry.ts",
+          "packages/application/src/plan-preparation-processor.ts",
+          "packages/application/src/remote-task-input.ts",
+          "packages/application/src/task-capability.ts",
+          "packages/application/src/ugv-live-qualification.ts",
+          "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+          "packages/application/test/mcp-registry.unit.test.ts",
+          "packages/application/test/plan-preparation-processor.unit.test.ts",
+          "packages/application/test/remote-task-input.unit.test.ts",
+          "packages/application/test/task-capability.unit.test.ts",
+          "packages/domain/src/selected-task-operation.ts",
+          "packages/management-api/src/http-endpoint.ts",
+          "packages/management-api/test/http-endpoint.contract.test.ts",
+          "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+          "packages/persistence-postgres/src/index.ts",
+          "packages/persistence-postgres/src/repositories.ts",
+          "packages/persistence-postgres/src/ugv-live-qualification-store.ts",
+          "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+          "packages/persistence-postgres/test/ugv-live-qualification.integration.test.ts",
+          "scripts/reset-v141-database.mjs",
+          "scripts/verify-migration-path.mjs"
+        ],
+        "startedAt": "2026-08-26T10:12:48.822697+00:00",
+        "completedAt": "2026-08-26T10:12:59.852507+00:00",
+        "exitCode": 0,
+        "executionReceipt": {
+          "path": "reports/wi070-live-finish-format-check-execution.json",
+          "sha256": "sha256:635122ce2859cfbd2556abffaf6e65e6131e61f9c42013d9273773420525da80",
+          "bytes": 3190
+        },
+        "rawLog": {
+          "path": "reports/wi070-live-finish-format-check.log",
+          "sha256": "sha256:17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+          "bytes": 66
+        },
+        "check": "format-check"
+      },
+      {
+        "command": [
+          "./node_modules/.bin/vitest",
+          "run",
+          "packages/management-api/test/http-endpoint.contract.test.ts",
+          "--testNamePattern",
+          "keeps UGV qualification bearer-protected and unavailable outside the composed Profile|admits only the exact B02 run shape into the composed UGV qualification operation|admits only the exact LIVE request into the composed UGV qualification operation",
+          "--reporter=json",
+          "--outputFile=reports/wi070-live-finish-http-escalated.json",
+          "--cache=false"
+        ],
+        "startedAt": "2026-08-26T10:13:36.684593+00:00",
+        "reason": "Sandbox EPERM on ephemeral 127.0.0.1 test listener; rerun of exactly three injected qualification cases",
+        "completedAt": "2026-08-26T10:13:41.322901+00:00",
+        "exitCode": 0,
+        "executionReceipt": {
+          "path": "reports/wi070-live-finish-http-escalated-execution.json",
+          "sha256": "sha256:837bdb0f42b8b132250792e5e665b33c858f3fef0577b80f80f5ec260481a86f",
+          "bytes": 765
+        },
+        "results": {
+          "numTotalTests": 80,
+          "numPassedTests": 3,
+          "numFailedTests": 0,
+          "numPendingTests": 77,
+          "success": true
+        },
+        "files": 1,
+        "report": {
+          "path": "reports/wi070-live-finish-http-escalated.json",
+          "sha256": "sha256:fb2644af7466d6d0f54a8c4ca3544d6dc233714c0049b7d8d7680eae7b79aa53",
+          "bytes": 25735
+        },
+        "rawLog": {
+          "path": "reports/wi070-live-finish-http-escalated.log",
+          "sha256": "sha256:d3fe250ed5ff6b8c5e619dbe43724f01a156eda42e6ff43c6181343b050ed0a8",
+          "bytes": 164
+        },
+        "check": "http-escalated"
+      }
+    ],
+    "focusedScope": "18 files,459 tests, all passed; no real database or device.",
+    "httpScope": "Exactly three qualification cases selected by explicit testNamePattern.3 passed;77 unselected. Full HTTP suite not run. Injected service, ephemeral127.0.0.1 only, no external endpoint.",
+    "diffCheck": {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0
+    },
+    "scopedStaticFiles": [
+      "apps/node-control-acceptance/src/ugv-agent-profile-a2a-move-contract.ts",
+      "apps/node-control-acceptance/src/ugv-agent-profile-authority-bootstrap-driver.ts",
+      "apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts",
+      "apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts",
+      "apps/server/src/environment.ts",
+      "apps/server/src/main.ts",
+      "apps/server/src/runtime.ts",
+      "apps/server/src/ugv-agent-profile-admission.ts",
+      "apps/server/src/ugv-agent-profile.ts",
+      "apps/server/src/ugv-live-qualification.ts",
+      "apps/server/src/ugv-move-binding.ts",
+      "apps/server/src/ugv-move-position-result.ts",
+      "apps/server/src/ugv-move-skill-usage.ts",
+      "apps/server/src/ugv-move-terminal-outcome.ts",
+      "apps/server/src/ugv-move-workflow-evidence.ts",
+      "apps/server/src/ugv-simulation-side-effect-gate.ts",
+      "apps/server/test/environment.unit.test.ts",
+      "apps/server/test/runtime-migration-selection.contract.test.ts",
+      "apps/server/test/ugv-agent-profile.unit.test.ts",
+      "apps/server/test/ugv-move-binding.unit.test.ts",
+      "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+      "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+      "apps/server/test/ugv-move-workflow-continuation.integration.test.ts",
+      "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+      "apps/server/test/ugv-simulation-qualification.unit.test.ts",
+      "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+      "packages/application/src/governed-control-authority.ts",
+      "packages/application/src/governed-control-ugv-authority.ts",
+      "packages/application/src/index.ts",
+      "packages/application/src/mcp-registry.ts",
+      "packages/application/src/plan-preparation-processor.ts",
+      "packages/application/src/remote-task-input.ts",
+      "packages/application/src/task-capability.ts",
+      "packages/application/src/ugv-live-qualification.ts",
+      "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+      "packages/application/test/mcp-registry.unit.test.ts",
+      "packages/application/test/plan-preparation-processor.unit.test.ts",
+      "packages/application/test/remote-task-input.unit.test.ts",
+      "packages/application/test/task-capability.unit.test.ts",
+      "packages/domain/src/selected-task-operation.ts",
+      "packages/management-api/src/http-endpoint.ts",
+      "packages/management-api/test/http-endpoint.contract.test.ts",
+      "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+      "packages/persistence-postgres/src/index.ts",
+      "packages/persistence-postgres/src/repositories.ts",
+      "packages/persistence-postgres/src/ugv-live-qualification-store.ts",
+      "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+      "packages/persistence-postgres/test/ugv-live-qualification.integration.test.ts",
+      "scripts/reset-v141-database.mjs",
+      "scripts/verify-migration-path.mjs"
+    ],
+    "intermediateChecks": [
+      {
+        "actor": "predecessor",
+        "status": "FAILED",
+        "command": "./node_modules/.bin/vitest run <selectors> --reporter=json --outputFile=reports/wi070-live-focused-first.json --cache=false > reports/wi070-live-focused-first.log 2>&1",
+        "selectors": [
+          "apps/server/test/ugv-simulation-qualification.unit.test.ts",
+          "apps/server/test/ugv-move-binding.unit.test.ts",
+          "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+          "apps/server/test/ugv-agent-profile-admission.unit.test.ts",
+          "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+          "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+          "apps/server/test/ugv-move-position-result.unit.test.ts",
+          "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+          "apps/server/test/ugv-agent-profile.unit.test.ts",
+          "apps/server/test/environment.unit.test.ts",
+          "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+          "packages/application/test/mcp-registry.unit.test.ts",
+          "packages/application/test/remote-task-input.unit.test.ts",
+          "packages/application/test/plan-preparation-processor.unit.test.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts"
+        ],
+        "total": 405,
+        "passed": 399,
+        "failed": 6,
+        "exitCode": 1,
+        "receipt": {
+          "path": "reports/wi070-live-focused-first.json",
+          "sha256": "sha256:37ab4b87f1a19a7468e5a554f28e1bd5621b55bcd959f666177049ca06ab49aa",
+          "bytes": 162739
+        },
+        "disposition": "Assertion expectations corrected before predecessor stop; covered by successor final459 run."
+      },
+      {
+        "actor": "predecessor",
+        "command": "./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false",
+        "sessionId": 91212,
+        "exitCode": 2,
+        "log": "reports/wi070-live-typecheck-first.log",
+        "errors": "Missing new binding error union member, optional simulationId/selected mode typing, renamed gate import; patched.",
+        "raw": {
+          "path": "reports/wi070-live-typecheck-first.log",
+          "sha256": "sha256:b72036be5d7cfff2a33c29c214a21210c89ff51bbc8b65d4986f737770e0794d",
+          "bytes": 2630
+        }
+      },
+      {
+        "actor": "predecessor",
+        "command": "./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false",
+        "sessionId": 45090,
+        "exitCode": 2,
+        "log": "reports/wi070-live-typecheck-second.log",
+        "errors": "One remaining integration fixture optional simulationId typing error at ugv-move-workflow-continuation.integration.test.ts:1107; patched. No third typecheck.",
+        "raw": {
+          "path": "reports/wi070-live-typecheck-second.log",
+          "sha256": "sha256:b2228bd8d9bfe3b0ad3cec96e3932fcce4670bc6dd17af177e98fe2f27b04cd6",
+          "bytes": 496
+        }
+      },
+      {
+        "actor": "successor",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "-p",
+          "tsconfig.json",
+          "--noEmit",
+          "--pretty",
+          "false"
+        ],
+        "exitCode": 2,
+        "raw": {
+          "path": "reports/wi070-live-finish-typecheck-first.log",
+          "sha256": "sha256:f0368bbf1e97449cb1490b267de9db060a6a48f2b1ecd6be67da58ef506657a1",
+          "bytes": 1328
+        },
+        "disposition": "Three test typing errors corrected; no checks disabled."
+      },
+      {
+        "actor": "successor",
+        "command": [
+          "./node_modules/.bin/tsc",
+          "-p",
+          "tsconfig.json",
+          "--noEmit",
+          "--pretty",
+          "false"
+        ],
+        "exitCode": 0,
+        "raw": {
+          "path": "reports/wi070-live-finish-typecheck-second.log",
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "disposition": "Intermediate success; later final typecheck covers final source."
+      },
+      {
+        "actor": "successor",
+        "command": [
+          "./node_modules/.bin/eslint",
+          "apps/node-control-acceptance/src/ugv-agent-profile-a2a-move-contract.ts",
+          "apps/node-control-acceptance/src/ugv-agent-profile-authority-bootstrap-driver.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-a2a-move-contract.unit.test.ts",
+          "apps/node-control-acceptance/test/ugv-agent-profile-authority-bootstrap-driver.unit.test.ts",
+          "apps/server/src/environment.ts",
+          "apps/server/src/main.ts",
+          "apps/server/src/runtime.ts",
+          "apps/server/src/ugv-agent-profile-admission.ts",
+          "apps/server/src/ugv-agent-profile.ts",
+          "apps/server/src/ugv-live-qualification.ts",
+          "apps/server/src/ugv-move-binding.ts",
+          "apps/server/src/ugv-move-position-result.ts",
+          "apps/server/src/ugv-move-skill-usage.ts",
+          "apps/server/src/ugv-move-terminal-outcome.ts",
+          "apps/server/src/ugv-move-workflow-evidence.ts",
+          "apps/server/src/ugv-simulation-side-effect-gate.ts",
+          "apps/server/test/environment.unit.test.ts",
+          "apps/server/test/runtime-migration-selection.contract.test.ts",
+          "apps/server/test/ugv-agent-profile.unit.test.ts",
+          "apps/server/test/ugv-move-binding.unit.test.ts",
+          "apps/server/test/ugv-move-skill-usage.unit.test.ts",
+          "apps/server/test/ugv-move-terminal-outcome.unit.test.ts",
+          "apps/server/test/ugv-move-workflow-continuation.integration.test.ts",
+          "apps/server/test/ugv-move-workflow-evidence.unit.test.ts",
+          "apps/server/test/ugv-simulation-qualification.unit.test.ts",
+          "apps/server/test/ugv-simulation-side-effect-gate.unit.test.ts",
+          "packages/application/src/governed-control-authority.ts",
+          "packages/application/src/governed-control-ugv-authority.ts",
+          "packages/application/src/index.ts",
+          "packages/application/src/mcp-registry.ts",
+          "packages/application/src/plan-preparation-processor.ts",
+          "packages/application/src/remote-task-input.ts",
+          "packages/application/src/task-capability.ts",
+          "packages/application/src/ugv-live-qualification.ts",
+          "packages/application/test/governed-control-ugv-authority.unit.test.ts",
+          "packages/application/test/mcp-registry.unit.test.ts",
+          "packages/application/test/remote-task-input.unit.test.ts",
+          "packages/application/test/task-capability.unit.test.ts",
+          "packages/domain/src/selected-task-operation.ts",
+          "packages/management-api/src/http-endpoint.ts",
+          "packages/persistence-postgres/src/governed-control-authority-repository.ts",
+          "packages/persistence-postgres/src/index.ts",
+          "packages/persistence-postgres/src/repositories.ts",
+          "packages/persistence-postgres/src/ugv-live-qualification-store.ts",
+          "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+          "packages/persistence-postgres/test/ugv-live-qualification.integration.test.ts",
+          "scripts/reset-v141-database.mjs",
+          "scripts/verify-migration-path.mjs"
+        ],
+        "exitCode": 1,
+        "errors": 15,
+        "raw": {
+          "path": "reports/wi070-live-finish-lint-first.log",
+          "sha256": "sha256:a67dcf45bb285ba7f6e2d4e86ec8cd4f61af692490f16d468ddc27105c1659c1",
+          "bytes": 3749
+        },
+        "disposition": "Conventional type/import/optional-chain fixes; rules not disabled. Final50-file lint passed."
+      },
+      {
+        "actor": "successor",
+        "executionReceipt": {
+          "path": "reports/wi070-live-finish-http-execution.json",
+          "sha256": "sha256:54af27854b8e332d456043a672f87f7abdae15cee37ef86a70023bd84bf475cb",
+          "bytes": 636
+        },
+        "command": [
+          "./node_modules/.bin/vitest",
+          "run",
+          "packages/management-api/test/http-endpoint.contract.test.ts",
+          "--testNamePattern",
+          "keeps UGV qualification bearer-protected and unavailable outside the composed Profile|admits only the exact B02 run shape into the composed UGV qualification operation|admits only the exact LIVE request into the composed UGV qualification operation",
+          "--reporter=json",
+          "--outputFile=reports/wi070-live-finish-http.json",
+          "--cache=false"
+        ],
+        "exitCode": 1,
+        "report": {
+          "path": "reports/wi070-live-finish-http.json",
+          "sha256": "sha256:ceeb6e1bf35441bcf16ef87fbc1cf2ce9520442f5ca8d4cf4a84992b70730b6d",
+          "bytes": 26530
+        },
+        "cause": "Sandbox listen EPERM127.0.0.1 for each of3 selected cases. Approved same-selector escalation passed; original raw preserved."
+      }
+    ],
+    "postgres": [
+      {
+        "path": "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+        "cases": 5,
+        "database": "sdar_wi070_binding_authority_integration",
+        "sha256": "sha256:a4f73afcc807c4a67c8ff50c023d55e41a4c7c2d95b2775fb0735273c31e8425",
+        "bytes": 37794,
+        "status": "NOT_RUN",
+        "environmentKey": "SDAR_TEST_POSTGRES_URL"
+      },
+      {
+        "path": "packages/persistence-postgres/test/ugv-live-qualification.integration.test.ts",
+        "cases": 4,
+        "database": "sdar_wi070_live_qualification_integration",
+        "sha256": "sha256:7f648a0e278524f1e255116938fd371242fef565f8cf7cc375bb11d0e034529d",
+        "bytes": 7135,
+        "status": "NOT_RUN",
+        "environmentKey": "SDAR_TEST_POSTGRES_URL"
+      }
+    ],
+    "uncollectedSessions": [],
+    "notRun": [
+      "PostgreSQL/migrations",
+      "real Provider or external MCP/MQTT",
+      "live navigation or physical arrival",
+      "build/full unit/full contract/full integration/e2e/smoke",
+      "independent candidate verification",
+      "shared lab/Docker/dependency installation"
+    ]
+  },
+  "rawEvidence": [
+    {
+      "path": "reports/wi070-live-finish-focused-execution.json",
+      "sha256": "sha256:6a98da1afde30f86107bf075fac8302152638df6065bc37a05ea4859e503e8b3",
+      "bytes": 1583
+    },
+    {
+      "path": "reports/wi070-live-finish-focused.json",
+      "sha256": "sha256:1436ded507b98bf7733d3295fce5a32c99b80628da59f2091dfb45ed3b392714",
+      "bytes": 171501
+    },
+    {
+      "path": "reports/wi070-live-finish-focused.log",
+      "sha256": "sha256:5f1a512cfbb5f3018ff904105b3ac2bf0b883179b2cd378283f26721a30c7c19",
+      "bytes": 157
+    },
+    {
+      "path": "reports/wi070-live-finish-format-check-execution.json",
+      "sha256": "sha256:635122ce2859cfbd2556abffaf6e65e6131e61f9c42013d9273773420525da80",
+      "bytes": 3190
+    },
+    {
+      "path": "reports/wi070-live-finish-format-check.log",
+      "sha256": "sha256:17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "bytes": 66
+    },
+    {
+      "path": "reports/wi070-live-finish-format-final.log",
+      "sha256": "sha256:883902f4f98e3148f2fbdaed7270bc264f0e17ae45489c30c73bbfec56c07c13",
+      "bytes": 3420
+    },
+    {
+      "path": "reports/wi070-live-finish-format-write.log",
+      "sha256": "sha256:c5745c13db927dbdf2b25ec15c0a84e39efaf061347f51ce9185ef0893a6d167",
+      "bytes": 2880
+    },
+    {
+      "path": "reports/wi070-live-finish-http-escalated-execution.json",
+      "sha256": "sha256:837bdb0f42b8b132250792e5e665b33c858f3fef0577b80f80f5ec260481a86f",
+      "bytes": 765
+    },
+    {
+      "path": "reports/wi070-live-finish-http-escalated.json",
+      "sha256": "sha256:fb2644af7466d6d0f54a8c4ca3544d6dc233714c0049b7d8d7680eae7b79aa53",
+      "bytes": 25735
+    },
+    {
+      "path": "reports/wi070-live-finish-http-escalated.log",
+      "sha256": "sha256:d3fe250ed5ff6b8c5e619dbe43724f01a156eda42e6ff43c6181343b050ed0a8",
+      "bytes": 164
+    },
+    {
+      "path": "reports/wi070-live-finish-http-execution.json",
+      "sha256": "sha256:54af27854b8e332d456043a672f87f7abdae15cee37ef86a70023bd84bf475cb",
+      "bytes": 636
+    },
+    {
+      "path": "reports/wi070-live-finish-http.json",
+      "sha256": "sha256:ceeb6e1bf35441bcf16ef87fbc1cf2ce9520442f5ca8d4cf4a84992b70730b6d",
+      "bytes": 26530
+    },
+    {
+      "path": "reports/wi070-live-finish-http.log",
+      "sha256": "sha256:1ec4a4be98b6e360979fb68e5eb29a2fb35ad752405d34185d70092e941ae220",
+      "bytes": 154
+    },
+    {
+      "path": "reports/wi070-live-finish-lint-execution.json",
+      "sha256": "sha256:fa63929b8b79fb5ef45154b2f14de8d53320a984985adeda1a853e4640a9bf99",
+      "bytes": 3173
+    },
+    {
+      "path": "reports/wi070-live-finish-lint-final.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "reports/wi070-live-finish-lint-first.log",
+      "sha256": "sha256:a67dcf45bb285ba7f6e2d4e86ec8cd4f61af692490f16d468ddc27105c1659c1",
+      "bytes": 3749
+    },
+    {
+      "path": "reports/wi070-live-finish-source-selector.json",
+      "sha256": "sha256:2ee4063e7d67818d21dbf613a1c66957222ddda50f12636641db9bdc74ae5ecd",
+      "bytes": 2899
+    },
+    {
+      "path": "reports/wi070-live-finish-typecheck-execution.json",
+      "sha256": "sha256:d1f6e3c0cbaa5d2ff8a7be94c2beddd0e44f70d6301a0afbb79ffabd210c405c",
+      "bytes": 250
+    },
+    {
+      "path": "reports/wi070-live-finish-typecheck-final.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "reports/wi070-live-finish-typecheck-first.log",
+      "sha256": "sha256:f0368bbf1e97449cb1490b267de9db060a6a48f2b1ecd6be67da58ef506657a1",
+      "bytes": 1328
+    },
+    {
+      "path": "reports/wi070-live-finish-typecheck-second.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "reports/wi070-live-focused-first.json",
+      "sha256": "sha256:37ab4b87f1a19a7468e5a554f28e1bd5621b55bcd959f666177049ca06ab49aa",
+      "bytes": 162739
+    },
+    {
+      "path": "reports/wi070-live-focused-first.log",
+      "sha256": "sha256:261314f792236bb7930dce37ca4d8013ca5b9f35de36d56ca6d75dfd5adf814e",
+      "bytes": 156
+    },
+    {
+      "path": "reports/wi070-live-typecheck-first.log",
+      "sha256": "sha256:b72036be5d7cfff2a33c29c214a21210c89ff51bbc8b65d4986f737770e0794d",
+      "bytes": 2630
+    },
+    {
+      "path": "reports/wi070-live-typecheck-second.log",
+      "sha256": "sha256:b2228bd8d9bfe3b0ad3cec96e3932fcce4670bc6dd17af177e98fe2f27b04cd6",
+      "bytes": 496
+    }
+  ],
+  "dependencyDisclosure": {
+    "installed": false,
+    "sharedSymlinks": {
+      "node_modules": "../sdar-runtime/node_modules",
+      "apps/console/node_modules": "../../../sdar-runtime/apps/console/node_modules"
+    },
+    "immutablePriorPinsPreserved": true
+  },
+  "navigation": {
+    "dispatched": false,
+    "result": "NOT_SENT",
+    "physicalArrival": "NOT_OBSERVED",
+    "userTargetStoredInProductDefaults": false
+  },
+  "boundaries": {
+    "otherRepositoryEdits": false,
+    "controlWrites": false,
+    "databaseActions": false,
+    "sharedEnvironmentActions": false,
+    "gatePassClaim": false,
+    "workItemCompleted": false,
+    "pushPrAdoption": "PENDING_DISTINCT_ROOT_GO"
+  },
+  "nextConsumer": "Root arranges exact-pin independent review and Run Controller-only5+4 PostgreSQL cases before any external run."
+}

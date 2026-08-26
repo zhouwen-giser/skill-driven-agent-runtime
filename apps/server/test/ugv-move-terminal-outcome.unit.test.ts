@@ -250,7 +250,7 @@ describe('UGV deterministic Goal evaluator', () => {
     ).resolves.toEqual({
       decision: 'achieved',
       summary:
-        'UGV movement completed with durable final-position evidence under the exact simulation authority.',
+        'UGV movement completed with durable final-position evidence under the exact execution authority.',
     });
     expect(prepare).toHaveBeenCalledOnce();
     expect(prepare).toHaveBeenCalledWith(TASK_ID, fixture.instance);

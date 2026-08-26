@@ -34,6 +34,7 @@ export interface UgvMoveProviderTerminal {
 export interface UgvMoveOutcomeAssessmentInput {
   readonly resourceId: string;
   readonly expectedProviderId: string;
+  readonly expectedExecutionMode?: 'live' | 'simulation';
   readonly correlationId: string;
   readonly dispatchedAt: string;
   readonly assessedAt: string;
@@ -169,8 +170,16 @@ export function assessUgvMoveOutcome(
   )
     return failed('UGV_MOVE_FINAL_STATE_NOT_POST_TERMINAL');
 
-  const initial = stateObservation(input.initialState.result, input.expectedProviderId);
-  const final = stateObservation(finalRead.result, input.expectedProviderId);
+  const initial = stateObservation(
+    input.initialState.result,
+    input.expectedProviderId,
+    input.expectedExecutionMode ?? 'simulation',
+  );
+  const final = stateObservation(
+    finalRead.result,
+    input.expectedProviderId,
+    input.expectedExecutionMode ?? 'simulation',
+  );
   if (initial === undefined || final === undefined)
     return failed('UGV_MOVE_FINAL_POSITION_INVALID');
   if (initial.resourceId !== input.resourceId || final.resourceId !== input.resourceId)
@@ -316,7 +325,11 @@ function providerResult(value: unknown) {
   } as const;
 }
 
-function stateObservation(value: unknown, expectedProviderId: string) {
+function stateObservation(
+  value: unknown,
+  expectedProviderId: string,
+  executionMode: 'live' | 'simulation',
+) {
   const state = object(value);
   const identity = object(state?.['identity']);
   const connectivity = object(state?.['connectivity']);
@@ -334,7 +347,8 @@ function stateObservation(value: unknown, expectedProviderId: string) {
     identity?.['providerId'] !== expectedProviderId ||
     typeof identity['resourceId'] !== 'string' ||
     identity['vehicleType'] !== 'ugv' ||
-    identity['executionMode'] !== 'simulation' ||
+    (identity['executionMode'] !== executionMode &&
+      !(executionMode === 'live' && identity['executionMode'] === undefined)) ||
     typeof state?.['revision'] !== 'string' ||
     state['revision'].trim() === '' ||
     connectivity === undefined ||

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { McpToolExecutionSemantics } from '../../domain/src/index.js';
+import type { McpToolExecutionSemantics, RuntimeExecutionContext } from '../../domain/src/index.js';
 
 import { canonicalHash } from './mcp-task-readiness.js';
 
@@ -250,6 +250,7 @@ export interface CurrentGovernedCapabilityAuthorityPort {
 }
 
 export interface GovernedControlInvocation {
+  readonly executionContext?: RuntimeExecutionContext;
   readonly invocationId: string;
   readonly dispatchHash: string;
   readonly taskId: string;

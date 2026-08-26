@@ -23,6 +23,13 @@ import type {
   WorkflowContinuationRepository,
 } from './ports.js';
 
+export type RemoteTaskInputSubmission =
+  | undefined
+  | Readonly<{
+      kind: 'not_dispatched';
+      reason: 'obsolete_input';
+    }>;
+
 export class RemoteTaskInputService {
   readonly #continuations: Pick<WorkflowContinuationRepository, 'claimControl' | 'finishControl'>;
   readonly #remoteTasks: Pick<RemoteTaskRepository, 'findById'>;
@@ -111,7 +118,10 @@ export class RemoteTaskInputService {
     return Object.freeze(responses);
   }
 
-  async submitAnswer(inputRequestId: string, inputResponses: unknown): Promise<void> {
+  async submitAnswer(
+    inputRequestId: string,
+    inputResponses: unknown,
+  ): Promise<RemoteTaskInputSubmission> {
     const link = await this.#inputs.findLink(inputRequestId);
     if (link?.status !== 'answered')
       throw new RemoteTaskInputError(
@@ -119,11 +129,13 @@ export class RemoteTaskInputService {
         'The remote Task input link is not ready for tasks/update.',
       );
     const binding = await this.#remoteTasks.findById(link.bindingId);
-    if (binding?.localState !== 'awaiting_input')
+    if (binding === undefined)
       throw new RemoteTaskInputError(
         'REMOTE_TASK_INPUT_BINDING_STALE',
         'The remote Task input binding is no longer awaiting this answer.',
       );
+    if (binding.localState !== 'awaiting_input')
+      return Object.freeze({ kind: 'not_dispatched', reason: 'obsolete_input' });
     const responses = normalizeRemoteTaskInputResponses(link.inputRequests, inputResponses);
     const startedAt = this.#clock.now();
     const claim = await this.#inputs.claimUpdate({
@@ -132,10 +144,7 @@ export class RemoteTaskInputService {
       startedAt,
     });
     if (claim === undefined || Object.keys(claim.inputRequests).length === 0)
-      throw new RemoteTaskInputError(
-        'REMOTE_TASK_INPUT_BINDING_STALE',
-        'The input keys are closed or this link lost its authoritative dispatch claim.',
-      );
+      return Object.freeze({ kind: 'not_dispatched', reason: 'obsolete_input' });
     const eligibleResponses = Object.fromEntries(
       Object.keys(claim.inputRequests).map((key) => [key, responses[key]]),
     );
@@ -188,6 +197,7 @@ export class RemoteTaskInputService {
       } catch {
         // PostgreSQL polling reconciliation repairs the explicit enqueue gap.
       }
+    return undefined;
   }
 
   async #activate(

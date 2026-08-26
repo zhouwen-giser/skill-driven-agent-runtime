@@ -429,7 +429,7 @@ describe('PlanPreparationProcessor LLM decisions', () => {
 
     await processorWith(tasks, false, 'none', (inputRequestId, content) => {
       submitted.push({ inputRequestId, content });
-      return Promise.resolve();
+      return Promise.resolve(undefined);
     }).process({ ...initialJob, mode: 'continue_after_input' });
 
     expect(submitted).toEqual([
@@ -444,7 +444,9 @@ function processorWith(
   tasks: MemoryTasks,
   fail = false,
   prior: 'none' | 'active' | 'terminal' = 'none',
-  submitRemoteInput?: (inputRequestId: string, inputResponses: unknown) => Promise<void>,
+  submitRemoteInput?: NonNullable<
+    PlanPreparationProcessorDependencies['remoteTaskInput']
+  >['submitAnswer'],
   taskUnderstanding?: PlanPreparationProcessorDependencies['taskUnderstanding'],
   fastGateway?: PlanPreparationProcessorDependencies['fastGateway'],
   initialAdmission?: PlanPreparationProcessorDependencies['initialAdmission'],

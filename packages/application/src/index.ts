@@ -84,3 +84,4 @@ export * from './task-state-notifier.js';
 export * from './task-attempt-dispatch.js';
 export * from './task-quality.js';
 export * from './task-wait-timeout.js';
+export * from './ugv-live-qualification.js';

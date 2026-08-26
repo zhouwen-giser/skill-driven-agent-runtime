@@ -73,7 +73,7 @@ describe('UGV move formal Skill Usage adapter', () => {
     });
   });
 
-  it('fails before readiness for unresolved input, fallback, live mode, or a different binding', async () => {
+  it('fails before readiness for unresolved input, fallback, replay mode, or a different binding', async () => {
     const resolve = vi.fn();
     const adapter = new UgvMoveSkillTaskReadinessAdapter({ resolve });
     const baseline = {
@@ -95,7 +95,10 @@ describe('UGV move formal Skill Usage adapter', () => {
       adapter.inspect({ ...baseline, allowPreferredProviderFallback: true }),
     ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
     await expect(
-      adapter.inspect({ ...baseline, executionContext: { mode: 'live' } }),
+      adapter.inspect({
+        ...baseline,
+        executionContext: { mode: 'historical-replay', simulationId: 'replay-only' },
+      }),
     ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
     await expect(
       adapter.inspect({

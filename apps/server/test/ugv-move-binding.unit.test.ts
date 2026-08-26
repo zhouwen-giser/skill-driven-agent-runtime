@@ -37,6 +37,21 @@ const MANIFEST_HASH = 'b'.repeat(64);
 const REGISTRY_CHECKSUM = 'c'.repeat(64);
 
 describe('UGV move governed Task binding', () => {
+  it('selects LIVE with exact context and rejects every supplied simulationId', async () => {
+    const f = await fixture({ executionMode: 'live' });
+    const result = await f.resolver.resolve({ ...request(), executionContext: { mode: 'live' } });
+    expect(result.selected.execution).toEqual({
+      mode: 'live',
+      confirmation: 'existing_outer_plan_confirmation',
+      confirmationRequired: true,
+    });
+    expect(result.selected.resolvedArguments).toMatchObject({ stopOnObstacle: true });
+    for (const simulationId of ['', 'wrong'])
+      await expect(
+        f.resolver.resolve({ ...request(), executionContext: { mode: 'live', simulationId } }),
+      ).rejects.toMatchObject({ code: 'UGV_PROFILE_EXECUTION_CONTEXT_INVALID' });
+  });
+
   it('resolves the profile-only alias to one authority-exact point-navigation operation', async () => {
     const runtimeFixture = await fixture();
 
@@ -233,6 +248,18 @@ describe('UGV move governed Task binding', () => {
     const runtimeFixture = await fixture();
 
     await expect(runtimeFixture.resolver.resolveQualificationAuthority()).resolves.toEqual({
+      authoritySnapshot: expect.objectContaining({
+        schemaVersion: '1.0',
+        runtime: expect.objectContaining({ serverId: 'ugv-runtime-1' }),
+        providerBinding: expect.objectContaining({
+          bindingId: 'binding-ugv-runtime-1',
+          registry: {
+            externalProviderId: 'isr.vehicle.ugv.ugv1',
+            revision: '11',
+            checksum: REGISTRY_CHECKSUM,
+          },
+        }),
+      }),
       serverId: 'ugv-runtime-1',
       providerBindingId: 'binding-ugv-runtime-1',
       providerId: 'isr.vehicle.ugv.ugv1',
@@ -706,6 +733,7 @@ describe('UGV move governed Task binding', () => {
 });
 
 interface FixtureOptions {
+  readonly executionMode?: 'live' | 'simulation';
   readonly serverIds?: readonly string[];
   readonly availabilityValidUntil?: string;
   readonly bindingAvailabilityValidUntil?: string;
@@ -798,6 +826,7 @@ async function fixture(options: FixtureOptions = {}) {
   const loadedSkill = await loadExactUgvProfileSkill();
   const skill = options.mutateSkill?.(loadedSkill) ?? loadedSkill;
   const resolver = new UgvMoveTaskBindingResolver({
+    ...(options.executionMode === undefined ? {} : { executionMode: options.executionMode }),
     skills: new InMemoryMutableSkillRepository([skill]),
     packages: {
       loadExactSkillPackageAuthority: () =>

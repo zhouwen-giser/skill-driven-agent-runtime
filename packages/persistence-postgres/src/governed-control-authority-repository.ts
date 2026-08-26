@@ -1,3 +1,8 @@
+import { PostgresUgvLiveQualificationStore } from './ugv-live-qualification-store.js';
+import {
+  remoteTaskAuthoritySnapshot,
+  ugvQualificationAuthorityIdentity,
+} from '../../application/src/index.js';
 import type { Pool } from 'pg';
 
 import {
@@ -635,6 +640,60 @@ export class PostgresUgvGovernedControlAuthorityReader
       providerId: selected.provider.providerId,
       runtimeAuthority: runtime,
     });
+    if (selected.execution.mode === 'live') {
+      const constraint = exactlyOneRecord(
+        strictRecordArray(row.constraint_snapshot),
+        'ugv_live_qualification',
+      );
+      if (typeof constraint['requestId'] !== 'string')
+        invalidUgvPersistedAuthority('Live qualification reference is missing.');
+      const saved = await new PostgresUgvLiveQualificationStore(this.#pool).load(
+        constraint['requestId'],
+      );
+      const record = saved?.record;
+      const invocation = saved?.invocation;
+      if (
+        record?.status !== 'completed' ||
+        record.authoritySnapshot === undefined ||
+        invocation?.invocationId !== record.invocationId ||
+        invocation.taskId !== undefined ||
+        invocation.capabilityAttemptId !== undefined ||
+        invocation.executionMode !== 'live' ||
+        invocation.simulationId !== undefined ||
+        invocation.status !== 'succeeded' ||
+        invocation.toolName !== 'vehicle_get_state' ||
+        invocation.serverId !== selected.server.serverId ||
+        record.resultHash !== hashCanonicalEvidenceJson(invocation.result) ||
+        canonicalHash(constraint) !==
+          canonicalHash({
+            type: 'ugv_live_qualification',
+            requestId: record.requestId,
+            executionContext: { mode: 'live' },
+            invocationId: record.invocationId,
+            resultHash: record.resultHash,
+            authoritySnapshot: record.authoritySnapshot,
+          })
+      )
+        invalidUgvPersistedAuthority(
+          'Live dispatch no longer has its exact frozen durable qualification.',
+        );
+      const frozen = record.authoritySnapshot;
+      const scope =
+        frozen.providerBinding?.originType === 'smpp_registry'
+          ? frozen.providerBinding.scope
+          : undefined;
+      const current = remoteTaskAuthoritySnapshot(
+        runtime,
+        providerBinding,
+        this.#clock.now(),
+        scope,
+      );
+      if (
+        canonicalHash(ugvQualificationAuthorityIdentity(frozen)) !==
+        canonicalHash(ugvQualificationAuthorityIdentity(current))
+      )
+        invalidUgvPersistedAuthority('Live qualification authority changed before dispatch.');
+    }
     const nodeId = `ugv-governed-control:${row.task_id}:${row.attempt_id}`;
     const availability = await this.#availability.checkTaskAvailability({
       serverId: selected.server.serverId,
@@ -649,8 +708,10 @@ export class PostgresUgvGovernedControlAuthorityReader
         }),
       ]),
       executionContext: Object.freeze({
-        mode: 'simulation' as const,
-        simulationId: selected.execution.simulationId,
+        mode: selected.execution.mode,
+        ...(selected.execution.simulationId === undefined
+          ? {}
+          : { simulationId: selected.execution.simulationId }),
       }),
     });
     const checkedAt = normalizedTimestamp(this.#clock.now());
@@ -852,7 +913,14 @@ function buildUgvAuthoritySnapshot(
   const providerOverride = strictRecord(implementation?.['provider_policy_override']);
   if (
     implementations.length !== 1 ||
-    canonicalHash(constraints) !== canonicalHash(row.constraint_snapshot) ||
+    canonicalHash(constraints) !==
+      canonicalHash(
+        selected.execution.mode === 'live'
+          ? strictRecordArray(row.constraint_snapshot).filter(
+              (c) => c['type'] !== 'ugv_live_qualification',
+            )
+          : row.constraint_snapshot,
+      ) ||
     physical['sideEffecting'] !== true ||
     physical['dispatchMaximum'] !== 1 ||
     providerOverride['selection'] !== 'required' ||

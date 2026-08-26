@@ -1,3 +1,5 @@
+import { UgvLiveQualificationService } from './ugv-live-qualification.js';
+import { PostgresUgvLiveQualificationStore } from '../../../packages/persistence-postgres/src/ugv-live-qualification-store.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { writeSync } from 'node:fs';
@@ -506,7 +508,7 @@ import {
   type UgvMovePositionPolicy,
 } from './ugv-move-position-result.js';
 import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
-import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
+import { EnvironmentUgvProfileSideEffectGate } from './ugv-simulation-side-effect-gate.js';
 import {
   BullMqContextTaskQueue,
   BullMqContextWorker,
@@ -539,6 +541,7 @@ import {
 import type { RuntimeBindingScope } from '../../../packages/domain/src/index.js';
 
 export interface ServerRuntimeOptions {
+  readonly ugvExecutionMode?: 'live' | 'simulation';
   readonly postgresUrl: string;
   readonly redis: RedisConnectionConfig;
   readonly masterKeyBase64: string;
@@ -1341,7 +1344,24 @@ export async function startServerRuntime(
     publishTaskState,
     taskCommands,
   );
+  let ugvLiveQualification: UgvLiveQualificationService | undefined;
   const taskCapabilities = new RuntimeTaskCapabilityService({
+    ...(ugvAgentProfile
+      ? {
+          ugvQualification: {
+            prepareAcceptance: async (input) => {
+              if (options.ugvExecutionMode !== 'live') {
+                if (input.metadata['io.sdar/ugvQualification'] !== undefined)
+                  throw new Error('UGV_LIVE_QUALIFICATION_MODE_CONFLICT');
+                return [];
+              }
+              if (ugvLiveQualification === undefined)
+                throw new Error('UGV_LIVE_QUALIFICATION_NOT_INITIALIZED');
+              return ugvLiveQualification.prepareAcceptance(input);
+            },
+          },
+        }
+      : {}),
     store: taskCapabilityRepository,
     schemas: schemaValidator,
     evidence: mcpRepository,
@@ -1414,7 +1434,7 @@ export async function startServerRuntime(
       : new UgvGovernedControlInvocationAuthorizer({
           authority: ugvGovernedControlAuthority,
           confirmations: governedControlAuthorityRepository,
-          simulationSideEffectGate: new EnvironmentUgvSimulationSideEffectGate(process.env),
+          simulationSideEffectGate: new EnvironmentUgvProfileSideEffectGate(process.env),
           clock,
         });
   if (
@@ -2294,6 +2314,10 @@ export async function startServerRuntime(
     !ugvAgentProfile || options.currentMcpProviderBindingAuthorityReader === undefined
       ? undefined
       : new UgvMoveTaskBindingResolver({
+          executionMode: options.ugvExecutionMode ?? 'simulation',
+          ...(options.runtimeBindingScope === undefined
+            ? {}
+            : { runtimeBindingScope: options.runtimeBindingScope }),
           skills: profileSkills,
           packages: new PostgresExactSkillPackageAuthorityReader(pool),
           operations: mcpRepository,
@@ -2308,6 +2332,13 @@ export async function startServerRuntime(
         });
   if (ugvAgentProfile && ugvMoveBindingResolver === undefined)
     throw new Error('UGV_AGENT_PROFILE_MOVE_BINDING_RUNTIME_REQUIRED');
+  if (ugvMoveBindingResolver !== undefined && options.ugvExecutionMode === 'live')
+    ugvLiveQualification = new UgvLiveQualificationService({
+      registry: mcpRegistry,
+      authority: ugvMoveBindingResolver,
+      store: new PostgresUgvLiveQualificationStore(pool),
+      clock,
+    });
   const ugvSimulationQualification =
     ugvMoveBindingResolver === undefined
       ? undefined
@@ -4863,6 +4894,9 @@ export async function startServerRuntime(
                       authority: taskCapabilityUsage,
                       binding: ugvTaskCapabilityBinding,
                       invocations: mcpRepository,
+                      ...(ugvLiveQualification === undefined
+                        ? {}
+                        : { qualification: ugvLiveQualification }),
                       clock,
                     });
           const selected = await skillSelection.selectFromCandidates(
@@ -5021,8 +5055,10 @@ export async function startServerRuntime(
                     input.task.taskId,
                   );
                   if (
-                    executionContext?.mode !== 'simulation' ||
-                    executionContext.simulationId === undefined
+                    executionContext?.mode !== (options.ugvExecutionMode ?? 'simulation') ||
+                    (executionContext.mode === 'live'
+                      ? 'simulationId' in executionContext
+                      : executionContext.simulationId === undefined)
                   )
                     throw new Error('UGV_AGENT_PROFILE_SIMULATION_CONTEXT_REQUIRED');
                   const resolved = await ugvMoveBindingResolver.resolve({
@@ -6787,7 +6823,22 @@ export async function startServerRuntime(
               evidenceExport,
               evidenceOperations,
               taskRevisionAuthority: new PostgresRuntimeTaskRevisionAuthority(pool, taskCommands),
-              ...(ugvSimulationQualification === undefined ? {} : { ugvSimulationQualification }),
+              ...(ugvSimulationQualification === undefined
+                ? {}
+                : {
+                    ugvSimulationQualification: {
+                      capture: async (input) => {
+                        if ('requestId' in input) {
+                          if (ugvLiveQualification === undefined)
+                            throw new Error('UGV_LIVE_QUALIFICATION_MODE_CONFLICT');
+                          return ugvLiveQualification.capture(input);
+                        }
+                        if (options.ugvExecutionMode === 'live')
+                          throw new Error('UGV_LIVE_QUALIFICATION_MODE_CONFLICT');
+                        return ugvSimulationQualification.capture(input);
+                      },
+                    },
+                  }),
               actorId: 'sdar-node-control',
               ...(options.runtimeControlArtifactPrincipalResolver === undefined
                 ? {}
@@ -7592,7 +7643,7 @@ async function applyPostV122Migrations(
 }
 
 const POST_V122_MIGRATION_FILE_PATTERN =
-  /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate|0174_runtime_provider_binding_authority)\.up\.sql$/u;
+  /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate|0174_runtime_provider_binding_authority|0175_ugv_live_qualification)\.up\.sql$/u;
 
 export function planPostV122MigrationFiles(
   availableFiles: readonly string[],

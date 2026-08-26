@@ -296,11 +296,12 @@ export interface GovernedControlConsumedConfirmationReader {
 }
 
 /** Server composition owns environment/control-plane policy; the profile never reads env itself. */
-export interface UgvSimulationSideEffectGate {
+export interface UgvProfileSideEffectGate {
   assertAuthorized(
     input: Readonly<{
       taskId: string;
-      simulationId: string;
+      mode: 'live' | 'simulation';
+      simulationId?: string;
       selectedSnapshotHash: `sha256:${string}`;
     }>,
   ): Promise<void>;
@@ -310,14 +311,14 @@ export interface UgvSimulationSideEffectGate {
 export class UgvGovernedControlInvocationAuthorizer implements GovernedControlInvocationAuthorityPort {
   readonly #authority: UgvGovernedControlDispatchAuthorityReader;
   readonly #confirmations: UgvGovernedControlConfirmationConsumer;
-  readonly #simulationSideEffectGate: UgvSimulationSideEffectGate | undefined;
+  readonly #simulationSideEffectGate: UgvProfileSideEffectGate | undefined;
   readonly #clock: Readonly<{ now(): string }>;
 
   constructor(
     dependencies: Readonly<{
       authority: UgvGovernedControlDispatchAuthorityReader;
       confirmations: UgvGovernedControlConfirmationConsumer;
-      simulationSideEffectGate?: UgvSimulationSideEffectGate;
+      simulationSideEffectGate?: UgvProfileSideEffectGate;
       clock: Readonly<{ now(): string }>;
     }>,
   ) {
@@ -358,6 +359,11 @@ export class UgvGovernedControlInvocationAuthorizer implements GovernedControlIn
     const selected = snapshot.selectedTaskOperation;
     const argumentsHash = hashCanonicalEvidenceJson(input.arguments);
     if (
+      (input.executionContext === undefined
+        ? selected.execution.mode === 'live'
+        : input.executionContext.mode !== selected.execution.mode ||
+          input.executionContext.simulationId !== selected.execution.simulationId ||
+          (selected.execution.mode === 'live' && 'simulationId' in input.executionContext)) ||
       input.taskId !== snapshot.task.taskId ||
       input.capabilityAttemptId !== snapshot.attempt.capabilityAttemptId ||
       input.providerBindingId !== selected.providerBinding.bindingId ||
@@ -375,17 +381,20 @@ export class UgvGovernedControlInvocationAuthorizer implements GovernedControlIn
       if (this.#simulationSideEffectGate === undefined)
         fail(
           'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED',
-          'No server-side simulation side-effect gate is configured.',
+          'No server-side UGV side-effect gate is configured.',
         );
       await this.#simulationSideEffectGate.assertAuthorized({
         taskId: snapshot.task.taskId,
-        simulationId: selected.execution.simulationId,
+        mode: selected.execution.mode,
+        ...(selected.execution.simulationId === undefined
+          ? {}
+          : { simulationId: selected.execution.simulationId }),
         selectedSnapshotHash: selected.snapshotHash,
       });
     } catch {
       fail(
         'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED',
-        'Server-side simulation side effects are disabled or bound to a different run.',
+        'Server-side UGV side effects are disabled or bound to a different run.',
       );
     }
     assertUgvConfirmation(snapshot, now);

@@ -205,7 +205,7 @@ describe('UGV Agent Profile composition', () => {
         SDAR_GOVERNED_CONTROL_ACTOR_ID: 'ugv-simulation-operator',
         SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm',
       });
-    }).toThrow('external-simulation-only');
+    }).toThrow('explicit authorized development/live configuration');
   });
 });
 

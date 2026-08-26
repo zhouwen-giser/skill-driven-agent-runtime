@@ -1,3 +1,9 @@
+import {
+  PlanPreparationProcessor,
+  type PlanPreparationProcessorDependencies,
+} from '../src/plan-preparation-processor.js';
+import { TaskService, type TaskServiceDependencies } from '../src/task-service.js';
+import type { TaskInputRepository, ContextTaskQueue } from '../src/ports.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { Pool } from 'pg';
 import { FrozenV1McpClient, FrozenV1RuntimeLifecycleAdapter } from '../../mcp-adapter/src/index.js';
@@ -8,12 +14,15 @@ import {
 } from '../../persistence-postgres/src/index.js';
 
 import {
+  createAgentTask,
+  transitionTask,
   createRemoteTaskBinding,
   createRemoteTaskInputLink,
   type RemoteTaskBinding,
   type RemoteTaskInputLink,
   type RemoteTaskSnapshot,
   type RemoteTaskControlEvent,
+  type TaskInputRequest,
 } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 import {
@@ -441,12 +450,180 @@ describe('durable per-binding input keys [query double]', () => {
       old['status'] = 'answered';
       await expect(
         f.service().submitAnswer(String(old['input_request_id']), { k: f.response }),
-      ).rejects.toMatchObject({ code: 'REMOTE_TASK_INPUT_BINDING_STALE' });
+      ).resolves.toEqual({ kind: 'not_dispatched', reason: 'obsolete_input' });
       await f.sendCurrent();
       expect(f.sent.map(Object.keys)).toEqual([['k']]);
     },
   );
 
+  it.each([false, true])(
+    'keeps a queued superseded answer benign with current input already activated=%s',
+    async (alreadyActivated) => {
+      const f = durableFixture();
+      await f.activate(await f.observe('6', ['k']));
+      const old = f.lastLink();
+      const at = '2026-08-26T09:00:00.000Z';
+      let task = createAgentTask({
+        taskId: 'task-1',
+        contextId: 'context-1',
+        userId: 'anonymous',
+        requestText: 'Continue',
+        requestMetadata: {},
+        timestamp: at,
+      });
+      for (const phase of [
+        'context_loading',
+        'goal_deliberation',
+        'skill_resolution',
+        'planning',
+        'executing',
+      ] as const)
+        task = transitionTask(task, phase, phase, at);
+      task = transitionTask(task, 'awaiting_user_input', 'Revision6 input', at);
+      const requests = new Map<string, TaskInputRequest>();
+      const savedAnswers = new Map<
+        string,
+        Parameters<TaskInputRepository['answerAndCreateAttempt']>[0]
+      >();
+      const queued: Parameters<ContextTaskQueue['enqueue']>[0][] = [];
+      const setRequest = (link: Record<string, unknown>) => {
+        const inputRequestId = String(link['input_request_id']);
+        requests.set(inputRequestId, {
+          inputRequestId,
+          taskId: task.taskId,
+          contextId: task.contextId,
+          source: 'remote_task',
+          question: 'Approve',
+          status: 'waiting',
+          createdAt: at,
+        });
+      };
+      setRequest(old);
+      const attemptStates: string[] = [];
+      const unused = (): never => {
+        throw new Error('UNRELATED_PLANNING_PATH_MUST_NOT_RUN');
+      };
+      const taskInputs: TaskInputRepository = {
+        createRequest: unused,
+        findPendingByTask: unused,
+        cancelPending: unused,
+        createInitialAttempt: unused,
+        listQueuedAttempts: unused,
+        findRequest: (id) => Promise.resolve(requests.get(id)),
+        // Model the atomic answer repository boundary; TaskService creates the actual
+        // answer/attempt and enqueues it before revision7 is observed below.
+        answerAndCreateAttempt: (input) => {
+          const pending = requests.get(input.inputRequestId);
+          if (pending?.status !== 'waiting' || task.phase !== 'awaiting_user_input')
+            throw new Error('ANSWER_CONFLICT');
+          expect(f.lastLink()['input_request_id']).toBe(input.inputRequestId);
+          f.lastLink()['status'] = 'answered';
+          requests.set(input.inputRequestId, {
+            ...pending,
+            status: 'answered',
+            answeredAt: input.answeredAt,
+          });
+          savedAnswers.set(input.attempt.attemptId, input);
+          task = transitionTask(
+            task,
+            input.continuationPhase,
+            input.phaseMessage,
+            input.answeredAt,
+          );
+          return Promise.resolve(task);
+        },
+        findAttempt: (id) => Promise.resolve(savedAnswers.get(id)?.attempt),
+        findResponseForAttempt: (id) => {
+          const answer = savedAnswers.get(id);
+          const request = answer === undefined ? undefined : requests.get(answer.inputRequestId);
+          return Promise.resolve(
+            answer === undefined || request === undefined
+              ? undefined
+              : { request, response: answer.response },
+          );
+        },
+        listResponses: () =>
+          Promise.resolve([...savedAnswers.values()].map((answer) => answer.response)),
+        updateAttempt: (_id, status) => {
+          attemptStates.push(status);
+          return Promise.resolve();
+        },
+      };
+      let sequence = 0;
+      const shared = {
+        tasks: {
+          findById: () => Promise.resolve(task),
+          findByPlanId: unused,
+          list: unused,
+          save: (value: typeof task) => {
+            task = value;
+            return Promise.resolve();
+          },
+        },
+        events: { publish: () => Promise.resolve() },
+        clock: { now: () => at },
+        ids: { nextId: () => `queued-${String(++sequence)}` },
+        taskInputs,
+      };
+      // These real service calls exercise only remote input; absent planning/model
+      // dependencies fail if the continuation accidentally enters another branch.
+      const serviceDependencies: Pick<
+        TaskServiceDependencies,
+        keyof typeof shared | 'queue' | 'remoteTaskInputs'
+      > = {
+        ...shared,
+        queue: {
+          enqueue: (job) => {
+            queued.push(job);
+            return Promise.resolve();
+          },
+        },
+        remoteTaskInputs: f.service(),
+      };
+      const taskService = new TaskService(serviceDependencies as TaskServiceDependencies);
+      const processorDependencies: Pick<
+        PlanPreparationProcessorDependencies,
+        keyof typeof shared | 'remoteTaskInput'
+      > = { ...shared, remoteTaskInput: f.service() };
+      const processor = new PlanPreparationProcessor(
+        processorDependencies as PlanPreparationProcessorDependencies,
+      );
+      const answerCurrent = () =>
+        taskService.followUp({
+          taskId: task.taskId,
+          action: 'provide_input',
+          messageText: 'Approve',
+          inputRequestId: String(f.lastLink()['input_request_id']),
+          inputContent: { k: f.response },
+        });
+      await answerCurrent();
+      expect(task.phase).toBe('executing');
+      expect(queued).toHaveLength(1);
+      const currentControl = await f.observe('7', ['k']);
+      const activateCurrent = async () => {
+        await f.activate(currentControl);
+        setRequest(f.lastLink());
+        task = transitionTask(task, 'awaiting_user_input', 'Current revision7 input', at);
+      };
+      if (alreadyActivated) await activateCurrent();
+      const obsoleteJob = queued[0];
+      if (obsoleteJob === undefined) throw new Error('QUEUED_ANSWER_REQUIRED');
+      await expect(processor.process(obsoleteJob)).resolves.toBeUndefined();
+      expect(attemptStates).toEqual(['running', 'completed']);
+      expect(task.phase).toBe(alreadyActivated ? 'awaiting_user_input' : 'executing');
+      expect(f.sent).toEqual([]);
+      expect(f.attempts).toEqual([]);
+      if (!alreadyActivated) await activateCurrent();
+      await answerCurrent();
+      expect(queued).toHaveLength(2);
+      const currentJob = queued[1];
+      if (currentJob === undefined) throw new Error('QUEUED_ANSWER_REQUIRED');
+      await expect(processor.process(currentJob)).resolves.toBeUndefined();
+      expect(f.sent.map(Object.keys)).toEqual([['k']]);
+      expect(f.attempts).toHaveLength(1);
+      expect(task.phase).not.toBe('failed');
+    },
+  );
   it('does not reserve twice or retry a crash after the durable pre-send reservation', async () => {
     const f = durableFixture();
     await f.activate(await f.observe('6', ['k']));

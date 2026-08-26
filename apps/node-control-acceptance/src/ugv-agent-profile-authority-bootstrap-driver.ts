@@ -91,7 +91,10 @@ export interface UgvAgentProfileAuthorityBootstrapConfiguration {
   readonly profileA2aBaseUrl: string;
   readonly skillPackageRoot: string;
   readonly runId: string;
-  readonly simulationRunId: string;
+  readonly executionMode?: 'live' | 'simulation';
+  readonly simulationRunId?: string;
+  readonly nativeRegistryEndpoint?: string;
+  readonly providerEndpoint?: string;
   readonly source: Omit<
     UgvSmppSourceBootstrapConfiguration,
     'nodeControlBaseUrl' | 'nodeControlAdminToken' | 'runId'
@@ -106,7 +109,7 @@ export interface UgvAgentProfileAuthorityBootstrapReport {
   readonly schemaVersion: 'sdar.ugv-agent-profile-authority-bootstrap/v1';
   readonly status: 'passed';
   readonly mode: 'bootstrap' | 'verify';
-  readonly evidenceClass: 'external_simulation';
+  readonly evidenceClass: 'external_simulation' | 'external_live';
   readonly productionEligible: false;
   readonly physicalVehicleQualified: false;
   readonly observedAt: string;
@@ -189,7 +192,7 @@ export interface UgvAgentProfileAuthorityReadinessReport {
   readonly schemaVersion: 'sdar.ugv-agent-profile-authority-readiness/v1';
   readonly status: 'passed';
   readonly mode: 'readiness';
-  readonly evidenceClass: 'external_simulation';
+  readonly evidenceClass: 'external_simulation' | 'external_live';
   readonly productionEligible: false;
   readonly physicalVehicleQualified: false;
   readonly observedAt: string;
@@ -362,12 +365,12 @@ const NativeToolSchema = z
   .strict();
 const NativeRegistrySnapshotSchema = z
   .object({
-    environment: z.literal('simulation'),
+    environment: z.string().min(1),
     revision: z.number().int().positive(),
     checksum: z.string().regex(CHECKSUM),
     document: z
       .object({
-        environment: z.literal('simulation'),
+        environment: z.string().min(1),
         providers: z.array(
           z
             .object({
@@ -761,15 +764,18 @@ const PROFILE_TASK_EXECUTION_POLICY: Readonly<
 });
 
 async function loadNativeProviderAuthority(
+  configuration: UgvAgentProfileAuthorityBootstrapConfiguration,
   observedAt: string,
   request: typeof fetch,
 ): Promise<NativeProviderAuthority> {
-  const response = await request(EXPECTED_NATIVE_REGISTRY_ENDPOINT, {
+  const response = await request(profileNativeEndpoint(configuration), {
     headers: { accept: 'application/json' },
     redirect: 'manual',
   });
   const snapshot = NativeRegistrySnapshotSchema.parse(await responseJson(response, 200));
   if (
+    snapshot.environment !== configuration.source.smppEnvironment ||
+    snapshot.document.environment !== configuration.source.smppEnvironment ||
     response.headers.get('etag') !== `"${snapshot.checksum}"` ||
     response.headers.get('cache-control') !== 'private, no-cache' ||
     snapshot.checksum !== sha256(canonical(snapshot.document)) ||
@@ -788,8 +794,8 @@ async function loadNativeProviderAuthority(
     );
   if (
     provider.providerId !== EXPECTED_PROVIDER_ID ||
-    provider.serverId !== EXPECTED_EXTERNAL_SERVER_ID ||
-    normalizedEndpoint(provider.effectiveEndpoint) !== EXPECTED_PROVIDER_ENDPOINT ||
+    provider.serverId !== configuration.source.externalServerId ||
+    normalizedEndpoint(provider.effectiveEndpoint) !== profileProviderEndpoint(configuration) ||
     provider.tools.length !== TOOL_NAMES.length ||
     !sameStrings(
       provider.tools.map(({ name }) => name),
@@ -938,7 +944,7 @@ export async function bootstrapUgvAgentProfileAuthority(
   const pause = dependencies.delay ?? delay;
   const packageAuthority = await loadPackageAuthority(configuration, dependencies);
   const observedAt = validTimestamp(now());
-  const nativeBefore = await loadNativeProviderAuthority(observedAt, request);
+  const nativeBefore = await loadNativeProviderAuthority(configuration, observedAt, request);
   // Reject unrelated governance before Source synchronization or Provider materialization can
   // mutate either control plane.
   await Promise.all([
@@ -1004,7 +1010,7 @@ export async function bootstrapUgvAgentProfileAuthority(
   const managedCard = await ensureManagedCard(configuration, exposure, readiness, request);
 
   const finalObservedAt = validTimestamp(now());
-  const nativeAfter = await loadNativeProviderAuthority(finalObservedAt, request);
+  const nativeAfter = await loadNativeProviderAuthority(configuration, finalObservedAt, request);
   if (
     nativeAfter.revision !== nativeBefore.revision ||
     nativeAfter.checksum !== nativeBefore.checksum
@@ -1098,7 +1104,7 @@ async function assertControlPlaneInventoryPreflight(
       ({ smppSourceId, externalProviderId, externalServerId }) =>
         smppSourceId !== configuration.source.smppSourceId ||
         externalProviderId !== EXPECTED_PROVIDER_ID ||
-        externalServerId !== EXPECTED_EXTERNAL_SERVER_ID,
+        externalServerId !== configuration.source.externalServerId,
     ) ||
     bindings.some(({ bindingId }) => bindingId !== configuration.providerBindingId) ||
     servers.some(({ serverId }) => serverId !== configuration.localServerId)
@@ -1123,9 +1129,10 @@ async function assertControlPlaneInventoryPreflight(
   const source = sources[0];
   if (
     source !== undefined &&
-    (normalizedEndpoint(source.registryEndpoint) !== EXPECTED_SOURCE_ENDPOINT ||
+    (normalizedEndpoint(source.registryEndpoint) !==
+      normalizedEndpoint(configuration.source.registryEndpoint) ||
       source.credentialRef !== SMPP_UNAUTHENTICATED_CREDENTIAL_REF ||
-      source.environment !== 'simulation' ||
+      source.environment !== configuration.source.smppEnvironment ||
       source.syncMode !== 'manual' ||
       source.snapshotTtlSeconds !== configuration.source.snapshotTtlSeconds ||
       source.lkgPolicy !== 'deny_when_unavailable' ||
@@ -1142,8 +1149,8 @@ async function assertControlPlaneInventoryPreflight(
   const candidate = candidates[0];
   if (
     candidate !== undefined &&
-    (normalizedEndpoint(candidate.serverEndpoint) !== EXPECTED_PROVIDER_ENDPOINT ||
-      candidate.labels.environment !== 'simulation' ||
+    (normalizedEndpoint(candidate.serverEndpoint) !== profileProviderEndpoint(configuration) ||
+      candidate.labels.environment !== configuration.source.smppEnvironment ||
       Date.parse(candidate.registryValidUntil) <= Date.parse(observedAt) ||
       (source !== undefined &&
         (candidate.registryRevision !== source.activeSnapshotRevision ||
@@ -1157,8 +1164,8 @@ async function assertControlPlaneInventoryPreflight(
       binding.localServerId !== configuration.localServerId ||
       binding.smppSourceId !== configuration.source.smppSourceId ||
       binding.externalProviderId !== EXPECTED_PROVIDER_ID ||
-      binding.externalServerId !== EXPECTED_EXTERNAL_SERVER_ID ||
-      normalizedEndpoint(binding.endpointRef) !== EXPECTED_PROVIDER_ENDPOINT ||
+      binding.externalServerId !== configuration.source.externalServerId ||
+      normalizedEndpoint(binding.endpointRef) !== profileProviderEndpoint(configuration) ||
       (candidate !== undefined &&
         (binding.registryRevision !== candidate.registryRevision ||
           binding.registryChecksum !== candidate.registryChecksum)))
@@ -1167,7 +1174,7 @@ async function assertControlPlaneInventoryPreflight(
   const server = servers[0];
   if (
     server !== undefined &&
-    (normalizedEndpoint(server.endpoint) !== EXPECTED_PROVIDER_ENDPOINT ||
+    (normalizedEndpoint(server.endpoint) !== profileProviderEndpoint(configuration) ||
       (binding !== undefined && server.toolRevision !== binding.revision))
   )
     fail('UAP_RUNTIME_CATALOG_AUTHORITY_INVALID', 'The existing Runtime Server has drifted.');
@@ -1203,7 +1210,7 @@ export async function verifyUgvAgentProfileAuthority(
   const now = dependencies.now ?? (() => new Date().toISOString());
   const packageAuthority = await loadPackageAuthority(configuration, dependencies);
   const observedAt = validTimestamp(now());
-  const native = await loadNativeProviderAuthority(observedAt, request);
+  const native = await loadNativeProviderAuthority(configuration, observedAt, request);
   await assertControlPlaneInventoryPreflight(configuration, observedAt, request, true, native);
   await assertNativeSourceLineage(configuration, native, request);
   const provider = await loadProviderAuthority(configuration, observedAt, request);
@@ -1239,7 +1246,7 @@ export async function verifyUgvAgentProfileAuthorityReadiness(
   const now = dependencies.now ?? (() => new Date().toISOString());
   const packageAuthority = await loadPackageAuthority(configuration, dependencies);
   const observedAt = validTimestamp(now());
-  const native = await loadNativeProviderAuthority(observedAt, request);
+  const native = await loadNativeProviderAuthority(configuration, observedAt, request);
   await Promise.all([
     assertControlPlaneInventoryPreflight(configuration, observedAt, request, true, native),
     assertGovernanceInventoryExact(configuration, packageAuthority, observedAt, request, false),
@@ -1419,7 +1426,7 @@ export async function verifyUgvAgentProfileAuthorityReadiness(
     schemaVersion: 'sdar.ugv-agent-profile-authority-readiness/v1',
     status: 'passed',
     mode: 'readiness',
-    evidenceClass: 'external_simulation',
+    evidenceClass: configuration.executionMode === 'live' ? 'external_live' : 'external_simulation',
     productionEligible: false,
     physicalVehicleQualified: false,
     observedAt: finalObservedAt,
@@ -1785,7 +1792,7 @@ function assertMaterializationReport(
   if (
     provider.bindingId !== configuration.providerBindingId ||
     provider.externalProviderId !== EXPECTED_PROVIDER_ID ||
-    provider.externalServerId !== EXPECTED_EXTERNAL_SERVER_ID ||
+    provider.externalServerId !== configuration.source.externalServerId ||
     provider.tools.length !== TOOL_NAMES.length ||
     !sameStrings(
       provider.tools.map(({ toolName }) => toolName),
@@ -1815,8 +1822,8 @@ async function loadProviderAuthority(
     binding.localServerId !== configuration.localServerId ||
     binding.smppSourceId !== configuration.source.smppSourceId ||
     binding.externalProviderId !== EXPECTED_PROVIDER_ID ||
-    binding.externalServerId !== EXPECTED_EXTERNAL_SERVER_ID ||
-    normalizedEndpoint(binding.endpointRef) !== EXPECTED_PROVIDER_ENDPOINT ||
+    binding.externalServerId !== configuration.source.externalServerId ||
+    normalizedEndpoint(binding.endpointRef) !== profileProviderEndpoint(configuration) ||
     binding.operationCount !== TOOL_NAMES.length ||
     Date.parse(binding.availabilityValidUntil) <= Date.parse(observedAt)
   )
@@ -1833,7 +1840,7 @@ async function loadProviderAuthority(
   if (
     matches.length !== 1 ||
     server === undefined ||
-    normalizedEndpoint(server.endpoint) !== EXPECTED_PROVIDER_ENDPOINT ||
+    normalizedEndpoint(server.endpoint) !== profileProviderEndpoint(configuration) ||
     server.toolRevision !== binding.revision ||
     server.currentDiscovery.toolRevision !== binding.revision ||
     Date.parse(server.currentDiscovery.validUntil) <= Date.parse(observedAt)
@@ -2593,14 +2600,19 @@ function plannedGovernance(
     }),
     Object.freeze({
       type: 'runtime_execution_mode_policy',
-      mode: 'simulation',
-      simulationId: configuration.simulationRunId,
+      mode: configuration.executionMode ?? 'simulation',
+      ...(configuration.executionMode === 'live'
+        ? {}
+        : { simulationId: configuration.simulationRunId }),
     }),
     Object.freeze({
-      type: 'ugv_simulation_target_policy',
+      type:
+        configuration.executionMode === 'live'
+          ? 'ugv_live_target_policy'
+          : 'ugv_simulation_target_policy',
       policyId: 'ugv-agent-profile/explicit-wgs84-target',
       revision: 2,
-      executionMode: 'simulation',
+      executionMode: configuration.executionMode ?? 'simulation',
       resourceId: EXPECTED_RESOURCE_ID,
       frame: 'WGS84',
       targetAuthority: 'task_capability_input_snapshot',
@@ -2615,7 +2627,10 @@ function plannedGovernance(
     version: UAP_UGV_MOVE_CAPABILITY_VERSION,
     domain: 'embodied',
     name: 'Move UGV',
-    description: 'Move the exact simulated UGV with terminal position evidence.',
+    description:
+      configuration.executionMode === 'live'
+        ? 'Move the exact live UGV with terminal position evidence.'
+        : 'Move the exact simulated UGV with terminal position evidence.',
     inputSchema,
     outputSchema,
     successCriteria: Object.freeze([
@@ -2672,9 +2687,15 @@ function plannedGovernance(
     agentSkillId: SKILL_ID,
     name: definition.name,
     description: definition.description,
-    tags: Object.freeze(['ugv-agent-profile', 'external-simulation', 'embodied-move']),
+    tags: Object.freeze([
+      'ugv-agent-profile',
+      configuration.executionMode === 'live' ? 'external-live' : 'external-simulation',
+      'embodied-move',
+    ]),
     examples: Object.freeze([
-      'Move vehicle:ugv1 to an explicitly authorized WGS84 simulation target.',
+      configuration.executionMode === 'live'
+        ? 'Move vehicle:ugv1 to an explicitly authorized WGS84 live target.'
+        : 'Move vehicle:ugv1 to an explicitly authorized WGS84 simulation target.',
     ]),
     inputModes: Object.freeze(['text/plain', 'application/json']),
     outputModes: Object.freeze(['application/json']),
@@ -2683,7 +2704,9 @@ function plannedGovernance(
     visibility: 'public',
     requesterPolicy: Object.freeze({
       allowAnonymous: false,
-      allowedRequesterIds: Object.freeze(['uap-p3-b02-requester']),
+      allowedRequesterIds: Object.freeze([
+        configuration.executionMode === 'live' ? 'ugv-live-requester' : 'uap-p3-b02-requester',
+      ]),
     }),
     readinessPublicationPolicy: 'publish_when_available',
     status: 'draft',
@@ -3205,19 +3228,19 @@ function report(
     schemaVersion: 'sdar.ugv-agent-profile-authority-bootstrap/v1',
     status: 'passed',
     mode: configuration.mode,
-    evidenceClass: 'external_simulation',
+    evidenceClass: configuration.executionMode === 'live' ? 'external_live' : 'external_simulation',
     productionEligible: false,
     physicalVehicleQualified: false,
     observedAt,
     source: Object.freeze({
       action: source?.sourceAction ?? 'verified',
-      sourceIdentitySha256: sha256(EXPECTED_SOURCE_ID),
+      sourceIdentitySha256: sha256(configuration.source.smppSourceId),
       registryRevision: provider.binding.registryRevision,
       registryChecksum: provider.binding.registryChecksum,
     }),
     provider: Object.freeze({
       action: materializedProvider?.action ?? 'verified',
-      bindingIdentitySha256: sha256(EXPECTED_BINDING_ID),
+      bindingIdentitySha256: sha256(configuration.providerBindingId),
       bindingRevision: provider.binding.revision,
       catalogRevision: provider.binding.catalogRevision,
       catalogChecksum: provider.binding.catalogChecksum,
@@ -3492,13 +3515,16 @@ function etagHash(etag: string): string {
 function validateConfiguration(
   input: UgvAgentProfileAuthorityBootstrapConfiguration,
 ): UgvAgentProfileAuthorityBootstrapConfiguration {
+  if (input.executionMode !== undefined && !['live', 'simulation'].includes(input.executionMode))
+    fail('UAP_CONFIGURATION_INVALID', 'Execution mode must be live or simulation.');
   const nodeControlBaseUrl = managementBaseUrl(input.nodeControlBaseUrl);
   const runtimeManagementBaseUrl = managementBaseUrl(input.runtimeManagementBaseUrl);
   const profileA2aBaseUrl = managementBaseUrl(input.profileA2aBaseUrl);
   if (
-    nodeControlBaseUrl !== EXPECTED_NODE_CONTROL_BASE_URL ||
-    runtimeManagementBaseUrl !== EXPECTED_RUNTIME_MANAGEMENT_BASE_URL ||
-    profileA2aBaseUrl !== EXPECTED_PROFILE_A2A_BASE_URL
+    input.executionMode !== 'live' &&
+    (nodeControlBaseUrl !== EXPECTED_NODE_CONTROL_BASE_URL ||
+      runtimeManagementBaseUrl !== EXPECTED_RUNTIME_MANAGEMENT_BASE_URL ||
+      profileA2aBaseUrl !== EXPECTED_PROFILE_A2A_BASE_URL)
   )
     fail(
       'UAP_CONFIGURATION_INVALID',
@@ -3508,7 +3534,12 @@ function validateConfiguration(
     fail('UAP_CONFIGURATION_INVALID', 'Authority mode must be bootstrap, verify, or readiness.');
   if (input.nodeControlBearerToken.trim().length < 1 || input.nodeControlBearerToken.length > 4096)
     fail('UAP_CONFIGURATION_INVALID', 'A bounded Node Control token is required.');
-  if (!RUN_ID.test(input.runId) || !SIMULATION_ID.test(input.simulationRunId))
+  if (
+    !RUN_ID.test(input.runId) ||
+    (input.executionMode === 'live'
+      ? 'simulationRunId' in input
+      : !SIMULATION_ID.test(input.simulationRunId ?? ''))
+  )
     fail('UAP_CONFIGURATION_INVALID', 'Run identifiers are not exact bounded Profile IDs.');
   if (!isAbsolute(input.skillPackageRoot))
     fail('UAP_CONFIGURATION_INVALID', 'Skill Package root must be absolute.');
@@ -3521,25 +3552,37 @@ function validateConfiguration(
     if (value.trim().length < 1 || value.length > 256)
       fail('UAP_CONFIGURATION_INVALID', 'Profile authority identifiers must be bounded.');
   if (
-    input.source.smppEnvironment !== 'simulation' ||
-    input.source.smppSourceId !== EXPECTED_SOURCE_ID ||
-    normalizedEndpoint(input.source.registryEndpoint) !== EXPECTED_SOURCE_ENDPOINT ||
+    (input.executionMode === 'live'
+      ? input.source.smppEnvironment !== 'development' ||
+        input.nativeRegistryEndpoint === undefined ||
+        input.providerEndpoint === undefined
+      : input.source.smppEnvironment !== 'simulation' ||
+        input.source.smppSourceId !== EXPECTED_SOURCE_ID ||
+        normalizedEndpoint(input.source.registryEndpoint) !== EXPECTED_SOURCE_ENDPOINT) ||
     input.source.registryCredentialRef !== SMPP_UNAUTHENTICATED_CREDENTIAL_REF ||
     input.source.syncMode !== 'manual' ||
     input.source.lkgPolicy !== 'deny_when_unavailable' ||
     !Number.isSafeInteger(input.source.snapshotTtlSeconds) ||
     input.source.snapshotTtlSeconds <= 0 ||
     input.source.externalProviderId !== EXPECTED_PROVIDER_ID ||
-    input.source.externalServerId !== EXPECTED_EXTERNAL_SERVER_ID ||
-    input.localServerId !== EXPECTED_LOCAL_SERVER_ID ||
-    input.providerBindingId !== EXPECTED_BINDING_ID ||
-    input.providerDisplayName !== EXPECTED_PROVIDER_DISPLAY_NAME ||
+    (input.executionMode !== 'live' &&
+      (input.source.externalServerId !== EXPECTED_EXTERNAL_SERVER_ID ||
+        input.localServerId !== EXPECTED_LOCAL_SERVER_ID ||
+        input.providerBindingId !== EXPECTED_BINDING_ID ||
+        input.providerDisplayName !== EXPECTED_PROVIDER_DISPLAY_NAME)) ||
     input.runtimeCredentialRef !== MCP_UNAUTHENTICATED_CREDENTIAL_REF
   )
     fail(
       'UAP_CONFIGURATION_INVALID',
       'Source and Provider identity must match the fixed Profile baseline.',
     );
+  if (input.executionMode === 'live') {
+    normalizedEndpoint(input.source.registryEndpoint);
+    profileNativeEndpoint(input);
+    profileProviderEndpoint(input);
+    if (input.source.externalServerId.trim() === '' || input.source.externalServerId.length > 256)
+      fail('UAP_CONFIGURATION_INVALID', 'An explicit external Server identity is required.');
+  }
   return Object.freeze({
     ...input,
     nodeControlBaseUrl,
@@ -3548,6 +3591,19 @@ function validateConfiguration(
     nodeControlBearerToken: input.nodeControlBearerToken.trim(),
     skillPackageRoot: resolve(input.skillPackageRoot),
   });
+}
+
+function profileNativeEndpoint(config: UgvAgentProfileAuthorityBootstrapConfiguration): string {
+  if (config.executionMode !== 'live') return EXPECTED_NATIVE_REGISTRY_ENDPOINT;
+  if (config.nativeRegistryEndpoint === undefined)
+    fail('UAP_CONFIGURATION_INVALID', 'Live native Registry endpoint is required.');
+  return normalizedEndpoint(config.nativeRegistryEndpoint);
+}
+function profileProviderEndpoint(config: UgvAgentProfileAuthorityBootstrapConfiguration): string {
+  if (config.executionMode !== 'live') return EXPECTED_PROVIDER_ENDPOINT;
+  if (config.providerEndpoint === undefined)
+    fail('UAP_CONFIGURATION_INVALID', 'Live Provider endpoint is required.');
+  return normalizedEndpoint(config.providerEndpoint);
 }
 
 function managementBaseUrl(value: string): string {
@@ -3570,15 +3626,10 @@ function safeUrl(value: string): URL {
   } catch {
     return fail('UAP_CONFIGURATION_INVALID', 'Expected an absolute HTTP(S) URL.');
   }
-  if (
-    !['http:', 'https:'].includes(url.protocol) ||
-    url.username !== '' ||
-    url.password !== '' ||
-    (url.protocol === 'http:' && !['127.0.0.1', '::1', 'localhost'].includes(url.hostname))
-  )
+  if (!['http:', 'https:'].includes(url.protocol) || url.username !== '' || url.password !== '')
     fail(
       'UAP_CONFIGURATION_INVALID',
-      'Plain HTTP is permitted only for credential-free loopback URLs.',
+      'Development bootstrap requires credential-free absolute HTTP(S) URLs.',
     );
   return url;
 }
@@ -3700,6 +3751,11 @@ export async function ugvAgentProfileAuthorityConfigurationFromEnvironment(
     reportFile: string;
   }>
 > {
+  const executionMode = environment['SDAR_UGV_EXECUTION_MODE'];
+  if (executionMode !== undefined && executionMode !== 'live' && executionMode !== 'simulation')
+    fail('UAP_CONFIGURATION_INVALID', 'Execution mode must be live or simulation.');
+  if (executionMode === 'live' && environment['UGV_SIMULATION_RUN_ID'] !== undefined)
+    fail('UAP_CONFIGURATION_INVALID', 'A live profile cannot carry a simulation run identity.');
   const configuration: UgvAgentProfileAuthorityBootstrapConfiguration = {
     mode,
     nodeControlBaseUrl: requiredEnvironment(environment, 'SDAR_NODE_CONTROL_BASE_URL'),
@@ -3711,7 +3767,16 @@ export async function ugvAgentProfileAuthorityConfigurationFromEnvironment(
     profileA2aBaseUrl: requiredEnvironment(environment, 'SDAR_UAP_PROFILE_A2A_BASE_URL'),
     skillPackageRoot: requiredEnvironment(environment, 'SDAR_UAP_SKILL_PACKAGE_ROOT'),
     runId: requiredEnvironment(environment, 'SDAR_UGV_BOOTSTRAP_RUN_ID', 128),
-    simulationRunId: requiredEnvironment(environment, 'UGV_SIMULATION_RUN_ID', 160),
+    ...(environment['SDAR_UGV_EXECUTION_MODE'] === 'live'
+      ? {
+          executionMode: 'live' as const,
+          nativeRegistryEndpoint: requiredEnvironment(environment, 'SMPP_NATIVE_REGISTRY_ENDPOINT'),
+          providerEndpoint: requiredEnvironment(environment, 'SMPP_UGV_PROVIDER_ENDPOINT'),
+        }
+      : {
+          executionMode: 'simulation' as const,
+          simulationRunId: requiredEnvironment(environment, 'UGV_SIMULATION_RUN_ID', 160),
+        }),
     source: {
       smppSourceId: requiredEnvironment(environment, 'SMPP_SDAR_SOURCE_ID', 256),
       ...(environment['SMPP_SDAR_SOURCE_NAME']?.trim()

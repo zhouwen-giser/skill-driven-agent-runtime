@@ -254,6 +254,7 @@ function assessPreparedWorkflowEvidence(
   return assessUgvMoveOutcome({
     resourceId: selected.resource.resourceId,
     expectedProviderId: selected.provider.providerId,
+    expectedExecutionMode: selected.execution.mode,
     correlationId: navigate.invocationId,
     dispatchedAt: navigate.startedAt,
     assessedAt,
@@ -302,7 +303,7 @@ function exactRemoteLifecycle(
       binding.mcpInvocationId === navigate.invocationId &&
       binding.serverId === selected.server.serverId &&
       binding.operationName === selected.operation.operationName &&
-      binding.executionContext.mode === 'simulation' &&
+      binding.executionContext.mode === selected.execution.mode &&
       binding.executionContext.simulationId === selected.execution.simulationId,
   );
   const exact = matches[0];
@@ -375,7 +376,7 @@ function assertInvocationLineage(
       (invocation) =>
         invocation.taskId !== binding.agentTaskId ||
         invocation.contextId !== binding.contextId ||
-        invocation.executionMode !== 'simulation' ||
+        invocation.executionMode !== selected.execution.mode ||
         invocation.simulationId !== selected.execution.simulationId,
     ) ||
     navigate.invocationId !== binding.mcpInvocationId ||
@@ -578,9 +579,9 @@ function sameRemoteAuthority(
   authority: RemoteTaskLifecycleEvidence['binding']['authoritySnapshot'],
   selected: SelectedTaskOperation,
 ): boolean {
-  const provider = authority?.providerBinding;
+  const provider = authority.providerBinding;
   return (
-    authority?.runtime.serverId === selected.server.serverId &&
+    authority.runtime.serverId === selected.server.serverId &&
     authority.runtime.toolRevision === selected.server.toolRevision &&
     authority.runtime.protocolSnapshotId === selected.server.discoverySnapshotId &&
     authority.runtime.catalogRevision === selected.server.catalogRevision &&

@@ -59,7 +59,13 @@ export interface McpCallContext {
   readonly preTransportFence?: Readonly<{
     invocationId: string;
     signal: AbortSignal;
-    enter(input: Readonly<{ dispatchId: string; dispatchHash: string }>): Promise<void>;
+    enter(
+      input: Readonly<{
+        dispatchId: string;
+        dispatchHash: string;
+        authoritySnapshot: RemoteTaskAuthoritySnapshot;
+      }>,
+    ): Promise<void>;
   }>;
   /**
    * Durable journal for a Provider call that may create a remote Task. The journal owns the
@@ -349,6 +355,7 @@ export class McpRegistryService {
         await context.preTransportFence.enter({
           dispatchId: invocationId,
           dispatchHash,
+          authoritySnapshot,
         });
       }
       throwIfAborted(transportSignal);
@@ -530,6 +537,9 @@ export class McpRegistryService {
       serverId: tool.serverId,
       toolName: tool.toolName,
       arguments: arguments_,
+      executionContext: createRuntimeExecutionContext(
+        context.executionContext ?? LIVE_RUNTIME_EXECUTION_CONTEXT,
+      ),
       executionSemantics: tool.executionSemantics,
     });
   }
@@ -1002,7 +1012,7 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   signal?.throwIfAborted();
 }
 
-function remoteTaskAuthoritySnapshot(
+export function remoteTaskAuthoritySnapshot(
   runtime: RuntimeMcpCatalogAuthority,
   provider: CurrentMcpProviderBindingAuthority | undefined,
   capturedAt: string,

@@ -54,6 +54,64 @@ export const UgvB02QualificationReceiptSchema = z
 
 export type UgvB02QualificationReceipt = z.infer<typeof UgvB02QualificationReceiptSchema>;
 
+export const UgvLiveQualificationReceiptSchema = UgvB02QualificationReceiptSchema.omit({
+  simulationId: true,
+})
+  .extend({
+    requestId: z.string().regex(/^[A-Za-z0-9._-]{1,128}$/u),
+    executionContext: z.object({ mode: z.literal('live') }).strict(),
+  })
+  .strict();
+export type UgvLiveQualificationReceipt = z.infer<typeof UgvLiveQualificationReceiptSchema>;
+
+/** Same formal A2A path, with an exact durable local qualification reference and caller target. */
+export function buildUgvLiveFormalAdmission(
+  input: Readonly<{
+    messageId: string;
+    idempotencyKey: string;
+    qualification: UgvLiveQualificationReceipt;
+    target: Readonly<{ x: number; y: number; frame: 'WGS84' }>;
+  }>,
+) {
+  identifier(input.messageId, 'UGV_LIVE_MESSAGE_ID_INVALID');
+  const qualification = UgvLiveQualificationReceiptSchema.parse(input.qualification);
+  if (qualification.requestId !== input.idempotencyKey)
+    fail('UGV_LIVE_QUALIFICATION_REQUEST_CONFLICT');
+  const structuredInput = Object.freeze({
+    resourceId: UGV_B02_RESOURCE_ID,
+    target: Object.freeze(TargetSchema.parse(input.target)),
+  });
+  return Object.freeze({
+    message: Object.freeze({
+      messageId: input.messageId,
+      role: 'ROLE_USER' as const,
+      parts: Object.freeze([
+        Object.freeze({
+          text: 'Move the live UGV to the explicitly authorized WGS84 point.',
+          mediaType: 'text/plain' as const,
+        }),
+        Object.freeze({ data: structuredInput, mediaType: 'application/json' as const }),
+      ]),
+      metadata: Object.freeze({
+        user_id: 'ugv-live-requester',
+        structured_input: structuredInput,
+        idempotency_key: input.idempotencyKey,
+        'io.sdar/requestedCapability': Object.freeze({
+          exposureId: UGV_B02_EXPOSURE_ID,
+          versionConstraint: '2',
+          requestId: input.idempotencyKey,
+        }),
+        'io.sdar/ugvQualification': Object.freeze({
+          requestId: qualification.requestId,
+          invocationId: qualification.invocationId,
+          resultHash: qualification.resultHash,
+        }),
+      }),
+    }),
+    configuration: Object.freeze({ returnImmediately: false as const }),
+  });
+}
+
 const StructuredInputSchema = z
   .object({ resourceId: z.literal(UGV_B02_RESOURCE_ID), target: TargetSchema })
   .strict();

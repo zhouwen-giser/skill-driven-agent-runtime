@@ -107,6 +107,8 @@ const EnvironmentSchema = z
     BUSINESS_EVENTS_REQUIRED_FOR_RUNTIME_READY: z.enum(['true', 'false']).default('false'),
     BUSINESS_EVENTS_POLL_INTERVAL_MS: z.coerce.number().int().min(100).max(10_000).default(500),
     BUSINESS_EVENTS_MAX_SUBSCRIPTIONS: z.coerce.number().int().min(1).max(10_000).default(256),
+    SDAR_UGV_EXECUTION_MODE: z.enum(['live', 'simulation']).default('simulation'),
+    ALLOW_UGV_LIVE_SIDE_EFFECTS: z.enum(['YES', 'NO']).default('NO'),
     SDAR_UGV_REAL_MODEL_ENABLED: z.enum(['YES', 'NO']).default('NO'),
     SDAR_UGV_MODEL_PROVIDER_ID: OptionalNonBlankStringSchema,
     SDAR_UGV_MODEL_BASE_URL: z.preprocess(
@@ -143,14 +145,22 @@ const EnvironmentSchema = z
   .superRefine((environment, context) => {
     if (
       environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'ugv-agent-profile' &&
-      (environment.NODE_ENV !== 'test' ||
-        !['test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
+      (environment.SDAR_UGV_EXECUTION_MODE === 'live'
+        ? environment.NODE_ENV !== 'development' ||
+          environment.SDAR_CONTROL_ENVIRONMENT !== 'development' ||
+          environment.ALLOW_UGV_LIVE_SIDE_EFFECTS !== 'YES' ||
+          environment.SDAR_MCP_LIVE_EXECUTION_MODE_HEADER !== 'emit' ||
+          environment.SDAR_UGV_REAL_MODEL_ENABLED !== 'NO' ||
+          environment.SDAR_RUNTIME_TENANT_ID === undefined ||
+          environment.SDAR_RUNTIME_PROJECT_ID === undefined
+        : environment.NODE_ENV !== 'test' ||
+          !['test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
     )
       context.addIssue({
         code: 'custom',
         path: ['SDAR_TASK_UNDERSTANDING_PROFILE'],
         message:
-          'ugv-agent-profile is external-simulation-only and requires NODE_ENV=test with SDAR_CONTROL_ENVIRONMENT=test or integration.',
+          'ugv-agent-profile requires an explicit authorized development/live configuration or a test/integration simulation configuration.',
       });
     if (
       environment.SDAR_MCP_LIVE_EXECUTION_MODE_HEADER === 'omit' &&

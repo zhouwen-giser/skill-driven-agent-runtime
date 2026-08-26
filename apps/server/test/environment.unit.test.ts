@@ -47,6 +47,33 @@ describe('server environment', () => {
     ).toThrow('REMOTE_TASK_EXPLICIT_RUNTIME_SCOPE_REQUIRED');
   });
 
+  it('enables the formal LIVE profile only with explicit development scope and side effects', () => {
+    const live = {
+      SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
+      NODE_ENV: 'development',
+      SDAR_TASK_UNDERSTANDING_PROFILE: 'ugv-agent-profile',
+      SDAR_UGV_EXECUTION_MODE: 'live',
+      ALLOW_UGV_LIVE_SIDE_EFFECTS: 'YES',
+      SDAR_CONTROL_ENVIRONMENT: 'development',
+      SDAR_RUNTIME_TENANT_ID: 'tenant',
+      SDAR_RUNTIME_PROJECT_ID: 'project',
+      SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: 'emit',
+      SDAR_UGV_REAL_MODEL_ENABLED: 'NO',
+      SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
+      SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
+      SDAR_GOVERNED_CONTROL_BEARER_TOKEN: 'g'.repeat(32),
+      SDAR_GOVERNED_CONTROL_ACTOR_ID: 'operator',
+      SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm',
+    };
+    expect(parseServerEnvironment(live).SDAR_UGV_EXECUTION_MODE).toBe('live');
+    for (const override of [
+      { ALLOW_UGV_LIVE_SIDE_EFFECTS: 'NO' },
+      { SDAR_CONTROL_ENVIRONMENT: 'production' },
+      { SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: 'omit' },
+      { SDAR_UGV_REAL_MODEL_ENABLED: 'YES' },
+    ])
+      expect(() => parseServerEnvironment({ ...live, ...override })).toThrow();
+  });
   const isolatedEnvironmentKeys = [
     'SDAR_MASTER_KEY_BASE64',
     'SDAR_REDIS_PORT',

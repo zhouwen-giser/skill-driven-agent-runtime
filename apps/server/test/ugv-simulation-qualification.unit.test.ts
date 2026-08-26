@@ -1,3 +1,12 @@
+import { createMcpProviderDispatchHash } from '../../../packages/application/src/mcp-registry.js';
+import { UgvLiveQualificationService } from '../src/ugv-live-qualification.js';
+import type {
+  McpRegistryService,
+  RuntimeCapabilityResolution,
+  UgvLiveQualificationRecord,
+  UgvLiveQualificationStore,
+} from '../../../packages/application/src/index.js';
+import type { RemoteTaskAuthoritySnapshot } from '../../../packages/domain/src/index.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { McpInvocation } from '../../../packages/domain/src/index.js';
@@ -314,4 +323,284 @@ function qualificationResult(providerId = PROVIDER_ID) {
       mqttIngressSequence: 42,
     }),
   });
+}
+
+describe('UGV durable LIVE qualification', () => {
+  it('freezes the actual pre-transport snapshot and recovers the exact receipt after restart', async () => {
+    const f = liveFixture();
+    const receipt = await f.service().capture(f.request);
+    expect(receipt).toMatchObject({
+      requestId: 'live-request-1',
+      executionContext: { mode: 'live' },
+      invocationId: 'qualification-invocation-1',
+    });
+    expect(f.record()?.authoritySnapshot).toEqual(f.snapshot());
+    expect(f.invocation()?.simulationId).toBeUndefined();
+    expect(f.invocation()?.result).toEqual(liveReceipt().result);
+    f.setNow('2026-08-21T12:01:00.000Z');
+    await expect(f.service().capture(f.request)).resolves.toEqual(receipt);
+    expect(f.call).toHaveBeenCalledOnce();
+    await expect(f.service().prepareAcceptance(f.acceptance(receipt))).rejects.toMatchObject({
+      code: 'UGV_MOVE_SKILL_USAGE_QUALIFICATION_STALE',
+    });
+  });
+  it('only one concurrent request reserves transport', async () => {
+    const f = liveFixture();
+    const results = await Promise.allSettled([
+      f.service().capture(f.request),
+      f.service().capture(f.request),
+    ]);
+    expect(results.some((r) => r.status === 'fulfilled')).toBe(true);
+    expect(f.call).toHaveBeenCalledOnce();
+  });
+  it.each(['missing', 'throw'] as const)(
+    'never redispatches a %s durable result after restart',
+    async (failure) => {
+      const f = liveFixture(failure);
+      await expect(f.service().capture(f.request)).rejects.toBeInstanceOf(Error);
+      await expect(f.service().capture(f.request)).rejects.toMatchObject({
+        code: 'UGV_LIVE_QUALIFICATION_INVALID',
+      });
+      expect(f.record()?.status).toBe('uncertain');
+      expect(f.call).toHaveBeenCalledOnce();
+    },
+  );
+  it.each(['', undefined, 'simulation-elsewhere'])(
+    'rejects every supplied simulationId before reserving: %s',
+    async (simulationId) => {
+      const f = liveFixture();
+      const malformedRequest = {
+        ...f.request,
+        executionContext: { mode: 'live' as const, simulationId },
+      };
+      await expect(f.service().capture(malformedRequest)).rejects.toMatchObject({
+        code: 'UGV_LIVE_QUALIFICATION_INVALID',
+      });
+      expect(f.record()).toBeUndefined();
+      expect(f.call).not.toHaveBeenCalled();
+    },
+  );
+  it('freezes only an exact reference, rejects changed hashes/bindings, and reloads the same frozen constraint', async () => {
+    const f = liveFixture();
+    const receipt = await f.service().capture(f.request);
+    const acceptance = f.acceptance(receipt);
+    const constraints = await f.service().prepareAcceptance(acceptance);
+    const constraint = constraints[0];
+    if (constraint === undefined) throw new Error('constraint required');
+    expect(constraint).toMatchObject({
+      type: 'ugv_live_qualification',
+      invocationId: receipt.invocationId,
+      authoritySnapshot: f.snapshot(),
+    });
+    await expect(f.service().loadConstraint(constraint, NOW, NOW)).resolves.toEqual(f.invocation());
+    await expect(
+      f.service().prepareAcceptance({ ...acceptance, metadata: {} }),
+    ).rejects.toMatchObject({ code: 'UGV_LIVE_QUALIFICATION_INVALID' });
+    await expect(
+      f.service().prepareAcceptance({
+        ...acceptance,
+        metadata: {
+          'io.sdar/ugvQualification': {
+            requestId: receipt.requestId,
+            invocationId: receipt.invocationId,
+            resultHash: `sha256:${'0'.repeat(64)}`,
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'UGV_LIVE_QUALIFICATION_INVALID' });
+    f.changeBinding();
+    await expect(f.service().prepareAcceptance(acceptance)).rejects.toMatchObject({
+      code: 'UGV_LIVE_QUALIFICATION_INVALID',
+    });
+    expect(f.call).toHaveBeenCalledOnce();
+  });
+  it('does not manufacture a remote mode and still rejects an explicitly wrong remote mode', async () => {
+    const f = liveFixture();
+    await f.service().capture(f.request);
+    expect(
+      (f.invocation()?.result as ReturnType<typeof qualificationResult>).structuredContent.identity,
+    ).not.toHaveProperty('executionMode');
+    const bad = liveFixture('wrong-mode');
+    await expect(bad.service().capture(bad.request)).rejects.toMatchObject({
+      code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED',
+    });
+  });
+});
+
+function liveReceipt(): McpInvocation {
+  const { simulationId, ...receipt } = qualificationReceipt();
+  void simulationId;
+  const result = qualificationResult();
+  const { executionMode, ...identity } = result.structuredContent.identity;
+  void executionMode;
+  return {
+    ...receipt,
+    executionMode: 'live',
+    result: { ...result, structuredContent: { ...result.structuredContent, identity } },
+  };
+}
+function liveSnapshot(): RemoteTaskAuthoritySnapshot {
+  return {
+    schemaVersion: '1.0',
+    capturedAt: '2026-08-21T12:00:00.800Z',
+    runtime: {
+      serverId: SERVER_ID,
+      endpoint: 'http://provider.test/mcp',
+      serverUpdatedAt: NOW,
+      toolRevision: 1,
+      protocolSnapshotId: 'snapshot-1',
+      catalogRevision: '1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 10,
+    },
+    providerBinding: {
+      bindingId: PROVIDER_BINDING_ID,
+      revision: 1,
+      providerId: PROVIDER_ID,
+      endpointRef: 'http://provider.test/mcp',
+      catalogRevision: '1',
+      catalogChecksum: 'c'.repeat(64),
+      operationCount: 10,
+      availabilityValidUntil: '2026-08-21T12:05:00.000Z',
+      observedAt: NOW,
+      originType: 'smpp_registry',
+      externalServerId: 'external-server',
+      smppSourceId: 'source-configured',
+      registry: { externalProviderId: PROVIDER_ID, revision: '1', checksum: 'd'.repeat(64) },
+      scope: { tenantId: 'tenant', projectId: 'project', environment: 'development' },
+    },
+  };
+}
+function liveFixture(failure?: 'missing' | 'throw' | 'wrong-mode') {
+  let record: UgvLiveQualificationRecord | undefined;
+  let invocation: McpInvocation | undefined;
+  let snapshot = liveSnapshot();
+  let now = NOW;
+  const store: UgvLiveQualificationStore = {
+    reserve: (input) => {
+      if (record !== undefined) return Promise.resolve(false);
+      record = { ...input, executionContext: { mode: 'live' }, status: 'dispatching' };
+      return Promise.resolve(true);
+    },
+    freezeDispatch: (input) => {
+      if (record === undefined) throw new Error('no reservation');
+      record = {
+        ...record,
+        authoritySnapshot: input.authoritySnapshot,
+        dispatchHash: input.dispatchHash,
+      };
+      return Promise.resolve();
+    },
+    complete: (_id, _inv, resultHash) => {
+      if (record === undefined) throw new Error('no reservation');
+      record = { ...record, status: 'completed', resultHash };
+      return Promise.resolve();
+    },
+    markUncertain: () => {
+      if (record?.status === 'dispatching') record = { ...record, status: 'uncertain' };
+      return Promise.resolve();
+    },
+    load: () =>
+      Promise.resolve(
+        record === undefined
+          ? undefined
+          : { record, ...(invocation === undefined ? {} : { invocation }) },
+      ),
+  };
+  const call = vi.fn<McpRegistryService['callDetailed']>(
+    async (_server, _tool, _args, _signal, context) => {
+      if (context?.preTransportFence === undefined) throw new Error('fence required');
+      await context.preTransportFence.enter({
+        dispatchId: context.preTransportFence.invocationId,
+        dispatchHash: createMcpProviderDispatchHash({
+          invocationId: context.preTransportFence.invocationId,
+          serverId: SERVER_ID,
+          toolName: 'vehicle_get_state',
+          arguments: liveReceipt().arguments,
+          providerBindingId: PROVIDER_BINDING_ID,
+          providerId: PROVIDER_ID,
+        }),
+        authoritySnapshot: snapshot,
+      });
+      expect(record?.authoritySnapshot).toEqual(snapshot); // before injected transport result
+      if (failure === 'throw') throw new Error('transport uncertain');
+      if (failure !== 'missing')
+        invocation =
+          failure === 'wrong-mode'
+            ? { ...liveReceipt(), result: qualificationResult() }
+            : liveReceipt();
+      return {
+        invocationId: 'qualification-invocation-1',
+        outcome: {
+          kind: 'immediate',
+          result: liveReceipt().result as ReturnType<typeof qualificationResult>,
+        },
+        completedAt: NOW,
+        credentialRevision: '1',
+        sessionRevision: '1',
+        authoritySnapshot: snapshot,
+      };
+    },
+  );
+  const service = () =>
+    new UgvLiveQualificationService({
+      store,
+      registry: { callDetailed: call },
+      authority: {
+        resolveQualificationAuthority: () =>
+          Promise.resolve({
+            serverId: SERVER_ID,
+            providerBindingId: PROVIDER_BINDING_ID,
+            providerId: PROVIDER_ID,
+            authoritySnapshot: snapshot,
+          }),
+      },
+      clock: { now: () => now },
+      nextInvocationId: () => 'qualification-invocation-1',
+    });
+  const request = { requestId: 'live-request-1', executionContext: { mode: 'live' as const } };
+  return {
+    service,
+    request,
+    call,
+    record: () => record,
+    invocation: () => invocation,
+    snapshot: () => snapshot,
+    setNow: (value: string) => {
+      now = value;
+    },
+    changeBinding: () => {
+      snapshot = { ...snapshot, runtime: { ...snapshot.runtime, toolRevision: 2 } };
+    },
+    acceptance: (receipt: Awaited<ReturnType<UgvLiveQualificationService['capture']>>) => ({
+      requestId: request.requestId,
+      metadata: {
+        'io.sdar/ugvQualification': {
+          requestId: receipt.requestId,
+          invocationId: receipt.invocationId,
+          resultHash: receipt.resultHash,
+        },
+      },
+      boundAt: NOW,
+      resolution: {
+        requestedCapabilityId: 'embodied.move',
+        capabilityVersion: 2,
+        exposureId: 'a2a.embodied.move',
+        exposureVersion: 2,
+        requestSchema: {},
+        successCriteria: [],
+        requiredEvidence: [],
+        implementationRefs: ['skill:embodied.move_to:1'],
+        providerBindingRefs: [PROVIDER_BINDING_ID],
+        constraints: [
+          { type: 'runtime_execution_mode_policy', mode: 'live' },
+          {
+            type: 'provider_binding_policy',
+            localServerId: SERVER_ID,
+            mcpProviderBindingId: PROVIDER_BINDING_ID,
+          },
+        ],
+      } satisfies RuntimeCapabilityResolution,
+    }),
+  };
 }

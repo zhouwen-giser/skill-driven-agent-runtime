@@ -1142,6 +1142,47 @@ describe('management HTTP API contract', () => {
     expect(capture).toHaveBeenCalledWith({ simulationId: 'uap-p3-b02-run-00000001' });
   });
 
+  it('admits only the exact LIVE request into the composed UGV qualification operation', async () => {
+    const serviceToken = 'ugv-qualification-profile-token-00000000000000';
+    const receipt = {
+      requestId: 'live-request-1',
+      executionContext: { mode: 'live' },
+      invocationId: 'qualification-1',
+    };
+    const capture = vi.fn(() => Promise.resolve(receipt));
+    endpoint = await startManagementHttpEndpoint({
+      operations: operations(),
+      runtimeControl: {
+        bearerToken: serviceToken,
+        skills: {} as RuntimeSkillGovernanceService,
+        ugvSimulationQualification: { capture },
+      },
+    });
+    const post = (body: unknown) =>
+      fetch(`${endpoint?.baseUrl ?? ''}/internal/v1/ugv-agent-profile/qualification-state`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${serviceToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    for (const body of [
+      { requestId: 'live-request-1', executionContext: { mode: 'live', simulationId: '' } },
+      { requestId: 'live-request-1', executionContext: { mode: 'live' }, simulationId: '' },
+      { requestId: 'live-request-1', executionContext: { mode: 'simulation' } },
+      {
+        requestId: 'live-request-1',
+        executionContext: { mode: 'live' },
+        serverId: 'caller-selected-provider',
+      },
+    ])
+      expect((await post(body)).status).toBe(400);
+    expect(capture).not.toHaveBeenCalled();
+    const body = { requestId: 'live-request-1', executionContext: { mode: 'live' } };
+    const qualified = await post(body);
+    expect(qualified.status).toBe(200);
+    await expect(qualified.json()).resolves.toEqual(receipt);
+    expect(capture).toHaveBeenCalledExactlyOnceWith(body);
+  });
+
   it('delegates catalog stage and activate only to an explicitly composed Runtime authority', async () => {
     const serviceToken = 'runtime-catalog-service-token-000000000000000';
     const stage = vi.fn((input: { command: { reason: string } }) =>

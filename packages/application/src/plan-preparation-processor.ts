@@ -1,3 +1,4 @@
+import type { RemoteTaskInputSubmission } from './remote-task-input.js';
 import {
   bindTaskPlan,
   bindTaskGoal,
@@ -138,7 +139,10 @@ export interface PlanPreparationProcessorDependencies {
     ): Promise<unknown>;
   }>;
   readonly remoteTaskInput?: Readonly<{
-    submitAnswer(inputRequestId: string, inputResponses: unknown): Promise<void>;
+    submitAnswer(
+      inputRequestId: string,
+      inputResponses: unknown,
+    ): Promise<RemoteTaskInputSubmission>;
   }>;
   readonly taskPlanning: Readonly<{
     prepare(

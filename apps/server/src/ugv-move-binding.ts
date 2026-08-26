@@ -1,3 +1,4 @@
+import { remoteTaskAuthoritySnapshot } from '../../../packages/application/src/mcp-registry.js';
 import {
   FrozenSkillTaskReadinessAdapter,
   type Clock,
@@ -12,6 +13,8 @@ import {
 } from '../../../packages/application/src/index.js';
 import {
   createRuntimeExecutionContext,
+  type RemoteTaskAuthoritySnapshot,
+  type RuntimeBindingScope,
   createSelectedTaskOperation,
   hashCanonicalEvidenceJson,
   UGV_MOVE_TASK_ALIAS_REVISION,
@@ -52,6 +55,7 @@ export interface UgvMoveBindingResolution {
 }
 
 export interface UgvMoveQualificationAuthority {
+  readonly authoritySnapshot?: RemoteTaskAuthoritySnapshot;
   readonly serverId: string;
   readonly providerBindingId: string;
   readonly providerId: string;
@@ -66,6 +70,8 @@ type RuntimeBindingVerifier = Pick<
 
 /** UGV-profile-only semantic alias and authority resolver. Generic Task catalog matching is untouched. */
 export class UgvMoveTaskBindingResolver {
+  readonly #runtimeBindingScope: RuntimeBindingScope | undefined;
+  readonly #executionMode: 'live' | 'simulation';
   readonly #skills: Pick<SkillRepository, 'findCurrentVersion'>;
   readonly #packages: ExactSkillPackageAuthorityReader;
   readonly #operations: SkillTaskOperationCandidateCatalog;
@@ -79,6 +85,8 @@ export class UgvMoveTaskBindingResolver {
 
   constructor(
     dependencies: Readonly<{
+      executionMode?: 'live' | 'simulation';
+      runtimeBindingScope?: RuntimeBindingScope;
       skills: Pick<SkillRepository, 'findCurrentVersion'>;
       packages: ExactSkillPackageAuthorityReader;
       operations: SkillTaskOperationCandidateCatalog;
@@ -92,6 +100,8 @@ export class UgvMoveTaskBindingResolver {
       ) => void | Promise<void>;
     }>,
   ) {
+    this.#executionMode = dependencies.executionMode ?? 'simulation';
+    this.#runtimeBindingScope = dependencies.runtimeBindingScope;
     this.#skills = dependencies.skills;
     this.#packages = dependencies.packages;
     this.#operations = dependencies.operations;
@@ -106,11 +116,16 @@ export class UgvMoveTaskBindingResolver {
   async resolve(
     input: Readonly<{ skillInput: unknown; executionContext: RuntimeExecutionContext }>,
   ) {
+    if (input.executionContext.mode === 'live' && 'simulationId' in input.executionContext)
+      fail('UGV_PROFILE_EXECUTION_CONTEXT_INVALID', 'Live UGV context cannot carry simulationId.');
     const executionContext = createRuntimeExecutionContext(input.executionContext);
-    if (executionContext.mode !== 'simulation' || executionContext.simulationId === undefined)
+    if (
+      executionContext.mode !== this.#executionMode ||
+      (executionContext.mode === 'simulation' && executionContext.simulationId === undefined)
+    )
       fail(
         'UGV_PROFILE_SIMULATION_CONTEXT_REQUIRED',
-        'UGV Task binding is restricted to an explicit simulation execution context.',
+        'UGV Task binding requires its explicitly configured live or simulation execution context.',
       );
     const adaptedInput = adaptUgvMoveInput(input.skillInput);
     const exactSkill = await this.#requireExactSkillAuthority();
@@ -163,7 +178,9 @@ export class UgvMoveTaskBindingResolver {
               availability,
               selectedAt,
               readinessCheckedAt,
-              simulationId: executionContext.simulationId,
+              ...(executionContext.simulationId === undefined
+                ? {}
+                : { simulationId: executionContext.simulationId }),
             }),
           ),
         ).catch(() => undefined);
@@ -256,8 +273,8 @@ export class UgvMoveTaskBindingResolver {
         possibleEffects: Object.freeze([...availability.result.possibleEffects]),
       }),
       execution: Object.freeze({
-        mode: 'simulation',
-        simulationId: executionContext.simulationId,
+        ...executionContext,
+        mode: this.#executionMode,
         confirmation: 'existing_outer_plan_confirmation',
         confirmationRequired: true,
       }),
@@ -279,6 +296,12 @@ export class UgvMoveTaskBindingResolver {
       }),
     );
     return Object.freeze({
+      authoritySnapshot: remoteTaskAuthoritySnapshot(
+        exact.runtime,
+        exact.binding,
+        this.#clock.now(),
+        this.#runtimeBindingScope,
+      ),
       serverId: exact.runtime.record.server.serverId,
       providerBindingId: exact.binding.binding.bindingId,
       providerId: exact.binding.binding.providerId,
@@ -812,7 +835,7 @@ function readinessRejectionDiagnostic(
     availability: ReturnType<CapturingAvailabilityReader['exactResult']>;
     selectedAt: string;
     readinessCheckedAt: string | undefined;
-    simulationId: string;
+    simulationId?: string;
   }>,
 ) {
   const { exact, reported, availability, selectedAt, readinessCheckedAt } = input;
@@ -833,7 +856,9 @@ function readinessRejectionDiagnostic(
   return {
     event: 'ugv_profile.navigation_readiness_rejected' as const,
     errorCode: 'UGV_PROFILE_READINESS_NOT_ADMITTED' as const,
-    simulationId: diagnosticIdentifier(input.simulationId),
+    ...(input.simulationId === undefined
+      ? {}
+      : { simulationId: diagnosticIdentifier(input.simulationId) }),
     providerBindingId: diagnosticIdentifier(exact.binding.binding.bindingId),
     providerBindingRevision: exact.binding.binding.revision,
     providerId: diagnosticIdentifier(exact.binding.binding.providerId),
@@ -983,6 +1008,7 @@ export type UgvMoveBindingErrorCode =
   | 'UGV_PROFILE_SIMULATION_CONTEXT_REQUIRED'
   | 'UGV_PROFILE_SKILL_NOT_CURRENT'
   | 'UGV_PROFILE_SKILL_PACKAGE_AUTHORITY_REQUIRED'
+  | 'UGV_PROFILE_EXECUTION_CONTEXT_INVALID'
   | 'UGV_PROFILE_BINDING_NOT_FOUND'
   | 'UGV_PROFILE_BINDING_AMBIGUOUS'
   | 'UGV_PROFILE_PROVIDER_IDENTITY_INVALID'

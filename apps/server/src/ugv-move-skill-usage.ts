@@ -9,6 +9,7 @@ import {
   frozenTaskReadinessAttributes,
   hashCanonicalEvidenceJson,
   type McpInvocation,
+  type RuntimeExecutionContext,
   type SkillContextResolutionSummary,
   type SkillTaskReadinessSummary,
   type SkillUsageSelectionContext,
@@ -41,12 +42,15 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
       binding.taskType !== 'embodied.move' ||
       input.allowPreferredProviderFallback ||
       arguments_?.unresolved !== false ||
-      executionContext?.mode !== 'simulation' ||
-      executionContext.simulationId === undefined
+      executionContext === undefined ||
+      !['live', 'simulation'].includes(executionContext.mode) ||
+      (executionContext.mode === 'live'
+        ? 'simulationId' in executionContext
+        : executionContext.simulationId === undefined)
     )
       throw new UgvMoveSkillUsageError(
         'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED',
-        'UGV Skill Usage requires exact input, simulation, and profile binding authority.',
+        'UGV Skill Usage requires exact input, execution context, and profile binding authority.',
       );
     const resolved = await this.#resolver.resolve({
       skillInput: arguments_.value,
@@ -105,6 +109,7 @@ const PLAIN_SHA256 = /^[0-9a-f]{64}$/u;
 const BOUNDED_REFERENCE_ID = /^[A-Za-z0-9._-]{1,128}$/u;
 const BOUNDED_POLICY_ID = /^[A-Za-z0-9._/-]{1,128}$/u;
 
+export const UGV_LIVE_TARGET_POLICY_TYPE = 'ugv_live_target_policy' as const;
 export const UGV_SIMULATION_TARGET_POLICY_TYPE = 'ugv_simulation_target_policy' as const;
 
 export interface UgvSimulationTarget {
@@ -126,6 +131,17 @@ export interface UgvSimulationTargetPolicyInput {
 export function createUgvSimulationTargetPolicy(
   input: UgvSimulationTargetPolicyInput,
 ): Readonly<Record<string, unknown>> {
+  return createUgvTargetPolicy(input, 'simulation');
+}
+
+export function createUgvLiveTargetPolicy(input: UgvSimulationTargetPolicyInput) {
+  return createUgvTargetPolicy(input, 'live');
+}
+
+function createUgvTargetPolicy(
+  input: UgvSimulationTargetPolicyInput,
+  mode: 'live' | 'simulation',
+): Readonly<Record<string, unknown>> {
   if (
     !BOUNDED_POLICY_ID.test(input.policyId) ||
     !Number.isSafeInteger(input.revision) ||
@@ -133,10 +149,10 @@ export function createUgvSimulationTargetPolicy(
   )
     invalid('The UGV simulation target permission input is invalid.');
   return Object.freeze({
-    type: UGV_SIMULATION_TARGET_POLICY_TYPE,
+    type: mode === 'live' ? UGV_LIVE_TARGET_POLICY_TYPE : UGV_SIMULATION_TARGET_POLICY_TYPE,
     policyId: input.policyId,
     revision: input.revision,
-    executionMode: 'simulation',
+    executionMode: mode,
     resourceId: UGV_RESOURCE_ID,
     frame: 'WGS84',
     targetAuthority: 'task_capability_input_snapshot',
@@ -156,6 +172,13 @@ export async function resolveUgvMoveSkillUsageContext(
     authority: TaskCapabilitySkillUsageAuthority;
     binding: TaskCapabilityBinding;
     invocations: Pick<McpRegistryRepository, 'listInvocations'>;
+    qualification?: Readonly<{
+      loadConstraint(
+        constraint: Readonly<Record<string, unknown>>,
+        boundAt: string,
+        now: string,
+      ): Promise<McpInvocation>;
+    }>;
     clock: Pick<Clock, 'now'>;
   }>,
 ): Promise<SkillUsageSelectionContext> {
@@ -169,7 +192,10 @@ export async function resolveUgvMoveSkillUsageContext(
   const confirmation = exactlyOneConstraint(input.binding, 'confirmation_policy');
   const sideEffect = exactlyOneConstraint(input.binding, 'physical_side_effect_policy');
   const executionPolicy = exactlyOneConstraint(input.binding, 'runtime_execution_mode_policy');
-  const targetPolicy = exactlyOneConstraint(input.binding, UGV_SIMULATION_TARGET_POLICY_TYPE);
+  const targetPolicy = exactlyOneConstraint(
+    input.binding,
+    execution?.mode === 'live' ? UGV_LIVE_TARGET_POLICY_TYPE : UGV_SIMULATION_TARGET_POLICY_TYPE,
+  );
   const bindingInput = record(input.binding.inputSnapshot);
   const target = record(bindingInput?.['target']);
   const serverId = providerPolicy['localServerId'];
@@ -192,8 +218,9 @@ export async function resolveUgvMoveSkillUsageContext(
     !sameJson(arguments_.value, input.binding.inputSnapshot) ||
     context.risk !== 'high' ||
     context.humanConfirmation !== 'pending' ||
-    execution?.mode !== 'simulation' ||
-    !present(simulationId) ||
+    execution === undefined ||
+    !['live', 'simulation'].includes(execution.mode) ||
+    (execution.mode === 'live' ? 'simulationId' in execution : !present(simulationId)) ||
     !exactSystemPolicy(context) ||
     resourcePolicy['selection'] !== 'exact_value' ||
     !sameJson(resourcePolicy['allowedResourceIds'], [UGV_RESOURCE_ID]) ||
@@ -208,29 +235,41 @@ export async function resolveUgvMoveSkillUsageContext(
     confirmation['required'] !== true ||
     confirmation['stage'] !== 'before_execution' ||
     sideEffect['sideEffecting'] !== true ||
-    executionPolicy['mode'] !== 'simulation' ||
+    executionPolicy['mode'] !== execution.mode ||
+    (execution.mode === 'live' && 'simulationId' in executionPolicy) ||
     executionPolicy['simulationId'] !== simulationId ||
     !exactCapabilityObservations(context, input.binding, providerBindingId as string)
   )
     invalid('The formal UGV Task Capability context is not exact.');
 
-  const policy = exactTargetPolicy(targetPolicy);
-  const allInvocations = await input.invocations.listInvocations(serverId as string);
-  const candidates = allInvocations.filter(
-    (invocation) =>
-      invocation.serverId === serverId &&
-      invocation.toolName === STATE_OPERATION &&
-      invocation.executionMode === 'simulation' &&
-      invocation.simulationId === simulationId,
-  );
-  const receipt = candidates[0];
-  if (candidates.length !== 1 || receipt === undefined) {
-    invalid('The UGV simulation run requires exactly one taskless qualification state receipt.');
+  const policy = exactTargetPolicy(targetPolicy, execution.mode === 'live' ? 'live' : 'simulation');
+  let receipt: McpInvocation;
+  if (execution.mode === 'live') {
+    if (input.qualification === undefined)
+      invalid('The durable live qualification reader is required.');
+    receipt = await input.qualification.loadConstraint(
+      exactlyOneConstraint(input.binding, 'ugv_live_qualification'),
+      input.binding.boundAt,
+      input.clock.now(),
+    );
+  } else {
+    const allInvocations = await input.invocations.listInvocations(serverId as string);
+    const candidates = allInvocations.filter(
+      (invocation) =>
+        invocation.serverId === serverId &&
+        invocation.toolName === STATE_OPERATION &&
+        invocation.executionMode === 'simulation' &&
+        invocation.simulationId === simulationId,
+    );
+    const candidate = candidates[0];
+    if (candidates.length !== 1 || candidate === undefined)
+      invalid('The UGV simulation run requires exactly one taskless qualification state receipt.');
+    receipt = candidate;
   }
-  validateUgvSimulationQualificationReceipt(
+  validateUgvQualificationReceipt(
     receipt,
     serverId as string,
-    simulationId,
+    execution,
     input.clock.now(),
     input.binding.boundAt,
   );
@@ -335,7 +374,7 @@ function exactlyOneConstraint(binding: TaskCapabilityBinding, type: string) {
   return match;
 }
 
-function exactTargetPolicy(value: Readonly<Record<string, unknown>>) {
+function exactTargetPolicy(value: Readonly<Record<string, unknown>>, mode: 'live' | 'simulation') {
   const policyId = value['policyId'];
   const revision = value['revision'];
   if (
@@ -346,7 +385,7 @@ function exactTargetPolicy(value: Readonly<Record<string, unknown>>) {
     revision < 1
   )
     invalid('The frozen UGV simulation target policy identity is invalid.');
-  const expected = createUgvSimulationTargetPolicy({ policyId, revision });
+  const expected = createUgvTargetPolicy({ policyId, revision }, mode);
   if (!sameJson(value, expected)) invalid('The frozen UGV simulation target policy is not exact.');
   return Object.freeze({ policyId, revision });
 }
@@ -363,6 +402,22 @@ export function validateUgvSimulationQualificationReceipt(
   nowText: string,
   boundAtText: string,
 ) {
+  return validateUgvQualificationReceipt(
+    receipt,
+    serverId,
+    { mode: 'simulation', simulationId },
+    nowText,
+    boundAtText,
+  );
+}
+
+export function validateUgvQualificationReceipt(
+  receipt: McpInvocation,
+  serverId: string,
+  execution: RuntimeExecutionContext,
+  nowText: string,
+  boundAtText: string,
+) {
   const startedAt = timestamp(receipt.startedAt);
   const completedAt = timestamp(receipt.completedAt);
   const now = timestamp(nowText);
@@ -371,13 +426,14 @@ export function validateUgvSimulationQualificationReceipt(
     receipt.invocationId.trim() !== receipt.invocationId ||
     !BOUNDED_REFERENCE_ID.test(receipt.invocationId) ||
     receipt.taskId !== undefined ||
+    receipt.contextId !== undefined ||
     receipt.capabilityAttemptId !== undefined ||
     receipt.controlConfirmationId !== undefined ||
     receipt.controlProviderBindingId !== undefined ||
     receipt.controlArgumentsHash !== undefined ||
     receipt.controlDispatchHash !== undefined ||
-    receipt.executionMode !== 'simulation' ||
-    receipt.simulationId !== simulationId ||
+    receipt.executionMode !== execution.mode ||
+    receipt.simulationId !== execution.simulationId ||
     receipt.serverId !== serverId ||
     receipt.toolName !== STATE_OPERATION ||
     ![
@@ -441,7 +497,8 @@ export function validateUgvSimulationQualificationReceipt(
     identity?.['providerId'] !== UGV_PROVIDER_ID ||
     identity['resourceId'] !== UGV_RESOURCE_ID ||
     identity['vehicleType'] !== 'ugv' ||
-    identity['executionMode'] !== 'simulation' ||
+    (identity['executionMode'] !== execution.mode &&
+      !(execution.mode === 'live' && identity['executionMode'] === undefined)) ||
     connectivity?.['mqttConnected'] !== true ||
     connectivity['deviceMcpConnected'] !== true ||
     connectivity['deviceAvailable'] !== true ||

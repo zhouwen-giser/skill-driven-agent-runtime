@@ -35,7 +35,7 @@ const migrationDirectory = resolve(root, 'infra', 'postgres', 'migrations');
 const controlMigrationDirectory = resolve(root, 'infra', 'postgres-control', 'migrations');
 const postBaselineMigrationFiles = (await readdir(migrationDirectory))
   .filter((file) =>
-    /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate)\.up\.sql$/u.test(
+    /^(?:01[0-9]{2}_v(?:123|13|14)_[a-z0-9_]+|0173_remote_task_accepted_substate|0174_runtime_provider_binding_authority|0175_ugv_live_qualification)\.up\.sql$/u.test(
       file,
     ),
   )

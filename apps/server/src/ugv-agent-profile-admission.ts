@@ -38,7 +38,7 @@ const OUTCOME_EVIDENCE_REF = 'evidence.final_position';
 const WORKFLOW_EVIDENCE_TYPE = 'position.observation';
 const UGV_NAVIGATE_REPLAY_CONSTRAINT = 'profile.ugv-agent-profile.side_effect_replay=forbidden';
 
-const GOAL_TITLE = 'Move the simulation UGV to its capability-authorized point';
+const GOAL_TITLE = 'Move the UGV to its capability-authorized point';
 const GOAL_SUCCESS_CRITERION =
   'A fresh same-resource final-position observation proves the authorized target is within tolerance.';
 
@@ -343,8 +343,7 @@ async function requireBinding(
       required: true,
       stage: 'before_execution',
     }) ||
-    !hasExactConstraint(exact, 'runtime_execution_mode_policy', { mode: 'simulation' }) ||
-    !hasSimulationIdentity(exact) ||
+    !hasProfileExecutionIdentity(exact) ||
     !exact.evidenceRequirementSnapshot.some(
       (requirement) =>
         requirement['evidenceType'] === WORKFLOW_EVIDENCE_TYPE &&
@@ -427,7 +426,7 @@ function goalContractFields(task: AgentTask, binding: TaskCapabilityBinding, inp
     constraints: Object.freeze([
       'policy.confirmation=required',
       UGV_NAVIGATE_REPLAY_CONSTRAINT,
-      'execution.mode=simulation',
+      `execution.mode=${String(binding.constraintSnapshot.find((c) => c['type'] === 'runtime_execution_mode_policy')?.['mode'])}`,
       `authority.task-id=${task.taskId}`,
       `authority.task-capability-binding=${binding.bindingId}`,
       `authority.task-capability-binding-hash=sha256:${binding.bindingHash}`,
@@ -626,11 +625,25 @@ function hasExactConstraint(
   );
 }
 
-function hasSimulationIdentity(binding: TaskCapabilityBinding): boolean {
+function hasProfileExecutionIdentity(binding: TaskCapabilityBinding): boolean {
   const policy = binding.constraintSnapshot.find(
     (constraint) => constraint['type'] === 'runtime_execution_mode_policy',
   );
-  return typeof policy?.['simulationId'] === 'string' && policy['simulationId'].trim() !== '';
+  if (
+    binding.constraintSnapshot.filter((c) => c['type'] === 'runtime_execution_mode_policy')
+      .length !== 1
+  )
+    return false;
+  if (policy?.['mode'] === 'live')
+    return (
+      !('simulationId' in policy) &&
+      binding.constraintSnapshot.filter((c) => c['type'] === 'ugv_live_qualification').length === 1
+    );
+  return (
+    policy?.['mode'] === 'simulation' &&
+    typeof policy['simulationId'] === 'string' &&
+    policy['simulationId'].trim() !== ''
+  );
 }
 
 function bindingInputSourceRef(binding: TaskCapabilityBinding): string {
