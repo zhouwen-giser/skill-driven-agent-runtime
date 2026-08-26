@@ -97,6 +97,27 @@ describe('RemoteTaskInputService', () => {
       errorCode: 'MCP_TASK_UPDATE_PROVIDER_UNREACHABLE',
     });
   });
+
+  it('uses persisted keys and closed submission status without a transport observation cache', async () => {
+    const fixture = serviceFixture(remoteBinding());
+    fixture.link = { ...fixture.link, status: 'answered' };
+    await expect(
+      fixture.service.submitAnswer('input-request-1', {
+        injected: { action: 'accept', content: {} },
+      }),
+    ).rejects.toMatchObject({ code: 'REMOTE_TASK_INPUT_RESPONSE_INVALID' });
+    expect(fixture.sender).not.toHaveBeenCalled();
+    await fixture.service.submitAnswer('input-request-1', {
+      approval: { action: 'accept', content: { approved: true } },
+    });
+    // The persisted status, not the lifetime of the transport client, prevents resubmission.
+    await expect(
+      fixture.service.submitAnswer('input-request-1', {
+        approval: { action: 'accept', content: { approved: true } },
+      }),
+    ).rejects.toMatchObject({ code: 'REMOTE_TASK_INPUT_LINK_NOT_ANSWERED' });
+    expect(fixture.sender).toHaveBeenCalledTimes(1);
+  });
 });
 
 function serviceFixture(

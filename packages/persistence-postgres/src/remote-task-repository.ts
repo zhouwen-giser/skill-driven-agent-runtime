@@ -486,7 +486,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
         };
       }
       await insertProtocolAttempt(client, input.protocolAttempt);
-      const disposition = classifyRemoteTaskObservation(locked, input.snapshot);
+      const disposition = await classifyPersistedObservation(client, locked, input.snapshot);
       if (disposition !== 'accept') {
         const nextPollAt = new Date(
           Date.parse(input.observedAt) + locked.pollIntervalMs,
@@ -640,7 +640,7 @@ export class PostgresRemoteTaskRepository implements RemoteTaskRepository {
       if (locked === undefined) return { applied: false, reason: 'missing' };
       if (locked.version !== input.expectedVersion)
         return { applied: false, reason: isObservationActive(locked) ? 'stale' : 'closed' };
-      const disposition = classifyRemoteTaskObservation(locked, input.snapshot);
+      const disposition = await classifyPersistedObservation(client, locked, input.snapshot);
       if (disposition === 'duplicate')
         return { applied: true, binding: locked, snapshotAccepted: false };
       if (disposition !== 'accept') {
@@ -1063,6 +1063,28 @@ async function resolveCancellationIfInstalled(
      WHERE binding_id=$1 AND provider_terminal_status IS NULL`,
     [bindingId, status, resolvedAt],
   );
+}
+
+/** The binding lock serializes protocol acceptance, including immutable elicitation keys. */
+async function classifyPersistedObservation(
+  client: PoolClient,
+  binding: RemoteTaskBinding,
+  snapshot: RemoteTaskSnapshot,
+) {
+  const disposition = classifyRemoteTaskObservation(binding, snapshot);
+  if (disposition !== 'accept' || snapshot.status !== 'input_required') return disposition;
+  const prior = await client.query<{ conflict: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM remote_task_observation observation
+       CROSS JOIN LATERAL jsonb_each(observation.payload_json->'inputRequests') request
+       WHERE observation.binding_id=$1 AND observation.accepted
+         AND observation.payload_json->>'status'='input_required'
+         AND $2::jsonb ? request.key
+         AND ($2::jsonb->request.key) IS DISTINCT FROM request.value
+     ) AS conflict`,
+    [binding.bindingId, JSON.stringify(snapshot.inputRequests)],
+  );
+  return prior.rows[0]?.conflict === true ? ('input_key_conflict' as const) : ('accept' as const);
 }
 
 async function isAnsweredInputEcho(

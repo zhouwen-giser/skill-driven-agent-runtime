@@ -4,6 +4,7 @@ import {
   FrozenTaskLifecycleClient,
   FrozenTaskLifecycleError,
   FrozenV1McpClient,
+  FrozenV1RuntimeLifecycleAdapter,
   parseCreatedTask,
   parseDetailedTask,
 } from '../src/index.js';
@@ -12,6 +13,94 @@ const endpoint = 'https://provider.example.test/mcp';
 const now = '2026-07-18T03:10:00.000Z';
 
 describe('Frozen V1 Task lifecycle', () => {
+  it('accepts a 300 KB detailed result under the existing one MiB Task wire bound', () => {
+    const wire = task('completed', '5', {
+      result: { ...toolResult(), structuredContent: { detail: 'x'.repeat(300_000) } },
+    });
+    expect(parseDetailedTask(wire, now)).toMatchObject({
+      status: 'completed',
+      result: { isError: false },
+    });
+    expect(() =>
+      parseDetailedTask(
+        {
+          ...wire,
+          result: { ...toolResult(), structuredContent: { detail: 'x'.repeat(1_048_576) } },
+        },
+        now,
+      ),
+    ).toThrow(expect.objectContaining({ code: 'FROZEN_TASK_RESPONSE_TOO_LARGE' }));
+  });
+  it('sends persisted Runtime input responses after client restart and rejects empty maps without a fake Ack', async () => {
+    const methods: unknown[] = [];
+    const client = new FrozenV1McpClient((_url, init) => {
+      const body = parseRequestBody(init);
+      methods.push(body['method']);
+      return Promise.resolve(
+        Response.json({ jsonrpc: '2.0', id: body['id'], result: { resultType: 'complete' } }),
+      );
+    });
+    const adapter = new FrozenV1RuntimeLifecycleAdapter({ client, now: () => now });
+    const input = { endpoint, headers: {}, remoteTaskId: 'task-1' };
+    await expect(adapter.update({ ...input, inputResponses: {} })).rejects.toMatchObject({
+      code: 'FROZEN_TASK_INPUT_RESPONSES_INVALID',
+    });
+    expect(methods).toEqual([]);
+    await expect(
+      adapter.update({
+        ...input,
+        inputResponses: { approval: { action: 'accept', content: { approved: true } } },
+      }),
+    ).resolves.toMatchObject({ acknowledged: true });
+    expect(methods).toEqual(['tasks/update']);
+  });
+  it.each(['working', 'completed', 'input_required'] as const)(
+    'does not retain an unaccepted %s observation in the Runtime transport client',
+    async (wrongStatus) => {
+      const wire = (instance: string, revision: string, status: typeof wrongStatus) =>
+        task(status, revision, {
+          ttlMs: null,
+          _meta: {
+            'io.sdar/taskExecution': { profileVersion: '1.0', runtimeRevision: revision },
+            'io.sdar/providerIdentity': {
+              profileVersion: '1.0',
+              providerId: 'provider-1',
+              providerInstanceId: instance,
+            },
+          },
+          ...(status === 'completed' ? { result: toolResult() } : {}),
+          ...(status === 'input_required' ? { inputRequests: inputRequests(instance) } : {}),
+        });
+      const responses = [
+        wire('A', '5', 'working'),
+        wire('B', '100', wrongStatus),
+        wire('A', '6', 'working'),
+      ];
+      const client = new FrozenV1McpClient((_url, init) => {
+        const body = parseRequestBody(init);
+        return Promise.resolve(
+          Response.json({ jsonrpc: '2.0', id: body['id'], result: requiredShift(responses) }),
+        );
+      });
+      const adapter = new FrozenV1RuntimeLifecycleAdapter({ client, now: () => now });
+      const input = {
+        endpoint,
+        headers: {},
+        remoteTaskId: 'task-1',
+        outputValidator: {
+          checkSchema: () => ({ valid: true, errors: [] }),
+          validate: () => ({ valid: true, errors: [] }),
+        },
+      };
+      expect((await adapter.get(input)).runtimeRevision).toBe('5');
+      // A downstream authoritative repository can reject this parsed Provider B observation.
+      expect((await adapter.get(input)).providerIdentity?.providerInstanceId).toBe('B');
+      await expect(adapter.get(input)).resolves.toMatchObject({
+        runtimeRevision: '6',
+        providerIdentity: { providerInstanceId: 'A' },
+      });
+    },
+  );
   it('strictly propagates Provider-local identity through admission, reads and Task notifications', async () => {
     const identity = {
       profileVersion: '1.0',

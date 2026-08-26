@@ -49,14 +49,14 @@ export interface FrozenTaskSubscriptionRunResult {
 
 export class FrozenRemoteTaskSubscriptionManager {
   readonly #transport: FrozenV1McpClient;
-  readonly #lifecycle: FrozenTaskLifecycleClient;
+  readonly #lifecycle: Pick<FrozenTaskLifecycleClient, 'getTaskAdmission' | 'admitNotification'>;
   readonly #endpoint: string;
   readonly #headers: Readonly<Record<string, string>>;
 
   constructor(
     input: Readonly<{
       transport: FrozenV1McpClient;
-      lifecycle: FrozenTaskLifecycleClient;
+      lifecycle: Pick<FrozenTaskLifecycleClient, 'getTaskAdmission' | 'admitNotification'>;
       endpoint: string;
       headers: Readonly<Record<string, string>>;
     }>,

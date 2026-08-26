@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-08-26 — Runtime binding observation correction
+
+- Keep Runtime transport observations stateless until the durable binding accepts them;
+  rejected Provider identities no longer poison revision, terminal or input-key state.
+- Preserve standalone protocol lifecycle checks and persisted Runtime input submissions.
+  Both repository observation paths reject changed accepted input keys before state/control updates.
+- Compare valid Task JSON under its own contract, independently of Evidence export restrictions.
+- Add exact adapter/registry/repository boundary regressions and controller-only PostgreSQL cases;
+  no live run, PostgreSQL verification or Gate acceptance is asserted by this correction.
+
 ## 2026-08-26 — Frozen Runtime / Provider binding candidate
 
 - Capture explicit Runtime scope, Episode/Task/A2A identity and the verified registry

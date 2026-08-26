@@ -94,7 +94,7 @@ ALTER TABLE remote_task_admission_intent
 ALTER TABLE remote_task_observation DROP CONSTRAINT remote_task_observation_rejection_reason_check;
 ALTER TABLE remote_task_observation ADD CONSTRAINT remote_task_observation_rejection_reason_check
   CHECK (rejection_reason IS NULL OR rejection_reason IN (
-    'stale_provider_revision','binding_closed','identity_conflict','revision_content_conflict','terminal_conflict'));
+    'stale_provider_revision','binding_closed','identity_conflict','revision_content_conflict','terminal_conflict','input_key_conflict'));
 -- Conflicting replay of a Provider event must remain visible, not be discarded by its event key.
 DROP INDEX remote_task_observation_provider_event_idx;
 CREATE UNIQUE INDEX remote_task_observation_provider_event_idx

@@ -11,6 +11,82 @@ import {
 const capturedAt = '2026-08-13T01:00:00.000Z';
 
 describe('Remote Task frozen authority', () => {
+  it('treats ordinary elicitation schema keys as Task data', () => {
+    const base = createRemoteTaskBinding(admission());
+    const identity = base.providerIdentity;
+    if (identity === undefined) throw new Error('TEST_PROVIDER_IDENTITY_REQUIRED');
+    const snapshot: RemoteTaskSnapshot = {
+      remoteTaskId: base.remoteTaskId,
+      providerIdentity: identity,
+      status: 'input_required',
+      createdAt: capturedAt,
+      lastUpdatedAt: capturedAt,
+      ttlMs: null,
+      protocolRevision: base.protocolRevision,
+      tasksSchemaRevision: base.tasksSchemaRevision,
+      runtimeRevision: '5',
+      inputRequests: {
+        approval: {
+          method: 'elicitation/create',
+          params: {
+            mode: 'form',
+            requestedSchema: { type: 'object', properties: { password: { type: 'string' } } },
+          },
+        },
+      },
+    };
+    expect(
+      classifyRemoteTaskObservation(
+        {
+          ...base,
+          runtimeRevision: '5',
+          lastTaskSnapshot: snapshot,
+          lastTaskProjection: 'detailed',
+        },
+        snapshot,
+      ),
+    ).toBe('duplicate');
+  });
+  it.each([
+    { text: 'x'.repeat(300_000) },
+    { type: 'object', properties: { password: { type: 'string' } } },
+    { values: Array.from({ length: 4_097 }, () => 0) },
+  ])('compares the accepted Task JSON contract without Evidence export limits', (content) => {
+    const base = createRemoteTaskBinding(admission());
+    const identity = base.providerIdentity;
+    if (identity === undefined) throw new Error('TEST_PROVIDER_IDENTITY_REQUIRED');
+    const snapshot: RemoteTaskSnapshot = {
+      remoteTaskId: base.remoteTaskId,
+      providerIdentity: identity,
+      status: 'completed',
+      createdAt: capturedAt,
+      lastUpdatedAt: capturedAt,
+      ttlMs: null,
+      protocolRevision: base.protocolRevision,
+      tasksSchemaRevision: base.tasksSchemaRevision,
+      runtimeRevision: '5',
+      result: { content: [], structuredContent: content, isError: false },
+    };
+    const binding = {
+      ...base,
+      runtimeRevision: '5',
+      protocolStatus: 'completed' as const,
+      lastTaskProjection: 'detailed' as const,
+      lastTaskSnapshot: snapshot,
+    };
+    expect(
+      classifyRemoteTaskObservation(
+        binding,
+        JSON.parse(JSON.stringify(snapshot)) as RemoteTaskSnapshot,
+      ),
+    ).toBe('duplicate');
+    expect(
+      classifyRemoteTaskObservation(binding, {
+        ...snapshot,
+        result: { ...snapshot.result, structuredContent: { ...content, changed: true } },
+      }),
+    ).toBe('revision_content_conflict');
+  });
   it('persists explicit Episode/task/A2A mapping and keeps all revision domains and instance distinct', () => {
     const binding = createRemoteTaskBinding(admission());
     expect(binding.bindingAuthority).toEqual({

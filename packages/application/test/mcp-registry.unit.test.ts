@@ -1,4 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Pool } from 'pg';
+import {
+  FrozenV1McpClient,
+  FrozenV1RuntimeLifecycleAdapter,
+  FrozenV1RuntimeNotificationAdapter,
+} from '../../mcp-adapter/src/index.js';
+import { PostgresRemoteTaskRepository } from '../../persistence-postgres/src/index.js';
 
 import type {
   McpDependencyWarning,
@@ -9,10 +16,13 @@ import type {
   McpServer,
   McpTool,
   ResolvedMcpTaskExecution,
+  RemoteTaskSnapshot,
+  RemoteTaskBinding,
 } from '../../domain/src/index.js';
 import {
   deriveFrozenMcpCatalogAuthority,
   LIVE_RUNTIME_EXECUTION_CONTEXT,
+  createRemoteTaskBinding,
 } from '../../domain/src/index.js';
 import {
   createMcpProviderDispatchHash,
@@ -29,6 +39,238 @@ import type { McpRegistryRepository, McpServerRecord } from '../src/ports.js';
 const timestamp = '2026-08-11T01:00:00.000Z';
 
 describe('MCP Registry invocation boundary', () => {
+  it.each(
+    (['working', 'completed', 'input_required'] as const).flatMap((wrongStatus) =>
+      (['poll', 'notification'] as const).flatMap((source) =>
+        [false, true].map((restart) => ({ wrongStatus, source, restart })),
+      ),
+    ),
+  )(
+    'keeps A5 -> wrong-instance B100 $wrongStatus -> A6 through $source with restart=$restart',
+    async ({ wrongStatus, source, restart }) => {
+      const wire = (instance: string, revision: string, status = 'working') => ({
+        resultType: 'complete',
+        taskId: 'remote-1',
+        status,
+        createdAt: timestamp,
+        lastUpdatedAt: timestamp,
+        ttlMs: null,
+        pollIntervalMs: 100,
+        _meta: {
+          'io.sdar/taskExecution': { profileVersion: '1.0', runtimeRevision: revision },
+          'io.sdar/providerIdentity': {
+            profileVersion: '1.0',
+            providerId: 'external-provider-1',
+            providerInstanceId: instance,
+          },
+        },
+        ...(status === 'completed'
+          ? { result: { resultType: 'complete', content: [], isError: false } }
+          : {}),
+        ...(status === 'input_required'
+          ? {
+              inputRequests: {
+                approval: {
+                  method: 'elicitation/create',
+                  params: { mode: 'form', message: instance },
+                },
+              },
+            }
+          : {}),
+      });
+      let currentWire = wire('A', '5');
+      const transport = new FrozenV1McpClient((_url, init) => {
+        if (typeof init?.body !== 'string') throw new Error('TEST_JSON_REQUEST_REQUIRED');
+        const request = JSON.parse(init.body) as Record<string, unknown>;
+        return Promise.resolve(
+          Response.json({
+            jsonrpc: '2.0',
+            id: request['id'],
+            result: {
+              ...currentWire,
+              resultType: request['method'] === 'tools/call' ? 'task' : 'complete',
+            },
+          }),
+        );
+      });
+      const adapter = () =>
+        new FrozenV1RuntimeLifecycleAdapter({ client: transport, now: () => timestamp });
+      let fixture = createFixture({
+        frozenLifecycle: adapter(),
+        toolName: 'task_success',
+        toolExecution: 'task_required',
+      });
+      const admitted = await fixture.service.callDetailed(
+        'provider-1',
+        'task_success',
+        {},
+        undefined,
+        runtimeAdmissionContext(),
+      );
+      if (admitted.outcome.kind !== 'remote_task' || admitted.protocolContract === undefined)
+        throw new Error('TEST_REMOTE_ADMISSION_REQUIRED');
+      const protocolContract = admitted.protocolContract;
+      const initial = admitted.outcome.reconciledTask;
+      if (initial === undefined) throw new Error('TEST_DETAILED_REQUIRED');
+      const binding = createRemoteTaskBinding({
+        ...initial,
+        bindingId: 'binding-1',
+        serverId: 'provider-1',
+        operationName: 'task_success',
+        agentTaskId: 'task-1',
+        contextId: 'context-1',
+        goalId: 'goal-1',
+        goalVersion: 1,
+        workflowPlanId: 'plan-1',
+        workflowDefinitionId: 'workflow-1',
+        workflowDefinitionVersion: 1,
+        workflowInstanceId: 'instance-1',
+        workflowNodeId: 'node-1',
+        workflowNodeRunId: 'node-1:1',
+        mcpInvocationId: admitted.invocationId,
+        protocolStatus: 'working',
+        taskBehavior: 'task_required',
+        taskCancellation: 'unsupported',
+        protocolContract: admitted.protocolContract,
+        credentialRevision: admitted.credentialRevision,
+        sessionRevision: admitted.sessionRevision,
+        executionContext: { mode: 'live' },
+        authoritySnapshot: admitted.authoritySnapshot,
+        pollIntervalMs: 100,
+        lastProviderUpdatedAt: timestamp,
+        createdAt: timestamp,
+      });
+      const storage = observationQueryDouble({
+        ...binding,
+        lastTaskSnapshot: initial,
+        lastTaskProjection: 'detailed',
+      });
+      const repository = new PostgresRemoteTaskRepository(storage.pool);
+      const read = async () => {
+        const result = await fixture.service.readRemoteTask({
+          serverId: 'provider-1',
+          operationName: 'task_success',
+          remoteTaskId: 'remote-1',
+          executionContext: { mode: 'live' },
+          credentialRevision: admitted.credentialRevision,
+          protocolContract,
+          authoritySnapshot: admitted.authoritySnapshot,
+        });
+        expect(result.kind).toBe('snapshot');
+        if (result.kind !== 'snapshot') throw new Error('TEST_WIRE_OBSERVATION_REQUIRED');
+        return result.snapshot;
+      };
+      let sequence = 0;
+      const persist = async (snapshot: RemoteTaskSnapshot) => {
+        const id = String(++sequence);
+        const current = await repository.findById('binding-1');
+        if (current === undefined) throw new Error('TEST_BINDING_REQUIRED');
+        if (source === 'poll')
+          return repository.recordSnapshot({
+            bindingId: current.bindingId,
+            expectedVersion: current.version,
+            claimToken: 'claim-1',
+            snapshot,
+            observationId: id,
+            observedAt: timestamp,
+            protocolAttempt: {
+              attemptId: id,
+              bindingId: current.bindingId,
+              method: 'tasks/get',
+              expectedBindingVersion: current.version,
+              protocolRevision: snapshot.protocolRevision,
+              status: 'succeeded',
+              startedAt: timestamp,
+              completedAt: timestamp,
+              durationMs: 0,
+            },
+          });
+        return repository.recordExternalSnapshot({
+          bindingId: current.bindingId,
+          expectedVersion: current.version,
+          snapshot,
+          observationId: id,
+          source: 'notification',
+          observedAt: timestamp,
+        });
+      };
+      currentWire = wire('B', '100', wrongStatus);
+      if (source === 'poll') {
+        expect(await persist(await read())).toMatchObject({ snapshotAccepted: false });
+      } else {
+        const stream = [currentWire, wire('A', '6')];
+        vi.spyOn(transport, 'listenToTaskNotifications').mockResolvedValue({
+          requestId: 1,
+          messages: (async function* () {
+            yield await Promise.resolve({
+              jsonrpc: '2.0',
+              method: 'notifications/subscriptions/acknowledged',
+              params: {
+                _meta: { 'io.modelcontextprotocol/subscriptionId': 1 },
+                notifications: { taskIds: ['remote-1'] },
+              },
+            });
+            for (const task of stream) {
+              const { resultType, ...params } = task;
+              expect(resultType).toBe('complete');
+              yield {
+                jsonrpc: '2.0',
+                method: 'notifications/tasks',
+                params: {
+                  ...params,
+                  _meta: { ...params._meta, 'io.modelcontextprotocol/subscriptionId': 1 },
+                },
+              };
+            }
+          })(),
+        });
+        await new FrozenV1RuntimeNotificationAdapter({
+          client: transport,
+          now: () => timestamp,
+        }).run({
+          endpoint: 'https://provider.test/mcp',
+          headers: {},
+          taskIds: ['remote-1'],
+          reconnecting: false,
+          outputSchemas: {},
+          outputValidator: {
+            checkSchema: () => ({ valid: true, errors: [] }),
+            validate: () => ({ valid: true, errors: [] }),
+          },
+          signal: new AbortController().signal,
+          onObservation: async (snapshot) => {
+            await persist(snapshot);
+          },
+        });
+      }
+      expect(storage.rejections).toEqual(['identity_conflict']);
+      if (restart)
+        fixture = createFixture({
+          frozenLifecycle: adapter(),
+          toolName: 'task_success',
+          toolExecution: 'task_required',
+        });
+      currentWire = wire('A', '6');
+      storage.reclaim();
+      expect(await persist(await read())).toMatchObject({ snapshotAccepted: source === 'poll' });
+      expect(
+        await new PostgresRemoteTaskRepository(storage.pool).findById('binding-1'),
+      ).toMatchObject({
+        runtimeRevision: '6',
+        protocolStatus: 'working',
+        providerIdentity: { providerInstanceId: 'A' },
+      });
+      // The SQL history result is doubled; actual PostgreSQL selection has its dedicated fixture.
+      storage.setInputKeyConflict();
+      currentWire = wire('A', '7', 'input_required');
+      storage.reclaim();
+      expect(await persist(await read())).toMatchObject({
+        snapshotAccepted: false,
+        binding: { runtimeRevision: '6' },
+      });
+      expect(storage.rejections).toEqual(['identity_conflict', 'input_key_conflict']);
+    },
+  );
   it('can omit only the live execution-mode header while retaining live invocation evidence', async () => {
     const fixture = createFixture({ executionModeHeaderPolicy: 'omit_live' });
 
@@ -1178,6 +1420,7 @@ describe('MCP Registry invocation boundary', () => {
 
 function createFixture(
   options: Readonly<{
+    frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
     serverStatus?: McpServer['status'];
     protocolSnapshot?: McpProtocolDiscoverySnapshot | undefined;
     outcome?: McpInvocationOutcome;
@@ -1290,7 +1533,7 @@ function createFixture(
       checkSchema: () => ({ valid: true, errors: [] }),
       validate: () => ({ valid: true, errors: [] }),
     },
-    frozenLifecycle: {
+    frozenLifecycle: options.frozenLifecycle ?? {
       call,
       get,
       update: () => Promise.reject(new Error('unused')),
@@ -1548,6 +1791,64 @@ function runtimeAdmissionContext(invocationId = 'invocation-1') {
       recordRemoteReceipt: vi.fn().mockResolvedValue(undefined),
       close: vi.fn().mockResolvedValue(undefined),
       markUncertain: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+}
+
+/** A query double only: exercises actual repository acceptance, not PostgreSQL/transaction claims. */
+function observationQueryDouble(binding: RemoteTaskBinding) {
+  const row: Record<string, unknown> = {};
+  const nullable =
+    'skill_goal_id skill_attempt_id parent_workflow_instance_id parent_skill_call_id task_behavior task_cancellation task_ttl_ms task_expires_at provider_substate remote_revision requested_timing_json simulation_id next_poll_at poll_claim_token poll_claimed_at poll_claim_expires_at result_snapshot_json error_snapshot_json last_safe_error_code invalidated_at terminal_at provider_revision';
+  for (const key of nullable.split(' ')) row[key] = null;
+  for (const [key, value] of Object.entries(binding))
+    row[key.replace(/[A-Z]/gu, (letter) => `_${letter.toLowerCase()}`)] = value;
+  Object.assign(row, {
+    protocol_contract_json: binding.protocolContract,
+    authority_snapshot_json: binding.authoritySnapshot,
+    binding_authority_json: binding.bindingAuthority,
+    provider_identity_json: binding.providerIdentity,
+    last_task_snapshot_json: binding.lastTaskSnapshot,
+    execution_mode: 'live',
+    poll_claim_token: 'claim-1',
+  });
+  const rejections: string[] = [];
+  let inputKeyConflict = false;
+  const query = vi.fn((sql: string, values: readonly unknown[] = []) => {
+    if (sql.includes('SELECT * FROM remote_task_binding'))
+      return Promise.resolve({ rows: [{ ...row }] });
+    if (sql.includes('AS conflict')) {
+      expect(sql).toContain('observation.accepted');
+      return Promise.resolve({ rows: [{ conflict: inputKeyConflict }] });
+    }
+    if (sql.includes('AS next_sequence')) return Promise.resolve({ rows: [{ next_sequence: 1 }] });
+    if (sql.includes('INSERT INTO remote_task_observation') && values[8] !== null)
+      rejections.push(typeof values[8] === 'string' ? values[8] : 'INVALID_REJECTION_REASON');
+    if (sql.includes('UPDATE remote_task_binding')) {
+      const set = sql.split('SET ')[1]?.split('WHERE ')[0] ?? '';
+      for (const match of set.matchAll(/([a-z_]+)=(?:\$(\d+)|NULL)/gu)) {
+        const key = match[1];
+        if (key === undefined) throw new Error('TEST_UPDATE_COLUMN_REQUIRED');
+        const value = match[2] === undefined ? null : values[Number(match[2]) - 1];
+        row[key] = key.endsWith('_json') && typeof value === 'string' ? JSON.parse(value) : value;
+      }
+      row['version'] = Number(row['version']) + 1;
+      return Promise.resolve({ rows: [{ ...row }] });
+    }
+    return Promise.resolve({ rows: [] });
+  });
+  const pool = {
+    query,
+    connect: () => Promise.resolve({ query, release: () => undefined }),
+  } as unknown as Pool;
+  return {
+    pool,
+    rejections,
+    setInputKeyConflict: () => {
+      inputKeyConflict = true;
+    },
+    reclaim: () => {
+      row['poll_claim_token'] = 'claim-1';
     },
   };
 }

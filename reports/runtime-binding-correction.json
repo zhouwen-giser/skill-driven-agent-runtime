@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "workItemId": "WI-070",
+  "kind": "runtime-binding-correction-implementation",
+  "recordedAt": "2026-08-26T08:48:10.075996+00:00",
+  "agent": "/root/wi070_runtime_live",
+  "owner": "sdar-runtime-wi070",
+  "branch": "codex/live-dev-evaluation-chain-runtime-binding",
+  "baseCommit": "a86a0eebabde4fae6b65419e072e97c4f038e9ff",
+  "normativeContractSha256": "9861742fa0480bd07a851741715f8c9e5d8401885c19ec3a6e89c341ac710edb",
+  "findings": [
+    {
+      "id": "P1",
+      "change": "Runtime adapters use bounded protocol-only FrozenTaskWireClient; repository accepts identity/revision/content/terminal state. No Runtime process observation highwater or input-key cache. Standalone lifecycle API retains stateful validation/replay semantics.",
+      "inputKeyGuard": "Both record paths use classifyPersistedObservation under binding FOR UPDATE; base disposition must accept before checking only accepted observation inputRequests JSONB for same key/different content. Reject input_key_conflict before state/control mutation; migration0174 constraint and domain reason extended.",
+      "inputSubmission": "RemoteTaskInputService uses persisted exact keys and link status; wire validates nonempty response maps and actual Ack. Existing binding-version CAS and durable acknowledged/uncertain lifecycle retained."
+    },
+    {
+      "id": "P2",
+      "change": "Deterministic Task semantic JSON comparator no longer calls Evidence canonicalizer. Existing Task parser and repository bounds remain; Evidence export restrictions unchanged."
+    }
+  ],
+  "validation": {
+    "narrowRed": {
+      "total": 33,
+      "passed": 27,
+      "failed": 6,
+      "exitCode": 1,
+      "file": "reports/wi070-correction-red.json"
+    },
+    "exactBaselineBoundaryRed": {
+      "baseCommit": "a86a0eebabde4fae6b65419e072e97c4f038e9ff",
+      "exercised": 12,
+      "passed": 3,
+      "failed": 9,
+      "unselected": 74,
+      "exitCode": 1,
+      "file": "reports/wi070-correction-boundary-red-expanded.json",
+      "method": "Temporarily load six exact a86 source modules in assigned exclusive writer worktree, run new -t keeps A5 cases, restore every working source byte in finally. No old pinned verification worktree mutation."
+    },
+    "focused": {
+      "files": 12,
+      "total": 235,
+      "passed": 235,
+      "failed": 0,
+      "exitCode": 0,
+      "session": 11368,
+      "file": "reports/wi070-correction-focused-final.json"
+    },
+    "boundary": {
+      "total": 102,
+      "passed": 102,
+      "failed": 0,
+      "exitCode": 0,
+      "session": 89991,
+      "file": "reports/wi070-correction-boundary-final.json"
+    },
+    "typecheck": {
+      "command": "./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false",
+      "session": 81891,
+      "exitCode": 0,
+      "file": "reports/wi070-correction-typecheck-final.log"
+    },
+    "eslint": {
+      "changedTypeScriptFiles": 13,
+      "session": 44559,
+      "exitCode": 0,
+      "file": "reports/wi070-correction-eslint-final.log"
+    },
+    "postgres": "NOT_RUN",
+    "independentReview": "PENDING",
+    "live": "NOT_RUN",
+    "fullSuites": "NOT_RUN_OUT_OF_BOUNDED_SCOPE",
+    "format": {
+      "exitCode": 0,
+      "session": 51220,
+      "scope": "changed TypeScript, ExecPlan, changelog, status and report; historical traceability table whitespace preserved",
+      "file": "reports/wi070-correction-format-check.log"
+    },
+    "gitDiffCheck": {
+      "exitCode": 0
+    }
+  },
+  "limitations": [
+    "Query double executes real adapter/registry/repository but is not evidence of PostgreSQL locks, SQL evaluation or rollback.",
+    "Controller-only integration fixture now has four tests; explicit SDAR_TEST_POSTGRES_URL, template0 exact disposable DB, fail preexisting, drop only created own DB.",
+    "No navigation/device/MQTT/environment action or Gate PASS. Live profile source edits are not part of this correction."
+  ],
+  "evidence": [
+    {
+      "path": "reports/wi070-correction-red.json",
+      "sha256": "sha256:991372a2a6d869777d0bb412a27d4d89896eea3e0e8737afd9f647e594f443f0"
+    },
+    {
+      "path": "reports/wi070-correction-boundary-red-expanded.json",
+      "sha256": "sha256:5941b3ab97e5d98104b98ae4dd89c89c5ca5c49ec4c9c71eed3e26614b200b51"
+    },
+    {
+      "path": "reports/wi070-correction-focused-final.json",
+      "sha256": "sha256:e4a8d27bba2985b97a20d33bf6bf2be0dfe091dcfda1b9d7fc85d9fa4db0897c"
+    },
+    {
+      "path": "reports/wi070-correction-boundary-final.json",
+      "sha256": "sha256:b05cd270a742d1f41cc3070f0b8b7e1ceb98adc06fdffc536398e6d847ee45b5"
+    },
+    {
+      "path": "reports/wi070-correction-typecheck-final.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "reports/wi070-correction-eslint-final.log",
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "packages/persistence-postgres/test/runtime-binding-authority.integration.test.ts",
+      "sha256": "sha256:39c48dd8e249691bcde92c1cf1a87bb530e42173c7b0f148b2a1e287057a34b4"
+    },
+    {
+      "path": "reports/wi070-correction-format-check.log",
+      "sha256": "sha256:17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    }
+  ],
+  "preserve": [
+    "reports/runtime-binding-implementation.json",
+    "reports/wi070-runtime-binding-phase-handoff-20260826T082813Z.json",
+    "all prior raw reports",
+    "old a86 pinned verification worktree"
+  ],
+  "sharedEnvironmentActions": false,
+  "workItemCompleted": false,
+  "gatePassClaim": false
+}

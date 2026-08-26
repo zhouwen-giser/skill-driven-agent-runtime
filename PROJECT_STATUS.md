@@ -1,5 +1,14 @@
 # Project Status
 
+## WI-070 binding observation correction (2026-08-26)
+
+The held `a86a0ee` binding candidate has two reproduced defects corrected in the Runtime
+writer worktree: unaccepted transport cache state and Evidence limits applied to Task
+equality. Focused regression and changed-source checks are indexed in
+`reports/runtime-binding-correction.json`. PostgreSQL, independent acceptance and the
+separate authorized live UGV profile remain pending. This section does not relabel
+any historical run below or assert Gate G04.
+
 ## UGV Agent Profile external-simulation Goal (2026-08-21)
 
 The current `ugv-agent-profile` Goal is `IN_PROGRESS`; this status does not replace or upgrade the

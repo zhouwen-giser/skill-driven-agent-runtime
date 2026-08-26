@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type { FrozenTaskLifecycleRuntimePort } from '../../application/src/index.js';
 import type {
   FrozenDetailedRemoteTask,
@@ -9,23 +7,16 @@ import type {
   RemoteTaskSnapshot,
 } from '../../domain/src/index.js';
 
-import { FrozenTaskLifecycleClient } from './frozen-v1-task-lifecycle.js';
+import { FrozenTaskWireClient } from './frozen-v1-task-lifecycle.js';
 import { FrozenV1McpClient } from './frozen-v1-mcp-client.js';
 
 export class FrozenV1RuntimeLifecycleAdapter implements FrozenTaskLifecycleRuntimePort {
   readonly #transport: FrozenV1McpClient;
-  readonly #clients = new Map<string, FrozenTaskLifecycleClient>();
   readonly #now: () => string;
 
   constructor(input: Readonly<{ now?: () => string; client?: FrozenV1McpClient }> = {}) {
     this.#transport = input.client ?? new FrozenV1McpClient();
     this.#now = input.now ?? (() => new Date().toISOString());
-  }
-
-  disconnect(
-    input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
-  ): void {
-    this.#clients.delete(clientKey(input));
   }
 
   async call(input: Parameters<FrozenTaskLifecycleRuntimePort['call']>[0]) {
@@ -65,9 +56,6 @@ export class FrozenV1RuntimeLifecycleAdapter implements FrozenTaskLifecycleRunti
   async update(input: Parameters<FrozenTaskLifecycleRuntimePort['update']>[0]) {
     await this.#client(input).updateTask({
       taskId: input.remoteTaskId,
-      submissionKey: createHash('sha256')
-        .update(stableStringify(input.inputResponses))
-        .digest('hex'),
       inputResponses: input.inputResponses,
     });
     return Object.freeze({ acknowledged: true as const, protocolRevision: '2026-07-28' });
@@ -79,24 +67,13 @@ export class FrozenV1RuntimeLifecycleAdapter implements FrozenTaskLifecycleRunti
   }
 
   #client(input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>) {
-    const key = clientKey(input);
-    const existing = this.#clients.get(key);
-    if (existing !== undefined) return existing;
-    const client = new FrozenTaskLifecycleClient({
+    return new FrozenTaskWireClient({
       client: this.#transport,
       endpoint: input.endpoint,
       headers: input.headers,
       now: this.#now,
     });
-    this.#clients.set(key, client);
-    return client;
   }
-}
-
-function clientKey(
-  input: Readonly<{ endpoint: string; headers: Readonly<Record<string, string>> }>,
-) {
-  return `${input.endpoint}\u0000${stableStringify(input.headers)}`;
 }
 
 function mapCreated(task: FrozenRemoteTaskBase): RemoteTaskCreated {
@@ -140,16 +117,4 @@ function mapSnapshot(task: FrozenDetailedRemoteTask): RemoteTaskSnapshot {
   if (task.status === 'input_required')
     return { ...base, status: 'input_required', inputRequests: task.inputRequests };
   return { ...base, status: 'working' };
-}
-
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
-  if (typeof value === 'object' && value !== null) {
-    const record = value as Readonly<Record<string, unknown>>;
-    return `{${Object.keys(record)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value);
 }

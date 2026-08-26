@@ -57,6 +57,127 @@ afterAll(async () => {
 });
 
 describe('WI070 actual PostgreSQL binding authority', () => {
+  it('rejects changed input keys from accepted history before poll or notification state advances', async () => {
+    const store = new PostgresRemoteTaskAdmissionIntentStore(pool);
+    const item = intent('input-history');
+    const response = receipt('input-history');
+    await store.prepare(item);
+    await store.markDispatching({
+      intentId: item.intentId,
+      invocationId: item.invocationId,
+      dispatchHash: `sha256:${'d'.repeat(64)}`,
+      authoritySnapshot: response.authoritySnapshot,
+      at,
+    });
+    await store.recordRemoteReceiptAndInvocation(
+      item.intentId,
+      invocation('input-history'),
+      response,
+      at,
+    );
+    const request = (message: string) => ({
+      approval: {
+        method: 'elicitation/create',
+        params: {
+          mode: 'form',
+          message,
+          requestedSchema: { type: 'object', properties: { password: { type: 'string' } } },
+        },
+      },
+    });
+    const first: RemoteTaskSnapshot = {
+      ...response.remoteTask,
+      status: 'input_required',
+      runtimeRevision: '9007199254740994',
+      inputRequests: request('original'),
+    };
+    let sequence = 0;
+    const observe = async (snapshot: RemoteTaskSnapshot, poll = false) => {
+      const repository = new PostgresRemoteTaskRepository(pool); // reload only persisted authority
+      const current = await repository.findById(item.envelope.bindingId);
+      if (current === undefined) throw new Error('WI070_BINDING_REQUIRED');
+      const id = `input-history-${String(++sequence)}`;
+      const observedAt = new Date(Date.parse(at) + sequence * 1000).toISOString();
+      const common = {
+        bindingId: current.bindingId,
+        snapshot,
+        observationId: id,
+        observedAt,
+        ...(snapshot.status === 'working'
+          ? {}
+          : { controlEventId: `${id}-control`, resultHash: 'b'.repeat(64) }),
+      };
+      if (!poll)
+        return repository.recordExternalSnapshot({
+          ...common,
+          expectedVersion: current.version,
+          source: 'notification',
+        });
+      const claim = await repository.claimPoll({
+        bindingId: current.bindingId,
+        expectedVersion: current.version,
+        claimToken: id,
+        claimedAt: observedAt,
+        expiresAt: new Date(Date.parse(observedAt) + 1000).toISOString(),
+      });
+      if (!claim.claimed) throw new Error(`WI070_POLL_CLAIM_${claim.reason}`);
+      return repository.recordSnapshot({
+        ...common,
+        expectedVersion: claim.binding.version,
+        claimToken: id,
+        protocolAttempt: {
+          attemptId: id,
+          bindingId: current.bindingId,
+          method: 'tasks/get',
+          expectedBindingVersion: claim.binding.version,
+          protocolRevision: snapshot.protocolRevision,
+          status: 'succeeded',
+          startedAt: observedAt,
+          completedAt: observedAt,
+          durationMs: 0,
+        },
+      });
+    };
+    const poisoned: RemoteTaskSnapshot = {
+      ...first,
+      runtimeRevision: '18446744073709551615',
+      providerIdentity: { ...identity, providerInstanceId: 'wrong' },
+      inputRequests: request('poison'),
+    };
+    expect(await observe(poisoned, true)).toMatchObject({ snapshotAccepted: false });
+    expect(await observe(first, true)).toMatchObject({ snapshotAccepted: true });
+    const working: RemoteTaskSnapshot = {
+      ...response.remoteTask,
+      status: 'working',
+      runtimeRevision: '9007199254740995',
+    };
+    expect(await observe(working)).toMatchObject({ snapshotAccepted: true });
+    const conflict: RemoteTaskSnapshot = {
+      ...first,
+      runtimeRevision: '9007199254740996',
+      inputRequests: request('changed'),
+    };
+    expect(await observe(conflict, true)).toMatchObject({
+      snapshotAccepted: false,
+      binding: { runtimeRevision: working.runtimeRevision },
+    });
+    expect(await observe(conflict)).toMatchObject({
+      snapshotAccepted: false,
+      binding: { runtimeRevision: working.runtimeRevision },
+    });
+    const observations = await new PostgresRemoteTaskRepository(pool).listObservations(
+      item.envelope.bindingId,
+    );
+    expect(
+      observations.filter((entry) => !entry.accepted).map((entry) => entry.rejectionReason),
+    ).toEqual(['identity_conflict', 'input_key_conflict', 'input_key_conflict']);
+    const controls = await pool.query(
+      'SELECT event_id FROM remote_task_control_event WHERE binding_id=$1',
+      [item.envelope.bindingId],
+    );
+    expect(controls.rows).toHaveLength(1);
+  });
+
   it('uses the same revision classifier through claimed polls, including duplicate and terminal snapshots', async () => {
     const store = new PostgresRemoteTaskAdmissionIntentStore(pool);
     const repository = new PostgresRemoteTaskRepository(pool);
@@ -308,13 +429,22 @@ describe('WI070 actual PostgreSQL binding authority', () => {
       ...next,
       status: 'completed',
       runtimeRevision: '9007199254740995',
-      result: { content: [], isError: false },
+      result: { content: [], structuredContent: { detail: 'x'.repeat(300_000) }, isError: false },
     };
     expect(await observe(terminal)).toMatchObject({
       snapshotAccepted: true,
       binding: { version: 4 },
     });
     expect(await observe(terminal)).toMatchObject({
+      snapshotAccepted: false,
+      binding: { version: 4 },
+    });
+    expect(
+      await observe({
+        ...terminal,
+        result: { ...terminal.result, structuredContent: { detail: 'y'.repeat(300_000) } },
+      }),
+    ).toMatchObject({
       snapshotAccepted: false,
       binding: { version: 4 },
     });
@@ -330,6 +460,7 @@ describe('WI070 actual PostgreSQL binding authority', () => {
       'stale_provider_revision',
       'revision_content_conflict',
       'identity_conflict',
+      'revision_content_conflict',
       'terminal_conflict',
     ]);
     expect(

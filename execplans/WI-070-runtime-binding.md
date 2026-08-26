@@ -99,3 +99,32 @@ terminal/position consumers. A local durable qualification receipt is necessary
 because the existing taskless MCP invocation lacks frozen Provider-binding scope.
 The request/receipt reference is local qualification provenance, never navigation
 binding authority. Root approved the bounded design; implementation is pending.
+
+## Binding correction checkpoint — 2026-08-26
+
+The deliberate phase successor reproduced two review findings against `a86a0ee`:
+transport observation state could advance for an identity rejected by the Runtime
+repository, and Task equality incorrectly applied Evidence export limits. No live
+source or shared environment operation was part of this correction.
+
+- [x] Separate bounded wire parsing from accepted lifecycle state for Runtime adapters.
+- [x] Keep standalone lifecycle revision/terminal/input-key/submission state semantics.
+- [x] Check accepted input-key history in both repository paths under the binding lock,
+      before changing the accepted snapshot or emitting control; add `input_key_conflict`.
+- [x] Compare Task JSON deterministically without Evidence-only size/key/array limits.
+- [x] Reproduce A5 → B100 → A6 through the actual Runtime adapter, registry and repository
+      with a query double. All nine failure cases reproduce on a86a0ee; the three polling
+      cases with a fresh client pass there, proving the old restart-dependent outcome.
+- [x] Add a controller-only PostgreSQL fixture for rejected versus accepted input-key
+      history, poll/notification conflicts, and large detailed Task duplicate/content conflict.
+- [ ] Actual PostgreSQL execution, independent review, live profile, push/PR and Gate G04.
+
+The query double does not prove PostgreSQL SQL execution, lock/rollback semantics,
+or device behavior. Its test source uses the real adapter/registry/repository and
+injects only query results. Runtime input submission uses the persisted link's exact
+keys and status; a fresh wire client cannot silently turn an empty map into an Ack.
+The standalone protocol API retains its own submitted-key replay handling.
+
+Correction evidence is indexed in `reports/runtime-binding-correction.json`.
+Raw `wi070-correction-*.json`/logs stay local and the a86a0ee report remains unchanged.
+The final report, not an in-progress test invocation, records completed check results.

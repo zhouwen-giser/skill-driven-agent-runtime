@@ -124,7 +124,7 @@ export class RemoteTaskInputService {
         'REMOTE_TASK_INPUT_BINDING_STALE',
         'The remote Task input binding is no longer awaiting this answer.',
       );
-    const responses = requiredRecord(inputResponses, 'REMOTE_TASK_INPUT_RESPONSE_INVALID');
+    const responses = normalizeRemoteTaskInputResponses(link.inputRequests, inputResponses);
     const startedAt = this.#clock.now();
     let status: RemoteTaskInputAttemptStatus = 'acknowledged';
     let protocolRevision: string | undefined;

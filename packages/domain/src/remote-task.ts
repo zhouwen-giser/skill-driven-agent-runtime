@@ -279,6 +279,7 @@ export interface RemoteTaskObservation {
     | 'binding_closed'
     | 'identity_conflict'
     | 'revision_content_conflict'
+    | 'input_key_conflict'
     | 'terminal_conflict';
   readonly observedAt: string;
 }

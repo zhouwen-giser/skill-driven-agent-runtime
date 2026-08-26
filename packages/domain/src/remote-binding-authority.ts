@@ -7,7 +7,6 @@ import type {
 } from './mcp-task.js';
 import type { RemoteTaskBinding } from './remote-task.js';
 import { compareRuntimeRevisions } from './mcp-frozen-protocol.js';
-import { canonicalizeEvidenceJson } from './evidence/canonical-evidence.js';
 
 export interface RuntimeBindingScope {
   readonly tenantId: string;
@@ -144,6 +143,7 @@ export type RemoteTaskObservationDisposition =
   | 'stale_provider_revision'
   | 'identity_conflict'
   | 'revision_content_conflict'
+  | 'input_key_conflict'
   | 'terminal_conflict';
 
 export function classifyRemoteTaskObservation(
@@ -152,8 +152,8 @@ export function classifyRemoteTaskObservation(
 ): RemoteTaskObservationDisposition {
   if (
     snapshot.remoteTaskId !== binding.remoteTaskId ||
-    canonicalizeEvidenceJson(snapshot.providerIdentity ?? null) !==
-      canonicalizeEvidenceJson(binding.providerIdentity ?? null)
+    canonicalTaskJson(snapshot.providerIdentity ?? null) !==
+      canonicalTaskJson(binding.providerIdentity ?? null)
   )
     return 'identity_conflict';
   if (snapshot.runtimeRevision === undefined || binding.runtimeRevision === undefined)
@@ -164,8 +164,8 @@ export function classifyRemoteTaskObservation(
   if (order === 0 && previous !== undefined) {
     const baseOnly = binding.lastTaskProjection === 'create';
     if (
-      canonicalizeEvidenceJson(remoteTaskSemanticContent(snapshot, baseOnly)) !==
-      canonicalizeEvidenceJson(remoteTaskSemanticContent(previous, baseOnly))
+      canonicalTaskJson(remoteTaskSemanticContent(snapshot, baseOnly)) !==
+      canonicalTaskJson(remoteTaskSemanticContent(previous, baseOnly))
     )
       return 'revision_content_conflict';
     return baseOnly ? 'accept' : 'duplicate';
@@ -176,4 +176,16 @@ export function classifyRemoteTaskObservation(
   )
     return 'terminal_conflict';
   return 'accept';
+}
+
+/** Task values are bounded at protocol/persistence boundaries, not by Evidence export policy. */
+function canonicalTaskJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalTaskJson).join(',')}]`;
+  if (typeof value === 'object' && value !== null)
+    return `{${Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalTaskJson(item)}`)
+      .join(',')}}`;
+  return JSON.stringify(value);
 }

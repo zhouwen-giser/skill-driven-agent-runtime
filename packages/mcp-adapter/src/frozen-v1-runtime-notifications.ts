@@ -7,7 +7,7 @@ import type {
 } from '../../domain/src/index.js';
 
 import { FrozenV1McpClient } from './frozen-v1-mcp-client.js';
-import { FrozenTaskLifecycleClient } from './frozen-v1-task-lifecycle.js';
+import { FrozenTaskWireClient } from './frozen-v1-task-lifecycle.js';
 import { FrozenRemoteTaskSubscriptionManager } from './frozen-v1-task-subscriptions.js';
 
 export class FrozenV1RuntimeNotificationAdapter implements FrozenTaskNotificationRuntimePort {
@@ -21,7 +21,7 @@ export class FrozenV1RuntimeNotificationAdapter implements FrozenTaskNotificatio
 
   async run(input: Parameters<FrozenTaskNotificationRuntimePort['run']>[0]): Promise<void> {
     const transport = this.#client;
-    const lifecycle = new FrozenTaskLifecycleClient({
+    const lifecycle = new FrozenTaskWireClient({
       client: transport,
       endpoint: input.endpoint,
       headers: input.headers,
@@ -29,7 +29,17 @@ export class FrozenV1RuntimeNotificationAdapter implements FrozenTaskNotificatio
     });
     const manager = new FrozenRemoteTaskSubscriptionManager({
       transport,
-      lifecycle,
+      lifecycle: {
+        // Deliver every protocol-valid candidate to durable acceptance; no transport highwater.
+        getTaskAdmission: async (taskId, validation) => ({
+          task: await lifecycle.getTask(taskId, validation),
+          accepted: true,
+        }),
+        admitNotification: (value, validation) => ({
+          task: lifecycle.parseNotification(value, validation),
+          accepted: true,
+        }),
+      },
       endpoint: input.endpoint,
       headers: input.headers,
     });

@@ -179,30 +179,16 @@ export interface FrozenToolOutputValidation {
   readonly validator: FrozenOutputSchemaValidator;
 }
 
-export class FrozenTaskLifecycleClient {
+/** Protocol parsing only. Runtime accepts observations transactionally in its repository. */
+export class FrozenTaskWireClient {
   readonly #client: FrozenV1McpClient;
   readonly #requestBase: Pick<FrozenMcpRequestInput, 'endpoint' | 'headers'>;
   readonly #now: () => string;
-  readonly #observations = new Map<
-    string,
-    {
-      runtimeRevision: string;
-      fingerprint: string;
-      terminal: boolean;
-      projection: 'create' | 'detailed';
-    }
-  >();
-  readonly #inputKeys = new Map<
-    string,
-    Map<string, { fingerprint: string; state: FrozenInputKeyState['state'] }>
-  >();
-  readonly #completedSubmissionKeys = new Set<string>();
 
-  constructor(options: FrozenTaskLifecycleClientOptions) {
+  constructor(options: Omit<FrozenTaskLifecycleClientOptions, 'restoredState'>) {
     this.#client = options.client;
     this.#requestBase = { endpoint: options.endpoint, headers: options.headers };
     this.#now = options.now;
-    this.#restore(options.restoredState);
   }
 
   async callTool(
@@ -231,9 +217,109 @@ export class FrozenTaskLifecycleClient {
         result: mapToolResult(immediate.data, input.outputValidation),
       };
     const created = parseCreatedTask(raw, this.#now());
-    this.#admitObservation(created, 'create');
     const reconciled = await this.getTask(created.taskId, input.outputValidation);
     return { kind: 'remote_task', created, reconciled };
+  }
+
+  async getTask(
+    taskId: string,
+    outputValidation?: FrozenToolOutputValidation,
+  ): Promise<FrozenDetailedRemoteTask> {
+    const raw = await this.#client.request({
+      ...this.#requestBase,
+      method: 'tasks/get',
+      params: { taskId },
+    });
+    const task = parseDetailedTask(raw, this.#now(), outputValidation);
+    if (task.taskId !== taskId)
+      throw lifecycleError('FROZEN_TASK_ID_MISMATCH', 'tasks/get returned a different Task ID.');
+    return task;
+  }
+
+  parseNotification(
+    value: unknown,
+    outputValidation?: FrozenToolOutputValidation,
+  ): FrozenDetailedRemoteTask {
+    if (typeof value !== 'object' || value === null || Array.isArray(value))
+      throw lifecycleError(
+        'FROZEN_DETAILED_TASK_INVALID',
+        'Task Notification params must be a DetailedTask object.',
+      );
+    const task = parseDetailedTask(
+      { ...value, resultType: 'complete' },
+      this.#now(),
+      outputValidation,
+    );
+    return task;
+  }
+
+  async updateTask(
+    input: Readonly<{ taskId: string; inputResponses: Readonly<Record<string, unknown>> }>,
+  ): Promise<FrozenTaskOperationAck> {
+    const parsed = inputResponsesSchema.safeParse(input.inputResponses);
+    if (!parsed.success)
+      throw lifecycleError(
+        'FROZEN_TASK_INPUT_RESPONSES_INVALID',
+        'Task input responses violate the frozen elicitation response contract.',
+      );
+    assertBoundedJson(parsed.data);
+    parseAck(
+      await this.#client.request({
+        ...this.#requestBase,
+        method: 'tasks/update',
+        params: { taskId: input.taskId, inputResponses: parsed.data },
+      }),
+    );
+    return { resultType: 'complete', meaning: 'input_update_received' };
+  }
+
+  async cancelTask(taskId: string): Promise<FrozenTaskOperationAck> {
+    parseAck(
+      await this.#client.request({
+        ...this.#requestBase,
+        method: 'tasks/cancel',
+        params: { taskId },
+      }),
+    );
+    return { resultType: 'complete', meaning: 'cancellation_intent_received' };
+  }
+}
+
+export class FrozenTaskLifecycleClient {
+  readonly #wire: FrozenTaskWireClient;
+  readonly #observations = new Map<
+    string,
+    {
+      runtimeRevision: string;
+      fingerprint: string;
+      terminal: boolean;
+      projection: 'create' | 'detailed';
+    }
+  >();
+  readonly #inputKeys = new Map<
+    string,
+    Map<string, { fingerprint: string; state: FrozenInputKeyState['state'] }>
+  >();
+  readonly #completedSubmissionKeys = new Set<string>();
+
+  constructor(options: FrozenTaskLifecycleClientOptions) {
+    this.#wire = new FrozenTaskWireClient(options);
+    this.#restore(options.restoredState);
+  }
+
+  async callTool(
+    input: Readonly<{
+      name: string;
+      arguments: unknown;
+      taskCallProfile?: McpTaskCallProfile;
+      outputValidation?: FrozenToolOutputValidation;
+    }>,
+  ): Promise<FrozenTaskInvocationOutcome> {
+    const outcome = await this.#wire.callTool(input);
+    if (outcome.kind === 'immediate') return outcome;
+    this.#admitObservation(outcome.created, 'create');
+    this.#acceptDetailed(outcome.reconciled);
+    return outcome;
   }
 
   async getTask(
@@ -252,36 +338,16 @@ export class FrozenTaskLifecycleClient {
       accepted: boolean;
     }>
   > {
-    const raw = await this.#client.request({
-      ...this.#requestBase,
-      method: 'tasks/get',
-      params: { taskId },
-    });
-    const task = parseDetailedTask(raw, this.#now(), outputValidation);
-    if (task.taskId !== taskId)
-      throw lifecycleError('FROZEN_TASK_ID_MISMATCH', 'tasks/get returned a different Task ID.');
-    const accepted = this.#admitObservation(task, 'detailed');
-    this.#reconcileInputKeys(task);
-    return { task, accepted };
+    const task = await this.#wire.getTask(taskId, outputValidation);
+    return { task, accepted: this.#acceptDetailed(task) };
   }
 
   admitNotification(
     value: unknown,
     outputValidation?: FrozenToolOutputValidation,
   ): Readonly<{ task: FrozenDetailedRemoteTask; accepted: boolean }> {
-    if (typeof value !== 'object' || value === null || Array.isArray(value))
-      throw lifecycleError(
-        'FROZEN_DETAILED_TASK_INVALID',
-        'Task Notification params must be a DetailedTask object.',
-      );
-    const task = parseDetailedTask(
-      { ...value, resultType: 'complete' },
-      this.#now(),
-      outputValidation,
-    );
-    const accepted = this.#admitObservation(task, 'detailed');
-    this.#reconcileInputKeys(task);
-    return { task, accepted };
+    const task = this.#wire.parseNotification(value, outputValidation);
+    return { task, accepted: this.#acceptDetailed(task) };
   }
 
   async updateTask(
@@ -319,12 +385,7 @@ export class FrozenTaskLifecycleClient {
         'Accepted Task input responses violate the frozen elicitation response contract.',
       );
     }
-    const raw = await this.#client.request({
-      ...this.#requestBase,
-      method: 'tasks/update',
-      params: { taskId: input.taskId, inputResponses: parsed.data },
-    });
-    parseAck(raw);
+    await this.#wire.updateTask({ taskId: input.taskId, inputResponses: parsed.data });
     for (const key of Object.keys(parsed.data)) {
       const state = taskKeys?.get(key);
       if (state !== undefined) state.state = 'answered';
@@ -338,15 +399,26 @@ export class FrozenTaskLifecycleClient {
     };
   }
 
-  async cancelTask(taskId: string): Promise<FrozenTaskOperationAck> {
-    parseAck(
-      await this.#client.request({
-        ...this.#requestBase,
-        method: 'tasks/cancel',
-        params: { taskId },
-      }),
-    );
-    return { resultType: 'complete', meaning: 'cancellation_intent_received' };
+  cancelTask(taskId: string): Promise<FrozenTaskOperationAck> {
+    return this.#wire.cancelTask(taskId);
+  }
+
+  #acceptDetailed(task: FrozenDetailedRemoteTask): boolean {
+    // Validate revision and request-key immutability before any client state advances.
+    this.#admitObservation(task, 'detailed', false);
+    const known = this.#inputKeys.get(task.taskId);
+    if (task.status === 'input_required')
+      for (const [key, request] of Object.entries(task.inputRequests)) {
+        const prior = known?.get(key);
+        if (prior !== undefined && prior.fingerprint !== canonicalJson(request))
+          throw lifecycleError(
+            'FROZEN_TASK_INPUT_KEY_REUSED',
+            'An input request key was reused for different request content.',
+          );
+      }
+    const accepted = this.#admitObservation(task, 'detailed');
+    this.#reconcileInputKeys(task);
+    return accepted;
   }
 
   exportState(): FrozenTaskLifecycleState {
@@ -364,7 +436,11 @@ export class FrozenTaskLifecycleClient {
     });
   }
 
-  #admitObservation(task: FrozenRemoteTaskBase, projection: 'create' | 'detailed'): boolean {
+  #admitObservation(
+    task: FrozenRemoteTaskBase,
+    projection: 'create' | 'detailed',
+    commit = true,
+  ): boolean {
     const fingerprint = canonicalJson({ ...task, resultType: undefined });
     const baseFingerprint = canonicalJson({
       ...task,
@@ -400,6 +476,7 @@ export class FrozenTaskLifecycleClient {
         );
       if (order === 0 && !isInitialDetailedProjection) return false;
     }
+    if (!commit) return true;
     this.#observations.set(task.taskId, {
       runtimeRevision: task.observation.runtimeRevision,
       fingerprint,
