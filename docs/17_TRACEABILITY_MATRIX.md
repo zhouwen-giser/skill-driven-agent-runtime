@@ -1,5 +1,33 @@
 # 需求追踪矩阵
 
+## UGV Benchmark 被动联调（2026-08-27）
+
+| 场景 / 关联需求                             | 实现                                                                                                                      | 测试与证据                                                                                            | 当前状态                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| BENCH-DEBUG-001 / FR-ADM-001                | Benchmark `deploy/ugv-debug` 五角色、持久 PG/Bundle、18090 匿名可信内网 API、passive Worker                               | Compose/配置/被动 Worker contract；真实六容器运行，`/ready` HTTP 200                                  | 服务可用；不自动 Run/Task/Device         |
+| BENCH-DEBUG-002 / V141-EVIDENCE-PERSIST-001 | 冻结 registry bootstrap、`ops.evidence_ingestion_origin` 首次边界、tenant/project/environment/export/source/node 有界读取 | bootstrap 重复执行保留 `notBefore=2026-08-27T01:24:49.420Z`；Manifest/Bundle scope tests              | 已验证；当前 `waiting_source`            |
+| BENCH-DEBUG-003 / BENCH-DEBUG-004           | Runtime frozen remote Binding provenance；Telemetry ProviderOps v2 五闭包、迁移 015、handoff                              | Provider v2 focused tests/handoff static verifier；外部十对象迁移 hash 验证                           | 合同/部署已验证；真实后续 Episode 待来源 |
+| BENCH-DEBUG-WAREHOUSE-001                   | 两专用用户 exact 132 SELECT；Projector-only exact 40 INSERT；无 wildcard/DDL/UPDATE/DELETE/role/grant option              | `provision-debug-warehouse.ts` exact system grants + view dependency preflight；真实幂等 provisioning | 已验证（外部 ClickHouse）                |
+| BENCH-DEBUG-PROJECTION-001                  | 全局 meta scope、生产 mapper、精确 defect-only DLQ recovery                                                               | 4 files/35 tests；真实 `published=68`、unresolved DLQ=0、resolved audit=68，二次 recovery no-op       | 已验证                                   |
+| BENCH-DEBUG-005 / FR-ADM-001                | 健康、数据就绪、正式评分资格分离                                                                                          | 匿名 `/ready` 200；status=`waiting_source`; scoring blocked=`EXECUTABLE_RULESET_NOT_CONFIGURED`       | 如实 blocked；不生成零分/虚假分数        |
+
+完整证据见 `execplans/EP-UGV-BENCHMARK-DEBUG.md` 与
+`reports/ugv-benchmark-debug/verification.md`。Telemetry producer 的 immutable
+source-lock 尚待提交后更新，因此不宣称跨仓发布门已完成。
+
+## SDAR Telemetry 联调增量（2026-08-26，实现/离线验证，live 待来源）
+
+| 场景 / 关联需求                                                            | 实现                                                                                      | 测试与证据                                                                                                                            | 当前状态                                                              |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| SDT-DEBUG-001 / FR-A2A-001、FR-ADM-001                                     | `debug.sh`、`debug-sdar-telemetry.mjs`、相邻 SDAR Telemetry `deploy/ugv-debug`            | `ugv-debug-command.contract.test.ts`、`ugv-debug-sdar-telemetry.unit.test.ts`；Compose 展开确认 8080–8083 公网卡监听、PG 无宿主端口   | 离线验证；未重启旧栈                                                  |
+| SDT-DEBUG-002 / V141-EVIDENCE-PERSIST-001、EXPORT-ACK-001、EXPORT-WIRE-001 | Runtime migration 0174、三个 Evidence repositories；SMPP Source Mapping v4 route snapshot | `evidence-export.integration.test.ts` 8 项真实 PG（首次/重启/down-up、无历史 ACK、插入屏障）；SMPP `debug-incremental-target.test.ts` | 离线验证；真实新 Evidence 流待启动                                    |
+| SDT-DEBUG-003 / FR-ADM-001                                                 | SDAR Telemetry `diagnostic-federation.ts`，固定内部 Query 上游                            | `debug-telemetry.test.ts`；真实 gauge/sum/Trace/TraceId 只读 HTTP 200                                                                 | 只读 smoke 已验证                                                     |
+| SDT-DEBUG-004 / SDT-DEBUG-005                                              | 相邻 Control migration 004、`domain-runtime.ts`、scoped reader、正式 bootstrap            | `domain-debug-runtime.test.ts` 真实 PG + 明示测试 CH adapter；183 项 Telemetry 测试，10 映射 schema 真实只读检查                      | lifecycle/消费/恢复离线通过；真实 producer 未配置，live ACTIVE 未验证 |
+
+完整命令、失败修复和验证边界见 `reports/sdar-telemetry-debug/verification.md`。
+ADR-143 / ExecPlan 记录 **SDAR → Commander/NPC 暂留空**；不把此延期层计为已实现，
+不以 fixture 冒充生产者、真实落库或成功任务。全项目验收状态不因本补充上调。
+
 ## UGV 联调 + Telemetry（2026-08-26，开发配置补充）
 
 - FR-A2A-001 / FR-ADM-001：`apps/server/src/{environment,main,artifact-management-identity}.ts`、

@@ -36,15 +36,26 @@ export class CatalogEvidenceSchemaValidationError extends Error {
 export class CatalogValidatingEvidenceWriter implements CanonicalEvidenceAppendDelegate {
   readonly #delegate: CanonicalEvidenceAppendDelegate;
   readonly #validator: EvidenceEnvelopeSchemaValidator;
+  readonly #observationScope: Readonly<{ tenantId: string; projectId: string }> | undefined;
 
   constructor(
     input: Readonly<{
       delegate: CanonicalEvidenceAppendDelegate;
       validator: EvidenceEnvelopeSchemaValidator;
+      observationScope?: Readonly<{ tenantId: string; projectId: string }>;
     }>,
   ) {
     this.#delegate = input.delegate;
     this.#validator = input.validator;
+    this.#observationScope = input.observationScope;
+    if (
+      input.observationScope !== undefined &&
+      Object.values(input.observationScope).some(
+        (value) => value.trim() === '' || value.length > 256,
+      )
+    ) {
+      throw new CatalogEvidenceSchemaValidationError(['invalid observation scope']);
+    }
   }
 
   async append(
@@ -52,6 +63,19 @@ export class CatalogValidatingEvidenceWriter implements CanonicalEvidenceAppendD
     capturedAt: string,
     sourcePartition: string,
   ): Promise<string> {
+    // Metadata is applied before the first durable append. Payload/record identities are not
+    // rewritten; PostgreSQL's first-writer path retains any existing historical envelope.
+    if (this.#observationScope !== undefined) {
+      if (
+        (envelope.tenantId !== undefined &&
+          envelope.tenantId !== this.#observationScope.tenantId) ||
+        (envelope.projectId !== undefined &&
+          envelope.projectId !== this.#observationScope.projectId)
+      ) {
+        throw new CatalogEvidenceSchemaValidationError(['observation scope conflicts with source']);
+      }
+      envelope = { ...envelope, ...this.#observationScope };
+    }
     let validation: Readonly<{ valid: boolean; errors: readonly string[] }>;
     try {
       validation = this.#validator.validate(getEvidenceRecordSchema(envelope.recordType), envelope);

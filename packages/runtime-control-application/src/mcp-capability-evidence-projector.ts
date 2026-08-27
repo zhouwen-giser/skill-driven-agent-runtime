@@ -235,6 +235,17 @@ export class McpCapabilityEvidenceProjector {
     }
     for (const row of snapshot.bindings) {
       const id = text(row, 'binding_id');
+      // Never change payload/hash of a previously emitted immutable source revision.
+      const revision = hashCanonicalEvidenceJson(sanitizeEvidenceValue(row));
+      if (
+        snapshot.existingEvidence.some(
+          (existingRow) =>
+            existingRow['record_type'] === 'mcp_task.remote_binding' &&
+            existingRow['source_record_id'] === id &&
+            existingRow['source_revision'] === revision,
+        )
+      )
+        continue;
       const callRef = ref('mcp_task.tool_call', text(row, 'mcp_invocation_id'));
       if (callRef === undefined)
         await issue('mcp_task.remote_binding', 'remote_task_binding', id, {
@@ -252,6 +263,7 @@ export class McpCapabilityEvidenceProjector {
           protocolStatus: value(row, 'protocol_status'),
           localState: value(row, 'local_state'),
           taskHandleReturned: true,
+          ...frozenProviderBindingEvidence(row),
         },
         refs: compact(callRef),
         remoteTaskBindingId: id,
@@ -865,4 +877,68 @@ function isForbiddenEvidenceKey(key: string): boolean {
   return /(?:credential|password|passwd|accesstoken|refreshtoken|secret|authorization|apikey|privatekey|chainofthought|privatereasoning|reasoningcontent|hiddenreasoning)/u.test(
     normalized,
   );
+}
+
+/** Credential-free projection of execution-time authority; no current Binding lookup. */
+export function frozenProviderBindingEvidence(row: RuntimeCoreSourceRow): RuntimeCoreSourceRow {
+  const snapshot = row['authority_snapshot_json'];
+  if (snapshot === undefined || snapshot === null) return {};
+  if (!isObject(snapshot) || snapshot['schemaVersion'] !== '1.0')
+    throw new FrozenBindingEvidenceError();
+  const provider = snapshot['providerBinding'];
+  if (provider === undefined) return {};
+  const runtime = snapshot['runtime'];
+  if (!isObject(provider) || runtime === undefined || !isObject(runtime))
+    throw new FrozenBindingEvidenceError();
+  const identifier = (object: RuntimeCoreSourceRow, field: string): string => {
+    const input = object[field];
+    if (typeof input !== 'string' || input.trim() === '' || input.length > 512)
+      throw new FrozenBindingEvidenceError();
+    return input;
+  };
+  const revision = provider['revision'];
+  const originType = provider['originType'];
+  const toolRevision = runtime['toolRevision'];
+  if (
+    typeof revision !== 'number' ||
+    !Number.isSafeInteger(revision) ||
+    revision < 1 ||
+    typeof toolRevision !== 'number' ||
+    !Number.isSafeInteger(toolRevision) ||
+    toolRevision < 1 ||
+    typeof originType !== 'string' ||
+    !['direct', 'smpp_registry'].includes(originType)
+  )
+    throw new FrozenBindingEvidenceError();
+  const authority: RuntimeCoreSourceRow = {
+    schemaVersion: 'runtime.remote-task-provider-authority/v1',
+    authoritySource: 'remote_task_binding.authority_snapshot_json',
+    providerBindingId: identifier(provider, 'bindingId'),
+    providerBindingRevision: revision,
+    providerOriginType: identifier(provider, 'originType'),
+    providerId: identifier(provider, 'providerId'),
+    ...(provider['originType'] === 'smpp_registry'
+      ? { providerSourceId: identifier(provider, 'smppSourceId') }
+      : {}),
+    ...(provider['externalServerId'] === undefined
+      ? {}
+      : { externalServerId: identifier(provider, 'externalServerId') }),
+    runtimeServerId: identifier(runtime, 'serverId'),
+    runtimeToolRevision: toolRevision,
+    protocolSnapshotId: identifier(runtime, 'protocolSnapshotId'),
+    catalogRevision: identifier(provider, 'catalogRevision'),
+    catalogChecksum: identifier(provider, 'catalogChecksum'),
+    capturedAt: identifier(snapshot, 'capturedAt'),
+  };
+  return {
+    providerAuthority: authority,
+    providerAuthorityHash: hashCanonicalEvidenceJson(authority),
+  };
+}
+
+class FrozenBindingEvidenceError extends Error {
+  readonly code = 'EVIDENCE_FROZEN_PROVIDER_AUTHORITY_INVALID';
+  constructor() {
+    super('Frozen remote-task Provider authority is invalid.');
+  }
 }

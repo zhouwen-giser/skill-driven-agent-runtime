@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Sourced only by debug.sh. The acceptance deployment helpers remain unchanged.
 uap_telemetry_root="$uap_workspace_root/smpp-telemetry-platform"
+uap_sdar_telemetry_root="$uap_workspace_root/sdar-telemetry-platform"
+uap_benchmark_root="$uap_workspace_root/sdar-benchmark-server"
 UGV_DEBUG_STATE_ROOT="$UAP_STATE_ROOT/debug"
 export UGV_DEBUG_STATE_ROOT
 readonly UAP_DEBUG_TELEMETRY_PROJECT=sdar-ugv-debug-telemetry
 readonly UAP_DEBUG_TELEMETRY_SERVICES=(clickhouse telemetry-migrate telemetry-processor otel-collector query-api)
+readonly UAP_DEBUG_SDAR_TELEMETRY_SERVICES=(control-postgres ingestion-gateway telemetry-worker query-api admin-api domain-projection-worker)
+readonly UAP_DEBUG_BENCHMARK_SERVICES=(postgres api reconciler evaluation-worker benchmark-worker projector)
 readonly UAP_DEBUG_SMPP_APPS=(ugv-agent-profile-pms-api ugv-agent-profile-adapter ugv-agent-profile-runtime ugv-agent-profile-pms-worker)
 
 uap_debug_smpp() {
@@ -21,6 +25,24 @@ uap_debug_telemetry() {
   docker compose --env-file /dev/null --project-directory "$uap_telemetry_root" \
     --project-name "$UAP_DEBUG_TELEMETRY_PROJECT" \
     -f "$uap_telemetry_root/deploy/ugv-debug/compose.yaml" "$@"
+}
+
+uap_debug_sdar_telemetry() {
+  docker compose --env-file "$UGV_DEBUG_STATE_ROOT/sdar-telemetry/compose.env" \
+    --project-directory "$uap_sdar_telemetry_root" --project-name sdar-ugv-debug-sdar-telemetry \
+    -f "$uap_sdar_telemetry_root/deploy/ugv-debug/compose.yaml" "$@"
+}
+
+uap_debug_sdar_telemetry_config() {
+  node "$uap_repo_root/scripts/ugv-agent-profile-simulation/debug-sdar-telemetry.mjs" "$@"
+}
+
+uap_debug_benchmark() {
+  docker compose --env-file /dev/null --project-directory "$uap_benchmark_root" \
+    --project-name sdar-ugv-debug-benchmark -f "$uap_benchmark_root/deploy/ugv-debug/compose.yaml" "$@"
+}
+uap_debug_benchmark_config() {
+  node "$uap_repo_root/scripts/ugv-agent-profile-simulation/debug-benchmark.mjs" configure
 }
 
 uap_debug_supervisor() {
@@ -87,5 +109,13 @@ uap_debug_status() {
   uap_sdar_compose ps "${UAP_SDAR_SERVICES[@]}"
   uap_debug_smpp ps "${UAP_SMPP_SERVICES[@]}"
   uap_debug_telemetry ps "${UAP_DEBUG_TELEMETRY_SERVICES[@]}"
+  if [[ -f "$UGV_DEBUG_STATE_ROOT/sdar-telemetry/compose.env" ]]; then
+    uap_debug_sdar_telemetry ps "${UAP_DEBUG_SDAR_TELEMETRY_SERVICES[@]}"
+    uap_debug_sdar_telemetry run --rm --no-deps provider-status
+  fi
+  if [[ -f "$UGV_DEBUG_STATE_ROOT/benchmark/reader.json" ]]; then
+    uap_debug_benchmark ps "${UAP_DEBUG_BENCHMARK_SERVICES[@]}"
+    uap_debug_benchmark run --rm --no-deps status
+  fi
   uap_debug_profile status
 }

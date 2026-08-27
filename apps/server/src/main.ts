@@ -46,6 +46,9 @@ const runtime = await startServerRuntime({
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
   evidenceEnvironment: environment.SDAR_CONTROL_ENVIRONMENT,
+  ...(environment.SDAR_EVIDENCE_OBSERVATION_SCOPE === undefined
+    ? {}
+    : { evidenceObservationScope: environment.SDAR_EVIDENCE_OBSERVATION_SCOPE }),
   applyMigrations: true,
   ...(modelBootstrap === undefined ? {} : { modelBootstrap }),
   outboundEndpointPolicy: {

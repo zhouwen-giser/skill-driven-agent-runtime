@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-08-27 — Passive Benchmark UGV debug and ProviderOps v2
+
+- Add persistent Benchmark PostgreSQL/artifacts plus API, Reconciler, Evaluation
+  Worker, passive Benchmark Worker and Projector to `pnpm ugv:debug`; no Run, A2A
+  Task, score or Device Tool is created automatically.
+- Add idempotent frozen registry/source-boundary bootstrap, scoped incremental
+  Evidence reads, ProviderOps v2 closure migration/handoff and truthful
+  service/data/scoring status.
+- Provision two dedicated external ClickHouse identities with an exact 132-relation
+  SELECT closure; only Projector has INSERT on the frozen 40-table allowlist.
+- Keep global registry projection separate from local observation scope. Repair and
+  audit-reconcile 68 scope-defect failures without deleting Dead Letter evidence;
+  all 68 are now published and recovery is idempotent.
+- Keep Commander/NPC optional, Grafana absent and production defaults unchanged.
+  Publish Telemetry producer commit `4d1dd58697a6deb6e2efabd6c21aa0c8097703c8`
+  and pin its exact source commit, manifest blob and byte hash in Benchmark; the
+  complete 6-file/64-test handoff contract gate passes.
+
+## 2026-08-26 — SDAR Telemetry incremental joint-debug extension
+
+- Add Gateway/Query/Admin/Domain Worker and internal Control PostgreSQL to `pnpm ugv:debug`;
+  default active mode uses formal lifecycle approval, real source registration and exact schema guards.
+  No Grafana, business Task, Device call, history reset or production auth/default change.
+- Add optional `deliveryStart: from_activation`, durable migration 0174 origin and range-aware
+  send/ACK/backlog. Repeated migrations/restarts preserve the boundary; unsafe rollback is refused.
+- Retain the SMPP local target and add an independent external target only to new WAL mapping
+  snapshots. Federate bounded metrics/traces to the existing seven-day local store.
+- Implement fenced domain consumption, deterministic target/lineage writes, durable completion and
+  actual source/checkpoint/backlog status. Missing producers, drift and write failure remain distinct.
+- Apply only the reviewed hash-pinned missing external Evidence table; read-only diagnostic smoke
+  passes. Live projection remains pending real producers. SDAR → Commander/NPC is intentionally empty.
+
 ## 2026-08-26 — Unified UGV / SMPP / Telemetry debug stack, no Grafana
 
 - Extend `pnpm ugv:debug` to compose infrastructure/migrations, Telemetry, Provider/PMS and SDAR.

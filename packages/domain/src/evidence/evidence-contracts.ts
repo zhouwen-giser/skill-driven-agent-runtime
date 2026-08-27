@@ -74,6 +74,8 @@ export function shouldRecordEvidenceExportObservation(
 
 export interface EvidenceExportConfiguration {
   readonly exportId: string;
+  /** Local delivery policy only; does not change the canonical Evidence wire contract. */
+  readonly deliveryStart?: 'retained' | 'from_activation';
   readonly revision: number;
   readonly endpointRef: string;
   readonly sourceId: string;
@@ -177,6 +179,11 @@ export function normalizeEvidenceExportConfiguration(
   positiveInteger(input.outboxPolicy.retentionDays, 'outboxPolicy.retentionDays', 1, 3_650);
   if (!['inline', 'reference'].includes(input.artifactMode))
     invalidConfiguration('artifactMode is invalid.');
+  if (
+    input.deliveryStart !== undefined &&
+    !['retained', 'from_activation'].includes(input.deliveryStart)
+  )
+    invalidConfiguration('deliveryStart is invalid.');
   if (!['draft', 'active', 'suspended', 'retired'].includes(input.status))
     invalidConfiguration('status is invalid.');
   if (
@@ -186,6 +193,7 @@ export function normalizeEvidenceExportConfiguration(
     invalidConfiguration('applyMode is invalid.');
   return Object.freeze({
     exportId: requiredText(input.exportId, 'exportId'),
+    ...(input.deliveryStart === undefined ? {} : { deliveryStart: input.deliveryStart }),
     revision: input.revision,
     endpointRef: endpoint.toString(),
     sourceId: requiredText(input.sourceId, 'sourceId'),

@@ -4286,6 +4286,7 @@ const RuntimeControlCommandSchema = z
 const ManagedEvidenceExportConfigurationSchema = z
   .object({
     exportId: z.string().trim().min(1).max(256),
+    deliveryStart: z.enum(['retained', 'from_activation']).optional(),
     endpointRef: z.url(),
     sourceId: z.string().trim().min(1).max(256),
     nodeId: z.string().trim().min(1).max(256).optional(),

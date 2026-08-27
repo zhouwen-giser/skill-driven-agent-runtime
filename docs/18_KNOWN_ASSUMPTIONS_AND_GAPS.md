@@ -1,5 +1,20 @@
 # 已知假设、冲突与待验证项
 
+## SDAR Telemetry debug projection boundary (2026-08-26)
+
+- The user explicitly deferred SDAR → Commander/NPC. Canonical Evidence ingestion and the existing
+  ten Commander/NPC → embodied mappings are separate paths; neither registration nor an empty
+  source file implements the deferred layer. Do not manufacture application facts or producers.
+- Real Commander/NPC registration is not supplied in this delivery. Missing registration blocks
+  automatic ACTIVE; registered but empty input is ACTIVE/waiting_source. No startup success or live
+  projection completeness is claimed without the real configuration. Historical references remain
+  incomplete because all three new delivery paths preserve their incremental ingestion boundary.
+- Runtime migration 0174 records its version and guards down migration against loss of incremental
+  origins. Shared ClickHouse migration 014 was observed missing and applied as the already-reviewed,
+  hash-pinned additive table only. No existing warehouse data or debug volumes were deleted.
+- SMPP Telemetry still has 450 pre-existing whole-repository strict TypeScript diagnostics; this
+  slice adds none. See ADR-143 and `reports/sdar-telemetry-debug/verification.md`.
+
 ## Provider registration versus health (2026-08-26)
 
 - ADR-141 records the operator's explicit replacement of health-TTL-as-registration and

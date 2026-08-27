@@ -22,6 +22,11 @@ export const debugPorts = Object.freeze({
   collectorHealth: 13133,
   collectorMetrics: 8888,
   metrics: 9464,
+  evidenceGateway: 8080,
+  unifiedQuery: 8081,
+  telemetryAdmin: 8082,
+  domainWorker: 8083,
+  benchmark: 18090,
 });
 
 export function validatePublicHost(value) {
@@ -58,7 +63,7 @@ export async function choosePublicHost(
   throw new Error('UGV_DEBUG_PUBLIC_HOST_REQUIRED');
 }
 
-async function privateDirectory(path) {
+export async function privateDirectory(path) {
   await mkdir(path, { recursive: true, mode: 0o700 });
   const stat = await lstat(path);
   if (
@@ -70,7 +75,7 @@ async function privateDirectory(path) {
     throw new Error('UGV_DEBUG_STATE_INVALID');
 }
 
-async function privateFile(path, contents) {
+export async function privateFile(path, contents) {
   try {
     const stat = await lstat(path);
     if (
@@ -134,7 +139,7 @@ export async function configureDebugProfile({
         smppSourceId: 'smpp-source-ugv1-uap-p3-b01',
         tenantId: 'tenant-local',
         projectId: 'ugv-debug',
-        environment: 'development',
+        environment: 'integration',
         sourceProduct: 'sdar-mcp-provider-platform',
         mappingVersion: 4,
         policyVersion: 1,
@@ -203,6 +208,9 @@ export async function telemetryStatus(request = get) {
     }),
   );
   const processor = await request('http://127.0.0.1:8443/health/ready');
+  const domain = await request('http://127.0.0.1:8083/status');
+  const evidence = await request('http://127.0.0.1:10091/api/v1/evidence-export/status');
+  const gateway = await request('http://127.0.0.1:8080/health');
   const [collector, queue] = await Promise.all([
     request('http://127.0.0.1:13133/'),
     request('http://127.0.0.1:8888/metrics'),
@@ -214,6 +222,9 @@ export async function telemetryStatus(request = get) {
         ].map((match) => Number(match[1]))
       : undefined;
   return {
+    sdarEvidence: evidence.status === 200 ? evidence.body : { status: 'unavailable' },
+    gateway: gateway.status === 200 ? 'ready' : 'degraded_or_stopped',
+    domainProjection: domain.status === 200 ? domain.body : { status: 'unavailable' },
     signals: Object.fromEntries(observations),
     processor: processor.status === 200 ? 'ready' : 'degraded_or_stopped',
     collector: collector.status === 200 ? 'ready' : 'degraded_or_stopped',

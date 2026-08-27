@@ -20,6 +20,7 @@ import {
 export type EvidencePersistenceErrorCode =
   | 'EVIDENCE_CONFIGURATION_CONFLICT'
   | 'EVIDENCE_CONFIGURATION_STALE'
+  | 'EVIDENCE_DELIVERY_ORIGIN_CONFLICT'
   | 'EVIDENCE_OUTBOX_HIGH_WATERMARK'
   | 'EVIDENCE_PAYLOAD_HASH_CONFLICT'
   | 'EVIDENCE_REFERENCE_NOT_FOUND'
@@ -99,6 +100,22 @@ export class PostgresEvidenceStore {
     const checksum = hashCanonicalEvidenceJson(configuration).slice('sha256:'.length);
     await withTransaction(this.#pool, async (client) => {
       await client.query(`SELECT pg_advisory_xact_lock(hashtext('runtime.evidence-export'))`);
+      const origin = await client.query<{ delivery_start: string }>(
+        'SELECT delivery_start FROM evidence_export_delivery_origin WHERE export_id=$1',
+        [configuration.exportId],
+      );
+      const deliveryStart = configuration.deliveryStart ?? 'retained';
+      if (origin.rows[0] !== undefined && origin.rows[0].delivery_start !== deliveryStart) {
+        throw new EvidencePersistenceError(
+          'EVIDENCE_DELIVERY_ORIGIN_CONFLICT',
+          'An export delivery origin cannot change after first activation.',
+        );
+      }
+      // Wait for in-flight inserts, then exclude precisely the committed prefix. Holding SHARE
+      // until commit also prevents a concurrent append from falling into the activation gap.
+      if (origin.rows[0] === undefined && deliveryStart === 'from_activation') {
+        await client.query('LOCK TABLE evidence_outbox IN SHARE MODE');
+      }
       const existing = await client.query<{ checksum: string }>(
         `SELECT checksum::text FROM evidence_export_configuration
          WHERE export_id=$1 AND revision=$2`,
@@ -139,6 +156,15 @@ export class PostgresEvidenceStore {
           appliedAt,
         ],
       );
+      if (origin.rows[0] === undefined) {
+        await client.query(
+          `INSERT INTO evidence_export_delivery_origin
+             (export_id,first_revision,delivery_start,start_sequence,activated_at)
+           SELECT $1,$2,$3,CASE WHEN $3='from_activation' THEN COALESCE(max(sequence),0) ELSE 0 END,$4
+           FROM evidence_outbox`,
+          [configuration.exportId, configuration.revision, deliveryStart, appliedAt],
+        );
+      }
       await clearHighWatermarkWithinTransaction(client, configuration.exportId, appliedAt);
     });
   }
@@ -360,6 +386,7 @@ export class PostgresEvidenceStore {
          AND EXISTS (
            SELECT 1 FROM evidence_export_configuration configuration
            WHERE configuration.is_active
+             AND evidence_outbox.sequence > evidence_delivery_start_sequence(configuration.export_id)
              AND configuration.definition->'includedFamilies' ? evidence_outbox.record_family
              AND NOT (
                evidence_outbox.evaluation_role='diagnostic'
@@ -461,7 +488,8 @@ export class PostgresEvidenceStore {
       if (state.rowCount !== 1) throw leaseNotOwned();
       const marked = await client.query(
         `UPDATE evidence_outbox SET sent_export_id=$1,sent_fencing_token=$2::bigint,sent_at=$3
-         WHERE source_partition=$4 AND sequence=ANY($5::bigint[]) AND acknowledged_at IS NULL`,
+         WHERE source_partition=$4 AND sequence=ANY($5::bigint[]) AND acknowledged_at IS NULL
+           AND sequence > evidence_delivery_start_sequence($1)`,
         [lease.exportId, lease.fencingToken, observedAt, lease.sourcePartition, sequences],
       );
       if (marked.rowCount !== sequences.length) {
@@ -521,6 +549,16 @@ export class PostgresEvidenceStore {
     const sent = row.last_sent_sequence === null ? -1n : BigInt(row.last_sent_sequence);
     const previous =
       row.last_acknowledged_sequence === null ? -1n : BigInt(row.last_acknowledged_sequence);
+    const origin = await client.query<{ start_sequence: string }>(
+      'SELECT evidence_delivery_start_sequence($1)::text AS start_sequence',
+      [lease.exportId],
+    );
+    if (acknowledged <= BigInt(origin.rows[0]?.start_sequence ?? '0')) {
+      throw new EvidencePersistenceError(
+        'EVIDENCE_ACK_INVALID',
+        'ACK is outside the delivery range.',
+      );
+    }
     if (acknowledged > sent || acknowledged < previous) {
       throw new EvidencePersistenceError(
         'EVIDENCE_ACK_INVALID',
@@ -530,6 +568,7 @@ export class PostgresEvidenceStore {
     const skipped = await client.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM evidence_outbox
          WHERE source_partition=$1 AND sequence<=$2::bigint AND acknowledged_at IS NULL
+           AND sequence > evidence_delivery_start_sequence($3)
            AND (sent_export_id IS DISTINCT FROM $3 OR sent_fencing_token IS DISTINCT FROM $4::bigint)`,
       [lease.sourcePartition, lastAcknowledgedSequence, lease.exportId, lease.fencingToken],
     );
@@ -542,6 +581,7 @@ export class PostgresEvidenceStore {
     await client.query(
       `UPDATE evidence_outbox SET acknowledged_at=$1,last_error_code=NULL
          WHERE source_partition=$2 AND sequence<=$3::bigint AND acknowledged_at IS NULL
+           AND sequence > evidence_delivery_start_sequence($4)
            AND sent_export_id=$4 AND sent_fencing_token=$5::bigint`,
       [
         acknowledgedAt,
@@ -1404,6 +1444,7 @@ export class PostgresEvidenceStore {
        FROM evidence_outbox evidence
        JOIN evidence_export_configuration configuration ON configuration.is_active
        WHERE evidence.acknowledged_at IS NULL
+         AND evidence.sequence > evidence_delivery_start_sequence(configuration.export_id)
          AND configuration.definition->'includedFamilies' ? evidence.record_family
          AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
            configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
@@ -2043,6 +2084,7 @@ async function clearHighWatermarkWithinTransaction(
          SELECT count(*)
          FROM evidence_outbox evidence
          WHERE evidence.acknowledged_at IS NULL
+           AND evidence.sequence > evidence_delivery_start_sequence(configuration.export_id)
            AND configuration.definition->'includedFamilies' ? evidence.record_family
            AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
              configuration.definition->'excludedDiagnosticTypes','[]'::jsonb

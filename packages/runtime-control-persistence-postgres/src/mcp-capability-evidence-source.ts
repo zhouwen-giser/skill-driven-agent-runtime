@@ -201,7 +201,7 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
       );
       const existingEvidence = await rows(
         client,
-        `SELECT jsonb_build_object('record_id',record_id,'record_type',record_type,'source_record_id',source_record_id,'skill_execution_id',skill_execution_id,'payload',payload) AS value
+        `SELECT jsonb_build_object('record_id',record_id,'record_type',record_type,'source_record_id',source_record_id,'source_revision',source_revision,'skill_execution_id',skill_execution_id,'payload',payload) AS value
          FROM evidence_outbox
          WHERE task_id=$1 OR episode_id=$1 OR (
            record_type='node_control.capability_revision'

@@ -1,5 +1,32 @@
 # Project Status
 
+## UGV Benchmark passive debug (2026-08-27, live service ready / data waiting)
+
+ADR-144 and `execplans/EP-UGV-BENCHMARK-DEBUG.md` now cover the running passive
+Benchmark stack. External ClickHouse migration 015 and the two dedicated identities
+are applied: each has an exact 132-relation SELECT closure and only Projector has
+INSERT on the frozen 40 tables. API, Reconciler, Evaluation Worker, passive Benchmark
+Worker and Projector run with persistent PostgreSQL/artifacts; anonymous `/ready` is
+HTTP 200. Registry bootstrap preserves the immutable first boundary. The repaired
+global metadata projector published all 68 outbox rows; the 68 original failures are
+retained as resolved audit records and no unresolved DLQ remains. Status correctly
+reports `waiting_source` and `EXECUTABLE_RULESET_NOT_CONFIGURED`; no Run, Task, score
+or Device Tool was created. The Telemetry producer is now published at
+`4d1dd58697a6deb6e2efabd6c21aa0c8097703c8`; Benchmark pins that exact commit,
+manifest blob and byte hash, and its complete 6-file/64-test contract gate passes.
+
+## SDAR Telemetry joint debug extension (2026-08-26, implemented; live activation pending)
+
+`execplans/EP-SDAR-TELEMETRY-DEBUG.md` / ADR-143 track the approved external warehouse,
+incremental-only Evidence/ProviderOps, unified diagnostic queries and default-active domain worker.
+Incremental Evidence, independent SMPP routing, fixed diagnostic federation and the real domain
+consumer/lifecycle are implemented with targeted tests. Shared warehouse migration 014 and ten
+mapping metadata checks passed; real diagnostic queries returned stored metrics/traces. SDAR →
+Commander/NPC is explicitly deferred. Real source registration is still missing for live ACTIVE;
+the old debug services were not restarted, and no new Task/Device action or complete acceptance is
+claimed. Commands, test counts, rollback behavior and the existing SMPP TypeScript baseline are in
+`reports/sdar-telemetry-debug/verification.md`. The ExecPlan remains open for live source acceptance.
+
 ## UGV / SMPP / Telemetry development integration (2026-08-26)
 
 ADR-142 / `execplans/EP-UGV-DEBUG-TELEMETRY.md` implement the complete `pnpm ugv:debug` stack
@@ -1262,3 +1289,10 @@ without changing P02-P11 authorities. The Console uses the real API; A2A adds on
 safe extension; SSE is a bounded resumable PostgreSQL Outbox projection. Independent review
 findings covering runtime SQL, event aliases/tenant derivation, IDOR, filters, feature-off,
 promotion audit and redaction were repaired and regression tested.
+
+# UGV Benchmark 联调进行中（2026-08-26）
+
+用户批准被动评价接入。当前已落首批代码与定向回归，尚未完成部署、Provider v2
+handoff/持久化验证或真实启动；外部 ClickHouse 专用用户及精确授权需单独确认。
+未执行新 live 迁移、服务重启、Run/Task 或设备调用。见
+`execplans/EP-UGV-BENCHMARK-DEBUG.md`；现有项目完成状态不因此上调。
