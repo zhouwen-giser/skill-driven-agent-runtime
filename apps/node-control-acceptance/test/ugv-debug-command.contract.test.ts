@@ -12,6 +12,10 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'sdar-ugv-debug-command-'));
   roots.push(root);
   await mkdir(join(root, 'logs'));
+  await mkdir(join(root, 'debug/sdar-telemetry'), { recursive: true });
+  await mkdir(join(root, 'debug/benchmark'), { recursive: true });
+  await writeFile(join(root, 'debug/sdar-telemetry/compose.env'), 'test-only');
+  await writeFile(join(root, 'debug/benchmark/reader.json'), '{}');
   await writeFile(join(root, 'debug.sh'), await readFile(scriptUrl));
   await writeFile(join(root, 'data-sentinel'), 'existing data');
   await writeFile(
@@ -33,6 +37,9 @@ uap_sdar_compose() { event "sdar:$*"; fault; }
     join(root, 'debug-common.sh'),
     `
 UAP_DEBUG_TELEMETRY_SERVICES=(clickhouse processor collector query)
+UGV_DEBUG_STATE_ROOT='${root}/debug'
+UAP_DEBUG_SDAR_TELEMETRY_SERVICES=(control-postgres gateway worker query admin domain-worker)
+UAP_DEBUG_BENCHMARK_SERVICES=(postgres api reconciler evaluation-worker benchmark-worker projector)
 UAP_DEBUG_SMPP_APPS=(adapter runtime pms)
 uap_debug_profile() {
   if [[ "$1" == public-host ]]; then printf '192.168.6.7\\n'; return; fi
@@ -40,6 +47,10 @@ uap_debug_profile() {
 }
 uap_debug_network() { event network; fault; }
 uap_debug_telemetry() { event "telemetry:$*"; fault; }
+uap_debug_sdar_telemetry() { event "sdar-telemetry:$*"; fault; }
+uap_debug_sdar_telemetry_config() { event "sdar-telemetry-config:$*"; fault; }
+uap_debug_benchmark_config() { event "benchmark-config:$*"; fault; }
+uap_debug_benchmark() { event "benchmark:$*"; fault; }
 uap_debug_smpp() { event "smpp:$*"; fault; }
 uap_debug_seed() { event seed; fault; }
 uap_debug_wait_provider() { event catalog; fault; }
@@ -79,10 +90,12 @@ describe('complete UGV joint-debug command', () => {
     await execute('bash', [f.script, 'status']);
     expect(await f.events()).toEqual(['status']);
     await execute('bash', [f.script, 'stop']);
-    expect((await f.events()).slice(-4)).toEqual([
+    expect((await f.events()).slice(-6)).toEqual([
       'supervisor:stop',
       'smpp:stop adapter runtime pms',
       'telemetry:stop clickhouse processor collector query',
+      'sdar-telemetry:stop control-postgres gateway worker query admin domain-worker',
+      'benchmark:stop postgres api reconciler evaluation-worker benchmark-worker projector',
       'sdar:stop postgres redis',
     ]);
     expect(await readFile(join(f.root, 'data-sentinel'), 'utf8')).toBe('existing data');
@@ -96,13 +109,28 @@ describe('complete UGV joint-debug command', () => {
       'initialize',
       'authorize',
       'profile:configure',
+      'sdar-telemetry-config:configure',
+      'benchmark-config:',
       'network',
       'sdar:up -d --wait postgres redis',
       'smpp:up -d --wait ugv-agent-profile-adapter-postgres ugv-agent-profile-runtime-postgres ugv-agent-profile-pms-postgres',
       'telemetry:build telemetry-processor query-api',
       'telemetry:up -d --wait clickhouse',
       'telemetry:run --rm --no-deps telemetry-migrate',
+      'sdar-telemetry:build control-migrate',
+      'sdar-telemetry:up -d --wait control-postgres',
+      'sdar-telemetry:run --rm --no-deps control-migrate',
+      'sdar-telemetry:run --rm --no-deps warehouse-migrate',
+      'sdar-telemetry:run --rm --no-deps provider-migrate',
+      'sdar-telemetry:run --rm --no-deps warehouse-preflight',
+      'sdar-telemetry:run --rm --no-deps provider-bootstrap',
+      'benchmark:build bootstrap',
+      'benchmark:up -d --wait postgres',
+      'benchmark:run --rm --no-deps warehouse-provision',
+      'benchmark:run --rm --no-deps bootstrap',
       'telemetry:up -d --no-deps --wait telemetry-processor otel-collector query-api',
+      'sdar-telemetry:up -d --no-deps --wait ingestion-gateway telemetry-worker query-api admin-api domain-projection-worker',
+      'sdar-telemetry:run --rm --no-deps debug-bootstrap',
       'smpp:build adapter runtime pms',
       'smpp:up -d --wait ugv-agent-profile-pms-api ugv-agent-profile-adapter',
       'catalog',
@@ -112,6 +140,9 @@ describe('complete UGV joint-debug command', () => {
       'supervisor:restart-server --side-effects NO',
       'authority',
       'profile:wait-card',
+      'sdar-telemetry-config:evidence',
+      'benchmark:up -d --no-deps --wait api reconciler evaluation-worker benchmark-worker projector',
+      'benchmark:run --rm --no-deps recover-meta-scope',
       yes,
       'status',
     ]);
@@ -171,6 +202,22 @@ describe('complete UGV joint-debug command', () => {
   });
   it.each([
     'configuration',
+    'sdar-telemetry-configuration',
+    'benchmark-configuration',
+    'sdar-telemetry-build',
+    'sdar-telemetry-infrastructure',
+    'sdar-telemetry-migrations',
+    'external-warehouse-additive-migration',
+    'provider-v2-migration',
+    'external-warehouse-contract',
+    'provider-v2-origin',
+    'benchmark-build',
+    'benchmark-infrastructure',
+    'benchmark-warehouse-access',
+    'benchmark-registration-origin',
+    'benchmark-projection-scope-recovery',
+    'sdar-telemetry-start',
+    'domain-projection-activation',
     'shared-network',
     'telemetry-build',
     'telemetry-migrations',
@@ -182,6 +229,8 @@ describe('complete UGV joint-debug command', () => {
     'sdar-start',
     'missing-authority',
     'public-card',
+    'incremental-evidence',
+    'benchmark-start',
     'enable-requested-mode',
   ])('failure at %s preserves data and never leaves new YES', async (stage) => {
     const f = await fixture();

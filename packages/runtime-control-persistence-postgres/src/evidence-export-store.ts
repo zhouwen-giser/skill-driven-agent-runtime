@@ -67,6 +67,7 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
          AND EXISTS (
            SELECT 1 FROM evidence_export_configuration configuration
            WHERE configuration.is_active
+             AND evidence_outbox.sequence > evidence_delivery_start_sequence(configuration.export_id)
              AND configuration.definition->'includedFamilies' ? evidence_outbox.record_family
              AND NOT (
                evidence_outbox.evaluation_role='diagnostic'
@@ -133,6 +134,16 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
         throw new EvidencePersistenceError(
           'EVIDENCE_LEASE_NOT_OWNED',
           'Evidence export lease is expired, fenced, or owned by another worker.',
+        );
+      }
+      const range = await client.query<{ allowed: boolean }>(
+        'SELECT $1::bigint > evidence_delivery_start_sequence($2) AS allowed',
+        [input.batch.firstSequence, input.batch.exportId],
+      );
+      if (range.rows[0]?.allowed !== true) {
+        throw new EvidencePersistenceError(
+          'EVIDENCE_ACK_INVALID',
+          'Batch is outside the delivery range.',
         );
       }
       const nextAttempt = await client.query<{ attempt_no: number }>(
@@ -359,6 +370,7 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
          FROM evidence_outbox evidence
          JOIN active ON true
          WHERE evidence.acknowledged_at IS NULL
+           AND evidence.sequence > evidence_delivery_start_sequence(active.export_id)
            AND active.definition->'includedFamilies' ? evidence.record_family
            AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
              active.definition->'excludedDiagnosticTypes','[]'::jsonb
@@ -373,6 +385,7 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
          FROM evidence_outbox evidence
          JOIN active ON true
          WHERE active.definition->'includedFamilies' ? evidence.record_family
+           AND evidence.sequence > evidence_delivery_start_sequence(active.export_id)
            AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
              active.definition->'excludedDiagnosticTypes','[]'::jsonb
            ) ? evidence.record_type)
@@ -381,7 +394,7 @@ export class PostgresRuntimeEvidenceExportStore implements RuntimeEvidenceExport
          (SELECT count(*)::text FROM eligible) AS pending_records,
          (SELECT min(captured_at) FROM eligible) AS oldest_pending_at,
          (SELECT CASE
-           WHEN count(*)=0 THEN NULL
+           WHEN count(*) FILTER (WHERE acknowledged_at IS NOT NULL)=0 THEN NULL
            WHEN min(sequence) FILTER (WHERE acknowledged_at IS NULL) IS NULL
              THEN max(sequence)::text
            ELSE GREATEST(

@@ -185,7 +185,21 @@ export function developmentSupervisorConfiguration(publicHost) {
           SDAR_A2A_PUBLIC_BASE_URL: `http://${publicHost}:10999`,
           SDAR_ACKNOWLEDGE_NO_AUTH_NETWORK_EXPOSURE: 'true',
           SDAR_ARTIFACT_MANAGEMENT_ROLES: 'administrator,approver,security_operator',
+          SDAR_EVIDENCE_OBSERVATION_SCOPE: JSON.stringify({
+            tenantId: 'tenant-local',
+            projectId: 'ugv-debug',
+          }),
         });
+      if (name === 'server') {
+        try {
+          env.SDAR_DEBUG_EVIDENCE_TOKEN = await privateToken(
+            STATE_ROOT,
+            'debug/sdar-telemetry/evidence-token',
+          );
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error;
+        }
+      }
       return Object.freeze(env);
     },
   });

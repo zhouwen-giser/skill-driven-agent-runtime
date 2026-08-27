@@ -66,6 +66,23 @@ const EnvironmentSchema = z
     SDAR_A2A_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_A2A_PUBLIC_BASE_URL: z.url().optional(),
     SDAR_DEVELOPMENT_PUBLIC_ACCESS: z.enum(['open', 'off']).default('off'),
+    SDAR_EVIDENCE_OBSERVATION_SCOPE: z
+      .string()
+      .transform((value, context) => {
+        try {
+          return z
+            .object({ tenantId: z.string().min(1).max(256), projectId: z.string().min(1).max(256) })
+            .strict()
+            .parse(JSON.parse(value));
+        } catch {
+          context.addIssue({
+            code: 'custom',
+            message: 'Evidence observation scope must contain tenantId and projectId.',
+          });
+          return z.NEVER;
+        }
+      })
+      .optional(),
     SDAR_A2A_PORT: z.coerce.number().int().positive().default(9999),
     SDAR_A2A_WAIT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(900_000).default(30_000),
     SDAR_MANAGEMENT_HOST: z.string().min(1).default('127.0.0.1'),

@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { readFile } from 'node:fs/promises';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { applyRuntimeMigrations } from '../../../apps/server/src/runtime.js';
@@ -20,6 +21,8 @@ const now = '2026-08-04T01:00:00.000Z';
 
 beforeAll(async () => {
   await applyRuntimeMigrations(pool);
+  // The same entrypoint runs on every service restart, not only on an empty DB.
+  await applyRuntimeMigrations(pool);
 });
 
 beforeEach(async () => {
@@ -34,6 +37,127 @@ afterAll(async () => {
 });
 
 describe('Canonical Evidence Export PostgreSQL adapter', { concurrent: false }, () => {
+  it('records the migration once and supports safe retained-only down/up without duplicate DDL', async () => {
+    const version = '0174_v14_evidence_delivery_origin';
+    expect(
+      (await pool.query('SELECT version FROM schema_migration WHERE version=$1', [version])).rows,
+    ).toEqual([{ version }]);
+    await pool.query(
+      await readFile(
+        'infra/postgres/migrations/0174_v14_evidence_delivery_origin.down.sql',
+        'utf8',
+      ),
+    );
+    expect(
+      (await pool.query('SELECT version FROM schema_migration WHERE version=$1', [version])).rows,
+    ).toEqual([]);
+    await applyRuntimeMigrations(pool);
+    await applyRuntimeMigrations(pool);
+    expect(
+      (await pool.query('SELECT version FROM schema_migration WHERE version=$1', [version])).rows,
+    ).toEqual([{ version }]);
+  });
+
+  it('refuses a rollback that would lose an incremental origin', async () => {
+    await store.apply(configuration({ deliveryStart: 'from_activation' }), now);
+    const client = await pool.connect();
+    try {
+      await expect(
+        client.query(
+          await readFile(
+            'infra/postgres/migrations/0174_v14_evidence_delivery_origin.down.sql',
+            'utf8',
+          ),
+        ),
+      ).rejects.toThrow('EVIDENCE_DELIVERY_ORIGIN_REQUIRES_RECONCILIATION');
+      await client.query('ROLLBACK');
+      expect(
+        (await client.query('SELECT count(*)::int AS count FROM evidence_export_delivery_origin'))
+          .rows,
+      ).toEqual([{ count: 1 }]);
+    } finally {
+      client.release();
+    }
+  });
+
+  it('starts at first activation without ACKing retained rows, and preserves the origin across restart/revision', async () => {
+    const oldSequence = await evidence.append(envelope('old-task', '1'), now, 'runtime:episodes');
+    const active = configuration({ deliveryStart: 'from_activation' });
+    await store.apply(active, now);
+    expect(await store.nextPendingPartition(now)).toBeUndefined();
+    expect(await store.status(now)).not.toHaveProperty('lastAcknowledgedSequence');
+    const sequence = await evidence.append(envelope('new-task', '1'), now, 'runtime:episodes');
+    await new PostgresRuntimeEvidenceExportStore(pool).apply({ ...active, revision: 2 }, now);
+    expect((await store.pending('runtime:episodes', 100, now)).map((row) => row.sequence)).toEqual([
+      sequence,
+    ]);
+    const lease = await store.acquireLease({
+      exportId: active.exportId,
+      sourcePartition: 'runtime:episodes',
+      owner: 'incremental',
+      token: 'one',
+      acquiredAt: now,
+      expiresAt: '2026-08-04T01:01:00.000Z',
+    });
+    await expect(store.markSent(lease, [oldSequence], now)).rejects.toMatchObject({
+      code: 'EVIDENCE_ACK_INVALID',
+    });
+    await store.markSent(lease, [sequence], now);
+    await store.acknowledge(lease, sequence, now);
+    expect(await store.status(now)).toMatchObject({
+      pendingRecords: 0,
+      lastAcknowledgedSequence: sequence,
+    });
+    expect(
+      (
+        await pool.query('SELECT sent_at,acknowledged_at FROM evidence_outbox WHERE sequence=$1', [
+          oldSequence,
+        ])
+      ).rows,
+    ).toEqual([{ sent_at: null, acknowledged_at: null }]);
+    await expect(
+      store.apply({ ...active, revision: 3, deliveryStart: 'retained' }, now),
+    ).rejects.toMatchObject({ code: 'EVIDENCE_DELIVERY_ORIGIN_CONFLICT' });
+  });
+
+  it('waits for an in-flight append at activation and never resets the boundary on duplicate apply', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const oldSequence = await evidence.appendWithinTransaction(
+        client,
+        envelope('inflight-task', '1'),
+        now,
+        'runtime:episodes',
+      );
+      let applied = false;
+      const apply = store
+        .apply(configuration({ deliveryStart: 'from_activation' }), now)
+        .then(() => {
+          applied = true;
+        });
+      await client.query('SELECT pg_sleep(0.05)');
+      expect(applied).toBe(false);
+      await client.query('COMMIT');
+      await apply;
+      const newSequence = await evidence.append(
+        envelope('after-barrier', '1'),
+        now,
+        'runtime:episodes',
+      );
+      await store.apply(configuration({ deliveryStart: 'from_activation' }), now);
+      expect(
+        (await store.pending('runtime:episodes', 100, now)).map((row) => row.sequence),
+      ).toEqual([newSequence]);
+      expect(
+        (await pool.query('SELECT start_sequence::text FROM evidence_export_delivery_origin')).rows,
+      ).toEqual([{ start_sequence: oldSequence }]);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+
   it('leases one source partition, marks the exact sent batch and supports a partial ACK', async () => {
     const active = configuration();
     await store.apply(active, now);

@@ -547,6 +547,7 @@ export interface ServerRuntimeOptions {
   /** Optional startup-only seed; persisted Provider/Prompt/route rows remain authoritative. */
   readonly modelBootstrap?: InitialModelProviderConfiguration;
   readonly evidenceEnvironment?: string;
+  readonly evidenceObservationScope?: Readonly<{ tenantId: string; projectId: string }>;
   /** Required frozen thresholds for the external-simulation UGV final-position hard gate. */
   readonly ugvMovePositionPolicy?: UgvMovePositionPolicy;
   /** Authenticated full-state reader for Control-owned Capability definitions and bindings. */
@@ -1019,6 +1020,9 @@ export async function startServerRuntime(
   const catalogValidatingEvidenceWriter = new CatalogValidatingEvidenceWriter({
     delegate: evidenceStore,
     validator: new AjvJsonSchemaValidator({ strict: false }),
+    ...(options.evidenceObservationScope === undefined
+      ? {}
+      : { observationScope: options.evidenceObservationScope }),
   });
   const evidenceProjectorWriter = Object.assign(catalogValidatingEvidenceWriter, {
     hasRecord: evidenceStore.hasRecord.bind(evidenceStore),

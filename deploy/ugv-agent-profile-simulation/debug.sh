@@ -29,6 +29,12 @@ if [[ "$1" == "stop" ]]; then
   uap_debug_supervisor stop
   uap_debug_smpp stop "${UAP_SMPP_SERVICES[@]}"
   uap_debug_telemetry stop "${UAP_DEBUG_TELEMETRY_SERVICES[@]}"
+  if [[ -f "$UGV_DEBUG_STATE_ROOT/sdar-telemetry/compose.env" ]]; then
+    uap_debug_sdar_telemetry stop "${UAP_DEBUG_SDAR_TELEMETRY_SERVICES[@]}"
+  fi
+  if [[ -f "$UGV_DEBUG_STATE_ROOT/benchmark/reader.json" ]]; then
+    uap_debug_benchmark stop "${UAP_DEBUG_BENCHMARK_SERVICES[@]}"
+  fi
   uap_sdar_compose stop "${UAP_SDAR_SERVICES[@]}"
   exit 0
 fi
@@ -68,6 +74,8 @@ uap_debug_step() {
 
 echo 'WARNING: trusted LAN development, anonymous management; default final side-effects=YES.'
 uap_debug_step configuration uap_debug_profile configure
+uap_debug_step sdar-telemetry-configuration uap_debug_sdar_telemetry_config configure
+uap_debug_step benchmark-configuration uap_debug_benchmark_config
 uap_debug_step shared-network uap_debug_network
 uap_debug_step sdar-infrastructure uap_sdar_compose up -d --wait "${UAP_SDAR_SERVICES[@]}"
 uap_debug_step smpp-infrastructure uap_debug_smpp up -d --wait \
@@ -77,8 +85,22 @@ uap_debug_step telemetry-infrastructure uap_debug_telemetry up -d --wait clickho
 uap_debug_step telemetry-migrations uap_debug_telemetry run --rm --no-deps telemetry-migrate
 uap_debug_reload=()
 if [[ "$1" == restart ]]; then uap_debug_reload=(--force-recreate); fi
+uap_debug_step sdar-telemetry-build uap_debug_sdar_telemetry build control-migrate
+uap_debug_step sdar-telemetry-infrastructure uap_debug_sdar_telemetry up -d --wait control-postgres
+uap_debug_step sdar-telemetry-migrations uap_debug_sdar_telemetry run --rm --no-deps control-migrate
+uap_debug_step external-warehouse-additive-migration uap_debug_sdar_telemetry run --rm --no-deps warehouse-migrate
+uap_debug_step provider-v2-migration uap_debug_sdar_telemetry run --rm --no-deps provider-migrate
+uap_debug_step external-warehouse-contract uap_debug_sdar_telemetry run --rm --no-deps warehouse-preflight
+uap_debug_step provider-v2-origin uap_debug_sdar_telemetry run --rm --no-deps provider-bootstrap
+uap_debug_step benchmark-build uap_debug_benchmark build bootstrap
+uap_debug_step benchmark-infrastructure uap_debug_benchmark up -d --wait postgres
+uap_debug_step benchmark-warehouse-access uap_debug_benchmark run --rm --no-deps warehouse-provision
+uap_debug_step benchmark-registration-origin uap_debug_benchmark run --rm --no-deps bootstrap
 uap_debug_step telemetry-start uap_debug_telemetry up -d --no-deps --wait "${uap_debug_reload[@]}" \
   telemetry-processor otel-collector query-api
+uap_debug_step sdar-telemetry-start uap_debug_sdar_telemetry up -d --no-deps --wait "${uap_debug_reload[@]}" \
+  ingestion-gateway telemetry-worker query-api admin-api domain-projection-worker
+uap_debug_step domain-projection-activation uap_debug_sdar_telemetry run --rm --no-deps debug-bootstrap
 uap_debug_step smpp-build uap_debug_smpp build "${UAP_DEBUG_SMPP_APPS[@]}"
 uap_debug_step smpp-adapter-start uap_debug_smpp up -d --wait "${uap_debug_reload[@]}" \
   ugv-agent-profile-pms-api ugv-agent-profile-adapter
@@ -102,6 +124,10 @@ else
 fi
 uap_debug_step missing-authority uap_debug_authority
 uap_debug_step public-card uap_debug_profile wait-card
+uap_debug_step incremental-evidence uap_debug_sdar_telemetry_config evidence
+uap_debug_step benchmark-start uap_debug_benchmark up -d --no-deps --wait "${uap_debug_reload[@]}" \
+  api reconciler evaluation-worker benchmark-worker projector
+uap_debug_step benchmark-projection-scope-recovery uap_debug_benchmark run --rm --no-deps recover-meta-scope
 if [[ "$uap_debug_mode" == "YES" && "$uap_debug_already_yes" == 0 ]]; then
   uap_debug_step enable-requested-mode uap_debug_supervisor restart-server --side-effects YES \
     --simulation-run-id "$uap_debug_simulation_id" \

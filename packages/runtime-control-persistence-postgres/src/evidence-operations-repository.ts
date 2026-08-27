@@ -387,6 +387,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
            SELECT evidence.sequence,evidence.acknowledged_at
            FROM evidence_outbox evidence JOIN active ON true
            WHERE active.definition->'includedFamilies' ? evidence.record_family
+             AND evidence.sequence > evidence_delivery_start_sequence(active.export_id)
              AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
                active.definition->'excludedDiagnosticTypes','[]'::jsonb
              ) ? evidence.record_type)
@@ -408,7 +409,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
            (SELECT count(*)::text FROM evidence_quality_issue WHERE resolved_at IS NULL)
              AS quality_issues,
            (SELECT CASE
-             WHEN count(*)=0 THEN NULL
+             WHEN count(*) FILTER (WHERE acknowledged_at IS NOT NULL)=0 THEN NULL
              WHEN min(sequence) FILTER (WHERE acknowledged_at IS NULL) IS NULL
                THEN max(sequence)::text
              ELSE GREATEST(
@@ -1104,6 +1105,7 @@ async function replayRecords(
            ON configuration.export_id=$2 AND configuration.revision=$3
              AND configuration.is_active
          WHERE ${predicate}
+           AND evidence.sequence > evidence_delivery_start_sequence(configuration.export_id)
            AND configuration.definition->'includedFamilies' ? evidence.record_family
            AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
              configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
@@ -1281,6 +1283,7 @@ async function assertReplayScope(
        SELECT 1 FROM evidence_export_configuration configuration
        WHERE configuration.export_id=$2 AND configuration.revision=$3
          AND configuration.is_active
+         AND evidence.sequence > evidence_delivery_start_sequence(configuration.export_id)
          AND configuration.definition->'includedFamilies' ? evidence.record_family
          AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
            configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
@@ -1315,6 +1318,7 @@ async function resetPartitionDeliveryState(
            ON configuration.export_id=$2 AND configuration.revision=$3
              AND configuration.is_active
          WHERE evidence.source_partition=$1
+           AND evidence.sequence > evidence_delivery_start_sequence(configuration.export_id)
            AND configuration.definition->'includedFamilies' ? evidence.record_family
            AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
              configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
@@ -1374,6 +1378,7 @@ async function resetPartitionDeliveryState(
        AND (
          SELECT count(*) FROM evidence_outbox evidence
          WHERE evidence.acknowledged_at IS NULL
+           AND evidence.sequence > evidence_delivery_start_sequence(configuration.export_id)
            AND configuration.definition->'includedFamilies' ? evidence.record_family
            AND NOT (evidence.evaluation_role='diagnostic' AND COALESCE(
              configuration.definition->'excludedDiagnosticTypes','[]'::jsonb
