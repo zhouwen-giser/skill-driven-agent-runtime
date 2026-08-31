@@ -65,18 +65,20 @@ describe('G09 governed main-light profile', () => {
         },
       ],
     });
-    expect(() => assertHomeLabGovernedLightRuntimeConfiguration(startup())).not.toThrow();
-    const { frozenMcpTasks: _frozenMcpTasks, ...withoutFrozenMcpTasks } = startup();
-    expect(() => assertHomeLabGovernedLightRuntimeConfiguration(withoutFrozenMcpTasks)).toThrow(
-      'HOME_LAB_GOVERNED_LIGHT_FROZEN_MCP_TASKS_REQUIRED',
-    );
-    const {
-      governedControlPrincipalResolver: _governedControlPrincipalResolver,
-      ...withoutGovernedControlPrincipalResolver
-    } = startup();
-    expect(() =>
-      assertHomeLabGovernedLightRuntimeConfiguration(withoutGovernedControlPrincipalResolver),
-    ).toThrow('HOME_LAB_GOVERNED_LIGHT_CONTROL_IDENTITY_REQUIRED');
+    expect(() => {
+      assertHomeLabGovernedLightRuntimeConfiguration(startup());
+    }).not.toThrow();
+    const { frozenMcpTasks, ...withoutFrozenMcpTasks } = startup();
+    void frozenMcpTasks;
+    expect(() => {
+      assertHomeLabGovernedLightRuntimeConfiguration(withoutFrozenMcpTasks);
+    }).toThrow('HOME_LAB_GOVERNED_LIGHT_FROZEN_MCP_TASKS_REQUIRED');
+    const { governedControlPrincipalResolver, ...withoutGovernedControlPrincipalResolver } =
+      startup();
+    void governedControlPrincipalResolver;
+    expect(() => {
+      assertHomeLabGovernedLightRuntimeConfiguration(withoutGovernedControlPrincipalResolver);
+    }).toThrow('HOME_LAB_GOVERNED_LIGHT_CONTROL_IDENTITY_REQUIRED');
   });
 
   it('uses only the fresh G09 server and leaves set-power availability unresolved until input', () => {
@@ -160,27 +162,27 @@ describe('G09 governed main-light profile', () => {
   });
 
   it('requires the exact pre-dispatch barrier and frozen RemoteTask execution contract', () => {
-    expect(() =>
+    expect(() => {
       assertHomeLabGovernedLightWorkflowContract(controlWorkflow(), {
         skillId: 'home.light.set-power',
         skillVersion: 3,
-      }),
-    ).not.toThrow();
-    expect(() =>
+      });
+    }).not.toThrow();
+    expect(() => {
       assertHomeLabGovernedLightWorkflowContract(readWorkflow(), {
         skillId: 'home.light.get-state',
         skillVersion: 3,
-      }),
-    ).not.toThrow();
+      });
+    }).not.toThrow();
     const withoutBarrier = structuredClone(controlWorkflow());
     const confirmation = withoutBarrier.nodes.find((node) => node.nodeId === 'confirmControl');
     if (confirmation !== undefined && 'prompt' in confirmation) confirmation.prompt = 'Continue?';
-    expect(() =>
+    expect(() => {
       assertHomeLabGovernedLightWorkflowContract(withoutBarrier, {
         skillId: 'home.light.set-power',
         skillVersion: 3,
-      }),
-    ).toThrow('exact pre-dispatch governed-control barrier');
+      });
+    }).toThrow('exact pre-dispatch governed-control barrier');
   });
 
   it('resumes the barrier with existing Task, Context and WorkflowControl authority', async () => {

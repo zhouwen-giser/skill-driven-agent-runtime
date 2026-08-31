@@ -103,9 +103,9 @@ const diagnostic = registryRecords.filter(({ evaluationRole }) => evaluationRole
 const durable = registryRecords.filter(
   ({ deliveryGuarantee }) => deliveryGuarantee === 'durable_projection',
 );
-assertPolicyCount(required, 95, 'Required');
+assertPolicyCount(required, 100, 'Required');
 assertPolicyCount(diagnostic, 5, 'Diagnostic');
-assertPolicyCount(durable, 100, 'durable_projection');
+assertPolicyCount(durable, 105, 'durable_projection');
 
 const verifiedRequired = matrixRecords.filter(
   ({ evaluation_role, status }) =>
@@ -115,11 +115,11 @@ const verifiedDiagnostic = matrixRecords.filter(
   ({ evaluation_role, status }) =>
     evaluation_role === 'diagnostic' && status === 'implemented_and_verified',
 );
-assertPolicyCount(verifiedRequired, 95, 'implemented Required');
+assertPolicyCount(verifiedRequired, 100, 'implemented Required');
 assertPolicyCount(verifiedDiagnostic, 5, 'implemented Diagnostic');
 
 stdout.write(
-  `${JSON.stringify({ total: 100, unique: 100, implementedAndVerified: 100, required: '95/95', diagnostic: '5/5', durableProjection: '100/100' })}\n`,
+  `${JSON.stringify({ total: 105, unique: 105, implementedAndVerified: 105, required: '100/100', diagnostic: '5/5', durableProjection: '105/105' })}\n`,
 );
 
 function requireRecords(document, label) {
@@ -128,8 +128,8 @@ function requireRecords(document, label) {
 }
 
 function assertExactCount(records, label) {
-  if (records.length !== 100)
-    fail(`${label} must contain exactly 100 records, found ${records.length}`);
+  if (records.length !== 105)
+    fail(`${label} must contain exactly 105 records, found ${records.length}`);
 }
 
 function uniqueByRecordType(records, label, field) {

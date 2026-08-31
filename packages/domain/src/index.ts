@@ -142,6 +142,7 @@ export * from './mcp.js';
 export * from './mcp-catalog-authority.js';
 export * from './mcp-frozen-protocol.js';
 export * from './mcp-task.js';
+export * from './mcp-task-consumer-sync.js';
 export * from './mcp-task-availability.js';
 export * from './remote-task.js';
 export * from './remote-task-input.js';

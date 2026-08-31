@@ -12,6 +12,11 @@ import {
   PHASE12_SCENARIOS,
   PHASE12_SHARED_EVIDENCE,
 } from './v141-evidence-e2e-scenarios.mjs';
+import {
+  reuseExistingInfrastructure,
+  startInfrastructure,
+  stopInfrastructure,
+} from './lib/infrastructure.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const registry = JSON.parse(readFileSync(join(root, 'schemas/evidence/v1/registry.json'), 'utf8'));
@@ -33,6 +38,12 @@ const reportOnly = process.argv.includes('--report-only');
 const passedReport = reportOnly ? loadPassedReport(output, suites) : undefined;
 const startedAt = passedReport?.startedAt ?? new Date().toISOString();
 const suiteResults = passedReport?.suites ?? loadProgress(progressPath, planHash);
+const postgresPort = process.env.SDAR_POSTGRES_PORT ?? '55432';
+const phase12PostgresUrl =
+  process.env.SDAR_TEST_POSTGRES_URL ??
+  `postgresql://sdar:sdar_local_only@127.0.0.1:${postgresPort}/sdar`;
+const phase12ControlPostgresUrl = process.env.SDAR_CONTROL_TEST_POSTGRES_URL ?? phase12PostgresUrl;
+let selfManagedInfrastructureRunning = false;
 
 try {
   for (const [index, suite] of suites.entries()) {
@@ -49,6 +60,15 @@ try {
           suite.file,
       );
       continue;
+    }
+    if (!reuseExistingInfrastructure && suite.project !== 'integration') {
+      if (!selfManagedInfrastructureRunning) {
+        startInfrastructure(root);
+        selfManagedInfrastructureRunning = true;
+      }
+    } else if (!reuseExistingInfrastructure && selfManagedInfrastructureRunning) {
+      stopInfrastructure(root);
+      selfManagedInfrastructureRunning = false;
     }
     const outputFile = join(temp, 'suite-' + String(index + 1).padStart(2, '0') + '.json');
     const pattern = suite.testNames.map(escapeRegExp).join('|');
@@ -90,13 +110,9 @@ try {
       cwd: root,
       env: {
         ...process.env,
-        SDAR_TEST_POSTGRES_URL:
-          process.env.SDAR_TEST_POSTGRES_URL ??
-          'postgresql://sdar:sdar_local_only@127.0.0.1:55484/sdar_v122_integration_gate',
-        SDAR_CONTROL_TEST_POSTGRES_URL:
-          process.env.SDAR_CONTROL_TEST_POSTGRES_URL ??
-          'postgresql://sdar:sdar_local_only@127.0.0.1:55484/sdar_control_v14_integration_gate',
-        SDAR_REDIS_PORT: process.env.SDAR_REDIS_PORT ?? '56384',
+        SDAR_TEST_POSTGRES_URL: phase12PostgresUrl,
+        SDAR_CONTROL_TEST_POSTGRES_URL: phase12ControlPostgresUrl,
+        SDAR_REDIS_PORT: process.env.SDAR_REDIS_PORT ?? '56379',
       },
       encoding: 'utf8',
       timeout: 900_000,
@@ -205,6 +221,7 @@ try {
   console.log('[evidence-e2e] report ' + output);
   rmSync(progressPath, { force: true });
 } finally {
+  if (selfManagedInfrastructureRunning) stopInfrastructure(root);
   rmSync(temp, { recursive: true, force: true });
 }
 

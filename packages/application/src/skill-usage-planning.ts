@@ -264,8 +264,7 @@ export function checkSkillUsagePlanCompliance(
         (mapping) => mapping.targetPath === `evidence.${requirement.requirementId}`,
       ),
     );
-    const providerEvidence =
-      !mappedEvidence && policy.taskOperations.length > 0;
+    const providerEvidence = !mappedEvidence && policy.taskOperations.length > 0;
     const evidencePath = `evidence.${
       providerEvidence ? requirement.evidenceType : requirement.requirementId
     }`;
@@ -388,8 +387,7 @@ function compileDeterministicDefinition(
           (mapping) => mapping.targetPath === `evidence.${requirement.requirementId}`,
         ),
       );
-      const providerEvidence =
-        !mappedEvidence && input.policy.taskOperations.length > 0;
+      const providerEvidence = !mappedEvidence && input.policy.taskOperations.length > 0;
       primary.push({
         nodeId: `usage_evidence_${String(index)}`,
         name: `Require evidence ${requirement.requirementId}`,

@@ -37,6 +37,9 @@ describe('PostgresRemoteTaskAdmissionIntentStore', () => {
       'embodied.move',
       'a'.repeat(64),
       JSON.stringify(intent().envelope),
+      null,
+      null,
+      null,
       preparedAt,
       preparedAt,
     ]);

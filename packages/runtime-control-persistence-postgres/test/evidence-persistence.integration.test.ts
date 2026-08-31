@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -598,16 +598,17 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
   });
 
   it('rolls the dependent Evidence migrations back to immutable 0142 and reapplies cleanly', async () => {
+    const migrationDirectory = new URL('../../../infra/postgres/migrations/', import.meta.url);
+    const laterMigrationDowns = (await readdir(migrationDirectory))
+      .filter((file) => {
+        const version = Number(file.slice(0, 4));
+        return file.endsWith('.down.sql') && version >= 149 && version <= 175;
+      })
+      .sort()
+      .reverse();
     const recoveryDown = await readFile(
       new URL(
         '../../../infra/postgres/migrations/0148_v14_evidence_operations_recovery.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    const recoveryUp = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0148_v14_evidence_operations_recovery.up.sql',
         import.meta.url,
       ),
       'utf8',
@@ -619,13 +620,6 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       ),
       'utf8',
     );
-    const coverageUp = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0147_v14_evidence_coverage_authority.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
     const ledgerDown = await readFile(
       new URL(
         '../../../infra/postgres/migrations/0146_v14_evidence_export_observation_ledger.down.sql',
@@ -633,9 +627,9 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       ),
       'utf8',
     );
-    const ledgerUp = await readFile(
+    const artifactMatchDown = await readFile(
       new URL(
-        '../../../infra/postgres/migrations/0146_v14_evidence_export_observation_ledger.up.sql',
+        '../../../infra/postgres/migrations/0145_v14_artifact_match_exact_version.down.sql',
         import.meta.url,
       ),
       'utf8',
@@ -647,13 +641,9 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       ),
       'utf8',
     );
-    const up = await readFile(
-      new URL(
-        '../../../infra/postgres/migrations/0144_v14_canonical_evidence.up.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
+    for (const migration of laterMigrationDowns) {
+      await pool.query(await readFile(new URL(migration, migrationDirectory), 'utf8'));
+    }
     await pool.query(recoveryDown);
     await pool.query(coverageDown);
     const coverageRolledBack = await pool.query<{
@@ -673,6 +663,7 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       export_ledger_preserved: true,
     });
     await pool.query(ledgerDown);
+    await pool.query(artifactMatchDown);
     await pool.query(down);
     const rolledBack = await pool.query<{
       marker_absent: boolean;
@@ -690,10 +681,8 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
       evidence_absent: true,
       legacy_present: true,
     });
-    await pool.query(up);
-    await pool.query(ledgerUp);
-    await pool.query(coverageUp);
-    await pool.query(recoveryUp);
+    await applyRuntimeMigrations(pool);
+    await applyRuntimeMigrations(pool);
     const reapplied = await pool.query<{
       marker_present: boolean;
       evidence_present: boolean;

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-31 — Exact MCP Task admission reconciliation and 105-record Evidence contract
+
+- Add one canonical logical invocation identity before Frozen Task dispatch and persist exact
+  reconciliation input alongside the existing PostgreSQL admission journal.
+- Recover ambiguous mutating calls only through the source-locked Provider reconciliation contract;
+  exact found results restore the original Task, while not-found, conflict, unavailable and deferred
+  never redispatch.
+- Preserve `RemoteTaskBinding` as lifecycle authority and add an immutable Provider execution
+  companion relation with Node Control/SMPP origin and explicitly unresolved execution/Mission
+  identities when the public contract omits them.
+- Extend `sdar.evidence/v1` additively from 100 to 105 records (100 Required, five Diagnostic), with
+  generated schemas, protocol contract, source coverage and downstream handoff kept hash-consistent.
+- Keep Provider terminal, business outcome, Runtime verification and Goal outcome separate. No
+  private Provider/Telemetry authority path, second Runtime, Device action or navigation was added.
+
 ## 2026-08-27 — Passive Benchmark UGV debug and ProviderOps v2
 
 - Add persistent Benchmark PostgreSQL/artifacts plus API, Reconciler, Evaluation

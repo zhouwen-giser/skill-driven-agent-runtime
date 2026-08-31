@@ -55,6 +55,7 @@ import {
   RemoteTaskAdmissionRecoveryService,
   type RemoteTaskAdmissionIntent,
   type RemoteTaskAdmissionEnvelope,
+  type RemoteTaskReconciliationContract,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
   RemoteTaskContinuationService,
@@ -258,6 +259,8 @@ import {
   createCognitiveSourceRef,
   deriveFrozenMcpCatalogAuthority,
   createRuntimeExecutionContext,
+  createMcpLogicalInvocationIdentity,
+  createRemoteTaskProviderExecutionLink,
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
@@ -417,6 +420,8 @@ import {
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
   PostgresRemoteTaskAdmissionIntentStore,
+  PostgresRemoteTaskProviderExecutionLinkStore,
+  PostgresRemoteTaskReconciliationAttemptStore,
   PostgresRemoteTaskAdmissionObservationQuery,
   PostgresRemoteTaskInputRepository,
   PostgresRemoteTaskCancellationRepository,
@@ -2579,6 +2584,14 @@ export async function startServerRuntime(
     options.frozenMcpTasks === undefined
       ? undefined
       : new PostgresRemoteTaskAdmissionIntentStore(pool);
+  const remoteTaskReconciliationAttempts =
+    options.frozenMcpTasks === undefined
+      ? undefined
+      : new PostgresRemoteTaskReconciliationAttemptStore(pool);
+  const remoteTaskProviderExecutionLinks =
+    options.frozenMcpTasks === undefined
+      ? undefined
+      : new PostgresRemoteTaskProviderExecutionLinkStore(pool);
   const frozenTaskNotifications =
     remoteTaskRepository === undefined
       ? undefined
@@ -2866,6 +2879,7 @@ export async function startServerRuntime(
         invocationId === undefined ? undefined : `remote-task-binding-${invocationId}`;
       const intentId =
         invocationId === undefined ? undefined : `remote-task-admission-${invocationId}`;
+      const argumentsHash = createHash('sha256').update(canonicalJson(arguments_)).digest('hex');
       const remoteAdmissionEnvelope: RemoteTaskAdmissionEnvelope | undefined =
         invocationId === undefined ||
         bindingId === undefined ||
@@ -2905,6 +2919,46 @@ export async function startServerRuntime(
               executionContext,
               createdAt: clock.now(),
             };
+      const logicalInvocationIdentity =
+        remoteAdmissionEnvelope === undefined ||
+        authorityTask === undefined ||
+        instance === undefined ||
+        plan === undefined ||
+        planDefinition === undefined
+          ? undefined
+          : createMcpLogicalInvocationIdentity({
+              taskId: authorityTask.taskId,
+              contextId: authorityTask.contextId,
+              goalId: instance.goalId,
+              goalVersion: instance.goalVersion,
+              workflowPlanId: plan.planId,
+              workflowDefinitionId: planDefinition.workflowDefinitionId,
+              workflowDefinitionVersion: planDefinition.version,
+              workflowInstanceId: instance.instanceId,
+              workflowNodeId,
+              workflowNodeRunId,
+              serverId: tool.serverId,
+              ...(providerBindingContext?.providerBindingId === undefined
+                ? {}
+                : { providerBindingId: providerBindingContext.providerBindingId }),
+              ...(providerBindingContext?.providerId === undefined
+                ? {}
+                : { providerId: providerBindingContext.providerId }),
+              operationName: tool.toolName,
+              argumentsHash,
+              executionContext,
+            });
+      const recoveryContinuation =
+        remoteAdmissionEnvelope === undefined
+          ? undefined
+          : await prepareExternalWait({
+              waitId: remoteAdmissionEnvelope.bindingId,
+              kind: 'remote_task',
+              sourceId: remoteAdmissionEnvelope.bindingId,
+              nodeId: workflowNodeId,
+              nodeRunId: workflowNodeRunId,
+              state: 'waiting',
+            });
       const remoteAdmissionIntent: RemoteTaskAdmissionIntent | undefined =
         intentId === undefined ||
         invocationId === undefined ||
@@ -2922,7 +2976,21 @@ export async function startServerRuntime(
               contextId: authorityTask.contextId,
               serverId: tool.serverId,
               operationName: tool.toolName,
-              argumentsHash: createHash('sha256').update(canonicalJson(arguments_)).digest('hex'),
+              argumentsHash,
+              ...(logicalInvocationIdentity === undefined
+                ? {}
+                : {
+                    logicalIdentity: logicalInvocationIdentity,
+                    reconciliationSeed: {
+                      schemaVersion: 'sdar.remote-task-reconciliation-seed/v1',
+                      logicalIdentity: logicalInvocationIdentity,
+                      arguments: arguments_,
+                      executionContext,
+                      ...(recoveryContinuation === undefined
+                        ? {}
+                        : { continuation: recoveryContinuation }),
+                    },
+                  }),
               envelope: remoteAdmissionEnvelope,
               status: 'prepared',
               createdAt: remoteAdmissionEnvelope.createdAt,
@@ -2940,12 +3008,25 @@ export async function startServerRuntime(
                 input: Readonly<{
                   invocationId: string;
                   dispatchHash: string;
+                  reconciliationContract?: RemoteTaskReconciliationContract;
                   at: string;
                 }>,
               ) {
                 const mutation = await remoteTaskAdmissionIntents.markDispatching({
                   intentId: remoteAdmissionIntent.intentId,
                   ...input,
+                  ...(input.reconciliationContract === undefined
+                    ? {}
+                    : {
+                        reconciliationContract: {
+                          ...input.reconciliationContract,
+                          ...(remoteAdmissionIntent.reconciliationSeed?.continuation === undefined
+                            ? {}
+                            : {
+                                continuation: remoteAdmissionIntent.reconciliationSeed.continuation,
+                              }),
+                        },
+                      }),
                 });
                 if (!mutation.applied)
                   throw new Error(
@@ -2966,15 +3047,20 @@ export async function startServerRuntime(
                 }>,
               ) {
                 const envelope = remoteAdmissionIntent.envelope;
-                const remoteSnapshot = input.outcome.reconciledTask ?? input.outcome.task;
-                const continuation = await prepareExternalWait({
-                  waitId: envelope.bindingId,
-                  kind: 'remote_task',
-                  sourceId: envelope.bindingId,
-                  nodeId: workflowNodeId,
-                  nodeRunId: workflowNodeRunId,
-                  state: remoteSnapshot.status === 'input_required' ? 'awaiting_input' : 'waiting',
-                });
+                const continuation =
+                  remoteAdmissionIntent.reconciliationSeed?.continuation ??
+                  (await prepareExternalWait({
+                    waitId: envelope.bindingId,
+                    kind: 'remote_task',
+                    sourceId: envelope.bindingId,
+                    nodeId: workflowNodeId,
+                    nodeRunId: workflowNodeRunId,
+                    state:
+                      (input.outcome.reconciledTask ?? input.outcome.task).status ===
+                      'input_required'
+                        ? 'awaiting_input'
+                        : 'waiting',
+                  }));
                 const mutation = await remoteTaskAdmissionIntents.recordRemoteReceiptAndInvocation(
                   remoteAdmissionIntent.intentId,
                   input.invocation,
@@ -3021,32 +3107,134 @@ export async function startServerRuntime(
                 });
               },
             };
-      const receipt = await mcpRegistry.callDetailed(
-        tool.serverId,
-        tool.toolName,
-        arguments_,
-        signal,
-        authorityTask === undefined
-          ? {
-              executionContext,
-              ...(guardedTaskExecution === undefined
-                ? {}
-                : { taskExecution: guardedTaskExecution }),
-              ...(preTransportFence === undefined ? {} : { preTransportFence }),
-              ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
-            }
-          : {
-              taskId: authorityTask.taskId,
-              contextId: authorityTask.contextId,
-              ...(providerBindingContext ?? {}),
-              executionContext,
-              ...(guardedTaskExecution === undefined
-                ? {}
-                : { taskExecution: guardedTaskExecution }),
-              ...(preTransportFence === undefined ? {} : { preTransportFence }),
-              ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
-            },
-      );
+      let receipt: Awaited<ReturnType<McpRegistryService['callDetailed']>>;
+      try {
+        receipt = await mcpRegistry.callDetailed(
+          tool.serverId,
+          tool.toolName,
+          arguments_,
+          signal,
+          authorityTask === undefined
+            ? {
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+                ...(preTransportFence === undefined ? {} : { preTransportFence }),
+                ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
+                ...(logicalInvocationIdentity === undefined ? {} : { logicalInvocationIdentity }),
+              }
+            : {
+                taskId: authorityTask.taskId,
+                contextId: authorityTask.contextId,
+                ...(providerBindingContext ?? {}),
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+                ...(preTransportFence === undefined ? {} : { preTransportFence }),
+                ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
+                ...(logicalInvocationIdentity === undefined ? {} : { logicalInvocationIdentity }),
+              },
+        );
+      } catch (dispatchError: unknown) {
+        const uncertainIntent =
+          bindingId === undefined || remoteTaskAdmissionIntents === undefined
+            ? undefined
+            : await remoteTaskAdmissionIntents.findByBindingId(bindingId);
+        if (
+          uncertainIntent?.status !== 'uncertain' ||
+          uncertainIntent.reconciliationContract === undefined ||
+          uncertainIntent.logicalIdentity === undefined ||
+          uncertainIntent.reconciliationContract.continuation === undefined ||
+          remoteTaskReconciliationAttempts === undefined
+        )
+          throw dispatchError;
+        const startedAt = clock.now();
+        const attemptNumber = await remoteTaskReconciliationAttempts.nextAttemptNumber(
+          uncertainIntent.intentId,
+        );
+        const reconciled = await mcpRegistry.reconcileRemoteTaskAdmission(
+          uncertainIntent.reconciliationContract,
+          {
+            invocationId: uncertainIntent.invocationId,
+            taskId: uncertainIntent.taskId,
+            ...(uncertainIntent.capabilityAttemptId === undefined
+              ? {}
+              : { capabilityAttemptId: uncertainIntent.capabilityAttemptId }),
+            contextId: uncertainIntent.contextId,
+          },
+        );
+        const completedAt = clock.now();
+        await remoteTaskReconciliationAttempts.append({
+          attemptId: `remote-reconcile-${createHash('sha256')
+            .update(canonicalJson({ intentId: uncertainIntent.intentId, attemptNumber }))
+            .digest('hex')}`,
+          intentId: uncertainIntent.intentId,
+          logicalInvocationId: uncertainIntent.logicalIdentity.logicalInvocationId,
+          expectedIntentVersion: uncertainIntent.version,
+          attemptNumber,
+          sourceContract: 'sdar.smpp-diagnostics/v1+frozen-mcp-v1',
+          requestHash: `sha256:${createHash('sha256')
+            .update(canonicalJson(uncertainIntent.reconciliationContract))
+            .digest('hex')}`,
+          status: reconciled.result.status,
+          ...(reconciled.result.status !== 'found_exact'
+            ? { safeErrorCode: reconciled.result.safeErrorCode }
+            : {
+                remoteTaskId: reconciled.result.outcome.task.remoteTaskId,
+                ...(reconciled.result.externalExecutionId === undefined
+                  ? {}
+                  : { externalExecutionId: reconciled.result.externalExecutionId }),
+              }),
+          identityValidated: reconciled.result.status === 'found_exact',
+          startedAt,
+          completedAt,
+          durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(startedAt)),
+          resultHash: `sha256:${createHash('sha256')
+            .update(canonicalJson(reconciled.result))
+            .digest('hex')}`,
+          version: 1,
+        });
+        if (reconciled.result.status !== 'found_exact' || reconciled.invocation === undefined)
+          throw dispatchError;
+        const reconciledReceipt = {
+          remoteTask: reconciled.result.outcome.task,
+          ...(reconciled.result.outcome.reconciledTask === undefined
+            ? {}
+            : { reconciledTask: reconciled.result.outcome.reconciledTask }),
+          credentialRevision: reconciled.credentialRevision,
+          sessionRevision: reconciled.sessionRevision,
+          protocolContract: reconciled.protocolContract,
+          taskBehavior: reconciled.taskBehavior,
+          taskCancellation: reconciled.taskCancellation,
+          authoritySnapshot: reconciled.authoritySnapshot,
+          continuation: uncertainIntent.reconciliationContract.continuation,
+        };
+        const admissionIntents = remoteTaskAdmissionIntents;
+        if (admissionIntents === undefined) throw dispatchError;
+        const recorded = await admissionIntents.recordReconciledReceiptAndInvocation({
+          intentId: uncertainIntent.intentId,
+          logicalInvocationId: uncertainIntent.logicalIdentity.logicalInvocationId,
+          invocation: reconciled.invocation,
+          receipt: reconciledReceipt,
+          at: completedAt,
+        });
+        if (!recorded.applied)
+          throw new Error(`REMOTE_TASK_RECONCILED_RECEIPT_${recorded.reason.toUpperCase()}`, {
+            cause: dispatchError,
+          });
+        receipt = {
+          invocationId: uncertainIntent.invocationId,
+          outcome: reconciled.result.outcome,
+          credentialRevision: reconciled.credentialRevision,
+          sessionRevision: reconciled.sessionRevision,
+          protocolContract: reconciled.protocolContract,
+          taskBehavior: reconciled.taskBehavior,
+          taskCancellation: reconciled.taskCancellation,
+          authoritySnapshot: reconciled.authoritySnapshot,
+        };
+      }
       if (receipt.outcome.kind === 'immediate') {
         if (!ugvAgentProfile || workflowNodeId !== UGV_MOVE_WORKFLOW_NODE_IDS.finalState)
           return receipt.outcome;
@@ -3405,6 +3593,67 @@ export async function startServerRuntime(
         });
         if (!mutation.applied)
           throw new Error(`REMOTE_TASK_ADMISSION_MATERIALIZE_${mutation.reason.toUpperCase()}`);
+        if (
+          remoteTaskProviderExecutionLinks !== undefined &&
+          intent.logicalIdentity !== undefined &&
+          intent.reconciliationContract !== undefined &&
+          intent.receipt !== undefined
+        ) {
+          const reconciliationAttempt =
+            remoteTaskReconciliationAttempts === undefined
+              ? undefined
+              : (await remoteTaskReconciliationAttempts.listByIntentId(intent.intentId))
+                  .filter((attempt) => attempt.status === 'found_exact')
+                  .at(-1);
+          await remoteTaskProviderExecutionLinks.save(
+            createRemoteTaskProviderExecutionLink({
+              bindingId: wait.sourceId,
+              logicalInvocationId: intent.logicalIdentity.logicalInvocationId,
+              remoteTaskId: intent.receipt.remoteTask.remoteTaskId,
+              providerId: intent.reconciliationContract.providerId,
+              runtimeServerId: intent.logicalIdentity.serverId,
+              ...(intent.reconciliationContract.authoritySnapshot.providerBinding === undefined
+                ? {}
+                : {
+                    providerBindingId:
+                      intent.reconciliationContract.authoritySnapshot.providerBinding.bindingId,
+                    providerOriginType:
+                      intent.reconciliationContract.authoritySnapshot.providerBinding.originType,
+                    ...(intent.reconciliationContract.authoritySnapshot.providerBinding
+                      .smppSourceId === undefined
+                      ? {}
+                      : {
+                          smppSourceId:
+                            intent.reconciliationContract.authoritySnapshot.providerBinding
+                              .smppSourceId,
+                        }),
+                    ...(intent.reconciliationContract.authoritySnapshot.providerBinding
+                      .externalServerId === undefined
+                      ? {}
+                      : {
+                          externalServerId:
+                            intent.reconciliationContract.authoritySnapshot.providerBinding
+                              .externalServerId,
+                        }),
+                  }),
+              operationName: intent.operationName,
+              executionStatus:
+                reconciliationAttempt?.externalExecutionId === undefined ? 'unresolved' : 'exact',
+              ...(reconciliationAttempt?.externalExecutionId === undefined
+                ? {}
+                : { externalExecutionId: reconciliationAttempt.externalExecutionId }),
+              missionStatus: 'unresolved',
+              provenance:
+                reconciliationAttempt === undefined ? 'committed_receipt' : 'reconcile_found_exact',
+              sourceContract: 'sdar.node-control-provider-binding/v1+frozen-mcp-v1',
+              sourceRevision:
+                intent.reconciliationContract.authoritySnapshot.providerBinding === undefined
+                  ? `runtime:${intent.reconciliationContract.authoritySnapshot.runtime.serverUpdatedAt}/catalog:${intent.reconciliationContract.authoritySnapshot.runtime.catalogRevision}`
+                  : `binding:${String(intent.reconciliationContract.authoritySnapshot.providerBinding.revision)}/catalog:${intent.reconciliationContract.authoritySnapshot.providerBinding.catalogRevision}`,
+              observedAt: intent.receiptRecordedAt ?? intent.updatedAt,
+            }),
+          );
+        }
       }
     },
     async onContinuationActivationFailure({ snapshot, error }) {
@@ -4166,6 +4415,67 @@ export async function startServerRuntime(
           },
           nextObservationId: () => `remote-task-observation-${randomUUID()}`,
           nextControlEventId: () => `remote-task-control-${randomUUID()}`,
+          ...(remoteTaskReconciliationAttempts === undefined
+            ? {}
+            : { reconciliationAttempts: remoteTaskReconciliationAttempts }),
+          ...(remoteTaskProviderExecutionLinks === undefined
+            ? {}
+            : { providerExecutionLinks: remoteTaskProviderExecutionLinks }),
+          async reconcileUncertain(intent) {
+            const contract = intent.reconciliationContract;
+            const continuation = contract?.continuation;
+            if (contract === undefined || continuation === undefined)
+              return {
+                result: {
+                  status: 'unavailable',
+                  safeErrorCode: 'MCP_RECONCILIATION_CONTINUATION_AUTHORITY_MISSING',
+                },
+              };
+            const reconciled = await mcpRegistry.reconcileRemoteTaskAdmission(contract, {
+              invocationId: intent.invocationId,
+              taskId: intent.taskId,
+              ...(intent.capabilityAttemptId === undefined
+                ? {}
+                : { capabilityAttemptId: intent.capabilityAttemptId }),
+              contextId: intent.contextId,
+            });
+            if (reconciled.result.status !== 'found_exact' || reconciled.invocation === undefined)
+              return { result: reconciled.result };
+            return {
+              result: reconciled.result,
+              invocation: reconciled.invocation,
+              receipt: {
+                remoteTask: reconciled.result.outcome.task,
+                ...(reconciled.result.outcome.reconciledTask === undefined
+                  ? {}
+                  : { reconciledTask: reconciled.result.outcome.reconciledTask }),
+                credentialRevision: reconciled.credentialRevision,
+                sessionRevision: reconciled.sessionRevision,
+                protocolContract: reconciled.protocolContract,
+                taskBehavior: reconciled.taskBehavior,
+                taskCancellation: reconciled.taskCancellation,
+                authoritySnapshot: reconciled.authoritySnapshot,
+                continuation,
+              },
+            };
+          },
+          async markWorkflowWaitingExternal(intent) {
+            const instance = await workflowInstances.findInstance(
+              intent.envelope.workflowInstanceId,
+            );
+            if (instance === undefined)
+              throw new Error('REMOTE_TASK_RECOVERY_WORKFLOW_AUTHORITY_CONFLICT');
+            if (
+              instance.planId !== intent.envelope.workflowPlanId ||
+              instance.workflowDefinitionId !== intent.envelope.workflowDefinitionId ||
+              instance.workflowVersion !== intent.envelope.workflowDefinitionVersion
+            )
+              throw new Error('REMOTE_TASK_RECOVERY_WORKFLOW_AUTHORITY_CONFLICT');
+            if (instance.status === 'waiting_external') return;
+            if (instance.status !== 'running')
+              throw new Error('REMOTE_TASK_RECOVERY_WORKFLOW_NOT_RUNNING');
+            await workflowInstances.saveInstance({ ...instance, status: 'waiting_external' });
+          },
         });
   if (remoteTaskAdmissionRecovery !== undefined) await remoteTaskAdmissionRecovery.reconcile();
   async function resolveTaskWorkflowControlId(task: AgentTask): Promise<string> {

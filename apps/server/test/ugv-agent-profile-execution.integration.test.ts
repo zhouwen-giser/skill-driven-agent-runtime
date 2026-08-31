@@ -798,13 +798,17 @@ async function seedFormalCapabilityAuthority(
     },
   };
   const evaluationInput = {
-    definition: { successCriteria, requiredEvidence, constraints },
+    definition: { status: 'published', successCriteria, requiredEvidence, constraints },
+    maintenanceMode: false,
+    killSwitch: false,
     implementations: [
       {
         bindingId: implementationBindingId,
         implementationType: 'skill',
         implementationId: 'embodied.move_to',
         implementationVersion: '1',
+        role: 'primary',
+        status: 'active',
         providerPolicyOverride,
       },
     ],

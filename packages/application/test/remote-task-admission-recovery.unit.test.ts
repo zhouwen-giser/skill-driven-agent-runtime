@@ -1,10 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { RemoteTaskBinding } from '../../domain/src/index.js';
+import {
+  createMcpLogicalInvocationIdentity,
+  type McpInvocation,
+  type RemoteTaskBinding,
+} from '../../domain/src/index.js';
 import {
   RemoteTaskAdmissionRecoveryService,
   type RemoteTaskAdmissionIntent,
   type RemoteTaskAdmissionIntentStore,
+  type ReconciledRemoteTaskAdmission,
+  type RemoteTaskProviderExecutionLinkStore,
+  type RemoteTaskReconciliationAttemptStore,
 } from '../src/index.js';
 
 describe('RemoteTaskAdmissionRecoveryService', () => {
@@ -100,6 +107,108 @@ describe('RemoteTaskAdmissionRecoveryService', () => {
       at: '2026-08-13T03:00:01.000Z',
     });
   });
+
+  it('reconciles one uncertain logical invocation to the original Task without redispatch', async () => {
+    const recorded = admissionIntent('receipt_recorded');
+    if (recorded.receipt === undefined) throw new Error('TEST_RECEIPT_REQUIRED');
+    const intent = uncertainLogicalIntent(recorded);
+    const found = {
+      status: 'found_exact' as const,
+      outcome: {
+        kind: 'remote_task' as const,
+        task: recorded.receipt.remoteTask,
+        ...(recorded.receipt.reconciledTask === undefined
+          ? {}
+          : { reconciledTask: recorded.receipt.reconciledTask }),
+      },
+      externalExecutionId: 'provider-execution-restart',
+    };
+    const invocation = reconciledInvocation(intent, found.outcome.task.remoteTaskId);
+    const reconcileUncertain = vi.fn().mockResolvedValue({
+      result: found,
+      invocation,
+      receipt: recorded.receipt,
+    });
+    const append = vi.fn().mockImplementation((attempt) => Promise.resolve(attempt));
+    const recordReconciledReceiptAndInvocation = vi.fn().mockResolvedValue({
+      applied: true,
+      intent: { ...intent, status: 'receipt_recorded', receipt: recorded.receipt },
+    });
+    const saveLink = vi.fn().mockImplementation((link) => Promise.resolve(link));
+    const markWorkflowWaitingExternal = vi.fn().mockResolvedValue(undefined);
+    const service = recoveryService({
+      intents: [intent],
+      reconcileUncertain,
+      reconciliationAttempts: {
+        nextAttemptNumber: vi.fn().mockResolvedValue(1),
+        append,
+        listByIntentId: vi.fn(),
+      },
+      recordReconciledReceiptAndInvocation,
+      providerExecutionLinks: { save: saveLink, findByBindingId: vi.fn() },
+      markWorkflowWaitingExternal,
+      admit: vi.fn().mockResolvedValue({
+        binding: { bindingId: intent.envelope.bindingId, version: 1 },
+        created: true,
+        pollScheduled: true,
+      }),
+      recordExternalSnapshot: vi.fn().mockResolvedValue({ applied: true }),
+      markMaterialized: vi.fn().mockResolvedValue({
+        applied: true,
+        intent: { ...intent, status: 'materialized' },
+      }),
+    });
+
+    await expect(service.reconcile()).resolves.toMatchObject({ materialized: 1 });
+    expect(reconcileUncertain).toHaveBeenCalledOnce();
+    expect(recordReconciledReceiptAndInvocation).toHaveBeenCalledOnce();
+    expect(append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'found_exact',
+        logicalInvocationId: intent.logicalIdentity?.logicalInvocationId,
+        remoteTaskId: 'provider-task-restart',
+        externalExecutionId: 'provider-execution-restart',
+      }),
+    );
+    expect(markWorkflowWaitingExternal).toHaveBeenCalledWith(
+      expect.objectContaining({ intentId: intent.intentId }),
+    );
+    expect(saveLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provenance: 'reconcile_found_exact',
+        executionStatus: 'exact',
+        externalExecutionId: 'provider-execution-restart',
+        missionStatus: 'unresolved',
+      }),
+    );
+  });
+
+  it.each(['not_found', 'conflict', 'unavailable', 'deferred'] as const)(
+    'keeps uncertain %s reconciliation fail closed without receipt materialization',
+    async (status) => {
+      const recorded = admissionIntent('receipt_recorded');
+      const intent = uncertainLogicalIntent(recorded);
+      const recordReconciledReceiptAndInvocation = vi.fn();
+      const admit = vi.fn();
+      const service = recoveryService({
+        intents: [intent],
+        reconcileUncertain: vi.fn().mockResolvedValue({
+          result: { status, safeErrorCode: `MCP_RECONCILIATION_${status.toUpperCase()}` },
+        }),
+        reconciliationAttempts: {
+          nextAttemptNumber: vi.fn().mockResolvedValue(1),
+          append: vi.fn().mockImplementation((attempt) => Promise.resolve(attempt)),
+          listByIntentId: vi.fn(),
+        },
+        recordReconciledReceiptAndInvocation,
+        admit,
+      });
+
+      await expect(service.reconcile()).resolves.toMatchObject({ materialized: 0 });
+      expect(recordReconciledReceiptAndInvocation).not.toHaveBeenCalled();
+      expect(admit).not.toHaveBeenCalled();
+    },
+  );
 
   it('fails closed instead of materializing a legacy receipt without authority', async () => {
     const current = admissionIntent('receipt_recorded');
@@ -319,6 +428,13 @@ function recoveryService(
     findById?: ReturnType<typeof vi.fn>;
     findCurrentByBinding?: ReturnType<typeof vi.fn>;
     failTask?: (taskId: string, errorCode: string, summary: string) => Promise<void>;
+    reconcileUncertain?: (
+      intent: RemoteTaskAdmissionIntent,
+    ) => Promise<ReconciledRemoteTaskAdmission>;
+    reconciliationAttempts?: RemoteTaskReconciliationAttemptStore;
+    recordReconciledReceiptAndInvocation?: ReturnType<typeof vi.fn>;
+    providerExecutionLinks?: RemoteTaskProviderExecutionLinkStore;
+    markWorkflowWaitingExternal?: (intent: RemoteTaskAdmissionIntent) => Promise<void>;
   }>,
 ): RemoteTaskAdmissionRecoveryService {
   const store = {
@@ -327,6 +443,7 @@ function recoveryService(
     markUncertain: input.markUncertain ?? vi.fn(),
     closeReceiptAsUncertain: input.closeReceiptAsUncertain ?? vi.fn(),
     findByBindingId: vi.fn(),
+    recordReconciledReceiptAndInvocation: input.recordReconciledReceiptAndInvocation ?? vi.fn(),
     markMaterialized: input.markMaterialized ?? vi.fn(),
   } as unknown as RemoteTaskAdmissionIntentStore;
   return new RemoteTaskAdmissionRecoveryService({
@@ -345,6 +462,18 @@ function recoveryService(
     failTask: input.failTask ?? (() => Promise.resolve()),
     nextObservationId: () => 'observation-recovered',
     nextControlEventId: () => 'control-recovered',
+    ...(input.reconcileUncertain === undefined
+      ? {}
+      : { reconcileUncertain: input.reconcileUncertain }),
+    ...(input.reconciliationAttempts === undefined
+      ? {}
+      : { reconciliationAttempts: input.reconciliationAttempts }),
+    ...(input.providerExecutionLinks === undefined
+      ? {}
+      : { providerExecutionLinks: input.providerExecutionLinks }),
+    ...(input.markWorkflowWaitingExternal === undefined
+      ? {}
+      : { markWorkflowWaitingExternal: input.markWorkflowWaitingExternal }),
   });
 }
 
@@ -429,6 +558,93 @@ function admissionIntent(status: 'dispatching' | 'receipt_recorded'): RemoteTask
     createdAt,
     updatedAt: createdAt,
     version: status === 'receipt_recorded' ? 3 : 2,
+  };
+}
+
+function uncertainLogicalIntent(recorded: RemoteTaskAdmissionIntent): RemoteTaskAdmissionIntent {
+  const logicalIdentity = createMcpLogicalInvocationIdentity({
+    taskId: recorded.taskId,
+    contextId: recorded.contextId,
+    goalId: recorded.envelope.goalId,
+    goalVersion: recorded.envelope.goalVersion,
+    workflowPlanId: recorded.envelope.workflowPlanId,
+    workflowDefinitionId: recorded.envelope.workflowDefinitionId,
+    workflowDefinitionVersion: recorded.envelope.workflowDefinitionVersion,
+    workflowInstanceId: recorded.envelope.workflowInstanceId,
+    workflowNodeId: recorded.envelope.workflowNodeId,
+    workflowNodeRunId: recorded.envelope.workflowNodeRunId,
+    serverId: recorded.serverId,
+    providerId: 'provider-external-restart',
+    operationName: recorded.operationName,
+    argumentsHash: recorded.argumentsHash,
+    executionContext: recorded.envelope.executionContext,
+  });
+  const continuation = recorded.receipt?.continuation;
+  if (continuation === undefined) throw new Error('TEST_CONTINUATION_REQUIRED');
+  return {
+    ...recorded,
+    status: 'uncertain',
+    logicalIdentity,
+    reconciliationSeed: {
+      schemaVersion: 'sdar.remote-task-reconciliation-seed/v1',
+      logicalIdentity,
+      arguments: { distance: 2 },
+      executionContext: recorded.envelope.executionContext,
+      continuation,
+    },
+    reconciliationContract: {
+      schemaVersion: 'sdar.remote-task-reconciliation-contract/v1',
+      logicalIdentity,
+      arguments: { distance: 2 },
+      executionContext: recorded.envelope.executionContext,
+      continuation,
+      taskCallProfile: {
+        profileVersion: '1.0',
+        idempotencyKey: logicalIdentity.idempotencyKey,
+      },
+      providerId: 'provider-external-restart',
+      protocolContract: recorded.receipt?.protocolContract ?? {
+        mode: 'frozen_v1',
+        protocolVersion: '2026-07-28',
+        baselineSha256: 'b'.repeat(64),
+      },
+      taskBehavior: 'task_required',
+      taskCancellation: 'task_cancel',
+      authoritySnapshot: testAuthoritySnapshot(),
+      credentialRevision: 'credential-restart',
+      sessionRevision: '2026-07-28/tasks-v1',
+    },
+    reasonCode: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+    version: 3,
+  };
+}
+
+function reconciledInvocation(
+  intent: RemoteTaskAdmissionIntent,
+  remoteTaskId: string,
+): McpInvocation {
+  return {
+    invocationId: intent.invocationId,
+    taskId: intent.taskId,
+    contextId: intent.contextId,
+    executionMode: 'simulation',
+    simulationId: 'p05-restart',
+    serverId: intent.serverId,
+    toolName: intent.operationName,
+    executionSemantics: {
+      effect: 'side_effecting',
+      execution: 'task_required',
+      cancellation: 'task_cancel',
+      idempotency: 'server_managed',
+      replay: 'forbidden',
+      source: 'mcp_declared',
+    },
+    arguments: { distance: 2 },
+    result: { remoteTask: { remoteTaskId } },
+    status: 'succeeded',
+    startedAt: '2026-08-13T03:00:00.500Z',
+    completedAt: '2026-08-13T03:00:01.000Z',
+    durationMs: 500,
   };
 }
 

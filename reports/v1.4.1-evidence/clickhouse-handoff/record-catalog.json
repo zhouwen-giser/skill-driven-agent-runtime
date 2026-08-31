@@ -1,7 +1,7 @@
 {
   "contractVersion": "sdar.evidence/v1",
-  "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
-  "recordCount": 100,
+  "registryHash": "sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197",
+  "recordCount": 105,
   "records": [
     {
       "sourceSystem": "runtime",
@@ -860,6 +860,122 @@
       "artifactPolicy": "inline_bounded_or_artifact_ref",
       "expectedReferences": [
         "mcp_task.tool_call"
+      ]
+    },
+    {
+      "sourceSystem": "runtime",
+      "sourceTable": "remote_task_admission_intent",
+      "authority": "Runtime PostgreSQL",
+      "recordFamily": "mcp_task",
+      "recordType": "mcp_task.logical_invocation",
+      "schemaName": "sdar.evidence.mcp_task.logical_invocation",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.logical_invocation.schema.json",
+      "schemaHash": "sha256:291f249f3db684976983c66bb1a2c0ed5eaaa790418edc1970d8db09806bd622",
+      "compatibility": "backward_compatible_additive",
+      "maximumInlineBytes": 65536,
+      "mapper": "McpTaskLogicalInvocationEvidenceMapper",
+      "deliveryGuarantee": "durable_projection",
+      "evaluationRole": "required",
+      "requirementLevel": "conditional",
+      "applicability": "when mcp_task.logical_invocation source fact exists for the episode",
+      "redactionPolicy": "strict_internal_v1",
+      "artifactPolicy": "inline_bounded_or_artifact_ref",
+      "expectedReferences": []
+    },
+    {
+      "sourceSystem": "runtime",
+      "sourceTable": "remote_task_admission_intent",
+      "authority": "Runtime PostgreSQL",
+      "recordFamily": "mcp_task",
+      "recordType": "mcp_task.admission",
+      "schemaName": "sdar.evidence.mcp_task.admission",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.admission.schema.json",
+      "schemaHash": "sha256:93145487a171f461e86288152c87b7b6466def2b2fd3916f30dfaa5cf7ea4a17",
+      "compatibility": "backward_compatible_additive",
+      "maximumInlineBytes": 65536,
+      "mapper": "McpTaskAdmissionEvidenceMapper",
+      "deliveryGuarantee": "durable_projection",
+      "evaluationRole": "required",
+      "requirementLevel": "conditional",
+      "applicability": "when mcp_task.admission source fact exists for the episode",
+      "redactionPolicy": "strict_internal_v1",
+      "artifactPolicy": "inline_bounded_or_artifact_ref",
+      "expectedReferences": [
+        "mcp_task.logical_invocation"
+      ]
+    },
+    {
+      "sourceSystem": "runtime",
+      "sourceTable": "remote_task_reconciliation_attempt[dispatch_outcome=uncertain]",
+      "authority": "Runtime PostgreSQL",
+      "recordFamily": "mcp_task",
+      "recordType": "mcp_task.dispatch_uncertain",
+      "schemaName": "sdar.evidence.mcp_task.dispatch_uncertain",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.dispatch_uncertain.schema.json",
+      "schemaHash": "sha256:d7e8bbf7af758e90f05b95e9a5e3026dffbdc54306503edb41c04104d47c003b",
+      "compatibility": "backward_compatible_additive",
+      "maximumInlineBytes": 65536,
+      "mapper": "McpTaskDispatchUncertainEvidenceMapper",
+      "deliveryGuarantee": "durable_projection",
+      "evaluationRole": "required",
+      "requirementLevel": "conditional",
+      "applicability": "when mcp_task.dispatch_uncertain source fact exists for the episode",
+      "redactionPolicy": "strict_internal_v1",
+      "artifactPolicy": "inline_bounded_or_artifact_ref",
+      "expectedReferences": [
+        "mcp_task.admission",
+        "mcp_task.logical_invocation"
+      ]
+    },
+    {
+      "sourceSystem": "runtime",
+      "sourceTable": "remote_task_reconciliation_attempt",
+      "authority": "Runtime PostgreSQL",
+      "recordFamily": "mcp_task",
+      "recordType": "mcp_task.dispatch_reconciliation",
+      "schemaName": "sdar.evidence.mcp_task.dispatch_reconciliation",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.dispatch_reconciliation.schema.json",
+      "schemaHash": "sha256:ebd1f779264c9a38b3f4991016c1cffa73b23dab9317de35f273d1b00116acf7",
+      "compatibility": "backward_compatible_additive",
+      "maximumInlineBytes": 65536,
+      "mapper": "McpTaskDispatchReconciliationEvidenceMapper",
+      "deliveryGuarantee": "durable_projection",
+      "evaluationRole": "required",
+      "requirementLevel": "conditional",
+      "applicability": "when mcp_task.dispatch_reconciliation source fact exists for the episode",
+      "redactionPolicy": "strict_internal_v1",
+      "artifactPolicy": "inline_bounded_or_artifact_ref",
+      "expectedReferences": [
+        "mcp_task.admission",
+        "mcp_task.logical_invocation"
+      ]
+    },
+    {
+      "sourceSystem": "runtime",
+      "sourceTable": "remote_task_provider_execution_link",
+      "authority": "Runtime PostgreSQL",
+      "recordFamily": "mcp_task",
+      "recordType": "mcp_task.provider_execution_link",
+      "schemaName": "sdar.evidence.mcp_task.provider_execution_link",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.provider_execution_link.schema.json",
+      "schemaHash": "sha256:afbbbfd75e0214d5fc18fb75499f3c8499dca6e950d611e246f8039f5de0c97b",
+      "compatibility": "backward_compatible_additive",
+      "maximumInlineBytes": 65536,
+      "mapper": "McpTaskProviderExecutionLinkEvidenceMapper",
+      "deliveryGuarantee": "durable_projection",
+      "evaluationRole": "required",
+      "requirementLevel": "conditional",
+      "applicability": "when mcp_task.provider_execution_link source fact exists for the episode",
+      "redactionPolicy": "strict_internal_v1",
+      "artifactPolicy": "inline_bounded_or_artifact_ref",
+      "expectedReferences": [
+        "mcp_task.remote_binding",
+        "mcp_task.logical_invocation"
       ]
     },
     {

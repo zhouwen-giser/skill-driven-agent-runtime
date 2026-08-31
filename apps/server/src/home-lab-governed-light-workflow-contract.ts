@@ -123,8 +123,8 @@ export function assertHomeLabGovernedLightWorkflowContract(
     argumentsValue?.['resourceId'] !== HOME_LAB_GOVERNED_LIGHT_RESOURCE_ID ||
     (control
       ? (powerArgument !== 'on' && powerArgument !== 'off') ||
-        Object.keys(argumentsValue ?? {}).length !== 2
-      : powerArgument !== undefined || Object.keys(argumentsValue ?? {}).length !== 1) ||
+        Object.keys(argumentsValue).length !== 2
+      : powerArgument !== undefined || Object.keys(argumentsValue).length !== 1) ||
     canonical(mcp['taskExecution']) !== canonical(expectedTaskExecution)
   )
     invalid(

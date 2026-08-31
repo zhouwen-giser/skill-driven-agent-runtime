@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "contract": "sdar.evidence/v1",
-  "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
+  "registryHash": "sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197",
   "command": "pnpm.cmd demo:evidence-e2e",
-  "startedAt": "2026-08-14T00:25:28.935Z",
-  "completedAt": "2026-08-14T00:29:01.415Z",
+  "startedAt": "2026-08-31T11:40:41.121Z",
+  "completedAt": "2026-08-31T11:44:56.825Z",
   "environment": {
-    "runtimePostgreSQL": "postgresql://sdar:***@127.0.0.1:55484/sdar",
+    "runtimePostgreSQL": "postgresql://sdar:***@127.0.0.1:55464/sdar",
     "controlPostgreSQL": "postgresql://sdar:***@127.0.0.1:55484/sdar_control_v14_integration_gate",
-    "redisPort": "56384",
+    "redisPort": "56392",
     "httpDelivery": "real local Node Control API and programmable Evidence sink"
   },
   "dimensions": [
@@ -73,7 +73,7 @@
         "evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds",
         "executes skill_call as an independent LangGraph child Workflow using the current Skill version",
         "invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation",
-        "persists a LangGraph human interrupt and resumes without replaying the preceding MCP call",
+        "persists a standalone LangGraph human interrupt and rejects continuation without Task authority",
         "refreshes the public Agent Card when enabled skills change",
         "rejects ungoverned recursive embodied.area_patrol with",
         "resolves a capability gap into a confirmed task-scoped Temporary Skill execution"
@@ -1136,7 +1136,7 @@
           {
             "project": "e2e",
             "file": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
-            "testName": "persists a LangGraph human interrupt and resumes without replaying the preceding MCP call"
+            "testName": "persists a standalone LangGraph human interrupt and rejects continuation without Task authority"
           }
         ],
         "evidence_outbox": [

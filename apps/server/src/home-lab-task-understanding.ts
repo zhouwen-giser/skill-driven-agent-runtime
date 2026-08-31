@@ -131,11 +131,7 @@ export function homeLabGovernedLightSkillUsageContext(
   }>,
 ): SkillUsageSelectionContext {
   const task = input.task;
-  if (
-    task === undefined ||
-    task.goalId !== input.goalContract.goalId ||
-    task.goalVersion !== input.goalContract.version
-  )
+  if (task?.goalId !== input.goalContract.goalId || task.goalVersion !== input.goalContract.version)
     throw new Error('HOME_LAB_GOVERNED_LIGHT_USAGE_TASK_AUTHORITY_REQUIRED');
   const request = task.requestText.trim();
   const powerMatch = /^(?:设置|恢复)主灯电源为 (on|off)$/u.exec(request);

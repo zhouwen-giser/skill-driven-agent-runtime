@@ -8,6 +8,7 @@ export * from './skill-package-authority-reader.js';
 export * from './compiler/index.js';
 export * from './remote-task-repository.js';
 export * from './remote-task-admission-intent-store.js';
+export * from './remote-task-consumer-sync-repository.js';
 export * from './remote-task-cancellation-repository.js';
 export * from './remote-task-input-repository.js';
 export * from './remote-task-lifecycle-query.js';

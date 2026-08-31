@@ -10,8 +10,11 @@ const { Pool } = pg;
 const databaseName = 'sdar_v122_integration_gate';
 const controlDatabaseName = 'sdar_control_v14_integration_gate';
 const requestedTests = process.argv.slice(2).filter((argument) => argument !== '--');
-const isolatedNodeControlAcceptance =
-  'apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts';
+const isolatedTests = [
+  'packages/runtime-control-persistence-postgres/test/evidence-persistence.integration.test.ts',
+  'packages/runtime-control-persistence-postgres/test/evidence-export.integration.test.ts',
+  'apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts',
+];
 const adminUrl =
   process.env.SDAR_TEST_POSTGRES_URL ?? 'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 
@@ -38,25 +41,20 @@ try {
         'run',
         '--project',
         'integration',
-        '--exclude',
-        isolatedNodeControlAcceptance,
+        ...isolatedTests.flatMap((testFile) => ['--exclude', testFile]),
       ],
       600_000,
       environment,
     );
-    await recreateDatabases();
-    run(
-      process.execPath,
-      [
-        'node_modules/vitest/vitest.mjs',
-        'run',
-        '--project',
-        'integration',
-        isolatedNodeControlAcceptance,
-      ],
-      300_000,
-      environment,
-    );
+    for (const isolatedTest of isolatedTests) {
+      await recreateDatabases();
+      run(
+        process.execPath,
+        ['node_modules/vitest/vitest.mjs', 'run', '--project', 'integration', isolatedTest],
+        300_000,
+        environment,
+      );
+    }
   }
 } finally {
   await dropDatabases().catch(() => undefined);

@@ -233,7 +233,6 @@ function goalContract(input: Readonly<Record<string, unknown>>) {
   if (understanding['originalRequest'] !== REQUEST_TEXT)
     return g09GoalContract(g09ScenarioFromRequest(requiredText(understanding['originalRequest'])));
   if (
-    understanding['originalRequest'] !== REQUEST_TEXT ||
     !records(understanding['capabilityRequirements']).some(
       (requirement) => requirement['capabilityId'] === CAPABILITY_ID,
     )

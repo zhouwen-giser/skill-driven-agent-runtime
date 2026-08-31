@@ -1,5 +1,21 @@
 # Project Status
 
+## SMPP MCP Tasks Runtime Consumer Sync (2026-08-31, implemented and qualified)
+
+ADR-145 and `execplans/EP-SDAR-SMPP-MCP-TASKS-CONSUMER-SYNC.md` add a restart-stable logical MCP
+invocation identity, reconciliation-only recovery for uncertain mutating calls, immutable
+Task-to-Provider execution lineage, and five additive Required Canonical Evidence records. An
+uncertain call cannot fall through to ordinary dispatch; exact found reconciliation materializes the
+original Task through the existing PostgreSQL `RemoteTaskBinding` and LangGraph continuation path,
+while not-found, conflict, unavailable and deferred remain fail-closed.
+
+The formal `sdar.evidence/v1` contract now contains 105 records (100 Required, five Diagnostic), and
+the generated registry, schemas, protocol contract, source matrix and downstream handoff share one
+authority. The SMPP Producer is source-locked at `1e67e6e421d70a3cbce2d41bf5007e99463712fe`;
+missing Provider execution or Device Mission identities remain explicitly unresolved. This work does
+not claim physical UGV, Simulator, Telemetry, Benchmark or production qualification, and it triggered
+no Device or navigation action.
+
 ## UGV Benchmark passive debug (2026-08-27, live service ready / data waiting)
 
 ADR-144 and `execplans/EP-UGV-BENCHMARK-DEBUG.md` now cover the running passive

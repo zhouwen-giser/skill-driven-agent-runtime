@@ -13,7 +13,10 @@ not make Redis authoritative, and must not let either process write the other da
 
 ## Decision
 
-`McpCapabilityEvidenceProjector` reconstructs the 11 MCP Task and seven Capability record types.
+`McpCapabilityEvidenceProjector` originally reconstructed 11 MCP Task and seven Capability record
+types. The 2026-08-31 additive Consumer Sync extension adds five Required MCP Task types for stable
+logical invocation, admission, dispatch uncertainty, exact reconciliation and the Provider execution
+companion link; the current family total is therefore 16 MCP Task plus seven Capability types.
 Runtime facts are loaded in a repeatable-read PostgreSQL snapshot. Control-owned Capability facts
 are read through the authenticated Node Control HTTP API and validated at the adapter boundary.
 The Runtime projector accepts a Control definition only when the exact
