@@ -9,15 +9,13 @@ export const UGV_AGENT_PROFILE_SKILL_ID = 'embodied.move_to' as const;
 export const UGV_AGENT_PROFILE_SKILL_VERSION = 1 as const;
 export const UGV_AGENT_PROFILE_SKILL_REF = 'embodied.move_to@1' as const;
 export const UGV_AGENT_PROFILE_CAPABILITY_ID = 'embodied.move' as const;
-export const UGV_AGENT_PROFILE_CAPABILITY_VERSION = 2 as const;
 export const UGV_AGENT_PROFILE_EXPOSURE_ID = 'a2a.embodied.move' as const;
-export const UGV_AGENT_PROFILE_EXPOSURE_VERSION = 2 as const;
 export const UGV_AGENT_PROFILE_TASK_TYPE_ID = 'task-type.ugv-point-navigation' as const;
 
 const UGV_AGENT_PROFILE_TASK_TYPE = Object.freeze({
   taskTypeId: UGV_AGENT_PROFILE_TASK_TYPE_ID,
   version: 1,
-  title: 'Move the simulation UGV to one permitted WGS84 point',
+  title: 'Move the governed UGV to one permitted WGS84 point',
   recognitionHints: Object.freeze([
     '无人车移动到目标点',
     '无人车点导航',

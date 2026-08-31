@@ -477,7 +477,6 @@ import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hier
 import {
   UGV_AGENT_PROFILE_ID,
   UGV_AGENT_PROFILE_EXPOSURE_ID,
-  UGV_AGENT_PROFILE_EXPOSURE_VERSION,
   UGV_AGENT_PROFILE_SKILL_ID,
   UGV_AGENT_PROFILE_SKILL_VERSION,
   UgvAgentProfileSkillRepositoryView,
@@ -4145,7 +4144,12 @@ export async function startServerRuntime(
     initialAdmissions: taskCapabilityRepository,
     ...(ugvAgentProfile
       ? {
-          naturalLanguageCapabilityAdmissions: new UgvNaturalLanguageCapabilityAdmissionResolver(),
+          naturalLanguageCapabilityAdmissions: new UgvNaturalLanguageCapabilityAdmissionResolver({
+            exposures: {
+              findCurrent: (exposureId) =>
+                taskCapabilities.describeCurrentAdmissionExposure(exposureId, clock.now()),
+            },
+          }),
         }
       : {}),
     ...(options.frozenMcpTasks === undefined
@@ -7239,9 +7243,8 @@ export async function startServerRuntime(
             naturalLanguageAdmissionContractProvider: {
               async findCurrent() {
                 if ((await profileSkills.listEnabledVersions()).length === 0) return undefined;
-                return taskCapabilities.describeAdmissionExposure(
+                return taskCapabilities.describeCurrentAdmissionExposure(
                   UGV_AGENT_PROFILE_EXPOSURE_ID,
-                  UGV_AGENT_PROFILE_EXPOSURE_VERSION,
                   clock.now(),
                 );
               },

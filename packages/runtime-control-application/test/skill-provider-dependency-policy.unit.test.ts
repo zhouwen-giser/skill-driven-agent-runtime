@@ -75,6 +75,51 @@ describe('UGV Agent Profile Skill Provider dependency policy', () => {
     );
   });
 
+  it('authorizes an append-only live Capability successor from its complete frozen contract', () => {
+    const successor = liveSuccessorInput();
+    const assessment = new UgvAgentProfileSkillProviderDependencyPolicy().assess(successor);
+
+    expect(assessment.decision).toBe('authorized');
+    if (assessment.decision !== 'authorized') throw new Error('UGV_SUCCESSOR_NOT_AUTHORIZED');
+    expect(assessment.authorization.expectedBindings).toEqual([
+      {
+        mcpProviderBindingId: 'ugv-smpp-real-integration-r2-binding',
+        localServerId: 'ugv-smpp-real-integration-r2',
+        bindingRevision: 1,
+        catalogRevision: '2.0.0-rc.1:1',
+        catalogChecksum: '6'.repeat(64),
+      },
+    ]);
+  });
+
+  it('rejects a live successor with missing append-only lineage or simulation replay semantics', () => {
+    const successor = liveSuccessorInput();
+    const policy = new UgvAgentProfileSkillProviderDependencyPolicy();
+    expect(
+      policy.assess({
+        ...successor,
+        definition: { ...successor.definition, previousVersion: 2 },
+      }).decision,
+    ).toBe('denied');
+    const constraints = (successor.definition.constraints ?? []).map((constraint) =>
+      constraint['type'] === 'provider_binding_policy'
+        ? {
+            ...constraint,
+            executionSemantics: {
+              ...record(constraint['executionSemantics']),
+              replay: 'simulation_only',
+            },
+          }
+        : constraint,
+    );
+    expect(
+      policy.assess({
+        ...successor,
+        definition: { ...successor.definition, constraints },
+      }).decision,
+    ).toBe('denied');
+  });
+
   it.each([
     'resource_policy',
     'provider_binding_policy',
@@ -381,6 +426,63 @@ function input(): RuntimeSkillProviderDependencyPolicyInput {
       },
       usageSpecification: importedPackage.skillVersion.usageSpecification,
     },
+  };
+}
+
+function liveSuccessorInput(): RuntimeSkillProviderDependencyPolicyInput {
+  const legacy = input();
+  const providerBindingId = 'ugv-smpp-real-integration-r2-binding';
+  const localServerId = 'ugv-smpp-real-integration-r2';
+  const implementation: CapabilityImplementationBinding = {
+    ...legacy.implementation,
+    bindingId: 'capability-binding-embodied.move-v4',
+    capabilityVersion: 4,
+    providerPolicyOverride: {
+      selection: 'required',
+      mcpProviderBindingId: providerBindingId,
+      localServerId,
+      mcpToolName: 'vehicle_navigate',
+      allowedResourceIds: ['vehicle:ugv1'],
+      requireActive: true,
+      requireAvailable: true,
+      requireUnexpiredFreshness: true,
+      denyFallback: true,
+    },
+  };
+  const constraints = (legacy.definition.constraints ?? [])
+    .filter((constraint) => constraint['type'] !== 'ugv_simulation_target_policy')
+    .map((constraint) => {
+      if (constraint['type'] === 'runtime_execution_mode_policy')
+        return { type: 'runtime_execution_mode_policy', mode: 'live' };
+      if (constraint['type'] !== 'provider_binding_policy') return constraint;
+      return {
+        ...constraint,
+        mcpProviderBindingId: providerBindingId,
+        localServerId,
+        bindingRevision: 1,
+        catalogRevision: '2.0.0-rc.1:1',
+        catalogChecksum: '6'.repeat(64),
+        executionSemantics: {
+          effect: 'side_effecting',
+          execution: 'task_required',
+          cancellation: 'task_cancel',
+          idempotency: 'server_managed',
+          replay: 'forbidden',
+          source: 'admin_override',
+        },
+      };
+    });
+  return {
+    ...legacy,
+    definition: {
+      ...legacy.definition,
+      version: 4,
+      previousVersion: 3,
+      status: 'published',
+      constraints,
+    },
+    implementation,
+    implementations: [implementation],
   };
 }
 

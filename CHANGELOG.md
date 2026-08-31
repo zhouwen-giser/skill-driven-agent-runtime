@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-01 — UGV append-only successor admission
+
+- Resolve the UGV Profile's current Exposure from the active PostgreSQL Agent Card instead of
+  pinning `a2a.embodied.move@2` in product code.
+- Admit reviewed append-only `embodied.move` Capability successors by exact frozen contract while
+  preserving the exact `embodied.move_to@1` Skill and legacy version-2 compatibility.
+- Keep draft/unpublished successors, unavailable Provider health and southbound transport failures
+  fail-closed. This change creates no Task, confirmation, Tool call or physical side effect.
+
 ## 2026-08-31 — Exact MCP Task admission reconciliation and 105-record Evidence contract
 
 - Add one canonical logical invocation identity before Frozen Task dispatch and persist exact

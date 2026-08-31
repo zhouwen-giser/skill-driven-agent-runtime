@@ -1,5 +1,15 @@
 # Project Status
 
+## UGV append-only successor admission repair (2026-09-01, implemented; execution blocked)
+
+ADR-146 removes the UGV Profile's fixed `embodied.move@2` / `a2a.embodied.move@2` product-code
+assumption. The Provider dependency policy now validates immutable append-only Capability content,
+and natural-language admission resolves the current Exposure from the active PostgreSQL Agent Card.
+The localhost revision-2 authority may therefore be adopted through normal publish/Card governance,
+without an override or history rewrite. `embodied.move@4` and `a2a.embodied.move@3` remain draft and
+the southbound Device MCP remains unavailable, so no Task, Tool call or physical side effect is
+authorized or claimed.
+
 ## SMPP MCP Tasks Runtime Consumer Sync (2026-08-31, implemented and qualified)
 
 ADR-145 and `execplans/EP-SDAR-SMPP-MCP-TASKS-CONSUMER-SYNC.md` add a restart-stable logical MCP

@@ -55,24 +55,25 @@ export interface RuntimeSkillProviderDependencyPolicy {
 
 const UGV_PACKAGE_CHECKSUM = '6d5fc9c8e093de18a8b11c8377b96788336606b25d0df0f27efef7b4d9f6a48c';
 const UGV_USAGE_CHECKSUM = '9801dd4ea424a1b925e51a273a5712f082e41daacbf76f7df9d8595c48b01b87';
-const UGV_CONSTRAINT_TYPES = Object.freeze([
+const UGV_BASE_CONSTRAINT_TYPES = Object.freeze([
   'resource_policy',
   'provider_binding_policy',
   'exact_skill_version',
   'confirmation_policy',
   'physical_side_effect_policy',
   'runtime_execution_mode_policy',
-  'ugv_simulation_target_policy',
 ]);
+const UGV_SIMULATION_TARGET_POLICY_TYPE = 'ugv_simulation_target_policy';
 const NOT_APPLICABLE: RuntimeSkillProviderDependencyAssessment = Object.freeze({
   decision: 'not_applicable',
 });
 const DENIED: RuntimeSkillProviderDependencyAssessment = Object.freeze({ decision: 'denied' });
 
 /**
- * Production policy for the immutable embodied.move_to@1 UGV Agent Profile package. It converts
- * that package's one exact dynamic Task binding into one effective Provider requirement only when
- * every package, usage, Capability, implementation, resource, and safety promise is frozen.
+ * Production policy for the immutable embodied.move_to@1 UGV Agent Profile package. Capability
+ * versions are append-only lineage rather than an authorization constant: a successor is accepted
+ * only when its complete immutable definition, sole implementation, Provider binding, execution
+ * mode, resource, and safety promises match one reviewed profile contract.
  */
 export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkillProviderDependencyPolicy {
   assess(
@@ -80,13 +81,13 @@ export class UgvAgentProfileSkillProviderDependencyPolicy implements RuntimeSkil
   ): RuntimeSkillProviderDependencyAssessment {
     const implementation = input.implementation;
     const applies =
-      (input.definition.capabilityId === 'embodied.move' && input.definition.version === 2) ||
+      input.definition.capabilityId === 'embodied.move' ||
       (implementation.implementationId === 'embodied.move_to' &&
         implementation.implementationVersion === '1');
     if (!applies) return NOT_APPLICABLE;
     if (
       input.definition.capabilityId !== 'embodied.move' ||
-      input.definition.version !== 2 ||
+      !isAppendOnlyUgvCapabilityVersion(input.definition) ||
       input.definition.status !== 'published' ||
       !exactUgvDefinitionPromises(input.definition) ||
       input.implementations.length !== 1 ||
@@ -228,18 +229,25 @@ function exactUgvCapabilityConstraints(
   constraints: NodeCapabilityDefinitionVersion['constraints'],
   requirement: ExactMcpProviderBindingPolicy | undefined,
 ): RuntimeSkillProviderExpectedBindingAuthority | undefined {
-  if (constraints === undefined || requirement === undefined || constraints.length !== 7)
-    return undefined;
+  if (constraints === undefined || requirement === undefined) return undefined;
+  const allowedTypes = new Set([...UGV_BASE_CONSTRAINT_TYPES, UGV_SIMULATION_TARGET_POLICY_TYPE]);
+  if (constraints.length < 6 || constraints.length > 7) return undefined;
   const byType = new Map<string, Readonly<Record<string, unknown>>>();
   for (const value of constraints) {
     const constraint = record(value);
     const type = constraint?.['type'];
-    if (constraint === undefined || typeof type !== 'string' || byType.has(type)) return undefined;
+    if (
+      constraint === undefined ||
+      typeof type !== 'string' ||
+      !allowedTypes.has(type) ||
+      byType.has(type)
+    )
+      return undefined;
     byType.set(type, constraint);
   }
   if (
-    byType.size !== UGV_CONSTRAINT_TYPES.length ||
-    UGV_CONSTRAINT_TYPES.some((type) => !byType.has(type))
+    UGV_BASE_CONSTRAINT_TYPES.some((type) => !byType.has(type)) ||
+    byType.size !== constraints.length
   )
     return undefined;
 
@@ -249,7 +257,8 @@ function exactUgvCapabilityConstraints(
   const confirmation = byType.get('confirmation_policy');
   const physical = byType.get('physical_side_effect_policy');
   const runtimeMode = byType.get('runtime_execution_mode_policy');
-  const target = byType.get('ugv_simulation_target_policy');
+  const target = byType.get(UGV_SIMULATION_TARGET_POLICY_TYPE);
+  const executionMode = exactRuntimeMode(runtimeMode);
   if (
     !sameCanonical(resource, {
       type: 'resource_policy',
@@ -277,22 +286,10 @@ function exactUgvCapabilityConstraints(
       uncertainDispatchPolicy: 'reconcile_never_redispatch',
       remoteTaskTerminalEvidenceRequired: true,
     }) ||
-    !exactRuntimeMode(runtimeMode) ||
-    !sameCanonical(target, {
-      type: 'ugv_simulation_target_policy',
-      policyId: 'ugv-agent-profile/explicit-wgs84-target',
-      revision: 2,
-      executionMode: 'simulation',
-      resourceId: 'vehicle:ugv1',
-      frame: 'WGS84',
-      targetAuthority: 'task_capability_input_snapshot',
-      targetDerivation: 'forbidden',
-      distanceLimit: 'none',
-      altitudePolicy: 'not_commanded_not_terminally_evaluated',
-      forbiddenRegions: [],
-    }) ||
+    executionMode === undefined ||
+    !exactModeSpecificTargetPolicy(executionMode, target) ||
     provider === undefined ||
-    !exactProviderConstraint(provider, requirement)
+    !exactProviderConstraint(provider, requirement, executionMode)
   )
     return undefined;
   return Object.freeze({
@@ -304,21 +301,53 @@ function exactUgvCapabilityConstraints(
   });
 }
 
-function exactRuntimeMode(value: Readonly<Record<string, unknown>> | undefined): boolean {
+function exactRuntimeMode(
+  value: Readonly<Record<string, unknown>> | undefined,
+): 'simulation' | 'live' | undefined {
   const simulationId = value?.['simulationId'];
-  return (
+  if (
     value !== undefined &&
     hasExactKeys(value, ['type', 'mode', 'simulationId']) &&
     value['type'] === 'runtime_execution_mode_policy' &&
     value['mode'] === 'simulation' &&
     typeof simulationId === 'string' &&
     /^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u.test(simulationId)
-  );
+  )
+    return 'simulation';
+  if (
+    value !== undefined &&
+    hasExactKeys(value, ['type', 'mode']) &&
+    value['type'] === 'runtime_execution_mode_policy' &&
+    value['mode'] === 'live'
+  )
+    return 'live';
+  return undefined;
+}
+
+function exactModeSpecificTargetPolicy(
+  executionMode: 'simulation' | 'live',
+  target: Readonly<Record<string, unknown>> | undefined,
+): boolean {
+  if (executionMode === 'live') return target === undefined;
+  return sameCanonical(target, {
+    type: UGV_SIMULATION_TARGET_POLICY_TYPE,
+    policyId: 'ugv-agent-profile/explicit-wgs84-target',
+    revision: 2,
+    executionMode: 'simulation',
+    resourceId: 'vehicle:ugv1',
+    frame: 'WGS84',
+    targetAuthority: 'task_capability_input_snapshot',
+    targetDerivation: 'forbidden',
+    distanceLimit: 'none',
+    altitudePolicy: 'not_commanded_not_terminally_evaluated',
+    forbiddenRegions: [],
+  });
 }
 
 function exactProviderConstraint(
   value: Readonly<Record<string, unknown>>,
   requirement: ExactMcpProviderBindingPolicy,
+  executionMode: 'simulation' | 'live',
 ): boolean {
   const semantics = record(value['executionSemantics']);
   return (
@@ -353,7 +382,7 @@ function exactProviderConstraint(
       execution: 'task_required',
       cancellation: 'task_cancel',
       idempotency: 'server_managed',
-      replay: 'simulation_only',
+      replay: executionMode === 'simulation' ? 'simulation_only' : 'forbidden',
       source: 'admin_override',
     }) &&
     value['requiredStatus'] === 'active' &&
@@ -361,6 +390,11 @@ function exactProviderConstraint(
     value['requiredFreshness'] === 'unexpired' &&
     value['fallback'] === 'deny'
   );
+}
+
+function isAppendOnlyUgvCapabilityVersion(definition: NodeCapabilityDefinitionVersion): boolean {
+  if (!positiveInteger(definition.version) || definition.version < 2) return false;
+  return definition.version === 2 || definition.previousVersion === definition.version - 1;
 }
 
 function hashCanonical(value: unknown): string {

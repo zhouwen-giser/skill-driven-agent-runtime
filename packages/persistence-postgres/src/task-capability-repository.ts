@@ -124,6 +124,21 @@ export class PostgresTaskCapabilityRepository
     this.#commandContext = commandContext;
   }
 
+  async findCurrentExposure(exposureId: string): Promise<RuntimeCapabilityExposure | undefined> {
+    const result = await this.#pool.query<ExposureRow>(
+      `SELECT exposure.exposure_id,exposure.exposure_version,exposure.capability_id,
+              exposure.capability_version,exposure.request_schema,exposure.requester_policy
+         FROM runtime_agent_card_revision card
+         JOIN runtime_agent_card_exposure_snapshot exposure ON exposure.revision=card.revision
+        WHERE card.status='active' AND exposure.exposure_id=$1
+        ORDER BY exposure.exposure_version DESC
+        LIMIT 1`,
+      [exposureId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : mapExposure(row);
+  }
+
   async describeExposure(
     exposureId: string,
     exposureVersion: number,

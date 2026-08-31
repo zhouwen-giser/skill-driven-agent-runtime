@@ -25,6 +25,10 @@ SMPP remains the only southbound owner of `mqtt://192.168.2.63:1883` and `http:/
 
 ## Progress
 
+- [x] 2026-09-01 repaired the P9A successor admission boundary: exact append-only Capability
+      content replaces the fixed version-2 check, the current Exposure comes from the active PostgreSQL
+      Agent Card, and focused regressions prove version/mode drift and draft selection remain rejected.
+      No A2A Task, MCP Task, Tool call or Device action was performed.
 - [x] 2026-08-21 01:22Z validated and read the Goal package, repository rules, architecture/domain/DSL baselines, relevant accepted ADRs, existing UGV Skill/deployment/reports, and the first task card.
 - [x] 2026-08-21 01:23Z captured the clean SDAR baseline and reviewed the non-linear one-commit drift without reset, clean, stash, or overwrite.
 - [x] 2026-08-21 01:23Z observed the sibling SMPP read-only preflight pass with the negotiated Device MCP protocol captured, upstream MQTT topic/QoS drift disclosed, and zero mutation.
@@ -85,6 +89,11 @@ SMPP remains the only southbound owner of `mqtt://192.168.2.63:1883` and `http:/
 - The authorized B02 window reached only taskless qualification. The durable MCP receipt was `succeeded`, taskless and fresh; Provider/resource/execution identity, connectivity, finite position, speed `0`, healthy components, revision and MQTT sequence passed. The external state reported mission state `0`, which the frozen admission contract rejects. This is an external qualification failure, not an A2A, confirmation, navigation, continuation or terminal failure.
 
 ## Decision Log
+
+- 2026-09-01: Adopt ADR-146. Resolve the active Exposure from the PostgreSQL Agent Card and validate
+  `embodied.move` append-only successors by exact immutable content rather than fixed version 2.
+  Keep `embodied.move_to@1` exact, reject draft/unpublished successors, and leave Provider health,
+  confirmation, execution and terminal evidence gates unchanged.
 
 - 2026-08-21: Honor the user override by following the latest relevant SMPP branch. Its initial frozen source was `ce57d3d7`; the accepted post-qualification branch checkpoint is `90466127`, while `f8c37e6` remains only a drift reference.
 - 2026-08-21: Reuse existing semantic owners and add only a Profile/binding adapter or policy projection where the current runtime lacks one; no second registry, workflow runtime, remote-task state machine, or evidence authority.
@@ -200,3 +209,8 @@ New evidence lives under `reports/ugv-agent-profile-simulation/`. SMPP-owned sou
 ## Outcomes and Retrospective
 
 In progress for the cross-repository Goal. P0 contract freeze, P2-B01 local Profile/Card composition, P2-B02 governed binding/adapter contract, P2-B03 local Workflow integration and P3-B01 clean-stack authority bootstrap are accepted. The latest authorized P3-B02 run proved one real Provider navigation reached terminal completion and the Adapter succeeded, but SDAR rejected the legal CreateTask `working/accepted` state before continuation and never produced a successful A2A terminal projection. That compatibility defect, migration and strict terminal-safe recovery classification are implemented and locally verified. The user cancelled the post-fix simulator rerun because another client was using it; task-owned runtime state is removed/stopped and no additional YES window was opened. Consequently P3-B02/P3-B03/P4 and overall Goal acceptance remain pending: real movement is proven, successful SDAR A2A completion is not.
+
+The 2026-09-01 P9A repair removes fixed Capability/Exposure version constants while preserving
+PostgreSQL governance and every execution gate. The localhost `embodied.move@4` /
+`a2a.embodied.move@3` authority remains draft and the Device MCP remains unavailable, so this repair
+is implemented but deliberately not activated or presented as movement readiness.
