@@ -26,8 +26,8 @@ The five additive record schema hashes are:
 - `mcp_task.dispatch_reconciliation`: `sha256:ebd1f779264c9a38b3f4991016c1cffa73b23dab9317de35f273d1b00116acf7`
 - `mcp_task.provider_execution_link`: `sha256:afbbbfd75e0214d5fc18fb75499f3c8499dca6e950d611e246f8039f5de0c97b`
 
-The exact implementation commit is recorded in `implementation-commit.json` after the implementation
-tree is committed. The downstream contract handoff is in
+The exact implementation commit is `b9a75e3990163e959d91c76d402fe94c8366f5e8` and is also recorded in
+`implementation-commit.json`. The downstream contract handoff is in
 `reports/v1.4.1-evidence/clickhouse-handoff/`; its readiness policy records full verification passed
 and 105/105 catalog coverage.
 
