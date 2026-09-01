@@ -371,6 +371,7 @@ const DiscoverySchema = z
   .object({
     protocolVersion: z.string().min(1),
     serverInfo: z.record(z.string(), z.unknown()),
+    providerCatalog: z.record(z.string(), z.unknown()).optional(),
     discoveredAt: z.iso.datetime(),
     validUntil: z.iso.datetime(),
     toolRevision: z.number().int().positive(),
@@ -2778,6 +2779,9 @@ function runtimeCatalogChecksum(server: RuntimeServer, tools: readonly Tool[]): 
       JSON.stringify({
         protocolVersion: server.currentDiscovery.protocolVersion,
         serverInfo: server.currentDiscovery.serverInfo,
+        ...(server.currentDiscovery.providerCatalog === undefined
+          ? {}
+          : { providerCatalog: server.currentDiscovery.providerCatalog }),
         tools: [...tools]
           .sort((left, right) => compare(left.toolName, right.toolName))
           .map((tool) => ({

@@ -1064,6 +1064,12 @@ class FakeUgvGovernanceApis {
       currentDiscovery: {
         protocolVersion: '2026-07-28',
         serverInfo: { name: 'ugv-runtime', version: '1.2.3' },
+        providerCatalog: {
+          providerId: 'external-ugv-provider',
+          providerType: 'isr.vehicle.ugv',
+          providerVersion: '1.0.0',
+          manifestHash: 'b'.repeat(64),
+        },
         discoveredAt: NOW,
         validUntil: this.#options.discoveryValidUntil ?? VALID_UNTIL,
         toolRevision: REVISION,
@@ -1324,6 +1330,7 @@ function catalogChecksum(
       JSON.stringify({
         protocolVersion: server.currentDiscovery.protocolVersion,
         serverInfo: server.currentDiscovery.serverInfo,
+        providerCatalog: server.currentDiscovery.providerCatalog,
         tools: [...tools]
           .sort((left, right) => left.toolName.localeCompare(right.toolName))
           .map((tool) => ({
