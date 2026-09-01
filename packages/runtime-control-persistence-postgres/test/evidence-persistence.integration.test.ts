@@ -602,7 +602,7 @@ describe('v1.4.1 canonical Evidence PostgreSQL authority', { concurrent: false }
     const laterMigrationDowns = (await readdir(migrationDirectory))
       .filter((file) => {
         const version = Number(file.slice(0, 4));
-        return file.endsWith('.down.sql') && version >= 149 && version <= 175;
+        return file.endsWith('.down.sql') && version >= 149;
       })
       .sort()
       .reverse();
