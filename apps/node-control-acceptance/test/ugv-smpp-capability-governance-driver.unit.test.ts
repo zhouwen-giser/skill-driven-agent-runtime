@@ -695,6 +695,7 @@ class FakeUgvGovernanceApis {
   readonly #options: FakeOptions;
   #tools: ToolFixture[];
   #bindingReads = 0;
+  #runtimeRefreshes = 0;
 
   constructor(options: FakeOptions = {}) {
     this.#options = options;
@@ -820,12 +821,15 @@ class FakeUgvGovernanceApis {
       return json(200, { items: [this.server()] });
     }
     if (method === 'POST' && url.pathname === `/api/v1/mcp/servers/${SERVER_ID}/refresh`) {
+      this.#runtimeRefreshes += 1;
       const server = this.server();
       return json(200, {
         server,
         snapshot: {
           ...server.currentDiscovery,
-          discoveredAt: NOW,
+          discoveredAt: new Date(
+            Date.parse(NOW) + (this.#runtimeRefreshes - 1) * 1_000,
+          ).toISOString(),
           validUntil: VALID_UNTIL,
         },
         tools: this.#tools,

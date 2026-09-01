@@ -1294,9 +1294,8 @@ async function loadCatalogAuthority(
         endpointSha256: sha256(safeEndpoint(server.endpoint, 'RUNTIME_SERVER_ENDPOINT_INVALID')),
         protocolMode: server.protocolMode,
         toolRevision: server.toolRevision,
-        discovery: server.currentDiscovery,
       },
-      tools,
+      catalogChecksum: checksum,
     }),
   );
   return Object.freeze({ binding, server, tools: Object.freeze(tools), fingerprint });
