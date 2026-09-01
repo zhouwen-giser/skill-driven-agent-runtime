@@ -1,6 +1,6 @@
 # Project Status
 
-## UGV ten-tool Capability / Skill / A2A expansion (2026-09-01, implemented; final deployment gate pending)
+## UGV ten-tool Capability / Skill / A2A expansion (2026-09-01, deployed and qualified)
 
 ADR-147 and `execplans/EP-UGV-10-TOOL-CAPABILITY-EXPANSION.md` register the current ten-operation UGV
 Provider catalog as thirteen append-only public surfaces: four read operations, the preserved point
@@ -16,8 +16,17 @@ Weapon lifecycle authority is published but invocation remains restricted until 
 and payload evidence exists. Unknown/additive provider-policy fields are retained; understood fields
 remain individually validated. Current implementation gates include 151 high-risk focused tests, 125
 query/Console tests, real PostgreSQL 3/3, migrations through 0177, typecheck, lint, build and the
-870-source architecture gate. No A2A/MCP Task, Provider Tool call or device action was performed.
-Final full-suite rerun and read-only governance deployment evidence remain before closure.
+870-source architecture gate. The read-only governance deployment passed against Binding
+`ugv-smpp-real-integration-r2-binding@2`, Catalog `2.0.0-rc.1:2` checksum
+`a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a`, and a fresh ten-tool
+Provider discovery. Active Agent Card revision 14013 exposes all 13 public surfaces while point
+navigation remains `embodied.move_to@1` / `embodied.move@5` / `a2a.embodied.move@4`; weapon
+invocation remains restricted. Exact commit `3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full
+clean gate (2875 static/unit/contract tests, 228 integration tests, 73 E2E tests, A2A TCK, 44/44
+Evidence scenarios and all smoke gates) and is deployed at Management 10998 / A2A 10999. No A2A/MCP
+Task, Provider `tools/call` or device action was performed. P10 live submission remains separately
+blocked until Benchmark translates its `{longitude,latitude,altitudeM}` candidate into SDAR's frozen
+`{x,y,frame}` public Capability input (or labelled-coordinate text).
 
 ## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
 

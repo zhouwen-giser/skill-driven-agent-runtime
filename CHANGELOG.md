@@ -18,6 +18,18 @@
 - Add a non-sensitive Console confirmation projection for resource/target, Plan/argument hashes,
   expiry, revocation and consumption. No credentials, Provider response body, A2A/MCP Task, Tool call
   or device action is introduced by the implementation or its tests.
+- Return the just-observed live discovery after an unchanged MCP refresh while retaining the existing
+  persisted Frozen server/catalog anchor; use the canonical Provider-catalog checksum and exclude
+  observation timestamps from semantic drift fingerprints.
+- Complete the governed-control OpenAPI surface at 174 Management operations and publish the
+  read-only ten-tool governance result: 13 active Agent Card Skills, preserved point-navigation
+  successors, restricted weapon invocation and zero Provider `tools/call`.
+- Preserve safe natural-language/artifact extensions when the A2A endpoint serves a managed active
+  Agent Card, and make the Evidence rollback integration include every additive migration after
+  0148 instead of stopping at the former 0175 boundary.
+- Preserve migration-ledger continuity in the adjacent Evidence Export rollback regression by
+  unwinding 0177/0176 before its intentional 0175/0174 down/up cycle; record the exact clean full-gate
+  and P10 Benchmark-to-SDAR input projection blocker without weakening either public contract.
 
 ## 2026-09-01 — UGV governed live execution context
 

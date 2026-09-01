@@ -41,9 +41,10 @@ governance and runtime authority.
 - [x] 2026-09-01: implemented the reviewed catalog and append-only governance bootstrap.
 - [x] 2026-09-01: composed profile-aware generic execution while preserving point navigation.
 - [x] 2026-09-01: implemented migrations 0176/0177, weapon/emergency authority, Management/A2A
-  adapters and the operational Console evidence surface.
-- [ ] Complete final full-suite, integration, architecture and build reruns after the Console addition.
-- [ ] Publish redacted zero-Tool-call governance evidence and update traceability.
+      adapters and the operational Console evidence surface.
+- [x] 2026-09-01: completed the exact-commit clean full-suite rerun after the Console and OpenAPI
+      additions.
+- [x] 2026-09-01: published redacted zero-Tool-call governance evidence and updated traceability.
 
 ## Discoveries and Surprises
 
@@ -59,6 +60,28 @@ governance and runtime authority.
 - A UGV provider policy cannot use an exact-key allowlist without turning additive contract fields
   into product-code drift. Required authority fields remain typed and exact; unknown/additive fields
   are retained and no speculative "dangerous field" blacklist is introduced.
+- An unchanged live MCP discovery must refresh observation freshness without rewriting the immutable
+  Frozen server/catalog anchor. Runtime refresh now returns the just-observed discovery while the
+  persisted semantic revision remains unchanged.
+- The canonical Runtime/Node Control checksum includes the Provider catalog identity. UGV governance
+  now verifies that same canonical checksum instead of a local reduced projection.
+- Discovery timestamps are evidence freshness, not contract identity. Mid-run drift detection hashes
+  the semantic Binding/catalog identity and ignores observation timestamps.
+- Five governed-control Management operations existed in the implementation but were absent from the
+  OpenAPI authority. The contract now covers all 174 Management operations.
+- Switching UGV to the managed Agent Card exposed an adapter early return that skipped safe runtime
+  extensions. Managed cards now retain their governed Skill projection and receive the same
+  natural-language admission/artifact extension decoration as other card sources.
+- The canonical Evidence rollback integration test had a fixed upper migration bound at 0175. The
+  test now discovers every dependent down migration from 0149 onward, including 0176/0177, before
+  proving reapplication from immutable 0142.
+- The adjacent Evidence Export rollback test also had to unwind 0177 and 0176 before testing the
+  0175/0174 boundary. Leaving later ledger rows in place correctly caused the next Runtime migration
+  check to reject a non-contiguous ledger; the regression now preserves cross-suite continuity.
+- Benchmark P10 materialization currently emits `{longitude,latitude,altitudeM}` plus generic text,
+  while the public SDAR point-navigation Capability accepts `{x,y,frame}` or labelled coordinates in
+  natural-language text. No adapter currently binds those projections, so P10 candidate submission
+  remains blocked without relaxing either frozen contract.
 
 ## Decision Log
 
@@ -98,6 +121,15 @@ Completed evidence before final rerun:
 - typecheck, full lint, production build and 870-source architecture gate passed;
 - one loaded-host P10 P99 failure reproduced as environmental noise; the unchanged focused suite
   passed 22/22 at 266.646 ms (threshold 750 ms).
+- managed Agent Card extension contract: 12/12 passed;
+- real PostgreSQL / Runtime / A2A UGV composition: 1/1 passed;
+- Evidence rollback/reapply integration through migrations 0176/0177: 13/13 passed.
+- ordered Evidence rollback/export migration continuity regression: 2 files / 21 tests passed;
+- exact commit `3085454cf59b07c6ceb6440cf4e5544a0483155b`: clean `pnpm verify` passed 331
+  static/unit/contract files (2875 tests), 40 integration files (228 tests), 7 E2E files (73 tests),
+  official A2A TCK, canonical Evidence 44/44, migration/build and all smoke gates;
+- Phase 13 passed at 1.21% Runtime regression, 6.85% baseline median drift and 7.79 ms Evidence append
+  P95.
 
 ## Idempotence and Recovery
 
@@ -113,7 +145,10 @@ active version. Confirmation issuance is idempotent by exact Task/attempt/Plan/a
 
 ## Outcomes and Retrospective
 
-The product implementation is complete. All ten Provider operations map to thirteen append-only
-public surfaces, with read-only, ordinary physical, direct emergency and restricted weapon authority
-kept distinct. The final full-suite rerun, read-only deployment bootstrap and redacted `tools/call=0`
-evidence remain before this ExecPlan can close.
+The product implementation and read-only deployment bootstrap are complete. All ten Provider
+operations map to thirteen append-only public surfaces, with read-only, ordinary physical, direct
+emergency and restricted weapon authority kept distinct. The deployed Runtime exposes active Agent
+Card revision 14013, preserves point navigation as `embodied.move_to@1` / `embodied.move@5` /
+`a2a.embodied.move@4`, and records zero Provider `tools/call` since deployment. Exact commit
+`3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full clean gate and is deployed as Runtime PID 3756664. The ten-tool expansion is closed; the separately owned P10 live runner remains blocked on
+its Benchmark-to-SDAR public input translation and is not treated as a product-authority bypass.
