@@ -115,10 +115,7 @@ export class UgvMoveWorkflowError extends Error {
   }
 }
 
-/**
- * Adds only the two authority-frozen read operations needed for context/evidence to the formal
- * Skill Usage policy, then produces data for the existing WorkflowPlannerService.
- */
+/** Adds the authority-frozen state read to the complete formal Skill Usage tool policy. */
 export function prepareUgvMoveWorkflowPlan(
   input: PrepareUgvMoveWorkflowInput,
 ): PreparedUgvMoveWorkflowPlan {
@@ -142,6 +139,7 @@ export function prepareUgvMoveWorkflowPlan(
   const policy = snapshotSkillUsagePlanPolicy({
     ...prepared.policy,
     allowedTools: Object.freeze([
+      ...prepared.policy.allowedTools,
       Object.freeze({
         serverId: selected.finalStateRead.serverId,
         toolName: selected.finalStateRead.operationName,
@@ -552,7 +550,9 @@ function assertExactBasePolicy(
     !sameJson(policy.requiredConfirmations, REQUIRED_CONFIRMATIONS) ||
     !sameJson(policy.requiredContextIds, REQUIRED_CONTEXT_IDS) ||
     !hasExactUgvMoveSkillUsageContextEvidence(policy.context) ||
-    policy.allowedTools.length !== 0 ||
+    policy.allowedTools.length !== 1 ||
+    policy.allowedTools[0]?.serverId !== selected.server.serverId ||
+    policy.allowedTools[0].toolName !== selected.operation.operationName ||
     policy.taskOperations.length !== 1 ||
     task?.bindingId !== selected.task.skillBindingId ||
     task.taskType !== selected.task.semanticTaskType ||
@@ -656,15 +656,25 @@ function assertExactDerivedPolicy(
   selected: SelectedTaskOperation,
 ): void {
   const { allowedTools, ...base } = policy;
-  assertExactBasePolicy({ ...base, allowedTools: [] }, selected);
+  assertExactBasePolicy(
+    {
+      ...base,
+      allowedTools: [
+        { serverId: selected.server.serverId, toolName: selected.operation.operationName },
+      ],
+    },
+    selected,
+  );
   if (
-    allowedTools.length !== 1 ||
-    allowedTools[0]?.serverId !== selected.finalStateRead.serverId ||
-    allowedTools[0].toolName !== selected.finalStateRead.operationName
+    allowedTools.length !== 2 ||
+    allowedTools[0]?.serverId !== selected.server.serverId ||
+    allowedTools[0].toolName !== selected.operation.operationName ||
+    allowedTools[1]?.serverId !== selected.finalStateRead.serverId ||
+    allowedTools[1].toolName !== selected.finalStateRead.operationName
   )
     invalid(
       'UGV_MOVE_WORKFLOW_SKILL_USAGE_INVALID',
-      'UGV derived policy may add only the exact read-only final-state operation.',
+      'UGV derived policy must preserve the selected Task operation and exact state-read operation.',
     );
 }
 

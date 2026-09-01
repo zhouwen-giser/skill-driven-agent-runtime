@@ -2298,6 +2298,7 @@ export async function startServerRuntime(
             nextReadinessId: () => `task-readiness-${randomUUID()}`,
             nextSnapshotId: () => `task-availability-${randomUUID()}`,
           },
+          ...(ugvAgentProfile ? { allowConfirmedProviderUnknownPreInvocation: true } : {}),
         });
   const ugvMoveBindingResolver =
     !ugvAgentProfile || options.currentMcpProviderBindingAuthorityReader === undefined

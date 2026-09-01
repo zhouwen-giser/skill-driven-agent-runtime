@@ -61,6 +61,10 @@ describe('UGV move Workflow Profile adapter', () => {
     expect(repository.attempts[0]).toMatchObject({ valid: true, validationErrors: [] });
     expect(plan.confirmationStatus).toBe('awaiting_confirmation');
     expect(plan.definition).toEqual(prepared.deterministicDefinition);
+    expect(prepared.policy.allowedTools).toEqual([
+      { serverId: fixture.selected.server.serverId, toolName: 'vehicle_navigate' },
+      { serverId: fixture.selected.finalStateRead.serverId, toolName: 'vehicle_get_state' },
+    ]);
     expect(
       checkSkillUsagePlanCompliance(prepared.deterministicDefinition, prepared.policy),
     ).toEqual({ compliant: true, errors: [] });

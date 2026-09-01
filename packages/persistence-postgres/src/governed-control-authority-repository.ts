@@ -963,7 +963,7 @@ function buildUgvAuthoritySnapshot(
       bindingId: currentBinding.bindingId,
       revision: currentBinding.revision,
       status: 'active',
-      availability: availability.availability,
+      availability: currentBinding.availabilityStatus,
       availabilityValidUntil: currentBinding.availabilityValidUntil,
       providerId: provider.providerId,
       providerType: provider.providerType,
@@ -987,8 +987,12 @@ function buildUgvAuthoritySnapshot(
     }),
     readiness: Object.freeze({
       checkPhase: 'pre_invocation',
-      disposition: availability.availability === 'available' ? 'ready' : 'blocked',
-      guardAction: availability.availability === 'available' ? 'proceed' : 'abort',
+      disposition: ['available', 'unknown'].includes(availability.availability)
+        ? 'ready'
+        : 'blocked',
+      guardAction: ['available', 'unknown'].includes(availability.availability)
+        ? 'proceed'
+        : 'abort',
       confirmationRequired: false,
       providerBindingId: currentBinding.bindingId,
       providerBindingRevision: currentBinding.revision,
@@ -1002,6 +1006,12 @@ function buildUgvAuthoritySnapshot(
       catalogChecksum: input.runtime.catalogAuthority.catalogChecksum,
       toolRevision: input.runtime.record.server.toolRevision,
       availability: availability.availability,
+      availabilityDecision:
+        availability.availability === 'available'
+          ? 'provider_available'
+          : availability.availability === 'unknown'
+            ? 'allowed_by_default'
+            : 'provider_denied',
       riskLevel: availability.riskLevel,
       checkedAt: input.checkedAt,
       validUntil: requiredDatabaseString(availability.validUntil),

@@ -175,6 +175,7 @@ export interface UgvGovernedControlAuthoritySnapshot {
     catalogChecksum: string;
     toolRevision: number;
     availability: string;
+    availabilityDecision: 'provider_available' | 'allowed_by_default' | 'provider_denied';
     riskLevel: string;
     checkedAt: string;
     validUntil: string;
@@ -613,7 +614,12 @@ function assertCurrentReadiness(
     readiness.catalogRevision !== selected.server.catalogRevision ||
     readiness.catalogChecksum !== selected.server.catalogChecksum ||
     readiness.toolRevision !== selected.server.toolRevision ||
-    readiness.availability !== 'available' ||
+    !(
+      (readiness.availability === 'available' &&
+        readiness.availabilityDecision === 'provider_available') ||
+      (readiness.availability === 'unknown' &&
+        readiness.availabilityDecision === 'allowed_by_default')
+    ) ||
     !PHYSICAL_CONTROL_RISK_LEVELS.has(readiness.riskLevel) ||
     checkedAt > now ||
     validUntil <= now ||

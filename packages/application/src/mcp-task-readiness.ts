@@ -166,6 +166,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
   readonly #riskDecider: TaskRiskDecider;
   readonly #clock: Clock;
   readonly #ids: Readonly<{ nextReadinessId(): string; nextSnapshotId(): string }>;
+  readonly #allowConfirmedProviderUnknownPreInvocation: boolean;
 
   constructor(
     dependencies: Readonly<{
@@ -175,6 +176,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
       riskDecider: TaskRiskDecider;
       clock: Clock;
       ids: Readonly<{ nextReadinessId(): string; nextSnapshotId(): string }>;
+      allowConfirmedProviderUnknownPreInvocation?: boolean;
     }>,
   ) {
     this.#operations = dependencies.operations;
@@ -183,6 +185,8 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
     this.#riskDecider = dependencies.riskDecider;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
+    this.#allowConfirmedProviderUnknownPreInvocation =
+      dependencies.allowConfirmedProviderUnknownPreInvocation === true;
   }
 
   async assess(input: Parameters<WorkflowCandidateReadinessPolicy['assess']>[0]) {
@@ -416,9 +420,27 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
       input.planConfirmed &&
       planningResult?.availability === 'restricted' &&
       !hasIncreasedRisk(planningResult, result);
-    const allowed = result?.availability === 'available' || restrictedCoveredByConfirmation;
-    const reasonCodes =
-      result === undefined
+    const providerReportedUnknown =
+      outcome.kind === 'results' &&
+      outcome.results.some(
+        (candidate) =>
+          candidate.nodeId === input.workflowNodeId &&
+          candidate.operationName === input.operationName &&
+          candidate.availability === 'unknown',
+      );
+    const unknownAllowedByDefault =
+      this.#allowConfirmedProviderUnknownPreInvocation &&
+      input.planConfirmed &&
+      input.executionContext.mode === 'live' &&
+      result?.availability === 'unknown' &&
+      providerReportedUnknown;
+    const allowed =
+      result?.availability === 'available' ||
+      restrictedCoveredByConfirmation ||
+      unknownAllowedByDefault;
+    const reasonCodes = unknownAllowedByDefault
+      ? ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT']
+      : result === undefined
         ? [
             outcome.kind === 'results'
               ? 'MCP_TASK_AVAILABILITY_RESPONSE_INVALID'
