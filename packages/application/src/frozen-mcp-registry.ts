@@ -227,8 +227,12 @@ export class FrozenMcpRegistryService {
     )
       return Object.freeze({
         server: record.server,
-        snapshot: previousSnapshot,
-        tools: previous,
+        // A health refresh must not rotate the persisted Frozen Task anchor when
+        // the Catalog is unchanged. Its response still carries the just-observed
+        // discovery so callers can prove current liveness without mistaking the
+        // historical persisted snapshot for a fresh observation.
+        snapshot: discovered.snapshot,
+        tools,
         dependencyWarnings: Object.freeze([]),
       });
     const toolRevision = authority?.binding.revision ?? record.server.toolRevision + 1;

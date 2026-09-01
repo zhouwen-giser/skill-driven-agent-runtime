@@ -574,6 +574,21 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     ).rejects.toMatchObject({ code: 'CATALOG_AUTHORITY_CHANGED_DURING_GOVERNANCE' });
   });
 
+  it('uses a fresh read-only Runtime discovery without rotating the persisted Catalog revision', async () => {
+    const root = workspaceRoot();
+    const api = new FakeUgvGovernanceApis({ discoveryValidUntil: NOW });
+
+    const report = await governUgvSmppCapabilities(configuration(root), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+
+    expect(report.binding).toEqual(
+      expect.objectContaining({ revision: REVISION, catalogRevision: `1.2.3:${String(REVISION)}` }),
+    );
+    expect(report.catalog).toEqual(expect.objectContaining({ discoveredToolCount: 11 }));
+  });
+
   it('loads the operator token from exactly one inline or file secret and writes a redacted report', async () => {
     const root = workspaceRoot();
     await mkdir(root, { recursive: true });
@@ -664,6 +679,7 @@ interface FakeOptions {
   readonly toolNames?: readonly string[];
   readonly resourceSchema?: Record<string, unknown>;
   readonly availabilityValidUntil?: string;
+  readonly discoveryValidUntil?: string;
   readonly changeCatalogOnFinalRead?: boolean;
   readonly bindingId?: string;
 }
@@ -802,6 +818,19 @@ class FakeUgvGovernanceApis {
     }
     if (method === 'GET' && url.pathname === '/api/v1/mcp/servers') {
       return json(200, { items: [this.server()] });
+    }
+    if (method === 'POST' && url.pathname === `/api/v1/mcp/servers/${SERVER_ID}/refresh`) {
+      const server = this.server();
+      return json(200, {
+        server,
+        snapshot: {
+          ...server.currentDiscovery,
+          discoveredAt: NOW,
+          validUntil: VALID_UNTIL,
+        },
+        tools: this.#tools,
+        dependencyWarnings: [],
+      });
     }
     if (method === 'GET' && url.pathname === `/api/v1/mcp/servers/${SERVER_ID}/tools`)
       return json(200, { items: this.#tools });
@@ -1036,7 +1065,7 @@ class FakeUgvGovernanceApis {
         protocolVersion: '2026-07-28',
         serverInfo: { name: 'ugv-runtime', version: '1.2.3' },
         discoveredAt: NOW,
-        validUntil: VALID_UNTIL,
+        validUntil: this.#options.discoveryValidUntil ?? VALID_UNTIL,
         toolRevision: REVISION,
       },
     };

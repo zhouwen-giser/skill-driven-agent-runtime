@@ -418,6 +418,21 @@ const ToolSchema = z
   })
   .loose();
 
+const RuntimeRefreshSchema = z
+  .object({
+    server: z
+      .object({
+        serverId: z.string().min(1),
+        endpoint: z.string().min(1),
+        protocolMode: z.literal('frozen_v1'),
+        toolRevision: z.number().int().positive(),
+      })
+      .loose(),
+    snapshot: DiscoverySchema,
+    tools: z.array(ToolSchema),
+  })
+  .loose();
+
 const RuntimeSkillSchema = z
   .object({
     skillId: z.string().min(1),
@@ -1212,30 +1227,40 @@ async function loadCatalogAuthority(
       'PROVIDER_BINDING_ENDPOINT_MISMATCH',
       'The current Provider Binding and Runtime Server endpoints are not exact.',
     );
-  requireFresh(server.currentDiscovery.validUntil, observedAt, 'RUNTIME_DISCOVERY_EXPIRED');
+  const refreshed = RuntimeRefreshSchema.parse(
+    await runtimePost(
+      configuration,
+      `/api/v1/mcp/servers/${encodeURIComponent(binding.localServerId)}/refresh`,
+      request,
+    ),
+  );
   if (
-    server.toolRevision !== binding.revision ||
-    server.currentDiscovery.toolRevision !== binding.revision
+    refreshed.server.serverId !== server.serverId ||
+    safeEndpoint(refreshed.server.endpoint, 'RUNTIME_SERVER_ENDPOINT_INVALID') !==
+      safeEndpoint(server.endpoint, 'RUNTIME_SERVER_ENDPOINT_INVALID')
+  )
+    fail(
+      'RUNTIME_REFRESH_IDENTITY_MISMATCH',
+      'Runtime refresh returned a different Server identity.',
+    );
+  requireFresh(refreshed.snapshot.validUntil, observedAt, 'RUNTIME_DISCOVERY_EXPIRED');
+  if (
+    refreshed.server.toolRevision !== binding.revision ||
+    refreshed.snapshot.toolRevision !== binding.revision
   )
     fail(
       'CATALOG_AUTHORITY_REVISION_MISMATCH',
       'Binding and Runtime Catalog revisions are not exact.',
     );
-  const tools = z
-    .object({ items: z.array(ToolSchema) })
-    .loose()
-    .parse(
-      await runtimeGet(
-        configuration,
-        `/api/v1/mcp/servers/${encodeURIComponent(binding.localServerId)}/tools`,
-        request,
-      ),
-    ).items;
+  const tools = refreshed.tools;
   if (tools.some(({ serverId }) => serverId !== binding.localServerId))
     fail('MCP_TOOL_SERVER_MISMATCH', 'A Runtime Tool belongs to a different Server identity.');
   if (tools.length !== binding.operationCount)
     fail('CATALOG_OPERATION_COUNT_MISMATCH', 'Binding and Runtime operation counts differ.');
-  const checksum = runtimeCatalogChecksum(server, tools);
+  const checksum = runtimeCatalogChecksum(
+    Object.freeze({ ...server, currentDiscovery: refreshed.snapshot }),
+    tools,
+  );
   if (checksum !== binding.catalogChecksum)
     fail('CATALOG_CHECKSUM_MISMATCH', 'Binding and Runtime Catalog checksums differ.');
   const serverVersion = server.currentDiscovery.serverInfo['version'];
@@ -2794,6 +2819,19 @@ async function runtimeGet(
   return requestJson(
     `${configuration.runtimeManagementBaseUrl}${path}`,
     { redirect: 'manual' },
+    200,
+    request,
+  );
+}
+
+async function runtimePost(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+  path: string,
+  request: typeof fetch,
+): Promise<unknown> {
+  return requestJson(
+    `${configuration.runtimeManagementBaseUrl}${path}`,
+    { method: 'POST', redirect: 'manual' },
     200,
     request,
   );
