@@ -13,6 +13,7 @@ import {
 } from './WorkflowPanel.js';
 import {
   GoalTaskNavigation,
+  GovernedControlPanel,
   RemoteTaskLifecyclePanel,
   TaskEvidenceNavigation,
   TaskPanel,
@@ -307,6 +308,48 @@ describe('operational console static accessibility contract', () => {
     expect(markup).not.toContain('goal-1');
   });
 
+  it('renders exact high-risk confirmation scope and dedicated operator actions', () => {
+    const markup = renderToStaticMarkup(
+      <GovernedControlPanel
+        value={{
+          items: [
+            {
+              confirmationId: 'weapon-confirmation-1',
+              authorityKind: 'weapon_control',
+              taskId: 'task-1',
+              planId: 'plan-1',
+              planHash: 'a'.repeat(64),
+              toolName: 'vehicle_fire_weapon',
+              argumentsHash: 'b'.repeat(64),
+              parameters: { resourceId: 'vehicle:ugv1', targetId: 'target-17' },
+              confirmedAt: '2026-09-01T05:00:00.000Z',
+              expiresAt: '2026-09-01T05:05:00.000Z',
+              status: 'pending',
+            },
+          ],
+        }}
+        resourceId="vehicle:ugv1"
+        targetId="target-17"
+        reason="Operator confirms exact scope."
+        revokeConfirmationId="weapon-confirmation-1"
+        revokeAuthorityKind="weapon_control"
+        onResourceId={() => undefined}
+        onTargetId={() => undefined}
+        onReason={() => undefined}
+        onRevokeConfirmationId={() => undefined}
+        onRevokeAuthorityKind={() => undefined}
+        onEmergency={() => undefined}
+        onWeapon={() => undefined}
+        onRevoke={() => undefined}
+      />,
+    );
+    expect(markup).toContain('target target-17');
+    expect(markup).toContain('Confirm one exact weapon action');
+    expect(markup).toContain('Authorize exact emergency stop with Plan');
+    expect(markup).toContain('arguments ' + 'b'.repeat(64));
+    expect(markup).toContain('weapon_control · pending');
+  });
+
   it('links the Task explorer to the read-only P10 Gateway evidence projection', () => {
     expect(
       taskEvidenceLinks({
@@ -319,6 +362,18 @@ describe('operational console static accessibility contract', () => {
       key: 'gateway-evidence',
       label: 'Fast Gateway Decision Evidence',
       endpoint: '/api/v1/tasks/task.test/gateway-evidence',
+    });
+    expect(
+      taskEvidenceLinks({
+        taskId: 'task.test',
+        contextId: 'context.test',
+        phase: 'completed',
+        phaseMessage: 'done',
+      }),
+    ).toContainEqual({
+      key: 'governed-control',
+      label: 'Governed Control Confirmations',
+      endpoint: '/api/v1/tasks/task.test/governed-control-confirmations',
     });
   });
 

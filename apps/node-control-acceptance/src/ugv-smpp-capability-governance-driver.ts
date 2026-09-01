@@ -6,10 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 import {
+  a2aExposureEtag,
+  createA2aExposureVersion,
   createNodeCapabilityDefinition,
   hashConfigurationRequest,
   nodeCapabilityEtag,
   type CapabilityImplementationBinding,
+  type A2aExposureVersion,
   type JsonObject,
   type JsonValue,
   type NodeCapabilityDefinitionVersion,
@@ -23,14 +26,10 @@ const FIRE_TOOL_NAME = 'vehicle_fire_weapon';
 const FIRE_CAPABILITY_ID = 'vehicle.ugv.fire-weapon';
 const FIRE_SKILL_ID = 'ugv.fire-weapon';
 const NAVIGATE_TOOL_NAME = 'vehicle_navigate';
-const NAVIGATE_EXACT_DISPATCH_COUNT = 5;
-const NAVIGATE_EXACT_DIRECTION = 'forward';
-const NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS = 2;
-const NAVIGATE_EXACT_TOTAL_DISTANCE_METERS = 10;
-const NAVIGATE_ARGUMENT_CONSTRAINT_ID = 'vehicle-navigate-distance-per-dispatch';
 type NavigateControlMode = 'distance_sequence' | 'coordinate_point';
 
-type GovernanceKind = 'read_only' | 'long_running_control' | 'emergency_stop';
+type GovernanceKind = 'read_only' | 'long_running_control' | 'emergency_stop' | 'weapon_control';
+type NavigateMissionKind = 'route' | 'distance' | 'return_home';
 
 const GOVERNANCE_SPECS = Object.freeze([
   Object.freeze({
@@ -70,26 +69,52 @@ const GOVERNANCE_SPECS = Object.freeze([
     evidence: Object.freeze(['vehicle.targets.observation']),
   }),
   Object.freeze({
-    toolName: 'vehicle_laser_range',
-    capabilityId: 'vehicle.ugv.laser-range',
-    skillId: 'ugv.laser-range',
-    name: 'Read UGV laser range',
-    summary: 'Read one normalized laser range observation for one exact UGV resource.',
-    kind: 'read_only' as const,
-    evidence: Object.freeze(['vehicle.range.observation']),
-  }),
-  Object.freeze({
     toolName: 'vehicle_navigate',
-    capabilityId: 'vehicle.ugv.navigate',
-    skillId: 'ugv.navigate',
-    name: 'Navigate UGV',
-    summary: 'Run one plan-confirmed UGV navigation task and observe its remote terminal state.',
+    capabilityId: 'vehicle.ugv.navigate-route',
+    skillId: 'ugv.navigate-route',
+    name: 'Navigate UGV route',
+    summary: 'Run one plan-confirmed ordered UGV route and observe its remote terminal state.',
     kind: 'long_running_control' as const,
+    missionType: 'route' as const,
     evidence: Object.freeze([
       'vehicle.command.acceptance',
       'vehicle.remote-task.identity',
       'vehicle.task.progress',
       'vehicle.task.terminal',
+      'vehicle.position.observation',
+    ]),
+  }),
+  Object.freeze({
+    toolName: 'vehicle_navigate',
+    capabilityId: 'vehicle.ugv.navigate-distance',
+    skillId: 'ugv.navigate-distance',
+    name: 'Navigate UGV distance',
+    summary:
+      'Run one plan-confirmed relative-distance UGV task and verify the bounded displacement.',
+    kind: 'long_running_control' as const,
+    missionType: 'distance' as const,
+    evidence: Object.freeze([
+      'vehicle.command.acceptance',
+      'vehicle.remote-task.identity',
+      'vehicle.task.progress',
+      'vehicle.task.terminal',
+      'vehicle.displacement.observation',
+    ]),
+  }),
+  Object.freeze({
+    toolName: 'vehicle_navigate',
+    capabilityId: 'vehicle.ugv.return-home',
+    skillId: 'ugv.return-home',
+    name: 'Return UGV home',
+    summary: 'Run one plan-confirmed return-home UGV task and verify its terminal position.',
+    kind: 'long_running_control' as const,
+    missionType: 'return_home' as const,
+    evidence: Object.freeze([
+      'vehicle.command.acceptance',
+      'vehicle.remote-task.identity',
+      'vehicle.task.progress',
+      'vehicle.task.terminal',
+      'vehicle.position.observation',
     ]),
   }),
   Object.freeze({
@@ -151,6 +176,22 @@ const GOVERNANCE_SPECS = Object.freeze([
       'vehicle.stop.observation',
     ]),
   }),
+  Object.freeze({
+    toolName: FIRE_TOOL_NAME,
+    capabilityId: FIRE_CAPABILITY_ID,
+    skillId: FIRE_SKILL_ID,
+    name: 'Fire one governed UGV weapon cycle',
+    summary:
+      'Execute one exact single-shot engagement only with a plan confirmation, a one-shot weapon authority, and fresh strict target and payload evidence.',
+    kind: 'weapon_control' as const,
+    evidence: Object.freeze([
+      'vehicle.target.locked',
+      'vehicle.payload.attack-ready',
+      'vehicle.command.acceptance',
+      'vehicle.remote-task.identity',
+      'vehicle.task.terminal',
+    ]),
+  }),
 ]);
 
 type GovernanceSpec = (typeof GOVERNANCE_SPECS)[number];
@@ -205,9 +246,9 @@ export interface UgvSmppCapabilityGovernanceReport {
   readonly firePolicy: Readonly<{
     toolName: typeof FIRE_TOOL_NAME;
     discovered: boolean;
-    forbidden: true;
-    capabilityCreated: false;
-    skillCreated: false;
+    lifecyclePublished: boolean;
+    invocationReadiness: 'restricted';
+    restrictionReason: 'STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED';
   }>;
   readonly navigateControl: Readonly<{
     activated: boolean;
@@ -234,12 +275,35 @@ export interface UgvSmppCapabilityGovernanceReport {
     skillId: string;
     skillVersion: number;
     toolName: string;
-    riskLevel: 'low' | 'medium' | 'high';
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
     confirmation: 'not_required' | 'required';
     remoteTerminalEvidenceRequired: boolean;
-    readiness: 'available';
-    readinessValidUntil: string;
+    readiness: 'available' | 'restricted';
+    readinessValidUntil?: string;
   }>[];
+  readonly exposures: readonly Readonly<{
+    exposureId: string;
+    exposureVersion: number;
+    capabilityId: string;
+    capabilityVersion: number;
+    exposureHash: string;
+    status: 'published';
+  }>[];
+  readonly agentCard: Readonly<{
+    status: 'active';
+    exposureCount: number;
+  }>;
+  readonly preservedPointNavigation: Readonly<{
+    skillId: 'embodied.move_to';
+    skillVersion: 1;
+    capabilityId: 'embodied.move';
+    capabilityVersion: number;
+    definitionHash: string;
+    exposureId: 'a2a.embodied.move';
+    exposureVersion: number;
+    exposureHash: string;
+    action: 'reused' | 'successor_created';
+  }>;
   readonly stagedControls: readonly Readonly<{
     capabilityId: string;
     skillId: string;
@@ -446,6 +510,33 @@ const ReadinessSchema = z
   })
   .loose();
 
+const ExposureSchema = z
+  .object({
+    exposureId: z.string().min(1),
+    version: z.number().int().positive(),
+    capabilityId: z.string().min(1),
+    capabilityVersion: z.number().int().positive(),
+    agentSkillId: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    tags: z.array(z.string()).optional(),
+    examples: z.array(z.string()).optional(),
+    inputModes: z.array(z.string()).optional(),
+    outputModes: z.array(z.string()).optional(),
+    requestSchema: z.record(z.string(), z.unknown()),
+    resultSchema: z.record(z.string(), z.unknown()),
+    visibility: z.enum(['organization', 'public']),
+    requesterPolicy: z.record(z.string(), z.unknown()).optional(),
+    readinessPublicationPolicy: z
+      .enum(['publish_when_available', 'publish_degraded', 'always_publish_with_status'])
+      .optional(),
+    status: z.enum(['draft', 'published', 'suspended', 'retired']),
+    exposureHash: z.string().regex(CHECKSUM),
+  })
+  .strict();
+
+const ExposureListSchema = z.object({ items: z.array(ExposureSchema) }).loose();
+
 type Binding = z.infer<typeof BindingSchema>;
 type RuntimeServer = z.infer<typeof RuntimeServerSchema>;
 type Tool = z.infer<typeof ToolSchema>;
@@ -487,7 +578,6 @@ export async function governUgvSmppCapabilities(
   const pause = dependencies.delay ?? delay;
   const observedAt = validTimestamp(now(), 'DRIVER_CLOCK_INVALID');
   const authority = await loadCatalogAuthority(configuration, observedAt, request);
-  await assertFireGovernanceAbsent(configuration, request);
   const versions = await resolveGovernanceVersions(configuration, authority, request);
   const planned = planGovernance(configuration, authority, versions);
   const prepared: PreparedGovernance[] = [];
@@ -564,6 +654,13 @@ export async function governUgvSmppCapabilities(
       }),
     );
   }
+
+  const preservedPointNavigation = await ensureHistoricalPointNavigationSuccessor(
+    configuration,
+    authority,
+    request,
+    pause,
+  );
 
   const skills: UgvSmppCapabilityGovernanceReport['skills'][number][] = [];
   const stagedSkillPackages = new Map<
@@ -754,8 +851,11 @@ export async function governUgvSmppCapabilities(
     readinessTargets.push(item);
   }
 
+  const readinessEligibleTargets = readinessTargets.filter(
+    ({ spec }) => spec.kind !== 'weapon_control',
+  );
   const readiness = await evaluateCapabilityReadiness(
-    readinessTargets,
+    readinessEligibleTargets,
     configuration,
     request,
     pause,
@@ -769,6 +869,20 @@ export async function governUgvSmppCapabilities(
     );
 
   const capabilities = readinessTargets.map((item) => {
+    if (item.spec.kind === 'weapon_control')
+      return Object.freeze({
+        capabilityId: item.spec.capabilityId,
+        capabilityVersion: item.capabilityVersion,
+        definitionHash: item.capability.definitionHash,
+        implementationBindingId: item.implementation.bindingId,
+        skillId: item.spec.skillId,
+        skillVersion: item.skillVersion,
+        toolName: item.spec.toolName,
+        riskLevel: riskFor(item.spec.kind),
+        confirmation: 'required' as const,
+        remoteTerminalEvidenceRequired: true,
+        readiness: 'restricted' as const,
+      });
     const snapshot = readiness.get(item.spec.capabilityId);
     if (snapshot === undefined)
       return fail('CAPABILITY_READINESS_MISSING', 'Capability readiness was not recorded.');
@@ -789,6 +903,9 @@ export async function governUgvSmppCapabilities(
       readinessValidUntil: snapshot.validUntil,
     });
   });
+
+  const exposures = await ensureCapabilityExposures(readinessTargets, configuration, request);
+  await rebuildAgentCard(configuration, request);
 
   const knownToolNames = new Set<string>([
     ...GOVERNANCE_SPECS.map(({ toolName }) => toolName),
@@ -838,9 +955,11 @@ export async function governUgvSmppCapabilities(
     firePolicy: Object.freeze({
       toolName: FIRE_TOOL_NAME,
       discovered: finalAuthority.tools.some(({ toolName }) => toolName === FIRE_TOOL_NAME),
-      forbidden: true,
-      capabilityCreated: false,
-      skillCreated: false,
+      lifecyclePublished: capabilities.some(
+        ({ capabilityId }) => capabilityId === FIRE_CAPABILITY_ID,
+      ),
+      invocationReadiness: 'restricted',
+      restrictionReason: 'STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED',
     }),
     navigateControl: Object.freeze({
       activated: configuration.activateNavigateControl === true,
@@ -850,6 +969,9 @@ export async function governUgvSmppCapabilities(
     }),
     skills: Object.freeze(skills),
     capabilities: Object.freeze(capabilities),
+    exposures,
+    agentCard: Object.freeze({ status: 'active', exposureCount: exposures.length + 1 }),
+    preservedPointNavigation,
     stagedControls: Object.freeze(
       stagedControlPrepared.map((item) => {
         const stagedSkill = stagedSkillPackages.get(item.spec.skillId);
@@ -891,24 +1013,6 @@ export async function governUgvSmppCapabilities(
   return report;
 }
 
-async function assertFireGovernanceAbsent(
-  configuration: UgvSmppCapabilityGovernanceConfiguration,
-  request: typeof fetch,
-): Promise<void> {
-  const [skill, capability] = await Promise.all([
-    runtimeListSkillVersions(configuration, FIRE_SKILL_ID, request),
-    controlListCapabilities(configuration, request),
-  ]);
-  if (
-    skill.length !== 0 ||
-    capability.some(({ capabilityId }) => capabilityId === FIRE_CAPABILITY_ID)
-  )
-    fail(
-      'FIRE_GOVERNANCE_ALREADY_EXISTS',
-      'An exact UGV fire Capability or Skill exists; this Goal cannot reconcile or enable it.',
-    );
-}
-
 async function resolveGovernanceVersions(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
   authority: CatalogAuthority,
@@ -931,7 +1035,7 @@ async function resolveGovernanceVersions(
       const tool = authority.tools.find(({ toolName }) => toolName === spec.toolName);
       if (tool === undefined)
         return fail('GOVERNANCE_VERSION_MISSING', 'Governance Tool authority is incomplete.');
-      validateToolSemantics(spec, tool, authority.binding.localServerId, configuration);
+      validateToolSemantics(spec, tool, authority.binding.localServerId);
       const resource = resolveResourceId(tool, configuration.resourceId);
       const skills = await runtimeListSkillVersions(configuration, spec.skillId, request);
       const nodes = capabilityVersions.get(spec.capabilityId) ?? [];
@@ -1015,7 +1119,7 @@ function planGovernance(
     const version = versions.get(spec.skillId);
     if (version === undefined)
       return fail('GOVERNANCE_VERSION_MISSING', 'Governance version resolution is incomplete.');
-    validateToolSemantics(spec, tool, authority.binding.localServerId, configuration);
+    validateToolSemantics(spec, tool, authority.binding.localServerId);
     const resource = resolveResourceId(tool, configuration.resourceId);
     const skillContract = buildSkillContract(
       spec,
@@ -1172,12 +1276,7 @@ async function loadCatalogAuthority(
   return Object.freeze({ binding, server, tools: Object.freeze(tools), fingerprint });
 }
 
-function validateToolSemantics(
-  spec: GovernanceSpec,
-  tool: Tool,
-  serverId: string,
-  configuration: UgvSmppCapabilityGovernanceConfiguration,
-): void {
+function validateToolSemantics(spec: GovernanceSpec, tool: Tool, serverId: string): void {
   const expectedReadOnly = spec.kind === 'read_only';
   if (
     tool.serverId !== serverId ||
@@ -1197,53 +1296,101 @@ function validateToolSemantics(
     );
   requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
-  if (spec.toolName === NAVIGATE_TOOL_NAME) {
-    if (navigateControlMode(configuration) === 'coordinate_point')
-      assertNavigatePointSchema(tool.inputSchema);
-    else assertNavigateDistanceSchema(tool.inputSchema);
-  }
+  if (spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec)
+    assertNavigateMissionSchema(tool.inputSchema, spec.missionType);
+  if (spec.kind === 'weapon_control') weaponInputSchema(tool.inputSchema, 'vehicle:ugv1');
 }
 
-function assertNavigatePointSchema(schema: unknown): void {
+function assertNavigateMissionSchema(schema: unknown, missionType: NavigateMissionKind): void {
+  if (missionType === 'distance') {
+    assertNavigateDistanceSchema(schema);
+    return;
+  }
+  const input = requireObjectSchema(schema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
+  const mission = record(record(input['properties'])?.['mission']);
+  const alternatives = mission?.['oneOf'];
+  const expected = Array.isArray(alternatives)
+    ? alternatives.map(record).find((alternative) => {
+        const fields = record(alternative?.['properties']);
+        return record(fields?.['type'])?.['const'] === missionType;
+      })
+    : undefined;
+  if (expected?.['additionalProperties'] !== false)
+    fail(
+      'NAVIGATE_MISSION_SCHEMA_UNSUPPORTED',
+      `vehicle_navigate does not expose an exact ${missionType} mission alternative.`,
+    );
+}
+
+function navigateMissionInputSchema(
+  schema: unknown,
+  resourceId: string,
+  missionType: NavigateMissionKind,
+): JsonObject {
+  assertNavigateMissionSchema(schema, missionType);
   const input = requireObjectSchema(schema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   const properties = record(input['properties']);
   const mission = record(properties?.['mission']);
   const alternatives = mission?.['oneOf'];
-  const pointAlternative = Array.isArray(alternatives)
+  const selected = Array.isArray(alternatives)
     ? alternatives.map(record).find((alternative) => {
         const fields = record(alternative?.['properties']);
-        return record(fields?.['type'])?.['const'] === 'point';
+        return record(fields?.['type'])?.['const'] === missionType;
       })
     : undefined;
-  const pointFields = record(pointAlternative?.['properties']);
-  const target = record(pointFields?.['target']);
-  const targetFields = record(target?.['properties']);
-  const latitude = record(targetFields?.['latitude']);
-  const longitude = record(targetFields?.['longitude']);
-  const altitude = record(targetFields?.['altitude']);
-  if (pointAlternative === undefined)
-    fail(
-      'NAVIGATE_POINT_SCHEMA_UNSUPPORTED',
-      'vehicle_navigate must expose one bounded WGS84 point mission alternative.',
-    );
+  if (selected === undefined)
+    return fail('NAVIGATE_MISSION_SCHEMA_UNSUPPORTED', 'Navigate mission schema is absent.');
+  const required = Array.isArray(input['required'])
+    ? input['required'].filter((value): value is string => typeof value === 'string')
+    : [];
+  return requireObjectSchema(
+    {
+      ...input,
+      required: Object.freeze([...new Set([...required, 'resourceId', 'mission'])]),
+      properties: {
+        ...properties,
+        resourceId: { type: 'string', const: resourceId },
+        mission: selected,
+      },
+    },
+    'NAVIGATE_MISSION_SCHEMA_UNSUPPORTED',
+  );
+}
+
+function weaponInputSchema(schema: unknown, resourceId: string): JsonObject {
+  const input = requireObjectSchema(schema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
+  const properties = record(input['properties']);
+  const targetId = record(properties?.['targetId']);
   if (
-    pointAlternative['additionalProperties'] !== false ||
-    !sameStrings(pointAlternative['required'], ['target', 'type']) ||
-    target?.['type'] !== 'object' ||
-    target['additionalProperties'] !== false ||
-    !sameStrings(target['required'], ['latitude', 'longitude']) ||
-    latitude?.['type'] !== 'number' ||
-    latitude['minimum'] !== -90 ||
-    latitude['maximum'] !== 90 ||
-    longitude?.['type'] !== 'number' ||
-    longitude['minimum'] !== -180 ||
-    longitude['maximum'] !== 180 ||
-    altitude?.['type'] !== 'number'
+    targetId?.['type'] !== 'string' ||
+    !Array.isArray(input['required']) ||
+    !input['required'].includes('targetId')
   )
     fail(
-      'NAVIGATE_POINT_SCHEMA_UNSUPPORTED',
-      'vehicle_navigate must expose the exact WGS84 mission.point contract.',
+      'WEAPON_INPUT_SCHEMA_UNSUPPORTED',
+      'vehicle_fire_weapon must require one explicit targetId.',
     );
+  return requireObjectSchema(
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId', 'targetId', 'engagementMode', 'requireConfirmation'],
+      properties: {
+        resourceId: { type: 'string', const: resourceId },
+        targetId,
+        engagementMode: {
+          type: 'string',
+          const: 'single',
+          enum: ['single'],
+        },
+        requireConfirmation: {
+          type: 'boolean',
+          const: true,
+        },
+      },
+    },
+    'WEAPON_INPUT_SCHEMA_UNSUPPORTED',
+  );
 }
 
 function assertNavigateDistanceSchema(schema: unknown): void {
@@ -1336,17 +1483,14 @@ function buildSkillContract(
   skill: Readonly<Record<string, unknown>>;
   usage: Readonly<Record<string, unknown>>;
 }> {
-  const coordinateNavigate =
-    spec.toolName === NAVIGATE_TOOL_NAME &&
-    navigateControlMode(configuration) === 'coordinate_point';
-  const inputSchema = coordinateNavigate
-    ? coordinatePointInputSchema(tool.inputSchema, resourceId)
-    : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
+  const inputSchema =
+    spec.kind === 'weapon_control'
+      ? weaponInputSchema(tool.inputSchema, resourceId)
+      : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
+        ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
+        : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID');
   const outputSchema = requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID');
   const readOnly = spec.kind === 'read_only';
-  const boundedNavigate =
-    spec.toolName === NAVIGATE_TOOL_NAME &&
-    navigateControlMode(configuration) === 'distance_sequence';
   const confirmation = readOnly
     ? []
     : [
@@ -1389,7 +1533,18 @@ function buildSkillContract(
           }
         : {
             sideEffecting: true,
-            confirmation: 'required_before_execution',
+            confirmation:
+              spec.kind === 'weapon_control'
+                ? 'plan_and_weapon_confirmation_required'
+                : spec.kind === 'emergency_stop'
+                  ? 'plan_or_direct_emergency_authority_required'
+                  : 'required_before_execution',
+            authorityKind:
+              spec.kind === 'weapon_control'
+                ? 'weapon_control'
+                : spec.kind === 'emergency_stop'
+                  ? 'emergency_stop'
+                  : 'physical_control',
             autoConfirmPlan: false,
             allowRealSideEffectsEnv: 'ALLOW_REAL_UGV_SIDE_EFFECTS',
             realTestRunIdEnv: 'REAL_UGV_TEST_RUN_ID',
@@ -1398,16 +1553,7 @@ function buildSkillContract(
             terminalObservationRequired: true,
             redispatchAfterUncertain: false,
             ...(spec.toolName === NAVIGATE_TOOL_NAME
-              ? {
-                  dispatchMaximum: navigateDispatchMaximum(configuration),
-                  ...(boundedNavigate
-                    ? {
-                        requiredArgumentConstraintIds: Object.freeze([
-                          NAVIGATE_ARGUMENT_CONSTRAINT_ID,
-                        ]),
-                      }
-                    : {}),
-                }
+              ? { dispatchMaximum: navigateDispatchMaximum(configuration) }
               : {}),
             ...(spec.kind === 'emergency_stop'
               ? {
@@ -1433,11 +1579,7 @@ function buildSkillContract(
     capabilities: Object.freeze([spec.capabilityId]),
     workflowGuidance: readOnly
       ? `Invoke exactly ${spec.toolName} once for ${resourceId}; require normalized observation evidence and never invoke a side-effecting Tool.`
-      : boundedNavigate
-        ? `After explicit Plan confirmation, invoke ${spec.toolName} exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} times for ${resourceId}; every invocation must move ${NAVIGATE_EXACT_DIRECTION} by exactly ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres, bind its remote Task, and reach a terminal observation before the next dispatch. Never redispatch an uncertain command.`
-        : coordinateNavigate
-          ? `After explicit Plan confirmation, invoke ${spec.toolName} exactly once for ${resourceId} with mission.type=point, an explicit WGS84 target, and stopOnObstacle=true; bind the remote Task and accept only terminal evidence. Never redispatch an uncertain command.`
-          : `After explicit Plan confirmation, invoke exactly ${spec.toolName} once for ${resourceId}; bind the remote Task, observe progress, and accept only its terminal observation. Never redispatch an uncertain command.`,
+      : `After explicit Plan confirmation, invoke exactly ${spec.toolName} once for ${resourceId}; bind the remote Task, observe progress, and accept only its terminal observation. Never redispatch an uncertain command.`,
     outputInstruction:
       'Return only schema-valid public SMPP output with the declared normalized evidence references.',
     inputSchema,
@@ -1447,9 +1589,11 @@ function buildSkillContract(
         Object.freeze({ serverId: binding.localServerId, toolName: spec.toolName }),
       ]),
       optional: Object.freeze([]),
-      forbidden: Object.freeze([
-        Object.freeze({ serverId: binding.localServerId, toolName: FIRE_TOOL_NAME }),
-      ]),
+      forbidden: Object.freeze(
+        spec.kind === 'weapon_control'
+          ? []
+          : [Object.freeze({ serverId: binding.localServerId, toolName: FIRE_TOOL_NAME })],
+      ),
     }),
     runtimePolicy: Object.freeze({
       autoConfirmPlan: false,
@@ -1476,24 +1620,12 @@ function buildSkillContract(
         `Use exact Skill ${spec.skillId}@${String(version)} and exact MCP Tool ${spec.toolName}.`,
         readOnly
           ? 'Require normalized observation evidence; MCP transport acceptance is not sufficient evidence.'
-          : boundedNavigate
-            ? `Dispatch exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} times in strict sequence; bind every remote Task and require progress plus terminal observation before its successor dispatch.`
-            : coordinateNavigate
-              ? 'Dispatch exactly once to the explicit WGS84 point with stopOnObstacle=true; bind the remote Task and require progress plus terminal observation.'
-              : 'Dispatch once only; bind the remote Task and require progress plus terminal observation before success.',
-        ...(boundedNavigate
-          ? [
-              `Each ${NAVIGATE_TOOL_NAME} dispatch must use mission.type=distance, direction=${NAVIGATE_EXACT_DIRECTION}, and mission.distanceM=${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres; the confirmed Task must contain exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} sequential dispatches totalling ${String(NAVIGATE_EXACT_TOTAL_DISTANCE_METERS)} metres.`,
-            ]
-          : []),
-        ...(coordinateNavigate
-          ? [
-              'The confirmed input must use mission.type=point, a schema-valid explicit WGS84 target, and stopOnObstacle=true.',
-            ]
-          : []),
+          : 'Dispatch once only; bind the remote Task and require progress plus terminal observation before success.',
       ]),
       forbiddenActions: Object.freeze([
-        `Invoke ${FIRE_TOOL_NAME} or create a fire/weapon Capability.`,
+        ...(spec.kind === 'weapon_control'
+          ? ['Invoke more than one engagement or use a target not frozen by strict evidence.']
+          : [`Invoke ${FIRE_TOOL_NAME} from this non-weapon Skill.`]),
         'Use a Tool alias, a different Provider Binding, or a different public resource.',
         'Expose downstream Device MCP fields, MQTT topics, simulator-internal identifiers or credentials.',
         ...(readOnly
@@ -1501,16 +1633,6 @@ function buildSkillContract(
           : [
               'Auto-confirm a Plan or dispatch before explicit Plan confirmation.',
               'Redispatch a physical command after an uncertain or unreachable response.',
-              ...(boundedNavigate
-                ? [
-                    `Dispatch ${NAVIGATE_TOOL_NAME} with any direction or distance outside the frozen ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} × ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metre ${NAVIGATE_EXACT_DIRECTION} sequence, or dispatch a successor before its predecessor is terminal.`,
-                  ]
-                : []),
-              ...(coordinateNavigate
-                ? [
-                    `Dispatch ${NAVIGATE_TOOL_NAME} with a distance, route, return-home mission, an inferred target, or stopOnObstacle other than true.`,
-                  ]
-                : []),
             ]),
         ...(spec.kind === 'emergency_stop'
           ? ['Trigger emergency stop from ambiguous, inferred or resource-less model output.']
@@ -1549,11 +1671,9 @@ function buildSkillContract(
         {
           length: spec.toolName === NAVIGATE_TOOL_NAME ? navigateDispatchMaximum(configuration) : 1,
         },
-        (_, index) =>
+        () =>
           Object.freeze({
-            bindingId: boundedNavigate
-              ? `task-binding-${spec.skillId}-v${String(version)}-dispatch-${String(index + 1)}`
-              : `task-binding-${spec.skillId}-v${String(version)}`,
+            bindingId: `task-binding-${spec.skillId}-v${String(version)}`,
             taskType: spec.toolName,
             providerPolicy: Object.freeze({
               selection: 'required',
@@ -1587,11 +1707,7 @@ function buildSkillContract(
         instructions: Object.freeze([
           readOnly
             ? 'Validate the exact resource and current Binding, invoke once, and require normalized observation evidence.'
-            : boundedNavigate
-              ? `Validate explicit confirmation and current authority, then dispatch exactly ${String(NAVIGATE_EXACT_DISPATCH_COUNT)} ${NAVIGATE_EXACT_DIRECTION} distance missions of ${String(NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS)} metres in strict sequence; require terminal evidence before each successor dispatch.`
-              : coordinateNavigate
-                ? 'Validate explicit confirmation and current authority, then dispatch the explicit WGS84 point mission exactly once with stopOnObstacle=true; require remote terminal evidence.'
-                : 'Validate explicit confirmation and current authority, dispatch once, bind the remote Task, observe progress, and require terminal evidence.',
+            : 'Validate explicit confirmation and current authority, dispatch once, bind the remote Task, observe progress, and require terminal evidence.',
         ]),
       }),
     }),
@@ -1622,12 +1738,6 @@ function buildCapability(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
 ): NodeCapabilityDefinitionVersion {
   const readOnly = spec.kind === 'read_only';
-  const coordinateNavigate =
-    spec.toolName === NAVIGATE_TOOL_NAME &&
-    navigateControlMode(configuration) === 'coordinate_point';
-  const boundedNavigate =
-    spec.toolName === NAVIGATE_TOOL_NAME &&
-    navigateControlMode(configuration) === 'distance_sequence';
   const dispatchMaximum =
     spec.toolName === NAVIGATE_TOOL_NAME ? navigateDispatchMaximum(configuration) : 1;
   return createNodeCapabilityDefinition({
@@ -1639,9 +1749,12 @@ function buildCapability(
     domain: 'vehicle.ugv',
     name: spec.name,
     description: spec.summary,
-    inputSchema: coordinateNavigate
-      ? coordinatePointInputSchema(tool.inputSchema, resourceId)
-      : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
+    inputSchema:
+      spec.kind === 'weapon_control'
+        ? weaponInputSchema(tool.inputSchema, resourceId)
+        : spec.toolName === NAVIGATE_TOOL_NAME && 'missionType' in spec
+          ? navigateMissionInputSchema(tool.inputSchema, resourceId, spec.missionType)
+          : requireObjectSchema(tool.inputSchema, 'MCP_TOOL_INPUT_SCHEMA_INVALID'),
     outputSchema: requireObjectSchema(tool.outputSchema, 'MCP_TOOL_OUTPUT_SCHEMA_INVALID'),
     successCriteria: [
       Object.freeze({ type: 'output_schema_valid', required: true }),
@@ -1684,7 +1797,23 @@ function buildCapability(
       Object.freeze({
         type: 'confirmation_policy',
         required: !readOnly,
-        stage: readOnly ? 'not_applicable' : 'before_execution',
+        stage: readOnly
+          ? 'not_applicable'
+          : spec.kind === 'weapon_control'
+            ? 'pre_dispatch'
+            : spec.kind === 'emergency_stop'
+              ? 'before_execution_or_direct_emergency'
+              : 'before_execution',
+        ...(readOnly
+          ? {}
+          : {
+              authorityKind:
+                spec.kind === 'weapon_control'
+                  ? 'weapon_control'
+                  : spec.kind === 'emergency_stop'
+                    ? 'emergency_stop'
+                    : 'physical_control',
+            }),
         autoConfirmPlan: false,
       }),
       ...(readOnly
@@ -1700,7 +1829,6 @@ function buildCapability(
               remoteTaskTerminalEvidenceRequired: true,
             }),
           ]),
-      ...(boundedNavigate ? [boundedMovementConstraint()] : []),
       ...(spec.kind === 'emergency_stop'
         ? [
             Object.freeze({
@@ -1714,35 +1842,26 @@ function buildCapability(
             }),
           ]
         : []),
+      ...(spec.kind === 'weapon_control'
+        ? [
+            Object.freeze({
+              type: 'weapon_control_policy',
+              engagementMode: 'single',
+              requireConfirmation: true,
+              targetArgumentPath: Object.freeze(['targetId']),
+              strictFreshTargetLockRequired: true,
+              strictFreshPayloadAttackReadyRequired: true,
+              opaqueTargetObjectsAccepted: false,
+              unavailableBehavior: 'restrict_without_transport',
+            }),
+          ]
+        : []),
     ],
     supportedModes: readOnly ? ['deterministic'] : ['plan_confirmed', 'remote_task'],
     riskLevel: riskFor(spec.kind),
     status: 'draft',
     createdBy: 'ugv-smpp-capability-governance-driver',
     createdAt: CREATED_AT,
-  });
-}
-
-function boundedMovementConstraint(): JsonObject {
-  return Object.freeze({
-    type: 'bounded_movement_policy',
-    constraintId: NAVIGATE_ARGUMENT_CONSTRAINT_ID,
-    toolName: NAVIGATE_TOOL_NAME,
-    missionType: 'distance',
-    missionTypeArgumentPath: Object.freeze(['mission', 'type']),
-    directionArgumentPath: Object.freeze(['mission', 'direction']),
-    distanceArgumentPath: Object.freeze(['mission', 'distanceM']),
-    allowedDirections: Object.freeze(['backward', 'forward', 'left', 'right']),
-    exclusiveMinimum: 0,
-    maximumInclusive: NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS,
-    unit: 'm',
-    scope: 'per_dispatch',
-    exactDirection: NAVIGATE_EXACT_DIRECTION,
-    exactDistancePerDispatch: NAVIGATE_EXACT_DISTANCE_PER_DISPATCH_METERS,
-    exactDispatchCount: NAVIGATE_EXACT_DISPATCH_COUNT,
-    exactTotalDistance: NAVIGATE_EXACT_TOTAL_DISTANCE_METERS,
-    strictSequential: true,
-    terminalBeforeNext: true,
   });
 }
 
@@ -1758,40 +1877,6 @@ function runtimeExecutionModeConstraint(
   });
 }
 
-function coordinatePointInputSchema(schema: unknown, resourceId: string): JsonObject {
-  assertNavigatePointSchema(schema);
-  return requireObjectSchema(
-    {
-      type: 'object',
-      additionalProperties: false,
-      required: ['resourceId', 'mission', 'stopOnObstacle'],
-      properties: {
-        resourceId: { type: 'string', const: resourceId },
-        mission: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['type', 'target'],
-          properties: {
-            type: { const: 'point' },
-            target: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['latitude', 'longitude', 'altitude'],
-              properties: {
-                latitude: { type: 'number', minimum: -90, maximum: 90 },
-                longitude: { type: 'number', minimum: -180, maximum: 180 },
-                altitude: { type: 'number' },
-              },
-            },
-          },
-        },
-        stopOnObstacle: { type: 'boolean', const: true },
-      },
-    },
-    'NAVIGATE_POINT_SCHEMA_UNSUPPORTED',
-  );
-}
-
 function navigateControlMode(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
 ): NavigateControlMode {
@@ -1799,9 +1884,8 @@ function navigateControlMode(
 }
 
 function navigateDispatchMaximum(configuration: UgvSmppCapabilityGovernanceConfiguration): number {
-  return navigateControlMode(configuration) === 'distance_sequence'
-    ? NAVIGATE_EXACT_DISPATCH_COUNT
-    : 1;
+  void configuration;
+  return 1;
 }
 
 function buildImplementation(
@@ -1878,8 +1962,466 @@ function effectFor(spec: GovernanceSpec): string {
   return `effect.${spec.capabilityId}.commanded`;
 }
 
-function riskFor(kind: GovernanceKind): 'low' | 'medium' | 'high' {
-  return kind === 'read_only' ? 'low' : kind === 'emergency_stop' ? 'high' : 'medium';
+function riskFor(kind: GovernanceKind): 'low' | 'medium' | 'high' | 'critical' {
+  return kind === 'read_only'
+    ? 'low'
+    : kind === 'weapon_control'
+      ? 'critical'
+      : kind === 'emergency_stop'
+        ? 'high'
+        : 'medium';
+}
+
+async function ensureCapabilityExposures(
+  targets: readonly PreparedGovernance[],
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+  request: typeof fetch,
+): Promise<UgvSmppCapabilityGovernanceReport['exposures']> {
+  const listed = ExposureListSchema.parse(
+    await controlGet(configuration, '/api/v1/a2a-exposures?pageSize=1000', request),
+  ).items;
+  const published = [];
+  for (const item of targets) {
+    const exposureId = exposureIdFor(item.spec);
+    const versions = listed
+      .filter((exposure) => exposure.exposureId === exposureId)
+      .sort((left, right) => right.version - left.version);
+    const latest = versions[0];
+    const draftFor = (version: number) =>
+      createA2aExposureVersion({
+        exposureId,
+        version,
+        capabilityId: item.spec.capabilityId,
+        capabilityVersion: item.capabilityVersion,
+        agentSkillId: item.spec.skillId,
+        name: item.spec.name,
+        description: item.spec.summary,
+        tags: Object.freeze([
+          'ugv',
+          'vehicle',
+          item.spec.kind.replaceAll('_', '-'),
+          item.spec.toolName,
+        ]),
+        examples: Object.freeze([`Use ${item.spec.capabilityId} for vehicle:ugv1.`]),
+        inputModes: Object.freeze(['text/plain', 'application/json']),
+        outputModes: Object.freeze(['application/json']),
+        requestSchema: item.capability.inputSchema,
+        resultSchema: item.capability.outputSchema,
+        visibility: 'public',
+        requesterPolicy: requesterPolicyFor(item.spec),
+        readinessPublicationPolicy:
+          item.spec.kind === 'weapon_control'
+            ? 'always_publish_with_status'
+            : 'publish_when_available',
+        status: 'draft',
+      });
+    const latestExact = latest === undefined ? undefined : draftFor(latest.version);
+    const same = latest !== undefined && latest.exposureHash === latestExact?.exposureHash;
+    const version = same ? latest.version : (latest?.version ?? 0) + 1;
+    const draft = draftFor(version);
+    let current = same
+      ? latest
+      : ExposureSchema.parse(
+          await controlCreate(
+            configuration,
+            '/api/v1/a2a-exposures',
+            runKey(configuration.runId, 'exposure-create', `${exposureId}@${String(version)}`),
+            draft,
+            request,
+          ),
+        );
+    if (current.exposureHash !== draft.exposureHash)
+      fail(
+        'A2A_EXPOSURE_DRIFT',
+        'Existing A2A Exposure differs from current Capability authority.',
+      );
+    if (current.status === 'retired')
+      fail('A2A_EXPOSURE_RETIRED', 'A retired exact Exposure cannot be reused.');
+    if (current.status !== 'published') {
+      const operation = OperationSchema.parse(
+        await controlMutation(
+          configuration,
+          `/api/v1/a2a-exposures/${encodeURIComponent(exposureId)}/versions/${String(version)}/publish`,
+          runKey(configuration.runId, 'exposure-publish', `${exposureId}@${String(version)}`),
+          { reason: `Publish exact governed UGV Exposure ${exposureId}@${String(version)}.` },
+          a2aExposureEtag(current as A2aExposureVersion),
+          202,
+          request,
+        ),
+      );
+      current = ExposureSchema.parse(operation.result);
+    }
+    for (const prior of versions.filter(
+      (exposure) => exposure.version !== version && exposure.status === 'published',
+    ))
+      await controlMutation(
+        configuration,
+        `/api/v1/a2a-exposures/${encodeURIComponent(exposureId)}/versions/${String(prior.version)}/suspend`,
+        runKey(configuration.runId, 'exposure-suspend', `${exposureId}@${String(prior.version)}`),
+        { reason: `Supersede ${exposureId}@${String(prior.version)} with @${String(version)}.` },
+        a2aExposureEtag(prior as A2aExposureVersion),
+        202,
+        request,
+      );
+    published.push(
+      Object.freeze({
+        exposureId,
+        exposureVersion: version,
+        capabilityId: item.spec.capabilityId,
+        capabilityVersion: item.capabilityVersion,
+        exposureHash: current.exposureHash,
+        status: 'published' as const,
+      }),
+    );
+  }
+  return Object.freeze(published.sort((left, right) => compare(left.exposureId, right.exposureId)));
+}
+
+async function rebuildAgentCard(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+  request: typeof fetch,
+): Promise<void> {
+  const operation = OperationSchema.parse(
+    await controlCommand(
+      configuration,
+      '/api/v1/a2a-agent-card-revisions/rebuild',
+      runKey(configuration.runId, 'agent-card-rebuild', 'ugv-ten-tool'),
+      { reason: 'Activate the exact current UGV 10-tool Capability Exposure projection.' },
+      request,
+    ),
+  );
+  if (!isRecord(operation.result) || operation.result['status'] !== 'active')
+    fail('A2A_AGENT_CARD_NOT_ACTIVE', 'Node Control did not activate the rebuilt Agent Card.');
+}
+
+function exposureIdFor(spec: GovernanceSpec): string {
+  if (spec.skillId === 'ugv.get-state') return 'a2a.vehicle.ugv.read-state';
+  if (spec.skillId === 'ugv.get-capabilities') return 'a2a.vehicle.ugv.read-capabilities';
+  if (spec.skillId === 'ugv.get-payload-status') return 'a2a.vehicle.ugv.read-payload';
+  if (spec.skillId === 'ugv.get-targets') return 'a2a.vehicle.ugv.read-targets';
+  if (spec.skillId === 'ugv.navigate-route') return 'a2a.vehicle.ugv.navigate-route';
+  if (spec.skillId === 'ugv.navigate-distance') return 'a2a.vehicle.ugv.navigate-distance';
+  if (spec.skillId === 'ugv.return-home') return 'a2a.vehicle.ugv.return-home';
+  if (spec.skillId === 'ugv.area-recon') return 'a2a.vehicle.ugv.recon';
+  if (spec.skillId === 'ugv.track-target') return 'a2a.vehicle.ugv.track-target';
+  if (spec.skillId === 'ugv.control-gimbal') return 'a2a.vehicle.ugv.control-gimbal';
+  if (spec.skillId === 'ugv.emergency-stop') return 'a2a.vehicle.ugv.emergency-stop';
+  return 'a2a.vehicle.ugv.fire-weapon';
+}
+
+function requesterPolicyFor(spec: GovernanceSpec): JsonObject {
+  if (spec.kind === 'read_only')
+    return Object.freeze({ allowAnonymous: false, authority: 'authenticated_requester' });
+  if (spec.kind === 'weapon_control')
+    return Object.freeze({
+      allowAnonymous: false,
+      requiredAuthorities: Object.freeze(['plan_confirmation', 'weapon_control.confirm']),
+      targetEvidence: 'strict_fresh_lock_and_payload_required',
+    });
+  if (spec.kind === 'emergency_stop')
+    return Object.freeze({
+      allowAnonymous: false,
+      requiredAuthorities: Object.freeze([
+        'plan_confirmation_or_direct_emergency_instruction',
+        'physical_control.emergency_stop',
+      ]),
+    });
+  return Object.freeze({
+    allowAnonymous: false,
+    requiredAuthorities: Object.freeze(['plan_confirmation', 'physical_control.confirm']),
+  });
+}
+
+async function ensureHistoricalPointNavigationSuccessor(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+  authority: CatalogAuthority,
+  request: typeof fetch,
+  pause: (milliseconds: number) => Promise<void>,
+): Promise<UgvSmppCapabilityGovernanceReport['preservedPointNavigation']> {
+  const skill = await runtimeGetSkill(configuration, 'embodied.move_to', 1, request);
+  if (skill?.status !== 'enabled')
+    fail(
+      'POINT_NAVIGATION_SKILL_AUTHORITY_MISSING',
+      'Historical embodied.move_to@1 must remain enabled before its Capability can advance.',
+    );
+  const tool = authority.tools.find(({ toolName }) => toolName === NAVIGATE_TOOL_NAME);
+  if (tool === undefined)
+    return fail(
+      'POINT_NAVIGATION_TOOL_AUTHORITY_MISSING',
+      'The current Catalog lacks vehicle_navigate.',
+    );
+  const capabilities = (await controlListCapabilities(configuration, request))
+    .filter(({ capabilityId }) => capabilityId === 'embodied.move')
+    .sort((left, right) => right.version - left.version);
+  const latest = capabilities[0];
+  if (latest?.status !== 'published')
+    return fail(
+      'POINT_NAVIGATION_CAPABILITY_AUTHORITY_MISSING',
+      'A published historical embodied.move Capability is required for append-only succession.',
+    );
+  const constraints = (latest.constraints ?? []).map((constraint) => {
+    const { type } = constraint;
+    if (type === 'provider_binding_policy')
+      return providerBindingConstraint(authority.binding, tool, 'vehicle:ugv1');
+    if (type === 'runtime_execution_mode_policy')
+      return runtimeExecutionModeConstraint(configuration);
+    return Object.freeze(structuredClone(constraint));
+  });
+  if (!constraints.some(({ type }) => type === 'provider_binding_policy'))
+    fail(
+      'POINT_NAVIGATION_PROVIDER_POLICY_MISSING',
+      'Historical point navigation lacks a frozen Provider policy.',
+    );
+  const proposedFor = (version: number) =>
+    createNodeCapabilityDefinition({
+      capabilityId: latest.capabilityId,
+      version,
+      ...(version === 1 ? {} : { previousVersion: version - 1 }),
+      domain: latest.domain,
+      name: latest.name,
+      description: latest.description,
+      inputSchema: latest.inputSchema,
+      outputSchema: latest.outputSchema,
+      successCriteria: latest.successCriteria,
+      requiredEvidence: latest.requiredEvidence,
+      effects: latest.effects ?? [],
+      artifacts: latest.artifacts ?? [],
+      constraints,
+      supportedModes: latest.supportedModes ?? [],
+      riskLevel: latest.riskLevel,
+      status: 'draft',
+      createdBy: 'ugv-smpp-capability-governance-driver',
+      createdAt: CREATED_AT,
+    });
+  const same = latest.definitionHash === proposedFor(latest.version).definitionHash;
+  const capabilityVersion = same ? latest.version : latest.version + 1;
+  const proposed = proposedFor(capabilityVersion);
+  let published = latest;
+  if (!same) {
+    let current = CapabilitySchema.parse(
+      await controlCreate(
+        configuration,
+        '/api/v1/node-capabilities',
+        runKey(
+          configuration.runId,
+          'point-capability-create',
+          `embodied.move@${String(capabilityVersion)}`,
+        ),
+        proposed,
+        request,
+      ),
+    ) as NodeCapabilityDefinitionVersion;
+    const implementation: CapabilityImplementationBinding = Object.freeze({
+      bindingId: `capability-binding-embodied.move-v${String(capabilityVersion)}`,
+      capabilityId: 'embodied.move',
+      capabilityVersion,
+      implementationType: 'skill',
+      implementationId: 'embodied.move_to',
+      implementationVersion: '1',
+      role: 'primary',
+      priority: 0,
+      providerPolicyOverride: Object.freeze({
+        selection: 'required',
+        mcpProviderBindingId: authority.binding.bindingId,
+        localServerId: authority.binding.localServerId,
+        mcpToolName: NAVIGATE_TOOL_NAME,
+        allowedResourceIds: Object.freeze(['vehicle:ugv1']),
+        requireActive: true,
+        requireAvailable: true,
+        requireUnexpiredFreshness: true,
+        denyFallback: true,
+      }),
+      status: 'active',
+      revision: 1,
+    });
+    ImplementationSchema.parse(
+      await controlCreate(
+        configuration,
+        `/api/v1/node-capabilities/embodied.move/versions/${String(capabilityVersion)}/implementations`,
+        runKey(configuration.runId, 'point-capability-implementation', implementation.bindingId),
+        implementation,
+        request,
+      ),
+    );
+    current = CapabilitySchema.parse(
+      await controlMutation(
+        configuration,
+        `/api/v1/node-capabilities/embodied.move/versions/${String(capabilityVersion)}/validate`,
+        runKey(
+          configuration.runId,
+          'point-capability-validate',
+          `embodied.move@${String(capabilityVersion)}`,
+        ),
+        { reason: 'Validate the append-only current point-navigation Capability successor.' },
+        nodeCapabilityEtag(current),
+        200,
+        request,
+      ),
+    ) as NodeCapabilityDefinitionVersion;
+    OperationSchema.parse(
+      await controlMutation(
+        configuration,
+        `/api/v1/node-capabilities/embodied.move/versions/${String(capabilityVersion)}/publish`,
+        runKey(
+          configuration.runId,
+          'point-capability-publish',
+          `embodied.move@${String(capabilityVersion)}`,
+        ),
+        { reason: 'Publish the append-only current point-navigation Capability successor.' },
+        nodeCapabilityEtag(current),
+        202,
+        request,
+      ),
+    );
+    published =
+      (await controlGetCapability(configuration, 'embodied.move', capabilityVersion, request)) ??
+      fail('POINT_NAVIGATION_CAPABILITY_NOT_PUBLISHED', 'Capability successor was not readable.');
+    if (published.status !== 'published' || published.definitionHash !== proposed.definitionHash)
+      fail(
+        'POINT_NAVIGATION_CAPABILITY_NOT_PUBLISHED',
+        'Capability successor did not reach its exact published state.',
+      );
+    await evaluatePointReadiness(
+      configuration,
+      capabilityVersion,
+      implementation.bindingId,
+      request,
+      pause,
+    );
+  }
+
+  const exposure = await ensurePointExposure(configuration, published, request);
+  return Object.freeze({
+    skillId: 'embodied.move_to',
+    skillVersion: 1,
+    capabilityId: 'embodied.move',
+    capabilityVersion,
+    definitionHash: published.definitionHash,
+    exposureId: 'a2a.embodied.move',
+    exposureVersion: exposure.version,
+    exposureHash: exposure.exposureHash,
+    action: same ? 'reused' : 'successor_created',
+  });
+}
+
+async function evaluatePointReadiness(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+  capabilityVersion: number,
+  implementationBindingId: string,
+  request: typeof fetch,
+  pause: (milliseconds: number) => Promise<void>,
+): Promise<void> {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const operation = OperationSchema.parse(
+      await controlCommand(
+        configuration,
+        `/api/v1/capability-readiness/embodied.move/${String(capabilityVersion)}/evaluate`,
+        runKey(
+          configuration.runId,
+          `point-capability-readiness-${String(attempt)}`,
+          `embodied.move@${String(capabilityVersion)}`,
+        ),
+        { reason: 'Evaluate current point-navigation successor readiness.' },
+        request,
+      ),
+    );
+    const snapshot = ReadinessSchema.parse(operation.result);
+    if (
+      snapshot.status === 'available' &&
+      snapshot.availableImplementations.length === 1 &&
+      snapshot.availableImplementations[0] === implementationBindingId &&
+      snapshot.unavailableImplementations.length === 0
+    )
+      return;
+    if (
+      attempt === 1 &&
+      snapshot.reasons?.some(({ code }) => code === 'READINESS_STABILITY_WINDOW') === true
+    ) {
+      await pause(10_250);
+      continue;
+    }
+    fail(
+      'POINT_NAVIGATION_READINESS_NOT_AVAILABLE',
+      'Point-navigation successor readiness is not exact and available.',
+    );
+  }
+}
+
+async function ensurePointExposure(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+  capability: NodeCapabilityDefinitionVersion,
+  request: typeof fetch,
+): Promise<z.infer<typeof ExposureSchema>> {
+  const listed = ExposureListSchema.parse(
+    await controlGet(configuration, '/api/v1/a2a-exposures?pageSize=1000', request),
+  )
+    .items.filter(({ exposureId }) => exposureId === 'a2a.embodied.move')
+    .sort((left, right) => right.version - left.version);
+  const latest = listed[0];
+  const draftFor = (version: number) =>
+    createA2aExposureVersion({
+      exposureId: 'a2a.embodied.move',
+      version,
+      capabilityId: 'embodied.move',
+      capabilityVersion: capability.version,
+      agentSkillId: 'embodied.move_to',
+      name: capability.name,
+      description: capability.description,
+      tags: Object.freeze(['ugv', 'vehicle', 'physical-control', 'point-navigation']),
+      examples: Object.freeze(['Move vehicle:ugv1 to one explicit WGS84 point.']),
+      inputModes: Object.freeze(['text/plain', 'application/json']),
+      outputModes: Object.freeze(['application/json']),
+      requestSchema: capability.inputSchema,
+      resultSchema: capability.outputSchema,
+      visibility: 'public',
+      requesterPolicy: Object.freeze({
+        allowAnonymous: false,
+        requiredAuthorities: Object.freeze(['plan_confirmation', 'physical_control.confirm']),
+      }),
+      readinessPublicationPolicy: 'publish_when_available',
+      status: 'draft',
+    });
+  const exact = latest === undefined ? undefined : draftFor(latest.version);
+  const same = latest !== undefined && latest.exposureHash === exact?.exposureHash;
+  const version = same ? latest.version : (latest?.version ?? 0) + 1;
+  let current = same
+    ? latest
+    : ExposureSchema.parse(
+        await controlCreate(
+          configuration,
+          '/api/v1/a2a-exposures',
+          runKey(configuration.runId, 'point-exposure-create', String(version)),
+          draftFor(version),
+          request,
+        ),
+      );
+  if (current.status !== 'published') {
+    const operation = OperationSchema.parse(
+      await controlMutation(
+        configuration,
+        `/api/v1/a2a-exposures/a2a.embodied.move/versions/${String(version)}/publish`,
+        runKey(configuration.runId, 'point-exposure-publish', String(version)),
+        { reason: 'Publish the append-only point-navigation Exposure successor.' },
+        a2aExposureEtag(current as A2aExposureVersion),
+        202,
+        request,
+      ),
+    );
+    current = ExposureSchema.parse(operation.result);
+  }
+  for (const prior of listed.filter(
+    ({ version: priorVersion, status }) => priorVersion !== version && status === 'published',
+  ))
+    await controlMutation(
+      configuration,
+      `/api/v1/a2a-exposures/a2a.embodied.move/versions/${String(prior.version)}/suspend`,
+      runKey(configuration.runId, 'point-exposure-suspend', String(prior.version)),
+      { reason: `Supersede immutable point Exposure @${String(prior.version)}.` },
+      a2aExposureEtag(prior as A2aExposureVersion),
+      202,
+      request,
+    );
+  return current;
 }
 
 async function evaluateCapabilityReadiness(
@@ -1952,7 +2494,7 @@ async function materializeSkillPackage(
 ): Promise<Readonly<{ packageRoot: string; packageChecksum: string }>> {
   const packageRoot = join(workspaceRoot, spec.skillId, `v${String(version)}`);
   await mkdir(packageRoot, { recursive: true });
-  const markdown = `# ${spec.name}\n\n${spec.summary}\n\nThis exact version is generated from the current governed SMPP Binding and public Tool contract. It never authorizes vehicle_fire_weapon.\n`;
+  const markdown = `# ${spec.name}\n\n${spec.summary}\n\nThis exact version is generated from the current governed SMPP Binding and public Tool contract. Invocation authority remains subject to the frozen confirmation and evidence policies.\n`;
   const files = Object.freeze({
     'SKILL.md': markdown,
     'normative.json': stablePretty({
@@ -2427,10 +2969,9 @@ function shouldPublishAuthority(
   spec: GovernanceSpec,
   configuration: UgvSmppCapabilityGovernanceConfiguration,
 ): boolean {
-  return (
-    spec.kind === 'read_only' ||
-    (configuration.activateNavigateControl === true && spec.toolName === NAVIGATE_TOOL_NAME)
-  );
+  void spec;
+  void configuration;
+  return true;
 }
 
 function safeManagementBaseUrl(value: string): string {
@@ -2495,8 +3036,6 @@ function assertSafeReport(report: UgvSmppCapabilityGovernanceReport): void {
     )
   )
     fail('REPORT_REDACTION_FAILED', 'Governance report contains forbidden sensitive material.');
-  if (serialized.includes(FIRE_CAPABILITY_ID) || serialized.includes(FIRE_SKILL_ID))
-    fail('FIRE_GOVERNANCE_FORBIDDEN', 'The report implies a governed fire Capability or Skill.');
 }
 
 function stablePretty(value: unknown): string {

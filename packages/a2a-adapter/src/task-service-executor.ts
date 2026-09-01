@@ -64,7 +64,7 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     if (request.task !== undefined) {
       const followUp = toTaskFollowUp(request.userMessage);
       const confirmationPrincipal =
-        followUp.action === 'confirm_plan'
+        followUp.action === 'confirm_plan' || followUp.action === 'confirm_weapon_action'
           ? governedControlPrincipalForA2AUser(request.context.user)
           : undefined;
       const updated = await this.#tasks.followUp({

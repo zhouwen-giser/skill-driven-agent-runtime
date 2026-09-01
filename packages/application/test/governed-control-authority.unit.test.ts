@@ -368,6 +368,25 @@ describe('GovernedControlInvocationAuthorizer', () => {
     expect(fixture.capabilities.load).not.toHaveBeenCalled();
     expect(fixture.physicalDeviceWrites).toBe(0);
   });
+
+  it('keeps UGV weapon transport restricted when strict target and payload evidence is absent', async () => {
+    const fixture = authorizerFixture();
+    const authorizer = new GovernedControlInvocationAuthorizer({
+      store: fixture.store,
+      capabilities: fixture.capabilities,
+      clock: { now: () => '2026-08-13T01:01:00.000Z' },
+      hardDeniedTools: [],
+    });
+
+    await expect(
+      authorizer.authorizeAndConsume({
+        ...invocation(),
+        toolName: 'vehicle_fire_weapon',
+      }),
+    ).rejects.toMatchObject({ code: 'WEAPON_CONTROL_STRICT_EVIDENCE_REQUIRED' });
+    expect(fixture.store.load).not.toHaveBeenCalled();
+    expect(fixture.capabilities.load).not.toHaveBeenCalled();
+  });
 });
 
 function confirmationService() {

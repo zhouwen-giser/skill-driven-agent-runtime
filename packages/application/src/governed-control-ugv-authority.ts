@@ -7,6 +7,7 @@ import {
 } from '../../domain/src/index.js';
 
 import type {
+  GovernedControlAuthorityKind,
   GovernedControlConfirmation,
   GovernedControlConfirmationConsumption,
   GovernedControlDispatchReceipt,
@@ -24,6 +25,7 @@ const PREFIXED_SHA256 = /^sha256:[0-9a-f]{64}$/u;
 
 export interface GovernedControlConfirmationExactScope {
   readonly confirmationId: string;
+  readonly authorityKind?: GovernedControlAuthorityKind;
   readonly taskId: string;
   readonly capabilityBindingId: string;
   readonly capabilityId: string;
@@ -175,6 +177,7 @@ export interface UgvGovernedControlAuthoritySnapshot {
     catalogChecksum: string;
     toolRevision: number;
     availability: string;
+    availabilityDecision: 'provider_available' | 'allowed_by_default' | 'provider_denied';
     riskLevel: string;
     checkedAt: string;
     validUntil: string;
@@ -263,6 +266,7 @@ export class UgvGovernedControlConfirmationService {
     const confirmationId = ugvGovernedControlConfirmationId(input);
     const confirmation = freezeConfirmation({
       ...input,
+      authorityKind: input.authorityKind ?? 'physical_control',
       confirmationId,
       confirmedAt: new Date(confirmedAt).toISOString(),
       expiresAt: new Date(expiresAt).toISOString(),
@@ -277,7 +281,11 @@ export class UgvGovernedControlConfirmationService {
     assertConfirmationScope(input);
     assertConfirmationHashes(input);
     return this.#store.findExact(
-      exactScope({ ...input, confirmationId: ugvGovernedControlConfirmationId(input) }),
+      exactScope({
+        ...input,
+        authorityKind: input.authorityKind ?? 'physical_control',
+        confirmationId: ugvGovernedControlConfirmationId(input),
+      }),
     );
   }
 }
@@ -515,6 +523,7 @@ export function ugvGovernedControlConfirmationId(
 ): string {
   const digest = hashCanonicalEvidenceJson({
     profileId: 'ugv-agent-profile',
+    authorityKind: input.authorityKind ?? 'physical_control',
     selectedTaskOperationSnapshotHash: input.selectedTaskOperationSnapshotHash,
     taskId: input.taskId,
     capabilityBindingId: input.capabilityBindingId,
@@ -541,7 +550,11 @@ export function ugvGovernedControlConfirmationId(
 export function exactScope(
   input: GovernedControlConfirmationExactScope,
 ): GovernedControlConfirmationExactScope {
-  return Object.freeze({ ...input, actorRoles: Object.freeze([...input.actorRoles]) });
+  return Object.freeze({
+    ...input,
+    authorityKind: input.authorityKind ?? 'physical_control',
+    actorRoles: Object.freeze([...input.actorRoles]),
+  });
 }
 
 export function confirmationExactScope(
@@ -613,7 +626,12 @@ function assertCurrentReadiness(
     readiness.catalogRevision !== selected.server.catalogRevision ||
     readiness.catalogChecksum !== selected.server.catalogChecksum ||
     readiness.toolRevision !== selected.server.toolRevision ||
-    readiness.availability !== 'available' ||
+    !(
+      (readiness.availability === 'available' &&
+        readiness.availabilityDecision === 'provider_available') ||
+      (readiness.availability === 'unknown' &&
+        readiness.availabilityDecision === 'allowed_by_default')
+    ) ||
     !PHYSICAL_CONTROL_RISK_LEVELS.has(readiness.riskLevel) ||
     checkedAt > now ||
     validUntil <= now ||
@@ -645,6 +663,7 @@ function assertUgvConfirmation(
     selectedTaskOperationSnapshotHash: selected.snapshotHash,
   };
   if (
+    (confirmation.authorityKind ?? 'physical_control') !== 'physical_control' ||
     confirmation.confirmationId !== ugvGovernedControlConfirmationId(issueInput) ||
     confirmation.taskId !== snapshot.task.taskId ||
     confirmation.capabilityBindingId !== snapshot.binding.capabilityBindingId ||

@@ -84,11 +84,7 @@ export function prepareSkillUsagePlan(
     requiredContextIds: Object.freeze(
       usage.contextRequirements.filter((item) => item.required).map((item) => item.requirementId),
     ),
-    allowedTools: Object.freeze(
-      [...input.skill.toolPolicy.required, ...input.skill.toolPolicy.optional].map((item) =>
-        Object.freeze({ ...item }),
-      ),
-    ),
+    allowedTools: allowedSkillUsageTools(input.skill, taskOperations),
     taskOperations: Object.freeze(taskOperations),
     childPolicies: Object.freeze(
       input.interpretation.composition.edges.map((edge) =>
@@ -140,6 +136,23 @@ export function prepareSkillUsagePlan(
           }),
         }),
   });
+}
+
+function allowedSkillUsageTools(
+  skill: SkillVersion,
+  taskOperations: readonly SkillUsagePlanPolicy['taskOperations'][number][],
+): SkillUsagePlanPolicy['allowedTools'] {
+  const tools = new Map<string, SkillUsagePlanPolicy['allowedTools'][number]>();
+  for (const tool of [...skill.toolPolicy.required, ...skill.toolPolicy.optional])
+    tools.set(toolKey(tool), Object.freeze({ ...tool }));
+  for (const operation of taskOperations) {
+    const tool = Object.freeze({
+      serverId: operation.providerId,
+      toolName: operation.operationName,
+    });
+    tools.set(toolKey(tool), tool);
+  }
+  return Object.freeze([...tools.values()]);
 }
 
 export function checkSkillUsagePlanCompliance(

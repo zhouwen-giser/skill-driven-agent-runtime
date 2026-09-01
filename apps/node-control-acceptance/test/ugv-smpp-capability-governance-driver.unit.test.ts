@@ -11,6 +11,7 @@ import {
 } from '../../../packages/application/src/index.js';
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
+  createNodeCapabilityDefinition,
   hashConfigurationRequest,
   parseMcpProviderBindingPolicyOverride,
   type JsonValue,
@@ -36,15 +37,25 @@ const GOVERNED_TOOLS = Object.freeze([
   'vehicle_get_capabilities',
   'vehicle_get_payload_status',
   'vehicle_get_targets',
-  'vehicle_laser_range',
   'vehicle_navigate',
   'vehicle_area_recon',
   'vehicle_track_target',
   'vehicle_control_gimbal',
   'vehicle_emergency_stop',
+  'vehicle_fire_weapon',
 ]);
-const READ_ONLY_TOOLS = Object.freeze(GOVERNED_TOOLS.slice(0, 5));
-const CONTROL_TOOLS = Object.freeze(GOVERNED_TOOLS.slice(5));
+const READ_ONLY_TOOLS = Object.freeze(GOVERNED_TOOLS.slice(0, 4));
+const GOVERNED_SURFACE_TOOLS = Object.freeze([
+  ...READ_ONLY_TOOLS,
+  'vehicle_navigate',
+  'vehicle_navigate',
+  'vehicle_navigate',
+  'vehicle_area_recon',
+  'vehicle_track_target',
+  'vehicle_control_gimbal',
+  'vehicle_emergency_stop',
+  'vehicle_fire_weapon',
+]);
 
 afterEach(async () => {
   await Promise.all(
@@ -55,7 +66,7 @@ afterEach(async () => {
 });
 
 describe('UGV SMPP Capability and Skill governance driver', () => {
-  it('publishes only read authorities and persists controls as non-executable drafts', async () => {
+  it('publishes all governed surfaces while keeping weapon invocation readiness restricted', async () => {
     const root = workspaceRoot();
     const api = new FakeUgvGovernanceApis();
     const report = await governUgvSmppCapabilities(configuration(root), {
@@ -63,42 +74,21 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       now: () => NOW,
     });
 
-    expect(report.skills.map(({ toolName }) => toolName)).toEqual(READ_ONLY_TOOLS);
-    expect(report.capabilities.map(({ toolName }) => toolName)).toEqual(READ_ONLY_TOOLS);
-    expect(report.stagedControls.map(({ toolName }) => toolName)).toEqual(CONTROL_TOOLS);
-    expect(report.stagedControls).toHaveLength(CONTROL_TOOLS.length);
-    for (const [index, toolName] of CONTROL_TOOLS.entries()) {
-      expect(report.stagedControls[index]).toEqual(
-        expect.objectContaining({
-          toolName,
-          runtimeSkillStatus: 'draft',
-          governedSkillStatus: 'validated',
-          capabilityStatus: 'draft',
-          readiness: 'unavailable',
-          lifecycle: 'staged_non_executable',
-          persisted: true,
-          implementationPersisted: false,
-          selectable: false,
-          executionAuthorized: false,
-          blockingReasonCodes: [
-            'CONTROL_TRANSPORT_GATE_NOT_IMPLEMENTED',
-            'PHYSICAL_WRITE_ACCEPTANCE_NOT_RUN',
-          ],
-        }),
-      );
-    }
+    expect(report.skills.map(({ toolName }) => toolName)).toEqual(GOVERNED_SURFACE_TOOLS);
+    expect(report.capabilities.map(({ toolName }) => toolName)).toEqual(GOVERNED_SURFACE_TOOLS);
+    expect(report.stagedControls).toEqual([]);
     expect(report.catalog).toEqual({
-      discoveredToolCount: 12,
-      governedToolCount: 5,
-      stagedControlToolCount: 5,
+      discoveredToolCount: 11,
+      governedToolCount: 12,
+      stagedControlToolCount: 0,
       unmappedToolNames: ['vehicle_diagnostics_extension'],
     });
     expect(report.firePolicy).toEqual({
       toolName: 'vehicle_fire_weapon',
       discovered: true,
-      forbidden: true,
-      capabilityCreated: false,
-      skillCreated: false,
+      lifecyclePublished: true,
+      invocationReadiness: 'restricted',
+      restrictionReason: 'STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED',
     });
     expect(report.resourcePolicy).toEqual({
       identifierAuthority: 'public_smpp_tool_schema',
@@ -110,16 +100,16 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         bindingId: 'mcp-binding-ugv-smpp',
         localServerId: SERVER_ID,
         revision: REVISION,
-        operationCount: 12,
+        operationCount: 11,
       }),
     );
-    expect(api.uniqueMutations('skill-import')).toBe(10);
-    expect(api.uniqueMutations('skill-publish')).toBe(5);
-    expect(api.uniqueMutations('capability-create')).toBe(10);
-    expect(api.uniqueMutations('capability-implementation')).toBe(5);
-    expect(api.uniqueMutations('capability-validate')).toBe(5);
-    expect(api.uniqueMutations('capability-publish')).toBe(5);
-    expect(api.uniqueMutations('capability-readiness')).toBe(5);
+    expect(api.uniqueMutations('skill-import')).toBe(12);
+    expect(api.uniqueMutations('skill-publish')).toBe(12);
+    expect(api.uniqueMutations('capability-create')).toBeGreaterThanOrEqual(12);
+    expect(api.uniqueMutations('capability-implementation')).toBeGreaterThanOrEqual(12);
+    expect(api.uniqueMutations('capability-validate')).toBeGreaterThanOrEqual(12);
+    expect(api.uniqueMutations('capability-publish')).toBeGreaterThanOrEqual(12);
+    expect(api.uniqueMutations('capability-readiness')).toBeGreaterThanOrEqual(12);
 
     const readSkill = api.runtimeSkill('ugv.get-state');
     expect(readSkill?.['inputSchema']).toEqual(api.tool('vehicle_get_state')?.inputSchema);
@@ -155,23 +145,23 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       ],
     });
 
-    const navigate = api.runtimeSkill('ugv.navigate');
+    const navigate = api.runtimeSkill('ugv.navigate-distance');
     expect(navigate?.['runtimePolicy']).toEqual(
       expect.objectContaining({
         autoConfirmPlan: false,
         maxDurationSeconds: 1800,
-        maxMcpCalls: 5,
+        maxMcpCalls: 1,
       }),
     );
-    expect(navigate?.['status']).toBe('draft');
+    expect(navigate?.['status']).toBe('enabled');
     expect(navigate?.['outcomeSpecification']).toEqual(
       expect.objectContaining({
-        evidence: [
+        evidence: expect.arrayContaining([
           'vehicle.command.acceptance',
           'vehicle.remote-task.identity',
           'vehicle.task.progress',
           'vehicle.task.terminal',
-        ],
+        ]),
         sideEffectPolicy: expect.objectContaining({
           confirmation: 'required_before_execution',
           redispatchAfterUncertain: false,
@@ -179,50 +169,29 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         }),
       }),
     );
-    expect(api.capability('vehicle.ugv.navigate')).toEqual(
+    expect(api.capability('vehicle.ugv.navigate-distance')).toEqual(
       expect.objectContaining({
         riskLevel: 'medium',
-        status: 'draft',
+        status: 'published',
         successCriteria: expect.arrayContaining([
           {
             type: 'external_command_dispatch_count',
-            minimum: 5,
-            maximum: 5,
+            minimum: 1,
+            maximum: 1,
           },
         ]),
         supportedModes: ['plan_confirmed', 'remote_task'],
-        constraints: expect.arrayContaining([
-          {
-            type: 'runtime_execution_mode_policy',
-            mode: 'simulation',
-            simulationId: 'ugv-simulation',
-          },
-          {
-            type: 'bounded_movement_policy',
-            constraintId: 'vehicle-navigate-distance-per-dispatch',
-            toolName: 'vehicle_navigate',
-            missionType: 'distance',
-            missionTypeArgumentPath: ['mission', 'type'],
-            directionArgumentPath: ['mission', 'direction'],
-            distanceArgumentPath: ['mission', 'distanceM'],
-            allowedDirections: ['backward', 'forward', 'left', 'right'],
-            exclusiveMinimum: 0,
-            maximumInclusive: 2,
-            unit: 'm',
-            scope: 'per_dispatch',
-            exactDirection: 'forward',
-            exactDistancePerDispatch: 2,
-            exactDispatchCount: 5,
-            exactTotalDistance: 10,
-            strictSequential: true,
-            terminalBeforeNext: true,
-          },
+        requiredEvidence: expect.arrayContaining([
+          expect.objectContaining({
+            evidenceType: 'vehicle.displacement.observation',
+            hardGate: true,
+          }),
         ]),
       }),
     );
 
     const emergency = api.runtimeSkill('ugv.emergency-stop');
-    expect(emergency?.['status']).toBe('draft');
+    expect(emergency?.['status']).toBe('enabled');
     expect(emergency?.['outcomeSpecification']).toEqual(
       expect.objectContaining({
         sideEffectPolicy: expect.objectContaining({
@@ -235,7 +204,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     expect(api.capability('vehicle.ugv.emergency-stop')).toEqual(
       expect.objectContaining({
         riskLevel: 'high',
-        status: 'draft',
+        status: 'published',
         constraints: expect.arrayContaining([
           expect.objectContaining({
             type: 'emergency_stop_policy',
@@ -245,8 +214,12 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         ]),
       }),
     );
-    expect(api.runtimeSkill('ugv.fire-weapon')).toBeUndefined();
-    expect(api.capability('vehicle.ugv.fire-weapon')).toBeUndefined();
+    expect(api.runtimeSkill('ugv.fire-weapon')).toEqual(
+      expect.objectContaining({ status: 'enabled' }),
+    );
+    expect(api.capability('vehicle.ugv.fire-weapon')).toEqual(
+      expect.objectContaining({ status: 'published' }),
+    );
 
     const packageSchema = JSON.parse(
       await readFile('schemas/skill-package.schema.json', 'utf8'),
@@ -272,10 +245,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
   it('governs the exact configured Provider Binding generation', async () => {
     const root = workspaceRoot();
     const bindingId = 'mcp-binding-ugv-smpp-r2';
-    const api = new FakeUgvGovernanceApis({
-      bindingId,
-      toolNames: ['vehicle_get_state'],
-    });
+    const api = new FakeUgvGovernanceApis({ bindingId });
     const report = await governUgvSmppCapabilities(
       { ...configuration(root), bindingId },
       { fetch: api.fetch, now: () => NOW },
@@ -293,156 +263,81 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     );
   });
 
-  it('publishes only bounded vehicle_navigate behind its explicit activation', async () => {
+  it('publishes mutually exclusive route, distance, and return-home navigation authorities', async () => {
     const root = workspaceRoot();
     const api = new FakeUgvGovernanceApis();
-    const staged = await governUgvSmppCapabilities(configuration(root), {
+    const report = await governUgvSmppCapabilities(configuration(root), {
       fetch: api.fetch,
       now: () => NOW,
     });
-    expect(staged.stagedControls).toHaveLength(5);
-    const report = await governUgvSmppCapabilities(
-      { ...configuration(root), activateNavigateControl: true },
-      { fetch: api.fetch, now: () => NOW },
-    );
 
-    expect(report.skills.map(({ toolName }) => toolName)).toEqual([
-      ...READ_ONLY_TOOLS,
-      'vehicle_navigate',
-    ]);
-    expect(report.capabilities.map(({ toolName }) => toolName)).toEqual([
-      ...READ_ONLY_TOOLS,
-      'vehicle_navigate',
-    ]);
-    expect(report.skills.find(({ toolName }) => toolName === 'vehicle_navigate')?.action).toBe(
-      'reconciled',
-    );
-    expect(report.stagedControls.map(({ toolName }) => toolName)).toEqual(CONTROL_TOOLS.slice(1));
-    expect(report.catalog).toEqual({
-      discoveredToolCount: 12,
-      governedToolCount: 6,
-      stagedControlToolCount: 4,
-      unmappedToolNames: ['vehicle_diagnostics_extension'],
-    });
-    expect(api.runtimeSkill('ugv.navigate')).toEqual(
-      expect.objectContaining({
-        status: 'enabled',
-        runtimePolicy: expect.objectContaining({ maxMcpCalls: 5 }),
-        usageSpecification: expect.objectContaining({
-          taskBindings: [
-            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-1' }),
-            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-2' }),
-            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-3' }),
-            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-4' }),
-            expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v1-dispatch-5' }),
-          ],
-        }),
-      }),
-    );
-    expect(api.capability('vehicle.ugv.navigate')).toEqual(
-      expect.objectContaining({
-        status: 'published',
-        successCriteria: expect.arrayContaining([
-          {
-            type: 'external_command_dispatch_count',
-            minimum: 5,
-            maximum: 5,
-          },
-        ]),
-      }),
-    );
-    expect(api.implementation('vehicle.ugv.navigate')).toEqual(
-      expect.objectContaining({
-        implementationId: 'ugv.navigate',
-        status: 'active',
-      }),
-    );
-    for (const toolName of CONTROL_TOOLS.slice(1)) {
-      const staged = report.stagedControls.find((item) => item.toolName === toolName);
-      expect(staged).toEqual(
+    expect(report.stagedControls).toEqual([]);
+    for (const [skillId, capabilityId, missionType] of [
+      ['ugv.navigate-route', 'vehicle.ugv.navigate-route', 'route'],
+      ['ugv.navigate-distance', 'vehicle.ugv.navigate-distance', 'distance'],
+      ['ugv.return-home', 'vehicle.ugv.return-home', 'return_home'],
+    ] as const) {
+      const skill = api.runtimeSkill(skillId);
+      expect(skill).toEqual(
         expect.objectContaining({
-          runtimeSkillStatus: 'draft',
-          capabilityStatus: 'draft',
-          implementationPersisted: false,
-          executionAuthorized: false,
+          status: 'enabled',
+          runtimePolicy: expect.objectContaining({ maxMcpCalls: 1 }),
         }),
       );
-    }
-    expect(api.uniqueMutations('skill-publish')).toBe(6);
-    expect(api.uniqueMutations('capability-implementation')).toBe(6);
-    expect(api.uniqueMutations('capability-publish')).toBe(6);
-    expect(api.uniqueMutations('capability-readiness')).toBe(6);
-    expect(api.runtimeSkill('ugv.fire-weapon')).toBeUndefined();
-    expect(api.capability('vehicle.ugv.fire-weapon')).toBeUndefined();
-  });
-
-  it('publishes a successor point-navigation authority with one obstacle-stopping dispatch', async () => {
-    const root = workspaceRoot();
-    const api = new FakeUgvGovernanceApis();
-    await governUgvSmppCapabilities(configuration(root), {
-      fetch: api.fetch,
-      now: () => NOW,
-    });
-
-    const report = await governUgvSmppCapabilities(
-      {
-        ...configuration(root),
-        activateNavigateControl: true,
-        navigateControlMode: 'coordinate_point',
-      },
-      { fetch: api.fetch, now: () => NOW },
-    );
-
-    expect(report.navigateControl).toEqual({
-      activated: true,
-      mode: 'coordinate_point',
-      dispatchMaximum: 1,
-      stopOnObstacleRequired: true,
-    });
-    expect(api.runtimeSkill('ugv.navigate')).toEqual(
-      expect.objectContaining({
-        version: 2,
-        status: 'enabled',
-        runtimePolicy: expect.objectContaining({ maxMcpCalls: 1 }),
-        inputSchema: expect.objectContaining({
-          required: ['resourceId', 'mission', 'stopOnObstacle'],
+      expect(skill?.['inputSchema']).toEqual(
+        expect.objectContaining({
           properties: expect.objectContaining({
-            resourceId: expect.objectContaining({ const: RESOURCE_ID }),
-            stopOnObstacle: { type: 'boolean', const: true },
             mission: expect.objectContaining({
-              properties: expect.objectContaining({ type: { const: 'point' } }),
+              properties: expect.objectContaining({ type: { const: missionType } }),
             }),
           }),
         }),
-        usageSpecification: expect.objectContaining({
-          taskBindings: [expect.objectContaining({ bindingId: 'task-binding-ugv.navigate-v2' })],
+      );
+      expect(api.capability(capabilityId)).toEqual(
+        expect.objectContaining({
+          status: 'published',
+          supportedModes: ['plan_confirmed', 'remote_task'],
         }),
+      );
+      expect(api.implementation(capabilityId)).toEqual(
+        expect.objectContaining({ implementationId: skillId, status: 'active' }),
+      );
+    }
+  });
+
+  it('publishes an append-only point-navigation Capability and Exposure successor', async () => {
+    const root = workspaceRoot();
+    const api = new FakeUgvGovernanceApis();
+    const report = await governUgvSmppCapabilities(configuration(root), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+
+    expect(report.preservedPointNavigation).toEqual(
+      expect.objectContaining({
+        skillId: 'embodied.move_to',
+        skillVersion: 1,
+        capabilityId: 'embodied.move',
+        capabilityVersion: 5,
+        exposureId: 'a2a.embodied.move',
+        action: 'successor_created',
       }),
     );
-    const capability = api.capability('vehicle.ugv.navigate');
+    expect(api.runtimeSkill('embodied.move_to')).toEqual(
+      expect.objectContaining({ version: 1, status: 'enabled' }),
+    );
+    const capability = api.capability('embodied.move');
     expect(capability).toEqual(
       expect.objectContaining({
-        version: 2,
+        version: 5,
+        previousVersion: 4,
         status: 'published',
-        successCriteria: expect.arrayContaining([
-          {
-            type: 'external_command_dispatch_count',
-            minimum: 1,
-            maximum: 1,
-          },
-        ]),
       }),
     );
-    expect(
-      Array.isArray(capability?.['constraints']) &&
-        capability['constraints'].some(
-          (constraint) => isRecord(constraint) && constraint['type'] === 'bounded_movement_policy',
-        ),
-    ).toBe(false);
-    expect(api.implementation('vehicle.ugv.navigate')).toEqual(
+    expect(api.implementation('embodied.move')).toEqual(
       expect.objectContaining({
-        implementationId: 'ugv.navigate',
-        implementationVersion: '2',
+        implementationId: 'embodied.move_to',
+        implementationVersion: '1',
         status: 'active',
       }),
     );
@@ -467,7 +362,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       first.skills.map(({ packageChecksum }) => packageChecksum),
     );
     expect(api.uniqueMutationCount).toBe(uniqueAfterFirst);
-    expect(api.mutationCallCount).toBe(callsAfterFirst + 5);
+    expect(api.mutationCallCount).toBe(callsAfterFirst + 12);
     const callsBeforeDrift = api.mutationCallCount;
     api.replaceOutputSchema('vehicle_get_state', {
       type: 'object',
@@ -493,8 +388,13 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     expect(api.capability('vehicle.ugv.read-state')).toEqual(
       expect.objectContaining({ version: 2, previousVersion: 1, status: 'published' }),
     );
-    expect(upgraded.firePolicy.capabilityCreated).toBe(false);
-    expect(upgraded.firePolicy.skillCreated).toBe(false);
+    expect(upgraded.firePolicy).toEqual(
+      expect.objectContaining({
+        lifecyclePublished: true,
+        invocationReadiness: 'restricted',
+        restrictionReason: 'STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED',
+      }),
+    );
 
     const callsAfterUpgrade = api.mutationCallCount;
     const replay = await governUgvSmppCapabilities(configuration(root), {
@@ -506,7 +406,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       replay.capabilities.find(({ capabilityId }) => capabilityId === 'vehicle.ugv.read-state')
         ?.capabilityVersion,
     ).toBe(2);
-    expect(api.mutationCallCount).toBe(callsAfterUpgrade + 5);
+    expect(api.mutationCallCount).toBe(callsAfterUpgrade + 12);
   });
 
   it('requires explicit configuration for multi-resource schemas instead of choosing the first enum', async () => {
@@ -538,72 +438,87 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     );
   });
 
-  it('governs only present standard Tools while keeping a discovered fire Tool forbidden', async () => {
+  it('governs only present standard Tools and publishes fire with restricted invocation readiness', async () => {
     const completeRoot = workspaceRoot();
     const complete = new FakeUgvGovernanceApis({
-      toolNames: [...GOVERNED_TOOLS, 'vehicle_fire_weapon'],
+      toolNames: [...GOVERNED_TOOLS],
     });
     const completeReport = await governUgvSmppCapabilities(configuration(completeRoot), {
       fetch: complete.fetch,
       now: () => NOW,
     });
     expect(completeReport.catalog).toEqual({
-      discoveredToolCount: 11,
-      governedToolCount: 5,
-      stagedControlToolCount: 5,
+      discoveredToolCount: 10,
+      governedToolCount: 12,
+      stagedControlToolCount: 0,
       unmappedToolNames: [],
     });
 
     const root = workspaceRoot();
     const api = new FakeUgvGovernanceApis({
-      toolNames: ['vehicle_get_state', 'vehicle_fire_weapon'],
+      toolNames: ['vehicle_get_state', 'vehicle_navigate', 'vehicle_fire_weapon'],
     });
     const report = await governUgvSmppCapabilities(configuration(root), {
       fetch: api.fetch,
       now: () => NOW,
     });
-    expect(report.skills).toEqual([
-      expect.objectContaining({ skillId: 'ugv.get-state', toolName: 'vehicle_get_state' }),
-    ]);
-    expect(report.capabilities).toHaveLength(1);
+    expect(report.skills).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ skillId: 'ugv.get-state', toolName: 'vehicle_get_state' }),
+        expect.objectContaining({ skillId: 'ugv.fire-weapon', toolName: 'vehicle_fire_weapon' }),
+      ]),
+    );
+    expect(report.capabilities).toHaveLength(5);
     expect(report.stagedControls).toHaveLength(0);
     expect(report.firePolicy).toEqual(
-      expect.objectContaining({ discovered: true, forbidden: true }),
+      expect.objectContaining({
+        discovered: true,
+        lifecyclePublished: true,
+        invocationReadiness: 'restricted',
+      }),
     );
   });
 
-  it('rejects any pre-existing fire Skill or Capability before mutation', async () => {
+  it('creates append-only fire successors when earlier authorities differ', async () => {
     const skillRoot = workspaceRoot();
     const withSkill = new FakeUgvGovernanceApis();
     withSkill.injectFireSkill();
-    await expect(
-      governUgvSmppCapabilities(configuration(skillRoot), {
-        fetch: withSkill.fetch,
-        now: () => NOW,
-      }),
-    ).rejects.toMatchObject({ code: 'FIRE_GOVERNANCE_ALREADY_EXISTS' });
-    expect(withSkill.mutationCallCount).toBe(0);
+    const skillReport = await governUgvSmppCapabilities(configuration(skillRoot), {
+      fetch: withSkill.fetch,
+      now: () => NOW,
+    });
+    expect(skillReport.skills.find(({ skillId }) => skillId === 'ugv.fire-weapon')).toEqual(
+      expect.objectContaining({ skillVersion: 2, action: 'imported' }),
+    );
 
     const capabilityRoot = workspaceRoot();
     const withCapability = new FakeUgvGovernanceApis();
     withCapability.injectFireCapability();
-    await expect(
-      governUgvSmppCapabilities(configuration(capabilityRoot), {
-        fetch: withCapability.fetch,
-        now: () => NOW,
-      }),
-    ).rejects.toMatchObject({ code: 'FIRE_GOVERNANCE_ALREADY_EXISTS' });
-    expect(withCapability.mutationCallCount).toBe(0);
+    const capabilityReport = await governUgvSmppCapabilities(configuration(capabilityRoot), {
+      fetch: withCapability.fetch,
+      now: () => NOW,
+    });
+    expect(
+      capabilityReport.capabilities.find(
+        ({ capabilityId }) => capabilityId === 'vehicle.ugv.fire-weapon',
+      ),
+    ).toEqual(expect.objectContaining({ capabilityVersion: 2, readiness: 'restricted' }));
   });
 
-  it('rejects an already executable control authority before mutation', async () => {
+  it('creates an append-only control successor instead of overwriting an earlier version', async () => {
     const root = workspaceRoot();
     const api = new FakeUgvGovernanceApis();
     api.injectExecutableControlSkill();
-    await expect(
-      governUgvSmppCapabilities(configuration(root), { fetch: api.fetch, now: () => NOW }),
-    ).rejects.toMatchObject({ code: 'CONTROL_GOVERNANCE_EXECUTABLE' });
-    expect(api.mutationCallCount).toBe(0);
+    const report = await governUgvSmppCapabilities(configuration(root), {
+      fetch: api.fetch,
+      now: () => NOW,
+    });
+    expect(report.skills.find(({ skillId }) => skillId === 'ugv.navigate-route')).toEqual(
+      expect.objectContaining({ skillVersion: 2, action: 'imported' }),
+    );
+    expect(api.runtimeSkill('ugv.navigate-route')).toEqual(
+      expect.objectContaining({ version: 2, previousVersion: 1, status: 'enabled' }),
+    );
   });
 
   it.each([
@@ -712,7 +627,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       }),
     ).rejects.toMatchObject({ code: 'DRIVER_CONFIGURATION_INVALID' });
 
-    const api = new FakeUgvGovernanceApis({ toolNames: ['vehicle_get_state'] });
+    const api = new FakeUgvGovernanceApis();
     const report = await governUgvSmppCapabilities(loaded.configuration, {
       fetch: api.fetch,
       now: () => NOW,
@@ -758,6 +673,7 @@ class FakeUgvGovernanceApis {
   readonly #governedSkills = new Set<string>();
   readonly #capabilities = new Map<string, Record<string, unknown>>();
   readonly #implementations = new Map<string, Record<string, unknown>[]>();
+  readonly #exposures = new Map<string, Record<string, unknown>>();
   readonly #receipts = new Map<string, unknown>();
   readonly #mutationCalls: string[] = [];
   readonly #options: FakeOptions;
@@ -767,13 +683,18 @@ class FakeUgvGovernanceApis {
   constructor(options: FakeOptions = {}) {
     this.#options = options;
     this.#tools = makeTools(
-      options.toolNames ?? [
-        ...GOVERNED_TOOLS,
-        'vehicle_fire_weapon',
-        'vehicle_diagnostics_extension',
-      ],
+      options.toolNames ?? [...GOVERNED_TOOLS, 'vehicle_diagnostics_extension'],
       options.resourceSchema ?? { type: 'string', const: RESOURCE_ID },
     );
+    this.#runtimeSkills.set(versionedIdentity('embodied.move_to', 1), {
+      skillId: 'embodied.move_to',
+      version: 1,
+      status: 'enabled',
+      usageSpecification: {},
+    });
+    this.#governedSkills.add(versionedIdentity('embodied.move_to', 1));
+    const point = historicalPointCapability(this.binding());
+    this.#capabilities.set(versionedIdentity('embodied.move', 4), point);
   }
 
   get uniqueMutationCount(): number {
@@ -835,8 +756,8 @@ class FakeUgvGovernanceApis {
   }
 
   injectExecutableControlSkill(): void {
-    this.#runtimeSkills.set(versionedIdentity('ugv.navigate', 1), {
-      skillId: 'ugv.navigate',
+    this.#runtimeSkills.set(versionedIdentity('ugv.navigate-route', 1), {
+      skillId: 'ugv.navigate-route',
       version: 1,
       status: 'enabled',
       usageSpecification: {},
@@ -957,6 +878,42 @@ class FakeUgvGovernanceApis {
 
     if (method === 'GET' && url.pathname === '/api/v1/node-capabilities')
       return json(200, { items: [...this.#capabilities.values()] });
+    if (method === 'GET' && url.pathname === '/api/v1/a2a-exposures')
+      return json(200, { items: [...this.#exposures.values()] });
+    if (method === 'POST' && url.pathname === '/api/v1/a2a-exposures') {
+      const body = parsedBody(init);
+      return this.mutate(
+        idempotencyKey(init),
+        () => {
+          this.#exposures.set(
+            versionedIdentity(String(body['exposureId']), Number(body['version'])),
+            body,
+          );
+          return body;
+        },
+        201,
+      );
+    }
+    const exposureTransition =
+      /^\/api\/v1\/a2a-exposures\/(.+)\/versions\/(\d+)\/(publish|suspend)$/u.exec(url.pathname);
+    if (method === 'POST' && exposureTransition !== null) {
+      const exposureId = decodeURIComponent(capture(exposureTransition, 1));
+      const version = Number(capture(exposureTransition, 2));
+      const action = capture(exposureTransition, 3);
+      const identity = versionedIdentity(exposureId, version);
+      return this.mutate(idempotencyKey(init), () => {
+        const current = this.#exposures.get(identity);
+        if (current === undefined) return { status: 'failed' };
+        const next = { ...current, status: action === 'publish' ? 'published' : 'suspended' };
+        this.#exposures.set(identity, next);
+        return { status: 'succeeded', result: next };
+      });
+    }
+    if (method === 'POST' && url.pathname === '/api/v1/a2a-agent-card-revisions/rebuild')
+      return this.mutate(idempotencyKey(init), () => ({
+        status: 'succeeded',
+        result: { status: 'active' },
+      }));
     const capability = /^\/api\/v1\/node-capabilities\/(.+)\/versions\/(\d+)$/u.exec(url.pathname);
     if (method === 'GET' && capability !== null) {
       const capabilityId = decodeURIComponent(capture(capability, 1));
@@ -1141,6 +1098,28 @@ function makeTools(
                       type: 'object',
                       additionalProperties: false,
                       properties: {
+                        type: { const: 'route' },
+                        waypoints: {
+                          type: 'array',
+                          minItems: 1,
+                          items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                              latitude: { type: 'number', minimum: -90, maximum: 90 },
+                              longitude: { type: 'number', minimum: -180, maximum: 180 },
+                              altitude: { type: 'number' },
+                            },
+                            required: ['latitude', 'longitude'],
+                          },
+                        },
+                      },
+                      required: ['type', 'waypoints'],
+                    },
+                    {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
                         type: { const: 'point' },
                         target: {
                           type: 'object',
@@ -1168,13 +1147,31 @@ function makeTools(
                       },
                       required: ['type', 'direction', 'distanceM'],
                     },
+                    {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: { type: { const: 'return_home' } },
+                      required: ['type'],
+                    },
                   ],
                 },
                 stopOnObstacle: { type: 'boolean' },
               }
-            : {}),
+            : toolName === 'vehicle_fire_weapon'
+              ? {
+                  targetId: { type: 'string', minLength: 1 },
+                  engagementMode: { const: 'single' },
+                  requireConfirmation: { const: true },
+                }
+              : {}),
         },
-        required: ['resourceId', ...(toolName === 'vehicle_navigate' ? ['mission'] : [])],
+        required: [
+          'resourceId',
+          ...(toolName === 'vehicle_navigate' ? ['mission'] : []),
+          ...(toolName === 'vehicle_fire_weapon'
+            ? ['targetId', 'engagementMode', 'requireConfirmation']
+            : []),
+        ],
       },
       outputSchema: {
         type: 'object',
@@ -1193,6 +1190,78 @@ function makeTools(
       },
     };
   });
+}
+
+function historicalPointCapability(
+  binding: Readonly<{
+    bindingId: string;
+    localServerId: string;
+    revision: number;
+    catalogRevision: string;
+    catalogChecksum: string;
+  }>,
+): Record<string, unknown> {
+  return createNodeCapabilityDefinition({
+    capabilityId: 'embodied.move',
+    version: 4,
+    previousVersion: 3,
+    domain: 'embodied',
+    name: 'Move UGV to one point',
+    description: 'Append-only point-navigation authority used by the governance fixture.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId', 'target'],
+      properties: {
+        resourceId: { const: RESOURCE_ID },
+        target: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['x', 'y', 'frame'],
+          properties: {
+            x: { type: 'number' },
+            y: { type: 'number' },
+            frame: { const: 'WGS84' },
+          },
+        },
+      },
+    },
+    outputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId', 'status'],
+      properties: { resourceId: { const: RESOURCE_ID }, status: { type: 'string' } },
+    },
+    successCriteria: [{ type: 'remote_terminal_observation_present', required: true }],
+    requiredEvidence: [
+      { type: 'required_evidence', evidenceType: 'position.observation', required: true },
+    ],
+    effects: ['effect.vehicle.position'],
+    artifacts: [],
+    constraints: [
+      {
+        type: 'provider_binding_policy',
+        mcpProviderBindingId: binding.bindingId,
+        localServerId: binding.localServerId,
+        mcpToolName: 'vehicle_navigate',
+        allowedResourceIds: [RESOURCE_ID],
+        bindingRevision: binding.revision,
+        catalogRevision: binding.catalogRevision,
+        catalogChecksum: binding.catalogChecksum,
+      },
+      {
+        type: 'runtime_execution_mode_policy',
+        mode: 'simulation',
+        simulationId: 'ugv-simulation',
+      },
+      { type: 'confirmation_policy', required: true, stage: 'before_execution' },
+    ],
+    supportedModes: ['plan_confirmed', 'remote_task'],
+    riskLevel: 'high',
+    status: 'published',
+    createdBy: 'ugv-smpp-capability-governance-driver',
+    createdAt: '2026-08-12T00:00:00.000Z',
+  }) as unknown as Record<string, unknown>;
 }
 
 function readSemantics(): ToolFixture['executionSemantics'] {

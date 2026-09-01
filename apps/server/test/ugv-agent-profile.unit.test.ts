@@ -10,7 +10,7 @@ import {
   UGV_AGENT_PROFILE_CAPABILITY_ID,
   UGV_AGENT_PROFILE_ID,
   UGV_AGENT_PROFILE_OPERATION_POLICY,
-  UGV_AGENT_PROFILE_SKILL_REF,
+  UGV_AGENT_PROFILE_SKILL_ID,
   UgvAgentProfileSkillRepositoryView,
   assertUgvAgentProfileRuntimeConfiguration,
   projectUgvAgentProfileEnabledSkills,
@@ -20,39 +20,48 @@ import {
 import { loadExactUgvProfileSkill } from './ugv-agent-profile-test-fixture.js';
 
 describe('UGV Agent Profile composition', () => {
-  it('declares one point-navigation capability while keeping reads contextual and safety operations forbidden', () => {
-    expect(ugvAgentProfileTaskUnderstandingConfiguration()).toMatchObject({
+  it('declares all reviewed UGV Capability task types and authority classes', () => {
+    const taskUnderstanding = ugvAgentProfileTaskUnderstandingConfiguration();
+    expect(taskUnderstanding).toMatchObject({
       profile: UGV_AGENT_PROFILE_ID,
       entryPolicy: 'all_requests',
       skillSelectionMode: 'exact_compatible_only',
-      taskTypes: [
-        {
-          taskTypeId: 'task-type.ugv-point-navigation',
-          version: 1,
-          capabilityRequirements: [UGV_AGENT_PROFILE_CAPABILITY_ID],
-          requiredDimensions: ['target', 'side_effect_authorization'],
-          risks: ['physical_side_effect', 'explicit_plan_confirmation'],
-        },
-      ],
     });
+    expect(taskUnderstanding.taskTypes).toHaveLength(13);
+    expect(taskUnderstanding.taskTypes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          taskTypeId: 'task-type.ugv-point-navigation',
+          capabilityRequirements: [UGV_AGENT_PROFILE_CAPABILITY_ID],
+          requiredDimensions: ['side_effect_authorization'],
+        }),
+        expect.objectContaining({
+          taskTypeId: 'task-type.vehicle.read-state',
+          capabilityRequirements: ['vehicle.ugv.read-state'],
+          requiredDimensions: [],
+        }),
+        expect.objectContaining({
+          taskTypeId: 'task-type.vehicle.emergency-stop',
+          capabilityRequirements: ['vehicle.ugv.emergency-stop'],
+        }),
+        expect.objectContaining({
+          taskTypeId: 'task-type.vehicle.fire-weapon',
+          capabilityRequirements: ['vehicle.ugv.fire-weapon'],
+          requiredDimensions: ['target', 'side_effect_authorization', 'human_confirmation_policy'],
+        }),
+      ]),
+    );
     expect(UGV_AGENT_PROFILE_OPERATION_POLICY).toEqual(
       expect.objectContaining({
-        publicSkillAllowlist: [UGV_AGENT_PROFILE_SKILL_REF],
-        contextAndEvidenceReadOperations: [
-          { operationName: 'vehicle_get_state', purpose: 'initial_context' },
-          { operationName: 'vehicle_get_state', purpose: 'final_position_evidence' },
-        ],
-        governedControlOperations: [
-          expect.objectContaining({ operationName: 'vehicle_navigate', missionType: 'point' }),
-        ],
-        forbiddenPlannerOperations: [
-          'vehicle_area_recon',
-          'vehicle_track_target',
-          'vehicle_control_gimbal',
-          'vehicle_fire_weapon',
-          'vehicle_emergency_stop',
-        ],
-        emergencyStopAuthority: 'manual_operator_only',
+        publicSkillAllowlist: expect.arrayContaining([
+          UGV_AGENT_PROFILE_SKILL_ID,
+          'ugv.get-state',
+          'ugv.navigate-route',
+          'ugv.emergency-stop',
+          'ugv.fire-weapon',
+        ]),
+        emergencyStopAuthority: 'explicit_human_instruction_or_physical_confirmation',
+        weaponAuthority: 'plan_then_exact_weapon_confirmation',
       }),
     );
   });
@@ -190,7 +199,7 @@ describe('UGV Agent Profile composition', () => {
         UGV_TEST_TOLERANCE_M: '2.001',
       }),
     ).toThrow();
-    expect(useManagedAgentCardForProfile(environment.SDAR_TASK_UNDERSTANDING_PROFILE)).toBe(false);
+    expect(useManagedAgentCardForProfile(environment.SDAR_TASK_UNDERSTANDING_PROFILE)).toBe(true);
     expect(useManagedAgentCardForProfile('managed_capability')).toBe(true);
 
     expect(() => {

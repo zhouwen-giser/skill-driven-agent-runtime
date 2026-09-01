@@ -1,5 +1,24 @@
 # Project Status
 
+## UGV ten-tool Capability / Skill / A2A expansion (2026-09-01, implemented; final deployment gate pending)
+
+ADR-147 and `execplans/EP-UGV-10-TOOL-CAPABILITY-EXPANSION.md` register the current ten-operation UGV
+Provider catalog as thirteen append-only public surfaces: four read operations, the preserved point
+navigation lineage, route/distance/return-home navigation, reconnaissance, tracking, gimbal,
+emergency stop and weapon control. Read-only and ordinary controlled operations reuse the one
+managed-capability / Skill Usage / LangGraph / Frozen MCP Task runtime. Existing Binding, Skill,
+Capability, Exposure and Agent Card versions are never overwritten.
+
+Physical, direct-emergency and weapon authorities are now distinct PostgreSQL one-shot confirmation
+kinds. Management, A2A and Console adapters converge on TaskService/Application services; the Console
+shows only non-sensitive target/resource, immutable hashes, expiry, revocation and consumption state.
+Weapon lifecycle authority is published but invocation remains restricted until strict fresh target
+and payload evidence exists. Unknown/additive provider-policy fields are retained; understood fields
+remain individually validated. Current implementation gates include 151 high-risk focused tests, 125
+query/Console tests, real PostgreSQL 3/3, migrations through 0177, typecheck, lint, build and the
+870-source architecture gate. No A2A/MCP Task, Provider Tool call or device action was performed.
+Final full-suite rerun and read-only governance deployment evidence remain before closure.
+
 ## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
 
 ADR-146 removes the UGV Profile's fixed `embodied.move@2` / `a2a.embodied.move@2` product-code

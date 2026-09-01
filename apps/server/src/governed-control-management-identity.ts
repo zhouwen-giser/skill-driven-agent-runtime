@@ -10,6 +10,9 @@ import {
 const CONTROL_PERMISSIONS = new Set<GovernedControlPermission>([
   'physical_control.confirm',
   'physical_control.revoke',
+  'physical_control.emergency_stop',
+  'weapon_control.confirm',
+  'weapon_control.revoke',
 ]);
 
 export class ConfiguredBearerGovernedControlIdentity implements GovernedControlPrincipalResolver {

@@ -23,9 +23,7 @@ export class ControlMigrationError extends Error {
   }
 }
 
-export function resolveDefaultControlMigrationRoot(
-  workingDirectory = process.cwd(),
-): string {
+export function resolveDefaultControlMigrationRoot(workingDirectory = process.cwd()): string {
   return resolve(workingDirectory, 'infra', 'postgres-control', 'migrations');
 }
 

@@ -206,6 +206,7 @@ export class McpRegistryService {
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
+  readonly #hardDeniedControlTools: ReadonlySet<string>;
   readonly #executionModeHeaderPolicy: McpExecutionModeHeaderPolicy;
   readonly #runtimeBindingAuthority: McpRuntimeBindingAuthorityVerifier;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
@@ -219,6 +220,7 @@ export class McpRegistryService {
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
       controlAuthority?: GovernedControlInvocationAuthorityPort;
+      hardDeniedControlTools?: readonly string[];
       executionModeHeaderPolicy?: McpExecutionModeHeaderPolicy;
       runtimeBindingAuthority?: McpRuntimeBindingAuthorityVerifier;
       clock: Clock;
@@ -232,6 +234,9 @@ export class McpRegistryService {
     this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#providerBindings = dependencies.providerBindings;
     this.#controlAuthority = dependencies.controlAuthority;
+    this.#hardDeniedControlTools = new Set(
+      dependencies.hardDeniedControlTools ?? HARD_DENIED_CONTROL_TOOLS,
+    );
     this.#executionModeHeaderPolicy = dependencies.executionModeHeaderPolicy ?? 'emit';
     this.#runtimeBindingAuthority =
       dependencies.runtimeBindingAuthority ??
@@ -634,11 +639,7 @@ export class McpRegistryService {
     invocationId: string,
     dispatchHash: string,
   ): Promise<GovernedControlDispatchReceipt | undefined> {
-    if (
-      HARD_DENIED_CONTROL_TOOLS.includes(
-        tool.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
-      )
-    )
+    if (this.#hardDeniedControlTools.has(tool.toolName))
       throw new McpRegistryError(
         'MCP_CONTROL_TOOL_HARD_DENIED',
         'vehicle_fire_weapon has no execution authority in this Runtime.',

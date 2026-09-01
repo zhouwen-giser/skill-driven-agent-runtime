@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-09-01 — UGV ten-tool governed Capability and A2A expansion
+
+- Register the current ten-operation UGV catalog as thirteen append-only Skill/Capability/Exposure
+  surfaces while preserving historical point-navigation and Provider Binding lineage.
+- Route read-only and ordinary control surfaces through the existing managed-capability, Skill Usage,
+  LangGraph and Frozen MCP Task runtime; default `allowedTools` is the selected Skills' declared tools
+  plus exact selected Task operations, never an unrelated global catalog.
+- Add durable `physical_control`, `emergency_stop` and `weapon_control` authority kinds, migrations
+  0176/0177, direct exact emergency authorization, strict single-action weapon confirmation/revocation
+  and shared A2A/Management/Console Application services.
+- Publish weapon governance without claiming invocation readiness: missing strict fresh target/payload
+  evidence fails before confirmation consumption or transport, and non-UGV profiles keep the hard
+  deny. Provider completion remains separate from Goal or physical success.
+- Allow additive provider-policy fields while validating every understood authority field; no exact
+  key-set or speculative dangerous-field blacklist is used.
+- Add a non-sensitive Console confirmation projection for resource/target, Plan/argument hashes,
+  expiry, revocation and consumption. No credentials, Provider response body, A2A/MCP Task, Tool call
+  or device action is introduced by the implementation or its tests.
+
 ## 2026-09-01 — UGV governed live execution context
 
 - Remove the obsolete UGV Skill readiness and deterministic-plan requirement that every request use

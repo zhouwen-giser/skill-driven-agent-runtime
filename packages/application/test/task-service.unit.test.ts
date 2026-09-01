@@ -922,6 +922,123 @@ describe('TaskService', () => {
     ).toMatchObject({ phase: 'executing' });
   });
 
+  it('defers a confirmed weapon plan until one exact shared weapon authorization is persisted', async () => {
+    const weaponConfirm = vi.fn(() => Promise.resolve());
+    const executeConfirmed = vi.fn(() => Promise.resolve());
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      beforePlanExecution: () => Promise.resolve({ deferExecution: 'weapon_confirmation' }),
+      weaponActions: { confirm: weaponConfirm },
+      executeConfirmed,
+    });
+    const submitted = await harness.service.submit({ messageText: 'Engage target.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-weapon', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Confirm the plan.',
+      }),
+    ).resolves.toMatchObject({ phase: 'awaiting_user_input' });
+    expect(executeConfirmed).not.toHaveBeenCalled();
+
+    const authorization = {
+      resourceId: 'vehicle:ugv1',
+      targetId: 'target-17',
+      engagementMode: 'single' as const,
+      requireConfirmation: true as const,
+    };
+    const confirmationAuthority = {
+      principal: {
+        actorId: 'human:weapon-approver',
+        kind: 'human' as const,
+        authenticationMethod: 'configured_bearer',
+        permissions: new Set(['weapon_control.confirm' as const]),
+        requestId: 'request-weapon-1',
+      },
+    };
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_weapon_action',
+        messageText: 'Confirm the exact action.',
+        weaponAuthorization: authorization,
+        confirmationAuthority,
+      }),
+    ).resolves.toMatchObject({ phase: 'executing' });
+    expect(weaponConfirm).toHaveBeenCalledWith(task.taskId, authorization, confirmationAuthority);
+    expect(executeConfirmed).toHaveBeenCalledOnce();
+  });
+
+  it('projects one exact direct emergency authorization with the confirmed plan', async () => {
+    const beforePlanExecution = vi.fn(() => Promise.resolve(undefined));
+    const executeConfirmed = vi.fn(() => Promise.resolve());
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      beforePlanExecution,
+      executeConfirmed,
+    });
+    const submitted = await harness.service.submit({
+      messageText: 'Emergency stop.',
+      metadata: {},
+    });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+      'awaiting_plan_confirmation',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-emergency', goalId: 'goal-1', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    const confirmationAuthority = {
+      principal: {
+        actorId: 'human:emergency-operator',
+        kind: 'human' as const,
+        authenticationMethod: 'configured_bearer',
+        permissions: new Set(['physical_control.emergency_stop' as const]),
+        requestId: 'request-emergency-1',
+      },
+    };
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'confirm_plan',
+        messageText: 'Stop the exact vehicle now.',
+        confirmationAuthority,
+        emergencyAuthorization: { resourceId: 'vehicle:ugv1' },
+      }),
+    ).resolves.toMatchObject({ phase: 'executing' });
+    expect(beforePlanExecution).toHaveBeenCalledWith({
+      task: expect.objectContaining({ taskId: task.taskId, planId: 'plan-emergency' }),
+      confirmationTarget: 'task_plan',
+      confirmationAuthority,
+      emergencyAuthorization: { resourceId: 'vehicle:ugv1' },
+    });
+    expect(executeConfirmed).toHaveBeenCalledOnce();
+
+    await expect(
+      harness.service.followUp({
+        taskId: task.taskId,
+        action: 'pause',
+        messageText: 'Invalid authority placement.',
+        emergencyAuthorization: { resourceId: 'vehicle:ugv1' },
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID' });
+  });
+
   it('replans and requires fresh confirmation when the pause threshold was exceeded', async () => {
     const harness = createHarness('replan_required');
     const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
@@ -1181,7 +1298,7 @@ describe('TaskService', () => {
           confirmationAuthority: { principal },
         });
         harness.operations.push('before-plan-execution');
-        return Promise.resolve();
+        return Promise.resolve(undefined);
       },
       executeConfirmed: () => {
         harness.operations.push('plan.execute');
@@ -1237,7 +1354,7 @@ describe('TaskService', () => {
         projectionAttempts += 1;
         return projectionAttempts === 1
           ? Promise.reject(new Error('PROJECTOR_INTERRUPTED'))
-          : Promise.resolve();
+          : Promise.resolve(undefined);
       },
       executeConfirmed: () => {
         executions += 1;
@@ -1277,7 +1394,7 @@ describe('TaskService', () => {
   });
 
   it('does not project outer-plan authority for nested confirmation and rejects authority on other actions', async () => {
-    const beforePlanExecution = vi.fn(() => Promise.resolve());
+    const beforePlanExecution = vi.fn(() => Promise.resolve(undefined));
     const harness = createHarness('resumed', false, undefined, undefined, {
       confirm: () => Promise.resolve('nested_skill_plan'),
       beforePlanExecution,
@@ -1399,6 +1516,7 @@ function createHarness(
     naturalLanguageCapabilityAdmissions?: NonNullable<
       TaskServiceDependencies['naturalLanguageCapabilityAdmissions']
     >;
+    weaponActions?: NonNullable<TaskServiceDependencies['weaponActions']>;
   }> = {},
 ): Readonly<{
   service: TaskService;
@@ -1607,6 +1725,7 @@ function createHarness(
       ...(options.beforePlanExecution === undefined
         ? {}
         : { beforePlanExecution: options.beforePlanExecution }),
+      ...(options.weaponActions === undefined ? {} : { weaponActions: options.weaponActions }),
       planActions: {
         confirm:
           options.confirm ??

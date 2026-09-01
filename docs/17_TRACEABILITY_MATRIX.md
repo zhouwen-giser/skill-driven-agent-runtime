@@ -1,5 +1,18 @@
 # 需求追踪矩阵
 
+## UGV 10-Tool Capability / Skill / A2A 扩展（2026-09-01，实现完成，最终部署门待执行）
+
+| 场景 / 关联需求                                  | 实现                                                                                                                        | 测试与证据                                                                                  | 当前状态                                              |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| UGV-10-TOOL-001 / FR-SKL-001/002/004             | 10 Provider Tools → 13 个 append-only Skill/Capability/Exposure；点导航历史 lineage 保留                                    | governance/profile/catalog focused suites；版本 reuse/successor、schema 互斥、Card 完整性             | 实现；待只读 live governance bootstrap                    |
+| UGV-10-TOOL-002 / FR-MCP-004/006/007             | 复用 current Binding/Catalog、managed-capability、Skill Usage、LangGraph、Frozen MCP Task；不建立第二 Runtime | exact authority/catalog drift、unknown availability policy、remote Task zero-replay regressions | focused 通过；本轮 `tools/call=0`                         |
+| UGV-10-TOOL-003 / FR-A2A-001/002                 | A2A Exposure + active Card；`confirm_weapon_action` 映射到同一 Task/Application authority                            | A2A mapping + TaskService + Management contract 回归；严格单发参数                            | 实现；不把 Provider completed 推断为 Goal success     |
+| UGV-10-TOOL-004 / NFR-SEC-002                    | 0176/0177 authority kind；一次性 physical/emergency/weapon confirm/revoke；Console 非敏感查询投影       | high-risk authority 151 tests；query/repository/API/Console 125 tests；real PG 3/3                | 实现；weapon 无严格 target/payload evidence 仍 restricted |
+| UGV-10-TOOL-005 / FR-ADM-001/002                 | provider policy 已知字段逐项验证、未知/新增字段保留；无 exact-key set 和臆测危险字段禁表                 | provider-binding-policy unit + governance canonical-content regressions                        | 实现；历史版本不改写                                |
+
+活跃证据计划：`execplans/EP-UGV-10-TOOL-CAPABILITY-EXPANSION.md`；架构决策：
+`adr/ADR-147-ugv-ten-tool-capability-and-high-risk-control-authority.md`。
+
 ## UGV Benchmark 被动联调（2026-08-27）
 
 | 场景 / 关联需求                             | 实现                                                                                                                      | 测试与证据                                                                                            | 当前状态                                 |
