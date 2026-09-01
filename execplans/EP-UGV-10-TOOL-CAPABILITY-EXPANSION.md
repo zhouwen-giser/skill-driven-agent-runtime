@@ -45,6 +45,8 @@ governance and runtime authority.
 - [x] 2026-09-01: completed the exact-commit clean full-suite rerun after the Console and OpenAPI
       additions.
 - [x] 2026-09-01: published redacted zero-Tool-call governance evidence and updated traceability.
+- [x] 2026-09-01: read-only verified Benchmark's deterministic formal-A2A input remediation against
+      the deployed Runtime contract without creating a Task or invoking a Provider Tool.
 
 ## Discoveries and Surprises
 
@@ -78,10 +80,12 @@ governance and runtime authority.
 - The adjacent Evidence Export rollback test also had to unwind 0177 and 0176 before testing the
   0175/0174 boundary. Leaving later ledger rows in place correctly caused the next Runtime migration
   check to reject a non-contiguous ledger; the regression now preserves cross-suite continuity.
-- Benchmark P10 materialization currently emits `{longitude,latitude,altitudeM}` plus generic text,
-  while the public SDAR point-navigation Capability accepts `{x,y,frame}` or labelled coordinates in
-  natural-language text. No adapter currently binds those projections, so P10 candidate submission
-  remains blocked without relaxing either frozen contract.
+- Benchmark P10 commit `183708c729ec7d3b7b7a84c40bbaca21e17b9389` preserves the frozen
+  `{longitude,latitude,altitudeM}` source artifact while projecting longitude/latitude into identical
+  A2A Data Part and `metadata.structured_input` values shaped as
+  `{resourceId:'vehicle:ugv1',target:{x,y,frame:'WGS84'}}`. It binds requested Exposure version 4 and
+  its stable request identity without projecting altitude. This matches the current Runtime formal
+  contract; actual P10 execution remains a separately authorized qualification step.
 
 ## Decision Log
 
@@ -130,6 +134,11 @@ Completed evidence before final rerun:
   official A2A TCK, canonical Evidence 44/44, migration/build and all smoke gates;
 - Phase 13 passed at 1.21% Runtime regression, 6.85% baseline median drift and 7.79 ms Evidence append
   P95.
+- Benchmark formal-input remediation follow-up: 11 UGV governance/profile/A2A/control contract files
+  passed 175/175; `pnpm typecheck`, the 870-source architecture gate, production build, Markdown
+  formatting and `git diff --check` passed. The deployed Agent Card was observed read-only at HTTP
+  200 with `a2a.embodied.move@4`; Node Control live/ready returned HTTP 200/200. No Task or Tool call
+  was issued.
 
 ## Idempotence and Recovery
 
@@ -150,5 +159,6 @@ operations map to thirteen append-only public surfaces, with read-only, ordinary
 emergency and restricted weapon authority kept distinct. The deployed Runtime exposes active Agent
 Card revision 14013, preserves point navigation as `embodied.move_to@1` / `embodied.move@5` /
 `a2a.embodied.move@4`, and records zero Provider `tools/call` since deployment. Exact commit
-`3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full clean gate and is deployed as Runtime PID 3756664. The ten-tool expansion is closed; the separately owned P10 live runner remains blocked on
-its Benchmark-to-SDAR public input translation and is not treated as a product-authority bypass.
+`3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full clean gate and is deployed as Runtime PID 3756664. The ten-tool expansion is closed, and Benchmark's exact remediation removes the previously
+observed SDAR product-authority input mismatch. No A2A Task was submitted during this verification;
+live P10 qualification remains independently unexecuted.

@@ -28,8 +28,13 @@
   Agent Card, and make the Evidence rollback integration include every additive migration after
   0148 instead of stopping at the former 0175 boundary.
 - Preserve migration-ledger continuity in the adjacent Evidence Export rollback regression by
-  unwinding 0177/0176 before its intentional 0175/0174 down/up cycle; record the exact clean full-gate
-  and P10 Benchmark-to-SDAR input projection blocker without weakening either public contract.
+  unwinding 0177/0176 before its intentional 0175/0174 down/up cycle; record the exact clean full gate
+  and the then-observed P10 Benchmark-to-SDAR input mismatch without weakening either public contract.
+- Record the external Benchmark remediation at exact commit
+  `183708c729ec7d3b7b7a84c40bbaca21e17b9389`: frozen longitude/latitude materialization now projects
+  deterministically to the formal `a2a.embodied.move@4` `{x,y,frame:'WGS84'}` input while preserving
+  the source artifact and omitting altitude from the wire contract. Runtime compatibility was checked
+  read-only; no A2A Task or Provider call was made.
 
 ## 2026-09-01 — UGV governed live execution context
 

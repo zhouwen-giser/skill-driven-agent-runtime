@@ -24,9 +24,13 @@ navigation remains `embodied.move_to@1` / `embodied.move@5` / `a2a.embodied.move
 invocation remains restricted. Exact commit `3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full
 clean gate (2875 static/unit/contract tests, 228 integration tests, 73 E2E tests, A2A TCK, 44/44
 Evidence scenarios and all smoke gates) and is deployed at Management 10998 / A2A 10999. No A2A/MCP
-Task, Provider `tools/call` or device action was performed. P10 live submission remains separately
-blocked until Benchmark translates its `{longitude,latitude,altitudeM}` candidate into SDAR's frozen
-`{x,y,frame}` public Capability input (or labelled-coordinate text).
+Task, Provider `tools/call` or device action was performed. Benchmark commit
+`183708c729ec7d3b7b7a84c40bbaca21e17b9389` now deterministically projects the frozen materialized
+longitude/latitude into SDAR's exact `{resourceId,target:{x,y,frame:'WGS84'}}` public Capability
+input, with the Data Part and `metadata.structured_input` identical, Exposure version 4 and one stable
+request identity. The projection contract is read-only verified against the deployed Agent Card;
+no A2A Task has yet been submitted, so P10 live qualification remains separately unexecuted rather
+than blocked by input incompatibility.
 
 ## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
 
