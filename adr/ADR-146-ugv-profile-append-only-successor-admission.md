@@ -30,14 +30,22 @@ draft as ready would violate the PostgreSQL governance authority.
   Task, confirmation, Tool call or physical side effect.
 - No new workflow runtime, database, migration, fallback authority or in-memory current pointer is
   introduced.
+- Skill readiness, deterministic planning and terminal evidence consume the execution mode frozen in
+  the Task Capability. `live` carries no simulation identity and requires replay-forbidden Provider
+  semantics; `simulation` continues to require its stable simulation identity and
+  simulation-only replay semantics. Both retain plan confirmation and the one-shot governed-control
+  confirmation boundary.
+- The deployment-owned physical-side-effect switch for `live` is independent and default closed.
+  Removing the historical simulation-only admission check does not itself authorize a Tool call.
 
 ## Consequences
 
 An operator may publish a reviewed append-only UGV successor and rebuild the managed Agent Card
 without changing product code for each version. Existing Tasks and historical versions remain
-immutable. Until `embodied.move@4` and `a2a.embodied.move@3` are formally published and the real
-southbound transport is ready, the current deployment remains non-executable and continues to
-advertise only its previously active Exposure.
+immutable. The published `embodied.move@4` / `a2a.embodied.move@3` live successor can now enter
+readiness and planning without a fabricated simulation identity; execution still requires fresh
+southbound readiness, explicit plan confirmation, the independent live deployment switch and a
+one-shot physical confirmation.
 
 ## Evidence
 

@@ -1,6 +1,6 @@
 # Project Status
 
-## UGV append-only successor admission repair (2026-09-01, implemented; execution blocked)
+## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
 
 ADR-146 removes the UGV Profile's fixed `embodied.move@2` / `a2a.embodied.move@2` product-code
 assumption. The Provider dependency policy now validates immutable append-only Capability content,
@@ -8,10 +8,13 @@ and natural-language admission resolves the current Exposure from the active Pos
 The localhost revision-2 authority was adopted through normal publish/Card governance without an
 override or history rewrite: `embodied.move@4` and `a2a.embodied.move@3` are published, Agent Card
 revision 14011 is active, and the legacy v2 Card lineage is superseded rather than overwritten.
-Current catalog/Binding readiness points at `127.0.0.1:19100`, but two bounded live read-only
-`vehicle_get_state` probes were rejected with `UGV_ADAPTER_INTERNAL_ERROR`. Therefore southbound
-qualification and managed execution remain blocked; no A2A/MCP Task, mutating Tool call, navigation,
-confirmation or physical side effect is authorized or claimed.
+Current catalog/Binding readiness points at `127.0.0.1:19100`. The obsolete simulation-only
+readiness/planning restriction is removed: frozen live Task Capability authority now remains live
+without a simulation identity through selection, planning, governed dispatch and terminal evidence.
+The independent default-closed live deployment gate, plan confirmation and one-shot physical
+confirmation remain mandatory. Focused tests, typecheck, architecture, lint and build pass. Actual
+navigation is intentionally waiting because an unrelated Provider mission was observed running; no
+new A2A/MCP Task or Tool call was created by this repair.
 
 ## SMPP MCP Tasks Runtime Consumer Sync (2026-08-31, implemented and qualified)
 

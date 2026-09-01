@@ -25,6 +25,12 @@ SMPP remains the only southbound owner of `mqtt://192.168.2.63:1883` and `http:/
 
 ## Progress
 
+- [x] 2026-09-01 removed the obsolete simulation-only readiness/planning restriction for the
+      reviewed live successor. The frozen Task Capability now selects live versus simulation;
+      SelectedTaskOperation, Provider replay semantics, durable remote-Task evidence and terminal
+      proof preserve that mode end to end. A separate default-closed live deployment gate remains in
+      front of transport. Focused tests pass 94/94, typecheck, architecture, scoped lint and build
+      pass. No A2A/MCP Task or Tool call was made while another external mission was active.
 - [x] 2026-09-01 repaired the P9A successor admission boundary: exact append-only Capability
       content replaces the fixed version-2 check, the current Exposure comes from the active PostgreSQL
       Agent Card, and focused regressions prove version/mode drift and draft selection remain rejected.

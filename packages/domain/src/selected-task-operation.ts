@@ -86,12 +86,18 @@ export interface SelectedTaskOperation {
     reservationRef?: string;
     possibleEffects: readonly TaskAvailabilityPossibleEffect[];
   }>;
-  readonly execution: Readonly<{
-    mode: 'simulation';
-    simulationId: string;
-    confirmation: 'existing_outer_plan_confirmation';
-    confirmationRequired: true;
-  }>;
+  readonly execution:
+    | Readonly<{
+        mode: 'live';
+        confirmation: 'existing_outer_plan_confirmation';
+        confirmationRequired: true;
+      }>
+    | Readonly<{
+        mode: 'simulation';
+        simulationId: string;
+        confirmation: 'existing_outer_plan_confirmation';
+        confirmationRequired: true;
+      }>;
   readonly snapshotHash: `sha256:${string}`;
 }
 
@@ -169,7 +175,7 @@ export function createSelectedTaskOperation(
     input.operation.executionSemantics.execution !== 'task_required' ||
     input.operation.executionSemantics.cancellation !== 'task_cancel' ||
     input.operation.executionSemantics.idempotency !== 'server_managed' ||
-    input.operation.executionSemantics.replay !== 'simulation_only' ||
+    !executionSemanticsMatchMode(input.execution, input.operation.executionSemantics.replay) ||
     input.operation.taskExecutionProfile.taskBehavior !== 'task_required' ||
     input.operation.taskExecutionProfile.availability !== 'dynamic' ||
     !input.operation.taskExecutionProfile.supportsScheduling ||
@@ -207,8 +213,7 @@ export function createSelectedTaskOperation(
     input.resource.resourceId !== 'vehicle:ugv1' ||
     !isExactNavigateArguments(input.resolvedArguments, input.resource.resourceId) ||
     different(input.server.protocolMode, 'frozen_v1') ||
-    different(input.execution.mode, 'simulation') ||
-    input.execution.simulationId.trim() === '' ||
+    !validExecution(input.execution) ||
     different(input.execution.confirmation, 'existing_outer_plan_confirmation') ||
     different(input.execution.confirmationRequired, true) ||
     !hashesMatch ||
@@ -256,6 +261,20 @@ export function createSelectedTaskOperation(
     ...draft,
     snapshotHash: hashCanonicalEvidenceJson(draft),
   });
+}
+
+function validExecution(execution: SelectedTaskOperation['execution']): boolean {
+  return execution.mode === 'live'
+    ? exactKeys(execution, ['mode', 'confirmation', 'confirmationRequired'])
+    : exactKeys(execution, ['mode', 'simulationId', 'confirmation', 'confirmationRequired']) &&
+        execution.simulationId.trim() !== '';
+}
+
+function executionSemanticsMatchMode(
+  execution: SelectedTaskOperation['execution'],
+  replay: McpToolExecutionSemantics['replay'],
+): boolean {
+  return execution.mode === 'live' ? replay === 'forbidden' : replay === 'simulation_only';
 }
 
 function isExactNavigateArguments(

@@ -624,13 +624,29 @@ describe('UGV move governed Task binding', () => {
     expect(item.availability).not.toHaveBeenCalled();
   });
 
-  it('requires simulation context before reading any authority', async () => {
-    const item = await fixture();
+  it('resolves a live execution context only against replay-forbidden Provider semantics', async () => {
+    const item = await fixture({
+      mutateNavigate: (tool) => ({
+        ...tool,
+        executionSemantics: { ...tool.executionSemantics, replay: 'forbidden' },
+      }),
+    });
     await expect(
       item.resolver.resolve({ ...request(), executionContext: { mode: 'live' } }),
-    ).rejects.toMatchObject({ code: 'UGV_PROFILE_SIMULATION_CONTEXT_REQUIRED' });
-    expect(item.listCandidates).not.toHaveBeenCalled();
-    expect(item.availability).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({
+      selected: {
+        execution: {
+          mode: 'live',
+          confirmation: 'existing_outer_plan_confirmation',
+          confirmationRequired: true,
+        },
+        operation: { executionSemantics: { replay: 'forbidden' } },
+      },
+    });
+    expect(item.listCandidates).toHaveBeenCalledOnce();
+    expect(item.availability).toHaveBeenCalledWith(
+      expect.objectContaining({ executionContext: { mode: 'live' } }),
+    );
   });
 
   it.each([

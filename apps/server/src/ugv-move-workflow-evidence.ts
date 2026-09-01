@@ -302,8 +302,7 @@ function exactRemoteLifecycle(
       binding.mcpInvocationId === navigate.invocationId &&
       binding.serverId === selected.server.serverId &&
       binding.operationName === selected.operation.operationName &&
-      binding.executionContext.mode === 'simulation' &&
-      binding.executionContext.simulationId === selected.execution.simulationId,
+      executionContextMatches(binding.executionContext, selected.execution),
   );
   const exact = matches[0];
   if (values.length !== 1 || matches.length !== 1 || exact === undefined)
@@ -375,8 +374,10 @@ function assertInvocationLineage(
       (invocation) =>
         invocation.taskId !== binding.agentTaskId ||
         invocation.contextId !== binding.contextId ||
-        invocation.executionMode !== 'simulation' ||
-        invocation.simulationId !== selected.execution.simulationId,
+        invocation.executionMode !== selected.execution.mode ||
+        (selected.execution.mode === 'simulation'
+          ? invocation.simulationId !== selected.execution.simulationId
+          : invocation.simulationId !== undefined),
     ) ||
     navigate.invocationId !== binding.mcpInvocationId ||
     remoteTaskIdFromInvocation(navigate.result) !== binding.remoteTaskId ||
@@ -400,6 +401,18 @@ function assertInvocationLineage(
       'UGV_MOVE_WORKFLOW_EVIDENCE_INVOCATION_LINEAGE_INVALID',
       'Durable MCP, Task, Plan, Workflow, node-run, or Provider lineage differs from selection.',
     );
+}
+
+function executionContextMatches(
+  context: Readonly<{ mode: string; simulationId?: string }>,
+  execution: SelectedTaskOperation['execution'],
+): boolean {
+  return (
+    context.mode === execution.mode &&
+    (execution.mode === 'simulation'
+      ? context.simulationId === execution.simulationId
+      : context.simulationId === undefined)
+  );
 }
 
 function assertGovernedConfirmation(

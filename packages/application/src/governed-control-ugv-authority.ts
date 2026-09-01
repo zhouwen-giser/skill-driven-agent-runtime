@@ -306,11 +306,22 @@ export interface UgvSimulationSideEffectGate {
   ): Promise<void>;
 }
 
+/** Deployment-owned, default-closed live physical side-effect gate. */
+export interface UgvLiveSideEffectGate {
+  assertAuthorized(
+    input: Readonly<{
+      taskId: string;
+      selectedSnapshotHash: `sha256:${string}`;
+    }>,
+  ): Promise<void>;
+}
+
 /** Exact UGV profile guard run immediately before the Provider transport is crossed. */
 export class UgvGovernedControlInvocationAuthorizer implements GovernedControlInvocationAuthorityPort {
   readonly #authority: UgvGovernedControlDispatchAuthorityReader;
   readonly #confirmations: UgvGovernedControlConfirmationConsumer;
   readonly #simulationSideEffectGate: UgvSimulationSideEffectGate | undefined;
+  readonly #liveSideEffectGate: UgvLiveSideEffectGate | undefined;
   readonly #clock: Readonly<{ now(): string }>;
 
   constructor(
@@ -318,12 +329,14 @@ export class UgvGovernedControlInvocationAuthorizer implements GovernedControlIn
       authority: UgvGovernedControlDispatchAuthorityReader;
       confirmations: UgvGovernedControlConfirmationConsumer;
       simulationSideEffectGate?: UgvSimulationSideEffectGate;
+      liveSideEffectGate?: UgvLiveSideEffectGate;
       clock: Readonly<{ now(): string }>;
     }>,
   ) {
     this.#authority = dependencies.authority;
     this.#confirmations = dependencies.confirmations;
     this.#simulationSideEffectGate = dependencies.simulationSideEffectGate;
+    this.#liveSideEffectGate = dependencies.liveSideEffectGate;
     this.#clock = dependencies.clock;
   }
 
@@ -371,22 +384,33 @@ export class UgvGovernedControlInvocationAuthorizer implements GovernedControlIn
         'UGV_GOVERNED_CONTROL_ARGUMENTS_TAMPERED',
         'Dispatch identity or adapted navigate arguments differ from persisted selection.',
       );
-    try {
-      if (this.#simulationSideEffectGate === undefined)
+    if (selected.execution.mode === 'simulation') {
+      try {
+        if (this.#simulationSideEffectGate === undefined) throw new Error('gate missing');
+        await this.#simulationSideEffectGate.assertAuthorized({
+          taskId: snapshot.task.taskId,
+          simulationId: selected.execution.simulationId,
+          selectedSnapshotHash: selected.snapshotHash,
+        });
+      } catch {
         fail(
           'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED',
-          'No server-side simulation side-effect gate is configured.',
+          'Server-side simulation side effects are disabled or bound to a different run.',
         );
-      await this.#simulationSideEffectGate.assertAuthorized({
-        taskId: snapshot.task.taskId,
-        simulationId: selected.execution.simulationId,
-        selectedSnapshotHash: selected.snapshotHash,
-      });
-    } catch {
-      fail(
-        'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED',
-        'Server-side simulation side effects are disabled or bound to a different run.',
-      );
+      }
+    } else {
+      try {
+        if (this.#liveSideEffectGate === undefined) throw new Error('gate missing');
+        await this.#liveSideEffectGate.assertAuthorized({
+          taskId: snapshot.task.taskId,
+          selectedSnapshotHash: selected.snapshotHash,
+        });
+      } catch {
+        fail(
+          'UGV_GOVERNED_CONTROL_LIVE_SIDE_EFFECT_NOT_AUTHORIZED',
+          'Server-side live physical side effects are disabled.',
+        );
+      }
     }
     assertUgvConfirmation(snapshot, now);
     const consumedAt = new Date(now).toISOString();
@@ -800,7 +824,8 @@ export type UgvGovernedControlAuthorityErrorCode =
   | 'UGV_GOVERNED_CONTROL_CURRENT_AUTHORITY_DRIFT'
   | 'UGV_GOVERNED_CONTROL_READINESS_STALE'
   | 'UGV_GOVERNED_CONTROL_SELECTED_OPERATION_INVALID'
-  | 'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED';
+  | 'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED'
+  | 'UGV_GOVERNED_CONTROL_LIVE_SIDE_EFFECT_NOT_AUTHORIZED';
 
 export class UgvGovernedControlAuthorityError extends Error {
   constructor(

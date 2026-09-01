@@ -648,10 +648,14 @@ export class PostgresUgvGovernedControlAuthorityReader
           }),
         }),
       ]),
-      executionContext: Object.freeze({
-        mode: 'simulation' as const,
-        simulationId: selected.execution.simulationId,
-      }),
+      executionContext: Object.freeze(
+        selected.execution.mode === 'live'
+          ? { mode: 'live' as const }
+          : {
+              mode: 'simulation' as const,
+              simulationId: selected.execution.simulationId,
+            },
+      ),
     });
     const checkedAt = normalizedTimestamp(this.#clock.now());
     return Object.freeze({

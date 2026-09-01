@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-01 — UGV governed live execution context
+
+- Remove the obsolete UGV Skill readiness and deterministic-plan requirement that every request use
+  `simulation` plus a `simulationId`; the immutable Task Capability now owns either exact `live` or
+  exact `simulation` execution authority.
+- Require live navigation selections to preserve replay-forbidden Provider semantics and forbid a
+  simulation identity; retain stable simulation identity plus simulation-only replay for simulation.
+- Add a separate default-closed `ALLOW_UGV_LIVE_SIDE_EFFECTS=YES` deployment gate while preserving
+  plan confirmation, one-shot physical confirmation, remote Task continuation and terminal evidence.
+- Focused 94-test regression, TypeScript, architecture, scoped lint and production build pass. No
+  A2A/MCP Task or Provider Tool call was made during implementation because an unrelated external
+  mission was active.
+
 ## 2026-09-01 — Telemetry current-authority dependency lock
 
 - Lock the downstream current-authority consumer to implementation commit

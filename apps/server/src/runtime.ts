@@ -513,6 +513,7 @@ import {
 } from './ugv-move-position-result.js';
 import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
 import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
+import { EnvironmentUgvLiveSideEffectGate } from './ugv-live-side-effect-gate.js';
 import { UgvNaturalLanguageCapabilityAdmissionResolver } from './ugv-natural-language-capability-admission.js';
 import { reconcileRegisteredProviderBindings } from './provider-binding-reconciler.js';
 import {
@@ -1425,6 +1426,7 @@ export async function startServerRuntime(
           authority: ugvGovernedControlAuthority,
           confirmations: governedControlAuthorityRepository,
           simulationSideEffectGate: new EnvironmentUgvSimulationSideEffectGate(process.env),
+          liveSideEffectGate: new EnvironmentUgvLiveSideEffectGate(process.env),
           clock,
         });
   if (
@@ -5336,10 +5338,12 @@ export async function startServerRuntime(
                     input.task.taskId,
                   );
                   if (
-                    executionContext?.mode !== 'simulation' ||
-                    executionContext.simulationId === undefined
+                    executionContext === undefined ||
+                    executionContext.mode === 'historical-replay' ||
+                    (executionContext.mode === 'simulation' &&
+                      executionContext.simulationId === undefined)
                   )
-                    throw new Error('UGV_AGENT_PROFILE_SIMULATION_CONTEXT_REQUIRED');
+                    throw new Error('UGV_AGENT_PROFILE_EXECUTION_CONTEXT_REQUIRED');
                   const resolved = await ugvMoveBindingResolver.resolve({
                     skillInput: input.skillInputResolution.structuredInput,
                     executionContext,
