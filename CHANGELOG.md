@@ -35,6 +35,11 @@
   deterministically to the formal `a2a.embodied.move@4` `{x,y,frame:'WGS84'}` input while preserving
   the source artifact and omitting altitude from the wire contract. Runtime compatibility was checked
   read-only; no A2A Task or Provider call was made.
+- Roll the SDAR Runtime, Node Control API and Worker to source
+  `07efbf5ab7606e0ea575faf968d9d9819fcea45b` without rebuilding PostgreSQL or Redis. Startup retained
+  the 71-entry Runtime and 12-entry Control migration ledgers, two enabled model Providers, Binding
+  revision 2, the ten-operation catalog and active 13-Exposure Agent Card. All three public health
+  surfaces returned HTTP 200; no Task or Tool call was issued.
 
 ## 2026-09-01 — UGV governed live execution context
 

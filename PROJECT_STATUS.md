@@ -21,10 +21,16 @@ query/Console tests, real PostgreSQL 3/3, migrations through 0177, typecheck, li
 `a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a`, and a fresh ten-tool
 Provider discovery. Active Agent Card revision 14013 exposes all 13 public surfaces while point
 navigation remains `embodied.move_to@1` / `embodied.move@5` / `a2a.embodied.move@4`; weapon
-invocation remains restricted. Exact commit `3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full
-clean gate (2875 static/unit/contract tests, 228 integration tests, 73 E2E tests, A2A TCK, 44/44
-Evidence scenarios and all smoke gates) and is deployed at Management 10998 / A2A 10999. No A2A/MCP
-Task, Provider `tools/call` or device action was performed. Benchmark commit
+invocation remains restricted. Exact implementation ancestor
+`3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full clean gate (2875
+static/unit/contract tests, 228 integration tests, 73 E2E tests, A2A TCK, 44/44 Evidence scenarios
+and all smoke gates). The latest deployed source is
+`07efbf5ab7606e0ea575faf968d9d9819fcea45b`, with dist SHA-256
+`215d28b5e56b5089f2fd819fed7ed7498bd846cfca30f0d17c9dc974bbe0f1b3`, Runtime PID 572558,
+Node Control API PID 572344 and Worker PID 572444. Management 10998, A2A 10999 and Node Control
+10091 all returned HTTP 200 after the rolling restart. Runtime migrations are current through 0177
+and Control migrations through 0012; existing PostgreSQL authority was preserved. No A2A/MCP Task,
+Provider `tools/call` or device action was performed. Benchmark commit
 `183708c729ec7d3b7b7a84c40bbaca21e17b9389` now deterministically projects the frozen materialized
 longitude/latitude into SDAR's exact `{resourceId,target:{x,y,frame:'WGS84'}}` public Capability
 input, with the Data Part and `metadata.structured_input` identical, Exposure version 4 and one stable

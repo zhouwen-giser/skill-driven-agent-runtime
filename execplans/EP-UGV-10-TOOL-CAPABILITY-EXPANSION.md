@@ -47,6 +47,8 @@ governance and runtime authority.
 - [x] 2026-09-01: published redacted zero-Tool-call governance evidence and updated traceability.
 - [x] 2026-09-01: read-only verified Benchmark's deterministic formal-A2A input remediation against
       the deployed Runtime contract without creating a Task or invoking a Provider Tool.
+- [x] 2026-09-01: rebuilt and rolled Runtime, Node Control API and Worker to the latest source while
+      preserving and verifying the existing PostgreSQL/Redis authority and migration ledgers.
 
 ## Discoveries and Surprises
 
@@ -139,6 +141,11 @@ Completed evidence before final rerun:
   formatting and `git diff --check` passed. The deployed Agent Card was observed read-only at HTTP
   200 with `a2a.embodied.move@4`; Node Control live/ready returned HTTP 200/200. No Task or Tool call
   was issued.
+- Deployment refresh: source `07efbf5ab7606e0ea575faf968d9d9819fcea45b`, dist SHA-256
+  `215d28b5e56b5089f2fd819fed7ed7498bd846cfca30f0d17c9dc974bbe0f1b3`; Runtime PID 572558,
+  Node Control API PID 572344 and Worker PID 572444. Runtime migration ledger 71 entries through 0177
+  and Control ledger 12 entries through 0012 remained contiguous; Binding revision 2, ten Runtime
+  operations, 13 published UGV Exposures and active Card revision 14013 remained exact.
 
 ## Idempotence and Recovery
 
@@ -159,6 +166,9 @@ operations map to thirteen append-only public surfaces, with read-only, ordinary
 emergency and restricted weapon authority kept distinct. The deployed Runtime exposes active Agent
 Card revision 14013, preserves point navigation as `embodied.move_to@1` / `embodied.move@5` /
 `a2a.embodied.move@4`, and records zero Provider `tools/call` since deployment. Exact commit
-`3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full clean gate and is deployed as Runtime PID 3756664. The ten-tool expansion is closed, and Benchmark's exact remediation removes the previously
+`3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full clean gate. Source
+`07efbf5ab7606e0ea575faf968d9d9819fcea45b` is deployed as Runtime PID 572558 with the same immutable
+dist hash; Node Control API/Worker were rolled from the same build and both PostgreSQL ledgers are
+current. The ten-tool expansion is closed, and Benchmark's exact remediation removes the previously
 observed SDAR product-authority input mismatch. No A2A Task was submitted during this verification;
 live P10 qualification remains independently unexecuted.
