@@ -203,21 +203,7 @@ function exactUgvDefinitionPromises(definition: NodeCapabilityDefinitionVersion)
 
 function exactUgvProviderOverride(value: unknown): ExactMcpProviderBindingPolicy | undefined {
   const raw = record(value);
-  if (
-    raw === undefined ||
-    !hasExactKeys(raw, [
-      'selection',
-      'mcpProviderBindingId',
-      'localServerId',
-      'mcpToolName',
-      'allowedResourceIds',
-      'requireActive',
-      'requireAvailable',
-      'requireUnexpiredFreshness',
-      'denyFallback',
-    ]) ||
-    !sameCanonical(raw['allowedResourceIds'], ['vehicle:ugv1'])
-  )
+  if (raw === undefined || !sameCanonical(raw['allowedResourceIds'], ['vehicle:ugv1']))
     return undefined;
   const parsed = parseMcpProviderBindingPolicyOverride(raw);
   const requirement = parsed.requirements[0];
@@ -289,7 +275,7 @@ function exactUgvCapabilityConstraints(
     executionMode === undefined ||
     !exactModeSpecificTargetPolicy(executionMode, target) ||
     provider === undefined ||
-    !exactProviderConstraint(provider, requirement, executionMode)
+    !exactProviderConstraint(provider, requirement)
   )
     return undefined;
   return Object.freeze({
@@ -347,26 +333,8 @@ function exactModeSpecificTargetPolicy(
 function exactProviderConstraint(
   value: Readonly<Record<string, unknown>>,
   requirement: ExactMcpProviderBindingPolicy,
-  executionMode: 'simulation' | 'live',
 ): boolean {
-  const semantics = record(value['executionSemantics']);
   return (
-    hasExactKeys(value, [
-      'type',
-      'mcpProviderBindingId',
-      'localServerId',
-      'mcpToolName',
-      'allowedResourceIds',
-      'bindingRevision',
-      'catalogRevision',
-      'catalogChecksum',
-      'taskBehavior',
-      'executionSemantics',
-      'requiredStatus',
-      'requiredAvailabilityStatus',
-      'requiredFreshness',
-      'fallback',
-    ]) &&
     value['type'] === 'provider_binding_policy' &&
     value['mcpProviderBindingId'] === requirement.mcpProviderBindingId &&
     value['localServerId'] === requirement.localServerId &&
@@ -375,20 +343,7 @@ function exactProviderConstraint(
     positiveInteger(value['bindingRevision']) &&
     nonEmpty(value['catalogRevision']) &&
     typeof value['catalogChecksum'] === 'string' &&
-    /^[0-9a-f]{64}$/u.test(value['catalogChecksum']) &&
-    value['taskBehavior'] === 'task_required' &&
-    sameCanonical(semantics, {
-      effect: 'side_effecting',
-      execution: 'task_required',
-      cancellation: 'task_cancel',
-      idempotency: 'server_managed',
-      replay: executionMode === 'simulation' ? 'simulation_only' : 'forbidden',
-      source: 'admin_override',
-    }) &&
-    value['requiredStatus'] === 'active' &&
-    value['requiredAvailabilityStatus'] === 'available' &&
-    value['requiredFreshness'] === 'unexpired' &&
-    value['fallback'] === 'deny'
+    /^[0-9a-f]{64}$/u.test(value['catalogChecksum'])
   );
 }
 

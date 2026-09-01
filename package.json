@@ -27,6 +27,7 @@
     "ugv:driver:bootstrap-source": "tsx apps/node-control-acceptance/src/ugv-smpp-source-bootstrap-driver.ts",
     "ugv:driver:bootstrap-provider": "tsx apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts",
     "ugv:driver:govern-capabilities": "tsx apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts",
+    "ugv:driver:reconcile-point-authority": "tsx apps/node-control-acceptance/src/ugv-point-navigation-authority-successor-driver.ts",
     "ugv:driver:remediate-control-authority": "tsx apps/node-control-acceptance/src/ugv-smpp-control-authority-remediation-driver.ts",
     "ugv:driver:smoke-readonly": "tsx apps/node-control-acceptance/src/ugv-smpp-deterministic-read-only-driver.ts",
     "ugv:driver:qualify-model": "tsx apps/node-control-acceptance/src/ugv-smpp-model-stage-conformance-driver.ts",
