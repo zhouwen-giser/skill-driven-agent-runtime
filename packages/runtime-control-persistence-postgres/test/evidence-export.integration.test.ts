@@ -44,6 +44,15 @@ describe('Canonical Evidence Export PostgreSQL adapter', { concurrent: false }, 
       (await pool.query('SELECT version FROM schema_migration WHERE version=$1', [version])).rows,
     ).toEqual([{ version }]);
     await pool.query(
+      await readFile(
+        'infra/postgres/migrations/0177_v14_control_authority_kind_default.down.sql',
+        'utf8',
+      ),
+    );
+    await pool.query(
+      await readFile('infra/postgres/migrations/0176_v14_control_authority_kind.down.sql', 'utf8'),
+    );
+    await pool.query(
       await readFile('infra/postgres/migrations/0175_v14_mcp_task_consumer_sync.down.sql', 'utf8'),
     );
     await pool.query(
