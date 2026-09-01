@@ -21,6 +21,10 @@
   preserving the exact `embodied.move_to@1` Skill and legacy version-2 compatibility.
 - Keep draft/unpublished successors, unavailable Provider health and southbound transport failures
   fail-closed. This change creates no Task, confirmation, Tool call or physical side effect.
+- Record the subsequent governance activation of `embodied.move@4` / `a2a.embodied.move@3` and Agent
+  Card revision 14011 while preserving legacy v2 history. The current localhost catalog and Binding
+  are exact, but live `vehicle_get_state` remains blocked by `UGV_ADAPTER_INTERNAL_ERROR`; catalog
+  readiness is not promoted to southbound or physical qualification.
 
 ## 2026-08-31 — Exact MCP Task admission reconciliation and 105-record Evidence contract
 

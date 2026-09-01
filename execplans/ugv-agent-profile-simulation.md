@@ -212,5 +212,8 @@ In progress for the cross-repository Goal. P0 contract freeze, P2-B01 local Prof
 
 The 2026-09-01 P9A repair removes fixed Capability/Exposure version constants while preserving
 PostgreSQL governance and every execution gate. The localhost `embodied.move@4` /
-`a2a.embodied.move@3` authority remains draft and the Device MCP remains unavailable, so this repair
-is implemented but deliberately not activated or presented as movement readiness.
+`a2a.embodied.move@3` authority is now published through normal governance and Agent Card revision
+14011 is active; the legacy v2 Card lineage remains superseded and auditable. Exact Registry
+revision-2 / Binding / Runtime catalog checks pass, but two bounded live read-only
+`vehicle_get_state` probes returned `UGV_ADAPTER_INTERNAL_ERROR`. The activation is therefore not
+presented as southbound movement readiness, and no A2A/MCP Task, mutation or physical action ran.
