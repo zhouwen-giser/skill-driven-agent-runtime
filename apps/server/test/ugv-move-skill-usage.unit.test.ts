@@ -119,6 +119,11 @@ describe('UGV move formal Skill Usage adapter', () => {
         confirmation: 'existing_outer_plan_confirmation',
         confirmationRequired: true,
       },
+      availability: {
+        ...draft.availability,
+        observedAvailability: 'unknown',
+        policyDecision: 'allowed_by_default',
+      },
     });
     const resolve = vi.fn().mockResolvedValue({ selected });
     const adapter = new UgvMoveSkillTaskReadinessAdapter({ resolve });
@@ -132,7 +137,21 @@ describe('UGV move formal Skill Usage adapter', () => {
         arguments: { unresolved: false, value: skillInput() },
         executionContext: { mode: 'live' },
       }),
-    ).resolves.toMatchObject({ overall: 'ready' });
+    ).resolves.toMatchObject({
+      overall: 'ready',
+      bindings: [
+        {
+          disposition: 'ready',
+          reasonCodes: ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT'],
+          candidates: [
+            expect.objectContaining({
+              disposition: 'ready',
+              reasonCodes: ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT'],
+            }),
+          ],
+        },
+      ],
+    });
     expect(resolve).toHaveBeenCalledWith({
       skillInput: skillInput(),
       executionContext: { mode: 'live' },

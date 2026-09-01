@@ -150,12 +150,27 @@ export class UgvMoveTaskBindingResolver {
     const selectedAt = this.#clock.now();
     const bindingReadiness = reported.bindings[0];
     const availability = capturedAvailability.exactResult(NAVIGATE_OPERATION);
+    const candidate = bindingReadiness?.candidates?.[0];
+    const providerAvailable = availability.result.availability === 'available';
+    const providerUnknownAllowed =
+      executionContext.mode === 'live' && availability.result.availability === 'unknown';
+    const readinessSelectionExact = providerAvailable
+      ? bindingReadiness?.selectedProviderId === exact.candidate.providerId &&
+        bindingReadiness.selectedOperationName === NAVIGATE_OPERATION &&
+        bindingReadiness.disposition === 'ready'
+      : providerUnknownAllowed &&
+        bindingReadiness?.disposition === 'unknown' &&
+        bindingReadiness.candidates?.length === 1 &&
+        candidate?.providerId === exact.candidate.providerId &&
+        candidate.operationName === NAVIGATE_OPERATION &&
+        candidate.disposition === 'unknown';
+    const availabilityResultCorrelated =
+      availability.request?.nodeId === availability.result.nodeId &&
+      availability.request.operationName === availability.result.operationName;
     if (
       reported.bindings.length !== 1 ||
-      bindingReadiness?.selectedProviderId !== exact.candidate.providerId ||
-      bindingReadiness.selectedOperationName !== NAVIGATE_OPERATION ||
-      bindingReadiness.disposition !== 'ready' ||
-      availability.result.availability !== 'available' ||
+      !readinessSelectionExact ||
+      !availabilityResultCorrelated ||
       availability.result.validUntil === undefined ||
       Date.parse(availability.result.validUntil) <= Date.parse(selectedAt) ||
       Date.parse(exact.binding.binding.availabilityValidUntil) <= Date.parse(selectedAt)
@@ -254,6 +269,8 @@ export class UgvMoveTaskBindingResolver {
         checkedAt: selectedAt,
         validUntil: availability.result.validUntil,
         disposition: 'ready',
+        observedAvailability: providerAvailable ? 'available' : 'unknown',
+        policyDecision: providerAvailable ? 'provider_available' : 'allowed_by_default',
         riskLevel: availability.result.riskLevel,
         reservationMode: availability.result.reservationMode,
         ...(availability.result.reservationRef === undefined

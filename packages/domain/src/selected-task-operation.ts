@@ -81,6 +81,10 @@ export interface SelectedTaskOperation {
     checkedAt: string;
     validUntil: string;
     disposition: 'ready';
+    /** Actual Provider observation; omitted only by legacy snapshots created before this field. */
+    observedAvailability?: 'available' | 'unknown';
+    /** Admission decision applied to the observation; never rewrites unknown as available. */
+    policyDecision?: 'provider_available' | 'allowed_by_default';
     riskLevel: TaskAvailabilityRiskLevel;
     reservationMode: TaskReservationMode;
     reservationRef?: string;
@@ -151,6 +155,14 @@ export function createSelectedTaskOperation(
   const reservationRefPresent =
     typeof input.availability.reservationRef === 'string' &&
     input.availability.reservationRef.trim() !== '';
+  const availabilityDecisionValid =
+    (input.availability.observedAvailability === undefined &&
+      input.availability.policyDecision === undefined) ||
+    (input.availability.observedAvailability === 'available' &&
+      input.availability.policyDecision === 'provider_available') ||
+    (input.availability.observedAvailability === 'unknown' &&
+      input.availability.policyDecision === 'allowed_by_default' &&
+      input.execution.mode === 'live');
   if (
     different(input.profileId, 'ugv-agent-profile') ||
     input.skill.skillId !== 'embodied.move_to' ||
@@ -220,6 +232,7 @@ export function createSelectedTaskOperation(
     input.availability.protocolRevision.trim() === '' ||
     input.availability.schemaRevision.trim() === '' ||
     different(input.availability.disposition, 'ready') ||
+    !availabilityDecisionValid ||
     !['low', 'medium', 'high', 'critical'].includes(input.availability.riskLevel) ||
     !['none', 'best_effort', 'guaranteed'].includes(input.availability.reservationMode) ||
     (input.availability.reservationRef !== undefined && !reservationRefPresent) ||

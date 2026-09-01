@@ -52,6 +52,10 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
       executionContext,
     });
     const selected = resolved.selected;
+    const allowedByDefault = selected.availability.policyDecision === 'allowed_by_default';
+    const readinessReasonCodes = Object.freeze(
+      allowedByDefault ? ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT'] : [],
+    );
     const provider = Object.freeze({
       providerId: selected.server.serverId,
       operationName: selected.operation.operationName,
@@ -72,7 +76,7 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
         : { reservationRef: selected.availability.reservationRef }),
       possibleEffects: Object.freeze([...selected.availability.possibleEffects]),
       selected: true,
-      reasonCodes: Object.freeze([]),
+      reasonCodes: readinessReasonCodes,
     });
     return Object.freeze({
       overall: 'ready' as const,
@@ -82,7 +86,7 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
           taskType: binding.taskType,
           disposition: 'ready' as const,
           confirmationRequired: true,
-          reasonCodes: Object.freeze([]),
+          reasonCodes: readinessReasonCodes,
           selectedProviderId: selected.server.serverId,
           selectedOperationName: selected.operation.operationName,
           selectedProtocolMode: 'frozen_v1' as const,

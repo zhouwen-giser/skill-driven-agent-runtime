@@ -121,6 +121,8 @@ describe('UGV move governed Task binding', () => {
         schemaRevision: 'smpp-availability/1.0',
         validUntil: VALID_UNTIL,
         disposition: 'ready',
+        observedAvailability: 'available',
+        policyDecision: 'provider_available',
         riskLevel: 'medium',
       },
       execution: {
@@ -240,6 +242,50 @@ describe('UGV move governed Task binding', () => {
     expect(runtimeFixture.listCandidates).toHaveBeenCalledOnce();
     expect(runtimeFixture.listCandidates).toHaveBeenCalledWith('vehicle_navigate');
     expect(runtimeFixture.availability).not.toHaveBeenCalled();
+  });
+
+  it('selects one exact live candidate when Provider availability is unknown and preserves the decision', async () => {
+    const item = await fixture({
+      availability: 'unknown',
+      mutateNavigate: (tool) => ({
+        ...tool,
+        executionSemantics: { ...tool.executionSemantics, replay: 'forbidden' },
+      }),
+    });
+
+    const resolved = await item.resolver.resolve({
+      ...request(),
+      executionContext: { mode: 'live' },
+    });
+
+    expect(resolved.selected.availability).toEqual(
+      expect.objectContaining({
+        disposition: 'ready',
+        observedAvailability: 'unknown',
+        policyDecision: 'allowed_by_default',
+        validUntil: VALID_UNTIL,
+      }),
+    );
+    expect(item.listCandidates).toHaveBeenCalledOnce();
+    expect(item.availability).toHaveBeenCalledOnce();
+  });
+
+  it('still rejects explicit unavailable and does not apply unknown-by-default outside live mode', async () => {
+    const disabled = await fixture({
+      availability: 'disabled',
+      mutateNavigate: (tool) => ({
+        ...tool,
+        executionSemantics: { ...tool.executionSemantics, replay: 'forbidden' },
+      }),
+    });
+    await expect(
+      disabled.resolver.resolve({ ...request(), executionContext: { mode: 'live' } }),
+    ).rejects.toMatchObject({ code: 'UGV_PROFILE_READINESS_NOT_ADMITTED' });
+
+    const simulatedUnknown = await fixture({ availability: 'unknown' });
+    await expect(simulatedUnknown.resolver.resolve(request())).rejects.toMatchObject({
+      code: 'UGV_PROFILE_READINESS_NOT_ADMITTED',
+    });
   });
 
   it('rejects drifted Provider Binding authority on the qualification-only path', async () => {
@@ -726,7 +772,7 @@ interface FixtureOptions {
   readonly availabilityValidUntil?: string;
   readonly bindingAvailabilityValidUntil?: string;
   readonly advanceClockDuringAvailabilityTo?: string;
-  readonly availability?: 'available' | 'restricted';
+  readonly availability?: 'available' | 'restricted' | 'disabled' | 'unknown';
   readonly reportReadinessRejection?: (
     diagnostic: UgvMoveReadinessRejectionDiagnostic,
   ) => void | Promise<void>;
