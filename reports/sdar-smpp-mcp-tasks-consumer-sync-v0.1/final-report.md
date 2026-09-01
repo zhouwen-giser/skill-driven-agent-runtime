@@ -33,3 +33,21 @@ and 105/105 catalog coverage.
 
 No SMPP, Telemetry, Benchmark or Simulator repository was modified. No navigation, vehicle command,
 Provider tool call or other physical side effect occurred during this work.
+
+## Post-qualification Telemetry dependency lock — 2026-09-01
+
+The downstream current-authority consumer is now source-locked at implementation commit
+`cceea2b88b697dcaef33dba0bd7679b15b3b28d3` and qualification commit
+`01719507aea97f2bcca904fc3838127ee2fd29b2`. The qualified image digest is
+`sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1`; its
+OCI revision equals the implementation commit. The implementation commit is an ancestor of the
+qualification commit. The immutable handoff Markdown and JSON hashes are respectively
+`c8400b7b85b7b447535b510578a0c7e2ba4f20ed7a523b8e5f6a0ab3ba3d5829` and
+`477e65883a11452405a6c134c0f00f817b97464845f6af0e066700922256fa5c`.
+
+The locked current-authority rule selects Mission authority by Provider `observedAt`, then stable
+`sourceRecordId`. A newer unresolved or conflicting fact hides a historical exact relation from the
+current view while retaining that relation for audit, and an exact current relation must reference
+the selected fact. This axis is classified **real/read-only verified**. It neither changes Runtime
+Task authority nor proves Goal or physical success. The lock update performed no A2A/MCP Task,
+Provider call, navigation, cancellation, Device control or Simulator mutation.

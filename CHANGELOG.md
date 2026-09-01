@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-01 — Telemetry current-authority dependency lock
+
+- Lock the downstream current-authority consumer to implementation commit
+  `cceea2b88b697dcaef33dba0bd7679b15b3b28d3`, qualification commit
+  `01719507aea97f2bcca904fc3838127ee2fd29b2` and immutable image digest
+  `sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1`.
+- Record the reviewed current-Mission selection rule: Provider `observedAt`, then stable source record
+  identity; newer unresolved/conflict facts suppress historical exact relations from the current view
+  without deleting audit history.
+- Classify this as real read-only downstream verification. No A2A/MCP Task, Provider/Device action,
+  navigation, cancellation or Simulator mutation was performed, and no Goal/physical success is
+  inferred.
+
 ## 2026-09-01 — UGV append-only successor admission
 
 - Resolve the UGV Profile's current Exposure from the active PostgreSQL Agent Card instead of

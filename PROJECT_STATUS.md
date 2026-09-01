@@ -26,6 +26,15 @@ missing Provider execution or Device Mission identities remain explicitly unreso
 not claim physical UGV, Simulator, Telemetry, Benchmark or production qualification, and it triggered
 no Device or navigation action.
 
+The downstream Telemetry current-authority dependency is now independently locked to implementation
+commit `cceea2b88b697dcaef33dba0bd7679b15b3b28d3`, qualification commit
+`01719507aea97f2bcca904fc3838127ee2fd29b2` and image digest
+`sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1`.
+The deployed consumer passed its read-only current-view chain: latest unresolved/conflict facts hide
+historical exact Mission relations from current authority while preserving audit history. This closes
+the Telemetry/P9A observation axis only; it does not mutate SDAR Task authority or prove Goal/physical
+success.
+
 ## UGV Benchmark passive debug (2026-08-27, live service ready / data waiting)
 
 ADR-144 and `execplans/EP-UGV-BENCHMARK-DEBUG.md` now cover the running passive

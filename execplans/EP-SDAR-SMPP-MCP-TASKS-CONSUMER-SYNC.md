@@ -65,6 +65,9 @@ authorities while adding a durable Provider execution companion relation.
       evidence without invoking a Provider or Device.
 - [x] 2026-08-31 11:52Z Created exact implementation commit
       `b9a75e3990163e959d91c76d402fe94c8366f5e8` for downstream source locking.
+- [x] 2026-09-01 01:47Z Locked the deployed Telemetry current-authority consumer at exact
+      implementation/qualification commits, image digest and immutable handoff hashes after
+      independent ancestry, runtime-health and byte-hash verification.
 
 ## Discoveries and Surprises
 
@@ -95,6 +98,10 @@ authorities while adding a durable Provider execution companion relation.
   may legitimately reuse the same opaque Task ID.
 - 2026-08-31: Persist Provider execution lineage as a separate immutable relation with Node Control
   Binding/SMPP origin snapshots; do not extend the lifecycle aggregate.
+- 2026-09-01: Treat Telemetry current authority as an observation-only downstream projection.
+  Provider `observedAt` and stable source record identity select the current Mission fact; a newer
+  unresolved/conflicting fact hides historical exact identity from the current view without deleting
+  audit history. It does not mutate SDAR Task authority or establish Goal/physical success.
 
 ## Implementation Steps
 
@@ -126,6 +133,7 @@ no new relation/journal rows remain; the down migration must fail safely otherwi
 
 - `reports/sdar-smpp-mcp-tasks-consumer-sync-v0.1/source-lock-observed.json`
 - `reports/sdar-smpp-mcp-tasks-consumer-sync-v0.1/smpp-producer-handoff-lock.json`
+- `reports/sdar-smpp-mcp-tasks-consumer-sync-v0.1/telemetry-current-authority-handoff-lock.json`
 - `reports/sdar-smpp-mcp-tasks-consumer-sync-v0.1/r0-gap-audit.md`
 - `reports/sdar-smpp-mcp-tasks-consumer-sync-v0.1/acceptance-gates.csv`
 - `reports/sdar-smpp-mcp-tasks-consumer-sync-v0.1/test-report.md`
@@ -143,3 +151,10 @@ Runtime migrations through `0175_v14_mcp_task_consumer_sync` and the formal Evid
 105/105 implemented and verified (100/100 Required, 5/5 Diagnostic). The implementation performed no
 Provider, Device or navigation action and does not infer Goal or physical success from Provider
 completion. G01–G22 are PASS and the downstream adapter handoff is ready for intake.
+
+The post-qualification Telemetry current-authority axis is additionally locked to implementation
+commit `cceea2b88b697dcaef33dba0bd7679b15b3b28d3`, qualification commit
+`01719507aea97f2bcca904fc3838127ee2fd29b2` and image digest
+`sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1`.
+Its real read-only verification closes the downstream current-view dependency only; external
+Referee/Device readiness and Goal/physical success remain separate authorities.
