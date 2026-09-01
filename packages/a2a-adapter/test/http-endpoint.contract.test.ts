@@ -171,13 +171,37 @@ describe('A2A 1.0 HTTP endpoint compatibility', () => {
             ]),
           ),
       },
+      naturalLanguageAdmissionContractProvider: {
+        findCurrent: () =>
+          Promise.resolve({
+            exposureId: 'a2a.embodied.move',
+            exposureVersion: 4,
+            capabilityId: 'embodied.move',
+            capabilityVersion: 5,
+            requestSchema: { type: 'object', additionalProperties: false },
+          }),
+      },
     });
     const response = await fetch(`${handle.baseUrl}/.well-known/agent-card.json`);
-    const card = (await response.json()) as { skills?: readonly { id?: string }[] };
+    const card = (await response.json()) as {
+      capabilities?: { extensions?: readonly { uri?: string; params?: unknown }[] };
+      skills?: readonly { id?: string }[];
+    };
 
     expect(response.status).toBe(200);
     expect(card.skills).toEqual([expect.objectContaining({ id: 'capability.device.inspect' })]);
     expect(card.skills?.map((skill) => skill.id)).not.toContain('skill.echo');
+    expect(card.capabilities?.extensions).toContainEqual(
+      expect.objectContaining({
+        uri: 'io.sdar/naturalLanguageCapabilityAdmission',
+        params: expect.objectContaining({
+          exposureId: 'a2a.embodied.move',
+          exposureVersion: 4,
+          capabilityId: 'embodied.move',
+          capabilityVersion: 5,
+        }),
+      }),
+    );
   });
 
   it('preserves the A2A 1.0.1 media type when the client requests it', async () => {
