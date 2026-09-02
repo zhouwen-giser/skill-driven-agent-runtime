@@ -12,6 +12,10 @@
 - Preserve explicit `unavailable` rejection, exact Binding/Catalog/resource/arguments authority,
   one-shot confirmation, remote Task admission and zero-redispatch semantics. The regression is
   qualification-only and performs no Provider Tool or device action.
+- Deploy implementation `3d2277799fa36b9493d112e9eeeba8a3a2ee9e27` as the exact local UGV
+  Runtime, preserving Binding revision 2 / Catalog `2.0.0-rc.1:2` and zero active Task/Remote Task.
+  Focused and functional gates pass; full release qualification remains explicitly blocked by
+  Phase 13 measurement thresholds, with no threshold relaxation.
 
 ## 2026-09-02 — UGV remote terminal failure propagation
 

@@ -208,6 +208,17 @@ Completed evidence before final rerun:
   production build passed. A `UGV_TOOL_RECOVERING` unknown now fails with the existing exact
   preparation error before Plan confirmation, while a benign unknown remains `allowed_by_default`
   and explicit unavailable stays denied.
+- The repair is deployed from implementation `3d2277799fa36b9493d112e9eeeba8a3a2ee9e27` as Runtime
+  PID 4097010, started `2026-09-02T11:03:05Z`, with dist content SHA-256
+  `733e786db26db29bb01930c8817b95af06749eb182da5d9fd0f92bc4f614c87b`. Management/A2A/Node
+  Control health is HTTP 200, Binding revision 2 / Catalog `2.0.0-rc.1:2` remains current, and
+  before/after authority counts prove zero new Task, MCP invocation or active Remote Task.
+- Clean full verification remains non-functionally blocked. Static/unit/contract/build, replay,
+  migrations, 228 integrations and the functional E2E batch passed; isolated Phase 13 attempts
+  failed respectively on append P95 `20.478ms > 20ms` and baseline-window drift
+  `16.487% > 15%` (the latter runner then timed out). The limits and assertions remain unchanged.
+  Exact redacted evidence is in
+  `reports/sdar-ugv-smpp-integration/p10-node-stale-admission-handoff.redacted.json`.
 
 ## Idempotence and Recovery
 

@@ -11,8 +11,21 @@ the observed value as `unknown` and records either `allowed_by_default` or `prov
 than fabricating `available`. The same injected policy is used again at pre-invocation readiness and
 governed-control dispatch authority. Focused preparation/readiness/persistence regressions pass
 73/73, the isolated real PostgreSQL/Runtime/A2A composition passes 1/1, and typecheck, architecture
-and production build pass; rollout qualification remains read-only and will be recorded below after
-the exact build is deployed.
+and production build pass. Implementation `3d2277799fa36b9493d112e9eeeba8a3a2ee9e27` is deployed as
+Runtime PID 4097010, started `2026-09-02T11:03:05Z`, from dist content SHA-256
+`733e786db26db29bb01930c8817b95af06749eb182da5d9fd0f92bc4f614c87b`. Management 10998, A2A
+10999 and Node Control live/ready 10091 returned HTTP 200. Binding revision 2 and Catalog
+`2.0.0-rc.1:2` / `a8748237...014a` remain current with ten operations; the rollout retained zero
+active Tasks/Remote Tasks and did not change the Task or MCP-invocation counts.
+
+The clean full verification invocation is not a PASS: all static/unit/contract/build, cognitive
+replay, migrations, 228 integration tests and the 72-test functional E2E batch passed, but the outer
+E2E runner timed out before Phase 13 completed. Two isolated Phase 13 attempts alternated failures:
+Evidence append P95 `20.478ms` exceeded `20ms` once, while the second append P95 passed at `13.462ms`
+but baseline-window drift reached `16.487%` over the `15%` limit and the runner timed out after raw
+metrics. No threshold was weakened. The functional fix is deployed for P10, while full release
+qualification remains blocked on the non-functional measurement-stability gate. See
+`reports/sdar-ugv-smpp-integration/p10-node-stale-admission-handoff.redacted.json`.
 
 ADR-147 and `execplans/EP-UGV-10-TOOL-CAPABILITY-EXPANSION.md` register the current ten-operation UGV
 Provider catalog as thirteen append-only public surfaces: four read operations, the preserved point
