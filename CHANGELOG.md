@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-02 — UGV public initial A2A admission boundary
+
+- Permit anonymous trusted-intranet initial A2A admission in every current UGV Exposure while
+  preserving authenticated plan, physical-control, emergency and weapon confirmation authorities.
+- Publish append-only Exposure successors, including `a2a.embodied.move@5`, and activate Agent Card
+  revision 14014 without rewriting historical Capability, Exposure, Binding or Catalog authority.
+- Add frozen-policy and A2A boundary regressions proving anonymous initial admission and governed
+  Bearer confirmation remain separate. The clean full gate and latest rolling deployment passed with
+  zero A2A/MCP Tasks, zero Provider `tools/call` and zero Device/Simulator mutation.
+
 ## 2026-09-01 — UGV ten-tool governed Capability and A2A expansion
 
 - Register the current ten-operation UGV catalog as thirteen append-only Skill/Capability/Exposure

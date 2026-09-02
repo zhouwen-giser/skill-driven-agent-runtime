@@ -1,6 +1,6 @@
 # Project Status
 
-## UGV ten-tool Capability / Skill / A2A expansion (2026-09-01, deployed and qualified)
+## UGV ten-tool Capability / Skill / A2A expansion (2026-09-02, deployed and qualified)
 
 ADR-147 and `execplans/EP-UGV-10-TOOL-CAPABILITY-EXPANSION.md` register the current ten-operation UGV
 Provider catalog as thirteen append-only public surfaces: four read operations, the preserved point
@@ -37,6 +37,16 @@ input, with the Data Part and `metadata.structured_input` identical, Exposure ve
 request identity. The projection contract is read-only verified against the deployed Agent Card;
 no A2A Task has yet been submitted, so P10 live qualification remains separately unexecuted rather
 than blocked by input incompatibility.
+
+The P10 public-initial-admission repair is now deployed from implementation
+`0ee57562eaf1a95408f061966a54199d3eb7bc7a`. The active PostgreSQL Agent Card is revision 14014 and
+projects `a2a.embodied.move@5` (hash `b55f0a0a...6855`) with `allowAnonymous=true`; the frozen policy
+still requires `plan_confirmation` and `physical_control.confirm` before execution. The prior `@4`
+authority is suspended and retained. The complete clean gate passed 2876 static/unit/contract tests,
+228 integration tests, 73 E2E tests, A2A TCK, canonical Evidence 44/44 and all smoke gates. The exact
+dist hash is `78ff100f40743bb17cde1c3aa7305ba3bfbe354b04a6ba523e768ff9ed1c43d5`;
+Management/A2A/Node Control are healthy on 10998/10999/10091. Qualification created no A2A Task, MCP
+Task or Provider Tool call and caused no navigation, Device or Simulator mutation.
 
 ## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
 

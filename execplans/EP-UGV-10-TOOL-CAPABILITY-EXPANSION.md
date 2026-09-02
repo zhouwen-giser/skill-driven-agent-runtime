@@ -49,6 +49,9 @@ governance and runtime authority.
       the deployed Runtime contract without creating a Task or invoking a Provider Tool.
 - [x] 2026-09-01: rebuilt and rolled Runtime, Node Control API and Worker to the latest source while
       preserving and verifying the existing PostgreSQL/Redis authority and migration ledgers.
+- [x] 2026-09-02: separated anonymous trusted-intranet initial A2A admission from authenticated
+      plan/physical confirmation, published append-only Exposure successors and rolled the latest
+      exact build without creating a Task or invoking a Provider Tool.
 
 ## Discoveries and Surprises
 
@@ -88,6 +91,10 @@ governance and runtime authority.
   `{resourceId:'vehicle:ugv1',target:{x,y,frame:'WGS84'}}`. It binds requested Exposure version 4 and
   its stable request identity without projecting altitude. This matches the current Runtime formal
   contract; actual P10 execution remains a separately authorized qualification step.
+- A physical-control Exposure policy that set `allowAnonymous=false` rejected the initial public A2A
+  message before Task persistence, even though execution confirmation had a separate authenticated
+  authority. The repaired frozen policy permits only initial trusted-intranet admission anonymously;
+  plan confirmation and one-shot physical confirmation remain mandatory and authenticated.
 
 ## Decision Log
 
@@ -146,6 +153,13 @@ Completed evidence before final rerun:
   Node Control API PID 572344 and Worker PID 572444. Runtime migration ledger 71 entries through 0177
   and Control ledger 12 entries through 0012 remained contiguous; Binding revision 2, ten Runtime
   operations, 13 published UGV Exposures and active Card revision 14013 remained exact.
+- Public-initial-admission repair: implementation `0ee57562eaf1a95408f061966a54199d3eb7bc7a`
+  passed 4 focused files / 83 tests and the complete clean `pnpm verify` gate: 331
+  static/unit/contract files (2876 tests), 40 integration files (228 tests), 7 E2E files (73 tests),
+  official A2A TCK, canonical Evidence 44/44, all builds/migrations/smokes and Phase 13. Governance
+  appended `a2a.embodied.move@5` and the other twelve Exposure successors, activated Card revision
+  14014 and retained Binding revision 2 / Catalog checksum `a8748237...014a`. The deployed dist hash
+  is `78ff100f40743bb17cde1c3aa7305ba3bfbe354b04a6ba523e768ff9ed1c43d5`.
 
 ## Idempotence and Recovery
 
