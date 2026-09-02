@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-02 — UGV selected-operation temporal authority
+
+- Preserve a short-lived dynamic availability observation as immutable historical evidence after an
+  exact Task operation is selected, rather than expiring that selection while model planning runs.
+- Retain the independent current Binding/Catalog/argument/dynamic-availability check at the governed
+  pre-invocation boundary; explicit unavailability and stale current authority remain rejected.
+- Add regressions for expired historical selection evidence and future-dated selections, refresh the
+  current append-only Binding observation, and roll the repaired Runtime with zero new Tasks,
+  Provider Tool calls or Device/Simulator mutation.
+
 ## 2026-09-02 — UGV public initial A2A admission boundary
 
 - Permit anonymous trusted-intranet initial A2A admission in every current UGV Exposure while

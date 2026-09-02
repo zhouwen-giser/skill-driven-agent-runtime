@@ -48,6 +48,18 @@ dist hash is `78ff100f40743bb17cde1c3aa7305ba3bfbe354b04a6ba523e768ff9ed1c43d5`;
 Management/A2A/Node Control are healthy on 10998/10999/10091. Qualification created no A2A Task, MCP
 Task or Provider Tool call and caused no navigation, Device or Simulator mutation.
 
+The subsequent P10 temporal-authority failure is repaired in implementation
+`baeb32579c15b09ae88c3d09c15a07157b772f94`. A selected operation's short-lived availability is now
+validated at selection and retained as historical evidence during model planning; it is no longer
+incorrectly required to remain live until workflow persistence. The governed pre-invocation boundary
+still reloads and validates current exact Binding, Catalog, arguments and dynamic availability. The
+current Binding remains append-only revision 2 with Catalog `2.0.0-rc.1:2`; a formal refresh extended
+its observed availability through `2026-09-02T06:36:36.587Z` without changing contract identity. The
+repaired Runtime PID is 1090891, started `2026-09-02T05:35:28Z`, with dist SHA-256
+`2a20752a4f2504cfb5906ed25b8d54c607bd618117666685b2139281e8332d00`; Management, A2A and Node
+Control health remain HTTP 200. Qualification created no new Task or Provider Tool invocation and
+caused no Device or Simulator mutation.
+
 ## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
 
 ADR-146 removes the UGV Profile's fixed `embodied.move@2` / `a2a.embodied.move@2` product-code

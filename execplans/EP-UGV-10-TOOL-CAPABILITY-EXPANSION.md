@@ -52,6 +52,10 @@ governance and runtime authority.
 - [x] 2026-09-02: separated anonymous trusted-intranet initial A2A admission from authenticated
       plan/physical confirmation, published append-only Exposure successors and rolled the latest
       exact build without creating a Task or invoking a Provider Tool.
+- [x] 2026-09-02: treated the short-lived dynamic availability attached to a selected operation as
+      immutable selection evidence after its selection boundary, while retaining a fresh exact
+      availability recheck immediately before governed invocation; refreshed current Binding
+      observation validity and rolled the repaired Runtime with zero Task or Tool calls.
 
 ## Discoveries and Surprises
 
@@ -95,6 +99,11 @@ governance and runtime authority.
   message before Task persistence, even though execution confirmation had a separate authenticated
   authority. The repaired frozen policy permits only initial trusted-intranet admission anonymously;
   plan confirmation and one-shot physical confirmation remain mandatory and authenticated.
+- The Provider's dynamic availability is intentionally short-lived (approximately one second). It
+  was valid when the exact operation was selected but expired while model planning ran, and two
+  later workflow-authority guards incorrectly reinterpreted that historical selection observation
+  as current readiness. Selection evidence is now immutable after selection; the independent
+  governed pre-invocation authority remains responsible for current readiness.
 
 ## Decision Log
 
@@ -160,6 +169,12 @@ Completed evidence before final rerun:
   appended `a2a.embodied.move@5` and the other twelve Exposure successors, activated Card revision
   14014 and retained Binding revision 2 / Catalog checksum `a8748237...014a`. The deployed dist hash
   is `78ff100f40743bb17cde1c3aa7305ba3bfbe354b04a6ba523e768ff9ed1c43d5`.
+- Selected-operation temporal-authority repair: implementation
+  `baeb32579c15b09ae88c3d09c15a07157b772f94` passed 4 focused files / 43 tests, typecheck, scoped
+  lint/format, the 870-source architecture gate and production build. The Runtime was rolled as PID
+  1090891 with dist SHA-256 `2a20752a4f2504cfb5906ed25b8d54c607bd618117666685b2139281e8332d00`;
+  a formal Binding refresh preserved revision 2 / Catalog `2.0.0-rc.1:2` while extending observed
+  availability through `2026-09-02T06:36:36.587Z`. Qualification created zero Tasks and Tool calls.
 
 ## Idempotence and Recovery
 
@@ -186,3 +201,9 @@ dist hash; Node Control API/Worker were rolled from the same build and both Post
 current. The ten-tool expansion is closed, and Benchmark's exact remediation removes the previously
 observed SDAR product-authority input mismatch. No A2A Task was submitted during this verification;
 live P10 qualification remains independently unexecuted.
+
+The follow-up temporal-authority fix preserves short-lived availability as historical selection
+evidence across model planning while keeping the current pre-invocation authority unchanged. The
+latest Runtime and Binding observation identities are recorded in
+`reports/sdar-ugv-smpp-integration/p10-selected-operation-temporal-authority-handoff.redacted.json`;
+no new P10 Task or physical operation was performed during qualification.
