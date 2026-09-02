@@ -254,6 +254,7 @@ function assessPreparedWorkflowEvidence(
   return assessUgvMoveOutcome({
     resourceId: selected.resource.resourceId,
     expectedProviderId: selected.provider.providerId,
+    expectedExecutionMode: selected.execution.mode,
     correlationId: navigate.invocationId,
     dispatchedAt: navigate.startedAt,
     assessedAt,

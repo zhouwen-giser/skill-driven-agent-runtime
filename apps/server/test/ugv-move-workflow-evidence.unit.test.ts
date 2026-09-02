@@ -576,6 +576,7 @@ function evidenceFixture(
     revision: 'state-revision-100',
     cursor: 100,
     position: INITIAL_POSITION,
+    executionMode: selectedTaskOperation.execution.mode,
   });
   const finalToolResult =
     overrides.finalToolResult ??
@@ -584,8 +585,9 @@ function evidenceFixture(
       revision: 'state-revision-102',
       cursor: 102,
       position: TARGET,
+      executionMode: selectedTaskOperation.execution.mode,
     });
-  const terminal = terminalResult();
+  const terminal = terminalResult(selectedTaskOperation.execution.mode);
   return {
     taskId: TASK_ID,
     selectedTaskOperation,
@@ -893,8 +895,9 @@ function governedConfirmation(selected: SelectedTaskOperation): GovernedControlC
   });
 }
 
-function terminalResult(): InternalToolResult {
+function terminalResult(executionMode: 'simulation' | 'live' = 'simulation'): InternalToolResult {
   const observedAt = '2026-08-21T12:00:09.900Z';
+  const aggregateAuthority = executionMode === 'live';
   return Object.freeze({
     content: Object.freeze([]),
     structuredContent: Object.freeze({
@@ -906,10 +909,15 @@ function terminalResult(): InternalToolResult {
       observationAuthority: 'post_dispatch',
       positionAuthority: Object.freeze({
         field: 'chassis.position.geodetic',
-        topic: '/ugv/gnss',
+        topic: aggregateAuthority ? 'status/ugv1' : '/ugv/gnss',
         observedAt,
-        timeAuthority: 'source',
-        cursor: providerCursor(101, observedAt),
+        timeAuthority: aggregateAuthority ? 'ingest' : 'source',
+        cursor: providerCursor(
+          101,
+          observedAt,
+          aggregateAuthority ? 'status/ugv1' : '/ugv/gnss',
+          aggregateAuthority ? 'ingest' : 'source',
+        ),
       }),
     }),
     isError: false,
@@ -922,6 +930,7 @@ function stateResult(
     revision: string;
     cursor: number;
     position: Readonly<{ longitude: number; latitude: number }>;
+    executionMode?: 'simulation' | 'live';
   }>,
 ): InternalToolResult {
   return Object.freeze({
@@ -931,7 +940,7 @@ function stateResult(
         providerId: 'isr.vehicle.ugv.ugv1',
         resourceId: 'vehicle:ugv1',
         vehicleType: 'ugv',
-        executionMode: 'simulation',
+        executionMode: input.executionMode ?? 'simulation',
       }),
       connectivity: Object.freeze({ mqttConnected: true, deviceMcpConnected: true }),
       observedAt: input.observedAt,
@@ -944,15 +953,20 @@ function stateResult(
   });
 }
 
-function providerCursor(sequence: number, observedAt: string): string {
+function providerCursor(
+  sequence: number,
+  observedAt: string,
+  topic = '/ugv/gnss',
+  timeAuthority: 'source' | 'ingest' = 'source',
+): string {
   return `oc1.${Buffer.from(
     JSON.stringify({
       version: 1,
       kind: 'field',
       field: 'chassis.position.geodetic',
-      topic: '/ugv/gnss',
+      topic,
       observedAt,
-      timeAuthority: 'source',
+      timeAuthority,
       ingestSequence: sequence,
       payloadHash: 'e'.repeat(64),
     }),
