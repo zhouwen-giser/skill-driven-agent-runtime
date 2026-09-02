@@ -517,6 +517,7 @@ import {
 import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
 import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
 import { EnvironmentUgvLiveSideEffectGate } from './ugv-live-side-effect-gate.js';
+import { UGV_UNKNOWN_AVAILABILITY_POLICY } from './ugv-unknown-availability-policy.js';
 import { UgvNaturalLanguageCapabilityAdmissionResolver } from './ugv-natural-language-capability-admission.js';
 import { reconcileRegisteredProviderBindings } from './provider-binding-reconciler.js';
 import {
@@ -1423,6 +1424,7 @@ export async function startServerRuntime(
           runtimeBindings: runtimeMcpBindingAuthority,
           availability: ugvAvailabilityProxy,
           inputAdapter: { adapt: adaptUgvMoveInput },
+          unknownAvailabilityPolicy: UGV_UNKNOWN_AVAILABILITY_POLICY,
           clock,
         });
   const ugvGovernedControlConfirmation =
@@ -2342,7 +2344,9 @@ export async function startServerRuntime(
             nextReadinessId: () => `task-readiness-${randomUUID()}`,
             nextSnapshotId: () => `task-availability-${randomUUID()}`,
           },
-          ...(ugvAgentProfile ? { allowConfirmedProviderUnknownPreInvocation: true } : {}),
+          ...(ugvAgentProfile
+            ? { providerUnknownPreInvocationPolicy: UGV_UNKNOWN_AVAILABILITY_POLICY }
+            : {}),
         });
   const ugvMoveBindingResolver =
     !ugvAgentProfile || options.currentMcpProviderBindingAuthorityReader === undefined

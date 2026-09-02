@@ -35,6 +35,7 @@ import {
   UGV_MOVE_RESOURCE_ID,
   type AdaptedUgvMoveInput,
 } from './ugv-move-input-adapter.js';
+import { UGV_UNKNOWN_AVAILABILITY_POLICY } from './ugv-unknown-availability-policy.js';
 
 const UGV_PROVIDER_ID = 'isr.vehicle.ugv.ugv1';
 const UGV_PROVIDER_TYPE = 'isr.vehicle.ugv';
@@ -153,7 +154,9 @@ export class UgvMoveTaskBindingResolver {
     const candidate = bindingReadiness?.candidates?.[0];
     const providerAvailable = availability.result.availability === 'available';
     const providerUnknownAllowed =
-      executionContext.mode === 'live' && availability.result.availability === 'unknown';
+      executionContext.mode === 'live' &&
+      availability.result.availability === 'unknown' &&
+      UGV_UNKNOWN_AVAILABILITY_POLICY.decide(availability.result) === 'allowed_by_default';
     const readinessSelectionExact = providerAvailable
       ? bindingReadiness?.selectedProviderId === exact.candidate.providerId &&
         bindingReadiness.selectedOperationName === NAVIGATE_OPERATION &&
@@ -854,12 +857,15 @@ function readinessRejectionDiagnostic(
   const { exact, reported, availability, selectedAt, readinessCheckedAt } = input;
   const binding = reported.bindings[0];
   const result = availability.result;
+  const unknownAvailabilityPolicyDecision =
+    result.availability === 'unknown' ? UGV_UNKNOWN_AVAILABILITY_POLICY.decide(result) : null;
   const rejectedChecks = {
     bindingCountNotOne: reported.bindings.length !== 1,
     selectedProviderMismatch: binding?.selectedProviderId !== exact.candidate.providerId,
     selectedOperationMismatch: binding?.selectedOperationName !== NAVIGATE_OPERATION,
     dispositionNotReady: binding?.disposition !== 'ready',
     operationNotAvailable: result.availability !== 'available',
+    explicitUnknownNotReady: unknownAvailabilityPolicyDecision === 'explicitly_not_ready',
     resultValidUntilMissing: result.validUntil === undefined,
     resultExpiredAtSelection:
       result.validUntil !== undefined && Date.parse(result.validUntil) <= Date.parse(selectedAt),
@@ -869,6 +875,7 @@ function readinessRejectionDiagnostic(
   return {
     event: 'ugv_profile.navigation_readiness_rejected' as const,
     errorCode: 'UGV_PROFILE_READINESS_NOT_ADMITTED' as const,
+    unknownAvailabilityPolicyDecision,
     executionMode: input.executionContext.mode,
     simulationId: diagnosticIdentifier(input.executionContext.simulationId),
     providerBindingId: diagnosticIdentifier(exact.binding.binding.bindingId),

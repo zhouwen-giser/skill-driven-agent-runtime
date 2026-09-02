@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import type {
   GovernedControlConfirmation,
   GovernedControlConfirmationConsumption,
+  TaskAvailabilityBatchReader,
 } from '../../application/src/index.js';
 import { hashCanonicalEvidenceJson } from '../../domain/src/index.js';
 import { selectedUgvTaskOperation } from '../../../apps/server/test/ugv-move-workflow-test-fixture.js';
@@ -449,7 +450,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
     };
     const assertCurrent = vi.fn(() => Promise.resolve());
     const adapt = vi.fn(adaptUgvBindingInput);
-    const checkTaskAvailability = vi.fn(() =>
+    const checkTaskAvailability = vi.fn<TaskAvailabilityBatchReader['checkTaskAvailability']>(() =>
       Promise.resolve({
         kind: 'results' as const,
         protocolRevision: selected.availability.protocolRevision,
@@ -511,6 +512,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
       },
       availability: { checkTaskAvailability },
       inputAdapter: { adapt },
+      unknownAvailabilityPolicy: { decide: () => 'explicitly_not_ready' },
       clock: { now: () => '2026-08-21T12:01:00.000Z' },
     });
 
@@ -538,6 +540,33 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
       'count(*) OVER()::integer AS selected_reference_count',
     );
     expect(query.mock.calls[0]?.[0]).toContain('count(*) OVER()::integer AS confirmation_count');
+
+    checkTaskAvailability.mockResolvedValueOnce({
+      kind: 'results',
+      protocolRevision: selected.availability.protocolRevision,
+      availabilitySchemaRevision: selected.availability.schemaRevision,
+      results: [
+        {
+          nodeId: 'ugv-governed-control:task-uap-p2-b03:attempt-uap-p2-b03',
+          operationName: selected.operation.operationName,
+          availability: 'unknown',
+          riskLevel: 'medium',
+          reasonCode: 'UGV_TOOL_RECOVERING',
+          validUntil: '2026-08-21T12:04:00.000Z',
+          nextAvailableWindows: [],
+          reservationMode: 'none',
+          possibleEffects: [],
+        },
+      ],
+    });
+    await expect(reader.loadForIssue('task-uap-p2-b03')).resolves.toMatchObject({
+      readiness: {
+        availability: 'unknown',
+        availabilityDecision: 'provider_denied',
+        disposition: 'blocked',
+        guardAction: 'abort',
+      },
+    });
   });
 
   it('rejects raw Binding target A against persisted Selected target B before mutable reads', async () => {
@@ -566,6 +595,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
       runtimeBindings: { loadRuntimeAuthority, assertCurrent },
       availability: { checkTaskAvailability },
       inputAdapter: { adapt },
+      unknownAvailabilityPolicy: { decide: () => 'explicitly_not_ready' },
       clock: { now: () => '2026-08-21T12:01:00.000Z' },
     });
 

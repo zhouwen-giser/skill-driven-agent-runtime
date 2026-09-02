@@ -20,6 +20,11 @@ requested target and human-decision boundary.
   LangGraph.js and Frozen MCP Tasks runtime in the same Server process.
 - PostgreSQL Node Control and Runtime stores remain the only governance, Task, confirmation and
   evidence authorities. Provider readiness stays live and exact; health never substitutes for it.
+- A Provider-reported `availability=unknown` may use the UGV profile's confirmation-governed live
+  `allowed_by_default` policy only when it carries no explicit recovering, stale, unhealthy or
+  uncorrelated condition. Such an explicit condition remains raw `unknown` evidence but is denied
+  during preparation and at the governed pre-invocation boundary; it is never rewritten as
+  `available`.
 - Read-only operations require no confirmation. Navigation, reconnaissance, tracking and gimbal
   control require the outer Plan decision plus one durable physical-control confirmation.
 - An authenticated human holding `physical_control.emergency_stop` may persist one exact direct

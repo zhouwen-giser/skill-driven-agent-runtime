@@ -270,6 +270,36 @@ describe('UGV move governed Task binding', () => {
     expect(item.availability).toHaveBeenCalledOnce();
   });
 
+  it('rejects an explicitly recovering unknown before plan confirmation and preserves raw evidence', async () => {
+    const reportReadinessRejection = vi.fn();
+    const item = await fixture({
+      availability: 'unknown',
+      reportReadinessRejection,
+      mutateAvailabilityResult: (result) => ({
+        ...result,
+        reasonCode: 'UGV_TOOL_RECOVERING',
+        description: 'Position authority is recovering.',
+      }),
+    });
+
+    await expect(
+      item.resolver.resolve({ ...request(), executionContext: { mode: 'live' } }),
+    ).rejects.toMatchObject({
+      code: 'UGV_PROFILE_READINESS_NOT_ADMITTED',
+      message: 'Exact UGV navigation readiness is unavailable, stale, or uncorrelated.',
+    });
+    expect(reportReadinessRejection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unknownAvailabilityPolicyDecision: 'explicitly_not_ready',
+        result: expect.objectContaining({
+          availability: 'unknown',
+          reasonCodes: ['REDACTED_REASON_CODE'],
+        }),
+        failedChecks: expect.arrayContaining(['explicitUnknownNotReady']),
+      }),
+    );
+  });
+
   it('still rejects explicit unavailable and does not apply unknown-by-default outside live mode', async () => {
     const disabled = await fixture({
       availability: 'disabled',
@@ -453,6 +483,7 @@ describe('UGV move governed Task binding', () => {
           selectedOperationMismatch: false,
           dispositionNotReady: false,
           operationNotAvailable: false,
+          explicitUnknownNotReady: false,
           resultValidUntilMissing: true,
           resultExpiredAtSelection: false,
           bindingExpiredAtSelection: false,

@@ -23,6 +23,7 @@ import type {
   GovernedControlConfirmationIssueResult,
   McpRuntimeBindingAuthorityVerifier,
   TaskAvailabilityBatchReader,
+  TaskAvailabilityUnknownPolicy,
   UgvGovernedControlAuthoritySnapshot,
   UgvGovernedControlDispatchAuthorityReader,
   UgvGovernedControlDispatchAuthoritySnapshot,
@@ -601,6 +602,7 @@ export class PostgresUgvGovernedControlAuthorityReader
   readonly #runtimeBindings: UgvRuntimeBindingAuthorityPort;
   readonly #availability: TaskAvailabilityBatchReader;
   readonly #inputAdapter: UgvGovernedControlInputAdapterPort;
+  readonly #unknownAvailabilityPolicy: TaskAvailabilityUnknownPolicy;
   readonly #clock: Clock;
 
   constructor(
@@ -611,6 +613,7 @@ export class PostgresUgvGovernedControlAuthorityReader
       runtimeBindings: UgvRuntimeBindingAuthorityPort;
       availability: TaskAvailabilityBatchReader;
       inputAdapter: UgvGovernedControlInputAdapterPort;
+      unknownAvailabilityPolicy: TaskAvailabilityUnknownPolicy;
       clock: Clock;
     }>,
   ) {
@@ -620,6 +623,7 @@ export class PostgresUgvGovernedControlAuthorityReader
     this.#runtimeBindings = dependencies.runtimeBindings;
     this.#availability = dependencies.availability;
     this.#inputAdapter = dependencies.inputAdapter;
+    this.#unknownAvailabilityPolicy = dependencies.unknownAvailabilityPolicy;
     this.#clock = dependencies.clock;
   }
 
@@ -701,6 +705,7 @@ export class PostgresUgvGovernedControlAuthorityReader
         providerBinding,
         runtime,
         availability,
+        unknownAvailabilityPolicy: this.#unknownAvailabilityPolicy,
         availabilityNodeId: nodeId,
         checkedAt,
       }),
@@ -870,6 +875,7 @@ function buildUgvAuthoritySnapshot(
     providerBinding: CurrentProviderBinding;
     runtime: RuntimeCatalog;
     availability: AvailabilityRead;
+    unknownAvailabilityPolicy: TaskAvailabilityUnknownPolicy;
     availabilityNodeId: string;
     checkedAt: string;
   }>,
@@ -921,6 +927,13 @@ function buildUgvAuthoritySnapshot(
   const navigate = exactRuntimeTool(input.runtime.tools, selected.operation.operationName);
   const finalState = exactRuntimeTool(input.runtime.tools, selected.finalStateRead.operationName);
   const availability = exactAvailability(input.availability, input.availabilityNodeId, selected);
+  const unknownAvailabilityDecision =
+    availability.availability === 'unknown'
+      ? input.unknownAvailabilityPolicy.decide(availability)
+      : undefined;
+  const availabilityAllowed =
+    availability.availability === 'available' ||
+    unknownAvailabilityDecision === 'allowed_by_default';
   const runtimePolicy = strictRecord(row.skill_runtime_policy);
   const outcome = strictRecord(row.skill_outcome_specification);
   const usage = strictRecord(row.skill_usage_specification);
@@ -1023,12 +1036,8 @@ function buildUgvAuthoritySnapshot(
     }),
     readiness: Object.freeze({
       checkPhase: 'pre_invocation',
-      disposition: ['available', 'unknown'].includes(availability.availability)
-        ? 'ready'
-        : 'blocked',
-      guardAction: ['available', 'unknown'].includes(availability.availability)
-        ? 'proceed'
-        : 'abort',
+      disposition: availabilityAllowed ? 'ready' : 'blocked',
+      guardAction: availabilityAllowed ? 'proceed' : 'abort',
       confirmationRequired: false,
       providerBindingId: currentBinding.bindingId,
       providerBindingRevision: currentBinding.revision,
@@ -1045,7 +1054,7 @@ function buildUgvAuthoritySnapshot(
       availabilityDecision:
         availability.availability === 'available'
           ? 'provider_available'
-          : availability.availability === 'unknown'
+          : unknownAvailabilityDecision === 'allowed_by_default'
             ? 'allowed_by_default'
             : 'provider_denied',
       riskLevel: availability.riskLevel,

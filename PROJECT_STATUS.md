@@ -2,6 +2,18 @@
 
 ## UGV ten-tool Capability / Skill / A2A expansion (2026-09-02, deployed and qualified)
 
+P10 NODE stale-admission remediation now distinguishes an unqualified dynamic
+`availability=unknown` from an explicit not-ready unknown reason. UGV reason-code segments
+`recovering`, `stale`, `unhealthy` and `uncorrelated` are rejected during Task preparation with
+`UGV_PROFILE_READINESS_NOT_ADMITTED`, before Plan confirmation or MCP invocation. Benign unknown
+remains eligible for the separately governed `allowed_by_default` rule; persisted readiness keeps
+the observed value as `unknown` and records either `allowed_by_default` or `provider_denied` rather
+than fabricating `available`. The same injected policy is used again at pre-invocation readiness and
+governed-control dispatch authority. Focused preparation/readiness/persistence regressions pass
+73/73, the isolated real PostgreSQL/Runtime/A2A composition passes 1/1, and typecheck, architecture
+and production build pass; rollout qualification remains read-only and will be recorded below after
+the exact build is deployed.
+
 ADR-147 and `execplans/EP-UGV-10-TOOL-CAPABILITY-EXPANSION.md` register the current ten-operation UGV
 Provider catalog as thirteen append-only public surfaces: four read operations, the preserved point
 navigation lineage, route/distance/return-home navigation, reconnaissance, tracking, gimbal,

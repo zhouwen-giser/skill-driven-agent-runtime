@@ -44,6 +44,7 @@ import {
 } from '../src/ugv-agent-profile.js';
 import { createUgvSimulationTargetPolicy } from '../src/ugv-move-skill-usage.js';
 import { adaptUgvMoveInput } from '../src/ugv-move-input-adapter.js';
+import { UGV_UNKNOWN_AVAILABILITY_POLICY } from '../src/ugv-unknown-availability-policy.js';
 import { UGV_MOVE_WORKFLOW_NODE_IDS } from '../src/ugv-move-workflow.js';
 
 const postgresAdminUrl =
@@ -1007,6 +1008,7 @@ async function assertGovernedControlIssueAuthority(
       },
     },
     inputAdapter: { adapt: adaptUgvMoveInput },
+    unknownAvailabilityPolicy: UGV_UNKNOWN_AVAILABILITY_POLICY,
     clock,
   });
   const authority = required(

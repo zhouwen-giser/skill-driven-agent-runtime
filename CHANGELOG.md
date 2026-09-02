@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-02 — UGV explicit stale readiness admission
+
+- Keep the UGV-profile rule that an otherwise unqualified Provider `availability=unknown` may be
+  admitted by default after the existing confirmation boundary, while rejecting unknown results
+  that carry explicit `recovering`, `stale`, `unhealthy` or `uncorrelated` authority before Plan
+  confirmation.
+- Apply the same injected profile policy at Task preparation, generic MCP Task pre-invocation
+  readiness and governed-control dispatch reconstruction; raw Provider availability remains
+  `unknown` evidence and is never relabeled `available`.
+- Preserve explicit `unavailable` rejection, exact Binding/Catalog/resource/arguments authority,
+  one-shot confirmation, remote Task admission and zero-redispatch semantics. The regression is
+  qualification-only and performs no Provider Tool or device action.
+
 ## 2026-09-02 — UGV remote terminal failure propagation
 
 - Route an authoritative failed UGV remote Task into deterministic `unachievable` Goal evaluation

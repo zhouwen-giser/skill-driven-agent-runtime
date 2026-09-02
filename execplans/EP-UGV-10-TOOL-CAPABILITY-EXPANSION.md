@@ -60,6 +60,9 @@ governance and runtime authority.
       failure enters the deterministic `unachievable` path with its stable reason code, without
       invoking the success-only physical terminal proof or adding any redispatch path; rolled and
       read-only qualified the repaired Runtime.
+- [x] 2026-09-02: separated benign Provider `unknown` readiness from explicit
+      recovering/stale/unhealthy/uncorrelated unknown authority at preparation, pre-invocation and
+      governed dispatch boundaries; added focused regressions without creating a Task or Tool call.
 
 ## Discoveries and Surprises
 
@@ -113,6 +116,11 @@ governance and runtime authority.
   the faithful error with `TASK_CAPABILITY_TERMINAL_GUARD_FAILED`. Failed Workflow instances now
   produce a deterministic `unachievable` evaluation and preserve the stable Provider reason; only a
   succeeded Workflow enters final-position and frozen-Capability success proof.
+- P10 NODE stale injection returned `availability=unknown` with explicit
+  `reasonCode=UGV_TOOL_RECOVERING`. Three Runtime boundaries previously inspected only the enum and
+  therefore mislabeled that known not-ready condition `allowed_by_default`. A profile-owned injected
+  policy now classifies bounded reason-code segments while generic Application and PostgreSQL code
+  remain Provider-neutral.
 
 ## Decision Log
 
@@ -123,6 +131,9 @@ governance and runtime authority.
 - Weapon confirmation is shared by A2A and Management adapters through one Application service.
 - The Console reads only a non-sensitive confirmation projection (target/resource, hashes, expiry,
   revocation and consumption); it never reads credentials or Provider response bodies.
+- `availability=unknown` is eligible for UGV default admission only when it carries no explicit
+  recovering/stale/unhealthy/uncorrelated condition. The raw unknown result and reason remain
+  evidence; the policy never rewrites it as available.
 
 ## Implementation Steps
 
@@ -191,6 +202,12 @@ Completed evidence before final rerun:
   qualification rolled Runtime PID 1410562 from dist SHA-256
   `7784704199fd65e838eab190dd0f7cf747f25c419b4acb718398f7b851253c4a`; Management, A2A and Node
   Control returned HTTP 200, and no Task, Provider Tool call or device mutation was created.
+- Explicit stale-readiness repair: focused UGV preparation, generic pre-invocation and PostgreSQL
+  governed-authority suites passed 6 files / 73 tests; the isolated real PostgreSQL/Runtime/A2A
+  composition passed 1/1; typecheck, scoped lint/format, the 872-source architecture gate and
+  production build passed. A `UGV_TOOL_RECOVERING` unknown now fails with the existing exact
+  preparation error before Plan confirmation, while a benign unknown remains `allowed_by_default`
+  and explicit unavailable stays denied.
 
 ## Idempotence and Recovery
 

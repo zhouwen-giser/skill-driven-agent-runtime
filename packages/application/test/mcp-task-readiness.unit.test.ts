@@ -60,7 +60,7 @@ const executionContext: RuntimeExecutionContext = Object.freeze({ mode: 'live' }
 
 describe('MCP Task pre-invocation unknown availability policy', () => {
   it('records Provider-reported unknown as allowed_by_default after plan confirmation', async () => {
-    const fixture = readinessFixture(providerUnknown());
+    const fixture = readinessFixture(providerUnknown('UGV_NO_FORECAST'));
 
     await expect(
       fixture.service.assertPreInvocation(preInvocationInput(true)),
@@ -72,6 +72,23 @@ describe('MCP Task pre-invocation unknown availability policy', () => {
         disposition: 'ready',
         guardAction: 'proceed',
         guardReasonCodes: ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT'],
+      },
+      snapshots: [{ result: { availability: 'unknown', reasonCode: 'UGV_NO_FORECAST' } }],
+    });
+  });
+
+  it('preserves explicitly stale unknown evidence and blocks before invocation', async () => {
+    const fixture = readinessFixture(providerUnknown('UGV_STATE_STALE'), 'explicitly_not_ready');
+
+    await expect(
+      fixture.service.assertPreInvocation(preInvocationInput(true)),
+    ).rejects.toMatchObject({ code: 'MCP_TASK_PRECALL_NOT_READY' });
+
+    expect(fixture.saved[0]).toMatchObject({
+      readiness: {
+        disposition: 'blocked',
+        guardAction: 'abort',
+        guardReasonCodes: ['MCP_TASK_AVAILABILITY_UNKNOWN_EXPLICIT_NOT_READY'],
       },
       snapshots: [{ result: { availability: 'unknown', reasonCode: 'UGV_STATE_STALE' } }],
     });
@@ -105,7 +122,10 @@ describe('MCP Task pre-invocation unknown availability policy', () => {
   });
 });
 
-function readinessFixture(outcome: TaskAvailabilityReadResult) {
+function readinessFixture(
+  outcome: TaskAvailabilityReadResult,
+  unknownDecision: 'allowed_by_default' | 'explicitly_not_ready' = 'allowed_by_default',
+) {
   const saved: Readonly<{
     readiness: DslExecutionReadiness;
     snapshots: readonly TaskAvailabilitySnapshot[];
@@ -132,7 +152,7 @@ function readinessFixture(outcome: TaskAvailabilityReadResult) {
         nextReadinessId: () => 'readiness-ugv-unknown',
         nextSnapshotId: () => 'snapshot-ugv-unknown',
       },
-      allowConfirmedProviderUnknownPreInvocation: true,
+      providerUnknownPreInvocationPolicy: { decide: () => unknownDecision },
     }),
   };
 }
@@ -157,7 +177,7 @@ function preInvocationInput(planConfirmed: boolean) {
   };
 }
 
-function providerUnknown(): TaskAvailabilityReadResult {
+function providerUnknown(reasonCode = 'UGV_NO_FORECAST'): TaskAvailabilityReadResult {
   return Object.freeze({
     kind: 'results',
     protocolRevision: '2026-07-28',
@@ -168,7 +188,7 @@ function providerUnknown(): TaskAvailabilityReadResult {
         operationName: 'vehicle_navigate',
         availability: 'unknown',
         riskLevel: 'medium',
-        reasonCode: 'UGV_STATE_STALE',
+        reasonCode,
         validUntil: '2026-09-01T05:00:01.000Z',
         nextAvailableWindows: Object.freeze([]),
         reservationMode: 'none',
