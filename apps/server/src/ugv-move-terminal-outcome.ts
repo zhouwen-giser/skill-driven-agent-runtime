@@ -260,10 +260,43 @@ export class UgvMoveDeterministicGoalEvaluator implements GoalEvaluator {
       input.goal.goalId !== input.instance.goalId ||
       input.goal.version !== input.instance.goalVersion
     )
-      guard('The UGV Goal and succeeded Workflow terminal identities do not match.');
+      guard('The UGV Goal and Workflow terminal identities do not match.');
+    if (input.instance.status === 'failed')
+      return Object.freeze({
+        decision: 'unachievable' as const,
+        summary: failedWorkflowSummary(input.instance),
+      });
     await this.#authority.prepare(taskId, input.instance);
     return Object.freeze({ decision: 'achieved' as const, summary: TERMINAL_SUMMARY });
   }
+}
+
+function failedWorkflowSummary(instance: WorkflowInstance): string {
+  const failures = Object.entries(instance.errors);
+  const failure = failures[0];
+  if (
+    instance.status !== 'failed' ||
+    failures.length !== 1 ||
+    failure === undefined ||
+    !sameJson(instance.skillVersions, [{ skillId: SKILL_ID, version: SKILL_VERSION }]) ||
+    !present(instance.instanceId) ||
+    !present(instance.planId) ||
+    !present(instance.workflowDefinitionId) ||
+    !Number.isSafeInteger(instance.workflowVersion) ||
+    instance.workflowVersion < 1 ||
+    !present(instance.goalId) ||
+    !Number.isSafeInteger(instance.goalVersion) ||
+    instance.goalVersion < 1 ||
+    !present(failure[0]) ||
+    !present(failure[1].code) ||
+    !present(failure[1].message)
+  )
+    guard('The failed UGV Workflow terminal identity or failure evidence is invalid.');
+  requiredCompletionTime(instance);
+  const providerReason = /^[A-Z][A-Z0-9_]{1,127}$/u.test(failure[1].message)
+    ? ` with Provider reason ${failure[1].message}`
+    : '';
+  return `UGV movement did not complete because authoritative Workflow node ${failure[0]} failed with ${failure[1].code}${providerReason}.`;
 }
 
 function terminalIdentity(

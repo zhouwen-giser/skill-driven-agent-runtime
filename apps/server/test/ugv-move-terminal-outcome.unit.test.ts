@@ -256,6 +256,25 @@ describe('UGV deterministic Goal evaluator', () => {
     expect(prepare).toHaveBeenCalledWith(TASK_ID, fixture.instance);
   });
 
+  it('maps an authoritative failed Workflow to unachievable without invoking the success guard', async () => {
+    const fixture = terminalFixture();
+    const prepare = vi.fn();
+    const evaluator = new UgvMoveDeterministicGoalEvaluator({ prepare });
+
+    await expect(
+      evaluator.evaluate({
+        taskId: TASK_ID,
+        goal: activeGoal(),
+        instance: failedWorkflowInstance(fixture.instance),
+      }),
+    ).resolves.toEqual({
+      decision: 'unachievable',
+      summary:
+        'UGV movement did not complete because authoritative Workflow node ugv_navigate failed with MCP_REMOTE_TASK_FAILED with Provider reason UGV_START_OBSERVATION_TIMEOUT.',
+    });
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
   it('fails closed on Goal identity drift and never invokes the terminal authority', async () => {
     const fixture = terminalFixture();
     const prepared = await new UgvMoveTerminalOutcomeAuthority(fixture.dependencies).prepare(
@@ -441,6 +460,21 @@ function workflowInstance(): WorkflowInstance {
     errors: Object.freeze({}),
     startedAt: '2026-08-21T11:59:58.500Z',
     completedAt: COMPLETED_AT,
+  });
+}
+
+function failedWorkflowInstance(instance: WorkflowInstance): WorkflowInstance {
+  const { result: _result, ...withoutResult } = instance;
+  void _result;
+  return Object.freeze({
+    ...withoutResult,
+    status: 'failed' as const,
+    errors: Object.freeze({
+      ugv_navigate: Object.freeze({
+        code: 'MCP_REMOTE_TASK_FAILED',
+        message: 'UGV_START_OBSERVATION_TIMEOUT',
+      }),
+    }),
   });
 }
 
