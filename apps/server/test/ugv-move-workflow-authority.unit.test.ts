@@ -133,12 +133,12 @@ describe('UGV move SelectedTaskOperation Workflow authority', () => {
     });
   });
 
-  it('rejects expired or future-selected authority at the planning append boundary', async () => {
+  it('retains an expired availability observation as history but rejects future selection time', async () => {
     const expired = await authorityFixture('2026-08-21T12:05:00.000Z');
     await expect(
       expired.authority.append(UGV_WORKFLOW_IDENTITY, expired.selected),
-    ).rejects.toMatchObject({ code: 'UGV_MOVE_WORKFLOW_AUTHORITY_SELECTION_STALE' });
-    expect(expired.repository.appendReference).not.toHaveBeenCalled();
+    ).resolves.toEqual(expired.selected);
+    expect(expired.repository.appendReference).toHaveBeenCalledTimes(1);
 
     const future = await authorityFixture('2026-08-21T11:59:59.999Z');
     await expect(

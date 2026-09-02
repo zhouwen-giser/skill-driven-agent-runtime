@@ -69,7 +69,7 @@ export class UgvMoveWorkflowAuthority {
   ): Promise<SelectedTaskOperation> {
     const selected = rebuildSelectedTaskOperation(selectedInput);
     const now = this.#now();
-    assertSelectionCurrent(selected, now);
+    assertSelectionTimeConsistent(selected, now);
     const execution = await this.#loadExecution(identity);
     const existing = matchingReferences(execution);
     if (existing.length > 1) ambiguous();
@@ -222,15 +222,12 @@ function rebuildSelectedTaskOperation(value: unknown): SelectedTaskOperation {
   return rebuilt;
 }
 
-function assertSelectionCurrent(selected: SelectedTaskOperation, now: string): void {
+function assertSelectionTimeConsistent(selected: SelectedTaskOperation, now: string): void {
   const nowMs = Date.parse(now);
-  if (
-    Date.parse(selected.selectedAt) > nowMs ||
-    Date.parse(selected.availability.validUntil) <= nowMs
-  )
+  if (Date.parse(selected.selectedAt) > nowMs)
     throw new UgvMoveWorkflowAuthorityError(
       'UGV_MOVE_WORKFLOW_AUTHORITY_SELECTION_STALE',
-      'The selected Task operation is expired or time-inconsistent at the authority boundary.',
+      'The selected Task operation is time-inconsistent at the authority boundary.',
     );
 }
 

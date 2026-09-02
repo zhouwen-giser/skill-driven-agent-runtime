@@ -254,7 +254,7 @@ describe('UGV move Workflow Profile adapter', () => {
     );
   });
 
-  it('rejects missing exact Task identity and an operation that expires before admission', async () => {
+  it('rejects missing Task identity and future selection without racing the observed availability TTL', async () => {
     const fixture = await ugvWorkflowPlanningFixture();
     const prepared = prepareUgvMoveWorkflowPlan({
       ...fixture,
@@ -271,7 +271,7 @@ describe('UGV move Workflow Profile adapter', () => {
       }),
     ).toContainEqual(expect.objectContaining({ code: 'UGV_MOVE_WORKFLOW_IDENTITY_INVALID' }));
 
-    const stale = new UgvMoveWorkflowCandidateGuard({
+    const afterAvailabilityExpiry = new UgvMoveWorkflowCandidateGuard({
       selectedTaskOperation: prepared.selectedTaskOperation,
       skillUsagePolicy: prepared.policy,
       ...UGV_WORKFLOW_IDENTITY,
@@ -279,7 +279,22 @@ describe('UGV move Workflow Profile adapter', () => {
       clock: { now: () => '2026-08-21T12:05:00.000Z' },
     });
     expect(
-      stale.validate({
+      afterAvailabilityExpiry.validate({
+        definition: prepared.deterministicDefinition,
+        taskId: UGV_WORKFLOW_IDENTITY.taskId,
+        skillUsagePolicy: prepared.policy,
+      }),
+    ).toEqual([]);
+
+    const future = new UgvMoveWorkflowCandidateGuard({
+      selectedTaskOperation: prepared.selectedTaskOperation,
+      skillUsagePolicy: prepared.policy,
+      ...UGV_WORKFLOW_IDENTITY,
+      workflowVersion: UGV_WORKFLOW_IDENTITY.workflowDefinitionVersion,
+      clock: { now: () => '2026-08-21T11:59:59.999Z' },
+    });
+    expect(
+      future.validate({
         definition: prepared.deterministicDefinition,
         taskId: UGV_WORKFLOW_IDENTITY.taskId,
         skillUsagePolicy: prepared.policy,

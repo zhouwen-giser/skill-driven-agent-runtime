@@ -218,10 +218,10 @@ export class UgvMoveWorkflowCandidateGuard implements WorkflowCandidateGuard {
   ): readonly WorkflowCandidateGuardError[] {
     try {
       const now = timestamp(this.#clock.now(), 'guard time');
-      if (Date.parse(this.#selected.availability.validUntil) <= Date.parse(now))
+      if (Date.parse(this.#selected.selectedAt) > Date.parse(now))
         invalid(
           'UGV_MOVE_WORKFLOW_SELECTED_OPERATION_STALE',
-          'The selected UGV operation expired before Workflow admission.',
+          'The selected UGV operation has a future selection timestamp.',
         );
       if (input.taskId !== this.#taskId)
         invalid(
