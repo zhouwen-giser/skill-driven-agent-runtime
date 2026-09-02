@@ -2136,23 +2136,23 @@ function exposureIdFor(spec: GovernanceSpec): string {
 
 function requesterPolicyFor(spec: GovernanceSpec): JsonObject {
   if (spec.kind === 'read_only')
-    return Object.freeze({ allowAnonymous: false, authority: 'authenticated_requester' });
+    return Object.freeze({ allowAnonymous: true, authority: 'public_initial_admission' });
   if (spec.kind === 'weapon_control')
     return Object.freeze({
-      allowAnonymous: false,
+      allowAnonymous: true,
       requiredAuthorities: Object.freeze(['plan_confirmation', 'weapon_control.confirm']),
       targetEvidence: 'strict_fresh_lock_and_payload_required',
     });
   if (spec.kind === 'emergency_stop')
     return Object.freeze({
-      allowAnonymous: false,
+      allowAnonymous: true,
       requiredAuthorities: Object.freeze([
         'plan_confirmation_or_direct_emergency_instruction',
         'physical_control.emergency_stop',
       ]),
     });
   return Object.freeze({
-    allowAnonymous: false,
+    allowAnonymous: true,
     requiredAuthorities: Object.freeze(['plan_confirmation', 'physical_control.confirm']),
   });
 }
@@ -2400,7 +2400,7 @@ async function ensurePointExposure(
       resultSchema: capability.outputSchema,
       visibility: 'public',
       requesterPolicy: Object.freeze({
-        allowAnonymous: false,
+        allowAnonymous: true,
         requiredAuthorities: Object.freeze(['plan_confirmation', 'physical_control.confirm']),
       }),
       readinessPublicationPolicy: 'publish_when_available',

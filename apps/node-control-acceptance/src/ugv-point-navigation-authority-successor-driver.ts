@@ -498,7 +498,7 @@ async function reconcileExposure(
       resultSchema: capability.outputSchema,
       visibility: 'public',
       requesterPolicy: Object.freeze({
-        allowAnonymous: false,
+        allowAnonymous: true,
         requiredAuthorities: Object.freeze(['plan_confirmation', 'physical_control.confirm']),
       }),
       readinessPublicationPolicy: 'publish_when_available',

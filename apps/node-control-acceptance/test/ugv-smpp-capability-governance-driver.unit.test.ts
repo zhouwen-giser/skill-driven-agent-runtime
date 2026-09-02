@@ -189,6 +189,14 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         ]),
       }),
     );
+    expect(api.exposure('a2a.vehicle.ugv.read-state')?.['requesterPolicy']).toEqual({
+      allowAnonymous: true,
+      authority: 'public_initial_admission',
+    });
+    expect(api.exposure('a2a.vehicle.ugv.navigate-distance')?.['requesterPolicy']).toEqual({
+      allowAnonymous: true,
+      requiredAuthorities: ['plan_confirmation', 'physical_control.confirm'],
+    });
 
     const emergency = api.runtimeSkill('ugv.emergency-stop');
     expect(emergency?.['status']).toBe('enabled');
@@ -220,6 +228,11 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     expect(api.capability('vehicle.ugv.fire-weapon')).toEqual(
       expect.objectContaining({ status: 'published' }),
     );
+    expect(api.exposure('a2a.vehicle.ugv.fire-weapon')?.['requesterPolicy']).toEqual({
+      allowAnonymous: true,
+      requiredAuthorities: ['plan_confirmation', 'weapon_control.confirm'],
+      targetEvidence: 'strict_fresh_lock_and_payload_required',
+    });
 
     const packageSchema = JSON.parse(
       await readFile('schemas/skill-package.schema.json', 'utf8'),
@@ -341,6 +354,10 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
         status: 'active',
       }),
     );
+    expect(api.exposure('a2a.embodied.move')?.['requesterPolicy']).toEqual({
+      allowAnonymous: true,
+      requiredAuthorities: ['plan_confirmation', 'physical_control.confirm'],
+    });
   });
 
   it('is idempotent for the same exact versions and fails closed on later exact-version drift', async () => {
@@ -732,6 +749,10 @@ class FakeUgvGovernanceApis {
 
   capability(capabilityId: string): Record<string, unknown> | undefined {
     return latestVersioned(this.#capabilities, capabilityId);
+  }
+
+  exposure(exposureId: string): Record<string, unknown> | undefined {
+    return latestVersioned(this.#exposures, exposureId);
   }
 
   implementation(capabilityId: string): Record<string, unknown> | undefined {
