@@ -2,6 +2,21 @@
 
 ## UGV ten-tool Capability / Skill / A2A expansion (2026-09-02, deployed and qualified)
 
+P10 live terminal-position parsing is repaired in implementation
+`b7219f5923ef8fc6d704b8229cdfeb17a9ba5f1e`. The Provider's formal field-authority-gated aggregate
+geodetic tuple `chassis.position.geodetic` / `status/ugv1` / `ingest` is now accepted, and both
+initial and final state observations must match the frozen selected execution mode instead of an
+obsolete hard-coded `simulation` value. Exact Provider/resource identity, cursor and revision
+monotonicity, freshness, post-terminal ordering, 2 m arrival tolerance and discernible displacement
+remain unchanged. Four focused files / 97 tests and the complete full gate pass: 2890
+static/unit/contract tests, 228 integration tests, 73 E2E tests, A2A TCK, Evidence 44/44, migrations,
+build and smoke; Phase 13 is within all thresholds. Runtime PID 1833655, started
+`2026-09-02T12:12:42Z`, serves Management/A2A on 10998/10999 from dist SHA-256
+`2fa01e6b...f85472`; Node Control 10091 is ready and Binding revision 2 / Catalog
+`2.0.0-rc.1:2` remains exact. Before/after counts are unchanged at 28 Tasks, 12 MCP invocations and
+zero active Task/Remote Task, so qualification performed no Provider or device mutation. Evidence:
+`reports/ugv-agent-profile-simulation/p10-live-terminal-position-authority.json`.
+
 P10 NODE stale-admission remediation now distinguishes an unqualified dynamic
 `availability=unknown` from an explicit not-ready unknown reason. UGV reason-code segments
 `recovering`, `stale`, `unhealthy` and `uncorrelated` are rejected during Task preparation with

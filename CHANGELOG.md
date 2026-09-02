@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-02 — UGV live aggregate terminal-position authority
+
+- Accept the Provider's formal field-authority-gated aggregate geodetic position tuple
+  `chassis.position.geodetic` / `status/ugv1` / `ingest` in the UGV physical terminal proof while
+  retaining the existing direct GNSS and local-position authorities.
+- Require initial and final `vehicle_get_state` execution modes to equal the frozen selected
+  execution mode; remove the parser's obsolete simulation-only assumption without weakening exact
+  identity, cursor, freshness, post-terminal ordering, tolerance or displacement gates.
+- Add true live-mode durable Workflow evidence regression and strict negative topic/time/mode cases.
+  Four focused files / 97 tests and the complete 2890-test static/unit/contract, 228-test integration,
+  73-test E2E, TCK, Evidence, migration/build/smoke gate pass. Roll out the exact implementation with
+  unchanged Task/invocation counts and zero Provider/device mutation.
+
 ## 2026-09-02 — UGV explicit stale readiness admission
 
 - Keep the UGV-profile rule that an otherwise unqualified Provider `availability=unknown` may be

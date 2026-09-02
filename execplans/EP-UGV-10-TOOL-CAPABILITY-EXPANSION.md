@@ -63,6 +63,9 @@ governance and runtime authority.
 - [x] 2026-09-02: separated benign Provider `unknown` readiness from explicit
       recovering/stale/unhealthy/uncorrelated unknown authority at preparation, pre-invocation and
       governed dispatch boundaries; added focused regressions without creating a Task or Tool call.
+- [x] 2026-09-02: aligned the live terminal-position parser with the Provider's formal aggregate
+      geodetic field authority and the frozen selected execution mode, preserving every existing
+      physical-success hard gate; completed the full verification gate and a zero-mutation rollout.
 
 ## Discoveries and Surprises
 
@@ -121,6 +124,10 @@ governance and runtime authority.
   therefore mislabeled that known not-ready condition `allowed_by_default`. A profile-owned injected
   policy now classifies bounded reason-code segments while generic Application and PostgreSQL code
   remain Provider-neutral.
+- P10 CORE reached an authoritative completed Provider terminal inside the frozen 2 m tolerance,
+  but the success proof rejected it before evaluating distance: the parser recognized only the
+  direct `/ugv/gnss` topic and hard-coded `simulation`. The live Provider contract instead carries a
+  field-authority-gated aggregate geodetic position as `status/ugv1` with ingest time authority.
 
 ## Decision Log
 
@@ -213,12 +220,19 @@ Completed evidence before final rerun:
   `733e786db26db29bb01930c8817b95af06749eb182da5d9fd0f92bc4f614c87b`. Management/A2A/Node
   Control health is HTTP 200, Binding revision 2 / Catalog `2.0.0-rc.1:2` remains current, and
   before/after authority counts prove zero new Task, MCP invocation or active Remote Task.
-- Clean full verification remains non-functionally blocked. Static/unit/contract/build, replay,
-  migrations, 228 integrations and the functional E2E batch passed; isolated Phase 13 attempts
-  failed respectively on append P95 `20.478ms > 20ms` and baseline-window drift
-  `16.487% > 15%` (the latter runner then timed out). The limits and assertions remain unchanged.
-  Exact redacted evidence is in
+- The preceding explicit-stale-readiness full verification attempt remained non-functionally
+  blocked. Static/unit/contract/build, replay, migrations, 228 integrations and the functional E2E
+  batch passed; isolated Phase 13 attempts failed respectively on append P95 `20.478ms > 20ms` and
+  baseline-window drift `16.487% > 15%` (the latter runner then timed out). The limits and assertions
+  remained unchanged. Exact redacted evidence is in
   `reports/sdar-ugv-smpp-integration/p10-node-stale-admission-handoff.redacted.json`.
+- Live aggregate-position repair: implementation `b7219f5923ef8fc6d704b8229cdfeb17a9ba5f1e`
+  passed 4 focused files / 97 tests and the complete full gate (2890 static/unit/contract tests, 228
+  integration tests, 73 E2E tests, A2A TCK, canonical Evidence 44/44, migrations, build and smoke).
+  Phase 13 passed at -2.48% Runtime regression, 8.18% baseline drift and 12.07 ms Evidence append
+  P95. Runtime PID 1833655 was rolled from dist SHA-256
+  `2fa01e6bd8f4f543425e9043b49c1e1d2d529e0ccbaf44f5de1a2b31a9f85472`; qualification preserved
+  28 historical Tasks, 12 MCP invocations and zero active Task/Remote Task without adding calls.
 
 ## Idempotence and Recovery
 
