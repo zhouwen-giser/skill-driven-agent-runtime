@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile-live-execution-context-gate/v1",
+  "generatedAt": "2026-09-01T02:31:58Z",
+  "status": "passed",
+  "scope": {
+    "profileId": "ugv-agent-profile",
+    "capabilityId": "embodied.move",
+    "skillId": "embodied.move_to",
+    "executionModes": ["live", "simulation"]
+  },
+  "invariants": {
+    "taskCapabilityOwnsExecutionMode": true,
+    "liveSimulationIdentityForbidden": true,
+    "liveReplayPolicy": "forbidden",
+    "simulationIdentityRequired": true,
+    "simulationReplayPolicy": "simulation_only",
+    "planConfirmationRequired": true,
+    "physicalConfirmationRequired": true,
+    "liveDeploymentGateDefaultClosed": true,
+    "uncertainDispatchRedispatchAllowed": false
+  },
+  "verification": [
+    {
+      "commandClass": "focused_unit",
+      "result": "passed",
+      "files": 7,
+      "tests": 94,
+      "skipped": 0
+    },
+    {
+      "commandClass": "postgres_runtime_a2a_integration",
+      "result": "passed",
+      "files": 1,
+      "tests": 1,
+      "skipped": 0
+    },
+    { "commandClass": "typescript", "result": "passed" },
+    { "commandClass": "architecture", "result": "passed", "typescriptSources": 867 },
+    { "commandClass": "scoped_lint", "result": "passed" },
+    { "commandClass": "production_build", "result": "passed" }
+  ],
+  "externalEffects": {
+    "a2aTaskCreated": false,
+    "mcpTaskCreated": false,
+    "providerToolCallCount": 0,
+    "navigationStarted": false,
+    "deviceMutation": false,
+    "reason": "An unrelated external Provider mission was active during implementation."
+  },
+  "redaction": {
+    "tokensIncluded": false,
+    "credentialsIncluded": false,
+    "databaseUrlsIncluded": false,
+    "providerPayloadsIncluded": false
+  }
+}

@@ -49,9 +49,9 @@ function envelope(payload: Readonly<Record<string, string>> = { goalId: 'goal-1'
 }
 
 describe('canonical evidence Domain', () => {
-  it('freezes exactly 100 typed catalog entries with real schema hashes', () => {
-    expect(EVIDENCE_RECORD_CATALOG).toHaveLength(100);
-    expect(new Set(EVIDENCE_RECORD_CATALOG.map((entry) => entry.recordType)).size).toBe(100);
+  it('freezes exactly 105 typed catalog entries with real schema hashes', () => {
+    expect(EVIDENCE_RECORD_CATALOG).toHaveLength(105);
+    expect(new Set(EVIDENCE_RECORD_CATALOG.map((entry) => entry.recordType)).size).toBe(105);
     expect(EVIDENCE_RECORD_CATALOG.every((entry) => isEvidenceSha256(entry.schemaHash))).toBe(true);
     expect(EVIDENCE_RECORD_CATALOG.every((entry) => entry.requiredPayloadFields.length >= 2)).toBe(
       true,
@@ -74,12 +74,12 @@ describe('canonical evidence Domain', () => {
   it('freezes the Phase 10 episode policy and five explicit Evidence infrastructure contracts', () => {
     expect(EPISODE_EVIDENCE_POLICY).toMatchObject({
       policyVersion: 'episode-evidence-policy/v1',
-      catalogRecordCount: 100,
-      requiredRecordCount: 95,
+      catalogRecordCount: 105,
+      requiredRecordCount: 100,
       diagnosticRecordCount: 5,
-      durableProjectionRecordCount: 100,
+      durableProjectionRecordCount: 105,
     });
-    expect(EPISODE_EVIDENCE_POLICY.records).toHaveLength(100);
+    expect(EPISODE_EVIDENCE_POLICY.records).toHaveLength(105);
     expect(EVIDENCE_EXPECTATION_STAGES).toEqual([
       'source_fact_missing',
       'source_fact_unprojected',

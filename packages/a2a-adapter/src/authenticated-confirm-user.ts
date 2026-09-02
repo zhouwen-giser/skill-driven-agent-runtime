@@ -82,7 +82,7 @@ function isGovernedControlConfirmationRequest(body: unknown): boolean {
   const envelope = record(body);
   const message = record(envelope?.['message']);
   const metadata = record(message?.['metadata']);
-  return metadata?.['sdar_action'] === 'confirm_plan';
+  return ['confirm_plan', 'confirm_weapon_action'].includes(String(metadata?.['sdar_action']));
 }
 
 function record(value: unknown): Readonly<Record<string, unknown>> | undefined {

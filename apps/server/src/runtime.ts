@@ -36,6 +36,7 @@ import {
   McpRegistryService,
   GovernedControlInvocationAuthorizer,
   GovernedControlConfirmationService,
+  GovernedControlConfirmationQueryService,
   GovernedControlManagementService,
   UgvGovernedControlConfirmationService,
   UgvGovernedControlInvocationAuthorizer,
@@ -55,6 +56,7 @@ import {
   RemoteTaskAdmissionRecoveryService,
   type RemoteTaskAdmissionIntent,
   type RemoteTaskAdmissionEnvelope,
+  type RemoteTaskReconciliationContract,
   RemoteTaskPollingService,
   RemoteTaskReconciler,
   RemoteTaskContinuationService,
@@ -258,6 +260,8 @@ import {
   createCognitiveSourceRef,
   deriveFrozenMcpCatalogAuthority,
   createRuntimeExecutionContext,
+  createMcpLogicalInvocationIdentity,
+  createRemoteTaskProviderExecutionLink,
   createGoalExecutionContract,
   goalExecutionContractsEqual,
   isTerminalWorkflowControlStatus,
@@ -417,6 +421,8 @@ import {
   PostgresEvolutionPolicyRepository,
   PostgresRemoteTaskRepository,
   PostgresRemoteTaskAdmissionIntentStore,
+  PostgresRemoteTaskProviderExecutionLinkStore,
+  PostgresRemoteTaskReconciliationAttemptStore,
   PostgresRemoteTaskAdmissionObservationQuery,
   PostgresRemoteTaskInputRepository,
   PostgresRemoteTaskCancellationRepository,
@@ -471,14 +477,15 @@ import { assertManagedCapabilityRuntimeConfiguration } from './managed-capabilit
 import { continueRemoteTaskWorkflowHierarchy } from './remote-task-workflow-hierarchy.js';
 import {
   UGV_AGENT_PROFILE_ID,
+  UGV_AGENT_PROFILE_CAPABILITY_ID,
   UGV_AGENT_PROFILE_EXPOSURE_ID,
-  UGV_AGENT_PROFILE_EXPOSURE_VERSION,
   UGV_AGENT_PROFILE_SKILL_ID,
   UGV_AGENT_PROFILE_SKILL_VERSION,
   UgvAgentProfileSkillRepositoryView,
   assertUgvAgentProfileRuntimeConfiguration,
   useManagedAgentCardForProfile,
 } from './ugv-agent-profile.js';
+import { isHistoricalUgvPointSkill, ugvCapabilityForSkill } from './ugv-agent-profile-catalog.js';
 import {
   assertUgvAgentProfileMoveInputAuthority,
   UgvAgentProfileExactSkillInputResolver,
@@ -509,6 +516,8 @@ import {
 } from './ugv-move-position-result.js';
 import { UgvSimulationQualificationService } from './ugv-simulation-qualification.js';
 import { EnvironmentUgvSimulationSideEffectGate } from './ugv-simulation-side-effect-gate.js';
+import { EnvironmentUgvLiveSideEffectGate } from './ugv-live-side-effect-gate.js';
+import { UGV_UNKNOWN_AVAILABILITY_POLICY } from './ugv-unknown-availability-policy.js';
 import { UgvNaturalLanguageCapabilityAdmissionResolver } from './ugv-natural-language-capability-admission.js';
 import { reconcileRegisteredProviderBindings } from './provider-binding-reconciler.js';
 import {
@@ -1360,14 +1369,31 @@ export async function startServerRuntime(
   await taskCapabilities.reconcileCanceledAttempts();
   await taskCapabilities.reconcileFailedAttempts();
   const governedControlAuthorityRepository = new PostgresGovernedControlAuthorityRepository(pool);
+  const governedControlConfirmationService = new GovernedControlConfirmationService({
+    store: governedControlAuthorityRepository,
+    clock,
+    ids: { nextConfirmationId: () => `governed-confirmation-${randomUUID()}` },
+  });
+  const governedControlConfirmationQuery = new GovernedControlConfirmationQueryService({
+    store: governedControlAuthorityRepository,
+    clock,
+  });
   const governedControlManagement = new GovernedControlManagementService({
     authority: new PostgresGovernedControlManagementAuthorityReader(pool),
-    confirmations: new GovernedControlConfirmationService({
-      store: governedControlAuthorityRepository,
-      clock,
-      ids: { nextConfirmationId: () => `governed-confirmation-${randomUUID()}` },
-    }),
+    confirmations: governedControlConfirmationService,
     clock,
+  });
+  const emergencyControlManagement = new GovernedControlManagementService({
+    authority: new PostgresGovernedControlManagementAuthorityReader(pool, 'emergency_stop'),
+    confirmations: governedControlConfirmationService,
+    clock,
+    authorityKind: 'emergency_stop',
+  });
+  const weaponControlManagement = new GovernedControlManagementService({
+    authority: new PostgresGovernedControlManagementAuthorityReader(pool, 'weapon_control'),
+    confirmations: governedControlConfirmationService,
+    clock,
+    authorityKind: 'weapon_control',
   });
   const governedControlInvocationAuthorizer =
     options.capabilityAuthorityReader === undefined
@@ -1376,6 +1402,7 @@ export async function startServerRuntime(
           store: governedControlAuthorityRepository,
           capabilities: options.capabilityAuthorityReader,
           clock,
+          ...(ugvAgentProfile ? { hardDeniedTools: Object.freeze([]) } : {}),
         });
   let ugvAvailabilityTarget: TaskAvailabilityBatchReader | undefined;
   const ugvAvailabilityProxy: TaskAvailabilityBatchReader = {
@@ -1397,6 +1424,7 @@ export async function startServerRuntime(
           runtimeBindings: runtimeMcpBindingAuthority,
           availability: ugvAvailabilityProxy,
           inputAdapter: { adapt: adaptUgvMoveInput },
+          unknownAvailabilityPolicy: UGV_UNKNOWN_AVAILABILITY_POLICY,
           clock,
         });
   const ugvGovernedControlConfirmation =
@@ -1421,6 +1449,7 @@ export async function startServerRuntime(
           authority: ugvGovernedControlAuthority,
           confirmations: governedControlAuthorityRepository,
           simulationSideEffectGate: new EnvironmentUgvSimulationSideEffectGate(process.env),
+          liveSideEffectGate: new EnvironmentUgvLiveSideEffectGate(process.env),
           clock,
         });
   if (
@@ -2232,6 +2261,16 @@ export async function startServerRuntime(
         delegate: skillInputResolution,
       })
     : undefined;
+  const profileSkillInputResolver =
+    !ugvAgentProfile || ugvExactSkillInputResolver === undefined
+      ? skillInputResolution
+      : {
+          resolve(input: Parameters<typeof skillInputResolution.resolve>[0]) {
+            return isHistoricalUgvPointSkill(input.skill.skillId, input.skill.version)
+              ? ugvExactSkillInputResolver.resolve(input)
+              : skillInputResolution.resolve(input);
+          },
+        };
   const mcpRegistry = new McpRegistryService({
     repository: mcpRepository,
     cipher: secretCipher,
@@ -2245,15 +2284,28 @@ export async function startServerRuntime(
       ? {}
       : { providerBindings: options.currentMcpProviderBindingAuthorityReader }),
     ...(ugvAgentProfile
-      ? ugvGovernedControlInvocationAuthorizer === undefined
+      ? ugvGovernedControlInvocationAuthorizer === undefined ||
+        governedControlInvocationAuthorizer === undefined
         ? {}
-        : { controlAuthority: ugvGovernedControlInvocationAuthorizer }
+        : {
+            controlAuthority: {
+              async authorizeAndConsume(input) {
+                const task = await tasks.findById(input.taskId);
+                return task?.selectedSkillId !== undefined &&
+                  task.selectedSkillVersion !== undefined &&
+                  isHistoricalUgvPointSkill(task.selectedSkillId, task.selectedSkillVersion)
+                  ? ugvGovernedControlInvocationAuthorizer.authorizeAndConsume(input)
+                  : governedControlInvocationAuthorizer.authorizeAndConsume(input);
+              },
+            },
+          }
       : governedControlInvocationAuthorizer === undefined
         ? {}
         : { controlAuthority: governedControlInvocationAuthorizer }),
     ...(options.mcpExecutionModeHeaderPolicy === undefined
       ? {}
       : { executionModeHeaderPolicy: options.mcpExecutionModeHeaderPolicy }),
+    ...(ugvAgentProfile ? { hardDeniedControlTools: Object.freeze([]) } : {}),
     runtimeBindingAuthority: runtimeMcpBindingAuthority,
     clock,
     ids: {
@@ -2292,6 +2344,9 @@ export async function startServerRuntime(
             nextReadinessId: () => `task-readiness-${randomUUID()}`,
             nextSnapshotId: () => `task-availability-${randomUUID()}`,
           },
+          ...(ugvAgentProfile
+            ? { providerUnknownPreInvocationPolicy: UGV_UNKNOWN_AVAILABILITY_POLICY }
+            : {}),
         });
   const ugvMoveBindingResolver =
     !ugvAgentProfile || options.currentMcpProviderBindingAuthorityReader === undefined
@@ -2460,26 +2515,28 @@ export async function startServerRuntime(
         decider: {
           decide: ({ candidates }) => {
             const candidate = candidates[0];
-            if (
-              candidate === undefined ||
-              candidates.length !== 1 ||
-              candidate.skillId !== UGV_AGENT_PROFILE_SKILL_ID ||
-              candidate.skillVersion !== UGV_AGENT_PROFILE_SKILL_VERSION
-            )
+            if (candidate === undefined || candidates.length !== 1)
               throw new Error('UGV_AGENT_PROFILE_SKILL_SELECTION_NOT_EXACT');
             return Promise.resolve({
               selectedSkillId: candidate.skillId,
               decisionSummary:
-                'The UGV Agent Profile selected its sole enabled exact SkillVersion.',
+                'The UGV Agent Profile selected the exact Task Capability SkillVersion.',
             });
           },
         },
         mcpWarnings: mcpRepository,
         usage:
-          ugvSkillUsage ??
-          (() => {
-            throw new Error('UGV_AGENT_PROFILE_SKILL_USAGE_RUNTIME_REQUIRED');
-          })(),
+          ugvSkillUsage === undefined
+            ? (() => {
+                throw new Error('UGV_AGENT_PROFILE_SKILL_USAGE_RUNTIME_REQUIRED');
+              })()
+            : {
+                assess(skill, context) {
+                  return isHistoricalUgvPointSkill(skill.skillId, skill.version)
+                    ? ugvSkillUsage.assess(skill, context)
+                    : skillUsage.assess(skill, context);
+                },
+              },
         clock,
         ids: {
           nextSelectionId: () => `skill-selection-ugv-agent-profile-${randomUUID()}`,
@@ -2579,6 +2636,14 @@ export async function startServerRuntime(
     options.frozenMcpTasks === undefined
       ? undefined
       : new PostgresRemoteTaskAdmissionIntentStore(pool);
+  const remoteTaskReconciliationAttempts =
+    options.frozenMcpTasks === undefined
+      ? undefined
+      : new PostgresRemoteTaskReconciliationAttemptStore(pool);
+  const remoteTaskProviderExecutionLinks =
+    options.frozenMcpTasks === undefined
+      ? undefined
+      : new PostgresRemoteTaskProviderExecutionLinkStore(pool);
   const frozenTaskNotifications =
     remoteTaskRepository === undefined
       ? undefined
@@ -2826,7 +2891,13 @@ export async function startServerRuntime(
               tool.serverId,
               taskCapabilities,
               ugvAgentProfile ? options.currentMcpProviderBindingAuthorityReader : undefined,
-              !ugvAgentProfile
+              !ugvAgentProfile ||
+                authorityTask.selectedSkillId === undefined ||
+                authorityTask.selectedSkillVersion === undefined ||
+                !isHistoricalUgvPointSkill(
+                  authorityTask.selectedSkillId,
+                  authorityTask.selectedSkillVersion,
+                )
                 ? undefined
                 : await loadExactUgvTaskProviderBindingExpectation({
                     task: authorityTask,
@@ -2866,6 +2937,7 @@ export async function startServerRuntime(
         invocationId === undefined ? undefined : `remote-task-binding-${invocationId}`;
       const intentId =
         invocationId === undefined ? undefined : `remote-task-admission-${invocationId}`;
+      const argumentsHash = createHash('sha256').update(canonicalJson(arguments_)).digest('hex');
       const remoteAdmissionEnvelope: RemoteTaskAdmissionEnvelope | undefined =
         invocationId === undefined ||
         bindingId === undefined ||
@@ -2905,6 +2977,46 @@ export async function startServerRuntime(
               executionContext,
               createdAt: clock.now(),
             };
+      const logicalInvocationIdentity =
+        remoteAdmissionEnvelope === undefined ||
+        authorityTask === undefined ||
+        instance === undefined ||
+        plan === undefined ||
+        planDefinition === undefined
+          ? undefined
+          : createMcpLogicalInvocationIdentity({
+              taskId: authorityTask.taskId,
+              contextId: authorityTask.contextId,
+              goalId: instance.goalId,
+              goalVersion: instance.goalVersion,
+              workflowPlanId: plan.planId,
+              workflowDefinitionId: planDefinition.workflowDefinitionId,
+              workflowDefinitionVersion: planDefinition.version,
+              workflowInstanceId: instance.instanceId,
+              workflowNodeId,
+              workflowNodeRunId,
+              serverId: tool.serverId,
+              ...(providerBindingContext?.providerBindingId === undefined
+                ? {}
+                : { providerBindingId: providerBindingContext.providerBindingId }),
+              ...(providerBindingContext?.providerId === undefined
+                ? {}
+                : { providerId: providerBindingContext.providerId }),
+              operationName: tool.toolName,
+              argumentsHash,
+              executionContext,
+            });
+      const recoveryContinuation =
+        remoteAdmissionEnvelope === undefined
+          ? undefined
+          : await prepareExternalWait({
+              waitId: remoteAdmissionEnvelope.bindingId,
+              kind: 'remote_task',
+              sourceId: remoteAdmissionEnvelope.bindingId,
+              nodeId: workflowNodeId,
+              nodeRunId: workflowNodeRunId,
+              state: 'waiting',
+            });
       const remoteAdmissionIntent: RemoteTaskAdmissionIntent | undefined =
         intentId === undefined ||
         invocationId === undefined ||
@@ -2922,7 +3034,21 @@ export async function startServerRuntime(
               contextId: authorityTask.contextId,
               serverId: tool.serverId,
               operationName: tool.toolName,
-              argumentsHash: createHash('sha256').update(canonicalJson(arguments_)).digest('hex'),
+              argumentsHash,
+              ...(logicalInvocationIdentity === undefined
+                ? {}
+                : {
+                    logicalIdentity: logicalInvocationIdentity,
+                    reconciliationSeed: {
+                      schemaVersion: 'sdar.remote-task-reconciliation-seed/v1',
+                      logicalIdentity: logicalInvocationIdentity,
+                      arguments: arguments_,
+                      executionContext,
+                      ...(recoveryContinuation === undefined
+                        ? {}
+                        : { continuation: recoveryContinuation }),
+                    },
+                  }),
               envelope: remoteAdmissionEnvelope,
               status: 'prepared',
               createdAt: remoteAdmissionEnvelope.createdAt,
@@ -2940,12 +3066,25 @@ export async function startServerRuntime(
                 input: Readonly<{
                   invocationId: string;
                   dispatchHash: string;
+                  reconciliationContract?: RemoteTaskReconciliationContract;
                   at: string;
                 }>,
               ) {
                 const mutation = await remoteTaskAdmissionIntents.markDispatching({
                   intentId: remoteAdmissionIntent.intentId,
                   ...input,
+                  ...(input.reconciliationContract === undefined
+                    ? {}
+                    : {
+                        reconciliationContract: {
+                          ...input.reconciliationContract,
+                          ...(remoteAdmissionIntent.reconciliationSeed?.continuation === undefined
+                            ? {}
+                            : {
+                                continuation: remoteAdmissionIntent.reconciliationSeed.continuation,
+                              }),
+                        },
+                      }),
                 });
                 if (!mutation.applied)
                   throw new Error(
@@ -2966,15 +3105,20 @@ export async function startServerRuntime(
                 }>,
               ) {
                 const envelope = remoteAdmissionIntent.envelope;
-                const remoteSnapshot = input.outcome.reconciledTask ?? input.outcome.task;
-                const continuation = await prepareExternalWait({
-                  waitId: envelope.bindingId,
-                  kind: 'remote_task',
-                  sourceId: envelope.bindingId,
-                  nodeId: workflowNodeId,
-                  nodeRunId: workflowNodeRunId,
-                  state: remoteSnapshot.status === 'input_required' ? 'awaiting_input' : 'waiting',
-                });
+                const continuation =
+                  remoteAdmissionIntent.reconciliationSeed?.continuation ??
+                  (await prepareExternalWait({
+                    waitId: envelope.bindingId,
+                    kind: 'remote_task',
+                    sourceId: envelope.bindingId,
+                    nodeId: workflowNodeId,
+                    nodeRunId: workflowNodeRunId,
+                    state:
+                      (input.outcome.reconciledTask ?? input.outcome.task).status ===
+                      'input_required'
+                        ? 'awaiting_input'
+                        : 'waiting',
+                  }));
                 const mutation = await remoteTaskAdmissionIntents.recordRemoteReceiptAndInvocation(
                   remoteAdmissionIntent.intentId,
                   input.invocation,
@@ -3021,32 +3165,134 @@ export async function startServerRuntime(
                 });
               },
             };
-      const receipt = await mcpRegistry.callDetailed(
-        tool.serverId,
-        tool.toolName,
-        arguments_,
-        signal,
-        authorityTask === undefined
-          ? {
-              executionContext,
-              ...(guardedTaskExecution === undefined
-                ? {}
-                : { taskExecution: guardedTaskExecution }),
-              ...(preTransportFence === undefined ? {} : { preTransportFence }),
-              ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
-            }
-          : {
-              taskId: authorityTask.taskId,
-              contextId: authorityTask.contextId,
-              ...(providerBindingContext ?? {}),
-              executionContext,
-              ...(guardedTaskExecution === undefined
-                ? {}
-                : { taskExecution: guardedTaskExecution }),
-              ...(preTransportFence === undefined ? {} : { preTransportFence }),
-              ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
-            },
-      );
+      let receipt: Awaited<ReturnType<McpRegistryService['callDetailed']>>;
+      try {
+        receipt = await mcpRegistry.callDetailed(
+          tool.serverId,
+          tool.toolName,
+          arguments_,
+          signal,
+          authorityTask === undefined
+            ? {
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+                ...(preTransportFence === undefined ? {} : { preTransportFence }),
+                ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
+                ...(logicalInvocationIdentity === undefined ? {} : { logicalInvocationIdentity }),
+              }
+            : {
+                taskId: authorityTask.taskId,
+                contextId: authorityTask.contextId,
+                ...(providerBindingContext ?? {}),
+                executionContext,
+                ...(guardedTaskExecution === undefined
+                  ? {}
+                  : { taskExecution: guardedTaskExecution }),
+                ...(preTransportFence === undefined ? {} : { preTransportFence }),
+                ...(remoteAdmissionJournal === undefined ? {} : { remoteAdmissionJournal }),
+                ...(logicalInvocationIdentity === undefined ? {} : { logicalInvocationIdentity }),
+              },
+        );
+      } catch (dispatchError: unknown) {
+        const uncertainIntent =
+          bindingId === undefined || remoteTaskAdmissionIntents === undefined
+            ? undefined
+            : await remoteTaskAdmissionIntents.findByBindingId(bindingId);
+        if (
+          uncertainIntent?.status !== 'uncertain' ||
+          uncertainIntent.reconciliationContract === undefined ||
+          uncertainIntent.logicalIdentity === undefined ||
+          uncertainIntent.reconciliationContract.continuation === undefined ||
+          remoteTaskReconciliationAttempts === undefined
+        )
+          throw dispatchError;
+        const startedAt = clock.now();
+        const attemptNumber = await remoteTaskReconciliationAttempts.nextAttemptNumber(
+          uncertainIntent.intentId,
+        );
+        const reconciled = await mcpRegistry.reconcileRemoteTaskAdmission(
+          uncertainIntent.reconciliationContract,
+          {
+            invocationId: uncertainIntent.invocationId,
+            taskId: uncertainIntent.taskId,
+            ...(uncertainIntent.capabilityAttemptId === undefined
+              ? {}
+              : { capabilityAttemptId: uncertainIntent.capabilityAttemptId }),
+            contextId: uncertainIntent.contextId,
+          },
+        );
+        const completedAt = clock.now();
+        await remoteTaskReconciliationAttempts.append({
+          attemptId: `remote-reconcile-${createHash('sha256')
+            .update(canonicalJson({ intentId: uncertainIntent.intentId, attemptNumber }))
+            .digest('hex')}`,
+          intentId: uncertainIntent.intentId,
+          logicalInvocationId: uncertainIntent.logicalIdentity.logicalInvocationId,
+          expectedIntentVersion: uncertainIntent.version,
+          attemptNumber,
+          sourceContract: 'sdar.smpp-diagnostics/v1+frozen-mcp-v1',
+          requestHash: `sha256:${createHash('sha256')
+            .update(canonicalJson(uncertainIntent.reconciliationContract))
+            .digest('hex')}`,
+          status: reconciled.result.status,
+          ...(reconciled.result.status !== 'found_exact'
+            ? { safeErrorCode: reconciled.result.safeErrorCode }
+            : {
+                remoteTaskId: reconciled.result.outcome.task.remoteTaskId,
+                ...(reconciled.result.externalExecutionId === undefined
+                  ? {}
+                  : { externalExecutionId: reconciled.result.externalExecutionId }),
+              }),
+          identityValidated: reconciled.result.status === 'found_exact',
+          startedAt,
+          completedAt,
+          durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(startedAt)),
+          resultHash: `sha256:${createHash('sha256')
+            .update(canonicalJson(reconciled.result))
+            .digest('hex')}`,
+          version: 1,
+        });
+        if (reconciled.result.status !== 'found_exact' || reconciled.invocation === undefined)
+          throw dispatchError;
+        const reconciledReceipt = {
+          remoteTask: reconciled.result.outcome.task,
+          ...(reconciled.result.outcome.reconciledTask === undefined
+            ? {}
+            : { reconciledTask: reconciled.result.outcome.reconciledTask }),
+          credentialRevision: reconciled.credentialRevision,
+          sessionRevision: reconciled.sessionRevision,
+          protocolContract: reconciled.protocolContract,
+          taskBehavior: reconciled.taskBehavior,
+          taskCancellation: reconciled.taskCancellation,
+          authoritySnapshot: reconciled.authoritySnapshot,
+          continuation: uncertainIntent.reconciliationContract.continuation,
+        };
+        const admissionIntents = remoteTaskAdmissionIntents;
+        if (admissionIntents === undefined) throw dispatchError;
+        const recorded = await admissionIntents.recordReconciledReceiptAndInvocation({
+          intentId: uncertainIntent.intentId,
+          logicalInvocationId: uncertainIntent.logicalIdentity.logicalInvocationId,
+          invocation: reconciled.invocation,
+          receipt: reconciledReceipt,
+          at: completedAt,
+        });
+        if (!recorded.applied)
+          throw new Error(`REMOTE_TASK_RECONCILED_RECEIPT_${recorded.reason.toUpperCase()}`, {
+            cause: dispatchError,
+          });
+        receipt = {
+          invocationId: uncertainIntent.invocationId,
+          outcome: reconciled.result.outcome,
+          credentialRevision: reconciled.credentialRevision,
+          sessionRevision: reconciled.sessionRevision,
+          protocolContract: reconciled.protocolContract,
+          taskBehavior: reconciled.taskBehavior,
+          taskCancellation: reconciled.taskCancellation,
+          authoritySnapshot: reconciled.authoritySnapshot,
+        };
+      }
       if (receipt.outcome.kind === 'immediate') {
         if (!ugvAgentProfile || workflowNodeId !== UGV_MOVE_WORKFLOW_NODE_IDS.finalState)
           return receipt.outcome;
@@ -3405,6 +3651,67 @@ export async function startServerRuntime(
         });
         if (!mutation.applied)
           throw new Error(`REMOTE_TASK_ADMISSION_MATERIALIZE_${mutation.reason.toUpperCase()}`);
+        if (
+          remoteTaskProviderExecutionLinks !== undefined &&
+          intent.logicalIdentity !== undefined &&
+          intent.reconciliationContract !== undefined &&
+          intent.receipt !== undefined
+        ) {
+          const reconciliationAttempt =
+            remoteTaskReconciliationAttempts === undefined
+              ? undefined
+              : (await remoteTaskReconciliationAttempts.listByIntentId(intent.intentId))
+                  .filter((attempt) => attempt.status === 'found_exact')
+                  .at(-1);
+          await remoteTaskProviderExecutionLinks.save(
+            createRemoteTaskProviderExecutionLink({
+              bindingId: wait.sourceId,
+              logicalInvocationId: intent.logicalIdentity.logicalInvocationId,
+              remoteTaskId: intent.receipt.remoteTask.remoteTaskId,
+              providerId: intent.reconciliationContract.providerId,
+              runtimeServerId: intent.logicalIdentity.serverId,
+              ...(intent.reconciliationContract.authoritySnapshot.providerBinding === undefined
+                ? {}
+                : {
+                    providerBindingId:
+                      intent.reconciliationContract.authoritySnapshot.providerBinding.bindingId,
+                    providerOriginType:
+                      intent.reconciliationContract.authoritySnapshot.providerBinding.originType,
+                    ...(intent.reconciliationContract.authoritySnapshot.providerBinding
+                      .smppSourceId === undefined
+                      ? {}
+                      : {
+                          smppSourceId:
+                            intent.reconciliationContract.authoritySnapshot.providerBinding
+                              .smppSourceId,
+                        }),
+                    ...(intent.reconciliationContract.authoritySnapshot.providerBinding
+                      .externalServerId === undefined
+                      ? {}
+                      : {
+                          externalServerId:
+                            intent.reconciliationContract.authoritySnapshot.providerBinding
+                              .externalServerId,
+                        }),
+                  }),
+              operationName: intent.operationName,
+              executionStatus:
+                reconciliationAttempt?.externalExecutionId === undefined ? 'unresolved' : 'exact',
+              ...(reconciliationAttempt?.externalExecutionId === undefined
+                ? {}
+                : { externalExecutionId: reconciliationAttempt.externalExecutionId }),
+              missionStatus: 'unresolved',
+              provenance:
+                reconciliationAttempt === undefined ? 'committed_receipt' : 'reconcile_found_exact',
+              sourceContract: 'sdar.node-control-provider-binding/v1+frozen-mcp-v1',
+              sourceRevision:
+                intent.reconciliationContract.authoritySnapshot.providerBinding === undefined
+                  ? `runtime:${intent.reconciliationContract.authoritySnapshot.runtime.serverUpdatedAt}/catalog:${intent.reconciliationContract.authoritySnapshot.runtime.catalogRevision}`
+                  : `binding:${String(intent.reconciliationContract.authoritySnapshot.providerBinding.revision)}/catalog:${intent.reconciliationContract.authoritySnapshot.providerBinding.catalogRevision}`,
+              observedAt: intent.receiptRecordedAt ?? intent.updatedAt,
+            }),
+          );
+        }
       }
     },
     async onContinuationActivationFailure({ snapshot, error }) {
@@ -3640,6 +3947,21 @@ export async function startServerRuntime(
         skills: profileSkills,
       })
     : undefined;
+  const genericTaskCapabilityGoalAuthority = new TaskCapabilityUserGoalPlanAuthorityResolver({
+    bindings: taskCapabilities,
+    skills,
+  });
+  const profileUserGoalPlanAuthority =
+    !ugvAgentProfile || ugvUserGoalPlanAuthority === undefined
+      ? ugvUserGoalPlanAuthority
+      : {
+          async resolve(taskId: string) {
+            const binding = await taskCapabilities.findBinding(taskId);
+            return binding?.requestedCapabilityId === UGV_AGENT_PROFILE_CAPABILITY_ID
+              ? ugvUserGoalPlanAuthority.resolve(taskId)
+              : genericTaskCapabilityGoalAuthority.resolve(taskId);
+          },
+        };
   const ugvUserGoalPlanGuard = ugvAgentProfile
     ? new UgvAgentProfileUserGoalPlanCandidateGuard()
     : undefined;
@@ -3658,8 +3980,8 @@ export async function startServerRuntime(
     repository: userGoalRuntimeRepository,
     now: () => clock.now(),
     nextPlanId: () => `user-goal-plan-${randomUUID()}`,
-    ...(ugvUserGoalPlanAuthority !== undefined
-      ? { candidateAuthority: ugvUserGoalPlanAuthority }
+    ...(profileUserGoalPlanAuthority !== undefined
+      ? { candidateAuthority: profileUserGoalPlanAuthority }
       : managedCapabilityProfile || homeLabGovernedLightProfile
         ? {
             candidateAuthority: new TaskCapabilityUserGoalPlanAuthorityResolver({
@@ -3672,7 +3994,14 @@ export async function startServerRuntime(
       ? { candidateGuard: new HomeLabReadOnlyUserGoalPlanCandidateGuard() }
       : ugvUserGoalPlanGuard === undefined
         ? {}
-        : { candidateGuard: ugvUserGoalPlanGuard }),
+        : {
+            candidateGuard: {
+              assert(plan, contract) {
+                if (plan.skillGoals[0]?.capabilityNeeds.includes(UGV_AGENT_PROFILE_CAPABILITY_ID))
+                  ugvUserGoalPlanGuard.assert(plan, contract);
+              },
+            },
+          }),
   });
   const ugvInitialAdmission =
     ugvUserGoalPlanAuthority === undefined || ugvUserGoalPlanGuard === undefined
@@ -3896,7 +4225,12 @@ export async function startServerRuntime(
     initialAdmissions: taskCapabilityRepository,
     ...(ugvAgentProfile
       ? {
-          naturalLanguageCapabilityAdmissions: new UgvNaturalLanguageCapabilityAdmissionResolver(),
+          naturalLanguageCapabilityAdmissions: new UgvNaturalLanguageCapabilityAdmissionResolver({
+            exposures: {
+              findCurrent: (exposureId) =>
+                taskCapabilities.describeCurrentAdmissionExposure(exposureId, clock.now()),
+            },
+          }),
         }
       : {}),
     ...(options.frozenMcpTasks === undefined
@@ -3919,16 +4253,68 @@ export async function startServerRuntime(
     ...(ugvAgentProfile
       ? {
           async beforePlanExecution(input) {
-            if (
-              input.confirmationAuthority === undefined ||
-              ugvGovernedControlManagement === undefined
-            )
+            if (input.confirmationAuthority === undefined)
               throw new Error('UGV_AGENT_PROFILE_OUTER_CONFIRMATION_AUTHORITY_REQUIRED');
-            await ugvGovernedControlManagement.issue({
+            if (
+              input.task.selectedSkillId !== undefined &&
+              input.task.selectedSkillVersion !== undefined &&
+              isHistoricalUgvPointSkill(input.task.selectedSkillId, input.task.selectedSkillVersion)
+            ) {
+              if (input.emergencyAuthorization !== undefined)
+                throw new Error('UGV_AGENT_PROFILE_EMERGENCY_AUTHORITY_SCOPE_INVALID');
+              if (ugvGovernedControlManagement === undefined)
+                throw new Error('UGV_AGENT_PROFILE_POINT_CONTROL_AUTHORITY_REQUIRED');
+              await ugvGovernedControlManagement.issue({
+                taskId: input.task.taskId,
+                reason: 'Confirmed the immutable UGV point-navigation outer Workflow plan.',
+                principal: input.confirmationAuthority.principal,
+              });
+              return;
+            }
+            const declaration =
+              input.task.selectedSkillId === undefined
+                ? undefined
+                : ugvCapabilityForSkill(input.task.selectedSkillId);
+            if (
+              input.emergencyAuthorization !== undefined &&
+              declaration?.kind !== 'emergency_stop'
+            )
+              throw new Error('UGV_AGENT_PROFILE_EMERGENCY_AUTHORITY_SCOPE_INVALID');
+            if (declaration === undefined || declaration.kind === 'read_only') return;
+            if (declaration.kind === 'weapon_control')
+              return Object.freeze({ deferExecution: 'weapon_confirmation' as const });
+            await (
+              declaration.kind === 'emergency_stop'
+                ? emergencyControlManagement
+                : governedControlManagement
+            ).issue({
               taskId: input.task.taskId,
-              reason: 'Confirmed the immutable UGV point-navigation outer Workflow plan.',
+              reason:
+                declaration.kind === 'emergency_stop'
+                  ? 'Confirmed the exact immutable emergency-stop plan.'
+                  : 'Confirmed the exact immutable UGV physical-control plan.',
               principal: input.confirmationAuthority.principal,
+              ...(declaration.kind === 'emergency_stop' &&
+              input.emergencyAuthorization !== undefined
+                ? {
+                    expectedToolName: 'vehicle_emergency_stop',
+                    expectedResourceId: input.emergencyAuthorization.resourceId,
+                  }
+                : {}),
             });
+            return undefined;
+          },
+          weaponActions: {
+            async confirm(taskId, authorization, authority) {
+              await weaponControlManagement.issue({
+                taskId,
+                reason: 'Confirmed the exact immutable single-shot weapon action.',
+                principal: authority.principal,
+                expectedToolName: 'vehicle_fire_weapon',
+                expectedResourceId: authorization.resourceId,
+                expectedArguments: Object.freeze({ ...authorization }),
+              });
+            },
           },
         }
       : {}),
@@ -4166,6 +4552,67 @@ export async function startServerRuntime(
           },
           nextObservationId: () => `remote-task-observation-${randomUUID()}`,
           nextControlEventId: () => `remote-task-control-${randomUUID()}`,
+          ...(remoteTaskReconciliationAttempts === undefined
+            ? {}
+            : { reconciliationAttempts: remoteTaskReconciliationAttempts }),
+          ...(remoteTaskProviderExecutionLinks === undefined
+            ? {}
+            : { providerExecutionLinks: remoteTaskProviderExecutionLinks }),
+          async reconcileUncertain(intent) {
+            const contract = intent.reconciliationContract;
+            const continuation = contract?.continuation;
+            if (contract === undefined || continuation === undefined)
+              return {
+                result: {
+                  status: 'unavailable',
+                  safeErrorCode: 'MCP_RECONCILIATION_CONTINUATION_AUTHORITY_MISSING',
+                },
+              };
+            const reconciled = await mcpRegistry.reconcileRemoteTaskAdmission(contract, {
+              invocationId: intent.invocationId,
+              taskId: intent.taskId,
+              ...(intent.capabilityAttemptId === undefined
+                ? {}
+                : { capabilityAttemptId: intent.capabilityAttemptId }),
+              contextId: intent.contextId,
+            });
+            if (reconciled.result.status !== 'found_exact' || reconciled.invocation === undefined)
+              return { result: reconciled.result };
+            return {
+              result: reconciled.result,
+              invocation: reconciled.invocation,
+              receipt: {
+                remoteTask: reconciled.result.outcome.task,
+                ...(reconciled.result.outcome.reconciledTask === undefined
+                  ? {}
+                  : { reconciledTask: reconciled.result.outcome.reconciledTask }),
+                credentialRevision: reconciled.credentialRevision,
+                sessionRevision: reconciled.sessionRevision,
+                protocolContract: reconciled.protocolContract,
+                taskBehavior: reconciled.taskBehavior,
+                taskCancellation: reconciled.taskCancellation,
+                authoritySnapshot: reconciled.authoritySnapshot,
+                continuation,
+              },
+            };
+          },
+          async markWorkflowWaitingExternal(intent) {
+            const instance = await workflowInstances.findInstance(
+              intent.envelope.workflowInstanceId,
+            );
+            if (instance === undefined)
+              throw new Error('REMOTE_TASK_RECOVERY_WORKFLOW_AUTHORITY_CONFLICT');
+            if (
+              instance.planId !== intent.envelope.workflowPlanId ||
+              instance.workflowDefinitionId !== intent.envelope.workflowDefinitionId ||
+              instance.workflowVersion !== intent.envelope.workflowDefinitionVersion
+            )
+              throw new Error('REMOTE_TASK_RECOVERY_WORKFLOW_AUTHORITY_CONFLICT');
+            if (instance.status === 'waiting_external') return;
+            if (instance.status !== 'running')
+              throw new Error('REMOTE_TASK_RECOVERY_WORKFLOW_NOT_RUNNING');
+            await workflowInstances.saveInstance({ ...instance, status: 'waiting_external' });
+          },
         });
   if (remoteTaskAdmissionRecovery !== undefined) await remoteTaskAdmissionRecovery.reconcile();
   async function resolveTaskWorkflowControlId(task: AgentTask): Promise<string> {
@@ -4277,7 +4724,12 @@ export async function startServerRuntime(
         processor.continueUserGoalPlan(taskId, userGoalPlanId),
       async prepareAchieved(taskId, instance) {
         const task = await service.get(taskId);
-        if (ugvAgentProfile) {
+        if (
+          ugvAgentProfile &&
+          task.selectedSkillId !== undefined &&
+          task.selectedSkillVersion !== undefined &&
+          isHistoricalUgvPointSkill(task.selectedSkillId, task.selectedSkillVersion)
+        ) {
           if (
             task.selectedSkillId !== UGV_AGENT_PROFILE_SKILL_ID ||
             task.selectedSkillVersion !== UGV_AGENT_PROFILE_SKILL_VERSION ||
@@ -4814,9 +5266,20 @@ export async function startServerRuntime(
     decisions: new StructuredTaskDecisionService(modelRuntime, memories),
     goals: goalService,
     skills,
-    skillInputs: ugvExactSkillInputResolver ?? skillInputResolution,
+    skillInputs: profileSkillInputResolver,
     userGoalPlanning,
-    ...(ugvInitialAdmission === undefined ? {} : { initialAdmission: ugvInitialAdmission }),
+    ...(ugvInitialAdmission === undefined
+      ? {}
+      : {
+          initialAdmission: {
+            async admit(task) {
+              const binding = await taskCapabilities.findBinding(task.taskId);
+              return binding?.requestedCapabilityId === UGV_AGENT_PROFILE_CAPABILITY_ID
+                ? ugvInitialAdmission.admit(task)
+                : undefined;
+            },
+          },
+        }),
     skillGoalScheduler: new SkillGoalScheduler({
       repository: userGoalRuntimeRepository,
       candidates: {
@@ -4858,14 +5321,19 @@ export async function startServerRuntime(
               ? await resolveSkillUsageContext(goalContract, task)
               : !ugvAgentProfile
                 ? taskCapabilityUsage.context
-                : ugvTaskCapabilityBinding === undefined
-                  ? (() => {
-                      throw new Error('UGV_AGENT_PROFILE_TASK_CAPABILITY_BINDING_REQUIRED');
-                    })()
-                  : resolveUgvMoveSkillUsageContext({
-                      authority: taskCapabilityUsage,
-                      binding: ugvTaskCapabilityBinding,
-                    });
+                : !isHistoricalUgvPointSkill(
+                      taskCapabilityUsage.skillId,
+                      taskCapabilityUsage.skillVersion,
+                    )
+                  ? taskCapabilityUsage.context
+                  : ugvTaskCapabilityBinding === undefined
+                    ? (() => {
+                        throw new Error('UGV_AGENT_PROFILE_TASK_CAPABILITY_BINDING_REQUIRED');
+                      })()
+                    : resolveUgvMoveSkillUsageContext({
+                        authority: taskCapabilityUsage,
+                        binding: ugvTaskCapabilityBinding,
+                      });
           const selected = await skillSelection.selectFromCandidates(
             goalContract,
             admitted,
@@ -5012,7 +5480,7 @@ export async function startServerRuntime(
                   candidate.modeDecision,
                   composition,
                 );
-                if (ugvAgentProfile) {
+                if (ugvAgentProfile && isHistoricalUgvPointSkill(skill.skillId, skill.version)) {
                   if (
                     ugvMoveBindingResolver === undefined ||
                     input.skillInputResolution === undefined
@@ -5022,10 +5490,12 @@ export async function startServerRuntime(
                     input.task.taskId,
                   );
                   if (
-                    executionContext?.mode !== 'simulation' ||
-                    executionContext.simulationId === undefined
+                    executionContext === undefined ||
+                    executionContext.mode === 'historical-replay' ||
+                    (executionContext.mode === 'simulation' &&
+                      executionContext.simulationId === undefined)
                   )
-                    throw new Error('UGV_AGENT_PROFILE_SIMULATION_CONTEXT_REQUIRED');
+                    throw new Error('UGV_AGENT_PROFILE_EXECUTION_CONTEXT_REQUIRED');
                   const resolved = await ugvMoveBindingResolver.resolve({
                     skillInput: input.skillInputResolution.structuredInput,
                     executionContext,
@@ -6743,11 +7213,18 @@ export async function startServerRuntime(
             },
           }),
       ...(artifactManagement === undefined ? {} : { artifactManagement }),
-      ...(options.governedControlPrincipalResolver === undefined || ugvAgentProfile
+      ...(options.governedControlPrincipalResolver === undefined
         ? {}
         : {
             governedControl: {
               confirmations: governedControlManagement,
+              query: governedControlConfirmationQuery,
+              ...(ugvAgentProfile
+                ? {
+                    emergencyStop: emergencyControlManagement,
+                    weapon: weaponControlManagement,
+                  }
+                : {}),
               principalResolver: options.governedControlPrincipalResolver,
             },
           }),
@@ -6929,9 +7406,8 @@ export async function startServerRuntime(
             naturalLanguageAdmissionContractProvider: {
               async findCurrent() {
                 if ((await profileSkills.listEnabledVersions()).length === 0) return undefined;
-                return taskCapabilities.describeAdmissionExposure(
+                return taskCapabilities.describeCurrentAdmissionExposure(
                   UGV_AGENT_PROFILE_EXPOSURE_ID,
-                  UGV_AGENT_PROFILE_EXPOSURE_VERSION,
                   clock.now(),
                 );
               },

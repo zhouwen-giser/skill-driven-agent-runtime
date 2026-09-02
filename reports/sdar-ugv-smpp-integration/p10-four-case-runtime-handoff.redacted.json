@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "sdar.ugv-p10-runtime-handoff/v1",
+  "generatedAt": "2026-09-01T08:54:09.825Z",
+  "implementationCommit": "3085454cf59b07c6ceb6440cf4e5544a0483155b",
+  "runtime": {
+    "pid": 3756664,
+    "startedAt": "2026-09-01T08:52:39.145Z",
+    "distSha256": "215d28b5e56b5089f2fd819fed7ed7498bd846cfca30f0d17c9dc974bbe0f1b3",
+    "management": { "url": "http://127.0.0.1:10998", "healthStatus": 200 },
+    "a2a": { "url": "http://127.0.0.1:10999", "agentCardStatus": 200 },
+    "nodeControl": {
+      "url": "http://127.0.0.1:10091",
+      "livenessStatus": 200,
+      "readinessStatus": 200,
+      "controlDatabase": "healthy",
+      "nodeProfile": "healthy"
+    }
+  },
+  "provider": {
+    "serverId": "ugv-smpp-real-integration-r2",
+    "providerId": "isr.vehicle.ugv.ugv1",
+    "resourceId": "vehicle:ugv1",
+    "readinessStatus": 200,
+    "discoverResult": "complete",
+    "protocolVersion": "2026-07-28",
+    "manifestHash": "c069879f4f7c66d0e5b5dfff85e6b3fef964d48ef1f92718724219fc9b173a7e",
+    "toolCount": 10,
+    "toolsCallSinceRuntimeStart": 0
+  },
+  "binding": {
+    "bindingId": "ugv-smpp-real-integration-r2-binding",
+    "revision": 2,
+    "status": "active",
+    "availabilityStatus": "available",
+    "registryRevision": 2,
+    "registryChecksum": "165a5a0bfc2a93a2915d40c38fe1ec99af11bd0d1640565e34118e9301c44bdc",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a",
+    "operationCount": 10
+  },
+  "governance": {
+    "status": "passed",
+    "observedAt": "2026-09-01T07:07:38.589Z",
+    "newGovernedSurfaceCount": 12,
+    "activeAgentCardSkillCount": 13,
+    "activeAgentCardRevision": 14013,
+    "pointNavigation": {
+      "skillId": "embodied.move_to",
+      "skillVersion": 1,
+      "capabilityId": "embodied.move",
+      "capabilityVersion": 5,
+      "definitionHash": "a7de1afd12d2e558cf4d64efbc3a22924a9b5a5116b7ab53b9323202165c0fb4",
+      "exposureId": "a2a.embodied.move",
+      "exposureVersion": 4,
+      "exposureHash": "750b303808834f4338f53c1cb435133736614798e39f2b7d7ce1f046f3aadb95"
+    },
+    "weaponInvocationReadiness": "restricted",
+    "weaponRestrictionReason": "STRICT_TARGET_AND_PAYLOAD_EVIDENCE_REQUIRED"
+  },
+  "availabilityPolicy": {
+    "scope": "single exact UGV live candidate after Capability, Binding, Catalog, resource, target and confirmation authority checks",
+    "observedUnknownDecision": "allowed_by_default",
+    "evidencePreservedAs": "unknown",
+    "explicitUnavailableDecision": "deny",
+    "transportProtocolOrNonExactDecision": "deny"
+  },
+  "publicA2AInput": {
+    "naturalLanguage": {
+      "parts": "one text part and no formal capability metadata",
+      "requiredTextProjection": "one UGV move intent plus exactly one labelled longitude and latitude",
+      "materializedCapabilityInput": {
+        "resourceId": "vehicle:ugv1",
+        "target": {
+          "x": "longitude",
+          "y": "latitude",
+          "frame": "WGS84"
+        }
+      }
+    },
+    "formal": {
+      "dataAndStructuredInputMustMatch": true,
+      "capabilityInputShape": {
+        "resourceId": "vehicle:ugv1",
+        "target": {
+          "x": "longitude",
+          "y": "latitude",
+          "frame": "WGS84"
+        }
+      },
+      "requestedCapability": {
+        "exposureId": "a2a.embodied.move",
+        "versionConstraint": "4",
+        "requestIdMustEqualIdempotencyKey": true
+      }
+    },
+    "benchmarkCandidate": {
+      "shape": "{resourceId,target:{longitude,latitude,altitudeM}}",
+      "candidateTextContainsCoordinates": false,
+      "translationAdapterPresent": false,
+      "status": "blocked_incompatible_projection",
+      "altitudeDisposition": "not_part_of_frozen_point_navigation_input"
+    }
+  },
+  "p10Cases": [
+    {
+      "caseId": "UGV-NODE-001",
+      "frozenSemantics": "stale, unavailable, non-exact or ambiguous authority blocks before MCP dispatch",
+      "qualification": "implementation_and_simulated_tests",
+      "status": "supported"
+    },
+    {
+      "caseId": "UGV-CORE-001",
+      "frozenSemantics": "one invocation, RemoteTaskBinding and continuation remain subject to Runtime terminal verification",
+      "qualification": "implementation_and_simulated_tests",
+      "status": "supported"
+    },
+    {
+      "caseId": "UGV-MCP-003",
+      "frozenSemantics": "post-commit response loss uses exact found reconciliation and never blind redispatch",
+      "qualification": "protocol_faithful_contract_and_real_postgresql_tests",
+      "status": "supported"
+    },
+    {
+      "caseId": "UGV-XCHAIN-003",
+      "frozenSemantics": "Provider terminal is a receipt and cannot bypass Goal and physical verification",
+      "qualification": "implementation_and_simulated_tests",
+      "status": "supported"
+    }
+  ],
+  "verification": {
+    "focused": "UGV high-risk and governance suites passed; ordered Evidence rollback/export regression 2 files / 21 tests passed",
+    "fullVerify": {
+      "status": "passed",
+      "startedAt": "2026-09-01T08:23:42.578Z",
+      "finishedAt": "2026-09-01T08:50:31.435Z",
+      "staticUnitContract": "331 files / 2875 tests",
+      "integration": "40 files / 228 tests",
+      "e2e": "7 files / 73 tests",
+      "canonicalEvidence": "44/44 scenarios",
+      "a2aTck": "passed",
+      "phase13": {
+        "runtimeRegressionPercent": 1.2076480344420863,
+        "baselineMedianDriftPercent": 6.84811250803687,
+        "evidenceAppendP95Ms": 7.79056799999853
+      }
+    }
+  },
+  "execution": {
+    "a2aTasksCreated": 0,
+    "mcpTasksCreated": 0,
+    "providerToolsCall": 0,
+    "navigationOrDeviceMutation": false
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "providerResponsesIncluded": false
+  }
+}

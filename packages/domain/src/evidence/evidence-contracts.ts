@@ -364,10 +364,10 @@ export const EPISODE_EVIDENCE_POLICY: EpisodeEvidencePolicy = Object.freeze({
 });
 
 if (
-  EPISODE_EVIDENCE_POLICY.catalogRecordCount !== 100 ||
-  EPISODE_EVIDENCE_POLICY.requiredRecordCount !== 95 ||
+  EPISODE_EVIDENCE_POLICY.catalogRecordCount !== 105 ||
+  EPISODE_EVIDENCE_POLICY.requiredRecordCount !== 100 ||
   EPISODE_EVIDENCE_POLICY.diagnosticRecordCount !== 5 ||
-  EPISODE_EVIDENCE_POLICY.durableProjectionRecordCount !== 100
+  EPISODE_EVIDENCE_POLICY.durableProjectionRecordCount !== 105
 ) {
   throw new Error('EPISODE_EVIDENCE_POLICY_CATALOG_DRIFT');
 }

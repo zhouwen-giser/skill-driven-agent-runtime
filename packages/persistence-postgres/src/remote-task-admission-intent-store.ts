@@ -9,6 +9,8 @@ import type {
   RemoteTaskAdmissionObservation,
   RemoteTaskAdmissionObservationQuery,
   RemoteTaskAdmissionReceipt,
+  RemoteTaskReconciliationContract,
+  RemoteTaskReconciliationSeed,
 } from '../../application/src/index.js';
 import { canonicalHash } from '../../application/src/index.js';
 import {
@@ -27,6 +29,9 @@ interface RemoteTaskAdmissionIntentRow extends QueryResultRow {
   server_id: string;
   operation_name: string;
   arguments_hash: string;
+  logical_invocation_id: string | null;
+  logical_identity_hash: string | null;
+  reconciliation_contract_json: unknown;
   local_envelope_json: unknown;
   status: RemoteTaskAdmissionIntentStatus;
   dispatch_hash: string | null;
@@ -144,9 +149,11 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       `WITH inserted AS (
          INSERT INTO remote_task_admission_intent(
            intent_id,invocation_id,binding_id,task_id,capability_attempt_id,context_id,
-           server_id,operation_name,arguments_hash,local_envelope_json,status,
-           created_at,updated_at,version)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,'prepared',$11,$12,1)
+           server_id,operation_name,arguments_hash,local_envelope_json,
+           logical_invocation_id,logical_identity_hash,reconciliation_contract_json,
+           status,created_at,updated_at,version)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13::jsonb,
+                'prepared',$14,$15,1)
          ON CONFLICT DO NOTHING
          RETURNING *,true AS inserted
        )
@@ -169,6 +176,9 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
         intent.operationName,
         intent.argumentsHash,
         JSON.stringify(intent.envelope),
+        intent.logicalIdentity?.logicalInvocationId ?? null,
+        intent.logicalIdentity?.identityHash ?? null,
+        intent.reconciliationSeed === undefined ? null : JSON.stringify(intent.reconciliationSeed),
         intent.createdAt,
         intent.updatedAt,
       ],
@@ -186,6 +196,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       intentId: string;
       invocationId: string;
       dispatchHash: string;
+      reconciliationContract?: RemoteTaskReconciliationContract;
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
@@ -193,11 +204,20 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       transitionQuery(
         `UPDATE remote_task_admission_intent
             SET status='dispatching',dispatch_hash=$3,dispatched_at=$4,
+                reconciliation_contract_json=COALESCE($5::jsonb,reconciliation_contract_json),
                 updated_at=$4,version=version+1
           WHERE intent_id=$1 AND invocation_id=$2 AND status='prepared'
           RETURNING *`,
       ),
-      [input.intentId, input.invocationId, input.dispatchHash, input.at],
+      [
+        input.intentId,
+        input.invocationId,
+        input.dispatchHash,
+        input.at,
+        input.reconciliationContract === undefined
+          ? null
+          : JSON.stringify(input.reconciliationContract),
+      ],
     );
     return classifyTransition(
       result.rows[0],
@@ -205,6 +225,8 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
         intent.status === 'dispatching' &&
         intent.invocationId === input.invocationId &&
         intent.dispatchHash === input.dispatchHash &&
+        canonicalHash(intent.reconciliationContract ?? null) ===
+          canonicalHash(input.reconciliationContract ?? null) &&
         intent.dispatchedAt === input.at,
       (intent) =>
         intent.invocationId !== input.invocationId ||
@@ -254,6 +276,72 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       );
       const updatedRow = updated.rows[0];
       if (updatedRow === undefined) throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_CAS_FAILED');
+      return { applied: true, intent: mapIntentRow(updatedRow) };
+    });
+  }
+
+  async recordReconciledReceiptAndInvocation(
+    input: Readonly<{
+      intentId: string;
+      logicalInvocationId: string;
+      invocation: McpInvocation;
+      receipt: RemoteTaskAdmissionReceipt;
+      at: string;
+    }>,
+  ): Promise<RemoteTaskAdmissionIntentMutation> {
+    if (input.receipt.authoritySnapshot === undefined)
+      throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_AUTHORITY_REQUIRED');
+    createRemoteTaskAuthoritySnapshot(input.receipt.authoritySnapshot);
+    return withTransaction(this.#pool, async (client) => {
+      const locked = await client.query<RemoteTaskAdmissionIntentRow>(
+        `SELECT * FROM remote_task_admission_intent WHERE intent_id=$1 FOR UPDATE`,
+        [input.intentId],
+      );
+      const row = locked.rows[0];
+      if (row === undefined) return { applied: false, reason: 'missing' };
+      const current = mapIntentRow(row);
+      if (
+        current.invocationId !== input.invocation.invocationId ||
+        current.logicalIdentity?.logicalInvocationId !== input.logicalInvocationId
+      )
+        return { applied: false, reason: 'conflict', intent: current };
+      if (current.status === 'receipt_recorded' || current.status === 'materialized')
+        return sameReceipt(current.receipt, input.receipt) &&
+          (await invocationMatches(client, input.invocation))
+          ? { applied: true, intent: current }
+          : { applied: false, reason: 'conflict', intent: current };
+      if (current.status !== 'uncertain')
+        return { applied: false, reason: 'stale', intent: current };
+      const expectedRequestHash = `sha256:${canonicalHash(current.reconciliationContract)}`;
+      const exactAttempt = await client.query(
+        `SELECT 1 FROM remote_task_reconciliation_attempt
+          WHERE intent_id=$1 AND logical_invocation_id=$2
+            AND status='found_exact' AND identity_validated
+            AND expected_intent_version=$3 AND request_hash=$4
+            AND remote_task_id=$5
+          LIMIT 1`,
+        [
+          input.intentId,
+          input.logicalInvocationId,
+          current.version,
+          expectedRequestHash,
+          input.receipt.remoteTask.remoteTaskId,
+        ],
+      );
+      if (exactAttempt.rowCount !== 1) return { applied: false, reason: 'stale', intent: current };
+
+      await insertInvocation(client, input.invocation);
+      const updated = await client.query<RemoteTaskAdmissionIntentRow>(
+        `UPDATE remote_task_admission_intent
+            SET status='receipt_recorded',recorded_invocation_id=$2,
+                remote_receipt_json=$3::jsonb,receipt_recorded_at=$4,
+                reason_code=NULL,closed_at=NULL,updated_at=$4,version=version+1
+          WHERE intent_id=$1 AND invocation_id=$2 AND status='uncertain'
+          RETURNING *`,
+        [input.intentId, input.invocation.invocationId, JSON.stringify(input.receipt), input.at],
+      );
+      const updatedRow = updated.rows[0];
+      if (updatedRow === undefined) throw new Error('REMOTE_TASK_RECONCILED_RECEIPT_CAS_FAILED');
       return { applied: true, intent: mapIntentRow(updatedRow) };
     });
   }
@@ -447,6 +535,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
     const result = await this.#pool.query<RemoteTaskAdmissionIntentRow>(
       `SELECT * FROM remote_task_admission_intent
         WHERE status IN ('prepared','dispatching','receipt_recorded')
+           OR (status='uncertain' AND logical_invocation_id IS NOT NULL)
         ORDER BY updated_at,intent_id
         LIMIT $1`,
       [limit],
@@ -575,6 +664,16 @@ function mapIntentRow(row: RemoteTaskAdmissionIntentRow): RemoteTaskAdmissionInt
     serverId: row.server_id,
     operationName: row.operation_name,
     argumentsHash: row.arguments_hash,
+    ...(row.logical_invocation_id == null || row.logical_identity_hash == null
+      ? {}
+      : {
+          logicalIdentity: parseLogicalIdentity(
+            row.logical_invocation_id,
+            row.logical_identity_hash,
+            row.reconciliation_contract_json,
+          ),
+        }),
+    ...parseReconciliationContract(row.reconciliation_contract_json),
     envelope,
     status: row.status,
     ...(row.dispatch_hash === null ? {} : { dispatchHash: row.dispatch_hash }),
@@ -711,6 +810,10 @@ function assertPreparedIntent(intent: RemoteTaskAdmissionIntent): void {
     intent.serverId !== intent.envelope.serverId ||
     intent.operationName !== intent.envelope.operationName ||
     intent.taskId !== intent.envelope.agentTaskId ||
+    (intent.logicalIdentity === undefined) !== (intent.reconciliationSeed === undefined) ||
+    (intent.logicalIdentity !== undefined &&
+      intent.logicalIdentity.logicalInvocationId !==
+        intent.reconciliationSeed?.logicalIdentity.logicalInvocationId) ||
     intent.dispatchHash !== undefined ||
     intent.receipt !== undefined ||
     intent.materializedBindingId !== undefined ||
@@ -735,8 +838,41 @@ function samePreparedIdentity(
     actual.serverId === expected.serverId &&
     actual.operationName === expected.operationName &&
     actual.argumentsHash === expected.argumentsHash &&
+    actual.logicalIdentity?.logicalInvocationId === expected.logicalIdentity?.logicalInvocationId &&
+    actual.logicalIdentity?.identityHash === expected.logicalIdentity?.identityHash &&
+    canonicalHash(actual.reconciliationSeed ?? null) ===
+      canonicalHash(expected.reconciliationSeed ?? null) &&
     canonicalHash(actual.envelope) === canonicalHash(expected.envelope)
   );
+}
+
+function parseLogicalIdentity(
+  logicalInvocationId: string,
+  identityHash: string,
+  value: unknown,
+): NonNullable<RemoteTaskAdmissionIntent['logicalIdentity']> {
+  if (!isRecord(value) || !isRecord(value['logicalIdentity']))
+    throw new Error('REMOTE_TASK_LOGICAL_INVOCATION_INVALID');
+  const identity = value['logicalIdentity'];
+  if (
+    identity['logicalInvocationId'] !== logicalInvocationId ||
+    identity['identityHash'] !== identityHash
+  )
+    throw new Error('REMOTE_TASK_LOGICAL_INVOCATION_CONFLICT');
+  return identity as unknown as NonNullable<RemoteTaskAdmissionIntent['logicalIdentity']>;
+}
+
+function parseReconciliationContract(value: unknown): Readonly<{
+  reconciliationSeed?: RemoteTaskReconciliationSeed;
+  reconciliationContract?: RemoteTaskReconciliationContract;
+}> {
+  if (value === null || value === undefined) return {};
+  if (!isRecord(value)) throw new Error('REMOTE_TASK_RECONCILIATION_CONTRACT_INVALID');
+  if (value['schemaVersion'] === 'sdar.remote-task-reconciliation-seed/v1')
+    return { reconciliationSeed: value as unknown as RemoteTaskReconciliationSeed };
+  if (value['schemaVersion'] === 'sdar.remote-task-reconciliation-contract/v1')
+    return { reconciliationContract: value as unknown as RemoteTaskReconciliationContract };
+  throw new Error('REMOTE_TASK_RECONCILIATION_CONTRACT_INVALID');
 }
 
 function sameReceipt(

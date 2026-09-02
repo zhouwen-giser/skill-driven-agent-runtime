@@ -1,5 +1,160 @@
 # Project Status
 
+## UGV ten-tool Capability / Skill / A2A expansion (2026-09-02, deployed and qualified)
+
+P10 live terminal-position parsing is repaired in implementation
+`b7219f5923ef8fc6d704b8229cdfeb17a9ba5f1e`. The Provider's formal field-authority-gated aggregate
+geodetic tuple `chassis.position.geodetic` / `status/ugv1` / `ingest` is now accepted, and both
+initial and final state observations must match the frozen selected execution mode instead of an
+obsolete hard-coded `simulation` value. Exact Provider/resource identity, cursor and revision
+monotonicity, freshness, post-terminal ordering, 2 m arrival tolerance and discernible displacement
+remain unchanged. Four focused files / 97 tests and the complete full gate pass: 2890
+static/unit/contract tests, 228 integration tests, 73 E2E tests, A2A TCK, Evidence 44/44, migrations,
+build and smoke; Phase 13 is within all thresholds. Runtime PID 1833655, started
+`2026-09-02T12:12:42Z`, serves Management/A2A on 10998/10999 from dist SHA-256
+`2fa01e6b...f85472`; Node Control 10091 is ready and Binding revision 2 / Catalog
+`2.0.0-rc.1:2` remains exact. Before/after counts are unchanged at 28 Tasks, 12 MCP invocations and
+zero active Task/Remote Task, so qualification performed no Provider or device mutation. Evidence:
+`reports/ugv-agent-profile-simulation/p10-live-terminal-position-authority.json`.
+
+P10 NODE stale-admission remediation now distinguishes an unqualified dynamic
+`availability=unknown` from an explicit not-ready unknown reason. UGV reason-code segments
+`recovering`, `stale`, `unhealthy` and `uncorrelated` are rejected during Task preparation with
+`UGV_PROFILE_READINESS_NOT_ADMITTED`, before Plan confirmation or MCP invocation. Benign unknown
+remains eligible for the separately governed `allowed_by_default` rule; persisted readiness keeps
+the observed value as `unknown` and records either `allowed_by_default` or `provider_denied` rather
+than fabricating `available`. The same injected policy is used again at pre-invocation readiness and
+governed-control dispatch authority. Focused preparation/readiness/persistence regressions pass
+73/73, the isolated real PostgreSQL/Runtime/A2A composition passes 1/1, and typecheck, architecture
+and production build pass. Implementation `3d2277799fa36b9493d112e9eeeba8a3a2ee9e27` is deployed as
+Runtime PID 4097010, started `2026-09-02T11:03:05Z`, from dist content SHA-256
+`733e786db26db29bb01930c8817b95af06749eb182da5d9fd0f92bc4f614c87b`. Management 10998, A2A
+10999 and Node Control live/ready 10091 returned HTTP 200. Binding revision 2 and Catalog
+`2.0.0-rc.1:2` / `a8748237...014a` remain current with ten operations; the rollout retained zero
+active Tasks/Remote Tasks and did not change the Task or MCP-invocation counts.
+
+The clean full verification invocation is not a PASS: all static/unit/contract/build, cognitive
+replay, migrations, 228 integration tests and the 72-test functional E2E batch passed, but the outer
+E2E runner timed out before Phase 13 completed. Two isolated Phase 13 attempts alternated failures:
+Evidence append P95 `20.478ms` exceeded `20ms` once, while the second append P95 passed at `13.462ms`
+but baseline-window drift reached `16.487%` over the `15%` limit and the runner timed out after raw
+metrics. No threshold was weakened. The functional fix is deployed for P10, while full release
+qualification remains blocked on the non-functional measurement-stability gate. See
+`reports/sdar-ugv-smpp-integration/p10-node-stale-admission-handoff.redacted.json`.
+
+ADR-147 and `execplans/EP-UGV-10-TOOL-CAPABILITY-EXPANSION.md` register the current ten-operation UGV
+Provider catalog as thirteen append-only public surfaces: four read operations, the preserved point
+navigation lineage, route/distance/return-home navigation, reconnaissance, tracking, gimbal,
+emergency stop and weapon control. Read-only and ordinary controlled operations reuse the one
+managed-capability / Skill Usage / LangGraph / Frozen MCP Task runtime. Existing Binding, Skill,
+Capability, Exposure and Agent Card versions are never overwritten.
+
+Physical, direct-emergency and weapon authorities are now distinct PostgreSQL one-shot confirmation
+kinds. Management, A2A and Console adapters converge on TaskService/Application services; the Console
+shows only non-sensitive target/resource, immutable hashes, expiry, revocation and consumption state.
+Weapon lifecycle authority is published but invocation remains restricted until strict fresh target
+and payload evidence exists. Unknown/additive provider-policy fields are retained; understood fields
+remain individually validated. Current implementation gates include 151 high-risk focused tests, 125
+query/Console tests, real PostgreSQL 3/3, migrations through 0177, typecheck, lint, build and the
+870-source architecture gate. The read-only governance deployment passed against Binding
+`ugv-smpp-real-integration-r2-binding@2`, Catalog `2.0.0-rc.1:2` checksum
+`a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a`, and a fresh ten-tool
+Provider discovery. Active Agent Card revision 14013 exposes all 13 public surfaces while point
+navigation remains `embodied.move_to@1` / `embodied.move@5` / `a2a.embodied.move@4`; weapon
+invocation remains restricted. Exact implementation ancestor
+`3085454cf59b07c6ceb6440cf4e5544a0483155b` passed the full clean gate (2875
+static/unit/contract tests, 228 integration tests, 73 E2E tests, A2A TCK, 44/44 Evidence scenarios
+and all smoke gates). The latest deployed source is
+`07efbf5ab7606e0ea575faf968d9d9819fcea45b`, with dist SHA-256
+`215d28b5e56b5089f2fd819fed7ed7498bd846cfca30f0d17c9dc974bbe0f1b3`, Runtime PID 572558,
+Node Control API PID 572344 and Worker PID 572444. Management 10998, A2A 10999 and Node Control
+10091 all returned HTTP 200 after the rolling restart. Runtime migrations are current through 0177
+and Control migrations through 0012; existing PostgreSQL authority was preserved. No A2A/MCP Task,
+Provider `tools/call` or device action was performed. Benchmark commit
+`183708c729ec7d3b7b7a84c40bbaca21e17b9389` now deterministically projects the frozen materialized
+longitude/latitude into SDAR's exact `{resourceId,target:{x,y,frame:'WGS84'}}` public Capability
+input, with the Data Part and `metadata.structured_input` identical, Exposure version 4 and one stable
+request identity. The projection contract is read-only verified against the deployed Agent Card;
+no A2A Task has yet been submitted, so P10 live qualification remains separately unexecuted rather
+than blocked by input incompatibility.
+
+The P10 public-initial-admission repair is now deployed from implementation
+`0ee57562eaf1a95408f061966a54199d3eb7bc7a`. The active PostgreSQL Agent Card is revision 14014 and
+projects `a2a.embodied.move@5` (hash `b55f0a0a...6855`) with `allowAnonymous=true`; the frozen policy
+still requires `plan_confirmation` and `physical_control.confirm` before execution. The prior `@4`
+authority is suspended and retained. The complete clean gate passed 2876 static/unit/contract tests,
+228 integration tests, 73 E2E tests, A2A TCK, canonical Evidence 44/44 and all smoke gates. The exact
+dist hash is `78ff100f40743bb17cde1c3aa7305ba3bfbe354b04a6ba523e768ff9ed1c43d5`;
+Management/A2A/Node Control are healthy on 10998/10999/10091. Qualification created no A2A Task, MCP
+Task or Provider Tool call and caused no navigation, Device or Simulator mutation.
+
+The subsequent P10 temporal-authority failure is repaired in implementation
+`baeb32579c15b09ae88c3d09c15a07157b772f94`. A selected operation's short-lived availability is now
+validated at selection and retained as historical evidence during model planning; it is no longer
+incorrectly required to remain live until workflow persistence. The governed pre-invocation boundary
+still reloads and validates current exact Binding, Catalog, arguments and dynamic availability. The
+current Binding remains append-only revision 2 with Catalog `2.0.0-rc.1:2`; a formal refresh extended
+its observed availability through `2026-09-02T06:36:36.587Z` without changing contract identity. The
+repaired Runtime PID is 1090891, started `2026-09-02T05:35:28Z`, with dist SHA-256
+`2a20752a4f2504cfb5906ed25b8d54c607bd618117666685b2139281e8332d00`; Management, A2A and Node
+Control health remain HTTP 200. Qualification created no new Task or Provider Tool invocation and
+caused no Device or Simulator mutation.
+
+P10 remote-terminal failure propagation is repaired in implementation
+`8ff8e0a6cd91d9c737eeddbfd109f440a1c2a961`. The historical Provider Task failed authoritatively with
+`UGV_START_OBSERVATION_TIMEOUT`; LangGraph correctly persisted `MCP_REMOTE_TASK_FAILED`, but the UGV
+Goal evaluator incorrectly ran the success-only physical terminal proof and surfaced
+`TASK_CAPABILITY_TERMINAL_GUARD_FAILED`. Failed exact UGV Workflows now produce deterministic
+`unachievable` evaluation while preserving the stable Provider reason; succeeded Workflows still
+require the unchanged final-position and frozen-Capability proof. Four focused files / 67 tests,
+typecheck, lint, format, the 870-source architecture gate and production build pass. Runtime PID
+1410562 was rolled from dist SHA-256
+`7784704199fd65e838eab190dd0f7cf747f25c419b4acb718398f7b851253c4a`; Management, A2A and Node
+Control returned HTTP 200. Qualification was read-only, created no Task or Tool call, and preserved
+the incident's single navigate admission with zero redispatch. Evidence:
+`reports/ugv-agent-profile-simulation/p10-remote-terminal-failure-propagation.json`.
+
+## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
+
+ADR-146 removes the UGV Profile's fixed `embodied.move@2` / `a2a.embodied.move@2` product-code
+assumption. The Provider dependency policy now validates immutable append-only Capability content,
+and natural-language admission resolves the current Exposure from the active PostgreSQL Agent Card.
+The localhost revision-2 authority was adopted through normal publish/Card governance without an
+override or history rewrite: `embodied.move@4` and `a2a.embodied.move@3` are published, Agent Card
+revision 14011 is active, and the legacy v2 Card lineage is superseded rather than overwritten.
+Current catalog/Binding readiness points at `127.0.0.1:19100`. The obsolete simulation-only
+readiness/planning restriction is removed: frozen live Task Capability authority now remains live
+without a simulation identity through selection, planning, governed dispatch and terminal evidence.
+The independent default-closed live deployment gate, plan confirmation and one-shot physical
+confirmation remain mandatory. Focused tests, typecheck, architecture, lint and build pass. Actual
+navigation is intentionally waiting because an unrelated Provider mission was observed running; no
+new A2A/MCP Task or Tool call was created by this repair.
+
+## SMPP MCP Tasks Runtime Consumer Sync (2026-08-31, implemented and qualified)
+
+ADR-145 and `execplans/EP-SDAR-SMPP-MCP-TASKS-CONSUMER-SYNC.md` add a restart-stable logical MCP
+invocation identity, reconciliation-only recovery for uncertain mutating calls, immutable
+Task-to-Provider execution lineage, and five additive Required Canonical Evidence records. An
+uncertain call cannot fall through to ordinary dispatch; exact found reconciliation materializes the
+original Task through the existing PostgreSQL `RemoteTaskBinding` and LangGraph continuation path,
+while not-found, conflict, unavailable and deferred remain fail-closed.
+
+The formal `sdar.evidence/v1` contract now contains 105 records (100 Required, five Diagnostic), and
+the generated registry, schemas, protocol contract, source matrix and downstream handoff share one
+authority. The SMPP Producer is source-locked at `1e67e6e421d70a3cbce2d41bf5007e99463712fe`;
+missing Provider execution or Device Mission identities remain explicitly unresolved. This work does
+not claim physical UGV, Simulator, Telemetry, Benchmark or production qualification, and it triggered
+no Device or navigation action.
+
+The downstream Telemetry current-authority dependency is now independently locked to implementation
+commit `cceea2b88b697dcaef33dba0bd7679b15b3b28d3`, qualification commit
+`01719507aea97f2bcca904fc3838127ee2fd29b2` and image digest
+`sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1`.
+The deployed consumer passed its read-only current-view chain: latest unresolved/conflict facts hide
+historical exact Mission relations from current authority while preserving audit history. This closes
+the Telemetry/P9A observation axis only; it does not mutate SDAR Task authority or prove Goal/physical
+success.
+
 ## UGV Benchmark passive debug (2026-08-27, live service ready / data waiting)
 
 ADR-144 and `execplans/EP-UGV-BENCHMARK-DEBUG.md` now cover the running passive

@@ -4118,7 +4118,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
-  it('persists a LangGraph human interrupt and resumes without replaying the preceding MCP call', async () => {
+  it('persists a standalone LangGraph human interrupt and rejects continuation without Task authority', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.interrupt.${randomUUID()}`;
     const sourcePlanId = `plan.interrupt.source.${randomUUID()}`;
@@ -4233,15 +4233,11 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           body: JSON.stringify({ confirmed: true }),
         },
       );
-      expect(resumed.status).toBe(200);
+      expect(resumed.status).toBe(400);
       await expect(resumed.json()).resolves.toMatchObject({
-        status: 'succeeded',
-        result: {
-          data: {
-            structuredContent: { deviceId: 'device-human-interrupt', status: 'online' },
-          },
-          errors: [],
-          contextTruncated: false,
+        error: {
+          code: 'WORKFLOW_CONTINUATION_TASK_AUTHORITY_REQUIRED',
+          message: 'Task-owned Workflow continuation authority is required.',
         },
       });
       expect(await runtime.listMcpInvocations(serverId)).toHaveLength(1);
@@ -8483,7 +8479,13 @@ async function startModelLoopback(): Promise<Server> {
                       z.object({ providerId: z.string(), operationName: z.string() }),
                     ),
                     evidenceRequirements: z.array(
-                      z.object({ requirementId: z.string(), required: z.boolean() }).loose(),
+                      z
+                        .object({
+                          requirementId: z.string(),
+                          evidenceType: z.string(),
+                          required: z.boolean(),
+                        })
+                        .loose(),
                     ),
                   }),
                 })
@@ -8531,8 +8533,8 @@ async function startModelLoopback(): Promise<Server> {
                 name: `Require evidence ${requirement.requirementId}`,
                 type: 'condition' as const,
                 expression: {
-                  op: 'ref' as const,
-                  path: ['evidence', requirement.requirementId],
+                  op: 'exists' as const,
+                  path: ['evidence', requirement.evidenceType],
                 },
               })) ?? [];
           const movePrimary =

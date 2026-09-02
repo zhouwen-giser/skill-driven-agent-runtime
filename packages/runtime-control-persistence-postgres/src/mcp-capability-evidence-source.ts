@@ -120,6 +120,32 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
         `SELECT to_jsonb(row) AS value FROM remote_task_binding row WHERE row.agent_task_id=$1 ORDER BY row.created_at,row.binding_id`,
         [taskId],
       );
+      const admissions = await rows(
+        client,
+        `SELECT to_jsonb(intent) AS value
+         FROM remote_task_admission_intent intent
+         WHERE intent.task_id=$1
+         ORDER BY intent.created_at,intent.intent_id`,
+        [taskId],
+      );
+      const reconciliationAttempts = await rows(
+        client,
+        `SELECT to_jsonb(attempt) AS value
+         FROM remote_task_reconciliation_attempt attempt
+         JOIN remote_task_admission_intent intent ON intent.intent_id=attempt.intent_id
+         WHERE intent.task_id=$1
+         ORDER BY attempt.started_at,attempt.attempt_id`,
+        [taskId],
+      );
+      const providerExecutionLinks = await rows(
+        client,
+        `SELECT to_jsonb(link) AS value
+         FROM remote_task_provider_execution_link link
+         JOIN remote_task_binding binding ON binding.binding_id=link.binding_id
+         WHERE binding.agent_task_id=$1
+         ORDER BY link.observed_at,link.link_id`,
+        [taskId],
+      );
       const observations = await childRows(
         client,
         'remote_task_observation',
@@ -221,6 +247,9 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
         invocations,
         availability,
         bindings,
+        admissions,
+        reconciliationAttempts,
+        providerExecutionLinks,
         observations,
         controlEvents,
         pollAttempts,

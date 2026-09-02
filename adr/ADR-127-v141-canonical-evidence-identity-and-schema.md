@@ -31,9 +31,12 @@ records to enter the formal chain.
 4. `payloadHash` is `sha256:<64 lowercase hex>` over only the canonical payload. Evidence sequence,
    capture time, delivery attempt, retry, and ACK state are excluded.
 5. Same stable ID with a different payload hash is a hard conflict, never an update or duplicate.
-6. Every one of the 100 catalog record types has its own non-placeholder schema with a record-type
+6. Every catalog record type has its own non-placeholder schema with a record-type
    constant, family/source constants, record-specific required payload fields, compatibility class,
    maximum inline bytes, redaction policy, artifact policy, and reproducible schema hash.
+   The 2026-08-31 backward-compatible Consumer Sync extension raises the frozen registry from 100
+   to 105 records (100 Required and five Diagnostic) by adding five MCP Task admission/reconciliation
+   relation records without changing existing record schema versions.
 7. Required references are unique and bounded. Oversized structured content crosses the boundary
    by `ArtifactRef`; credential/secret references may be opaque refs, but inline material is rejected.
 8. Catalog lookup and enum handling fail closed. Mappers use the catalog-backed envelope factory,

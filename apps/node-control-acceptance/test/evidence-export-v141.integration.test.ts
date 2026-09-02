@@ -460,12 +460,13 @@ describe(
       );
       expect(activeTest.body).toMatchObject({ status: 'succeeded' });
 
-      const firstTask = await insertRuntimeFact('first');
+      const first = await insertRuntimeFact('first');
+      const firstTask = first.taskId;
       await waitFor(async () => {
         const deliveredTask = await runtimePool.query<{ delivered: boolean }>(
           `SELECT acknowledged_at IS NOT NULL AS delivered FROM evidence_outbox
-            WHERE source_record_id=$1 AND record_type='runtime.episode'`,
-          [firstTask],
+            WHERE record_id=$1`,
+          [first.episodeRecordId],
         );
         return deliveredTask.rows[0]?.delivered === true;
       }, 30_000);
@@ -474,7 +475,7 @@ describe(
         delivered = await publicGet('/api/v1/evidence-export/status');
         const status = delivered as { status?: string; pendingRecords?: number };
         return status.status === 'healthy' && status.pendingRecords === 0;
-      });
+      }, 30_000);
       expect(delivered).toMatchObject({
         exportId,
         status: 'healthy',
@@ -542,7 +543,8 @@ describe(
 
       if (ingestion === undefined) throw new Error('P11_INGESTION_NOT_STARTED');
       await close(ingestion);
-      const outageTask = await insertRuntimeFact('outage');
+      const outage = await insertRuntimeFact('outage');
+      const outageTask = outage.taskId;
       await waitFor(async () => {
         const status = (await publicGet('/api/v1/evidence-export/status')) as {
           status?: string;
@@ -575,12 +577,11 @@ describe(
          (SELECT count(*)::integer FROM evidence_export_configuration WHERE is_active) AS active,
          (SELECT count(*)::integer FROM evidence_export_configuration WHERE is_lkg) AS lkg,
          (SELECT count(*)::integer FROM evidence_outbox
-           WHERE source_record_id=$2 AND record_type='runtime.episode'
-             AND acknowledged_at IS NULL) AS pending,
+           WHERE record_id=$2 AND acknowledged_at IS NULL) AS pending,
          (SELECT last_error_code FROM evidence_export_state
            WHERE export_id=$1 AND last_error_code='EVIDENCE_ENDPOINT_UNAVAILABLE'
            ORDER BY last_error_at DESC NULLS LAST LIMIT 1) AS last_error_code`,
-        [exportId, outageTask],
+        [exportId, outage.episodeRecordId],
       );
       expect(authority.rows).toEqual([
         {
@@ -661,7 +662,9 @@ async function publicGet(path: string): Promise<unknown> {
   return response.json();
 }
 
-async function insertRuntimeFact(suffix: string): Promise<string> {
+async function insertRuntimeFact(
+  suffix: string,
+): Promise<Readonly<{ taskId: string; episodeRecordId: string }>> {
   const id = randomUUID();
   const contextId = `context-p11-${id}`;
   const taskId = `task-p11-${suffix}-${id}`;
@@ -677,24 +680,21 @@ async function insertRuntimeFact(suffix: string): Promise<string> {
      VALUES ($1,$2,'user-p11','completed','completed','P11 request','{}'::jsonb,$3,$3)`,
     [taskId, contextId, occurredAt],
   );
-  await evidence.append(
-    createCatalogEvidenceEnvelope({
-      recordType: 'runtime.episode',
-      sourceRecordId: taskId,
-      sourceRevision: occurredAt,
-      environment: 'integration',
-      correlationId: contextId,
-      occurredAt,
-      recordedAt: occurredAt,
-      taskId,
-      contextId,
-      episodeId: taskId,
-      payload: { episodeId: taskId, taskId, status: 'completed' },
-    }),
+  const episode = createCatalogEvidenceEnvelope({
+    recordType: 'runtime.episode',
+    sourceRecordId: taskId,
+    sourceRevision: occurredAt,
+    environment: 'integration',
+    correlationId: contextId,
     occurredAt,
-    'runtime:episodes',
-  );
-  return taskId;
+    recordedAt: occurredAt,
+    taskId,
+    contextId,
+    episodeId: taskId,
+    payload: { episodeId: taskId, taskId, status: 'completed' },
+  });
+  await evidence.append(episode, occurredAt, 'runtime:episodes');
+  return Object.freeze({ taskId, episodeRecordId: episode.recordId });
 }
 
 async function waitFor(

@@ -19,6 +19,9 @@ export interface McpCapabilityEvidenceSnapshot {
   readonly invocations: readonly RuntimeCoreSourceRow[];
   readonly availability: readonly RuntimeCoreSourceRow[];
   readonly bindings: readonly RuntimeCoreSourceRow[];
+  readonly admissions: readonly RuntimeCoreSourceRow[];
+  readonly reconciliationAttempts: readonly RuntimeCoreSourceRow[];
+  readonly providerExecutionLinks: readonly RuntimeCoreSourceRow[];
   readonly observations: readonly RuntimeCoreSourceRow[];
   readonly controlEvents: readonly RuntimeCoreSourceRow[];
   readonly pollAttempts: readonly RuntimeCoreSourceRow[];
@@ -100,6 +103,7 @@ export class McpCapabilityEvidenceProjector {
     const partition = `mcp-capability:${cleanTaskId}`;
     const contextId = optionalText(snapshot.task, 'context_id');
     const projected = new Map<string, CanonicalEvidenceEnvelope>();
+    const projectedRecordIds = new Set<string>();
     const sequences: string[] = [];
     const issueIds: string[] = [];
     const existing = (type: string, sourceId?: string) => {
@@ -169,6 +173,7 @@ export class McpCapabilityEvidenceProjector {
       });
       sequences.push(await this.#writer.append(envelope, recordedAt, partition));
       projected.set(`${input.type}:${input.sourceId}`, envelope);
+      projectedRecordIds.add(envelope.recordId);
       return envelope;
     };
 
@@ -237,15 +242,16 @@ export class McpCapabilityEvidenceProjector {
       const id = text(row, 'binding_id');
       // Never change payload/hash of a previously emitted immutable source revision.
       const revision = hashCanonicalEvidenceJson(sanitizeEvidenceValue(row));
-      if (
-        snapshot.existingEvidence.some(
-          (existingRow) =>
-            existingRow['record_type'] === 'mcp_task.remote_binding' &&
-            existingRow['source_record_id'] === id &&
-            existingRow['source_revision'] === revision,
-        )
-      )
+      const existingBinding = snapshot.existingEvidence.find(
+        (existingRow) =>
+          existingRow['record_type'] === 'mcp_task.remote_binding' &&
+          existingRow['source_record_id'] === id &&
+          existingRow['source_revision'] === revision,
+      );
+      if (existingBinding !== undefined) {
+        projectedRecordIds.add(text(existingBinding, 'record_id'));
         continue;
+      }
       const callRef = ref('mcp_task.tool_call', text(row, 'mcp_invocation_id'));
       if (callRef === undefined)
         await issue('mcp_task.remote_binding', 'remote_task_binding', id, {
@@ -267,6 +273,142 @@ export class McpCapabilityEvidenceProjector {
         },
         refs: compact(callRef),
         remoteTaskBindingId: id,
+      });
+    }
+    for (const row of snapshot.admissions) {
+      const intentId = text(row, 'intent_id');
+      const logicalInvocationId = optionalText(row, 'logical_invocation_id');
+      if (logicalInvocationId !== undefined) {
+        const contract = value(row, 'reconciliation_contract_json');
+        if (!isObject(contract)) throw new Error('MCP_LOGICAL_INVOCATION_EVIDENCE_INVALID');
+        const identity = contract['logicalIdentity'];
+        if (identity === undefined || !isObject(identity))
+          throw new Error('MCP_LOGICAL_INVOCATION_EVIDENCE_INVALID');
+        await emit({
+          type: 'mcp_task.logical_invocation',
+          sourceId: logicalInvocationId,
+          revision: identity,
+          occurredAt: timestamp(row, 'created_at'),
+          payload: {
+            logicalInvocationId,
+            identityHash: value(row, 'logical_identity_hash'),
+            invocationId: value(row, 'invocation_id'),
+            argumentsHash: value(row, 'arguments_hash'),
+            identityContract: identity,
+          },
+          refs: snapshot.invocations.some(
+            (invocation) => invocation['invocation_id'] === row['invocation_id'],
+          )
+            ? compact(ref('mcp_task.tool_call', text(row, 'invocation_id')))
+            : [],
+        });
+      }
+      const logicalRef =
+        logicalInvocationId === undefined
+          ? undefined
+          : ref('mcp_task.logical_invocation', logicalInvocationId);
+      await emit({
+        type: 'mcp_task.admission',
+        sourceId: intentId,
+        revision: row,
+        occurredAt: timestamp(row, 'created_at'),
+        payload: {
+          intentId,
+          invocationId: value(row, 'invocation_id'),
+          bindingId: value(row, 'binding_id'),
+          status: value(row, 'status'),
+          dispatchHash: row['dispatch_hash'] ?? null,
+          dispatchedAt: row['dispatched_at'] ?? null,
+          reasonCode: row['reason_code'] ?? null,
+          redispatchAllowed: false,
+        },
+        refs: compact(logicalRef),
+      });
+    }
+    for (const row of snapshot.reconciliationAttempts) {
+      const attemptId = text(row, 'attempt_id');
+      const intentId = text(row, 'intent_id');
+      const status = value(row, 'status');
+      await emit({
+        type: 'mcp_task.dispatch_uncertain',
+        sourceId: attemptId,
+        revision: {
+          intentId,
+          logicalInvocationId: value(row, 'logical_invocation_id'),
+          expectedIntentVersion: value(row, 'expected_intent_version'),
+          requestHash: value(row, 'request_hash'),
+        },
+        occurredAt: timestamp(row, 'started_at'),
+        payload: {
+          intentId,
+          logicalInvocationId: value(row, 'logical_invocation_id'),
+          reasonCode: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+          redispatchAllowed: false,
+        },
+        refs: compact(
+          ref('mcp_task.admission', intentId),
+          ref('mcp_task.logical_invocation', text(row, 'logical_invocation_id')),
+        ),
+      });
+      await emit({
+        type: 'mcp_task.dispatch_reconciliation',
+        sourceId: attemptId,
+        revision: row,
+        occurredAt: timestamp(row, 'completed_at'),
+        payload: {
+          attemptId,
+          intentId,
+          logicalInvocationId: value(row, 'logical_invocation_id'),
+          status,
+          identityValidated: value(row, 'identity_validated'),
+          remoteTaskId: row['remote_task_id'] ?? null,
+          externalExecutionId: row['external_execution_id'] ?? null,
+          safeErrorCode: row['safe_error_code'] ?? null,
+          sourceContract: value(row, 'source_contract'),
+          requestHash: value(row, 'request_hash'),
+          resultHash: value(row, 'result_hash'),
+          redispatchAllowed: false,
+        },
+        refs: compact(
+          ref('mcp_task.admission', intentId),
+          ref('mcp_task.logical_invocation', text(row, 'logical_invocation_id')),
+        ),
+      });
+    }
+    for (const row of snapshot.providerExecutionLinks) {
+      const linkId = text(row, 'link_id');
+      const bindingId = text(row, 'binding_id');
+      await emit({
+        type: 'mcp_task.provider_execution_link',
+        sourceId: linkId,
+        revision: row,
+        occurredAt: timestamp(row, 'observed_at'),
+        payload: {
+          linkId,
+          bindingId,
+          logicalInvocationId: value(row, 'logical_invocation_id'),
+          remoteTaskId: value(row, 'remote_task_id'),
+          providerId: value(row, 'provider_id'),
+          runtimeServerId: value(row, 'runtime_server_id'),
+          providerBindingId: row['provider_binding_id'] ?? null,
+          providerOriginType: row['provider_origin_type'] ?? null,
+          smppSourceId: row['smpp_source_id'] ?? null,
+          externalServerId: row['external_server_id'] ?? null,
+          operationName: value(row, 'operation_name'),
+          executionStatus: value(row, 'execution_status'),
+          externalExecutionId: row['external_execution_id'] ?? null,
+          missionStatus: value(row, 'mission_status'),
+          deviceMissionId: row['device_mission_id'] ?? null,
+          provenance: value(row, 'provenance'),
+          sourceContract: value(row, 'source_contract'),
+          sourceRevision: value(row, 'source_revision'),
+          contentHash: value(row, 'content_hash'),
+        },
+        refs: compact(
+          ref('mcp_task.remote_binding', bindingId),
+          ref('mcp_task.logical_invocation', text(row, 'logical_invocation_id')),
+        ),
+        remoteTaskBindingId: bindingId,
       });
     }
     for (const row of snapshot.observations) {
@@ -708,7 +850,7 @@ export class McpCapabilityEvidenceProjector {
       lastSourceRecordId: cleanTaskId,
       lastSourceRevision: hashCanonicalEvidenceJson({
         taskId: cleanTaskId,
-        records: projected.size,
+        records: projectedRecordIds.size,
         issues: issueIds.length,
       }),
       lastProjectedAt: recordedAt,
@@ -729,7 +871,7 @@ export class McpCapabilityEvidenceProjector {
     });
     return Object.freeze({
       taskId: cleanTaskId,
-      projectedRecordIds: Object.freeze([...projected.values()].map((record) => record.recordId)),
+      projectedRecordIds: Object.freeze([...projectedRecordIds]),
       qualityIssueIds: Object.freeze(issueIds),
       lastEvidenceSequence,
     });

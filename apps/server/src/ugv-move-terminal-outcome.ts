@@ -18,6 +18,7 @@ import {
   type GoalEvaluationResult,
   type ProcessedResultRecord,
   type RuntimeTaskCapabilityTerminalProof,
+  type SelectedTaskOperation,
   type SkillVersion,
   type TaskCapabilityBinding,
   type TaskCapabilityExecutionAttempt,
@@ -49,7 +50,7 @@ const CAPABILITY_ID = 'embodied.move';
 const NAVIGATE_OPERATION = 'vehicle_navigate';
 const RESOURCE_ID = 'vehicle:ugv1';
 const TERMINAL_SUMMARY =
-  'UGV movement completed with durable final-position evidence under the exact simulation authority.';
+  'UGV movement completed with durable final-position evidence under the exact governed execution authority.';
 
 export type UgvMoveTerminalEvidenceVerifier = (
   input: UgvMoveTerminalWorkflowEvidenceInput,
@@ -259,10 +260,43 @@ export class UgvMoveDeterministicGoalEvaluator implements GoalEvaluator {
       input.goal.goalId !== input.instance.goalId ||
       input.goal.version !== input.instance.goalVersion
     )
-      guard('The UGV Goal and succeeded Workflow terminal identities do not match.');
+      guard('The UGV Goal and Workflow terminal identities do not match.');
+    if (input.instance.status === 'failed')
+      return Object.freeze({
+        decision: 'unachievable' as const,
+        summary: failedWorkflowSummary(input.instance),
+      });
     await this.#authority.prepare(taskId, input.instance);
     return Object.freeze({ decision: 'achieved' as const, summary: TERMINAL_SUMMARY });
   }
+}
+
+function failedWorkflowSummary(instance: WorkflowInstance): string {
+  const failures = Object.entries(instance.errors);
+  const failure = failures[0];
+  if (
+    instance.status !== 'failed' ||
+    failures.length !== 1 ||
+    failure === undefined ||
+    !sameJson(instance.skillVersions, [{ skillId: SKILL_ID, version: SKILL_VERSION }]) ||
+    !present(instance.instanceId) ||
+    !present(instance.planId) ||
+    !present(instance.workflowDefinitionId) ||
+    !Number.isSafeInteger(instance.workflowVersion) ||
+    instance.workflowVersion < 1 ||
+    !present(instance.goalId) ||
+    !Number.isSafeInteger(instance.goalVersion) ||
+    instance.goalVersion < 1 ||
+    !present(failure[0]) ||
+    !present(failure[1].code) ||
+    !present(failure[1].message)
+  )
+    guard('The failed UGV Workflow terminal identity or failure evidence is invalid.');
+  requiredCompletionTime(instance);
+  const providerReason = /^[A-Z][A-Z0-9_]{1,127}$/u.test(failure[1].message)
+    ? ` with Provider reason ${failure[1].message}`
+    : '';
+  return `UGV movement did not complete because authoritative Workflow node ${failure[0]} failed with ${failure[1].code}${providerReason}.`;
 }
 
 function terminalIdentity(
@@ -312,7 +346,7 @@ function exactBinding(
   if (
     exact.taskId !== taskId ||
     exact.requestedCapabilityId !== CAPABILITY_ID ||
-    exact.capabilityVersion !== 2 ||
+    exact.capabilityVersion < 2 ||
     !sameStrings(exact.initialImplementationRefs, [SKILL_REFERENCE])
   )
     guard('The frozen Task binding is not the exact embodied.move@2 authority.');
@@ -401,13 +435,14 @@ function assertBindingSelection(
   const confirmation = exactlyOneConstraint(binding, 'confirmation_policy');
   const physical = exactlyOneConstraint(binding, 'physical_side_effect_policy');
   const execution = exactlyOneConstraint(binding, 'runtime_execution_mode_policy');
-  const targetPolicy = exactlyOneConstraint(binding, 'ugv_simulation_target_policy');
-  assertExactTargetPolicy(targetPolicy);
+  const targetPolicies = binding.constraintSnapshot.filter(
+    (constraint) => constraint['type'] === 'ugv_simulation_target_policy',
+  );
   if (
     selected.skill.skillId !== SKILL_ID ||
     selected.skill.version !== SKILL_VERSION ||
     selected.resource.resourceId !== RESOURCE_ID ||
-    !present(selected.execution.simulationId) ||
+    !exactExecutionSelection(execution, selected.execution, targetPolicies) ||
     !sameJson(adapted.providerArguments, selected.resolvedArguments) ||
     adapted.argumentsHash !== selected.argumentsHash ||
     resourcePolicy['selection'] !== 'exact_value' ||
@@ -432,14 +467,12 @@ function assertBindingSelection(
     physical['dispatchMaximum'] !== 1 ||
     physical['uncertainDispatchPolicy'] !== 'reconcile_never_redispatch' ||
     physical['remoteTaskTerminalEvidenceRequired'] !== true ||
-    execution['mode'] !== 'simulation' ||
-    execution['simulationId'] !== selected.execution.simulationId ||
     attempt.providerBindingRefs.length !== 1 ||
     attempt.providerBindingRefs[0] !== selected.providerBinding.bindingId ||
     !sameJson(exactWorkflowSkillInput(instance.input), binding.inputSnapshot)
   )
     guard(
-      'The frozen UGV Capability, Provider, simulation, and selected-operation authority drifted.',
+      'The frozen UGV Capability, Provider, execution context, and selected-operation authority drifted.',
     );
   assertCompletionContracts(binding);
 }
@@ -481,6 +514,28 @@ function assertExactTargetPolicy(policy: Readonly<Record<string, unknown>>): voi
   }
   if (!sameJson(policy, expected))
     guard('The frozen UGV simulation target policy contract is not exact.');
+}
+
+function exactExecutionSelection(
+  policy: Readonly<Record<string, unknown>>,
+  selected: SelectedTaskOperation['execution'],
+  targetPolicies: readonly Readonly<Record<string, unknown>>[],
+): boolean {
+  if (selected.mode === 'live')
+    return (
+      policy['mode'] === 'live' &&
+      policy['simulationId'] === undefined &&
+      targetPolicies.length === 0
+    );
+  if (
+    policy['mode'] !== 'simulation' ||
+    policy['simulationId'] !== selected.simulationId ||
+    targetPolicies.length !== 1 ||
+    targetPolicies[0] === undefined
+  )
+    return false;
+  assertExactTargetPolicy(targetPolicies[0]);
+  return true;
 }
 
 function assertCompletionContracts(binding: TaskCapabilityBinding): void {

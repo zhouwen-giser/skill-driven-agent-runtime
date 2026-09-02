@@ -220,6 +220,84 @@ describe('A2A Task follow-up mapping', () => {
     });
   });
 
+  it('maps one exact structured weapon confirmation without accepting additive fields', () => {
+    expect(
+      toTaskFollowUp(
+        followUpMessage({
+          parts: [
+            { text: 'Confirm the exact single engagement.', mediaType: 'text/plain' },
+            {
+              data: {
+                resourceId: 'vehicle:ugv1',
+                targetId: 'target-17',
+                engagementMode: 'single',
+                requireConfirmation: true,
+              },
+              mediaType: 'application/json',
+            },
+          ],
+          metadata: { sdar_action: 'confirm_weapon_action' },
+        }),
+      ),
+    ).toEqual({
+      action: 'confirm_weapon_action',
+      messageText: 'Confirm the exact single engagement.',
+      weaponAuthorization: {
+        resourceId: 'vehicle:ugv1',
+        targetId: 'target-17',
+        engagementMode: 'single',
+        requireConfirmation: true,
+      },
+    });
+
+    expect(() =>
+      toTaskFollowUp(
+        followUpMessage({
+          parts: [
+            {
+              data: {
+                resourceId: 'vehicle:ugv1',
+                targetId: 'target-17',
+                engagementMode: 'single',
+                requireConfirmation: true,
+                repeatedShots: 2,
+              },
+            },
+          ],
+          metadata: { sdar_action: 'confirm_weapon_action' },
+        }),
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_INPUT_CONTENT_INVALID' }));
+  });
+
+  it('rejects weapon confirmation without the exact structured authority', () => {
+    expect(() =>
+      toTaskFollowUp(
+        followUpMessage({
+          parts: [{ text: 'Confirm weapon action.' }],
+          metadata: { sdar_action: 'confirm_weapon_action' },
+        }),
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_INPUT_CONTENT_INVALID' }));
+    expect(() =>
+      toTaskFollowUp(
+        followUpMessage({
+          parts: [
+            {
+              data: {
+                resourceId: 'vehicle:ugv1',
+                targetId: 'target-17',
+                engagementMode: 'burst',
+                requireConfirmation: true,
+              },
+            },
+          ],
+          metadata: { sdar_action: 'confirm_weapon_action' },
+        }),
+      ),
+    ).toThrow(expect.objectContaining({ code: 'A2A_INPUT_CONTENT_INVALID' }));
+  });
+
   it('rejects multiple data parts, data on other actions and over-sized JSON', () => {
     expect(() =>
       toTaskFollowUp(

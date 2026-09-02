@@ -1204,11 +1204,21 @@ const evidenceInfrastructurePayloadProperties: Readonly<
   },
 });
 
+const consumerSyncPayloadPropertyOverrides: Readonly<
+  Record<string, Readonly<Record<string, EvidenceJsonSchema>>>
+> = Object.freeze({
+  'mcp_task.provider_execution_link': {
+    sourceRevision: text(),
+  },
+});
+
 function payloadProperty(recordType: string, field: string): EvidenceJsonSchema {
   const phase8 = phase8PayloadProperties[recordType];
   const phase9 = phase9PayloadProperties[recordType];
   const evidenceInfrastructure = evidenceInfrastructurePayloadProperties[recordType];
-  const explicit = phase8?.[field] ?? phase9?.[field] ?? evidenceInfrastructure?.[field];
+  const consumerSync = consumerSyncPayloadPropertyOverrides[recordType];
+  const explicit =
+    phase8?.[field] ?? phase9?.[field] ?? evidenceInfrastructure?.[field] ?? consumerSync?.[field];
   if (explicit !== undefined) return explicit;
   if (phase8 !== undefined || phase9 !== undefined || evidenceInfrastructure !== undefined) {
     throw new Error(`Governed payload field ${recordType}.${field} has no authoritative schema.`);

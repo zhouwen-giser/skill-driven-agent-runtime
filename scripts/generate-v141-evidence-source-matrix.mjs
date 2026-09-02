@@ -12,12 +12,12 @@ const verificationProofPath = path.resolve(
   'reports/v1.4.1-evidence/verification-proof-manifest.json',
 );
 const verificationProof = JSON.parse(await readFile(verificationProofPath, 'utf8'));
-if (!Array.isArray(registry.records) || registry.records.length !== 100) {
-  throw new Error('Evidence registry must contain exactly 100 records before matrix generation');
+if (!Array.isArray(registry.records) || registry.records.length !== 105) {
+  throw new Error('Evidence registry must contain exactly 105 records before matrix generation');
 }
 const catalogByType = new Map(registry.records.map((entry) => [entry.recordType, entry]));
-if (!Array.isArray(verificationProof.records) || verificationProof.records.length !== 100) {
-  throw new Error('Evidence verification proof must contain exactly 100 records');
+if (!Array.isArray(verificationProof.records) || verificationProof.records.length !== 105) {
+  throw new Error('Evidence verification proof must contain exactly 105 records');
 }
 const proofByType = new Map();
 for (const proof of verificationProof.records) {
@@ -244,6 +244,33 @@ const sources = {
     'binding_id',
     'version + canonical source hash',
     'created_at',
+  ],
+  remote_task_admission_intent: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_admission_intent',
+    'Runtime PostgreSQL',
+    'intent_id',
+    'version + logical_identity_hash + canonical source hash',
+    'created_at',
+  ],
+  remote_task_reconciliation_attempt: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_reconciliation_attempt',
+    'Runtime PostgreSQL',
+    'attempt_id',
+    'immutable attempt_no + request_hash + result_hash',
+    'started_at / completed_at',
+  ],
+  remote_task_provider_execution_link: [
+    'runtime',
+    runtimeDatabase,
+    'remote_task_provider_execution_link',
+    'Runtime PostgreSQL',
+    'link_id',
+    'immutable content_hash',
+    'observed_at',
   ],
   remote_task_observation: [
     'runtime',
@@ -808,7 +835,7 @@ function row(recordType, sourceKey, requiredReferences) {
   const proof = proofByType.get(recordType);
   if (!proof) throw new Error(`Missing verification proof for ${recordType}`);
   const expectedReferences = catalog.expectedReferences.join(',');
-  // The historical third argument is retained only to keep the 100-row source inventory readable;
+  // The historical third argument is retained only to keep the source inventory readable;
   // reference authority comes exclusively from the generated Domain Catalog registry.
   void requiredReferences;
   const sourceSystem = catalog.sourceSystem;
@@ -905,6 +932,23 @@ const records = [
   row('mcp_task.tool_call', 'mcp_invocation', 'runtime.action'),
   row('mcp_task.availability', 'task_availability_snapshot', 'mcp_task.tool_call'),
   row('mcp_task.remote_binding', 'remote_task_binding', 'mcp_task.tool_call'),
+  row('mcp_task.logical_invocation', 'remote_task_admission_intent', ''),
+  row('mcp_task.admission', 'remote_task_admission_intent', 'mcp_task.logical_invocation'),
+  row(
+    'mcp_task.dispatch_uncertain',
+    'remote_task_reconciliation_attempt',
+    'mcp_task.admission,mcp_task.logical_invocation',
+  ),
+  row(
+    'mcp_task.dispatch_reconciliation',
+    'remote_task_reconciliation_attempt',
+    'mcp_task.admission,mcp_task.logical_invocation',
+  ),
+  row(
+    'mcp_task.provider_execution_link',
+    'remote_task_provider_execution_link',
+    'mcp_task.remote_binding,mcp_task.logical_invocation',
+  ),
   row('mcp_task.observation', 'remote_task_observation', 'mcp_task.remote_binding'),
   row('mcp_task.control_event', 'remote_task_control_event', 'mcp_task.remote_binding'),
   row('mcp_task.poll_attempt', 'remote_task_protocol_attempt', 'mcp_task.remote_binding'),
@@ -1074,7 +1118,7 @@ const requiredColumns = [
   'status',
 ];
 
-if (records.length !== 100) throw new Error(`Expected 100 records, found ${records.length}`);
+if (records.length !== 105) throw new Error(`Expected 105 records, found ${records.length}`);
 if (new Set(records.map(({ record_type }) => record_type)).size !== records.length) {
   throw new Error('Record types must be unique');
 }
@@ -1130,10 +1174,10 @@ const deliveryGuaranteeCounts = Object.fromEntries(
   ]),
 );
 if (
-  evaluationRoleCounts.required !== 95 ||
+  evaluationRoleCounts.required !== 100 ||
   evaluationRoleCounts.diagnostic !== 5 ||
   deliveryGuaranteeCounts.transactional !== 0 ||
-  deliveryGuaranteeCounts.durable_projection !== 100
+  deliveryGuaranteeCounts.durable_projection !== 105
 ) {
   throw new Error(
     `Catalog policy counts are invalid: roles=${JSON.stringify(evaluationRoleCounts)} delivery=${JSON.stringify(deliveryGuaranteeCounts)}`,

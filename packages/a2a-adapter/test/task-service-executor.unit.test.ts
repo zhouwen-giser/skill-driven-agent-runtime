@@ -211,6 +211,9 @@ describe('TaskServiceAgentExecutor notification wait', () => {
       },
     });
     const httpRequest = {
+      body: {
+        message: { metadata: { sdar_action: 'confirm_plan' } },
+      },
       header(name: string) {
         if (name.toLowerCase() === 'authorization') return 'Bearer valid-token';
         if (name.toLowerCase() === 'x-request-id') return principal.requestId;

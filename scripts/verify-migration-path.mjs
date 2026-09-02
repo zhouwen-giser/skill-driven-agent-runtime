@@ -562,7 +562,7 @@ async function verifyControlCredentialMigrationRolledBack(pool) {
   );
   if (
     JSON.stringify(ledger.rows[0]?.versions) !==
-    JSON.stringify(controlMigrationVersions.slice(0, -1))
+    JSON.stringify(controlMigrationVersions.slice(0, -2))
   ) {
     throw new Error('UGV_CONTROL_CREDENTIAL_ROLLBACK_MARKERS_INVALID');
   }
@@ -596,7 +596,7 @@ async function verifyControlLineageMigrationRolledBack(pool) {
   );
   if (
     JSON.stringify(ledger.rows[0]?.versions) !==
-    JSON.stringify(controlMigrationVersions.slice(0, -2))
+    JSON.stringify(controlMigrationVersions.slice(0, -3))
   ) {
     throw new Error('V141_CONTROL_LINEAGE_ROLLBACK_MARKERS_INVALID');
   }
@@ -668,7 +668,7 @@ async function verifyControlEvidenceMigrationRolledBack(pool) {
   );
   if (
     JSON.stringify(ledger.rows[0]?.versions) !==
-    JSON.stringify(controlMigrationVersions.slice(0, -3))
+    JSON.stringify(controlMigrationVersions.slice(0, -4))
   ) {
     throw new Error('V141_CONTROL_EVIDENCE_ROLLBACK_MARKERS_INVALID');
   }

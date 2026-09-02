@@ -369,6 +369,49 @@ export const EVIDENCE_RECORD_CATALOG = Object.freeze([
     durableProjection,
   ),
   defineRecord(
+    'mcp_task.logical_invocation',
+    runtime('remote_task_admission_intent'),
+    ['logicalInvocationId', 'identityHash', 'argumentsHash'],
+    [],
+    durableProjection,
+  ),
+  defineRecord(
+    'mcp_task.admission',
+    runtime('remote_task_admission_intent'),
+    ['intentId', 'invocationId', 'status'],
+    ['mcp_task.logical_invocation'],
+    durableProjection,
+  ),
+  defineRecord(
+    'mcp_task.dispatch_uncertain',
+    runtime('remote_task_reconciliation_attempt[dispatch_outcome=uncertain]'),
+    ['intentId', 'reasonCode', 'redispatchAllowed'],
+    ['mcp_task.admission', 'mcp_task.logical_invocation'],
+    durableProjection,
+  ),
+  defineRecord(
+    'mcp_task.dispatch_reconciliation',
+    runtime('remote_task_reconciliation_attempt'),
+    ['attemptId', 'logicalInvocationId', 'status'],
+    ['mcp_task.admission', 'mcp_task.logical_invocation'],
+    durableProjection,
+  ),
+  defineRecord(
+    'mcp_task.provider_execution_link',
+    runtime('remote_task_provider_execution_link'),
+    [
+      'linkId',
+      'bindingId',
+      'runtimeServerId',
+      'providerId',
+      'executionStatus',
+      'sourceContract',
+      'sourceRevision',
+    ],
+    ['mcp_task.remote_binding', 'mcp_task.logical_invocation'],
+    durableProjection,
+  ),
+  defineRecord(
     'mcp_task.observation',
     runtime('remote_task_observation'),
     ['observationId', 'bindingId', 'observationType'],
@@ -1407,9 +1450,9 @@ export const EVIDENCE_RECORD_CATALOG = Object.freeze([
   ),
 ] satisfies readonly EvidenceRecordCatalogEntry[]);
 
-if (EVIDENCE_RECORD_CATALOG.length !== 100) {
+if (EVIDENCE_RECORD_CATALOG.length !== 105) {
   throw new Error(
-    `Evidence catalog must contain 100 entries, found ${String(EVIDENCE_RECORD_CATALOG.length)}.`,
+    `Evidence catalog must contain 105 entries, found ${String(EVIDENCE_RECORD_CATALOG.length)}.`,
   );
 }
 

@@ -148,7 +148,128 @@ describe('PostgresGovernedControlManagementAuthorityReader', () => {
       status: 409,
     });
   });
+
+  it('derives weapon authority only from an explicit single-node weapon contract', async () => {
+    const query = vi.fn(() => Promise.resolve({ rows: [highRiskAuthorityRow('weapon_control')] }));
+    const reader = new PostgresGovernedControlManagementAuthorityReader(
+      { query } as unknown as Pool,
+      'weapon_control',
+    );
+
+    await expect(reader.issueAuthority('task-1')).resolves.toMatchObject({
+      toolName: 'vehicle_fire_weapon',
+      arguments: {
+        resourceId: 'ugv-1',
+        targetId: 'target-17',
+        engagementMode: 'single',
+        requireConfirmation: true,
+      },
+    });
+
+    const nonCanonical = highRiskAuthorityRow('weapon_control');
+    const rejected = new PostgresGovernedControlManagementAuthorityReader(
+      {
+        query: () =>
+          Promise.resolve({
+            rows: [
+              {
+                ...nonCanonical,
+                plan_definition: {
+                  ...nonCanonical.plan_definition,
+                  nodes: [
+                    ...(nonCanonical.plan_definition as { nodes: unknown[] }).nodes,
+                    {
+                      id: 'second-fire',
+                      type: 'mcp_tool',
+                      serverId: 'fake-ugv',
+                      toolName: 'vehicle_fire_weapon',
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+      } as unknown as Pool,
+      'weapon_control',
+    );
+    await expect(rejected.issueAuthority('task-1')).rejects.toMatchObject({
+      code: 'GOVERNED_CONTROL_AUTHORITY_SCOPE_INVALID',
+    });
+  });
+
+  it('derives direct emergency authority only for the exact emergency-stop contract', async () => {
+    const query = vi.fn(() => Promise.resolve({ rows: [highRiskAuthorityRow('emergency_stop')] }));
+    const reader = new PostgresGovernedControlManagementAuthorityReader(
+      { query } as unknown as Pool,
+      'emergency_stop',
+    );
+
+    await expect(reader.issueAuthority('task-1')).resolves.toMatchObject({
+      toolName: 'vehicle_emergency_stop',
+      arguments: { resourceId: 'ugv-1' },
+    });
+  });
 });
+
+function highRiskAuthorityRow(kind: 'weapon_control' | 'emergency_stop') {
+  const row = authorityRow();
+  const weapon = kind === 'weapon_control';
+  const toolName = weapon ? 'vehicle_fire_weapon' : 'vehicle_emergency_stop';
+  const skillId = weapon ? 'ugv.fire-weapon' : 'ugv.emergency-stop';
+  const capabilityId = weapon ? 'vehicle.ugv.fire-weapon' : 'vehicle.ugv.emergency-stop';
+  const arguments_ = weapon
+    ? {
+        resourceId: 'ugv-1',
+        targetId: 'target-17',
+        engagementMode: 'single',
+        requireConfirmation: true,
+      }
+    : { resourceId: 'ugv-1' };
+  return {
+    ...row,
+    selected_skill_id: skillId,
+    capability_id: capabilityId,
+    input_snapshot: arguments_,
+    constraint_snapshot: (row.constraint_snapshot as Record<string, unknown>[]).map(
+      (constraint) => {
+        if (constraint['type'] === 'provider_binding_policy')
+          return { ...constraint, mcpToolName: toolName };
+        if (constraint['type'] === 'exact_skill_version')
+          return { ...constraint, skillId, taskType: toolName };
+        if (constraint['type'] === 'confirmation_policy')
+          return {
+            ...constraint,
+            authorityKind: kind,
+            stage: weapon ? 'pre_dispatch' : 'before_execution_or_direct_emergency',
+            ...(weapon ? { trustedActorRequired: true } : {}),
+          };
+        return constraint;
+      },
+    ),
+    initial_implementation_refs: [`skill:${skillId}:1`],
+    attempt_skill_version_refs: [`skill:${skillId}:1`],
+    plan_definition: {
+      nodes: [{ id: 'control', type: 'mcp_tool', serverId: 'fake-ugv', toolName }],
+      edges: [],
+    },
+    skill_id: skillId,
+    skill_capabilities: [capabilityId],
+    skill_tool_policy: {
+      required: [{ serverId: 'fake-ugv', toolName }],
+      optional: [],
+      forbidden: [],
+    },
+    skill_outcome_specification: {
+      sideEffectPolicy: {
+        sideEffecting: true,
+        authorityKind: kind,
+        confirmation: weapon
+          ? 'plan_and_weapon_confirmation_required'
+          : 'plan_or_direct_emergency_authority_required',
+      },
+    },
+  };
+}
 
 function authorityRow() {
   return {

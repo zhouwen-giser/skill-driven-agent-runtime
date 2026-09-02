@@ -60,6 +60,8 @@ export interface TaskCapabilityAcceptance {
 }
 
 export interface TaskCapabilityAcceptanceStore {
+  /** Returns the active Agent Card's highest current version for one stable Exposure identity. */
+  findCurrentExposure?(exposureId: string): Promise<RuntimeCapabilityExposure | undefined>;
   describeExposure(
     exposureId: string,
     exposureVersion: number,
@@ -377,6 +379,23 @@ export class RuntimeTaskCapabilityService {
     // Kept for source compatibility; discovery is a registration contract, not a health lease.
     void now;
     const resolution = await this.#store.describeExposure(exposureId, exposureVersion);
+    if (resolution === undefined) return undefined;
+    return Object.freeze({
+      exposureId: resolution.exposureId,
+      exposureVersion: resolution.exposureVersion,
+      capabilityId: resolution.requestedCapabilityId,
+      capabilityVersion: resolution.capabilityVersion,
+      requestSchema: structuredClone(resolution.requestSchema),
+      ...(resolution.requesterPolicy === undefined
+        ? {}
+        : { requesterPolicy: Object.freeze(structuredClone(resolution.requesterPolicy)) }),
+    });
+  }
+
+  async describeCurrentAdmissionExposure(exposureId: string, now: string) {
+    // Discovery describes the active registration; health is rechecked at execution.
+    void now;
+    const resolution = await this.#store.findCurrentExposure?.(exposureId);
     if (resolution === undefined) return undefined;
     return Object.freeze({
       exposureId: resolution.exposureId,

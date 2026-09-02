@@ -87,6 +87,30 @@ export interface RemoteTaskLifecycleResponse {
   }>[];
 }
 
+export interface GovernedControlEvidenceResponse {
+  readonly items: readonly Readonly<{
+    confirmationId: string;
+    authorityKind: 'physical_control' | 'emergency_stop' | 'weapon_control';
+    taskId: string;
+    planId: string;
+    planHash: string;
+    toolName: string;
+    argumentsHash: string;
+    parameters: Readonly<{
+      resourceId?: string;
+      targetId?: string;
+      engagementMode?: 'single';
+      requireConfirmation?: true;
+    }>;
+    confirmedAt: string;
+    expiresAt: string;
+    status: 'pending' | 'consumed' | 'revoked' | 'expired';
+    consumedInvocationId?: string;
+    consumedAt?: string;
+    revokedAt?: string;
+  }>[];
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -137,6 +161,13 @@ export function TaskPanel({
   const [actionText, setActionText] = useState('Confirmed from the operational console.');
   const [inputRequestId, setInputRequestId] = useState('');
   const [structuredInput, setStructuredInput] = useState('');
+  const [controlResourceId, setControlResourceId] = useState('');
+  const [weaponTargetId, setWeaponTargetId] = useState('');
+  const [controlReason, setControlReason] = useState('Confirmed by an authenticated operator.');
+  const [revokeConfirmationId, setRevokeConfirmationId] = useState('');
+  const [revokeAuthorityKind, setRevokeAuthorityKind] = useState<
+    'physical_control' | 'emergency_stop' | 'weapon_control'
+  >('physical_control');
 
   const loadTask = useCallback(async (id: string, announce = true) => {
     try {
@@ -216,6 +247,64 @@ export function TaskPanel({
       setMessage(`${updated.taskId}: ${action} applied through the authoritative lifecycle.`);
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Task action failed.');
+    }
+  }
+
+  async function submitHighRiskControl(
+    event: React.SyntheticEvent<HTMLFormElement>,
+    kind: 'emergency_stop' | 'weapon_control',
+  ) {
+    event.preventDefault();
+    if (task === undefined) return;
+    try {
+      const endpoint =
+        kind === 'emergency_stop'
+          ? `/api/v1/tasks/${encodeURIComponent(task.taskId)}/emergency-stop-authorizations`
+          : `/api/v1/tasks/${encodeURIComponent(task.taskId)}/weapon-confirmations`;
+      const updated = await managementRequest<TaskRecord>(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          resourceId: controlResourceId.trim(),
+          ...(kind === 'weapon_control'
+            ? {
+                targetId: weaponTargetId.trim(),
+                engagementMode: 'single',
+                requireConfirmation: true,
+              }
+            : {}),
+          reason: controlReason,
+        }),
+      });
+      setTask(updated);
+      await loadTask(updated.taskId, false);
+      setMessage(
+        kind === 'emergency_stop'
+          ? `${updated.taskId}: exact emergency authorization submitted with the Plan.`
+          : `${updated.taskId}: exact single-action weapon confirmation submitted.`,
+      );
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'High-risk control action failed.');
+    }
+  }
+
+  async function revokeHighRiskControl(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (task === undefined) return;
+    try {
+      const root =
+        revokeAuthorityKind === 'weapon_control'
+          ? 'weapon-confirmations'
+          : revokeAuthorityKind === 'emergency_stop'
+            ? 'emergency-stop-authorizations'
+            : 'governed-control-confirmations';
+      await managementRequest(
+        `/api/v1/tasks/${encodeURIComponent(task.taskId)}/${root}/${encodeURIComponent(revokeConfirmationId.trim())}/revoke`,
+        { method: 'POST', body: JSON.stringify({ reason: controlReason }) },
+      );
+      await loadTask(task.taskId, false);
+      setMessage(`${revokeConfirmationId.trim()}: unused confirmation revoked.`);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Control revocation failed.');
     }
   }
 
@@ -409,6 +498,22 @@ export function TaskPanel({
               );
             }}
           />
+          <GovernedControlPanel
+            value={evidence.find((item) => item.key === 'governed-control')?.value}
+            resourceId={controlResourceId}
+            targetId={weaponTargetId}
+            reason={controlReason}
+            revokeConfirmationId={revokeConfirmationId}
+            revokeAuthorityKind={revokeAuthorityKind}
+            onResourceId={setControlResourceId}
+            onTargetId={setWeaponTargetId}
+            onReason={setControlReason}
+            onRevokeConfirmationId={setRevokeConfirmationId}
+            onRevokeAuthorityKind={setRevokeAuthorityKind}
+            onEmergency={(event) => void submitHighRiskControl(event, 'emergency_stop')}
+            onWeapon={(event) => void submitHighRiskControl(event, 'weapon_control')}
+            onRevoke={(event) => void revokeHighRiskControl(event)}
+          />
           <section className="panel">
             <div className="panel-heading">
               <span className="eyebrow">PLAN ACTION BOUNDARY</span>
@@ -497,6 +602,153 @@ export function TaskPanel({
       </section>
     </div>
   );
+}
+
+export function GovernedControlPanel({
+  value,
+  resourceId,
+  targetId,
+  reason,
+  revokeConfirmationId,
+  revokeAuthorityKind,
+  onResourceId,
+  onTargetId,
+  onReason,
+  onRevokeConfirmationId,
+  onRevokeAuthorityKind,
+  onEmergency,
+  onWeapon,
+  onRevoke,
+}: {
+  readonly value: unknown;
+  readonly resourceId: string;
+  readonly targetId: string;
+  readonly reason: string;
+  readonly revokeConfirmationId: string;
+  readonly revokeAuthorityKind: 'physical_control' | 'emergency_stop' | 'weapon_control';
+  readonly onResourceId: (value: string) => void;
+  readonly onTargetId: (value: string) => void;
+  readonly onReason: (value: string) => void;
+  readonly onRevokeConfirmationId: (value: string) => void;
+  readonly onRevokeAuthorityKind: (
+    value: 'physical_control' | 'emergency_stop' | 'weapon_control',
+  ) => void;
+  readonly onEmergency: (event: React.SyntheticEvent<HTMLFormElement>) => void;
+  readonly onWeapon: (event: React.SyntheticEvent<HTMLFormElement>) => void;
+  readonly onRevoke: (event: React.SyntheticEvent<HTMLFormElement>) => void;
+}) {
+  const evidence = isGovernedControlEvidenceResponse(value) ? value.items : [];
+  return (
+    <section className="panel" aria-label="Governed physical and weapon control">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">ONE-SHOT CONTROL AUTHORITY</span>
+          <h2>Physical, Emergency &amp; Weapon Confirmations</h2>
+        </div>
+        <span className="status">{evidence.length} persisted</span>
+      </div>
+      <p>
+        Plan confirmation remains separate. Emergency authorization is exact and single-node; weapon
+        authorization is restricted to one exact target and is never inferred from Provider
+        completion.
+      </p>
+      <div className="version-list">
+        {evidence.map((item) => (
+          <article key={item.confirmationId}>
+            <strong>
+              {item.authorityKind} · {item.status}
+            </strong>
+            <span>{item.confirmationId}</span>
+            <small>
+              {item.parameters.resourceId ?? 'resource not projected'}
+              {item.parameters.targetId === undefined
+                ? ''
+                : ` · target ${item.parameters.targetId}`}
+            </small>
+            <code>arguments {item.argumentsHash}</code>
+            <code>plan {item.planHash}</code>
+            <small>
+              expires {item.expiresAt} · consumed {item.consumedAt ?? 'no'} · revoked{' '}
+              {item.revokedAt ?? 'no'}
+            </small>
+          </article>
+        ))}
+        {evidence.length === 0 ? <p>No persisted governed-control confirmation.</p> : null}
+      </div>
+      <label>
+        Exact resource ID
+        <input
+          required
+          value={resourceId}
+          onChange={(event) => {
+            onResourceId(event.target.value);
+          }}
+        />
+      </label>
+      <label>
+        Operator reason
+        <input
+          required
+          value={reason}
+          onChange={(event) => {
+            onReason(event.target.value);
+          }}
+        />
+      </label>
+      <div className="action-row">
+        <form onSubmit={onEmergency}>
+          <button type="submit">Authorize exact emergency stop with Plan</button>
+        </form>
+        <form onSubmit={onWeapon}>
+          <label>
+            Exact weapon target ID
+            <input
+              required
+              value={targetId}
+              onChange={(event) => {
+                onTargetId(event.target.value);
+              }}
+            />
+          </label>
+          <button type="submit" className="danger">
+            Confirm one exact weapon action
+          </button>
+        </form>
+      </div>
+      <form className="task-action" onSubmit={onRevoke}>
+        <label>
+          Confirmation kind
+          <select
+            value={revokeAuthorityKind}
+            onChange={(event) => {
+              onRevokeAuthorityKind(event.target.value as typeof revokeAuthorityKind);
+            }}
+          >
+            <option value="physical_control">Physical control</option>
+            <option value="emergency_stop">Emergency stop</option>
+            <option value="weapon_control">Weapon control</option>
+          </select>
+        </label>
+        <label>
+          Unused confirmation ID
+          <input
+            required
+            value={revokeConfirmationId}
+            onChange={(event) => {
+              onRevokeConfirmationId(event.target.value);
+            }}
+          />
+        </label>
+        <button type="submit">Revoke unused confirmation</button>
+      </form>
+    </section>
+  );
+}
+
+function isGovernedControlEvidenceResponse(
+  value: unknown,
+): value is GovernedControlEvidenceResponse {
+  return isRecord(value) && Array.isArray(value.items);
 }
 
 export function UserGoalPlanPanel({ value }: { readonly value: unknown }) {
@@ -1108,6 +1360,11 @@ export function taskEvidenceLinks(task: TaskRecord): readonly Omit<EvidenceItem,
       key: 'remote-task-lifecycle',
       label: 'MCP Task Lifecycle',
       endpoint: `/api/v1/tasks/${id}/remote-task-lifecycle`,
+    },
+    {
+      key: 'governed-control',
+      label: 'Governed Control Confirmations',
+      endpoint: `/api/v1/tasks/${id}/governed-control-confirmations`,
     },
     {
       key: 'results',

@@ -219,6 +219,70 @@ describe('UGV governed-control profile authority', () => {
     expect(consumeConfirmation).toHaveBeenCalledTimes(2);
   });
 
+  it('uses the independent live deployment gate for replay-forbidden execution', async () => {
+    const simulated = selectedTaskOperation();
+    const { snapshotHash, ...draft } = simulated;
+    expect(snapshotHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    const selected = createSelectedTaskOperation({
+      ...draft,
+      operation: {
+        ...draft.operation,
+        executionSemantics: { ...draft.operation.executionSemantics, replay: 'forbidden' },
+      },
+      execution: {
+        mode: 'live',
+        confirmation: 'existing_outer_plan_confirmation',
+        confirmationRequired: true,
+      },
+    });
+    const authority = currentAuthority(selected);
+    const confirmation = confirmed(authority);
+    const liveAuthorized = vi.fn(() => Promise.resolve());
+    const simulationAuthorized = vi.fn(() => Promise.resolve());
+    const consumeConfirmation = vi.fn((consumption: GovernedControlConfirmationConsumption) =>
+      Promise.resolve({
+        ...confirmation,
+        consumedInvocationId: consumption.invocationId,
+        consumedDispatchHash: consumption.dispatchHash,
+        consumedAt: consumption.consumedAt,
+      }),
+    );
+    const authorizer = new UgvGovernedControlInvocationAuthorizer({
+      authority: {
+        loadForPreInvocation: () =>
+          Promise.resolve({
+            ...authority,
+            task: { ...authority.task, phase: 'executing' },
+            plan: { ...authority.plan, confirmationStatus: 'confirmed' },
+            confirmation,
+          }),
+      },
+      confirmations: { consumeConfirmation },
+      simulationSideEffectGate: { assertAuthorized: simulationAuthorized },
+      liveSideEffectGate: { assertAuthorized: liveAuthorized },
+      clock: { now: () => now },
+    });
+
+    await expect(
+      authorizer.authorizeAndConsume({
+        invocationId: 'invocation-live-1',
+        dispatchHash: `sha256:${'e'.repeat(64)}`,
+        taskId: authority.task.taskId,
+        capabilityAttemptId: authority.attempt.capabilityAttemptId,
+        providerBindingId: selected.providerBinding.bindingId,
+        serverId: selected.server.serverId,
+        toolName: selected.operation.operationName,
+        arguments: arguments_,
+        executionSemantics: selected.operation.executionSemantics,
+      }),
+    ).resolves.toMatchObject({ invocationId: 'invocation-live-1' });
+    expect(liveAuthorized).toHaveBeenCalledWith({
+      taskId: authority.task.taskId,
+      selectedSnapshotHash: selected.snapshotHash,
+    });
+    expect(simulationAuthorized).not.toHaveBeenCalled();
+  });
+
   it('uses refreshed pre-invocation readiness after the persisted selection availability expires', async () => {
     const authority = currentAuthority();
     const { snapshotHash, ...selectedDraft } = authority.selectedTaskOperation;
@@ -287,6 +351,51 @@ describe('UGV governed-control profile authority', () => {
     expect(consumeConfirmation).toHaveBeenCalledOnce();
   });
 
+  it('allows Provider-reported unknown only under the exact confirmed authority snapshot', async () => {
+    const authority = currentAuthority();
+    const confirmation = confirmed(authority);
+    const snapshot: UgvGovernedControlDispatchAuthoritySnapshot = Object.freeze({
+      ...authority,
+      task: Object.freeze({ ...authority.task, phase: 'executing' }),
+      plan: Object.freeze({ ...authority.plan, confirmationStatus: 'confirmed' }),
+      readiness: Object.freeze({
+        ...authority.readiness,
+        availability: 'unknown',
+        availabilityDecision: 'allowed_by_default',
+      }),
+      confirmation,
+    });
+    const consumeConfirmation = vi.fn((consumption: GovernedControlConfirmationConsumption) =>
+      Promise.resolve({
+        ...confirmation,
+        consumedInvocationId: consumption.invocationId,
+        consumedDispatchHash: consumption.dispatchHash,
+        consumedAt: consumption.consumedAt,
+      }),
+    );
+    const authorizer = new UgvGovernedControlInvocationAuthorizer({
+      authority: { loadForPreInvocation: () => Promise.resolve(snapshot) },
+      confirmations: { consumeConfirmation },
+      simulationSideEffectGate: { assertAuthorized: () => Promise.resolve() },
+      clock: { now: () => now },
+    });
+
+    await expect(
+      authorizer.authorizeAndConsume({
+        invocationId: 'invocation-unknown-allowed',
+        dispatchHash: `sha256:${'f'.repeat(64)}`,
+        taskId: snapshot.task.taskId,
+        capabilityAttemptId: snapshot.attempt.capabilityAttemptId,
+        providerBindingId: snapshot.selectedTaskOperation.providerBinding.bindingId,
+        serverId: snapshot.selectedTaskOperation.server.serverId,
+        toolName: snapshot.selectedTaskOperation.operation.operationName,
+        arguments: snapshot.selectedTaskOperation.resolvedArguments,
+        executionSemantics: snapshot.selectedTaskOperation.operation.executionSemantics,
+      }),
+    ).resolves.toMatchObject({ invocationId: 'invocation-unknown-allowed' });
+    expect(consumeConfirmation).toHaveBeenCalledOnce();
+  });
+
   it.each([
     [
       'adapted arguments tamper',
@@ -329,6 +438,19 @@ describe('UGV governed-control profile authority', () => {
       (snapshot: UgvGovernedControlDispatchAuthoritySnapshot) => ({
         ...snapshot,
         readiness: { ...snapshot.readiness, validUntil: now },
+      }),
+      arguments_,
+      'UGV_GOVERNED_CONTROL_READINESS_STALE',
+    ],
+    [
+      'explicit disabled readiness',
+      (snapshot: UgvGovernedControlDispatchAuthoritySnapshot) => ({
+        ...snapshot,
+        readiness: {
+          ...snapshot.readiness,
+          availability: 'disabled',
+          availabilityDecision: 'provider_denied' as const,
+        },
       }),
       arguments_,
       'UGV_GOVERNED_CONTROL_READINESS_STALE',
@@ -490,8 +612,7 @@ describe('UGV governed-control profile authority', () => {
   });
 });
 
-function currentAuthority(): UgvGovernedControlAuthoritySnapshot {
-  const selected = selectedTaskOperation();
+function currentAuthority(selected = selectedTaskOperation()): UgvGovernedControlAuthoritySnapshot {
   const navigate = {
     operationName: selected.operation.operationName,
     toolRevision: selected.server.toolRevision,
@@ -608,6 +729,7 @@ function currentAuthority(): UgvGovernedControlAuthoritySnapshot {
       catalogChecksum: selected.server.catalogChecksum,
       toolRevision: selected.server.toolRevision,
       availability: 'available',
+      availabilityDecision: 'provider_available',
       riskLevel: 'high',
       checkedAt: '2026-08-21T01:00:30.000Z',
       validUntil,

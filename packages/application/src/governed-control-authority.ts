@@ -11,9 +11,11 @@ const PHYSICAL_CONTROL_RISK_LEVELS = new Set(['medium', 'high', 'critical']);
 const TERMINAL_TASK_PHASES = new Set(['completed', 'failed', 'canceled']);
 
 export const HARD_DENIED_CONTROL_TOOLS = Object.freeze(['vehicle_fire_weapon'] as const);
+export type GovernedControlAuthorityKind = 'physical_control' | 'emergency_stop' | 'weapon_control';
 
 export interface GovernedControlConfirmation {
   readonly confirmationId: string;
+  readonly authorityKind?: GovernedControlAuthorityKind;
   readonly taskId: string;
   readonly capabilityBindingId: string;
   readonly capabilityId: string;
@@ -91,9 +93,12 @@ export class GovernedControlConfirmationService {
       | 'consumedInvocationId'
       | 'consumedDispatchHash'
       | 'consumedAt'
-    >,
+      | 'authorityKind'
+    > &
+      Readonly<{ authorityKind?: GovernedControlAuthorityKind }>,
   ): Promise<GovernedControlConfirmation> {
-    assertTrustedHumanActor(input);
+    const authorityKind = input.authorityKind ?? 'physical_control';
+    assertTrustedHumanActor({ ...input, authorityKind });
     const scope = {
       taskId: required(input.taskId, 'taskId'),
       capabilityBindingId: required(input.capabilityBindingId, 'capabilityBindingId'),
@@ -137,6 +142,7 @@ export class GovernedControlConfirmationService {
       );
     const confirmation = freezeConfirmation({
       ...input,
+      authorityKind,
       ...scope,
       confirmationId: required(this.#ids.nextConfirmationId(), 'confirmationId'),
       confirmedAt: new Date(confirmedAt).toISOString(),
@@ -152,6 +158,7 @@ export class GovernedControlConfirmationService {
       actorKind: 'human';
       authenticationMethod: string;
       actorRoles: readonly string[];
+      authorityKind?: GovernedControlAuthorityKind;
     }>,
   ): Promise<GovernedControlConfirmation | undefined> {
     assertTrustedHumanActor(input);
@@ -274,6 +281,19 @@ export interface GovernedControlInvocationAuthorityPort {
   authorizeAndConsume(input: GovernedControlInvocation): Promise<GovernedControlDispatchReceipt>;
 }
 
+export interface WeaponControlEvidenceAuthorityPort {
+  assertReady(
+    input: Readonly<{
+      taskId: string;
+      capabilityAttemptId: string;
+      providerBindingId: string;
+      serverId: string;
+      toolName: string;
+      arguments: Readonly<Record<string, unknown>>;
+    }>,
+  ): Promise<void>;
+}
+
 /**
  * Rechecks every mutable authority immediately before a Provider transport is crossed. Catalog
  * discovery is deliberately absent from this API: a discovered Tool can identify the target, but
@@ -283,31 +303,41 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
   readonly #store: GovernedControlAuthorityStore;
   readonly #capabilities: CurrentGovernedCapabilityAuthorityPort;
   readonly #clock: Readonly<{ now(): string }>;
+  readonly #hardDeniedTools: ReadonlySet<string>;
+  readonly #weaponEvidence: WeaponControlEvidenceAuthorityPort | undefined;
 
   constructor(
     dependencies: Readonly<{
       store: GovernedControlAuthorityStore;
       capabilities: CurrentGovernedCapabilityAuthorityPort;
       clock: Readonly<{ now(): string }>;
+      hardDeniedTools?: readonly string[];
+      weaponEvidence?: WeaponControlEvidenceAuthorityPort;
     }>,
   ) {
     this.#store = dependencies.store;
     this.#capabilities = dependencies.capabilities;
     this.#clock = dependencies.clock;
+    this.#hardDeniedTools = new Set(dependencies.hardDeniedTools ?? HARD_DENIED_CONTROL_TOOLS);
+    this.#weaponEvidence = dependencies.weaponEvidence;
   }
 
   async authorizeAndConsume(
     input: GovernedControlInvocation,
   ): Promise<GovernedControlDispatchReceipt> {
-    if (
-      HARD_DENIED_CONTROL_TOOLS.includes(
-        input.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
-      )
-    )
+    if (this.#hardDeniedTools.has(input.toolName))
       fail(
         'GOVERNED_CONTROL_TOOL_HARD_DENIED',
         'vehicle_fire_weapon has no execution authority in this Runtime.',
       );
+    if (input.toolName === 'vehicle_fire_weapon') {
+      if (this.#weaponEvidence === undefined)
+        fail(
+          'WEAPON_CONTROL_STRICT_EVIDENCE_REQUIRED',
+          'Weapon control requires current strict target-lock and payload readiness authority.',
+        );
+      await this.#weaponEvidence.assertReady(input);
+    }
     if (
       input.executionSemantics.effect !== 'side_effecting' ||
       input.executionSemantics.execution === 'unknown'
@@ -535,6 +565,7 @@ export class GovernedControlInvocationAuthorizer implements GovernedControlInvoc
       'GOVERNED_CONTROL_CONFIRMATION_TIME_INVALID',
     );
     if (
+      (confirmation.authorityKind ?? 'physical_control') !== authorityKindForTool(input.toolName) ||
       confirmation.taskId !== task.taskId ||
       confirmation.capabilityBindingId !== binding.bindingId ||
       confirmation.capabilityId !== binding.capabilityId ||
@@ -574,7 +605,9 @@ function assertControlConstraints(
   const dispatchMaximum = frozenDispatchMaximum(constraints);
   if (
     confirmation['required'] !== true ||
-    confirmation['stage'] !== 'before_execution' ||
+    !confirmationStageAllowed(input.toolName, confirmation['stage']) ||
+    (confirmation['authorityKind'] ?? 'physical_control') !==
+      authorityKindForTool(input.toolName) ||
     confirmation['autoConfirmPlan'] !== false ||
     sideEffect['sideEffecting'] !== true ||
     sideEffect['uncertainDispatchPolicy'] !== 'reconcile_never_redispatch' ||
@@ -752,19 +785,42 @@ function assertTrustedHumanActor(
     actorKind: string;
     authenticationMethod: string;
     actorRoles: readonly string[];
+    authorityKind?: GovernedControlAuthorityKind;
   }>,
 ): void {
   const actorId = required(input.actorId, 'actorId');
+  const authorityKind = input.authorityKind ?? 'physical_control';
+  const requiredRole =
+    authorityKind === 'weapon_control'
+      ? 'weapon_control_approver'
+      : authorityKind === 'emergency_stop'
+        ? 'physical_control_emergency_operator'
+        : CONTROL_APPROVER_ROLE;
   if (
     input.actorKind !== 'human' ||
     required(input.authenticationMethod, 'authenticationMethod') === 'none' ||
-    !input.actorRoles.includes(CONTROL_APPROVER_ROLE) ||
+    !input.actorRoles.includes(requiredRole) ||
     /^(?:agent|assistant|llm|model):/iu.test(actorId)
   )
     fail(
       'GOVERNED_CONTROL_CONFIRMATION_ACTOR_UNTRUSTED',
       'High-risk confirmation requires an authenticated human control approver.',
     );
+}
+
+function authorityKindForTool(toolName: string): GovernedControlAuthorityKind {
+  return toolName === 'vehicle_fire_weapon'
+    ? 'weapon_control'
+    : toolName === 'vehicle_emergency_stop'
+      ? 'emergency_stop'
+      : 'physical_control';
+}
+
+function confirmationStageAllowed(toolName: string, value: unknown): boolean {
+  if (toolName === 'vehicle_fire_weapon') return value === 'pre_dispatch';
+  if (toolName === 'vehicle_emergency_stop')
+    return value === 'before_execution' || value === 'before_execution_or_direct_emergency';
+  return value === 'before_execution';
 }
 
 function exactlyOne(
@@ -857,7 +913,8 @@ export type GovernedControlAuthorityErrorCode =
   | 'GOVERNED_CONTROL_READINESS_TIME_INVALID'
   | 'GOVERNED_CONTROL_RUNTIME_AUTHORITY_INVALID'
   | 'GOVERNED_CONTROL_SEMANTICS_NOT_EXPLICIT'
-  | 'GOVERNED_CONTROL_TOOL_HARD_DENIED';
+  | 'GOVERNED_CONTROL_TOOL_HARD_DENIED'
+  | 'WEAPON_CONTROL_STRICT_EVIDENCE_REQUIRED';
 
 export class GovernedControlAuthorityError extends Error {
   constructor(

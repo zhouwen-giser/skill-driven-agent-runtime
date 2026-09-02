@@ -179,6 +179,199 @@ describe('management HTTP API contract', () => {
     });
   });
 
+  it('maps emergency-stop and weapon authorization routes to their dedicated authorities', async () => {
+    const token = 'high-risk-control-http-token-000001';
+    const principal = Object.freeze({
+      actorId: 'human:high-risk-operator',
+      kind: 'human' as const,
+      authenticationMethod: 'configured_bearer',
+      permissions: new Set([
+        'physical_control.emergency_stop' as const,
+        'weapon_control.confirm' as const,
+        'weapon_control.revoke' as const,
+      ]),
+      requestId: 'request-high-risk-1',
+    });
+    const followUp = vi.fn<ManagementOperations['tasks']['followUp']>((command) =>
+      Promise.resolve(runtimeTask(command.taskId, command.action)),
+    );
+    const weaponRevoke = vi.fn(() =>
+      Promise.resolve({ confirmationId: 'weapon-confirmation-1', revoked: true }),
+    );
+    const emergencyRevoke = vi.fn(() =>
+      Promise.resolve({ confirmationId: 'emergency-confirmation-1', revoked: true }),
+    );
+    const listConfirmations = vi.fn(() =>
+      Promise.resolve({
+        items: [
+          {
+            confirmationId: 'weapon-confirmation-1',
+            authorityKind: 'weapon_control' as const,
+            taskId: 'task-weapon',
+            capabilityId: 'vehicle.ugv.fire-weapon',
+            capabilityVersion: 1,
+            capabilityAttemptId: 'capability-attempt-weapon-1',
+            planId: 'plan-weapon-1',
+            planHash: 'b'.repeat(64),
+            skillId: 'ugv.fire-weapon',
+            skillVersion: 1,
+            providerBindingId: 'ugv-binding-1',
+            serverId: 'ugv-server-1',
+            toolName: 'vehicle_fire_weapon',
+            argumentsHash: 'a'.repeat(64),
+            parameters: { resourceId: 'vehicle:ugv1', targetId: 'target-17' },
+            confirmedAt: '2026-09-01T05:00:00.000Z',
+            expiresAt: '2026-09-01T05:10:00.000Z',
+            status: 'pending' as const,
+          },
+        ],
+      }),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: {
+        ...operations(),
+        tasks: { ...operations().tasks, followUp },
+      },
+      governedControl: {
+        confirmations: {
+          issue: vi.fn(),
+          revoke: vi.fn(),
+        },
+        emergencyStop: {
+          issue: vi.fn(),
+          revoke: emergencyRevoke as unknown as GovernedControlManagementService['revoke'],
+        },
+        weapon: {
+          issue: vi.fn(),
+          revoke: weaponRevoke as unknown as GovernedControlManagementService['revoke'],
+        },
+        query: { list: listConfirmations },
+        principalResolver: {
+          resolve(input) {
+            if (input.authorization !== `Bearer ${token}`)
+              return Promise.reject(
+                new GovernedControlManagementError('GOVERNED_CONTROL_AUTHENTICATION_REQUIRED', 401),
+              );
+            return Promise.resolve(principal);
+          },
+        },
+      },
+    });
+
+    const emergency = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-emergency/emergency-stop-authorizations`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          resourceId: 'vehicle:ugv1',
+          reason: 'Immediate operator stop.',
+        }),
+      },
+    );
+    expect(emergency.status).toBe(200);
+    expect(followUp).toHaveBeenCalledWith({
+      taskId: 'task-emergency',
+      action: 'confirm_plan',
+      messageText: 'Immediate operator stop.',
+      confirmationAuthority: { principal },
+      emergencyAuthorization: { resourceId: 'vehicle:ugv1' },
+    });
+
+    const emergencyRevoked = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-emergency/emergency-stop-authorizations/emergency-confirmation-1/revoke`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Emergency authority no longer needed.' }),
+      },
+    );
+    expect(emergencyRevoked.status).toBe(200);
+    expect(emergencyRevoke).toHaveBeenCalledWith({
+      taskId: 'task-emergency',
+      confirmationId: 'emergency-confirmation-1',
+      reason: 'Emergency authority no longer needed.',
+      principal,
+    });
+
+    const weapon = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-weapon/weapon-confirmations`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          resourceId: 'vehicle:ugv1',
+          targetId: 'target-17',
+          engagementMode: 'single',
+          requireConfirmation: true,
+          reason: 'Exact one-shot authorization.',
+        }),
+      },
+    );
+    expect(weapon.status).toBe(200);
+    expect(followUp).toHaveBeenCalledWith({
+      taskId: 'task-weapon',
+      action: 'confirm_weapon_action',
+      messageText: 'Exact one-shot authorization.',
+      confirmationAuthority: { principal },
+      weaponAuthorization: {
+        resourceId: 'vehicle:ugv1',
+        targetId: 'target-17',
+        engagementMode: 'single',
+        requireConfirmation: true,
+      },
+    });
+
+    const revoked = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-weapon/weapon-confirmations/weapon-confirmation-1/revoke`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Target authority changed.' }),
+      },
+    );
+    expect(revoked.status).toBe(200);
+    expect(weaponRevoke).toHaveBeenCalledWith({
+      taskId: 'task-weapon',
+      confirmationId: 'weapon-confirmation-1',
+      reason: 'Target authority changed.',
+      principal,
+    });
+
+    const inexact = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-weapon/weapon-confirmations`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          resourceId: 'vehicle:ugv1',
+          targetId: 'target-17',
+          engagementMode: 'burst',
+          requireConfirmation: true,
+          reason: 'Invalid mode.',
+        }),
+      },
+    );
+    expect(inexact.status).toBe(400);
+    expect(followUp).toHaveBeenCalledTimes(2);
+
+    const confirmationEvidence = await fetch(
+      `${endpoint.baseUrl}/api/v1/tasks/task-weapon/governed-control-confirmations`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    expect(confirmationEvidence.status).toBe(200);
+    await expect(confirmationEvidence.json()).resolves.toMatchObject({
+      items: [
+        {
+          confirmationId: 'weapon-confirmation-1',
+          parameters: { targetId: 'target-17' },
+          status: 'pending',
+        },
+      ],
+    });
+    expect(listConfirmations).toHaveBeenCalledWith({ taskId: 'task-weapon', principal });
+  });
+
   it('exposes workflow-template inventory and usage evidence', async () => {
     endpoint = await startManagementHttpEndpoint({ operations: operations() });
     const inventory = await fetch(`${endpoint.baseUrl}/api/v1/workflow-templates`);

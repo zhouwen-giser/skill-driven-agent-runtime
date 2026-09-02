@@ -39,18 +39,23 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
       binding.taskType !== 'embodied.move' ||
       input.allowPreferredProviderFallback ||
       arguments_?.unresolved !== false ||
-      executionContext?.mode !== 'simulation' ||
-      executionContext.simulationId === undefined
+      executionContext === undefined ||
+      executionContext.mode === 'historical-replay' ||
+      (executionContext.mode === 'simulation' && executionContext.simulationId === undefined)
     )
       throw new UgvMoveSkillUsageError(
         'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED',
-        'UGV Skill Usage requires exact input, simulation, and profile binding authority.',
+        'UGV Skill Usage requires exact input, a live or simulation execution context, and profile binding authority.',
       );
     const resolved = await this.#resolver.resolve({
       skillInput: arguments_.value,
       executionContext,
     });
     const selected = resolved.selected;
+    const allowedByDefault = selected.availability.policyDecision === 'allowed_by_default';
+    const readinessReasonCodes = Object.freeze(
+      allowedByDefault ? ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT'] : [],
+    );
     const provider = Object.freeze({
       providerId: selected.server.serverId,
       operationName: selected.operation.operationName,
@@ -71,7 +76,7 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
         : { reservationRef: selected.availability.reservationRef }),
       possibleEffects: Object.freeze([...selected.availability.possibleEffects]),
       selected: true,
-      reasonCodes: Object.freeze([]),
+      reasonCodes: readinessReasonCodes,
     });
     return Object.freeze({
       overall: 'ready' as const,
@@ -81,7 +86,7 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
           taskType: binding.taskType,
           disposition: 'ready' as const,
           confirmationRequired: true,
-          reasonCodes: Object.freeze([]),
+          reasonCodes: readinessReasonCodes,
           selectedProviderId: selected.server.serverId,
           selectedOperationName: selected.operation.operationName,
           selectedProtocolMode: 'frozen_v1' as const,
@@ -167,18 +172,20 @@ export function resolveUgvMoveSkillUsageContext(
   const confirmation = exactlyOneConstraint(input.binding, 'confirmation_policy');
   const sideEffect = exactlyOneConstraint(input.binding, 'physical_side_effect_policy');
   const executionPolicy = exactlyOneConstraint(input.binding, 'runtime_execution_mode_policy');
-  const targetPolicy = exactlyOneConstraint(input.binding, UGV_SIMULATION_TARGET_POLICY_TYPE);
+  const targetPolicies = input.binding.constraintSnapshot.filter(
+    (constraint) => constraint['type'] === UGV_SIMULATION_TARGET_POLICY_TYPE,
+  );
   const bindingInput = record(input.binding.inputSnapshot);
   const target = record(bindingInput?.['target']);
   const serverId = providerPolicy['localServerId'];
   const providerBindingId = providerPolicy['mcpProviderBindingId'];
-  const simulationId = execution?.simulationId;
+  if (execution === undefined) invalid('The formal UGV Runtime execution context is missing.');
   if (
     input.authority.skillId !== 'embodied.move_to' ||
     input.authority.skillVersion !== 1 ||
     !BOUNDED_REFERENCE_ID.test(input.binding.bindingId) ||
     input.binding.requestedCapabilityId !== 'embodied.move' ||
-    input.binding.capabilityVersion !== 2 ||
+    input.binding.capabilityVersion < 2 ||
     !sameStrings(input.binding.initialImplementationRefs, ['skill:embodied.move_to:1']) ||
     exactSkill['skillId'] !== 'embodied.move_to' ||
     exactSkill['skillVersion'] !== 1 ||
@@ -190,8 +197,7 @@ export function resolveUgvMoveSkillUsageContext(
     !sameJson(arguments_.value, input.binding.inputSnapshot) ||
     context.risk !== 'high' ||
     context.humanConfirmation !== 'pending' ||
-    execution?.mode !== 'simulation' ||
-    !present(simulationId) ||
+    !exactExecutionAuthority(execution, executionPolicy) ||
     !exactSystemPolicy(context) ||
     resourcePolicy['selection'] !== 'exact_value' ||
     !sameJson(resourcePolicy['allowedResourceIds'], [UGV_RESOURCE_ID]) ||
@@ -206,17 +212,19 @@ export function resolveUgvMoveSkillUsageContext(
     confirmation['required'] !== true ||
     confirmation['stage'] !== 'before_execution' ||
     sideEffect['sideEffecting'] !== true ||
-    executionPolicy['mode'] !== 'simulation' ||
-    executionPolicy['simulationId'] !== simulationId ||
+    !exactTargetAuthority(execution, targetPolicies) ||
     !exactCapabilityObservations(context, input.binding, providerBindingId as string)
   )
     invalid('The formal UGV Task Capability context is not exact.');
 
-  const policy = exactTargetPolicy(targetPolicy);
   const providerContextHash = hashCanonicalEvidenceJson(context.observations);
   const authorityPrefix = `task-capability-binding:${input.binding.bindingId}:hash:${input.binding.bindingHash}:provider-context-hash:${providerContextHash}:workflow-read:${STATE_OPERATION}:context:`;
-  const policyHash = hashCanonicalEvidenceJson(targetPolicy);
-  const permissionRef = `task-capability-binding:${input.binding.bindingId}:hash:${input.binding.bindingHash}:policy-id:${policy.policyId}:revision:${String(policy.revision)}:policy-hash:${policyHash}:context:permission-context`;
+  const executionAuthorityHash = hashCanonicalEvidenceJson({
+    executionPolicy,
+    targetPolicies,
+    inputSnapshotHash: hashCanonicalEvidenceJson(input.binding.inputSnapshot),
+  });
+  const permissionRef = `task-capability-binding:${input.binding.bindingId}:hash:${input.binding.bindingHash}:execution-authority-hash:${executionAuthorityHash}:context:permission-context`;
   if (
     `${authorityPrefix}current-position`.length > 512 ||
     `${authorityPrefix}resource-state`.length > 512 ||
@@ -327,6 +335,35 @@ function exactTargetPolicy(value: Readonly<Record<string, unknown>>) {
   const expected = createUgvSimulationTargetPolicy({ policyId, revision });
   if (!sameJson(value, expected)) invalid('The frozen UGV simulation target policy is not exact.');
   return Object.freeze({ policyId, revision });
+}
+
+function exactExecutionAuthority(
+  execution: TaskCapabilitySkillUsageAuthority['context']['runtimeExecutionContext'],
+  policy: Readonly<Record<string, unknown>>,
+): boolean {
+  if (execution?.mode === 'live')
+    return (
+      execution.simulationId === undefined &&
+      policy['mode'] === 'live' &&
+      policy['simulationId'] === undefined
+    );
+  return (
+    execution?.mode === 'simulation' &&
+    present(execution.simulationId) &&
+    policy['mode'] === 'simulation' &&
+    policy['simulationId'] === execution.simulationId
+  );
+}
+
+function exactTargetAuthority(
+  execution: TaskCapabilitySkillUsageAuthority['context']['runtimeExecutionContext'],
+  policies: readonly Readonly<Record<string, unknown>>[],
+): boolean {
+  if (execution?.mode === 'live') return policies.length === 0;
+  if (execution?.mode !== 'simulation' || policies.length !== 1 || policies[0] === undefined)
+    return false;
+  exactTargetPolicy(policies[0]);
+  return true;
 }
 
 /**
@@ -587,8 +624,13 @@ function parseProviderContextEvidence(
 
 function parsePermissionEvidence(evidenceRef: string | undefined): boolean {
   if (evidenceRef === undefined || evidenceRef.length > 512) return false;
-  return /^task-capability-binding:[A-Za-z0-9._-]{1,128}:hash:[0-9a-f]{64}:policy-id:[A-Za-z0-9._/-]{1,128}:revision:[1-9][0-9]*:policy-hash:sha256:[0-9a-f]{64}:context:permission-context$/u.test(
-    evidenceRef,
+  return (
+    /^task-capability-binding:[A-Za-z0-9._-]{1,128}:hash:[0-9a-f]{64}:execution-authority-hash:sha256:[0-9a-f]{64}:context:permission-context$/u.test(
+      evidenceRef,
+    ) ||
+    /^task-capability-binding:[A-Za-z0-9._-]{1,128}:hash:[0-9a-f]{64}:policy-id:[A-Za-z0-9._/-]{1,128}:revision:[1-9][0-9]*:policy-hash:sha256:[0-9a-f]{64}:context:permission-context$/u.test(
+      evidenceRef,
+    )
   );
 }
 

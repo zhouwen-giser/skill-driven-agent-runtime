@@ -42,7 +42,15 @@ const GovernedControlPermissionsSchema = z.preprocess(
   (value) =>
     typeof value === 'string' ? value.split(',').map((permission) => permission.trim()) : value,
   z
-    .array(z.enum(['physical_control.confirm', 'physical_control.revoke']))
+    .array(
+      z.enum([
+        'physical_control.confirm',
+        'physical_control.revoke',
+        'physical_control.emergency_stop',
+        'weapon_control.confirm',
+        'weapon_control.revoke',
+      ]),
+    )
     .min(1)
     .superRefine((permissions, context) => {
       if (new Set(permissions).size !== permissions.length)

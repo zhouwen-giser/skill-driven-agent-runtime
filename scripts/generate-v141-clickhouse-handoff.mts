@@ -27,7 +27,7 @@ const mappings = requiredArray(matrix, 'records');
 const scenarios = requiredArray(phase12, 'scenarios');
 const registryHash = requiredString(registry, 'registryHash');
 
-if (records.length !== 100 || mappings.length !== 100) {
+if (records.length !== 105 || mappings.length !== 105) {
   throw new Error('V141_CLICKHOUSE_HANDOFF_CATALOG_COUNT_INVALID');
 }
 if (mappings.some((entry) => entry['status'] !== 'implemented_and_verified')) {
@@ -49,8 +49,8 @@ await writeJson(path.join(outputRoot, 'contract-manifest.json'), {
   contractHash: hashCanonicalEvidenceJson(contract),
   hashAlgorithm: 'sha256 over canonical Evidence JSON UTF-8 bytes',
   limits: {
-    recordTypes: 100,
-    requiredRecords: 95,
+    recordTypes: 105,
+    requiredRecords: 100,
     diagnosticRecords: 5,
     maximumBatchRecords: 1_000,
     maximumCanonicalRecordBytes: 262_144,
@@ -80,7 +80,7 @@ await writeJson(path.join(outputRoot, 'source-mapping.json'), {
   contractVersion: 'sdar.evidence/v1',
   registryHash,
   totals: {
-    catalog: 100,
+    catalog: 105,
     implementedAndVerified: mappings.length,
     required: mappings.filter((entry) => entry['evaluation_role'] === 'required').length,
     diagnostic: mappings.filter((entry) => entry['evaluation_role'] === 'diagnostic').length,
@@ -127,8 +127,8 @@ await writeJson(path.join(outputRoot, 'readiness-policy.json'), {
   schemaVersion: 1,
   contractVersion: 'sdar.evidence/v1',
   registryHash,
-  requiredSourceCoverage: { verified: 95, total: 95, ready: true },
-  catalogCoverage: { verified: 100, total: 100, ready: true },
+  requiredSourceCoverage: { verified: 100, total: 100, ready: true },
+  catalogCoverage: { verified: 105, total: 105, ready: true },
   phase12Scenarios: {
     passed: scenarios.filter((scenario) => scenario['status'] === 'passed').length,
     total: 44,
@@ -142,7 +142,7 @@ await writeJson(path.join(outputRoot, 'readiness-policy.json'), {
 });
 await writeFile(
   path.join(outputRoot, 'known-limitations.md'),
-  `# Known limitations\n\n- Delivery is at least once; duplicate batches and records are expected and must be deduplicated by stable identity and hash.\n- ACK is contiguous and partition-aware; it is not a distributed transaction with the receiver.\n- Diagnostic record exclusion is policy-controlled; all 95 Required record types remain mandatory.\n- PostgreSQL is the SDAR authority. This handoff contains no ClickHouse DDL, table, query, proxy or operational authority.\n- No production HA, throughput SLO, RTO or RPO is claimed by the local acceptance evidence.\n- Artifact payloads remain referenced by hash/size/URI and require an authorized resolver.\n- The sample batches are deterministic simulated adapter fixtures; real execution proof remains in the Phase 12 and Phase 14 reports.\n`,
+  `# Known limitations\n\n- Delivery is at least once; duplicate batches and records are expected and must be deduplicated by stable identity and hash.\n- ACK is contiguous and partition-aware; it is not a distributed transaction with the receiver.\n- Diagnostic record exclusion is policy-controlled; all 100 Required record types remain mandatory.\n- PostgreSQL is the SDAR authority. This handoff contains no ClickHouse DDL, table, query, proxy or operational authority.\n- No production HA, throughput SLO, RTO or RPO is claimed by the local acceptance evidence.\n- Artifact payloads remain referenced by hash/size/URI and require an authorized resolver.\n- The sample batches are deterministic simulated adapter fixtures; real execution proof remains in the Phase 12 and Phase 14 reports.\n`,
   'utf8',
 );
 

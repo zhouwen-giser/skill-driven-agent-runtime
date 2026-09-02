@@ -4,6 +4,7 @@ import {
   canonicalHash,
   GovernedControlManagementError,
   type GovernedControlIssueAuthority,
+  type GovernedControlAuthorityKind,
   type GovernedControlManagementAuthorityReader,
   type GovernedControlRevocationAuthority,
 } from '../../application/src/index.js';
@@ -45,9 +46,11 @@ const ACTIVE_ATTEMPT_STATUSES = new Set(['prepared', 'running', 'waiting']);
 /** Reads the complete confirmation scope from one PostgreSQL statement snapshot. */
 export class PostgresGovernedControlManagementAuthorityReader implements GovernedControlManagementAuthorityReader {
   readonly #pool: Pool;
+  readonly #authorityKind: GovernedControlAuthorityKind;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, authorityKind: GovernedControlAuthorityKind = 'physical_control') {
     this.#pool = pool;
+    this.#authorityKind = authorityKind;
   }
 
   async issueAuthority(taskId: string): Promise<GovernedControlIssueAuthority | undefined> {
@@ -100,7 +103,7 @@ export class PostgresGovernedControlManagementAuthorityReader implements Governe
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
-    return deriveAuthority(row);
+    return deriveAuthority(row, this.#authorityKind);
   }
 
   async revocationAuthority(
@@ -129,7 +132,10 @@ export class PostgresGovernedControlManagementAuthorityReader implements Governe
   }
 }
 
-function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
+function deriveAuthority(
+  row: AuthorityRow,
+  authorityKind: GovernedControlAuthorityKind,
+): GovernedControlIssueAuthority {
   if (
     TERMINAL_TASK_PHASES.has(row.task_phase) ||
     row.task_plan_id === null ||
@@ -176,6 +182,14 @@ function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
   const sideEffectPolicy = record(record(row.skill_outcome_specification)['sideEffectPolicy']);
   const runtimePolicy = record(row.skill_runtime_policy);
   const dispatchMaximum = frozenDispatchMaximum(physical);
+  const expectedAuthorityKind =
+    toolName === 'vehicle_fire_weapon'
+      ? 'weapon_control'
+      : toolName === 'vehicle_emergency_stop'
+        ? 'emergency_stop'
+        : 'physical_control';
+  if (authorityKind !== 'physical_control')
+    assertSingleHighRiskControlPlan(row.plan_definition, serverId, toolName);
   assertBoundedMovementAuthority(
     constraints,
     argumentsRecord,
@@ -188,9 +202,10 @@ function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
     exactSkill['skillId'] !== row.skill_id ||
     exactSkill['skillVersion'] !== row.skill_version ||
     exactSkill['taskType'] !== toolName ||
-    toolName === 'vehicle_fire_weapon' ||
+    authorityKind !== expectedAuthorityKind ||
     confirmation['required'] !== true ||
-    !['before_execution', 'pre_dispatch'].includes(confirmationStage) ||
+    declaredAuthorityKind(confirmation['authorityKind']) !== authorityKind ||
+    !confirmationStageAllowed(authorityKind, confirmationStage) ||
     (confirmationStage === 'before_execution' && confirmation['autoConfirmPlan'] !== false) ||
     (confirmationStage === 'pre_dispatch' && confirmation['trustedActorRequired'] !== true) ||
     physical['sideEffecting'] !== true ||
@@ -211,7 +226,8 @@ function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
     runtimePolicy['autoConfirmPlan'] !== false ||
     runtimePolicy['maxMcpCalls'] !== dispatchMaximum ||
     sideEffectPolicy['sideEffecting'] !== true ||
-    !['required', 'required_before_execution'].includes(String(sideEffectPolicy['confirmation'])) ||
+    !confirmationPolicyAllowed(authorityKind, String(sideEffectPolicy['confirmation'])) ||
+    declaredAuthorityKind(sideEffectPolicy['authorityKind']) !== authorityKind ||
     !exactlyOneString(row.attempt_skill_version_refs, skillRef) ||
     !exactlyOneString(row.attempt_provider_binding_refs, providerBindingId) ||
     (physical['type'] === 'physical_side_effect_policy' &&
@@ -237,6 +253,53 @@ function deriveAuthority(row: AuthorityRow): GovernedControlIssueAuthority {
     arguments: row.input_snapshot,
     argumentsHash: canonicalHash(row.input_snapshot),
   });
+}
+
+function confirmationStageAllowed(
+  authorityKind: GovernedControlAuthorityKind,
+  stage: string,
+): boolean {
+  if (authorityKind === 'weapon_control') return stage === 'pre_dispatch';
+  if (authorityKind === 'emergency_stop')
+    return ['before_execution', 'before_execution_or_direct_emergency'].includes(stage);
+  return stage === 'before_execution';
+}
+
+function confirmationPolicyAllowed(
+  authorityKind: GovernedControlAuthorityKind,
+  value: string,
+): boolean {
+  if (authorityKind === 'weapon_control') return value === 'plan_and_weapon_confirmation_required';
+  if (authorityKind === 'emergency_stop')
+    return value === 'plan_or_direct_emergency_authority_required';
+  return ['required', 'required_before_execution'].includes(value);
+}
+
+function declaredAuthorityKind(value: unknown): GovernedControlAuthorityKind | undefined {
+  if (value === undefined) return 'physical_control';
+  return value === 'physical_control' || value === 'emergency_stop' || value === 'weapon_control'
+    ? value
+    : undefined;
+}
+
+function assertSingleHighRiskControlPlan(
+  definitionValue: unknown,
+  serverId: string,
+  toolName: string,
+): void {
+  const definition = record(definitionValue);
+  const nodes = recordArray(definition['nodes']);
+  const toolNodes = nodes.filter((node) => node['type'] === 'mcp_tool');
+  const toolNode = toolNodes[0];
+  if (
+    toolNodes.length !== 1 ||
+    toolNode?.['serverId'] !== serverId ||
+    toolNode['toolName'] !== toolName ||
+    nodes.some((node) =>
+      ['llm', 'loop', 'parallel', 'skill', 'subworkflow'].includes(String(node['type'])),
+    )
+  )
+    invalidAuthority();
 }
 
 function assertBoundedMovementAuthority(

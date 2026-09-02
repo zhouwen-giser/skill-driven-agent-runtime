@@ -3756,6 +3756,38 @@ describe('PostgreSQL protocol-domain repositories', () => {
         ]),
       }),
     ]);
+
+    const refreshedSnapshot = {
+      ...snapshot,
+      snapshotId: 'snapshot.frozen.db.2',
+      toolRevision: 2,
+      discoveredAt: '2026-07-18T00:01:00.000Z',
+    };
+    await expect(
+      repository.saveFrozenServerAndReplaceTools(
+        {
+          server: {
+            serverId: 'mcp.frozen.db',
+            name: 'Frozen Provider',
+            endpoint: 'https://frozen.example.test/mcp',
+            transport: 'streamable_http',
+            status: 'enabled',
+            toolRevision: 2,
+            protocolMode: 'frozen_v1',
+            currentProtocolSnapshotId: refreshedSnapshot.snapshotId,
+            createdAt: '2026-07-18T00:00:00.000Z',
+            updatedAt: '2026-07-18T00:01:00.000Z',
+          },
+          encryptedCredential: 'encrypted-frozen-credential',
+        },
+        [{ ...frozenTool, discoveredAt: refreshedSnapshot.discoveredAt }],
+        refreshedSnapshot,
+        [{ toolName: 'embodied.move', reason: 'schema_changed' }],
+      ),
+    ).resolves.toBeUndefined();
+    await expect(repository.findCurrentProtocolSnapshot('mcp.frozen.db')).resolves.toEqual(
+      refreshedSnapshot,
+    );
   });
 
   it('atomically stores immutable Skill versions and publishes only the enabled current version', async () => {

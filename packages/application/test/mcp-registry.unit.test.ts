@@ -797,6 +797,25 @@ describe('MCP Registry invocation boundary', () => {
     );
   });
 
+  it('sends the resolved Task call profile for a Frozen server-directed operation', async () => {
+    const fixture = createFixture({
+      toolName: 'task_server_directed',
+      toolExecution: 'task_capable',
+      toolIdempotency: 'client_request_key',
+      taskBehavior: 'server_directed',
+    });
+
+    await fixture.service.callDetailed('provider-1', 'task_server_directed', {}, undefined, {
+      taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
+    });
+
+    expect(fixture.call).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        taskCallProfile: { profileVersion: '1.0', idempotencyKey: 'invocation-1' },
+      }),
+    );
+  });
+
   it('does not invent an idempotency key when Task semantics declare none', async () => {
     const fixture = createFixture({
       toolName: 'task_without_idempotency',
@@ -1229,6 +1248,7 @@ function createFixture(
     },
     frozenLifecycle: {
       call,
+      reconcile: () => Promise.reject(new Error('unused')),
       get,
       update: () => Promise.reject(new Error('unused')),
       cancel: () => Promise.reject(new Error('unused')),

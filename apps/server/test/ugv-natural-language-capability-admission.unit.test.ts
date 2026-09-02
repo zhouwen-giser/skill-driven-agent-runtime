@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { UgvNaturalLanguageCapabilityAdmissionResolver } from '../src/ugv-natural-language-capability-admission.js';
 
-const resolver = new UgvNaturalLanguageCapabilityAdmissionResolver();
+const resolver = resolverFor(2);
 
 describe('UGV natural-language Capability admission', () => {
   it('deterministically resolves an English SACS text request without private metadata', async () => {
@@ -45,6 +45,37 @@ describe('UGV natural-language Capability admission', () => {
     expect(replay).toEqual(first);
   });
 
+  it('uses the current active append-only Exposure version instead of a profile constant', async () => {
+    const successor = resolverFor(3);
+
+    const resolved = await successor.resolve({
+      messageText: 'Move the UGV to longitude 106.8, latitude 29.7.',
+      userId: 'anonymous',
+      clientRequestId: 'sacs-successor-3',
+      receivedAt: '2026-08-31T16:00:00.000Z',
+    });
+
+    expect(resolved?.requestedCapability).toMatchObject({
+      exposureId: 'a2a.embodied.move',
+      exposureVersion: 3,
+    });
+  });
+
+  it('does not create an admission when no active Exposure exists', async () => {
+    const unavailable = new UgvNaturalLanguageCapabilityAdmissionResolver({
+      exposures: { findCurrent: () => Promise.resolve(undefined) },
+    });
+
+    await expect(
+      unavailable.resolve({
+        messageText: 'Move the UGV to longitude 106.8, latitude 29.7.',
+        userId: 'anonymous',
+        clientRequestId: 'sacs-no-exposure',
+        receivedAt: '2026-08-31T16:00:00.000Z',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('does not reinterpret unrelated natural language as UGV admission', async () => {
     await expect(
       resolver.resolve({
@@ -72,3 +103,11 @@ describe('UGV natural-language Capability admission', () => {
     ).rejects.toThrow();
   });
 });
+
+function resolverFor(exposureVersion: number): UgvNaturalLanguageCapabilityAdmissionResolver {
+  return new UgvNaturalLanguageCapabilityAdmissionResolver({
+    exposures: {
+      findCurrent: (exposureId) => Promise.resolve({ exposureId, exposureVersion }),
+    },
+  });
+}

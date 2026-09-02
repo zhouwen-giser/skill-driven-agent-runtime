@@ -83,9 +83,9 @@ export async function startA2AHttpEndpoint(
   const cardBuilder = new A2AAgentCardBuilder();
   const loadCard = async () => {
     const managedCard = await options.agentCardProvider?.findActive();
-    if (managedCard !== undefined) return managedCard;
     const capabilityProvider = options.capabilityCardProvider;
-    const base =
+    let base = managedCard;
+    base ??=
       capabilityProvider === undefined
         ? buildAgentCard(await loadSkills(), `${publicBaseUrl}/a2a`)
         : await (async () => {

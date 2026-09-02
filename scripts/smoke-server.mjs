@@ -15,8 +15,8 @@ run(process.execPath, [packageManagerExecPath, 'build'], 180_000);
 startInfrastructure();
 const { Pool } = pg;
 const postgresUrl =
-  process.env.SDAR_POSTGRES_URL ??
   process.env.SDAR_TEST_POSTGRES_URL ??
+  process.env.SDAR_POSTGRES_URL ??
   'postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar';
 const reuseDatabase = process.env.SDAR_SMOKE_REUSE_DATABASE === 'true';
 const temporaryDatabase = `sdar_server_smoke_${String(process.pid)}_${String(Date.now())}`;

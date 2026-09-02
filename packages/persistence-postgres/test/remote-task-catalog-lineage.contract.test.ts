@@ -25,9 +25,7 @@ describe('remote Task Catalog lineage migration', () => {
 
     expect(sql).toContain('CREATE TRIGGER mcp_tool_active_remote_task_guard');
     expect(sql).toContain("intent.status IN ('prepared','dispatching','receipt_recorded')");
-    expect(sql).toContain(
-      "binding.local_state NOT IN ('reentered','closed','quarantined')",
-    );
+    expect(sql).toContain("binding.local_state NOT IN ('reentered','closed','quarantined')");
     expect(sql).toContain('DROP CONSTRAINT remote_task_admission_tool_fk');
     expect(sql).not.toMatch(/CASCADE|DELETE FROM remote_task_admission_intent/u);
   });

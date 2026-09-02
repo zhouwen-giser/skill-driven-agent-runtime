@@ -22,6 +22,8 @@ import type {
 } from './ports.js';
 import type { SkillUsageCandidateAssessor } from './skill-usage-selection.js';
 
+export type SkillUsageCandidateAssessmentPort = Pick<SkillUsageCandidateAssessor, 'assess'>;
+
 const EMPTY_METRICS: SkillPerformanceMetrics = {
   sampleCount: 0,
   successRate: 0,
@@ -39,7 +41,7 @@ export class SkillSelectionService {
   readonly #decider: SkillSelectionDecider;
   readonly #clock: Clock;
   readonly #mcpWarnings: Pick<McpRegistryRepository, 'listDependencyWarnings'> | undefined;
-  readonly #usage: SkillUsageCandidateAssessor | undefined;
+  readonly #usage: SkillUsageCandidateAssessmentPort | undefined;
   readonly #ids: Readonly<{ nextSelectionId(): string; nextReplacementPlanId(): string }>;
 
   constructor(
@@ -50,7 +52,7 @@ export class SkillSelectionService {
       retriever: SkillSemanticRetriever;
       decider: SkillSelectionDecider;
       mcpWarnings?: Pick<McpRegistryRepository, 'listDependencyWarnings'>;
-      usage?: SkillUsageCandidateAssessor;
+      usage?: SkillUsageCandidateAssessmentPort;
       clock: Clock;
       ids: Readonly<{ nextSelectionId(): string; nextReplacementPlanId(): string }>;
     }>,

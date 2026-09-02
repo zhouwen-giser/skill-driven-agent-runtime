@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "sdar.telemetry-current-authority-dependency-lock/v1",
+  "status": "LOCKED",
+  "observedAt": "2026-09-01T01:47:19Z",
+  "consumer": {
+    "repository": "../sdar-telemetry-platform",
+    "implementationCommit": "cceea2b88b697dcaef33dba0bd7679b15b3b28d3",
+    "qualificationCommit": "01719507aea97f2bcca904fc3838127ee2fd29b2",
+    "implementationIsAncestorOfQualification": true,
+    "image": "sdar-telemetry:cceea2b88b697dcaef33dba0bd7679b15b3b28d3",
+    "imageDigest": "sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1",
+    "ociRevision": "cceea2b88b697dcaef33dba0bd7679b15b3b28d3",
+    "project": "sdar-telemetry-latest",
+    "handoffFiles": [
+      {
+        "path": "reports/provider-closure-mcp-sync-v0.1/13-current-authority-runtime-handoff.md",
+        "sha256": "c8400b7b85b7b447535b510578a0c7e2ba4f20ed7a523b8e5f6a0ab3ba3d5829"
+      },
+      {
+        "path": "reports/provider-closure-mcp-sync-v0.1/13-current-authority-runtime-handoff.json",
+        "sha256": "477e65883a11452405a6c134c0f00f817b97464845f6af0e066700922256fa5c"
+      }
+    ]
+  },
+  "currentAuthorityRule": {
+    "selection": "provider_observed_at_then_source_record_id_v1",
+    "historicalExactIsAuditOnlyAfterUnresolvedOrConflict": true,
+    "exactRelationMustReferenceSelectedFact": true
+  },
+  "upstream": {
+    "repository": "../smpp-telemetry-platform",
+    "sourceCommit": "bbadebccd146a639cb38e610a8c931a0257289c3",
+    "imageDigest": "sha256:28d80af3f3b16527c7444224fbadf0b73b7b8f985b3e04692133c7438dd24a04",
+    "currentAuthorityEndpoint": "http://127.0.0.1:18083",
+    "processorReadinessEndpoint": "http://127.0.0.1:8443/health/ready",
+    "checkpoint": {
+      "segment": 2,
+      "offsetEnd": 14887971,
+      "standalonePending": 0,
+      "sharedPending": 0,
+      "lastError": null
+    }
+  },
+  "qualification": {
+    "staticVerify": {
+      "total": 207,
+      "passed": 203,
+      "skippedExternalDatabase": 4,
+      "failed": 0
+    },
+    "services": [
+      {
+        "name": "ingestion-gateway",
+        "endpoint": "http://127.0.0.1:18080",
+        "startedAt": "2026-09-01T01:39:01.733713020Z",
+        "health": "healthy",
+        "restartCount": 0
+      },
+      {
+        "name": "query-api",
+        "endpoint": "http://127.0.0.1:18081",
+        "startedAt": "2026-09-01T01:39:01.731922008Z",
+        "health": "healthy",
+        "restartCount": 0
+      },
+      {
+        "name": "admin-api",
+        "endpoint": "http://127.0.0.1:18082",
+        "startedAt": "2026-09-01T01:39:03.033883715Z",
+        "health": "healthy",
+        "restartCount": 0
+      },
+      {
+        "name": "telemetry-worker",
+        "startedAt": "2026-09-01T01:39:03.036699360Z",
+        "health": "running",
+        "restartCount": 0
+      }
+    ],
+    "freshRun": {
+      "runId": "codex_it_authority_1788226891329",
+      "recordCount": 2,
+      "initialStatus": 202,
+      "duplicateStatus": 202,
+      "walBytes": [3016, 6083, 6083],
+      "queryStatus": 200,
+      "queryRows": 2,
+      "watermark": "2026-09-01T01:41:31.703Z"
+    },
+    "failedTaskAuthority": {
+      "taskId": "15588c56-7ede-4b7d-abf0-87031271c28c",
+      "taskExecutionCount": 1,
+      "missionStatus": "unresolved",
+      "executionMissionCount": 0,
+      "authorityRecordId": "9d48a6c8-d8f0-5dc0-9dc4-b4229008a0b8",
+      "auditHistoryPreserved": true
+    },
+    "normalTaskAuthority": {
+      "taskId": "ffcca9cc-7f1b-42d0-97c4-8309d19fec03",
+      "taskExecutionCount": 1,
+      "missionStatus": "exact",
+      "missionId": "64212",
+      "executionMissionCount": 1,
+      "missionRelationId": "d3575d99-38e5-531e-aacc-52f3f4822bcf"
+    },
+    "smppBenchmarkHandoffV2": "PASS",
+    "smppClickHousePreflight": "PASS"
+  },
+  "classification": {
+    "telemetryCurrentAuthority": "real_read_only_verified",
+    "goalSuccess": "unverified",
+    "physicalSuccess": "unverified"
+  },
+  "safety": {
+    "deviceControl": false,
+    "navigation": false,
+    "runtimeMcpMutation": false,
+    "simulatorMutation": false,
+    "directSharedInsertOrDelete": false,
+    "historyDeleted": false,
+    "credentialsEmitted": false
+  },
+  "scopeExclusions": [
+    "Provider or Device control",
+    "A2A or MCP Task creation",
+    "Goal success inference",
+    "physical success inference",
+    "Referee or Device MCP readiness"
+  ]
+}

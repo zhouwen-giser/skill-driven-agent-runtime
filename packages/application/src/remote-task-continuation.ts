@@ -546,8 +546,7 @@ function resolutionFromControlEvent(
       nodeRunId,
       error: {
         code: 'MCP_REMOTE_TASK_FAILED',
-        message:
-          typeof error['message'] === 'string' ? error['message'] : 'The remote MCP Task failed.',
+        message: remoteTaskFailureMessage(error),
         category: 'provider_failed',
         data: error,
       },
@@ -569,6 +568,19 @@ function resolutionFromControlEvent(
     'REMOTE_TASK_CONTROL_EVENT_NOT_TERMINAL',
     'Only terminal remote Task control events may continue a Workflow graph.',
   );
+}
+
+function remoteTaskFailureMessage(error: Readonly<Record<string, unknown>>): string {
+  const data = error['data'];
+  const reasonCode =
+    typeof data === 'object' && data !== null && !Array.isArray(data)
+      ? (data as Readonly<Record<string, unknown>>)['reasonCode']
+      : undefined;
+  if (typeof reasonCode === 'string' && /^[A-Z][A-Z0-9_]{1,127}$/u.test(reasonCode))
+    return reasonCode;
+  return typeof error['message'] === 'string' && error['message'].trim() !== ''
+    ? error['message']
+    : 'The remote MCP Task failed.';
 }
 
 function payloadRecord(value: unknown): Readonly<Record<string, unknown>> {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   GovernedControlConfirmationService,
+  GovernedControlConfirmationQueryService,
   GovernedControlManagementService,
   type GovernedControlConfirmation,
   type GovernedControlIssueAuthority,
@@ -121,6 +122,92 @@ describe('GovernedControlManagementService', () => {
     });
     expect(revoke).not.toHaveBeenCalled();
   });
+
+  it('projects exact non-sensitive confirmation scope and lifecycle state for the Console', async () => {
+    const query = new GovernedControlConfirmationQueryService({
+      store: {
+        listByTask: () =>
+          Promise.resolve([
+            {
+              confirmation: {
+                ...confirmationRecord,
+                authorityKind: 'weapon_control',
+                consumedInvocationId: 'invocation-1',
+                consumedAt: '2026-08-13T01:00:30.000Z',
+              },
+              inputSnapshot: {
+                resourceId: 'vehicle:ugv1',
+                targetId: 'target-17',
+                engagementMode: 'single',
+                requireConfirmation: true,
+                providerPrivateValue: 'not projected',
+              },
+            },
+          ]),
+      },
+      clock: { now: () => now },
+    });
+
+    await expect(
+      query.list({ taskId: 'task-1', principal: humanPrincipal('weapon_control.confirm') }),
+    ).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          confirmationId: 'confirmation-1',
+          authorityKind: 'weapon_control',
+          argumentsHash: 'b'.repeat(64),
+          parameters: {
+            resourceId: 'vehicle:ugv1',
+            targetId: 'target-17',
+            engagementMode: 'single',
+            requireConfirmation: true,
+          },
+          expiresAt: '2026-08-13T01:05:00.000Z',
+          status: 'consumed',
+          consumedInvocationId: 'invocation-1',
+        }),
+      ],
+    });
+  });
+
+  it('requires an authenticated human control principal before querying confirmations', async () => {
+    const listByTask = vi.fn(() => Promise.resolve([]));
+    const query = new GovernedControlConfirmationQueryService({
+      store: { listByTask },
+      clock: { now: () => now },
+    });
+    await expect(
+      query.list({
+        taskId: 'task-1',
+        principal: { ...humanPrincipal('physical_control.confirm'), kind: 'service' },
+      }),
+    ).rejects.toMatchObject({ code: 'GOVERNED_CONTROL_PERMISSION_DENIED', status: 403 });
+    expect(listByTask).not.toHaveBeenCalled();
+  });
+});
+
+const confirmationRecord: GovernedControlConfirmation = Object.freeze({
+  confirmationId: 'confirmation-1',
+  taskId: 'task-1',
+  capabilityBindingId: 'capability-binding-1',
+  capabilityId: 'embodied.move',
+  capabilityVersion: 1,
+  capabilityAttemptId: 'capability-attempt-1',
+  planId: 'plan-1',
+  planHash: 'a'.repeat(64),
+  skillId: 'embodied.move',
+  skillVersion: 1,
+  providerBindingId: 'ugv-provider-binding-1',
+  serverId: 'fake-ugv',
+  toolName: 'vehicle_fire_weapon',
+  argumentsHash: 'b'.repeat(64),
+  actorId: 'human:operator-1',
+  actorKind: 'human',
+  authenticationMethod: 'configured_bearer',
+  actorRoles: ['weapon_control_approver'],
+  reason: 'Exact single engagement.',
+  confirmedAt: '2026-08-13T01:00:00.000Z',
+  expiresAt: '2026-08-13T01:05:00.000Z',
 });
 
 const authority: GovernedControlIssueAuthority = Object.freeze({
@@ -141,7 +228,7 @@ const authority: GovernedControlIssueAuthority = Object.freeze({
 });
 
 function humanPrincipal(
-  permission: 'physical_control.confirm' | 'physical_control.revoke',
+  permission: 'physical_control.confirm' | 'physical_control.revoke' | 'weapon_control.confirm',
 ): GovernedControlPrincipal {
   return Object.freeze({
     actorId: 'human:operator-1',

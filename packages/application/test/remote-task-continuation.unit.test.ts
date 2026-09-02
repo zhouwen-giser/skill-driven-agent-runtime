@@ -91,6 +91,47 @@ describe('RemoteTaskContinuationService', () => {
     },
   );
 
+  it('preserves a stable Provider failure reason for the terminal Workflow without replay', async () => {
+    const harness = createHarness();
+    const event = controlEvent('task.failed', {
+      status: 'failed',
+      error: {
+        code: -32603,
+        message: 'Task execution failed.',
+        data: { retryable: true, reasonCode: 'UGV_START_OBSERVATION_TIMEOUT' },
+      },
+    });
+    harness.continuations.addControl(event);
+
+    await expect(harness.service.process(jobFor(event))).resolves.toMatchObject({
+      disposition: 'continued',
+    });
+    await expect(harness.service.process(jobFor(event))).resolves.toEqual({
+      disposition: 'not_claimed',
+    });
+
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+    expect(harness.continueExternal).toHaveBeenCalledWith({
+      instanceId: 'instance-1',
+      resolution: {
+        kind: 'failed',
+        waitId: 'wait-1',
+        nodeRunId: 'instance-1~node-1~1',
+        error: {
+          code: 'MCP_REMOTE_TASK_FAILED',
+          message: 'UGV_START_OBSERVATION_TIMEOUT',
+          category: 'provider_failed',
+          data: {
+            code: -32603,
+            message: 'Task execution failed.',
+            data: { retryable: true, reasonCode: 'UGV_START_OBSERVATION_TIMEOUT' },
+          },
+        },
+      },
+      continuationAttemptId: 'continuation-attempt-1',
+    });
+  });
+
   it('passes a completed isError Tool result through without converting it to provider failure', async () => {
     const harness = createHarness();
     const event = completedEvent({

@@ -1,19 +1,26 @@
 import { createHash } from 'node:crypto';
 
 import type {
+  McpLogicalInvocationIdentity,
   WorkflowContinuationSnapshot,
   McpInvocation,
+  McpInvocationOutcome,
   McpProtocolContractSnapshot,
+  McpTaskCallProfile,
   McpTaskBehavior,
   McpToolCancellation,
   RemoteTaskBinding,
+  RemoteTaskProviderExecutionLink,
   RemoteTaskAuthoritySnapshot,
   RemoteTaskCreated,
   RemoteTaskSnapshot,
   RuntimeExecutionContext,
   TaskExecutionTiming,
 } from '../../domain/src/index.js';
-import { compareRuntimeRevisions } from '../../domain/src/index.js';
+import {
+  compareRuntimeRevisions,
+  createRemoteTaskProviderExecutionLink,
+} from '../../domain/src/index.js';
 
 import type {
   Clock,
@@ -25,6 +32,61 @@ import type { RemoteTaskAdmissionService } from './remote-task-polling.js';
 
 export type RemoteTaskAdmissionIntentStatus =
   'prepared' | 'dispatching' | 'receipt_recorded' | 'materialized' | 'uncertain' | 'closed';
+
+export interface RemoteTaskReconciliationSeed {
+  readonly schemaVersion: 'sdar.remote-task-reconciliation-seed/v1';
+  readonly logicalIdentity: McpLogicalInvocationIdentity;
+  readonly arguments: Readonly<Record<string, unknown>>;
+  readonly executionContext: RuntimeExecutionContext;
+  readonly taskCallProfile?: McpTaskCallProfile;
+  readonly continuation?: RemoteTaskAdmissionReceipt['continuation'];
+}
+
+export interface RemoteTaskReconciliationContract extends Omit<
+  RemoteTaskReconciliationSeed,
+  'schemaVersion'
+> {
+  readonly schemaVersion: 'sdar.remote-task-reconciliation-contract/v1';
+  readonly providerId: string;
+  readonly protocolContract: McpProtocolContractSnapshot;
+  readonly taskBehavior: McpTaskBehavior;
+  readonly taskCancellation: McpToolCancellation;
+  readonly authoritySnapshot: RemoteTaskAuthoritySnapshot;
+  readonly credentialRevision: string;
+  readonly sessionRevision: string;
+}
+
+export type RemoteTaskExactReconciliationResult =
+  | Readonly<{
+      status: 'found_exact';
+      outcome: Extract<McpInvocationOutcome, { kind: 'remote_task' }>;
+      externalExecutionId?: string;
+      deviceMissionId?: string;
+    }>
+  | Readonly<{
+      status: 'not_found' | 'conflict' | 'unavailable' | 'deferred';
+      safeErrorCode: string;
+    }>;
+
+export interface RemoteTaskReconciliationAttempt {
+  readonly attemptId: string;
+  readonly intentId: string;
+  readonly logicalInvocationId: string;
+  readonly expectedIntentVersion: number;
+  readonly attemptNumber: number;
+  readonly sourceContract: 'sdar.smpp-diagnostics/v1+frozen-mcp-v1';
+  readonly requestHash: string;
+  readonly status: RemoteTaskExactReconciliationResult['status'];
+  readonly remoteTaskId?: string;
+  readonly externalExecutionId?: string;
+  readonly identityValidated: boolean;
+  readonly safeErrorCode?: string;
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly durationMs: number;
+  readonly resultHash: string;
+  readonly version: 1;
+}
 
 /** Frozen local authority needed to rebuild admission without redispatching the Provider call. */
 export interface RemoteTaskAdmissionEnvelope {
@@ -76,6 +138,9 @@ export interface RemoteTaskAdmissionIntent {
   readonly serverId: string;
   readonly operationName: string;
   readonly argumentsHash: string;
+  readonly logicalIdentity?: McpLogicalInvocationIdentity;
+  readonly reconciliationSeed?: RemoteTaskReconciliationSeed;
+  readonly reconciliationContract?: RemoteTaskReconciliationContract;
   readonly envelope: RemoteTaskAdmissionEnvelope;
   readonly status: RemoteTaskAdmissionIntentStatus;
   readonly dispatchHash?: string;
@@ -151,6 +216,7 @@ export interface RemoteTaskAdmissionIntentStore {
       intentId: string;
       invocationId: string;
       dispatchHash: string;
+      reconciliationContract?: RemoteTaskReconciliationContract;
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation>;
@@ -159,6 +225,15 @@ export interface RemoteTaskAdmissionIntentStore {
     invocation: McpInvocation,
     receipt: RemoteTaskAdmissionReceipt,
     at: string,
+  ): Promise<RemoteTaskAdmissionIntentMutation>;
+  recordReconciledReceiptAndInvocation(
+    input: Readonly<{
+      intentId: string;
+      logicalInvocationId: string;
+      invocation: McpInvocation;
+      receipt: RemoteTaskAdmissionReceipt;
+      at: string;
+    }>,
   ): Promise<RemoteTaskAdmissionIntentMutation>;
   markMaterialized(
     input: Readonly<{
@@ -205,6 +280,23 @@ export interface RemoteTaskAdmissionIntentStore {
   listRecoverable(limit: number): Promise<readonly RemoteTaskAdmissionIntent[]>;
 }
 
+export interface RemoteTaskReconciliationAttemptStore {
+  append(attempt: RemoteTaskReconciliationAttempt): Promise<RemoteTaskReconciliationAttempt>;
+  nextAttemptNumber(intentId: string): Promise<number>;
+  listByIntentId(intentId: string): Promise<readonly RemoteTaskReconciliationAttempt[]>;
+}
+
+export interface RemoteTaskProviderExecutionLinkStore {
+  save(link: RemoteTaskProviderExecutionLink): Promise<RemoteTaskProviderExecutionLink>;
+  findByBindingId(bindingId: string): Promise<RemoteTaskProviderExecutionLink | undefined>;
+}
+
+export interface ReconciledRemoteTaskAdmission {
+  readonly result: RemoteTaskExactReconciliationResult;
+  readonly invocation?: McpInvocation;
+  readonly receipt?: RemoteTaskAdmissionReceipt;
+}
+
 export class RemoteTaskAdmissionRecoveryService {
   readonly #store: RemoteTaskAdmissionIntentStore;
   readonly #admission: RemoteTaskAdmissionService | undefined;
@@ -215,6 +307,12 @@ export class RemoteTaskAdmissionRecoveryService {
     ((taskId: string, errorCode: string, summary: string) => Promise<void>) | undefined;
   readonly #nextObservationId: (() => string) | undefined;
   readonly #nextControlEventId: (() => string) | undefined;
+  readonly #reconcileUncertain:
+    ((intent: RemoteTaskAdmissionIntent) => Promise<ReconciledRemoteTaskAdmission>) | undefined;
+  readonly #reconciliationAttempts: RemoteTaskReconciliationAttemptStore | undefined;
+  readonly #providerExecutionLinks: RemoteTaskProviderExecutionLinkStore | undefined;
+  readonly #markWorkflowWaitingExternal:
+    ((intent: RemoteTaskAdmissionIntent) => Promise<void>) | undefined;
 
   constructor(
     dependencies:
@@ -228,6 +326,12 @@ export class RemoteTaskAdmissionRecoveryService {
           failTask(taskId: string, errorCode: string, summary: string): Promise<void>;
           nextObservationId(): string;
           nextControlEventId(): string;
+          reconcileUncertain?: (
+            intent: RemoteTaskAdmissionIntent,
+          ) => Promise<ReconciledRemoteTaskAdmission>;
+          reconciliationAttempts?: RemoteTaskReconciliationAttemptStore;
+          providerExecutionLinks?: RemoteTaskProviderExecutionLinkStore;
+          markWorkflowWaitingExternal?: (intent: RemoteTaskAdmissionIntent) => Promise<void>;
         }>,
   ) {
     if ('listRecoverable' in dependencies) {
@@ -239,6 +343,10 @@ export class RemoteTaskAdmissionRecoveryService {
       this.#failTask = undefined;
       this.#nextObservationId = undefined;
       this.#nextControlEventId = undefined;
+      this.#reconcileUncertain = undefined;
+      this.#reconciliationAttempts = undefined;
+      this.#providerExecutionLinks = undefined;
+      this.#markWorkflowWaitingExternal = undefined;
       return;
     }
     this.#store = dependencies.store;
@@ -249,6 +357,10 @@ export class RemoteTaskAdmissionRecoveryService {
     this.#failTask = dependencies.failTask;
     this.#nextObservationId = dependencies.nextObservationId;
     this.#nextControlEventId = dependencies.nextControlEventId;
+    this.#reconcileUncertain = dependencies.reconcileUncertain;
+    this.#reconciliationAttempts = dependencies.reconciliationAttempts;
+    this.#providerExecutionLinks = dependencies.providerExecutionLinks;
+    this.#markWorkflowWaitingExternal = dependencies.markWorkflowWaitingExternal;
   }
 
   listRecoverable(limit: number): Promise<readonly RemoteTaskAdmissionIntent[]> {
@@ -282,12 +394,15 @@ export class RemoteTaskAdmissionRecoveryService {
     let materialized = 0;
     let uncertain = 0;
     let closedPrepared = 0;
-    for (const intent of intents) {
+    for (const recoveredIntent of intents) {
+      let intent = recoveredIntent;
+      let reconciliationResult: RemoteTaskExactReconciliationResult | undefined;
       const at = this.#clock.now();
       if (mode === 'periodic') {
-        if (intent.status !== 'receipt_recorded') continue;
-        const active = await this.#continuations.findCurrentByBinding(intent.envelope.bindingId);
-        if (active === undefined) continue;
+        if (intent.status === 'receipt_recorded') {
+          const active = await this.#continuations.findCurrentByBinding(intent.envelope.bindingId);
+          if (active === undefined) continue;
+        } else if (intent.status !== 'uncertain') continue;
       }
       if (intent.status === 'prepared') {
         const closed = await this.#store.close({
@@ -300,11 +415,6 @@ export class RemoteTaskAdmissionRecoveryService {
         continue;
       }
       if (intent.status === 'dispatching') {
-        await this.#failTask(
-          intent.taskId,
-          'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
-          'The Provider call may have created a remote Task, but no durable receipt exists; the call will not be replayed.',
-        );
         const mutation = await this.#store.markUncertain({
           intentId: intent.intentId,
           invocationId: intent.invocationId,
@@ -313,8 +423,75 @@ export class RemoteTaskAdmissionRecoveryService {
         });
         if (mutation.applied) {
           uncertain += 1;
+          intent = mutation.intent;
         }
-        continue;
+      }
+      if (intent.status === 'uncertain') {
+        if (
+          this.#reconcileUncertain === undefined ||
+          this.#reconciliationAttempts === undefined ||
+          intent.logicalIdentity === undefined ||
+          intent.reconciliationContract === undefined
+        ) {
+          await this.#failTask(
+            intent.taskId,
+            'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+            'The Provider call may have created a remote Task, but exact reconciliation authority is unavailable; the call will not be replayed.',
+          );
+          continue;
+        }
+        const startedAt = this.#clock.now();
+        const attemptNumber = await this.#reconciliationAttempts.nextAttemptNumber(intent.intentId);
+        const reconciled = await this.#reconcileUncertain(intent);
+        const completedAt = this.#clock.now();
+        reconciliationResult = reconciled.result;
+        const attempt: RemoteTaskReconciliationAttempt = {
+          attemptId: `remote-reconcile-${canonicalHash({ intentId: intent.intentId, attemptNumber })}`,
+          intentId: intent.intentId,
+          logicalInvocationId: intent.logicalIdentity.logicalInvocationId,
+          expectedIntentVersion: intent.version,
+          attemptNumber,
+          sourceContract: 'sdar.smpp-diagnostics/v1+frozen-mcp-v1',
+          requestHash: `sha256:${canonicalHash(intent.reconciliationContract)}`,
+          status: reconciled.result.status,
+          ...(reconciled.result.status !== 'found_exact'
+            ? { safeErrorCode: reconciled.result.safeErrorCode }
+            : {
+                remoteTaskId: reconciled.result.outcome.task.remoteTaskId,
+                ...(reconciled.result.externalExecutionId === undefined
+                  ? {}
+                  : { externalExecutionId: reconciled.result.externalExecutionId }),
+              }),
+          identityValidated: reconciled.result.status === 'found_exact',
+          startedAt,
+          completedAt,
+          durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(startedAt)),
+          resultHash: `sha256:${canonicalHash(reconciled.result)}`,
+          version: 1,
+        };
+        await this.#reconciliationAttempts.append(attempt);
+        if (
+          reconciled.result.status !== 'found_exact' ||
+          reconciled.invocation === undefined ||
+          reconciled.receipt === undefined
+        ) {
+          await this.#failTask(
+            intent.taskId,
+            `REMOTE_TASK_RECONCILIATION_${reconciled.result.status.toUpperCase()}`,
+            'The ambiguous Provider dispatch could not be matched to exactly one original Task; no redispatch occurred.',
+          );
+          continue;
+        }
+        const recorded = await this.#store.recordReconciledReceiptAndInvocation({
+          intentId: intent.intentId,
+          logicalInvocationId: intent.logicalIdentity.logicalInvocationId,
+          invocation: reconciled.invocation,
+          receipt: reconciled.receipt,
+          at: completedAt,
+        });
+        if (!recorded.applied)
+          throw new Error(`REMOTE_TASK_RECONCILED_RECEIPT_${recorded.reason.toUpperCase()}`);
+        intent = recorded.intent;
       }
       if (intent.status !== 'receipt_recorded' || intent.receipt === undefined) continue;
       const remote = intent.receipt.remoteTask;
@@ -443,6 +620,7 @@ export class RemoteTaskAdmissionRecoveryService {
         !matchesRecoveredContinuation(intent, activeSnapshot, admitted.binding.bindingId)
       )
         throw new Error('REMOTE_TASK_ADMISSION_RECOVERY_CONTINUATION_CONFLICT');
+      await this.#markWorkflowWaitingExternal?.(intent);
       const mutation = await this.#store.markMaterialized({
         intentId: intent.intentId,
         invocationId: intent.invocationId,
@@ -454,6 +632,64 @@ export class RemoteTaskAdmissionRecoveryService {
         throw new Error(
           `REMOTE_TASK_ADMISSION_RECOVERY_MATERIALIZE_${mutation.reason.toUpperCase()}`,
         );
+      if (
+        this.#providerExecutionLinks !== undefined &&
+        intent.logicalIdentity !== undefined &&
+        intent.reconciliationContract !== undefined
+      ) {
+        const exactResult =
+          reconciliationResult?.status === 'found_exact' ? reconciliationResult : undefined;
+        await this.#providerExecutionLinks.save(
+          createRemoteTaskProviderExecutionLink({
+            bindingId: admitted.binding.bindingId,
+            logicalInvocationId: intent.logicalIdentity.logicalInvocationId,
+            remoteTaskId: remote.remoteTaskId,
+            providerId: intent.reconciliationContract.providerId,
+            runtimeServerId: intent.logicalIdentity.serverId,
+            ...(intent.reconciliationContract.authoritySnapshot.providerBinding === undefined
+              ? {}
+              : {
+                  providerBindingId:
+                    intent.reconciliationContract.authoritySnapshot.providerBinding.bindingId,
+                  providerOriginType:
+                    intent.reconciliationContract.authoritySnapshot.providerBinding.originType,
+                  ...(intent.reconciliationContract.authoritySnapshot.providerBinding
+                    .smppSourceId === undefined
+                    ? {}
+                    : {
+                        smppSourceId:
+                          intent.reconciliationContract.authoritySnapshot.providerBinding
+                            .smppSourceId,
+                      }),
+                  ...(intent.reconciliationContract.authoritySnapshot.providerBinding
+                    .externalServerId === undefined
+                    ? {}
+                    : {
+                        externalServerId:
+                          intent.reconciliationContract.authoritySnapshot.providerBinding
+                            .externalServerId,
+                      }),
+                }),
+            operationName: intent.operationName,
+            executionStatus:
+              exactResult?.externalExecutionId === undefined ? 'unresolved' : 'exact',
+            ...(exactResult?.externalExecutionId === undefined
+              ? {}
+              : { externalExecutionId: exactResult.externalExecutionId }),
+            missionStatus: exactResult?.deviceMissionId === undefined ? 'unresolved' : 'exact',
+            ...(exactResult?.deviceMissionId === undefined
+              ? {}
+              : { deviceMissionId: exactResult.deviceMissionId }),
+            provenance: exactResult === undefined ? 'committed_receipt' : 'reconcile_found_exact',
+            sourceContract: 'sdar.node-control-provider-binding/v1+frozen-mcp-v1',
+            sourceRevision:
+              intent.reconciliationContract.authoritySnapshot.providerBinding === undefined
+                ? `runtime:${intent.reconciliationContract.authoritySnapshot.runtime.serverUpdatedAt}/catalog:${intent.reconciliationContract.authoritySnapshot.runtime.catalogRevision}`
+                : `binding:${String(intent.reconciliationContract.authoritySnapshot.providerBinding.revision)}/catalog:${intent.reconciliationContract.authoritySnapshot.providerBinding.catalogRevision}`,
+            observedAt: at,
+          }),
+        );
+      }
       materialized += 1;
     }
     return { examined: intents.length, materialized, uncertain, closedPrepared };

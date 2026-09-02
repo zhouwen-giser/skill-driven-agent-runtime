@@ -4,6 +4,26 @@ import { describe, expect, it, vi } from 'vitest';
 import { PostgresTaskCapabilityRepository } from '../src/index.js';
 
 describe('PostgresTaskCapabilityRepository Provider Binding policy snapshot', () => {
+  it('resolves the highest Exposure version from the active Agent Card without a version constant', async () => {
+    const row = resolutionRow(exactSingleBindingPolicy('binding', 'server', 'read_state'));
+    row.exposure_version = 3;
+    row.capability_version = 4;
+    const query = vi.fn().mockResolvedValue({ rows: [row] });
+    const repository = new PostgresTaskCapabilityRepository({ query } as unknown as Pool);
+
+    await expect(repository.findCurrentExposure('a2a.embodied.move')).resolves.toEqual({
+      exposureId: row.exposure_id,
+      exposureVersion: 3,
+      requestedCapabilityId: row.capability_id,
+      capabilityVersion: 4,
+      requestSchema: row.request_schema,
+    });
+    const statement = String(query.mock.calls[0]?.[0]);
+    expect(statement).toContain("card.status='active'");
+    expect(statement).toContain('ORDER BY exposure.exposure_version DESC');
+    expect(query.mock.calls[0]?.[1]).toEqual(['a2a.embodied.move']);
+  });
+
   it('describes only the active registered Card contract without a readiness join', async () => {
     const row = resolutionRow(exactSingleBindingPolicy('binding', 'server', 'read_state'));
     const query = vi.fn().mockResolvedValue({ rows: [row] });

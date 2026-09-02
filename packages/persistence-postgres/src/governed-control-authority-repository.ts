@@ -13,6 +13,8 @@ import type {
   GovernedControlAuthorityStore,
   GovernedControlConfirmation,
   GovernedControlConfirmationConsumption,
+  GovernedControlConfirmationQueryRecord,
+  GovernedControlConfirmationQueryStore,
   GovernedControlConsumedConfirmationReader,
   GovernedControlConfirmationOnceStore,
   GovernedControlConfirmationStore,
@@ -21,6 +23,7 @@ import type {
   GovernedControlConfirmationIssueResult,
   McpRuntimeBindingAuthorityVerifier,
   TaskAvailabilityBatchReader,
+  TaskAvailabilityUnknownPolicy,
   UgvGovernedControlAuthoritySnapshot,
   UgvGovernedControlDispatchAuthorityReader,
   UgvGovernedControlDispatchAuthoritySnapshot,
@@ -81,6 +84,7 @@ interface GovernedControlRow {
   readonly readiness_valid_until: Date | string | null;
   readonly readiness_checked_at: Date | string;
   readonly confirmation_id: string;
+  readonly confirmation_authority_kind: 'physical_control' | 'emergency_stop' | 'weapon_control';
   readonly confirmation_task_id: string;
   readonly confirmation_capability_binding_id: string;
   readonly confirmation_capability_id: string;
@@ -110,6 +114,7 @@ interface GovernedControlRow {
 
 interface ConfirmationRow {
   readonly confirmation_id: string;
+  readonly authority_kind: 'physical_control' | 'emergency_stop' | 'weapon_control';
   readonly task_id: string;
   readonly capability_binding_id: string;
   readonly capability_id: string;
@@ -135,6 +140,10 @@ interface ConfirmationRow {
   readonly consumed_invocation_id: string | null;
   readonly consumed_dispatch_hash: string | null;
   readonly consumed_at: Date | string | null;
+}
+
+interface ConfirmationQueryRow extends ConfirmationRow {
+  readonly input_snapshot: unknown;
 }
 
 interface UgvGovernedControlBaseRow {
@@ -178,6 +187,8 @@ interface UgvGovernedControlBaseRow {
   readonly selected_reference_metadata: unknown;
   readonly confirmation_count: number | null;
   readonly ugv_confirmation_id: string | null;
+  readonly ugv_confirmation_authority_kind:
+    'physical_control' | 'emergency_stop' | 'weapon_control' | null;
   readonly ugv_confirmation_task_id: string | null;
   readonly ugv_confirmation_capability_binding_id: string | null;
   readonly ugv_confirmation_capability_id: string | null;
@@ -215,6 +226,7 @@ export class PostgresGovernedControlAuthorityRepository
   implements
     GovernedControlAuthorityStore,
     GovernedControlConfirmationStore,
+    GovernedControlConfirmationQueryStore,
     GovernedControlConfirmationOnceStore,
     GovernedControlConsumedConfirmationReader
 {
@@ -229,14 +241,15 @@ export class PostgresGovernedControlAuthorityRepository
   ): Promise<GovernedControlConfirmation> {
     const result = await this.#pool.query<ConfirmationRow>(
       `INSERT INTO governed_control_confirmation(
-         confirmation_id,task_id,capability_binding_id,capability_id,capability_version,
+         confirmation_id,authority_kind,task_id,capability_binding_id,capability_id,capability_version,
          capability_attempt_id,plan_id,plan_hash,skill_id,skill_version,provider_binding_id,
          server_id,tool_name,arguments_hash,actor_id,actor_kind,authentication_method,
          actor_roles_json,reason,confirmed_at,expires_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20,$21)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22)
        RETURNING *`,
       [
         confirmation.confirmationId,
+        confirmation.authorityKind ?? 'physical_control',
         confirmation.taskId,
         confirmation.capabilityBindingId,
         confirmation.capabilityId,
@@ -262,6 +275,27 @@ export class PostgresGovernedControlAuthorityRepository
     return mapConfirmation(requiredRow(result.rows[0]));
   }
 
+  async listByTask(taskId: string): Promise<readonly GovernedControlConfirmationQueryRecord[]> {
+    const result = await this.#pool.query<ConfirmationQueryRow>(
+      `SELECT confirmation.*,binding.input_snapshot
+         FROM governed_control_confirmation confirmation
+         JOIN task_capability_binding binding
+           ON binding.binding_id=confirmation.capability_binding_id
+          AND binding.task_id=confirmation.task_id
+        WHERE confirmation.task_id=$1
+        ORDER BY confirmation.confirmed_at,confirmation.confirmation_id`,
+      [taskId],
+    );
+    return Object.freeze(
+      result.rows.map((row) =>
+        Object.freeze({
+          confirmation: mapConfirmation(row),
+          inputSnapshot: structuredClone(row.input_snapshot),
+        }),
+      ),
+    );
+  }
+
   async issueOnce(
     confirmation: GovernedControlConfirmation,
   ): Promise<GovernedControlConfirmationIssueResult> {
@@ -269,11 +303,11 @@ export class PostgresGovernedControlAuthorityRepository
     // key is therefore the narrow uniqueness authority needed for concurrent and restart retries.
     const inserted = await this.#pool.query<ConfirmationRow>(
       `INSERT INTO governed_control_confirmation(
-         confirmation_id,task_id,capability_binding_id,capability_id,capability_version,
+         confirmation_id,authority_kind,task_id,capability_binding_id,capability_id,capability_version,
          capability_attempt_id,plan_id,plan_hash,skill_id,skill_version,provider_binding_id,
          server_id,tool_name,arguments_hash,actor_id,actor_kind,authentication_method,
          actor_roles_json,reason,confirmed_at,expires_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20,$21)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22)
        ON CONFLICT (confirmation_id) DO NOTHING
        RETURNING *`,
       [...confirmationValues(confirmation)],
@@ -294,24 +328,25 @@ export class PostgresGovernedControlAuthorityRepository
       `SELECT *
          FROM governed_control_confirmation
         WHERE confirmation_id=$1
-          AND task_id=$2
-          AND capability_binding_id=$3
-          AND capability_id=$4
-          AND capability_version=$5
-          AND capability_attempt_id=$6
-          AND plan_id=$7
-          AND plan_hash=$8
-          AND skill_id=$9
-          AND skill_version=$10
-          AND provider_binding_id=$11
-          AND server_id=$12
-          AND tool_name=$13
-          AND arguments_hash=$14
-          AND actor_id=$15
-          AND actor_kind=$16
-          AND authentication_method=$17
-          AND actor_roles_json=$18::jsonb
-          AND reason=$19
+          AND authority_kind=$2
+          AND task_id=$3
+          AND capability_binding_id=$4
+          AND capability_id=$5
+          AND capability_version=$6
+          AND capability_attempt_id=$7
+          AND plan_id=$8
+          AND plan_hash=$9
+          AND skill_id=$10
+          AND skill_version=$11
+          AND provider_binding_id=$12
+          AND server_id=$13
+          AND tool_name=$14
+          AND arguments_hash=$15
+          AND actor_id=$16
+          AND actor_kind=$17
+          AND authentication_method=$18
+          AND actor_roles_json=$19::jsonb
+          AND reason=$20
         LIMIT 1`,
       [...exactScopeValues(scope)],
     );
@@ -459,7 +494,8 @@ export class PostgresGovernedControlAuthorityRepository
          readiness.risk_level AS readiness_risk_level,
          readiness.valid_until AS readiness_valid_until,
          readiness.checked_at AS readiness_checked_at,
-         confirmation.confirmation_id,confirmation.task_id AS confirmation_task_id,
+         confirmation.confirmation_id,confirmation.authority_kind AS confirmation_authority_kind,
+         confirmation.task_id AS confirmation_task_id,
          confirmation.capability_binding_id AS confirmation_capability_binding_id,
          confirmation.capability_id AS confirmation_capability_id,
          confirmation.capability_version AS confirmation_capability_version,
@@ -566,6 +602,7 @@ export class PostgresUgvGovernedControlAuthorityReader
   readonly #runtimeBindings: UgvRuntimeBindingAuthorityPort;
   readonly #availability: TaskAvailabilityBatchReader;
   readonly #inputAdapter: UgvGovernedControlInputAdapterPort;
+  readonly #unknownAvailabilityPolicy: TaskAvailabilityUnknownPolicy;
   readonly #clock: Clock;
 
   constructor(
@@ -576,6 +613,7 @@ export class PostgresUgvGovernedControlAuthorityReader
       runtimeBindings: UgvRuntimeBindingAuthorityPort;
       availability: TaskAvailabilityBatchReader;
       inputAdapter: UgvGovernedControlInputAdapterPort;
+      unknownAvailabilityPolicy: TaskAvailabilityUnknownPolicy;
       clock: Clock;
     }>,
   ) {
@@ -585,6 +623,7 @@ export class PostgresUgvGovernedControlAuthorityReader
     this.#runtimeBindings = dependencies.runtimeBindings;
     this.#availability = dependencies.availability;
     this.#inputAdapter = dependencies.inputAdapter;
+    this.#unknownAvailabilityPolicy = dependencies.unknownAvailabilityPolicy;
     this.#clock = dependencies.clock;
   }
 
@@ -648,10 +687,14 @@ export class PostgresUgvGovernedControlAuthorityReader
           }),
         }),
       ]),
-      executionContext: Object.freeze({
-        mode: 'simulation' as const,
-        simulationId: selected.execution.simulationId,
-      }),
+      executionContext: Object.freeze(
+        selected.execution.mode === 'live'
+          ? { mode: 'live' as const }
+          : {
+              mode: 'simulation' as const,
+              simulationId: selected.execution.simulationId,
+            },
+      ),
     });
     const checkedAt = normalizedTimestamp(this.#clock.now());
     return Object.freeze({
@@ -662,6 +705,7 @@ export class PostgresUgvGovernedControlAuthorityReader
         providerBinding,
         runtime,
         availability,
+        unknownAvailabilityPolicy: this.#unknownAvailabilityPolicy,
         availabilityNodeId: nodeId,
         checkedAt,
       }),
@@ -705,6 +749,7 @@ export class PostgresUgvGovernedControlAuthorityReader
          selected_ref.metadata_json AS selected_reference_metadata,
          confirmation.confirmation_count,
          confirmation.confirmation_id AS ugv_confirmation_id,
+         confirmation.authority_kind AS ugv_confirmation_authority_kind,
          confirmation.task_id AS ugv_confirmation_task_id,
          confirmation.capability_binding_id AS ugv_confirmation_capability_binding_id,
          confirmation.capability_id AS ugv_confirmation_capability_id,
@@ -830,6 +875,7 @@ function buildUgvAuthoritySnapshot(
     providerBinding: CurrentProviderBinding;
     runtime: RuntimeCatalog;
     availability: AvailabilityRead;
+    unknownAvailabilityPolicy: TaskAvailabilityUnknownPolicy;
     availabilityNodeId: string;
     checkedAt: string;
   }>,
@@ -881,6 +927,13 @@ function buildUgvAuthoritySnapshot(
   const navigate = exactRuntimeTool(input.runtime.tools, selected.operation.operationName);
   const finalState = exactRuntimeTool(input.runtime.tools, selected.finalStateRead.operationName);
   const availability = exactAvailability(input.availability, input.availabilityNodeId, selected);
+  const unknownAvailabilityDecision =
+    availability.availability === 'unknown'
+      ? input.unknownAvailabilityPolicy.decide(availability)
+      : undefined;
+  const availabilityAllowed =
+    availability.availability === 'available' ||
+    unknownAvailabilityDecision === 'allowed_by_default';
   const runtimePolicy = strictRecord(row.skill_runtime_policy);
   const outcome = strictRecord(row.skill_outcome_specification);
   const usage = strictRecord(row.skill_usage_specification);
@@ -959,7 +1012,7 @@ function buildUgvAuthoritySnapshot(
       bindingId: currentBinding.bindingId,
       revision: currentBinding.revision,
       status: 'active',
-      availability: availability.availability,
+      availability: currentBinding.availabilityStatus,
       availabilityValidUntil: currentBinding.availabilityValidUntil,
       providerId: provider.providerId,
       providerType: provider.providerType,
@@ -983,8 +1036,8 @@ function buildUgvAuthoritySnapshot(
     }),
     readiness: Object.freeze({
       checkPhase: 'pre_invocation',
-      disposition: availability.availability === 'available' ? 'ready' : 'blocked',
-      guardAction: availability.availability === 'available' ? 'proceed' : 'abort',
+      disposition: availabilityAllowed ? 'ready' : 'blocked',
+      guardAction: availabilityAllowed ? 'proceed' : 'abort',
       confirmationRequired: false,
       providerBindingId: currentBinding.bindingId,
       providerBindingRevision: currentBinding.revision,
@@ -998,6 +1051,12 @@ function buildUgvAuthoritySnapshot(
       catalogChecksum: input.runtime.catalogAuthority.catalogChecksum,
       toolRevision: input.runtime.record.server.toolRevision,
       availability: availability.availability,
+      availabilityDecision:
+        availability.availability === 'available'
+          ? 'provider_available'
+          : unknownAvailabilityDecision === 'allowed_by_default'
+            ? 'allowed_by_default'
+            : 'provider_denied',
       riskLevel: availability.riskLevel,
       checkedAt: input.checkedAt,
       validUntil: requiredDatabaseString(availability.validUntil),
@@ -1053,6 +1112,7 @@ function exactUgvConfirmation(row: UgvGovernedControlBaseRow): GovernedControlCo
   if (
     row.confirmation_count !== 1 ||
     row.ugv_confirmation_id === null ||
+    row.ugv_confirmation_authority_kind === null ||
     row.ugv_confirmation_task_id === null ||
     row.ugv_confirmation_capability_binding_id === null ||
     row.ugv_confirmation_capability_id === null ||
@@ -1078,6 +1138,7 @@ function exactUgvConfirmation(row: UgvGovernedControlBaseRow): GovernedControlCo
     );
   return mapConfirmation({
     confirmation_id: row.ugv_confirmation_id,
+    authority_kind: row.ugv_confirmation_authority_kind,
     task_id: row.ugv_confirmation_task_id,
     capability_binding_id: row.ugv_confirmation_capability_binding_id,
     capability_id: row.ugv_confirmation_capability_id,
@@ -1278,6 +1339,7 @@ function mapAuthority(row: GovernedControlRow): GovernedControlRuntimeAuthorityS
     }),
     confirmation: mapConfirmation({
       confirmation_id: row.confirmation_id,
+      authority_kind: row.confirmation_authority_kind,
       task_id: row.confirmation_task_id,
       capability_binding_id: row.confirmation_capability_binding_id,
       capability_id: row.confirmation_capability_id,
@@ -1310,6 +1372,7 @@ function mapAuthority(row: GovernedControlRow): GovernedControlRuntimeAuthorityS
 function mapConfirmation(row: ConfirmationRow): GovernedControlConfirmation {
   return Object.freeze({
     confirmationId: row.confirmation_id,
+    authorityKind: row.authority_kind,
     taskId: row.task_id,
     capabilityBindingId: row.capability_binding_id,
     capabilityId: row.capability_id,
@@ -1353,6 +1416,7 @@ function confirmationValues(confirmation: GovernedControlConfirmation): readonly
 function exactScopeValues(scope: GovernedControlConfirmationExactScope): readonly unknown[] {
   return Object.freeze([
     scope.confirmationId,
+    scope.authorityKind ?? 'physical_control',
     scope.taskId,
     scope.capabilityBindingId,
     scope.capabilityId,

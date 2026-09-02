@@ -98,6 +98,7 @@ export class UgvGovernedControlManagementService {
       toolName: selected.operation.operationName,
       argumentsHash: selected.argumentsHash.slice('sha256:'.length),
       selectedTaskOperationSnapshotHash: selected.snapshotHash,
+      authorityKind: 'physical_control',
       actorId: input.principal.actorId,
       actorKind: 'human',
       authenticationMethod: input.principal.authenticationMethod,

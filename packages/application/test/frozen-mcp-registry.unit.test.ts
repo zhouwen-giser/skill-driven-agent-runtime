@@ -78,12 +78,15 @@ describe('Frozen MCP registry', () => {
     expect(discoveries).toBe(2);
     expect(repository.writes).toBe(1);
     expect(refreshed.server).toBe(registered.server);
-    expect(refreshed.snapshot).toBe(registered.snapshot);
+    expect(refreshed.snapshot).not.toBe(registered.snapshot);
+    expect(refreshed.snapshot.snapshotId).not.toBe(registered.snapshot.snapshotId);
+    expect(refreshed.snapshot.discoveredAt).toBe(now);
     expect(refreshed.dependencyWarnings).toEqual([]);
+    expect(repository.snapshot).toBe(registered.snapshot);
     expect({
-      serverUpdatedAt: refreshed.server.updatedAt,
-      toolRevision: refreshed.server.toolRevision,
-      snapshotId: refreshed.snapshot.snapshotId,
+      serverUpdatedAt: repository.record?.server.updatedAt,
+      toolRevision: repository.record?.server.toolRevision,
+      snapshotId: repository.snapshot?.snapshotId,
     }).toEqual(remoteTaskAnchor);
   });
 
@@ -224,7 +227,9 @@ describe('Frozen MCP registry', () => {
     expect(repository.writes).toBe(2);
     expect(results[0].server.toolRevision).toBe(2);
     expect(results[1].server).toBe(results[0].server);
-    expect(results[1].snapshot).toBe(results[0].snapshot);
+    expect(results[1].snapshot).not.toBe(results[0].snapshot);
+    expect(repository.snapshot).toBe(results[0].snapshot);
+    expect(results[1].snapshot.toolRevision).toBe(results[0].snapshot.toolRevision);
   });
 
   it('retains the governed admin execution-semantics override across Frozen refresh', async () => {

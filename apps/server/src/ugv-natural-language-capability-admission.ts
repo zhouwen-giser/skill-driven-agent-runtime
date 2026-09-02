@@ -5,10 +5,7 @@ import type {
   NaturalLanguageCapabilityAdmissionResolver,
 } from '../../../packages/application/src/index.js';
 
-import {
-  UGV_AGENT_PROFILE_EXPOSURE_ID,
-  UGV_AGENT_PROFILE_EXPOSURE_VERSION,
-} from './ugv-agent-profile.js';
+import { UGV_AGENT_PROFILE_EXPOSURE_ID } from './ugv-agent-profile.js';
 import { adaptUgvMoveInput, UGV_MOVE_RESOURCE_ID } from './ugv-move-input-adapter.js';
 
 const NUMBER = '[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:e[+-]?[0-9]+)?';
@@ -29,7 +26,23 @@ const UGV_SUBJECT = /(?:\bugv\b|\bvehicle\b|无人车|车辆)/iu;
  * and persists the current Exposure/readiness/Provider authority.
  */
 export class UgvNaturalLanguageCapabilityAdmissionResolver implements NaturalLanguageCapabilityAdmissionResolver {
-  resolve(
+  readonly #exposures: Readonly<{
+    findCurrent(
+      exposureId: string,
+    ): Promise<Readonly<{ exposureId: string; exposureVersion: number }> | undefined>;
+  }>;
+
+  constructor(dependencies: {
+    exposures: Readonly<{
+      findCurrent(
+        exposureId: string,
+      ): Promise<Readonly<{ exposureId: string; exposureVersion: number }> | undefined>;
+    }>;
+  }) {
+    this.#exposures = dependencies.exposures;
+  }
+
+  async resolve(
     input: Readonly<{
       messageText: string;
       userId: string;
@@ -37,36 +50,41 @@ export class UgvNaturalLanguageCapabilityAdmissionResolver implements NaturalLan
       receivedAt: string;
     }>,
   ): Promise<NaturalLanguageCapabilityAdmission | undefined> {
-    return Promise.resolve().then(() => {
-      void input.userId;
-      void input.receivedAt;
-      if (!MOVE_INTENT.test(input.messageText) || !UGV_SUBJECT.test(input.messageText))
-        return undefined;
-      const longitude = exactlyOneCoordinate(input.messageText, LONGITUDE, 'longitude');
-      const latitude = exactlyOneCoordinate(input.messageText, LATITUDE, 'latitude');
-      const clientRequestId = input.clientRequestId.trim();
-      if (clientRequestId === '' || clientRequestId.length > 1_024)
-        throw new UgvNaturalLanguageCapabilityAdmissionError(
-          'UGV_NATURAL_LANGUAGE_REQUEST_ID_INVALID',
-          'Natural-language UGV admission requires one bounded stable client request identity.',
-        );
-      const capabilityInput = Object.freeze({
-        resourceId: UGV_MOVE_RESOURCE_ID,
-        target: Object.freeze({ x: longitude, y: latitude, frame: 'WGS84' as const }),
-      });
-      adaptUgvMoveInput(capabilityInput);
-      const idempotencyKey = `nlcap-${createHash('sha256')
-        .update(`ugv-agent-profile:${clientRequestId}`)
-        .digest('hex')}`;
-      return Object.freeze({
-        idempotencyKey,
-        requestedCapability: Object.freeze({
-          exposureId: UGV_AGENT_PROFILE_EXPOSURE_ID,
-          exposureVersion: UGV_AGENT_PROFILE_EXPOSURE_VERSION,
-          requestId: idempotencyKey,
-        }),
-        capabilityInput,
-      });
+    void input.userId;
+    void input.receivedAt;
+    if (!MOVE_INTENT.test(input.messageText) || !UGV_SUBJECT.test(input.messageText))
+      return undefined;
+    const currentExposure = await this.#exposures.findCurrent(UGV_AGENT_PROFILE_EXPOSURE_ID);
+    if (
+      currentExposure?.exposureId !== UGV_AGENT_PROFILE_EXPOSURE_ID ||
+      !Number.isSafeInteger(currentExposure.exposureVersion) ||
+      currentExposure.exposureVersion < 1
+    )
+      return undefined;
+    const longitude = exactlyOneCoordinate(input.messageText, LONGITUDE, 'longitude');
+    const latitude = exactlyOneCoordinate(input.messageText, LATITUDE, 'latitude');
+    const clientRequestId = input.clientRequestId.trim();
+    if (clientRequestId === '' || clientRequestId.length > 1_024)
+      throw new UgvNaturalLanguageCapabilityAdmissionError(
+        'UGV_NATURAL_LANGUAGE_REQUEST_ID_INVALID',
+        'Natural-language UGV admission requires one bounded stable client request identity.',
+      );
+    const capabilityInput = Object.freeze({
+      resourceId: UGV_MOVE_RESOURCE_ID,
+      target: Object.freeze({ x: longitude, y: latitude, frame: 'WGS84' as const }),
+    });
+    adaptUgvMoveInput(capabilityInput);
+    const idempotencyKey = `nlcap-${createHash('sha256')
+      .update(`ugv-agent-profile:${clientRequestId}`)
+      .digest('hex')}`;
+    return Object.freeze({
+      idempotencyKey,
+      requestedCapability: Object.freeze({
+        exposureId: currentExposure.exposureId,
+        exposureVersion: currentExposure.exposureVersion,
+        requestId: idempotencyKey,
+      }),
+      capabilityInput,
     });
   }
 }

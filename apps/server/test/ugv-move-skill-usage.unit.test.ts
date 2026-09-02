@@ -3,12 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TaskCapabilitySkillUsageAuthority } from '../../../packages/application/src/index.js';
 import {
   createTaskCapabilityBinding,
+  createSelectedTaskOperation,
   hashCanonicalEvidenceJson,
   type SkillTaskBinding,
   type TaskCapabilityBinding,
 } from '../../../packages/domain/src/index.js';
 import {
   createUgvSimulationTargetPolicy,
+  hasExactUgvMoveSkillUsageContextEvidence,
   projectUgvMoveSkillUsageContext,
   resolveUgvMoveSkillUsageContext,
   UgvMoveSkillTaskReadinessAdapter,
@@ -72,7 +74,7 @@ describe('UGV move formal Skill Usage adapter', () => {
     });
   });
 
-  it('fails before readiness for unresolved input, fallback, live mode, or a different binding', async () => {
+  it('fails before readiness for unresolved input, fallback, or a different binding', async () => {
     const resolve = vi.fn();
     const adapter = new UgvMoveSkillTaskReadinessAdapter({ resolve });
     const baseline = {
@@ -94,15 +96,66 @@ describe('UGV move formal Skill Usage adapter', () => {
       adapter.inspect({ ...baseline, allowPreferredProviderFallback: true }),
     ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
     await expect(
-      adapter.inspect({ ...baseline, executionContext: { mode: 'live' } }),
-    ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
-    await expect(
       adapter.inspect({
         ...baseline,
         taskBindings: [{ ...binding(), taskType: 'vehicle_navigate' }],
       }),
     ).rejects.toMatchObject({ code: 'UGV_MOVE_SKILL_USAGE_AUTHORITY_REQUIRED' });
     expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it('projects a frozen live execution context without a simulation identity', async () => {
+    const simulated = selectedUgvTaskOperation();
+    const { snapshotHash, ...draft } = simulated;
+    expect(snapshotHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    const selected = createSelectedTaskOperation({
+      ...draft,
+      operation: {
+        ...draft.operation,
+        executionSemantics: { ...draft.operation.executionSemantics, replay: 'forbidden' },
+      },
+      execution: {
+        mode: 'live',
+        confirmation: 'existing_outer_plan_confirmation',
+        confirmationRequired: true,
+      },
+      availability: {
+        ...draft.availability,
+        observedAvailability: 'unknown',
+        policyDecision: 'allowed_by_default',
+      },
+    });
+    const resolve = vi.fn().mockResolvedValue({ selected });
+    const adapter = new UgvMoveSkillTaskReadinessAdapter({ resolve });
+
+    await expect(
+      adapter.inspect({
+        skillId: 'embodied.move_to',
+        skillVersion: 1,
+        taskBindings: [binding()],
+        allowPreferredProviderFallback: false,
+        arguments: { unresolved: false, value: skillInput() },
+        executionContext: { mode: 'live' },
+      }),
+    ).resolves.toMatchObject({
+      overall: 'ready',
+      bindings: [
+        {
+          disposition: 'ready',
+          reasonCodes: ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT'],
+          candidates: [
+            expect.objectContaining({
+              disposition: 'ready',
+              reasonCodes: ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT'],
+            }),
+          ],
+        },
+      ],
+    });
+    expect(resolve).toHaveBeenCalledWith({
+      skillInput: skillInput(),
+      executionContext: { mode: 'live' },
+    });
   });
 
   it('resolves planning context from immutable Task and Provider authority without an MCP receipt', () => {
@@ -145,7 +198,7 @@ describe('UGV move formal Skill Usage adapter', () => {
         requirementId: 'permission-context',
         source: 'authoritative_context',
         status: 'available',
-        evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}:policy-id:${POLICY_ID}:revision:2:policy-hash:${hashCanonicalEvidenceJson(targetPolicy)}:context:permission-context`,
+        evidenceRef: `task-capability-binding:${binding.bindingId}:hash:${binding.bindingHash}:execution-authority-hash:${hashCanonicalEvidenceJson({ executionPolicy: binding.constraintSnapshot.find((constraint) => constraint['type'] === 'runtime_execution_mode_policy'), targetPolicies: [targetPolicy], inputSnapshotHash: hashCanonicalEvidenceJson(binding.inputSnapshot) })}:context:permission-context`,
       },
     ]);
     expect(resolved.taskAvailabilityArguments).toEqual({
@@ -159,6 +212,47 @@ describe('UGV move formal Skill Usage adapter', () => {
       requireProcedureForHighRisk: true,
       allowGuidanceWithIncompleteContext: false,
     });
+    expect(
+      hasExactUgvMoveSkillUsageContextEvidence({
+        requirements: resolved.observations.map(contextResolution),
+        total: 3,
+        satisfied: 3,
+        inputRequiredIds: [],
+        unsatisfiedIds: [],
+        unknownIds: [],
+        complete: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('resolves live planning context from the frozen mode and exact target input without simulation policy', () => {
+    const binding = capabilityBinding({ live: true });
+    const authority = capabilityAuthority(binding);
+
+    const resolved = resolveUgvMoveSkillUsageContext({ authority, binding });
+
+    expect(resolved.runtimeExecutionContext).toEqual({ mode: 'live' });
+    expect(
+      binding.constraintSnapshot.some(
+        (constraint) => constraint['type'] === 'ugv_simulation_target_policy',
+      ),
+    ).toBe(false);
+    expect(resolved.observations[2]).toMatchObject({
+      requirementId: 'permission-context',
+      source: 'authoritative_context',
+      status: 'available',
+    });
+    expect(
+      hasExactUgvMoveSkillUsageContextEvidence({
+        requirements: resolved.observations.map(contextResolution),
+        total: 3,
+        satisfied: 3,
+        inputRequiredIds: [],
+        unsatisfiedIds: [],
+        unknownIds: [],
+        complete: true,
+      }),
+    ).toBe(true);
   });
 
   it('fails closed for missing, duplicate, or drifted permission policy', () => {
@@ -193,6 +287,21 @@ function binding(): SkillTaskBinding {
   });
 }
 
+function contextResolution(
+  observation: ReturnType<typeof resolveUgvMoveSkillUsageContext>['observations'][number],
+) {
+  const evidenceRef = observation.evidenceRef;
+  if (evidenceRef === undefined) throw new Error('test context evidence is missing');
+  return {
+    requirementId: observation.requirementId,
+    required: true,
+    attemptedSources: [observation.source],
+    source: observation.source,
+    status: 'satisfied' as const,
+    evidenceRef,
+  };
+}
+
 function skillInput() {
   return Object.freeze({
     resourceId: 'vehicle:ugv1',
@@ -220,6 +329,7 @@ function capabilityBinding(
     omitTargetPolicy?: boolean;
     duplicateTargetPolicy?: boolean;
     boundAt?: string;
+    live?: boolean;
   }> = {},
 ): TaskCapabilityBinding {
   const policy = options.policy ?? targetPolicy();
@@ -255,15 +365,17 @@ function capabilityBinding(
       uncertainDispatchPolicy: 'reconcile_never_redispatch',
       remoteTaskTerminalEvidenceRequired: true,
     },
-    { type: 'runtime_execution_mode_policy', mode: 'simulation', simulationId: RUN_ID },
-    ...(options.omitTargetPolicy ? [] : [policy]),
+    options.live
+      ? { type: 'runtime_execution_mode_policy', mode: 'live' }
+      : { type: 'runtime_execution_mode_policy', mode: 'simulation', simulationId: RUN_ID },
+    ...(options.live || options.omitTargetPolicy ? [] : [policy]),
     ...(options.duplicateTargetPolicy ? [policy] : []),
   ];
   return createTaskCapabilityBinding({
     bindingId: 'capability-binding-1',
     taskId: 'task-1',
     requestedCapabilityId: 'embodied.move',
-    capabilityVersion: 2,
+    capabilityVersion: options.live ? 4 : 2,
     inputSnapshot: Object.freeze({
       resourceId: 'vehicle:ugv1',
       target: Object.freeze({ ...(options.target ?? deriveTarget()) }),
@@ -293,6 +405,13 @@ function capabilityBinding(
 }
 
 function capabilityAuthority(binding: TaskCapabilityBinding): TaskCapabilitySkillUsageAuthority {
+  const executionPolicy = binding.constraintSnapshot.find(
+    (constraint) => constraint['type'] === 'runtime_execution_mode_policy',
+  );
+  const runtimeExecutionContext =
+    executionPolicy?.['mode'] === 'live'
+      ? ({ mode: 'live' } as const)
+      : ({ mode: 'simulation', simulationId: RUN_ID } as const);
   return Object.freeze({
     skillId: 'embodied.move_to',
     skillVersion: 1,
@@ -317,7 +436,7 @@ function capabilityAuthority(binding: TaskCapabilityBinding): TaskCapabilitySkil
         unresolved: false as const,
         value: binding.inputSnapshot as Readonly<Record<string, unknown>>,
       }),
-      runtimeExecutionContext: Object.freeze({ mode: 'simulation', simulationId: RUN_ID }),
+      runtimeExecutionContext: Object.freeze(runtimeExecutionContext),
       systemPolicy: Object.freeze({
         allowedModes: Object.freeze(['guidance', 'template', 'procedure'] as const),
         requireProcedureForHighRisk: true,

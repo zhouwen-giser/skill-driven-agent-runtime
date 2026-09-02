@@ -1,6 +1,6 @@
 {
   "contractVersion": "sdar.evidence/v1",
-  "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
+  "registryHash": "sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197",
   "recordSchemas": [
     {
       "recordType": "runtime.episode",
@@ -260,6 +260,41 @@
       "schemaVersion": 1,
       "schemaPath": "records/mcp_task.remote_binding.schema.json",
       "schemaHash": "sha256:cc302a8902d3cdfb60a7b9af4edf93ee9b56b29fa3670dd8eccc9f473bd43c0c"
+    },
+    {
+      "recordType": "mcp_task.logical_invocation",
+      "schemaName": "sdar.evidence.mcp_task.logical_invocation",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.logical_invocation.schema.json",
+      "schemaHash": "sha256:291f249f3db684976983c66bb1a2c0ed5eaaa790418edc1970d8db09806bd622"
+    },
+    {
+      "recordType": "mcp_task.admission",
+      "schemaName": "sdar.evidence.mcp_task.admission",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.admission.schema.json",
+      "schemaHash": "sha256:93145487a171f461e86288152c87b7b6466def2b2fd3916f30dfaa5cf7ea4a17"
+    },
+    {
+      "recordType": "mcp_task.dispatch_uncertain",
+      "schemaName": "sdar.evidence.mcp_task.dispatch_uncertain",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.dispatch_uncertain.schema.json",
+      "schemaHash": "sha256:d7e8bbf7af758e90f05b95e9a5e3026dffbdc54306503edb41c04104d47c003b"
+    },
+    {
+      "recordType": "mcp_task.dispatch_reconciliation",
+      "schemaName": "sdar.evidence.mcp_task.dispatch_reconciliation",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.dispatch_reconciliation.schema.json",
+      "schemaHash": "sha256:ebd1f779264c9a38b3f4991016c1cffa73b23dab9317de35f273d1b00116acf7"
+    },
+    {
+      "recordType": "mcp_task.provider_execution_link",
+      "schemaName": "sdar.evidence.mcp_task.provider_execution_link",
+      "schemaVersion": 1,
+      "schemaPath": "records/mcp_task.provider_execution_link.schema.json",
+      "schemaHash": "sha256:afbbbfd75e0214d5fc18fb75499f3c8499dca6e950d611e246f8039f5de0c97b"
     },
     {
       "recordType": "mcp_task.observation",
@@ -712,7 +747,7 @@
     {
       "name": "batch-request",
       "schemaPath": "batch-request.schema.json",
-      "schemaHash": "sha256:f5afb789d85f27eec05d39021510041792931bcdbf3b7ace7da2aef9ab662e9a"
+      "schemaHash": "sha256:4e777ab244980940cc1588956f5923933716a45420263a9e84b46a2709f8683e"
     },
     {
       "name": "batch-acknowledgement",
@@ -722,7 +757,7 @@
     {
       "name": "canonical-evidence-envelope",
       "schemaPath": "canonical-evidence-envelope.schema.json",
-      "schemaHash": "sha256:f69e0110818b4d8c2feda24fcfe87649d0f6ddca92b1dae52d405e9a4c3a201c"
+      "schemaHash": "sha256:3fc8f26086982d60c98b8c96918afc9790a1d544901ea56f75b600d7fc5343de"
     },
     {
       "name": "episode-evidence-manifest",
