@@ -60,6 +60,20 @@ repaired Runtime PID is 1090891, started `2026-09-02T05:35:28Z`, with dist SHA-2
 Control health remain HTTP 200. Qualification created no new Task or Provider Tool invocation and
 caused no Device or Simulator mutation.
 
+P10 remote-terminal failure propagation is repaired in implementation
+`8ff8e0a6cd91d9c737eeddbfd109f440a1c2a961`. The historical Provider Task failed authoritatively with
+`UGV_START_OBSERVATION_TIMEOUT`; LangGraph correctly persisted `MCP_REMOTE_TASK_FAILED`, but the UGV
+Goal evaluator incorrectly ran the success-only physical terminal proof and surfaced
+`TASK_CAPABILITY_TERMINAL_GUARD_FAILED`. Failed exact UGV Workflows now produce deterministic
+`unachievable` evaluation while preserving the stable Provider reason; succeeded Workflows still
+require the unchanged final-position and frozen-Capability proof. Four focused files / 67 tests,
+typecheck, lint, format, the 870-source architecture gate and production build pass. Runtime PID
+1410562 was rolled from dist SHA-256
+`7784704199fd65e838eab190dd0f7cf747f25c419b4acb718398f7b851253c4a`; Management, A2A and Node
+Control returned HTTP 200. Qualification was read-only, created no Task or Tool call, and preserved
+the incident's single navigate admission with zero redispatch. Evidence:
+`reports/ugv-agent-profile-simulation/p10-remote-terminal-failure-propagation.json`.
+
 ## UGV append-only successor admission repair (2026-09-01, implemented; navigation waiting)
 
 ADR-146 removes the UGV Profile's fixed `embodied.move@2` / `a2a.embodied.move@2` product-code

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-02 — UGV remote terminal failure propagation
+
+- Route an authoritative failed UGV remote Task into deterministic `unachievable` Goal evaluation
+  instead of applying the success-only physical terminal proof and masking the Provider failure as
+  `TASK_CAPABILITY_TERMINAL_GUARD_FAILED`.
+- Preserve a bounded stable Provider reason code such as `UGV_START_OBSERVATION_TIMEOUT` in the
+  LangGraph failure path while retaining the generic `MCP_REMOTE_TASK_FAILED` error category and the
+  complete frozen remote result.
+- Keep the successful CORE path unchanged and fully hard-gated by final position and frozen
+  Capability evidence; add no replay or redispatch behavior. Focused 67 tests, typecheck,
+  architecture and build passed, followed by a read-only Runtime rollout with zero new Task or Tool
+  call.
+
 ## 2026-09-02 — UGV selected-operation temporal authority
 
 - Preserve a short-lived dynamic availability observation as immutable historical evidence after an

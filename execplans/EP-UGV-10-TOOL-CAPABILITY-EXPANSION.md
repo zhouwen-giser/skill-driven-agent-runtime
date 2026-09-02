@@ -56,6 +56,10 @@ governance and runtime authority.
       immutable selection evidence after its selection boundary, while retaining a fresh exact
       availability recheck immediately before governed invocation; refreshed current Binding
       observation validity and rolled the repaired Runtime with zero Task or Tool calls.
+- [x] 2026-09-02: corrected failed remote-Task terminal handling so an authoritative Provider
+      failure enters the deterministic `unachievable` path with its stable reason code, without
+      invoking the success-only physical terminal proof or adding any redispatch path; rolled and
+      read-only qualified the repaired Runtime.
 
 ## Discoveries and Surprises
 
@@ -104,6 +108,11 @@ governance and runtime authority.
   later workflow-authority guards incorrectly reinterpreted that historical selection observation
   as current readiness. Selection evidence is now immutable after selection; the independent
   governed pre-invocation authority remains responsible for current readiness.
+- A P10 Provider Task failed authoritatively with `UGV_START_OBSERVATION_TIMEOUT`, but the UGV Goal
+  evaluator then applied the physical-success terminal authority to the failed Workflow and replaced
+  the faithful error with `TASK_CAPABILITY_TERMINAL_GUARD_FAILED`. Failed Workflow instances now
+  produce a deterministic `unachievable` evaluation and preserve the stable Provider reason; only a
+  succeeded Workflow enters final-position and frozen-Capability success proof.
 
 ## Decision Log
 
@@ -175,6 +184,13 @@ Completed evidence before final rerun:
   1090891 with dist SHA-256 `2a20752a4f2504cfb5906ed25b8d54c607bd618117666685b2139281e8332d00`;
   a formal Binding refresh preserved revision 2 / Catalog `2.0.0-rc.1:2` while extending observed
   availability through `2026-09-02T06:36:36.587Z`. Qualification created zero Tasks and Tool calls.
+- Remote-terminal failure propagation repair: implementation
+  `8ff8e0a6cd91d9c737eeddbfd109f440a1c2a961` passed 4 focused files / 67 tests, typecheck, scoped
+  lint/format, the 870-source architecture gate and production build. The exact historical incident
+  retained one read call, one navigate admission, one remote Task and zero redispatch. Read-only
+  qualification rolled Runtime PID 1410562 from dist SHA-256
+  `7784704199fd65e838eab190dd0f7cf747f25c419b4acb718398f7b851253c4a`; Management, A2A and Node
+  Control returned HTTP 200, and no Task, Provider Tool call or device mutation was created.
 
 ## Idempotence and Recovery
 
