@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 const EnvironmentSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     SDAR_CONTROL_DATABASE_URL: z
       .string()
       .min(1)
@@ -18,7 +18,7 @@ const EnvironmentSchema = z
   .superRefine((environment, context) => {
     if (
       environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open' &&
-      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+      (!['development', 'test'].includes(environment.NODE_ENV) ||
         !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
     )
       context.addIssue({

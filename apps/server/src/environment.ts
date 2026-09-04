@@ -64,7 +64,7 @@ const GovernedControlPermissionsSchema = z.preprocess(
 
 const EnvironmentSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     SDAR_POSTGRES_URL: z
       .string()
       .min(1)
@@ -171,7 +171,7 @@ const EnvironmentSchema = z
   .superRefine((environment, context) => {
     if (
       environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open' &&
-      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+      (!['development', 'test'].includes(environment.NODE_ENV) ||
         !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
     ) {
       context.addIssue({
@@ -198,20 +198,8 @@ const EnvironmentSchema = z
         });
     }
     if (
-      environment.SDAR_TASK_UNDERSTANDING_PROFILE === 'ugv-agent-profile' &&
-      (environment.NODE_ENV !== 'test' ||
-        !['test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
-    )
-      context.addIssue({
-        code: 'custom',
-        path: ['SDAR_TASK_UNDERSTANDING_PROFILE'],
-        message:
-          'ugv-agent-profile is external-simulation-only and requires NODE_ENV=test with SDAR_CONTROL_ENVIRONMENT=test or integration.',
-      });
-    if (
       environment.SDAR_MCP_LIVE_EXECUTION_MODE_HEADER === 'omit' &&
-      (environment.NODE_ENV === undefined ||
-        environment.NODE_ENV === 'production' ||
+      (environment.NODE_ENV === 'production' ||
         environment.SDAR_CONTROL_ENVIRONMENT === 'production')
     ) {
       context.addIssue({
@@ -335,7 +323,7 @@ const EnvironmentSchema = z
     }
     if (
       environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open' &&
-      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+      (!['development', 'test'].includes(environment.NODE_ENV) ||
         !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
     )
       context.addIssue({
@@ -471,6 +459,26 @@ export function remoteTaskAdmissionObservationProfile(
     environment.SDAR_CONTROL_ENVIRONMENT === 'production'
     ? 'off'
     : 'development';
+}
+
+/**
+ * Missing deployment markers intentionally resolve to the current development phase. Qualification
+ * and production therefore require an explicit environment change instead of being inferred.
+ */
+export function isDevelopmentDeploymentEnvironment(
+  environment: Readonly<Partial<Pick<NodeJS.ProcessEnv, 'NODE_ENV' | 'SDAR_CONTROL_ENVIRONMENT'>>>,
+): boolean {
+  const rawNodeEnvironment = environment.NODE_ENV?.trim();
+  const rawControlEnvironment = environment.SDAR_CONTROL_ENVIRONMENT?.trim();
+  const nodeEnvironment =
+    rawNodeEnvironment === undefined || rawNodeEnvironment.length === 0
+      ? 'development'
+      : rawNodeEnvironment;
+  const controlEnvironment =
+    rawControlEnvironment === undefined || rawControlEnvironment.length === 0
+      ? 'development'
+      : rawControlEnvironment;
+  return nodeEnvironment === 'development' && controlEnvironment === 'development';
 }
 
 function loadEnvironmentFileIfPresent(envFilePath: string): void {

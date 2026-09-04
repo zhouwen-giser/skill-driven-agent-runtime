@@ -7,7 +7,7 @@ import { assertPrivateHttpDeploymentAcknowledgement } from './outbound-endpoint-
 
 const EnvironmentSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     SDAR_CONTROL_DATABASE_URL: z
       .string()
       .min(1)
@@ -47,7 +47,7 @@ const EnvironmentSchema = z
   .superRefine((environment, context) => {
     if (
       environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open' &&
-      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+      (!['development', 'test'].includes(environment.NODE_ENV) ||
         !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
     )
       context.addIssue({
@@ -121,7 +121,7 @@ const EnvironmentSchema = z
     }
     if (
       environment.SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY === 'unsafe_test_open' &&
-      (!['development', 'test'].includes(environment.NODE_ENV ?? '') ||
+      (!['development', 'test'].includes(environment.NODE_ENV) ||
         !['development', 'test', 'integration'].includes(environment.SDAR_CONTROL_ENVIRONMENT))
     )
       context.addIssue({
@@ -134,6 +134,7 @@ const EnvironmentSchema = z
 type ParsedNodeControlApiEnvironment = z.infer<typeof EnvironmentSchema>;
 export type NodeControlApiEnvironment = Omit<
   ParsedNodeControlApiEnvironment,
+  | 'NODE_ENV'
   | 'SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST'
   | 'SDAR_CONTROL_RUNTIME_DATABASE_URL'
   | 'SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST'
@@ -144,6 +145,7 @@ export type NodeControlApiEnvironment = Omit<
   | 'SDAR_DEVELOPMENT_PUBLIC_ACCESS'
 > &
   Readonly<{
+    NODE_ENV?: 'development' | 'test' | 'production';
     SDAR_CONTROL_MCP_ENDPOINT_ALLOWLIST?: string;
     SDAR_CONTROL_RUNTIME_DATABASE_URL?: string;
     SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST?: string;

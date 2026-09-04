@@ -66,8 +66,16 @@ governance and runtime authority.
 - [x] 2026-09-02: aligned the live terminal-position parser with the Provider's formal aggregate
       geodetic field authority and the frozen selected execution mode, preserving every existing
       physical-success hard gate; completed the full verification gate and a zero-mutation rollout.
+- [x] 2026-09-04: adopted ADR-148's development-first startup defaults: missing deployment markers
+      select development, development physical side-effect switches default to enabled, and every
+      PostgreSQL-enabled Skill is visible to the UGV development profile. Qualification/production
+      validation is explicitly deferred rather than inferred from this milestone.
 
 ## Discoveries and Surprises
+
+- Reusing qualification defaults during trusted-network development hid composition defects behind
+  deployment-denied outcomes. Development visibility can be broad without moving confirmation,
+  idempotency, no-replay or terminal-success authority out of their existing layers.
 
 - Provider unavailability was caused by concurrent simulation requests and is externally resolved;
   SDAR must not add a readiness bypass.

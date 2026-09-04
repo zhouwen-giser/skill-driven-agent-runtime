@@ -556,6 +556,7 @@ export interface ServerRuntimeOptions {
   /** Optional startup-only seed; persisted Provider/Prompt/route rows remain authoritative. */
   readonly modelBootstrap?: InitialModelProviderConfiguration;
   readonly evidenceEnvironment?: string;
+  readonly ugvAgentProfileSkillScope?: 'all_enabled' | 'profile_reviewed';
   readonly evidenceObservationScope?: Readonly<{ tenantId: string; projectId: string }>;
   /** Required frozen thresholds for the external-simulation UGV final-position hard gate. */
   readonly ugvMovePositionPolicy?: UgvMovePositionPolicy;
@@ -980,7 +981,13 @@ export async function startServerRuntime(
   const events = new PostgresRuntimeEventPublisher(pool, taskCommands);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
-  const profileSkills = ugvAgentProfile ? new UgvAgentProfileSkillRepositoryView(skills) : skills;
+  const profileSkills = ugvAgentProfile
+    ? new UgvAgentProfileSkillRepositoryView(
+        skills,
+        options.ugvAgentProfileSkillScope ??
+          (options.evidenceEnvironment === 'development' ? 'all_enabled' : 'profile_reviewed'),
+      )
+    : skills;
   const skillGraphRepository = new PostgresSkillGraphRepository(pool);
   const skillSelectionRepository = new PostgresSkillSelectionRepository(pool);
   const resolveSkillUsageContext = (
@@ -7405,7 +7412,11 @@ export async function startServerRuntime(
         ? {
             naturalLanguageAdmissionContractProvider: {
               async findCurrent() {
-                if ((await profileSkills.listEnabledVersions()).length === 0) return undefined;
+                const pointSkill = await profileSkills.findVersion(
+                  UGV_AGENT_PROFILE_SKILL_ID,
+                  UGV_AGENT_PROFILE_SKILL_VERSION,
+                );
+                if (pointSkill?.status !== 'enabled') return undefined;
                 return taskCapabilities.describeCurrentAdmissionExposure(
                   UGV_AGENT_PROFILE_EXPOSURE_ID,
                   clock.now(),

@@ -1,5 +1,14 @@
 # Project Status
 
+## Development Runtime defaults (2026-09-04)
+
+ADR-148 makes the current project phase explicit in composition: omitted `NODE_ENV` and Control
+environment markers resolve to development, UGV live/simulation side-effect switches default to
+enabled there, and the development UGV Skill view includes every PostgreSQL-enabled version. This
+does not publish disabled Skills or remove Task Capability, confirmation, idempotency, no-replay,
+Provider-readiness or terminal-evidence authority. Qualification and production must be selected
+explicitly and are deliberately outside this development-only validation milestone.
+
 ## UGV ten-tool Capability / Skill / A2A expansion (2026-09-02, deployed and qualified)
 
 P10 live terminal-position parsing is repaired in implementation

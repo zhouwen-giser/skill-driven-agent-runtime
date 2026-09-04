@@ -21,6 +21,7 @@ export const UGV_AGENT_PROFILE_SKILL_REF = 'embodied.move_to@1' as const;
 export const UGV_AGENT_PROFILE_CAPABILITY_ID = 'embodied.move' as const;
 export const UGV_AGENT_PROFILE_EXPOSURE_ID = 'a2a.embodied.move' as const;
 export const UGV_AGENT_PROFILE_TASK_TYPE_ID = 'task-type.ugv-point-navigation' as const;
+export type UgvAgentProfileSkillScope = 'all_enabled' | 'profile_reviewed';
 
 const UGV_AGENT_PROFILE_TASK_TYPES: readonly TaskTypeDefinition[] = Object.freeze(
   UGV_AGENT_CAPABILITY_CATALOG.map((declaration) =>
@@ -106,8 +107,6 @@ export function assertUgvAgentProfileRuntimeConfiguration(
 ): void {
   const configuration = options.taskUnderstanding;
   if (configuration?.profile !== UGV_AGENT_PROFILE_ID) return;
-  if (options.evidenceEnvironment !== 'test' && options.evidenceEnvironment !== 'integration')
-    throw new Error('UGV_AGENT_PROFILE_SIMULATION_ENVIRONMENT_REQUIRED');
   if (
     configuration.entryPolicy !== 'all_requests' ||
     configuration.skillSelectionMode !== 'exact_compatible_only' ||
@@ -133,10 +132,15 @@ export function assertUgvAgentProfileRuntimeConfiguration(
  */
 export function projectUgvAgentProfileEnabledSkills(
   enabledSkills: readonly SkillVersion[],
+  scope: UgvAgentProfileSkillScope = 'profile_reviewed',
 ): readonly SkillVersion[] {
   const projected = enabledSkills.filter((skill) => {
-    if (skill.status !== 'enabled' || !UGV_PUBLIC_SKILL_IDS.includes(skill.skillId)) return false;
-    if (skill.skillId === UGV_AGENT_PROFILE_SKILL_ID)
+    if (
+      skill.status !== 'enabled' ||
+      (scope === 'profile_reviewed' && !UGV_PUBLIC_SKILL_IDS.includes(skill.skillId))
+    )
+      return false;
+    if (scope === 'profile_reviewed' && skill.skillId === UGV_AGENT_PROFILE_SKILL_ID)
       return skill.version === UGV_AGENT_PROFILE_SKILL_VERSION;
     return true;
   });
@@ -145,7 +149,7 @@ export function projectUgvAgentProfileEnabledSkills(
     const identity = `${skill.skillId}@${String(skill.version)}`;
     if (identities.has(identity)) throw new Error('UGV_AGENT_PROFILE_EXACT_SKILL_AMBIGUOUS');
     identities.add(identity);
-    assertUgvAgentProfileSkillDeclaration(skill);
+    if (scope === 'profile_reviewed') assertUgvAgentProfileSkillDeclaration(skill);
   }
   return Object.freeze([...projected].sort(compareSkills));
 }
@@ -153,16 +157,19 @@ export function projectUgvAgentProfileEnabledSkills(
 /** A read-only exact-version view used by selection; the formal Skill Registry remains authoritative. */
 export class UgvAgentProfileSkillRepositoryView implements SkillRepository {
   readonly #source: SkillRepository;
+  readonly #scope: UgvAgentProfileSkillScope;
 
-  constructor(source: SkillRepository) {
+  constructor(source: SkillRepository, scope: UgvAgentProfileSkillScope = 'profile_reviewed') {
     this.#source = source;
+    this.#scope = scope;
   }
 
   async find(skillId: string) {
-    if (!UGV_PUBLIC_SKILL_IDS.includes(skillId)) return undefined;
+    if (!this.#includes(skillId)) return undefined;
     const skill = await this.#source.find(skillId);
     if (skill === undefined) return undefined;
     if (
+      this.#scope === 'profile_reviewed' &&
       skillId === UGV_AGENT_PROFILE_SKILL_ID &&
       skill.currentVersion !== UGV_AGENT_PROFILE_SKILL_VERSION
     )
@@ -171,29 +178,39 @@ export class UgvAgentProfileSkillRepositoryView implements SkillRepository {
   }
 
   async findCurrentVersion(skillId: string) {
-    if (!UGV_PUBLIC_SKILL_IDS.includes(skillId)) return undefined;
+    if (!this.#includes(skillId)) return undefined;
     const skill = await this.#source.findCurrentVersion(skillId);
     if (skill?.status !== 'enabled') return undefined;
-    if (skillId === UGV_AGENT_PROFILE_SKILL_ID && skill.version !== UGV_AGENT_PROFILE_SKILL_VERSION)
+    if (
+      this.#scope === 'profile_reviewed' &&
+      skillId === UGV_AGENT_PROFILE_SKILL_ID &&
+      skill.version !== UGV_AGENT_PROFILE_SKILL_VERSION
+    )
       return undefined;
-    assertUgvAgentProfileSkillDeclaration(skill);
+    if (this.#scope === 'profile_reviewed') assertUgvAgentProfileSkillDeclaration(skill);
     return skill;
   }
 
   async findVersion(skillId: string, version: number) {
-    if (!UGV_PUBLIC_SKILL_IDS.includes(skillId)) return undefined;
-    if (skillId === UGV_AGENT_PROFILE_SKILL_ID && version !== UGV_AGENT_PROFILE_SKILL_VERSION)
+    if (!this.#includes(skillId)) return undefined;
+    if (
+      this.#scope === 'profile_reviewed' &&
+      skillId === UGV_AGENT_PROFILE_SKILL_ID &&
+      version !== UGV_AGENT_PROFILE_SKILL_VERSION
+    )
       return undefined;
     const skill = await this.#source.findVersion(skillId, version);
-    if (skill !== undefined) assertUgvAgentProfileSkillDeclaration(skill);
+    if (skill !== undefined && this.#scope === 'profile_reviewed')
+      assertUgvAgentProfileSkillDeclaration(skill);
     return skill;
   }
 
   async listVersions(skillId: string) {
-    if (!UGV_PUBLIC_SKILL_IDS.includes(skillId)) return Object.freeze([]);
+    if (!this.#includes(skillId)) return Object.freeze([]);
     return Object.freeze(
       (await this.#source.listVersions(skillId)).filter(
         (skill) =>
+          this.#scope === 'all_enabled' ||
           skillId !== UGV_AGENT_PROFILE_SKILL_ID ||
           skill.version === UGV_AGENT_PROFILE_SKILL_VERSION,
       ),
@@ -201,17 +218,26 @@ export class UgvAgentProfileSkillRepositoryView implements SkillRepository {
   }
 
   async listEnabledVersions() {
-    return projectUgvAgentProfileEnabledSkills(await this.#source.listEnabledVersions());
+    return projectUgvAgentProfileEnabledSkills(
+      await this.#source.listEnabledVersions(),
+      this.#scope,
+    );
   }
 
   async listCurrentVersions() {
     return Object.freeze(
-      (await this.#source.listCurrentVersions()).filter((skill) =>
-        skill.skillId === UGV_AGENT_PROFILE_SKILL_ID
-          ? skill.version === UGV_AGENT_PROFILE_SKILL_VERSION
-          : UGV_PUBLIC_SKILL_IDS.includes(skill.skillId),
+      (await this.#source.listCurrentVersions()).filter(
+        (skill) =>
+          this.#includes(skill.skillId) &&
+          (this.#scope === 'all_enabled' ||
+            skill.skillId !== UGV_AGENT_PROFILE_SKILL_ID ||
+            skill.version === UGV_AGENT_PROFILE_SKILL_VERSION),
       ),
     );
+  }
+
+  #includes(skillId: string): boolean {
+    return this.#scope === 'all_enabled' || UGV_PUBLIC_SKILL_IDS.includes(skillId);
   }
 
   saveVersionAndSetCurrent(

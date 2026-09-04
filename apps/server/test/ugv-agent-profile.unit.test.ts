@@ -1,11 +1,8 @@
-import { randomBytes } from 'node:crypto';
-
 import { describe, expect, it } from 'vitest';
 
 import type { SkillRepository } from '../../../packages/application/src/index.js';
 import type { Skill, SkillVersion } from '../../../packages/domain/src/index.js';
 import { parseServerEnvironment } from '../src/environment.js';
-import { startServerRuntime } from '../src/runtime.js';
 import {
   UGV_AGENT_PROFILE_CAPABILITY_ID,
   UGV_AGENT_PROFILE_ID,
@@ -88,6 +85,13 @@ describe('UGV Agent Profile composition', () => {
     expect(() =>
       projectUgvAgentProfileEnabledSkills([{ ...exact, capabilities: ['vehicle.ugv.navigate'] }]),
     ).toThrow('UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID');
+
+    const development = projectUgvAgentProfileEnabledSkills(
+      [legacy, otherVersion, unrelated, exact],
+      'all_enabled',
+    );
+    expect(development).toHaveLength(4);
+    expect(development).toEqual(expect.arrayContaining([legacy, otherVersion, unrelated, exact]));
   });
 
   it('uses a read-only exact-version repository view for selection', async () => {
@@ -107,6 +111,12 @@ describe('UGV Agent Profile composition', () => {
     await expect(view.saveVersionAndSetCurrent(exact, exact.createdAt)).rejects.toThrow(
       'UGV_AGENT_PROFILE_SKILL_CATALOG_READ_ONLY',
     );
+
+    const developmentView = new UgvAgentProfileSkillRepositoryView(source, 'all_enabled');
+    await expect(developmentView.listEnabledVersions()).resolves.toEqual(
+      expect.arrayContaining([legacy, exact]),
+    );
+    await expect(developmentView.findVersion('ugv.navigate', 1)).resolves.toEqual(legacy);
   });
 
   it('fails startup closed unless the canonical profile and existing governance authorities are composed', () => {
@@ -117,9 +127,9 @@ describe('UGV Agent Profile composition', () => {
     expect(() => {
       assertUgvAgentProfileRuntimeConfiguration({
         ...valid,
-        evidenceEnvironment: 'production',
+        evidenceEnvironment: 'development',
       });
-    }).toThrow('UGV_AGENT_PROFILE_SIMULATION_ENVIRONMENT_REQUIRED');
+    }).not.toThrow();
     expect(() => {
       assertUgvAgentProfileRuntimeConfiguration({
         ...valid,
@@ -161,18 +171,6 @@ describe('UGV Agent Profile composition', () => {
     }).toThrow('explicit positive tolerance');
   });
 
-  it('rejects a direct production start before opening infrastructure', async () => {
-    await expect(
-      startServerRuntime({
-        postgresUrl: 'postgresql://unused.invalid/sdar',
-        redis: { host: '127.0.0.1', port: 1 },
-        masterKeyBase64: randomBytes(32).toString('base64'),
-        ...validRuntimeConfiguration(),
-        evidenceEnvironment: 'production',
-      }),
-    ).rejects.toThrow('UGV_AGENT_PROFILE_SIMULATION_ENVIRONMENT_REQUIRED');
-  });
-
   it('parses only the explicit deterministic environment identity with governance credentials', () => {
     const environment = parseServerEnvironment({
       NODE_ENV: 'test',
@@ -202,19 +200,21 @@ describe('UGV Agent Profile composition', () => {
     expect(useManagedAgentCardForProfile(environment.SDAR_TASK_UNDERSTANDING_PROFILE)).toBe(true);
     expect(useManagedAgentCardForProfile('managed_capability')).toBe(true);
 
-    expect(() => {
+    expect(
       parseServerEnvironment({
-        NODE_ENV: 'production',
         SDAR_MASTER_KEY_BASE64: Buffer.alloc(32, 7).toString('base64'),
         SDAR_TASK_UNDERSTANDING_PROFILE: UGV_AGENT_PROFILE_ID,
-        SDAR_CONTROL_ENVIRONMENT: 'production',
         SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
         SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
-        SDAR_GOVERNED_CONTROL_BEARER_TOKEN: 'g'.repeat(32),
-        SDAR_GOVERNED_CONTROL_ACTOR_ID: 'ugv-simulation-operator',
+        SDAR_GOVERNED_CONTROL_AUTHENTICATION_MODE: 'trusted_intranet',
+        SDAR_GOVERNED_CONTROL_ACTOR_ID: 'ugv-development-operator',
         SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm',
-      });
-    }).toThrow('external-simulation-only');
+      }),
+    ).toMatchObject({
+      NODE_ENV: 'development',
+      SDAR_CONTROL_ENVIRONMENT: 'development',
+      SDAR_TASK_UNDERSTANDING_PROFILE: UGV_AGENT_PROFILE_ID,
+    });
   });
 });
 

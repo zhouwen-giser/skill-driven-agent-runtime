@@ -8,14 +8,21 @@ const AUTHORITY = Object.freeze({
 });
 
 describe('EnvironmentUgvLiveSideEffectGate', () => {
-  it('is default closed and accepts only the exact explicit enable value', async () => {
+  it('defaults open in development and honors an explicit disable', async () => {
     await expect(
       new EnvironmentUgvLiveSideEffectGate({}).assertAuthorized(AUTHORITY),
-    ).rejects.toMatchObject({ code: 'UGV_LIVE_SIDE_EFFECT_NOT_AUTHORIZED' });
+    ).resolves.toBeUndefined();
     await expect(
-      new EnvironmentUgvLiveSideEffectGate({ ALLOW_UGV_LIVE_SIDE_EFFECTS: 'yes' }).assertAuthorized(
-        AUTHORITY,
-      ),
+      new EnvironmentUgvLiveSideEffectGate({
+        ALLOW_UGV_LIVE_SIDE_EFFECTS: '',
+      }).assertAuthorized(AUTHORITY),
+    ).resolves.toBeUndefined();
+    await expect(
+      new EnvironmentUgvLiveSideEffectGate({
+        NODE_ENV: 'development',
+        SDAR_CONTROL_ENVIRONMENT: 'development',
+        ALLOW_UGV_LIVE_SIDE_EFFECTS: 'NO',
+      }).assertAuthorized(AUTHORITY),
     ).rejects.toMatchObject({ code: 'UGV_LIVE_SIDE_EFFECT_NOT_AUTHORIZED' });
     await expect(
       new EnvironmentUgvLiveSideEffectGate({ ALLOW_UGV_LIVE_SIDE_EFFECTS: 'YES' }).assertAuthorized(

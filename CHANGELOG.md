@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-04 — Development-first Runtime defaults
+
+- Make omitted deployment markers resolve to `development` and allow the UGV profile in that
+  explicit development environment; qualification and production now require an active environment
+  change.
+- Default UGV live and simulation side-effect deployment switches to enabled in development while
+  retaining explicit `NO`, exact confirmation, idempotency, no-replay and terminal-evidence gates.
+- Expose every PostgreSQL-enabled Skill version to development UGV selection instead of applying the
+  additional profile allowlist. Disabled Skills and unavailable/stale Provider authority remain
+  excluded. Qualification/production validation is intentionally deferred.
+
 ## 2026-09-02 — UGV live aggregate terminal-position authority
 
 - Accept the Provider's formal field-authority-gated aggregate geodetic position tuple

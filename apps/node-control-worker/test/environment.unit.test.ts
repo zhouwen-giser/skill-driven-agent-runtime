@@ -13,12 +13,13 @@ describe('Node Control Worker environment', () => {
 
   it('keeps safe outbound policy as the default', () => {
     expect(parseNodeControlWorkerEnvironment({})).toMatchObject({
+      NODE_ENV: 'development',
       SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'safe',
       SDAR_CONTROL_PROVIDER_ENDPOINT_ALLOWLIST: '127.0.0.1,localhost',
     });
   });
 
-  it('allows unsafe_test_open only with both explicit non-production gates', () => {
+  it('allows unsafe_test_open under the default development marker', () => {
     const unsafe = {
       SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open',
       SDAR_CONTROL_ENVIRONMENT: 'integration',
@@ -26,7 +27,10 @@ describe('Node Control Worker environment', () => {
     expect(parseNodeControlWorkerEnvironment({ ...unsafe, NODE_ENV: 'test' })).toMatchObject(
       unsafe,
     );
-    expect(() => parseNodeControlWorkerEnvironment(unsafe)).toThrow('forbidden outside');
+    expect(parseNodeControlWorkerEnvironment(unsafe)).toMatchObject({
+      ...unsafe,
+      NODE_ENV: 'development',
+    });
     expect(() => parseNodeControlWorkerEnvironment({ ...unsafe, NODE_ENV: 'production' })).toThrow(
       'forbidden outside',
     );

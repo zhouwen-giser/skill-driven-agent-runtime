@@ -1,15 +1,21 @@
 import type { UgvSimulationSideEffectGate } from '../../../packages/application/src/index.js';
 
+import { isDevelopmentDeploymentEnvironment } from './environment.js';
+
 const ENABLED_VALUE = 'YES';
 const RUN_ID = /^uap-p3-b02-[a-z0-9][a-z0-9._-]{7,127}$/u;
 
-/** Deployment-owned, default-closed half of the UGV side-effect authority. */
+/** Deployment-owned gate; development defaults open but still requires the exact simulation run. */
 export class EnvironmentUgvSimulationSideEffectGate implements UgvSimulationSideEffectGate {
   readonly #enabled: boolean;
   readonly #runId: string | undefined;
 
   constructor(environment: NodeJS.ProcessEnv) {
-    this.#enabled = environment['ALLOW_UGV_SIMULATION_SIDE_EFFECTS'] === ENABLED_VALUE;
+    const rawConfigured = environment['ALLOW_UGV_SIMULATION_SIDE_EFFECTS']?.trim();
+    const configured = rawConfigured === '' ? undefined : rawConfigured;
+    this.#enabled =
+      configured === ENABLED_VALUE ||
+      (configured === undefined && isDevelopmentDeploymentEnvironment(environment));
     const runId = environment['UGV_SIMULATION_RUN_ID'];
     this.#runId = runId === undefined || !RUN_ID.test(runId) ? undefined : runId;
   }

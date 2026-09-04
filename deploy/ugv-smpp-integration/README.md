@@ -79,14 +79,21 @@ readiness probe as `/health/ready`. Preflight accepts the Runtime only when the 
 candidate endpoint equals the derived MCP endpoint and its exact authority is the sole MCP allowlist
 entry. It never calls MCP directly; live catalog access remains behind the existing SDAR adapter.
 
-For the current integration/test deployment, set `NODE_ENV=test`,
-`SDAR_CONTROL_ENVIRONMENT=integration`, and
+For the current development deployment, use the default `NODE_ENV=development`,
+`SDAR_CONTROL_ENVIRONMENT=development`, and
 `SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY=unsafe_test_open`. This explicitly and globally bypasses the
 ordinary outbound authority allowlist and HTTPS-required checks for credential-free HTTP(S) URLs, so
 the PMS and Runtime addresses on `192.168.1.7` are admitted. Node Control refuses this mode when
 either environment is production; the profile is therefore not production-eligible. URL-embedded
 credentials and non-HTTP(S) schemes remain forbidden, authenticated clients retain manual redirect
 handling, and HTTPS certificate validation is not disabled.
+
+Development also defaults `ALLOW_UGV_LIVE_SIDE_EFFECTS=YES` and
+`ALLOW_UGV_SIMULATION_SIDE_EFFECTS=YES`, and makes every PostgreSQL-enabled Skill visible to the UGV
+profile. These settings do not bypass Task Capability selection, Plan/physical/weapon confirmation,
+idempotent MCP Task admission, no-redispatch handling or terminal evidence. Set either switch to
+`NO` for an observational development instance. Qualification/production require an explicit
+environment change and their own validation; they are not implied by this development profile.
 
 The allowlist values remain in the profile as discovered deployment inventory, but they are not a
 security boundary while `unsafe_test_open` is active. Restore `safe` and exact authority controls
