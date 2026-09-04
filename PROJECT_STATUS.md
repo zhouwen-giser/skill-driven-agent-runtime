@@ -1,5 +1,16 @@
 # Project Status
 
+## Dangling Task cancellation convergence (2026-09-05)
+
+An interrupted XCHAIN harness exposed a local projection gap: its Workflow Control and remote Binding
+were already terminal `failed` / `reentered`, but the Agent Task remained `planning`. Standard A2A
+`tasks/cancel` previously treated the terminal Control as a completed cancellation and then raised
+`TASK_RUNTIME_CANCELLATION_INCOMPLETE` because no Task terminal projection existed. TaskService now
+falls back to its existing Task-local cancellation for this exact inconsistency and skips any second
+plan or remote cancellation. PostgreSQL remains authoritative; no Provider state is inferred and no
+continuation or dispatch is created. The focused TaskService suite passes 40/40; typecheck and
+production build are required before deployment handoff.
+
 ## Frozen MCP response-loss recovery checkpoint (2026-09-04)
 
 The live functional harness exposed a recovery-only authority bug after the Provider durably created

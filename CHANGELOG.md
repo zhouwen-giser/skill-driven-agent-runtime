@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-05 — Terminal Workflow / dangling Task cancellation convergence
+
+- When a Runtime cancellation hook finds that the Workflow Control is already terminal but the
+  authoritative Agent Task projection is still nonterminal, deterministically finish the local Task
+  cancellation instead of raising `TASK_RUNTIME_CANCELLATION_INCOMPLETE`.
+- Treat the terminal Workflow as already handled and skip the second plan/remote cancellation path;
+  terminal or `reentered` Provider bindings therefore receive no new cancellation, continuation or
+  dispatch.
+- Add a focused TaskService regression that proves the local Task and Capability Attempt converge to
+  canceled while no plan cancellation operation is invoked.
+
 ## 2026-09-04 — Exact response-loss reconciliation after Binding observation refresh
 
 - Compare uncertain-admission recovery against immutable Runtime, Binding/Source lineage, Catalog,

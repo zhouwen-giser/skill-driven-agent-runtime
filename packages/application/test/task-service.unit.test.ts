@@ -815,6 +815,41 @@ describe('TaskService', () => {
     expect(markLatestAttempt).toHaveBeenCalledWith('task-1', 'canceled', timestamp);
   });
 
+  it('converges a dangling Task locally when its terminal Workflow Control already handled cancellation', async () => {
+    const markLatestAttempt = vi.fn(() => Promise.resolve());
+    const taskCapabilities = {
+      prepareAcceptance: () => Promise.resolve(undefined),
+      markLatestAttempt,
+    } as unknown as RuntimeTaskCapabilityService;
+    const harness = createHarness('resumed', true, undefined, taskCapabilities, {
+      runtimeCancellationLeavesTaskNonterminal: true,
+    });
+    const submitted = await harness.service.submit({ messageText: 'Inspect.', metadata: {} });
+    let task = submitted.task;
+    for (const phase of [
+      'context_loading',
+      'goal_deliberation',
+      'skill_resolution',
+      'planning',
+    ] as const)
+      task = transitionTask(task, phase, phase, timestamp);
+    task = { ...task, planId: 'plan-terminal', goalId: 'goal-terminal', goalVersion: 1 };
+    harness.tasks.set(task.taskId, task);
+    harness.operations.length = 0;
+
+    await expect(harness.service.cancel(task.taskId)).resolves.toMatchObject({
+      phase: 'canceled',
+      phaseMessage: 'Task canceled by user.',
+    });
+    expect(harness.operations).toEqual([
+      'runtime.cancel:task-1',
+      'task.save:task-1:canceled',
+      'event:task.phase_changed:task-1',
+    ]);
+    expect(harness.operations).not.toContain('plan.cancel:plan-terminal');
+    expect(markLatestAttempt).toHaveBeenCalledWith('task-1', 'canceled', timestamp);
+  });
+
   it('returns a stable application error for an unknown task', async () => {
     const harness = createHarness();
     await expect(harness.service.cancel('missing')).rejects.toEqual(
@@ -1517,6 +1552,7 @@ function createHarness(
       TaskServiceDependencies['naturalLanguageCapabilityAdmissions']
     >;
     weaponActions?: NonNullable<TaskServiceDependencies['weaponActions']>;
+    runtimeCancellationLeavesTaskNonterminal?: boolean;
   }> = {},
 ): Readonly<{
   service: TaskService;
@@ -1751,13 +1787,14 @@ function createHarness(
         commitRuntimeCancellation: (task) => {
           if (!runtimeCancellation) return Promise.resolve(false);
           operations.push(`runtime.cancel:${task.taskId}`);
-          tasks.set(task.taskId, {
-            ...task,
-            phase: 'canceled',
-            phaseMessage: 'Atomically canceled by runtime.',
-            errorCode: 'RUNTIME_CANCELED',
-            updatedAt: timestamp,
-          });
+          if (options.runtimeCancellationLeavesTaskNonterminal !== true)
+            tasks.set(task.taskId, {
+              ...task,
+              phase: 'canceled',
+              phaseMessage: 'Atomically canceled by runtime.',
+              errorCode: 'RUNTIME_CANCELED',
+              updatedAt: timestamp,
+            });
           return Promise.resolve(true);
         },
         cancel: (task) => {

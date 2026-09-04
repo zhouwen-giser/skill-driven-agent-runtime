@@ -516,6 +516,7 @@ export class TaskService {
       return task;
     }
     const timestamp = this.#dependencies.clock.now();
+    let runtimeCancellationHandledWithoutTaskProjection = false;
     if (
       this.#dependencies.planActions !== undefined &&
       (await this.#dependencies.planActions.commitRuntimeCancellation?.(
@@ -524,13 +525,15 @@ export class TaskService {
       )) === true
     ) {
       const committed = await this.#dependencies.tasks.findById(task.taskId);
-      if (committed === undefined || !isTerminalTaskPhase(committed.phase))
-        throw new TaskApplicationError(
-          'TASK_RUNTIME_CANCELLATION_INCOMPLETE',
-          'Runtime cancellation did not project a canceled Task.',
-        );
-      await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
-      return committed;
+      if (committed !== undefined && isTerminalTaskPhase(committed.phase)) {
+        await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
+        return committed;
+      }
+      // A terminal Workflow Control may already own a failed outcome while an
+      // interrupted A2A Task projection remains nonterminal. The runtime hook
+      // has handled the Workflow authority, so converge only the local Task
+      // below and do not issue a second plan/remote cancellation.
+      runtimeCancellationHandledWithoutTaskProjection = true;
     }
     const canceled = transitionTask(task, 'canceled', 'Task canceled by user.', timestamp);
     await this.#dependencies.tasks.save(canceled);
@@ -545,6 +548,7 @@ export class TaskService {
       summary: 'Task canceled by user.',
     });
     if (
+      !runtimeCancellationHandledWithoutTaskProjection &&
       (task.phase === 'executing' ||
         task.phase === 'paused' ||
         task.phase === 'awaiting_plan_confirmation') &&

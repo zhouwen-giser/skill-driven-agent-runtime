@@ -74,6 +74,9 @@ authorities while adding a durable Provider execution companion relation.
 - [x] 2026-09-04 16:05Z Deferred recovered polling until continuation materialization and made an
       already-closed historical Workflow a non-fatal audit state; 125 focused tests, architecture,
       typecheck and production build pass.
+- [x] 2026-09-04 16:28Z Closed the terminal-Control/dangling-Task cancellation gap: the standard local
+      cancellation now terminalizes the Task without issuing a second plan, remote cancellation,
+      continuation or dispatch; focused TaskService regression passes 40/40.
 
 ## Discoveries and Surprises
 
@@ -96,6 +99,9 @@ authorities while adding a durable Provider execution companion relation.
   retained the one original Task. Startup reconciliation incorrectly hashed the complete current
   Binding observation, including `observedAt`, and therefore rejected a later observation of the
   same immutable authority as drift before the reconciliation-only transport could run.
+- A previously failed/reentered remote continuation can leave its Agent Task projection nonterminal
+  when the Workflow Control has already committed a terminal failure. Treating the terminal Control
+  as proof that Task cancellation was also projected made standard A2A cancellation fail locally.
 
 ## Decision Log
 
@@ -116,6 +122,9 @@ authorities while adding a durable Provider execution companion relation.
   snapshot, Catalog, Binding/Provider/Source lineage, Tool, arguments, idempotency and execution
   context. Dynamic availability and observation timestamps remain evidence, not immutable dispatch
   identity, and cannot force redispatch or block lookup of an already-created Provider Task.
+- 2026-09-04: If Runtime cancellation reports the Workflow authority already handled but the Agent
+  Task remains nonterminal, perform only the existing Task-local terminal projection and skip the
+  second plan/remote cancellation path. This repairs local authority without changing Provider state.
 
 ## Implementation Steps
 
