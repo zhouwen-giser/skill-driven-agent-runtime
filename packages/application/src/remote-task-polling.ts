@@ -47,7 +47,10 @@ export class RemoteTaskAdmissionService {
     this.#nextObservationId = dependencies.nextObservationId;
   }
 
-  async admit(input: RemoteTaskAdmission): Promise<
+  async admit(
+    input: RemoteTaskAdmission,
+    options: Readonly<{ schedulePoll?: boolean }> = {},
+  ): Promise<
     Readonly<{
       binding: RemoteTaskBinding;
       created: boolean;
@@ -56,21 +59,21 @@ export class RemoteTaskAdmissionService {
   > {
     const candidate = createRemoteTaskBinding(input);
     const admitted = await this.#repository.admit(candidate, this.#nextObservationId());
-    let pollScheduled = false;
-    if (
-      admitted.binding.localState === 'polling' ||
-      admitted.binding.localState === 'cancel_observing'
-    ) {
-      const job = pollJobFor(admitted.binding);
-      try {
-        await this.#queue.enqueue(job, admitted.binding.nextPollAt ?? admitted.binding.updatedAt);
-        pollScheduled = true;
-      } catch {
-        // PostgreSQL admission remains authoritative. The reconciler repairs this explicit gap.
-        pollScheduled = false;
-      }
-    }
+    const pollScheduled =
+      options.schedulePoll === false ? false : await this.schedule(admitted.binding);
     return { ...admitted, pollScheduled };
+  }
+
+  async schedule(binding: RemoteTaskBinding): Promise<boolean> {
+    if (binding.localState !== 'polling' && binding.localState !== 'cancel_observing') return false;
+    const job = pollJobFor(binding);
+    try {
+      await this.#queue.enqueue(job, binding.nextPollAt ?? binding.updatedAt);
+      return true;
+    } catch {
+      // PostgreSQL admission remains authoritative. The reconciler repairs this explicit gap.
+      return false;
+    }
   }
 }
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-04 — Exact response-loss reconciliation after Binding observation refresh
+
+- Compare uncertain-admission recovery against immutable Runtime, Binding/Source lineage, Catalog,
+  protocol, Tool, arguments, idempotency and execution-context identity instead of hashing volatile
+  Provider Binding observation timestamps and availability windows.
+- Use registered Binding/Catalog authority for reconciliation-only lookup of an already-dispatched
+  effect; dynamic availability remains mandatory for a new dispatch but cannot trigger redispatch or
+  hide the one original Provider Task after response loss.
+- Add a regression proving a refreshed/unavailable observation still reconciles exactly once, with
+  one original Provider call and no second mutating dispatch.
+- Delay recovered Remote Task polling until its continuation is durably materialized. A historical
+  exact receipt whose local Workflow has already closed remains audit evidence and no longer crashes
+  Runtime startup or schedules another dispatch.
+
 ## 2026-09-04 — Development-first Runtime defaults
 
 - Make omitted deployment markers resolve to `development` and allow the UGV profile in that

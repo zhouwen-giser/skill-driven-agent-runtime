@@ -522,34 +522,37 @@ export class RemoteTaskAdmissionRecoveryService {
           ? undefined
           : (remote.expiresAt ??
             new Date(Date.parse(remote.createdAt) + remote.ttlMs).toISOString());
-      const admitted = await this.#admission.admit({
-        ...intent.envelope,
-        remoteTaskId: remote.remoteTaskId,
-        protocolStatus: remote.status,
-        protocolRevision: remote.protocolRevision,
-        tasksSchemaRevision: remote.tasksSchemaRevision,
-        protocolContract: intent.receipt.protocolContract,
-        taskBehavior: intent.receipt.taskBehavior,
-        taskCancellation: intent.receipt.taskCancellation,
-        runtimeRevision,
-        ...(remote.providerRevision === undefined
-          ? {}
-          : { providerRevision: remote.providerRevision }),
-        ...(remote.ttlMs === null || taskExpiresAt === undefined
-          ? {}
-          : { taskTtlMs: remote.ttlMs, taskExpiresAt }),
-        ...(remote.providerObservation?.substate === undefined
-          ? {}
-          : { providerSubstate: remote.providerObservation.substate }),
-        ...(remote.providerObservation?.remoteRevision === undefined
-          ? {}
-          : { remoteRevision: remote.providerObservation.remoteRevision }),
-        authoritySnapshot: intent.receipt.authoritySnapshot,
-        credentialRevision: intent.receipt.credentialRevision,
-        sessionRevision: intent.receipt.sessionRevision,
-        lastProviderUpdatedAt: remote.lastUpdatedAt,
-        pollIntervalMs: Math.max(100, remote.pollIntervalMs ?? 1_000),
-      });
+      const admitted = await this.#admission.admit(
+        {
+          ...intent.envelope,
+          remoteTaskId: remote.remoteTaskId,
+          protocolStatus: remote.status,
+          protocolRevision: remote.protocolRevision,
+          tasksSchemaRevision: remote.tasksSchemaRevision,
+          protocolContract: intent.receipt.protocolContract,
+          taskBehavior: intent.receipt.taskBehavior,
+          taskCancellation: intent.receipt.taskCancellation,
+          runtimeRevision,
+          ...(remote.providerRevision === undefined
+            ? {}
+            : { providerRevision: remote.providerRevision }),
+          ...(remote.ttlMs === null || taskExpiresAt === undefined
+            ? {}
+            : { taskTtlMs: remote.ttlMs, taskExpiresAt }),
+          ...(remote.providerObservation?.substate === undefined
+            ? {}
+            : { providerSubstate: remote.providerObservation.substate }),
+          ...(remote.providerObservation?.remoteRevision === undefined
+            ? {}
+            : { remoteRevision: remote.providerObservation.remoteRevision }),
+          authoritySnapshot: intent.receipt.authoritySnapshot,
+          credentialRevision: intent.receipt.credentialRevision,
+          sessionRevision: intent.receipt.sessionRevision,
+          lastProviderUpdatedAt: remote.lastUpdatedAt,
+          pollIntervalMs: Math.max(100, remote.pollIntervalMs ?? 1_000),
+        },
+        { schedulePoll: false },
+      );
       const reconciled = intent.receipt.reconciledTask;
       let staleVerifiedSnapshot: WorkflowContinuationSnapshot | undefined;
       if (reconciled !== undefined) {
@@ -612,7 +615,12 @@ export class RemoteTaskAdmissionRecoveryService {
           if (mutation.applied) uncertain += 1;
           continue;
         }
-        await this.#continuations.saveSnapshot(intent.receipt.continuation.snapshot);
+        try {
+          await this.#continuations.saveSnapshot(intent.receipt.continuation.snapshot);
+        } catch (error: unknown) {
+          if (errorCode(error) === 'WORKFLOW_CONTINUATION_INSTANCE_CLOSED') continue;
+          throw error;
+        }
         activeSnapshot = await this.#continuations.findCurrentByBinding(admitted.binding.bindingId);
       }
       if (
@@ -690,6 +698,8 @@ export class RemoteTaskAdmissionRecoveryService {
           }),
         );
       }
+      const currentBinding = await this.#remoteTasks.findById(admitted.binding.bindingId);
+      if (currentBinding !== undefined) await this.#admission.schedule(currentBinding);
       materialized += 1;
     }
     return { examined: intents.length, materialized, uncertain, closedPrepared };
@@ -746,6 +756,12 @@ function isRecoveredBindingOpen(binding: RemoteTaskBinding): boolean {
       binding.localState === 'cancel_observing' ||
       binding.localState === 'awaiting_input')
   );
+}
+
+function errorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  const code = (error as Readonly<{ code?: unknown }>).code;
+  return typeof code === 'string' ? code : undefined;
 }
 
 function matchesRecoveredContinuation(

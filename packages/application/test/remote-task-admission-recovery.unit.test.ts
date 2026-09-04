@@ -108,6 +108,40 @@ describe('RemoteTaskAdmissionRecoveryService', () => {
     });
   });
 
+  it('keeps an exact recovered receipt durable when the local Workflow is already closed', async () => {
+    const intent = admissionIntent('receipt_recorded');
+    const enqueue = vi.fn();
+    const markMaterialized = vi.fn();
+    const saveSnapshot = vi.fn().mockRejectedValue(
+      Object.assign(new Error('The Workflow instance is closed.'), {
+        code: 'WORKFLOW_CONTINUATION_INSTANCE_CLOSED',
+      }),
+    );
+    const service = recoveryService({
+      intents: [intent],
+      admit: vi.fn().mockResolvedValue({
+        binding: { bindingId: intent.envelope.bindingId, version: 1 },
+        created: true,
+        pollScheduled: false,
+      }),
+      recordExternalSnapshot: vi.fn().mockResolvedValue({ applied: true }),
+      findCurrentByBinding: vi.fn().mockResolvedValue(undefined),
+      saveSnapshot,
+      markMaterialized,
+      schedule: enqueue,
+    });
+
+    await expect(service.reconcile()).resolves.toEqual({
+      examined: 1,
+      materialized: 0,
+      uncertain: 0,
+      closedPrepared: 0,
+    });
+    expect(saveSnapshot).toHaveBeenCalledOnce();
+    expect(markMaterialized).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
   it('reconciles one uncertain logical invocation to the original Task without redispatch', async () => {
     const recorded = admissionIntent('receipt_recorded');
     if (recorded.receipt === undefined) throw new Error('TEST_RECEIPT_REQUIRED');
@@ -427,6 +461,8 @@ function recoveryService(
     recordExternalSnapshot?: ReturnType<typeof vi.fn>;
     findById?: ReturnType<typeof vi.fn>;
     findCurrentByBinding?: ReturnType<typeof vi.fn>;
+    saveSnapshot?: ReturnType<typeof vi.fn>;
+    schedule?: ReturnType<typeof vi.fn>;
     failTask?: (taskId: string, errorCode: string, summary: string) => Promise<void>;
     reconcileUncertain?: (
       intent: RemoteTaskAdmissionIntent,
@@ -448,7 +484,10 @@ function recoveryService(
   } as unknown as RemoteTaskAdmissionIntentStore;
   return new RemoteTaskAdmissionRecoveryService({
     store,
-    admission: { admit: input.admit ?? vi.fn() } as never,
+    admission: {
+      admit: input.admit ?? vi.fn(),
+      schedule: input.schedule ?? vi.fn().mockResolvedValue(true),
+    } as never,
     remoteTasks: {
       recordExternalSnapshot: input.recordExternalSnapshot ?? vi.fn(),
       findById: input.findById ?? vi.fn(),
@@ -456,7 +495,7 @@ function recoveryService(
     continuations: {
       findCurrentByBinding:
         input.findCurrentByBinding ?? vi.fn().mockResolvedValue(continuationSnapshot()),
-      saveSnapshot: vi.fn(),
+      saveSnapshot: input.saveSnapshot ?? vi.fn(),
     } as never,
     clock: { now: () => '2026-08-13T03:00:01.000Z' },
     failTask: input.failTask ?? (() => Promise.resolve()),

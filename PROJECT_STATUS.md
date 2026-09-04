@@ -1,5 +1,21 @@
 # Project Status
 
+## Frozen MCP response-loss recovery checkpoint (2026-09-04)
+
+The live functional harness exposed a recovery-only authority bug after the Provider durably created
+one Task but the Adapter response was lost. The persisted reconciliation contract was exact, yet
+Runtime startup compared it with a full current Binding hash containing a newer `observedAt` value
+and repeatedly raised `MCP_RECONCILIATION_AUTHORITY_DRIFT` before invoking the reconciliation-only
+lookup. The Application gate now compares only immutable Runtime/endpoint/credential/protocol,
+Binding/Provider/Source lineage, Catalog, Tool, arguments, idempotency and execution-context fields.
+Dynamic availability and observation timestamps remain recorded evidence but are not immutable
+identity for an already-dispatched effect. The normal Provider dispatch path remains unreachable
+from uncertain recovery. Recovery now also defers poll scheduling until continuation materialization;
+an exact historical receipt whose local Workflow is already closed remains durable without crashing
+startup or scheduling another Provider dispatch. Focused Application/recovery/polling/Frozen HTTP
+tests pass 125/125 together with the 872-source architecture gate, TypeScript typecheck and
+production build; deployment identity is recorded in the read-only runtime handoff.
+
 ## Development Runtime defaults (2026-09-04)
 
 ADR-148 makes the current project phase explicit in composition: omitted `NODE_ENV` and Control

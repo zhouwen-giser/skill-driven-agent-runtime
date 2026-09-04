@@ -548,19 +548,19 @@ export class McpRegistryService {
         validation.errors,
       );
     const frozenAuthority = this.#frozenInvocationAuthority(runtimeAuthority, tool);
-    const providerBindingAuthority = await this.#assertCurrentProviderBinding(
+    const providerBindingAuthority = await this.#assertRegisteredProviderBinding(
       runtimeAuthority,
       identity.providerBindingId,
       identity.providerId,
     );
-    const currentAuthority = remoteTaskAuthoritySnapshot(
-      runtimeAuthority,
-      providerBindingAuthority,
-      contract.authoritySnapshot.capturedAt,
-    );
+    const frozenAuthoritySnapshot = createRemoteTaskAuthoritySnapshot(contract.authoritySnapshot);
     if (
       runtimeAuthority.record.server.updatedAt !== contract.credentialRevision ||
-      canonicalHash(currentAuthority) !== canonicalHash(contract.authoritySnapshot) ||
+      !sameRemoteTaskReconciliationAuthority(
+        runtimeAuthority,
+        providerBindingAuthority,
+        frozenAuthoritySnapshot,
+      ) ||
       canonicalHash(frozenAuthority.protocolContract) !==
         canonicalHash(contract.protocolContract) ||
       frozenAuthority.taskBehavior !== contract.taskBehavior ||
@@ -773,6 +773,40 @@ export class McpRegistryService {
       throw new McpRegistryError(
         'MCP_PROVIDER_BINDING_NOT_CURRENT',
         'Current MCP Provider Binding authority differs from the Runtime invocation target.',
+      );
+    }
+    return authority;
+  }
+
+  async #assertRegisteredProviderBinding(
+    runtimeAuthority: RuntimeMcpCatalogAuthority,
+    bindingId: string | undefined,
+    providerId: string | undefined,
+  ): Promise<CurrentMcpProviderBindingAuthority | undefined> {
+    if (this.#providerBindings === undefined && bindingId === undefined && providerId === undefined)
+      return undefined;
+    if (this.#providerBindings === undefined)
+      throw new McpRegistryError(
+        'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE',
+        'Current MCP Provider Binding authority is not configured.',
+      );
+    let authority: CurrentMcpProviderBindingAuthority;
+    try {
+      authority = await this.#providerBindings.loadCurrentMcpProviderBinding({
+        ...(bindingId === undefined ? {} : { bindingId }),
+        localServerId: runtimeAuthority.record.server.serverId,
+      });
+      await this.#runtimeBindingAuthority.assertRegistered({
+        authority,
+        bindingId: bindingId ?? authority.binding.bindingId,
+        localServerId: runtimeAuthority.record.server.serverId,
+        ...(providerId === undefined ? {} : { providerId }),
+        runtimeAuthority,
+      });
+    } catch {
+      throw new McpRegistryError(
+        'MCP_PROVIDER_BINDING_NOT_CURRENT',
+        'Registered MCP Provider Binding authority differs from the frozen reconciliation target.',
       );
     }
     return authority;
@@ -1182,6 +1216,45 @@ function remoteTaskAuthoritySnapshot(
           },
         }),
   });
+}
+
+function sameRemoteTaskReconciliationAuthority(
+  runtime: RuntimeMcpCatalogAuthority,
+  provider: CurrentMcpProviderBindingAuthority | undefined,
+  frozen: RemoteTaskAuthoritySnapshot,
+): boolean {
+  const frozenRuntime = frozen.runtime;
+  if (
+    frozenRuntime.serverId !== runtime.record.server.serverId ||
+    frozenRuntime.endpoint !== runtime.record.server.endpoint ||
+    frozenRuntime.serverUpdatedAt !== runtime.record.server.updatedAt ||
+    frozenRuntime.toolRevision !== runtime.record.server.toolRevision ||
+    frozenRuntime.protocolSnapshotId !== runtime.snapshot.snapshotId ||
+    frozenRuntime.catalogRevision !== runtime.catalogAuthority.catalogRevision ||
+    frozenRuntime.catalogChecksum !== runtime.catalogAuthority.catalogChecksum ||
+    frozenRuntime.operationCount !== runtime.catalogAuthority.operationCount
+  )
+    return false;
+
+  const frozenProvider = frozen.providerBinding;
+  if (frozenProvider === undefined || provider === undefined)
+    return frozenProvider === undefined && provider === undefined;
+  const { binding, sourceCandidateLineage } = provider;
+  return (
+    binding.bindingId === frozenProvider.bindingId &&
+    binding.localServerId === frozenRuntime.serverId &&
+    binding.revision >= frozenProvider.revision &&
+    binding.originType === frozenProvider.originType &&
+    binding.providerId === frozenProvider.providerId &&
+    binding.externalServerId === frozenProvider.externalServerId &&
+    sourceCandidateLineage?.smppSourceId === frozenProvider.smppSourceId &&
+    sourceCandidateLineage?.externalServerId === frozenProvider.externalServerId &&
+    binding.endpointRef === frozenProvider.endpointRef &&
+    (binding.revision !== frozenProvider.revision ||
+      binding.catalogRevision === frozenProvider.catalogRevision) &&
+    binding.catalogChecksum === frozenProvider.catalogChecksum &&
+    binding.operationCount === frozenProvider.operationCount
+  );
 }
 
 export function createMcpProviderDispatchHash(

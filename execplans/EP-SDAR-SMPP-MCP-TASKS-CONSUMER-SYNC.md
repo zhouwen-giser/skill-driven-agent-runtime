@@ -68,6 +68,12 @@ authorities while adding a durable Provider execution companion relation.
 - [x] 2026-09-01 01:47Z Locked the deployed Telemetry current-authority consumer at exact
       implementation/qualification commits, image digest and immutable handoff hashes after
       independent ancestry, runtime-health and byte-hash verification.
+- [x] 2026-09-04 15:53Z Repaired the live response-loss recovery gate so volatile Provider Binding
+      observation time and dynamic availability do not masquerade as frozen authority drift;
+      focused Application/recovery/Frozen HTTP tests pass without a redispatch path.
+- [x] 2026-09-04 16:05Z Deferred recovered polling until continuation materialization and made an
+      already-closed historical Workflow a non-fatal audit state; 125 focused tests, architecture,
+      typecheck and production build pass.
 
 ## Discoveries and Surprises
 
@@ -86,6 +92,10 @@ authorities while adding a durable Provider execution companion relation.
 - The actual southbound simulation attempt was rejected with `UGV_EXECUTION_MODE_UNSUPPORTED`; no
   remote Task, movement or Mission was created. That fact is retained as an external qualification
   result and is not converted into Goal or physical success.
+- A real post-adapter-success response-loss left the admission intent uncertain while the Provider
+  retained the one original Task. Startup reconciliation incorrectly hashed the complete current
+  Binding observation, including `observedAt`, and therefore rejected a later observation of the
+  same immutable authority as drift before the reconciliation-only transport could run.
 
 ## Decision Log
 
@@ -102,6 +112,10 @@ authorities while adding a durable Provider execution companion relation.
   Provider `observedAt` and stable source record identity select the current Mission fact; a newer
   unresolved/conflicting fact hides historical exact identity from the current view without deleting
   audit history. It does not mutate SDAR Task authority or establish Goal/physical success.
+- 2026-09-04: Reconciliation validates the frozen Runtime, endpoint, credential revision, protocol
+  snapshot, Catalog, Binding/Provider/Source lineage, Tool, arguments, idempotency and execution
+  context. Dynamic availability and observation timestamps remain evidence, not immutable dispatch
+  identity, and cannot force redispatch or block lookup of an already-created Provider Task.
 
 ## Implementation Steps
 
@@ -158,3 +172,9 @@ commit `cceea2b88b697dcaef33dba0bd7679b15b3b28d3`, qualification commit
 `sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1`.
 Its real read-only verification closes the downstream current-view dependency only; external
 Referee/Device readiness and Goal/physical success remain separate authorities.
+
+The 2026-09-04 response-loss regression corrects a production recovery defect without changing the
+contract: an exact persisted dispatch is reconciled through the Frozen lookup port, while any stable
+identity drift still fails closed and no path falls through to ordinary dispatch. This checkpoint is
+validated with focused Application, recovery and Frozen HTTP suites plus architecture, typecheck and
+production build; it is not a replacement claim for the earlier clean repository-wide qualification.

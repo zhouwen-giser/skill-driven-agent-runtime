@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -11,6 +13,7 @@ import type {
   ResolvedMcpTaskExecution,
 } from '../../domain/src/index.js';
 import {
+  createMcpLogicalInvocationIdentity,
   deriveFrozenMcpCatalogAuthority,
   LIVE_RUNTIME_EXECUTION_CONTEXT,
 } from '../../domain/src/index.js';
@@ -160,6 +163,100 @@ describe('MCP Registry invocation boundary', () => {
     expect(fixture.repository.invocations).toEqual([]);
     expect(close).not.toHaveBeenCalled();
     expect(markUncertain).not.toHaveBeenCalled();
+  });
+
+  it('reconciles response loss after volatile Binding observations change without redispatch', async () => {
+    const remoteOutcome = remoteTaskOutcome();
+    if (remoteOutcome.kind !== 'remote_task') throw new Error('TEST_REMOTE_OUTCOME_REQUIRED');
+    let bindingReadCount = 0;
+    const fixture = createFixture({
+      outcome: remoteOutcome,
+      toolName: 'vehicle_navigate',
+      toolEffect: 'side_effecting',
+      toolExecution: 'task_required',
+      toolIdempotency: 'server_managed',
+      taskBehavior: 'task_required',
+      reconciliationResult: {
+        status: 'found_exact',
+        outcome: remoteOutcome,
+        externalExecutionId: 'execution-response-loss-1',
+        deviceMissionId: 'mission-response-loss-1',
+      },
+      currentBinding: () =>
+        bindingReadCount++ === 0
+          ? {}
+          : {
+              observedAt: '2026-08-11T01:00:30.000Z',
+              availabilityStatus: 'unavailable',
+              bindingAvailabilityValidUntil: timestamp,
+            },
+    });
+    const arguments_ = { resourceId: 'vehicle:ugv1' };
+    const logicalIdentity = createMcpLogicalInvocationIdentity({
+      taskId: 'task-response-loss-1',
+      contextId: 'context-response-loss-1',
+      goalId: 'goal-response-loss-1',
+      goalVersion: 1,
+      workflowPlanId: 'plan-response-loss-1',
+      workflowDefinitionId: 'workflow-response-loss-1',
+      workflowDefinitionVersion: 1,
+      workflowInstanceId: 'instance-response-loss-1',
+      workflowNodeId: 'navigate-response-loss-1',
+      workflowNodeRunId: 'navigate-response-loss-run-1',
+      serverId: 'provider-1',
+      providerBindingId: 'binding-provider-1',
+      providerId: 'external-provider-1',
+      operationName: 'vehicle_navigate',
+      argumentsHash: createHash('sha256').update(JSON.stringify(arguments_)).digest('hex'),
+      executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+    });
+    let contract: Parameters<McpRegistryService['reconcileRemoteTaskAdmission']>[0] | undefined;
+
+    await fixture.service.callDetailed('provider-1', 'vehicle_navigate', arguments_, undefined, {
+      taskId: logicalIdentity.taskId,
+      contextId: logicalIdentity.contextId,
+      capabilityAttemptId: 'capability-attempt-response-loss-1',
+      providerBindingId: 'binding-provider-1',
+      providerId: 'external-provider-1',
+      executionContext: LIVE_RUNTIME_EXECUTION_CONTEXT,
+      taskExecution: { protocolMode: 'frozen_v1', availabilityCheck: 'required' },
+      logicalInvocationIdentity: logicalIdentity,
+      remoteAdmissionJournal: {
+        invocationId: 'invocation-response-loss-1',
+        markDispatching: (input) => {
+          contract = input.reconciliationContract;
+          return Promise.resolve();
+        },
+        recordRemoteReceipt: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+        markUncertain: () => Promise.resolve(),
+      },
+    });
+    if (contract === undefined) throw new Error('TEST_RECONCILIATION_CONTRACT_REQUIRED');
+    const context = {
+      invocationId: 'invocation-response-loss-1',
+      taskId: logicalIdentity.taskId,
+      capabilityAttemptId: 'capability-attempt-response-loss-1',
+      contextId: logicalIdentity.contextId,
+    };
+
+    await expect(
+      fixture.service.reconcileRemoteTaskAdmission(contract, context),
+    ).resolves.toMatchObject({
+      result: {
+        status: 'found_exact',
+        outcome: { task: { remoteTaskId: 'remote-task-read-1' } },
+        externalExecutionId: 'execution-response-loss-1',
+        deviceMissionId: 'mission-response-loss-1',
+      },
+      invocation: {
+        invocationId: 'invocation-response-loss-1',
+        taskId: logicalIdentity.taskId,
+        status: 'succeeded',
+      },
+    });
+    expect(fixture.call).toHaveBeenCalledOnce();
+    expect(fixture.reconcile).toHaveBeenCalledOnce();
   });
 
   it('continues tasks/get when only Provider readiness observation timestamps refresh', async () => {
@@ -1165,6 +1262,7 @@ function createFixture(
       catalogRevision?: string;
       catalogChecksum?: string;
       bindingAvailabilityValidUntil?: string;
+      availabilityStatus?: 'available' | 'unavailable';
       observedAt?: string;
       originType?: 'direct' | 'smpp_registry';
       externalServerId?: string;
@@ -1176,6 +1274,7 @@ function createFixture(
     toolIdempotency?: McpTool['executionSemantics']['idempotency'];
     taskBehavior?: NonNullable<McpTool['taskExecutionProfile']>['taskBehavior'];
     executionModeHeaderPolicy?: 'emit' | 'omit_live';
+    reconciliationResult?: Awaited<ReturnType<FrozenTaskLifecycleRuntimePort['reconcile']>>;
   }> = {},
 ) {
   const order = options.order ?? [];
@@ -1223,6 +1322,11 @@ function createFixture(
       results: [],
     }),
   );
+  const reconcile = vi.fn<FrozenTaskLifecycleRuntimePort['reconcile']>(() =>
+    options.reconciliationResult === undefined
+      ? Promise.reject(new Error('unused'))
+      : Promise.resolve(options.reconciliationResult),
+  );
   const decrypt = vi.fn(() => ({ authorization: 'Bearer provider-secret' }));
   const controlAuthority = vi.fn((input: GovernedControlInvocation) => {
     order.push('control-authority');
@@ -1248,7 +1352,7 @@ function createFixture(
     },
     frozenLifecycle: {
       call,
-      reconcile: () => Promise.reject(new Error('unused')),
+      reconcile,
       get,
       update: () => Promise.reject(new Error('unused')),
       cancel: () => Promise.reject(new Error('unused')),
@@ -1290,7 +1394,7 @@ function createFixture(
                     options.bindingCatalogChecksum ??
                     catalogAuthority.catalogChecksum,
                   operationCount: options.bindingOperationCount ?? catalogAuthority.operationCount,
-                  availabilityStatus: 'available' as const,
+                  availabilityStatus: current.availabilityStatus ?? ('available' as const),
                   availabilityValidUntil:
                     current.bindingAvailabilityValidUntil ??
                     options.bindingAvailabilityValidUntil ??
@@ -1314,7 +1418,16 @@ function createFixture(
       nextManagementOperationId: () => 'operation-1',
     },
   });
-  return { call, get, checkAvailability, controlAuthority, decrypt, repository, service };
+  return {
+    call,
+    reconcile,
+    get,
+    checkAvailability,
+    controlAuthority,
+    decrypt,
+    repository,
+    service,
+  };
 }
 
 class MemoryMcpRegistryRepository implements McpRegistryRepository {
