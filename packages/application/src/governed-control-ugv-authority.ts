@@ -7,6 +7,7 @@ import {
 } from '../../domain/src/index.js';
 
 import type {
+  GovernedControlAuthorityKind,
   GovernedControlConfirmation,
   GovernedControlConfirmationConsumption,
   GovernedControlDispatchReceipt,
@@ -24,6 +25,7 @@ const PREFIXED_SHA256 = /^sha256:[0-9a-f]{64}$/u;
 
 export interface GovernedControlConfirmationExactScope {
   readonly confirmationId: string;
+  readonly authorityKind?: GovernedControlAuthorityKind;
   readonly taskId: string;
   readonly capabilityBindingId: string;
   readonly capabilityId: string;
@@ -175,6 +177,7 @@ export interface UgvGovernedControlAuthoritySnapshot {
     catalogChecksum: string;
     toolRevision: number;
     availability: string;
+    availabilityDecision: 'provider_available' | 'allowed_by_default' | 'provider_denied';
     riskLevel: string;
     checkedAt: string;
     validUntil: string;
@@ -263,6 +266,7 @@ export class UgvGovernedControlConfirmationService {
     const confirmationId = ugvGovernedControlConfirmationId(input);
     const confirmation = freezeConfirmation({
       ...input,
+      authorityKind: input.authorityKind ?? 'physical_control',
       confirmationId,
       confirmedAt: new Date(confirmedAt).toISOString(),
       expiresAt: new Date(expiresAt).toISOString(),
@@ -277,7 +281,11 @@ export class UgvGovernedControlConfirmationService {
     assertConfirmationScope(input);
     assertConfirmationHashes(input);
     return this.#store.findExact(
-      exactScope({ ...input, confirmationId: ugvGovernedControlConfirmationId(input) }),
+      exactScope({
+        ...input,
+        authorityKind: input.authorityKind ?? 'physical_control',
+        confirmationId: ugvGovernedControlConfirmationId(input),
+      }),
     );
   }
 }
@@ -306,11 +314,22 @@ export interface UgvSimulationSideEffectGate {
   ): Promise<void>;
 }
 
+/** Deployment-owned, default-closed live physical side-effect gate. */
+export interface UgvLiveSideEffectGate {
+  assertAuthorized(
+    input: Readonly<{
+      taskId: string;
+      selectedSnapshotHash: `sha256:${string}`;
+    }>,
+  ): Promise<void>;
+}
+
 /** Exact UGV profile guard run immediately before the Provider transport is crossed. */
 export class UgvGovernedControlInvocationAuthorizer implements GovernedControlInvocationAuthorityPort {
   readonly #authority: UgvGovernedControlDispatchAuthorityReader;
   readonly #confirmations: UgvGovernedControlConfirmationConsumer;
   readonly #simulationSideEffectGate: UgvSimulationSideEffectGate | undefined;
+  readonly #liveSideEffectGate: UgvLiveSideEffectGate | undefined;
   readonly #clock: Readonly<{ now(): string }>;
 
   constructor(
@@ -318,12 +337,14 @@ export class UgvGovernedControlInvocationAuthorizer implements GovernedControlIn
       authority: UgvGovernedControlDispatchAuthorityReader;
       confirmations: UgvGovernedControlConfirmationConsumer;
       simulationSideEffectGate?: UgvSimulationSideEffectGate;
+      liveSideEffectGate?: UgvLiveSideEffectGate;
       clock: Readonly<{ now(): string }>;
     }>,
   ) {
     this.#authority = dependencies.authority;
     this.#confirmations = dependencies.confirmations;
     this.#simulationSideEffectGate = dependencies.simulationSideEffectGate;
+    this.#liveSideEffectGate = dependencies.liveSideEffectGate;
     this.#clock = dependencies.clock;
   }
 
@@ -371,22 +392,33 @@ export class UgvGovernedControlInvocationAuthorizer implements GovernedControlIn
         'UGV_GOVERNED_CONTROL_ARGUMENTS_TAMPERED',
         'Dispatch identity or adapted navigate arguments differ from persisted selection.',
       );
-    try {
-      if (this.#simulationSideEffectGate === undefined)
+    if (selected.execution.mode === 'simulation') {
+      try {
+        if (this.#simulationSideEffectGate === undefined) throw new Error('gate missing');
+        await this.#simulationSideEffectGate.assertAuthorized({
+          taskId: snapshot.task.taskId,
+          simulationId: selected.execution.simulationId,
+          selectedSnapshotHash: selected.snapshotHash,
+        });
+      } catch {
         fail(
           'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED',
-          'No server-side simulation side-effect gate is configured.',
+          'Server-side simulation side effects are disabled or bound to a different run.',
         );
-      await this.#simulationSideEffectGate.assertAuthorized({
-        taskId: snapshot.task.taskId,
-        simulationId: selected.execution.simulationId,
-        selectedSnapshotHash: selected.snapshotHash,
-      });
-    } catch {
-      fail(
-        'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED',
-        'Server-side simulation side effects are disabled or bound to a different run.',
-      );
+      }
+    } else {
+      try {
+        if (this.#liveSideEffectGate === undefined) throw new Error('gate missing');
+        await this.#liveSideEffectGate.assertAuthorized({
+          taskId: snapshot.task.taskId,
+          selectedSnapshotHash: selected.snapshotHash,
+        });
+      } catch {
+        fail(
+          'UGV_GOVERNED_CONTROL_LIVE_SIDE_EFFECT_NOT_AUTHORIZED',
+          'Server-side live physical side effects are disabled.',
+        );
+      }
     }
     assertUgvConfirmation(snapshot, now);
     const consumedAt = new Date(now).toISOString();
@@ -491,6 +523,7 @@ export function ugvGovernedControlConfirmationId(
 ): string {
   const digest = hashCanonicalEvidenceJson({
     profileId: 'ugv-agent-profile',
+    authorityKind: input.authorityKind ?? 'physical_control',
     selectedTaskOperationSnapshotHash: input.selectedTaskOperationSnapshotHash,
     taskId: input.taskId,
     capabilityBindingId: input.capabilityBindingId,
@@ -517,7 +550,11 @@ export function ugvGovernedControlConfirmationId(
 export function exactScope(
   input: GovernedControlConfirmationExactScope,
 ): GovernedControlConfirmationExactScope {
-  return Object.freeze({ ...input, actorRoles: Object.freeze([...input.actorRoles]) });
+  return Object.freeze({
+    ...input,
+    authorityKind: input.authorityKind ?? 'physical_control',
+    actorRoles: Object.freeze([...input.actorRoles]),
+  });
 }
 
 export function confirmationExactScope(
@@ -589,7 +626,12 @@ function assertCurrentReadiness(
     readiness.catalogRevision !== selected.server.catalogRevision ||
     readiness.catalogChecksum !== selected.server.catalogChecksum ||
     readiness.toolRevision !== selected.server.toolRevision ||
-    readiness.availability !== 'available' ||
+    !(
+      (readiness.availability === 'available' &&
+        readiness.availabilityDecision === 'provider_available') ||
+      (readiness.availability === 'unknown' &&
+        readiness.availabilityDecision === 'allowed_by_default')
+    ) ||
     !PHYSICAL_CONTROL_RISK_LEVELS.has(readiness.riskLevel) ||
     checkedAt > now ||
     validUntil <= now ||
@@ -621,6 +663,7 @@ function assertUgvConfirmation(
     selectedTaskOperationSnapshotHash: selected.snapshotHash,
   };
   if (
+    (confirmation.authorityKind ?? 'physical_control') !== 'physical_control' ||
     confirmation.confirmationId !== ugvGovernedControlConfirmationId(issueInput) ||
     confirmation.taskId !== snapshot.task.taskId ||
     confirmation.capabilityBindingId !== snapshot.binding.capabilityBindingId ||
@@ -800,7 +843,8 @@ export type UgvGovernedControlAuthorityErrorCode =
   | 'UGV_GOVERNED_CONTROL_CURRENT_AUTHORITY_DRIFT'
   | 'UGV_GOVERNED_CONTROL_READINESS_STALE'
   | 'UGV_GOVERNED_CONTROL_SELECTED_OPERATION_INVALID'
-  | 'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED';
+  | 'UGV_GOVERNED_CONTROL_SIMULATION_SIDE_EFFECT_NOT_AUTHORIZED'
+  | 'UGV_GOVERNED_CONTROL_LIVE_SIDE_EFFECT_NOT_AUTHORIZED';
 
 export class UgvGovernedControlAuthorityError extends Error {
   constructor(

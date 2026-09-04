@@ -81,17 +81,27 @@ export interface SelectedTaskOperation {
     checkedAt: string;
     validUntil: string;
     disposition: 'ready';
+    /** Actual Provider observation; omitted only by legacy snapshots created before this field. */
+    observedAvailability?: 'available' | 'unknown';
+    /** Admission decision applied to the observation; never rewrites unknown as available. */
+    policyDecision?: 'provider_available' | 'allowed_by_default';
     riskLevel: TaskAvailabilityRiskLevel;
     reservationMode: TaskReservationMode;
     reservationRef?: string;
     possibleEffects: readonly TaskAvailabilityPossibleEffect[];
   }>;
-  readonly execution: Readonly<{
-    mode: 'simulation';
-    simulationId: string;
-    confirmation: 'existing_outer_plan_confirmation';
-    confirmationRequired: true;
-  }>;
+  readonly execution:
+    | Readonly<{
+        mode: 'live';
+        confirmation: 'existing_outer_plan_confirmation';
+        confirmationRequired: true;
+      }>
+    | Readonly<{
+        mode: 'simulation';
+        simulationId: string;
+        confirmation: 'existing_outer_plan_confirmation';
+        confirmationRequired: true;
+      }>;
   readonly snapshotHash: `sha256:${string}`;
 }
 
@@ -145,6 +155,14 @@ export function createSelectedTaskOperation(
   const reservationRefPresent =
     typeof input.availability.reservationRef === 'string' &&
     input.availability.reservationRef.trim() !== '';
+  const availabilityDecisionValid =
+    (input.availability.observedAvailability === undefined &&
+      input.availability.policyDecision === undefined) ||
+    (input.availability.observedAvailability === 'available' &&
+      input.availability.policyDecision === 'provider_available') ||
+    (input.availability.observedAvailability === 'unknown' &&
+      input.availability.policyDecision === 'allowed_by_default' &&
+      input.execution.mode === 'live');
   if (
     different(input.profileId, 'ugv-agent-profile') ||
     input.skill.skillId !== 'embodied.move_to' ||
@@ -169,7 +187,7 @@ export function createSelectedTaskOperation(
     input.operation.executionSemantics.execution !== 'task_required' ||
     input.operation.executionSemantics.cancellation !== 'task_cancel' ||
     input.operation.executionSemantics.idempotency !== 'server_managed' ||
-    input.operation.executionSemantics.replay !== 'simulation_only' ||
+    !executionSemanticsMatchMode(input.execution, input.operation.executionSemantics.replay) ||
     input.operation.taskExecutionProfile.taskBehavior !== 'task_required' ||
     input.operation.taskExecutionProfile.availability !== 'dynamic' ||
     !input.operation.taskExecutionProfile.supportsScheduling ||
@@ -207,14 +225,14 @@ export function createSelectedTaskOperation(
     input.resource.resourceId !== 'vehicle:ugv1' ||
     !isExactNavigateArguments(input.resolvedArguments, input.resource.resourceId) ||
     different(input.server.protocolMode, 'frozen_v1') ||
-    different(input.execution.mode, 'simulation') ||
-    input.execution.simulationId.trim() === '' ||
+    !validExecution(input.execution) ||
     different(input.execution.confirmation, 'existing_outer_plan_confirmation') ||
     different(input.execution.confirmationRequired, true) ||
     !hashesMatch ||
     input.availability.protocolRevision.trim() === '' ||
     input.availability.schemaRevision.trim() === '' ||
     different(input.availability.disposition, 'ready') ||
+    !availabilityDecisionValid ||
     !['low', 'medium', 'high', 'critical'].includes(input.availability.riskLevel) ||
     !['none', 'best_effort', 'guaranteed'].includes(input.availability.reservationMode) ||
     (input.availability.reservationRef !== undefined && !reservationRefPresent) ||
@@ -256,6 +274,20 @@ export function createSelectedTaskOperation(
     ...draft,
     snapshotHash: hashCanonicalEvidenceJson(draft),
   });
+}
+
+function validExecution(execution: SelectedTaskOperation['execution']): boolean {
+  return execution.mode === 'live'
+    ? exactKeys(execution, ['mode', 'confirmation', 'confirmationRequired'])
+    : exactKeys(execution, ['mode', 'simulationId', 'confirmation', 'confirmationRequired']) &&
+        execution.simulationId.trim() !== '';
+}
+
+function executionSemanticsMatchMode(
+  execution: SelectedTaskOperation['execution'],
+  replay: McpToolExecutionSemantics['replay'],
+): boolean {
+  return execution.mode === 'live' ? replay === 'forbidden' : replay === 'simulation_only';
 }
 
 function isExactNavigateArguments(

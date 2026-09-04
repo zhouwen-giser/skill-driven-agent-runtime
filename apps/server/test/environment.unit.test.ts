@@ -36,6 +36,8 @@ describe('server environment', () => {
     ).toThrow();
   });
   const isolatedEnvironmentKeys = [
+    'NODE_ENV',
+    'SDAR_CONTROL_ENVIRONMENT',
     'SDAR_MASTER_KEY_BASE64',
     'SDAR_REDIS_PORT',
     'SDAR_A2A_PORT',
@@ -73,6 +75,8 @@ describe('server environment', () => {
       SDAR_A2A_PORT: 9999,
       SDAR_A2A_WAIT_TIMEOUT_MS: 30_000,
       SDAR_MANAGEMENT_PORT: 9998,
+      NODE_ENV: 'development',
+      SDAR_CONTROL_ENVIRONMENT: 'development',
       SDAR_TASK_UNDERSTANDING_PROFILE: 'off',
     });
   });
@@ -305,7 +309,7 @@ describe('server environment', () => {
     });
   });
 
-  it('opens the Node Control outbound endpoint only under the explicit dual non-production gate', () => {
+  it('opens the Node Control outbound endpoint under the default development marker', () => {
     const base = {
       SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
       SDAR_NODE_CONTROL_BASE_URL: 'http://192.168.1.7:10080',
@@ -317,7 +321,10 @@ describe('server environment', () => {
       SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open',
       SDAR_NODE_CONTROL_BASE_URL: 'http://192.168.1.7:10080',
     });
-    expect(() => parseServerEnvironment(base)).toThrow('forbidden outside');
+    expect(parseServerEnvironment(base)).toMatchObject({
+      NODE_ENV: 'development',
+      SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open',
+    });
     expect(() => parseServerEnvironment({ ...base, NODE_ENV: 'production' })).toThrow(
       'forbidden outside',
     );
@@ -340,7 +347,7 @@ describe('server environment', () => {
     ).toThrow('credential-free HTTP(S)');
   });
 
-  it('allows live MCP header omission only under an explicit non-production environment', () => {
+  it('allows live MCP header omission under the default development marker', () => {
     const base = {
       SDAR_MASTER_KEY_BASE64: randomBytes(32).toString('base64'),
       SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: 'omit',
@@ -349,7 +356,10 @@ describe('server environment', () => {
     expect(parseServerEnvironment({ ...base, NODE_ENV: 'test' })).toMatchObject({
       SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: 'omit',
     });
-    expect(() => parseServerEnvironment(base)).toThrow('explicit non-production');
+    expect(parseServerEnvironment(base)).toMatchObject({
+      NODE_ENV: 'development',
+      SDAR_MCP_LIVE_EXECUTION_MODE_HEADER: 'omit',
+    });
     expect(() => parseServerEnvironment({ ...base, NODE_ENV: 'production' })).toThrow(
       'explicit non-production',
     );

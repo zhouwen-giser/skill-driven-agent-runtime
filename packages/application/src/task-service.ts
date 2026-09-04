@@ -72,6 +72,7 @@ export interface SubmitTaskResult {
 
 export type TaskFollowUpAction =
   | 'confirm_plan'
+  | 'confirm_weapon_action'
   | 'reject_plan'
   | 'revise_plan'
   | 'patch_goal'
@@ -89,9 +90,16 @@ export interface TaskFollowUpCommand {
   readonly inputContent?: unknown;
   /**
    * Authenticated authority supplied by a protocol adapter. Request metadata
-   * is never an authority source, and only confirm_plan may carry this field.
+   * is never an authority source, and only confirmation actions may carry this field.
    */
   readonly confirmationAuthority?: TaskPlanConfirmationAuthority;
+  readonly weaponAuthorization?: Readonly<{
+    resourceId: string;
+    targetId: string;
+    engagementMode: 'single';
+    requireConfirmation: true;
+  }>;
+  readonly emergencyAuthorization?: Readonly<{ resourceId: string }>;
 }
 
 export const MAX_TASK_INPUT_RESPONSE_CHARACTERS = 64_000;
@@ -106,6 +114,11 @@ export interface BeforeTaskPlanExecutionInput {
   readonly task: AgentTask;
   readonly confirmationTarget: 'task_plan';
   readonly confirmationAuthority?: TaskPlanConfirmationAuthority;
+  readonly emergencyAuthorization?: NonNullable<TaskFollowUpCommand['emergencyAuthorization']>;
+}
+
+export interface BeforeTaskPlanExecutionResult {
+  readonly deferExecution?: 'weapon_confirmation';
 }
 
 export interface TaskServiceDependencies {
@@ -134,7 +147,16 @@ export interface TaskServiceDependencies {
    * execution authority before the Task can enter executing. Implementations
    * must be idempotent for the immutable Task/plan identity.
    */
-  readonly beforePlanExecution?: (input: BeforeTaskPlanExecutionInput) => Promise<void>;
+  readonly beforePlanExecution?: (
+    input: BeforeTaskPlanExecutionInput,
+  ) => Promise<BeforeTaskPlanExecutionResult | undefined>;
+  readonly weaponActions?: Readonly<{
+    confirm(
+      taskId: string,
+      authorization: NonNullable<TaskFollowUpCommand['weaponAuthorization']>,
+      authority: TaskPlanConfirmationAuthority,
+    ): Promise<void>;
+  }>;
   readonly planActions?: Readonly<{
     confirm(task: AgentTask): Promise<TaskPlanConfirmationTarget>;
     reject(task: AgentTask): Promise<void>;
@@ -494,6 +516,7 @@ export class TaskService {
       return task;
     }
     const timestamp = this.#dependencies.clock.now();
+    let runtimeCancellationHandledWithoutTaskProjection = false;
     if (
       this.#dependencies.planActions !== undefined &&
       (await this.#dependencies.planActions.commitRuntimeCancellation?.(
@@ -502,13 +525,15 @@ export class TaskService {
       )) === true
     ) {
       const committed = await this.#dependencies.tasks.findById(task.taskId);
-      if (committed === undefined || !isTerminalTaskPhase(committed.phase))
-        throw new TaskApplicationError(
-          'TASK_RUNTIME_CANCELLATION_INCOMPLETE',
-          'Runtime cancellation did not project a canceled Task.',
-        );
-      await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
-      return committed;
+      if (committed !== undefined && isTerminalTaskPhase(committed.phase)) {
+        await this.#dependencies.taskCapabilities?.markLatestAttempt(taskId, 'canceled', timestamp);
+        return committed;
+      }
+      // A terminal Workflow Control may already own a failed outcome while an
+      // interrupted A2A Task projection remains nonterminal. The runtime hook
+      // has handled the Workflow authority, so converge only the local Task
+      // below and do not issue a second plan/remote cancellation.
+      runtimeCancellationHandledWithoutTaskProjection = true;
     }
     const canceled = transitionTask(task, 'canceled', 'Task canceled by user.', timestamp);
     await this.#dependencies.tasks.save(canceled);
@@ -523,6 +548,7 @@ export class TaskService {
       summary: 'Task canceled by user.',
     });
     if (
+      !runtimeCancellationHandledWithoutTaskProjection &&
       (task.phase === 'executing' ||
         task.phase === 'paused' ||
         task.phase === 'awaiting_plan_confirmation') &&
@@ -568,12 +594,29 @@ export class TaskService {
   }
 
   async followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
-    if (command.action !== 'confirm_plan' && command.confirmationAuthority !== undefined)
+    if (
+      !['confirm_plan', 'confirm_weapon_action'].includes(command.action) &&
+      command.confirmationAuthority !== undefined
+    )
       throw new TaskApplicationError(
         'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID',
-        'Authenticated confirmation authority may be supplied only for confirm_plan.',
+        'Authenticated confirmation authority may be supplied only for a confirmation action.',
       );
-    if (command.action === 'confirm_plan' || command.action === 'reject_plan')
+    if (command.action !== 'confirm_weapon_action' && command.weaponAuthorization !== undefined)
+      throw new TaskApplicationError(
+        'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID',
+        'Exact weapon authorization may be supplied only for confirm_weapon_action.',
+      );
+    if (command.action !== 'confirm_plan' && command.emergencyAuthorization !== undefined)
+      throw new TaskApplicationError(
+        'TASK_CONFIRMATION_AUTHORITY_ACTION_INVALID',
+        'Exact direct emergency authority may be supplied only while confirming a plan.',
+      );
+    if (
+      command.action === 'confirm_plan' ||
+      command.action === 'confirm_weapon_action' ||
+      command.action === 'reject_plan'
+    )
       return this.#withTaskDecisionLock(command.taskId, () => this.#followUp(command));
     return this.#followUp(command);
   }
@@ -594,6 +637,32 @@ export class TaskService {
         `Task ${task.taskId} is terminal in phase ${task.phase}; submit a new Task instead.`,
       );
     let confirmationTarget: TaskPlanConfirmationTarget | undefined;
+    if (command.action === 'confirm_weapon_action') {
+      if (
+        task.phase !== 'awaiting_user_input' ||
+        task.planId === undefined ||
+        command.weaponAuthorization === undefined ||
+        command.confirmationAuthority === undefined ||
+        this.#dependencies.weaponActions === undefined ||
+        this.#dependencies.planActions === undefined
+      )
+        throw new TaskApplicationError(
+          'TASK_WEAPON_CONFIRMATION_NOT_AWAITING',
+          'The Task is not awaiting one exact weapon confirmation.',
+        );
+      await this.#dependencies.weaponActions.confirm(
+        task.taskId,
+        command.weaponAuthorization,
+        command.confirmationAuthority,
+      );
+      task = await this.#saveTransition(
+        task,
+        'executing',
+        'Exact one-shot weapon authority confirmed.',
+      );
+      await this.#dependencies.planActions.executeConfirmed(task, 'task_plan');
+      return this.get(task.taskId);
+    }
     if (command.action === 'provide_input') return this.#provideInput(task, command);
     if (command.action === 'cancel_goal') {
       if (task.goalId === undefined || this.#dependencies.planActions === undefined)
@@ -691,6 +760,7 @@ export class TaskService {
       await this.#dependencies.tasks.save(task);
       await this.#dependencies.feedback?.observeRevision(task, command.messageText);
     }
+    let deferredExecution: BeforeTaskPlanExecutionResult['deferExecution'];
     if (command.action === 'confirm_plan') {
       if (task.planId === undefined)
         throw new TaskApplicationError(
@@ -707,20 +777,35 @@ export class TaskService {
         confirmationTarget === 'task_plan' &&
         this.#dependencies.beforePlanExecution !== undefined
       ) {
-        await this.#dependencies.beforePlanExecution(
-          Object.freeze({
-            task,
-            confirmationTarget,
-            ...(command.confirmationAuthority === undefined
-              ? {}
-              : { confirmationAuthority: command.confirmationAuthority }),
-          }),
-        );
+        deferredExecution = (
+          await this.#dependencies.beforePlanExecution(
+            Object.freeze({
+              task,
+              confirmationTarget,
+              ...(command.confirmationAuthority === undefined
+                ? {}
+                : { confirmationAuthority: command.confirmationAuthority }),
+              ...(command.emergencyAuthorization === undefined
+                ? {}
+                : { emergencyAuthorization: command.emergencyAuthorization }),
+            }),
+          )
+        )?.deferExecution;
       }
     }
     if (command.action === 'reject_plan' && this.#dependencies.planActions !== undefined)
       await this.#dependencies.planActions.reject(task);
-    const transitions = command.action === 'resume' ? [] : followUpTransitions(command.action);
+    const transitions =
+      deferredExecution === 'weapon_confirmation'
+        ? [
+            {
+              phase: 'awaiting_user_input' as const,
+              message: 'Plan confirmed; exact one-shot weapon confirmation required.',
+            },
+          ]
+        : command.action === 'resume'
+          ? []
+          : followUpTransitions(command.action);
     for (const transition of transitions) {
       const timestamp = this.#dependencies.clock.now();
       task = transitionTask(task, transition.phase, transition.message, timestamp);
@@ -734,7 +819,11 @@ export class TaskService {
         summary: `${transition.message} ${summarizeMessage(command.messageText)}`,
       });
     }
-    if (command.action === 'confirm_plan' && this.#dependencies.planActions !== undefined) {
+    if (
+      command.action === 'confirm_plan' &&
+      deferredExecution === undefined &&
+      this.#dependencies.planActions !== undefined
+    ) {
       if (confirmationTarget === undefined) throw new Error('TASK_CONFIRMATION_TARGET_MISSING');
       await this.#dependencies.planActions.executeConfirmed(task, confirmationTarget);
       return this.get(task.taskId);
@@ -1190,7 +1279,8 @@ export type TaskApplicationErrorCode =
   | 'TASK_INITIAL_ADMISSION_SKILL_DRAFT_UNSUPPORTED'
   | 'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT'
   | 'TASK_INITIAL_ADMISSION_AUTHORITY_CORRUPT'
-  | 'TASK_PLAN_DECISION_NOT_AWAITING';
+  | 'TASK_PLAN_DECISION_NOT_AWAITING'
+  | 'TASK_WEAPON_CONFIRMATION_NOT_AWAITING';
 
 export class TaskApplicationError extends Error {
   readonly code: TaskApplicationErrorCode;
@@ -1212,6 +1302,7 @@ function followUpTransitions(
   action: TaskFollowUpAction,
 ): readonly Readonly<{ phase: Parameters<typeof transitionTask>[1]; message: string }>[] {
   if (action === 'confirm_plan') return [{ phase: 'executing', message: 'Plan confirmed.' }];
+  if (action === 'confirm_weapon_action') return [];
   if (action === 'reject_plan') return [{ phase: 'canceled', message: 'Plan rejected.' }];
   if (action === 'revise_plan')
     return [

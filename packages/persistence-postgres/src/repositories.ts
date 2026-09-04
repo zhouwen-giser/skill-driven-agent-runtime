@@ -7241,7 +7241,7 @@ export class PostgresMcpRegistryRepository
           `INSERT INTO mcp_dependency_warning
              (warning_id,server_id,tool_name,reason,skill_id,skill_version,tool_revision,created_at)
            SELECT concat_ws(':',$1::text,$2::text,$3::text,s.skill_id,s.current_version::text,$4::text),
-                  $1,$2,$3,s.skill_id,s.current_version,$4,$5
+                  $1,$2,$3,s.skill_id,s.current_version,$4::integer,$5
            FROM skill s JOIN skill_version v
              ON v.skill_id=s.skill_id AND v.version=s.current_version
            WHERE v.status='enabled' AND EXISTS (

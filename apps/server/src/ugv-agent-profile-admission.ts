@@ -38,7 +38,7 @@ const OUTCOME_EVIDENCE_REF = 'evidence.final_position';
 const WORKFLOW_EVIDENCE_TYPE = 'position.observation';
 const UGV_NAVIGATE_REPLAY_CONSTRAINT = 'profile.ugv-agent-profile.side_effect_replay=forbidden';
 
-const GOAL_TITLE = 'Move the simulation UGV to its capability-authorized point';
+const GOAL_TITLE = 'Move the UGV to its capability-authorized point';
 const GOAL_SUCCESS_CRITERION =
   'A fresh same-resource final-position observation proves the authorized target is within tolerance.';
 
@@ -329,10 +329,11 @@ async function requireBinding(
     );
   }
   const exact = createTaskCapabilityBinding(binding);
+  const executionMode = exactExecutionMode(exact);
   if (
     exact.taskId !== taskId ||
     exact.requestedCapabilityId !== CAPABILITY_ID ||
-    exact.capabilityVersion !== 2 ||
+    exact.capabilityVersion < 2 ||
     !sameStrings(exact.initialImplementationRefs, [`skill:${SKILL_ID}:${String(SKILL_VERSION)}`]) ||
     !hasExactConstraint(exact, 'exact_skill_version', {
       skillId: SKILL_ID,
@@ -343,8 +344,7 @@ async function requireBinding(
       required: true,
       stage: 'before_execution',
     }) ||
-    !hasExactConstraint(exact, 'runtime_execution_mode_policy', { mode: 'simulation' }) ||
-    !hasSimulationIdentity(exact) ||
+    executionMode === undefined ||
     !exact.evidenceRequirementSnapshot.some(
       (requirement) =>
         requirement['evidenceType'] === WORKFLOW_EVIDENCE_TYPE &&
@@ -421,13 +421,20 @@ function snapshotInputAuthority(binding: TaskCapabilityBinding) {
 
 function goalContractFields(task: AgentTask, binding: TaskCapabilityBinding, inputHash: string) {
   const target = adaptUgvMoveInput(binding.inputSnapshot).target;
+  const executionMode = exactExecutionMode(binding);
+  if (executionMode === undefined) {
+    fail(
+      'UGV_AGENT_PROFILE_TASK_CAPABILITY_AUTHORITY_INVALID',
+      'Task Capability Binding has no exact governed Runtime execution mode.',
+    );
+  }
   return Object.freeze({
     title: GOAL_TITLE,
-    description: `Move ${UGV_MOVE_RESOURCE_ID} to the capability-authorized ${target.frame} point (${String(target.longitude)}, ${String(target.latitude)}) and prove final position.`,
+    description: `Move ${UGV_MOVE_RESOURCE_ID} to the capability-authorized ${target.frame} point (${String(target.longitude)}, ${String(target.latitude)}) under the frozen ${executionMode} execution contract and prove final position.`,
     constraints: Object.freeze([
       'policy.confirmation=required',
       UGV_NAVIGATE_REPLAY_CONSTRAINT,
-      'execution.mode=simulation',
+      `execution.mode=${executionMode}`,
       `authority.task-id=${task.taskId}`,
       `authority.task-capability-binding=${binding.bindingId}`,
       `authority.task-capability-binding-hash=sha256:${binding.bindingHash}`,
@@ -626,11 +633,20 @@ function hasExactConstraint(
   );
 }
 
-function hasSimulationIdentity(binding: TaskCapabilityBinding): boolean {
-  const policy = binding.constraintSnapshot.find(
+function exactExecutionMode(binding: TaskCapabilityBinding): 'simulation' | 'live' | undefined {
+  const policies = binding.constraintSnapshot.filter(
     (constraint) => constraint['type'] === 'runtime_execution_mode_policy',
   );
-  return typeof policy?.['simulationId'] === 'string' && policy['simulationId'].trim() !== '';
+  const policy = policies[0];
+  if (policies.length !== 1 || policy === undefined) return undefined;
+  if (
+    policy['mode'] === 'simulation' &&
+    typeof policy['simulationId'] === 'string' &&
+    policy['simulationId'].trim() !== ''
+  )
+    return 'simulation';
+  if (policy['mode'] === 'live' && policy['simulationId'] === undefined) return 'live';
+  return undefined;
 }
 
 function bindingInputSourceRef(binding: TaskCapabilityBinding): string {

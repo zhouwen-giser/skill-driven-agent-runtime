@@ -8,12 +8,13 @@ import {
   type RemoteTaskLifecycleEvidence,
   type UgvGovernedControlConfirmationIssueInput,
 } from '../../../packages/application/src/index.js';
-import type {
-  InternalToolResult,
-  McpInvocation,
-  McpToolExecutionSemantics,
-  SelectedTaskOperation,
-  WorkflowContinuationAttempt,
+import {
+  createSelectedTaskOperation,
+  type InternalToolResult,
+  type McpInvocation,
+  type McpToolExecutionSemantics,
+  type SelectedTaskOperation,
+  type WorkflowContinuationAttempt,
 } from '../../../packages/domain/src/index.js';
 import {
   projectUgvMoveWorkflowEvidence,
@@ -82,6 +83,25 @@ describe('UGV move durable Workflow evidence projection', () => {
         payloadRef: { kind: 'structured_content', jsonPointer: '/chassis/position' },
       }),
     ]);
+  });
+
+  it('accepts the same durable evidence chain under frozen live execution authority', () => {
+    const fixture = evidenceFixture({ executionMode: 'live' });
+
+    const projected = projectUgvMoveWorkflowEvidence(fixture);
+
+    expect(projected.assessment.status).toBe('completed');
+    expect(fixture.selectedTaskOperation.execution).toEqual({
+      mode: 'live',
+      confirmation: 'existing_outer_plan_confirmation',
+      confirmationRequired: true,
+    });
+    expect(fixture.invocations.every((invocation) => invocation.executionMode === 'live')).toBe(
+      true,
+    );
+    expect(fixture.invocations.every((invocation) => invocation.simulationId === undefined)).toBe(
+      true,
+    );
   });
 
   it('keeps Provider completed insufficient when the final position misses the hard gate', () => {
@@ -370,7 +390,10 @@ describe('UGV move durable Workflow evidence projection', () => {
         ...fixture,
         remoteTaskLifecycle: [
           ...fixture.remoteTaskLifecycle,
-          remoteLifecycle(fixture.remoteTaskLifecycle[0]?.binding.resultSnapshot),
+          remoteLifecycle(
+            fixture.remoteTaskLifecycle[0]?.binding.resultSnapshot,
+            fixture.selectedTaskOperation.execution,
+          ),
         ],
       }),
     ).toThrow(expect.objectContaining({ code: 'UGV_MOVE_WORKFLOW_EVIDENCE_REMOTE_TASK_INVALID' }));
@@ -521,14 +544,39 @@ function terminalEvidenceFixture() {
   };
 }
 
-function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolResult }> = {}) {
-  const selectedTaskOperation = selectedUgvTaskOperation();
+function liveSelectedTaskOperation(): SelectedTaskOperation {
+  const simulated = selectedUgvTaskOperation();
+  const { snapshotHash, ...draft } = simulated;
+  expect(snapshotHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
+  return createSelectedTaskOperation({
+    ...draft,
+    operation: {
+      ...draft.operation,
+      executionSemantics: { ...draft.operation.executionSemantics, replay: 'forbidden' },
+    },
+    execution: {
+      mode: 'live',
+      confirmation: 'existing_outer_plan_confirmation',
+      confirmationRequired: true,
+    },
+  });
+}
+
+function evidenceFixture(
+  overrides: Readonly<{
+    finalToolResult?: InternalToolResult;
+    executionMode?: 'simulation' | 'live';
+  }> = {},
+) {
+  const selectedTaskOperation =
+    overrides.executionMode === 'live' ? liveSelectedTaskOperation() : selectedUgvTaskOperation();
   const confirmation = governedConfirmation(selectedTaskOperation);
   const initial = stateResult({
     observedAt: '2026-08-21T11:59:59.000Z',
     revision: 'state-revision-100',
     cursor: 100,
     position: INITIAL_POSITION,
+    executionMode: selectedTaskOperation.execution.mode,
   });
   const finalToolResult =
     overrides.finalToolResult ??
@@ -537,8 +585,9 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
       revision: 'state-revision-102',
       cursor: 102,
       position: TARGET,
+      executionMode: selectedTaskOperation.execution.mode,
     });
-  const terminal = terminalResult();
+  const terminal = terminalResult(selectedTaskOperation.execution.mode);
   return {
     taskId: TASK_ID,
     selectedTaskOperation,
@@ -551,6 +600,7 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
         startedAt: '2026-08-21T11:59:58.500Z',
         completedAt: '2026-08-21T11:59:59.000Z',
         semantics: selectedTaskOperation.finalStateRead.executionSemantics,
+        execution: selectedTaskOperation.execution,
       }),
       invocation({
         invocationId: 'invocation-navigate',
@@ -561,6 +611,7 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
         completedAt: '2026-08-21T12:00:00.100Z',
         semantics: selectedTaskOperation.operation.executionSemantics,
         confirmation,
+        execution: selectedTaskOperation.execution,
       }),
       invocation({
         invocationId: 'invocation-final',
@@ -570,9 +621,12 @@ function evidenceFixture(overrides: Readonly<{ finalToolResult?: InternalToolRes
         startedAt: '2026-08-21T12:00:10.000Z',
         completedAt: '2026-08-21T12:00:10.500Z',
         semantics: selectedTaskOperation.finalStateRead.executionSemantics,
+        execution: selectedTaskOperation.execution,
       }),
     ]),
-    remoteTaskLifecycle: Object.freeze([remoteLifecycle(terminal)]),
+    remoteTaskLifecycle: Object.freeze([
+      remoteLifecycle(terminal, selectedTaskOperation.execution),
+    ]),
     confirmation,
     continuationAttempt: continuationAttempt(),
     finalToolResult,
@@ -590,6 +644,7 @@ function invocation(
     startedAt: string;
     completedAt: string;
     semantics: McpToolExecutionSemantics;
+    execution: SelectedTaskOperation['execution'];
     confirmation?: GovernedControlConfirmation;
   }>,
 ): McpInvocation {
@@ -606,8 +661,10 @@ function invocation(
           controlDispatchHash: input.confirmation.consumedDispatchHash,
         }),
     contextId: CONTEXT_ID,
-    executionMode: 'simulation',
-    simulationId: 'sim-uap-p2-b03',
+    executionMode: input.execution.mode,
+    ...(input.execution.mode === 'simulation'
+      ? { simulationId: input.execution.simulationId }
+      : {}),
     serverId: 'ugv-runtime-1',
     toolName: input.toolName,
     executionSemantics: input.semantics,
@@ -639,6 +696,7 @@ function requiredLifecycle(
 
 function remoteLifecycle(
   resultSnapshot: InternalToolResult | undefined,
+  execution: SelectedTaskOperation['execution'],
 ): RemoteTaskLifecycleEvidence {
   const controlPayload = completedRemoteTaskSnapshot(resultSnapshot);
   return Object.freeze({
@@ -675,7 +733,11 @@ function remoteLifecycle(
       providerRevision: 'provider-revision-101',
       remoteRevision: 'provider-task-revision-101',
       localState: 'terminal_event_claimed' as const,
-      executionContext: Object.freeze({ mode: 'simulation', simulationId: 'sim-uap-p2-b03' }),
+      executionContext: Object.freeze(
+        execution.mode === 'live'
+          ? { mode: 'live' as const }
+          : { mode: 'simulation' as const, simulationId: execution.simulationId },
+      ),
       authoritySnapshot: Object.freeze({
         schemaVersion: '1.0' as const,
         capturedAt: '2026-08-21T12:00:00.000Z',
@@ -833,8 +895,9 @@ function governedConfirmation(selected: SelectedTaskOperation): GovernedControlC
   });
 }
 
-function terminalResult(): InternalToolResult {
+function terminalResult(executionMode: 'simulation' | 'live' = 'simulation'): InternalToolResult {
   const observedAt = '2026-08-21T12:00:09.900Z';
+  const aggregateAuthority = executionMode === 'live';
   return Object.freeze({
     content: Object.freeze([]),
     structuredContent: Object.freeze({
@@ -846,10 +909,15 @@ function terminalResult(): InternalToolResult {
       observationAuthority: 'post_dispatch',
       positionAuthority: Object.freeze({
         field: 'chassis.position.geodetic',
-        topic: '/ugv/gnss',
+        topic: aggregateAuthority ? 'status/ugv1' : '/ugv/gnss',
         observedAt,
-        timeAuthority: 'source',
-        cursor: providerCursor(101, observedAt),
+        timeAuthority: aggregateAuthority ? 'ingest' : 'source',
+        cursor: providerCursor(
+          101,
+          observedAt,
+          aggregateAuthority ? 'status/ugv1' : '/ugv/gnss',
+          aggregateAuthority ? 'ingest' : 'source',
+        ),
       }),
     }),
     isError: false,
@@ -862,6 +930,7 @@ function stateResult(
     revision: string;
     cursor: number;
     position: Readonly<{ longitude: number; latitude: number }>;
+    executionMode?: 'simulation' | 'live';
   }>,
 ): InternalToolResult {
   return Object.freeze({
@@ -871,7 +940,7 @@ function stateResult(
         providerId: 'isr.vehicle.ugv.ugv1',
         resourceId: 'vehicle:ugv1',
         vehicleType: 'ugv',
-        executionMode: 'simulation',
+        executionMode: input.executionMode ?? 'simulation',
       }),
       connectivity: Object.freeze({ mqttConnected: true, deviceMcpConnected: true }),
       observedAt: input.observedAt,
@@ -884,15 +953,20 @@ function stateResult(
   });
 }
 
-function providerCursor(sequence: number, observedAt: string): string {
+function providerCursor(
+  sequence: number,
+  observedAt: string,
+  topic = '/ugv/gnss',
+  timeAuthority: 'source' | 'ingest' = 'source',
+): string {
   return `oc1.${Buffer.from(
     JSON.stringify({
       version: 1,
       kind: 'field',
       field: 'chassis.position.geodetic',
-      topic: '/ugv/gnss',
+      topic,
       observedAt,
-      timeAuthority: 'source',
+      timeAuthority,
       ingestSequence: sequence,
       payloadHash: 'e'.repeat(64),
     }),

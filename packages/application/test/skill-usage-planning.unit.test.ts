@@ -28,6 +28,7 @@ describe('Skill Usage Workflow planning', () => {
       operation: 'plan_with_skill_usage_policy',
       skillUsagePolicy: {
         mode: 'guidance',
+        allowedTools: [{ serverId: 'provider.motion', toolName: 'embodied.move' }],
         taskOperations: [{ providerId: 'provider.motion', operationName: 'embodied.move' }],
       },
     });

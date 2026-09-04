@@ -44,6 +44,7 @@ import {
 } from '../src/ugv-agent-profile.js';
 import { createUgvSimulationTargetPolicy } from '../src/ugv-move-skill-usage.js';
 import { adaptUgvMoveInput } from '../src/ugv-move-input-adapter.js';
+import { UGV_UNKNOWN_AVAILABILITY_POLICY } from '../src/ugv-unknown-availability-policy.js';
 import { UGV_MOVE_WORKFLOW_NODE_IDS } from '../src/ugv-move-workflow.js';
 
 const postgresAdminUrl =
@@ -798,13 +799,17 @@ async function seedFormalCapabilityAuthority(
     },
   };
   const evaluationInput = {
-    definition: { successCriteria, requiredEvidence, constraints },
+    definition: { status: 'published', successCriteria, requiredEvidence, constraints },
+    maintenanceMode: false,
+    killSwitch: false,
     implementations: [
       {
         bindingId: implementationBindingId,
         implementationType: 'skill',
         implementationId: 'embodied.move_to',
         implementationVersion: '1',
+        role: 'primary',
+        status: 'active',
         providerPolicyOverride,
       },
     ],
@@ -1003,6 +1008,7 @@ async function assertGovernedControlIssueAuthority(
       },
     },
     inputAdapter: { adapt: adaptUgvMoveInput },
+    unknownAvailabilityPolicy: UGV_UNKNOWN_AVAILABILITY_POLICY,
     clock,
   });
   const authority = required(

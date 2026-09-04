@@ -163,12 +163,6 @@ interface PlannedTask {
   readonly plan: Readonly<Record<string, unknown>>;
 }
 
-interface BarrierReleaseResult {
-  readonly task: Task;
-  readonly workflowInstanceId: string;
-  readonly confirmationId: string;
-}
-
 const CapabilitySchema = z
   .object({
     capabilityId: z.string().min(1),
@@ -295,7 +289,7 @@ export async function runHomeLabG09GovernedLight(
     if (canceledRuntimeTask.phase !== 'canceled')
       fail('G09_DRY_RUN_CLEANUP_FAILED', 'Runtime did not persist terminal dry-run cleanup.');
     await assertZeroDispatch(configuration, planned.task.id, request);
-    if (gateError !== undefined) throw gateError;
+    if (gateError !== undefined) throw throwable(gateError);
     return reportBase(configuration, observedAt, writeGate, {
       dryRun: Object.freeze({
         taskId: planned.task.id,
@@ -319,8 +313,9 @@ export async function runHomeLabG09GovernedLight(
   const desiredPower: LightPower = baseline.power === 'on' ? 'off' : 'on';
   let setEvidence: GovernedTaskEvidence | undefined;
   let restoreEvidence: GovernedTaskEvidence | undefined;
-  let dispatchReleased = false;
+  const dispatchState = { released: false };
   let primaryError: unknown;
+  let restorationError: unknown;
   try {
     setEvidence = await executeGovernedTask(
       configuration,
@@ -330,13 +325,13 @@ export async function runHomeLabG09GovernedLight(
       randomId,
       pause,
       () => {
-        dispatchReleased = true;
+        dispatchState.released = true;
       },
     );
   } catch (error: unknown) {
     primaryError = error;
   } finally {
-    if (dispatchReleased) {
+    if (dispatchState.released) {
       try {
         restoreEvidence = await executeGovernedTask(
           configuration,
@@ -348,17 +343,19 @@ export async function runHomeLabG09GovernedLight(
           () => undefined,
         );
       } catch (error: unknown) {
-        throw new HomeLabG09GovernedLightError(
-          'G09_RESTORATION_FAILED',
-          primaryError === undefined
-            ? 'The primary write completed but the finally restoration Task failed.'
-            : 'The primary write failed after dispatch release and the finally restoration Task also failed.',
-          { cause: error },
-        );
+        restorationError = error;
       }
     }
   }
-  if (primaryError !== undefined) throw primaryError;
+  if (restorationError !== undefined)
+    throw new HomeLabG09GovernedLightError(
+      'G09_RESTORATION_FAILED',
+      primaryError === undefined
+        ? 'The primary write completed but the finally restoration Task failed.'
+        : 'The primary write failed after dispatch release and the finally restoration Task also failed.',
+      { cause: throwable(restorationError) },
+    );
+  if (primaryError !== undefined) throw throwable(primaryError);
   if (setEvidence === undefined || restoreEvidence === undefined)
     fail('G09_EXECUTION_EVIDENCE_INCOMPLETE', 'Set and restoration evidence are both required.');
   if (restoreEvidence.power !== baseline.power)
@@ -439,20 +436,28 @@ export async function executeWithFinallyRestoration<TSet, TRestore>(
     executeRestore(): Promise<TRestore>;
   }>,
 ): Promise<Readonly<{ set: TSet; restore: TRestore }>> {
-  let released = false;
+  const dispatchState = { released: false };
   let set: TSet | undefined;
   let restore: TRestore | undefined;
   let primaryError: unknown;
+  let restorationError: unknown;
   try {
     set = await input.executeSet(() => {
-      released = true;
+      dispatchState.released = true;
     });
   } catch (error: unknown) {
     primaryError = error;
   } finally {
-    if (released) restore = await input.executeRestore();
+    if (dispatchState.released) {
+      try {
+        restore = await input.executeRestore();
+      } catch (error: unknown) {
+        restorationError = error;
+      }
+    }
   }
-  if (primaryError !== undefined) throw primaryError;
+  if (restorationError !== undefined) throw throwable(restorationError);
+  if (primaryError !== undefined) throw throwable(primaryError);
   if (set === undefined || restore === undefined)
     fail('G09_RESTORATION_NOT_EXECUTED', 'A released write requires finally restoration.');
   return Object.freeze({ set, restore });
@@ -1330,8 +1335,6 @@ function validateConfiguration(
     fail('G09_NODE_CONTROL_TOKEN_REQUIRED', 'Node Control bearer identity is required.');
   if (!/^[A-Za-z0-9._:-]{8,256}$/u.test(input.runId))
     fail('G09_RUN_ID_INVALID', 'A unique bounded G09 runId is required.');
-  if (input.dryRunPower !== undefined && input.dryRunPower !== 'on' && input.dryRunPower !== 'off')
-    fail('G09_POWER_INVALID', 'Dry-run power must be on or off.');
   const pollIntervalMs = input.pollIntervalMs ?? 100;
   const maxPolls = input.maxPolls ?? 1_200;
   if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs < 10)
@@ -1610,6 +1613,18 @@ function delay(milliseconds: number): Promise<void> {
 
 function fail(code: string, message: string): never {
   throw new HomeLabG09GovernedLightError(code, message);
+}
+
+function throwable(value: unknown): Error {
+  return value instanceof Error
+    ? value
+    : new HomeLabG09GovernedLightError(
+        'G09_NON_ERROR_THROWN',
+        'A dependency threw a non-Error value.',
+        {
+          cause: value,
+        },
+      );
 }
 
 export class HomeLabG09GovernedLightError extends Error {

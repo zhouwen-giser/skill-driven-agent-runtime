@@ -54,7 +54,7 @@ describe('McpCapabilityEvidenceProjector', () => {
     expect(enriched?.implementationBindings).toHaveLength(1);
   });
 
-  it('projects all 11 MCP Task and 7 Capability record types with exact lifecycle semantics', async () => {
+  it('projects MCP Task consumer recovery and Capability record types with exact lifecycle semantics', async () => {
     const writer = new MemoryWriter();
     const projector = new McpCapabilityEvidenceProjector({
       source: {
@@ -73,6 +73,11 @@ describe('McpCapabilityEvidenceProjector', () => {
         'mcp_task.tool_call',
         'mcp_task.availability',
         'mcp_task.remote_binding',
+        'mcp_task.logical_invocation',
+        'mcp_task.admission',
+        'mcp_task.dispatch_uncertain',
+        'mcp_task.dispatch_reconciliation',
+        'mcp_task.provider_execution_link',
         'mcp_task.observation',
         'mcp_task.control_event',
         'mcp_task.poll_attempt',
@@ -91,7 +96,7 @@ describe('McpCapabilityEvidenceProjector', () => {
       ]),
     );
     expect(writer.issues).toEqual([]);
-    expect(result.projectedRecordIds).toHaveLength(18);
+    expect(result.projectedRecordIds).toHaveLength(23);
     expect(record(writer, 'mcp_task.tool_call').payload).toMatchObject({
       toolCallLifecycle: 'ended_after_task_handle_returned',
     });
@@ -104,6 +109,28 @@ describe('McpCapabilityEvidenceProjector', () => {
     expect(record(writer, 'mcp_task.continuation_attempt').payload).toMatchObject({
       resumePosition: 'saved_continuation_not_start',
       completedSideEffectReplay: false,
+    });
+    expect(record(writer, 'mcp_task.dispatch_uncertain').payload).toMatchObject({
+      logicalInvocationId: `mcp-logical-${'1'.repeat(64)}`,
+      redispatchAllowed: false,
+    });
+    expect(record(writer, 'mcp_task.dispatch_reconciliation').payload).toMatchObject({
+      status: 'found_exact',
+      externalExecutionId: 'provider-execution-a',
+      redispatchAllowed: false,
+    });
+    expect(record(writer, 'mcp_task.provider_execution_link').payload).toMatchObject({
+      providerId: 'isr.vehicle.ugv.ugv1',
+      runtimeServerId: 'ugv-smpp-runtime',
+      providerBindingId: 'mcp-binding-ugv-smpp',
+      providerOriginType: 'smpp_registry',
+      smppSourceId: 'smpp-source-ugv',
+      externalServerId: 'ugv1',
+      externalExecutionId: 'provider-execution-a',
+      missionStatus: 'unresolved',
+      deviceMissionId: null,
+      sourceContract: 'sdar.node-control-provider-binding/v1+frozen-mcp-v1',
+      sourceRevision: 'binding:2/catalog:2',
     });
     expect(record(writer, 'mcp_task.cancel').payload).toMatchObject({
       deliveryStatus: 'uncertain',
@@ -239,6 +266,74 @@ function snapshot(): McpCapabilityEvidenceSnapshot {
         protocol_status: 'working',
         local_state: 'polling',
         created_at: at,
+      },
+    ],
+    admissions: [
+      {
+        intent_id: 'admission-a',
+        invocation_id: 'invocation-a',
+        binding_id: 'remote-binding-a',
+        logical_invocation_id: `mcp-logical-${'1'.repeat(64)}`,
+        logical_identity_hash: `sha256:${'1'.repeat(64)}`,
+        arguments_hash: '2'.repeat(64),
+        reconciliation_contract_json: {
+          schemaVersion: 'sdar.remote-task-reconciliation-contract/v1',
+          dispatchStartedAt: at,
+          logicalIdentity: {
+            schemaVersion: 'sdar.mcp-logical-invocation/v1',
+            logicalInvocationId: `mcp-logical-${'1'.repeat(64)}`,
+            identityHash: `sha256:${'1'.repeat(64)}`,
+            argumentsHash: '2'.repeat(64),
+          },
+        },
+        status: 'materialized',
+        dispatch_hash: `sha256:${'3'.repeat(64)}`,
+        dispatched_at: at,
+        reason_code: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
+        created_at: at,
+        updated_at: at,
+      },
+    ],
+    reconciliationAttempts: [
+      {
+        attempt_id: 'reconciliation-a',
+        intent_id: 'admission-a',
+        logical_invocation_id: `mcp-logical-${'1'.repeat(64)}`,
+        expected_intent_version: 3,
+        status: 'found_exact',
+        identity_validated: true,
+        remote_task_id: 'remote-a',
+        external_execution_id: 'provider-execution-a',
+        safe_error_code: null,
+        source_contract: 'sdar.smpp-diagnostics/v1+frozen-mcp-v1',
+        request_hash: `sha256:${'4'.repeat(64)}`,
+        result_hash: `sha256:${'5'.repeat(64)}`,
+        started_at: at,
+        completed_at: at,
+      },
+    ],
+    providerExecutionLinks: [
+      {
+        link_id: 'provider-link-a',
+        binding_id: 'remote-binding-a',
+        logical_invocation_id: `mcp-logical-${'1'.repeat(64)}`,
+        remote_task_id: 'remote-a',
+        provider_id: 'isr.vehicle.ugv.ugv1',
+        runtime_server_id: 'ugv-smpp-runtime',
+        provider_binding_id: 'mcp-binding-ugv-smpp',
+        provider_origin_type: 'smpp_registry',
+        smpp_source_id: 'smpp-source-ugv',
+        external_server_id: 'ugv1',
+        operation_name: 'tasks/run',
+        execution_status: 'exact',
+        external_execution_id: 'provider-execution-a',
+        mission_status: 'unresolved',
+        device_mission_id: null,
+        provenance: 'reconcile_found_exact',
+        source_contract: 'sdar.node-control-provider-binding/v1+frozen-mcp-v1',
+        source_revision: 'binding:2/catalog:2',
+        content_hash: `sha256:${'6'.repeat(64)}`,
+        observed_at: at,
       },
     ],
     observations: [

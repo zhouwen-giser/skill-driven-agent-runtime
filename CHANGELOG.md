@@ -1,5 +1,209 @@
 # Changelog
 
+## 2026-09-05 — Governed-control authority across exact response-loss recovery
+
+- Persist the already-consumed governed-control dispatch receipt and original invocation start time
+  in the remote Task reconciliation contract before Provider transport.
+- On `found_exact`, validate confirmation, Provider Binding, arguments, invocation and dispatch
+  hashes, then restore the receipt onto the one recovered MCP invocation without reauthorizing,
+  consuming another confirmation or redispatching the Provider call.
+- Fail closed for historical side-effecting contracts that lack this authority, and add a real
+  response-loss regression covering the four persisted control lineage fields and original timing.
+
+## 2026-09-05 — Terminal Workflow / dangling Task cancellation convergence
+
+- When a Runtime cancellation hook finds that the Workflow Control is already terminal but the
+  authoritative Agent Task projection is still nonterminal, deterministically finish the local Task
+  cancellation instead of raising `TASK_RUNTIME_CANCELLATION_INCOMPLETE`.
+- Treat the terminal Workflow as already handled and skip the second plan/remote cancellation path;
+  terminal or `reentered` Provider bindings therefore receive no new cancellation, continuation or
+  dispatch.
+- Add a focused TaskService regression that proves the local Task and Capability Attempt converge to
+  canceled while no plan cancellation operation is invoked.
+
+## 2026-09-04 — Exact response-loss reconciliation after Binding observation refresh
+
+- Compare uncertain-admission recovery against immutable Runtime, Binding/Source lineage, Catalog,
+  protocol, Tool, arguments, idempotency and execution-context identity instead of hashing volatile
+  Provider Binding observation timestamps and availability windows.
+- Use registered Binding/Catalog authority for reconciliation-only lookup of an already-dispatched
+  effect; dynamic availability remains mandatory for a new dispatch but cannot trigger redispatch or
+  hide the one original Provider Task after response loss.
+- Add a regression proving a refreshed/unavailable observation still reconciles exactly once, with
+  one original Provider call and no second mutating dispatch.
+- Delay recovered Remote Task polling until its continuation is durably materialized. A historical
+  exact receipt whose local Workflow has already closed remains audit evidence and no longer crashes
+  Runtime startup or schedules another dispatch.
+
+## 2026-09-04 — Development-first Runtime defaults
+
+- Make omitted deployment markers resolve to `development` and allow the UGV profile in that
+  explicit development environment; qualification and production now require an active environment
+  change.
+- Default UGV live and simulation side-effect deployment switches to enabled in development while
+  retaining explicit `NO`, exact confirmation, idempotency, no-replay and terminal-evidence gates.
+- Expose every PostgreSQL-enabled Skill version to development UGV selection instead of applying the
+  additional profile allowlist. Disabled Skills and unavailable/stale Provider authority remain
+  excluded. Qualification/production validation is intentionally deferred.
+
+## 2026-09-02 — UGV live aggregate terminal-position authority
+
+- Accept the Provider's formal field-authority-gated aggregate geodetic position tuple
+  `chassis.position.geodetic` / `status/ugv1` / `ingest` in the UGV physical terminal proof while
+  retaining the existing direct GNSS and local-position authorities.
+- Require initial and final `vehicle_get_state` execution modes to equal the frozen selected
+  execution mode; remove the parser's obsolete simulation-only assumption without weakening exact
+  identity, cursor, freshness, post-terminal ordering, tolerance or displacement gates.
+- Add true live-mode durable Workflow evidence regression and strict negative topic/time/mode cases.
+  Four focused files / 97 tests and the complete 2890-test static/unit/contract, 228-test integration,
+  73-test E2E, TCK, Evidence, migration/build/smoke gate pass. Roll out the exact implementation with
+  unchanged Task/invocation counts and zero Provider/device mutation.
+
+## 2026-09-02 — UGV explicit stale readiness admission
+
+- Keep the UGV-profile rule that an otherwise unqualified Provider `availability=unknown` may be
+  admitted by default after the existing confirmation boundary, while rejecting unknown results
+  that carry explicit `recovering`, `stale`, `unhealthy` or `uncorrelated` authority before Plan
+  confirmation.
+- Apply the same injected profile policy at Task preparation, generic MCP Task pre-invocation
+  readiness and governed-control dispatch reconstruction; raw Provider availability remains
+  `unknown` evidence and is never relabeled `available`.
+- Preserve explicit `unavailable` rejection, exact Binding/Catalog/resource/arguments authority,
+  one-shot confirmation, remote Task admission and zero-redispatch semantics. The regression is
+  qualification-only and performs no Provider Tool or device action.
+- Deploy implementation `3d2277799fa36b9493d112e9eeeba8a3a2ee9e27` as the exact local UGV
+  Runtime, preserving Binding revision 2 / Catalog `2.0.0-rc.1:2` and zero active Task/Remote Task.
+  Focused and functional gates pass; full release qualification remains explicitly blocked by
+  Phase 13 measurement thresholds, with no threshold relaxation.
+
+## 2026-09-02 — UGV remote terminal failure propagation
+
+- Route an authoritative failed UGV remote Task into deterministic `unachievable` Goal evaluation
+  instead of applying the success-only physical terminal proof and masking the Provider failure as
+  `TASK_CAPABILITY_TERMINAL_GUARD_FAILED`.
+- Preserve a bounded stable Provider reason code such as `UGV_START_OBSERVATION_TIMEOUT` in the
+  LangGraph failure path while retaining the generic `MCP_REMOTE_TASK_FAILED` error category and the
+  complete frozen remote result.
+- Keep the successful CORE path unchanged and fully hard-gated by final position and frozen
+  Capability evidence; add no replay or redispatch behavior. Focused 67 tests, typecheck,
+  architecture and build passed, followed by a read-only Runtime rollout with zero new Task or Tool
+  call.
+
+## 2026-09-02 — UGV selected-operation temporal authority
+
+- Preserve a short-lived dynamic availability observation as immutable historical evidence after an
+  exact Task operation is selected, rather than expiring that selection while model planning runs.
+- Retain the independent current Binding/Catalog/argument/dynamic-availability check at the governed
+  pre-invocation boundary; explicit unavailability and stale current authority remain rejected.
+- Add regressions for expired historical selection evidence and future-dated selections, refresh the
+  current append-only Binding observation, and roll the repaired Runtime with zero new Tasks,
+  Provider Tool calls or Device/Simulator mutation.
+
+## 2026-09-02 — UGV public initial A2A admission boundary
+
+- Permit anonymous trusted-intranet initial A2A admission in every current UGV Exposure while
+  preserving authenticated plan, physical-control, emergency and weapon confirmation authorities.
+- Publish append-only Exposure successors, including `a2a.embodied.move@5`, and activate Agent Card
+  revision 14014 without rewriting historical Capability, Exposure, Binding or Catalog authority.
+- Add frozen-policy and A2A boundary regressions proving anonymous initial admission and governed
+  Bearer confirmation remain separate. The clean full gate and latest rolling deployment passed with
+  zero A2A/MCP Tasks, zero Provider `tools/call` and zero Device/Simulator mutation.
+
+## 2026-09-01 — UGV ten-tool governed Capability and A2A expansion
+
+- Register the current ten-operation UGV catalog as thirteen append-only Skill/Capability/Exposure
+  surfaces while preserving historical point-navigation and Provider Binding lineage.
+- Route read-only and ordinary control surfaces through the existing managed-capability, Skill Usage,
+  LangGraph and Frozen MCP Task runtime; default `allowedTools` is the selected Skills' declared tools
+  plus exact selected Task operations, never an unrelated global catalog.
+- Add durable `physical_control`, `emergency_stop` and `weapon_control` authority kinds, migrations
+  0176/0177, direct exact emergency authorization, strict single-action weapon confirmation/revocation
+  and shared A2A/Management/Console Application services.
+- Publish weapon governance without claiming invocation readiness: missing strict fresh target/payload
+  evidence fails before confirmation consumption or transport, and non-UGV profiles keep the hard
+  deny. Provider completion remains separate from Goal or physical success.
+- Allow additive provider-policy fields while validating every understood authority field; no exact
+  key-set or speculative dangerous-field blacklist is used.
+- Add a non-sensitive Console confirmation projection for resource/target, Plan/argument hashes,
+  expiry, revocation and consumption. No credentials, Provider response body, A2A/MCP Task, Tool call
+  or device action is introduced by the implementation or its tests.
+- Return the just-observed live discovery after an unchanged MCP refresh while retaining the existing
+  persisted Frozen server/catalog anchor; use the canonical Provider-catalog checksum and exclude
+  observation timestamps from semantic drift fingerprints.
+- Complete the governed-control OpenAPI surface at 174 Management operations and publish the
+  read-only ten-tool governance result: 13 active Agent Card Skills, preserved point-navigation
+  successors, restricted weapon invocation and zero Provider `tools/call`.
+- Preserve safe natural-language/artifact extensions when the A2A endpoint serves a managed active
+  Agent Card, and make the Evidence rollback integration include every additive migration after
+  0148 instead of stopping at the former 0175 boundary.
+- Preserve migration-ledger continuity in the adjacent Evidence Export rollback regression by
+  unwinding 0177/0176 before its intentional 0175/0174 down/up cycle; record the exact clean full gate
+  and the then-observed P10 Benchmark-to-SDAR input mismatch without weakening either public contract.
+- Record the external Benchmark remediation at exact commit
+  `183708c729ec7d3b7b7a84c40bbaca21e17b9389`: frozen longitude/latitude materialization now projects
+  deterministically to the formal `a2a.embodied.move@4` `{x,y,frame:'WGS84'}` input while preserving
+  the source artifact and omitting altitude from the wire contract. Runtime compatibility was checked
+  read-only; no A2A Task or Provider call was made.
+- Roll the SDAR Runtime, Node Control API and Worker to source
+  `07efbf5ab7606e0ea575faf968d9d9819fcea45b` without rebuilding PostgreSQL or Redis. Startup retained
+  the 71-entry Runtime and 12-entry Control migration ledgers, two enabled model Providers, Binding
+  revision 2, the ten-operation catalog and active 13-Exposure Agent Card. All three public health
+  surfaces returned HTTP 200; no Task or Tool call was issued.
+
+## 2026-09-01 — UGV governed live execution context
+
+- Remove the obsolete UGV Skill readiness and deterministic-plan requirement that every request use
+  `simulation` plus a `simulationId`; the immutable Task Capability now owns either exact `live` or
+  exact `simulation` execution authority.
+- Require live navigation selections to preserve replay-forbidden Provider semantics and forbid a
+  simulation identity; retain stable simulation identity plus simulation-only replay for simulation.
+- Add a separate default-closed `ALLOW_UGV_LIVE_SIDE_EFFECTS=YES` deployment gate while preserving
+  plan confirmation, one-shot physical confirmation, remote Task continuation and terminal evidence.
+- Focused 94-test regression, TypeScript, architecture, scoped lint and production build pass. No
+  A2A/MCP Task or Provider Tool call was made during implementation because an unrelated external
+  mission was active.
+
+## 2026-09-01 — Telemetry current-authority dependency lock
+
+- Lock the downstream current-authority consumer to implementation commit
+  `cceea2b88b697dcaef33dba0bd7679b15b3b28d3`, qualification commit
+  `01719507aea97f2bcca904fc3838127ee2fd29b2` and immutable image digest
+  `sha256:34b75ac34cf67bc0ad4d392a4589a8c67fbc1118df96eda279e0857ded3971b1`.
+- Record the reviewed current-Mission selection rule: Provider `observedAt`, then stable source record
+  identity; newer unresolved/conflict facts suppress historical exact relations from the current view
+  without deleting audit history.
+- Classify this as real read-only downstream verification. No A2A/MCP Task, Provider/Device action,
+  navigation, cancellation or Simulator mutation was performed, and no Goal/physical success is
+  inferred.
+
+## 2026-09-01 — UGV append-only successor admission
+
+- Resolve the UGV Profile's current Exposure from the active PostgreSQL Agent Card instead of
+  pinning `a2a.embodied.move@2` in product code.
+- Admit reviewed append-only `embodied.move` Capability successors by exact frozen contract while
+  preserving the exact `embodied.move_to@1` Skill and legacy version-2 compatibility.
+- Keep draft/unpublished successors, unavailable Provider health and southbound transport failures
+  fail-closed. This change creates no Task, confirmation, Tool call or physical side effect.
+- Record the subsequent governance activation of `embodied.move@4` / `a2a.embodied.move@3` and Agent
+  Card revision 14011 while preserving legacy v2 history. The current localhost catalog and Binding
+  are exact, but live `vehicle_get_state` remains blocked by `UGV_ADAPTER_INTERNAL_ERROR`; catalog
+  readiness is not promoted to southbound or physical qualification.
+
+## 2026-08-31 — Exact MCP Task admission reconciliation and 105-record Evidence contract
+
+- Add one canonical logical invocation identity before Frozen Task dispatch and persist exact
+  reconciliation input alongside the existing PostgreSQL admission journal.
+- Recover ambiguous mutating calls only through the source-locked Provider reconciliation contract;
+  exact found results restore the original Task, while not-found, conflict, unavailable and deferred
+  never redispatch.
+- Preserve `RemoteTaskBinding` as lifecycle authority and add an immutable Provider execution
+  companion relation with Node Control/SMPP origin and explicitly unresolved execution/Mission
+  identities when the public contract omits them.
+- Extend `sdar.evidence/v1` additively from 100 to 105 records (100 Required, five Diagnostic), with
+  generated schemas, protocol contract, source coverage and downstream handoff kept hash-consistent.
+- Keep Provider terminal, business outcome, Runtime verification and Goal outcome separate. No
+  private Provider/Telemetry authority path, second Runtime, Device action or navigation was added.
+
 ## 2026-08-27 — Passive Benchmark UGV debug and ProviderOps v2
 
 - Add persistent Benchmark PostgreSQL/artifacts plus API, Reconciler, Evaluation

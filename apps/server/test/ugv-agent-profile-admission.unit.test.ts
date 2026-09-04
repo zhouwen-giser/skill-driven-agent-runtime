@@ -87,6 +87,37 @@ describe('UGV Agent Profile deterministic admission', () => {
     );
   });
 
+  it('admits an append-only live Capability successor without rewriting the exact Skill version', async () => {
+    const binding = capabilityBinding(AUTHORIZED_INPUT, 'before_execution', {
+      capabilityVersion: 4,
+      executionMode: 'live',
+    });
+    const harness = createAdmissionHarness(binding, exactSkill);
+
+    const admitted = await harness.admission.admit(contextLoadingTask());
+
+    expect(admitted.goal.constraints).toContain('execution.mode=live');
+    expect(admitted.goal.constraints).not.toContain('execution.mode=simulation');
+    expect(admitted.goal.description).toContain('frozen live execution contract');
+    expect(harness.plans.plan?.skillGoals[0]?.capabilityNeeds).toEqual(['embodied.move']);
+    expect(binding.initialImplementationRefs).toEqual(['skill:embodied.move_to:1']);
+    expect(harness.modelCalls).toBe(0);
+  });
+
+  it('rejects a live successor that carries a simulation identity', async () => {
+    const binding = capabilityBinding(AUTHORIZED_INPUT, 'before_execution', {
+      capabilityVersion: 4,
+      executionMode: 'live',
+      simulationId: 'must-not-be-present',
+    });
+    const harness = createAdmissionHarness(binding, exactSkill);
+
+    await expect(harness.admission.admit(contextLoadingTask())).rejects.toMatchObject({
+      code: 'UGV_AGENT_PROFILE_TASK_CAPABILITY_AUTHORITY_INVALID',
+    });
+    expect(harness.plans.plan).toBeUndefined();
+  });
+
   it.each([
     [
       'missing',
@@ -411,12 +442,26 @@ function createAdmissionHarness(binding: TaskCapabilityBinding, skill: SkillVers
 function capabilityBinding(
   input: unknown = AUTHORIZED_INPUT,
   confirmationStage = 'before_execution',
+  authority: Readonly<{
+    capabilityVersion: number;
+    executionMode: 'simulation' | 'live';
+    simulationId?: string;
+  }> = Object.freeze({ capabilityVersion: 2, executionMode: 'simulation' }),
 ): TaskCapabilityBinding {
+  const runtimeExecutionModePolicy = Object.freeze({
+    type: 'runtime_execution_mode_policy',
+    mode: authority.executionMode,
+    ...(authority.executionMode === 'simulation'
+      ? { simulationId: authority.simulationId ?? 'uap-p2-b03-simulation' }
+      : authority.simulationId === undefined
+        ? {}
+        : { simulationId: authority.simulationId }),
+  });
   return createTaskCapabilityBinding({
     bindingId: 'capability-binding-uap-p2-b03',
     taskId: TASK_ID,
     requestedCapabilityId: 'embodied.move',
-    capabilityVersion: 2,
+    capabilityVersion: authority.capabilityVersion,
     inputSnapshot: input,
     successCriteriaSnapshot: Object.freeze([
       Object.freeze({ type: 'required_evidence_complete', required: true }),
@@ -441,11 +486,7 @@ function capabilityBinding(
         required: true,
         stage: confirmationStage,
       }),
-      Object.freeze({
-        type: 'runtime_execution_mode_policy',
-        mode: 'simulation',
-        simulationId: 'uap-p2-b03-simulation',
-      }),
+      runtimeExecutionModePolicy,
     ]),
     initialImplementationRefs: Object.freeze(['skill:embodied.move_to:1']),
     boundAt: NOW,

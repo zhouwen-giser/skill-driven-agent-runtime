@@ -2,6 +2,11 @@
 
 ## v1.4.1 Canonical Evidence addendum
 
+The original Phase 14 release evidence below remains an exact historical 100-record snapshot. The
+2026-08-31 backward-compatible MCP Task Consumer Sync extension is separately verified at 105/105
+records (100 Required and five Diagnostic) by the active ExecPlan and traceability addendum; it does
+not rewrite the historical Phase 14 run.
+
 - [x] Catalog/Schema/Matrix contain 100/100 implemented records, 95/95 Required and 5/5 Diagnostic.
 - [x] Phase 12 passes 44/44 scenarios with ten explicit Evidence dimensions.
 - [x] Phase 13 closes all 25 adversarial items and unchanged performance thresholds.

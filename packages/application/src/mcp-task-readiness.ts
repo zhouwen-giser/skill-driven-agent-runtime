@@ -152,6 +152,17 @@ export interface WorkflowCandidateReadinessPolicy {
   ): Promise<WorkflowCandidateReadinessAssessment>;
 }
 
+export type TaskAvailabilityUnknownPolicyDecision = 'allowed_by_default' | 'explicitly_not_ready';
+
+/**
+ * Deployment/profile policy for interpreting a Provider-reported `unknown` result. The raw
+ * Provider availability remains authoritative evidence; this policy only decides whether that
+ * particular unknown state may proceed at a pre-invocation boundary.
+ */
+export interface TaskAvailabilityUnknownPolicy {
+  decide(result: TaskAvailabilityCheckResult): TaskAvailabilityUnknownPolicyDecision;
+}
+
 interface CandidateRequest {
   readonly nodeId: string;
   readonly serverId: string;
@@ -166,6 +177,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
   readonly #riskDecider: TaskRiskDecider;
   readonly #clock: Clock;
   readonly #ids: Readonly<{ nextReadinessId(): string; nextSnapshotId(): string }>;
+  readonly #providerUnknownPreInvocationPolicy: TaskAvailabilityUnknownPolicy | undefined;
 
   constructor(
     dependencies: Readonly<{
@@ -175,6 +187,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
       riskDecider: TaskRiskDecider;
       clock: Clock;
       ids: Readonly<{ nextReadinessId(): string; nextSnapshotId(): string }>;
+      providerUnknownPreInvocationPolicy?: TaskAvailabilityUnknownPolicy;
     }>,
   ) {
     this.#operations = dependencies.operations;
@@ -183,6 +196,7 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
     this.#riskDecider = dependencies.riskDecider;
     this.#clock = dependencies.clock;
     this.#ids = dependencies.ids;
+    this.#providerUnknownPreInvocationPolicy = dependencies.providerUnknownPreInvocationPolicy;
   }
 
   async assess(input: Parameters<WorkflowCandidateReadinessPolicy['assess']>[0]) {
@@ -416,9 +430,31 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
       input.planConfirmed &&
       planningResult?.availability === 'restricted' &&
       !hasIncreasedRisk(planningResult, result);
-    const allowed = result?.availability === 'available' || restrictedCoveredByConfirmation;
-    const reasonCodes =
-      result === undefined
+    const providerReportedUnknown =
+      outcome.kind === 'results' &&
+      outcome.results.some(
+        (candidate) =>
+          candidate.nodeId === input.workflowNodeId &&
+          candidate.operationName === input.operationName &&
+          candidate.availability === 'unknown',
+      );
+    const unknownPolicyDecision =
+      result?.availability === 'unknown'
+        ? this.#providerUnknownPreInvocationPolicy?.decide(result)
+        : undefined;
+    const unknownAllowedByDefault =
+      unknownPolicyDecision === 'allowed_by_default' &&
+      input.planConfirmed &&
+      input.executionContext.mode === 'live' &&
+      result?.availability === 'unknown' &&
+      providerReportedUnknown;
+    const allowed =
+      result?.availability === 'available' ||
+      restrictedCoveredByConfirmation ||
+      unknownAllowedByDefault;
+    const reasonCodes = unknownAllowedByDefault
+      ? ['MCP_TASK_AVAILABILITY_UNKNOWN_ALLOWED_BY_DEFAULT']
+      : result === undefined
         ? [
             outcome.kind === 'results'
               ? 'MCP_TASK_AVAILABILITY_RESPONSE_INVALID'
@@ -429,7 +465,11 @@ export class McpTaskReadinessService implements WorkflowCandidateReadinessPolicy
           : result.availability === 'disabled'
             ? ['MCP_TASK_AVAILABILITY_DISABLED']
             : result.availability === 'unknown'
-              ? ['MCP_TASK_AVAILABILITY_UNKNOWN']
+              ? [
+                  unknownPolicyDecision === 'explicitly_not_ready'
+                    ? 'MCP_TASK_AVAILABILITY_UNKNOWN_EXPLICIT_NOT_READY'
+                    : 'MCP_TASK_AVAILABILITY_UNKNOWN',
+                ]
               : [];
     const readiness = this.#readiness({
       readinessId,

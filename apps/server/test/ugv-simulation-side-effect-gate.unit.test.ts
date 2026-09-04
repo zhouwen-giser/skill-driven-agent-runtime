@@ -19,6 +19,17 @@ describe('UGV server-side simulation side-effect gate', () => {
     await expect(gate.assertAuthorized(AUTHORITY)).resolves.toBeUndefined();
   });
 
+  it('defaults the side-effect switch open for an exact development run', async () => {
+    const gate = new EnvironmentUgvSimulationSideEffectGate({
+      NODE_ENV: 'development',
+      SDAR_CONTROL_ENVIRONMENT: 'development',
+      ALLOW_UGV_SIMULATION_SIDE_EFFECTS: '',
+      UGV_SIMULATION_RUN_ID: RUN_ID,
+    });
+
+    await expect(gate.assertAuthorized(AUTHORITY)).resolves.toBeUndefined();
+  });
+
   it.each([
     {},
     { ALLOW_UGV_SIMULATION_SIDE_EFFECTS: 'yes', UGV_SIMULATION_RUN_ID: RUN_ID },

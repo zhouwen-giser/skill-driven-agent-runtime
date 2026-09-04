@@ -69,6 +69,57 @@ describe('UGV move final-position outcome gate', () => {
     expect(assessment.status).toBe('completed');
   });
 
+  it('accepts field-authority-gated aggregate geodetic evidence for the exact live execution', () => {
+    const observedAt = '2026-08-21T12:00:09.900Z';
+    const assessment = assessUgvMoveOutcome(
+      validAssessmentInput({
+        expectedExecutionMode: 'live',
+        initialState: stateRead({
+          startedAt: '2026-08-21T11:59:59.000Z',
+          completedAt: '2026-08-21T11:59:59.900Z',
+          observedAt: '2026-08-21T11:59:59.800Z',
+          revision: 'state-revision-100',
+          cursor: 100,
+          position: INITIAL_POSITION,
+          executionMode: 'live',
+        }),
+        providerTerminal: providerTerminal({
+          positionTopic: 'status/ugv1',
+          timeAuthority: 'ingest',
+          cursor: providerCursor(
+            101,
+            observedAt,
+            'chassis.position.geodetic',
+            'status/ugv1',
+            undefined,
+            'ingest',
+          ),
+        }),
+        finalState: stateRead({
+          startedAt: '2026-08-21T12:00:10.100Z',
+          completedAt: '2026-08-21T12:00:10.500Z',
+          observedAt: '2026-08-21T12:00:10.400Z',
+          revision: 'state-revision-102',
+          cursor: 102,
+          position: FINAL_POSITION,
+          executionMode: 'live',
+        }),
+      }),
+    );
+
+    expect(assessment.status).toBe('completed');
+  });
+
+  it('rejects aggregate geodetic evidence without its exact ingest-time authority', () => {
+    expectFailure(
+      validAssessmentInput({
+        providerTerminal: providerTerminal({ positionTopic: 'status/ugv1' }),
+      }),
+      'failed',
+      'UGV_MOVE_PROVIDER_RESULT_INVALID',
+    );
+  });
+
   it('does not impose ordering between independent mission and position timestamps', () => {
     expect(
       assessUgvMoveOutcome(
@@ -406,6 +457,14 @@ describe('UGV move final-position outcome gate', () => {
     );
   });
 
+  it('rejects state evidence whose execution mode differs from the frozen selection', () => {
+    expectFailure(
+      validAssessmentInput({ expectedExecutionMode: 'live' }),
+      'failed',
+      'UGV_MOVE_FINAL_POSITION_INVALID',
+    );
+  });
+
   it.each(['102', -1, Number.MAX_SAFE_INTEGER + 1] as const)(
     'rejects a non-authoritative MQTT ingress sequence %s',
     (cursor) => {
@@ -650,6 +709,7 @@ function validAssessmentInput(
   return {
     resourceId: RESOURCE_ID,
     expectedProviderId: 'isr.vehicle.ugv.ugv1',
+    expectedExecutionMode: 'simulation',
     correlationId: 'corr-move-1',
     dispatchedAt: '2026-08-21T12:00:00.000Z',
     assessedAt: '2026-08-21T12:00:11.000Z',
@@ -688,6 +748,7 @@ function providerTerminal(
     resultObservedAt?: string;
     positionField?: 'chassis.position.geodetic' | 'chassis.position.local';
     positionTopic?: string;
+    timeAuthority?: 'source' | 'ingest';
   }> = {},
 ): UgvMoveOutcomeAssessmentInput['providerTerminal'] {
   const {
@@ -700,6 +761,7 @@ function providerTerminal(
     resultObservedAt = '2026-08-21T12:00:10.000Z',
     positionField = 'chassis.position.geodetic',
     positionTopic = '/ugv/gnss',
+    timeAuthority = 'source',
   } = overrides;
   return {
     status: 'completed',
@@ -717,7 +779,7 @@ function providerTerminal(
         field: positionField,
         topic: positionTopic,
         observedAt: positionObservedAt,
-        timeAuthority: 'source',
+        timeAuthority,
         cursor,
       },
     },
@@ -735,6 +797,7 @@ function stateRead(
     position: Readonly<{ longitude: number; latitude: number }>;
     resourceId?: string;
     providerId?: string;
+    executionMode?: 'simulation' | 'live';
   }>,
 ): UgvMoveStateRead {
   return {
@@ -746,7 +809,7 @@ function stateRead(
         providerId: input.providerId ?? 'isr.vehicle.ugv.ugv1',
         resourceId: input.resourceId ?? RESOURCE_ID,
         vehicleType: 'ugv',
-        executionMode: 'simulation',
+        executionMode: input.executionMode ?? 'simulation',
       },
       connectivity: {
         mqttConnected: true,
@@ -770,6 +833,7 @@ function providerCursor(
   field: 'chassis.position.geodetic' | 'chassis.position.local' = 'chassis.position.geodetic',
   topic = '/ugv/gnss',
   sourceSequence?: string,
+  timeAuthority: 'source' | 'ingest' = 'source',
 ): string {
   const payload = {
     version: 1,
@@ -777,7 +841,7 @@ function providerCursor(
     field,
     topic,
     observedAt,
-    timeAuthority: 'source',
+    timeAuthority,
     ...(sourceSequence === undefined ? {} : { sourceSequence }),
     ingestSequence,
     payloadHash: 'd'.repeat(64),

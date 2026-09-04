@@ -33,7 +33,7 @@ describe('parseMcpProviderBindingPolicyOverride', () => {
     ).toEqual({ mode: 'single', requirements: [light] });
   });
 
-  it('accepts only an explicit exact-two required_all policy with valid nested resource ids', () => {
+  it('accepts an explicit exact-two required_all policy with valid nested resource ids', () => {
     expect(
       parseMcpProviderBindingPolicyOverride({
         selection: 'required_all',
@@ -45,15 +45,29 @@ describe('parseMcpProviderBindingPolicyOverride', () => {
     ).toEqual({ mode: 'required_all', requirements: [light, climate] });
   });
 
+  it('projects required authority while preserving additive Provider policy fields', () => {
+    expect(
+      parseMcpProviderBindingPolicyOverride({
+        selection: 'required_all',
+        providerContractRevision: 4,
+        requirements: [
+          { ...light, futureProviderField: { sourceRevision: '2' } },
+          { ...climate, futureProviderField: ['opaque', 'preserved'] },
+        ],
+      }),
+    ).toEqual({ mode: 'required_all', requirements: [light, climate] });
+    expect(
+      parseMcpProviderBindingPolicyOverride({
+        ...light,
+        futureProviderField: { sourceRevision: '2' },
+      }),
+    ).toEqual({ mode: 'single', requirements: [light] });
+  });
+
   it.each([
     ['null', null],
     ['bare-array', [light, climate]],
     ['one-requirement', { selection: 'required_all', requirements: [light] }],
-    [
-      'unknown-required-all-key',
-      { selection: 'required_all', requirements: [light, climate], fallback: 'deny' },
-    ],
-    ['unknown-single-key', { ...light, fallback: 'deny' }],
     ['empty-resource-list', { ...light, allowedResourceIds: [] }],
     [
       'duplicate-resource-id',

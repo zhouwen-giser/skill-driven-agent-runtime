@@ -29,23 +29,11 @@ const ABSENT: Extract<ParsedMcpProviderBindingPolicyOverride, { mode: 'absent' }
 const INVALID: Extract<ParsedMcpProviderBindingPolicyOverride, { mode: 'invalid' }> = Object.freeze(
   { mode: 'invalid', requirements: EMPTY_REQUIREMENTS },
 );
-const REQUIRED_ALL_KEYS = new Set(['selection', 'requirements']);
-const EXACT_REQUIREMENT_KEYS = new Set([
-  'selection',
-  'mcpProviderBindingId',
-  'localServerId',
-  'mcpToolName',
-  'requireActive',
-  'requireAvailable',
-  'requireUnexpiredFreshness',
-  'denyFallback',
-  'allowedResourceIds',
-]);
-
 /**
- * Classifies the exact Provider Binding policy understood by both readiness and
- * Task Capability admission. `undefined` is the only legacy no-policy value;
- * every declared but malformed value is fail-closed.
+ * Projects the Provider Binding authority fields understood by readiness and Task Capability
+ * admission. Additive Provider-owned fields are deliberately ignored by this projection and remain
+ * preserved in the persisted policy document; only missing or malformed fields consumed by the
+ * runtime make the declared policy invalid.
  */
 export function parseMcpProviderBindingPolicyOverride(
   value: unknown,
@@ -58,7 +46,6 @@ export function parseMcpProviderBindingPolicyOverride(
     const requirements: readonly [ExactMcpProviderBindingPolicy] = Object.freeze([requirement]);
     return Object.freeze({ mode: 'single', requirements });
   }
-  if (!hasOnlyKeys(value, REQUIRED_ALL_KEYS)) return INVALID;
   const declared = value['requirements'];
   if (!Array.isArray(declared) || declared.length !== 2) return INVALID;
   const first = exactRequirement(declared[0]);
@@ -80,7 +67,6 @@ export function parseMcpProviderBindingPolicyOverride(
 function exactRequirement(value: unknown): ExactMcpProviderBindingPolicy | undefined {
   if (!isRecord(value)) return undefined;
   if (
-    !hasOnlyKeys(value, EXACT_REQUIREMENT_KEYS) ||
     !allowedResourceIdsValid(value) ||
     value['selection'] !== 'required' ||
     !nonEmpty(value['mcpProviderBindingId']) ||
@@ -115,10 +101,6 @@ function allowedResourceIdsValid(value: Readonly<Record<string, unknown>>): bool
     seen.add(item);
   }
   return true;
-}
-
-function hasOnlyKeys(value: Readonly<Record<string, unknown>>, allowed: ReadonlySet<string>) {
-  return Object.keys(value).every((key) => allowed.has(key));
 }
 
 function nonEmpty(value: unknown): value is string {

@@ -35,6 +35,7 @@ import {
   UGV_MOVE_RESOURCE_ID,
   type AdaptedUgvMoveInput,
 } from './ugv-move-input-adapter.js';
+import { UGV_UNKNOWN_AVAILABILITY_POLICY } from './ugv-unknown-availability-policy.js';
 
 const UGV_PROVIDER_ID = 'isr.vehicle.ugv.ugv1';
 const UGV_PROVIDER_TYPE = 'isr.vehicle.ugv';
@@ -107,10 +108,16 @@ export class UgvMoveTaskBindingResolver {
     input: Readonly<{ skillInput: unknown; executionContext: RuntimeExecutionContext }>,
   ) {
     const executionContext = createRuntimeExecutionContext(input.executionContext);
-    if (executionContext.mode !== 'simulation' || executionContext.simulationId === undefined)
+    const simulationId = executionContext.simulationId;
+    if (executionContext.mode === 'historical-replay')
       fail(
-        'UGV_PROFILE_SIMULATION_CONTEXT_REQUIRED',
-        'UGV Task binding is restricted to an explicit simulation execution context.',
+        'UGV_PROFILE_EXECUTION_CONTEXT_REQUIRED',
+        'UGV Task binding requires a frozen live or simulation execution context.',
+      );
+    if (executionContext.mode === 'simulation' && simulationId === undefined)
+      fail(
+        'UGV_PROFILE_EXECUTION_CONTEXT_REQUIRED',
+        'UGV simulation Task binding requires a stable simulation identity.',
       );
     const adaptedInput = adaptUgvMoveInput(input.skillInput);
     const exactSkill = await this.#requireExactSkillAuthority();
@@ -144,12 +151,29 @@ export class UgvMoveTaskBindingResolver {
     const selectedAt = this.#clock.now();
     const bindingReadiness = reported.bindings[0];
     const availability = capturedAvailability.exactResult(NAVIGATE_OPERATION);
+    const candidate = bindingReadiness?.candidates?.[0];
+    const providerAvailable = availability.result.availability === 'available';
+    const providerUnknownAllowed =
+      executionContext.mode === 'live' &&
+      availability.result.availability === 'unknown' &&
+      UGV_UNKNOWN_AVAILABILITY_POLICY.decide(availability.result) === 'allowed_by_default';
+    const readinessSelectionExact = providerAvailable
+      ? bindingReadiness?.selectedProviderId === exact.candidate.providerId &&
+        bindingReadiness.selectedOperationName === NAVIGATE_OPERATION &&
+        bindingReadiness.disposition === 'ready'
+      : providerUnknownAllowed &&
+        bindingReadiness?.disposition === 'unknown' &&
+        bindingReadiness.candidates?.length === 1 &&
+        candidate?.providerId === exact.candidate.providerId &&
+        candidate.operationName === NAVIGATE_OPERATION &&
+        candidate.disposition === 'unknown';
+    const availabilityResultCorrelated =
+      availability.request?.nodeId === availability.result.nodeId &&
+      availability.request.operationName === availability.result.operationName;
     if (
       reported.bindings.length !== 1 ||
-      bindingReadiness?.selectedProviderId !== exact.candidate.providerId ||
-      bindingReadiness.selectedOperationName !== NAVIGATE_OPERATION ||
-      bindingReadiness.disposition !== 'ready' ||
-      availability.result.availability !== 'available' ||
+      !readinessSelectionExact ||
+      !availabilityResultCorrelated ||
       availability.result.validUntil === undefined ||
       Date.parse(availability.result.validUntil) <= Date.parse(selectedAt) ||
       Date.parse(exact.binding.binding.availabilityValidUntil) <= Date.parse(selectedAt)
@@ -163,7 +187,7 @@ export class UgvMoveTaskBindingResolver {
               availability,
               selectedAt,
               readinessCheckedAt,
-              simulationId: executionContext.simulationId,
+              executionContext,
             }),
           ),
         ).catch(() => undefined);
@@ -248,6 +272,8 @@ export class UgvMoveTaskBindingResolver {
         checkedAt: selectedAt,
         validUntil: availability.result.validUntil,
         disposition: 'ready',
+        observedAvailability: providerAvailable ? 'available' : 'unknown',
+        policyDecision: providerAvailable ? 'provider_available' : 'allowed_by_default',
         riskLevel: availability.result.riskLevel,
         reservationMode: availability.result.reservationMode,
         ...(availability.result.reservationRef === undefined
@@ -255,12 +281,25 @@ export class UgvMoveTaskBindingResolver {
           : { reservationRef: availability.result.reservationRef }),
         possibleEffects: Object.freeze([...availability.result.possibleEffects]),
       }),
-      execution: Object.freeze({
-        mode: 'simulation',
-        simulationId: executionContext.simulationId,
-        confirmation: 'existing_outer_plan_confirmation',
-        confirmationRequired: true,
-      }),
+      execution: Object.freeze(
+        executionContext.mode === 'live'
+          ? {
+              mode: 'live' as const,
+              confirmation: 'existing_outer_plan_confirmation' as const,
+              confirmationRequired: true as const,
+            }
+          : {
+              mode: 'simulation' as const,
+              simulationId:
+                simulationId ??
+                fail(
+                  'UGV_PROFILE_EXECUTION_CONTEXT_REQUIRED',
+                  'UGV simulation Task binding requires a stable simulation identity.',
+                ),
+              confirmation: 'existing_outer_plan_confirmation' as const,
+              confirmationRequired: true as const,
+            },
+      ),
     });
     return Object.freeze({ selected, adaptedInput });
   }
@@ -531,7 +570,7 @@ function assertNavigateContract(
     tool.executionSemantics.execution !== 'task_required' ||
     tool.executionSemantics.cancellation !== 'task_cancel' ||
     tool.executionSemantics.idempotency !== 'server_managed' ||
-    tool.executionSemantics.replay !== 'simulation_only' ||
+    !['forbidden', 'simulation_only'].includes(tool.executionSemantics.replay) ||
     !navigateSchemaDeclaresExactPointResource(tool.inputSchema) ||
     successOutputSchema === undefined ||
     !navigateOutputDeclaresOutcomeAuthority(successOutputSchema) ||
@@ -812,18 +851,21 @@ function readinessRejectionDiagnostic(
     availability: ReturnType<CapturingAvailabilityReader['exactResult']>;
     selectedAt: string;
     readinessCheckedAt: string | undefined;
-    simulationId: string;
+    executionContext: RuntimeExecutionContext;
   }>,
 ) {
   const { exact, reported, availability, selectedAt, readinessCheckedAt } = input;
   const binding = reported.bindings[0];
   const result = availability.result;
+  const unknownAvailabilityPolicyDecision =
+    result.availability === 'unknown' ? UGV_UNKNOWN_AVAILABILITY_POLICY.decide(result) : null;
   const rejectedChecks = {
     bindingCountNotOne: reported.bindings.length !== 1,
     selectedProviderMismatch: binding?.selectedProviderId !== exact.candidate.providerId,
     selectedOperationMismatch: binding?.selectedOperationName !== NAVIGATE_OPERATION,
     dispositionNotReady: binding?.disposition !== 'ready',
     operationNotAvailable: result.availability !== 'available',
+    explicitUnknownNotReady: unknownAvailabilityPolicyDecision === 'explicitly_not_ready',
     resultValidUntilMissing: result.validUntil === undefined,
     resultExpiredAtSelection:
       result.validUntil !== undefined && Date.parse(result.validUntil) <= Date.parse(selectedAt),
@@ -833,7 +875,9 @@ function readinessRejectionDiagnostic(
   return {
     event: 'ugv_profile.navigation_readiness_rejected' as const,
     errorCode: 'UGV_PROFILE_READINESS_NOT_ADMITTED' as const,
-    simulationId: diagnosticIdentifier(input.simulationId),
+    unknownAvailabilityPolicyDecision,
+    executionMode: input.executionContext.mode,
+    simulationId: diagnosticIdentifier(input.executionContext.simulationId),
     providerBindingId: diagnosticIdentifier(exact.binding.binding.bindingId),
     providerBindingRevision: exact.binding.binding.revision,
     providerId: diagnosticIdentifier(exact.binding.binding.providerId),
@@ -980,7 +1024,7 @@ function sameJson(left: unknown, right: unknown): boolean {
 }
 
 export type UgvMoveBindingErrorCode =
-  | 'UGV_PROFILE_SIMULATION_CONTEXT_REQUIRED'
+  | 'UGV_PROFILE_EXECUTION_CONTEXT_REQUIRED'
   | 'UGV_PROFILE_SKILL_NOT_CURRENT'
   | 'UGV_PROFILE_SKILL_PACKAGE_AUTHORITY_REQUIRED'
   | 'UGV_PROFILE_BINDING_NOT_FOUND'

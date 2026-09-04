@@ -15,12 +15,12 @@ const readJson = async (file: string): Promise<Record<string, unknown>> =>
   JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;
 const registry = await readJson(path.join(schemaRoot, 'registry.json'));
 const records = registry['records'];
-if (!Array.isArray(records) || records.length !== 100) {
+if (!Array.isArray(records) || records.length !== 105) {
   throw new Error(
     `EVIDENCE_REGISTRY_COUNT_INVALID:${Array.isArray(records) ? records.length : 'not-array'}`,
   );
 }
-if (new Set(EVIDENCE_RECORD_CATALOG.map((entry) => entry.recordType)).size !== 100) {
+if (new Set(EVIDENCE_RECORD_CATALOG.map((entry) => entry.recordType)).size !== 105) {
   throw new Error('EVIDENCE_CATALOG_DUPLICATE_RECORD_TYPE');
 }
 const familyCounts = Object.fromEntries(
@@ -32,7 +32,7 @@ const familyCounts = Object.fromEntries(
 const expectedCounts = {
   runtime: 18,
   skill: 16,
-  mcp_task: 11,
+  mcp_task: 16,
   capability: 7,
   experience: 10,
   replay: 6,
@@ -103,7 +103,7 @@ if (matrix['registryHash'] !== registry['registryHash']) {
   throw new Error('EVIDENCE_SOURCE_MATRIX_REGISTRY_HASH_DRIFT');
 }
 const matrixRecords = matrix['records'];
-if (!Array.isArray(matrixRecords) || matrixRecords.length !== 100) {
+if (!Array.isArray(matrixRecords) || matrixRecords.length !== 105) {
   throw new Error('EVIDENCE_SOURCE_MATRIX_INVALID');
 }
 const matrixByType = new Map(
@@ -114,7 +114,7 @@ const matrixByType = new Map(
     return [typed['record_type'], typed] as const;
   }),
 );
-if (matrixByType.size !== 100) throw new Error('EVIDENCE_SOURCE_MATRIX_DUPLICATE_TYPE');
+if (matrixByType.size !== 105) throw new Error('EVIDENCE_SOURCE_MATRIX_DUPLICATE_TYPE');
 for (const entry of EVIDENCE_RECORD_CATALOG) {
   const matrixEntry = matrixByType.get(entry.recordType);
   if (matrixEntry === undefined) {
@@ -149,7 +149,7 @@ const evaluationRoleCounts = Object.fromEntries(
     ).length,
   ]),
 );
-if (evaluationRoleCounts['required'] !== 95 || evaluationRoleCounts['diagnostic'] !== 5) {
+if (evaluationRoleCounts['required'] !== 100 || evaluationRoleCounts['diagnostic'] !== 5) {
   throw new Error(
     `EVIDENCE_SOURCE_MATRIX_ROLE_COUNTS_INVALID:${JSON.stringify(evaluationRoleCounts)}`,
   );
@@ -175,7 +175,7 @@ if (JSON.stringify(deliveryGuaranteeCounts) !== JSON.stringify(catalogDeliveryGu
 }
 if (
   deliveryGuaranteeCounts['transactional'] !== 0 ||
-  deliveryGuaranteeCounts['durable_projection'] !== 100
+  deliveryGuaranteeCounts['durable_projection'] !== 105
 ) {
   throw new Error(
     `EVIDENCE_SOURCE_MATRIX_DURABILITY_INVALID:${JSON.stringify(deliveryGuaranteeCounts)}`,
@@ -191,5 +191,5 @@ if (
 }
 
 stdout.write(
-  `${JSON.stringify({ status: 'PASSED', records: 100, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts, registryHash: registry['registryHash'] })}\n`,
+  `${JSON.stringify({ status: 'PASSED', records: 105, familyCounts, evaluationRoleCounts, deliveryGuaranteeCounts, registryHash: registry['registryHash'] })}\n`,
 );

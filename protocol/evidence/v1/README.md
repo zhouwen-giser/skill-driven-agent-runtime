@@ -5,6 +5,7 @@ This directory freezes the sole formal external evidence contract for SDAR v1.4.
 - Request header: `x-sdar-evidence-contract: sdar.evidence/v1`
 - Delivery: at least once
 - ACK: contiguous and monotonic; partial ACK is valid
+- Current additive registry: 105 records (100 Required, five Diagnostic; 16 MCP Task)
 - Record schemas: `../../../schemas/evidence/v1/records/`
 - Schema registry: `../../../schemas/evidence/v1/registry.json`
 - Legacy header `x-sdar-telemetry-contract` is forbidden after the Phase 4 cutover.

@@ -75,9 +75,66 @@ describe('UGV Agent Profile Skill Provider dependency policy', () => {
     );
   });
 
+  it('authorizes an append-only live Capability successor from its complete frozen contract', () => {
+    const successor = liveSuccessorInput();
+    const assessment = new UgvAgentProfileSkillProviderDependencyPolicy().assess(successor);
+
+    expect(assessment.decision).toBe('authorized');
+    if (assessment.decision !== 'authorized') throw new Error('UGV_SUCCESSOR_NOT_AUTHORIZED');
+    expect(assessment.authorization.expectedBindings).toEqual([
+      {
+        mcpProviderBindingId: 'ugv-smpp-real-integration-r2-binding',
+        localServerId: 'ugv-smpp-real-integration-r2',
+        bindingRevision: 1,
+        catalogRevision: '2.0.0-rc.1:1',
+        catalogChecksum: '6'.repeat(64),
+      },
+    ]);
+  });
+
+  it('accepts additive Provider lineage and policy fields while preserving current authority references', () => {
+    const successor = liveSuccessorInput();
+    const constraints = (successor.definition.constraints ?? []).map((constraint) =>
+      constraint['type'] === 'provider_binding_policy'
+        ? {
+            ...constraint,
+            registryRevision: 2,
+            registryChecksum: '1'.repeat(64),
+            futureProviderContract: { revision: 7, semantics: 'provider_owned' },
+          }
+        : constraint,
+    );
+    const assessment = new UgvAgentProfileSkillProviderDependencyPolicy().assess({
+      ...successor,
+      definition: { ...successor.definition, constraints },
+    });
+
+    expect(assessment.decision).toBe('authorized');
+    if (assessment.decision !== 'authorized') throw new Error('UGV_SUCCESSOR_NOT_AUTHORIZED');
+    expect(assessment.authorization.expectedBindings).toEqual([
+      {
+        mcpProviderBindingId: 'ugv-smpp-real-integration-r2-binding',
+        localServerId: 'ugv-smpp-real-integration-r2',
+        bindingRevision: 1,
+        catalogRevision: '2.0.0-rc.1:1',
+        catalogChecksum: '6'.repeat(64),
+      },
+    ]);
+  });
+
+  it('rejects a live successor with missing append-only lineage', () => {
+    const successor = liveSuccessorInput();
+    const policy = new UgvAgentProfileSkillProviderDependencyPolicy();
+    expect(
+      policy.assess({
+        ...successor,
+        definition: { ...successor.definition, previousVersion: 2 },
+      }).decision,
+    ).toBe('denied');
+  });
+
   it.each([
     'resource_policy',
-    'provider_binding_policy',
     'exact_skill_version',
     'confirmation_policy',
     'physical_side_effect_policy',
@@ -381,6 +438,63 @@ function input(): RuntimeSkillProviderDependencyPolicyInput {
       },
       usageSpecification: importedPackage.skillVersion.usageSpecification,
     },
+  };
+}
+
+function liveSuccessorInput(): RuntimeSkillProviderDependencyPolicyInput {
+  const legacy = input();
+  const providerBindingId = 'ugv-smpp-real-integration-r2-binding';
+  const localServerId = 'ugv-smpp-real-integration-r2';
+  const implementation: CapabilityImplementationBinding = {
+    ...legacy.implementation,
+    bindingId: 'capability-binding-embodied.move-v4',
+    capabilityVersion: 4,
+    providerPolicyOverride: {
+      selection: 'required',
+      mcpProviderBindingId: providerBindingId,
+      localServerId,
+      mcpToolName: 'vehicle_navigate',
+      allowedResourceIds: ['vehicle:ugv1'],
+      requireActive: true,
+      requireAvailable: true,
+      requireUnexpiredFreshness: true,
+      denyFallback: true,
+    },
+  };
+  const constraints = (legacy.definition.constraints ?? [])
+    .filter((constraint) => constraint['type'] !== 'ugv_simulation_target_policy')
+    .map((constraint) => {
+      if (constraint['type'] === 'runtime_execution_mode_policy')
+        return { type: 'runtime_execution_mode_policy', mode: 'live' };
+      if (constraint['type'] !== 'provider_binding_policy') return constraint;
+      return {
+        ...constraint,
+        mcpProviderBindingId: providerBindingId,
+        localServerId,
+        bindingRevision: 1,
+        catalogRevision: '2.0.0-rc.1:1',
+        catalogChecksum: '6'.repeat(64),
+        executionSemantics: {
+          effect: 'side_effecting',
+          execution: 'task_required',
+          cancellation: 'task_cancel',
+          idempotency: 'server_managed',
+          replay: 'forbidden',
+          source: 'admin_override',
+        },
+      };
+    });
+  return {
+    ...legacy,
+    definition: {
+      ...legacy.definition,
+      version: 4,
+      previousVersion: 3,
+      status: 'published',
+      constraints,
+    },
+    implementation,
+    implementations: [implementation],
   };
 }
 

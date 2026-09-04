@@ -1,16 +1,13 @@
-import { randomBytes } from 'node:crypto';
-
 import { describe, expect, it } from 'vitest';
 
 import type { SkillRepository } from '../../../packages/application/src/index.js';
 import type { Skill, SkillVersion } from '../../../packages/domain/src/index.js';
 import { parseServerEnvironment } from '../src/environment.js';
-import { startServerRuntime } from '../src/runtime.js';
 import {
   UGV_AGENT_PROFILE_CAPABILITY_ID,
   UGV_AGENT_PROFILE_ID,
   UGV_AGENT_PROFILE_OPERATION_POLICY,
-  UGV_AGENT_PROFILE_SKILL_REF,
+  UGV_AGENT_PROFILE_SKILL_ID,
   UgvAgentProfileSkillRepositoryView,
   assertUgvAgentProfileRuntimeConfiguration,
   projectUgvAgentProfileEnabledSkills,
@@ -20,39 +17,48 @@ import {
 import { loadExactUgvProfileSkill } from './ugv-agent-profile-test-fixture.js';
 
 describe('UGV Agent Profile composition', () => {
-  it('declares one point-navigation capability while keeping reads contextual and safety operations forbidden', () => {
-    expect(ugvAgentProfileTaskUnderstandingConfiguration()).toMatchObject({
+  it('declares all reviewed UGV Capability task types and authority classes', () => {
+    const taskUnderstanding = ugvAgentProfileTaskUnderstandingConfiguration();
+    expect(taskUnderstanding).toMatchObject({
       profile: UGV_AGENT_PROFILE_ID,
       entryPolicy: 'all_requests',
       skillSelectionMode: 'exact_compatible_only',
-      taskTypes: [
-        {
-          taskTypeId: 'task-type.ugv-point-navigation',
-          version: 1,
-          capabilityRequirements: [UGV_AGENT_PROFILE_CAPABILITY_ID],
-          requiredDimensions: ['target', 'side_effect_authorization'],
-          risks: ['physical_side_effect', 'explicit_plan_confirmation'],
-        },
-      ],
     });
+    expect(taskUnderstanding.taskTypes).toHaveLength(13);
+    expect(taskUnderstanding.taskTypes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          taskTypeId: 'task-type.ugv-point-navigation',
+          capabilityRequirements: [UGV_AGENT_PROFILE_CAPABILITY_ID],
+          requiredDimensions: ['side_effect_authorization'],
+        }),
+        expect.objectContaining({
+          taskTypeId: 'task-type.vehicle.read-state',
+          capabilityRequirements: ['vehicle.ugv.read-state'],
+          requiredDimensions: [],
+        }),
+        expect.objectContaining({
+          taskTypeId: 'task-type.vehicle.emergency-stop',
+          capabilityRequirements: ['vehicle.ugv.emergency-stop'],
+        }),
+        expect.objectContaining({
+          taskTypeId: 'task-type.vehicle.fire-weapon',
+          capabilityRequirements: ['vehicle.ugv.fire-weapon'],
+          requiredDimensions: ['target', 'side_effect_authorization', 'human_confirmation_policy'],
+        }),
+      ]),
+    );
     expect(UGV_AGENT_PROFILE_OPERATION_POLICY).toEqual(
       expect.objectContaining({
-        publicSkillAllowlist: [UGV_AGENT_PROFILE_SKILL_REF],
-        contextAndEvidenceReadOperations: [
-          { operationName: 'vehicle_get_state', purpose: 'initial_context' },
-          { operationName: 'vehicle_get_state', purpose: 'final_position_evidence' },
-        ],
-        governedControlOperations: [
-          expect.objectContaining({ operationName: 'vehicle_navigate', missionType: 'point' }),
-        ],
-        forbiddenPlannerOperations: [
-          'vehicle_area_recon',
-          'vehicle_track_target',
-          'vehicle_control_gimbal',
-          'vehicle_fire_weapon',
-          'vehicle_emergency_stop',
-        ],
-        emergencyStopAuthority: 'manual_operator_only',
+        publicSkillAllowlist: expect.arrayContaining([
+          UGV_AGENT_PROFILE_SKILL_ID,
+          'ugv.get-state',
+          'ugv.navigate-route',
+          'ugv.emergency-stop',
+          'ugv.fire-weapon',
+        ]),
+        emergencyStopAuthority: 'explicit_human_instruction_or_physical_confirmation',
+        weaponAuthority: 'plan_then_exact_weapon_confirmation',
       }),
     );
   });
@@ -79,6 +85,13 @@ describe('UGV Agent Profile composition', () => {
     expect(() =>
       projectUgvAgentProfileEnabledSkills([{ ...exact, capabilities: ['vehicle.ugv.navigate'] }]),
     ).toThrow('UGV_AGENT_PROFILE_SKILL_DECLARATION_INVALID');
+
+    const development = projectUgvAgentProfileEnabledSkills(
+      [legacy, otherVersion, unrelated, exact],
+      'all_enabled',
+    );
+    expect(development).toHaveLength(4);
+    expect(development).toEqual(expect.arrayContaining([legacy, otherVersion, unrelated, exact]));
   });
 
   it('uses a read-only exact-version repository view for selection', async () => {
@@ -98,6 +111,12 @@ describe('UGV Agent Profile composition', () => {
     await expect(view.saveVersionAndSetCurrent(exact, exact.createdAt)).rejects.toThrow(
       'UGV_AGENT_PROFILE_SKILL_CATALOG_READ_ONLY',
     );
+
+    const developmentView = new UgvAgentProfileSkillRepositoryView(source, 'all_enabled');
+    await expect(developmentView.listEnabledVersions()).resolves.toEqual(
+      expect.arrayContaining([legacy, exact]),
+    );
+    await expect(developmentView.findVersion('ugv.navigate', 1)).resolves.toEqual(legacy);
   });
 
   it('fails startup closed unless the canonical profile and existing governance authorities are composed', () => {
@@ -108,9 +127,9 @@ describe('UGV Agent Profile composition', () => {
     expect(() => {
       assertUgvAgentProfileRuntimeConfiguration({
         ...valid,
-        evidenceEnvironment: 'production',
+        evidenceEnvironment: 'development',
       });
-    }).toThrow('UGV_AGENT_PROFILE_SIMULATION_ENVIRONMENT_REQUIRED');
+    }).not.toThrow();
     expect(() => {
       assertUgvAgentProfileRuntimeConfiguration({
         ...valid,
@@ -152,18 +171,6 @@ describe('UGV Agent Profile composition', () => {
     }).toThrow('explicit positive tolerance');
   });
 
-  it('rejects a direct production start before opening infrastructure', async () => {
-    await expect(
-      startServerRuntime({
-        postgresUrl: 'postgresql://unused.invalid/sdar',
-        redis: { host: '127.0.0.1', port: 1 },
-        masterKeyBase64: randomBytes(32).toString('base64'),
-        ...validRuntimeConfiguration(),
-        evidenceEnvironment: 'production',
-      }),
-    ).rejects.toThrow('UGV_AGENT_PROFILE_SIMULATION_ENVIRONMENT_REQUIRED');
-  });
-
   it('parses only the explicit deterministic environment identity with governance credentials', () => {
     const environment = parseServerEnvironment({
       NODE_ENV: 'test',
@@ -190,22 +197,24 @@ describe('UGV Agent Profile composition', () => {
         UGV_TEST_TOLERANCE_M: '2.001',
       }),
     ).toThrow();
-    expect(useManagedAgentCardForProfile(environment.SDAR_TASK_UNDERSTANDING_PROFILE)).toBe(false);
+    expect(useManagedAgentCardForProfile(environment.SDAR_TASK_UNDERSTANDING_PROFILE)).toBe(true);
     expect(useManagedAgentCardForProfile('managed_capability')).toBe(true);
 
-    expect(() => {
+    expect(
       parseServerEnvironment({
-        NODE_ENV: 'production',
         SDAR_MASTER_KEY_BASE64: Buffer.alloc(32, 7).toString('base64'),
         SDAR_TASK_UNDERSTANDING_PROFILE: UGV_AGENT_PROFILE_ID,
-        SDAR_CONTROL_ENVIRONMENT: 'production',
         SDAR_NODE_CONTROL_BASE_URL: 'http://127.0.0.1:9997',
         SDAR_NODE_CONTROL_EVIDENCE_SERVICE_TOKEN: 'n'.repeat(32),
-        SDAR_GOVERNED_CONTROL_BEARER_TOKEN: 'g'.repeat(32),
-        SDAR_GOVERNED_CONTROL_ACTOR_ID: 'ugv-simulation-operator',
+        SDAR_GOVERNED_CONTROL_AUTHENTICATION_MODE: 'trusted_intranet',
+        SDAR_GOVERNED_CONTROL_ACTOR_ID: 'ugv-development-operator',
         SDAR_GOVERNED_CONTROL_PERMISSIONS: 'physical_control.confirm',
-      });
-    }).toThrow('external-simulation-only');
+      }),
+    ).toMatchObject({
+      NODE_ENV: 'development',
+      SDAR_CONTROL_ENVIRONMENT: 'development',
+      SDAR_TASK_UNDERSTANDING_PROFILE: UGV_AGENT_PROFILE_ID,
+    });
   });
 });
 

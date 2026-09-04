@@ -178,11 +178,12 @@ export interface PlanPreparationProcessorDependencies {
    */
   readonly initialAdmission?: Readonly<{
     admit(task: AgentTask): Promise<
-      Readonly<{
-        goal: Awaited<ReturnType<GoalService['get']>>;
-        userGoalPlanId: string;
-        summary: string;
-      }>
+      | Readonly<{
+          goal: Awaited<ReturnType<GoalService['get']>>;
+          userGoalPlanId: string;
+          summary: string;
+        }>
+      | undefined
     >;
   }>;
   readonly goalSessions?: Pick<

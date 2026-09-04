@@ -279,7 +279,13 @@ const allowedTransitions: Readonly<Record<TaskPhase, readonly TaskPhase[]>> = {
     'canceled',
     'failed',
   ],
-  awaiting_plan_confirmation: ['planning', 'executing', 'canceled', 'failed'],
+  awaiting_plan_confirmation: [
+    'planning',
+    'awaiting_user_input',
+    'executing',
+    'canceled',
+    'failed',
+  ],
   awaiting_user_input: ['goal_deliberation', 'planning', 'executing', 'canceled', 'failed'],
   paused: ['executing', 'planning', 'canceled', 'failed'],
   executing: [

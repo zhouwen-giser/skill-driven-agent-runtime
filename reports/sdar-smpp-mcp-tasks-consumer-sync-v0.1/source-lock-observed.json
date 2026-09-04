@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "sdar.source-lock-observation/v1",
+  "goalId": "sdar-smpp-mcp-tasks-consumer-sync-v0.1",
+  "observedAt": "2026-08-31T06:32:42Z",
+  "taskPackage": {
+    "path": "/home/zhouwen/下载/SDAR_MCP_Tasks_Runtime_Consumer_Sync_Codex_Goal_Package_v0.1.zip",
+    "integrity": "passed"
+  },
+  "sdar": {
+    "requiredBranch": "main",
+    "requiredCommit": "b0caf69e9f83bc6702e1c0a85e7ca158c3781d4b",
+    "observedBranch": "main",
+    "observedCommit": "b0caf69e9f83bc6702e1c0a85e7ca158c3781d4b",
+    "classification": "compatible"
+  },
+  "workBranch": "codex/smpp-mcp-tasks-consumer-sync-v0.1",
+  "unrelatedUntrackedReportsPreserved": true
+}

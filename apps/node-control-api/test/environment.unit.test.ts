@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseNodeControlApiEnvironment } from '../src/environment.js';
 
 describe('Node Control API environment', () => {
-  it('requires an explicit non-production environment for anonymous public management', () => {
+  it('uses the default development environment for anonymous public management', () => {
     const base = {
       SDAR_CONTROL_API_TOKEN: 'a'.repeat(32),
       SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: 'b'.repeat(32),
@@ -25,9 +25,9 @@ describe('Node Control API environment', () => {
         SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open',
       }),
     ).toThrow();
-    expect(() =>
+    expect(
       parseNodeControlApiEnvironment({ ...base, SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open' }),
-    ).toThrow();
+    ).toMatchObject({ NODE_ENV: 'development', SDAR_DEVELOPMENT_PUBLIC_ACCESS: 'open' });
   });
   it('requires a deployment bearer token and stable Node identity', () => {
     expect(() => parseNodeControlApiEnvironment({})).toThrow();
@@ -48,6 +48,7 @@ describe('Node Control API environment', () => {
       }),
     ).toMatchObject({
       SDAR_CONTROL_NODE_ID: 'node-p01',
+      NODE_ENV: 'development',
       SDAR_CONTROL_API_HOST: '127.0.0.1',
       SDAR_CONTROL_API_PORT: 10_080,
       SDAR_CONTROL_ORGANIZATION_API_TOKEN: 'c'.repeat(32),
@@ -83,7 +84,7 @@ describe('Node Control API environment', () => {
     ).toThrow('must use HTTPS');
   });
 
-  it('permits the global outbound relaxation only for an explicit non-production profile', () => {
+  it('permits the global outbound relaxation under the default development marker', () => {
     const base = {
       SDAR_CONTROL_API_TOKEN: 'a'.repeat(32),
       SDAR_CONTROL_RUNTIME_SERVICE_TOKEN: 'b'.repeat(32),
@@ -100,12 +101,15 @@ describe('Node Control API environment', () => {
         SDAR_CONTROL_A2A_AGENT_CARD_URL: 'http://192.168.1.7:9999/.well-known/agent-card.json',
       }),
     ).toMatchObject({ SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open' });
-    expect(() =>
+    expect(
       parseNodeControlApiEnvironment({
         ...base,
         SDAR_CONTROL_ENVIRONMENT: 'integration',
       }),
-    ).toThrow('forbidden outside');
+    ).toMatchObject({
+      NODE_ENV: 'development',
+      SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY: 'unsafe_test_open',
+    });
     expect(() =>
       parseNodeControlApiEnvironment({
         ...base,

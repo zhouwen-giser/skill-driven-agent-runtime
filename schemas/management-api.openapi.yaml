@@ -94,6 +94,19 @@ paths:
       responses: { '200': { description: Most recently updated PostgreSQL Task records } }
   /api/v1/tasks/{taskId}/governed-control-confirmations:
     parameters: [{ $ref: '#/components/parameters/TaskId' }]
+    get:
+      operationId: listGovernedControlConfirmations
+      description: Returns the non-sensitive immutable authority, expiry, revocation, and one-shot consumption projection for the Task's physical, emergency-stop, and weapon confirmations.
+      security: [{ GovernedControlBearer: [] }]
+      responses:
+        '200':
+          description: Task-scoped confirmation evidence without credentials or Provider responses
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GovernedControlConfirmationList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
     post:
       operationId: issueGovernedControlConfirmation
       description: Issues a short-lived physical-control confirmation. Identity and the exact Task, Capability Binding, latest Attempt, Plan hash, Skill, Provider Binding, tool, and arguments scope are derived from authenticated and server-owned state; none is accepted from JSON.
@@ -110,6 +123,95 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/emergency-stop-authorizations:
+    parameters: [{ $ref: '#/components/parameters/TaskId' }]
+    post:
+      operationId: issueEmergencyStopAuthorization
+      description: Applies one authenticated, exact-resource emergency-stop authorization to the Task's deterministic emergency Plan. It does not dispatch a Tool by itself.
+      security: [{ GovernedControlBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmergencyStopAuthorizationRequest' }
+            example:
+              resourceId: vehicle:ugv1
+              reason: Operator authorizes the exact emergency-stop Plan.
+      responses:
+        '200': { description: Updated Task follow-up result and immutable emergency authority }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/weapon-confirmations:
+    parameters: [{ $ref: '#/components/parameters/TaskId' }]
+    post:
+      operationId: issueWeaponControlConfirmation
+      description: Applies the second, one-shot weapon confirmation to the exact Task Plan and single target. Strict fresh target and payload evidence remains independently required before transport.
+      security: [{ GovernedControlBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WeaponControlIssueRequest' }
+            example:
+              resourceId: vehicle:ugv1
+              targetId: target-reviewed-001
+              engagementMode: single
+              requireConfirmation: true
+              reason: Operator confirms this exact single-target action.
+      responses:
+        '200': { description: Updated Task follow-up result and immutable weapon authority }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/emergency-stop-authorizations/{confirmationId}/revoke:
+    parameters:
+      - { $ref: '#/components/parameters/TaskId' }
+      - { name: confirmationId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: revokeEmergencyStopAuthorization
+      description: Revokes an unused exact emergency-stop authorization; it never sends stop, reset, cancel, or another Provider command.
+      security: [{ GovernedControlBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GovernedControlRevokeRequest' }
+            example: { reason: Emergency authorization withdrawn before dispatch. }
+      responses:
+        '200': { description: Revoked emergency-stop authorization }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/tasks/{taskId}/weapon-confirmations/{confirmationId}/revoke:
+    parameters:
+      - { $ref: '#/components/parameters/TaskId' }
+      - { name: confirmationId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: revokeWeaponControlConfirmation
+      description: Revokes an unused exact weapon confirmation; revocation never invokes a Provider Tool.
+      security: [{ GovernedControlBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GovernedControlRevokeRequest' }
+            example: { reason: Weapon confirmation withdrawn before dispatch. }
+      responses:
+        '200': { description: Revoked weapon confirmation }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /api/v1/tasks/{taskId}/governed-control-confirmations/{confirmationId}/revoke:
     parameters:
@@ -2071,7 +2173,7 @@ components:
     GovernedControlBearer:
       type: http
       scheme: bearer
-      description: Deployment-configured trusted-human credential with explicit physical_control.confirm or physical_control.revoke permission.
+      description: Deployment-configured trusted-human credential with the exact physical_control, physical_control.emergency_stop, or weapon_control confirmation/revocation permission required by the route.
   parameters:
     BoundedListLimit:
       {
@@ -2114,6 +2216,84 @@ components:
       required: [reason]
       properties:
         reason: { type: string, minLength: 1, maxLength: 2048 }
+    EmergencyStopAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      required: [resourceId, reason]
+      properties:
+        resourceId: { type: string, minLength: 1, maxLength: 256 }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    WeaponControlIssueRequest:
+      type: object
+      additionalProperties: false
+      required: [resourceId, targetId, engagementMode, requireConfirmation, reason]
+      properties:
+        resourceId: { type: string, minLength: 1, maxLength: 256 }
+        targetId: { type: string, minLength: 1, maxLength: 256 }
+        engagementMode: { type: string, const: single }
+        requireConfirmation: { type: boolean, const: true }
+        reason: { type: string, minLength: 1, maxLength: 2048 }
+    GovernedControlConfirmationList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                confirmationId,
+                authorityKind,
+                taskId,
+                capabilityId,
+                capabilityVersion,
+                capabilityAttemptId,
+                planId,
+                planHash,
+                skillId,
+                skillVersion,
+                providerBindingId,
+                serverId,
+                toolName,
+                argumentsHash,
+                parameters,
+                confirmedAt,
+                expiresAt,
+                status,
+              ]
+            properties:
+              confirmationId: { type: string }
+              authorityKind:
+                { type: string, enum: [physical_control, emergency_stop, weapon_control] }
+              taskId: { type: string }
+              capabilityId: { type: string }
+              capabilityVersion: { type: integer, minimum: 1 }
+              capabilityAttemptId: { type: string }
+              planId: { type: string }
+              planHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+              skillId: { type: string }
+              skillVersion: { type: integer, minimum: 1 }
+              providerBindingId: { type: string }
+              serverId: { type: string }
+              toolName: { type: string }
+              argumentsHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+              parameters:
+                type: object
+                additionalProperties: false
+                properties:
+                  resourceId: { type: string }
+                  targetId: { type: string }
+                  engagementMode: { type: string, const: single }
+                  requireConfirmation: { type: boolean, const: true }
+              confirmedAt: { type: string, format: date-time }
+              expiresAt: { type: string, format: date-time }
+              status: { type: string, enum: [pending, consumed, revoked, expired] }
+              revokedAt: { type: string, format: date-time }
+              consumedInvocationId: { type: string }
+              consumedAt: { type: string, format: date-time }
     DeterministicCapabilityExecutionRequest:
       type: object
       additionalProperties: false

@@ -174,6 +174,140 @@ describe('Frozen V1 stateless HTTP client', () => {
     ]);
   });
 
+  it('uses only the frozen idempotency profile for reconciliation and never accepts an immediate result', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const client = new FrozenV1McpClient((_url, init) => {
+      const body = parseRequestBody(init);
+      bodies.push(body);
+      return Promise.resolve(
+        jsonResponse(
+          { resultType: 'complete', content: [], structuredContent: {}, isError: false },
+          body['id'],
+        ),
+      );
+    });
+    const adapter = new FrozenV1RuntimeLifecycleAdapter({ client });
+    const result = await adapter.reconcile({
+      endpoint,
+      headers: {},
+      toolName: 'vehicle_navigate',
+      arguments: { resourceId: 'vehicle:ugv1' },
+      taskCallProfile: {
+        profileVersion: '1.0',
+        idempotencyKey: `mcp-logical-${'a'.repeat(64)}`,
+      },
+      outputValidator: {
+        checkSchema: () => ({ valid: true as const, errors: [] }),
+        validate: () => ({ valid: true as const, errors: [] }),
+      },
+    });
+
+    expect(result).toEqual({
+      status: 'conflict',
+      safeErrorCode: 'MCP_RECONCILIATION_RETURNED_IMMEDIATE_RESULT',
+    });
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({
+      method: 'tools/call',
+      params: {
+        name: 'vehicle_navigate',
+        _meta: {
+          'io.sdar/taskExecution': {
+            profileVersion: '1.0',
+            idempotencyKey: `mcp-logical-${'a'.repeat(64)}`,
+          },
+        },
+      },
+    });
+  });
+
+  it('classifies source-locked uncertain not-found without a fallback dispatch', async () => {
+    let requestCount = 0;
+    const client = new FrozenV1McpClient((_url, init) => {
+      requestCount += 1;
+      const body = parseRequestBody(init);
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body['id'],
+            error: { code: -32000, message: 'ADAPTER_RECONCILE_NOT_FOUND_UNCERTAIN' },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+    });
+    const adapter = new FrozenV1RuntimeLifecycleAdapter({ client });
+    await expect(
+      adapter.reconcile({
+        endpoint,
+        headers: {},
+        toolName: 'vehicle_navigate',
+        arguments: { resourceId: 'vehicle:ugv1' },
+        taskCallProfile: {
+          profileVersion: '1.0',
+          idempotencyKey: `mcp-logical-${'b'.repeat(64)}`,
+        },
+        outputValidator: {
+          checkSchema: () => ({ valid: true as const, errors: [] }),
+          validate: () => ({ valid: true as const, errors: [] }),
+        },
+      }),
+    ).resolves.toEqual({
+      status: 'not_found',
+      safeErrorCode: 'MCP_RECONCILIATION_NOT_FOUND',
+    });
+    expect(requestCount).toBe(1);
+  });
+
+  it('recovers the one committed Provider Task after a tools/call response is lost', async () => {
+    let providerStartCount = 0;
+    let toolsCallCount = 0;
+    const profiles: unknown[] = [];
+    const client = new FrozenV1McpClient((_url, init) => {
+      const body = parseRequestBody(init);
+      if (body['method'] === 'tasks/get')
+        return Promise.resolve(jsonResponse(remoteTaskResult('complete'), body['id']));
+      toolsCallCount += 1;
+      const params = body['params'] as Record<string, unknown>;
+      const meta = params['_meta'] as Record<string, unknown>;
+      profiles.push(meta['io.sdar/taskExecution']);
+      if (providerStartCount === 0) providerStartCount += 1;
+      if (toolsCallCount === 1)
+        return Promise.reject(new Error('socket closed after Provider commit'));
+      return Promise.resolve(jsonResponse(remoteTaskResult('task'), body['id']));
+    });
+    const adapter = new FrozenV1RuntimeLifecycleAdapter({
+      client,
+      now: () => '2026-08-31T07:00:02.000Z',
+    });
+    const input = {
+      endpoint,
+      headers: {},
+      toolName: 'vehicle_navigate',
+      arguments: { resourceId: 'vehicle:ugv1' },
+      taskCallProfile: {
+        profileVersion: '1.0' as const,
+        idempotencyKey: `mcp-logical-${'c'.repeat(64)}`,
+      },
+      outputValidator: {
+        checkSchema: () => ({ valid: true as const, errors: [] }),
+        validate: () => ({ valid: true as const, errors: [] }),
+      },
+    };
+
+    await expect(adapter.call(input)).rejects.toMatchObject({
+      code: 'FROZEN_MCP_TRANSPORT_FAILED',
+    });
+    await expect(adapter.reconcile(input)).resolves.toMatchObject({
+      status: 'found_exact',
+      outcome: { kind: 'remote_task', task: { remoteTaskId: 'provider-task-response-loss' } },
+    });
+    expect(providerStartCount).toBe(1);
+    expect(toolsCallCount).toBe(2);
+    expect(profiles).toEqual([input.taskCallProfile, input.taskCallProfile]);
+  });
+
   it('strictly validates and retains the optional Provider Catalog manifest identity', async () => {
     const providerCatalog = {
       providerId: 'isr.vehicle.ugv.ugv1',
@@ -308,6 +442,21 @@ function discoveryResult() {
 
 function jsonResponse(result: unknown, id: unknown = 1): Response {
   return Response.json({ jsonrpc: '2.0', id, result });
+}
+
+function remoteTaskResult(resultType: 'task' | 'complete'): Record<string, unknown> {
+  return {
+    resultType,
+    taskId: 'provider-task-response-loss',
+    status: 'working',
+    createdAt: '2026-08-31T07:00:00.000Z',
+    lastUpdatedAt: '2026-08-31T07:00:01.000Z',
+    ttlMs: 60_000,
+    pollIntervalMs: 1_000,
+    _meta: {
+      'io.sdar/taskExecution': { profileVersion: '1.0', runtimeRevision: '1' },
+    },
+  };
 }
 
 function jsonError(code: number, id: unknown): Response {

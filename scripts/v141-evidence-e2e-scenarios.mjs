@@ -101,7 +101,7 @@ export const PHASE12_SCENARIOS = Object.freeze([
     ['runtime.human_confirmation', 'runtime.execution_gate'],
     'e2e',
     'packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts',
-    'persists a LangGraph human interrupt and resumes without replaying the preceding MCP call',
+    'persists a standalone LangGraph human interrupt and rejects continuation without Task authority',
   ),
   scenario(
     9,

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   createRuntimeExecutionContext,
   LIVE_RUNTIME_EXECUTION_CONTEXT,
@@ -7,6 +9,7 @@ import {
   createMcpTaskCallProfile,
   createRemoteTaskAuthoritySnapshot,
   type McpInvocation,
+  type McpLogicalInvocationIdentity,
   type McpInvocationOutcome,
   type McpProtocolContractSnapshot,
   type McpTaskBehavior,
@@ -25,6 +28,11 @@ import {
   type TaskAvailabilityReadResult,
   type TaskAvailabilityCheckRequest,
 } from '../../domain/src/index.js';
+
+import type {
+  RemoteTaskExactReconciliationResult,
+  RemoteTaskReconciliationContract,
+} from './remote-task-admission-recovery.js';
 
 import type {
   Clock,
@@ -51,6 +59,7 @@ export interface McpCallContext {
   readonly contextId?: string;
   readonly providerBindingId?: string;
   readonly providerId?: string;
+  readonly logicalInvocationIdentity?: McpLogicalInvocationIdentity;
   readonly executionContext?: RuntimeExecutionContext;
   readonly taskExecution?: ResolvedMcpTaskExecution;
   readonly preTransportFence?: Readonly<{
@@ -65,7 +74,12 @@ export interface McpCallContext {
   readonly remoteAdmissionJournal?: Readonly<{
     invocationId: string;
     markDispatching(
-      input: Readonly<{ invocationId: string; dispatchHash: string; at: string }>,
+      input: Readonly<{
+        invocationId: string;
+        dispatchHash: string;
+        reconciliationContract?: RemoteTaskReconciliationContract;
+        at: string;
+      }>,
     ): Promise<void>;
     recordRemoteReceipt(
       input: Readonly<{
@@ -135,6 +149,23 @@ export interface FrozenTaskLifecycleRuntimePort {
       signal?: AbortSignal;
     }>,
   ): Promise<McpInvocationOutcome>;
+  /**
+   * Re-enter a source-locked Provider idempotency journal after an ambiguous transport outcome.
+   * This is not a generic retry: an implementation must return an explicit reconciliation
+   * disposition and must never fall through to an unkeyed Provider dispatch.
+   */
+  reconcile(
+    input: Readonly<{
+      endpoint: string;
+      headers: Readonly<Record<string, string>>;
+      toolName: string;
+      arguments: Readonly<Record<string, unknown>>;
+      taskCallProfile: McpTaskCallProfile;
+      outputSchema?: unknown;
+      outputValidator: JsonSchemaValidator;
+      signal?: AbortSignal;
+    }>,
+  ): Promise<RemoteTaskExactReconciliationResult>;
   get(
     input: Readonly<{
       endpoint: string;
@@ -175,6 +206,7 @@ export class McpRegistryService {
   readonly #frozenLifecycle: FrozenTaskLifecycleRuntimePort | undefined;
   readonly #providerBindings: CurrentMcpProviderBindingAuthorityPort | undefined;
   readonly #controlAuthority: GovernedControlInvocationAuthorityPort | undefined;
+  readonly #hardDeniedControlTools: ReadonlySet<string>;
   readonly #executionModeHeaderPolicy: McpExecutionModeHeaderPolicy;
   readonly #runtimeBindingAuthority: McpRuntimeBindingAuthorityVerifier;
   readonly #ids: Readonly<{ nextInvocationId(): string; nextManagementOperationId(): string }>;
@@ -188,6 +220,7 @@ export class McpRegistryService {
       frozenLifecycle?: FrozenTaskLifecycleRuntimePort;
       providerBindings?: CurrentMcpProviderBindingAuthorityPort;
       controlAuthority?: GovernedControlInvocationAuthorityPort;
+      hardDeniedControlTools?: readonly string[];
       executionModeHeaderPolicy?: McpExecutionModeHeaderPolicy;
       runtimeBindingAuthority?: McpRuntimeBindingAuthorityVerifier;
       clock: Clock;
@@ -201,6 +234,9 @@ export class McpRegistryService {
     this.#frozenLifecycle = dependencies.frozenLifecycle;
     this.#providerBindings = dependencies.providerBindings;
     this.#controlAuthority = dependencies.controlAuthority;
+    this.#hardDeniedControlTools = new Set(
+      dependencies.hardDeniedControlTools ?? HARD_DENIED_CONTROL_TOOLS,
+    );
     this.#executionModeHeaderPolicy = dependencies.executionModeHeaderPolicy ?? 'emit';
     this.#runtimeBindingAuthority =
       dependencies.runtimeBindingAuthority ??
@@ -270,7 +306,7 @@ export class McpRegistryService {
       tool,
       frozenAuthority.taskBehavior,
       context.taskExecution,
-      invocationId,
+      context.logicalInvocationIdentity?.idempotencyKey ?? invocationId,
     );
     const startedAt = this.#clock.now();
     const authoritySnapshot = remoteTaskAuthoritySnapshot(
@@ -339,6 +375,33 @@ export class McpRegistryService {
         await context.remoteAdmissionJournal.markDispatching({
           invocationId,
           dispatchHash,
+          ...(context.logicalInvocationIdentity === undefined
+            ? {}
+            : {
+                reconciliationContract: {
+                  schemaVersion: 'sdar.remote-task-reconciliation-contract/v1',
+                  dispatchStartedAt: startedAt,
+                  ...(controlAuthority === undefined
+                    ? {}
+                    : { governedControlAuthority: controlAuthority }),
+                  logicalIdentity: context.logicalInvocationIdentity,
+                  arguments: arguments_,
+                  executionContext,
+                  ...(taskCallProfile === undefined ? {} : { taskCallProfile }),
+                  providerId:
+                    providerBindingAuthority?.binding.providerId ??
+                    runtimeAuthority.snapshot.providerCatalog?.providerId ??
+                    serverId,
+                  protocolContract: frozenAuthority.protocolContract,
+                  taskBehavior: frozenAuthority.taskBehavior,
+                  taskCancellation: frozenAuthority.taskCancellation,
+                  authoritySnapshot,
+                  credentialRevision: record.server.updatedAt,
+                  sessionRevision: `${frozenAuthority.protocolContract.protocolVersion}/${
+                    frozenAuthority.protocolContract.taskExecutionProfileVersion ?? 'unknown'
+                  }`,
+                },
+              }),
           at: this.#clock.now(),
         });
     } catch (error: unknown) {
@@ -370,7 +433,8 @@ export class McpRegistryService {
         startedAt,
         completedAt,
       });
-      await this.#repository.saveInvocation(invocation);
+      if (context.remoteAdmissionJournal === undefined)
+        await this.#repository.saveInvocation(invocation);
       await context.remoteAdmissionJournal?.markUncertain({
         invocationId,
         reasonCode: 'REMOTE_TASK_ADMISSION_DISPATCH_OUTCOME_UNCERTAIN',
@@ -436,6 +500,152 @@ export class McpRegistryService {
     };
   }
 
+  async reconcileRemoteTaskAdmission(
+    contract: RemoteTaskReconciliationContract,
+    context: Readonly<{
+      invocationId: string;
+      taskId: string;
+      capabilityAttemptId?: string;
+      contextId: string;
+    }>,
+  ): Promise<
+    Readonly<{
+      result: RemoteTaskExactReconciliationResult;
+      invocation?: McpInvocation;
+      credentialRevision: string;
+      sessionRevision: string;
+      protocolContract: McpProtocolContractSnapshot;
+      taskBehavior: McpTaskBehavior;
+      taskCancellation: McpToolCancellation;
+      authoritySnapshot: RemoteTaskAuthoritySnapshot;
+    }>
+  > {
+    const identity = contract.logicalIdentity;
+    const dispatchStartedAt = Date.parse(contract.dispatchStartedAt);
+    if (
+      !Number.isFinite(dispatchStartedAt) ||
+      new Date(dispatchStartedAt).toISOString() !== contract.dispatchStartedAt ||
+      identity.taskId !== context.taskId ||
+      identity.contextId !== context.contextId ||
+      identity.serverId.trim() === '' ||
+      identity.operationName.trim() === '' ||
+      createHash('sha256').update(canonicalJson(contract.arguments)).digest('hex') !==
+        identity.argumentsHash ||
+      createHash('sha256')
+        .update(canonicalJson(createRuntimeExecutionContext(contract.executionContext)))
+        .digest('hex') !== identity.executionContextHash.slice('sha256:'.length)
+    )
+      throw new McpRegistryError(
+        'MCP_RECONCILIATION_IDENTITY_CONFLICT',
+        'Persisted logical invocation identity does not match its frozen reconciliation contract.',
+      );
+    const runtimeAuthority = await this.#runtimeBindingAuthority.loadRuntimeAuthority(
+      identity.serverId,
+    );
+    const tool = runtimeAuthority.tools.find(
+      (candidate) => candidate.toolName === identity.operationName,
+    );
+    if (tool === undefined)
+      throw new McpRegistryError('MCP_TOOL_NOT_FOUND', 'MCP Tool was not found.');
+    const validation = this.#schemas.validate(tool.inputSchema, contract.arguments);
+    if (!validation.valid)
+      throw new McpRegistryError(
+        'MCP_RECONCILIATION_ARGUMENT_SCHEMA_MISMATCH',
+        'Persisted reconciliation arguments no longer satisfy the frozen Tool schema.',
+        validation.errors,
+      );
+    const frozenAuthority = this.#frozenInvocationAuthority(runtimeAuthority, tool);
+    const governedControlAuthority = assertReconciliationControlAuthority({
+      contract,
+      context,
+      tool,
+    });
+    const providerBindingAuthority = await this.#assertRegisteredProviderBinding(
+      runtimeAuthority,
+      identity.providerBindingId,
+      identity.providerId,
+    );
+    const frozenAuthoritySnapshot = createRemoteTaskAuthoritySnapshot(contract.authoritySnapshot);
+    if (
+      runtimeAuthority.record.server.updatedAt !== contract.credentialRevision ||
+      !sameRemoteTaskReconciliationAuthority(
+        runtimeAuthority,
+        providerBindingAuthority,
+        frozenAuthoritySnapshot,
+      ) ||
+      canonicalHash(frozenAuthority.protocolContract) !==
+        canonicalHash(contract.protocolContract) ||
+      frozenAuthority.taskBehavior !== contract.taskBehavior ||
+      frozenAuthority.taskCancellation !== contract.taskCancellation
+    )
+      throw new McpRegistryError(
+        'MCP_RECONCILIATION_AUTHORITY_DRIFT',
+        'Current Runtime or Provider Binding authority differs from the frozen dispatch authority.',
+      );
+    const taskCallProfile = contract.taskCallProfile;
+    if (taskCallProfile?.idempotencyKey !== identity.idempotencyKey)
+      throw new McpRegistryError(
+        'MCP_RECONCILIATION_IDEMPOTENCY_REQUIRED',
+        'Exact reconciliation requires the frozen Provider idempotency identity.',
+      );
+    const result = await this.#requireFrozenLifecycle().reconcile({
+      endpoint: runtimeAuthority.record.server.endpoint,
+      headers: withExecutionHeaders(
+        this.#cipher.decrypt(runtimeAuthority.record.encryptedCredential),
+        contract.executionContext,
+        this.#executionModeHeaderPolicy,
+      ),
+      toolName: identity.operationName,
+      arguments: contract.arguments,
+      taskCallProfile,
+      outputValidator: this.#schemas,
+      ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
+    });
+    const completedAt = this.#clock.now();
+    const invocation =
+      result.status !== 'found_exact'
+        ? undefined
+        : invocationRecord({
+            invocationId: context.invocationId,
+            context: {
+              taskId: context.taskId,
+              contextId: context.contextId,
+              ...(context.capabilityAttemptId === undefined
+                ? {}
+                : { capabilityAttemptId: context.capabilityAttemptId }),
+              ...(identity.providerBindingId === undefined
+                ? {}
+                : { providerBindingId: identity.providerBindingId }),
+              ...(identity.providerId === undefined ? {} : { providerId: identity.providerId }),
+              executionContext: contract.executionContext,
+            },
+            ...(governedControlAuthority === undefined
+              ? {}
+              : { controlAuthority: governedControlAuthority }),
+            serverId: identity.serverId,
+            toolName: identity.operationName,
+            executionSemantics: tool.executionSemantics,
+            arguments: contract.arguments,
+            result: { remoteTask: result.outcome.task },
+            status: 'succeeded',
+            startedAt: contract.dispatchStartedAt,
+            completedAt,
+          });
+    return {
+      result,
+      ...(invocation === undefined ? {} : { invocation }),
+      credentialRevision: contract.credentialRevision,
+      sessionRevision:
+        result.status === 'found_exact'
+          ? `${result.outcome.task.protocolRevision}/${result.outcome.task.tasksSchemaRevision}`
+          : contract.sessionRevision,
+      protocolContract: contract.protocolContract,
+      taskBehavior: contract.taskBehavior,
+      taskCancellation: contract.taskCancellation,
+      authoritySnapshot: contract.authoritySnapshot,
+    };
+  }
+
   async #assertControlAuthority(
     tool: McpTool,
     arguments_: Readonly<Record<string, unknown>>,
@@ -443,11 +653,7 @@ export class McpRegistryService {
     invocationId: string,
     dispatchHash: string,
   ): Promise<GovernedControlDispatchReceipt | undefined> {
-    if (
-      HARD_DENIED_CONTROL_TOOLS.includes(
-        tool.toolName as (typeof HARD_DENIED_CONTROL_TOOLS)[number],
-      )
-    )
+    if (this.#hardDeniedControlTools.has(tool.toolName))
       throw new McpRegistryError(
         'MCP_CONTROL_TOOL_HARD_DENIED',
         'vehicle_fire_weapon has no execution authority in this Runtime.',
@@ -522,14 +728,13 @@ export class McpRegistryService {
     invocationId: string,
   ): McpTaskCallProfile | undefined {
     if (taskExecution === undefined) return undefined;
-    if (
-      tool.protocolMode !== 'frozen_v1' ||
-      taskBehavior !== 'task_required' ||
-      tool.executionSemantics.execution !== 'task_required'
-    )
+    const exactTaskExecution =
+      (taskBehavior === 'task_required' && tool.executionSemantics.execution === 'task_required') ||
+      (taskBehavior === 'server_directed' && tool.executionSemantics.execution === 'task_capable');
+    if (tool.protocolMode !== 'frozen_v1' || !exactTaskExecution)
       throw new McpRegistryError(
         'MCP_TASK_CALL_PROFILE_CONFLICT',
-        'MCP Task call data is valid only for an exact Frozen task-required Tool.',
+        'MCP Task call data is valid only for an exact Frozen Task-capable Tool.',
       );
     return createMcpTaskCallProfile({
       profileVersion: '1.0',
@@ -582,6 +787,40 @@ export class McpRegistryService {
       throw new McpRegistryError(
         'MCP_PROVIDER_BINDING_NOT_CURRENT',
         'Current MCP Provider Binding authority differs from the Runtime invocation target.',
+      );
+    }
+    return authority;
+  }
+
+  async #assertRegisteredProviderBinding(
+    runtimeAuthority: RuntimeMcpCatalogAuthority,
+    bindingId: string | undefined,
+    providerId: string | undefined,
+  ): Promise<CurrentMcpProviderBindingAuthority | undefined> {
+    if (this.#providerBindings === undefined && bindingId === undefined && providerId === undefined)
+      return undefined;
+    if (this.#providerBindings === undefined)
+      throw new McpRegistryError(
+        'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE',
+        'Current MCP Provider Binding authority is not configured.',
+      );
+    let authority: CurrentMcpProviderBindingAuthority;
+    try {
+      authority = await this.#providerBindings.loadCurrentMcpProviderBinding({
+        ...(bindingId === undefined ? {} : { bindingId }),
+        localServerId: runtimeAuthority.record.server.serverId,
+      });
+      await this.#runtimeBindingAuthority.assertRegistered({
+        authority,
+        bindingId: bindingId ?? authority.binding.bindingId,
+        localServerId: runtimeAuthority.record.server.serverId,
+        ...(providerId === undefined ? {} : { providerId }),
+        runtimeAuthority,
+      });
+    } catch {
+      throw new McpRegistryError(
+        'MCP_PROVIDER_BINDING_NOT_CURRENT',
+        'Registered MCP Provider Binding authority differs from the frozen reconciliation target.',
       );
     }
     return authority;
@@ -993,6 +1232,104 @@ function remoteTaskAuthoritySnapshot(
   });
 }
 
+function sameRemoteTaskReconciliationAuthority(
+  runtime: RuntimeMcpCatalogAuthority,
+  provider: CurrentMcpProviderBindingAuthority | undefined,
+  frozen: RemoteTaskAuthoritySnapshot,
+): boolean {
+  const frozenRuntime = frozen.runtime;
+  if (
+    frozenRuntime.serverId !== runtime.record.server.serverId ||
+    frozenRuntime.endpoint !== runtime.record.server.endpoint ||
+    frozenRuntime.serverUpdatedAt !== runtime.record.server.updatedAt ||
+    frozenRuntime.toolRevision !== runtime.record.server.toolRevision ||
+    frozenRuntime.protocolSnapshotId !== runtime.snapshot.snapshotId ||
+    frozenRuntime.catalogRevision !== runtime.catalogAuthority.catalogRevision ||
+    frozenRuntime.catalogChecksum !== runtime.catalogAuthority.catalogChecksum ||
+    frozenRuntime.operationCount !== runtime.catalogAuthority.operationCount
+  )
+    return false;
+
+  const frozenProvider = frozen.providerBinding;
+  if (frozenProvider === undefined || provider === undefined)
+    return frozenProvider === undefined && provider === undefined;
+  const { binding, sourceCandidateLineage } = provider;
+  return (
+    binding.bindingId === frozenProvider.bindingId &&
+    binding.localServerId === frozenRuntime.serverId &&
+    binding.revision >= frozenProvider.revision &&
+    binding.originType === frozenProvider.originType &&
+    binding.providerId === frozenProvider.providerId &&
+    binding.externalServerId === frozenProvider.externalServerId &&
+    sourceCandidateLineage?.smppSourceId === frozenProvider.smppSourceId &&
+    sourceCandidateLineage?.externalServerId === frozenProvider.externalServerId &&
+    binding.endpointRef === frozenProvider.endpointRef &&
+    (binding.revision !== frozenProvider.revision ||
+      binding.catalogRevision === frozenProvider.catalogRevision) &&
+    binding.catalogChecksum === frozenProvider.catalogChecksum &&
+    binding.operationCount === frozenProvider.operationCount
+  );
+}
+
+function assertReconciliationControlAuthority(
+  input: Readonly<{
+    contract: RemoteTaskReconciliationContract;
+    context: Readonly<{
+      invocationId: string;
+      taskId: string;
+      capabilityAttemptId?: string;
+      contextId: string;
+    }>;
+    tool: McpTool;
+  }>,
+): GovernedControlDispatchReceipt | undefined {
+  const { contract, context, tool } = input;
+  const receipt = contract.governedControlAuthority;
+  if (tool.executionSemantics.effect === 'read_only') {
+    if (receipt !== undefined)
+      throw new McpRegistryError(
+        'MCP_RECONCILIATION_CONTROL_AUTHORITY_CONFLICT',
+        'A read-only reconciliation contract cannot carry governed control authority.',
+      );
+    return undefined;
+  }
+  if (tool.executionSemantics.effect !== 'side_effecting' || receipt === undefined)
+    throw new McpRegistryError(
+      'MCP_RECONCILIATION_CONTROL_AUTHORITY_REQUIRED',
+      'Side-effecting reconciliation requires the originally consumed governed control authority.',
+    );
+  const identity = contract.logicalIdentity;
+  const expectedDispatchHash = createMcpProviderDispatchHash({
+    invocationId: context.invocationId,
+    taskId: context.taskId,
+    contextId: context.contextId,
+    ...(identity.providerBindingId === undefined
+      ? {}
+      : { providerBindingId: identity.providerBindingId }),
+    ...(identity.providerId === undefined ? {} : { providerId: identity.providerId }),
+    serverId: identity.serverId,
+    toolName: identity.operationName,
+    arguments: contract.arguments,
+  });
+  const consumedAt = Date.parse(receipt.consumedAt);
+  const dispatchStartedAt = Date.parse(contract.dispatchStartedAt);
+  if (
+    receipt.confirmationId.trim() === '' ||
+    receipt.invocationId !== context.invocationId ||
+    receipt.providerBindingId !== identity.providerBindingId ||
+    receipt.argumentsHash !== identity.argumentsHash ||
+    receipt.dispatchHash !== expectedDispatchHash ||
+    !Number.isFinite(consumedAt) ||
+    new Date(consumedAt).toISOString() !== receipt.consumedAt ||
+    consumedAt < dispatchStartedAt
+  )
+    throw new McpRegistryError(
+      'MCP_RECONCILIATION_CONTROL_AUTHORITY_CONFLICT',
+      'Persisted governed control authority does not match the original Provider dispatch.',
+    );
+  return receipt;
+}
+
 export function createMcpProviderDispatchHash(
   input: Readonly<{
     invocationId: string;
@@ -1026,6 +1363,10 @@ function canonicalJson(value: unknown): string {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
     .join(',')}}`;
+}
+
+function canonicalHash(value: unknown): string {
+  return createHash('sha256').update(canonicalJson(value)).digest('hex');
 }
 
 function invocationRecord(
@@ -1171,6 +1512,10 @@ export type McpRegistryErrorCode =
   | 'MCP_PROVIDER_BINDING_AUTHORITY_UNAVAILABLE'
   | 'MCP_PROVIDER_BINDING_NOT_CURRENT'
   | 'MCP_REMOTE_ADMISSION_INVOCATION_CONFLICT'
+  | 'MCP_RECONCILIATION_IDENTITY_CONFLICT'
+  | 'MCP_RECONCILIATION_ARGUMENT_SCHEMA_MISMATCH'
+  | 'MCP_RECONCILIATION_AUTHORITY_DRIFT'
+  | 'MCP_RECONCILIATION_IDEMPOTENCY_REQUIRED'
   | 'MCP_TASK_CALL_PROFILE_CONFLICT'
   | 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'
   | 'MCP_SERVER_ALREADY_EXISTS'
@@ -1193,4 +1538,3 @@ export class McpRegistryError extends Error {
     this.details = details;
   }
 }
-import { createHash } from 'node:crypto';

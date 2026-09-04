@@ -18,6 +18,7 @@ import {
 const MetadataSchema = z.record(z.string(), z.unknown());
 const FollowUpActionSchema = z.enum([
   'confirm_plan',
+  'confirm_weapon_action',
   'reject_plan',
   'revise_plan',
   'patch_goal',
@@ -36,6 +37,12 @@ const RequestedCapabilitySchema = z.strictObject({
   exposureId: z.string().min(1).max(1_024),
   versionConstraint: z.string().regex(/^[1-9][0-9]*$/u),
   requestId: z.string().min(1).max(256),
+});
+const WeaponAuthorizationSchema = z.strictObject({
+  resourceId: z.string().trim().min(1).max(256),
+  targetId: z.string().trim().min(1).max(256),
+  engagementMode: z.literal('single'),
+  requireConfirmation: z.literal(true),
 });
 
 export class A2AMappingError extends Error {
@@ -61,6 +68,7 @@ export function toTaskFollowUp(message: Message): Readonly<{
   messageText: string;
   inputRequestId?: string;
   inputContent?: unknown;
+  weaponAuthorization?: z.infer<typeof WeaponAuthorizationSchema>;
 }> {
   const metadata = messageMetadata(message);
   const result = FollowUpMetadataSchema.safeParse(metadata);
@@ -83,12 +91,15 @@ export function toTaskFollowUp(message: Message): Readonly<{
   if (dataParts.length > 1)
     throw new A2AMappingError(
       'A2A_INPUT_CONTENT_INVALID',
-      'A2A provide_input accepts at most one structured data part.',
+      'A2A follow-up accepts at most one structured data part.',
     );
-  if (result.data.sdar_action !== 'provide_input' && dataParts.length > 0)
+  if (
+    !['provide_input', 'confirm_weapon_action'].includes(result.data.sdar_action) &&
+    dataParts.length > 0
+  )
     throw new A2AMappingError(
       'A2A_INPUT_CONTENT_INVALID',
-      'Structured data is accepted only for the provide_input follow-up action.',
+      'Structured data is accepted only for provide_input or confirm_weapon_action.',
     );
   if (messageText === '' && dataParts.length === 0)
     throw new A2AMappingError(
@@ -96,6 +107,7 @@ export function toTaskFollowUp(message: Message): Readonly<{
       'A2A follow-up requires text or structured input content.',
     );
   let inputContent: unknown;
+  let weaponAuthorization: z.infer<typeof WeaponAuthorizationSchema> | undefined;
   if (result.data.sdar_action === 'provide_input') {
     try {
       inputContent = snapshotRemoteTaskInputValue(dataParts[0]?.content.value ?? messageText);
@@ -106,6 +118,20 @@ export function toTaskFollowUp(message: Message): Readonly<{
       );
     }
   }
+  if (result.data.sdar_action === 'confirm_weapon_action') {
+    if (dataParts.length !== 1)
+      throw new A2AMappingError(
+        'A2A_INPUT_CONTENT_INVALID',
+        'A2A weapon confirmation requires one exact structured data part.',
+      );
+    const parsed = WeaponAuthorizationSchema.safeParse(dataParts[0]?.content.value);
+    if (!parsed.success)
+      throw new A2AMappingError(
+        'A2A_INPUT_CONTENT_INVALID',
+        'A2A weapon confirmation data is not exact.',
+      );
+    weaponAuthorization = parsed.data;
+  }
   return {
     action: result.data.sdar_action,
     messageText,
@@ -113,6 +139,7 @@ export function toTaskFollowUp(message: Message): Readonly<{
       ? {}
       : { inputRequestId: result.data.input_request_id }),
     ...(inputContent === undefined ? {} : { inputContent }),
+    ...(weaponAuthorization === undefined ? {} : { weaponAuthorization }),
   };
 }
 

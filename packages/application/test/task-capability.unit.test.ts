@@ -861,6 +861,42 @@ describe('RuntimeTaskCapabilityService', () => {
     ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_INPUT_INVALID' });
   });
 
+  it('admits an anonymous initial request when the frozen public Exposure allows it', async () => {
+    const base = fixture();
+    const { service, task, inputAttempt, event } = fixture({
+      resolution: {
+        ...base.resolution,
+        requesterPolicy: {
+          allowAnonymous: true,
+          requiredAuthorities: ['plan_confirmation', 'physical_control.confirm'],
+        },
+      },
+    });
+
+    await expect(
+      service.prepareAcceptance({
+        task: { ...task, userId: 'anonymous' },
+        metadata: {
+          'io.sdar/requestedCapability': {
+            exposureId: 'device.inspect',
+            versionConstraint: '1',
+            requestId: 'anonymous-initial-request',
+          },
+        },
+        capabilityInput: { deviceId: 'alpha' },
+        inputAttempt,
+        bindingId: 'binding-anonymous',
+        capabilityAttemptId: 'capability-attempt-anonymous',
+        event,
+      }),
+    ).resolves.toMatchObject({
+      binding: {
+        exposureId: 'device.inspect',
+        requestedCapabilityId: 'device.inspect.capability',
+      },
+    });
+  });
+
   it('fails admission closed when an exact Provider Binding is no longer current', async () => {
     const resolution: RuntimeCapabilityResolution = {
       exposureId: 'device.current-binding',

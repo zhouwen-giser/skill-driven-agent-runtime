@@ -220,8 +220,10 @@ function managementHarness(fixtureBaseUrl: string) {
     }
     const routeMatch = /^\/api\/v1\/models\/routes\/([^/]+)$/u.exec(url.pathname);
     if (method === 'PUT' && routeMatch !== null) {
+      const operation =
+        typeof body?.['operation'] === 'string' ? body['operation'] : 'structured_generation';
       routes.set(
-        `${decodeURIComponent(routeMatch[1] ?? '')}:${String(body?.['operation'] ?? 'structured_generation')}`,
+        `${decodeURIComponent(routeMatch[1] ?? '')}:${operation}`,
         String(body?.['providerId']),
       );
       return empty();

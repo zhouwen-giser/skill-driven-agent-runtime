@@ -86,11 +86,11 @@ describe('home-lab G09 governed-light driver', () => {
     const order: string[] = [];
     await expect(
       executeWithFinallyRestoration({
-        executeSet: async (release) => {
+        executeSet: (release) => {
           order.push('set-start');
           release();
           order.push('dispatch-released');
-          throw new Error('provider result processing failed');
+          return Promise.reject(new Error('provider result processing failed'));
         },
         executeRestore: () => {
           order.push('restore');

@@ -51,6 +51,38 @@ export class FrozenV1RuntimeLifecycleAdapter implements FrozenTaskLifecycleRunti
         });
   }
 
+  async reconcile(input: Parameters<FrozenTaskLifecycleRuntimePort['reconcile']>[0]) {
+    try {
+      const outcome = await this.call(input);
+      if (outcome.kind !== 'remote_task')
+        return Object.freeze({
+          status: 'conflict' as const,
+          safeErrorCode: 'MCP_RECONCILIATION_RETURNED_IMMEDIATE_RESULT',
+        });
+      return Object.freeze({ status: 'found_exact' as const, outcome });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('ADAPTER_RECONCILE_NOT_FOUND_UNCERTAIN'))
+        return Object.freeze({
+          status: 'not_found' as const,
+          safeErrorCode: 'MCP_RECONCILIATION_NOT_FOUND',
+        });
+      if (
+        message.includes('ADAPTER_RECONCILE_CONFLICT') ||
+        message.includes('IDENTITY_MISMATCH') ||
+        message.includes('IDEMPOTENCY_KEY_CONFLICT')
+      )
+        return Object.freeze({
+          status: 'conflict' as const,
+          safeErrorCode: 'MCP_RECONCILIATION_IDENTITY_CONFLICT',
+        });
+      return Object.freeze({
+        status: 'unavailable' as const,
+        safeErrorCode: 'MCP_RECONCILIATION_UNAVAILABLE',
+      });
+    }
+  }
+
   async get(input: Parameters<FrozenTaskLifecycleRuntimePort['get']>[0]) {
     return mapSnapshot(
       await this.#client(input).getTask(

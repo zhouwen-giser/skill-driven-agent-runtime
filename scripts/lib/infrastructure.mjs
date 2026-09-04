@@ -52,7 +52,7 @@ export function buildInfrastructureImages(root = process.cwd()) {
 
 export function stopInfrastructure(root = process.cwd()) {
   if (reuseExistingInfrastructure) return;
-  runDocker(['compose', '-f', 'compose.yaml', 'stop', 'postgres', 'redis'], 60_000, root, true);
+  runDocker(['compose', '-f', 'compose.yaml', 'down', '--remove-orphans'], 60_000, root, true);
 }
 
 export function validateComposeWithDocker(root = process.cwd()) {

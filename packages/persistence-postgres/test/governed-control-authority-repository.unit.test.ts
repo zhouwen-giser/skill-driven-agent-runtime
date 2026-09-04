@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import type {
   GovernedControlConfirmation,
   GovernedControlConfirmationConsumption,
+  TaskAvailabilityBatchReader,
 } from '../../application/src/index.js';
 import { hashCanonicalEvidenceJson } from '../../domain/src/index.js';
 import { selectedUgvTaskOperation } from '../../../apps/server/test/ugv-move-workflow-test-fixture.js';
@@ -29,6 +30,7 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     expect(query.mock.calls[0]?.[0]).toContain('INSERT INTO governed_control_confirmation');
     expect(query.mock.calls[0]?.[1]).toEqual([
       'control-confirmation-1',
+      'physical_control',
       'task-control-1',
       'capability-binding-control',
       'vehicle.light.control',
@@ -52,6 +54,40 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     ]);
   });
 
+  it('lists confirmation evidence with the frozen Task Capability input', async () => {
+    const query = vi.fn((text: string, values?: readonly unknown[]) => {
+      expect(text).toContain('JOIN task_capability_binding');
+      expect(text).toContain('confirmation.task_id=$1');
+      expect(values).toEqual(['task-control-1']);
+      return Promise.resolve({
+        rows: [
+          {
+            ...confirmationRow(),
+            input_snapshot: {
+              resourceId: 'vehicle:ugv1',
+              targetId: 'target-17',
+              engagementMode: 'single',
+              requireConfirmation: true,
+            },
+          },
+        ],
+      });
+    });
+    const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
+
+    await expect(repository.listByTask('task-control-1')).resolves.toEqual([
+      {
+        confirmation: confirmation(),
+        inputSnapshot: {
+          resourceId: 'vehicle:ugv1',
+          targetId: 'target-17',
+          engagementMode: 'single',
+          requireConfirmation: true,
+        },
+      },
+    ]);
+  });
+
   it('issues once and replays the exact existing confirmation after a lost response', async () => {
     const candidate = confirmation();
     let queryCount = 0;
@@ -62,8 +98,8 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
         expect(text).toContain('ON CONFLICT (confirmation_id) DO NOTHING');
         return Promise.resolve({ rows: [] });
       }
-      expect(text).toContain('AND actor_roles_json=$18::jsonb');
-      expect(text).toContain('AND reason=$19');
+      expect(text).toContain('AND actor_roles_json=$19::jsonb');
+      expect(text).toContain('AND reason=$20');
       return Promise.resolve({ rows: [confirmationRow()] });
     });
     const repository = new PostgresGovernedControlAuthorityRepository({ query } as unknown as Pool);
@@ -75,6 +111,7 @@ describe('PostgresGovernedControlAuthorityRepository', () => {
     expect(query).toHaveBeenCalledTimes(2);
     expect(query.mock.calls[1]?.[1]).toEqual([
       candidate.confirmationId,
+      'physical_control',
       candidate.taskId,
       candidate.capabilityBindingId,
       candidate.capabilityId,
@@ -413,7 +450,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
     };
     const assertCurrent = vi.fn(() => Promise.resolve());
     const adapt = vi.fn(adaptUgvBindingInput);
-    const checkTaskAvailability = vi.fn(() =>
+    const checkTaskAvailability = vi.fn<TaskAvailabilityBatchReader['checkTaskAvailability']>(() =>
       Promise.resolve({
         kind: 'results' as const,
         protocolRevision: selected.availability.protocolRevision,
@@ -475,6 +512,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
       },
       availability: { checkTaskAvailability },
       inputAdapter: { adapt },
+      unknownAvailabilityPolicy: { decide: () => 'explicitly_not_ready' },
       clock: { now: () => '2026-08-21T12:01:00.000Z' },
     });
 
@@ -502,6 +540,33 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
       'count(*) OVER()::integer AS selected_reference_count',
     );
     expect(query.mock.calls[0]?.[0]).toContain('count(*) OVER()::integer AS confirmation_count');
+
+    checkTaskAvailability.mockResolvedValueOnce({
+      kind: 'results',
+      protocolRevision: selected.availability.protocolRevision,
+      availabilitySchemaRevision: selected.availability.schemaRevision,
+      results: [
+        {
+          nodeId: 'ugv-governed-control:task-uap-p2-b03:attempt-uap-p2-b03',
+          operationName: selected.operation.operationName,
+          availability: 'unknown',
+          riskLevel: 'medium',
+          reasonCode: 'UGV_TOOL_RECOVERING',
+          validUntil: '2026-08-21T12:04:00.000Z',
+          nextAvailableWindows: [],
+          reservationMode: 'none',
+          possibleEffects: [],
+        },
+      ],
+    });
+    await expect(reader.loadForIssue('task-uap-p2-b03')).resolves.toMatchObject({
+      readiness: {
+        availability: 'unknown',
+        availabilityDecision: 'provider_denied',
+        disposition: 'blocked',
+        guardAction: 'abort',
+      },
+    });
   });
 
   it('rejects raw Binding target A against persisted Selected target B before mutable reads', async () => {
@@ -530,6 +595,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
       runtimeBindings: { loadRuntimeAuthority, assertCurrent },
       availability: { checkTaskAvailability },
       inputAdapter: { adapt },
+      unknownAvailabilityPolicy: { decide: () => 'explicitly_not_ready' },
       clock: { now: () => '2026-08-21T12:01:00.000Z' },
     });
 
@@ -548,6 +614,7 @@ describe('PostgresUgvGovernedControlAuthorityReader', () => {
 function confirmation(): GovernedControlConfirmation {
   return {
     confirmationId: 'control-confirmation-1',
+    authorityKind: 'physical_control',
     taskId: 'task-control-1',
     capabilityBindingId: 'capability-binding-control',
     capabilityId: 'vehicle.light.control',
@@ -574,6 +641,7 @@ function confirmation(): GovernedControlConfirmation {
 function confirmationRow() {
   return {
     confirmation_id: 'control-confirmation-1',
+    authority_kind: 'physical_control' as const,
     task_id: 'task-control-1',
     capability_binding_id: 'capability-binding-control',
     capability_id: 'vehicle.light.control',

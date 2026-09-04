@@ -92,6 +92,7 @@ import type {
   ManagementPrincipal,
   ManagementPrincipalResolver,
   GovernedControlManagementService,
+  GovernedControlConfirmationQueryService,
   GovernedControlPrincipal,
   GovernedControlPrincipalResolver,
   RuntimeSkillGovernanceService,
@@ -142,6 +143,21 @@ const GovernedControlIssueSchema = z
   .strict();
 const GovernedControlRevokeSchema = z
   .object({ reason: z.string().trim().min(1).max(2_048) })
+  .strict();
+const WeaponControlIssueSchema = z
+  .object({
+    resourceId: z.string().trim().min(1).max(256),
+    targetId: z.string().trim().min(1).max(256),
+    engagementMode: z.literal('single'),
+    requireConfirmation: z.literal(true),
+    reason: z.string().trim().min(1).max(2_048),
+  })
+  .strict();
+const EmergencyStopAuthorizationSchema = z
+  .object({
+    resourceId: z.string().trim().min(1).max(256),
+    reason: z.string().trim().min(1).max(2_048),
+  })
   .strict();
 const TaskActionSchema = z
   .object({
@@ -1025,6 +1041,9 @@ interface RuntimeControlRouteOptions {
 
 interface GovernedControlRouteOptions {
   readonly confirmations: Pick<GovernedControlManagementService, 'issue' | 'revoke'>;
+  readonly emergencyStop?: Pick<GovernedControlManagementService, 'issue' | 'revoke'>;
+  readonly weapon?: Pick<GovernedControlManagementService, 'issue' | 'revoke'>;
+  readonly query?: Pick<GovernedControlConfirmationQueryService, 'list'>;
   readonly principalResolver: GovernedControlPrincipalResolver;
 }
 
@@ -1137,6 +1156,130 @@ export async function startManagementHttpEndpoint(
           taskId: pathValue(request, 'taskId'),
           reason: body.reason,
           ...(body.ttlMs === undefined ? {} : { ttlMs: body.ttlMs }),
+          principal,
+        }),
+      );
+    }),
+  );
+  app.get(
+    '/api/v1/tasks/:taskId/governed-control-confirmations',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      if (governedControl.query === undefined)
+        throw new HttpInputError(
+          'GOVERNED_CONTROL_CONFIRMATION_QUERY_UNAVAILABLE',
+          'Governed-control confirmation evidence is unavailable.',
+        );
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      response.json(
+        await governedControl.query.list({
+          taskId: pathValue(request, 'taskId'),
+          principal,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/emergency-stop-authorizations',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      if (governedControl.emergencyStop === undefined)
+        throw new HttpInputError(
+          'EMERGENCY_STOP_AUTHORITY_UNAVAILABLE',
+          'Emergency-stop authority is unavailable.',
+        );
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = EmergencyStopAuthorizationSchema.parse(request.body);
+      response.json(
+        await options.operations.tasks.followUp({
+          taskId: pathValue(request, 'taskId'),
+          action: 'confirm_plan',
+          messageText: body.reason,
+          confirmationAuthority: Object.freeze({ principal }),
+          emergencyAuthorization: Object.freeze({ resourceId: body.resourceId }),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/weapon-confirmations',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      if (governedControl.weapon === undefined)
+        throw new HttpInputError(
+          'WEAPON_CONTROL_AUTHORITY_UNAVAILABLE',
+          'Weapon confirmation authority is unavailable.',
+        );
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = WeaponControlIssueSchema.parse(request.body);
+      response.json(
+        await options.operations.tasks.followUp({
+          taskId: pathValue(request, 'taskId'),
+          action: 'confirm_weapon_action',
+          messageText: body.reason,
+          confirmationAuthority: Object.freeze({ principal }),
+          weaponAuthorization: Object.freeze({
+            resourceId: body.resourceId,
+            targetId: body.targetId,
+            engagementMode: body.engagementMode,
+            requireConfirmation: body.requireConfirmation,
+          }),
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/emergency-stop-authorizations/:confirmationId/revoke',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      if (governedControl.emergencyStop === undefined)
+        throw new HttpInputError(
+          'EMERGENCY_STOP_AUTHORITY_UNAVAILABLE',
+          'Emergency-stop authority is unavailable.',
+        );
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = GovernedControlRevokeSchema.parse(request.body);
+      response.json(
+        await governedControl.emergencyStop.revoke({
+          taskId: pathValue(request, 'taskId'),
+          confirmationId: pathValue(request, 'confirmationId'),
+          reason: body.reason,
+          principal,
+        }),
+      );
+    }),
+  );
+  app.post(
+    '/api/v1/tasks/:taskId/weapon-confirmations/:confirmationId/revoke',
+    asyncRoute(async (request, response) => {
+      const governedControl = requireGovernedControl(options.governedControl);
+      if (governedControl.weapon === undefined)
+        throw new HttpInputError(
+          'WEAPON_CONTROL_AUTHORITY_UNAVAILABLE',
+          'Weapon confirmation authority is unavailable.',
+        );
+      const principal = await resolveGovernedControlPrincipal(
+        governedControl.principalResolver,
+        request,
+      );
+      const body = GovernedControlRevokeSchema.parse(request.body);
+      response.json(
+        await governedControl.weapon.revoke({
+          taskId: pathValue(request, 'taskId'),
+          confirmationId: pathValue(request, 'confirmationId'),
+          reason: body.reason,
           principal,
         }),
       );

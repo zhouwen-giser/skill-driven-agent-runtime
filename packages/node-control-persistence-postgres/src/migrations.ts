@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import type { Pool, PoolClient } from 'pg';
 
@@ -24,14 +23,13 @@ export class ControlMigrationError extends Error {
   }
 }
 
-const defaultRoot = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../infra/postgres-control/migrations',
-);
+export function resolveDefaultControlMigrationRoot(workingDirectory = process.cwd()): string {
+  return resolve(workingDirectory, 'infra', 'postgres-control', 'migrations');
+}
 
 export async function applyControlMigrations(
   pool: Pool,
-  migrationRoot = defaultRoot,
+  migrationRoot = resolveDefaultControlMigrationRoot(),
 ): Promise<readonly ControlMigrationRecord[]> {
   const migrations = await loadMigrations(migrationRoot);
   const client = await pool.connect();
@@ -61,7 +59,7 @@ export async function applyControlMigrations(
 
 export async function rollbackLatestControlMigration(
   pool: Pool,
-  migrationRoot = defaultRoot,
+  migrationRoot = resolveDefaultControlMigrationRoot(),
 ): Promise<string | undefined> {
   const migrations = await loadMigrations(migrationRoot);
   const client = await pool.connect();

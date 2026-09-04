@@ -7,7 +7,11 @@ import {
   ConfiguredBearerGovernedControlIdentity,
   ConfiguredTrustedIntranetGovernedControlIdentity,
 } from './governed-control-management-identity.js';
-import { loadServerEnvironment, remoteTaskAdmissionObservationProfile } from './environment.js';
+import {
+  isDevelopmentDeploymentEnvironment,
+  loadServerEnvironment,
+  remoteTaskAdmissionObservationProfile,
+} from './environment.js';
 import {
   homeLabGovernedLightSkillUsageContext,
   homeLabGovernedLightTaskUnderstandingConfiguration,
@@ -46,6 +50,9 @@ const runtime = await startServerRuntime({
   redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
   evidenceEnvironment: environment.SDAR_CONTROL_ENVIRONMENT,
+  ugvAgentProfileSkillScope: isDevelopmentDeploymentEnvironment(environment)
+    ? 'all_enabled'
+    : 'profile_reviewed',
   ...(environment.SDAR_EVIDENCE_OBSERVATION_SCOPE === undefined
     ? {}
     : { evidenceObservationScope: environment.SDAR_EVIDENCE_OBSERVATION_SCOPE }),
