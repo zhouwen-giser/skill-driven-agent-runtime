@@ -380,6 +380,10 @@ export class McpRegistryService {
             : {
                 reconciliationContract: {
                   schemaVersion: 'sdar.remote-task-reconciliation-contract/v1',
+                  dispatchStartedAt: startedAt,
+                  ...(controlAuthority === undefined
+                    ? {}
+                    : { governedControlAuthority: controlAuthority }),
                   logicalIdentity: context.logicalInvocationIdentity,
                   arguments: arguments_,
                   executionContext,
@@ -517,7 +521,10 @@ export class McpRegistryService {
     }>
   > {
     const identity = contract.logicalIdentity;
+    const dispatchStartedAt = Date.parse(contract.dispatchStartedAt);
     if (
+      !Number.isFinite(dispatchStartedAt) ||
+      new Date(dispatchStartedAt).toISOString() !== contract.dispatchStartedAt ||
       identity.taskId !== context.taskId ||
       identity.contextId !== context.contextId ||
       identity.serverId.trim() === '' ||
@@ -548,6 +555,11 @@ export class McpRegistryService {
         validation.errors,
       );
     const frozenAuthority = this.#frozenInvocationAuthority(runtimeAuthority, tool);
+    const governedControlAuthority = assertReconciliationControlAuthority({
+      contract,
+      context,
+      tool,
+    });
     const providerBindingAuthority = await this.#assertRegisteredProviderBinding(
       runtimeAuthority,
       identity.providerBindingId,
@@ -576,7 +588,6 @@ export class McpRegistryService {
         'MCP_RECONCILIATION_IDEMPOTENCY_REQUIRED',
         'Exact reconciliation requires the frozen Provider idempotency identity.',
       );
-    const startedAt = this.#clock.now();
     const result = await this.#requireFrozenLifecycle().reconcile({
       endpoint: runtimeAuthority.record.server.endpoint,
       headers: withExecutionHeaders(
@@ -608,13 +619,16 @@ export class McpRegistryService {
               ...(identity.providerId === undefined ? {} : { providerId: identity.providerId }),
               executionContext: contract.executionContext,
             },
+            ...(governedControlAuthority === undefined
+              ? {}
+              : { controlAuthority: governedControlAuthority }),
             serverId: identity.serverId,
             toolName: identity.operationName,
             executionSemantics: tool.executionSemantics,
             arguments: contract.arguments,
             result: { remoteTask: result.outcome.task },
             status: 'succeeded',
-            startedAt,
+            startedAt: contract.dispatchStartedAt,
             completedAt,
           });
     return {
@@ -1255,6 +1269,65 @@ function sameRemoteTaskReconciliationAuthority(
     binding.catalogChecksum === frozenProvider.catalogChecksum &&
     binding.operationCount === frozenProvider.operationCount
   );
+}
+
+function assertReconciliationControlAuthority(
+  input: Readonly<{
+    contract: RemoteTaskReconciliationContract;
+    context: Readonly<{
+      invocationId: string;
+      taskId: string;
+      capabilityAttemptId?: string;
+      contextId: string;
+    }>;
+    tool: McpTool;
+  }>,
+): GovernedControlDispatchReceipt | undefined {
+  const { contract, context, tool } = input;
+  const receipt = contract.governedControlAuthority;
+  if (tool.executionSemantics.effect === 'read_only') {
+    if (receipt !== undefined)
+      throw new McpRegistryError(
+        'MCP_RECONCILIATION_CONTROL_AUTHORITY_CONFLICT',
+        'A read-only reconciliation contract cannot carry governed control authority.',
+      );
+    return undefined;
+  }
+  if (tool.executionSemantics.effect !== 'side_effecting' || receipt === undefined)
+    throw new McpRegistryError(
+      'MCP_RECONCILIATION_CONTROL_AUTHORITY_REQUIRED',
+      'Side-effecting reconciliation requires the originally consumed governed control authority.',
+    );
+  const identity = contract.logicalIdentity;
+  const expectedDispatchHash = createMcpProviderDispatchHash({
+    invocationId: context.invocationId,
+    taskId: context.taskId,
+    contextId: context.contextId,
+    ...(identity.providerBindingId === undefined
+      ? {}
+      : { providerBindingId: identity.providerBindingId }),
+    ...(identity.providerId === undefined ? {} : { providerId: identity.providerId }),
+    serverId: identity.serverId,
+    toolName: identity.operationName,
+    arguments: contract.arguments,
+  });
+  const consumedAt = Date.parse(receipt.consumedAt);
+  const dispatchStartedAt = Date.parse(contract.dispatchStartedAt);
+  if (
+    receipt.confirmationId.trim() === '' ||
+    receipt.invocationId !== context.invocationId ||
+    receipt.providerBindingId !== identity.providerBindingId ||
+    receipt.argumentsHash !== identity.argumentsHash ||
+    receipt.dispatchHash !== expectedDispatchHash ||
+    !Number.isFinite(consumedAt) ||
+    new Date(consumedAt).toISOString() !== receipt.consumedAt ||
+    consumedAt < dispatchStartedAt
+  )
+    throw new McpRegistryError(
+      'MCP_RECONCILIATION_CONTROL_AUTHORITY_CONFLICT',
+      'Persisted governed control authority does not match the original Provider dispatch.',
+    );
+  return receipt;
 }
 
 export function createMcpProviderDispatchHash(

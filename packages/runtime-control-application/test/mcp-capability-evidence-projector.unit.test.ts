@@ -278,6 +278,7 @@ function snapshot(): McpCapabilityEvidenceSnapshot {
         arguments_hash: '2'.repeat(64),
         reconciliation_contract_json: {
           schemaVersion: 'sdar.remote-task-reconciliation-contract/v1',
+          dispatchStartedAt: at,
           logicalIdentity: {
             schemaVersion: 'sdar.mcp-logical-invocation/v1',
             logicalInvocationId: `mcp-logical-${'1'.repeat(64)}`,

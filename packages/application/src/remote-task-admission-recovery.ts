@@ -22,6 +22,8 @@ import {
   createRemoteTaskProviderExecutionLink,
 } from '../../domain/src/index.js';
 
+import type { GovernedControlDispatchReceipt } from './governed-control-authority.js';
+
 import type {
   Clock,
   RemoteTaskRepository,
@@ -47,6 +49,13 @@ export interface RemoteTaskReconciliationContract extends Omit<
   'schemaVersion'
 > {
   readonly schemaVersion: 'sdar.remote-task-reconciliation-contract/v1';
+  /** Original logical invocation start, preserved across an ambiguous transport response. */
+  readonly dispatchStartedAt: string;
+  /**
+   * The already-consumed one-shot control authority. Recovery restores this receipt; it never
+   * authorizes or consumes another confirmation.
+   */
+  readonly governedControlAuthority?: GovernedControlDispatchReceipt;
   readonly providerId: string;
   readonly protocolContract: McpProtocolContractSnapshot;
   readonly taskBehavior: McpTaskBehavior;

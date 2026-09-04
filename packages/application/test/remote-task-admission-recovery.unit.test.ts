@@ -633,6 +633,7 @@ function uncertainLogicalIntent(recorded: RemoteTaskAdmissionIntent): RemoteTask
     },
     reconciliationContract: {
       schemaVersion: 'sdar.remote-task-reconciliation-contract/v1',
+      dispatchStartedAt: '2026-08-13T03:00:00.000Z',
       logicalIdentity,
       arguments: { distance: 2 },
       executionContext: recorded.envelope.executionContext,

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-05 — Governed-control authority across exact response-loss recovery
+
+- Persist the already-consumed governed-control dispatch receipt and original invocation start time
+  in the remote Task reconciliation contract before Provider transport.
+- On `found_exact`, validate confirmation, Provider Binding, arguments, invocation and dispatch
+  hashes, then restore the receipt onto the one recovered MCP invocation without reauthorizing,
+  consuming another confirmation or redispatching the Provider call.
+- Fail closed for historical side-effecting contracts that lack this authority, and add a real
+  response-loss regression covering the four persisted control lineage fields and original timing.
+
 ## 2026-09-05 — Terminal Workflow / dangling Task cancellation convergence
 
 - When a Runtime cancellation hook finds that the Workflow Control is already terminal but the

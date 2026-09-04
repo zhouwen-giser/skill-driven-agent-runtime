@@ -77,6 +77,9 @@ authorities while adding a durable Provider execution companion relation.
 - [x] 2026-09-04 16:28Z Closed the terminal-Control/dangling-Task cancellation gap: the standard local
       cancellation now terminalizes the Task without issuing a second plan, remote cancellation,
       continuation or dispatch; focused TaskService regression passes 40/40.
+- [x] 2026-09-05 00:47Z Preserved the consumed governed-control receipt and original dispatch start
+      time in the durable reconciliation contract; `found_exact` now restores that exact authority
+      onto the one recovered invocation without reauthorization, confirmation reuse or redispatch.
 
 ## Discoveries and Surprises
 
@@ -102,6 +105,11 @@ authorities while adding a durable Provider execution companion relation.
 - A previously failed/reentered remote continuation can leave its Agent Task projection nonterminal
   when the Workflow Control has already committed a terminal failure. Treating the terminal Control
   as proof that Task cancellation was also projected made standard A2A cancellation fail locally.
+- A real `found_exact` recovery persisted a successful invocation without the four governed-control
+  lineage fields because the pre-dispatch contract did not retain the already-consumed receipt. It
+  also replaced the original invocation start with reconciliation time, placing confirmation
+  consumption before the recovered invocation. Both facts made the UGV terminal evidence guard
+  reject an otherwise exact single-dispatch result.
 
 ## Decision Log
 
@@ -187,3 +195,9 @@ contract: an exact persisted dispatch is reconciled through the Frozen lookup po
 identity drift still fails closed and no path falls through to ordinary dispatch. This checkpoint is
 validated with focused Application, recovery and Frozen HTTP suites plus architecture, typecheck and
 production build; it is not a replacement claim for the earlier clean repository-wide qualification.
+
+The 2026-09-05 follow-up makes the one-shot governed-control receipt part of that persisted contract
+and retains the original dispatch start time. Exact recovery validates confirmation, Binding,
+arguments, invocation and dispatch hashes before writing the recovered invocation. Historical
+side-effecting contracts without this authority remain fail-closed; no schema migration or new
+runtime authority is introduced.

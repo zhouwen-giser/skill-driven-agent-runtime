@@ -1,5 +1,21 @@
 # Project Status
 
+## Governed-control response-loss evidence convergence (2026-09-05)
+
+The MCP-only functional harness proved one Provider side effect and one exact reconciliation, but
+the recovered Runtime invocation omitted `control_confirmation_id`, `control_provider_binding_id`,
+`control_arguments_hash` and `control_dispatch_hash`. Its start time was also replaced by the later
+reconciliation lookup time. The UGV terminal guard therefore correctly rejected the incomplete
+lineage even though the original confirmation row had been consumed by that invocation.
+
+The remote admission reconciliation contract now durably freezes the consumed non-sensitive
+dispatch receipt and original dispatch start. `found_exact` validates that receipt against the exact
+logical invocation and reconstructs the single invocation with the original timing. It does not call
+the control authorizer, consume another confirmation or enter normal Provider dispatch. Historical
+side-effecting contracts without the receipt remain fail-closed. Four focused files pass 124 tests,
+with targeted lint, TypeScript typecheck and production build also passing; deployment handoff is the
+remaining step.
+
 ## Dangling Task cancellation convergence (2026-09-05)
 
 An interrupted XCHAIN harness exposed a local projection gap: its Workflow Control and remote Binding
