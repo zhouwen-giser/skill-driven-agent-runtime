@@ -126,6 +126,63 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     expect(api.capability('vehicle.ugv.read-state')).toEqual(
       expect.objectContaining({ riskLevel: 'low', inputSchema: readSkill?.['inputSchema'] }),
     );
+
+    const capabilitiesSkill = api.runtimeSkill('ugv.get-capabilities');
+    expect(capabilitiesSkill?.['outcomeSpecification']).toEqual(
+      expect.objectContaining({ evidence: ['vehicle.state.observation'] }),
+    );
+    expect(capabilitiesSkill?.['usageSpecification']).toEqual(
+      expect.objectContaining({
+        evidencePolicy: {
+          requirements: [
+            {
+              requirementId: 'evidence-1',
+              evidenceType: 'vehicle.state.observation',
+              required: true,
+              hardGate: true,
+            },
+          ],
+          rejectSuccessWithoutRequiredEvidence: true,
+        },
+      }),
+    );
+    expect(api.capability('vehicle.ugv.read-capabilities')?.['requiredEvidence']).toEqual([
+      {
+        type: 'required_evidence',
+        evidenceType: 'vehicle.state.observation',
+        required: true,
+        hardGate: true,
+      },
+    ]);
+
+    const payloadSkill = api.runtimeSkill('ugv.get-payload-status');
+    expect(payloadSkill?.['outcomeSpecification']).toEqual(
+      expect.objectContaining({ evidence: ['vehicle.payload.status'] }),
+    );
+    expect(payloadSkill?.['usageSpecification']).toEqual(
+      expect.objectContaining({
+        evidencePolicy: {
+          requirements: [
+            {
+              requirementId: 'evidence-1',
+              evidenceType: 'vehicle.payload.status',
+              required: true,
+              hardGate: true,
+            },
+          ],
+          rejectSuccessWithoutRequiredEvidence: true,
+        },
+      }),
+    );
+    expect(api.capability('vehicle.ugv.read-payload')?.['requiredEvidence']).toEqual([
+      {
+        type: 'required_evidence',
+        evidenceType: 'vehicle.payload.status',
+        required: true,
+        hardGate: true,
+      },
+    ]);
+
     const readImplementation = api.implementation('vehicle.ugv.read-state');
     expect(
       parseMcpProviderBindingPolicyOverride(readImplementation?.['providerPolicyOverride']),

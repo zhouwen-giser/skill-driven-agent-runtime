@@ -48,7 +48,7 @@ const GOVERNANCE_SPECS = Object.freeze([
     name: 'Read UGV capabilities',
     summary: 'Read device-reported capability facts for one exact UGV resource.',
     kind: 'read_only' as const,
-    evidence: Object.freeze(['vehicle.capabilities.observation']),
+    evidence: Object.freeze(['vehicle.state.observation']),
   }),
   Object.freeze({
     toolName: 'vehicle_get_payload_status',
@@ -57,7 +57,7 @@ const GOVERNANCE_SPECS = Object.freeze([
     name: 'Read UGV payload status',
     summary: 'Read normalized payload status for one exact UGV resource.',
     kind: 'read_only' as const,
-    evidence: Object.freeze(['vehicle.payload.observation']),
+    evidence: Object.freeze(['vehicle.payload.status']),
   }),
   Object.freeze({
     toolName: 'vehicle_get_targets',
