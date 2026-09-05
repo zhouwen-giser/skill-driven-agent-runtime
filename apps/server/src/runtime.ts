@@ -484,6 +484,7 @@ import {
   UgvAgentProfileSkillRepositoryView,
   assertUgvAgentProfileRuntimeConfiguration,
   useManagedAgentCardForProfile,
+  verifiedUgvAgentProfileOutcomeRefs,
 } from './ugv-agent-profile.js';
 import { isHistoricalUgvPointSkill, ugvCapabilityForSkill } from './ugv-agent-profile-catalog.js';
 import {
@@ -4859,7 +4860,18 @@ export async function startServerRuntime(
             ? { verifiedOutcomeRefs: verifiedHomeLabReadOnlyOutcomeRefs(skill) }
             : homeLabGovernedLightProfile
               ? { verifiedOutcomeRefs: verifiedHomeLabGovernedLightOutcomeRefs(skill) }
-              : {}),
+              : ugvAgentProfile && capabilityTerminalProof !== undefined
+                ? {
+                    verifiedOutcomeRefs: verifiedUgvAgentProfileOutcomeRefs({
+                      taskId,
+                      selectedSkillId: task.selectedSkillId,
+                      selectedSkillVersion: task.selectedSkillVersion,
+                      workflowSkillVersions: instance.skillVersions,
+                      skill,
+                      proof: capabilityTerminalProof,
+                    }),
+                  }
+                : {}),
         });
       },
       enhanceResultMemory: (processed) => resultProcessing.enhance(processed),

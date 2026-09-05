@@ -2,7 +2,11 @@ import type {
   SkillRepository,
   TaskTypeDefinition,
 } from '../../../packages/application/src/index.js';
-import type { MissingDimensionKind, SkillVersion } from '../../../packages/domain/src/index.js';
+import type {
+  MissingDimensionKind,
+  RuntimeTaskCapabilityTerminalProof,
+  SkillVersion,
+} from '../../../packages/domain/src/index.js';
 
 import type { ServerRuntimeOptions } from './runtime.js';
 import {
@@ -251,6 +255,61 @@ export class UgvAgentProfileSkillRepositoryView implements SkillRepository {
 export function useManagedAgentCardForProfile(profile: string | undefined): boolean {
   void profile;
   return true;
+}
+
+/**
+ * Projects the exact Skill outcome only after its frozen Task Capability terminal proof passed.
+ * This bridges the Capability hard gate to the layered User Goal judges without treating a bare
+ * MCP success response as an effect or evidence authority.
+ */
+export function verifiedUgvAgentProfileOutcomeRefs(
+  input: Readonly<{
+    taskId: string;
+    selectedSkillId?: string;
+    selectedSkillVersion?: number;
+    workflowSkillVersions: readonly Readonly<{ skillId: string; version: number }>[];
+    skill: SkillVersion;
+    proof: RuntimeTaskCapabilityTerminalProof;
+  }>,
+): Readonly<{
+  effectRefs: readonly string[];
+  evidenceRefs: readonly string[];
+  artifactRefs: readonly string[];
+}> {
+  const { skill, proof } = input;
+  const declaration = ugvCapabilityForSkill(skill.skillId);
+  const outcome = skill.outcomeSpecification;
+  const workflowSkill = input.workflowSkillVersions[0];
+  const requiredEvidence = skill.usageSpecification?.evidencePolicy.requirements
+    .filter(({ required, hardGate }) => required && hardGate)
+    .map(({ evidenceType }) => evidenceType)
+    .sort();
+  if (
+    declaration === undefined ||
+    isHistoricalUgvPointSkill(skill.skillId, skill.version) ||
+    proof.taskId !== input.taskId ||
+    input.selectedSkillId !== skill.skillId ||
+    input.selectedSkillVersion !== skill.version ||
+    input.workflowSkillVersions.length !== 1 ||
+    workflowSkill?.skillId !== skill.skillId ||
+    workflowSkill.version !== skill.version ||
+    skill.status !== 'enabled' ||
+    proof.requestedCapabilityId !== declaration.capabilityId ||
+    !skill.capabilities.includes(declaration.capabilityId) ||
+    outcome === undefined ||
+    outcome.skillId !== skill.skillId ||
+    outcome.skillVersion !== skill.version ||
+    outcome.taskGoalPolicy['requestedCapabilityId'] !== declaration.capabilityId ||
+    requiredEvidence === undefined ||
+    requiredEvidence.length === 0 ||
+    !sameStrings([...outcome.evidence].sort(), requiredEvidence)
+  )
+    throw new Error('UGV_AGENT_PROFILE_OUTCOME_AUTHORITY_INVALID');
+  return Object.freeze({
+    effectRefs: Object.freeze([...outcome.effects]),
+    evidenceRefs: Object.freeze([...outcome.evidence]),
+    artifactRefs: Object.freeze([...outcome.artifacts]),
+  });
 }
 
 function assertUgvAgentProfileSkillDeclaration(skill: SkillVersion): void {

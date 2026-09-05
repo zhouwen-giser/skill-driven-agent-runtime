@@ -13,6 +13,7 @@ import {
   projectUgvAgentProfileEnabledSkills,
   ugvAgentProfileTaskUnderstandingConfiguration,
   useManagedAgentCardForProfile,
+  verifiedUgvAgentProfileOutcomeRefs,
 } from '../src/ugv-agent-profile.js';
 import { loadExactUgvProfileSkill } from './ugv-agent-profile-test-fixture.js';
 
@@ -215,6 +216,91 @@ describe('UGV Agent Profile composition', () => {
       SDAR_CONTROL_ENVIRONMENT: 'development',
       SDAR_TASK_UNDERSTANDING_PROFILE: UGV_AGENT_PROFILE_ID,
     });
+  });
+
+  it('projects non-point outcome refs only after the exact Capability terminal proof', async () => {
+    const point = await exactSkill();
+    const read = {
+      ...point,
+      skillId: 'ugv.get-state',
+      capabilities: ['vehicle.ugv.read-state'],
+      usageSpecification: {
+        ...point.usageSpecification,
+        evidencePolicy: {
+          requirements: [
+            {
+              requirementId: 'evidence-1',
+              evidenceType: 'vehicle.state.observation',
+              required: true,
+              hardGate: true,
+            },
+          ],
+          rejectSuccessWithoutRequiredEvidence: true,
+        },
+      },
+      outcomeSpecification: {
+        schemaVersion: '1.0',
+        skillId: 'ugv.get-state',
+        skillVersion: 1,
+        effects: ['effect.vehicle.ugv.read-state.observed'],
+        evidence: ['vehicle.state.observation'],
+        artifacts: [],
+        taskGoalPolicy: { requestedCapabilityId: 'vehicle.ugv.read-state' },
+        confidencePolicy: {},
+        sideEffectPolicy: { sideEffecting: false },
+        specificationHash: `sha256:${'a'.repeat(64)}`,
+      },
+    } as SkillVersion;
+    const proof = {
+      taskId: 'task-read-state',
+      bindingId: 'binding-read-state',
+      bindingHash: 'b'.repeat(64),
+      attemptId: 'attempt-read-state',
+      requestedCapabilityId: 'vehicle.ugv.read-state',
+      capabilityVersion: 1,
+    } as const;
+
+    const authority = {
+      taskId: proof.taskId,
+      selectedSkillId: read.skillId,
+      selectedSkillVersion: read.version,
+      workflowSkillVersions: [{ skillId: read.skillId, version: read.version }],
+      skill: read,
+      proof,
+    } as const;
+
+    expect(verifiedUgvAgentProfileOutcomeRefs(authority)).toEqual({
+      effectRefs: ['effect.vehicle.ugv.read-state.observed'],
+      evidenceRefs: ['vehicle.state.observation'],
+      artifactRefs: [],
+    });
+    expect(() =>
+      verifiedUgvAgentProfileOutcomeRefs({
+        ...authority,
+        proof: { ...proof, requestedCapabilityId: 'vehicle.ugv.read-targets' },
+      }),
+    ).toThrow('UGV_AGENT_PROFILE_OUTCOME_AUTHORITY_INVALID');
+    expect(() =>
+      verifiedUgvAgentProfileOutcomeRefs({
+        ...authority,
+        selectedSkillId: point.skillId,
+        selectedSkillVersion: point.version,
+        workflowSkillVersions: [{ skillId: point.skillId, version: point.version }],
+        skill: point,
+      }),
+    ).toThrow('UGV_AGENT_PROFILE_OUTCOME_AUTHORITY_INVALID');
+    expect(() =>
+      verifiedUgvAgentProfileOutcomeRefs({ ...authority, taskId: 'task-other' }),
+    ).toThrow('UGV_AGENT_PROFILE_OUTCOME_AUTHORITY_INVALID');
+    expect(() =>
+      verifiedUgvAgentProfileOutcomeRefs({
+        ...authority,
+        workflowSkillVersions: [
+          ...authority.workflowSkillVersions,
+          { skillId: 'ugv.get-targets', version: 1 },
+        ],
+      }),
+    ).toThrow('UGV_AGENT_PROFILE_OUTCOME_AUTHORITY_INVALID');
   });
 });
 
