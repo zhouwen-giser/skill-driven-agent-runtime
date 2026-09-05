@@ -82,6 +82,10 @@ interface RegisteredAgentCardProjection {
   readonly capabilityCatalogHash: string;
 }
 
+export const SDAR_CAPABILITY_EXPOSURE_CATALOG_EXTENSION_URI =
+  'io.sdar/capabilityExposureCatalog' as const;
+export const SDAR_CAPABILITY_EXPOSURE_CATALOG_VERSION = '1.0' as const;
+
 export class NodeControlA2aExposureService {
   readonly #repository: NodeControlA2aExposureRepository;
   readonly #capabilities: A2aCapabilitySource;
@@ -410,7 +414,31 @@ function buildCard(url: string, entries: readonly A2aExposureVersion[]): JsonObj
       { url, protocolBinding: 'HTTP+JSON', tenant: '', protocolVersion: '1.0' },
     ],
     version: '1.4.0',
-    capabilities: { streaming: true, pushNotifications: false, extensions: [] },
+    capabilities: {
+      streaming: true,
+      pushNotifications: false,
+      extensions: [
+        {
+          uri: SDAR_CAPABILITY_EXPOSURE_CATALOG_EXTENSION_URI,
+          description: 'Current published SDAR Capability Exposure contracts.',
+          required: false,
+          params: {
+            version: SDAR_CAPABILITY_EXPOSURE_CATALOG_VERSION,
+            entries: entries.map((exposure) => ({
+              agentSkillId: exposure.agentSkillId,
+              exposureId: exposure.exposureId,
+              exposureVersion: exposure.version,
+              capabilityId: exposure.capabilityId,
+              capabilityVersion: exposure.capabilityVersion,
+              requestSchema: exposure.requestSchema,
+              resultSchema: exposure.resultSchema,
+              requesterPolicy: exposure.requesterPolicy ?? {},
+              exposureHash: exposure.exposureHash,
+            })),
+          },
+        },
+      ],
+    },
     securitySchemes: {},
     securityRequirements: [],
     defaultInputModes: ['text/plain'],

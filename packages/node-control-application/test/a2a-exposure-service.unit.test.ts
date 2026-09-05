@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   NodeControlA2aExposureService,
+  SDAR_CAPABILITY_EXPOSURE_CATALOG_EXTENSION_URI,
   type NodeControlA2aExposureRepository,
   type RuntimeAgentCardDeployment,
 } from '../src/a2a-exposure-service.js';
@@ -9,6 +10,7 @@ import {
   createA2aExposureVersion,
   createNodeCapabilityDefinition,
   type AgentCardRevision,
+  type JsonObject,
   type ManagementOperation,
   type NodeCapabilityStatus,
   type RuntimeAgentCardCandidate,
@@ -193,8 +195,37 @@ describe('NodeControlA2aExposureService', () => {
     expect(original).toBeDefined();
     expect(original?.card).toMatchObject({
       skills: [{ id: 'capability.device.inspect', tags: ['capability:device.inspect'] }],
+      capabilities: {
+        extensions: [
+          {
+            uri: SDAR_CAPABILITY_EXPOSURE_CATALOG_EXTENSION_URI,
+            required: false,
+            params: {
+              version: '1.0',
+              entries: [
+                {
+                  agentSkillId: 'capability.device.inspect',
+                  exposureId: 'exposure.inspect',
+                  exposureVersion: 1,
+                  capabilityId: 'device.inspect',
+                  capabilityVersion: 1,
+                  requestSchema: { type: 'object' },
+                  resultSchema: { type: 'object' },
+                  requesterPolicy: {
+                    allowAnonymous: false,
+                    allowedRequesterIds: ['requester.device-console'],
+                  },
+                  exposureHash: fixture.exposure().exposureHash,
+                },
+              ],
+            },
+          },
+        ],
+      },
     });
-    expect(JSON.stringify(original?.card)).not.toMatch(/readiness|validUntil|snapshotHash/u);
+    expect(JSON.stringify(original?.card)).not.toMatch(
+      /readiness|validUntil|snapshotHash|providerId|bindingId/u,
+    );
 
     // Time can advance far beyond every Provider/readiness lease without changing registration.
     fixture.setNow('2027-08-02T15:00:00.000Z');
@@ -206,6 +237,84 @@ describe('NodeControlA2aExposureService', () => {
       revision: original?.revision.revision,
       contentHash: original?.revision.contentHash,
       capabilityCatalogHash: original?.revision.capabilityCatalogHash,
+    });
+  });
+
+  it('changes the public Card content hash when only the current Exposure contract changes', async () => {
+    const fixture = publicationFixture();
+
+    await fixture.service.rebuild('registered-card-contract-v1', 'Publish Exposure contract v1.');
+    const first = fixture.candidates[0];
+    fixture.replaceExposureContract({
+      type: 'object',
+      required: ['resourceId'],
+      properties: { resourceId: { type: 'string' } },
+    });
+
+    await fixture.service.rebuild('registered-card-contract-v2', 'Publish Exposure contract v2.');
+    const second = fixture.candidates[1];
+
+    expect(second?.revision.contentHash).not.toBe(first?.revision.contentHash);
+    expect(second?.revision.capabilityCatalogHash).not.toBe(first?.revision.capabilityCatalogHash);
+    expect(second?.card).toMatchObject({
+      capabilities: {
+        extensions: [
+          {
+            uri: SDAR_CAPABILITY_EXPOSURE_CATALOG_EXTENSION_URI,
+            params: {
+              entries: [
+                {
+                  exposureId: 'exposure.inspect',
+                  exposureVersion: 2,
+                  requestSchema: {
+                    type: 'object',
+                    required: ['resourceId'],
+                    properties: { resourceId: { type: 'string' } },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it('orders public Exposure contracts by their correlated Agent Skill identity', async () => {
+    const fixture = publicationFixture();
+    fixture.addExposure(
+      createA2aExposureVersion({
+        exposureId: 'exposure.alpha',
+        version: 1,
+        capabilityId: 'device.alpha',
+        capabilityVersion: 1,
+        agentSkillId: 'capability.device.alpha',
+        name: 'Inspect alpha device',
+        description: 'Inspect the alpha device.',
+        requestSchema: { type: 'object' },
+        resultSchema: { type: 'object' },
+        visibility: 'public',
+        status: 'published',
+      }),
+    );
+
+    await fixture.service.rebuild('registered-card-sorted', 'Publish sorted Exposure contracts.');
+
+    expect(fixture.candidates[0]?.card).toMatchObject({
+      skills: [{ id: 'capability.device.alpha' }, { id: 'capability.device.inspect' }],
+      capabilities: {
+        extensions: [
+          {
+            uri: SDAR_CAPABILITY_EXPOSURE_CATALOG_EXTENSION_URI,
+            params: {
+              entries: [
+                { agentSkillId: 'capability.device.alpha', exposureId: 'exposure.alpha' },
+                { agentSkillId: 'capability.device.inspect', exposureId: 'exposure.inspect' },
+              ],
+            },
+          },
+        ],
+      },
     });
   });
 
@@ -315,7 +424,7 @@ function publicationFixture() {
   let nextRevision = 0;
   let active: AgentCardRevision | undefined;
   const candidates: RuntimeAgentCardCandidate[] = [];
-  const exposure = createA2aExposureVersion({
+  let exposure = createA2aExposureVersion({
     exposureId: 'exposure.inspect',
     version: 1,
     capabilityId: 'device.inspect',
@@ -326,19 +435,29 @@ function publicationFixture() {
     requestSchema: { type: 'object' },
     resultSchema: { type: 'object' },
     visibility: 'public',
+    requesterPolicy: {
+      allowAnonymous: false,
+      allowedRequesterIds: ['requester.device-console'],
+    },
     readinessPublicationPolicy: 'publish_when_available',
     status: 'published',
   });
+  const exposures = [exposure];
   const transitionOperation = vi.fn<NodeControlA2aExposureRepository['transitionOperation']>(
     (_operation, _command, completed) => Promise.resolve(completed),
   );
   const repository: NodeControlA2aExposureRepository = {
-    find: () => Promise.resolve(exposure),
-    list: () => Promise.resolve([exposure]),
+    find: (exposureId, version) =>
+      Promise.resolve(
+        exposures.find(
+          (candidate) => candidate.exposureId === exposureId && candidate.version === version,
+        ),
+      ),
+    list: () => Promise.resolve(exposures),
     create: (value) => Promise.resolve(value),
     findCommandReplay: () => Promise.resolve(undefined),
     transition: (_prior, _next, operation) => Promise.resolve(operation),
-    listPublished: () => Promise.resolve(published ? [exposure] : []),
+    listPublished: () => Promise.resolve(published ? exposures : []),
     nextAgentCardRevision: () => Promise.resolve((nextRevision += 1)),
     findActiveAgentCard: () => Promise.resolve(active),
     saveCandidate: (value) => {
@@ -400,6 +519,7 @@ function publicationFixture() {
     transitionOperation,
     validate,
     active: () => active,
+    exposure: () => exposure,
     setNow(value: string) {
       now = value;
     },
@@ -411,6 +531,19 @@ function publicationFixture() {
     },
     withdrawExposure() {
       published = false;
+    },
+    replaceExposureContract(requestSchema: JsonObject) {
+      const { exposureHash: priorExposureHash, ...prior } = exposure;
+      void priorExposureHash;
+      exposure = createA2aExposureVersion({
+        ...prior,
+        version: exposure.version + 1,
+        requestSchema,
+      });
+      exposures[0] = exposure;
+    },
+    addExposure(value: (typeof exposures)[number]) {
+      exposures.push(value);
     },
   };
 }
