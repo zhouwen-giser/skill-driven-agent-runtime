@@ -1223,6 +1223,7 @@ describe('RuntimeTaskCapabilityService', () => {
   it('verifies governed read-only terminal semantics against the exact Provider invocation', async () => {
     const result = {
       identity: { resourceId: 'living-room-main-light' },
+      deviceReported: { entity_id: 'ugv', additiveField: 'preserved' },
       power: 'on',
       reachable: true,
       brightnessPercent: 72,
@@ -1316,6 +1317,37 @@ describe('RuntimeTaskCapabilityService', () => {
     await expect(service.assertTerminalSuccess(task.taskId, result)).rejects.toMatchObject({
       code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED',
     });
+
+    const unsafeResult = {
+      ...result,
+      deviceReported: { entity_id: 'light.kitchen' },
+    };
+    const unsafeFixture = fixture({
+      resolution,
+      invocations: [providerInvocation(unsafeResult, evidenceType)],
+    });
+    const unsafePrepared = await unsafeFixture.service.prepareAcceptance({
+      task: unsafeFixture.task,
+      metadata: {
+        'io.sdar/requestedCapability': {
+          exposureId: resolution.exposureId,
+          versionConstraint: '1',
+          requestId: 'request-read-only-unsafe-identity',
+        },
+      },
+      capabilityInput: { resourceId: 'living-room-main-light' },
+      inputAttempt,
+      bindingId: 'binding-read-only-unsafe-identity',
+      capabilityAttemptId: 'capability-attempt-read-only',
+      event,
+    });
+    if (unsafePrepared === undefined) throw new Error('Expected a governed Capability binding.');
+    await unsafeFixture.service.accept(unsafePrepared);
+    await expect(
+      unsafeFixture.service.assertTerminalSuccess(unsafeFixture.task.taskId, unsafeResult, {
+        outputSchemaValid: true,
+      }),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
   });
 
   it('fails closed for missing Provider proof, transformed output, and write-side criteria', async () => {

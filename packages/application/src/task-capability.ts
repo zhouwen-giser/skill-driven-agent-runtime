@@ -1566,11 +1566,7 @@ function containsPhysicalResourceIdentity(value: unknown): boolean {
     return true;
   if (Array.isArray(value)) return value.some(containsPhysicalResourceIdentity);
   if (!isRecord(value)) return false;
-  return Object.entries(value).some(
-    ([key, item]) =>
-      /^(?:entityId|entity_id|physicalResourceId|physical_resource_id)$/iu.test(key) ||
-      containsPhysicalResourceIdentity(item),
-  );
+  return Object.values(value).some(containsPhysicalResourceIdentity);
 }
 
 function canonical(value: unknown): string {

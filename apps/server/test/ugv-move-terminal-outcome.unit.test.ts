@@ -338,6 +338,73 @@ describe('UGV Profile Goal evaluator routing', () => {
     expect(fallback.evaluate).toHaveBeenCalledOnce();
     expect(point.evaluate).not.toHaveBeenCalled();
   });
+
+  it('preserves an exhausted governed UGV Workflow failure without model evaluation', async () => {
+    const point = {
+      evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),
+    };
+    const fallback = {
+      evaluate: vi.fn(() =>
+        Promise.resolve({ decision: 'achieved' as const, summary: 'fallback' }),
+      ),
+    };
+    const instance = Object.freeze({
+      ...workflowInstance(),
+      status: 'failed' as const,
+      skillVersions: Object.freeze([{ skillId: 'ugv.get-capabilities', version: 1 }]),
+      budgetLimits: Object.freeze({ ...workflowInstance().budgetLimits, maxReplans: 0 }),
+      budgetUsage: Object.freeze({ ...workflowInstance().budgetUsage, replanCount: 0 }),
+      errors: Object.freeze({
+        usage_task_0: Object.freeze({
+          code: 'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN',
+          message: 'Provider detail is deliberately not reflected.',
+        }),
+      }),
+    });
+
+    await expect(
+      new UgvProfileGoalEvaluator(point, fallback).evaluate({
+        taskId: TASK_ID,
+        goal: activeGoal(),
+        instance,
+      }),
+    ).resolves.toEqual({
+      decision: 'unachievable',
+      summary:
+        'UGV Skill workflow failed at usage_task_0 with HOME_ASSISTANT_ENTITY_ID_FORBIDDEN.',
+    });
+    expect(fallback.evaluate).not.toHaveBeenCalled();
+    expect(point.evaluate).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed non-point Workflow with replan budget on the shared evaluator', async () => {
+    const point = {
+      evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),
+    };
+    const fallback = {
+      evaluate: vi.fn(() =>
+        Promise.resolve({ decision: 'unachievable' as const, summary: 'fallback' }),
+      ),
+    };
+    const instance = Object.freeze({
+      ...workflowInstance(),
+      status: 'failed' as const,
+      skillVersions: Object.freeze([{ skillId: 'ugv.get-capabilities', version: 1 }]),
+      errors: Object.freeze({
+        usage_task_0: Object.freeze({ code: 'MCP_CALL_FAILED', message: 'failed' }),
+      }),
+    });
+
+    await expect(
+      new UgvProfileGoalEvaluator(point, fallback).evaluate({
+        taskId: TASK_ID,
+        goal: activeGoal(),
+        instance,
+      }),
+    ).resolves.toEqual({ decision: 'unachievable', summary: 'fallback' });
+    expect(fallback.evaluate).toHaveBeenCalledOnce();
+    expect(point.evaluate).not.toHaveBeenCalled();
+  });
 });
 
 function terminalFixture() {

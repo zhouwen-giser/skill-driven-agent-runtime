@@ -4864,8 +4864,12 @@ export async function startServerRuntime(
                 ? {
                     verifiedOutcomeRefs: verifiedUgvAgentProfileOutcomeRefs({
                       taskId,
-                      selectedSkillId: task.selectedSkillId,
-                      selectedSkillVersion: task.selectedSkillVersion,
+                      ...(task.selectedSkillId === undefined
+                        ? {}
+                        : { selectedSkillId: task.selectedSkillId }),
+                      ...(task.selectedSkillVersion === undefined
+                        ? {}
+                        : { selectedSkillVersion: task.selectedSkillVersion }),
                       workflowSkillVersions: instance.skillVersions,
                       skill,
                       proof: capabilityTerminalProof,

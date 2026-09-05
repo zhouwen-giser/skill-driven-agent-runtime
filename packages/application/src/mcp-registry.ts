@@ -1491,14 +1491,7 @@ function assertNoHomeAssistantEntityIdentity(value: unknown): void {
       continue;
     }
     if (typeof current !== 'object' || current === null) continue;
-    for (const [key, item] of Object.entries(current)) {
-      if (/^(?:entity_?id|physical_?resource_?id)$/iu.test(key))
-        throw new McpRegistryError(
-          'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN',
-          'MCP Provider results must not contain Home Assistant entity ID fields.',
-        );
-      pending.push(item);
-    }
+    for (const item of Object.values(current)) pending.push(item);
   }
 }
 
@@ -1515,6 +1508,8 @@ export type McpRegistryErrorCode =
   | 'MCP_RECONCILIATION_IDENTITY_CONFLICT'
   | 'MCP_RECONCILIATION_ARGUMENT_SCHEMA_MISMATCH'
   | 'MCP_RECONCILIATION_AUTHORITY_DRIFT'
+  | 'MCP_RECONCILIATION_CONTROL_AUTHORITY_CONFLICT'
+  | 'MCP_RECONCILIATION_CONTROL_AUTHORITY_REQUIRED'
   | 'MCP_RECONCILIATION_IDEMPOTENCY_REQUIRED'
   | 'MCP_TASK_CALL_PROFILE_CONFLICT'
   | 'MCP_REMOTE_TASK_AUTHORITY_CHANGED'

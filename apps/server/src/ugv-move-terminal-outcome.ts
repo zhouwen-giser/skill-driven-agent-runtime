@@ -42,6 +42,10 @@ import {
   type UgvMoveTerminalWorkflowEvidenceVerification,
 } from './ugv-move-workflow-evidence.js';
 import { createUgvSimulationTargetPolicy } from './ugv-move-skill-usage.js';
+import {
+  isHistoricalUgvPointSkill,
+  ugvCapabilityForSkill,
+} from './ugv-agent-profile-catalog.js';
 
 const SKILL_ID = 'embodied.move_to';
 const SKILL_VERSION = 1;
@@ -286,12 +290,50 @@ export class UgvProfileGoalEvaluator implements GoalEvaluator {
   }
 
   evaluate(input: Parameters<GoalEvaluator['evaluate']>[0]): Promise<GoalEvaluationResult> {
-    return input.instance.skillVersions.some(
+    if (
+      input.instance.skillVersions.some(
       ({ skillId, version }) => skillId === SKILL_ID && version === SKILL_VERSION,
+      )
     )
-      ? this.#move.evaluate(input)
-      : this.#fallback.evaluate(input);
+      return this.#move.evaluate(input);
+    const failure = exhaustedGovernedUgvFailure(input);
+    return failure === undefined ? this.#fallback.evaluate(input) : Promise.resolve(failure);
   }
+}
+
+function exhaustedGovernedUgvFailure(
+  input: Parameters<GoalEvaluator['evaluate']>[0],
+): GoalEvaluationResult | undefined {
+  const taskId = input.taskId?.trim();
+  const [selected] = input.instance.skillVersions;
+  if (
+    taskId === undefined ||
+    taskId === '' ||
+    input.goal.status !== 'active' ||
+    input.goal.goalId !== input.instance.goalId ||
+    input.goal.version !== input.instance.goalVersion ||
+    input.instance.status !== 'failed' ||
+    input.instance.skillVersions.length !== 1 ||
+    selected === undefined ||
+    ugvCapabilityForSkill(selected.skillId)?.kind !== 'read_only' ||
+    isHistoricalUgvPointSkill(selected.skillId, selected.version) ||
+    input.instance.budgetUsage.replanCount < input.instance.budgetLimits.maxReplans
+  )
+    return undefined;
+  const failures = Object.entries(input.instance.errors).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const first = failures[0];
+  if (first === undefined) return undefined;
+  const [nodeId, error] = first;
+  const safeNodeId = /^[A-Za-z0-9._:-]{1,128}$/u.test(nodeId) ? nodeId : 'unknown-node';
+  const safeCode = /^[A-Z][A-Z0-9_]{1,127}$/u.test(error.code)
+    ? error.code
+    : 'WORKFLOW_EXECUTION_FAILED';
+  return Object.freeze({
+    decision: 'unachievable' as const,
+    summary: `UGV Skill workflow failed at ${safeNodeId} with ${safeCode}.`,
+  });
 }
 
 function failedWorkflowSummary(instance: WorkflowInstance): string {

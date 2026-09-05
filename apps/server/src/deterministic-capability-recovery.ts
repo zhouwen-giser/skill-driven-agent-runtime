@@ -407,14 +407,7 @@ export function assertNoHomeAssistantEntityId(value: unknown): void {
       continue;
     }
     if (!isRecord(current)) continue;
-    for (const [key, item] of Object.entries(current)) {
-      if (/^entity_?id$/iu.test(key))
-        throw deterministicExecutionError(
-          'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN',
-          'SDAR deterministic execution data must not contain Home Assistant entity IDs.',
-        );
-      pending.push(item);
-    }
+    for (const item of Object.values(current)) pending.push(item);
   }
 }
 

@@ -279,7 +279,8 @@ describe('MCP Registry invocation boundary', () => {
     expect(fixture.reconcile).toHaveBeenCalledOnce();
     expect(fixture.controlAuthority).toHaveBeenCalledOnce();
 
-    const legacyContract = { ...contract, governedControlAuthority: undefined };
+    const { governedControlAuthority: removedControlAuthority, ...legacyContract } = contract;
+    expect(removedControlAuthority).toBeDefined();
     await expect(
       fixture.service.reconcileRemoteTaskAdmission(legacyContract, context),
     ).rejects.toMatchObject({ code: 'MCP_RECONCILIATION_CONTROL_AUTHORITY_REQUIRED' });
@@ -647,9 +648,9 @@ describe('MCP Registry invocation boundary', () => {
       'entity value in URI query',
       { target: 'https://home-assistant.test/state?entity=climate.living_room&public=true' },
     ],
-    ['entity key', { entityId: 'redacted' }],
-    ['physical resource key', { physical_resource_id: 'redacted' }],
-    ['camel physical resource key', { physicalResourceId: 'redacted' }],
+    ['entity key', { entityId: 'light.kitchen' }],
+    ['physical resource key', { physical_resource_id: 'light.kitchen' }],
+    ['camel physical resource key', { physicalResourceId: 'light.kitchen' }],
   ])(
     'rejects a physical identifier in Tool arguments %s before transport or persistence',
     async (_case, args) => {
@@ -663,6 +664,35 @@ describe('MCP Registry invocation boundary', () => {
       expect(fixture.repository.invocations).toEqual([]);
     },
   );
+
+  it('preserves a non-Home-Assistant entity_id field in another Provider result', async () => {
+    const fixture = createFixture({
+      toolName: 'vehicle_get_capabilities',
+      outcome: immediateOutcome({
+        structuredContent: {
+          resourceId: 'vehicle:ugv1',
+          deviceReported: { entity_id: 'ugv' },
+        },
+      }),
+    });
+
+    await expect(
+      fixture.service.callDetailed('provider-1', 'vehicle_get_capabilities', {
+        resourceId: 'vehicle:ugv1',
+      }),
+    ).resolves.toMatchObject({
+      outcome: {
+        result: {
+          structuredContent: {
+            deviceReported: { entity_id: 'ugv' },
+          },
+        },
+      },
+    });
+    expect(fixture.repository.invocations).toEqual([
+      expect.objectContaining({ status: 'succeeded' }),
+    ]);
+  });
 
   it.each([
     'light.state.observation',
@@ -723,7 +753,7 @@ describe('MCP Registry invocation boundary', () => {
       { metadata: { source: 'https://home-assistant.test/api/states/climate.living_room' } },
     ],
     ['metadata resource value', { metadata: { source: 'resource:light.kitchen' } }],
-    ['metadata key', { metadata: { entity_id: 'redacted' } }],
+    ['metadata key', { metadata: { entity_id: 'light.kitchen' } }],
   ])(
     'rejects an HA entity ID in Provider evidence %s before any result is persisted',
     async (_case, unsafeEvidence) => {
@@ -756,7 +786,7 @@ describe('MCP Registry invocation boundary', () => {
       const persisted = JSON.stringify(fixture.repository.invocations[0]);
       expect(persisted).not.toContain('living_room');
       expect(persisted).not.toContain('light.kitchen');
-      expect(persisted).not.toContain('"entity_id":"redacted"');
+      expect(persisted).not.toContain('"entity_id":"light.kitchen"');
     },
   );
 
