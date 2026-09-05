@@ -20,6 +20,7 @@ import {
   UGV_MOVE_WORKFLOW_NODE_IDS,
   UgvMoveWorkflowCandidateGuard,
   prepareUgvMoveWorkflowPlan,
+  validateUgvProfileWorkflowCandidate,
 } from '../src/ugv-move-workflow.js';
 
 import {
@@ -30,6 +31,41 @@ import {
 } from './ugv-move-workflow-test-fixture.js';
 
 describe('UGV move Workflow Profile adapter', () => {
+  it('reserves the scoped move guard for point navigation and admits other governed UGV Skills', async () => {
+    const fixture = await ugvWorkflowPlanningFixture();
+    const prepared = prepareUgvMoveWorkflowPlan({
+      ...fixture,
+      goalContract: UGV_WORKFLOW_GOAL,
+      workflowDefinitionId: UGV_WORKFLOW_IDENTITY.workflowDefinitionId,
+      workflowVersion: UGV_WORKFLOW_IDENTITY.workflowDefinitionVersion,
+      selectedTaskOperation: fixture.selected,
+    });
+    const input = {
+      definition: prepared.deterministicDefinition,
+      taskId: UGV_WORKFLOW_IDENTITY.taskId,
+      skillUsagePolicy: prepared.policy,
+    };
+
+    expect(validateUgvProfileWorkflowCandidate(input, undefined)).toEqual([
+      expect.objectContaining({ code: 'UGV_MOVE_WORKFLOW_AUTHORITY_REQUIRED' }),
+    ]);
+    expect(
+      validateUgvProfileWorkflowCandidate(
+        {
+          ...input,
+          skillUsagePolicy: {
+            ...prepared.policy,
+            skill: { skillId: 'ugv.get-state', skillVersion: 1 },
+          },
+        },
+        undefined,
+      ),
+    ).toEqual([]);
+    expect(
+      validateUgvProfileWorkflowCandidate({ definition: input.definition }, undefined),
+    ).toEqual([expect.objectContaining({ code: 'UGV_MOVE_WORKFLOW_AUTHORITY_REQUIRED' })]);
+  });
+
   it('uses formal Skill Usage and the existing Planner/validator to admit the deterministic DSL', async () => {
     const fixture = await ugvWorkflowPlanningFixture();
     const prepared = prepareUgvMoveWorkflowPlan({

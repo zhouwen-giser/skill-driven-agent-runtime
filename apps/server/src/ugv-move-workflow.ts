@@ -115,6 +115,34 @@ export class UgvMoveWorkflowError extends Error {
   }
 }
 
+/**
+ * Routes UGV-profile Workflow validation without applying the point-navigation
+ * authority guard to unrelated, fully governed UGV Skills.
+ *
+ * The historical point-navigation Skill remains fail-closed unless planning is
+ * running inside its request-scoped guard. Other UGV Skills are still subject
+ * to the shared Workflow schema, Skill Usage compliance and readiness checks.
+ */
+export function validateUgvProfileWorkflowCandidate(
+  input: Parameters<WorkflowCandidateGuard['validate']>[0],
+  scopedMoveGuard: WorkflowCandidateGuard | undefined,
+): ReturnType<WorkflowCandidateGuard['validate']> {
+  if (scopedMoveGuard !== undefined) return scopedMoveGuard.validate(input);
+  const skill = input.skillUsagePolicy?.skill;
+  if (
+    skill !== undefined &&
+    (skill.skillId !== UGV_MOVE_SKILL.skillId || skill.skillVersion !== UGV_MOVE_SKILL.skillVersion)
+  )
+    return Object.freeze([]);
+  return Object.freeze([
+    Object.freeze({
+      code: 'UGV_MOVE_WORKFLOW_AUTHORITY_REQUIRED',
+      path: 'definition',
+      message: 'UGV point-navigation planning requires request-scoped Workflow authority.',
+    }),
+  ]);
+}
+
 /** Adds the authority-frozen state read to the complete formal Skill Usage tool policy. */
 export function prepareUgvMoveWorkflowPlan(
   input: PrepareUgvMoveWorkflowInput,

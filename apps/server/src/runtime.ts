@@ -503,6 +503,7 @@ import {
   prepareUgvMoveWorkflowPlan,
   UgvMoveWorkflowCandidateGuard,
   UGV_MOVE_WORKFLOW_NODE_IDS,
+  validateUgvProfileWorkflowCandidate,
 } from './ugv-move-workflow.js';
 import { UgvMoveWorkflowAuthority } from './ugv-move-workflow-authority.js';
 import { projectUgvMoveWorkflowEvidence } from './ugv-move-workflow-evidence.js';
@@ -2606,16 +2607,7 @@ export async function startServerRuntime(
   const ugvWorkflowCandidateGuard = new AsyncLocalStorage<UgvMoveWorkflowCandidateGuard>();
   const ugvWorkflowCandidateGuardDispatcher: WorkflowCandidateGuard = {
     validate(input) {
-      const guard = ugvWorkflowCandidateGuard.getStore();
-      return guard === undefined
-        ? Object.freeze([
-            Object.freeze({
-              code: 'UGV_MOVE_WORKFLOW_AUTHORITY_REQUIRED',
-              path: 'definition',
-              message: 'UGV planning requires one request-scoped immutable Workflow authority.',
-            }),
-          ])
-        : guard.validate(input);
+      return validateUgvProfileWorkflowCandidate(input, ugvWorkflowCandidateGuard.getStore());
     },
   };
   const workflowPlanner = new WorkflowPlannerService({
