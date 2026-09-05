@@ -1222,7 +1222,7 @@ describe('RuntimeTaskCapabilityService', () => {
 
   it('verifies governed read-only terminal semantics against the exact Provider invocation', async () => {
     const result = {
-      resourceId: 'living-room-main-light',
+      identity: { resourceId: 'living-room-main-light' },
       power: 'on',
       reachable: true,
       brightnessPercent: 72,
@@ -1244,6 +1244,8 @@ describe('RuntimeTaskCapabilityService', () => {
         { type: 'output_schema_valid', required: true },
         { type: 'resource_identity_matches_request', required: true },
         { type: 'required_evidence_complete', required: true },
+        { type: 'mcp_acceptance_is_terminal_success', value: false },
+        { type: 'normalized_observation_present', required: true },
       ],
       requiredEvidence: [
         { type: 'required_evidence', evidenceType, required: true, hardGate: true },
@@ -1251,10 +1253,10 @@ describe('RuntimeTaskCapabilityService', () => {
       constraints: [
         {
           type: 'resource_policy',
-          identifierAuthority: 'public_resource_id',
-          selection: 'request_value',
+          identifierAuthority: 'public_smpp_tool_schema',
+          selection: 'exact_value',
           allowedResourceIds: ['living-room-main-light'],
-          physicalResourceBinding: 'forbidden',
+          downstreamResourceBinding: 'forbidden',
         },
         {
           type: 'provider_binding_policy',
@@ -1272,7 +1274,9 @@ describe('RuntimeTaskCapabilityService', () => {
           skillVersion: 1,
           taskType: 'light_get_state',
         },
+        { type: 'runtime_execution_mode_policy', mode: 'live' },
         { type: 'confirmation_policy', required: false, stage: 'not_applicable' },
+        { type: 'side_effect_policy', sideEffecting: false },
       ],
       implementationRefs: ['skill:home.light.get-state:1'],
       providerBindingRefs: ['mcp-binding-ha-light-lab'],

@@ -1162,7 +1162,13 @@ function criterionSatisfied(
       evidenceSatisfied(requirement, result, binding, invocations, physicalDispatches),
     );
   if (criterion['type'] === 'mcp_acceptance_is_terminal_success')
-    return criterion['value'] === false && physicalDispatches?.valid === true;
+    return (
+      criterion['value'] === false &&
+      (physicalDispatches?.valid === true ||
+        normalizedObservationSatisfied(result, binding, invocations, physicalDispatches))
+    );
+  if (criterion['type'] === 'normalized_observation_present' && criterion['required'] === true)
+    return normalizedObservationSatisfied(result, binding, invocations, physicalDispatches);
   if (criterion['type'] === 'remote_task_identity_present' && criterion['required'] === true)
     return physicalDispatches?.valid === true;
   if (criterion['type'] === 'remote_terminal_observation_present' && criterion['required'] === true)
@@ -1317,10 +1323,16 @@ function constraintSatisfied(
           ({ invocation }) => invocation.arguments['resourceId'] === resourceId,
         )
       );
-    return (
+    const publicRequestPolicy =
       constraint['identifierAuthority'] === 'public_resource_id' &&
       constraint['selection'] === 'request_value' &&
-      constraint['physicalResourceBinding'] === 'forbidden' &&
+      constraint['physicalResourceBinding'] === 'forbidden';
+    const publicSchemaPolicy =
+      constraint['identifierAuthority'] === 'public_smpp_tool_schema' &&
+      constraint['selection'] === 'exact_value' &&
+      constraint['downstreamResourceBinding'] === 'forbidden';
+    return (
+      (publicRequestPolicy || publicSchemaPolicy) &&
       typeof resourceId === 'string' &&
       Array.isArray(constraint['allowedResourceIds']) &&
       constraint['allowedResourceIds'].includes(resourceId) &&
@@ -1383,6 +1395,16 @@ function constraintSatisfied(
       : constraint['required'] === true &&
           ['before_execution', 'pre_dispatch'].includes(String(constraint['stage'])) &&
           physicalDispatches.valid;
+  if (constraint['type'] === 'side_effect_policy')
+    return (
+      physicalDispatches === undefined &&
+      constraint['sideEffecting'] === false &&
+      invocations.length > 0 &&
+      invocations.every(
+        (invocation) =>
+          invocation.status === 'succeeded' && invocation.executionSemantics.effect === 'read_only',
+      )
+    );
   if (constraint['type'] === 'physical_side_effect_policy')
     return (
       physicalDispatches?.valid === true &&
@@ -1466,7 +1488,27 @@ function resourceIdentityMatches(
   result: Readonly<Record<string, unknown>>,
 ): boolean {
   const input = isRecord(binding.inputSnapshot) ? binding.inputSnapshot : undefined;
-  return typeof input?.['resourceId'] === 'string' && result['resourceId'] === input['resourceId'];
+  const identity = isRecord(result['identity']) ? result['identity'] : undefined;
+  const actualResourceId = result['resourceId'] ?? identity?.['resourceId'];
+  return typeof input?.['resourceId'] === 'string' && actualResourceId === input['resourceId'];
+}
+
+function normalizedObservationSatisfied(
+  result: Readonly<Record<string, unknown>>,
+  binding: TaskCapabilityBinding,
+  invocations: readonly McpInvocation[],
+  physicalDispatches: PhysicalDispatchProof | undefined,
+): boolean {
+  if (physicalDispatches !== undefined) return false;
+  const required = binding.evidenceRequirementSnapshot.filter(
+    (requirement) => requirement['required'] === true,
+  );
+  return (
+    required.length > 0 &&
+    required.every((requirement) =>
+      evidenceSatisfied(requirement, result, binding, invocations, undefined),
+    )
+  );
 }
 
 function providerBindingPolicy(
