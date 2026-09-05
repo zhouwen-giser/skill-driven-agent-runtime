@@ -1,11 +1,15 @@
 import type {
+  ResultProcessor,
   SkillRepository,
   TaskTypeDefinition,
 } from '../../../packages/application/src/index.js';
-import type {
-  MissingDimensionKind,
-  RuntimeTaskCapabilityTerminalProof,
-  SkillVersion,
+import {
+  normalizeResultEnvelope,
+  type MissingDimensionKind,
+  type ProcessedResultRecord,
+  type RuntimeTaskCapabilityTerminalProof,
+  type SkillVersion,
+  type WorkflowInstance,
 } from '../../../packages/domain/src/index.js';
 
 import type { ServerRuntimeOptions } from './runtime.js';
@@ -309,6 +313,60 @@ export function verifiedUgvAgentProfileOutcomeRefs(
     effectRefs: Object.freeze([...outcome.effects]),
     evidenceRefs: Object.freeze([...outcome.evidence]),
     artifactRefs: Object.freeze([...outcome.artifacts]),
+  });
+}
+
+/**
+ * Keeps an exact synchronous UGV read result intact. A model may summarize the text later, but it
+ * must not replace schema-valid Provider data before the Capability terminal proof compares the
+ * frozen resource and Evidence identities.
+ */
+export function prepareUgvAgentProfileReadOnlyResult(
+  input: Readonly<{
+    taskId: string;
+    selectedSkillId: string | undefined;
+    selectedSkillVersion: number | undefined;
+    instance: WorkflowInstance;
+    skill: SkillVersion;
+    processor: Pick<ResultProcessor, 'process'>;
+  }>,
+): ProcessedResultRecord | undefined {
+  const declaration = ugvCapabilityForSkill(input.skill.skillId);
+  if (declaration?.kind !== 'read_only') return undefined;
+  const workflowSkill = input.instance.skillVersions[0];
+  const completedAt = input.instance.completedAt;
+  if (
+    input.taskId.trim() === '' ||
+    input.selectedSkillId !== input.skill.skillId ||
+    input.selectedSkillVersion !== input.skill.version ||
+    input.instance.status !== 'succeeded' ||
+    input.instance.result === undefined ||
+    Object.keys(input.instance.errors).length !== 0 ||
+    input.instance.skillVersions.length !== 1 ||
+    workflowSkill?.skillId !== input.skill.skillId ||
+    workflowSkill.version !== input.skill.version ||
+    input.skill.status !== 'enabled' ||
+    completedAt === undefined ||
+    !Number.isFinite(Date.parse(completedAt))
+  )
+    throw new Error('UGV_AGENT_PROFILE_READ_RESULT_AUTHORITY_INVALID');
+  const summary = `Read ${declaration.capabilityId} for the exact governed UGV resource.`;
+  return Object.freeze({
+    resultId: `processed-result-terminal-${input.taskId}`,
+    taskId: input.taskId,
+    skillId: input.skill.skillId,
+    skillVersion: input.skill.version,
+    normalized: normalizeResultEnvelope(input.instance.result),
+    output: input.processor.process({
+      text: summary,
+      structured: input.instance.result,
+      outputSchema: input.skill.outputSchema,
+    }),
+    facts: Object.freeze([]),
+    valuable: true,
+    valueSummary: summary,
+    memoryCandidates: Object.freeze([]),
+    createdAt: completedAt,
   });
 }
 

@@ -483,6 +483,7 @@ import {
   UGV_AGENT_PROFILE_SKILL_VERSION,
   UgvAgentProfileSkillRepositoryView,
   assertUgvAgentProfileRuntimeConfiguration,
+  prepareUgvAgentProfileReadOnlyResult,
   useManagedAgentCardForProfile,
   verifiedUgvAgentProfileOutcomeRefs,
 } from './ugv-agent-profile.js';
@@ -4804,16 +4805,27 @@ export async function startServerRuntime(
             skillVersion: skill.version,
           });
         }
-        const processedResult = await resultProcessing.prepare({
-          resultId: `processed-result-terminal-${taskId}`,
-          taskId,
-          skillId: skill.skillId,
-          skillVersion: skill.version,
-          outputInstruction: skill.outputInstruction,
-          outputSchema: skill.outputSchema,
-          rawResult: instance.result,
-          ...(homeLabReadOnlyErrors === undefined ? {} : { errors: homeLabReadOnlyErrors }),
-        });
+        const processedResult =
+          (ugvAgentProfile
+            ? prepareUgvAgentProfileReadOnlyResult({
+                taskId,
+                selectedSkillId: task.selectedSkillId,
+                selectedSkillVersion: task.selectedSkillVersion,
+                instance,
+                skill,
+                processor: resultProcessor,
+              })
+            : undefined) ??
+          (await resultProcessing.prepare({
+            resultId: `processed-result-terminal-${taskId}`,
+            taskId,
+            skillId: skill.skillId,
+            skillVersion: skill.version,
+            outputInstruction: skill.outputInstruction,
+            outputSchema: skill.outputSchema,
+            rawResult: instance.result,
+            ...(homeLabReadOnlyErrors === undefined ? {} : { errors: homeLabReadOnlyErrors }),
+          }));
         if (
           homeLabReadOnlyProfile &&
           (task.selectedSkillId !== skill.skillId || task.selectedSkillVersion !== skill.version)

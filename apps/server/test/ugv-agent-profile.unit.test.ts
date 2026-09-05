@@ -10,6 +10,7 @@ import {
   UGV_AGENT_PROFILE_SKILL_ID,
   UgvAgentProfileSkillRepositoryView,
   assertUgvAgentProfileRuntimeConfiguration,
+  prepareUgvAgentProfileReadOnlyResult,
   projectUgvAgentProfileEnabledSkills,
   ugvAgentProfileTaskUnderstandingConfiguration,
   useManagedAgentCardForProfile,
@@ -301,6 +302,63 @@ describe('UGV Agent Profile composition', () => {
         ],
       }),
     ).toThrow('UGV_AGENT_PROFILE_OUTCOME_AUTHORITY_INVALID');
+  });
+
+  it('preserves the exact Provider result for a governed read-only Skill', () => {
+    const result = Object.freeze({
+      resourceId: 'vehicle:ugv1',
+      deviceReported: Object.freeze({ entity_id: 'ugv', additiveField: 'preserved' }),
+      observedAt: '2026-09-05T05:00:00.000Z',
+    });
+    const skill = {
+      skillId: 'ugv.get-capabilities',
+      version: 1,
+      status: 'enabled',
+      outputSchema: { type: 'object' },
+    } as SkillVersion;
+    const processor = {
+      process: (candidate: Readonly<{ text: string; structured: unknown }>) => ({
+        text: candidate.text,
+        structured: candidate.structured,
+      }),
+    };
+
+    expect(
+      prepareUgvAgentProfileReadOnlyResult({
+        taskId: 'task-read-capabilities',
+        selectedSkillId: skill.skillId,
+        selectedSkillVersion: skill.version,
+        skill,
+        processor,
+        instance: {
+          instanceId: 'instance-read-capabilities',
+          planId: 'plan-read-capabilities',
+          workflowDefinitionId: 'workflow-read-capabilities',
+          workflowVersion: 1,
+          goalId: 'goal-read-capabilities',
+          goalVersion: 1,
+          skillVersions: [{ skillId: skill.skillId, version: skill.version }],
+          budgetLimits: {
+            maxReplans: 0,
+            maxDurationSeconds: 60,
+            maxLlmCalls: 0,
+            maxMcpCalls: 1,
+            maxCost: 0,
+          },
+          budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 1, cost: 0 },
+          status: 'succeeded',
+          input: { resourceId: 'vehicle:ugv1' },
+          result,
+          errors: {},
+          startedAt: '2026-09-05T04:59:59.000Z',
+          completedAt: '2026-09-05T05:00:00.000Z',
+        },
+      }),
+    ).toMatchObject({
+      taskId: 'task-read-capabilities',
+      output: { structured: result },
+      normalized: { data: result, contextValue: result },
+    });
   });
 });
 
