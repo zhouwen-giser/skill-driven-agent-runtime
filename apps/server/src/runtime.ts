@@ -4806,12 +4806,16 @@ export async function startServerRuntime(
           });
         }
         const processedResult =
-          (ugvAgentProfile
+          (ugvAgentProfile && ugvCapabilityForSkill(skill.skillId)?.kind === 'read_only'
             ? prepareUgvAgentProfileReadOnlyResult({
                 taskId,
+                contextId: task.contextId,
+                selectedPlanId: task.planId,
                 selectedSkillId: task.selectedSkillId,
                 selectedSkillVersion: task.selectedSkillVersion,
                 instance,
+                invocations: await mcpRepository.listInvocationsByTask(taskId),
+                latestCapabilityAttempt: (await taskCapabilities.listAttempts(taskId)).at(-1),
                 skill,
                 processor: resultProcessor,
               })

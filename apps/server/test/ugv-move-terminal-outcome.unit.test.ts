@@ -340,6 +340,32 @@ describe('UGV Profile Goal evaluator routing', () => {
     expect(point.evaluate).not.toHaveBeenCalled();
   });
 
+  it('does not promote a read-only Workflow failure result to achieved', async () => {
+    const point = {
+      evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),
+    };
+    const fallback = {
+      evaluate: vi.fn(() =>
+        Promise.resolve({ decision: 'unachievable' as const, summary: 'fallback' }),
+      ),
+    };
+    const instance = Object.freeze({
+      ...workflowInstance(),
+      skillVersions: Object.freeze([{ skillId: 'ugv.get-state', version: 1 }]),
+      result: false,
+    });
+
+    await expect(
+      new UgvProfileGoalEvaluator(point, fallback).evaluate({
+        taskId: TASK_ID,
+        goal: activeGoal(),
+        instance,
+      }),
+    ).resolves.toEqual({ decision: 'unachievable', summary: 'fallback' });
+    expect(fallback.evaluate).toHaveBeenCalledOnce();
+    expect(point.evaluate).not.toHaveBeenCalled();
+  });
+
   it('keeps a succeeded physical non-point UGV Skill on the shared evaluator', async () => {
     const point = {
       evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),

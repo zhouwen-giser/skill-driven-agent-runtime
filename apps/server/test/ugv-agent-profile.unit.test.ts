@@ -304,18 +304,27 @@ describe('UGV Agent Profile composition', () => {
     ).toThrow('UGV_AGENT_PROFILE_OUTCOME_AUTHORITY_INVALID');
   });
 
-  it('preserves the exact Provider result for a governed read-only Skill', () => {
+  it('preserves the exact Provider result for a governed read-only Skill', async () => {
     const result = Object.freeze({
       resourceId: 'vehicle:ugv1',
       deviceReported: Object.freeze({ entity_id: 'ugv', additiveField: 'preserved' }),
       observedAt: '2026-09-05T05:00:00.000Z',
     });
-    const skill = {
+    const skill: SkillVersion = {
+      ...(await exactSkill()),
       skillId: 'ugv.get-capabilities',
-      version: 1,
-      status: 'enabled',
       outputSchema: { type: 'object' },
-    } as SkillVersion;
+      toolPolicy: {
+        required: [
+          {
+            serverId: 'ugv-smpp-real-integration-r2',
+            toolName: 'vehicle_get_capabilities',
+          },
+        ],
+        optional: [],
+        forbidden: [],
+      },
+    };
     const processor = {
       process: (candidate: Readonly<{ text: string; structured: unknown }>) => ({
         text: candidate.text,
@@ -326,10 +335,48 @@ describe('UGV Agent Profile composition', () => {
     expect(
       prepareUgvAgentProfileReadOnlyResult({
         taskId: 'task-read-capabilities',
+        contextId: 'context-read-capabilities',
+        selectedPlanId: 'plan-read-capabilities',
         selectedSkillId: skill.skillId,
         selectedSkillVersion: skill.version,
         skill,
         processor,
+        latestCapabilityAttempt: {
+          attemptId: 'attempt-read-capabilities',
+          taskId: 'task-read-capabilities',
+          capabilityBindingId: 'binding-read-capabilities',
+          attemptNo: 1,
+          planId: 'plan-read-capabilities',
+          skillVersionRefs: ['skill:ugv.get-capabilities:1'],
+          providerBindingRefs: ['ugv-smpp-real-integration-r2-binding'],
+          reason: 'initial',
+          status: 'running',
+        },
+        invocations: [
+          {
+            invocationId: 'invocation-read-capabilities',
+            taskId: 'task-read-capabilities',
+            contextId: 'context-read-capabilities',
+            capabilityAttemptId: 'attempt-read-capabilities',
+            executionMode: 'live',
+            serverId: 'ugv-smpp-real-integration-r2',
+            toolName: 'vehicle_get_capabilities',
+            executionSemantics: {
+              effect: 'read_only',
+              execution: 'synchronous',
+              cancellation: 'unsupported',
+              idempotency: 'none',
+              replay: 'allowed',
+              source: 'mcp_declared',
+            },
+            arguments: { resourceId: 'vehicle:ugv1' },
+            result: { isError: false, structuredContent: result },
+            status: 'succeeded',
+            startedAt: '2026-09-05T04:59:59.000Z',
+            completedAt: '2026-09-05T05:00:00.000Z',
+            durationMs: 1_000,
+          },
+        ],
         instance: {
           instanceId: 'instance-read-capabilities',
           planId: 'plan-read-capabilities',
@@ -348,7 +395,7 @@ describe('UGV Agent Profile composition', () => {
           budgetUsage: { replanCount: 0, durationMs: 1, llmCalls: 0, mcpCalls: 1, cost: 0 },
           status: 'succeeded',
           input: { resourceId: 'vehicle:ugv1' },
-          result,
+          result: false,
           errors: {},
           startedAt: '2026-09-05T04:59:59.000Z',
           completedAt: '2026-09-05T05:00:00.000Z',

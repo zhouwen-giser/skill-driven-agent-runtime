@@ -99,6 +99,10 @@ function mergedEvidence(
     if (isRecord(output) && isRecord(output['evidence'])) Object.assign(merged, output['evidence']);
     if (isRecord(output) && Array.isArray(output['evidence']))
       projectEvidenceItems(merged, output['evidence']);
+    const envelopeData = isRecord(output) && isRecord(output['data']) ? output['data'] : undefined;
+    if (isRecord(envelopeData?.['evidence'])) Object.assign(merged, envelopeData['evidence']);
+    if (Array.isArray(envelopeData?.['evidence']))
+      projectEvidenceItems(merged, envelopeData['evidence']);
     const structured = structuredContent(output);
     if (isRecord(structured?.['evidence'])) Object.assign(merged, structured['evidence']);
     const metadata = resultMetadata(output);

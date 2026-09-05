@@ -87,6 +87,12 @@ describe('restricted Workflow expression interpreter', () => {
       outputs: {
         move: {
           data: {
+            evidence: [
+              {
+                evidenceId: 'observation-1',
+                evidenceType: 'vehicle.state.observation',
+              },
+            ],
             structuredContent: {
               evidence: { 'final-position': true },
             },
@@ -105,6 +111,18 @@ describe('restricted Workflow expression interpreter', () => {
     ).toBe(true);
     expect(
       evaluateWorkflowExpression({ op: 'ref', path: ['evidence', 'requested'] }, usageContext),
+    ).toBe(true);
+    expect(
+      evaluateWorkflowExpression(
+        { op: 'exists', path: ['evidence', 'vehicle.state.observation'] },
+        usageContext,
+      ),
+    ).toBe(true);
+    expect(
+      evaluateWorkflowExpression(
+        { op: 'ref', path: ['evidence', 'observation-1'] },
+        usageContext,
+      ),
     ).toBe(true);
   });
 });

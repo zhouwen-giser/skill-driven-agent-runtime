@@ -300,7 +300,7 @@ export class UgvProfileGoalEvaluator implements GoalEvaluator {
     if (
       readCapability !== undefined &&
       input.instance.status === 'succeeded' &&
-      input.instance.result !== undefined &&
+      record(input.instance.result) !== undefined &&
       Object.keys(input.instance.errors).length === 0 &&
       input.instance.completedAt !== undefined &&
       Number.isFinite(Date.parse(input.instance.completedAt))

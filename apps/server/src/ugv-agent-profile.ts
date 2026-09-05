@@ -5,10 +5,12 @@ import type {
 } from '../../../packages/application/src/index.js';
 import {
   normalizeResultEnvelope,
+  type McpInvocation,
   type MissingDimensionKind,
   type ProcessedResultRecord,
   type RuntimeTaskCapabilityTerminalProof,
   type SkillVersion,
+  type TaskCapabilityExecutionAttempt,
   type WorkflowInstance,
 } from '../../../packages/domain/src/index.js';
 
@@ -324,9 +326,13 @@ export function verifiedUgvAgentProfileOutcomeRefs(
 export function prepareUgvAgentProfileReadOnlyResult(
   input: Readonly<{
     taskId: string;
+    contextId: string;
+    selectedPlanId: string | undefined;
     selectedSkillId: string | undefined;
     selectedSkillVersion: number | undefined;
     instance: WorkflowInstance;
+    invocations: readonly McpInvocation[];
+    latestCapabilityAttempt: TaskCapabilityExecutionAttempt | undefined;
     skill: SkillVersion;
     processor: Pick<ResultProcessor, 'process'>;
   }>,
@@ -335,17 +341,45 @@ export function prepareUgvAgentProfileReadOnlyResult(
   if (declaration?.kind !== 'read_only') return undefined;
   const workflowSkill = input.instance.skillVersions[0];
   const completedAt = input.instance.completedAt;
+  const requiredTool = input.skill.toolPolicy.required[0];
+  const attempt = input.latestCapabilityAttempt;
+  const attemptInvocations = input.invocations.filter(
+    ({ capabilityAttemptId }) => capabilityAttemptId === attempt?.attemptId,
+  );
+  const invocation = attemptInvocations[0];
+  const invocationResult = isRecord(invocation?.result) ? invocation.result : undefined;
+  const structuredResult = invocationResult?.['structuredContent'];
   if (
     input.taskId.trim() === '' ||
+    input.contextId.trim() === '' ||
+    input.selectedPlanId !== input.instance.planId ||
     input.selectedSkillId !== input.skill.skillId ||
     input.selectedSkillVersion !== input.skill.version ||
     input.instance.status !== 'succeeded' ||
-    input.instance.result === undefined ||
     Object.keys(input.instance.errors).length !== 0 ||
     input.instance.skillVersions.length !== 1 ||
     workflowSkill?.skillId !== input.skill.skillId ||
     workflowSkill.version !== input.skill.version ||
     input.skill.status !== 'enabled' ||
+    attempt?.taskId !== input.taskId ||
+    attempt.planId !== input.instance.planId ||
+    !['prepared', 'running', 'waiting'].includes(attempt.status) ||
+    input.skill.toolPolicy.required.length !== 1 ||
+    requiredTool?.toolName !== declaration.toolName ||
+    attemptInvocations.length !== 1 ||
+    invocation?.taskId !== input.taskId ||
+    invocation.contextId !== input.contextId ||
+    invocation.serverId !== requiredTool.serverId ||
+    invocation.toolName !== requiredTool.toolName ||
+    invocation.status !== 'succeeded' ||
+    invocation.executionSemantics.effect !== 'read_only' ||
+    invocation.executionSemantics.execution !== 'synchronous' ||
+    invocation.controlConfirmationId !== undefined ||
+    invocation.controlProviderBindingId !== undefined ||
+    invocation.controlArgumentsHash !== undefined ||
+    invocation.controlDispatchHash !== undefined ||
+    invocationResult?.['isError'] !== false ||
+    !isRecord(structuredResult) ||
     completedAt === undefined ||
     !Number.isFinite(Date.parse(completedAt))
   )
@@ -356,10 +390,10 @@ export function prepareUgvAgentProfileReadOnlyResult(
     taskId: input.taskId,
     skillId: input.skill.skillId,
     skillVersion: input.skill.version,
-    normalized: normalizeResultEnvelope(input.instance.result),
+    normalized: normalizeResultEnvelope(structuredResult),
     output: input.processor.process({
       text: summary,
-      structured: input.instance.result,
+      structured: structuredResult,
       outputSchema: input.skill.outputSchema,
     }),
     facts: Object.freeze([]),
@@ -368,6 +402,10 @@ export function prepareUgvAgentProfileReadOnlyResult(
     memoryCandidates: Object.freeze([]),
     createdAt: completedAt,
   });
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function assertUgvAgentProfileSkillDeclaration(skill: SkillVersion): void {
