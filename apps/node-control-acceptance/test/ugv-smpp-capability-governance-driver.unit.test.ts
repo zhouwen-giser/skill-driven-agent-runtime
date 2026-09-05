@@ -115,7 +115,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
     expect(readSkill?.['inputSchema']).toEqual(api.tool('vehicle_get_state')?.inputSchema);
     expect(readSkill?.['outputSchema']).toEqual(api.tool('vehicle_get_state')?.outputSchema);
     expect(readSkill?.['runtimePolicy']).toEqual(
-      expect.objectContaining({ autoConfirmPlan: false, maxLlmCalls: 0, maxMcpCalls: 1 }),
+      expect.objectContaining({ autoConfirmPlan: true, maxLlmCalls: 0, maxMcpCalls: 1 }),
     );
     expect(readSkill?.['toolPolicy']).toEqual(
       expect.objectContaining({
@@ -124,7 +124,18 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       }),
     );
     expect(api.capability('vehicle.ugv.read-state')).toEqual(
-      expect.objectContaining({ riskLevel: 'low', inputSchema: readSkill?.['inputSchema'] }),
+      expect.objectContaining({
+        riskLevel: 'low',
+        inputSchema: readSkill?.['inputSchema'],
+        constraints: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'confirmation_policy',
+            required: false,
+            stage: 'not_applicable',
+            autoConfirmPlan: true,
+          }),
+        ]),
+      }),
     );
 
     const capabilitiesSkill = api.runtimeSkill('ugv.get-capabilities');
@@ -178,6 +189,19 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       {
         type: 'required_evidence',
         evidenceType: 'vehicle.payload.status',
+        required: true,
+        hardGate: true,
+      },
+    ]);
+
+    const targetsSkill = api.runtimeSkill('ugv.get-targets');
+    expect(targetsSkill?.['outcomeSpecification']).toEqual(
+      expect.objectContaining({ evidence: ['vehicle.target.observation'] }),
+    );
+    expect(api.capability('vehicle.ugv.read-targets')?.['requiredEvidence']).toEqual([
+      {
+        type: 'required_evidence',
+        evidenceType: 'vehicle.target.observation',
         required: true,
         hardGate: true,
       },

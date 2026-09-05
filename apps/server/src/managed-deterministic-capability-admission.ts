@@ -155,7 +155,7 @@ export function admitManagedDeterministicReadOnlyCapability(
     skillPolicy['taskType'] !== request.toolName ||
     confirmationPolicy['required'] !== false ||
     confirmationPolicy['stage'] !== 'not_applicable' ||
-    confirmationPolicy['autoConfirmPlan'] !== false ||
+    confirmationPolicy['autoConfirmPlan'] !== true ||
     sideEffectPolicy['sideEffecting'] !== false
   )
     fail(
@@ -421,7 +421,7 @@ function assertSkillContract(
     requiredTool?.serverId !== request.serverId ||
     requiredTool.toolName !== request.toolName ||
     skill.toolPolicy.optional.length !== 0 ||
-    skill.runtimePolicy.autoConfirmPlan ||
+    !skill.runtimePolicy.autoConfirmPlan ||
     skill.runtimePolicy.maxReplans !== 0 ||
     skill.runtimePolicy.maxLlmCalls !== 0 ||
     skill.runtimePolicy.maxMcpCalls !== 1 ||

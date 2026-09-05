@@ -573,7 +573,7 @@ function capability(catalog: ReturnType<typeof deriveFrozenMcpCatalogAuthority>)
         type: 'confirmation_policy',
         required: false,
         stage: 'not_applicable',
-        autoConfirmPlan: false,
+        autoConfirmPlan: true,
       },
       { type: 'side_effect_policy', sideEffecting: false },
     ],
@@ -641,7 +641,7 @@ function skill(catalog: ReturnType<typeof deriveFrozenMcpCatalogAuthority>) {
       forbidden: [{ serverId: SERVER_ID, toolName: 'vehicle_fire_weapon' }],
     },
     runtimePolicy: {
-      autoConfirmPlan: false,
+      autoConfirmPlan: true,
       maxReplans: 0,
       maxDurationSeconds: 30,
       maxLlmCalls: 0,

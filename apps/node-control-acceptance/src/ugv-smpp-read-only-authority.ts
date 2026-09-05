@@ -66,7 +66,7 @@ const UGV_READ_ONLY_OPERATION_CONTRACTS: Readonly<
     capabilityId: 'vehicle.ugv.read-targets',
     skillId: 'ugv.get-targets',
     taskTypeId: 'task-type.vehicle.read-targets',
-    evidenceType: 'vehicle.targets.observation',
+    evidenceType: 'vehicle.target.observation',
     requestText: '查询无人车当前侦察目标',
   }),
   vehicle_laser_range: Object.freeze({
@@ -860,7 +860,7 @@ function assertCapability(
     exactSkill['skillVersion'] !== target.skillVersion ||
     exactSkill['taskType'] !== target.toolName ||
     confirmation['required'] !== false ||
-    confirmation['autoConfirmPlan'] !== false ||
+    confirmation['autoConfirmPlan'] !== true ||
     sideEffect['sideEffecting'] !== false
   )
     fail(
@@ -919,7 +919,7 @@ function assertSkill(
     requiredTool?.serverId !== target.localServerId ||
     requiredTool.toolName !== target.toolName ||
     skill.toolPolicy.optional.length !== 0 ||
-    skill.runtimePolicy.autoConfirmPlan ||
+    !skill.runtimePolicy.autoConfirmPlan ||
     skill.runtimePolicy.maxLlmCalls !== 0 ||
     skill.runtimePolicy.maxMcpCalls !== 1 ||
     skill.runtimePolicy.maxReplans !== 0 ||

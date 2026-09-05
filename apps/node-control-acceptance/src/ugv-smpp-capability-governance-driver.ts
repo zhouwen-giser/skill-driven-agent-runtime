@@ -66,7 +66,7 @@ const GOVERNANCE_SPECS = Object.freeze([
     name: 'Read UGV targets',
     summary: 'Read normalized locally observed targets for one exact UGV resource.',
     kind: 'read_only' as const,
-    evidence: Object.freeze(['vehicle.targets.observation']),
+    evidence: Object.freeze(['vehicle.target.observation']),
   }),
   Object.freeze({
     toolName: 'vehicle_navigate',
@@ -1621,7 +1621,7 @@ function buildSkillContract(
       ),
     }),
     runtimePolicy: Object.freeze({
-      autoConfirmPlan: false,
+      autoConfirmPlan: readOnly,
       maxReplans: 0,
       maxDurationSeconds: readOnly ? 60 : spec.kind === 'emergency_stop' ? 300 : 1800,
       maxLlmCalls: 0,
@@ -1839,7 +1839,7 @@ function buildCapability(
                     ? 'emergency_stop'
                     : 'physical_control',
             }),
-        autoConfirmPlan: false,
+        autoConfirmPlan: readOnly,
       }),
       ...(readOnly
         ? [Object.freeze({ type: 'side_effect_policy', sideEffecting: false })]

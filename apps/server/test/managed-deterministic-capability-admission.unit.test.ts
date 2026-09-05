@@ -105,6 +105,36 @@ describe('managed deterministic capability admission', () => {
     );
   });
 
+  it('requires both read-only Capability and Skill authority to opt into Plan auto-confirmation', () => {
+    const fixture = exactFixture();
+    const manualCapability = withDefinition(fixture.capability, (definition) => ({
+      ...definition,
+      constraints: replaceConstraint(definition['constraints'], 'confirmation_policy', {
+        type: 'confirmation_policy',
+        required: false,
+        stage: 'not_applicable',
+        autoConfirmPlan: false,
+      }),
+    }));
+
+    expect(() =>
+      admitManagedDeterministicReadOnlyCapability({
+        ...fixture,
+        capability: manualCapability,
+      }),
+    ).toThrow(expect.objectContaining({ code: 'DETERMINISTIC_CAPABILITY_POLICY_NOT_READ_ONLY' }));
+
+    expect(() =>
+      admitManagedDeterministicReadOnlyCapability({
+        ...fixture,
+        skill: {
+          ...fixture.skill,
+          runtimePolicy: { ...fixture.skill.runtimePolicy, autoConfirmPlan: false },
+        },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'DETERMINISTIC_READ_ONLY_SKILL_POLICY_INVALID' }));
+  });
+
   it('rejects resource, current Binding, evidence, and implementation drift', () => {
     const fixture = exactFixture();
     const cases: readonly Readonly<{
@@ -320,7 +350,7 @@ function exactFixture() {
       forbidden: [{ serverId: request.serverId, toolName: 'vehicle_fire_weapon' }],
     },
     runtimePolicy: {
-      autoConfirmPlan: false,
+      autoConfirmPlan: true,
       maxReplans: 0,
       maxDurationSeconds: 60,
       maxLlmCalls: 0,
@@ -472,7 +502,7 @@ function exactFixture() {
           type: 'confirmation_policy',
           required: false,
           stage: 'not_applicable',
-          autoConfirmPlan: false,
+          autoConfirmPlan: true,
         },
         { type: 'side_effect_policy', sideEffecting: false },
       ],
