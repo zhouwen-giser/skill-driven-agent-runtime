@@ -509,6 +509,7 @@ import { UgvMoveWorkflowAuthority } from './ugv-move-workflow-authority.js';
 import { projectUgvMoveWorkflowEvidence } from './ugv-move-workflow-evidence.js';
 import {
   UgvMoveDeterministicGoalEvaluator,
+  UgvProfileGoalEvaluator,
   UgvMoveTerminalOutcomeAuthority,
 } from './ugv-move-terminal-outcome.js';
 import {
@@ -4666,7 +4667,10 @@ export async function startServerRuntime(
     evaluator:
       ugvMoveTerminalOutcomeAuthority === undefined
         ? new StructuredGoalEvaluator(modelRuntime, memories)
-        : new UgvMoveDeterministicGoalEvaluator(ugvMoveTerminalOutcomeAuthority),
+        : new UgvProfileGoalEvaluator(
+            new UgvMoveDeterministicGoalEvaluator(ugvMoveTerminalOutcomeAuthority),
+            new StructuredGoalEvaluator(modelRuntime, memories),
+          ),
     recovery: userGoalRecovery,
     resolveExecutionContext: (taskId) => taskCapabilities.resolveRuntimeExecutionContext(taskId),
     experiences: evolutionExperiences,

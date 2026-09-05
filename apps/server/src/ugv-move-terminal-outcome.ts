@@ -271,6 +271,29 @@ export class UgvMoveDeterministicGoalEvaluator implements GoalEvaluator {
   }
 }
 
+/**
+ * Routes only the frozen point-navigation Skill through its deterministic physical terminal
+ * authority. Every other UGV Profile Skill keeps the shared Goal evaluator; otherwise a
+ * successful read-only Workflow would be incorrectly required to prove movement evidence.
+ */
+export class UgvProfileGoalEvaluator implements GoalEvaluator {
+  readonly #move: GoalEvaluator;
+  readonly #fallback: GoalEvaluator;
+
+  constructor(move: GoalEvaluator, fallback: GoalEvaluator) {
+    this.#move = move;
+    this.#fallback = fallback;
+  }
+
+  evaluate(input: Parameters<GoalEvaluator['evaluate']>[0]): Promise<GoalEvaluationResult> {
+    return input.instance.skillVersions.some(
+      ({ skillId, version }) => skillId === SKILL_ID && version === SKILL_VERSION,
+    )
+      ? this.#move.evaluate(input)
+      : this.#fallback.evaluate(input);
+  }
+}
+
 function failedWorkflowSummary(instance: WorkflowInstance): string {
   const failures = Object.entries(instance.errors);
   const failure = failures[0];

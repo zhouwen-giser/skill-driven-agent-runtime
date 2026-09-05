@@ -18,6 +18,7 @@ import {
 import { AjvJsonSchemaValidator } from '../../../packages/json-schema-adapter/src/index.js';
 import {
   UgvMoveDeterministicGoalEvaluator,
+  UgvProfileGoalEvaluator,
   UgvMoveTerminalOutcomeAuthority,
   type UgvMoveTerminalOutcomeDependencies,
 } from '../src/ugv-move-terminal-outcome.js';
@@ -292,6 +293,50 @@ describe('UGV deterministic Goal evaluator', () => {
       }),
     ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_TERMINAL_GUARD_FAILED' });
     expect(prepare).not.toHaveBeenCalled();
+  });
+});
+
+describe('UGV Profile Goal evaluator routing', () => {
+  it('keeps point navigation on the deterministic physical terminal authority', async () => {
+    const point = {
+      evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),
+    };
+    const fallback = {
+      evaluate: vi.fn(() =>
+        Promise.resolve({ decision: 'achieved' as const, summary: 'fallback' }),
+      ),
+    };
+    const input = { taskId: TASK_ID, goal: activeGoal(), instance: workflowInstance() };
+
+    await expect(new UgvProfileGoalEvaluator(point, fallback).evaluate(input)).resolves.toEqual({
+      decision: 'achieved',
+      summary: 'point',
+    });
+    expect(point.evaluate).toHaveBeenCalledOnce();
+    expect(fallback.evaluate).not.toHaveBeenCalled();
+  });
+
+  it('uses the shared evaluator for a governed non-point UGV Skill', async () => {
+    const point = {
+      evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),
+    };
+    const fallback = {
+      evaluate: vi.fn(() =>
+        Promise.resolve({ decision: 'achieved' as const, summary: 'fallback' }),
+      ),
+    };
+    const instance = Object.freeze({
+      ...workflowInstance(),
+      skillVersions: Object.freeze([{ skillId: 'ugv.get-state', version: 1 }]),
+    });
+    const input = { taskId: TASK_ID, goal: activeGoal(), instance };
+
+    await expect(new UgvProfileGoalEvaluator(point, fallback).evaluate(input)).resolves.toEqual({
+      decision: 'achieved',
+      summary: 'fallback',
+    });
+    expect(fallback.evaluate).toHaveBeenCalledOnce();
+    expect(point.evaluate).not.toHaveBeenCalled();
   });
 });
 
