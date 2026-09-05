@@ -316,7 +316,7 @@ describe('UGV Profile Goal evaluator routing', () => {
     expect(fallback.evaluate).not.toHaveBeenCalled();
   });
 
-  it('uses the shared evaluator for a governed non-point UGV Skill', async () => {
+  it('uses deterministic achievement for a governed read-only UGV Skill', async () => {
     const point = {
       evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),
     };
@@ -333,8 +333,34 @@ describe('UGV Profile Goal evaluator routing', () => {
 
     await expect(new UgvProfileGoalEvaluator(point, fallback).evaluate(input)).resolves.toEqual({
       decision: 'achieved',
-      summary: 'fallback',
+      summary:
+        'UGV read-only Capability vehicle.ugv.read-state completed with exact Workflow and Provider evidence.',
     });
+    expect(fallback.evaluate).not.toHaveBeenCalled();
+    expect(point.evaluate).not.toHaveBeenCalled();
+  });
+
+  it('keeps a succeeded physical non-point UGV Skill on the shared evaluator', async () => {
+    const point = {
+      evaluate: vi.fn(() => Promise.resolve({ decision: 'achieved' as const, summary: 'point' })),
+    };
+    const fallback = {
+      evaluate: vi.fn(() =>
+        Promise.resolve({ decision: 'achieved' as const, summary: 'fallback' }),
+      ),
+    };
+    const instance = Object.freeze({
+      ...workflowInstance(),
+      skillVersions: Object.freeze([{ skillId: 'ugv.area-recon', version: 1 }]),
+    });
+
+    await expect(
+      new UgvProfileGoalEvaluator(point, fallback).evaluate({
+        taskId: TASK_ID,
+        goal: activeGoal(),
+        instance,
+      }),
+    ).resolves.toEqual({ decision: 'achieved', summary: 'fallback' });
     expect(fallback.evaluate).toHaveBeenCalledOnce();
     expect(point.evaluate).not.toHaveBeenCalled();
   });

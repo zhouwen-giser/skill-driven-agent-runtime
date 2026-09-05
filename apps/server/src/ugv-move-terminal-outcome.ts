@@ -296,14 +296,27 @@ export class UgvProfileGoalEvaluator implements GoalEvaluator {
       )
     )
       return this.#move.evaluate(input);
+    const readCapability = exactGovernedUgvReadCapability(input);
+    if (
+      readCapability !== undefined &&
+      input.instance.status === 'succeeded' &&
+      input.instance.result !== undefined &&
+      Object.keys(input.instance.errors).length === 0 &&
+      input.instance.completedAt !== undefined &&
+      Number.isFinite(Date.parse(input.instance.completedAt))
+    )
+      return Promise.resolve(
+        Object.freeze({
+          decision: 'achieved' as const,
+          summary: `UGV read-only Capability ${readCapability.capabilityId} completed with exact Workflow and Provider evidence.`,
+        }),
+      );
     const failure = exhaustedGovernedUgvFailure(input);
     return failure === undefined ? this.#fallback.evaluate(input) : Promise.resolve(failure);
   }
 }
 
-function exhaustedGovernedUgvFailure(
-  input: Parameters<GoalEvaluator['evaluate']>[0],
-): GoalEvaluationResult | undefined {
+function exactGovernedUgvReadCapability(input: Parameters<GoalEvaluator['evaluate']>[0]) {
   const taskId = input.taskId?.trim();
   const [selected] = input.instance.skillVersions;
   if (
@@ -312,11 +325,22 @@ function exhaustedGovernedUgvFailure(
     input.goal.status !== 'active' ||
     input.goal.goalId !== input.instance.goalId ||
     input.goal.version !== input.instance.goalVersion ||
-    input.instance.status !== 'failed' ||
     input.instance.skillVersions.length !== 1 ||
     selected === undefined ||
-    ugvCapabilityForSkill(selected.skillId)?.kind !== 'read_only' ||
-    isHistoricalUgvPointSkill(selected.skillId, selected.version) ||
+    isHistoricalUgvPointSkill(selected.skillId, selected.version)
+  )
+    return undefined;
+  const declaration = ugvCapabilityForSkill(selected.skillId);
+  return declaration?.kind === 'read_only' ? declaration : undefined;
+}
+
+function exhaustedGovernedUgvFailure(
+  input: Parameters<GoalEvaluator['evaluate']>[0],
+): GoalEvaluationResult | undefined {
+  const readCapability = exactGovernedUgvReadCapability(input);
+  if (
+    readCapability === undefined ||
+    input.instance.status !== 'failed' ||
     input.instance.budgetUsage.replanCount < input.instance.budgetLimits.maxReplans
   )
     return undefined;
