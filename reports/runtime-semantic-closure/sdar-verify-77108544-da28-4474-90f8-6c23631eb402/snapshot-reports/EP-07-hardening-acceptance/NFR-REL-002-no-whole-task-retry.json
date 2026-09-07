@@ -1,0 +1,26 @@
+{
+  "requirement": "NFR-REL-002",
+  "status": "verified",
+  "acceptance": {
+    "taskFaultNoWholeTaskRetry": true,
+    "workerFaultAttemptsOne": true,
+    "modelFailureExactlyOneInvocationNoFallback": true,
+    "noPolicyDrivenDuplicateSideEffect": true
+  },
+  "currentRegression": {
+    "files": 2,
+    "testsPassed": 11,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 242
+  },
+  "historicalReal": [
+    "postgres_startup_failure_transaction",
+    "redis_bullmq_attempts_one_and_retained_job_options",
+    "mcp_checkpoint_loss_no_replay_e2e",
+    "model_503_exactly_one_failed_invocation_no_fallback_e2e"
+  ],
+  "unverified": [
+    "latest thrown-Worker Redis repetition",
+    "operating-system kill during a live external MCP socket"
+  ]
+}

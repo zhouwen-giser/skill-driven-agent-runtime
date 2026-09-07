@@ -13,3 +13,7 @@
 - Security/quality findings: requires Node >=20; beta status and protocol patch-level mismatch require explicit compatibility evidence. No authentication is added because V1 is trusted-intranet only.
 - License obligations: retain Apache-2.0 license and NOTICE if present; record dependency in SBOM and third-party notices.
 - Decision and ADR: accepted conditionally by ADR-002; production use remains gated by EP-00 A2A contract Spike.
+
+## Runtime development observer (2026-09-07)
+
+Reuse is limited to the pinned SDK's public `DefaultRequestHandler`, `RequestHandler`, `ServerCallContext`, `Task`, `StreamResponse`, `TaskArtifactUpdateEvent` and `TaskStatusUpdateEvent` interfaces. The adapter overrides send/stream/resubscribe observation using the application's pure projection reader. SDK admission, HTTP transport and protocol states remain authoritative. No SDK sources were copied or modified and no dependency was added. Regression paths: `packages/a2a-adapter/test/observed-request-handler.unit.test.ts` and `packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts`. ADR-152 records the domain/adapter boundary.

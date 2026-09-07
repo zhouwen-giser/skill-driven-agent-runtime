@@ -1,0 +1,132 @@
+{
+  "scope": "targeted-post-bootstrap-diagnostics-not-full-gate",
+  "runId": "sdar-verify-96bacfad-aa5e-4057-ba8f-575752df1eb8",
+  "cwd": "/tmp/sdar-verify-96bacfad-aa5e-4057-ba8f-575752df1eb8-diagnostic/source",
+  "changed": [
+    "scripts/lib/verification-cleanup.mjs",
+    "scripts/lib/infrastructure.mjs",
+    "scripts/test-integration.mjs",
+    "scripts/test-e2e.mjs",
+    "scripts/smoke-node-control.mjs",
+    "scripts/verify-migration-path.mjs",
+    "scripts/verify-isolated.mjs",
+    "scripts/test-verification-isolation.mjs",
+    "scripts/test-verification-runner.mjs",
+    "packages/persistence-postgres/test/governed-control-authority.integration.test.ts"
+  ],
+  "results": [
+    {
+      "name": "governed-control-regression",
+      "args": [
+        "test:integration",
+        "packages/persistence-postgres/test/governed-control-authority.integration.test.ts"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 32397,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 32,
+        "peakRssBytes": 772558848,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "postgres-redis-model-mcp-e2e",
+      "args": [
+        "test:e2e"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 127597,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 128,
+        "peakRssBytes": 943112192,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "official-a2a-tck",
+      "args": [
+        "test:a2a-tck"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 107381,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 108,
+        "peakRssBytes": 1466654720,
+        "peakProcesses": 7
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "canonical-evidence-demo",
+      "args": [
+        "demo:evidence-e2e"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 44521,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 45,
+        "peakRssBytes": 949792768,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "infrastructure-smoke",
+      "args": [
+        "smoke:infra"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 14742,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 15,
+        "peakRssBytes": 398188544,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "server-console-smoke",
+      "args": [
+        "smoke:server"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 70546,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 71,
+        "peakRssBytes": 1589628928,
+        "peakProcesses": 8
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "node-control-api-worker-smoke",
+      "args": [
+        "smoke:node-control"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 71048,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 71,
+        "peakRssBytes": 1777610752,
+        "peakProcesses": 11
+      },
+      "cleanupErrors": []
+    }
+  ]
+}

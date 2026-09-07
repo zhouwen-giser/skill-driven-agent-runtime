@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:08:24.425Z",
+  "recordedAt": "2026-08-21T09:08:24.425Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command results included durations but not wall-clock execution timestamps; the evidence recording time is not substituted.",
+  "status": "PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "deterministic_unit_approved_host",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": "pnpm test:unit",
+  "executionContext": "approved host replay of the identical sandbox-blocked command",
+  "exitCode": 0,
+  "result": {
+    "testFilesPassed": 244,
+    "testsPassed": 1913,
+    "durationSeconds": 65.28
+  },
+  "nestedPerformanceSuite": {
+    "exitCode": 0,
+    "testFilesPassed": 1,
+    "testsPassed": 22,
+    "durationSeconds": 3.97,
+    "commandMissingReason": "The supplied result identified the nested performance phase but did not provide its internal argv."
+  },
+  "corroboratesAttempt": "attempts/uap-p2-b03-unit-sandbox-attempt-1-final-gate.json",
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

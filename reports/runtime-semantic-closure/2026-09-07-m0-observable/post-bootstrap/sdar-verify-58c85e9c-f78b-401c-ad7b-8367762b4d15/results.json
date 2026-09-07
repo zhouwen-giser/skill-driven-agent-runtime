@@ -1,0 +1,68 @@
+{
+  "scope": "targeted-post-bootstrap-diagnostics-not-full-gate",
+  "runId": "sdar-verify-58c85e9c-f78b-401c-ad7b-8367762b4d15",
+  "cwd": "/tmp/sdar-verify-96bacfad-aa5e-4057-ba8f-575752df1eb8-diagnostic/source",
+  "changed": [
+    "scripts/lib/verification-cleanup.mjs",
+    "scripts/lib/infrastructure.mjs",
+    "scripts/test-integration.mjs",
+    "scripts/test-e2e.mjs",
+    "scripts/smoke-node-control.mjs",
+    "scripts/verify-migration-path.mjs",
+    "scripts/verify-isolated.mjs",
+    "scripts/test-verification-isolation.mjs",
+    "scripts/test-verification-runner.mjs",
+    "packages/persistence-postgres/test/governed-control-authority.integration.test.ts",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+  ],
+  "results": [
+    {
+      "name": "postgres-redis-model-mcp-e2e",
+      "args": [
+        "test:e2e"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 80141,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 81,
+        "peakRssBytes": 868106240,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "canonical-evidence-demo",
+      "args": [
+        "demo:evidence-e2e"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 38895,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 39,
+        "peakRssBytes": 953536512,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "node-control-api-worker-smoke",
+      "args": [
+        "smoke:node-control"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 62642,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 63,
+        "peakRssBytes": 1797877760,
+        "peakProcesses": 11
+      },
+      "cleanupErrors": []
+    }
+  ]
+}

@@ -1,5 +1,62 @@
 # 需求追踪矩阵
 
+## 当前开发批次 A/B/C（2026-09-07，开发范围完成）
+
+本节优先于下面历史审计表。ADR-150/151/152 已接受本轮开发范围；批次回归不代表发布验收。具体命令、完整运行 UUID 和清理见现有 ExecPlan 的最新记录及 `reports/runtime-semantic-closure/2026-09-07-m0-observable/post-bootstrap/`。
+
+| 需求/发现                                                | 实现边界                                                                                                                   | 本轮行为证据                                                                                                 | 判定                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| F01/F03/F08/F09；FR-WF-002…006/009                       | domain/workflow-control-flow、workflow-regions；langgraph-runtime/workflow-compiler、workflow-scope-state                  | Compiler 62；组合区域、3×2、30/100、冲突/终态、规范失败策略                                                  | 已实现，本轮完整门禁通过                 |
+| F02/F13/X01；FR-EXE-002/004…008、FR-A2A-004              | application/workflow-execution、model-runtime；0179/0180；server/remote-task-workflow-hierarchy                            | remote-task-composition PG 3、continuation PG 3、模型 HTTP contract 5；子等待→确认→恢复、一次调用/预算、取消 | 已实现，本轮完整门禁通过                 |
+| F04/F12/X02；FR-SKL-002/003/012…015、FR-GOAL-007/008     | skill-selection、skill-schema-contract、temporary-skill；0181；Runtime 装配                                                | 默认选择第二项 E2E；临时全终态/回滚/受引用 down；bb265 三次实际 Task 幂等经验                                | 已实现，本轮完整门禁通过                 |
+| F05；FR-A2A-003…005/010、FR-EXE-003                      | application/task-projection；a2a-adapter/observed-request-handler、postgres-task-store                                     | SDK observer 3、官方流 E2E、d04f 软件业务 Artifact 先于终态                                                  | 已实现，本轮完整门禁通过                 |
+| F10/F11/X03；FR-A2A-001/004、FR-GOAL-006、FR-LLM-004/005 | online-task-type-index、configured-task-type-import、generic-capability-admission、capability-bound-skill-input；0182/0183 | runtime-admission PG 3；配置 API contract；d04f 两类业务含纯文本补参、精确版本与输入                         | 已实现，本轮完整门禁通过；模拟证据       |
+| F06/F07；FR-EVO-004…008                                  | RuntimeDeferredSkillEvolutionService、自动候选保留                                                                         | bb265 E2E：两入口 409、零候选工具/版本写入，已完成 Task 保持成功                                             | 完整演化延期；本轮保护已验证             |
+| X04；X05 发布部分、18 AC                                 | 既有管理 API/Console 兼容；acceptance-map 结构检查                                                                         | 开发范围只用 API；本次 30 阶段门禁通过，发布证明仍延期                                                       | 延期项开放；本轮不得引用历史 passed 关闭 |
+
+本次统一证据：[sdar-verify-b487014e-48c4-4de1-b2ce-1f3fae59de99](../reports/runtime-semantic-closure/sdar-verify-b487014e-48c4-4de1-b2ce-1f3fae59de99/snapshot-reports/verification/summary.md)，30 阶段通过；[run/cleanup](../reports/runtime-semantic-closure/sdar-verify-b487014e-48c4-4de1-b2ce-1f3fae59de99/run.json) 均退出 0。unit 2477、contract 534、integration 242、E2E 75；三类业务仅为本地 Model/MCP 模拟。[交付记录](../reports/runtime-semantic-closure/DEVELOPMENT-CLOSURE-2026-09-07.md) 列明官方 TCK 选择范围及延期项。本节为状态/证据更新，不修改需求条文。
+
+## Historical worktree audit remediation（早期记录，由顶部本次证据取代）
+
+本增量限定当前工作树的验收判断：下列受影响能力不能仅凭历史“已验证”行视为当前已通过。
+原历史需求行和报告保留，不重写基线；修复与当前源码证据齐全后逐项关闭。
+计划：`execplans/EP-RUNTIME-SEMANTIC-CLOSURE.md`；审计：`reports/code-audit-2026-09-07/README.md`；
+ADR-150 已接受；151/152 仍 Proposed。下表里程碑仍未关闭，首批真实实现证据列在表后。
+
+| 审计项          | 需求 / 既有增量                                                    | 阶段  | 当前状态与关闭条件                                                    |
+| --------------- | ------------------------------------------------------------------ | ----- | --------------------------------------------------------------------- |
+| F01/F03/F08/F09 | FR-WF-002/003/004/005/006/009；FR-SKL-004/005；FR-RST-003/004      | M1    | 已有反例；待修条件并行、失败策略、循环及路由，并补正式组合回归        |
+| F02/F13/X01     | FR-A2A-004；FR-WF-002/009；FR-EXE-002/004/005/006/008；NFR-OBS-001 | M2    | 等待后确认已复现；子实例/signal静态确认，待持久状态与真实本地HTTP E2E |
+| F04/F12/X02     | FR-SKL-002/003/012/013/014/015；FR-LLM-004/005；FR-GOAL-007/008    | M3    | 默认选择/Schema待修；临时Skill全终态先确认后修复，必须事务/幂等证据   |
+| F06/F07         | FR-SKL-004/005/006；FR-EVO-004/005/006/007/008                     | M4    | 策略丢失已复现；候选完整执行/输出及发布CAS待实现                      |
+| F05             | FR-A2A-003/004/005/010；FR-EXE-003；AC-18                          | M5    | 流式缺结果已复现；待官方SDK标准Artifact顺序与纯读投影回归             |
+| F10/F11/X03     | FR-A2A-001/004；FR-GOAL-006；FR-LLM-004/005；ADR-104/111/112/113   | M6    | 在线类型库/非UGV识别/纯文本受治理admission待接通，不新增语义权威      |
+| X04/X05         | FR-WF-010；FR-ADM-004；NFR-UX-001；DoD/AC-01…18                    | M0/M7 | 界面补查、lint/format修复及当前源码完整验收待完成；旧报告不能关闭此项 |
+
+首批实现证据（非完整需求关闭）：
+
+| 子项                    | 实现                                                                           | 正式测试与结果                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| F03 / FR-SKL-004/005    | langgraph-runtime/workflow-compiler：normative policy 过滤结构允许策略         | workflow-compiler.unit：fail_fast/recoverable 拒绝 continue；optional/degraded 拒绝未授权 goto |
+| F08 / FR-WF-002/009     | compiler + executor：可配置复杂度上限、三入口 recursionLimit、共享预算失败映射 | 30/100 循环、30 节点串行、三入口 31 调用预算、编译上限；嵌套组合仍待 M1                        |
+| F09 / FR-WF-003/004/005 | domain/workflow-control-flow + application/workflow-validator + compiler       | 缺失/重复 done 与重复 condition 路由拒绝；完整路由矩阵仍待 M1                                  |
+| X05 / docs/16           | verify-isolated、infrastructure、child-readiness、TCK/smoke                    | 四项隔离契约通过（许可环境）；完整 gate 仍待通过                                               |
+
+命令和日志：`reports/runtime-semantic-closure/2026-09-07-m0-m1/README.md`。
+最新核心两文件 65 tests passed；typecheck 和 architecture passed。完整隔离门禁在 static-unit-contract-build
+阶段 601 秒 ETIMEDOUT；format/隔离契约通过，后续阶段未运行。本轮 M0/M1 仍开放，历史 passed 不能关闭本增量。
+
+## Development 部署增量（2026-09-07）
+
+| Scope                             | Implementation                                                                          | Focused evidence                                                                             |
+| --------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| DEV-DEPLOY / 配置与生命周期       | `deploy/development`、`.env.example`、`packages/runtime-environment`、Redis main wiring | deployment/environment unit；隔离双 PG/Redis AOF 空库启动、HTTP 200                          |
+| DEV-CONFIRM / 持久计划自动确认    | PlanPreparationProcessor → TaskService followUp → 既有 governed confirmation            | development-plan-confirmation unit；UGV execution integration 2/2（manual + auto，唯一派发） |
+| DEV-GOVERNANCE / 空库与 successor | 当前 Binding 的正式治理 + 初始 point package，版本号不替代合同                          | governance driver 15/15；不宣称 live Provider bootstrap 已验证                               |
+| DEV-INERT-DEMO / 非设备软件演示   | IsolatedDemoService、PG audit 0178、Management/Console                                  | unit + 单项 HTTP contract；重复确认仅两条审计；隔离部署 Task/invocation=0                    |
+
+以上开发证据不代表 qualification/production 或真实物理验收。
+
 ## UGV 10-Tool Capability / Skill / A2A 扩展（2026-09-01，已部署并通过 exact-commit 门）
 
 | 场景 / 关联需求                       | 实现                                                                                                                                                                                                                     | 测试与证据                                                                                                                                                         | 当前状态                                                                                        |
@@ -1399,3 +1456,11 @@ nor proves Goal or physical success.
 | MCPT-TELEMETRY-SOURCE-LOCK          | 已验证（真实只读） | Exact Telemetry implementation/qualification commits, image digest, OCI revision and immutable handoff hashes are recorded without credentials. The implementation commit is an ancestor of qualification             | `telemetry-current-authority-handoff-lock.json`; deployed Gateway/Query/Admin health 200, Worker running, restart count 0; 207 total / 203 pass / four explicit external-DB skips / zero fail |
 | MCPT-TELEMETRY-CURRENT-AUTHORITY    | 已验证（真实只读） | Provider `observedAt`, then stable `sourceRecordId`, selects current Mission authority. Newer unresolved/conflict hides historical exact from current view while preserving audit; exact must reference selected fact | Failed Task current Mission unresolved / zero relation; normal Task Mission `64212` exact / one relation; fresh WAL→Worker→ClickHouse→Query run returned 2/2 with duplicate WAL zero growth   |
 | MCPT-TELEMETRY-AUTHORITY-SEPARATION | 已验证（失败闭包） | Telemetry is observational only: no current-view fact mutates Runtime Task/Goal authority, and unresolved identity is not promoted to exact                                                                           | Safety record: no A2A/MCP Task, Runtime MCP mutation, navigation, Device/Simulator mutation or history deletion; Goal/physical success remain unverified                                      |
+
+2026-09-07 M0 第二批（X05 / 全门禁证据）：`scripts/lib/verification-{process,steps,inputs}.mjs`、`scripts/verify-{full,isolated}.mjs` 拆分阶段、实时报告、独立限时、进程组清理及源码身份；17 项 runner/isolation 回归通过；独立 frozen 安装、2400 单元、531 契约及迁移验证通过，完整 run `60048430` 因集成旧断言失败，修正后的 3 项 PostgreSQL 回归通过。真实 Docker 中断实验 `347b139e` 证明迁移子进程退出后仅清理本次资源，最终库存为空。证据见 `reports/runtime-semantic-closure/2026-09-07-m0-observable/README.md`。完整当前源码门禁尚未通过，M0/M1 仍未关闭。
+
+## 2026-09-07 revised development repair scope
+
+User-approved mapping: A = F01/F02/F03/F08/F09/F13/X01; B = F04/F12/X02; C = F05/F10/F11/X03. All remain implementation/reverification pending. F06/F07 (FR-EVO-004/005/006/007/008) are deferred with publication blocked pending full candidate validation; X04 Console editing and release-level X05 proof remain deferred. Only acceptance-map structural checking is retained now. Three batches receive focused regressions; one final full reuse gate proves this development scope, without claiming all18 AC or release readiness. The active ExecPlan current execution contract supersedes earlier per-M0–M7 gates.
+
+开发批次 A 本轮增量证据：`packages/langgraph-runtime/test/workflow-compiler.unit.test.ts` 覆盖 2.0 条件×循环、嵌套并行、30/100 次循环、长链、远程两种完成顺序、父子暂停与预算；`packages/application/test/subworkflow-execution.unit.test.ts` 覆盖 node-run 幂等/缺失状态拒绝重放；`packages/persistence-postgres/test/workflow-continuation.integration.test.ts` 覆盖 0179/0180 的 scopes、paused、关联事务和回滚；`apps/server/test/remote-task-composition.integration.test.ts` 的当前运行 d87b3c61 中 3 项通过（普通 child 全链、双远程、回调崩溃后幂等）。F01/F02/F08/F09/F13/X01 的实现证据增加，尚未据此关闭本轮开发验收或发布需求。

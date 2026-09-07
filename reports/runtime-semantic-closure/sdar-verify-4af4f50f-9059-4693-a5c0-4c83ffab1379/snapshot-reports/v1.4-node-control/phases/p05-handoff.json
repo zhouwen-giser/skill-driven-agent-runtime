@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P05",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "f4099115694cee03c792c0f16590d95569b6e5fe",
+  "evidenceSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+  "remoteSha": "526155faac63ea06bbfb77bf2c36d825a889b5bc",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-02T17:31:00+08:00",
+  "nextPhase": "P06",
+  "prerequisites": [
+    "fetch and compare origin/main before P06",
+    "consume only active and fresh MCP Provider Bindings with exact Registry and Catalog lineage",
+    "implement only P06 Capability definition and implementation-binding authority next"
+  ],
+  "authorityBoundary": "P05 owns Control-side MCP Provider Binding import, immutable lineage, Catalog observation and new-selection eligibility. The live MCP protocol remains behind the existing adapter; Runtime owns MCP Server/Tool execution and existing Remote Task control; Telemetry remains historical only."
+}

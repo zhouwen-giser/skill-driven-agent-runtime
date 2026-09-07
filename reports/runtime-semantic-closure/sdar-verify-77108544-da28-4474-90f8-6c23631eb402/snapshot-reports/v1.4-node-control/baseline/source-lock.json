@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "status": "validated",
+  "resolvedAt": "2026-08-01T17:03:00.000Z",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "taskSourceLock": {
+    "path": "docs/SDAR_v1.4_Node_Control_Backend_Codex_Goal_完整实施与主线合并任务包_V1.0/SOURCE_LOCK.json",
+    "sha256": "1f028c017630a9f2af417ed674dca0eb36dcdb0586787b272a4b539f96ebf31e"
+  },
+  "frozenInputs": [
+    {
+      "packageId": "SDAR-V1.4-NODE-CONTROL-PLANE-DESIGN-FREEZE",
+      "version": "1.0.0",
+      "status": "DESIGN_FROZEN_IMPLEMENTATION_READY",
+      "archive": "references/SDAR_v1.4_单节点控制平面_完整设计冻结基线_V1.0.zip",
+      "sha256": "1d0c72a9a54baf88ddd0a2d8a585b33e0c1ba056694c16b37cf19e6b18dfb4cb",
+      "validation": "passed"
+    },
+    {
+      "packageId": "SDAR_v1.4_Node_Control_Backend_接口协议冻结基线",
+      "version": "1.0.0",
+      "status": "PROTOCOL_DESIGN_FROZEN_IMPLEMENTATION_PENDING",
+      "archive": "references/SDAR_v1.4_Node_Control_Backend_接口协议冻结基线_V1.0.zip",
+      "sha256": "367797107847c210bb4240d5525ad0cfa625f8f65856f1eddc7c61bff2523d1c",
+      "validation": "passed",
+      "contractVersions": {
+        "nodeControlApi": "1.0.0",
+        "runtimeControl": "1.0.0",
+        "nodeEvents": "1.0.0",
+        "telemetryExport": "1.0.0"
+      }
+    }
+  ],
+  "precedence": [
+    "frozen design and API packages",
+    "task package execution and delivery policy",
+    "latest-main repository authority",
+    "phase implementation detail"
+  ]
+}

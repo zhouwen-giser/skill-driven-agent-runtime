@@ -160,3 +160,12 @@ export * from './task-input.js';
 export * from './task-capability.js';
 export * from './task-quality.js';
 export * from './task-wait-policy.js';
+export * from './workflow-control-flow.js';
+
+export * from './workflow-regions.js';
+
+export * from './workflow-scope-state.js';
+
+export * from './workflow-child-call.js';
+
+export * from './skill-schema-contract.js';

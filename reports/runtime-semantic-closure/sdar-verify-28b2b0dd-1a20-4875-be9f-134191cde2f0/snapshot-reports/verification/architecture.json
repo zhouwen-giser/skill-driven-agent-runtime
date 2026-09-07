@@ -1,0 +1,21 @@
+{
+  "name": "architecture",
+  "command": "pnpm verify:architecture",
+  "status": "passed",
+  "startedAt": "2026-09-07T06:57:31.806Z",
+  "finishedAt": "2026-09-07T06:57:33.006Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/architecture.log",
+  "outputSha256": "b6e4076542d4d6d47b08503ff403c36d2b4508c6c216825ac8662a7e369870bf",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 1199,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 2,
+    "peakRssBytes": 203972608,
+    "peakProcesses": 3
+  },
+  "cleanupErrors": []
+}

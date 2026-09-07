@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:34:43.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm exec vitest run <9 B02 binding/input/outcome/protocol/persistence files>",
+  "exitCode": 1,
+  "failure": {
+    "code": "NEGATIVE_FIXTURE_REACHED_EARLIER_EXACT_GUARD",
+    "summary": "Two cursor-topic negative fixtures made the outer Provider field/topic pair invalid, so the exact Provider-result guard correctly rejected them before the intended opaque-cursor mismatch assertion."
+  },
+  "fix": {
+    "summary": "Kept the outer field/topic pair valid and corrupted only the embedded oc1 topic. The expanded replay then passed 9 files and 117 tests.",
+    "stateMutation": "test_fixture_only"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

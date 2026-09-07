@@ -18,6 +18,8 @@ export interface SkillCallWorkflowRecord {
   readonly parentPlanId: string;
   readonly parentInstanceId: string;
   readonly parentNodeId: string;
+  /** Absent only for legacy calls whose iteration cannot be proven. */
+  readonly parentNodeRunId?: string;
   readonly childInstanceId?: string;
   readonly childPlanId: string;
   readonly skillId: string;
@@ -31,6 +33,7 @@ export interface SkillCallWorkflowRecord {
 
 export type SkillCallExecutionResult =
   | Readonly<{ status: 'completed'; output: unknown }>
+  | Readonly<{ status: 'paused'; childInstanceId: string; prompt: string }>
   | Readonly<{ status: 'waiting_external'; wait: WorkflowExternalWaitRef }>
   | Readonly<{
       status: 'awaiting_confirmation';

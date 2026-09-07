@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "catalogVersion": "sdar-validation-metrics/1.1",
+  "opaqueValidationScorePresent": false,
+  "metricCount": 29,
+  "executedSemantics": {
+    "catalogAggregationApplied": true,
+    "planningLatencyAggregation": "p95",
+    "generalizationMinimumSample": 3,
+    "insufficientPromotionHoldoutResult": "needs_more_data",
+    "ratioAggregationUsesSummedNumeratorsAndDenominators": true,
+    "generalizationUsesIndependentHoldoutOutcomeMatch": true,
+    "variantCoverageUsesUniqueAcceptedActivityVariants": true,
+    "unexpectedBranchRateUsesBranchCounts": true,
+    "zeroDenominatorPolicyExecuted": true
+  },
+  "metrics": [
+    { "metricId": "activity_fitness", "unit": "ratio", "direction": "higher_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all required historical activities", "aggregation": "mean", "minimumSample": 1, "confidenceInterval": "bootstrap_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "artifact_correctness", "unit": "ratio", "direction": "higher_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all required artifacts", "aggregation": "ratio", "minimumSample": 1, "confidenceInterval": "wilson_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "capability_gap_count", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all required capabilities", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "criterion_coverage", "unit": "ratio", "direction": "higher_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all required criteria", "aggregation": "ratio", "minimumSample": 1, "confidenceInterval": "wilson_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "estimated_cost_units", "unit": "cost_units", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "evidence_completeness", "unit": "ratio", "direction": "higher_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all required evidence", "aggregation": "ratio", "minimumSample": 1, "confidenceInterval": "wilson_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "fallback_count", "unit": "count", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "false_negative", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all authority-positive rule cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "false_positive", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all authority-negative rule cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "generalization_proxy", "unit": "ratio", "direction": "higher_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "independent holdout cases", "aggregation": "mean", "minimumSample": 3, "confidenceInterval": "bootstrap_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "goal_success_match", "unit": "ratio", "direction": "higher_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "ratio", "minimumSample": 1, "confidenceInterval": "wilson_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "human_interaction_count", "unit": "count", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "missed_confirmation_count", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all confirmation-required decisions", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "missing_parameter_count", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all required parameters", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "model_call_count", "unit": "count", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "outcome_regression", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all comparable historical outcomes", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "plan_edit_distance", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all comparable plans", "aggregation": "mean", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "plan_node_count", "unit": "count", "direction": "neutral", "nullPolicy": "zero_when_denominator_zero", "denominator": "all replay plans", "aggregation": "mean", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "planning_latency_ms", "unit": "milliseconds", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "completed plan replay cases", "aggregation": "p95", "minimumSample": 1, "confidenceInterval": "bootstrap_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "precision_proxy", "unit": "ratio", "direction": "higher_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all candidate branches", "aggregation": "mean", "minimumSample": 1, "confidenceInterval": "bootstrap_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "readiness_gap_count", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all required ready capabilities", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "rejected_candidate_count", "unit": "count", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "side_effect_attempt_count", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all replay operations", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "token_input", "unit": "tokens", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "token_output", "unit": "tokens", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "unexpected_branch_rate", "unit": "ratio", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all candidate branches", "aggregation": "ratio", "minimumSample": 1, "confidenceInterval": "wilson_95", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "unsafe_allow_count", "unit": "count", "direction": "lower_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all policy decisions", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "user_patch_count", "unit": "count", "direction": "lower_better", "nullPolicy": "unknown_when_missing", "denominator": "all replay cases", "aggregation": "sum", "minimumSample": 1, "confidenceInterval": "not_applicable", "version": "sdar-validation-metrics/1.1" },
+    { "metricId": "variant_coverage", "unit": "ratio", "direction": "higher_better", "nullPolicy": "zero_when_denominator_zero", "denominator": "all accepted variants", "aggregation": "ratio", "minimumSample": 1, "confidenceInterval": "wilson_95", "version": "sdar-validation-metrics/1.1" }
+  ],
+  "evidence": [
+    "packages/application/src/compiler/replay-metrics.ts",
+    "packages/application/test/replay-metrics.unit.test.ts"
+  ]
+}

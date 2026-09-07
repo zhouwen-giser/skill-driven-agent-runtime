@@ -1,7 +1,14 @@
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
+import { recordVerificationCleanupFailure } from './verification-cleanup.mjs';
 
-loadLocalEnvironment();
+if (process.env.SDAR_VERIFY_ISOLATED !== 'true') loadLocalEnvironment();
+
+const composeProject = process.env.SDAR_VERIFY_COMPOSE_PROJECT ?? 'sdar';
+if (!/^[a-z0-9][a-z0-9_-]*$/u.test(composeProject))
+  throw new Error('INFRASTRUCTURE_PROJECT_INVALID');
+if (process.env.SDAR_VERIFY_ISOLATED === 'true' && !composeProject.startsWith('sdar-verify-'))
+  throw new Error('INFRASTRUCTURE_ISOLATION_PROJECT_REQUIRED');
 
 export const reuseExistingInfrastructure = process.env.SDAR_REUSE_EXISTING_INFRA === 'true';
 
@@ -37,7 +44,7 @@ export function buildInfrastructureImages(root = process.cwd()) {
     [
       'compose',
       '--project-name',
-      'sdar',
+      composeProject,
       '-f',
       'compose.yaml',
       'build',
@@ -93,6 +100,8 @@ function waitForStablePostgres(root) {
         'docker',
         [
           'compose',
+          '--project-name',
+          composeProject,
           '-f',
           'compose.yaml',
           'exec',
@@ -209,7 +218,7 @@ function hostRedisIsReady(root) {
 }
 
 function runDocker(args, timeout, root, ignoreFailure = false) {
-  const result = spawnSync('docker', args, {
+  const result = spawnSync('docker', isolatedComposeArgs(args), {
     cwd: root,
     env: process.env,
     stdio: 'inherit',
@@ -219,10 +228,15 @@ function runDocker(args, timeout, root, ignoreFailure = false) {
   if (result.status !== 0 && !ignoreFailure) {
     throw new Error(`INFRASTRUCTURE_COMMAND_FAILED: docker ${args.join(' ')}`);
   }
+  if (ignoreFailure && (result.error !== undefined || result.status !== 0))
+    recordVerificationCleanupFailure(
+      `docker ${isolatedComposeArgs(args).join(' ')}`,
+      result.error ?? new Error(`exit=${result.status}; signal=${result.signal}`),
+    );
 }
 
 function runDockerCaptured(args, timeout, root) {
-  const result = spawnSync('docker', args, {
+  const result = spawnSync('docker', isolatedComposeArgs(args), {
     cwd: root,
     env: process.env,
     encoding: 'utf8',
@@ -245,4 +259,9 @@ function loadLocalEnvironment() {
 
 function isNodeError(error) {
   return error instanceof Error && 'code' in error;
+}
+
+function isolatedComposeArgs(args) {
+  if (args[0] !== 'compose' || args.includes('--project-name')) return args;
+  return ['compose', '--project-name', composeProject, ...args.slice(1)];
 }

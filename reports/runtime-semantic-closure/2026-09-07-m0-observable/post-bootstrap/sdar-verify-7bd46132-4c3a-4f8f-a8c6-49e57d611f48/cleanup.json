@@ -1,0 +1,70 @@
+[
+  {
+    "name": "sdar-verify-7bd46132-4c3a-4f8f-a8c6-49e57d611f48",
+    "file": "compose.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 120,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 29257728,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-7bd46132-4c3a-4f8f-a8c6-49e57d611f48-control-smoke",
+    "file": "compose.node-control.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 62,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 28803072,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "name": "sdar-verify-7bd46132-4c3a-4f8f-a8c6-49e57d611f48-runtime-smoke",
+    "file": "compose.yaml",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 64,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 1,
+      "peakRssBytes": 28545024,
+      "peakProcesses": 1
+    },
+    "cleanupErrors": []
+  },
+  {
+    "resource": "migration-container-inventory",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 16,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  },
+  {
+    "resource": "migration-volume-inventory",
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 17,
+    "resources": {
+      "source": "linux-proc-process-group-sampling",
+      "samples": 0,
+      "peakRssBytes": 0,
+      "peakProcesses": 0
+    },
+    "cleanupErrors": []
+  }
+]

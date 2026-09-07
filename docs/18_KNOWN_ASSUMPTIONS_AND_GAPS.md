@@ -1,5 +1,29 @@
 # 已知假设、冲突与待验证项
 
+## Runtime semantic closure repair (2026-09-07, in progress)
+
+- The current code audit reports 13 findings plus five follow-up checks. The remediation design is
+  `execplans/EP-RUNTIME-SEMANTIC-CLOSURE.md`; ADR-150 is Accepted and its first route/budget/policy subset is implemented; ADR-151/152
+  remain Proposed. Full composition, continuation and later stages are not yet verified.
+- Graph completion must validate the selected terminal path; it must not require every alternative
+  exit or a result node in definitions that legitimately terminate at another node. New join/snapshot
+  semantics need a versioned reader and an explicit legacy active-snapshot compatibility report.
+- ADR-023's child-independent budget/accounted parent cost remains the selected boundary. All-tree
+  cumulative quotas are not introduced by this repair. Child budget resolution, retained usage and
+  parent cancellation/deadline propagation are included.
+- SDK stream repair must use one initial Task followed by standard Artifact/status events. Planning
+  interaction reads currently need inspection for ensureHandoff side effects; observation must be pure.
+- Task Type is advisory knowledge. Configured origins need truthful provenance and existing governance
+  activation; no fake induction/fixture authority or automatic SQL promotion. Empty/unavailable knowledge
+  may fall back to the base planner without bypassing governed Capability/Provider confirmation.
+- Generic text admission is scoped to existing authority. Multiple independent governed Exposures must
+  not be collapsed into one root Binding; until their authorization model is separately extended, report
+  a clear split/clarification requirement. Ordinary multi-Skill planning remains supported and tested.
+- Temporary Skill failure/cancel expiration and complete Console node editing remain verification work;
+  the plan requires a regression or precise contrary evidence before classifying them closed.
+- The audit's full gate was not completed because of subprocess EPERM; no real device qualification was
+  performed. Format/lint findings are code-quality blockers distinct from that environment failure.
+
 ## SDAR Telemetry debug projection boundary (2026-08-26)
 
 - The user explicitly deferred SDAR → Commander/NPC. Canonical Evidence ingestion and the existing
@@ -633,3 +657,6 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 - The ClickHouse handoff contains schemas and fixtures only. No ClickHouse database, DDL, query proxy
   or operational authority is implemented or authorized in v1.4.1.
 - Final merge, tag, release and deploy remain protected human/governance actions.
+
+
+- 2026-09-07 Runtime semantic closure：原始 SRS 要求并行分支显式汇聚与冲突合并策略；ADR-150 修订为新版 parallel 必须声明 joinNodeId / reject_conflicts。用户确认嵌套循环按调用重新计数（外层3×内层2=6），旧快照/hash 不静默重解释。上述新语义尚待 M1 实现验证。

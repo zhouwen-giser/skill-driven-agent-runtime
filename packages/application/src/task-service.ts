@@ -49,6 +49,12 @@ import {
   type NaturalLanguageCapabilityAdmissionResolver,
 } from './natural-language-capability-admission.js';
 
+import {
+  capabilityAdmissionRequestId,
+  type CapabilityAdmissionReceiptStore,
+  type GenericCapabilityAdmissionResolver,
+} from './generic-capability-admission.js';
+
 export interface SubmitTaskCommand {
   readonly taskId?: string;
   readonly contextId?: string;
@@ -131,6 +137,8 @@ export interface TaskServiceDependencies {
   readonly taskCapabilities?: RuntimeTaskCapabilityService;
   readonly initialAdmissions?: InitialTaskAdmissionStore;
   readonly naturalLanguageCapabilityAdmissions?: NaturalLanguageCapabilityAdmissionResolver;
+  readonly genericCapabilityAdmissions?: GenericCapabilityAdmissionResolver;
+  readonly admissionReceipts?: CapabilityAdmissionReceiptStore;
   readonly remoteTaskInputs?: Readonly<{
     prepareResponse(inputRequestId: string, inputContent: unknown): Promise<unknown>;
   }>;
@@ -198,7 +206,55 @@ export class TaskService {
   async #submit(command: SubmitTaskCommand, enqueue: boolean): Promise<SubmitTaskResult> {
     const timestamp = this.#dependencies.clock.now();
     const requestedUserId = normalizeUserId(command.userId);
+    const genericEligible =
+      command.initialAdmission === undefined &&
+      command.capabilityInput === undefined &&
+      command.skillDraftIntent === undefined &&
+      command.metadata['io.sdar/requestedCapability'] === undefined &&
+      command.metadata[INITIAL_TASK_ADMISSION_IDEMPOTENCY_METADATA_KEY] === undefined &&
+      command.metadata['structured_input'] === undefined &&
+      command.clientRequestId !== undefined;
+    const genericRequestId = genericEligible
+      ? capabilityAdmissionRequestId(requestedUserId, command.clientRequestId)
+      : undefined;
+    const genericRequestHash = initialTaskAdmissionRequestHash({
+      messageText: command.messageText,
+      userId: requestedUserId,
+      metadata: command.metadata,
+      capabilityInput: { messageText: command.messageText },
+    });
+    const previousReceipt =
+      genericRequestId === undefined
+        ? undefined
+        : await this.#dependencies.admissionReceipts?.findAdmissionReceiptByRequest(
+            genericRequestId,
+          );
+    if (previousReceipt !== undefined) {
+      if (previousReceipt.requestHash !== genericRequestHash)
+        throw Object.assign(new Error('The request identity is already bound to another input.'), {
+          code: 'TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT',
+        });
+      const previousTask = await this.get(previousReceipt.taskId);
+      const previousContext = await this.#dependencies.contexts.findById(previousTask.contextId);
+      if (previousContext === undefined) throw new Error('TASK_CONTEXT_NOT_FOUND');
+      return {
+        task: previousTask,
+        context: previousContext,
+        createdContext: false,
+        admissionStatus: 'replayed',
+        queueDispatchStatus: 'not_dispatched',
+      };
+    }
+    const genericResolution = genericEligible
+      ? await this.#dependencies.genericCapabilityAdmissions?.resolve({
+          messageText: command.messageText,
+          userId: requestedUserId,
+          clientRequestId: command.clientRequestId,
+          receivedAt: timestamp,
+        })
+      : undefined;
     const naturalLanguageAdmission =
+      genericResolution === undefined &&
       command.initialAdmission === undefined &&
       command.capabilityInput === undefined &&
       command.metadata['io.sdar/requestedCapability'] === undefined &&
@@ -212,10 +268,14 @@ export class TaskService {
             receivedAt: timestamp,
           })
         : undefined;
+    const resolvedNaturalLanguageAdmission =
+      genericResolution?.status === 'resolved'
+        ? genericResolution.admission
+        : naturalLanguageAdmission;
     const validatedNaturalLanguageAdmission =
-      naturalLanguageAdmission === undefined
+      resolvedNaturalLanguageAdmission === undefined
         ? undefined
-        : validateNaturalLanguageCapabilityAdmission(naturalLanguageAdmission);
+        : validateNaturalLanguageCapabilityAdmission(resolvedNaturalLanguageAdmission);
     const capabilityInput =
       command.capabilityInput ??
       validatedNaturalLanguageAdmission?.capabilityInput ??
@@ -280,6 +340,71 @@ export class TaskService {
       requestMetadata: command.metadata,
       timestamp,
     });
+
+    if (genericResolution?.status === 'rejected') {
+      const rejected = {
+        ...task,
+        phase: 'failed' as const,
+        phaseMessage: genericResolution.reason,
+        errorCode: genericResolution.code,
+      };
+      if (existing === undefined) await this.#dependencies.contexts.save(context);
+      await this.#dependencies.tasks.save(rejected);
+      return {
+        task: rejected,
+        context,
+        createdContext: existing === undefined,
+        queueDispatchStatus: 'not_dispatched',
+      };
+    }
+    if (genericResolution?.status === 'clarification') {
+      const receipts = this.#dependencies.admissionReceipts;
+      if (receipts === undefined || genericRequestId === undefined)
+        throw new Error('CAPABILITY_ADMISSION_RECEIPT_STORE_REQUIRED');
+      const waiting = {
+        ...task,
+        phase: 'awaiting_user_input' as const,
+        phaseMessage: genericResolution.question,
+      };
+      const receipt = await receipts.createAdmissionReceipt({
+        context,
+        task: waiting,
+        receipt: {
+          taskId: task.taskId,
+          requestId: genericRequestId,
+          requestHash: genericRequestHash,
+          version: 1,
+          clarification: genericResolution,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        event: {
+          eventId: this.#dependencies.ids.nextId('event'),
+          taskId: task.taskId,
+          contextId: task.contextId,
+          eventType: 'task.created',
+          timestamp,
+          summary: 'Public capability parameters required.',
+        },
+      });
+      if (receipt.taskId !== waiting.taskId) {
+        const priorTask = await this.get(receipt.taskId);
+        const priorContext = await this.#dependencies.contexts.findById(priorTask.contextId);
+        if (priorContext === undefined) throw new Error('TASK_CONTEXT_NOT_FOUND');
+        return {
+          task: priorTask,
+          context: priorContext,
+          createdContext: false,
+          queueDispatchStatus: 'not_dispatched',
+        };
+      }
+      return {
+        task: waiting,
+        context,
+        createdContext: existing === undefined,
+        queueDispatchStatus: 'not_dispatched',
+      };
+    }
 
     const attempt = createTaskExecutionAttempt({
       attemptId: this.#dependencies.ids.nextId('attempt'),
@@ -621,6 +746,115 @@ export class TaskService {
     return this.#followUp(command);
   }
 
+  async #provideCapabilityAdmissionInput(
+    task: AgentTask,
+    command: TaskFollowUpCommand,
+    receipt: Awaited<ReturnType<CapabilityAdmissionReceiptStore['findAdmissionReceipt']>> & {},
+  ): Promise<AgentTask> {
+    if (receipt.boundAt !== undefined) return task;
+    if (
+      task.phase !== 'awaiting_user_input' ||
+      command.inputRequestId !== `capability:${task.taskId}:${String(receipt.version)}`
+    )
+      throw Object.assign(new Error('The clarification version is stale or missing.'), {
+        code: 'TASK_CAPABILITY_CLARIFICATION_STALE',
+      });
+    const resolver = this.#dependencies.genericCapabilityAdmissions;
+    const receipts = this.#dependencies.admissionReceipts;
+    const authority = this.#dependencies.taskCapabilities;
+    if (resolver === undefined || receipts === undefined || authority === undefined)
+      throw new Error('TASK_CAPABILITY_RUNTIME_NOT_COMPOSED');
+    const timestamp = this.#dependencies.clock.now();
+    const resolution = await resolver.resolve({
+      messageText: task.requestText,
+      userId: task.userId,
+      clientRequestId: receipt.requestId,
+      receivedAt: timestamp,
+      clarification: receipt.clarification,
+      answer: command.inputContent ?? command.messageText,
+    });
+    if (resolution.status === 'clarification') {
+      const waiting = { ...task, phaseMessage: resolution.question, updatedAt: timestamp };
+      await receipts.updateAdmissionReceipt(
+        {
+          ...receipt,
+          version: receipt.version + 1,
+          clarification: resolution,
+          updatedAt: timestamp,
+        },
+        receipt.version,
+        waiting,
+      );
+      return waiting;
+    }
+    if (resolution.status !== 'resolved') {
+      const rejected = {
+        ...task,
+        phase: 'failed' as const,
+        errorCode:
+          resolution.status === 'rejected' ? resolution.code : 'TASK_CAPABILITY_ADMISSION_REJECTED',
+        phaseMessage:
+          resolution.status === 'rejected'
+            ? resolution.reason
+            : 'No current public capability accepts the supplied parameters.',
+        updatedAt: timestamp,
+      };
+      await this.#dependencies.tasks.save(rejected);
+      return rejected;
+    }
+    const queued = {
+      ...task,
+      phase: 'queued' as const,
+      phaseMessage: 'Public capability parameters accepted.',
+      updatedAt: timestamp,
+    };
+    const attempt = createTaskExecutionAttempt({
+      attemptId: this.#dependencies.ids.nextId('attempt'),
+      taskId: task.taskId,
+      contextId: task.contextId,
+      reason: 'initial',
+      createdAt: timestamp,
+    });
+    const acceptance = await authority.prepareAcceptance({
+      task: queued,
+      metadata: task.requestMetadata,
+      capabilityInput: resolution.admission.capabilityInput,
+      inputAttempt: attempt,
+      bindingId: `binding-${task.taskId}`,
+      capabilityAttemptId: `capability-attempt-${task.taskId}-1`,
+      requestedCapability: resolution.admission.requestedCapability,
+      event: {
+        eventId: this.#dependencies.ids.nextId('event'),
+        taskId: task.taskId,
+        contextId: task.contextId,
+        eventType: 'task.phase_changed',
+        timestamp,
+        summary: 'Clarification admitted to the exact public capability.',
+      },
+    });
+    if (acceptance === undefined) throw new Error('TASK_CAPABILITY_ADMISSION_REJECTED');
+    await receipts.acceptClarified(acceptance, receipt.version);
+    // A committed queued attempt is recoverable by the existing dispatcher if enqueue fails.
+    try {
+      await this.#dependencies.queue.enqueue({
+        taskId: task.taskId,
+        contextId: task.contextId,
+        attemptId: attempt.attemptId,
+        mode: 'initial',
+      });
+    } catch (error: unknown) {
+      await this.#dependencies.events.publish({
+        eventId: this.#dependencies.ids.nextId('event'),
+        taskId: task.taskId,
+        contextId: task.contextId,
+        eventType: 'task.phase_changed',
+        timestamp,
+        summary: `Capability admitted; queue dispatch deferred: ${error instanceof Error ? error.name : 'unknown error'}`,
+      });
+    }
+    return queued;
+  }
+
   async #followUp(command: TaskFollowUpCommand): Promise<AgentTask> {
     let task = await this.get(command.taskId);
     if (
@@ -663,7 +897,12 @@ export class TaskService {
       await this.#dependencies.planActions.executeConfirmed(task, 'task_plan');
       return this.get(task.taskId);
     }
-    if (command.action === 'provide_input') return this.#provideInput(task, command);
+    if (command.action === 'provide_input') {
+      const receipt = await this.#dependencies.admissionReceipts?.findAdmissionReceipt(task.taskId);
+      if (receipt !== undefined)
+        return this.#provideCapabilityAdmissionInput(task, command, receipt);
+      return this.#provideInput(task, command);
+    }
     if (command.action === 'cancel_goal') {
       if (task.goalId === undefined || this.#dependencies.planActions === undefined)
         throw new TaskApplicationError(

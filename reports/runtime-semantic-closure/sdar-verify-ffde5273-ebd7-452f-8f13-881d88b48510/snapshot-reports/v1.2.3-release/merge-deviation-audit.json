@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "release": "v1.2.3",
+  "capturedAt": "2026-07-26T20:03:18+08:00",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "pullRequest": {
+    "number": 9,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/9",
+    "readyForReviewAt": "2026-07-26T11:52:21Z",
+    "mergedAt": "2026-07-26T11:53:11Z",
+    "headDeletedAt": "2026-07-26T11:53:42Z",
+    "mergeCommit": "d68195a7634a7c9694f0ba1e971d9327813fb03d",
+    "eventActor": "zhouwen-giser",
+    "performedViaGitHubApp": null,
+    "readyEventId": 28497629676,
+    "mergeEventId": 28497644347,
+    "headDeletedEventId": 28497653241
+  },
+  "repositorySnapshot": {
+    "allowAutoMerge": false,
+    "defaultBranch": "main",
+    "mainSha": "d68195a7634a7c9694f0ba1e971d9327813fb03d",
+    "featureBranchSha": "219061f5829830abb2815863713e2a313987ec86",
+    "v1_2_3Tags": []
+  },
+  "mergeCommit": {
+    "parents": [
+      "10d9cb385a7d4ef87b69f2856d315573faafca9c",
+      "f1f354c07ea0a6f32c911115973ea60aeab26b62"
+    ],
+    "author": "zhouwen-giser <zhouwen.tm@gmail.com>",
+    "committer": "GitHub <noreply@github.com>",
+    "commitDate": "2026-07-26T11:53:11Z"
+  },
+  "findings": {
+    "codexMergeCallObserved": false,
+    "autoMergeEnabledEventObserved": false,
+    "nativeAutoMergeProven": false,
+    "externalOwnerAuthenticatedMergeObserved": true,
+    "rootCause": "unverified",
+    "requiredUnmergedStateSatisfied": false,
+    "tagCreated": false,
+    "automaticRevertAttempted": false
+  },
+  "correctivePullRequest": {
+    "number": 11,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/11",
+    "state": "open",
+    "draft": true,
+    "merged": false,
+    "headSha": "219061f5829830abb2815863713e2a313987ec86"
+  }
+}

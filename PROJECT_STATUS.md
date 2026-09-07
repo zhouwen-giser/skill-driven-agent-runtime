@@ -1,5 +1,44 @@
 # Project Status
 
+当前 Runtime 开发修复：**A/B/C 开发范围完成**。同一冻结源码完整 reuse 门禁 `sdar-verify-b487014e-48c4-4de1-b2ce-1f3fae59de99` 的 30 阶段及资源清理全部通过；unit 2477、contract 534、integration 242、E2E 75。文档处理、数据聚合和既有设备只读为本地模拟证据。F06/F07、X04、发布级 X05/18 AC、独立安装与真实模型/设备证据继续延期。下文旧状态为历史记录。
+
+## Current development repair scope (2026-09-07, completed)
+
+The approved three implementation batches and one complete development acceptance point are complete. Shared scoped Workflow execution/recovery, formal default Skills, transactional Temporary Skill expiry, pure A2A streams/current projections, configured online Task Types and same-Task clarification are implemented and verified. The final frozen-source reuse gate passed all 30 stages and cleanup, including build, migrations, official A2A TCK in its existing profile and all three smokes. No shared deployment or real-device qualification was performed.
+
+See [development closure](reports/runtime-semantic-closure/DEVELOPMENT-CLOSURE-2026-09-07.md) and the [active ExecPlan](execplans/EP-RUNTIME-SEMANTIC-CLOSURE.md) for current run identities and preserved failures. Full evolution/publication, Console editing and release-level acceptance remain deferred; this is development-scope completion only.
+
+## Historical runtime semantic closure review (superseded by revised scope)
+
+The repair plan has **0/8 formally closed milestones**. M0 verification infrastructure is implemented; 19 runner/lifecycle regressions pass. The latest frozen full attempt e5741fdb passed 2403 unit tests, 531 contracts, static checks, build and migration verification, then failed in an evidence-export rollback test that omitted the existing 0178 migration. After repairing the complete applied-suffix rollback, diagnostic e170ef62 passed all 229 integration and 73 E2E tests (72 ordinary plus one separate performance case); all five outer cleanup operations passed. This diagnostic is not a same-source full gate. No verifier is currently running.
+
+M1 contains only first-batch failure-policy restrictions, condition/loop route checks and preliminary step/budget handling. Invocation-scoped joins, 3×2 nested loops and recursive bounds remain unimplemented. M2/M3/M5/M4/M6/M7 main work is pending. A narrow X03 prerequisite was fixed during M0: explicit missing governed authority now terminates before Goal evaluation/replanning, with the original denial and zero Provider calls. It does not complete generic admission.
+
+Execution review identified seven version-2 full attempts totaling 58.0 minutes of recorded gate time, excluding installs and diagnostics; two were canceled as fixes superseded their snapshots. Not all of that time was unnecessary, but repeatedly rerunning passed prefixes and reinstalling before downstream failures were diagnosed was avoidable. The active ExecPlan now requires focused diagnosis, batched fixes, a stable isolated dependency workspace and source freeze before one full milestone gate. Documentation-only updates receive format/link checks. Full milestone gates and final frozen-install acceptance remain required.
+
+Order remains M0 → M1 → M2 → M3 → M5 → M4 → M6 → M7. The next checkpoint is one complete frozen M0 baseline after the known failures have been resolved, followed by M1 graph composition. ADR-150 is Accepted; ADR-151/152 remain Proposed. Earlier timeout and diagnostic evidence is retained in reports/runtime-semantic-closure; historical passes do not certify the current working tree. Existing user changes and shared services are preserved.
+
+## Development deployment package (2026-09-07)
+
+Final packaging is tracked in `execplans/EP-DEVELOPMENT-DEPLOYMENT.md`. The isolated Compose
+installation started from two empty password-protected PostgreSQL databases and Redis AOF.
+Management/A2A/Control/Console return 200; internal anonymous requests return 401 and generated
+service credentials work. Runtime contains 21 initial Prompts.
+Configuration/confirmation focused tests pass 104; MCP registry recovery passes 74; real PG + fake
+Provider + public A2A manual/auto confirmation passes 2. The inert demo HTTP contract passes its
+selected case (80 unrelated cases not selected). Typecheck and Console build pass.
+
+Docker Hub initially returned EOF; a subsequent default PostgreSQL build reached Alpine dependencies
+but gcc extraction reported I/O errors. Application/deployer image builds passed; empty-database and
+upgrade validation used the already-built matching PG17.10/pgvector0.8.5 image.
+Fresh remote PG image build is not claimed. Container smoke left the external Provider
+unconfigured; empty-authority governance/content reuse are verified with the focused API fixture.
+No shared Runtime or external device was changed.
+Upgrade retained 21 Prompts and 2 immutable software-demo audit rows; migration 0178 is applied.
+All four public HTTP surfaces return 200 and Redis AOF remains enabled/writable with zero active
+Task/RemoteTask/pending dispatch/Bull job/lease. Package sourceHash distinguishes this delivery
+from its Git base revision; no secret configuration is included.
+
 ## Governed-control response-loss evidence convergence (2026-09-05)
 
 The MCP-only functional harness proved one Provider side effect and one exact reconciliation, but

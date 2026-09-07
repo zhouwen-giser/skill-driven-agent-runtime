@@ -85,3 +85,13 @@ export * from './task-state-notifier.js';
 export * from './task-attempt-dispatch.js';
 export * from './task-quality.js';
 export * from './task-wait-timeout.js';
+
+export * from './deferred-skill-evolution.js';
+
+export * from './subworkflow-execution.js';
+
+export * from './task-projection.js';
+
+export * from './generic-capability-admission.js';
+
+export * from './capability-bound-skill-input.js';

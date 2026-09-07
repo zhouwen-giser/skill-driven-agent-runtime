@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "date": "2026-07-13",
+  "command": "pnpm verify:migrations",
+  "paths": [
+    {
+      "name": "empty",
+      "from": "bootstrap",
+      "to": "0053_mcp_tool_enhancement_stage"
+    },
+    {
+      "name": "upgrade",
+      "from": "0049_skill_quality_warning",
+      "to": "0053_mcp_tool_enhancement_stage"
+    }
+  ],
+  "assertions": [
+    "0053 ledger row exists",
+    "stage_model_route_stage_check includes tool_enhancement",
+    "isolated databases removed"
+  ],
+  "classification": "real PostgreSQL"
+}

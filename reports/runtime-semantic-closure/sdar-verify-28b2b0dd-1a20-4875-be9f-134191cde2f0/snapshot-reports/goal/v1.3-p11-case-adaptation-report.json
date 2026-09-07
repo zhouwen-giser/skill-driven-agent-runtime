@@ -1,0 +1,17 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "verifiedBehaviors": [
+    "only active tenant/task Case projections participate",
+    "similarity ranks but never overrides failure, policy or current-state gates",
+    "only trusted or authoritative current bindings are substituted",
+    "candidate bindings remain explicit unknowns",
+    "credential, secret, token, API key, historical instance ID and PII fields are rejected recursively across snake_case and camelCase",
+    "adapted output remains validationRequired and never becomes a Formal Plan"
+  ],
+  "evidence": [
+    "packages/application/test/case-model-runtime-p11.unit.test.ts",
+    "packages/application/test/case-model-runtime-p11.contract.test.ts",
+    "packages/persistence-postgres/test/case-model-runtime-p11.integration.test.ts"
+  ]
+}

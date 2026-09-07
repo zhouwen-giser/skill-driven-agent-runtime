@@ -23,6 +23,24 @@ import type { WorkflowExecutionService } from '../src/workflow-execution.js';
 const timestamp = '2026-07-16T08:00:00.000Z';
 
 describe('RemoteTaskContinuationService', () => {
+  it('defers terminal observations during confirmation without consuming them or running the graph', async () => {
+    const harness = createHarness({ instance: workflowInstance({ status: 'paused' }) });
+    const event = completedEvent();
+    harness.continuations.addControl(event);
+    expect(await harness.service.process(jobFor(event))).toMatchObject({
+      disposition: 'callback_deferred',
+      errorCode: 'WORKFLOW_CONFIRMATION_PENDING',
+    });
+    expect(harness.continueExternal).not.toHaveBeenCalled();
+    expect(harness.continuations.attempts).toEqual([]);
+    expect(harness.continuations.finishInputs).toEqual([]);
+    harness.get.mockResolvedValue(workflowInstance());
+    expect(await harness.service.process(jobFor(event))).toMatchObject({
+      disposition: 'continued',
+    });
+    expect(harness.continueExternal).toHaveBeenCalledTimes(1);
+  });
+
   it('continues a completed remote Task exactly once and rejects the duplicate claim', async () => {
     const harness = createHarness();
     const event = completedEvent();

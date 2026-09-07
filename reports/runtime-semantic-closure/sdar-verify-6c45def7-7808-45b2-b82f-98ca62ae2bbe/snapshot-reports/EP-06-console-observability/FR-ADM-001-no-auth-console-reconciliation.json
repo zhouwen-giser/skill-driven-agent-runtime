@@ -1,0 +1,24 @@
+{
+  "requirement": "FR-ADM-001",
+  "status": "verified",
+  "currentRegression": {
+    "files": 4,
+    "testsPassed": 57,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "acceptance": {
+    "loginRequired": false,
+    "managementApiAccessibleWithoutCredentials": true,
+    "consoleAccessibleWithoutCredentials": true,
+    "trustedIntranetWarningVisible": true,
+    "deploymentRiskWarningDocumented": true
+  },
+  "realBrowserEvidence": {
+    "consoleLoaded": true,
+    "semanticNavigationWorked": true,
+    "persistentRiskWarningObserved": true,
+    "browserErrors": 0
+  },
+  "unverified": ["current Docker-backed Server smoke", "real-API browser CRUD for FR-ADM-002..008"]
+}

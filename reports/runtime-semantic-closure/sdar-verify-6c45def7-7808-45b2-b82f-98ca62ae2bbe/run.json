@@ -1,0 +1,7 @@
+{
+  "runId": "sdar-verify-6c45def7-7808-45b2-b82f-98ca62ae2bbe",
+  "inputSha256": "b8255f54abdef53174da16129f511fa231f6c81f63caaed457c3178008189e35",
+  "snapshot": "/tmp/sdar-verify-6c45def7-7808-45b2-b82f-98ca62ae2bbe-bG5vYu/source",
+  "exitCode": 1,
+  "cleanupExitCode": 0
+}

@@ -1,0 +1,23 @@
+{
+  "requirement": "NFR-OBS-002",
+  "status": "verified",
+  "currentRegression": {
+    "files": 6,
+    "testsPassed": 63,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 240
+  },
+  "boundaries": {
+    "openAiReasoningDiscarded": true,
+    "anthropicThinkingAndSignatureDiscarded": true,
+    "a2aNecessarySummaryOnly": true,
+    "managementStructuredAuditVisible": true,
+    "promptAndDisplayableRawResponseVisible": true
+  },
+  "classification": {
+    "providerLoopbackContracts": "real local",
+    "a2aSdkSerialization": "real local",
+    "managementHttpContract": "real local",
+    "currentPostgresE2eRerun": "unverified"
+  }
+}

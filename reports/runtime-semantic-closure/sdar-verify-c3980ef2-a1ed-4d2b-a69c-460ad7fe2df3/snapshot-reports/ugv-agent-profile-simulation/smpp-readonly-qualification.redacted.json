@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.smpp-readonly-qualification-index/v1",
+  "status": "passed",
+  "task": "UAP-P3-B01",
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "evidenceClass": "external_simulation",
+  "canonicalSemantics": "immutable_first_pass",
+  "firstPassAttemptFile": "reports/ugv-agent-profile-simulation/attempts/smpp-readonly-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260821131827915-6ab8719f7e3ed5de.redacted.json",
+  "firstPassAttemptSha256": "2f354e083913e062bd588ad8e00dcfb0234d1217f423e05f7d3d08247904f494",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "modelConfigurationIncluded": false
+}

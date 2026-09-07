@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "samples": {
+    "runtimeBaseline": 20,
+    "runtimeEvidenceEnabled": 20,
+    "evidenceAppend": 100
+  },
+  "baselineP95Ms": 528.397,
+  "evidenceEnabledP95Ms": 632.686,
+  "regressionPercent": 19.737,
+  "appendP95Ms": 4.844,
+  "receivedRecords": 887,
+  "result": "FAILED_RUNTIME_P95_REGRESSION",
+  "rootCause": "Reducing durable batch size alone did not prevent one-second background timers from starting during the 500-700ms foreground Task critical section.",
+  "repair": "Give the single-process Runtime explicit foreground priority: defer projection and delivery while a computational Task is active or within its 500ms terminal grace period, then resume from PostgreSQL cursors."
+}

@@ -1,0 +1,323 @@
+
+import type {
+  SkillFormalizationCandidate,
+  SkillEvolutionCorrectionExperience,
+  SkillVersion,
+  TemporarySkill,
+  TemporarySkillExperience,
+} from '../../packages/domain/src/index.ts';
+import { AjvJsonSchemaValidator } from '../../packages/json-schema-adapter/src/index.ts';
+import { SkillEvolutionService } from '../../packages/application/src/index.ts';
+
+
+function setup(allPass: boolean, modelDecision: unknown = decision()) {
+  const repository = new MemoryRepository();
+  let published: Omit<SkillVersion, 'version' | 'previousVersion' | 'createdAt'> | undefined;
+  let currentSkillVersion = 1;
+  let modelInstruction: unknown;
+  const runContexts: unknown[] = [];
+  const replayContexts: unknown[] = [];
+  const service = new SkillEvolutionService({
+    temporarySkills: repository,
+    model: {
+      generateStructured: (input) => {
+        modelInstruction = JSON.parse(input.instruction) as unknown;
+        return Promise.resolve(modelDecision);
+      },
+    },
+    schemas: new AjvJsonSchemaValidator(),
+    tools: {
+      exists: () => Promise.resolve(true),
+      getInputSchema: () => Promise.resolve({ type: 'object' }),
+    },
+    skills: {
+      listCurrentVersions: () => Promise.resolve([existingSkill()]),
+      register: (input) => {
+        published = input;
+        currentSkillVersion = input.skillId === 'skill.existing.device' ? 2 : 1;
+        return Promise.resolve({
+          ...input,
+          version: input.skillId === 'skill.existing.device' ? 2 : 1,
+          ...(input.skillId === 'skill.existing.device' ? { previousVersion: 1 } : {}),
+          createdAt: timestamp,
+        });
+      },
+    },
+    experiences: { listByTool: () => Promise.resolve([history(true), history(false)]) },
+    runner: {
+      run: ({ proposedSkill, case_, executionContext }) => {
+        runContexts.push(executionContext);
+        return Promise.resolve({
+          passed:
+            allPass ||
+            proposedSkill.workflowGuidance.startsWith('Corrected') ||
+            case_.kind !== 'boundary',
+          summary:
+            allPass ||
+            proposedSkill.workflowGuidance.startsWith('Corrected') ||
+            case_.kind !== 'boundary'
+              ? 'Passed.'
+              : 'Boundary failed.',
+        });
+      },
+      replay: ({ experience, executionContext }) => {
+        replayContexts.push(executionContext);
+        return Promise.resolve({
+          succeeded: experience.successful,
+          summary: `Replayed expected ${experience.successful ? 'success' : 'failure'}.`,
+        });
+      },
+    },
+    clock: { now: () => timestamp },
+    nextCorrectionId: () => 'correction-1',
+  });
+  return {
+    service,
+    repository,
+    get published() {
+      return published;
+    },
+    get modelInstruction() {
+      return modelInstruction;
+    },
+    get currentSkillVersion() {
+      return currentSkillVersion;
+    },
+    runContexts,
+    replayContexts,
+  };
+}
+
+const timestamp = '2026-07-12T12:00:00.000Z';
+
+function decision() {
+  return {
+    consistent: true,
+    stable: true,
+    generalizable: true,
+    duplicateSkillId: 'skill.existing.device',
+    duplicateScore: 0.4,
+    evolutionKind: 'new_version',
+    targetSkillId: 'skill.existing.device',
+    boundaryDecisionSummary: 'The capability boundary is unchanged; execution improved.',
+    decisionSummary: 'Two stable experiences define a reusable capability.',
+    proposedSkill: {
+      skillId: 'skill.evolved.device',
+      name: 'Evolved device status',
+      summary: 'Read device status.',
+      description: 'Read the current state of one registered device.',
+      capabilities: ['device-status'],
+      workflowGuidance: 'Call the required Tool once and return its result.',
+      outputInstruction: 'Return the structured device state.',
+      inputSchema: {
+        type: 'object',
+        properties: { deviceId: { type: 'string' } },
+        required: ['deviceId'],
+      },
+      outputSchema: { type: 'object' },
+      tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+      usageSpecification: {
+        apiVersion: 'sdar.io/v1alpha1',
+        visibility: { userSelectable: true, composable: true, internalOnly: false },
+        normative: {
+          constraints: [],
+          forbiddenActions: [],
+          requiredConfirmations: [],
+          noApplicableSkill: 'reject',
+        },
+        adaptive: {
+          instructions: ['Call the required Tool.'],
+          optimizationHints: [],
+          allowPreferredProviderFallback: false,
+        },
+        contextRequirements: [],
+        modes: {
+          supported: ['guidance'],
+          defaultMode: 'guidance',
+          guidance: { summary: 'Call the Tool.', instructions: ['Return its result.'] },
+        },
+        taskBindings: [],
+        evidencePolicy: { requirements: [], rejectSuccessWithoutRequiredEvidence: false },
+      },
+      outcomeSpecification: {
+        schemaVersion: '1.0',
+        skillId: 'skill.evolved.device',
+        skillVersion: 1,
+        effects: ['effect.device_status_returned'],
+        evidence: ['evidence.provider_result'],
+        artifacts: [],
+        taskGoalPolicy: {},
+        confidencePolicy: {},
+        sideEffectPolicy: {},
+        specificationHash: `sha256:${'a'.repeat(64)}`,
+      },
+    },
+    supplementalCases: [
+      {
+        caseId: 'normal-1',
+        kind: 'normal',
+        input: { deviceId: 'device-1' },
+        expectedOutcome: 'success',
+      },
+      {
+        caseId: 'boundary-1',
+        kind: 'boundary',
+        input: { deviceId: '' },
+        expectedOutcome: 'failure',
+      },
+      {
+        caseId: 'exception-1',
+        kind: 'exception',
+        input: {},
+        expectedOutcome: 'failure',
+      },
+    ],
+  } as const;
+}
+
+function existingSkill(): SkillVersion {
+  return {
+    skillId: 'skill.existing.device',
+    version: 1,
+    name: 'Existing device Skill',
+    summary: 'Reads device state.',
+    description: 'Read current device state from the registered service.',
+    capabilities: ['device-status'],
+    workflowGuidance: 'Call the device Tool.',
+    outputInstruction: 'Return device state.',
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    toolPolicy: { required: [], optional: [], forbidden: [{ serverId: 'mcp.devices', toolName: 'erase_device' }] },
+    runtimePolicy: { autoConfirmPlan: false, maxCost: 1, maxMcpCalls: 2, cancelStrategy: 'cleanup_workflow', compensationGuidance: 'Restore original state' },
+    status: 'enabled',
+    sourceKind: 'admin',
+    validationPassed: true,
+    createdAt: timestamp,
+  };
+}
+
+function history(successful: boolean) {
+  return {
+    experienceId: successful ? 'history-success' : 'history-failure',
+    controlId: successful ? 'control-success' : 'control-failure',
+    roundIndex: 0,
+    contextId: 'context-history',
+    goal: {
+      goalId: successful ? 'goal-success' : 'goal-failure',
+      version: 1,
+      title: 'Historical device Goal',
+      description: 'Read device state.',
+      constraints: [],
+      successCriteria: ['State observed'],
+    },
+    workflow: {
+      workflowDefinitionId: successful ? 'workflow-success' : 'workflow-failure',
+      version: 1,
+      goalId: successful ? 'goal-success' : 'goal-failure',
+      goalVersion: 1,
+      entryNodeId: 'result',
+      exitNodeIds: ['result'],
+      nodes: [
+        {
+          nodeId: 'result',
+          name: 'Historical result',
+          type: 'result' as const,
+          value: { op: 'literal' as const, value: successful },
+        },
+      ],
+      edges: [],
+    },
+    instanceId: successful ? 'instance-success' : 'instance-failure',
+    skillVersions: [],
+    tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+    input: { deviceId: 'device-history' },
+    ...(successful ? { result: { status: 'online' } } : {}),
+    errors: successful ? {} : { tool: { code: 'HISTORICAL_FAILURE', message: 'Failed.' } },
+    evaluation: successful
+      ? ({ decision: 'achieved', summary: 'Succeeded.' } as const)
+      : ({ decision: 'unachievable', summary: 'Failed.' } as const),
+    successful,
+    durationMs: 10,
+    createdAt: timestamp,
+  };
+}
+
+class MemoryRepository {
+  candidate: SkillFormalizationCandidate = {
+    candidateId: 'candidate-1',
+    capabilityFingerprint: 'fingerprint-1',
+    successfulExperienceCount: 2,
+    requiredSuccessThreshold: 2,
+    sourceExperienceIds: ['experience-1', 'experience-2'],
+    status: 'awaiting_simulation',
+    createdAt: timestamp,
+  };
+  readonly skills: TemporarySkill[] = [1, 2].map((sequence) => ({
+    temporarySkillId: `temporary-${String(sequence)}`,
+    taskId: `task-${String(sequence)}`,
+    contextId: `context-${String(sequence)}`,
+    name: 'Temporary device status',
+    description: 'Read device status for this Task.',
+    tools: [{ serverId: 'mcp.devices', toolName: 'device_status' }],
+    inputSchema: { type: 'object' },
+    outputSchema: { type: 'object' },
+    capabilityFingerprint: 'fingerprint-1',
+    status: 'expired',
+    createdAt: timestamp,
+    expiredAt: timestamp,
+  }));
+  readonly experiences: TemporarySkillExperience[] = this.skills.map((skill, index) => ({
+    experienceId: `experience-${String(index + 1)}`,
+    temporarySkillId: skill.temporarySkillId,
+    taskId: skill.taskId,
+    contextId: skill.contextId,
+    capabilityFingerprint: skill.capabilityFingerprint,
+    successful: true,
+    outcomeSummary: 'Device status was returned.',
+    createdAt: timestamp,
+  }));
+  readonly corrections: SkillEvolutionCorrectionExperience[] = [];
+  find(id: string) {
+    return Promise.resolve(this.skills.find((item) => item.temporarySkillId === id));
+  }
+  listByTask(taskId: string) {
+    return Promise.resolve(this.skills.filter((item) => item.taskId === taskId));
+  }
+  save() {
+    return Promise.resolve();
+  }
+  expireAndSaveExperience() {
+    return Promise.resolve();
+  }
+  listSuccessfulExperiences(fingerprint: string) {
+    return Promise.resolve(
+      this.experiences.filter((item) => item.capabilityFingerprint === fingerprint),
+    );
+  }
+  findFormalizationCandidate(fingerprint: string) {
+    return Promise.resolve(
+      this.candidate.capabilityFingerprint === fingerprint ? this.candidate : undefined,
+    );
+  }
+  findFormalizationCandidateById(candidateId: string) {
+    return Promise.resolve(this.candidate.candidateId === candidateId ? this.candidate : undefined);
+  }
+  saveFormalizationCandidate(candidate: SkillFormalizationCandidate) {
+    this.candidate = candidate;
+    return Promise.resolve();
+  }
+  saveCorrectionExperience(correction: SkillEvolutionCorrectionExperience) {
+    this.corrections.push(correction);
+    return Promise.resolve();
+  }
+  listCorrectionExperiences() {
+    return Promise.resolve(this.corrections);
+  }
+}
+
+async function audit() {
+ const fixture = setup(true);
+ const result = await fixture.service.evaluateAndPublish('candidate-1');
+ console.log(JSON.stringify({case:'evolution-drops-policy', status: result.status, before: {runtime: existingSkill().runtimePolicy, tools: existingSkill().toolPolicy}, after: {runtime: fixture.published?.runtimePolicy, tools: fixture.published?.toolPolicy}}));
+}
+audit().catch(e=>{console.error(e);process.exitCode=1});

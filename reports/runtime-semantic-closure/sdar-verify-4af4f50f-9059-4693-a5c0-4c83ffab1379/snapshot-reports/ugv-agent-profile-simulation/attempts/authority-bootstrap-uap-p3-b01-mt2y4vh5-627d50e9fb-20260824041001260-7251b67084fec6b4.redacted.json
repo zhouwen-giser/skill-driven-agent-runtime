@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.authority-bootstrap/v1",
+  "status": "passed",
+  "task": "UAP-P3-B01",
+  "generatedAt": "2026-08-24T04:10:01.258Z",
+  "command": "deploy/ugv-agent-profile-simulation/bootstrap-authority.sh",
+  "exitCode": 0,
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "authorityMode": "bootstrap",
+  "source": {
+    "action": "created",
+    "sourceIdentitySha256": "b00956f59a98c97b918b3bcd00ca855700419695f10f0a89e0b119c03618bc52",
+    "registryRevision": 1,
+    "registryChecksum": "0643dbbbb8ddd5c9bc7e1794f6ce80cdc1446f5b96d3655f97bc9e58b2ce04aa"
+  },
+  "provider": {
+    "action": "created",
+    "bindingIdentitySha256": "d2092a4bce048e19624e96d5fba6d2d36ad1f5d1145b4b9d066de39ecb169df5",
+    "bindingRevision": 1,
+    "catalogRevision": "2.0.0-rc.1:1",
+    "catalogChecksum": "65d2386183eae1eb823aedf8a4b991b13b3de7d77f6811c44e4d6ac9eb847534",
+    "toolCount": 10,
+    "navigateReplay": "simulation_only"
+  },
+  "skill": {
+    "skillId": "embodied.move_to",
+    "version": 1,
+    "runtimeStatus": "enabled",
+    "governedStatus": "published",
+    "packageChecksum": "6d5fc9c8e093de18a8b11c8377b96788336606b25d0df0f27efef7b4d9f6a48c",
+    "exactVersionCount": 1
+  },
+  "capability": {
+    "capabilityId": "embodied.move",
+    "version": 2,
+    "status": "published",
+    "definitionHash": "fa61f8173e148a6c3cdbb67bb97e00854490447dea225a6b4168988e4cce5c84",
+    "implementationBindingId": "capability-binding-embodied.move-v2",
+    "implementationCount": 1,
+    "constraintCount": 7
+  },
+  "readiness": {
+    "status": "available",
+    "snapshotVersion": 1,
+    "snapshotHash": "1d484fc2ca2f5eaa330a5435743f87f8ce6321bf73c7ee80e23223f2e4f4e7c2",
+    "validUntil": "2026-08-24T04:11:00.294Z"
+  },
+  "exposure": {
+    "exposureId": "a2a.embodied.move",
+    "version": 2,
+    "agentSkillId": "embodied.move_to",
+    "status": "published",
+    "exposureHash": "d863f65c65567697a5657c4a99a3053cf63158f24a7c8a41a3f3647246b991fb",
+    "exactExposureCount": 1
+  },
+  "managedCard": {
+    "authority": "node_control_exposure",
+    "distinctFromProfilePublicCard": true,
+    "status": "active",
+    "revision": 1,
+    "exposureRefs": [
+      "a2a.embodied.move:2"
+    ],
+    "contentHash": "addbd6f4461b71ae137a8dacaaa9ec1bebc7c4845d4c28751b2c0b6be8415908",
+    "capabilityCatalogHash": "be8efb7f41b0bb852976d4aaac786a79a6a253379093f5a4fc6bd7900a2448b7"
+  },
+  "profilePublicCard": {
+    "authority": "enabled_skill_version",
+    "managedCardUsed": false,
+    "sourceSkillRef": "embodied.move_to:1"
+  },
+  "driverActivity": {
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "fireInvocationCount": 0,
+    "modelInvocationCount": 0,
+    "providerToolCallCount": 0
+  },
+  "navigationCallCount": 0,
+  "simulationSideEffectsEnabled": false,
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "modelConfigurationIncluded": false
+}

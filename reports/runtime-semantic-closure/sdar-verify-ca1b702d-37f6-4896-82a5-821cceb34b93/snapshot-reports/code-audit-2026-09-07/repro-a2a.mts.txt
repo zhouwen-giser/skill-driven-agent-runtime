@@ -1,0 +1,35 @@
+import { Message, TaskState } from '../../node_modules/@a2a-js/sdk/dist/index.js';
+import { TaskServiceAgentExecutor } from '../../packages/a2a-adapter/src/task-service-executor.ts';
+import { StaticTaskTypeIndexSource } from '../../packages/application/src/cognitive/generic-task-understanding-service.ts';
+import { managedCapabilityTaskUnderstandingConfiguration } from '../../apps/server/src/managed-capability-task-understanding.ts';
+import { UgvNaturalLanguageCapabilityAdmissionResolver } from '../../apps/server/src/ugv-natural-language-capability-admission.ts';
+
+const base = { taskId: 'audit-task', contextId: 'audit-context', userId: 'anonymous', phase: 'queued', phaseMessage: 'queued', requestText: 'Read a report', createdAt: '2026-09-07T00:00:00.000Z', updatedAt: '2026-09-07T00:00:00.000Z' };
+const message = Message.fromJSON({ messageId: 'audit-message', role: 'ROLE_USER', parts: [{text:'Read a report', mediaType:'text/plain'}] });
+for (const phase of ['completed', 'awaiting_user_input']) {
+  const final = { ...base, phase, phaseMessage: phase, updatedAt: '2026-09-07T00:00:01.000Z', ...(phase==='completed' ? {output:{text:'Report finished',structured:{report:'ok'}}} : {}) };
+  const events = [];
+  let finished = false;
+  let progressed = false;
+  const executor = new TaskServiceAgentExecutor({
+    tasks: {submit:async()=>({task:base,context:{},createdContext:true}), get:async()=>{progressed=true;return final}, followUp:async()=>final, cancel:async()=>final},
+    notifier:{waitForChange:async()=>final,publish:()=>{},close:()=>{}},
+    interaction:async()=>progressed?({sessionId:'audit-session',actions:['provide_input'],question:'Which report?'}):undefined,
+  });
+  await executor.execute({userMessage:message,taskId:base.taskId,contextId:base.contextId,context:{}}, {publish:event=>events.push(event),finished:()=>{finished=true}});
+  console.log(JSON.stringify({case:phase,events:events.map(e=>({kind:e.kind,artifacts:e.data.artifacts,metadata:e.data.metadata,status:e.data.status?.state})),finished,terminalOutputAppearsInEvents:JSON.stringify(events).includes('Report finished')}));
+}
+{
+ const events=[];
+ let finished=false;
+ let getCalls=0;
+ const executor=new TaskServiceAgentExecutor({tasks:{submit:async()=>({task:base,context:{},createdContext:true}),get:async()=>{getCalls++;return {...base,phase:'completed',output:{text:'done',structured:{ok:true}}}},followUp:async()=>({...base,phase:'executing',phaseMessage:'Executing',updatedAt:'2026-09-07T00:00:01.000Z'}),cancel:async()=>base},notifier:{waitForChange:async()=>undefined,publish:()=>{},close:()=>{}}});
+ const followUp=Message.fromJSON({messageId:'audit-confirm',taskId:base.taskId,contextId:base.contextId,role:'ROLE_USER',parts:[{text:'Confirm',mediaType:'text/plain'}],metadata:{sdar_action:'confirm_plan'}});
+ await executor.execute({userMessage:followUp,taskId:base.taskId,contextId:base.contextId,task:{history:[]},context:{}},{publish:e=>events.push(e),finished:()=>{finished=true}});
+ console.log(JSON.stringify({case:'confirm_follow_up',events:events.map(e=>({kind:e.kind,status:e.data.status?.state})),finished,getCalls}));
+}
+const config=managedCapabilityTaskUnderstandingConfiguration();
+const index=new StaticTaskTypeIndexSource(config.taskTypes);
+console.log(JSON.stringify({case:'managed_task_types',ids:config.taskTypes.map(t=>t.taskTypeId),novelTaskTypeMatch:await index.search({requestText:'Summarize these documents',limit:8}),ugvParaphraseMatch:await index.search({requestText:'请查询一下这辆无人车的状态',limit:8}),exactConfiguredHintMatch:await index.search({requestText:'无人车当前状态',limit:8})}));
+const naturalResolver=new UgvNaturalLanguageCapabilityAdmissionResolver({exposures:{findCurrent:async exposureId=>({exposureId,exposureVersion:3})}});
+console.log(JSON.stringify({case:'ugv_read_state_admission',admission:await naturalResolver.resolve({messageText:'查看无人车状态',userId:'anonymous',clientRequestId:'audit-read-state',receivedAt:base.createdAt})??null}));

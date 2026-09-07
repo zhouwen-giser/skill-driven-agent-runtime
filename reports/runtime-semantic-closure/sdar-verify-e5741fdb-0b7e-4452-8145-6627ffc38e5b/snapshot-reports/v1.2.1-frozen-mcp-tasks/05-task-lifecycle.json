@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "phase": 5,
+  "status": "passed_with_host_limitation",
+  "implementation": {
+    "flatCreateTaskResult": true,
+    "immediateReconciliation": true,
+    "ttlAuthority": "createdAt_plus_ttlMs",
+    "runtimeRevisionOrdering": "unsigned_decimal",
+    "partialMrtr": true,
+    "restartState": "serializable_component_authority",
+    "cancelAckMeaning": "cooperative_intent_only"
+  },
+  "verification": {
+    "focusedContract": { "status": "passed", "tests": 12 },
+    "unit": { "status": "passed", "files": 75, "tests": 471 },
+    "contract": { "status": "host_limited", "passed": 134, "total": 135 },
+    "architecture": { "status": "passed", "typescriptSources": 265 },
+    "build": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "evidenceBoundary": {
+    "restart": "component_state_restore",
+    "realProviderInterop": false,
+    "hostLimitation": "Windows symlink fixture EPERM"
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-a2a-read-only-failed-attempt/v1",
+  "status": "failed",
+  "evidenceClass": "real_a2a_real_model_live_mcp_postgresql_observation",
+  "runLabel": "run016",
+  "observedAt": "2026-08-12T12:48:48.416Z",
+  "sourceOfTruth": "runtime_postgresql_read_only_observation",
+  "qualification": {
+    "a2aReadOnlyReady": false,
+    "readReady": false,
+    "finalReasonCode": "GOAL_UNACHIEVABLE",
+    "finalMessage": "Goal replan budget exhausted."
+  },
+  "task": {
+    "taskId": "7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+    "contextId": "87882cbf-4ad5-4912-9095-df81b1b06c20",
+    "phase": "failed",
+    "goalId": "goal-113fdcb2-8577-4107-8562-172ba4e38c5b",
+    "goalVersion": 1,
+    "goalStatus": "unachievable",
+    "workflowPlanId": "plan-task-7dcb57de-a1f1-4df1-b19e-7227e3a253d0-52e3d68d-101a-49b3-9cd4-3e663240c0e3",
+    "userGoalPlanId": "user-goal-plan-b72790fb-63d4-46de-831c-25073124e797",
+    "skillGoalId": "user-goal-plan-b72790fb-63d4-46de-831c-25073124e797:skill-goal:1",
+    "skillAttemptId": "skill-attempt-ed58f54a-3abe-44d4-962f-4706c3226122"
+  },
+  "taskCapabilityAuthority": {
+    "bindingId": "binding-7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+    "capabilityId": "vehicle.ugv.read-state",
+    "capabilityVersion": 2,
+    "exposureId": "a2a.vehicle.ugv.read-state",
+    "exposureVersion": 2,
+    "skillId": "ugv.get-state",
+    "skillVersion": 4
+  },
+  "modelPath": {
+    "providerId": "ugv-real-model",
+    "model": "qwen3.7-max",
+    "successfulTaskStages": [
+      "task_understanding",
+      "goal_contract_generation",
+      "goal_planning",
+      "skill_input_resolution",
+      "goal_evaluation"
+    ],
+    "successfulExperienceObservationCountCapturedByRun": 3,
+    "successfulResultProcessingCount": 0,
+    "resultProcessingQualified": false
+  },
+  "mcpInvocation": {
+    "invocationId": "mcp-invocation-fb54fcdb-dabf-42ee-85d6-eebcb7aa8717",
+    "serverId": "ugv-smpp-runtime-ugv6",
+    "toolName": "vehicle_get_state",
+    "executionMode": "live",
+    "status": "failed",
+    "errorCode": "MCP_TOOL_BUSINESS_REJECTION",
+    "reasonCode": "UGV_EXECUTION_MODE_UNSUPPORTED",
+    "retryable": false,
+    "durationMs": 18,
+    "startedAt": "2026-08-12T12:48:37.595Z",
+    "completedAt": "2026-08-12T12:48:37.613Z"
+  },
+  "capabilityAttempt": {
+    "attemptId": "capability-attempt-7dcb57de-a1f1-4df1-b19e-7227e3a253d0-1",
+    "mcpInvocationLinked": true,
+    "databaseStatusAtInitialFailureObservation": "prepared",
+    "databaseStatusAfterRuntimeRestartReconciliation": "failed",
+    "startedAt": "2026-08-12T12:48:48.416Z",
+    "completedAt": "2026-08-12T12:48:48.416Z",
+    "restartReconciliationVerified": true
+  },
+  "goalEvaluation": {
+    "invocationId": "model-invocation-a16dd05a-b361-40e8-a45c-835e281c632f",
+    "structuredGenerationStatus": "succeeded",
+    "decision": "replace_skill",
+    "actionInstructionPresent": true,
+    "priorShapeCrashReproduced": false,
+    "boundedCorrectionImplementationPresent": true,
+    "terminalDisposition": "goal_replan_budget_exhausted"
+  },
+  "a2aProjection": {
+    "lastObservedState": "TASK_STATE_WORKING",
+    "lastObservedAt": "2026-08-12T12:48:37.474Z",
+    "terminalFailureProjectionObserved": false,
+    "projectionGap": "The Runtime Task is failed, but the latest persisted A2A projection remains WORKING."
+  },
+  "terminalOutcome": {
+    "outcomeId": "terminal-outcome-task-7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+    "outcomeKind": "unachievable",
+    "authority": "user_goal_plan_controller",
+    "controlStatus": "replan_budget_exhausted",
+    "finalInstanceId": "instance-control-task-7dcb57de-a1f1-4df1-b19e-7227e3a253d0-0-c5279880-10ee-420b-8bbe-5bf2356d59d8",
+    "committedAt": "2026-08-12T12:48:48.416Z",
+    "capabilityAttemptId": null,
+    "lineageNote": "The terminal outcome is durably linked by taskId to the failed CapabilityAttempt, but its direct capability_attempt_id field is null."
+  },
+  "safetyCounters": {
+    "physicalWrites": 0,
+    "controlCalls": 0,
+    "fireCalls": 0
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "providerEndpointIncluded": false,
+    "externalEndpointIncluded": false,
+    "rawPromptsIncluded": false,
+    "rawModelResponsesIncluded": false
+  }
+}

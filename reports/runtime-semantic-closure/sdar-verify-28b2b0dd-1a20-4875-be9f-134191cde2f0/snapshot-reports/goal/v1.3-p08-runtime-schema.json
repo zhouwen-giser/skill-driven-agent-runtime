@@ -1,0 +1,18 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "contractVersion": "1.1",
+  "implementation": "packages/domain/src/compiler/template-runtime.ts",
+  "contracts": {
+    "TemplateInstantiationInput": "b1305ecee05292e77d0694bed39b1ea1bcaf5679c26a17bf21360fe523c1fb7a",
+    "TemplateInstantiationResult": "4d10a971c8fb2d79355f6364de04d45fea36143d0ebcd0a9b9faca785264de96",
+    "TemplateRuntime": "fe1a817f0a5633b648d018742e0fcb2278e0ef887d9a9adf1922d55a755e553a"
+  },
+  "runtime": {
+    "implementation": "TemplateRuntimeService",
+    "authority": "P07 selection plus P02 active Artifact/execution/feedback plus existing planning authority",
+    "publicRoute": false,
+    "gateway": false,
+    "directSkillOrMcpExecution": false,
+    "rechecks": ["active_pointer", "artifact_hash", "goal_version", "policy", "catalog", "readiness", "kill_switch"]
+  }
+}

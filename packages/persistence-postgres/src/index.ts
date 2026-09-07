@@ -17,3 +17,5 @@ export * from './workflow-continuation-repository.js';
 export * from './skill-execution-repository.js';
 export * from './user-goal-runtime-repository.js';
 export * from './cognitive/index.js';
+
+export * from './workflow-child-call-repository.js';

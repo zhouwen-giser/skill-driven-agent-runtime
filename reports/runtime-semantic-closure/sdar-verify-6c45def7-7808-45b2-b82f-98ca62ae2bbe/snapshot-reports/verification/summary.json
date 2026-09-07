@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "commit": "473ad7d82cb11eda530aaa46d77478850bd1e51e",
+  "dirty": true,
+  "inputSha256": "b8255f54abdef53174da16129f511fa231f6c81f63caaed457c3178008189e35",
+  "environment": {
+    "node": "v22.23.1",
+    "platform": "linux",
+    "architecture": "x64",
+    "infrastructureMode": "self-managed-compose"
+  },
+  "startedAt": "2026-09-07T04:56:41.470Z",
+  "finishedAt": "2026-09-07T05:06:42.894Z",
+  "durationMs": 601424,
+  "steps": [
+    {
+      "name": "static-unit-contract-build",
+      "command": "pnpm verify:bootstrap",
+      "status": "failed",
+      "startedAt": "2026-09-07T04:56:41.478Z",
+      "finishedAt": "2026-09-07T05:06:42.877Z",
+      "durationMs": 601399,
+      "logPath": "reports/verification/raw/static-unit-contract-build.log",
+      "outputSha256": "51757da7b5cb17c63783fd555970dac3159153e19d6f3972d6c65b8f98d95347",
+      "metrics": {},
+      "exitCode": 0,
+      "error": "spawnSync /home/zhouwen/.local/share/nodejs/node-v22.23.1-linux-x64/bin/node ETIMEDOUT"
+    }
+  ]
+}

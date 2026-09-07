@@ -5,6 +5,7 @@ import { URL } from 'node:url';
 import pg from 'pg';
 
 import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+import { recordVerificationCleanupFailure } from './lib/verification-cleanup.mjs';
 
 const { Pool } = pg;
 const databaseName = 'sdar_v122_e2e_gate';
@@ -60,7 +61,7 @@ try {
     );
   }
 } finally {
-  await dropDatabase().catch(() => undefined);
+  await dropDatabase().catch((error) => recordVerificationCleanupFailure('e2e-database', error));
   stopInfrastructure();
 }
 

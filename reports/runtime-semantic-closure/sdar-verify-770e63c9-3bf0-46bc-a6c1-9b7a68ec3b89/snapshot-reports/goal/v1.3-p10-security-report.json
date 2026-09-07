@@ -1,0 +1,18 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "checks": {
+    "authBeforeArtifact": true,
+    "tenantBeforeArtifact": true,
+    "authorizationBeforeArtifact": true,
+    "policyAndKillSwitchBeforeFastPath": true,
+    "denyCannotFallback": true,
+    "loadSheddingCannotBypassAuthority": true,
+    "idempotencyCollisionRejected": true,
+    "privateReasoningRejected": true,
+    "gatewayEvidenceOmitsRequestTextAndCredentials": true,
+    "actorDeletionRemovesGatewayOutboxDetail": true
+  },
+  "trustedIntranetWarningPreserved": true,
+  "evidence": ["packages/application/test/fast-gateway-p10.unit.test.ts", "packages/management-api/src/http-endpoint.ts", "packages/persistence-postgres/test/fast-gateway-p10.integration.test.ts"]
+}

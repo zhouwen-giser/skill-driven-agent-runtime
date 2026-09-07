@@ -141,6 +141,8 @@ export interface PlanPreparationProcessorDependencies {
     submitAnswer(inputRequestId: string, inputResponses: unknown): Promise<void>;
   }>;
   readonly taskPlanning: Readonly<{
+    /** Called only after durable Task/Capability/Plan attachment and waiting transition. */
+    confirmDevelopmentPlan?(taskId: string, planId: string): Promise<void>;
     prepare(
       input: Readonly<{
         task: AgentTask;
@@ -166,6 +168,7 @@ export interface PlanPreparationProcessorDependencies {
   }>;
   readonly taskUnderstanding?: Readonly<{
     route(input: Readonly<{ requestText: string }>): CognitiveEntryRoute;
+    requiresGoalReview?(input: Readonly<{ requestText: string }>): boolean;
     understand(
       input: Pick<UnderstandGenericTaskInput, 'taskId' | 'contextId' | 'requestText'> &
         Readonly<{ requestMetadata: Readonly<Record<string, unknown>> }>,
@@ -439,7 +442,10 @@ export class PlanPreparationProcessor {
       if (understanding.disposition === 'rejected') {
         throw new Error('TASK_UNDERSTANDING_REJECTED');
       }
-      if (this.#dependencies.goalSessions !== undefined) {
+      if (
+        this.#dependencies.goalSessions !== undefined &&
+        (this.#dependencies.taskUnderstanding.requiresGoalReview?.({ requestText }) ?? true)
+      ) {
         const session = await this.#dependencies.goalSessions.start({ taskId: task.taskId });
         if (session.session.state !== 'goal_review')
           throw new Error('INTERACTIVE_GOAL_SESSION_REVIEW_REQUIRED');
@@ -1043,6 +1049,7 @@ export class PlanPreparationProcessor {
     await this.#dependencies.taskCapabilities?.bindInitialPlan(task.taskId, prepared.planId);
     if (!prepared.autoConfirmed) {
       await this.#transition(task, 'awaiting_plan_confirmation', 'Plan confirmation required.');
+      await this.#dependencies.taskPlanning.confirmDevelopmentPlan?.(task.taskId, prepared.planId);
       return;
     }
     task = await this.#transition(task, 'executing', 'Skill policy auto-confirmed the plan.');

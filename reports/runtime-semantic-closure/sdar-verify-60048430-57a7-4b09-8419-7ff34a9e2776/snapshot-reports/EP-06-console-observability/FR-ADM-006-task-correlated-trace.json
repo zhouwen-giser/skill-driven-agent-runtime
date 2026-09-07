@@ -1,0 +1,29 @@
+{
+  "requirement": "FR-ADM-006",
+  "status": "verified",
+  "currentRegression": {
+    "files": 4,
+    "testsPassed": 69,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "acceptance": {
+    "task": true,
+    "context": true,
+    "goal": true,
+    "modelInvocations": true,
+    "mcpInvocations": true,
+    "runtimeEvents": true,
+    "results": true,
+    "evaluation": true,
+    "errors": true,
+    "persistedIdentityNavigation": true,
+    "boundedFilters": true,
+    "readOnlyRefresh": true
+  },
+  "historicalRealA2aPostgresLanggraphMcpModelEvidence": true,
+  "unverified": [
+    "latest real-browser repetition",
+    "migration-0052 extended confirmation/Patch correlation tracked by NFR-OBS-001"
+  ]
+}

@@ -43,29 +43,25 @@ describe('Canonical Evidence Export PostgreSQL adapter', { concurrent: false }, 
     expect(
       (await pool.query('SELECT version FROM schema_migration WHERE version=$1', [version])).rows,
     ).toEqual([{ version }]);
-    await pool.query(
-      await readFile(
-        'infra/postgres/migrations/0177_v14_control_authority_kind_default.down.sql',
-        'utf8',
-      ),
+    const before = await pool.query<{ version: string }>(
+      'SELECT version FROM schema_migration ORDER BY version DESC',
     );
-    await pool.query(
-      await readFile('infra/postgres/migrations/0176_v14_control_authority_kind.down.sql', 'utf8'),
-    );
-    await pool.query(
-      await readFile('infra/postgres/migrations/0175_v14_mcp_task_consumer_sync.down.sql', 'utf8'),
-    );
-    await pool.query(
-      await readFile(
-        'infra/postgres/migrations/0174_v14_evidence_delivery_origin.down.sql',
-        'utf8',
-      ),
-    );
+    // Roll back the complete applied suffix. Omitting a newer migration creates a ledger hole
+    // which the production migration planner must continue to reject.
+    for (const applied of before.rows.filter(
+      (row) => /^01[0-9]{2}_[a-z0-9_]+$/u.test(row.version) && row.version >= version,
+    ))
+      await pool.query(
+        await readFile(`infra/postgres/migrations/${applied.version}.down.sql`, 'utf8'),
+      );
     expect(
       (await pool.query('SELECT version FROM schema_migration WHERE version=$1', [version])).rows,
     ).toEqual([]);
     await applyRuntimeMigrations(pool);
     await applyRuntimeMigrations(pool);
+    expect(
+      (await pool.query('SELECT version FROM schema_migration ORDER BY version DESC')).rows,
+    ).toEqual(before.rows);
     expect(
       (await pool.query('SELECT version FROM schema_migration WHERE version=$1', [version])).rows,
     ).toEqual([{ version }]);

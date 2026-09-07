@@ -1,0 +1,1 @@
+{"status":"passed","contract":"ArtifactPromotionPackage","evidenceBinding":"durable_p05_p06_coverage_and_hashes","evidence":"packages/persistence-postgres/test/artifact-shadow-p06.integration.test.ts"}

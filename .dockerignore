@@ -1,0 +1,11 @@
+.git
+.env
+**/.env
+**/.state
+**/node_modules
+**/dist
+reports
+artifacts
+.codex
+*.log
+coverage

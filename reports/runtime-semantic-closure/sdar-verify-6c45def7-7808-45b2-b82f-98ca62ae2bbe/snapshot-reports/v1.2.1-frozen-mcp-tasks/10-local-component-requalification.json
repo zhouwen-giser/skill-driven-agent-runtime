@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "phase": 10,
+  "status": "component_conformant",
+  "claims": {
+    "sdarFrozenClient": "component_conformant",
+    "sdarFrozenMockProvider": "component_conformant",
+    "realProviderInterop": "not_claimed_phase_11_gate"
+  },
+  "implementation": {
+    "explicitLegacyFrozenProviders": true,
+    "runtimeSubscriptionComposition": true,
+    "immediateReconciliationPersistence": true,
+    "pollNotificationConvergence": true,
+    "outputSchemaValidationAcrossPollAndNotification": true,
+    "authorizationAtNotificationSend": true,
+    "boundedClientSseBuffer": true,
+    "boundedProviderNotificationQueue": true,
+    "restartWithoutDuplicateToolCall": true,
+    "parallelAndChildContinuation": true
+  },
+  "requalification": {
+    "moveTo": {
+      "guidanceTemplateProcedure": "passed",
+      "serverDirectedSyncAndTask": "passed",
+      "restricted": "passed",
+      "inputCancelRestartNotification": "passed",
+      "evidenceA": "passed",
+      "noDuplicateToolCall": "passed"
+    },
+    "areaPatrol": {
+      "exactChildAndDynamicSlot": "passed",
+      "parentChildTreeAndParallelRemoteChild": "passed",
+      "inputCancelRestart": "passed_via_shared_frozen_runtime_and_protocol_neutral_workflow_authorities",
+      "degradedAndEvidenceAggregation": "passed",
+      "pollNotificationConvergence": "passed"
+    },
+    "legacyV11Scenarios": { "status": "passed", "scenarios": 16 }
+  },
+  "verification": {
+    "frozenFocusedContract": { "status": "passed", "files": 8, "tests": 54 },
+    "unit": { "status": "passed", "files": 78, "tests": 480 },
+    "contract": { "status": "host_limited", "passed": 166, "total": 167 },
+    "integration": { "status": "passed", "files": 9, "tests": 84, "postgresPort": 55443, "redisRelayPort": 56379 },
+    "e2e": { "status": "passed", "files": 2, "tests": 60 },
+    "v11Acceptance": { "status": "passed", "scenarios": 16, "infrastructure": "operator_managed" },
+    "protocol": { "status": "passed", "lockedFiles": 11, "validFixtures": 9, "invalidFixtures": 12 },
+    "frozenMigration0107": "passed",
+    "managementOpenapi": { "status": "passed", "operations": 122 },
+    "acceptanceMap": { "status": "passed", "scenarios": 18 },
+    "architecture": { "status": "passed", "typescriptSources": 285 },
+    "build": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "limitations": {
+    "windowsSymlink": "phase_10_EPERM_resolved_by_phase_12_cross_platform_fixture",
+    "isolatedComposeProject": "sdar-codex-phase9",
+    "cleanup": "completed_2026-07-22",
+    "realProviderInterop": "phase_11_external_component_gate"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.authority-readiness/v1",
+  "status": "passed",
+  "task": "UAP-P3-B01",
+  "generatedAt": "2026-08-21T15:22:44.989Z",
+  "command": "deploy/ugv-agent-profile-simulation/readiness.sh",
+  "exitCode": 0,
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "authorityMode": "readiness",
+  "skillLifecycle": {
+    "skillId": "embodied.move_to",
+    "version": 1,
+    "beforeRevision": 2,
+    "suspendedRevision": 3,
+    "restoredRevision": 4,
+    "finalGovernedStatus": "published",
+    "exactVersionCount": 1
+  },
+  "profilePublicCardLifecycle": {
+    "authority": "CapabilityCardPublisher",
+    "managedCardUsed": false,
+    "sourceSkillRef": "embodied.move_to:1",
+    "before": {
+      "exactSkillCount": 1,
+      "totalSkillCount": 1,
+      "capabilityCount": 2,
+      "managementContentHash": "3defad3a191bffd2531b3f119c729e7036e518e1530d1494d47e140ce341da15",
+      "a2aContentHash": "06fbf764915ee4c17b68ee5a1f604e4cce48bdf5e070b1222ef663c2a5c53fa1"
+    },
+    "suspended": {
+      "exactSkillCount": 0,
+      "totalSkillCount": 0,
+      "capabilityCount": 0,
+      "managementContentHash": "97ff7ec0f4854aec3d2258bcf711339f7527702115873fc26de564290eb728cc",
+      "a2aContentHash": "8f24b7863a6d8b656d847643ab74de72b578557089b9fd777c09571283f63b76"
+    },
+    "restored": {
+      "exactSkillCount": 1,
+      "totalSkillCount": 1,
+      "capabilityCount": 2,
+      "managementContentHash": "3defad3a191bffd2531b3f119c729e7036e518e1530d1494d47e140ce341da15",
+      "a2aContentHash": "06fbf764915ee4c17b68ee5a1f604e4cce48bdf5e070b1222ef663c2a5c53fa1"
+    },
+    "semanticRestored": true
+  },
+  "managedCardSeparation": {
+    "authority": "node_control_exposure",
+    "exposureRef": "a2a.embodied.move:1",
+    "revision": 6,
+    "contentHash": "59116b076b8a7eada90d3fef21c3673c3b5791c0321275a3797b2d16ef6e98f9",
+    "unchangedAcrossSkillLifecycle": true
+  },
+  "driverActivity": {
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "fireInvocationCount": 0,
+    "modelInvocationCount": 0,
+    "providerToolCallCount": 0
+  },
+  "navigationCallCount": 0,
+  "simulationSideEffectsEnabled": false,
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "modelConfigurationIncluded": false
+}

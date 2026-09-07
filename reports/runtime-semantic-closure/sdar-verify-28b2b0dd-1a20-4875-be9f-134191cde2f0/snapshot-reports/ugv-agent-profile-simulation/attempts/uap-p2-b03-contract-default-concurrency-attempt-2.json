@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T06:43:30.658Z",
+  "status": "ENVIRONMENT_TIMING_BLOCKED_WITH_ISOLATED_PASS",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic_contract_approved_host",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm test:contract",
+  "executionContext": "approved host",
+  "exitCode": 1,
+  "failure": {
+    "code": "UNRELATED_CONCURRENT_CONFORMANCE_TIMEOUT",
+    "summary": "Fifty contract files and 317 tests passed. The unchanged Node Control operation-conformance test was the sole failure after exceeding its fixed 5000 ms timeout under full-suite concurrency."
+  },
+  "corroboration": {
+    "isolatedCommand": "pnpm exec vitest run --project contract apps/node-control-api/test/operation-conformance.contract.test.ts",
+    "isolatedResult": "1 file and 6 tests passed; the assertions completed without a timeout.",
+    "assertionOrTimeoutChanged": false,
+    "serializedFullReplay": "PENDING_FINAL_GATE"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

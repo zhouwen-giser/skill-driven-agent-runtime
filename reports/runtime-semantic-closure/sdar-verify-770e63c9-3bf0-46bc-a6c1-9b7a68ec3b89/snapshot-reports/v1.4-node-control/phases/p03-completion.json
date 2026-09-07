@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P03",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "6a925f2c6a3b63044724532eb719507be27f46ca",
+  "latestObservedMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "21c7a376b0f6d6a6b5181d2da84b75973fbbedb7",
+  "evidenceSha": "598024359da8509143cae26e2e46ce8f56091b6f",
+  "remoteSha": "598024359da8509143cae26e2e46ce8f56091b6f",
+  "completedAt": "2026-08-02T08:43:00+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "durationMs": 339537,
+      "unitContract": 1140,
+      "integration": 135,
+      "e2e": 72,
+      "runtimeMigrations": 29
+    },
+    "focused": {
+      "unitTests": 8,
+      "integrationTests": 2,
+      "architectureSources": 589,
+      "secretFiles": 4151,
+      "secretFindings": 0,
+      "frozenFiles": 76,
+      "frozenSchemas": 28,
+      "frozenOperations": 111,
+      "frozenEvents": 20,
+      "frozenFixtures": 7
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "verdict": "accepted"
+  },
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/goal/v1.3-final-secret-scan-report.json",
+    "reports/v1.4-node-control/failed-attempts/p03-llm-governance.md",
+    "reports/v1.4-node-control/phases/p03-review.md"
+  ],
+  "nextPhase": "P04"
+}

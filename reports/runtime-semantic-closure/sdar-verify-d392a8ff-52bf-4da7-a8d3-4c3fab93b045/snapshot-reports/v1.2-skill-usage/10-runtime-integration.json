@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "phase": 10,
+  "status": "passed",
+  "goal": "Integrate exact Skill Usage selection, composition, planning policy and confirmation into the existing runtime without a parallel graph or state machine.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "764ec026564d31845273724ce1a29df4e0b5b675",
+  "resultingSha": "efb03e8893f037d2bca1ca2803422431711b5660",
+  "authority": {
+    "selection": "existing persisted SkillSelectionRecord exact candidate",
+    "composition": "existing SkillCompositionPlanner with v1.2 bounded Usage view",
+    "planning": "existing WorkflowPlannerService and WorkflowValidator",
+    "confirmation": "existing outer Workflow Plan confirmation",
+    "execution": "existing LangGraph compiler only",
+    "persistence": "WorkflowDefinition.skillUsagePolicy revalidated by Domain",
+    "migration": "single released 0064 then 0100 through 0105 chain"
+  },
+  "propagation": {
+    "initialTaskPlanning": "passed",
+    "boundedRepair": "passed",
+    "inputContinuationReplan": "passed",
+    "ordinaryReplan": "passed",
+    "naturalLanguageRevision": "passed",
+    "adminRevision": "passed",
+    "goalPatch": "passed",
+    "freshOuterConfirmation": "passed",
+    "legacyExactSkillGraphCompatibility": "passed"
+  },
+  "defectsClosed": [
+    "PostgreSQL Skill-selection reads stripped usageSummary and usageCandidate",
+    "duplicate in-graph confirmation competed with the outer plan authority",
+    "the pre-main released migration profile could not serve the merged 0105 repository model"
+  ],
+  "testsActuallyRun": [
+    {
+      "command": "pnpm verify",
+      "status": "passed",
+      "commit": "efb03e8893f037d2bca1ca2803422431711b5660",
+      "dirty": false,
+      "durationMs": 106796,
+      "unitContractFiles": 82,
+      "unitContractTests": 556,
+      "integrationFiles": 9,
+      "integrationTests": 81,
+      "e2eFiles": 2,
+      "e2eTests": 50,
+      "architectureSourceFiles": 251,
+      "managementApiOperations": 114,
+      "migrationPairs": 69,
+      "build": "passed",
+      "infrastructureSmoke": "passed",
+      "serverConsoleSmoke": "passed"
+    }
+  ],
+  "adrs": ["ADR-105", "ADR-106"],
+  "environment": {
+    "classification": "real local PostgreSQL/pgvector, Redis/BullMQ, A2A, LangGraph and HTTP; deterministic model/MCP business fixtures",
+    "verificationDatabase": "disposable bootstrap database removed after the gate",
+    "operatorVolume": "unchanged; historical 0064,0105 ledger gap correctly rejected",
+    "containersAfterVerification": "stopped with volumes preserved"
+  },
+  "knownLimitations": [
+    "Persistent Skill Execution Record and telemetry remain Phase 11.",
+    "Required capability-slot choice resolution and formal recursive area-patrol acceptance remain Phase 12-13.",
+    "External production MCP Tasks Provider interoperability remains unverified."
+  ],
+  "push": {
+    "status": "passed",
+    "remote": "origin",
+    "remoteSha": "efb03e8893f037d2bca1ca2803422431711b5660"
+  }
+}

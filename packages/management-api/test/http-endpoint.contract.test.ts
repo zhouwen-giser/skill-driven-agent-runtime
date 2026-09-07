@@ -17,6 +17,7 @@ import {
   transitionManagementOperation,
 } from '../../node-control-domain/src/index.js';
 import {
+  DeferredSkillEvolutionService,
   ArtifactManagementCommandService,
   ArtifactManagementQueryService,
   CognitiveManagementActionGate,
@@ -38,6 +39,10 @@ import {
   type ManagementHttpEndpointHandle,
   type ManagementOperations,
 } from '../src/index.js';
+import {
+  IsolatedDemoService,
+  type IsolatedDemoRecord,
+} from '../../application/src/isolated-demo-service.js';
 
 describe('management HTTP API contract', () => {
   let endpoint: ManagementHttpEndpointHandle | undefined;
@@ -45,6 +50,61 @@ describe('management HTTP API contract', () => {
   afterEach(async () => {
     await endpoint?.close();
     endpoint = undefined;
+  });
+
+  it('isolated software demo requires a separate manual acknowledgement and has no Device contract', async () => {
+    const records: IsolatedDemoRecord[] = [];
+    const isolatedDemo = new IsolatedDemoService(
+      {
+        list: () => Promise.resolve(records),
+        append: (row) => {
+          if (!records.some((old) => old.requestId === row.requestId && old.phase === row.phase))
+            records.push(row);
+          return Promise.resolve();
+        },
+      },
+      () => new Date().toISOString(),
+    );
+    endpoint = await startManagementHttpEndpoint({ operations: { ...operations(), isolatedDemo } });
+    const base = `${endpoint.baseUrl}/api/v1/development/isolated-demo`;
+    const requestId = '65c29332-d804-4c8f-9d9e-1d639e23ed3a';
+    const post = (path: string, body: unknown) =>
+      fetch(`${base}/${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    expect(
+      (
+        await post('requests', {
+          requestId,
+          objectId: 'demo:indicator',
+          state: 'active',
+          targetId: 'forbidden',
+        })
+      ).status,
+    ).toBe(400);
+    expect(records).toEqual([]);
+    expect(
+      (await post('requests', { requestId, objectId: 'demo:indicator', state: 'active' })).status,
+    ).toBe(200);
+    expect(records.map((row) => row.phase)).toEqual(['requested']);
+    expect(
+      (await post('requests', { requestId, objectId: 'demo:other', state: 'active' })).status,
+    ).toBe(409);
+    expect((await post('confirm', { requestId })).status).toBe(400);
+    for (let attempt = 0; attempt < 2; attempt++)
+      expect((await post('confirm', { requestId, acknowledgement: 'software-only' })).status).toBe(
+        200,
+      );
+    expect(records.map((row) => row.phase)).toEqual(['requested', 'confirmed']);
+    const view = await (await fetch(base)).json();
+    expect(view).toMatchObject({
+      deviceExecution: 'disabled',
+      executableCapability: null,
+      manualConfirmationRequired: true,
+    });
+    expect(JSON.stringify(view)).not.toMatch(/missionId|externalExecutionId|physicalSuccess/);
   });
 
   it('serves the unauthenticated console from the management process with the risk header', async () => {
@@ -3015,6 +3075,60 @@ describe('management HTTP API contract', () => {
     expect(route).toHaveBeenCalledWith('goal', 'provider.embedding', 'embedding');
   });
 
+  it('imports configured Task Types through the existing audited authority and validates the public contract', async () => {
+    const importType = vi.fn<NonNullable<ManagementOperations['configuredTaskTypes']>['import']>(
+      () => Promise.resolve(undefined),
+    );
+    endpoint = await startManagementHttpEndpoint({
+      operations: { ...operations(), configuredTaskTypes: { import: importType } },
+      cognitiveManagementActions: new CognitiveManagementActionGate({
+        repository: new InMemoryCognitiveManagementActionRepository(),
+        clock: { now: () => '2026-09-07T09:00:00.000Z' },
+      }),
+    });
+    const definition = {
+      taskTypeId: 'documents.normalize',
+      version: 1,
+      title: 'Normalize supplied document',
+      recognitionHints: ['document'],
+      requiredDimensions: ['criteria'],
+      capabilityRequirements: [],
+      risks: [],
+    };
+    const body = {
+      actorId: 'config.operator',
+      idempotencyKey: 'configured-documents-v1',
+      reason: 'Reviewed local software capability.',
+      humanApproved: true,
+      policyAllowed: true,
+      definition,
+    };
+    const post = (input: unknown) =>
+      fetch(`${requiredFixture(endpoint).baseUrl}/api/v1/task-types/configured`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+    expect((await post({ ...body, definition: { ...definition, origin: 'induced' } })).status).toBe(
+      400,
+    );
+    expect(importType).not.toHaveBeenCalled();
+    expect((await post(body)).status).toBe(201);
+    expect((await post(body)).status).toBe(201);
+    expect(
+      (await post({ ...body, definition: { ...definition, title: 'Changed candidate' } })).status,
+    ).toBe(409);
+    expect(importType).toHaveBeenCalledTimes(1);
+    expect(importType).toHaveBeenCalledWith(
+      definition,
+      expect.objectContaining({
+        actorId: 'config.operator',
+        humanApproved: true,
+        policyAllowed: true,
+      }),
+    );
+  });
+
   it('lists versioned Candidate Task Types without exposing them as active knowledge', async () => {
     endpoint = await startManagementHttpEndpoint({
       operations: {
@@ -4260,6 +4374,36 @@ describe('management HTTP API contract', () => {
     await expect(history.json()).resolves.toMatchObject({
       items: [{ correctionId: 'correction-1', diff: [{ path: '/workflowGuidance' }] }],
     });
+    await endpoint.close();
+    const deferred = new DeferredSkillEvolutionService({
+      findFormalizationCandidateById: () => Promise.resolve(candidate),
+      listCorrectionExperiences: () => Promise.resolve([correction]),
+    });
+    endpoint = await startManagementHttpEndpoint({
+      operations: { ...operations(), skillEvolution: deferred },
+    });
+    for (const [action, body] of [
+      ['simulate', undefined],
+      ['corrections', { actor: correction.actor, summary: correction.summary, proposedSkill }],
+    ] as const) {
+      const blocked = await fetch(
+        `${endpoint.baseUrl}/api/v1/skill-formalization-candidates/candidate-1/${action}`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        },
+      );
+      expect(blocked.status).toBe(409);
+      await expect(blocked.json()).resolves.toMatchObject({
+        error: { code: 'SKILL_EVOLUTION_PUBLICATION_DEFERRED' },
+      });
+    }
+    const retained = await fetch(
+      `${endpoint.baseUrl}/api/v1/skill-formalization-candidates/candidate-1`,
+    );
+    expect(retained.status).toBe(200);
+    await expect(retained.json()).resolves.toEqual(candidate);
   });
 
   it('lists replayable Evolution Experiences by Goal', async () => {
@@ -5850,4 +5994,9 @@ function passThroughTaskRevisionAuthority() {
       return Promise.resolve({ disposition: 'applied' as const, result });
     },
   };
+}
+
+function requiredFixture<T>(value: T | undefined | null): T {
+  if (value === undefined || value === null) throw new Error('REQUIRED_TEST_FIXTURE_MISSING');
+  return value;
 }

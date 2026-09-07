@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "phase": 3,
+  "status": "passed_with_host_limitation",
+  "migration": {
+    "version": "0107_frozen_mcp_tasks_protocol",
+    "empty": "passed",
+    "upgradeFrom0106": "passed",
+    "idempotent": "passed",
+    "rollbackReapply": "passed",
+    "legacyBackfill": "passed",
+    "unsafeRollback": "rejected",
+    "ledgerGap": "rejected"
+  },
+  "verification": {
+    "repositoryIntegration": { "status": "passed", "tests": 58 },
+    "unit": { "status": "passed", "files": 75, "tests": 471 },
+    "contract": { "status": "host_limited", "passed": 112, "total": 113 },
+    "architecture": { "status": "passed", "typescriptSources": 260 },
+    "build": "passed",
+    "infra": { "status": "passed", "migrationPairs": 71 },
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "cleanup": { "disposablePostgresRemoved": true, "operatorPort55432Modified": false }
+}

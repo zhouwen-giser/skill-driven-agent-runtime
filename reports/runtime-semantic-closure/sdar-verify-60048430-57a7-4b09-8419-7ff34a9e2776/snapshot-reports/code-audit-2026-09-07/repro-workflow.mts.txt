@@ -1,0 +1,29 @@
+import { compileWorkflow } from '../../packages/langgraph-runtime/src/workflow-compiler.ts';
+import { LangGraphWorkflowExecutor } from '../../packages/langgraph-runtime/src/workflow-executor-adapter.ts';
+import { WorkflowValidator } from '../../packages/application/src/workflow-validator.ts';
+import { AjvJsonSchemaValidator } from '../../packages/json-schema-adapter/src/index.ts';
+const budget = { maxReplans: 3, maxDurationSeconds: 60, maxLlmCalls: 200, maxMcpCalls: 200, maxCost: 1000 };
+const costs = { llm: 1, mcp: 1, skill: 1, subworkflow: 1 };
+const results:any[]=[];
+let calls=0;
+const ports = {executeLlm:async()=>{calls++;return {answer:42}},callMcpTool:async()=>({kind:'immediate',result:{content:[],isError:false}}),executeSkill:async()=>({status:'completed',output:{done:true}}),executeSubworkflow:async()=>({done:true}),requestHumanConfirmation:async()=>true,decideExecutionError:async()=>({strategy:'continue',summary:'Continue'}),now:()=>new Date().toISOString(),nowMilliseconds:()=>Date.now()};
+const validator = new WorkflowValidator({tools:{getInputSchema:async()=>({type:'object'})},skills:{findCurrentVersion:async()=>undefined},schemas:new AjvJsonSchemaValidator()} as any);
+const def=(nodes:any[],edges:any[],entryNodeId:string,exitNodeIds:string[])=>({workflowDefinitionId:'audit',version:1,goalId:'audit',goalVersion:1,nodes,edges,entryNodeId,exitNodeIds});
+const llm=(id:string)=>({nodeId:id,name:id,type:'llm',instruction:'mock',responseSchema:{type:'object'}});
+const result={nodeId:'result',name:'result',type:'result',value:{op:'literal',value:'done'}};
+async function test(name:string,d:any,p:any=ports){calls=0; const v=await validator.validate(d);try{const r=await compileWorkflow(d,'confirmed',p).invoke({},budget,costs);results.push({name,validation:v.valid,status:r.status,result:r.result,events:r.events.filter(e=>e.type==='node_succeeded').map(e=>e.nodeId),calls});}catch(e:any){results.push({name,validation:v.valid,error:e.code??e.name,message:e.message,calls});}}
+await test('loop maxIterations=30',[].length?null:def([{nodeId:'loop',name:'loop',type:'loop',condition:{op:'literal',value:true},bodyEntryNodeId:'body',maxIterations:30},llm('body'),result],[{sourceNodeId:'loop',targetNodeId:'body',outcome:'loop'},{sourceNodeId:'loop',targetNodeId:'result',outcome:'done'},{sourceNodeId:'body',targetNodeId:'loop'}],'loop',['result']));
+await test('parallel branch with condition',def([{nodeId:'p',name:'p',type:'parallel',branchEntryNodeIds:['condition','b']},{nodeId:'condition',name:'condition',type:'condition',expression:{op:'literal',value:true}},llm('a1'),llm('a2'),llm('b'),result],[{sourceNodeId:'p',targetNodeId:'condition'},{sourceNodeId:'p',targetNodeId:'b'},{sourceNodeId:'condition',targetNodeId:'a1',outcome:'true'},{sourceNodeId:'condition',targetNodeId:'a2',outcome:'false'},{sourceNodeId:'a1',targetNodeId:'result'},{sourceNodeId:'a2',targetNodeId:'result'},{sourceNodeId:'b',targetNodeId:'result'}],'p',['result']));
+await test('missing loop done route',def([{nodeId:'loop',name:'loop',type:'loop',condition:{op:'literal',value:false},bodyEntryNodeId:'body',maxIterations:2},llm('body'),result],[{sourceNodeId:'loop',targetNodeId:'body',outcome:'loop'},{sourceNodeId:'body',targetNodeId:'result'}],'loop',['result']));
+const waitPorts={...ports,callMcpTool:async(i:any)=>({kind:'waiting_external',wait:{waitId:'w',kind:'remote_task',sourceId:'b',nodeId:i.workflowNodeId,nodeRunId:i.workflowNodeRunId,state:'waiting'}})};
+const wd=def([{nodeId:'remote',name:'remote',type:'mcp_tool',tool:{serverId:'s',toolName:'t'},arguments:{}},{nodeId:'confirm',name:'confirm',type:'human_confirmation',prompt:'Proceed?'},result],[{sourceNodeId:'remote',targetNodeId:'confirm'},{sourceNodeId:'confirm',targetNodeId:'result',outcome:'success'},{sourceNodeId:'confirm',targetNodeId:'result',outcome:'failure'}],'remote',['result']);
+const executor=new LangGraphWorkflowExecutor(waitPorts as any,costs);
+const initial=await executor.execute(wd as any,{},budget,undefined,'auditwait');
+const resumed=await executor.continueExternal(wd as any,'auditwait',initial.continuation!,{waitId:'w',nodeRunId:'auditwait~remote~1',kind:'completed',result:{content:[],isError:false}},'attempt');
+let confirmation:any;try{confirmation=await executor.resumeHumanConfirmation('auditwait',true);}catch(e:any){confirmation={error:e.code,message:e.message}}
+results.push({name:'remote wait then human confirmation',initialStatus:initial.status,continuationStatus:resumed.status,pendingConfirmation:resumed.pendingConfirmation,resume:confirmation});
+console.log(JSON.stringify(results,null,2));
+const policyCalls:any[]=[];
+const fp=def([{nodeId:'skill',name:'skill',type:'skill_call',skillId:'child',input:{}},{nodeId:'handler',name:'handler',type:'error_handler',handledNodeId:'skill',strategy:'terminate',skillFailurePolicy:'fail_fast'},result],[{sourceNodeId:'skill',targetNodeId:'result'},{sourceNodeId:'handler',targetNodeId:'result'}],'skill',['result']);
+const fr=await compileWorkflow(fp as any,'confirmed',{...ports,executeSkill:async()=>{throw Object.assign(new Error('child failed'),{code:'CHILD_FAILED'})},decideExecutionError:async(input:any)=>{policyCalls.push(input);return {strategy:'continue',summary:'continue'}}} as any).invoke({},budget,costs);
+console.log(JSON.stringify({name:'skill fail_fast error handler',status:fr.status,result:fr.result,decisionInput:policyCalls},null,2));

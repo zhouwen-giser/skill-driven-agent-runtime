@@ -1,0 +1,14 @@
+{
+  "snapshotRunId": "sdar-verify-6c45def7-7808-45b2-b82f-98ca62ae2bbe",
+  "inputSha256": "b8255f54abdef53174da16129f511fa231f6c81f63caaed457c3178008189e35",
+  "matchesCurrentInputs": true,
+  "mismatches": [],
+  "fileCount": 2614,
+  "finalCheckAt": "2026-09-07T05:10:03.098467+00:00",
+  "finalMismatches": [
+    "PROJECT_STATUS.md",
+    "docs/17_TRACEABILITY_MATRIX.md",
+    "execplans/EP-RUNTIME-SEMANTIC-CLOSURE.md"
+  ],
+  "note": "Initial check matched 2614 files; the final check also records post-run status/evidence documentation updates. The gate report certifies only its frozen input identity and is failed."
+}

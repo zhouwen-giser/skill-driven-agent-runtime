@@ -1,0 +1,1 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","openapiVersion":"3.1.0","totalOperations":164,"commandPayloadDocumented":true,"authenticationDocumented":true,"commandErrors":[403,409,412,422],"command":"pnpm verify:management-openapi","result":"Verified 164 management API operations against OpenAPI."}

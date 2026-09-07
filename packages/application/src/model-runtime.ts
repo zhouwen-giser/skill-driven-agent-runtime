@@ -106,6 +106,7 @@ export class ModelRuntimeService {
       context?: unknown;
       taskId?: string;
       timeoutMs?: number;
+      signal?: AbortSignal;
       routeContext?: Readonly<{ taskType?: string; caseType?: string }>;
     }>,
   ): Promise<unknown> {
@@ -121,6 +122,7 @@ export class ModelRuntimeService {
       context?: unknown;
       taskId?: string;
       timeoutMs?: number;
+      signal?: AbortSignal;
       routeContext?: Readonly<{ taskType?: string; caseType?: string }>;
     }>,
   ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
@@ -133,8 +135,9 @@ export class ModelRuntimeService {
     context?: unknown,
     taskId?: string,
     routeContext?: Readonly<{ taskType?: string; caseType?: string }>,
+    signal?: AbortSignal,
   ): Promise<Readonly<{ providerId: string; vector: readonly number[] }>> {
-    return this.#invokeEmbedding(stage, text, context, taskId, routeContext);
+    return this.#invokeEmbedding(stage, text, context, taskId, routeContext, signal);
   }
 
   listInvocations(stage?: ModelStage): Promise<readonly ModelInvocationRecord[]> {
@@ -154,9 +157,11 @@ export class ModelRuntimeService {
       context?: unknown;
       taskId?: string;
       timeoutMs?: number;
+      signal?: AbortSignal;
       routeContext?: Readonly<{ taskType?: string; caseType?: string }>;
     }>,
   ): Promise<Readonly<{ structuredResult: unknown; invocationId: string }>> {
+    input.signal?.throwIfAborted();
     const prompt = await this.#repository.findActivePromptForStage(input.stage);
     if (prompt?.status !== 'enabled') {
       throw new ModelRuntimeError(
@@ -177,6 +182,7 @@ export class ModelRuntimeService {
       input.routeContext,
     );
     for (const [index, provider] of route.providers.entries()) {
+      input.signal?.throwIfAborted();
       const started = Date.now();
       try {
         const result = await this.#transport.generateStructured({
@@ -185,14 +191,18 @@ export class ModelRuntimeService {
           instruction: renderedInstruction,
           responseSchema: input.responseSchema,
           correctionErrors: input.correctionErrors,
-          signal: AbortSignal.timeout(
-            Math.min(
-              provider.configuration.timeoutMs,
-              route.timeoutMs,
-              input.timeoutMs ?? Number.MAX_SAFE_INTEGER,
+          signal: combineInvocationSignal(
+            input.signal,
+            AbortSignal.timeout(
+              Math.min(
+                provider.configuration.timeoutMs,
+                route.timeoutMs,
+                input.timeoutMs ?? Number.MAX_SAFE_INTEGER,
+              ),
             ),
           ),
         });
+        input.signal?.throwIfAborted();
         const invocationId = await this.#audit(
           provider.configuration,
           input.stage,
@@ -218,6 +228,7 @@ export class ModelRuntimeService {
           prompt,
           input.taskId,
         );
+        input.signal?.throwIfAborted();
         if (
           index === route.providers.length - 1 ||
           !route.fallbackOn.includes(fallbackReason(error))
@@ -238,17 +249,24 @@ export class ModelRuntimeService {
     context?: unknown,
     taskId?: string,
     routeContext?: Readonly<{ taskType?: string; caseType?: string }>,
+    signal?: AbortSignal,
   ): Promise<Readonly<{ providerId: string; vector: readonly number[] }>> {
+    signal?.throwIfAborted();
     const route = await this.#resolveProviders(stage, 'embedding', taskId, routeContext);
     for (const [index, provider] of route.providers.entries()) {
+      signal?.throwIfAborted();
       const started = Date.now();
       try {
         const result = await this.#transport.embed({
           configuration: provider.configuration,
           credentialHeaders: this.#cipher.decrypt(provider.encryptedCredential),
           text,
-          signal: AbortSignal.timeout(Math.min(provider.configuration.timeoutMs, route.timeoutMs)),
+          signal: combineInvocationSignal(
+            signal,
+            AbortSignal.timeout(Math.min(provider.configuration.timeoutMs, route.timeoutMs)),
+          ),
         });
+        signal?.throwIfAborted();
         await this.#audit(
           provider.configuration,
           stage,
@@ -274,6 +292,7 @@ export class ModelRuntimeService {
           undefined,
           taskId,
         );
+        signal?.throwIfAborted();
         if (
           index === route.providers.length - 1 ||
           !route.fallbackOn.includes(fallbackReason(error))
@@ -473,4 +492,11 @@ export class ModelRuntimeError extends Error {
     this.name = 'ModelRuntimeError';
     this.code = code;
   }
+}
+
+function combineInvocationSignal(
+  caller: AbortSignal | undefined,
+  timeout: AbortSignal,
+): AbortSignal {
+  return caller === undefined ? timeout : AbortSignal.any([caller, timeout]);
 }

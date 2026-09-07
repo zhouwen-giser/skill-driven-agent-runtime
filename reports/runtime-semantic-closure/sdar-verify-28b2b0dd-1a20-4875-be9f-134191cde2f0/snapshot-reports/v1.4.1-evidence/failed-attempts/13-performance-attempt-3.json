@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "samples": {
+    "runtimeBaseline": 20,
+    "runtimeEvidenceEnabled": 20,
+    "evidenceAppend": 100
+  },
+  "baselineP95Ms": 562.149,
+  "evidenceEnabledP95Ms": 627.084,
+  "regressionPercent": 11.551,
+  "appendP95Ms": 5.744,
+  "receivedRecords": 868,
+  "result": "FAILED_RUNTIME_P95_REGRESSION",
+  "rootCause": "Eight canonical projection and export slices per one-second tick still exceeded the ten-percent single-process Runtime fairness budget by 1.551 percentage points.",
+  "repair": "Reduce each durable scheduler slice from eight to four per tick; cursors and delivery state retain eventual progress. No threshold or assertion was weakened."
+}

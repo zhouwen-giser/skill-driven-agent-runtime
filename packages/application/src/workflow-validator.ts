@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { normalizeTaskTimestamp, snapshotSkillUsagePlanPolicy } from '../../domain/src/index.js';
+import {
+  normalizeTaskTimestamp,
+  snapshotSkillUsagePlanPolicy,
+  validateWorkflowControlFlow,
+} from '../../domain/src/index.js';
 import type {
   WorkflowBoundValue,
   WorkflowDefinition,
@@ -127,6 +131,8 @@ const NodeSchema: z.ZodType<WorkflowNode> = z.discriminatedUnion('type', [
       ...BaseNode,
       type: z.literal('parallel'),
       branchEntryNodeIds: z.array(Identifier).min(2),
+      joinNodeId: Identifier.optional(),
+      mergeStrategy: z.literal('reject_conflicts').optional(),
     })
     .strict(),
   z
@@ -190,6 +196,7 @@ const WorkflowSchema: z.ZodType<WorkflowDefinition> = z
     version: z.number().int().positive(),
     goalId: Identifier,
     goalVersion: z.number().int().positive(),
+    executionSemanticsVersion: z.enum(['1.0', '2.0']).optional(),
     entryNodeId: Identifier,
     exitNodeIds: z.array(Identifier).min(1),
     nodes: z.array(NodeSchema).min(1),
@@ -311,7 +318,7 @@ export class WorkflowValidator {
     }
     for (const node of definition.nodes)
       validateNodeReferences(node, definition.nodes, ids, errors);
-    validateConditionEdges(definition.nodes, definition.edges, errors);
+    errors.push(...validateWorkflowControlFlow(definition));
     validateReachability(definition, ids, errors);
     if (effectivePolicy !== undefined)
       errors.push(...checkSkillUsagePlanCompliance(definition, effectivePolicy).errors);
@@ -564,24 +571,6 @@ function stableStringify(value: unknown): string {
     return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`).join(',')}}`;
   }
   return JSON.stringify(value);
-}
-function validateConditionEdges(
-  nodes: readonly WorkflowNode[],
-  edges: WorkflowDefinition['edges'],
-  errors: { code: string; path: string; message: string }[],
-) {
-  for (const node of nodes.filter((item) => item.type === 'condition')) {
-    const outcomes = new Set(
-      edges.filter((edge) => edge.sourceNodeId === node.nodeId).map((edge) => edge.outcome),
-    );
-    if (!outcomes.has('true') || !outcomes.has('false'))
-      add(
-        errors,
-        'WORKFLOW_CONDITION_EDGES_INVALID',
-        `nodes.${node.nodeId}`,
-        'Condition requires true and false edges.',
-      );
-  }
 }
 function validateReachability(
   definition: WorkflowDefinition,

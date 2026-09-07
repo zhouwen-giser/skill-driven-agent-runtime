@@ -1,0 +1,20 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "verified",
+  "contract": {
+    "name": "ModelProfile",
+    "version": "1.1",
+    "schemaHash": "03bc8f277534a5a1529d186697f7afa61eb27342a2f6ca6da85e5521d2af70bd"
+  },
+  "authority": ["existing Provider Registry", "live Provider readiness/capacity"],
+  "secretFields": [],
+  "hardGates": [
+    "enabled and ready",
+    "capacity remaining",
+    "capability and route",
+    "data classification",
+    "residency",
+    "structured output support"
+  ],
+  "verification": "unknown, disabled or exhausted profiles are unavailable and credentials never enter ModelProfile"
+}

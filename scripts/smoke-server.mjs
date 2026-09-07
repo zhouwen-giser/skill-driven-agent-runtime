@@ -8,6 +8,12 @@ import { URL } from 'node:url';
 import pg from 'pg';
 
 import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+import {
+  waitForChildReady,
+  localChildEndpoint,
+  stopVerificationChild,
+} from './lib/child-readiness.mjs';
+import { recordVerificationCleanupFailure } from './lib/verification-cleanup.mjs';
 
 const packageManagerExecPath = process.env['npm_execpath'];
 if (packageManagerExecPath === undefined) throw new Error('NPM_EXECPATH_REQUIRED');
@@ -31,7 +37,7 @@ try {
     await admin.query(`CREATE DATABASE ${quotedIdentifier(temporaryDatabase)}`);
   server = spawn(process.execPath, ['dist/apps/server/src/main.js'], {
     cwd: process.cwd(),
-    stdio: 'inherit',
+    stdio: ['ignore', 'pipe', 'inherit'],
     env: {
       ...process.env,
       SDAR_POSTGRES_URL: smokePostgresUrl,
@@ -42,11 +48,14 @@ try {
       SDAR_ARTIFACT_MANAGEMENT_ROLES: 'viewer',
     },
   });
-  const management = await waitForJson('http://127.0.0.1:9998/api/v1/health');
+  const ready = await waitForChildReady(server, 'server.ready');
+  const managementUrl = localChildEndpoint(ready.managementUrl);
+  const a2aUrl = localChildEndpoint(ready.a2aUrl);
+  const management = await waitForJson(`${managementUrl}/api/v1/health`);
   if (management.authentication !== 'none' || management.deployment !== 'trusted-intranet-only') {
     throw new Error('SERVER_SMOKE_MANAGEMENT_WARNING_MISSING');
   }
-  const artifactListUrl = 'http://127.0.0.1:9998/api/v1/artifacts';
+  const artifactListUrl = `${managementUrl}/api/v1/artifacts`;
   if ((await getStatus(artifactListUrl)) !== 401) {
     throw new Error('SERVER_SMOKE_ARTIFACT_AUTHENTICATION_NOT_ENFORCED');
   }
@@ -58,15 +67,15 @@ try {
   ) {
     throw new Error('SERVER_SMOKE_ARTIFACT_AUTHENTICATED_QUERY_FAILED');
   }
-  const consoleHtml = await requestBody('http://127.0.0.1:9998/console/');
+  const consoleHtml = await requestBody(`${managementUrl}/console/`);
   const consoleScript = consoleHtml.match(/src="(\/console\/assets\/[^"]+\.js)"/u)?.[1];
   if (consoleScript === undefined) throw new Error('SERVER_SMOKE_CONSOLE_SCRIPT_PATH_INVALID');
-  const consoleBundle = await requestBody(`http://127.0.0.1:9998${consoleScript}`);
+  const consoleBundle = await requestBody(`${managementUrl}${consoleScript}`);
   if (!consoleBundle.includes('trusted-intranet-only-no-auth')) {
     throw new Error('SERVER_SMOKE_CONSOLE_BUNDLE_INVALID');
   }
   const skillId = `skill.server-smoke.${String(Date.now())}`;
-  const registrationStatus = await postJson('http://127.0.0.1:9998/api/v1/skills', {
+  const registrationStatus = await postJson(`${managementUrl}/api/v1/skills`, {
     skillId,
     name: 'Server smoke',
     summary: 'Verifies dynamic Agent Card projection.',
@@ -75,7 +84,12 @@ try {
     workflowGuidance: 'Return a local smoke result.',
     outputInstruction: 'Return the result.',
     inputSchema: { type: 'object', additionalProperties: false },
-    outputSchema: { type: 'object', additionalProperties: false },
+    outputSchema: {
+      type: 'object',
+      properties: { status: { const: 'ok' } },
+      required: ['status'],
+      additionalProperties: false,
+    },
     toolPolicy: { required: [], optional: [], forbidden: [] },
     runtimePolicy: { autoConfirmPlan: false },
     outcomeSpecification: {
@@ -121,7 +135,7 @@ try {
     validationPassed: true,
   });
   if (registrationStatus !== 201) throw new Error('SERVER_SMOKE_SKILL_REGISTRATION_FAILED');
-  const card = await waitForJson('http://127.0.0.1:9999/.well-known/agent-card.json');
+  const card = await waitForJson(`${a2aUrl}/.well-known/agent-card.json`);
   if (!Array.isArray(card.skills) || !card.skills.some((skill) => skill.id === skillId)) {
     throw new Error('SERVER_SMOKE_AGENT_CARD_SKILLS_MISSING');
   }
@@ -129,7 +143,10 @@ try {
     'Server build smoke passed: Agent Card, Console bundle, trusted-intranet management API, and configured Artifact bearer identity are reachable.\n',
   );
 } finally {
-  server?.kill();
+  if (server !== undefined)
+    await stopVerificationChild(server).catch((error) =>
+      recordVerificationCleanupFailure('runtime-server', error),
+    );
   if (admin !== undefined) {
     await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [
       temporaryDatabase,

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 11,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The passing command result supplied durations but not a wall-clock execution timestamp; no timestamp is inferred.",
+  "retainedExecutionTimeEvidence": {
+    "vitestStartDisplay": "16:45:08",
+    "displayDate": "2026-08-21",
+    "environmentTimezone": "Asia/Shanghai",
+    "structuredLogTimestamps": [
+      "2026-08-21T08:45:24.418Z",
+      "2026-08-21T08:45:24.503Z"
+    ],
+    "note": "The Vitest display did not itself emit an RFC 3339 offset, so it is retained verbatim and not promoted to executionObservedAt."
+  },
+  "status": "PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": "SDAR_TEST_POSTGRES_URL=postgresql://sdar:<redacted>@127.0.0.1:55444/sdar SDAR_REDIS_PORT=56379 pnpm exec vitest run apps/server/test/ugv-agent-profile-execution.integration.test.ts --reporter=verbose",
+  "exitCode": 0,
+  "result": {
+    "testFilesPassed": 1,
+    "testsPassed": 1,
+    "testBodyDurationSeconds": 3.752,
+    "totalDurationSeconds": 16.93,
+    "commandWallDurationSeconds": 18.42
+  },
+  "authorityChain": {
+    "formalAdmissionThroughSkillUsageAndPlanner": true,
+    "modelInvocationCount": 0,
+    "preConfirmationTaskScopedMcpCallCount": 0,
+    "preConfirmationTasklessQualificationReadCount": 1,
+    "preConfirmationNavigateCallCount": 0,
+    "authenticatedOuterConfirmationObserved": true,
+    "materializedSnapshotObservedBeforeRestart": true,
+    "restartReconstructionObserved": true,
+    "navigateReplayCount": 0,
+    "taskStatus": "completed",
+    "workflowStatus": "succeeded",
+    "continuationAttemptStatus": "succeeded",
+    "capabilityAttemptStatus": "succeeded",
+    "remoteProtocolStatus": "completed",
+    "remoteLocalState": "reentered",
+    "runtimeOutcome": "achieved",
+    "a2aState": "TASK_STATE_COMPLETED",
+    "a2aArtifactExactlyMatched": true,
+    "finalPositionHardGatePassed": true
+  },
+  "runtimeIdentifiers": {
+    "a2aTaskId": null,
+    "goalId": null,
+    "workflowDefinitionId": null,
+    "workflowInstanceId": null,
+    "mcpInvocationIds": null,
+    "remoteTaskBindingId": null,
+    "missingReason": "The test asserted generated identifiers and exact relations but did not emit their random values before dropping the isolated database."
+  },
+  "isolationCleanup": {
+    "isolatedDatabaseDropped": true,
+    "sharedPostgresqlContainerStopped": false,
+    "sharedRedisContainerStopped": false
+  },
+  "localFixtureCounts": {
+    "tasklessQualificationReadCount": 1,
+    "taskScopedToolCallCount": 3,
+    "providerGetStateCallCount": 3,
+    "providerNavigateCallCount": 1,
+    "providerTotalCallCount": 4,
+    "navigateNodeStartCount": 1,
+    "navigateReplayCount": 0,
+    "forbiddenOperationCallCount": 0
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

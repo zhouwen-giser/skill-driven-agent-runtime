@@ -70,7 +70,8 @@ const TaskTypeSnapshotSchema = z
     taskTypeId: z.string(),
     revision: z.number().int(),
     status: z.enum(['candidate', 'validating', 'active', 'deprecated', 'rejected']),
-    origin: z.enum(['fixture', 'induced']),
+    origin: z.enum(['fixture', 'induced', 'configured']),
+    sourceHash: z.string().optional(),
     inductionMode: z.enum(['offline_batch', 'online_candidate']),
     fingerprint: z.string(),
     title: z.string(),
@@ -127,7 +128,7 @@ export class PostgresTaskTypeRepository implements TaskTypeRepository {
       `SELECT knowledge_id,revision,status,fingerprint,definition,
               definition_origin,model_invocation_id
        FROM task_type_definition
-       WHERE fingerprint=$1 AND definition_origin IN ('task_type_induction','fixture')
+       WHERE fingerprint=$1 AND definition_origin IN ('task_type_induction','fixture','configured')
        ORDER BY revision DESC,created_at DESC,knowledge_id LIMIT 1`,
       [fingerprint],
     );
@@ -139,7 +140,7 @@ export class PostgresTaskTypeRepository implements TaskTypeRepository {
       `SELECT knowledge_id,revision,status,fingerprint,definition,
               definition_origin,model_invocation_id
        FROM task_type_definition
-       WHERE definition_origin IN ('task_type_induction','fixture')
+       WHERE definition_origin IN ('task_type_induction','fixture','configured')
        ORDER BY created_at DESC,knowledge_id,revision DESC LIMIT $1`,
       [limit],
     );
@@ -172,9 +173,10 @@ export class PostgresTaskTypeRepository implements TaskTypeRepository {
         { knowledge_id: string; revision: number } & QueryResultRow
       >(
         `SELECT knowledge_id,revision FROM task_type_definition
-         WHERE fingerprint=$1 AND definition_origin IN ('task_type_induction','fixture')
+         WHERE ((definition_origin='configured' AND knowledge_id=$2) OR (definition_origin<>'configured' AND fingerprint=$1))
+           AND definition_origin IN ('task_type_induction','fixture','configured')
          ORDER BY revision DESC,created_at DESC,knowledge_id LIMIT 1`,
-        [candidate.fingerprint],
+        [candidate.fingerprint, candidate.taskTypeId],
       );
       const prior = latest.rows[0];
       if (
@@ -204,7 +206,7 @@ export class PostgresTaskTypeRepository implements TaskTypeRepository {
           candidate.fingerprint,
           JSON.stringify(candidate),
           candidate.createdAt,
-          candidate.origin === 'fixture' ? 'fixture' : 'task_type_induction',
+          candidate.origin === 'induced' ? 'task_type_induction' : candidate.origin,
           candidate.modelInvocationId ?? null,
         ],
       );
@@ -262,13 +264,14 @@ function mapTaskType(row: TaskTypeRow): TaskTypeDefinitionSnapshot {
     row.status !== parsed.status ||
     row.fingerprint !== parsed.fingerprint ||
     row.model_invocation_id !== (parsed.modelInvocationId ?? null) ||
-    row.definition_origin !== (parsed.origin === 'fixture' ? 'fixture' : 'task_type_induction')
+    row.definition_origin !== (parsed.origin === 'induced' ? 'task_type_induction' : parsed.origin)
   ) {
     throw new Error('TASK_TYPE_PERSISTENCE_INTEGRITY_VIOLATION');
   }
-  const { sourceRefs, modelInvocationId, ...snapshot } = parsed;
+  const { sourceRefs, modelInvocationId, sourceHash, ...snapshot } = parsed;
   return createTaskTypeDefinitionSnapshot({
     ...snapshot,
+    ...(sourceHash === undefined ? {} : { sourceHash }),
     sourceRefs: sourceRefs.map(({ contentHash, ...source }) => ({
       ...source,
       ...(contentHash === undefined ? {} : { contentHash }),

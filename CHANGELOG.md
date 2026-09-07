@@ -1,5 +1,75 @@
 # Changelog
 
+## 2026-09-07 — Runtime development repair completed
+
+- Complete approved A/B/C development scope; the frozen-source reuse gate passed all 30 stages, with 2477 unit, 534 contract, 242 integration and 75 E2E tests, all three smokes and successful cleanup.
+- Correct final strict DSL Schema, migration/package contracts and explicit registration fixtures; preserve all failed-run evidence.
+- Keep full evolution/publication, Console editing, release 18 AC, independent frozen installation and real model/device validation deferred. See `reports/runtime-semantic-closure/DEVELOPMENT-CLOSURE-2026-09-07.md`.
+
+### Earlier batch records (historical)
+
+- Runtime batches B/C: formal default Skill selection and exact admitted inputs; shared Schema contracts; transaction-owned Temporary Skill expiry (0181); deferred evolution API/automatic publication; pure A2A projection/Artifact streams; governed configured Task Types (0182), bounded live retrieval and same-Task clarification receipts (0183). Added actual simulated document and aggregation API chains. Focused evidence passed; final development gate pending.
+
+- Runtime development repair: scoped DSL 2.0 control-flow analysis, fork/branch joins, invocation-scoped loops, persistent child node-run identity, paused continuation handoff and model cancellation. Ordinary child confirmation resumes its own LangGraph checkpoint using isolated public SDK configuration. Added migrations 0179/0180 with protected rollback; focused tests only, development acceptance still open.
+
+## 2026-09-07 — Development repair scope revision
+
+- Replace eight blocking acceptance milestones with three functional batches and one complete development gate.
+- Reuse existing verification infrastructure; defer full evolution publication, Console editing and release acceptance while retaining open findings.
+
+## 2026-09-07 — Repair execution progress review
+
+- Record 0/8 closed repair milestones and distinguish implemented M0 infrastructure from pending core Runtime capabilities.
+- Record complete diagnostic integration (229) and E2E (73) passes with successful cleanup; retain the same-source full-gate requirement.
+- Replace redundant child-stage-plus-aggregate validation instructions with focused diagnosis, batched fixes and a single frozen-source gate at closure.
+- Reuse stable isolated dependencies during development; reserve independent frozen installation for baseline/final acceptance and installation changes.
+
+## 2026-09-07 — Observable isolated verification
+
+- Split the aggregate bootstrap gate into independent timed stages with live logs, immediate reports and process-group resource sampling.
+- Terminate owned descendants on success, failure, timeout and cancellation; preserve error reasons even when exit code is zero.
+- Separate runtime and requirement hashes from generated status; add `pnpm verify:isolated --frozen` with an independent dependency store.
+- Add 19 runner/isolation regressions, strict new/legacy report compatibility and six hashed sibling data assets required by existing tests.
+- Preserve pinned Git-history protocol checks through a private local clone. Correct stale development-profile assertions against the existing documented configuration.
+- Cover all nested smoke Compose projects in outer cleanup, and hash static test-selection inputs separately from generated reports.
+- Preserve inner cleanup failures and clean raw migration resources by exact run/scope labels and names after verifier interruption; verify with a real local Docker interruption experiment.
+- Correct the stale terminal-recovery poll expectation and prove duplicate recovery retains one durable completion event with no extra dispatch.
+- Wait for owned Runtime shutdown before database removal and release the finished Control network before Runtime independence smoke.
+- Terminate failed Workflows missing governed authority before model Goal evaluation or automatic replanning, preserving the original error; add three controller regressions.
+- Document the three existing development demo endpoints and include existing migration 0178 in the ledger contract.
+- Frozen installation, 2400 unit tests, 531 contracts, static checks and build have passed their recorded runs; complete single-source gate remains pending.
+- Record approved activation-scoped loop semantics and explicit parallel join/merge requirements in ADR-150 and the active ExecPlan.
+
+## 2026-09-07 — Runtime semantic closure, first implementation batch
+
+- Enforce normative Skill failure policies when constraining model error decisions.
+- Reject missing/duplicate loop done routes and ambiguous condition routes in shared Domain validation.
+- Derive LangGraph superstep limits from graph/loop/recovery bounds, expose a compiler complexity ceiling,
+  and preserve budget termination results across initial execution, human resume and remote continuation.
+- Add 14 Workflow regressions, repair existing lint/format blockers, and add source-hashed isolated
+  verification with owned Docker projects, temporary ports and child readiness before HTTP probes.
+- Keep M0/M1 open pending complete gate and remaining graph composition work.
+
+## 2026-09-07 — Runtime semantic closure plan (planned)
+
+- Add an eight-stage ExecPlan covering the current audit's 13 findings and five follow-up checks,
+  with concrete code boundaries, migrations, regression scenarios, compatibility and full-gate criteria.
+- Propose ADR-150/151/152 for Workflow/continuation semantics, Skill candidate validation and A2A/Task
+  Type projections; retain accepted runtime, budget, confirmation and PostgreSQL authority boundaries.
+- Record the affected requirements as repair/reverification pending. No product fix, deployment or
+  release acceptance is claimed by this documentation-only change.
+
+## 2026-09-07 — Development Compose package
+
+- Add persistent init/up/status/logs/down/upgrade, generated credentials, password-authenticated
+  PostgreSQL/Redis AOF, internal service wiring and configurable public URLs.
+- Add complete environment reference/coverage, shared dotenv loading and Redis password/database.
+- Reuse governed confirmation for persisted non-weapon UGV plans under deployment preauthorization;
+  preserve manual mode, missing-input requests, unique dispatch and exact reconciliation.
+- Bootstrap empty point authority and append-only non-weapon governance. Device weapons stay disabled.
+- Add manually acknowledged inert indicator demo and append-only audit (0178), with no Device,
+  MCP, MQTT or physical-success contract; provide Chinese instructions and archive/checksum tooling.
+
 ## 2026-09-05 — Governed-control authority across exact response-loss recovery
 
 - Persist the already-consumed governed-control dispatch receipt and original invocation start time

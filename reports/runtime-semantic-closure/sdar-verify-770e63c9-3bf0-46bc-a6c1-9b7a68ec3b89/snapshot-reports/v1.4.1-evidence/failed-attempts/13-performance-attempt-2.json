@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "samples": {
+    "runtimeBaseline": 20,
+    "runtimeEvidenceEnabled": 20,
+    "evidenceAppend": 100
+  },
+  "baselineP95Ms": 642.605,
+  "evidenceEnabledP95Ms": 754.61,
+  "regressionPercent": 17.43,
+  "appendP95Ms": 9.446,
+  "receivedRecords": 847,
+  "result": "FAILED_RUNTIME_P95_REGRESSION",
+  "rootCause": "The single-process Runtime attempted up to 640 canonical projection items plus 32 export partitions per one-second scheduler tick, creating an unfair PostgreSQL and event-loop catch-up burst during business tasks.",
+  "repair": "Bound canonical projection and export work to eight durable slices per tick; no threshold or assertion was weakened."
+}

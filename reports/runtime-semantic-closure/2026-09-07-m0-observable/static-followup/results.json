@@ -1,0 +1,148 @@
+{
+  "scope": "targeted-static-followup-not-full-gate",
+  "results": [
+    {
+      "name": "management-openapi",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1221,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 50040832,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "node-control-contract",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1153,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 193159168,
+        "peakProcesses": 3
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "node-control-implementation-conformance",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 4867,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 5,
+        "peakRssBytes": 433770496,
+        "peakProcesses": 5
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "smpp-registry-projection",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1205,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 200962048,
+        "peakProcesses": 3
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "acceptance",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1264,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 138268672,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "sources",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 872,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 50204672,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "protocol",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1312,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 207101952,
+        "peakProcesses": 3
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "infra",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1193,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 67641344,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "project-license",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1295,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 141242368,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "licenses",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1710,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 141230080,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "build",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 47784,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 48,
+        "peakRssBytes": 1407623168,
+        "peakProcesses": 5
+      },
+      "cleanupErrors": []
+    }
+  ]
+}

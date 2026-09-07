@@ -361,6 +361,35 @@ describe('Workflow outer controller', () => {
     expect(fixture.controls.controls.get('control-1')).toMatchObject({ status: 'failed' });
   });
 
+  it.each(['achieved', 'unachievable', 'adjust_plan'] as const)(
+    'terminates missing governed authority before a model can choose %s or replan',
+    async (decision) => {
+      const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
+      fixture.execution.execute.mockResolvedValueOnce({
+        ...instance('instance-0', 'plan-initial', 0, 1),
+        status: 'failed',
+        errors: {
+          tool: {
+            code: 'MCP_CONTROL_AUTHORITY_REQUIRED',
+            message: 'Side-effecting Tool invocation requires exact governed Task authority.',
+          },
+        },
+      });
+      fixture.evaluator.decisions.push({ decision, summary: 'A model cannot grant authority.' });
+      await expect(fixture.controller.start(startInput())).rejects.toMatchObject({
+        code: 'MCP_CONTROL_AUTHORITY_REQUIRED',
+      });
+      expect(fixture.evaluator.inputs).toHaveLength(0);
+      expect(fixture.execution.execute).toHaveBeenCalledTimes(1);
+      expect(fixture.controls.rounds).toHaveLength(0);
+      expect(fixture.controls.controls.get('control-1')).toMatchObject({
+        status: 'failed',
+        replanCount: 0,
+      });
+      expect(fixture.taskOutcomes.prepareAchieved).not.toHaveBeenCalled();
+    },
+  );
+
   it('promotes evaluator achievement when a succeeded execution retains handled error evidence', async () => {
     const fixture = createFixture({ maxReplans: 1, autoConfirm: true });
     fixture.execution.execute.mockResolvedValueOnce({

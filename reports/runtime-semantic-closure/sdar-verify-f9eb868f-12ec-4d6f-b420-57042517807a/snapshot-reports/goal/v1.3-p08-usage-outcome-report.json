@@ -1,0 +1,9 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "authority": "P02 artifact_execution and artifact_feedback",
+  "usageFields": ["artifactId", "version", "goalId", "goalVersion", "generatedPlanId", "candidateHash", "runtimeSnapshotHash", "adaptationRefs"],
+  "feedback": ["discarded_stale", "handoff"],
+  "outcomeAuthorityCopied": false,
+  "redisAuthority": false,
+  "evidence": "template-runtime-p08.unit.test.ts records P02 start, completion and feedback"
+}

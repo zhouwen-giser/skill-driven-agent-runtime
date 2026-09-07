@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "ugv-agent-profile.profile-composition/v1",
+  "generatedAt": "2026-08-21T03:13:53.780Z",
+  "status": "PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationScope": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "profile": {
+    "profileId": "ugv-agent-profile",
+    "agentName": "ugv-agent-profile",
+    "serverRuntime": "existing-sdar-server-runtime",
+    "workflowRuntime": "existing-langgraph-runtime",
+    "exactSkillAllowlist": [
+      {
+        "skillId": "embodied.move_to",
+        "version": 1,
+        "reference": "embodied.move_to@1",
+        "cardSourceReference": "embodied.move_to:1"
+      }
+    ],
+    "taskType": {
+      "taskTypeId": "task-type.ugv-point-navigation",
+      "version": 1,
+      "semanticCapability": "embodied.move",
+      "requiredDimensions": ["target", "side_effect_authorization"],
+      "risks": ["physical_side_effect", "explicit_plan_confirmation"]
+    },
+    "operations": {
+      "contextAndEvidenceReads": [
+        { "operationName": "vehicle_get_state", "purpose": "initial_context" },
+        { "operationName": "vehicle_get_state", "purpose": "final_position_evidence" }
+      ],
+      "soleGovernedControl": {
+        "operationName": "vehicle_navigate",
+        "missionType": "point",
+        "confirmation": "existing_outer_plan_confirmation"
+      },
+      "forbiddenPlannerOperations": [
+        "vehicle_area_recon",
+        "vehicle_track_target",
+        "vehicle_control_gimbal",
+        "vehicle_fire_weapon",
+        "vehicle_emergency_stop"
+      ],
+      "emergencyStopAuthority": "manual_operator_only"
+    }
+  },
+  "authority": {
+    "skillVersionSource": "current_enabled_postgresql_skill_version",
+    "cardPipeline": "CapabilitySummaryService -> CapabilityCardPublisher -> A2AAgentCardBuilder",
+    "providerOperationAutoSkillProjection": false,
+    "providerReadinessAffectsDeclaration": false,
+    "managedAgentCardPrecedenceEnabled": false,
+    "legacySkillPreservedButExcluded": "ugv.navigate",
+    "disableBehavior": "normal_catalog_rebuild_projects_an_empty_public_skill_set",
+    "strictActiveCardRead": "catalogHash_and_generationPolicyVersion_must_match_current_profile_catalog"
+  },
+  "offlineContractCorroboration": {
+    "authority": "P0 frozen Skill Package contract via NodeSkillPackageReader, SkillPackageImporter, and SkillPackageValidator",
+    "packageChecksum": "6d5fc9c8e093de18a8b11c8377b96788336606b25d0df0f27efef7b4d9f6a48c",
+    "includedInRuntimeCardAuthority": false,
+    "includedInCatalogHash": false,
+    "purpose": "provisioning and immutable package-contract corroboration only"
+  },
+  "startupPolicy": {
+    "nodeEnvironment": "test",
+    "allowedControlEnvironments": ["test", "integration"],
+    "requiresCapabilityAuthority": true,
+    "requiresCurrentProviderBindingAuthority": true,
+    "requiresFrozenMcpTasks": true,
+    "requiresGovernedPhysicalControlIdentity": true,
+    "customSkillSelectionForbidden": true
+  },
+  "implementationRefs": [
+    "apps/server/src/ugv-agent-profile.ts",
+    "apps/server/src/environment.ts",
+    "apps/server/src/main.ts",
+    "apps/server/src/runtime.ts",
+    "packages/application/src/cognitive/capability-card-publisher.ts",
+    "packages/a2a-adapter/src/capability-card-projection.ts"
+  ],
+  "verificationRefs": [
+    "apps/server/test/ugv-agent-profile.unit.test.ts",
+    "apps/server/test/ugv-agent-profile-card.unit.test.ts",
+    "apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+    "packages/a2a-adapter/test/a2a-compatibility.contract.test.ts",
+    "packages/application/test/capability-card-publisher.unit.test.ts"
+  ],
+  "verificationCommands": [
+    {
+      "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+      "exitCode": 0,
+      "summary": "Real startServerRuntime plus isolated PostgreSQL/Redis: 1 test passed."
+    },
+    {
+      "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile.unit.test.ts apps/server/test/ugv-agent-profile-card.unit.test.ts packages/application/test/capability-card-publisher.unit.test.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "exitCode": 0,
+      "summary": "Five focused files, 27 tests passed."
+    }
+  ],
+  "safety": {
+    "authorizationGrantedByThisArtifact": false,
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

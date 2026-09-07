@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G06",
+  "status": "passed",
+  "evidenceClass": "real_live_public_api",
+  "observedAt": "2026-08-11T05:08:38.981Z",
+  "idempotentReplayObservedAt": "2026-08-11T05:09:02.858Z",
+  "capabilityGovernanceReady": true,
+  "runtimeCapabilityReadinessAtObservation": "available",
+  "readinessEvidenceScope": "available at observation and admission; not asserted as current liveness",
+  "resourcePolicy": {
+    "identifierAuthority": "public_resource_id",
+    "allowedResourceIds": [
+      "living-room-main-light",
+      "living-room-air-conditioner",
+      "living-room-aux-light"
+    ],
+    "auxiliaryLightIncludedFromCurrentPreflight": true,
+    "physicalResourceBindings": 0
+  },
+  "capabilities": [
+    {
+      "capabilityId": "home.light.read-state",
+      "capabilityVersion": 1,
+      "definitionHash": "032196099d7a391d022b491c560e8b4045b370f538ee563f79dddb29eb5456b8",
+      "implementationBindingId": "capability-binding-home.light.read-state-v1",
+      "skillId": "home.light.get-state",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "allowedResourceIds": ["living-room-main-light", "living-room-aux-light"],
+      "requiredEvidenceType": "light.state.observation",
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "restorationRequired": false,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:49.927Z"
+    },
+    {
+      "capabilityId": "home.light.set-power",
+      "capabilityVersion": 1,
+      "definitionHash": "41970218d5b727b3327f1c7d3b2e25f1272550e7601b8ed1c93765f428653e40",
+      "implementationBindingId": "capability-binding-home.light.set-power-v1",
+      "skillId": "home.light.set-power",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "allowedResourceIds": ["living-room-main-light", "living-room-aux-light"],
+      "requiredEvidenceType": "light.state.observation",
+      "riskLevel": "high",
+      "confirmation": "required",
+      "restorationRequired": true,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:49.999Z"
+    },
+    {
+      "capabilityId": "home.climate.read-state",
+      "capabilityVersion": 1,
+      "definitionHash": "0afe80641abf08fef36e8ebb9d6514ac464e05d1b70e62918197d15d8954bc5b",
+      "implementationBindingId": "capability-binding-home.climate.read-state-v1",
+      "skillId": "home.climate.get-state",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "allowedResourceIds": ["living-room-air-conditioner"],
+      "requiredEvidenceType": "climate.state.observation",
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "restorationRequired": false,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:50.031Z"
+    },
+    {
+      "capabilityId": "home.climate.set-hvac-mode",
+      "capabilityVersion": 1,
+      "definitionHash": "66c0048ceffb0b3d2df0b237cdc5f7ece6d9476f96737a28e5ffa4a1ff233b08",
+      "implementationBindingId": "capability-binding-home.climate.set-hvac-mode-v1",
+      "skillId": "home.climate.set-hvac-mode",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "allowedResourceIds": ["living-room-air-conditioner"],
+      "requiredEvidenceType": "climate.hvac_mode.observation",
+      "riskLevel": "high",
+      "confirmation": "required",
+      "restorationRequired": true,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:50.070Z"
+    },
+    {
+      "capabilityId": "home.climate.set-temperature",
+      "capabilityVersion": 1,
+      "definitionHash": "9194a948fe8a5f2b945404a83a5a1023a564ff3d12eb80701f9d589919f66893",
+      "implementationBindingId": "capability-binding-home.climate.set-temperature-v1",
+      "skillId": "home.climate.set-temperature",
+      "skillVersion": 1,
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "allowedResourceIds": ["living-room-air-conditioner"],
+      "requiredEvidenceType": "climate.target_temperature.observation",
+      "riskLevel": "high",
+      "confirmation": "required",
+      "restorationRequired": true,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-11T05:09:50.107Z"
+    }
+  ],
+  "checks": {
+    "requiredCapabilityCount": 5,
+    "publishedExactSkillImplementations": 5,
+    "inputAndOutputSchemasDeclared": true,
+    "successCriteriaAndEvidenceDeclared": true,
+    "providerBindingConstraintsDeclared": true,
+    "resourceConstraintsUsePublicIdsOnly": true,
+    "readinessStabilityWindowObservedAndSatisfied": true,
+    "idempotentReplay": "passed"
+  },
+  "evidenceReferences": [
+    "reports/sdar-smpp-integration/raw/g06-post-restart-03.redacted.json",
+    "reports/sdar-smpp-integration/raw/g06-post-restart-03-replay.redacted.json"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

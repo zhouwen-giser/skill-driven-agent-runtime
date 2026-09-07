@@ -1,0 +1,17 @@
+{
+  "increment": "a2a-projection",
+  "status": "passed",
+  "verification": {
+    "lint": "passed",
+    "typecheck": "passed",
+    "unit": { "passed": 16, "failed": 0 },
+    "contract": { "passed": 12, "failed": 0 },
+    "integration": { "passed": 6, "failed": 0, "infrastructure": ["postgresql", "redis"] }
+  },
+  "architecture": {
+    "systemOfRecord": "agent_task",
+    "externalProjection": "external_task_projection",
+    "sdkBoundary": "packages/a2a-adapter"
+  },
+  "remaining": ["A2A lifecycle endpoint wiring", "A2A TCK", "EP-01 e2e and full gate"]
+}

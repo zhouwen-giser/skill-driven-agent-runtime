@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P03",
+  "goal": "G06",
+  "generatedAt": "2026-07-27T12:20:00.000Z",
+  "classification": "reproducible synthetic evidence",
+  "fixtureAuthority": "packages/application/test/process-miner.unit.test.ts",
+  "cohort": {
+    "tenantId": "tenant-1",
+    "taskTypeId": "task-type-1",
+    "minimumCompleteness": 0.8,
+    "mandatoryThreshold": 0.6666666666666666
+  },
+  "primaryTraceSet": [
+    {
+      "traceId": "trace-success-a",
+      "outcome": "succeeded",
+      "activities": [
+        "goal_created",
+        "plan_created",
+        "skill_attempt_started",
+        "business_event_observed",
+        "skill_attempt_completed",
+        "goal_completed"
+      ],
+      "explicitConcurrency": [
+        {
+          "group": "parallel-a",
+          "activities": [
+            "skill_attempt_started",
+            "business_event_observed"
+          ]
+        }
+      ],
+      "branches": []
+    },
+    {
+      "traceId": "trace-success-b",
+      "outcome": "succeeded",
+      "activities": [
+        "goal_created",
+        "plan_created",
+        "human_intervention",
+        "skill_attempt_started",
+        "skill_attempt_completed",
+        "goal_completed"
+      ],
+      "explicitConcurrency": [],
+      "branches": []
+    },
+    {
+      "traceId": "trace-failure",
+      "outcome": "failed",
+      "activities": [
+        "goal_created",
+        "plan_created",
+        "skill_attempt_started",
+        "workflow_failed",
+        "recovery_started",
+        "skill_attempt_started",
+        "goal_failed"
+      ],
+      "explicitConcurrency": [],
+      "branches": [
+        {
+          "branchRef": "recovery-1",
+          "activities": ["recovery_started", "skill_attempt_started"]
+        }
+      ]
+    }
+  ],
+  "expectedPrimaryResults": {
+    "variantCount": 3,
+    "totalOccurrences": 3,
+    "successCount": 2,
+    "failureCount": 1,
+    "mandatoryActivitiesInclude": [
+      "goal_created",
+      "plan_created",
+      "skill_attempt_started"
+    ],
+    "optionalActivitiesInclude": ["human_intervention"],
+    "parallelCandidates": [
+      {
+        "activityRefs": [
+          "business_event_observed",
+          "skill_attempt_started"
+        ],
+        "evidenceType": "explicit_concurrency",
+        "supportRefs": ["trace-success-a"]
+      }
+    ],
+    "recoveryPatterns": [
+      {
+        "triggerActivity": "workflow_failed",
+        "resumeActivity": "skill_attempt_started",
+        "supportRefs": ["trace-failure"]
+      }
+    ],
+    "failureVariants": [
+      {
+        "failureActivity": "goal_failed",
+        "traceRefs": ["trace-failure"],
+        "count": 1
+      }
+    ]
+  },
+  "additionalScenarios": [
+    {
+      "name": "single_path",
+      "assertion": "one deterministic variant and stable dependency evidence"
+    },
+    {
+      "name": "two_variants_optional_human_step",
+      "assertion": "human_intervention remains optional at the frozen threshold"
+    },
+    {
+      "name": "explicit_parallel",
+      "assertion": "explicit concurrency group creates one parallel candidate"
+    },
+    {
+      "name": "timestamp_coincidence",
+      "assertion": "timestamps alone create no parallel candidate"
+    },
+    {
+      "name": "loop",
+      "assertion": "repeated skill activities remain repeated in activitySequence"
+    },
+    {
+      "name": "failure_and_recovery",
+      "assertion": "recovery trigger/resume and the failed variant remain separate"
+    },
+    {
+      "name": "reversed_order",
+      "assertion": "reverse direct-follows is retained as contradiction evidence"
+    },
+    {
+      "name": "environment_split",
+      "assertion": "environment coverage preserves server and device/robot"
+    },
+    {
+      "name": "cohort_scope",
+      "assertion": "tenant, task type, completeness and time mismatches fail closed"
+    },
+    {
+      "name": "authority_boundary",
+      "assertion": "WorkflowPattern contains no Artifact, Skill, schema, completion contract or fast-gateway authority"
+    }
+  ],
+  "determinism": {
+    "inputOrdering": "traceId lexical order",
+    "repeatAssertion": "forward and reversed input arrays produce deep-equal results",
+    "identityInputs": [
+      "cohort fingerprint",
+      "algorithm version",
+      "canonical trace set hash"
+    ]
+  },
+  "verification": {
+    "command": "pnpm exec vitest run packages/domain/test/experience-compilation.unit.test.ts packages/application/test/process-miner.unit.test.ts",
+    "result": "2 files passed; 14 tests passed",
+    "verifiedAt": "2026-07-27T12:16:44.000Z"
+  }
+}

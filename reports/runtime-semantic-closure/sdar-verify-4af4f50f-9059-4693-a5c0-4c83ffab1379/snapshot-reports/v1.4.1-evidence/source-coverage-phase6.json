@@ -1,0 +1,22 @@
+{
+  "contract": "sdar.evidence/v1",
+  "phase": 6,
+  "catalogTotal": 100,
+  "sourceInventory": {
+    "sourceConfirmed": 100,
+    "sourceMissingBlocker": 0,
+    "conditionalNotApplicable": 0,
+    "classified": 100,
+    "classifiedPercent": 100
+  },
+  "implementationCoverage": {
+    "implementedAndVerified": 34,
+    "percent": 34,
+    "family": "skill",
+    "familyImplementedAndVerified": 16,
+    "familyTotal": 16,
+    "note": "All Runtime and Skill projectors are implemented and verified. MCP Task and later families remain source-confirmed for Phases 7-10."
+  },
+  "phase1Baseline": "reports/v1.4.1-evidence/source-coverage-baseline.json",
+  "generatedFrom": "reports/v1.4.1-evidence/source-to-evidence-matrix.json"
+}

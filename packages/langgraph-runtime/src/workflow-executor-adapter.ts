@@ -1,3 +1,4 @@
+import { AsyncLocalStorageProviderSingleton } from '@langchain/core/singletons';
 import type { WorkflowExecutor } from '../../application/src/ports.js';
 import type {
   RuntimeExecutionContext,
@@ -18,10 +19,16 @@ import {
 export class LangGraphWorkflowExecutor implements WorkflowExecutor {
   readonly #ports: WorkflowRuntimePorts;
   readonly #callCosts: WorkflowCallCosts;
+  readonly #compilerOptions: Readonly<{ maxSupersteps?: number }>;
   readonly #executions = new Map<string, CompiledWorkflow>();
-  constructor(ports: WorkflowRuntimePorts, callCosts: WorkflowCallCosts) {
+  constructor(
+    ports: WorkflowRuntimePorts,
+    callCosts: WorkflowCallCosts,
+    compilerOptions: Readonly<{ maxSupersteps?: number }> = {},
+  ) {
     this.#ports = ports;
     this.#callCosts = callCosts;
+    this.#compilerOptions = Object.freeze({ ...compilerOptions });
   }
 
   async execute(
@@ -33,18 +40,30 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     executionContext?: RuntimeExecutionContext,
     prepareExternalWait?: Parameters<WorkflowExecutor['execute']>[6],
   ): ReturnType<WorkflowExecutor['execute']> {
-    const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
+    const compiled = compileWorkflow(definition, 'confirmed', this.#ports, this.#compilerOptions);
     if (executionId !== undefined) this.#executions.set(executionId, compiled);
-    const result = await compiled.invoke(
-      input,
-      budgetLimits,
-      this.#callCosts,
-      signal,
-      executionId,
-      executionContext,
-      prepareExternalWait,
-    );
-    if (executionId !== undefined && result.status !== 'paused')
+    let result;
+    try {
+      result = await inWorkflowSession(() =>
+        compiled.invoke(
+          input,
+          budgetLimits,
+          this.#callCosts,
+          signal,
+          executionId,
+          executionContext,
+          prepareExternalWait,
+        ),
+      );
+    } catch (error: unknown) {
+      if (executionId !== undefined) this.#executions.delete(executionId);
+      throw error;
+    }
+    if (
+      executionId !== undefined &&
+      result.status !== 'paused' &&
+      result.status !== 'waiting_external'
+    )
       this.#executions.delete(executionId);
     return mapResult(result);
   }
@@ -61,8 +80,17 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
         'WORKFLOW_CHECKPOINT_NOT_AVAILABLE',
         'Workflow checkpoint is unavailable and cannot be recovered or retried.',
       );
-    const result = await compiled.resume(executionId, confirmed, signal, prepareExternalWait);
-    if (result.status !== 'paused') this.#executions.delete(executionId);
+    let result;
+    try {
+      result = await inWorkflowSession(() =>
+        compiled.resume(executionId, confirmed, signal, prepareExternalWait),
+      );
+    } catch (error: unknown) {
+      this.#executions.delete(executionId);
+      throw error;
+    }
+    if (result.status !== 'paused' && result.status !== 'waiting_external')
+      this.#executions.delete(executionId);
     return mapResult(result);
   }
 
@@ -75,16 +103,27 @@ export class LangGraphWorkflowExecutor implements WorkflowExecutor {
     signal?: AbortSignal,
     prepareExternalWait?: Parameters<NonNullable<WorkflowExecutor['continueExternal']>>[6],
   ): ReturnType<WorkflowExecutor['execute']> {
-    const compiled = compileWorkflow(definition, 'confirmed', this.#ports);
-    const result = await compiled.continueExternal(
-      executionId,
-      continuation,
-      resolution,
-      this.#callCosts,
-      signal,
-      continuationAttemptId,
-      prepareExternalWait,
-    );
+    const compiled = compileWorkflow(definition, 'confirmed', this.#ports, this.#compilerOptions);
+    this.#executions.set(executionId, compiled);
+    let result;
+    try {
+      result = await inWorkflowSession(() =>
+        compiled.continueExternal(
+          executionId,
+          continuation,
+          resolution,
+          this.#callCosts,
+          signal,
+          continuationAttemptId,
+          prepareExternalWait,
+        ),
+      );
+    } catch (error: unknown) {
+      this.#executions.delete(executionId);
+      throw error;
+    }
+    if (result.status !== 'paused' && result.status !== 'waiting_external')
+      this.#executions.delete(executionId);
     return mapResult(result);
   }
 
@@ -114,4 +153,9 @@ function mapResult(
       : { pendingConfirmation: result.pendingConfirmation }),
     ...(result.continuation === undefined ? {} : { continuation: result.continuation }),
   };
+}
+
+/** A persistent child is an independent graph session, not an implicit SDK nested subgraph. */
+function inWorkflowSession<T>(operation: () => Promise<T>): Promise<T> {
+  return AsyncLocalStorageProviderSingleton.runWithConfig({}, operation, true);
 }

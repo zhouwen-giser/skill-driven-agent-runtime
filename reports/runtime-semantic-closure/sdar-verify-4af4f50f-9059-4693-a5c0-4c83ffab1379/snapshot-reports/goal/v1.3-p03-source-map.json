@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P03",
+  "goal": "G05",
+  "generatedAt": "2026-07-27T02:00:00.000Z",
+  "authorityOrder": [
+    "postgresql_runtime_facts",
+    "runtime_transitions",
+    "repository_application_code",
+    "outbox_events",
+    "tests",
+    "documentation"
+  ],
+  "normalizationInput": {
+    "aggregate": "GoalExperienceEpisode",
+    "table": "goal_experience_episode",
+    "sourceTable": "goal_experience_episode_source",
+    "repository": "PostgresGoalExperienceEpisodeRepository",
+    "snapshotReader": "PostgresCognitiveRuntimeFactReader",
+    "immutableSourceIdentity": [
+      "episodeId",
+      "sourceHash",
+      "episodeHash",
+      "revision"
+    ]
+  },
+  "sourceFacts": [
+    {
+      "fact": "Task and Goal identity",
+      "tables": ["agent_task", "goal", "conversation_context"],
+      "traceEvents": ["goal_created"],
+      "missingCode": "task_missing"
+    },
+    {
+      "fact": "user-confirmed Goal Contract",
+      "tables": ["user_goal_contract"],
+      "traceEvents": ["goal_contract_confirmed"],
+      "missingCode": "goal_contract_missing"
+    },
+    {
+      "fact": "formal Plan revisions and confirmation",
+      "tables": ["user_goal_plan"],
+      "traceEvents": ["plan_created", "plan_revised", "plan_confirmed"],
+      "missingCode": "plan_revisions_missing"
+    },
+    {
+      "fact": "Skill Goal Attempt",
+      "tables": ["skill_attempt"],
+      "traceEvents": [
+        "skill_attempt_started",
+        "skill_attempt_completed",
+        "workflow_failed"
+      ],
+      "missingCode": "skill_attempts_missing"
+    },
+    {
+      "fact": "Progress observation",
+      "tables": ["progress_observation"],
+      "traceEvents": ["workflow_waiting"],
+      "missingCode": null
+    },
+    {
+      "fact": "Recovery decision",
+      "tables": ["recovery_decision"],
+      "traceEvents": ["recovery_started"],
+      "missingCode": null
+    },
+    {
+      "fact": "Business Event impact",
+      "tables": ["event_impact_assessment"],
+      "traceEvents": ["business_event_observed"],
+      "missingCode": null
+    },
+    {
+      "fact": "Planning correction and interaction",
+      "tables": [
+        "planning_interaction_episode",
+        "planning_correction_fact"
+      ],
+      "traceEvents": ["human_intervention"],
+      "missingCode": null
+    },
+    {
+      "fact": "user-goal and terminal Outcome",
+      "tables": ["outcome_decision", "runtime_terminal_outcome"],
+      "traceEvents": ["goal_completed", "goal_failed"],
+      "missingCode": "terminal_outcome_missing"
+    }
+  ],
+  "orderingPolicy": {
+    "primary": "persisted occurred/created/updated/committed timestamp",
+    "tieBreakers": ["formal event rank", "stable source key"],
+    "sequence": "contiguous zero-based integer",
+    "parallelEvidence": [
+      "explicit concurrency_group",
+      "explicit parallel_group"
+    ],
+    "timestampOnlyParallelInference": false,
+    "parentEvidence": "only explicit source relationships or same-fact lifecycle parent",
+    "branchEvidence": "explicit branch reference; recovery facts receive a deterministic normalization branch identity"
+  },
+  "noFabricationPolicy": {
+    "missingFacts": "retained as sorted missingFactCodes and reduce completeness",
+    "emptyCollections": "remain empty",
+    "outcomeFallback": "unknown",
+    "tenantFallback": "goal-specific unscoped partition; never shared across Goals",
+    "environmentFallback": "unknown-environment",
+    "modelAuthority": false
+  },
+  "privacyPolicy": {
+    "excludedKeyFamilies": [
+      "credential",
+      "password",
+      "secret",
+      "token",
+      "authorization",
+      "api_key",
+      "private_reasoning",
+      "chain_of_thought",
+      "reasoning_content",
+      "email",
+      "phone",
+      "address",
+      "full_name",
+      "user_id"
+    ],
+    "boundedArrays": 128,
+    "boundedObjectEntries": 128,
+    "boundedStringCharacters": 512,
+    "maximumHashProjectionDepth": 16,
+    "rawToolPayloadPersisted": false
+  },
+  "durability": {
+    "traceAuthority": "experience_trace",
+    "sourceProjection": "experience_trace_source",
+    "runAuthority": "compilation_run",
+    "outbox": "cognitive_runtime_outbox",
+    "event": "experience.trace_created",
+    "queue": "sdar-compiler-normalization",
+    "redisRole": "reconstructable run-id wake only",
+    "leaseFencing": true,
+    "boundedRetry": true,
+    "deadLetter": true,
+    "userDeletionPropagation": true
+  },
+  "implementationRefs": [
+    "packages/domain/src/compiler/experience-compilation.ts",
+    "packages/application/src/compiler/experience-normalizer.ts",
+    "packages/application/src/compiler/experience-compilation.ts",
+    "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+    "packages/runtime-redis/src/compiler/experience-compilation-workers.ts",
+    "infra/postgres/migrations/0126_v13_experience_compilation.up.sql"
+  ],
+  "verificationRefs": [
+    "packages/domain/test/experience-compilation.unit.test.ts",
+    "packages/application/test/experience-normalizer.unit.test.ts",
+    "packages/application/test/experience-compilation.unit.test.ts",
+    "packages/persistence-postgres/test/experience-p03.contract.test.ts",
+    "packages/persistence-postgres/test/repositories.integration.test.ts"
+  ]
+}

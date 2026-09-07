@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P09",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "bf7fef973183ccff6c96e7c37afe137b9f1d4b77",
+  "implementationSha": "39298c3798d6a14447b7a01e30eae0d3b13ae5f8",
+  "evidenceSha": "5a82b5e159a92a47e86f4064a61803d47f284754",
+  "remoteSha": "5a82b5e159a92a47e86f4064a61803d47f284754",
+  "completedAt": "2026-08-03T01:56:31+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": { "status": "passed", "durationMs": 346117, "unit": 949, "contract": 215, "integration": 138, "e2e": 72, "runtimeMigrations": 32, "controlMigrations": 7 },
+    "focused": { "unitFiles": 4, "unitTests": 42, "integrationFiles": 1, "integrationTests": 1, "aggregateIntegrationFiles": 25, "aggregateIntegrationTests": 138, "architectureSources": 623 }
+  },
+  "review": { "blocking": 0, "major": 0, "minor": 0, "closedBlocking": 1, "closedMajor": 3, "closedMinor": 2, "verdict": "accepted" },
+  "evidence": ["reports/verification/summary.json", "reports/v1.4-node-control/failed-attempts/p09-task-capability-binding.md", "reports/v1.4-node-control/phases/p09-review.md"],
+  "nextPhase": "P10"
+}

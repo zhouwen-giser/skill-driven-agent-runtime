@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P11",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "phaseBaseSha": "d978e8ef5d72ee4b7fd464aa3caac4fb367d00bc",
+  "primaryImplementationSha": "a53b4fbd185e3d9c59f13857e9dac317be5f6f4f",
+  "implementationSha": "7f631fd674352f72633994a2b47875e2856a9922",
+  "evidenceSha": "3a2d872c432e06f26cc36f0f08d4ea9979fb05a9",
+  "remoteSha": "3a2d872c432e06f26cc36f0f08d4ea9979fb05a9",
+  "completedAt": "2026-08-03T08:17:43+08:00",
+  "productionChanges": true,
+  "validation": {
+    "status": "passed",
+    "fullVerify": {
+      "status": "passed",
+      "commit": "93a901eb6e6b7eb3bef895895bf5c68e4d5936a9",
+      "dirty": false,
+      "durationMs": 414357,
+      "unit": 934,
+      "performance": 22,
+      "contract": 219,
+      "integration": 146,
+      "e2e": 72,
+      "runtimeMigrations": 35,
+      "controlMigrations": 7
+    },
+    "focused": {
+      "unitFiles": 2,
+      "unitTests": 5,
+      "integrationFiles": 2,
+      "integrationTests": 3,
+      "architectureSources": 639
+    }
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "closedMajor": 2,
+    "verdict": "accepted"
+  },
+  "verificationSummarySha256": "7a7de517d065ceaa22dc1fe448e155985b1f16693fbf76846a4f28eceb802430",
+  "evidence": [
+    "reports/verification/summary.json",
+    "reports/v1.4-node-control/failed-attempts/p11-telemetry-export.md",
+    "reports/v1.4-node-control/phases/p11-review.md"
+  ],
+  "nextPhase": "P12"
+}

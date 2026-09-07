@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "measurement": {
+    "environment": "local isolated PostgreSQL, 2026-07-29",
+    "samples": 25,
+    "p50Ms": 9.048499999999876,
+    "p95Ms": 10.600000000000364,
+    "authority": "postgresql_active_pointer_and_artifact_match_log"
+  },
+  "classification": "local acceptance measurement only; not a production SLO",
+  "test": "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"
+}

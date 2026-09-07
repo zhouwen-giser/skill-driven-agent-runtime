@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "contract": "sdar-registry-v1",
+  "canonicalRepository": "zhouwen-giser/sdar-mcp-provider-platform",
+  "canonicalPath": "protocol/consumer-projections/sdar-registry/v1",
+  "vendoredPath": "protocol/external/smpp-sdar-registry-projection/v1",
+  "vendoredAssetCount": 6,
+  "manifestSha256": "863dfd9046aa12a17dfa4751e63f2660c15b8472f9a162b94dddc04541138cd8",
+  "bundleSha256": "6668573cae45954bc1fc008243a7684949ff936c1cb8acf91512825a0d5f1e9e",
+  "projectionSchemaSha256": "425cd331f7ee7e4294919ea307f05edb222b99fe5bbc9d320ae71959ed6ab34e",
+  "sdarAlgorithmBaseline": "a9957c82c17ca01e77528f3817c03d86224aaf88",
+  "smppNativeRegistryBaseline": "981792b9cb22f8b3117fe3ab26f639de71487d1f",
+  "canonicalByteIdentical": true,
+  "projectionContractFrozen": true,
+  "checksumVectorsByteCompatible": true,
+  "nativeRegistryUnchanged": true,
+  "verification": {
+    "offlineVerifier": "passed",
+    "executedChecksumVectors": 10,
+    "smppNativeAuthorityVerified": true,
+    "checksumUnitTests": "4/4 passed",
+    "nodeControlTests": "113/113 passed"
+  }
+}

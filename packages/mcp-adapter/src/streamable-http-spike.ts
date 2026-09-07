@@ -33,6 +33,8 @@ export interface McpLoopbackServerHandle {
 
 export interface McpLoopbackServerOptions {
   readonly deviceExecutionSemantics?: unknown;
+  /** Isolated development simulations only; never exposed by a production provider. */
+  readonly softwareBusinessFixtures?: boolean;
 }
 
 const DEFAULT_DEVICE_EXECUTION_SEMANTICS = Object.freeze({
@@ -180,6 +182,15 @@ async function handleFrozenRequest(
                 options.deviceExecutionSemantics ?? DEFAULT_DEVICE_EXECUTION_SEMANTICS,
               ),
               frozenLoopbackTool('slow_probe', taskProfile),
+              ...(options.softwareBusinessFixtures === true
+                ? softwareTools.map((tool) => ({
+                    ...tool,
+                    _meta: {
+                      'io.sdar/taskExecution': taskProfile,
+                      'io.sdar/tool-execution-semantics': DEFAULT_DEVICE_EXECUTION_SEMANTICS,
+                    },
+                  }))
+                : []),
             ],
           }
         : method === 'io.sdar/taskExecution/checkAvailability'
@@ -195,7 +206,7 @@ async function handleFrozenRequest(
               })),
             }
           : method === 'tools/call'
-            ? await frozenLoopbackCall(params)
+            ? await frozenLoopbackCall(params, options)
             : undefined;
   response.writeHead(200, { 'content-type': 'application/json' });
   response.end(
@@ -234,7 +245,68 @@ function frozenLoopbackTool(name: string, profile: unknown, semantics?: unknown)
   };
 }
 
-async function frozenLoopbackCall(params: Readonly<Record<string, unknown>>) {
+const softwareTools = [
+  {
+    name: 'document_normalize',
+    description: 'Normalize whitespace in supplied document text.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['text'],
+      properties: { text: { type: 'string', minLength: 1 } },
+    },
+    outputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['normalizedText', 'wordCount'],
+      properties: {
+        normalizedText: { type: 'string' },
+        wordCount: { type: 'integer', minimum: 0 },
+      },
+    },
+  },
+  {
+    name: 'data_aggregate',
+    description: 'Sum the supplied numeric observations.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['values'],
+      properties: { values: { type: 'array', minItems: 1, items: { type: 'number' } } },
+    },
+    outputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['total', 'count'],
+      properties: { total: { type: 'number' }, count: { type: 'integer', minimum: 1 } },
+    },
+  },
+] as const;
+function softwareResult(name: string, input: unknown): Record<string, unknown> {
+  if (name === 'document_normalize') {
+    const { text } = z.strictObject({ text: z.string().min(1) }).parse(input);
+    const words = text.trim().split(/\s+/u).filter(Boolean);
+    return { normalizedText: words.join(' '), wordCount: words.length };
+  }
+  const { values } = z.strictObject({ values: z.array(z.number()).min(1) }).parse(input);
+  return { total: values.reduce((sum, value) => sum + value, 0), count: values.length };
+}
+async function frozenLoopbackCall(
+  params: Readonly<Record<string, unknown>>,
+  options: McpLoopbackServerOptions,
+) {
+  if (
+    options.softwareBusinessFixtures === true &&
+    softwareTools.some((tool) => tool.name === params['name'])
+  ) {
+    const structuredContent = softwareResult(String(params['name']), params['arguments']);
+    return {
+      resultType: 'complete',
+      content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+      structuredContent,
+      isError: false,
+    };
+  }
   const arguments_ = record(params['arguments']);
   const delayMs = arguments_['delayMs'];
   if (typeof delayMs === 'number' && Number.isFinite(delayMs) && delayMs > 0)
@@ -262,6 +334,40 @@ function registerTools(
   reportCancellation: (observed: boolean) => void,
   options: McpLoopbackServerOptions,
 ): void {
+  if (options.softwareBusinessFixtures === true) {
+    mcpServer.registerTool(
+      'document_normalize',
+      {
+        description: softwareTools[0].description,
+        inputSchema: { text: z.string().min(1) },
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        _meta: { 'io.sdar/tool-execution-semantics': DEFAULT_DEVICE_EXECUTION_SEMANTICS },
+      },
+      (input) => {
+        const structuredContent = softwareResult('document_normalize', input);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+          structuredContent,
+        };
+      },
+    );
+    mcpServer.registerTool(
+      'data_aggregate',
+      {
+        description: softwareTools[1].description,
+        inputSchema: { values: z.array(z.number()).min(1) },
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        _meta: { 'io.sdar/tool-execution-semantics': DEFAULT_DEVICE_EXECUTION_SEMANTICS },
+      },
+      (input) => {
+        const structuredContent = softwareResult('data_aggregate', input);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+          structuredContent,
+        };
+      },
+    );
+  }
   const deviceExecutionSemantics =
     options.deviceExecutionSemantics ?? DEFAULT_DEVICE_EXECUTION_SEMANTICS;
   mcpServer.registerTool(

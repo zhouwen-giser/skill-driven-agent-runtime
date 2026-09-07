@@ -1,0 +1,22 @@
+{
+  "command": "pnpm verify:ep01",
+  "status": "passed",
+  "results": {
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "unit": { "passed": 17, "failed": 0 },
+    "integration": { "passed": 6, "failed": 0 },
+    "contract": { "passed": 12, "failed": 0 },
+    "e2e": { "passed": 2, "failed": 0 },
+    "build": "passed",
+    "serverSmoke": "passed",
+    "a2aTckProtocolHarness": { "passed": 67, "failed": 0, "skipped": 168 }
+  },
+  "dynamicAgentCard": "add/update/disable refresh verified without restart",
+  "remaining": [
+    "production Result Processor artifacts",
+    "persistent Skill Registry provider",
+    "Skill draft behavior"
+  ]
+}

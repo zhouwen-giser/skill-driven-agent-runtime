@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "executed_unit_and_real_postgresql_integration",
+  "gates": [
+    {
+      "name": "single-device anti-generalization",
+      "error": "GENERALIZATION_SINGLE_DEVICE_REJECTED",
+      "executed": true
+    },
+    {
+      "name": "single-user preference isolation",
+      "error": "GENERALIZATION_SINGLE_USER_PREFERENCE_REJECTED",
+      "executed": true
+    },
+    {
+      "name": "temporary authorization rejection",
+      "error": "GENERALIZATION_TEMPORARY_AUTHORIZATION_REJECTED",
+      "executed": true
+    },
+    {
+      "name": "single-success rejection",
+      "error": "GENERALIZATION_SINGLE_SUCCESS_REJECTED",
+      "executed": true
+    },
+    {
+      "name": "failure-boundary preservation",
+      "error": "GENERALIZATION_FAILURE_BOUNDARY_LOST",
+      "executed": true
+    }
+  ],
+  "additionalScopeGate": {
+    "name": "single-environment anti-generalization",
+    "error": "GENERALIZATION_SINGLE_ENVIRONMENT_REJECTED",
+    "executed": true
+  },
+  "modelAuthority": {
+    "semanticModelMaySuggestNamesAndCandidates": true,
+    "semanticModelMayOverwriteStructuralFacts": false
+  },
+  "implementationRef": "packages/application/src/compiler/pattern-generalization.ts",
+  "testRefs": [
+    "packages/application/test/candidate-generation.unit.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ],
+  "acceptanceRefs": [
+    "AC-P04R-019",
+    "AC-P04R-020",
+    "AC-P04R-021"
+  ]
+}

@@ -1,3 +1,4 @@
+import type { WorkflowChildCall } from '../../domain/src/index.js';
 import type {
   AgentTask,
   ConversationContext,
@@ -441,6 +442,7 @@ export interface SkillSelectionDecider {
 }
 
 export interface TemporarySkillRepository {
+  findExperience(temporarySkillId: string): Promise<TemporarySkillExperience | undefined>;
   find(temporarySkillId: string): Promise<TemporarySkill | undefined>;
   listByTask(taskId: string): Promise<readonly TemporarySkill[]>;
   save(skill: TemporarySkill): Promise<void>;
@@ -1052,6 +1054,8 @@ export interface ExternalTaskProjection {
 }
 
 export interface ExternalTaskProjectionQuery {
+  /** Filter against the current Task authority, not the stored protocol snapshot. */
+  readonly currentTask?: Readonly<{ phases?: readonly AgentTask['phase'][] }>;
   readonly protocol: ExternalTaskProjection['protocol'];
   readonly contextId?: string;
   readonly state?: string;
@@ -1102,6 +1106,7 @@ export interface StructuredModelProvider {
       responseSchema: unknown;
       correctionErrors: readonly string[];
       taskId?: string;
+      signal?: AbortSignal;
     }>,
   ): Promise<unknown>;
 }
@@ -1149,11 +1154,18 @@ export type WorkflowExternalWaitSnapshotPreparer = (
   input: WorkflowExternalWaitPreparation,
 ) => Promise<WorkflowExternalWaitPreparedSnapshot>;
 
+export interface WorkflowChildCallRepository {
+  save(record: WorkflowChildCall): Promise<WorkflowChildCall>;
+  find(parentInstanceId: string, parentNodeRunId: string): Promise<WorkflowChildCall | undefined>;
+  findByChildInstanceId(childInstanceId: string): Promise<WorkflowChildCall | undefined>;
+  listByParent(parentInstanceId: string): Promise<readonly WorkflowChildCall[]>;
+}
+
 export interface SkillCallWorkflowRepository {
   save(record: SkillCallWorkflowRecord): Promise<void>;
   find(
     parentInstanceId: string,
-    parentNodeId: string,
+    parentNodeRunId: string,
   ): Promise<SkillCallWorkflowRecord | undefined>;
   findByChildInstanceId(childInstanceId: string): Promise<SkillCallWorkflowRecord | undefined>;
   listByParent(parentInstanceId: string): Promise<readonly SkillCallWorkflowRecord[]>;

@@ -1,0 +1,36 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "version": "1.1",
+  "operators": [
+    "eq",
+    "neq",
+    "in",
+    "not_in",
+    "exists",
+    "not_exists",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "contains",
+    "starts_with",
+    "matches_safe_pattern",
+    "within_range",
+    "intersects",
+    "is_ready",
+    "is_authorized",
+    "changed_since"
+  ],
+  "semantics": {
+    "null": "unknown except exists/not_exists, where null is present",
+    "unknown": "propagate",
+    "case": "exact; matches_safe_pattern is literal case-sensitive",
+    "locale": "none",
+    "collections": "maximum 256 entries",
+    "safePattern": "maximum 128 characters; nested quantifier/backreference/lookaround constructs rejected",
+    "typeMismatch": "unknown with RULE_OPERATOR_TYPE_MISMATCH"
+  },
+  "source": "packages/domain/src/compiler/decision-rule-runtime.ts",
+  "evidence": "packages/domain/test/decision-rule-runtime-p09.unit.test.ts"
+}

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assertWorkflowContinuationSuccessor,
+  emptyWorkflowScopes,
+  mergeWorkflowScopes,
   createWorkflowContinuationAttempt,
   createWorkflowContinuationSnapshot,
   MAX_WORKFLOW_CONTINUATION_JSON_BYTES,
@@ -15,6 +17,63 @@ const laterTimestamp = '2026-07-16T08:00:01.000Z';
 const hash = 'a'.repeat(64);
 
 describe('Workflow continuation domain', () => {
+  it('preserves old snapshots and requires explicit scopes in version 2', () => {
+    const legacy = createWorkflowContinuationSnapshot(snapshotInput());
+    const before = JSON.stringify(legacy);
+    const current = createWorkflowContinuationSnapshot({
+      ...snapshotInput(),
+      schemaVersion: '2.0',
+      scopes: emptyWorkflowScopes(),
+    });
+    expect(current.schemaVersion).toBe('2.0');
+    expect(current.scopes).toEqual(emptyWorkflowScopes());
+    expect(Object.isFrozen(current.scopes?.forks)).toBe(true);
+    expect(JSON.stringify(legacy)).toBe(before);
+    expect(() =>
+      createWorkflowContinuationSnapshot({ ...snapshotInput(), schemaVersion: '2.0' }),
+    ).toThrow(expect.objectContaining({ code: 'WORKFLOW_CONTINUATION_STATE_INVALID' }));
+    expect(() =>
+      createWorkflowContinuationSnapshot({ ...snapshotInput(), scopes: emptyWorkflowScopes() }),
+    ).toThrow(expect.objectContaining({ code: 'WORKFLOW_CONTINUATION_VERSION_INVALID' }));
+  });
+
+  it('rejects output conflicts independent of branch completion order', () => {
+    const source = (branchId: string) => ({
+      ...emptyWorkflowScopes(),
+      outputSources: {
+        slot: [{ forkInvocationId: 'fork-run-1', branchId, nodeRunId: `node-${branchId}-1` }],
+      },
+    });
+    for (const [left, right] of [
+      ['a', 'b'],
+      ['b', 'a'],
+    ] as const)
+      expect(() => mergeWorkflowScopes(source(left), source(right))).toThrow(
+        expect.objectContaining({ code: 'WORKFLOW_OUTPUT_CONFLICT' }),
+      );
+  });
+
+  it('records a paused handoff as a completed attempt without an error', () => {
+    const claimed = createWorkflowContinuationAttempt({
+      attemptId: 'attempt-paused',
+      eventId: 'event-paused',
+      snapshotId: 'snapshot-1',
+      continuationId: 'continuation-1',
+      workflowInstanceId: 'instance-1',
+      snapshotStateVersion: 1,
+      claimToken: 'claim-paused',
+      status: 'claimed',
+      createdAt: timestamp,
+    });
+    const running = transitionWorkflowContinuationAttempt(claimed, 'running', timestamp);
+    const paused = transitionWorkflowContinuationAttempt(running, 'paused', laterTimestamp);
+    expect(paused).toMatchObject({ status: 'paused', completedAt: laterTimestamp });
+    expect(paused.errorCode).toBeUndefined();
+    expect(() =>
+      transitionWorkflowContinuationAttempt(paused, 'running', laterTimestamp),
+    ).toThrow();
+  });
+
   it('snapshots a bounded external-wait frontier and freezes nested state', () => {
     const snapshot = createWorkflowContinuationSnapshot(snapshotInput());
 
@@ -42,7 +101,7 @@ describe('Workflow continuation domain', () => {
 
   it('requires stable hashes, finite JSON and an aggregate byte bound', () => {
     expect(() =>
-      createWorkflowContinuationSnapshot({ ...snapshotInput(), schemaVersion: '2.0' }),
+      createWorkflowContinuationSnapshot({ ...snapshotInput(), schemaVersion: '3.0' }),
     ).toThrow(expect.objectContaining({ code: 'WORKFLOW_CONTINUATION_VERSION_INVALID' }));
     expect(() =>
       createWorkflowContinuationSnapshot({

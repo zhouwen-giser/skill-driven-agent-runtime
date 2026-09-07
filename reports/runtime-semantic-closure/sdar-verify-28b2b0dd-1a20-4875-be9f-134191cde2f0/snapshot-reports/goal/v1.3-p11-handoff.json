@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P11",
+  "packageVersion": "1.1",
+  "sequence": 11,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "2cb2dce",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {"implementation":"b116a6c","privacyAndTimeoutReview":"c62334a","privacyBypassReview":"dc636e6"},
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/13",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {"name":"FastGateway","version":"1.1","schemaHash":"be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe"},
+    {"name":"RuntimeExecutionDecision","version":"1.1","schemaHash":"4ad37edc562bf39d27982f23f70d27ee8af1a3dfe3486dfc34725eec62b5b4de"},
+    {"name":"FormalPlanHandoffPort","version":"1.1","schemaHash":"84f9be4c6bcd7ed775c1f56779f671709efe541edc498b6bb71047a1e55d9336"},
+    {"name":"CaseArtifactDefinition","version":"1.1","schemaHash":"c1b03024222e19ed2834e25accdb8e4d841ae3e2d35ea28ecba056a79d585ea5"},
+    {"name":"ModelRouteArtifactDefinition","version":"1.1","schemaHash":"2f271f5b96f9d83675b2176ea8f7a8eea76a86f1e3cc5e52c255a42cb6016678"}
+  ],
+  "producedContracts": [
+    {"name":"CaseRetrievalInput","version":"1.1","schemaHash":"161342c806b7f58254efac7d076d3193da80982d9c0bea22998c91e71cd3b1de"},
+    {"name":"CaseMatch","version":"1.1","schemaHash":"135dbfad26d68afa26201c43cf69816a80be23d4a550c28062a755ff6cfb084f"},
+    {"name":"CaseAdaptationInput","version":"1.1","schemaHash":"0c81b6bcabb43c588175a33d2621c431463a2547a6040efdfe39883e3a427929"},
+    {"name":"CaseAdaptationResult","version":"1.1","schemaHash":"b2cd17de0f8a9bd09948981f29c368a1bc0ae18fedf4c9caf4d422e26ed2a72d"},
+    {"name":"CaseRuntime","version":"1.1","schemaHash":"a2cb1f3f4c0a18abf03d3fb1a552b1f480e11e8a2ac5d3f1aa98c849dd96a387"},
+    {"name":"ModelProfile","version":"1.1","schemaHash":"03bc8f277534a5a1529d186697f7afa61eb27342a2f6ca6da85e5521d2af70bd"},
+    {"name":"ModelRouteContext","version":"1.1","schemaHash":"346e0917e77a181b332581bfdb94943742dc0dfec035938e50ba3ac225b93aa2"},
+    {"name":"ModelRouteDecision","version":"1.1","schemaHash":"9785cd514c16f49982012f3943441defe246c33dfcf3429a3504885187b7d1fd"},
+    {"name":"ModelCascadeRun","version":"1.1","schemaHash":"160a4e179dc1911f4b56557361bb0c688ea79d6c7f0964646fe70309959591df"},
+    {"name":"ModelRouteRuntime","version":"1.1","schemaHash":"386a10226570efe3572177718a9bca0f826cf6abc95ac91b63279a5993ae3dae"}
+  ],
+  "migrations": ["0133_v13_case_model_runtime"],
+  "repositoryPorts": ["CaseModelArtifactReader","CaseRuntimeEvidenceRepository","ModelRouteEvidenceRepository","PostgresCaseModelRuntimeRepository"],
+  "applicationPorts": ["GatewayArtifactAdapterRegistry","CaseRuntimeService","CaseGatewayArtifactAdapter","ProviderRegistryModelProfileReader","ModelRouteRuntimeService","ModelCascadeService","ModelRouteGatewayArtifactAdapter"],
+  "runtimePorts": ["CaseRuntime.retrieve","CaseRuntime.adapt","ModelRouteRuntime.evaluate","GET /api/v1/artifacts/runtime-evidence/:requestRef"],
+  "events": ["model_route.selected","model_cascade.escalated"],
+  "queues": [],
+  "featureFlags": ["SDAR_V13_CASE_ENABLED","SDAR_V13_MODEL_CASCADE_ENABLED","SDAR_V13_FAST_GATEWAY_ENABLED"],
+  "reasonCodeCatalogVersion": "case-model-runtime/1.1",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p11-completion.md","reports/goal/v1.3-p11-review.md",
+    "reports/goal/v1.3-p11-acceptance.json","reports/goal/v1.3-p11-case-runtime-schema.json",
+    "reports/goal/v1.3-p11-case-adaptation-report.json","reports/goal/v1.3-p11-case-handoff-report.json",
+    "reports/goal/v1.3-p11-model-profile-schema.json","reports/goal/v1.3-p11-model-route-schema.json",
+    "reports/goal/v1.3-p11-cascade-report.json","reports/goal/v1.3-p11-budget-cost-report.json",
+    "reports/goal/v1.3-p11-provider-readiness-report.json","reports/goal/v1.3-p11-usage-drift-report.json",
+    "reports/goal/v1.3-p11-security-report.json","reports/goal/v1.3-p11-performance-report.json",
+    "reports/goal/v1.3-p11-full-verify-report.json","reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P11.md"
+  ],
+  "acceptanceSummary": {"passed":51,"failed":0,"blocked":0},
+  "knownLimitations": [
+    "Local performance measurements are acceptance baselines, not production capacity SLOs.",
+    "P11 does not approve or activate Artifacts and does not own Formal Plans or Outcomes.",
+    "P12 implementation has not started; this Handoff publishes P11 contracts and evidence only."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P12",
+  "packageOutputs": {
+    "CaseRetrievalInput":{"contractVersion":"1.1","schemaHash":"161342c806b7f58254efac7d076d3193da80982d9c0bea22998c91e71cd3b1de","refs":["packages/domain/src/compiler/case-model-runtime.ts"]},
+    "CaseMatch":{"contractVersion":"1.1","schemaHash":"135dbfad26d68afa26201c43cf69816a80be23d4a550c28062a755ff6cfb084f","refs":["packages/domain/src/compiler/case-model-runtime.ts"]},
+    "CaseAdaptationInput":{"contractVersion":"1.1","schemaHash":"0c81b6bcabb43c588175a33d2621c431463a2547a6040efdfe39883e3a427929","refs":["packages/domain/src/compiler/case-model-runtime.ts"]},
+    "CaseAdaptationResult":{"contractVersion":"1.1","schemaHash":"b2cd17de0f8a9bd09948981f29c368a1bc0ae18fedf4c9caf4d422e26ed2a72d","refs":["packages/domain/src/compiler/case-model-runtime.ts"]},
+    "CaseRuntime":{"contractVersion":"1.1","schemaHash":"a2cb1f3f4c0a18abf03d3fb1a552b1f480e11e8a2ac5d3f1aa98c849dd96a387","refs":["packages/application/src/compiler/case-model-runtime.ts"]},
+    "ModelProfile":{"contractVersion":"1.1","schemaHash":"03bc8f277534a5a1529d186697f7afa61eb27342a2f6ca6da85e5521d2af70bd","refs":["packages/domain/src/compiler/case-model-runtime.ts"]},
+    "ModelRouteContext":{"contractVersion":"1.1","schemaHash":"346e0917e77a181b332581bfdb94943742dc0dfec035938e50ba3ac225b93aa2","refs":["packages/domain/src/compiler/case-model-runtime.ts"]},
+    "ModelRouteDecision":{"contractVersion":"1.1","schemaHash":"9785cd514c16f49982012f3943441defe246c33dfcf3429a3504885187b7d1fd","refs":["packages/domain/src/compiler/case-model-runtime.ts"]},
+    "ModelCascadeRun":{"contractVersion":"1.1","schemaHash":"160a4e179dc1911f4b56557361bb0c688ea79d6c7f0964646fe70309959591df","refs":["packages/domain/src/compiler/case-model-runtime.ts","packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts"]},
+    "ModelRouteRuntime":{"contractVersion":"1.1","schemaHash":"386a10226570efe3572177718a9bca0f826cf6abc95ac91b63279a5993ae3dae","refs":["packages/application/src/compiler/case-model-runtime.ts"]}
+  }
+}

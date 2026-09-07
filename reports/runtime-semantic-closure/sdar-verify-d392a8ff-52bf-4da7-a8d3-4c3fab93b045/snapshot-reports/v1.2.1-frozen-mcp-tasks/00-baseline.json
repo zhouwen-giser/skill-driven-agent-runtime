@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "phase": 0,
+  "status": "in_progress",
+  "baseline": {
+    "requiredMainSha": "922f4288880e0fe3dee6ce402aa9788f4caa80eb",
+    "observedMainSha": "922f4288880e0fe3dee6ce402aa9788f4caa80eb",
+    "pr5Merged": true,
+    "packageVersion": "1.2.0",
+    "migrationHighWater": "0106_skill_execution_record",
+    "adrHighWater": "ADR-107"
+  },
+  "protocolSource": {
+    "commit": "26897cc322f356487da89113451bd16b520b9288",
+    "schemaBlob": "cc44564e33305dbc07e820cdd0a97648f3852019",
+    "schemaSha256": "9281c4890630e2d1e61792fa23b4084c4ea360cd58519610cd050545ab7b8708",
+    "schemaBytes": 180695,
+    "noticePresent": false
+  },
+  "verification": {
+    "bootstrap": {
+      "status": "failed",
+      "passingTestsBeforeFailure": 576,
+      "failure": "WINDOWS_SYMLINK_EPERM"
+    },
+    "independentCommands": {
+      "format": "passed",
+      "lint": "passed",
+      "typecheck": "passed",
+      "unit": { "status": "passed", "tests": 465 },
+      "contract": {
+        "status": "failed",
+        "passed": 111,
+        "total": 112,
+        "failure": "WINDOWS_SYMLINK_EPERM"
+      },
+      "architecture": { "status": "passed", "sourceFiles": 256 },
+      "a2aMust": { "status": "passed", "passed": 74, "failed": 0 },
+      "managementOpenApi": { "status": "passed", "operations": 116 },
+      "baselineAcceptance": { "status": "passed", "scenarios": 18 },
+      "v11Acceptance": { "status": "passed", "scenarios": 16 },
+      "sourcePins": { "status": "passed", "sources": 19 },
+      "licenseAndSbom": "passed",
+      "composeAndMigrationPolicy": { "status": "passed", "migrations": 70 },
+      "build": "passed"
+    },
+    "fullVerify": {
+      "status": "not_run",
+      "reason": "OPERATOR_CONTAINER_OWNS_FIXED_POSTGRES_PORT_55432"
+    }
+  },
+  "requiredDeferredItems": [
+    "Complete the baseline full gate using isolated PostgreSQL and Redis without modifying operator infrastructure."
+  ]
+}

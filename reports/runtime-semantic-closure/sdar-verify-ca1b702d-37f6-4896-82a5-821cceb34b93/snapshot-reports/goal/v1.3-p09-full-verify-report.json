@@ -1,0 +1,25 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "implementationCommit": "3244647856df98411c5e3de7435ec382d2ca333f",
+  "firstRun": {
+    "status": "failed",
+    "durationMs": 102905,
+    "passedStage": "static-unit-contract-build",
+    "failedStage": "cognitive-replay-no-physical-provider",
+    "rootCause": "the invoking tool timed out after five seconds and detached the still-running child process from its output channel",
+    "productChangeRequired": false,
+    "targetedRerun": "pnpm verify:cognitive-replay passed"
+  },
+  "finalRun": {
+    "status": "passed",
+    "dirty": false,
+    "durationMs": 272326,
+    "summary": "reports/verification/summary.json",
+    "stagesPassed": 7,
+    "unitAndContractTests": 1014,
+    "integrationTests": 114,
+    "e2eTests": 62,
+    "migrations": 24,
+    "architectureSourceFiles": 513
+  }
+}

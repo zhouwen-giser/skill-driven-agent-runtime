@@ -65,6 +65,13 @@ export class KnowledgePromotionService {
     return this.#repository.list(kind, limit);
   }
 
+  async findCandidate(
+    kind: KnowledgeKind,
+    knowledgeId: string,
+  ): Promise<PromotionCandidateRecord | undefined> {
+    return (await this.#repository.find(kind, knowledgeId))?.record;
+  }
+
   async evaluate(
     input: Readonly<{
       kind: KnowledgeKind;
@@ -87,6 +94,8 @@ export class KnowledgePromotionService {
     if (loaded.record.status !== 'candidate') {
       throw promotionError('KNOWLEDGE_PROMOTION_REQUIRES_CANDIDATE');
     }
+    if (loaded.record.kind === 'task_type' && loaded.record.definition['origin'] === 'configured')
+      return this.#evaluateConfigured(input, loaded);
     const target = this.#targets.get(input.kind);
     if (target === undefined) throw new Error('KNOWLEDGE_PROMOTION_TARGET_MISSING');
     const [duplicate, replay, shadow, priorActive] = await Promise.all([
@@ -208,6 +217,120 @@ export class KnowledgePromotionService {
       await this.#projector.project(knowledge);
     }
     return Object.freeze({ knowledge, evaluation });
+  }
+
+  async #evaluateConfigured(
+    input: Readonly<{
+      kind: KnowledgeKind;
+      knowledgeId: string;
+      expectedVersion: number;
+      actorId: string;
+      humanApproved: boolean;
+      policyAllowed: boolean;
+    }>,
+    loaded: Readonly<{
+      record: PromotionCandidateRecord;
+      evidence: Parameters<EvidenceThresholdEvaluator['evaluate']>[0]['evidence'];
+    }>,
+  ) {
+    const target = this.#targets.get('task_type');
+    if (target === undefined) throw new Error('KNOWLEDGE_PROMOTION_TARGET_MISSING');
+    const definition = loaded.record.definition;
+    const gates = [
+      {
+        code: 'configured_source_hash',
+        passed:
+          typeof definition['sourceHash'] === 'string' &&
+          /^sha256:[0-9a-f]{64}$/u.test(definition['sourceHash']),
+        actual: typeof definition['sourceHash'] === 'string' ? definition['sourceHash'] : '',
+        required: 'sha256 of imported configuration',
+      },
+      {
+        code: 'human_approval',
+        passed: input.humanApproved,
+        actual: input.humanApproved,
+        required: true,
+      },
+      {
+        code: 'configuration_policy_allow',
+        passed: input.policyAllowed,
+        actual: input.policyAllowed,
+        required: true,
+      },
+      ...target
+        .validate(loaded.record)
+        .map((code) => ({ code, passed: false, actual: false, required: true })),
+    ];
+    const duplicate = await this.#duplicates.find(loaded.record);
+    if (duplicate !== undefined)
+      gates.push({
+        code: 'duplicate_active_candidate',
+        passed: false,
+        actual: duplicate.knowledgeId,
+        required: 'none',
+      });
+    const passed = gates.every((gate) => gate.passed);
+    const now = this.#clock.now();
+    const evaluation = createKnowledgePromotionEvaluation({
+      schemaVersion: '1.0',
+      evaluationId: this.#nextEvaluationId(),
+      knowledgeKind: 'task_type',
+      knowledgeId: input.knowledgeId,
+      knowledgeRevision: loaded.record.revision,
+      policyVersion: this.#policyVersion,
+      status: passed ? 'passed' : 'failed',
+      evidence: loaded.evidence,
+      gates,
+      humanApproved: input.humanApproved,
+      policyAllowed: input.policyAllowed,
+      decidedBy: input.actorId,
+      decisionSummary:
+        'Configured definition reviewed by configuration authority; this is not induction, replay or generalization evidence.',
+      createdAt: now,
+      decidedAt: now,
+    });
+    const transitions = [
+      createKnowledgeStatusTransition({
+        schemaVersion: '1.0',
+        transitionId: this.#nextTransitionId(1),
+        knowledgeId: input.knowledgeId,
+        knowledgeRevision: loaded.record.revision,
+        expectedVersion: input.expectedVersion,
+        fromStatus: 'candidate',
+        toStatus: 'validating',
+        reason: 'evaluation_started',
+        actorId: input.actorId,
+        humanApproved: false,
+        occurredAt: now,
+      }),
+      createKnowledgeStatusTransition({
+        schemaVersion: '1.0',
+        transitionId: this.#nextTransitionId(2),
+        knowledgeId: input.knowledgeId,
+        knowledgeRevision: loaded.record.revision,
+        expectedVersion: input.expectedVersion + 1,
+        fromStatus: 'validating',
+        toStatus: passed ? 'active' : 'candidate',
+        reason: passed ? 'promotion_approved' : 'promotion_rejected',
+        actorId: input.actorId,
+        humanApproved: passed && input.humanApproved,
+        occurredAt: now,
+      }),
+    ];
+    const projection = passed
+      ? this.#projector.create(target.promote(loaded.record, input.expectedVersion + 2))
+      : undefined;
+    const knowledge = await normalizeRepositoryError(() =>
+      this.#repository.complete({
+        expectedVersion: input.expectedVersion,
+        evaluation,
+        transitions,
+        finalStatus: passed ? 'active' : 'candidate',
+        ...(projection === undefined ? {} : { projection }),
+      }),
+    );
+    // Rebuildable semantic projection is handled by the existing reconciler; no model is required to import configuration.
+    return { knowledge, evaluation };
   }
 
   async reject(

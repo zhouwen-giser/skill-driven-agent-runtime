@@ -1,0 +1,232 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P13",
+  "status": "passed",
+  "classification": "real local Docker PostgreSQL/Redis release-candidate recovery drill",
+  "environment": {
+    "node": "v22.14.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "postgres": "856ba6c2ed2292bba994e945ebf1bd638d2c1c78c2562bc9c8b57ea6b9138762",
+    "redis": "8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+    "redisDatabase": 15
+  },
+  "startedAt": "2026-07-30T14:07:04.508Z",
+  "finishedAt": "2026-07-30T14:07:20.393Z",
+  "durationMs": 15885,
+  "measurements": {
+    "redisFlushRecoveryMs": 221,
+    "redisRestartRecoveryMs": 2698,
+    "postgresRestartRecoveryMs": 3062,
+    "rpoFactsLost": 0,
+    "approvedProductionTargets": null,
+    "targetNote": "The requirement baseline defines semantics but no production RTO/RPO number; measured local values are reported without inventing a target."
+  },
+  "invariants": {
+    "postgresqlAuthorityPreserved": true,
+    "redisWakeOnly": true,
+    "queueRebuildFromAuthority": true,
+    "duplicateWakeCoalesced": true,
+    "automaticWholeTaskRetry": false,
+    "duplicateFormalGoalPlanAttempt": false,
+    "duplicatePhysicalSideEffect": false,
+    "staleResultCommitted": false,
+    "singleActivePointerPreserved": true,
+    "auditEvidenceRetained": true,
+    "cognitiveFallbackCovered": true,
+    "userInteractionRecoveryCovered": true
+  },
+  "faultCoverage": [
+    {
+      "fault": "Redis flush",
+      "classification": "real",
+      "status": "passed",
+      "evidenceRef": "redis-flush-and-postgresql-rebuild",
+      "result": "PostgreSQL Goal persisted and the exact BullMQ wake was rebuilt."
+    },
+    {
+      "fault": "Redis restart",
+      "classification": "real",
+      "status": "passed",
+      "evidenceRef": "redis-service-restart",
+      "result": "Redis reconnected and duplicate jobId wakes coalesced."
+    },
+    {
+      "fault": "BullMQ worker restart",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/persistence-postgres/test/repositories.integration.test.ts",
+      "result": "Expired Experience work is lease-reclaimed by a restarted worker; committed terminal work is not revived."
+    },
+    {
+      "fault": "PostgreSQL restart",
+      "classification": "real",
+      "status": "passed",
+      "evidenceRef": "postgresql-service-restart",
+      "result": "Authoritative Goal survived the actual Compose service restart."
+    },
+    {
+      "fault": "Server restart",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/persistence-postgres/test/repositories.integration.test.ts",
+      "result": "Reconstructed services resume only persisted waiting/user-interaction state and create a new authorized attempt."
+    },
+    {
+      "fault": "Network partition",
+      "classification": "simulated",
+      "status": "passed",
+      "evidenceRef": "packages/application/test/fast-gateway-p10.unit.test.ts",
+      "result": "Adapter failure remains inside its bulkhead and enters bounded cognitive fallback."
+    },
+    {
+      "fault": "Model Provider failure",
+      "classification": "simulated",
+      "status": "passed",
+      "evidenceRef": "packages/application/test/case-model-runtime-p11.unit.test.ts",
+      "result": "Provider failure, timeout, budget exhaustion and late result paths fail closed or fall back without formal mutation."
+    },
+    {
+      "fault": "MCP / Provider degradation",
+      "classification": "simulated",
+      "status": "passed",
+      "evidenceRef": "packages/application/test/remote-task-continuation.unit.test.ts",
+      "result": "Remote terminal observations are claimed once; stale/deadline paths never re-enter the graph."
+    },
+    {
+      "fault": "SSE disconnect",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/a2a-adapter/test/http-endpoint.contract.test.ts",
+      "result": "Execution continues after client disconnect and authoritative task state can be polled/resubscribed."
+    },
+    {
+      "fault": "Queue backlog",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p05-performance-report.json",
+      "result": "PostgreSQL claims, bounded workers and Redis wake lag are measured with explicit backpressure."
+    },
+    {
+      "fault": "Outbox duplicate / delay",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/application/test/experience-job.unit.test.ts",
+      "result": "Duplicate terminal delivery is processed once and a missing wake is reconstructed from PostgreSQL."
+    },
+    {
+      "fault": "Cache stale",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/application/test/artifact-retrieval.unit.test.ts",
+      "result": "Stale dependency validation falls back and the disposable projection rebuilds from P02 authority."
+    },
+    {
+      "fault": "Artifact deactivation",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+      "result": "Deactivation changes the single active pointer through governed CAS and retains audit evidence."
+    },
+    {
+      "fault": "Kill Switch",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+      "result": "Critical trigger and evidence-bound reopen/rollback preserve monotonic pointer authority."
+    },
+    {
+      "fault": "Concurrent activation",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+      "result": "Expected-version and pointer-lock CAS reject stale competing activation."
+    },
+    {
+      "fault": "Deadline / cancellation / late result",
+      "classification": "simulated",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-p10-deadline-report.json",
+      "result": "Absolute deadlines and cancellation propagate; stale late results are discarded before formal commit."
+    },
+    {
+      "fault": "Partial transaction",
+      "classification": "real-local",
+      "status": "passed",
+      "evidenceRef": "packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+      "result": "Definition, pointer, validation, lineage, audit and Outbox writes remain transaction-bound."
+    },
+    {
+      "fault": "Migration interruption",
+      "classification": "real",
+      "status": "passed",
+      "evidenceRef": "reports/goal/v1.3-final-migration-report.json",
+      "result": "Deliberately interrupted 0125 rolls back marker, checksum and schema state before normal reapply."
+    }
+  ],
+  "steps": [
+    {
+      "name": "compose-start",
+      "classification": "real",
+      "status": "passed",
+      "durationMs": 8801
+    },
+    {
+      "name": "migrate-isolated-database",
+      "classification": "real",
+      "status": "passed",
+      "durationMs": 988
+    },
+    {
+      "name": "seed-authoritative-goal",
+      "classification": "real",
+      "status": "passed",
+      "durationMs": 5
+    },
+    {
+      "name": "redis-flush-and-postgresql-rebuild",
+      "classification": "real",
+      "status": "passed",
+      "durationMs": 221,
+      "evidence": {
+        "redisDatabase": 15,
+        "authoritativeGoalPreserved": true,
+        "redisWakeRebuiltFromAuthoritativeGoal": true,
+        "redisAuthority": false,
+        "rpoFactsLost": 0
+      }
+    },
+    {
+      "name": "redis-service-restart",
+      "classification": "real",
+      "status": "passed",
+      "durationMs": 2698,
+      "evidence": {
+        "redisDatabase": 15,
+        "reconnectPassed": true,
+        "duplicateWakeCoalescedByJobId": true,
+        "rpoFactsLost": 0
+      }
+    },
+    {
+      "name": "postgresql-service-restart",
+      "classification": "real",
+      "status": "passed",
+      "durationMs": 3062,
+      "evidence": {
+        "authoritativeGoalPreserved": true,
+        "rpoFactsLost": 0
+      }
+    }
+  ],
+  "relatedEvidence": [
+    "packages/runtime-redis/test/bullmq-context-queue.integration.test.ts",
+    "packages/runtime-redis/test/candidate-generation-workers.integration.test.ts",
+    "packages/persistence-postgres/test/artifact-authority.integration.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ],
+  "limitations": [
+    "This local drill restarts the repository-pinned Docker services; it is not a production availability claim.",
+    "Worker process-loss and provider-network boundaries are closed by focused runtime tests and are listed separately in the final P13 recovery report."
+  ]
+}

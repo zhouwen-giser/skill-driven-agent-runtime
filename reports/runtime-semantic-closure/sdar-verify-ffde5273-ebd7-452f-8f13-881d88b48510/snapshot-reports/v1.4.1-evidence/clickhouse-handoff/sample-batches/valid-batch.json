@@ -1,0 +1,70 @@
+{
+  "contractVersion": "sdar.evidence/v1",
+  "exportId": "handoff-simulated-export",
+  "sourceId": "handoff-simulated-runtime",
+  "nodeId": "handoff-simulated-node",
+  "revision": 1,
+  "firstSequence": "1",
+  "lastSequence": "2",
+  "records": [
+    {
+      "contractVersion": "sdar.evidence/v1",
+      "schemaName": "sdar.evidence.runtime.episode",
+      "schemaVersion": 1,
+      "recordFamily": "runtime",
+      "recordType": "runtime.episode",
+      "recordId": "evidence_9184ebece4d8e5fcbaf8636f337de7ead10fd19c1efb77988cb31ff91b853dcb",
+      "sourceSystem": "runtime",
+      "sourceTable": "agent_task",
+      "sourceRecordId": "handoff-episode-1",
+      "sourceRevision": "1",
+      "environment": "handoff-simulated",
+      "correlationId": "handoff-episode-1",
+      "occurredAt": "2026-08-10T05:00:00.000Z",
+      "recordedAt": "2026-08-10T05:00:00.000Z",
+      "deliveryGuarantee": "durable_projection",
+      "evaluationRole": "required",
+      "evidenceRefs": [],
+      "artifactRefs": [],
+      "payloadHash": "sha256:24480973473e2592cc93db05d43b6f713a17afd5c0306554f802bfa261d723ee",
+      "payload": {
+        "episodeId": "handoff-episode-1",
+        "taskId": "task-handoff-episode-1",
+        "status": "completed"
+      },
+      "taskId": "task-handoff-episode-1",
+      "episodeId": "handoff-episode-1",
+      "evidenceSequence": "1"
+    },
+    {
+      "contractVersion": "sdar.evidence/v1",
+      "schemaName": "sdar.evidence.runtime.episode",
+      "schemaVersion": 1,
+      "recordFamily": "runtime",
+      "recordType": "runtime.episode",
+      "recordId": "evidence_6615ff85e135b8f0b65db1f9cefea32695f65c433e0ca9cd47b33f96cb80b41f",
+      "sourceSystem": "runtime",
+      "sourceTable": "agent_task",
+      "sourceRecordId": "handoff-episode-2",
+      "sourceRevision": "1",
+      "environment": "handoff-simulated",
+      "correlationId": "handoff-episode-2",
+      "occurredAt": "2026-08-10T05:00:01.000Z",
+      "recordedAt": "2026-08-10T05:00:01.000Z",
+      "deliveryGuarantee": "durable_projection",
+      "evaluationRole": "required",
+      "evidenceRefs": [],
+      "artifactRefs": [],
+      "payloadHash": "sha256:faf77a32178baa3763e82686da354bbfe3b23170b9d44e0b8dfb3c9f5cec39a2",
+      "payload": {
+        "episodeId": "handoff-episode-2",
+        "taskId": "task-handoff-episode-2",
+        "status": "completed"
+      },
+      "taskId": "task-handoff-episode-2",
+      "episodeId": "handoff-episode-2",
+      "evidenceSequence": "2"
+    }
+  ],
+  "batchHash": "sha256:0dfed22b24c29bdff0f15f02f61d56c5e47e8313208fdeb7bb2e09dfc2cb078e"
+}

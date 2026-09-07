@@ -11,6 +11,48 @@ describe('OpenAI-compatible Model adapter', () => {
     close = undefined;
   });
 
+  it('aborts an in-flight HTTP request when the caller cancels', async () => {
+    let markStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    let markClosed: (() => void) | undefined;
+    const disconnected = new Promise<void>((resolve) => {
+      markClosed = resolve;
+    });
+    const server = createServer((_request, response) => {
+      response.once('close', () => markClosed?.());
+      markStarted?.();
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    close = async () => {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => {
+          if (error === undefined) resolve();
+          else reject(error);
+        }),
+      );
+    };
+    const address = server.address();
+    if (address === null || typeof address === 'string') throw new Error('Expected loopback port');
+    const controller = new AbortController();
+    const pending = new OpenAiCompatibleModelAdapter().generateStructured({
+      configuration: configuration(`http://127.0.0.1:${String(address.port)}/v1`),
+      credentialHeaders: {},
+      instruction: 'Wait',
+      responseSchema: {},
+      correctionErrors: [],
+      signal: controller.signal,
+    });
+    const rejected = expect(pending).rejects.toMatchObject({ code: 'MODEL_TRANSPORT_FAILED' });
+    await started;
+    controller.abort(new Error('caller-stopped'));
+    await rejected;
+    await disconnected;
+  });
+
   it('requests strict structured JSON and returns only displayable audited fields', async () => {
     const requests: unknown[] = [];
     const server = await loopback((request) => {

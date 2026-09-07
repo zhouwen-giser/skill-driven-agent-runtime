@@ -1,0 +1,14 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "checks": [
+    "tenant mismatch fails closed",
+    "only active Artifact versions are read",
+    "credential decryption occurs only at the existing provider transport boundary",
+    "ModelProfile, route/cascade evidence, Management API and Console client contain no credential",
+    "Case adaptation rejects historical identifiers, PII and credentials recursively",
+    "model output cannot grant authorization, confirmation or formal Plan authority",
+    "P11 invokes no Skill or MCP operation"
+  ],
+  "review": {"blocking":0,"major":0,"minor":0}
+}

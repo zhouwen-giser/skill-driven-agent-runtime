@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 8,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The original execution timestamp was not retained in the supplied run summary.",
+  "status": "FAILED_FIXED_RESTART_RECOVERY_RACE",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": null,
+  "commandMissingReason": "The exact original argv was not retained.",
+  "exitCode": null,
+  "exitCodeMissingReason": "The summary records the failed test but not its original process exit code.",
+  "failureClass": "REMOTE_TASK_ADMISSION_RECOVERY_SNAPSHOT_STALE",
+  "observedFailure": "Restart recovery raced an already-applied Provider poll CAS while the admission intent was receipt_recorded and the continuation snapshot was active.",
+  "resolution": "A stale CAS is accepted only after one read-only reload proves the exact same open immutable binding, an equal-or-newer Runtime revision and the exact current continuation; missing, drifted, closed or older authority fails closed.",
+  "blindRedispatchAdded": false,
+  "localFixtureCounts": null,
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0
+  }
+}

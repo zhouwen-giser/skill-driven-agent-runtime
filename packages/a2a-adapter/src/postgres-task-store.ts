@@ -5,10 +5,11 @@ import type { ServerCallContext, TaskStore } from '@a2a-js/sdk/server';
 import { z } from 'zod';
 
 import type {
+  TaskProjectionReader,
   AgentTaskRepository,
   ExternalTaskProjectionRepository,
 } from '../../application/src/index.js';
-import { toA2ATask } from './task-mapping.js';
+import { toA2ATask, a2aStateTaskPhases } from './task-mapping.js';
 
 const StoredDocumentSchema = z.record(z.string(), z.unknown());
 
@@ -26,6 +27,7 @@ export class A2AProjectionTaskStore implements TaskStore {
     tasks?: Pick<AgentTaskRepository, 'findById'>,
     onCanceled?: (taskId: string) => Promise<void>,
     interaction?: (taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>,
+    private readonly reader?: TaskProjectionReader,
   ) {
     this.#projections = projections;
     this.#tasks = tasks;
@@ -117,9 +119,14 @@ export class A2AProjectionTaskStore implements TaskStore {
       projection === undefined
         ? undefined
         : Task.fromJSON(StoredDocumentSchema.parse(projection.document));
-    const authoritative = await this.#tasks?.findById(taskId);
+    const snapshot = await this.reader?.read(taskId);
+    const authoritative =
+      this.reader === undefined ? await this.#tasks?.findById(taskId) : snapshot?.task;
     if (authoritative === undefined) return stored;
-    const current = toA2ATask(authoritative, await this.#interaction?.(taskId));
+    const current = toA2ATask(
+      authoritative,
+      this.reader === undefined ? await this.#interaction?.(taskId) : snapshot?.interaction,
+    );
     return Task.fromJSON({
       ...StoredDocumentSchema.parse(Task.toJSON(current)),
       history: (stored?.history ?? []).map((message) => Message.toJSON(message)),
@@ -135,24 +142,36 @@ export class A2AProjectionTaskStore implements TaskStore {
     const result = await this.#projections.list({
       protocol: 'a2a-v1',
       ...(params.contextId === '' ? {} : { contextId: params.contextId }),
-      ...(state === undefined ? {} : { state }),
+      ...(this.reader === undefined
+        ? state === undefined
+          ? {}
+          : { state }
+        : {
+            currentTask: {
+              ...(state === undefined ? {} : { phases: a2aStateTaskPhases(params.status) }),
+            },
+          }),
       ...(params.statusTimestampAfter === undefined
         ? {}
         : { statusTimestampAfter: params.statusTimestampAfter }),
       offset,
       limit: pageSize,
     });
-    const tasks = result.items.map((item) => {
-      const task = Task.fromJSON(StoredDocumentSchema.parse(item.document));
-      return {
-        ...task,
-        history:
-          params.historyLength === undefined
-            ? task.history
-            : task.history.slice(-params.historyLength),
-        artifacts: params.includeArtifacts === true ? task.artifacts : [],
-      };
-    });
+    const tasks = await Promise.all(
+      result.items.map(async (item) => {
+        const task =
+          (await this.load(item.taskId, _context)) ??
+          Task.fromJSON(StoredDocumentSchema.parse(item.document));
+        return {
+          ...task,
+          history:
+            params.historyLength === undefined
+              ? task.history
+              : task.history.slice(-params.historyLength),
+          artifacts: params.includeArtifacts === true ? task.artifacts : [],
+        };
+      }),
+    );
     const nextOffset = offset + tasks.length;
     return ListTasksResponse.fromJSON({
       tasks: tasks.map((task) => Task.toJSON(task)),

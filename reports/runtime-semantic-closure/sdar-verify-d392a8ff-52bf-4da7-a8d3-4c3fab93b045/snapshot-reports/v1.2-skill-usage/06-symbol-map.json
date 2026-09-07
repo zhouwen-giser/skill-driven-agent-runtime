@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-17T19:08:00+08:00",
+  "mainBaselineSha": "667146a3639eefdfed9b89c2417c08e1ac50e9a9",
+  "branchInputSha": "389d43d04c5c133791a789dec1c4e7417d65d625",
+  "symbols": [
+    { "symbol": "SkillVersion", "file": "packages/domain/src/skill.ts", "authority": "domain-exact-version" },
+    { "symbol": "SkillUsageSpecification", "file": "packages/domain/src/skill-usage.ts", "authority": "domain-v1.2" },
+    { "symbol": "SkillPackageSourceReader", "file": "packages/application/src/skill-package-loader.ts", "authority": "application-port" },
+    { "symbol": "NodeSkillPackageReader", "file": "packages/skill-package-adapter/src/node-skill-package-reader.ts", "authority": "filesystem-adapter" },
+    { "symbol": "SkillPackageValidator", "file": "packages/application/src/skill-package-loader.ts", "authority": "application" },
+    { "symbol": "SkillPackageImporter", "file": "packages/application/src/skill-package-loader.ts", "authority": "application-candidate-only" },
+    { "symbol": "SkillApplicabilityAssessor", "file": "packages/application/src/skill-usage-selection.ts", "authority": "application" },
+    { "symbol": "SkillModeSelector", "file": "packages/application/src/skill-usage-selection.ts", "authority": "application" },
+    { "symbol": "SkillTaskReadinessPort", "file": "packages/application/src/ports.ts", "authority": "phase4-mock-projection" },
+    { "symbol": "SkillCompositionPlanner", "file": "packages/application/src/skill-composition.ts", "authority": "existing-application-planner" },
+    { "symbol": "SkillUsageCompositionPlan", "file": "packages/domain/src/skill-usage-composition.ts", "authority": "domain-v1.2" },
+    { "symbol": "SkillProcedureProgram", "file": "packages/domain/src/skill-usage-composition.ts", "authority": "domain-ir-only" },
+    { "symbol": "McpTaskOperationCatalog", "file": "packages/application/src/ports.ts", "authority": "v1.1-operation-discovery" },
+    { "symbol": "TaskAvailabilityBatchReader", "file": "packages/application/src/ports.ts", "authority": "v1.1-readiness-port" },
+    { "symbol": "TaskAvailabilityCheckResult", "file": "packages/domain/src/mcp-task-availability.ts", "authority": "v1.1-domain" },
+    { "symbol": "DslExecutionReadiness", "file": "packages/domain/src/mcp-task-availability.ts", "authority": "v1.1-domain" },
+    { "symbol": "RemoteTaskBinding", "file": "packages/domain/src/remote-task.ts", "authority": "v1.1-domain" },
+    { "symbol": "WorkflowContinuationSnapshot", "file": "packages/domain/src/workflow-continuation.ts", "authority": "v1.1-domain" },
+    { "symbol": "RemoteTaskLifecycleEvidence", "file": "packages/application/src/ports.ts", "authority": "v1.1-read-only-projection" },
+    { "symbol": "WorkflowPlannerService", "file": "packages/application/src/workflow-planner.ts", "authority": "existing-application" },
+    { "symbol": "WorkflowValidator", "file": "packages/application/src/workflow-validator.ts", "authority": "existing-application" },
+    { "symbol": "compileWorkflow", "file": "packages/langgraph-runtime/src/workflow-compiler.ts", "authority": "sole-runtime-adapter" }
+  ],
+  "confirmedMissingUntilAssignedPhase": [
+    { "symbol": "SkillTaskReadinessV11Adapter", "phase": 8 },
+    { "symbol": "SkillPlanComplianceResult", "phase": 9 },
+    { "symbol": "SkillExecutionRecord", "phase": 11 }
+  ]
+}

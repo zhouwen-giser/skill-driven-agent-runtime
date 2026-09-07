@@ -14,6 +14,72 @@ import {
 } from '../src/index.js';
 
 describe('ModelRuntimeService', () => {
+  it.each(['structured', 'embedding'] as const)(
+    'propagates caller cancellation and never falls back (%s)',
+    async (operation) => {
+      const repository = new MemoryModelRepository();
+      const controller = new AbortController();
+      const reason = new Error('caller-stopped');
+      const called: string[] = [];
+      const aborted: boolean[] = [];
+      const cancel = (
+        input:
+          | Parameters<ModelTransportAdapter['generateStructured']>[0]
+          | Parameters<ModelTransportAdapter['embed']>[0],
+      ): Promise<never> => {
+        called.push(input.configuration.providerId);
+        controller.abort(reason);
+        aborted.push(input.signal.aborted);
+        // HTTP adapters may normalize transport errors; caller cancellation must still win.
+        return Promise.reject(new Error('normalized transport failure'));
+      };
+      const transport: ModelTransportAdapter = { generateStructured: cancel, embed: cancel };
+      const controlledRoutes: ControlledModelRouteResolver = {
+        resolve: () =>
+          Promise.resolve({
+            routeRef: 'cancellable-route:1',
+            candidates: [record('provider-primary'), record('provider-fallback')],
+            maxAttempts: 2,
+            timeoutMs: 1000,
+            fallbackOn: ['upstream_error', 'timeout'],
+          }),
+      };
+      const service = createService(repository, transport, controlledRoutes);
+      const invocation =
+        operation === 'structured'
+          ? service.generateStructured({
+              stage: 'workflow_planning',
+              instruction: 'Plan',
+              responseSchema: {},
+              correctionErrors: [],
+              signal: controller.signal,
+            })
+          : service.embed(
+              'workflow_planning',
+              'text',
+              undefined,
+              undefined,
+              undefined,
+              controller.signal,
+            );
+      await expect(invocation).rejects.toBe(reason);
+      expect(called).toEqual(['provider-primary']);
+      expect(aborted).toEqual([true]);
+      expect(repository.invocations).toHaveLength(1);
+      expect(repository.invocations[0]?.status).toBe('failed');
+      await expect(
+        service.generateStructured({
+          stage: 'workflow_planning',
+          instruction: 'Already canceled',
+          responseSchema: {},
+          correctionErrors: [],
+          signal: controller.signal,
+        }),
+      ).rejects.toBe(reason);
+      expect(called).toEqual(['provider-primary']);
+    },
+  );
+
   it('uses the single fixed stage route and audits displayable structured output', async () => {
     const repository = new MemoryModelRepository();
     const transport = new FakeTransport();
@@ -223,11 +289,16 @@ describe('ModelRuntimeService', () => {
   });
 });
 
-function createService(repository: ModelRuntimeRepository, transport: ModelTransportAdapter) {
+function createService(
+  repository: ModelRuntimeRepository,
+  transport: ModelTransportAdapter,
+  controlledRoutes?: ControlledModelRouteResolver,
+) {
   let ids = 0;
   return new ModelRuntimeService({
     repository,
     transport,
+    ...(controlledRoutes === undefined ? {} : { controlledRoutes }),
     cipher: {
       encrypt: (value) => JSON.stringify(value),
       decrypt: (value) => JSON.parse(value) as Readonly<Record<string, string>>,

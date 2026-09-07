@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G05",
+  "status": "passed",
+  "evidenceClass": "real_live_goal_service_plus_postgresql_acceptance",
+  "observedAt": "2026-08-11T05:08:37.577Z",
+  "availabilityEvidenceScope": "available at observation; not asserted as current liveness",
+  "registryLineage": {
+    "smppSourceId": "home-lab-smpp",
+    "registryRevision": 2,
+    "registryChecksum": "5be22b34105129a6197679c0a48a65939f952c9a064aa2b67965191f8314fce5",
+    "nativeRegistryRevision": 2,
+    "nativeRegistryChecksum": "57018a96c6c5dbd9a4713a7cc4fa5ea2730af592ee53593cdb41c59ad429384c",
+    "projectionContract": "sdar-registry-v1"
+  },
+  "providers": [
+    {
+      "bindingId": "mcp-binding-ha-climate-lab",
+      "externalProviderId": "ha-climate-lab",
+      "externalServerId": "runtime-3ffb9721d7ae-0",
+      "localServerId": "home-lab-climate-mcp",
+      "bindingRevision": 17,
+      "runtimeToolRevision": 17,
+      "bindingStatus": "active",
+      "availabilityStatus": "available",
+      "availabilityValidUntil": "2026-08-11T06:08:37.725Z",
+      "catalogRevision": "2.0.0-rc.1:17",
+      "catalogChecksum": "3e5b37b927471e676157f89f84c086d7b0ad02b64bc2c0981ca990bafd1ea6a8",
+      "catalogObservedAt": "2026-08-11T05:08:37.725Z",
+      "runtimeDiscoveredAt": "2026-08-11T05:08:37.782Z",
+      "runtimeValidUntil": "2026-08-11T06:08:37.782Z",
+      "toolCount": 4,
+      "tools": [
+        { "name": "climate_get_state", "taskBehavior": "synchronous_only" },
+        { "name": "climate_set_hvac_mode", "taskBehavior": "task_required" },
+        { "name": "climate_set_power", "taskBehavior": "task_required" },
+        { "name": "climate_set_temperature", "taskBehavior": "task_required" }
+      ]
+    },
+    {
+      "bindingId": "mcp-binding-ha-light-lab",
+      "externalProviderId": "ha-light-lab",
+      "externalServerId": "runtime-8e6e163f0b32-0",
+      "localServerId": "home-lab-light-mcp",
+      "bindingRevision": 17,
+      "runtimeToolRevision": 17,
+      "bindingStatus": "active",
+      "availabilityStatus": "available",
+      "availabilityValidUntil": "2026-08-11T06:08:37.844Z",
+      "catalogRevision": "2.0.0-rc.1:17",
+      "catalogChecksum": "a06cde6ed4113e0a28531c7f8ed7663af3d2968fdd0c62352991a4070011cc05",
+      "catalogObservedAt": "2026-08-11T05:08:37.844Z",
+      "runtimeDiscoveredAt": "2026-08-11T05:08:37.892Z",
+      "runtimeValidUntil": "2026-08-11T06:08:37.892Z",
+      "toolCount": 3,
+      "tools": [
+        { "name": "light_get_state", "taskBehavior": "synchronous_only" },
+        { "name": "light_set_brightness", "taskBehavior": "task_required" },
+        { "name": "light_set_power", "taskBehavior": "task_required" }
+      ]
+    }
+  ],
+  "checks": {
+    "initialMaterialization": "passed",
+    "sameLineageReconcile": "passed",
+    "runtimeServerDiscover": "passed",
+    "runtimeToolsList": "passed",
+    "controlAndRuntimeRevisionAligned": "17/17 passed",
+    "sameRevisionRuntimeReuse": "revision 16 passed",
+    "oneStepRuntimeRefreshCatchup": "revision 17 passed",
+    "schemaAndTaskBehavior": "passed",
+    "catalogChecksumAndRevision": "passed",
+    "serverPersistedFreshness": "passed",
+    "credentialNotExposed": "passed",
+    "endpointRedirectAndSsrfRejected": "passed",
+    "casRebindPostgresqlAcceptance": "1/1 passed",
+    "catalogDriftAndToolSchemaChange": "passed",
+    "availabilityExpiry": "passed",
+    "suspendAndRemoveFutureSelection": "passed",
+    "existingRemoteTaskRetainsPriorBindingRevision": "passed"
+  },
+  "evidenceFiles": [
+    "reports/sdar-smpp-integration/home-lab-catalog-materialization.redacted.json",
+    "reports/sdar-smpp-integration/home-lab-catalog-reconcile.redacted.json",
+    "reports/sdar-smpp-integration/raw/g05-align-post-restart.redacted.json",
+    "reports/sdar-smpp-integration/raw/g05-fresh-post-restart.redacted.json"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

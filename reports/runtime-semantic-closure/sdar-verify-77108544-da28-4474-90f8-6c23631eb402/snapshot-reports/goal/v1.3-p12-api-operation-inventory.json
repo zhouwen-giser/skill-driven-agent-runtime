@@ -1,0 +1,9 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","operations":[
+{"method":"GET","path":"/api/v1/artifacts","authority":"P02 query projection"},
+{"method":"GET","path":"/api/v1/artifacts/{artifactId}","authority":"P02 query projection"},
+{"method":"GET","path":"/api/v1/artifacts/{artifactId}/{view}","views":12},
+{"method":"GET","path":"/api/v1/runtime/{view}","views":["decisions","model-usage","case-usage"]},
+{"method":"GET","path":"/api/v1/runtime/{view}/{id}","tenantConcealment":404},
+{"method":"POST","path":"/api/v1/artifacts/{artifactId}/commands/{operation}","operations":11,"authority":"P02/P06 ports"},
+{"method":"GET","path":"/api/v1/artifact-events","projection":"bounded SSE replay"}
+]}

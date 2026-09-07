@@ -1,0 +1,27 @@
+{
+  "requirement": "FR-ADM-007",
+  "status": "verified",
+  "currentRegression": {
+    "files": 3,
+    "testsPassed": 55,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "historicalRealEvidence": {
+    "managementModelPostgresE2e": true,
+    "integrationTestsPassed": 29,
+    "e2eTestsPassed": 37,
+    "productionSmoke": true
+  },
+  "acceptance": {
+    "view": true,
+    "semanticSearch": true,
+    "active": true,
+    "superseded": true,
+    "invalid": true,
+    "replacementLink": true,
+    "sourceTrace": true,
+    "transitionAudit": true
+  },
+  "unverified": ["latest real-API browser repetition of Memory controls"]
+}

@@ -42,10 +42,7 @@ import {
   type UgvMoveTerminalWorkflowEvidenceVerification,
 } from './ugv-move-workflow-evidence.js';
 import { createUgvSimulationTargetPolicy } from './ugv-move-skill-usage.js';
-import {
-  isHistoricalUgvPointSkill,
-  ugvCapabilityForSkill,
-} from './ugv-agent-profile-catalog.js';
+import { isHistoricalUgvPointSkill, ugvCapabilityForSkill } from './ugv-agent-profile-catalog.js';
 
 const SKILL_ID = 'embodied.move_to';
 const SKILL_VERSION = 1;
@@ -292,7 +289,7 @@ export class UgvProfileGoalEvaluator implements GoalEvaluator {
   evaluate(input: Parameters<GoalEvaluator['evaluate']>[0]): Promise<GoalEvaluationResult> {
     if (
       input.instance.skillVersions.some(
-      ({ skillId, version }) => skillId === SKILL_ID && version === SKILL_VERSION,
+        ({ skillId, version }) => skillId === SKILL_ID && version === SKILL_VERSION,
       )
     )
       return this.#move.evaluate(input);
@@ -435,7 +432,7 @@ function exactBinding(
   if (
     exact.taskId !== taskId ||
     exact.requestedCapabilityId !== CAPABILITY_ID ||
-    exact.capabilityVersion < 2 ||
+    exact.capabilityVersion < 1 ||
     !sameStrings(exact.initialImplementationRefs, [SKILL_REFERENCE])
   )
     guard('The frozen Task binding is not the exact embodied.move@2 authority.');

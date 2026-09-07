@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "phase": 7,
+  "status": "passed_with_host_limitation",
+  "implementation": {
+    "transport": "post_sse",
+    "ackFirst": true,
+    "maximumTaskIds": 256,
+    "lastEventId": false,
+    "reconnectReconciliation": true,
+    "dedupeAuthority": "taskId_runtimeRevision"
+  },
+  "verification": {
+    "subscriptionContract": { "status": "passed", "tests": 7 },
+    "subscriptionAndLifecycle": { "status": "passed", "tests": 19 },
+    "unit": { "status": "passed", "files": 75, "tests": 471 },
+    "contract": { "status": "host_limited", "passed": 147, "total": 148 },
+    "architecture": { "status": "passed", "typescriptSources": 269 },
+    "build": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "evidenceBoundary": {
+    "clientComponent": true,
+    "providerQueueOverflow": "phase_10_required",
+    "realProviderInterop": false
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "packageId": "SDAR-V1.3-P04",
+  "schemaVersion": "1.1",
+  "generatedAt": "2026-07-28T00:00:00Z",
+  "fusedPattern": {
+    "contractName": "FusedPattern",
+    "schemaHash": "df1216e93f02a3ec0cc24d96547d5db3436500789818ec8bcee3847fcbd9d24e",
+    "fields": [
+      "fusedPatternId", "sourceWorkflowPatternRef", "sourceProcessPatternRef",
+      "sourceTraceRefs", "structuralPattern", "semanticCandidate",
+      "applicabilityCandidate", "supportRefs", "contradictionRefs",
+      "confidence", "fusionVersion", "contentHash"
+    ],
+    "invariants": [
+      "structuralPattern is a read-only projection of P03 WorkflowPattern; never overwritten by LLM",
+      "semanticCandidate is always advisory",
+      "contradictionRefs must be retained, not averaged",
+      "confidence is in [0, 1]"
+    ]
+  },
+  "generalizedPattern": {
+    "contractName": "GeneralizedPattern",
+    "schemaHash": "96f2c70c36985897ebbc700b540048314cad2e2597777e7b9b64118e227a08bd",
+    "fields": [
+      "generalizedPatternId", "domain", "taskTypeId", "variables",
+      "invariants", "requiredConditions", "forbiddenConditions",
+      "retainedExampleRefs", "counterexampleRefs", "sourceFusedPatternRef",
+      "generalizerVersion", "contentHash"
+    ],
+    "antiOverfittingRules": [
+      "no single-device globalization",
+      "no single-user preference cross-user hardening",
+      "no temporary-auth hardening",
+      "no one-success universal pattern",
+      "no failure-boundary deletion"
+    ]
+  },
+  "candidateStaticValidationResult": {
+    "contractName": "CandidateStaticValidationResult",
+    "schemaHash": "3365fa7c49f249c3ea0935d87781da8d90253d6683bba97075beff1276278aba",
+    "fields": [
+      "artifactRef", "schemaValid", "dagValid", "requiredCriteriaCovered",
+      "capabilityShapeValid", "parameterPolicyValid", "sideEffectReplaySafe",
+      "boundsValid", "duplicateFingerprint", "errors", "warnings",
+      "validatorVersion", "result"
+    ],
+    "resultValues": ["passed_static", "failed_static"],
+    "note": "passed_static is not a validation pass, approval or promotion signal"
+  }
+}

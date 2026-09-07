@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -66,6 +66,28 @@ afterEach(async () => {
 });
 
 describe('UGV SMPP Capability and Skill governance driver', () => {
+  it('bootstraps an empty development installation without Device weapon implementations and reuses unchanged content', async () => {
+    const api = new FakeUgvGovernanceApis({ emptyPoint: true });
+    const config = {
+      ...configuration(workspaceRoot()),
+      initialPointSkillPackageRoot: resolve('skills/embodied.move_to'),
+      excludeDeviceWeapons: true,
+      developmentComposeNetwork: true,
+      nodeControlBaseUrl: 'http://control-api:10091',
+      runtimeManagementBaseUrl: 'http://runtime:10998',
+    };
+    const first = await governUgvSmppCapabilities(config, { fetch: api.fetch, now: () => NOW });
+    expect(first.preservedPointNavigation.capabilityVersion).toBe(1);
+    expect(api.capability('embodied.move')?.['status']).toBe('published');
+    expect(api.runtimeSkill('ugv.fire-weapon')).toBeUndefined();
+    expect(api.implementation('vehicle.ugv.fire-weapon')).toBeUndefined();
+    const second = await governUgvSmppCapabilities(
+      { ...config, runId: 'development-repeat-run' },
+      { fetch: api.fetch, now: () => NOW },
+    );
+    expect(second.preservedPointNavigation.capabilityVersion).toBe(1);
+    expect(second.preservedPointNavigation.action).toBe('reused');
+  });
   it('publishes all governed surfaces while keeping weapon invocation readiness restricted', async () => {
     const root = workspaceRoot();
     const api = new FakeUgvGovernanceApis();
@@ -774,6 +796,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
 });
 
 interface FakeOptions {
+  readonly emptyPoint?: boolean;
   readonly toolNames?: readonly string[];
   readonly resourceSchema?: Record<string, unknown>;
   readonly availabilityValidUntil?: string;
@@ -801,6 +824,7 @@ class FakeUgvGovernanceApis {
       options.toolNames ?? [...GOVERNED_TOOLS, 'vehicle_diagnostics_extension'],
       options.resourceSchema ?? { type: 'string', const: RESOURCE_ID },
     );
+    if (options.emptyPoint) return;
     this.#runtimeSkills.set(versionedIdentity('embodied.move_to', 1), {
       skillId: 'embodied.move_to',
       version: 1,
@@ -942,12 +966,20 @@ class FakeUgvGovernanceApis {
       return json(200, { items: this.#tools });
 
     const runtimeSkillList = /^\/api\/v1\/skills\/(.+)\/versions$/u.exec(url.pathname);
-    if (method === 'GET' && runtimeSkillList !== null && url.port === '9998') {
+    if (
+      method === 'GET' &&
+      runtimeSkillList !== null &&
+      (url.port === '9998' || url.hostname === 'runtime')
+    ) {
       const skillId = decodeURIComponent(capture(runtimeSkillList, 1));
       return json(200, { items: versionedValues(this.#runtimeSkills, skillId) });
     }
     const runtimeSkill = /^\/api\/v1\/skills\/(.+)\/versions\/(\d+)$/u.exec(url.pathname);
-    if (method === 'GET' && runtimeSkill !== null && url.port === '9998') {
+    if (
+      method === 'GET' &&
+      runtimeSkill !== null &&
+      (url.port === '9998' || url.hostname === 'runtime')
+    ) {
       const skillId = decodeURIComponent(capture(runtimeSkill, 1));
       const version = Number(capture(runtimeSkill, 2));
       const skill = this.#runtimeSkills.get(versionedIdentity(skillId, version));

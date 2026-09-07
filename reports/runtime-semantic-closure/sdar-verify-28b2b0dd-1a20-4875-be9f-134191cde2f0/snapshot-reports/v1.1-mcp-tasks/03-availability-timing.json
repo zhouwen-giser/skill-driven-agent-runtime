@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "phase": 3,
+  "status": "verified_phase_3_increment",
+  "branch": "feature/v1.1-mcp-tasks",
+  "phaseCommit": "b205d5da74ba612d48632575cce767e0836a00ba",
+  "hardeningBaseline": {
+    "tag": "v1.0.13-bug-fixed",
+    "commit": "91cd58d",
+    "mergeCommit": "4007b38"
+  },
+  "scope": [
+    "FR-MCPT-009",
+    "FR-MCPT-010",
+    "FR-MCPT-011",
+    "NFR-MCPT-001-phase-3-validation",
+    "NFR-MCPT-004-readiness-trace",
+    "AC-MCPT-03-require-task-mismatch",
+    "AC-MCPT-09-readiness-and-confirmation"
+  ],
+  "decisions": [
+    "adr/ADR-087-mcp-task-time-and-availability.md",
+    "adr/ADR-092-domain-owned-task-readiness-guard.md"
+  ],
+  "implementation": [
+    "packages/domain/src/mcp-task-availability.ts",
+    "packages/domain/src/mcp.ts",
+    "packages/domain/src/workflow.ts",
+    "packages/application/src/mcp-task-readiness.ts",
+    "packages/application/src/workflow-planner.ts",
+    "packages/application/src/workflow-validator.ts",
+    "packages/application/src/skill-call-workflow.ts",
+    "packages/langgraph-runtime/src/mcp-task-execution-resolver.ts",
+    "packages/langgraph-runtime/src/workflow-compiler.ts",
+    "packages/mcp-adapter/src/mcp-task-availability-contract.ts",
+    "packages/mcp-adapter/src/streamable-http-adapter.ts",
+    "packages/persistence-postgres/src/task-availability-repository.ts",
+    "packages/persistence-postgres/src/repositories.ts",
+    "packages/management-api/src/http-endpoint.ts",
+    "apps/console/src/WorkflowPanel.tsx",
+    "apps/server/src/runtime.ts",
+    "infra/postgres/migrations/0101_task_execution_readiness.up.sql",
+    "infra/postgres/migrations/0101_task_execution_readiness.down.sql"
+  ],
+  "tests": [
+    "packages/application/test/mcp-task-readiness.unit.test.ts",
+    "packages/application/test/mcp-task-readiness.e2e.test.ts",
+    "packages/application/test/workflow-planner.unit.test.ts",
+    "packages/application/test/workflow-validator.unit.test.ts",
+    "packages/application/test/skill-call-workflow.unit.test.ts",
+    "packages/langgraph-runtime/test/workflow-compiler.unit.test.ts",
+    "packages/json-schema-adapter/test/workflow-dsl-schema.contract.test.ts",
+    "packages/mcp-adapter/test/task-availability.contract.test.ts",
+    "packages/mcp-adapter/test/streamable-http.contract.test.ts",
+    "packages/management-api/test/http-endpoint.contract.test.ts",
+    "apps/console/src/console.unit.test.tsx",
+    "apps/server/test/remote-task-runtime.integration.test.ts",
+    "scripts/verify-v11-migration-path.mjs"
+  ],
+  "verification": {
+    "status": "passed",
+    "commands": [
+      "pnpm format:check",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test:unit",
+      "pnpm test:contract",
+      "pnpm test:integration",
+      "pnpm test:e2e",
+      "pnpm verify:management-openapi",
+      "pnpm build",
+      "pnpm verify:migrations",
+      "pnpm verify"
+    ],
+    "machineSummary": "reports/verification/summary.json",
+    "startedAt": "2026-07-16T14:19:25.297Z",
+    "finishedAt": "2026-07-16T14:22:11.873Z",
+    "durationMs": 166576,
+    "counts": {
+      "unitFiles": 59,
+      "unitTests": 328,
+      "contractFiles": 8,
+      "contractTests": 79,
+      "integrationFiles": 4,
+      "integrationTests": 68,
+      "e2eFiles": 2,
+      "e2eTests": 48,
+      "architectureSourceFiles": 204,
+      "managementOpenApiOperations": 107,
+      "runtimeMigrationPairs": 65
+    }
+  },
+  "classification": {
+    "real": [
+      "PostgreSQL/pgvector migration and repository round-trips, including 0063 generic semantics plus 0101 taskExecution coexistence.",
+      "Redis/BullMQ integration and complete infrastructure lifecycle.",
+      "Management/OpenAPI contracts, production builds, infrastructure smoke and Server/Console smoke."
+    ],
+    "simulated": [
+      "Deterministic loopback Provider availability and timing responses.",
+      "Schema-constrained structured model decisions and fixed-clock boundary cases."
+    ],
+    "unverified": [
+      "External production MCP Provider interoperability is not verified.",
+      "Phase 4 continuation, Phase 5 lifecycle and Phase 6 final acceptance remain outside this report."
+    ]
+  },
+  "limitations": [
+    "The unified gate ran on the pre-commit dirty worktree and reports commit 4007b38; the Phase publication SHA is recorded separately after commit.",
+    "Forecast availability is not a reservation and SDAR does not synthesize Provider business timeout outcomes."
+  ]
+}

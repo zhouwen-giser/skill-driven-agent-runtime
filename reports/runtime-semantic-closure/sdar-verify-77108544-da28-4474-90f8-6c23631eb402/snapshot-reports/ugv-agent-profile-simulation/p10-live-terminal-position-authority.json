@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.p10-live-terminal-position-authority/v1",
+  "generatedAt": "2026-09-02T12:15:26.680Z",
+  "status": "qualified_read_only",
+  "classification": "product_bug_fixed",
+  "incident": {
+    "taskId": "d1d9c117-1586-4143-9e29-9aa45be9164b",
+    "contextId": "45506238-02d6-4d4d-960e-ab57498f1b41",
+    "invocationId": "mcp-invocation-b0ab76c6-dfde-4c7e-84ae-84d02161bd93",
+    "remoteTaskId": "ac9f75f5-e4b0-4548-9fae-fc688e64ec88",
+    "externalExecutionId": "vehicle:ugv1:chassis:ef9c1a94-dbcb-46be-9b65-387ac6a66ade",
+    "missionId": "42373",
+    "providerTerminalStatus": "completed",
+    "providerReasonCode": "UGV_DEVICE_TASK_COMPLETED",
+    "historicalSdarErrorCode": "TASK_CAPABILITY_TERMINAL_GUARD_FAILED",
+    "historicalParserReasonCode": "UGV_MOVE_PROVIDER_RESULT_INVALID",
+    "target": {
+      "longitude": 106.81183091017908,
+      "latitude": 29.720458566055136,
+      "toleranceM": 2
+    },
+    "providerAudit": {
+      "baselineToTargetM": 4.994405,
+      "startToFinalM": 3.721797,
+      "finalToTargetM": 1.27273,
+      "arrivalMarginM": 0.72727,
+      "terminalMissionState": 4,
+      "terminalProgressPercent": 100,
+      "terminalSpeedKmh": 0,
+      "strictlyCorrelated": true,
+      "redispatchCount": 0
+    },
+    "historicalTaskRewritten": false
+  },
+  "diagnosis": {
+    "providerCompletedAloneWasSufficient": false,
+    "positionAndDisplacementHardGatesSatisfied": true,
+    "rootCause": "The UGV terminal parser rejected the Provider's field-authority-gated aggregate geodetic position at status/ugv1 and independently required simulation state observations even though the frozen selected execution was live.",
+    "providerAuthorityContract": {
+      "field": "chassis.position.geodetic",
+      "topic": "status/ugv1",
+      "timeAuthority": "ingest"
+    }
+  },
+  "implementedBehavior": {
+    "aggregateGeodeticAuthorityAccepted": true,
+    "aggregateAuthorityRequiresIngestTime": true,
+    "stateExecutionModeMatchesFrozenSelection": true,
+    "providerIdentityStillExact": true,
+    "resourceIdentityStillExact": true,
+    "cursorAndRevisionStillMonotonic": true,
+    "freshnessStillRequired": true,
+    "positionToleranceStillRequired": true,
+    "minimumDisplacementStillRequired": true,
+    "providerCompletedAloneImpliesGoalSuccess": false,
+    "replayOrRedispatchAdded": false
+  },
+  "verification": {
+    "focused": {
+      "files": 4,
+      "tests": 97,
+      "passed": true
+    },
+    "typecheck": "passed",
+    "eslint": "passed",
+    "prettier": "passed",
+    "diffCheck": "passed",
+    "architecture": {
+      "sources": 872,
+      "passed": true
+    },
+    "productionBuild": "passed",
+    "fullGate": {
+      "status": "passed",
+      "commit": "b7219f5923ef8fc6d704b8229cdfeb17a9ba5f1e",
+      "durationMs": 1728175,
+      "staticUnitContractTests": 2890,
+      "integrationTests": 228,
+      "e2eTests": 73,
+      "canonicalEvidenceScenarios": 44,
+      "phase13RuntimeRegressionPercent": -2.484209,
+      "phase13BaselineMedianDriftPercent": 8.177311,
+      "phase13EvidenceAppendP95Ms": 12.071188,
+      "dirtyReportsOnly": true
+    },
+    "liveTaskCreatedDuringQualification": false,
+    "providerToolCalledDuringQualification": false,
+    "deviceOrSimulatorMutationDuringQualification": false
+  },
+  "deployment": {
+    "implementationCommit": "b7219f5923ef8fc6d704b8229cdfeb17a9ba5f1e",
+    "runtimePid": 1833655,
+    "startedAt": "2026-09-02T12:12:42.000Z",
+    "distSha256": "2fa01e6bd8f4f543425e9043b49c1e1d2d529e0ccbaf44f5de1a2b31a9f85472",
+    "management": {
+      "url": "http://127.0.0.1:10998/api/v1/health",
+      "httpStatus": 200,
+      "status": "ok"
+    },
+    "a2a": {
+      "url": "http://127.0.0.1:10999/.well-known/agent-card.json",
+      "httpStatus": 200,
+      "skillCount": 13
+    },
+    "nodeControl": {
+      "url": "http://127.0.0.1:10091/health/ready",
+      "httpStatus": 200,
+      "status": "ready"
+    }
+  },
+  "currentAuthority": {
+    "bindingId": "ugv-smpp-real-integration-r2-binding",
+    "bindingRevision": 2,
+    "serverId": "ugv-smpp-real-integration-r2",
+    "registryRevision": 2,
+    "registryChecksum": "165a5a0bfc2a93a2915d40c38fe1ec99af11bd0d1640565e34118e9301c44bdc",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a",
+    "operationCount": 10,
+    "availability": "available",
+    "availabilityValidUntil": "2026-09-02T12:30:56.436Z",
+    "pointNavigationSkillId": "embodied.move_to"
+  },
+  "zeroMutationCounts": {
+    "before": {
+      "agentTasks": 28,
+      "activeAgentTasks": 0,
+      "mcpInvocations": 12,
+      "activeRemoteTasks": 0
+    },
+    "after": {
+      "agentTasks": 28,
+      "activeAgentTasks": 0,
+      "mcpInvocations": 12,
+      "activeRemoteTasks": 0
+    }
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "providerResponseBodyIncluded": false
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:08:24.425Z",
+  "recordedAt": "2026-08-21T09:08:24.425Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command results included durations but not wall-clock execution timestamps; the evidence recording time is not substituted.",
+  "status": "PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_isolated_postgresql_integration",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=<redacted-loopback-55444> SDAR_REDIS_PORT=56379 pnpm test:integration",
+  "executionContext": "approved host using the isolated loopback PostgreSQL/Redis gate",
+  "exitCode": 0,
+  "result": {
+    "testFilesPassed": 38,
+    "testsPassed": 219,
+    "durationSeconds": 298.56
+  },
+  "nestedEvidenceExport": {
+    "command": "node_modules/vitest/vitest.mjs run --project integration apps/node-control-acceptance/test/evidence-export-v141.integration.test.ts",
+    "environment": "Inherited the same isolated PostgreSQL/Redis environment from the outer pnpm test:integration command.",
+    "exitCode": 0,
+    "testFilesPassed": 1,
+    "testsPassed": 1,
+    "durationSeconds": 42.68
+  },
+  "fixedAttempt": "attempts/uap-p2-b03-integration-isolated-attempt-3-concurrency-winner.json",
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

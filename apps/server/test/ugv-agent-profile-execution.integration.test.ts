@@ -521,12 +521,73 @@ describe('UGV Agent Profile real PostgreSQL / Runtime / A2A composition', () => 
       { data: expectedResult, mediaType: 'application/json' },
     ]);
   }, 120_000);
+  it('automatically confirms a durable non-weapon plan through the same confirmation service, with one dispatch', async () => {
+    await runtime?.close();
+    const fake = required(provider, 'PROVIDER_NOT_STARTED');
+    fake.holdNextNavigation();
+    const priorDispatches = fake.navigateCallCount;
+    runtime = await startRuntime(false, true);
+    const database = required(pool, 'DATABASE_NOT_STARTED');
+    const messageId = `development-auto-${randomUUID()}`;
+    const task = responseTask(await sendA2a(runtime.a2a.baseUrl, initialRequest(messageId)));
+    const taskId = text(task['id'], 'A2A_TASK_ID_MISSING');
+    await eventually(async () => {
+      const receipt = await database.query<{
+        authentication_method: string;
+        consumed_invocation_id: string;
+      }>(
+        'SELECT authentication_method,consumed_invocation_id FROM governed_control_confirmation WHERE task_id=$1',
+        [taskId],
+      );
+      expect(receipt.rows).toEqual([
+        expect.objectContaining({
+          authentication_method: 'deployment_preauthorized',
+          consumed_invocation_id: expect.any(String),
+        }),
+      ]);
+      expect(fake.navigateCallCount).toBe(priorDispatches + 1);
+    });
+    const replay = responseTask(await sendA2a(runtime.a2a.baseUrl, initialRequest(messageId)));
+    expect(replay['id']).toBe(taskId);
+    expect(fake.navigateCallCount).toBe(priorDispatches + 1);
+    fake.releaseNavigation();
+    await eventually(async () => {
+      const current = await database.query<{ phase: string; error_code: string | null }>(
+        'SELECT phase,error_code FROM agent_task WHERE task_id=$1',
+        [taskId],
+      );
+      expect(current.rows).toEqual([{ phase: 'completed', error_code: null }]);
+    });
+    const invocations = await taskInvocations(database, taskId);
+    expect(invocations.map((row) => row.tool_name)).toEqual([
+      'vehicle_get_state',
+      'vehicle_navigate',
+      'vehicle_get_state',
+    ]);
+    expect(fake.navigateCallCount).toBe(priorDispatches + 1);
+  }, 120_000);
 });
 
-function startRuntime(applyMigrations: boolean): Promise<ServerRuntimeHandle> {
+function startRuntime(
+  applyMigrations: boolean,
+  autoNonWeapon = false,
+): Promise<ServerRuntimeHandle> {
   return startServerRuntime({
     postgresUrl,
-    redis: { host: '127.0.0.1', port: redisPort },
+    redis: {
+      host: '127.0.0.1',
+      port: redisPort,
+      ...(process.env['SDAR_REDIS_PASSWORD']
+        ? { password: process.env['SDAR_REDIS_PASSWORD'] }
+        : {}),
+      db: Number(process.env['SDAR_REDIS_DB'] ?? '0'),
+    },
+    ...(autoNonWeapon
+      ? {
+          developmentPreauthorizationActorId: 'human:development-deployment-owner',
+          disableDeviceWeapons: true,
+        }
+      : {}),
     masterKeyBase64,
     evidenceEnvironment: 'integration',
     queueName,

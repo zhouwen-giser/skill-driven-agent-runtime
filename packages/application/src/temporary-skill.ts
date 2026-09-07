@@ -117,8 +117,17 @@ export class TemporarySkillService {
       );
     }
     const timestamp = this.#clock.now();
-    const skill = expireTemporarySkill(current, timestamp);
-    const experience: TemporarySkillExperience = {
+    const priorExperience = await this.#repository.findExperience(temporarySkillId);
+    if (priorExperience !== undefined && priorExperience.successful !== successful)
+      throw new TemporarySkillError(
+        'TEMPORARY_SKILL_COMPLETION_CONFLICT',
+        'The committed Task outcome cannot be replaced by a different completion.',
+      );
+    const skill =
+      current.status === 'expired' && priorExperience !== undefined
+        ? current
+        : expireTemporarySkill(current, timestamp);
+    const experience: TemporarySkillExperience = priorExperience ?? {
       experienceId: this.#ids.nextExperienceId(),
       temporarySkillId,
       taskId: skill.taskId,
@@ -128,7 +137,8 @@ export class TemporarySkillService {
       outcomeSummary: summary,
       createdAt: timestamp,
     };
-    await this.#repository.expireAndSaveExperience(skill, experience);
+    if (priorExperience === undefined)
+      await this.#repository.expireAndSaveExperience(skill, experience);
     if (!successful) return { skill, experience };
 
     const experiences = await this.#repository.listSuccessfulExperiences(
@@ -237,6 +247,7 @@ function canonicalTools(tools: readonly ToolReference[]): readonly ToolReference
 }
 
 export type TemporarySkillErrorCode =
+  | 'TEMPORARY_SKILL_COMPLETION_CONFLICT'
   | 'TEMPORARY_SKILL_NOT_FOUND'
   | 'TEMPORARY_SKILL_OUTCOME_REQUIRED'
   | 'TEMPORARY_SKILL_SCHEMA_INVALID'

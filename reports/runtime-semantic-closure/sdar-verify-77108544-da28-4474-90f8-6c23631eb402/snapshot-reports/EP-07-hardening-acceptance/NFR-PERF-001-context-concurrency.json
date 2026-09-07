@@ -1,0 +1,25 @@
+{
+  "requirement": "NFR-PERF-001",
+  "status": "verified",
+  "currentRegression": {
+    "files": 2,
+    "testsPassed": 12,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 240
+  },
+  "acceptance": {
+    "maximumSupportedActiveTasks": 10,
+    "sameContextStrictlySerial": true,
+    "differentContextsOverlap": true,
+    "conversationStateCrossover": false,
+    "stableDeterministicConcurrencyRun": true
+  },
+  "historicalRealEvidence": {
+    "redisBullmqWorkerSerializer": true,
+    "sameProcessHttpPostgresRedisE2e": true,
+    "productionSmoke": true
+  },
+  "unverified": [
+    "current Docker-backed rerun of the newer 20-Job ten-tail Redis scenario"
+  ]
+}

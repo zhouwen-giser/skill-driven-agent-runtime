@@ -93,6 +93,14 @@ const modelOutputSchema = z
 type ModelOutput = z.infer<typeof modelOutputSchema>;
 
 export interface TaskTypeDefinition {
+  readonly sourceHash?: string;
+  readonly recognition?: Readonly<{
+    hints: readonly string[];
+    positiveExamples: readonly string[];
+    negativeExamples: readonly string[];
+  }>;
+  readonly criteriaTemplate?: readonly string[];
+  readonly goalPattern?: string;
   readonly taskTypeId: string;
   readonly version: number;
   readonly title: string;
@@ -299,7 +307,7 @@ export class GenericTaskUnderstandingService {
       input,
       generated.invocationId,
       capabilityView?.summary,
-      matchingTaskTypes,
+      matchingTaskTypeDefinitions,
       createdAt,
       input.priorSourceRefs ?? [],
     );
@@ -548,7 +556,7 @@ function buildSourceRefs(
   input: UnderstandGenericTaskInput,
   invocationId: string,
   capabilitySummary: RuntimeCapabilitySummarySnapshot | undefined,
-  taskTypes: readonly TaskTypeCandidate[],
+  taskTypes: readonly TaskTypeDefinition[],
   capturedAt: string,
   priorSourceRefs: readonly CognitiveSourceRef[],
 ) {
@@ -601,7 +609,8 @@ function buildSourceRefs(
         sourceKind: 'task_type_definition',
         sourceId: taskType.taskTypeId,
         sourceRevision: taskType.version,
-        authority: 'domain_rule',
+        authority: taskType.sourceHash === undefined ? 'domain_rule' : 'promoted_knowledge',
+        ...(taskType.sourceHash === undefined ? {} : { contentHash: taskType.sourceHash }),
         dataClassification: 'internal',
         capturedAt,
       }),

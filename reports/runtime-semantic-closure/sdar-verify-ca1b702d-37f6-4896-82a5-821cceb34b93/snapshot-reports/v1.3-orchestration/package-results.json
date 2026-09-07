@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "1.0",
+  "packages": {
+    "P00": {
+      "packageId": "SDAR-V1.3-P00",
+      "goals": [
+        "G00"
+      ],
+      "formalPackage": true,
+      "status": "READY_FULL",
+      "acceptance": {
+        "passed": 6,
+        "failed": 0,
+        "blocked": 0
+      },
+      "tests": {
+        "status": "passed",
+        "summary": "reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json",
+        "commit": "6e27d706fed2b64abfadc1e57302d93c36cfe334",
+        "dirty": false
+      },
+      "contractAlignment": "passed",
+      "handoff": "reports/goal/v1.3-p00-handoff.json",
+      "review": {
+        "blockingOpen": 0,
+        "majorClosed": 5,
+        "minorClosed": 1,
+        "report": "reports/goal/v1.3-p00-review.md"
+      },
+      "completionCommit": "09205a15b5c6df7be28c7eca7c1e418474b6a033",
+      "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+      "openBlockers": []
+    },
+    "P01": {
+      "packageId": "SDAR-V1.3-P01",
+      "goals": [
+        "G01"
+      ],
+      "formalPackage": true,
+      "status": "READY_FULL",
+      "acceptance": {
+        "passed": 9,
+        "failed": 0,
+        "blocked": 0
+      },
+      "tests": {
+        "status": "passed",
+        "summary": "reports/v1.3-orchestration/p01-verification-summary.json",
+        "commit": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
+        "dirty": false,
+        "unitAndContract": 785,
+        "integration": 84,
+        "e2e": 62
+      },
+      "contractAlignment": "passed",
+      "handoff": "reports/goal/v1.3-p01-handoff.json",
+      "review": {
+        "blockingOpen": 0,
+        "blockingClosed": 2,
+        "majorClosed": 2,
+        "minorClosed": 1,
+        "report": "reports/goal/v1.3-p01-review.md"
+      },
+      "completionCommit": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
+      "evidenceCommit": "eff64e7b1149b296439132322d7f75cbb90c7f91",
+      "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+      "openBlockers": []
+    },
+    "P02": {
+      "packageId": "SDAR-V1.3-P02",
+      "goals": ["G02", "G03", "G04"],
+      "formalPackage": true,
+      "status": "COMPLETED",
+      "acceptance": {
+        "passed": 7,
+        "failed": 0,
+        "blocked": 0
+      },
+      "tests": {
+        "status": "passed",
+        "summary": "reports/v1.3-orchestration/p02-verification-summary.json",
+        "commit": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45",
+        "dirty": false,
+        "unitAndContract": 795,
+        "integration": 92,
+        "e2e": 62
+      },
+      "contractAlignment": "passed",
+      "handoff": "reports/goal/v1.3-p02-handoff.json",
+      "review": {
+        "blockingOpen": 0,
+        "blockingClosed": 6,
+        "majorClosed": 8,
+        "minorClosed": 1,
+        "report": "reports/goal/v1.3-p02-review.md"
+      },
+      "completionCommit": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45",
+      "evidenceCommit": "699f57f849c102ffe7d83c8941c5126e8442a326",
+      "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+      "openBlockers": []
+    },
+    "P03": {
+      "packageId": "SDAR-V1.3-P03",
+      "goals": ["G05", "G06"],
+      "formalPackage": true,
+      "status": "REMEDIATION",
+      "acceptance": {
+        "passed": 26,
+        "failed": 3,
+        "blocked": 3
+      },
+      "tests": {
+        "status": "environment_blocked",
+        "summary": "reports/verification/summary.json",
+        "commit": "1f7e043674081c2c8795e7ba6d142808abc6ff01",
+        "dirty": false,
+        "unitAndContract": 828,
+        "integration": 100,
+        "e2e": 62,
+        "passedStages": [
+          "format",
+          "lint",
+          "typecheck",
+          "unit",
+          "contract",
+          "architecture",
+          "migration",
+          "integration",
+          "e2e",
+          "build"
+        ],
+        "blockedStage": "infrastructure-smoke"
+      },
+      "contractAlignment": "passed",
+      "handoff": null,
+      "review": {
+        "blockingOpen": 0,
+        "blockingClosed": 2,
+        "majorOpen": 3,
+        "majorClosed": 4,
+        "minorOpen": 0,
+        "minorClosed": 2,
+        "report": "reports/goal/v1.3-p03-review.md",
+        "status": "rejected_second_review"
+      },
+      "g05Commit": "22cf9a37d5049e590d60ad194a8146b056312a6e",
+      "g06Commit": "119fe43c230225b8c9caaec95fc50a41b91d0afa",
+      "compatibilityCommit": "8adececbe7bf3bd599b942d547e80b1744b3bc79",
+      "reviewRemediationCommit": "1f7e043674081c2c8795e7ba6d142808abc6ff01",
+      "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+      "openBlockers": [
+        "P03_MINING_TRIGGER_COALESCING",
+        "P03_EVENT_LOOP_BLOCKING",
+        "P03_TASK_SOURCE_ATTRIBUTION",
+        "P03_OPERATOR_DATABASE_BASELINE_SMOKE",
+        "P03_INDEPENDENT_REREVIEW_PENDING",
+        "P03_HANDOFF_PENDING"
+      ]
+    }
+  }
+}

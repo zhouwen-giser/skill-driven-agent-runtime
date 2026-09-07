@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-security/v1",
+  "status": "functional_test_profile_only_production_blocked",
+  "evidenceClass": "derived_from_real_preflight_and_governance_evidence",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/external-preflight.json",
+    "reports/sdar-ugv-smpp-integration/provider-materialization.redacted.json",
+    "reports/sdar-ugv-smpp-integration/capability-skill-governance.redacted.json"
+  ],
+  "outboundPolicy": {
+    "mode": "unsafe_test_open",
+    "nonProductionOnly": true,
+    "plaintextHttpAllowed": true,
+    "ssrfAuthorityMembershipBypassed": true,
+    "tlsCertificateVerificationDisabled": false,
+    "productionEligible": false
+  },
+  "authentication": {
+    "registryMode": "none_explicit",
+    "runtimeMode": "none_explicit",
+    "implicitCredentialFallback": false
+  },
+  "governance": {
+    "writeGates": "closed",
+    "physicalToolInvocationCount": 0,
+    "publishedReadOnlyAuthorities": 5,
+    "stagedNonExecutableControlAuthorities": 5,
+    "fireCapabilityCount": 0,
+    "fireSkillCount": 0,
+    "fireRuntimeHardDenyProven": false
+  },
+  "externalBoundary": {
+    "downstreamAdapterMode": "simulation_only",
+    "realPhysicalUGVProven": false
+  },
+  "qualification": {
+    "functionalIntegrationSecurity": "accepted_for_trusted_test_network",
+    "productionSecurity": "blocked",
+    "blockingReasons": [
+      "UNSAFE_TEST_OPEN_REQUIRED",
+      "FIRE_RUNTIME_HARD_DENY_NOT_PROVEN"
+    ]
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "authorizationValuesIncluded": false,
+    "databaseUrlsIncluded": false
+  }
+}

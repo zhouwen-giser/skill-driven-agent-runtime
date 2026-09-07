@@ -13,3 +13,10 @@
 - Security/quality findings: package supports Node >=18, but its compatible peer `@langchain/core@1.2.2` requires Node >=20; runtime baseline is therefore Node >=20. Initial core `1.0.6` pin was rejected by `pnpm peers check` because LangGraph requires `^1.1.48`.
 - License obligations: retain MIT license and include in SBOM/notices.
 - Decision and ADR: ADR-001 accepts LangGraph.js as the only runtime; ADR-006 prohibits a second runtime.
+
+## 2026-09-07 persistent child session isolation
+
+- API-only use of the already pinned peer `@langchain/core@1.2.2`: public `@langchain/core/singletons` export `AsyncLocalStorageProviderSingleton.runWithConfig`. No source copied or dependency changed.
+- Inspected installed package `LICENSE` (MIT, Copyright LangChain, Inc.) and exported declaration/implementation `dist/singletons/async_local_storage/index.{d.ts,js}`; the installed package has no NOTICE. Existing npm integrity above identifies the exact archive.
+- `runWithConfig({}, operation, true)` isolates only SDK implicit Runnable configuration when entering an independently persisted graph. Runtime authority, cancellation and execution context remain explicitly supplied; Domain does not import SDK objects.
+- ADR-150 applies. Verify nested parent/child remote-wait → confirmation → resume and dispatch counts on SDK upgrades. The reproduced failure is recorded in diagnostic `49fe0523-bc17-44cd-90d2-392e38c848c5`.

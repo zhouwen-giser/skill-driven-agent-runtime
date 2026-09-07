@@ -22,6 +22,7 @@ export interface UgvFrozenMcpProviderHandle {
   readonly taskGetCallCount: number;
   readonly navigateArguments: Readonly<Record<string, unknown>> | undefined;
   releaseNavigation(): void;
+  holdNextNavigation(): void;
   close(): Promise<void>;
 }
 
@@ -78,6 +79,9 @@ export async function startUgvFrozenMcpProvider(): Promise<UgvFrozenMcpProviderH
     },
     releaseNavigation() {
       state.released = true;
+    },
+    holdNextNavigation() {
+      state.released = false;
     },
     close: () => closeServer(server),
   });

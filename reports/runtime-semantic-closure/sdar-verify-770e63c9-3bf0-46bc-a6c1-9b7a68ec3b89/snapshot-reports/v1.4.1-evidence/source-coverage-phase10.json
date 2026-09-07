@@ -1,0 +1,47 @@
+{
+  "contract": "sdar.evidence/v1",
+  "phase": 10,
+  "catalogTotal": 100,
+  "requiredTotal": 95,
+  "diagnosticTotal": 5,
+  "sourceInventory": {
+    "sourceConfirmed": 100,
+    "sourceMissingBlocker": 0,
+    "conditionalNotApplicable": 0,
+    "classified": 100,
+    "classifiedPercent": 100
+  },
+  "implementationCoverage": {
+    "implemented": 100,
+    "verified": 100,
+    "verifiedPercentOfCatalog": 100,
+    "requiredImplementedAndVerified": 95,
+    "verifiedPercentOfRequired": 100,
+    "diagnosticImplementedAndVerified": 5,
+    "families": ["evidence"],
+    "familyImplemented": 5,
+    "familyVerified": 5,
+    "familyTotal": 5,
+    "remainingFamily": null,
+    "remainingSourceConfirmed": 0,
+    "note": "All five Evidence infrastructure records are implemented and verified. The matrix is derived from a 100-record proof manifest with real source, mapper, PostgreSQL store, focused-test and phase-evidence anchors."
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "accepted": true
+  },
+  "validation": {
+    "focusedUnit": "3/3 passed",
+    "focusedContract": "1/1 passed",
+    "focusedPostgres": "1/1 passed",
+    "typecheck": "passed",
+    "coverageGate": "passed: 100 unique / 100 implemented and verified / Required 95/95 / diagnostic 5/5 / durable projection 100/100",
+    "fullVerify": "not rerun; one complete repository gate remains deferred to Phase 14 by explicit user direction"
+  },
+  "phase1Baseline": "reports/v1.4.1-evidence/source-coverage-baseline.json",
+  "generatedFrom": "reports/v1.4.1-evidence/source-to-evidence-matrix.json",
+  "verificationProof": "reports/v1.4.1-evidence/verification-proof-manifest.json",
+  "phaseReport": "reports/v1.4.1-evidence/phases/phase-10-completion.md"
+}

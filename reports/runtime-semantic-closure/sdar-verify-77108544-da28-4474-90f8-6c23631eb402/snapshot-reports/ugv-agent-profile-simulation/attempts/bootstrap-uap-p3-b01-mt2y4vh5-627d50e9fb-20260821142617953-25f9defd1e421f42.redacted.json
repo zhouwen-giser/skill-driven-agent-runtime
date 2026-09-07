@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.attempt/v1",
+  "task": "UAP-P3-B01",
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "kind": "bootstrap",
+  "command": "bootstrap",
+  "stage": "authority",
+  "status": "failed",
+  "exitCode": 1,
+  "observedAt": "2026-08-21T14:26:17.952Z",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalPhysicalMutationAuthorized": false,
+  "activityAssessment": "not_assessed",
+  "controlPlaneMutationAttempted": true,
+  "localMutationAttempted": true,
+  "localMutationScope": "task_owned_state_process_compose_or_evidence",
+  "simulationSideEffectsEnabled": false,
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "modelConfigurationIncluded": false
+}

@@ -6,11 +6,53 @@ import type {
   SkillInputResolutionRecord,
   SkillVersion,
 } from '../../domain/src/index.js';
-import { SkillInputResolutionService, type JsonSchemaValidationResult } from '../src/index.js';
+import {
+  CapabilityBoundSkillInputResolver,
+  admitCapabilitySkillVersions,
+  SkillInputResolutionService,
+  type JsonSchemaValidationResult,
+} from '../src/index.js';
 
 const timestamp = '2026-07-16T00:00:00.000Z';
 
 describe('SkillInputResolutionService', () => {
+  it('uses the committed capability input after clarification without model substitution and filters exact Skill versions', async () => {
+    const model = new DecisionModel(new Error('MODEL_MUST_NOT_REINVENT_ADMITTED_INPUT'));
+    const binding = {
+      bindingId: 'binding-1',
+      taskId: 'task-1',
+      requestedCapabilityId: 'document.read',
+      capabilityVersion: 1,
+      inputSnapshot: { deviceId: 'admitted-document' },
+      successCriteriaSnapshot: [],
+      evidenceRequirementSnapshot: [],
+      constraintSnapshot: [],
+      initialImplementationRefs: [`skill:${skill.skillId}:${String(skill.version)}`],
+      bindingHash: 'sha256:' + 'a'.repeat(64),
+      boundAt: timestamp,
+    };
+    const resolver = new CapabilityBoundSkillInputResolver(
+      { findBinding: () => Promise.resolve(binding) },
+      resolutionService(new MemoryRepository(), model),
+    );
+    const input = {
+      task: task({ structured_input: { deviceId: 'conflicting-metadata' } }),
+      goal,
+      skill,
+      supplementaryInputs: [],
+    };
+    expect(await resolver.resolve(input)).toMatchObject({
+      structuredInput: { deviceId: 'admitted-document' },
+      sourceRefs: [`task-capability-binding:binding-1:hash:${binding.bindingHash}`],
+    });
+    expect(
+      admitCapabilitySkillVersions(binding, [{ ...skill, version: skill.version + 1 }, skill]),
+    ).toEqual([skill]);
+    await expect(
+      resolver.resolve({ ...input, skill: { ...skill, version: skill.version + 1 } }),
+    ).rejects.toMatchObject({ code: 'TASK_CAPABILITY_SKILL_NOT_ADMITTED' });
+    expect(model.calls).toHaveLength(0);
+  });
   it('persists exact schema-valid input without invoking the model', async () => {
     const repository = new MemoryRepository();
     const model = new DecisionModel(new Error('MODEL_MUST_NOT_BE_CALLED'));

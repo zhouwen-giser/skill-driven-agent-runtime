@@ -1,0 +1,15 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "environment": "Windows Node.js local acceptance run; not a production SLO",
+  "sequentialNoMatch": {"samples": 250, "p95Ms": 1.072, "maximumMs": 24.589, "budgetMs": 25},
+  "concurrency": [
+    {"requests": 1, "p50Ms": 0.721, "p95Ms": 0.721, "p99Ms": 0.721, "elapsedMs": 1.091, "errorRate": 0},
+    {"requests": 10, "p50Ms": 4.291, "p95Ms": 4.929, "p99Ms": 4.929, "elapsedMs": 5.075, "errorRate": 0},
+    {"requests": 100, "p50Ms": 51.055, "p95Ms": 57.191, "p99Ms": 57.648, "elapsedMs": 57.798, "errorRate": 0},
+    {"requests": 1000, "p50Ms": 459.634, "p95Ms": 518.873, "p99Ms": 522.928, "elapsedMs": 525.395, "errorRate": 0}
+  ],
+  "integration": {"tests": 119, "durationMs": 67776},
+  "e2e": {"tests": 63, "durationMs": 45007},
+  "evidence": ["packages/application/test/fast-gateway-p10.unit.test.ts", "reports/verification/summary.json"]
+}

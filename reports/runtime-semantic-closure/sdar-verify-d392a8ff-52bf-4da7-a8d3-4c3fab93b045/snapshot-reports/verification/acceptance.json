@@ -1,0 +1,21 @@
+{
+  "name": "acceptance",
+  "command": "pnpm verify:acceptance",
+  "status": "passed",
+  "startedAt": "2026-09-07T11:26:47.165Z",
+  "finishedAt": "2026-09-07T11:26:47.633Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/acceptance.log",
+  "outputSha256": "d94263c612588fa3c74b93d5d877079f05bbc5a3538e68e19dcb3725ecdab788",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 467,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 1,
+    "peakRssBytes": 53747712,
+    "peakProcesses": 1
+  },
+  "cleanupErrors": []
+}

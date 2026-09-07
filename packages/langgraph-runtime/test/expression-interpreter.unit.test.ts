@@ -119,10 +119,7 @@ describe('restricted Workflow expression interpreter', () => {
       ),
     ).toBe(true);
     expect(
-      evaluateWorkflowExpression(
-        { op: 'ref', path: ['evidence', 'observation-1'] },
-        usageContext,
-      ),
+      evaluateWorkflowExpression({ op: 'ref', path: ['evidence', 'observation-1'] }, usageContext),
     ).toBe(true);
   });
 });

@@ -1540,6 +1540,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     const repository = new PostgresSkillCallWorkflowRepository(pool);
     await repository.save({
       callId: 'skill-call.db.1',
+      parentNodeRunId: 'child-run-1',
       parentPlanId: 'plan.parent.db',
       parentInstanceId: 'instance.parent.db',
       parentNodeId: 'child',
@@ -1555,6 +1556,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await repository.save({
       callId: 'skill-call.db.2',
+      parentNodeRunId: 'child-run-2',
       parentPlanId: 'plan.parent.db',
       parentInstanceId: 'instance.parent.db',
       parentNodeId: 'child',
@@ -1568,6 +1570,7 @@ describe('PostgreSQL protocol-domain repositories', () => {
     });
     await repository.save({
       callId: 'skill-call.db.2',
+      parentNodeRunId: 'child-run-2',
       parentPlanId: 'plan.parent.db',
       parentInstanceId: 'instance.parent.db',
       parentNodeId: 'child',
@@ -1596,10 +1599,15 @@ describe('PostgreSQL protocol-domain repositories', () => {
         evaluationSummary: 'Repeated output Schema passed.',
       }),
     ]);
-    await expect(repository.find('instance.parent.db', 'child')).resolves.toMatchObject({
+    await expect(repository.find('instance.parent.db', 'child-run-2')).resolves.toMatchObject({
       callId: 'skill-call.db.2',
       childInstanceId: 'instance.child-second.db',
     });
+    await expect(repository.find('instance.parent.db', 'child-run-1')).resolves.toMatchObject({
+      callId: 'skill-call.db.1',
+      childInstanceId: 'instance.child.db',
+    });
+    await expect(repository.find('instance.parent.db', 'child')).resolves.toBeUndefined();
     await expect(repository.findByChildInstanceId('instance.child.db')).resolves.toMatchObject({
       callId: 'skill-call.db.1',
       parentInstanceId: 'instance.parent.db',
@@ -2853,16 +2861,27 @@ describe('PostgreSQL protocol-domain repositories', () => {
       status: 'expired' as const,
       expiredAt: '2026-07-11T10:01:00.000Z',
     };
-    const experience = {
-      experienceId: 'experience-db-1',
-      temporarySkillId: active.temporarySkillId,
-      taskId: active.taskId,
-      contextId: active.contextId,
-      capabilityFingerprint: active.capabilityFingerprint,
-      successful: true,
-      outcomeSummary: 'Succeeded.',
-      createdAt: expired.expiredAt,
-    };
+    await expect(
+      repository.expireAndSaveExperience(expired, {
+        experienceId: 'uncommitted-success',
+        temporarySkillId: active.temporarySkillId,
+        taskId: active.taskId,
+        contextId: active.contextId,
+        capabilityFingerprint: active.capabilityFingerprint,
+        successful: true,
+        outcomeSummary: 'Premature.',
+        createdAt: expired.expiredAt,
+      }),
+    ).rejects.toMatchObject({ code: 'TEMPORARY_SKILL_TASK_NOT_TERMINAL' });
+    await tasks.save({
+      ...requiredFixture(boundTask),
+      phase: 'completed',
+      phaseMessage: 'Succeeded.',
+      output: { text: 'Succeeded.', structured: { status: 'ok' } },
+      updatedAt: expired.expiredAt,
+    });
+    const experience = requiredFixture(await repository.findExperience(active.temporarySkillId));
+    expect(experience.successful).toBe(true);
     await repository.expireAndSaveExperience(expired, experience);
     const evolutionPolicy = new PostgresEvolutionPolicyRepository(pool);
     await evolutionPolicy.update({
@@ -4949,6 +4968,26 @@ describe('PostgreSQL protocol-domain repositories', () => {
       statusTimestamp: '2026-07-11T10:01:00.000Z',
       document: { id: submitted.task.taskId, terminal: 'completed' },
     });
+    await tasks.save({ ...submitted.task, phase: 'paused', updatedAt: '2026-07-11T10:05:00.000Z' });
+    const beforeRead = await projections.find('a2a-v1', submitted.task.taskId);
+    await expect(
+      projections.list({
+        protocol: 'a2a-v1',
+        currentTask: { phases: ['paused', 'awaiting_user_input'] },
+        statusTimestampAfter: '2026-07-11T10:04:00.000Z',
+        offset: 0,
+        limit: 10,
+      }),
+    ).resolves.toMatchObject({ total: 1, items: [{ taskId: submitted.task.taskId }] });
+    await expect(
+      projections.list({
+        protocol: 'a2a-v1',
+        currentTask: { phases: ['completed'] },
+        offset: 0,
+        limit: 10,
+      }),
+    ).resolves.toMatchObject({ total: 0 });
+    expect(await projections.find('a2a-v1', submitted.task.taskId)).toEqual(beforeRead);
   });
 
   it('persists Skill requests only as drafts', async () => {
@@ -9817,4 +9856,9 @@ function sequenceIds(): Readonly<{
   return {
     nextId: (kind) => `${kind}-${String(++counters[kind])}`,
   };
+}
+
+function requiredFixture<T>(value: T | undefined | null): T {
+  if (value === undefined || value === null) throw new Error('REQUIRED_TEST_FIXTURE_MISSING');
+  return value;
 }

@@ -2,6 +2,10 @@ import { once } from 'node:events';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type Server as HttpServer } from 'node:http';
 import path from 'node:path';
+import {
+  IsolatedDemoError,
+  type IsolatedDemoService,
+} from '../../application/src/isolated-demo-service.js';
 
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
@@ -79,6 +83,7 @@ import type {
   PlanningCorrectionService,
   ExperienceManagementService,
   TaskTypeInductionService,
+  ConfiguredTaskTypeImportService,
   CapabilityPatternInductionService,
   KnowledgePromotionService,
   CognitiveManagementActionGate,
@@ -777,6 +782,7 @@ const ArtifactManagementCommandSchema = z
   .strict();
 
 export interface ManagementOperations {
+  readonly isolatedDemo?: IsolatedDemoService;
   readonly goals: Pick<GoalService, 'create' | 'get' | 'history'>;
   readonly goalPatches: Pick<GoalPatchService, 'apply' | 'get' | 'list'>;
   readonly goalCancellations: Pick<GoalCancellationService, 'cancel' | 'get' | 'list'>;
@@ -859,6 +865,7 @@ export interface ManagementOperations {
     | 'replayDeadLetter'
   >;
   readonly taskTypes?: Pick<TaskTypeInductionService, 'list'>;
+  readonly configuredTaskTypes?: Pick<ConfiguredTaskTypeImportService, 'import'>;
   readonly capabilityPatterns?: Pick<CapabilityPatternInductionService, 'list' | 'listGaps'>;
   readonly knowledgePromotion?: Pick<
     KnowledgePromotionService,
@@ -1126,6 +1133,53 @@ export async function startManagementHttpEndpoint(
     );
     response.setHeader('X-SDAR-Cognitive-Authorization', cognitiveManagement.authorizationMode);
     next();
+  });
+  app.get('/api/v1/development/isolated-demo', async (_request, response, next) => {
+    try {
+      if (!options.operations.isolatedDemo) {
+        response.status(404).json({ code: 'SOFTWARE_DEMO_UNAVAILABLE' });
+        return;
+      }
+      response.json(await options.operations.isolatedDemo.catalog());
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.post('/api/v1/development/isolated-demo/requests', async (request, response, next) => {
+    try {
+      if (!options.operations.isolatedDemo) {
+        response.status(404).json({ code: 'SOFTWARE_DEMO_UNAVAILABLE' });
+        return;
+      }
+      const input = z
+        .object({
+          requestId: z.uuid(),
+          objectId: z.string().regex(/^demo:[a-z0-9-]{1,64}$/u),
+          state: z.enum(['active', 'inactive']),
+        })
+        .strict()
+        .parse(request.body);
+      response.json(await options.operations.isolatedDemo.request(input));
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.post('/api/v1/development/isolated-demo/confirm', async (request, response, next) => {
+    try {
+      if (!options.operations.isolatedDemo) {
+        response.status(404).json({ code: 'SOFTWARE_DEMO_UNAVAILABLE' });
+        return;
+      }
+      const input = z
+        .object({ requestId: z.uuid(), acknowledgement: z.literal('software-only') })
+        .strict()
+        .parse(request.body);
+      response.json(
+        await options.operations.isolatedDemo.confirm(input.requestId, input.acknowledgement),
+      );
+    } catch (error) {
+      next(error);
+    }
   });
   app.get('/api/v1/health', (_request, response) => {
     response.json({
@@ -2922,6 +2976,67 @@ export async function startManagementHttpEndpoint(
       response.json({
         items: await options.operations.experience.listReflections(query.limit),
       });
+    }),
+  );
+  app.post(
+    '/api/v1/task-types/configured',
+    asyncRoute(async (request, response) => {
+      const service = options.operations.configuredTaskTypes;
+      if (service === undefined)
+        throw new HttpInputError(
+          'TASK_TYPES_UNAVAILABLE',
+          'Task Type configuration is unavailable.',
+        );
+      const input = z
+        .strictObject({
+          actorId: z.string().trim().min(1).max(256),
+          idempotencyKey: z.string().trim().min(1).max(256),
+          reason: z.string().trim().min(1).max(4096),
+          humanApproved: z.boolean(),
+          policyAllowed: z.boolean(),
+          definition: z.strictObject({
+            taskTypeId: z.string().trim().min(1).max(256),
+            version: z.number().int().positive(),
+            title: z.string().trim().min(1).max(512),
+            recognitionHints: z.array(z.string().trim().min(1).max(1024)).max(32),
+            requiredDimensions: z
+              .array(
+                z.enum([
+                  'target',
+                  'scope',
+                  'time_range',
+                  'priority',
+                  'criteria',
+                  'artifact',
+                  'evidence',
+                  'side_effect_authorization',
+                  'risk_tolerance',
+                  'degradation_policy',
+                  'uncovered_case_policy',
+                  'human_confirmation_policy',
+                ]),
+              )
+              .max(16),
+            capabilityRequirements: z.array(z.string().trim().min(1).max(256)).max(32),
+            risks: z.array(z.string().trim().min(1).max(1024)).max(32),
+          }),
+        })
+        .parse(request.body);
+      response.status(201).json(
+        await cognitiveManagement.executeWrite(
+          {
+            operation: 'knowledge_promote',
+            subjectId: `task_type:${input.definition.taskTypeId}`,
+            requestFingerprint: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
+            actorId: input.actorId,
+            expectedVersion: input.definition.version,
+            idempotencyKey: input.idempotencyKey,
+            reason: input.reason,
+          },
+          request.header('authorization'),
+          () => service.import(input.definition, input),
+        ),
+      );
     }),
   );
   app.get(
@@ -5155,6 +5270,15 @@ function normalizeHttpError(error: unknown): Readonly<{
   status: number;
   body: Readonly<{ code: string; message: string; details?: unknown }>;
 }> {
+  if (error instanceof IsolatedDemoError) {
+    const status =
+      error.code === 'SOFTWARE_DEMO_REQUEST_NOT_FOUND'
+        ? 404
+        : error.code === 'SOFTWARE_DEMO_IDEMPOTENCY_CONFLICT'
+          ? 409
+          : 400;
+    return { status, body: { code: error.code, message: error.code } };
+  }
   if (error instanceof ArtifactManagementError) {
     return {
       status: error.status,
@@ -5184,6 +5308,8 @@ function normalizeHttpError(error: unknown): Readonly<{
     };
   }
   const message = error instanceof Error ? error.message : 'Unexpected management API error.';
+  if (code === 'SKILL_EVOLUTION_PUBLICATION_DEFERRED')
+    return { status: 409, body: { code, message } };
   if (
     typeof error === 'object' &&
     error !== null &&

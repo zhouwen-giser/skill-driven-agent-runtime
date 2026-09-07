@@ -1,0 +1,36 @@
+[
+  {
+    "runId": "sdar-verify-47146855-054f-4610-a9ae-c8684ce2c899",
+    "path": "/tmp/sdar-verify-47146855-054f-4610-a9ae-c8684ce2c899-cxQ9su/source/node_modules",
+    "reason": "completed verification, reinstallable frozen dependencies only"
+  },
+  {
+    "runId": "sdar-verify-47146855-054f-4610-a9ae-c8684ce2c899",
+    "path": "/tmp/sdar-verify-47146855-054f-4610-a9ae-c8684ce2c899-cxQ9su/store",
+    "reason": "completed verification, reinstallable frozen dependencies only"
+  },
+  {
+    "runId": "sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510",
+    "path": "/tmp/sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510-4JLMmd/source/node_modules",
+    "reason": "completed verification, reinstallable frozen dependencies only"
+  },
+  {
+    "runId": "sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510",
+    "path": "/tmp/sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510-4JLMmd/store",
+    "reason": "completed verification, reinstallable frozen dependencies only"
+  },
+  {
+    "runId": "sdar-verify-60048430-57a7-4b09-8419-7ff34a9e2776",
+    "path": "/tmp/sdar-verify-60048430-57a7-4b09-8419-7ff34a9e2776-ZxvZOl/source/node_modules",
+    "reason": "completed verification, reinstallable frozen dependencies only"
+  },
+  {
+    "runId": "sdar-verify-60048430-57a7-4b09-8419-7ff34a9e2776",
+    "path": "/tmp/sdar-verify-60048430-57a7-4b09-8419-7ff34a9e2776-ZxvZOl/store",
+    "reason": "completed verification, reinstallable frozen dependencies only"
+  },
+  {
+    "path": "/tmp/sdar-verify-96bacfad-aa5e-4057-ba8f-575752df1eb8-diagnostic/store",
+    "reason": "unused copied store; diagnostic executes existing node_modules only"
+  }
+]

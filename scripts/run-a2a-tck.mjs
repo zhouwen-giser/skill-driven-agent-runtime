@@ -5,11 +5,17 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { setTimeout } from 'node:timers/promises';
+import { waitForChildReady, localChildEndpoint } from './lib/child-readiness.mjs';
 
 const TCK_COMMIT = '5996b79f9cefa6fc390980e383e358a66fb9e49e';
 const UV_VERSION = '0.11.28';
 const workspace = process.cwd();
-const tooling = join(tmpdir(), 'sdar-a2a-tck-tooling');
+const tooling = join(
+  tmpdir(),
+  process.env.SDAR_VERIFY_ISOLATED === 'true'
+    ? process.env.SDAR_VERIFY_COMPOSE_PROJECT
+    : 'sdar-a2a-tck-tooling',
+);
 const toolVenv = join(tooling, 'uv-venv');
 const tck = join(tooling, 'a2a-tck');
 const python = process.platform === 'win32' ? 'python.exe' : 'python3';
@@ -61,21 +67,19 @@ run(process.execPath, [
 
 const server = spawn(process.execPath, [resolve(workspace, 'dist/apps/a2a-tck-sut/src/main.js')], {
   cwd: workspace,
-  stdio: 'inherit',
+  stdio: ['ignore', 'pipe', 'inherit'],
+  env: {
+    ...process.env,
+    ...(process.env.SDAR_VERIFY_ISOLATED === 'true' ? { SDAR_A2A_PORT: '0' } : {}),
+  },
 });
 try {
-  await waitForAgentCard('http://127.0.0.1:9999/.well-known/agent-card.json');
+  const ready = await waitForChildReady(server, 'tck-sut.ready');
+  const baseUrl = localChildEndpoint(ready.a2aUrl);
+  await waitForAgentCard(`${baseUrl}/.well-known/agent-card.json`);
   run(
     tckPython,
-    [
-      join(tck, 'run_tck.py'),
-      '--sut-host',
-      'http://127.0.0.1:9999',
-      '--transport',
-      'http_json',
-      '--level',
-      'must',
-    ],
+    [join(tck, 'run_tck.py'), '--sut-host', baseUrl, '--transport', 'http_json', '--level', 'must'],
     tck,
   );
   const target = resolve(

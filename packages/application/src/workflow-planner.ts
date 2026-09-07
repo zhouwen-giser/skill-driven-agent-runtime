@@ -226,7 +226,13 @@ export class WorkflowPlannerService {
               correctionErrors,
               ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
             });
-      const contractedCandidate = applySkillTaskExecutionContracts(candidate, skillUsagePolicy);
+      const scopedCandidate = isRecord(candidate)
+        ? { ...candidate, executionSemanticsVersion: '2.0' }
+        : candidate;
+      const contractedCandidate = applySkillTaskExecutionContracts(
+        scopedCandidate,
+        skillUsagePolicy,
+      );
       const validation = await this.#validateExpected(
         contractedCandidate,
         input,
@@ -401,6 +407,9 @@ function addPlanningContracts(
   skillUsagePolicy: SkillUsagePlanPolicy | undefined,
 ): string {
   const planningAuthority = {
+    executionSemanticsVersion: '2.0',
+    controlFlowConstraint:
+      'Use scoped 2.0 semantics. Every parallel declares its unique joinNodeId and mergeStrategy reject_conflicts. Branches may contain conditions, loops or nested parallel regions but cannot cross region boundaries. Each loop body returns to its own loop header; its counter resets on a new invocation.',
     goalContract,
     skillCompositionContext: compositionContext ?? null,
     capabilityGapSkillIds,

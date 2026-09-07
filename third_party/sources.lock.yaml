@@ -111,7 +111,8 @@ sources:
     license: 'MIT'
     use: direct_dependency
     pin: 'npm:@langchain/langgraph@1.4.7#sha512-2tcyf3QGC7v89kqSxMCtRvzg/3L/4yHtOaWC49A8KieCciWJs7LGaxHoPB6QRxXyUgyR+Zg9Q1ss/XJIE+JuSQ=='
-    allowed: 'published @langchain/langgraph APIs'
+    allowed: 'published @langchain/langgraph APIs and pinned peer @langchain/core public Runnable configuration isolation'
+    peer_pin: 'npm:@langchain/core@1.2.2#sha512-KfjEOT6sCg0vvItagfEtGpmrGoLMGfma4Affb5BGEqPmS2YR3AxW54pABSkhQlzCehTB+0BnLquAe1lGF4J9zQ=='
     forbidden: 'none; avoid hosted proprietary assumptions'
   - name: Mastra
     repository: https://github.com/mastra-ai/mastra

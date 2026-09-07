@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P10",
+  "packageVersion": "1.1",
+  "sequence": 10,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "a8a0d2865b0ee5ee6a10fa6d6204ebdafc4b426c",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "gatewayOrchestration": "a27e49c",
+    "artifactFeedback": "211b88b",
+    "reviewOrderingAndIdempotency": "3d7c722",
+    "resilienceAndEvidence": "13d4b54",
+    "protocolAlignment": "3361ff8"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/13",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {"name":"RuntimeExecutionDecision","version":"1.1","schemaHash":"4ad37edc562bf39d27982f23f70d27ee8af1a3dfe3486dfc34725eec62b5b4de"},
+    {"name":"TemplateRuntime","version":"1.1","schemaHash":"fe1a817f0a5633b648d018742e0fcb2278e0ef887d9a9adf1922d55a755e553a"},
+    {"name":"RuleRuntime","version":"1.1","schemaHash":"77b30dc4384fbf082345b90280d01f15609b5aa1a166ab827825d5dee14efaca"},
+    {"name":"FormalPlanHandoffPort","version":"1.1","schemaHash":"84f9be4c6bcd7ed775c1f56779f671709efe541edc498b6bb71047a1e55d9336"}
+  ],
+  "producedContracts": [
+    {"name":"RuntimeRequestContext","version":"1.1","schemaHash":"6ada60cdd637cd3a2467347c8ef858ce2932c5e56d891c7aaaf1dfaabc41595e"},
+    {"name":"FastGateway","version":"1.1","schemaHash":"be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe"},
+    {"name":"GatewayDecisionRecord","version":"1.1","schemaHash":"1beecf8ae5527d5b8db7bcf89c36b4e73d35e083d6818f9ad18874f13e31d3ab"},
+    {"name":"GatewayFeedbackEnvelope","version":"1.1","schemaHash":"22faac79bc9ea9d8bcac5bc42e626bba79b5ed04579e371ba5dfadbc611aaf6b"}
+  ],
+  "migrations": ["0132_v13_fast_gateway"],
+  "repositoryPorts": ["GatewayDecisionPersistence","PostgresFastGatewayRepository","RuleUsageRepository"],
+  "applicationPorts": ["FastGatewayService","GatewayPrecheckPort","GatewayRetrievalPort","GatewayRulePort","GatewayTemplatePort","GatewayFallbackPort","GatewayDriftSignalPort","GatewayArtifactFeedbackPort"],
+  "runtimePorts": ["FastGateway.evaluate","FastGatewayService.evaluateDetailed","FastGatewayService.recordFeedback","GET /api/v1/tasks/{taskId}/gateway-evidence"],
+  "events": ["gateway.route_selected","gateway.confirmation_required","gateway.fallback_started","gateway.formal_handoff","artifact.feedback_recorded"],
+  "queues": [],
+  "featureFlags": ["SDAR_V13_FAST_GATEWAY_ENABLED"],
+  "reasonCodeCatalogVersion": "fast-gateway/1.1",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p10-completion.md",
+    "reports/goal/v1.3-p10-review.md",
+    "reports/goal/v1.3-p10-acceptance.json",
+    "reports/goal/v1.3-p10-gateway-schema.json",
+    "reports/goal/v1.3-p10-orchestration-report.json",
+    "reports/goal/v1.3-p10-deadline-report.json",
+    "reports/goal/v1.3-p10-fallback-report.json",
+    "reports/goal/v1.3-p10-resilience-report.json",
+    "reports/goal/v1.3-p10-feedback-schema.json",
+    "reports/goal/v1.3-p10-attribution-report.json",
+    "reports/goal/v1.3-p10-drift-report.json",
+    "reports/goal/v1.3-p10-protocol-report.json",
+    "reports/goal/v1.3-p10-security-report.json",
+    "reports/goal/v1.3-p10-performance-report.json",
+    "reports/goal/v1.3-p10-full-verify-report.json",
+    "reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P10.md"
+  ],
+  "acceptanceSummary": {"passed":52,"failed":0,"blocked":0},
+  "knownLimitations": [
+    "Local latency and concurrency measurements are acceptance baselines, not production capacity SLOs.",
+    "P10 does not implement Case Runtime or Model Cascade.",
+    "P10 never approves, activates, recompiles or mutates an Artifact.",
+    "P11 implementation has not started; this Handoff publishes P10 contracts and evidence only."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P11",
+  "packageOutputs": {
+    "RuntimeRequestContext":{"contractVersion":"1.1","schemaHash":"6ada60cdd637cd3a2467347c8ef858ce2932c5e56d891c7aaaf1dfaabc41595e","refs":["packages/domain/src/compiler/fast-gateway.ts","schemas/v1.3/fast-gateway.schema.json"]},
+    "FastGateway":{"contractVersion":"1.1","schemaHash":"be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe","refs":["packages/application/src/compiler/fast-gateway.ts"]},
+    "GatewayDecisionRecord":{"contractVersion":"1.1","schemaHash":"1beecf8ae5527d5b8db7bcf89c36b4e73d35e083d6818f9ad18874f13e31d3ab","refs":["packages/domain/src/compiler/fast-gateway.ts","packages/persistence-postgres/src/compiler/fast-gateway-repository.ts"]},
+    "GatewayFeedbackEnvelope":{"contractVersion":"1.1","schemaHash":"22faac79bc9ea9d8bcac5bc42e626bba79b5ed04579e371ba5dfadbc611aaf6b","refs":["packages/domain/src/compiler/fast-gateway.ts","packages/application/src/compiler/gateway-feedback-analysis.ts"]}
+  }
+}

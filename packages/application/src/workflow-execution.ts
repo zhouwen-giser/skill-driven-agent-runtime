@@ -21,12 +21,14 @@ import type {
   WorkflowContinuationRepository,
   WorkflowExternalWaitPreparedSnapshot,
   WorkflowExternalWaitSnapshotPreparer,
+  WorkflowChildCallRepository,
 } from './ports.js';
 import type { WorkflowValidator } from './workflow-validator.js';
 import { validateSkillToolPolicies } from './skill-tool-policy.js';
 import { canonicalHash } from './mcp-task-readiness.js';
 
 export class WorkflowExecutionService {
+  readonly #childCalls: Pick<WorkflowChildCallRepository, 'listByParent'> | undefined;
   readonly #plans: WorkflowPlanRepository;
   readonly #instances: WorkflowExecutionRepository;
   readonly #validator: WorkflowValidator;
@@ -56,6 +58,7 @@ export class WorkflowExecutionService {
   constructor(
     dependencies: Readonly<{
       plans: WorkflowPlanRepository;
+      childCalls?: Pick<WorkflowChildCallRepository, 'listByParent'>;
       instances: WorkflowExecutionRepository;
       validator: WorkflowValidator;
       executor: WorkflowExecutor;
@@ -79,6 +82,7 @@ export class WorkflowExecutionService {
     }>,
   ) {
     this.#plans = dependencies.plans;
+    this.#childCalls = dependencies.childCalls;
     this.#instances = dependencies.instances;
     this.#validator = dependencies.validator;
     this.#executor = dependencies.executor;
@@ -252,7 +256,7 @@ export class WorkflowExecutionService {
           );
         const timestamp = this.#clock.now();
         const snapshot = createWorkflowContinuationSnapshot({
-          schemaVersion: '1.0',
+          schemaVersion: preparation.continuation.scopes === undefined ? '1.0' : '2.0',
           snapshotId: this.#continuationIds.nextSnapshotId(),
           continuationId: this.#continuationIds.nextContinuationId(),
           stateVersion: 1,
@@ -299,14 +303,17 @@ export class WorkflowExecutionService {
             );
       await this.#instances.saveNodeEvents(this.#events(input.instanceId, outcome.events, 1));
       let activatedSnapshot: WorkflowContinuationSnapshot | undefined;
-      if (outcome.status === 'waiting_external') {
+      if (
+        outcome.status === 'waiting_external' ||
+        (outcome.status === 'paused' && outcome.continuation !== undefined)
+      ) {
         if (outcome.continuation === undefined || input.continuationAuthority === undefined)
           throw new WorkflowExecutionError(
             'WORKFLOW_CONTINUATION_AUTHORITY_REQUIRED',
             'External Workflow waits require persisted Task, Context and control authority.',
           );
         const fallbackSnapshot = createWorkflowContinuationSnapshot({
-          schemaVersion: '1.0',
+          schemaVersion: outcome.continuation.scopes === undefined ? '1.0' : '2.0',
           snapshotId: this.#continuationIds.nextSnapshotId(),
           continuationId: this.#continuationIds.nextContinuationId(),
           stateVersion: 1,
@@ -405,25 +412,39 @@ export class WorkflowExecutionService {
         'WORKFLOW_RESUME_UNAVAILABLE',
         'The Workflow runtime does not support confirmation resume.',
       );
+    const priorSnapshot = await this.#continuations.findCurrent(instance.instanceId);
+    const continuationAuthority =
+      input.continuationAuthority ??
+      (priorSnapshot === undefined
+        ? undefined
+        : {
+            agentTaskId: priorSnapshot.agentTaskId,
+            contextId: priorSnapshot.contextId,
+            workflowControlId: priorSnapshot.workflowControlId,
+          });
     const instanceWithoutPending = withoutPendingConfirmation(instance);
     try {
       const preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[] = [];
       const prepareExternalWait: WorkflowExternalWaitSnapshotPreparer = (preparation) => {
-        if (input.continuationAuthority === undefined)
+        if (continuationAuthority === undefined)
           throw new WorkflowExecutionError(
             'WORKFLOW_CONTINUATION_AUTHORITY_REQUIRED',
             'External Workflow waits require persisted Task, Context and control authority.',
           );
         const timestamp = this.#clock.now();
         const snapshot = createWorkflowContinuationSnapshot({
-          schemaVersion: '1.0',
+          schemaVersion: preparation.continuation.scopes === undefined ? '1.0' : '2.0',
           snapshotId: this.#continuationIds.nextSnapshotId(),
-          continuationId: this.#continuationIds.nextContinuationId(),
-          stateVersion: 1,
+          continuationId:
+            priorSnapshot?.continuationId ?? this.#continuationIds.nextContinuationId(),
+          stateVersion: (priorSnapshot?.stateVersion ?? 0) + 1,
+          ...(priorSnapshot === undefined
+            ? {}
+            : { predecessorSnapshotId: priorSnapshot.snapshotId }),
           lifecycle: 'active',
-          agentTaskId: input.continuationAuthority.agentTaskId,
-          contextId: input.continuationAuthority.contextId,
-          workflowControlId: input.continuationAuthority.workflowControlId,
+          agentTaskId: continuationAuthority.agentTaskId,
+          contextId: continuationAuthority.contextId,
+          workflowControlId: continuationAuthority.workflowControlId,
           goalId: plan.goalId,
           goalVersion: plan.goalVersion,
           workflowPlanId: plan.planId,
@@ -467,21 +488,28 @@ export class WorkflowExecutionService {
         this.#events(instance.instanceId, outcome.events, eventCount + 1),
       );
       let activatedSnapshot: WorkflowContinuationSnapshot | undefined;
-      if (outcome.status === 'waiting_external') {
-        if (outcome.continuation === undefined || input.continuationAuthority === undefined)
+      if (
+        outcome.status === 'waiting_external' ||
+        (outcome.status === 'paused' && outcome.continuation !== undefined)
+      ) {
+        if (outcome.continuation === undefined || continuationAuthority === undefined)
           throw new WorkflowExecutionError(
             'WORKFLOW_CONTINUATION_AUTHORITY_REQUIRED',
             'External Workflow waits require persisted Task, Context and control authority.',
           );
         const fallbackSnapshot = createWorkflowContinuationSnapshot({
-          schemaVersion: '1.0',
+          schemaVersion: outcome.continuation.scopes === undefined ? '1.0' : '2.0',
           snapshotId: this.#continuationIds.nextSnapshotId(),
-          continuationId: this.#continuationIds.nextContinuationId(),
-          stateVersion: 1,
+          continuationId:
+            priorSnapshot?.continuationId ?? this.#continuationIds.nextContinuationId(),
+          stateVersion: (priorSnapshot?.stateVersion ?? 0) + 1,
+          ...(priorSnapshot === undefined
+            ? {}
+            : { predecessorSnapshotId: priorSnapshot.snapshotId }),
           lifecycle: 'active',
-          agentTaskId: input.continuationAuthority.agentTaskId,
-          contextId: input.continuationAuthority.contextId,
-          workflowControlId: input.continuationAuthority.workflowControlId,
+          agentTaskId: continuationAuthority.agentTaskId,
+          contextId: continuationAuthority.contextId,
+          workflowControlId: continuationAuthority.workflowControlId,
           goalId: plan.goalId,
           goalVersion: plan.goalVersion,
           workflowPlanId: plan.planId,
@@ -503,6 +531,13 @@ export class WorkflowExecutionService {
           fallbackSnapshot,
         );
       }
+      if (activatedSnapshot === undefined && priorSnapshot !== undefined)
+        await this.#continuations.transitionLifecycle(
+          priorSnapshot.snapshotId,
+          'active',
+          'terminal',
+          this.#clock.now(),
+        );
       const resumed: WorkflowInstance = {
         ...instanceWithoutPending,
         status: outcome.status,
@@ -623,7 +658,10 @@ export class WorkflowExecutionService {
       );
       const timestamp = this.#clock.now();
       let activatedSnapshot: WorkflowContinuationSnapshot | undefined;
-      if (outcome.status === 'waiting_external') {
+      if (
+        outcome.status === 'waiting_external' ||
+        (outcome.status === 'paused' && outcome.continuation !== undefined)
+      ) {
         if (outcome.continuation === undefined)
           throw new WorkflowExecutionError(
             'WORKFLOW_CONTINUATION_STATE_REQUIRED',
@@ -732,6 +770,17 @@ export class WorkflowExecutionService {
         'WORKFLOW_INSTANCE_NOT_RUNNING',
         'No active Workflow instance exists for this plan.',
       );
+    return this.cancelInstance(instance.instanceId);
+  }
+
+  async cancelInstance(instanceId: string): Promise<WorkflowInstance> {
+    const instance = await this.#instances.findInstance(instanceId);
+    if (instance === undefined)
+      throw new WorkflowExecutionError(
+        'WORKFLOW_INSTANCE_NOT_FOUND',
+        'The child instance does not exist.',
+      );
+    if (!['running', 'paused', 'waiting_external'].includes(instance.status)) return instance;
     const policies = await Promise.all(
       instance.skillVersions.map(({ skillId, version }) =>
         this.#skills.findVersion(skillId, version),
@@ -746,6 +795,17 @@ export class WorkflowExecutionService {
         ? 'wait_current'
         : 'try_interrupt';
     let canceled: WorkflowInstance;
+    if (
+      instance.status !== 'waiting_external' &&
+      this.#executor.requestCancel?.(instance.instanceId, strategy === 'try_interrupt') !== true
+    )
+      throw new WorkflowExecutionError(
+        'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE',
+        'The in-memory Workflow execution is unavailable and cannot be canceled.',
+      );
+    for (const child of (await this.#childCalls?.listByParent(instance.instanceId)) ?? []) {
+      if (child.childInstanceId !== undefined) await this.cancelInstance(child.childInstanceId);
+    }
     if (instance.status === 'waiting_external') {
       const snapshot = await this.#continuations.findCurrent(instance.instanceId);
       if (snapshot === undefined)
@@ -774,14 +834,21 @@ export class WorkflowExecutionService {
         completedAt,
       };
       await this.#instances.saveInstance(canceled);
-    } else {
-      if (
-        this.#executor.requestCancel?.(instance.instanceId, strategy === 'try_interrupt') !== true
-      )
-        throw new WorkflowExecutionError(
-          'WORKFLOW_EXECUTION_CONTROL_UNAVAILABLE',
-          'The in-memory Workflow execution is unavailable and cannot be canceled.',
+    } else if (instance.status === 'paused') {
+      canceled = await this.resumeHumanConfirmation({
+        instanceId: instance.instanceId,
+        confirmed: false,
+        resumeTaskPause: true,
+      });
+      const snapshot = await this.#continuations.findCurrent(instance.instanceId);
+      if (snapshot !== undefined)
+        await this.#continuations.transitionLifecycle(
+          snapshot.snapshotId,
+          'active',
+          'invalidated',
+          this.#clock.now(),
         );
+    } else {
       canceled = await this.#waitFor(instance.instanceId, ['canceled', 'failed']);
     }
     const audited: WorkflowInstance = {

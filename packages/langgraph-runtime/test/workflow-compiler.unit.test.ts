@@ -1,3 +1,4 @@
+import { LangGraphWorkflowExecutor } from '../src/workflow-executor-adapter.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -17,7 +18,9 @@ function ports(overrides: Partial<WorkflowRuntimePorts> = {}): WorkflowRuntimePo
       status: 'completed',
       output: { skill: 'done' },
     }),
-    executeSubworkflow: vi.fn().mockResolvedValue({ child: 'done' }),
+    executeSubworkflow: vi
+      .fn()
+      .mockResolvedValue({ status: 'completed', output: { child: 'done' } }),
     requestHumanConfirmation: vi.fn().mockResolvedValue(true),
     decideExecutionError: vi.fn().mockResolvedValue({
       strategy: 'continue',
@@ -80,6 +83,722 @@ function definition(
 }
 
 describe('LangGraph Workflow compiler', () => {
+  it('preserves a child deadline across human pause and disposes its timers after resume', async () => {
+    vi.useFakeTimers();
+    try {
+      const signals: AbortSignal[] = [];
+      const runtime = ports({
+        nowMilliseconds: () => Date.now(),
+        executeSubworkflow: (request) => {
+          if (request.signal !== undefined) signals.push(request.signal);
+          return Promise.resolve(
+            request.resumeChild === true
+              ? { status: 'completed', output: true }
+              : { status: 'paused', childInstanceId: 'child', prompt: 'Review' },
+          );
+        },
+      });
+      const graph = definition(
+        [
+          {
+            nodeId: 'child',
+            name: 'Child',
+            type: 'subworkflow',
+            workflowDefinitionId: 'child',
+            workflowVersion: 1,
+            input: {},
+          },
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+        'child',
+        ['result'],
+      );
+      const executor = new LangGraphWorkflowExecutor(runtime, costs);
+      expect(
+        (
+          await executor.execute(
+            graph,
+            {},
+            { ...budget, maxDurationSeconds: 1 },
+            undefined,
+            'deadline-parent',
+          )
+        ).status,
+      ).toBe('paused');
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(signals.every((signal) => !signal.aborted)).toBe(true);
+      expect(await executor.resumeHumanConfirmation('deadline-parent', true)).toMatchObject({
+        status: 'succeeded',
+        budgetUsage: { cost: 1, durationMs: 0 },
+      });
+      expect(signals.every((signal) => !signal.aborted)).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('joins nested scoped forks once at each level', async () => {
+    const runtime = ports({ nowMilliseconds: () => 0 });
+    const graph: WorkflowDefinition = {
+      ...definition(
+        [
+          {
+            nodeId: 'outer',
+            name: 'Outer',
+            type: 'parallel',
+            branchEntryNodeIds: ['inner', 'right'],
+            joinNodeId: 'result',
+            mergeStrategy: 'reject_conflicts',
+          },
+          {
+            nodeId: 'inner',
+            name: 'Inner',
+            type: 'parallel',
+            branchEntryNodeIds: ['a', 'b'],
+            joinNodeId: 'innerJoin',
+            mergeStrategy: 'reject_conflicts',
+          },
+          ...['a', 'b', 'right', 'innerJoin'].map((nodeId) => ({
+            nodeId,
+            name: nodeId,
+            type: 'llm' as const,
+            instruction: nodeId,
+            responseSchema: { type: 'object' },
+          })),
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        [
+          { sourceNodeId: 'a', targetNodeId: 'innerJoin' },
+          { sourceNodeId: 'b', targetNodeId: 'innerJoin' },
+          { sourceNodeId: 'innerJoin', targetNodeId: 'result' },
+          { sourceNodeId: 'right', targetNodeId: 'result' },
+        ],
+        'outer',
+        ['result'],
+      ),
+      executionSemanticsVersion: '2.0',
+    };
+    const result = await compileWorkflow(graph, 'confirmed', runtime).invoke({}, budget, costs);
+    expect(result.status).toBe('succeeded');
+    expect(runtime.executeLlm).toHaveBeenCalledTimes(4);
+    for (const nodeId of ['innerJoin', 'result'])
+      expect(
+        result.events.filter((event) => event.nodeId === nodeId && event.type === 'node_succeeded'),
+      ).toHaveLength(1);
+  });
+
+  it.each(['1.0', '2.0'] as const)(
+    'retains the actual continuation graph through two confirmations (%s)',
+    async (executionSemanticsVersion) => {
+      const executionId = `session-${executionSemanticsVersion}`;
+      const runtime = ports({
+        callMcpTool: vi.fn().mockResolvedValue(externalWait(executionId, 'remote')),
+        nowMilliseconds: () => 0,
+      });
+      const graph: WorkflowDefinition = {
+        ...definition(
+          [
+            {
+              nodeId: 'remote',
+              name: 'Remote',
+              type: 'mcp_tool',
+              tool: { serverId: 'test', toolName: 'remote' },
+              arguments: {},
+            },
+            { nodeId: 'confirm1', name: 'Confirm 1', type: 'human_confirmation', prompt: 'First?' },
+            {
+              nodeId: 'confirm2',
+              name: 'Confirm 2',
+              type: 'human_confirmation',
+              prompt: 'Second?',
+            },
+            {
+              nodeId: 'result',
+              name: 'Result',
+              type: 'result',
+              value: { op: 'ref', path: ['outputs', 'remote'] },
+            },
+            {
+              nodeId: 'rejected',
+              name: 'Rejected',
+              type: 'result',
+              value: { op: 'literal', value: false },
+            },
+          ],
+          [
+            { sourceNodeId: 'remote', targetNodeId: 'confirm1' },
+            { sourceNodeId: 'confirm1', targetNodeId: 'confirm2', outcome: 'success' },
+            { sourceNodeId: 'confirm1', targetNodeId: 'rejected', outcome: 'failure' },
+            { sourceNodeId: 'confirm2', targetNodeId: 'result', outcome: 'success' },
+            { sourceNodeId: 'confirm2', targetNodeId: 'rejected', outcome: 'failure' },
+          ],
+          'remote',
+          ['result', 'rejected'],
+        ),
+        executionSemanticsVersion,
+      };
+      const executor = new LangGraphWorkflowExecutor(runtime, costs);
+      const waiting = await executor.execute(graph, {}, budget, undefined, executionId);
+      expect(waiting.status).toBe('waiting_external');
+      if (waiting.continuation === undefined) throw new Error('Expected continuation');
+      const wait = waiting.continuation.waitingNodeRuns[0];
+      if (wait === undefined) throw new Error('Expected wait');
+      const resumed = await executor.continueExternal(
+        graph,
+        executionId,
+        waiting.continuation,
+        {
+          kind: 'completed',
+          waitId: wait.waitId,
+          nodeRunId: wait.nodeRunId,
+          result: { answer: 42, content: [], isError: false },
+        },
+        'continuation-thread-1',
+      );
+      expect(resumed.status).toBe('paused');
+      expect(resumed.pendingConfirmation?.nodeId).toBe('confirm1');
+      const second = await executor.resumeHumanConfirmation(executionId, true);
+      expect(second.status).toBe('paused');
+      expect(second.pendingConfirmation?.nodeId).toBe('confirm2');
+      const done = await executor.resumeHumanConfirmation(executionId, true);
+      expect(done.status).toBe('succeeded');
+      expect(done.result).toMatchObject({ data: { answer: 42 } });
+      expect(runtime.callMcpTool).toHaveBeenCalledTimes(1);
+      expect(done.budgetUsage.mcpCalls).toBe(1);
+      expect(executor.requestPause(executionId)).toBe(false);
+    },
+  );
+
+  it.each([
+    ['a', 'b'],
+    ['b', 'a'],
+  ] as const)('restores scoped remote forks in %s/%s order', async (first, second) => {
+    const executionId = 'scoped-remote';
+    const runtime = ports({
+      callMcpTool: vi.fn((input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) =>
+        Promise.resolve(externalWait(executionId, input.workflowNodeId)),
+      ),
+      nowMilliseconds: () => 0,
+    });
+    const graph: WorkflowDefinition = {
+      ...definition(
+        [
+          {
+            nodeId: 'fork',
+            name: 'Fork',
+            type: 'parallel',
+            branchEntryNodeIds: ['a', 'b'],
+            joinNodeId: 'result',
+            mergeStrategy: 'reject_conflicts',
+          },
+          ...['a', 'b'].map((nodeId) => ({
+            nodeId,
+            name: nodeId,
+            type: 'mcp_tool' as const,
+            tool: { serverId: 'test', toolName: nodeId },
+            arguments: {},
+          })),
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        [
+          { sourceNodeId: 'a', targetNodeId: 'result' },
+          { sourceNodeId: 'b', targetNodeId: 'result' },
+        ],
+        'fork',
+        ['result'],
+      ),
+      executionSemanticsVersion: '2.0',
+    };
+    let result = await compileWorkflow(graph, 'confirmed', runtime).invoke(
+      {},
+      budget,
+      costs,
+      undefined,
+      executionId,
+    );
+    for (const nodeId of [first, second]) {
+      expect(result.status).toBe('waiting_external');
+      const continuation = result.continuation;
+      const wait = continuation?.waitingNodeRuns.find((item) => item.nodeId === nodeId);
+      if (continuation === undefined || wait === undefined)
+        throw new Error('Expected durable wait');
+      result = await compileWorkflow(graph, 'confirmed', runtime).continueExternal(
+        executionId,
+        continuation,
+        {
+          kind: 'completed',
+          waitId: wait.waitId,
+          nodeRunId: wait.nodeRunId,
+          result: { content: [], isError: false },
+        },
+        costs,
+      );
+    }
+    expect(result.status).toBe('succeeded');
+    expect(
+      result.events.filter((event) => event.nodeId === 'result' && event.type === 'node_succeeded'),
+    ).toHaveLength(1);
+    expect(runtime.callMcpTool).toHaveBeenCalledTimes(2);
+    expect(result.budgetUsage.mcpCalls).toBe(2);
+  });
+
+  it.each([true, false])(
+    'executes scoped conditional forks and 3x2 loops exactly once per activation (%s)',
+    async (chooseLeft) => {
+      const runtime = ports({ nowMilliseconds: () => 0 });
+      const node = (nodeId: string): WorkflowDefinition['nodes'][number] => ({
+        nodeId,
+        name: nodeId,
+        type: 'mcp_tool',
+        tool: { serverId: 'test', toolName: nodeId },
+        arguments: {},
+      });
+      const loop = (
+        nodeId: string,
+        bodyEntryNodeId: string,
+        maxIterations: number,
+      ): WorkflowDefinition['nodes'][number] => ({
+        nodeId,
+        name: nodeId,
+        type: 'loop',
+        condition: { op: 'literal', value: true },
+        bodyEntryNodeId,
+        maxIterations,
+      });
+      const graph: WorkflowDefinition = {
+        ...definition(
+          [
+            loop('outer', 'fork', 3),
+            {
+              nodeId: 'fork',
+              name: 'Fork',
+              type: 'parallel',
+              branchEntryNodeIds: ['choose', 'inner'],
+              joinNodeId: 'after',
+              mergeStrategy: 'reject_conflicts',
+            },
+            {
+              nodeId: 'choose',
+              name: 'Choose',
+              type: 'condition',
+              expression: { op: 'literal', value: chooseLeft },
+            },
+            node('leftTrue'),
+            node('leftFalse'),
+            loop('inner', 'right', 2),
+            node('right'),
+            node('after'),
+            {
+              nodeId: 'result',
+              name: 'Result',
+              type: 'result',
+              value: { op: 'literal', value: 'complete' },
+            },
+          ],
+          [
+            { sourceNodeId: 'outer', targetNodeId: 'result', outcome: 'done' },
+            { sourceNodeId: 'choose', targetNodeId: 'leftTrue', outcome: 'true' },
+            { sourceNodeId: 'choose', targetNodeId: 'leftFalse', outcome: 'false' },
+            { sourceNodeId: 'leftTrue', targetNodeId: 'after' },
+            { sourceNodeId: 'leftFalse', targetNodeId: 'after' },
+            { sourceNodeId: 'inner', targetNodeId: 'after', outcome: 'done' },
+            { sourceNodeId: 'right', targetNodeId: 'inner' },
+            { sourceNodeId: 'after', targetNodeId: 'outer' },
+          ],
+          'outer',
+          ['result'],
+        ),
+        executionSemanticsVersion: '2.0',
+      };
+      const result = await compileWorkflow(graph, 'confirmed', runtime).invoke({}, budget, costs);
+      expect(result.status).toBe('succeeded');
+      expect(result.result).toBe('complete');
+      expect(result.loopCounts).toEqual({ outer: 3, inner: 2 });
+      for (const [id, count] of [
+        [chooseLeft ? 'leftTrue' : 'leftFalse', 3],
+        ['right', 6],
+        ['after', 3],
+        ['fork', 3],
+        ['inner', 9],
+      ] as const)
+        expect(
+          result.events.filter((event) => event.nodeId === id && event.type === 'node_succeeded'),
+        ).toHaveLength(count);
+      expect(
+        result.events.some((event) => event.nodeId === (chooseLeft ? 'leftFalse' : 'leftTrue')),
+      ).toBe(false);
+      expect(runtime.callMcpTool).toHaveBeenCalledTimes(12);
+      expect(result.budgetUsage.mcpCalls).toBe(12);
+    },
+  );
+
+  it('rejects scoped crossed branches before any Tool call', () => {
+    const runtime = ports();
+    const graph: WorkflowDefinition = {
+      ...definition(
+        [
+          {
+            nodeId: 'fork',
+            name: 'Fork',
+            type: 'parallel',
+            branchEntryNodeIds: ['a', 'b'],
+            joinNodeId: 'result',
+            mergeStrategy: 'reject_conflicts',
+          },
+          ...['a', 'b'].map((nodeId) => ({
+            nodeId,
+            name: nodeId,
+            type: 'llm' as const,
+            instruction: 'Run',
+            responseSchema: {},
+          })),
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'literal', value: true },
+          },
+        ],
+        [
+          { sourceNodeId: 'a', targetNodeId: 'b' },
+          { sourceNodeId: 'b', targetNodeId: 'result' },
+        ],
+        'fork',
+        ['result'],
+      ),
+      executionSemanticsVersion: '2.0',
+    };
+    expect(() => compileWorkflow(graph, 'confirmed', runtime)).toThrow(/branch/i);
+    expect(runtime.callMcpTool).not.toHaveBeenCalled();
+    expect(runtime.executeLlm).not.toHaveBeenCalled();
+  });
+
+  it.each(['initial', 'human_resume', 'external_continuation'] as const)(
+    'preserves long-loop execution and call budgets after %s entry',
+    async (entry) => {
+      const runtime = ports({ nowMilliseconds: () => 0 });
+      const nodes: WorkflowDefinition['nodes'] = [
+        ...(entry === 'human_resume'
+          ? [
+              {
+                nodeId: 'confirm',
+                name: 'Confirm',
+                type: 'human_confirmation' as const,
+                prompt: 'Proceed?',
+              },
+            ]
+          : []),
+        ...(entry === 'external_continuation'
+          ? [
+              {
+                nodeId: 'remote',
+                name: 'Remote',
+                type: 'mcp_tool' as const,
+                tool: { serverId: 'test', toolName: 'remote' },
+                arguments: {},
+              },
+            ]
+          : []),
+        {
+          nodeId: 'loop',
+          name: 'Loop',
+          type: 'loop',
+          condition: { op: 'literal', value: true },
+          bodyEntryNodeId: 'body',
+          maxIterations: 100,
+        },
+        {
+          nodeId: 'body',
+          name: 'Body',
+          type: 'mcp_tool',
+          tool: { serverId: 'test', toolName: 'step' },
+          arguments: {},
+        },
+        {
+          nodeId: 'result',
+          name: 'Result',
+          type: 'result',
+          value: { op: 'ref', path: ['loopCounts', 'loop'] },
+        },
+      ];
+      const start =
+        entry === 'human_resume'
+          ? 'confirm'
+          : entry === 'external_continuation'
+            ? 'remote'
+            : 'loop';
+      const source = definition(
+        nodes,
+        [
+          ...(start === 'confirm'
+            ? [
+                { sourceNodeId: start, targetNodeId: 'loop', outcome: 'success' as const },
+                { sourceNodeId: start, targetNodeId: 'result', outcome: 'failure' as const },
+              ]
+            : start === 'loop'
+              ? []
+              : [{ sourceNodeId: start, targetNodeId: 'loop' }]),
+          { sourceNodeId: 'loop', targetNodeId: 'result', outcome: 'done' },
+          { sourceNodeId: 'body', targetNodeId: 'loop' },
+        ],
+        start,
+        ['result'],
+      );
+      const callMcpTool = vi.fn<WorkflowRuntimePorts['callMcpTool']>((input) =>
+        Promise.resolve(
+          input.workflowNodeId === 'remote'
+            ? externalWait('execution.long-entry', 'remote')
+            : immediate({ ok: true }),
+        ),
+      );
+      const compiled = compileWorkflow(source, 'confirmed', { ...runtime, callMcpTool });
+      const limitedBudget = { ...budget, maxMcpCalls: 31 };
+      let result = await compiled.invoke(
+        {},
+        limitedBudget,
+        costs,
+        undefined,
+        'execution.long-entry',
+      );
+      if (entry === 'human_resume') {
+        expect(result.status).toBe('paused');
+        result = await compiled.resume('execution.long-entry', true);
+      }
+      if (entry === 'external_continuation') {
+        expect(result.status).toBe('waiting_external');
+        if (result.continuation === undefined) throw new Error('TEST_CONTINUATION_REQUIRED');
+        result = await compiled.continueExternal(
+          'execution.long-entry',
+          result.continuation,
+          {
+            kind: 'completed',
+            waitId: 'wait-binding-remote',
+            nodeRunId: 'execution.long-entry~remote~1',
+            result: { content: [], isError: false },
+          },
+          costs,
+        );
+      }
+      expect(result.status).toBe('failed');
+      expect(result.terminationReason).toBe('mcp_calls_exhausted');
+      expect(callMcpTool).toHaveBeenCalledTimes(31);
+    },
+  );
+
+  it('rejects an oversized bound before any call and accepts an explicit larger ceiling', async () => {
+    const source = definition(
+      [
+        {
+          nodeId: 'loop',
+          name: 'Loop',
+          type: 'loop',
+          condition: { op: 'literal', value: false },
+          bodyEntryNodeId: 'body',
+          maxIterations: 100,
+        },
+        {
+          nodeId: 'body',
+          name: 'Body',
+          type: 'llm',
+          instruction: 'Body',
+          responseSchema: { type: 'object' },
+        },
+        { nodeId: 'result', name: 'Result', type: 'result', value: { op: 'literal', value: true } },
+      ],
+      [
+        { sourceNodeId: 'loop', targetNodeId: 'result', outcome: 'done' },
+        { sourceNodeId: 'body', targetNodeId: 'loop' },
+      ],
+      'loop',
+      ['result'],
+    );
+    const runtime = ports();
+    expect(() => compileWorkflow(source, 'confirmed', runtime, { maxSupersteps: 500 })).toThrow(
+      expect.objectContaining({ code: 'WORKFLOW_COMPLEXITY_LIMIT_EXCEEDED' }),
+    );
+    expect(runtime.executeLlm).not.toHaveBeenCalled();
+    expect(
+      (
+        await compileWorkflow(source, 'confirmed', runtime, { maxSupersteps: 505 }).invoke(
+          {},
+          budget,
+          costs,
+        )
+      ).status,
+    ).toBe('succeeded');
+  });
+
+  it.each([
+    [30, '1.0'],
+    [100, '1.0'],
+    [30, '2.0'],
+    [100, '2.0'],
+  ] as const)(
+    'executes all %i authorized loop iterations (%s)',
+    async (maxIterations, executionSemanticsVersion) => {
+      const callMcpTool = vi.fn<WorkflowRuntimePorts['callMcpTool']>(() =>
+        Promise.resolve(immediate({ done: true })),
+      );
+      const result = await compileWorkflow(
+        {
+          ...definition(
+            [
+              {
+                nodeId: 'loop',
+                name: 'Loop',
+                type: 'loop',
+                condition: { op: 'literal', value: true },
+                bodyEntryNodeId: 'body',
+                maxIterations,
+              },
+              {
+                nodeId: 'body',
+                name: 'Body',
+                type: 'mcp_tool',
+                tool: { serverId: 'test', toolName: 'step' },
+                arguments: {},
+              },
+              {
+                nodeId: 'result',
+                name: 'Result',
+                type: 'result',
+                value: { op: 'ref', path: ['loopCounts', 'loop'] },
+              },
+            ],
+            [
+              { sourceNodeId: 'loop', targetNodeId: 'result', outcome: 'done' },
+              { sourceNodeId: 'body', targetNodeId: 'loop' },
+            ],
+            'loop',
+            ['result'],
+          ),
+          executionSemanticsVersion,
+        },
+        'confirmed',
+        ports({ callMcpTool, nowMilliseconds: () => 0 }),
+      ).invoke({}, { ...budget, maxMcpCalls: 100, maxCost: 100 }, costs);
+      expect(result.status).toBe('succeeded');
+      expect(result.result).toBe(maxIterations);
+      expect(callMcpTool).toHaveBeenCalledTimes(maxIterations);
+    },
+  );
+
+  it.each(['1.0', '2.0'] as const)(
+    'runs a legal serial graph longer than the engine default recursion limit (%s)',
+    async (executionSemanticsVersion) => {
+      const nodes: WorkflowDefinition['nodes'] = Array.from({ length: 30 }, (_, index) => ({
+        nodeId: `step-${String(index)}`,
+        name: 'Step',
+        type: 'llm',
+        instruction: 'Read',
+        responseSchema: { type: 'object' },
+      }));
+      const executeLlm = vi.fn<WorkflowRuntimePorts['executeLlm']>(() =>
+        Promise.resolve({ ok: true }),
+      );
+      const result = await compileWorkflow(
+        {
+          ...definition(
+            nodes,
+            nodes.slice(1).map((node, index) => ({
+              sourceNodeId: `step-${String(index)}`,
+              targetNodeId: node.nodeId,
+            })),
+            'step-0',
+            ['step-29'],
+          ),
+          executionSemanticsVersion,
+        },
+        'confirmed',
+        ports({ executeLlm, nowMilliseconds: () => 0 }),
+      ).invoke({}, { ...budget, maxLlmCalls: 30 }, costs);
+      expect(result.status).toBe('succeeded');
+      expect(executeLlm).toHaveBeenCalledTimes(30);
+      expect(result.outputs['step-29']).toEqual({ ok: true });
+    },
+  );
+
+  it.each([
+    ['fail_fast', 'terminate', 'continue'],
+    ['recoverable', 'goto', 'continue'],
+    ['optional', 'continue', 'goto'],
+    ['degraded', 'continue', 'goto'],
+  ] as const)(
+    'enforces the %s Skill failure policy against an unauthorized model decision',
+    async (skillFailurePolicy, strategy, modelStrategy) => {
+      const executeSkill = vi.fn<WorkflowRuntimePorts['executeSkill']>(() =>
+        Promise.reject(new Error('CHILD_FAILED')),
+      );
+      const decideExecutionError = vi.fn<WorkflowRuntimePorts['decideExecutionError']>(() =>
+        Promise.resolve({ strategy: modelStrategy, summary: 'Override policy' }),
+      );
+      const executeLlm = vi.fn<WorkflowRuntimePorts['executeLlm']>(() =>
+        Promise.resolve({ ok: true }),
+      );
+      const compiled = compileWorkflow(
+        definition(
+          [
+            {
+              nodeId: 'child',
+              name: 'Child',
+              type: 'skill_call',
+              skillId: 'skill.child',
+              input: {},
+            },
+            {
+              nodeId: 'handler',
+              name: 'Handler',
+              type: 'error_handler',
+              handledNodeId: 'child',
+              strategy,
+              skillFailurePolicy,
+              ...(strategy === 'goto' ? { gotoNodeId: 'after' } : {}),
+            },
+            {
+              nodeId: 'after',
+              name: 'After',
+              type: 'llm',
+              instruction: 'Continue',
+              responseSchema: { type: 'object' },
+            },
+          ],
+          [
+            { sourceNodeId: 'child', targetNodeId: 'after' },
+            { sourceNodeId: 'handler', targetNodeId: 'after' },
+          ],
+          'child',
+          ['after'],
+        ),
+        'confirmed',
+        ports({ executeSkill, decideExecutionError, executeLlm }),
+      );
+      await expect(compiled.invoke({}, budget, costs)).rejects.toMatchObject({
+        code: 'WORKFLOW_ERROR_DECISION_INVALID',
+      });
+      expect(executeLlm).not.toHaveBeenCalled();
+      expect(decideExecutionError.mock.calls[0]?.[0].allowedStrategies).not.toContain(
+        modelStrategy,
+      );
+    },
+  );
+
   it('exposes an exact single external-wait capsule before returning the Provider receipt', async () => {
     const prepareExternalWait = vi.fn<WorkflowExternalWaitSnapshotPreparer>((preparation) =>
       Promise.resolve({
@@ -1174,6 +1893,145 @@ describe('LangGraph Workflow compiler', () => {
     expect(runtime.requestHumanConfirmation).not.toHaveBeenCalled();
   });
 
+  it.each(['skill_call', 'subworkflow'] as const)(
+    'transfers external child confirmation to a %s checkpoint without charging or creating another call',
+    async (type) => {
+      let phase: 'waiting' | 'paused' | 'completed' = 'waiting';
+      const requests: string[] = [];
+      const child = vi.fn((request: { parentNodeRunId: string; resumeChild?: boolean }) => {
+        requests.push(request.parentNodeRunId);
+        if (request.resumeChild === true) phase = 'completed';
+        if (phase === 'waiting')
+          return Promise.resolve({
+            status: 'waiting_external' as const,
+            wait: {
+              waitId: 'child-wait',
+              kind: 'child_workflow' as const,
+              sourceId: 'child-instance',
+              nodeId: 'child',
+              nodeRunId: request.parentNodeRunId,
+              state: 'waiting' as const,
+            },
+          });
+        return Promise.resolve(
+          phase === 'completed'
+            ? { status: 'completed' as const, output: { verified: true } }
+            : {
+                status: 'paused' as const,
+                childInstanceId: 'child-instance',
+                prompt: 'Review child after remote result',
+              },
+        );
+      });
+      const runtime = ports({
+        executeSkill: child,
+        executeSubworkflow: child,
+        nowMilliseconds: () => 0,
+      });
+      const graph: WorkflowDefinition = {
+        ...definition(
+          [
+            type === 'skill_call'
+              ? { nodeId: 'child', name: 'Child', type, skillId: 'skill.child', input: {} }
+              : {
+                  nodeId: 'child',
+                  name: 'Child',
+                  type,
+                  workflowDefinitionId: 'child-workflow',
+                  workflowVersion: 1,
+                  input: {},
+                },
+            {
+              nodeId: 'result',
+              name: 'Result',
+              type: 'result',
+              value: { op: 'ref', path: ['outputs', 'child', 'verified'] },
+            },
+          ],
+          [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+          'child',
+          ['result'],
+        ),
+        executionSemanticsVersion: '2.0',
+      };
+      const executor = new LangGraphWorkflowExecutor(runtime, costs);
+      const waiting = await executor.execute(graph, {}, budget, undefined, 'parent');
+      if (waiting.continuation === undefined) throw new Error('Expected persisted child wait');
+      phase = 'paused';
+      const paused = await executor.continueExternal(
+        graph,
+        'parent',
+        waiting.continuation,
+        { kind: 'child_paused', waitId: 'child-wait', nodeRunId: 'parent~child~1' },
+        'child-confirmation',
+      );
+      expect(paused).toMatchObject({ status: 'paused', budgetUsage: { cost: 1 } });
+      const done = await executor.resumeHumanConfirmation('parent', true);
+      expect(done).toMatchObject({ status: 'succeeded', result: true, budgetUsage: { cost: 1 } });
+      expect(new Set(requests)).toEqual(new Set(['parent~child~1']));
+      expect(
+        done.events.filter((event) => event.nodeId === 'child' && event.type === 'node_succeeded'),
+      ).toHaveLength(1);
+    },
+  );
+
+  it.each(['skill_call', 'subworkflow'] as const)(
+    'resumes a paused %s with the same node-run and one call cost',
+    async (type) => {
+      let completed = false;
+      const child = vi.fn((request: { resumeChild?: boolean }) => {
+        if (request.resumeChild === true) completed = true;
+        return Promise.resolve(
+          completed
+            ? { status: 'completed' as const, output: { verified: true } }
+            : {
+                status: 'paused' as const,
+                childInstanceId: 'child-instance',
+                prompt: 'Review child',
+              },
+        );
+      });
+      const runtime = ports({
+        executeSkill: child,
+        executeSubworkflow: child,
+        nowMilliseconds: () => 0,
+      });
+      const graph = definition(
+        [
+          type === 'skill_call'
+            ? { nodeId: 'child', name: 'Child', type, skillId: 'skill.child', input: {} }
+            : {
+                nodeId: 'child',
+                name: 'Child',
+                type,
+                workflowDefinitionId: 'child-workflow',
+                workflowVersion: 1,
+                input: {},
+              },
+          {
+            nodeId: 'result',
+            name: 'Result',
+            type: 'result',
+            value: { op: 'ref', path: ['outputs', 'child', 'verified'] },
+          },
+        ],
+        [{ sourceNodeId: 'child', targetNodeId: 'result' }],
+        'child',
+        ['result'],
+      );
+      const executor = new LangGraphWorkflowExecutor(runtime, costs);
+      const paused = await executor.execute(graph, {}, budget, undefined, 'parent');
+      expect(paused.status).toBe('paused');
+      const done = await executor.resumeHumanConfirmation('parent', true);
+      expect(done).toMatchObject({ status: 'succeeded', result: true, budgetUsage: { cost: 1 } });
+      expect(child.mock.calls.map(([request]) => request)).toEqual([
+        expect.objectContaining({ parentNodeRunId: 'parent~child~1' }),
+        expect.objectContaining({ parentNodeRunId: 'parent~child~1' }),
+        expect.objectContaining({ parentNodeRunId: 'parent~child~1', resumeChild: true }),
+      ]);
+    },
+  );
+
   it('binds initial and upstream data into immutable LLM, MCP, Skill and subworkflow snapshots', async () => {
     const originalArguments = {
       deviceId: { op: 'ref' as const, path: ['input', 'deviceId'] },
@@ -1192,7 +2050,9 @@ describe('LangGraph Workflow compiler', () => {
       status: 'completed',
       output: { commandId: 'command-1', accepted: true },
     });
-    const executeSubworkflow = vi.fn().mockResolvedValue({ verified: true });
+    const executeSubworkflow = vi
+      .fn()
+      .mockResolvedValue({ status: 'completed', output: { verified: true } });
     const runtime = ports({ executeLlm, callMcpTool, executeSkill, executeSubworkflow });
     const compiled = compileWorkflow(
       definition(

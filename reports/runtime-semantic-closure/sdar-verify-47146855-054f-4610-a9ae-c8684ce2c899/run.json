@@ -1,0 +1,11 @@
+{
+  "runId": "sdar-verify-47146855-054f-4610-a9ae-c8684ce2c899",
+  "dependencyMode": "frozen",
+  "inputSha256": "8b4c57de11b7179dc388177250372cd0f90f662a8ca929978a4c159be5028314",
+  "baselineSha256": "a312f8f11a87769b38fc985ab2a53956c1fcf983edb16a7d9931ec0f13d370d8",
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "snapshot": "/tmp/sdar-verify-47146855-054f-4610-a9ae-c8684ce2c899-cxQ9su/source",
+  "exitCode": 1,
+  "cleanupExitCode": 0
+}

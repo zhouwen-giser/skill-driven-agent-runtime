@@ -4,6 +4,44 @@ import { WorkflowValidator } from '../src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
 
 describe('WorkflowValidator', () => {
+  it.each(['missing', 'duplicate'] as const)(
+    'rejects a %s loop done route before execution',
+    async (kind) => {
+      const source = validWorkflow();
+      const done = { sourceNodeId: 'loop', targetNodeId: 'result', outcome: 'done' as const };
+      const result = await validator().validate({
+        ...source,
+        edges: [
+          ...source.edges.filter(
+            (edge) => !(edge.sourceNodeId === 'loop' && edge.outcome === 'done'),
+          ),
+          ...(kind === 'duplicate' ? [done, done] : []),
+        ],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toEqual(
+        expect.arrayContaining([expect.objectContaining({ code: 'WORKFLOW_LOOP_EDGES_INVALID' })]),
+      );
+    },
+  );
+
+  it('rejects ambiguous duplicate condition outcomes', async () => {
+    const source = validWorkflow();
+    const result = await validator().validate({
+      ...source,
+      edges: [
+        ...source.edges,
+        { sourceNodeId: 'condition', targetNodeId: 'result', outcome: 'true' },
+      ],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'WORKFLOW_CONDITION_EDGES_INVALID' }),
+      ]),
+    );
+  });
+
   it('accepts all whitelisted node kinds with restricted expressions and validated catalogs', async () => {
     const result = await validator().validate(validWorkflow());
     expect(result.valid).toBe(true);
@@ -476,7 +514,8 @@ function validWorkflow() {
       { sourceNodeId: 'condition', targetNodeId: 'sub', outcome: 'false' as const },
       { sourceNodeId: 'parallel', targetNodeId: 'loop' },
       { sourceNodeId: 'sub', targetNodeId: 'loop' },
-      { sourceNodeId: 'loop', targetNodeId: 'skill' },
+      { sourceNodeId: 'loop', targetNodeId: 'skill', outcome: 'loop' as const },
+      { sourceNodeId: 'loop', targetNodeId: 'result', outcome: 'done' as const },
       { sourceNodeId: 'skill', targetNodeId: 'confirm' },
       { sourceNodeId: 'confirm', targetNodeId: 'handler' },
       { sourceNodeId: 'handler', targetNodeId: 'result' },

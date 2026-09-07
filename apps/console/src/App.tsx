@@ -20,8 +20,10 @@ import { BusinessEventsPanel } from './BusinessEventsPanel.js';
 import { CapabilitiesPanel } from './CapabilitiesPanel.js';
 import { CognitiveGovernancePanel } from './CognitiveGovernancePanel.js';
 import { ArtifactPanel } from './ArtifactPanel.js';
+import { IsolatedDemoPanel } from './IsolatedDemoPanel.js';
 
 type Section =
+  | 'isolated-demo'
   | 'overview'
   | 'skills'
   | 'capabilities'
@@ -54,6 +56,7 @@ const navigation: readonly {
   { id: 'memory', label: '长期记忆', note: 'Recall' },
   { id: 'evaluation', label: '评估分析', note: 'Quality' },
   { id: 'system', label: 'System Config', note: 'Models' },
+  { id: 'isolated-demo', label: '隔离软件演示', note: 'No Device' },
 ];
 
 export function App() {
@@ -214,6 +217,7 @@ function SectionView({
         }}
       />
     );
+  if (section === 'isolated-demo') return <IsolatedDemoPanel />;
   if (section === 'business-events') return <BusinessEventsPanel />;
   if (section === 'workflows')
     return (
@@ -343,6 +347,7 @@ export function Lookup({
 }: {
   readonly section: Exclude<
     Section,
+    | 'isolated-demo'
     | 'overview'
     | 'skills'
     | 'capabilities'

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "verifiedAt": "2026-07-14T00:25:53+08:00",
+  "testedCommit": "2e398d912a6d3a5dde88d54c3c57ef72d57ef171",
+  "environment": {
+    "os": "Windows",
+    "node": "v22.14.0",
+    "pnpm": "11.7.0"
+  },
+  "steps": [
+    "git clone --quiet --no-local . <validated-temporary-directory>",
+    "pnpm --dir <validated-temporary-directory> install --frozen-lockfile",
+    "pnpm --dir <validated-temporary-directory> verify:bootstrap"
+  ],
+  "results": {
+    "frozenInstall": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "unitAndContract": "54 files / 242 tests passed",
+    "architecture": "165 TypeScript files passed",
+    "a2aBaseline": "74 passed / 161 scoped skips / 0 failures / 0 errors",
+    "managementOpenApi": "102 operations passed",
+    "acceptanceMap": "18 scenarios passed",
+    "sourcePins": "17 passed",
+    "composeAndMigrations": "52 migrations passed static verification",
+    "licenses": "288 current-lockfile npm packages and 2 external services passed",
+    "productionBuild": "passed",
+    "temporaryDirectoryRemoved": true
+  },
+  "classification": "real isolated local checkout and build; no external or production system contacted",
+  "resolvedDiscoveries": [
+    "Repository LF policy was missing under Windows core.autocrlf; fixed by .gitattributes.",
+    "SBOM included stale virtual-store packages; generation now filters through the current pnpm lockfile.",
+    "License evidence contained peer-layout-dependent paths; locators are now package-relative and deterministic."
+  ]
+}

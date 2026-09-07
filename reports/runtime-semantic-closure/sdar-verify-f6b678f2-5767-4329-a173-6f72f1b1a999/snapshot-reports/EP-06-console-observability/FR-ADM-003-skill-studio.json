@@ -1,0 +1,25 @@
+{
+  "requirement": "FR-ADM-003",
+  "status": "verified",
+  "currentRegression": {
+    "files": 5,
+    "testsPassed": 60,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "acceptance": {
+    "draft": ["FR-SKL-001", "FR-EVO-008"],
+    "schemaGeneration": ["FR-SKL-002", "FR-SKL-003"],
+    "edit": ["FR-SKL-001", "FR-SKL-006"],
+    "simulation": ["FR-EVO-005", "FR-EVO-006"],
+    "publication": ["FR-EVO-006", "FR-EVO-008"],
+    "versionComparison": ["FR-SKL-006"],
+    "rollback": ["FR-SKL-006"],
+    "enableDisable": ["FR-SKL-007"],
+    "sixRelationGraph": ["FR-SKL-009"],
+    "warnings": ["FR-EVO-009"],
+    "manualCorrection": ["FR-EVO-007"]
+  },
+  "allOwningRequirementsHaveRealPostgresOrE2eEvidence": true,
+  "unverified": ["latest real-browser repetition of every Skill Studio control"]
+}

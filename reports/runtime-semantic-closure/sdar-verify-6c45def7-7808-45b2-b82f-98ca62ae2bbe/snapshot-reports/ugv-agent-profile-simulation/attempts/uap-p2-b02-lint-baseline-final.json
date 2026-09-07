@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:39:57.000Z",
+  "status": "BASELINE_GAP",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm lint",
+  "exitCode": 1,
+  "failure": {
+    "code": "UNCHANGED_ESLINT_BASELINE",
+    "summary": "ESLint reported 22 errors in seven Home-Lab/Node-Control files that are outside and unchanged by UAP-P2-B02. Every B02 TypeScript file passed the same scoped ESLint configuration."
+  },
+  "minimumUnblockCondition": "The owners of the seven pre-existing files resolve the recorded typed-lint findings or accept a separately scoped baseline cleanup.",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

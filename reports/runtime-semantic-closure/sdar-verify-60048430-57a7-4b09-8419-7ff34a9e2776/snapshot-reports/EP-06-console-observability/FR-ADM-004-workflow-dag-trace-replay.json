@@ -1,0 +1,26 @@
+{
+  "requirement": "FR-ADM-004",
+  "status": "verified",
+  "currentRegression": {
+    "files": 4,
+    "testsPassed": 63,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 242
+  },
+  "acceptance": {
+    "dagDisplay": true,
+    "visualEditing": true,
+    "dslEditing": true,
+    "validation": true,
+    "immutableRevision": true,
+    "confirmation": true,
+    "nodeState": true,
+    "executionReplay": true,
+    "planToTraceReplay": true
+  },
+  "historicalRealPostgresRedisManagementModelMcpLanggraphEvidence": true,
+  "unverified": [
+    "latest PostgreSQL list-event repetition",
+    "latest real-API browser interaction repetition"
+  ]
+}

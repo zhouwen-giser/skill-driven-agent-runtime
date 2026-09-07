@@ -1,0 +1,47 @@
+{
+  "status": "LOCKED",
+  "repository": "/home/zhouwen/web-download/sdar-mcp-provider-platform",
+  "branch": "codex/smpp-mcp-tasks-ugv-diagnostic-support-v0.1",
+  "commitSha": "1e67e6e421d70a3cbce2d41bf5007e99463712fe",
+  "producerEvidenceCommitSha": "0c1b525d99718d058b1011cf96306d960fd2d326",
+  "producerDraftPullRequest": "https://github.com/zhouwen-giser/sdar-mcp-provider-platform/pull/20",
+  "contractFiles": [
+    "protocol/smpp-diagnostics/task-execution-binding.schema.json",
+    "protocol/smpp-diagnostics/dispatch-uncertainty.schema.json",
+    "protocol/smpp-diagnostics/reconciliation-result.schema.json",
+    "protocol/smpp-diagnostics/mission-relation.schema.json",
+    "protocol/smpp-diagnostics/provider-evidence-ref.schema.json",
+    "protocol/smpp-diagnostics/business-terminal.schema.json",
+    "proto/io/sdar/mcp/tasks/adapter/v1/adapter.proto",
+    "protocol/frozen/SDAR_MCP_Tasks_Unified_Protocol_Profile_V1.0.md"
+  ],
+  "contractVersion": "sdar.smpp-diagnostics/v1 + adapter.v1 + frozen-mcp-v1",
+  "schemaHashes": {
+    "taskExecutionBinding": "58a6ea51a1b122b765439a61537394fb965e9cbaab9d30c02bb4077b262d2e5a",
+    "dispatchUncertainty": "fd3c6a200653cba90573d5700fee321db632bd177ce0f4f543a2249e979cab74",
+    "reconciliationResult": "7a520162d8f857c13d9d7acbcf3e4a50c15496100d74cb0322a9cf302a2520bf",
+    "missionRelation": "45088f3bf58bb319e31dea8f5d3fcbc41f00b987c112c38745fc58595c7048a8",
+    "providerEvidenceRef": "c264c8c578aa56efbfb4ebb052653c8355f467b83904f36f05523aa322ad1fe1",
+    "businessTerminal": "06d781dbd9011814ab6c83618443c4832138a63759769e8d093a4e86b06bd1fe",
+    "adapterProto": "d36d49e8f6d85c5cb35e7c92fb6e66d8275c8d7cb4b97343c7f212d5c8ffc603",
+    "frozenProfile": "d33623f33ea2dfbb0ad56868d9911af6c7b37b354a0b17a76798646bded9a845"
+  },
+  "idempotencyIdentitySemantics": "taskId + providerId + operationName + canonical argumentHash + executionMode/simulationId identify one Provider execution; repeated exact identity cannot create another execution",
+  "uncertainReconciliationSemantics": "dispatch uncertainty always has redispatchAllowed=false; exact reconciliation returns found, not_found, conflict or transient_unavailable and only found with validated identity restores the original Task",
+  "taskToExecutionIdentitySemantics": "externalExecutionId is authoritative only after committed admission or identity-validated found reconciliation",
+  "missionIdentitySemantics": "deviceMissionId is optional observation-derived data and must remain unresolved when absent",
+  "terminalCompatibility": "MCP Task terminal status, Provider execution terminal status, business outcome and Goal verification remain separate axes",
+  "observedSouthboundOutcome": {
+    "executionMode": "simulation",
+    "result": "UGV_EXECUTION_MODE_UNSUPPORTED",
+    "remoteTaskCreated": false,
+    "movementObserved": false,
+    "deviceMissionObserved": false,
+    "goalOrPhysicalSuccessInferred": false
+  },
+  "authorityExclusions": [
+    "Producer private PostgreSQL",
+    "Provider private persistence",
+    "Telemetry/ClickHouse/Benchmark projections"
+  ]
+}

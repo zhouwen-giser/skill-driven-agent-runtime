@@ -20,15 +20,15 @@ import {
 
 describe('assertNoHomeAssistantEntityId', () => {
   it('allows a non-Home-Assistant entity_id field from another Provider', () => {
-    expect(() =>
-      assertNoHomeAssistantEntityId({ deviceReported: { entity_id: 'ugv' } }),
-    ).not.toThrow();
+    expect(() => {
+      assertNoHomeAssistantEntityId({ deviceReported: { entity_id: 'ugv' } });
+    }).not.toThrow();
   });
 
   it('still rejects an actual Home Assistant entity ID', () => {
-    expect(() =>
-      assertNoHomeAssistantEntityId({ deviceReported: { entity_id: 'light.kitchen' } }),
-    ).toThrowError(expect.objectContaining({ code: 'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN' }));
+    expect(() => {
+      assertNoHomeAssistantEntityId({ deviceReported: { entity_id: 'light.kitchen' } });
+    }).toThrow(expect.objectContaining({ code: 'HOME_ASSISTANT_ENTITY_ID_FORBIDDEN' }));
   });
 });
 

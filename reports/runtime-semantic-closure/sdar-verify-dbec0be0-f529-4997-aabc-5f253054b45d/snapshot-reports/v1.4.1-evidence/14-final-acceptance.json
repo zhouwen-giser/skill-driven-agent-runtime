@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "goal": "SDAR v1.4.1 Canonical Evidence Export Completion",
+  "phase": 14,
+  "status": "PASSED",
+  "verifiedImplementationCommit": "eb72012c52d5727b6ccc119d77fa1b97317b6fa8",
+  "coverage": {
+    "catalog": "100/100",
+    "required": "95/95",
+    "diagnostic": "5/5",
+    "durableProjection": "100/100",
+    "requiredDeferredItems": 0
+  },
+  "contracts": {
+    "registryHash": "sha256:eac67fcc0cd02c55da750156af42f3ea2130ee470f0670aba980c08ddec41c71",
+    "contractHash": "sha256:23ac6191b4f8334d5eb404ba545ed3ee7ebd2c877ccc3c7236bd3f1f80390c9b"
+  },
+  "acceptance": {
+    "phase12Scenarios": "44/44",
+    "phase13AdversarialItems": "25/25",
+    "finalReview": {
+      "blocking": 0,
+      "major": 0,
+      "minor": 0
+    }
+  },
+  "performance": {
+    "runtimeBaselineP95Ms": 805.957,
+    "runtimeEvidenceEnabledP95Ms": 880.984,
+    "runtimeRegressionPercent": 9.309,
+    "baselineMedianDriftPercent": 14.823,
+    "evidenceAppendP95Ms": 15.576,
+    "thresholdsUnchanged": true
+  },
+  "fullVerify": {
+    "status": "passed",
+    "durationMs": 1213445,
+    "stages": 10,
+    "staticAssertions": 1305,
+    "runtimeMigrations": 41,
+    "controlMigrations": 9,
+    "integrationTests": 175,
+    "e2eTests": 73,
+    "officialA2aTck": "passed",
+    "canonicalEvidenceDemo": "44/44",
+    "smokes": ["infrastructure", "server-console", "node-control"]
+  },
+  "clickHouseHandoff": {
+    "readyForAdapterIntake": true,
+    "implementationAuthorized": false,
+    "implementationPresent": false
+  },
+  "publication": {
+    "branch": "feature/v1.4.1-canonical-evidence-export",
+    "pushed": true,
+    "pullRequest": 18,
+    "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/18",
+    "base": "main",
+    "readyForReview": true,
+    "mergeStateAtAcceptance": "CLEAN",
+    "merged": false,
+    "tagged": false,
+    "released": false,
+    "deployed": false
+  },
+  "blockers": [],
+  "completedAt": "2026-08-10T20:30:00+08:00"
+}

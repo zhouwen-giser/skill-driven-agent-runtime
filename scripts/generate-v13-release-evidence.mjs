@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
+import { bootstrapVerificationResult } from './lib/verification-summary.mjs';
 
 const root = process.cwd();
 const reports = resolve(root, 'reports', 'goal');
@@ -58,7 +59,7 @@ const trivy = {
   redis: trivySummary(sources.redisTrivy.value),
 };
 const a2a = parseA2aJunit(sources.a2aJunit.content);
-const bootstrap = step('static-unit-contract-build');
+const bootstrap = bootstrapVerificationResult(sources.verification.value);
 const integration = step('postgres-redis-integration');
 const e2e = step('postgres-redis-model-mcp-e2e');
 const serverSmoke = step('server-console-smoke');

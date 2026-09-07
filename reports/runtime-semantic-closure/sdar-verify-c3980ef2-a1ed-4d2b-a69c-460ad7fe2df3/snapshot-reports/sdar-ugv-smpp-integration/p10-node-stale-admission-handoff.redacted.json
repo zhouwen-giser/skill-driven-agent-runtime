@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "sdar.p10-node-stale-admission-handoff/v1",
+  "generatedAt": "2026-09-02T11:04:12.152Z",
+  "status": "deployed_with_nonfunctional_gate_blocker",
+  "implementation": {
+    "commit": "3d2277799fa36b9493d112e9eeeba8a3a2ee9e27",
+    "subject": "fix(ugv): reject explicit stale unknown readiness",
+    "distContentSha256": "733e786db26db29bb01930c8817b95af06749eb182da5d9fd0f92bc4f614c87b"
+  },
+  "policy": {
+    "scope": "ugv-agent-profile",
+    "benignUnknownAvailability": "allowed_by_default",
+    "explicitUnknownReasonSegmentsRejected": [
+      "RECOVERING",
+      "STALE",
+      "UNHEALTHY",
+      "UNCORRELATED"
+    ],
+    "explicitUnavailable": "rejected",
+    "rejectionBoundary": "task_preparation_before_plan_confirmation",
+    "rejectionCode": "UGV_PROFILE_READINESS_NOT_ADMITTED",
+    "rawAvailabilityPreserved": true,
+    "policyDecisionPersisted": true
+  },
+  "runtime": {
+    "pid": 4097010,
+    "startedAt": "2026-09-02T11:03:05Z",
+    "management": {
+      "url": "http://127.0.0.1:10998/api/v1/health",
+      "httpStatus": 200
+    },
+    "a2a": {
+      "url": "http://127.0.0.1:10999/.well-known/agent-card.json",
+      "httpStatus": 200,
+      "pointNavigationExposureId": "a2a.embodied.move",
+      "pointNavigationExposureVersion": 5,
+      "capabilityId": "embodied.move",
+      "capabilityVersion": 5,
+      "requesterAllowsAnonymousInitialAdmission": true,
+      "requiredExecutionAuthorities": [
+        "plan_confirmation",
+        "physical_control.confirm"
+      ]
+    },
+    "nodeControl": {
+      "liveUrl": "http://127.0.0.1:10091/health/live",
+      "readyUrl": "http://127.0.0.1:10091/health/ready",
+      "liveHttpStatus": 200,
+      "readyHttpStatus": 200,
+      "serviceAuthenticationFailuresObserved": false
+    }
+  },
+  "providerAuthority": {
+    "observedAt": "2026-09-02T11:04:12.152Z",
+    "bindingId": "ugv-smpp-real-integration-r2-binding",
+    "bindingRevision": 2,
+    "localServerId": "ugv-smpp-real-integration-r2",
+    "registryRevision": 2,
+    "registryChecksum": "165a5a0bfc2a93a2915d40c38fe1ec99af11bd0d1640565e34118e9301c44bdc",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a",
+    "operationCount": 10,
+    "availabilityStatus": "available",
+    "availabilityValidUntil": "2026-09-02T11:31:56.410Z"
+  },
+  "qualification": {
+    "focused": {
+      "status": "passed",
+      "files": 6,
+      "tests": 73
+    },
+    "isolatedPostgresRuntimeA2a": {
+      "status": "passed",
+      "files": 1,
+      "tests": 1,
+      "provider": "local_fake_only"
+    },
+    "typecheck": "passed",
+    "architecture": {
+      "status": "passed",
+      "typescriptSources": 872
+    },
+    "productionBuild": "passed",
+    "cleanFullVerify": {
+      "status": "failed",
+      "commit": "3d2277799fa36b9493d112e9eeeba8a3a2ee9e27",
+      "worktreeDirty": false,
+      "staticUnitContractBuild": {
+        "status": "passed",
+        "files": 332,
+        "tests": 2887,
+        "openApiOperations": 174
+      },
+      "cognitiveReplay": "passed",
+      "migrations": {
+        "status": "passed",
+        "runtimeThrough": 177,
+        "controlThrough": 12
+      },
+      "postgresRedisIntegration": {
+        "status": "passed",
+        "files": 40,
+        "tests": 228
+      },
+      "functionalE2eBeforePerformance": {
+        "status": "passed",
+        "files": 6,
+        "testsPassed": 72,
+        "testsSkipped": 1
+      },
+      "failure": "outer_e2e_timeout_before_phase13_completion"
+    },
+    "phase13Attempts": [
+      {
+        "status": "failed",
+        "baselineRegressionPercent": -8.015403814593672,
+        "baselineMedianDriftPercent": 8.621863084632965,
+        "evidenceAppendP95Ms": 20.478203000002395,
+        "failedThreshold": "evidence_append_p95_above_20ms"
+      },
+      {
+        "status": "failed",
+        "baselineRegressionPercent": 2.1810622834852724,
+        "baselineMedianDriftPercent": 16.486613367302603,
+        "evidenceAppendP95Ms": 13.462258999999904,
+        "failedThreshold": "baseline_window_drift_above_15_percent",
+        "runnerDisposition": "timed_out_after_raw_metrics"
+      }
+    ]
+  },
+  "zeroMutationEvidence": {
+    "before": {
+      "agentTaskTotal": 26,
+      "activeAgentTasks": 0,
+      "mcpInvocationTotal": 9,
+      "activeRemoteTasks": 0
+    },
+    "after": {
+      "agentTaskTotal": 26,
+      "activeAgentTasks": 0,
+      "mcpInvocationTotal": 9,
+      "activeRemoteTasks": 0
+    },
+    "a2aTasksCreated": 0,
+    "providerCallsPerformed": 0,
+    "navigationPerformed": false,
+    "simulatorMutationPerformed": false
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "modelSecretsIncluded": false,
+    "databaseUrlsIncluded": false
+  },
+  "releaseDisposition": {
+    "functionalFix": "qualified_and_deployed",
+    "fullReleaseGate": "blocked_by_phase13_measurement_stability",
+    "p10MutationAuthority": "not_exercised_by_this_qualification"
+  }
+}

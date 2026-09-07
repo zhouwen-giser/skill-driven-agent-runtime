@@ -1,0 +1,23 @@
+{
+  "name": "clean-baseline-reset-seed",
+  "command": "pnpm verify:migrations",
+  "status": "passed",
+  "startedAt": "2026-09-07T06:24:34.971Z",
+  "finishedAt": "2026-09-07T06:27:19.156Z",
+  "timeoutMs": 300000,
+  "logPath": "reports/verification/raw/clean-baseline-reset-seed.log",
+  "outputSha256": "b2fdb094bab73f9192016cd2db2212f4a788da971f112fe636bf3b79a0711f11",
+  "metrics": {
+    "migrationCount": 71
+  },
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 164185,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 164,
+    "peakRssBytes": 412610560,
+    "peakProcesses": 6
+  },
+  "cleanupErrors": []
+}

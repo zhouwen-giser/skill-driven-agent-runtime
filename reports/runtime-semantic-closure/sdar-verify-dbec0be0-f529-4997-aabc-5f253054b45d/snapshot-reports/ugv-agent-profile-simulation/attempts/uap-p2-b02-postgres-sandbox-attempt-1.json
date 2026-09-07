@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:02:04.000Z",
+  "status": "ENVIRONMENT_BLOCKED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "sandbox_environment",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "node scripts/test-integration.mjs packages/persistence-postgres/test/repositories.integration.test.ts",
+  "exitCode": 1,
+  "failure": {
+    "code": "POSTGRES_CONNECT_EPERM",
+    "summary": "The sandbox denied the existing isolated-runner connection to 127.0.0.1:55432 before database creation or any test."
+  },
+  "stateMutation": "none",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

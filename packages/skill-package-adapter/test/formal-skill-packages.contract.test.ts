@@ -35,7 +35,7 @@ describe('formal SDAR v1.2 Skill Packages', () => {
       skillVersion: { skillId: 'embodied.move_to', version: 1, status: 'enabled' },
     });
     expect(areaPatrol).toMatchObject({
-      packageChecksum: '742b72b84d6c499b8b04034fc945d5eb997b42e3a7c3e2129638e316f18bdd23',
+      packageChecksum: '0aa548303e37cf77e1269d92edb3b014d6f3b917cec013ab00b15eb84d9f8473',
       skillVersion: { skillId: 'embodied.area_patrol', version: 1, status: 'enabled' },
     });
     expect(Object.isFrozen(moveTo.skillVersion.usageSpecification)).toBe(true);

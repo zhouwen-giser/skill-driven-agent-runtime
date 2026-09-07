@@ -197,6 +197,12 @@ const GOVERNANCE_SPECS = Object.freeze([
 type GovernanceSpec = (typeof GOVERNANCE_SPECS)[number];
 
 export interface UgvSmppCapabilityGovernanceConfiguration {
+  /** Deployment bootstrap only: seed the repository-owned point Skill in an empty database. */
+  readonly initialPointSkillPackageRoot?: string;
+  /** Do not register any executable Device weapon implementation in the development package. */
+  readonly excludeDeviceWeapons?: boolean;
+  /** Explicit trusted Compose network, not inferred from arbitrary HTTP URLs. */
+  readonly developmentComposeNetwork?: boolean;
   readonly nodeControlBaseUrl: string;
   readonly nodeControlBearerToken: string;
   readonly runtimeManagementBaseUrl: string;
@@ -1034,8 +1040,10 @@ async function resolveGovernanceVersions(
   authority: CatalogAuthority,
   request: typeof fetch,
 ): Promise<ReadonlyMap<string, Readonly<{ skillVersion: number; capabilityVersion: number }>>> {
-  const present = GOVERNANCE_SPECS.filter((spec) =>
-    authority.tools.some(({ toolName }) => toolName === spec.toolName),
+  const present = GOVERNANCE_SPECS.filter(
+    (spec) =>
+      !(configuration.excludeDeviceWeapons === true && spec.toolName === FIRE_TOOL_NAME) &&
+      authority.tools.some(({ toolName }) => toolName === spec.toolName),
   );
   const capabilities = await controlListCapabilities(configuration, request);
   const capabilityVersions = new Map<string, readonly NodeCapabilityDefinitionVersion[]>();
@@ -1130,6 +1138,7 @@ function planGovernance(
     tools.set(tool.toolName, tool);
   }
   const planned = GOVERNANCE_SPECS.flatMap((spec) => {
+    if (configuration.excludeDeviceWeapons === true && spec.toolName === FIRE_TOOL_NAME) return [];
     const tool = tools.get(spec.toolName);
     if (tool === undefined) return [];
     const version = versions.get(spec.skillId);
@@ -2157,13 +2166,167 @@ function requesterPolicyFor(spec: GovernanceSpec): JsonObject {
   });
 }
 
+function initialPointCapability(
+  configuration: UgvSmppCapabilityGovernanceConfiguration,
+  authority: CatalogAuthority,
+  tool: Tool,
+): NodeCapabilityDefinitionVersion {
+  const resourceId = configuration.resourceId ?? 'vehicle:ugv1';
+  return createNodeCapabilityDefinition({
+    capabilityId: 'embodied.move',
+    version: 1,
+    domain: 'embodied',
+    name: 'Move UGV',
+    description: 'Move to an explicit WGS84 target with authoritative final-position evidence.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId', 'target'],
+      properties: {
+        resourceId: { const: resourceId },
+        target: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['x', 'y', 'frame'],
+          properties: {
+            x: { type: 'number', minimum: -180, maximum: 180 },
+            y: { type: 'number', minimum: -90, maximum: 90 },
+            frame: { const: 'WGS84' },
+          },
+        },
+      },
+    },
+    outputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resourceId', 'status', 'finalPosition'],
+      properties: {
+        resourceId: { const: resourceId },
+        status: { const: 'completed' },
+        finalPosition: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['x', 'y', 'frame'],
+          properties: {
+            x: { type: 'number' },
+            y: { type: 'number' },
+            frame: { const: 'EPSG:4326' },
+          },
+        },
+      },
+    },
+    successCriteria: [
+      { type: 'output_schema_valid', required: true },
+      { type: 'resource_identity_matches_request', required: true },
+      { type: 'required_evidence_complete', required: true },
+      { type: 'remote_task_identity_present', required: true },
+      { type: 'remote_terminal_observation_present', required: true },
+      { type: 'external_command_dispatch_count', maximum: 1 },
+    ],
+    requiredEvidence: [
+      {
+        type: 'required_evidence',
+        evidenceType: 'position.observation',
+        required: true,
+        hardGate: true,
+      },
+    ],
+    effects: ['effect.final_position'],
+    artifacts: [],
+    constraints: [
+      {
+        type: 'resource_policy',
+        identifierAuthority: 'public_smpp_tool_schema',
+        selection: 'exact_value',
+        allowedResourceIds: [resourceId],
+        downstreamResourceBinding: 'forbidden',
+      },
+      providerBindingConstraint(authority.binding, tool, resourceId),
+      {
+        type: 'exact_skill_version',
+        skillId: 'embodied.move_to',
+        skillVersion: 1,
+        taskType: 'embodied.move',
+      },
+      {
+        type: 'confirmation_policy',
+        required: true,
+        stage: 'before_execution',
+        autoConfirmPlan: false,
+      },
+      {
+        type: 'physical_side_effect_policy',
+        sideEffecting: true,
+        dispatchMaximum: 1,
+        uncertainDispatchPolicy: 'reconcile_never_redispatch',
+        remoteTaskTerminalEvidenceRequired: true,
+      },
+      runtimeExecutionModeConstraint(configuration),
+      {
+        type: 'ugv_simulation_target_policy',
+        policyId: 'ugv-agent-profile/explicit-wgs84-target',
+        revision: 2,
+        executionMode: configuration.runtimeExecutionContext?.mode ?? 'live',
+        resourceId,
+        frame: 'WGS84',
+        targetAuthority: 'task_capability_input_snapshot',
+        targetDerivation: 'forbidden',
+        distanceLimit: 'none',
+        altitudePolicy: 'not_commanded_not_terminally_evaluated',
+        forbiddenRegions: [],
+      },
+    ],
+    supportedModes: ['plan_confirmed', 'remote_task'],
+    riskLevel: 'high',
+    status: 'draft',
+    createdBy: 'ugv-smpp-capability-governance-driver',
+    createdAt: CREATED_AT,
+  });
+}
+
 async function ensureHistoricalPointNavigationSuccessor(
   configuration: UgvSmppCapabilityGovernanceConfiguration,
   authority: CatalogAuthority,
   request: typeof fetch,
   pause: (milliseconds: number) => Promise<void>,
 ): Promise<UgvSmppCapabilityGovernanceReport['preservedPointNavigation']> {
-  const skill = await runtimeGetSkill(configuration, 'embodied.move_to', 1, request);
+  let skill = await runtimeGetSkill(configuration, 'embodied.move_to', 1, request);
+  const initialImport =
+    skill === undefined && configuration.initialPointSkillPackageRoot !== undefined;
+  if (skill === undefined && configuration.initialPointSkillPackageRoot !== undefined) {
+    OperationSchema.parse(
+      await controlCommand(
+        configuration,
+        '/api/v1/skills/import',
+        runKey(configuration.runId, 'point-skill-import', 'embodied.move_to@1'),
+        {
+          reason:
+            'Initialize the repository-owned point navigation Skill in an empty installation.',
+          payload: { packageRoot: configuration.initialPointSkillPackageRoot },
+        },
+        request,
+      ),
+    );
+    skill = await runtimeGetSkill(configuration, 'embodied.move_to', 1, request);
+  }
+  if (
+    (initialImport || skill?.status === 'draft') &&
+    configuration.initialPointSkillPackageRoot !== undefined
+  ) {
+    OperationSchema.parse(
+      await controlCommand(
+        configuration,
+        '/api/v1/skills/embodied.move_to/versions/1/publish',
+        runKey(configuration.runId, 'point-skill-publish', 'embodied.move_to@1'),
+        {
+          reason: 'Publish the initial repository-owned point navigation Skill.',
+          expectedRevision: 0,
+        },
+        request,
+      ),
+    );
+    skill = await runtimeGetSkill(configuration, 'embodied.move_to', 1, request);
+  }
   if (skill?.status !== 'enabled')
     fail(
       'POINT_NAVIGATION_SKILL_AUTHORITY_MISSING',
@@ -2178,8 +2341,14 @@ async function ensureHistoricalPointNavigationSuccessor(
   const capabilities = (await controlListCapabilities(configuration, request))
     .filter(({ capabilityId }) => capabilityId === 'embodied.move')
     .sort((left, right) => right.version - left.version);
-  const latest = capabilities[0];
-  if (latest?.status !== 'published')
+  const existing = capabilities[0];
+  if (existing === undefined && configuration.initialPointSkillPackageRoot === undefined)
+    return fail(
+      'POINT_NAVIGATION_CAPABILITY_AUTHORITY_MISSING',
+      'Initial point bootstrap was not requested.',
+    );
+  const latest = existing ?? initialPointCapability(configuration, authority, tool);
+  if (existing !== undefined && latest.status !== 'published')
     return fail(
       'POINT_NAVIGATION_CAPABILITY_AUTHORITY_MISSING',
       'A published historical embodied.move Capability is required for append-only succession.',
@@ -2218,8 +2387,9 @@ async function ensureHistoricalPointNavigationSuccessor(
       createdBy: 'ugv-smpp-capability-governance-driver',
       createdAt: CREATED_AT,
     });
-  const same = latest.definitionHash === proposedFor(latest.version).definitionHash;
-  const capabilityVersion = same ? latest.version : latest.version + 1;
+  const same =
+    existing !== undefined && latest.definitionHash === proposedFor(latest.version).definitionHash;
+  const capabilityVersion = existing === undefined ? 1 : same ? latest.version : latest.version + 1;
   const proposed = proposedFor(capabilityVersion);
   let published = latest;
   if (!same) {
@@ -2951,8 +3121,14 @@ async function responseJson(response: Response, expectedStatus: number): Promise
 function validateConfiguration(
   input: UgvSmppCapabilityGovernanceConfiguration,
 ): UgvSmppCapabilityGovernanceConfiguration {
-  const nodeControlBaseUrl = safeManagementBaseUrl(input.nodeControlBaseUrl);
-  const runtimeManagementBaseUrl = safeManagementBaseUrl(input.runtimeManagementBaseUrl);
+  const nodeControlBaseUrl = safeManagementBaseUrl(
+    input.nodeControlBaseUrl,
+    input.developmentComposeNetwork,
+  );
+  const runtimeManagementBaseUrl = safeManagementBaseUrl(
+    input.runtimeManagementBaseUrl,
+    input.developmentComposeNetwork,
+  );
   if (input.nodeControlBearerToken.trim() === '')
     fail('DRIVER_CONFIGURATION_INVALID', 'Node Control bearer token is required.');
   if (input.runId.trim().length < 8 || input.runId.length > 128)
@@ -3015,7 +3191,7 @@ function shouldPublishAuthority(
   return true;
 }
 
-function safeManagementBaseUrl(value: string): string {
+function safeManagementBaseUrl(value: string, composeNetwork = false): string {
   let url: URL;
   try {
     url = new URL(value);
@@ -3031,7 +3207,11 @@ function safeManagementBaseUrl(value: string): string {
     url.hash !== ''
   )
     fail('DRIVER_CONFIGURATION_INVALID', 'Management URL contains unsupported components.');
-  if (url.protocol === 'http:' && !isLoopback(url.hostname))
+  if (
+    url.protocol === 'http:' &&
+    !isLoopback(url.hostname) &&
+    !(composeNetwork && ['runtime', 'control-api'].includes(url.hostname))
+  )
     fail('DRIVER_CONFIGURATION_INVALID', 'Non-loopback management URLs require HTTPS.');
   return url.origin;
 }

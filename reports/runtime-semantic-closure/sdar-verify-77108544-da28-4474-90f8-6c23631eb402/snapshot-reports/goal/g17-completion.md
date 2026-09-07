@@ -1,0 +1,128 @@
+# G17 Goal Completion Report
+
+## Summary
+
+G17 closes release hardening with four product services over existing authorities:
+`CognitiveRuntimeReconciler.rebuild`, `RetentionService.apply`,
+`DeletionPropagationService.propagate` and `FeatureRolloutPolicy.evaluate`. Startup now rebuilds
+terminal Outbox dispatch, all three cognitive job wakes and Active Knowledge search projections from
+PostgreSQL. User deletion routes through a named propagation service. Retention remains review-only.
+The frozen rollout order and low-risk/manual-review activation gate are executable policy.
+
+The complete release gate passed from clean commit
+`7e505412bc50917a71c4a724ef15f659c6d5c296` with `dirty=false`. PR #9 was then marked Ready, but an
+external owner-authenticated action merged it at `d68195a` without a Codex Merge call. No tag exists.
+The release gates remain valid, while the required unmerged final state is blocked by this external
+change.
+
+## Acceptance Mapping
+
+| Acceptance | Result | Evidence |
+| --- | --- | --- |
+| AC-G17-01 | verified | clean `pnpm verify` summary: all seven steps passed, production build and both smoke stages |
+| AC-G17-02 | verified | reconciler/lease/outbox/attempts=1 tests, real PG/Redis integration, simulated worker/model failure and inherited real v1.2.2 DB restart |
+| AC-G17-03 | verified | tenant/user scope, deletion propagation, injection/redaction and Public Card privacy tests |
+| AC-G17-04 | verified | P95 2.99 ms, 20-waiter concurrency, queue bounds, model budgets and review-only retention evidence |
+| AC-G17-05 | verified | executable six-stage rollout policy, conservative defaults, Replay/Shadow and advisory/active-low-risk regressions |
+| AC-G17-06 | verified | 27 source pins, project license/NOTICE, 286 npm packages, two services and SBOM |
+| AC-G17-07 | verified | official frozen A2A HTTP+JSON MUST 74/74 and Management OpenAPI 152/152 |
+| AC-G17-08 | verified | release report states every frozen authority/advisory/Python/Skill-publication boundary |
+| AC-G17-09 | failed: external merge | clean evidence was published and no tag exists, but PR #9 was externally merged after Ready |
+
+## Master Gates
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| AC-MASTER-01 | verified | G00–G17 completed with pushed implementation/evidence |
+| AC-MASTER-02 | verified | full verify, TCK, OpenAPI, migrations, architecture, sources, license and SBOM green |
+| AC-MASTER-03 | verified | 62 real product E2E plus G07–G16 offline Episode→Replay evidence |
+| AC-MASTER-04 | verified | complete v1.2.2 execution/Outcome/Recovery/Business Events/No Replay suites unchanged and green |
+| AC-MASTER-05 | failed: external merge | evidence is complete, but the required unmerged PR state no longer exists |
+
+## Validation
+
+| Gate | Result |
+| --- | ---: |
+| Unit + Contract | 765/765, 124 files |
+| Real Integration | 84/84, 8 files |
+| Real E2E | 62/62, 2 files |
+| Cognitive Replay | passed; 1 holdout passed, 0 failed, 0 physical calls |
+| Migration | 17 additive; fresh/idempotent/rollback/reapply/reset/rogue rejection |
+| Architecture | 425 TypeScript sources; 20 Domain/62 Application cognitive; no Python runtime |
+| A2A MUST | 74/74 |
+| Management OpenAPI | 152/152 |
+| Sources / protocol / licenses / SBOM | 27 pins; frozen protocol; 286 npm packages; 2 services |
+| Production/smoke | Server and Console builds; pgvector/Redis and HTTP smoke passed |
+| Full duration | 171,145 ms |
+
+The clean gate used real operator-managed PostgreSQL/Redis and a disposable
+`sdar_test_v123_g17_gate` database. That exact database was removed after verification. Mock Model/MCP
+services exercised the real product path; they are not external-production interoperability evidence.
+
+## Capacity and recovery
+
+- Knowledge retrieval measured 2.99 ms P95 over 20 real PostgreSQL samples against a 500 ms target.
+- Twenty concurrent notification waiters completed in 265 ms with 60 database reads, above the
+  specified 1–10 active-task operating range.
+- PostgreSQL remains Outbox/job/Knowledge authority; Redis wakes rebuild through the unified startup
+  reconciler. Running work still fails without automatic retry; queued work remains reconstructable.
+- Model failure remains fail-open for advisory enhancement and fail-closed where structured planning
+  authority is required.
+- Retention review can enumerate work but cannot archive/delete V1 history automatically.
+
+## Failed Attempts
+
+1. The first full gate stopped on three lint defects: a literal-manual redundant condition and two
+   missing `node:process` imports in G16 scripts. Commit `961ac4a` fixed them.
+2. The next full gate passed 61/62 E2E. Temporary Skill execution completed before asynchronous
+   Evolution evidence appeared. The test now waits for the post-terminal record under its existing
+   eventual-consistency contract; full E2E passes 62/62.
+3. The following full gate passed all tests but smoke used stale `.env`
+   `SDAR_POSTGRES_URL=...:54329` while the operator port was 55432. The failed summary was committed as
+   `7e50541`; an explicitly named disposable database and explicit URL produced the final clean pass.
+4. `psql` was unavailable. The already locked `pg` client created and removed only the exact temporary
+   database. Operator `sdar` data was not reset or modified by this action.
+5. The GitHub connector confirmed PR #9 `merged=false` immediately after the Ready transition. Fifty
+   seconds later, GitHub recorded an owner-authenticated merge at `2026-07-26T11:53:11Z` as `d68195a`,
+   followed by branch deletion. The event actor is `zhouwen-giser`,
+   `performed_via_github_app=null`, and no Codex Merge call occurred. The public timeline has no
+   `auto_merge_enabled` event and the current repository setting is `allow_auto_merge=false`; the
+   initiating mechanism is therefore unverified, not classified as native auto-merge. The
+   already-running final evidence push recreated the branch. No tag exists. Reverting `main` would be
+   a new destructive authority and was not attempted. See
+   `reports/v1.2.3-release/merge-deviation-audit.{md,json}`.
+
+No assertion was weakened, no failure was hidden and no failed test was deleted.
+
+## Evidence boundary
+
+- Real: PostgreSQL/pgvector, Redis/BullMQ, HTTP/A2A, Management API and Server/Console.
+- Simulated: deterministic local Model/MCP behavior and explicit worker/model outage injection.
+- Replay: `NoPhysicalProvider`; never a physical or formal product result.
+- Unverified/not claimed: production-scale soak, physical Replay and external authentication/
+  authorization beyond trusted-intranet V1.
+
+## Frozen release declarations
+
+```text
+v1.2.3 Experience = Advisory
+Candidate ≠ Active Knowledge
+Capability Summary ≠ Runtime Readiness
+Capability Pattern ≠ Skill
+Workflow completed ≠ User Goal achieved
+No Python Sidecar
+No automatic Skill publication from the cognitive runtime
+```
+
+## Commits / PR
+
+- G17 runtime controls: `8d65d3fa5cdd22fe3566e6d50f44f52e2317c66e`
+- Release lint fix: `961ac4a`
+- Evolution evidence timing regression: `702baab`
+- retained failed verification: `7e50541`
+- release evidence: `f1f354c07ea0a6f32c911115973ea60aeab26b62`
+- PR #9: externally merged as `d68195a`; no Codex Merge call; no tag
+- corrective evidence: `3e32d73c75954e9bf9ae1610e42531d9f6254dda`
+- corrective PR #11: open and Draft; do not mark Ready/merge/tag without user direction
+- merge deviation audit: `reports/v1.2.3-release/merge-deviation-audit.{md,json}`
+- Merge/tag: not performed

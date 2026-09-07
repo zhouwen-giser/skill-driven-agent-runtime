@@ -21,6 +21,27 @@ import {
 import type { PlanWorkflowInput } from '../src/workflow-planner.js';
 
 describe('SkillCallWorkflowService', () => {
+  it('deduplicates concurrent node-run calls but creates a different child on the next loop invocation', async () => {
+    const harness = serviceHarness();
+    const first = executionInput(harness.skill.skillId);
+    const results = await Promise.all([
+      harness.service.execute(first),
+      harness.service.execute(first),
+    ]);
+    expect(results).toEqual([
+      { status: 'completed', output: { status: 'online' } },
+      { status: 'completed', output: { status: 'online' } },
+    ]);
+    expect(harness.plan).toHaveBeenCalledTimes(1);
+    expect(harness.execute).toHaveBeenCalledTimes(1);
+    await harness.service.execute({ ...first, parentNodeRunId: 'child-run-2' });
+    expect(harness.plan).toHaveBeenCalledTimes(2);
+    expect(harness.execute).toHaveBeenCalledTimes(2);
+    const records = await harness.records.listByParent();
+    expect(records.map((record) => record.parentNodeRunId)).toEqual(['child-run-1', 'child-run-2']);
+    expect(new Set(records.map((record) => record.childInstanceId)).size).toBe(2);
+  });
+
   it('plans, validates, confirms and executes the current Skill as an independent child Workflow', async () => {
     const skill = childSkill();
     const definition = childDefinition(skill.skillId, skill.version);
@@ -552,7 +573,7 @@ describe('SkillCallWorkflowService', () => {
     });
   });
 
-  it('invalidates a waiting child when its current version changes and prepares a fresh plan', async () => {
+  it('invalidates a changed child version and requires parent replanning outside the frozen node run', async () => {
     const parent = pausedParentInstance();
     const harness = serviceHarness({ autoConfirm: false, parent });
     await harness.service.execute(executionInput(harness.skill.skillId));
@@ -568,12 +589,9 @@ describe('SkillCallWorkflowService', () => {
     await harness.service.resumeConfirmedForParentPlan('plan-parent');
     await expect(
       harness.service.execute(executionInput(harness.skill.skillId)),
-    ).resolves.toMatchObject({
-      status: 'awaiting_confirmation',
-      callId: 'id-2',
-      childPlanId: 'plan-skill-call-id-2',
-      childSkillVersion: 4,
-    });
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_VERSION_STALE' });
+    expect(harness.plan).toHaveBeenCalledTimes(1);
+    expect(harness.execute).not.toHaveBeenCalled();
   });
 
   it('rejects recursive Skills and bounds multi-level composition depth', () => {
@@ -937,16 +955,25 @@ function pausedParentInstance(): WorkflowInstance {
 
 function memoryRecords() {
   let record: SkillCallWorkflowRecord | undefined;
+  const all = new Map<string, SkillCallWorkflowRecord>();
   return {
     save: vi.fn((value: SkillCallWorkflowRecord) => {
       record = value;
+      all.set(value.callId, value);
       return Promise.resolve();
     }),
-    find: vi.fn(() => Promise.resolve(record)),
+    find: vi.fn((parentInstanceId: string, parentNodeRunId: string) =>
+      Promise.resolve(
+        [...all.values()].find(
+          (item) =>
+            item.parentInstanceId === parentInstanceId && item.parentNodeRunId === parentNodeRunId,
+        ),
+      ),
+    ),
     findByChildInstanceId: vi.fn((childInstanceId: string) =>
       Promise.resolve(record?.childInstanceId === childInstanceId ? record : undefined),
     ),
-    listByParent: vi.fn(() => Promise.resolve(record === undefined ? [] : [record])),
+    listByParent: vi.fn(() => Promise.resolve([...all.values()])),
     current: () => record,
   };
 }

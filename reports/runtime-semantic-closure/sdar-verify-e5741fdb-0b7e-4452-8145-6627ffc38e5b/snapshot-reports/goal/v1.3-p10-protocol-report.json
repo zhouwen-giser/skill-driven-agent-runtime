@@ -1,0 +1,11 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "a2aTaskSemanticsChanged": false,
+  "sseTaskSemanticsChanged": false,
+  "managementProjection": "GET /api/v1/tasks/{taskId}/gateway-evidence",
+  "consoleProjection": "Task Explorer / Fast Gateway Decision Evidence",
+  "openapiOperationsVerified": 156,
+  "a2aE2e": "63/63 passed",
+  "evidence": ["schemas/management-api.openapi.yaml", "packages/management-api/test/http-endpoint.contract.test.ts", "packages/a2a-adapter/test/fast-gateway-p10.e2e.test.ts", "apps/console/src/console.unit.test.tsx"]
+}

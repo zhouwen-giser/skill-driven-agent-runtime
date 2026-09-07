@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "ugv-agent-profile.agent-card-evidence/v1",
+  "generatedAt": "2026-08-21T03:13:53.780Z",
+  "status": "PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationScope": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "profileId": "ugv-agent-profile",
+  "snapshot": {
+    "agentName": "ugv-agent-profile",
+    "description": "ugv-agent-profile provides 2 public capabilities across 1 domain.",
+    "generationPolicyVersion": "capability-policy-v1:ugv-agent-profile-v1",
+    "generationMode": "deterministic",
+    "catalogHash": "sha256:dabed7b28157558879b5ac81e75c2c983333d43137e1e5d88ade5dc7065f357e",
+    "cardContentHash": "sha256:efd1a9aeb77e53806d378ed6a39bd529ef33f0799282bfd1df860a676b16334d",
+    "sourceSkillRefs": ["embodied.move_to:1"],
+    "publicSkills": [
+      {
+        "id": "embodied.move_to",
+        "name": "Move To",
+        "description": "Uses an authoritative movement Provider while preserving permission, forbidden-area, cancellation, failure, and evidence policy.",
+        "tags": ["embodied.move", "embodied.navigation"],
+        "inputModes": ["text/plain"],
+        "outputModes": ["text/plain", "application/json"]
+      }
+    ],
+    "capabilities": [
+      {
+        "capabilityId": "embodied.move",
+        "domain": "embodied",
+        "effects": ["effect.final_position"],
+        "evidence": ["evidence.final_position"],
+        "taskTypes": ["embodied.move"],
+        "limitations": ["confirmation_required"]
+      },
+      {
+        "capabilityId": "embodied.navigation",
+        "domain": "embodied",
+        "effects": ["effect.final_position"],
+        "evidence": ["evidence.final_position"],
+        "taskTypes": ["embodied.move"],
+        "limitations": ["confirmation_required"]
+      }
+    ]
+  },
+  "lineage": {
+    "sourceAuthority": "current enabled PostgreSQL SkillVersion",
+    "exactSkillReference": "embodied.move_to@1",
+    "runtimeCardSourceSkillRefs": [
+      "embodied.move_to:1"
+    ],
+    "providerReadinessIncludedInCatalogHash": false,
+    "providerReadinessIncludedInCardContentHash": false,
+    "sameCatalogRebuildCardContentHashUnchanged": true,
+    "providerAuthorityReaderCallCount": 0,
+    "providerAuthorityReadersInjectedFailing": true,
+    "toolsListUsedToCreateSkill": false,
+    "managedCardCanOverrideProfileCard": false,
+    "disabledExactVersionRebuildRemovesPublicSkill": true,
+    "legacyUgvNavigatePubliclyDuplicated": false
+  },
+  "offlineContractCorroboration": {
+    "authority": "P0 frozen Skill Package contract via NodeSkillPackageReader, SkillPackageImporter, and SkillPackageValidator",
+    "packageChecksum": "6d5fc9c8e093de18a8b11c8377b96788336606b25d0df0f27efef7b4d9f6a48c",
+    "includedInRuntimeCardAuthority": false,
+    "includedInCatalogHash": false
+  },
+  "redaction": {
+    "credentialsPresent": false,
+    "providerEndpointPresent": false,
+    "devicePayloadPresent": false,
+    "privateReasoningPresent": false
+  },
+  "verificationCommands": [
+    {
+      "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+      "exitCode": 0,
+      "summary": "Real PostgreSQL Skill lifecycle, same-catalog rebuild, Provider-reader zero-call, stale fail-closed, and recovery passed 1/1."
+    },
+    {
+      "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile-card.unit.test.ts packages/application/test/capability-card-publisher.unit.test.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts",
+      "exitCode": 0,
+      "summary": "Card pipeline and A2A projection focused coverage passed."
+    }
+  ],
+  "safety": {
+    "authorizationGrantedByThisArtifact": false,
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

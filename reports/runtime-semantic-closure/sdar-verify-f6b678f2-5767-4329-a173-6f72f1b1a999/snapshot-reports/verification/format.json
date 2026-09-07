@@ -1,0 +1,21 @@
+{
+  "name": "format",
+  "command": "pnpm format:check",
+  "status": "failed",
+  "startedAt": "2026-09-07T10:49:44.737Z",
+  "finishedAt": "2026-09-07T10:50:19.337Z",
+  "timeoutMs": 300000,
+  "logPath": "reports/verification/raw/format.log",
+  "outputSha256": "c6ab5cfc8c2dae2f287af597284070a93562ad9086bc98a47c520b26eb0ff366",
+  "metrics": {},
+  "exitCode": 1,
+  "signal": null,
+  "durationMs": 34599,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 35,
+    "peakRssBytes": 519507968,
+    "peakProcesses": 3
+  },
+  "cleanupErrors": []
+}

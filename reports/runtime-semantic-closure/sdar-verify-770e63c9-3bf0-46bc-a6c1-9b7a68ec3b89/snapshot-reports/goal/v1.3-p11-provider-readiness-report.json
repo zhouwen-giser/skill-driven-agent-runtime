@@ -1,0 +1,12 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "sourceOfTruth": ["Provider Registry configuration", "current readiness/capacity port"],
+  "rejections": ["unknown readiness", "disabled provider", "zero capacity", "stale profile snapshot", "provider/model mismatch"],
+  "historicalSuccessAuthority": false,
+  "credentialAuthorityReused": true,
+  "evidence": [
+    "packages/application/src/compiler/case-model-runtime.ts",
+    "packages/application/test/case-model-runtime-p11.unit.test.ts"
+  ]
+}

@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 2,
+  "scope": "full",
+  "dependencyMode": "frozen",
+  "baselineSha256": "a312f8f11a87769b38fc985ab2a53956c1fcf983edb16a7d9931ec0f13d370d8",
+  "status": "failed",
+  "commit": "473ad7d82cb11eda530aaa46d77478850bd1e51e",
+  "dirty": true,
+  "inputSha256": "8d69816b62b7981d2d4235d54a44773d204e0b752b5cffea05eead035386bae4",
+  "environment": {
+    "node": "v22.23.1",
+    "platform": "linux",
+    "architecture": "x64",
+    "infrastructureMode": "self-managed-compose"
+  },
+  "startedAt": "2026-09-07T06:01:28.656Z",
+  "finishedAt": "2026-09-07T06:09:17.790Z",
+  "durationMs": 469134,
+  "steps": [
+    {
+      "name": "format",
+      "command": "pnpm format:check",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:01:28.659Z",
+      "finishedAt": "2026-09-07T06:02:08.755Z",
+      "timeoutMs": 300000,
+      "logPath": "reports/verification/raw/format.log",
+      "outputSha256": "f13c710a152b72dd3daf30145799daf04e4627cc1313e3c7a47b2bd72474c641",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 40094,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 41,
+        "peakRssBytes": 472817664,
+        "peakProcesses": 3
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "verification-runner-contract",
+      "command": "pnpm test:verification",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:02:08.759Z",
+      "finishedAt": "2026-09-07T06:02:11.903Z",
+      "timeoutMs": 60000,
+      "logPath": "reports/verification/raw/verification-runner-contract.log",
+      "outputSha256": "5f1a8720d91c832d3066d2391af874a3d34a645bba6910519449e5db6c5dd398",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3143,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 4,
+        "peakRssBytes": 236261376,
+        "peakProcesses": 4
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "lint",
+      "command": "pnpm lint",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:02:11.904Z",
+      "finishedAt": "2026-09-07T06:05:04.293Z",
+      "timeoutMs": 1200000,
+      "logPath": "reports/verification/raw/lint.log",
+      "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 172389,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 173,
+        "peakRssBytes": 3588620288,
+        "peakProcesses": 3
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm typecheck",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:05:04.295Z",
+      "finishedAt": "2026-09-07T06:05:50.187Z",
+      "timeoutMs": 1200000,
+      "logPath": "reports/verification/raw/typecheck.log",
+      "outputSha256": "38ac890c60e7f38d59ddfb410325cdfb5fca83c9411765c5481754e01c021630",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 45891,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 46,
+        "peakRssBytes": 1873604608,
+        "peakProcesses": 3
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "unit",
+      "command": "pnpm test:unit",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:05:50.188Z",
+      "finishedAt": "2026-09-07T06:08:26.004Z",
+      "timeoutMs": 1200000,
+      "logPath": "reports/verification/raw/unit.log",
+      "outputSha256": "9fbd4600a071115b5507f6d20a0f2a88bc43ab0a4cf1e2a3c9c8f0f174ba9143",
+      "metrics": {
+        "testFiles": 275,
+        "tests": 2400
+      },
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 155815,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 156,
+        "peakRssBytes": 972029952,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "contract",
+      "command": "pnpm test:contract",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:08:26.008Z",
+      "finishedAt": "2026-09-07T06:09:11.618Z",
+      "timeoutMs": 600000,
+      "logPath": "reports/verification/raw/contract.log",
+      "outputSha256": "d150f32eb45ac591b5c67723f2eaffb5cccb90c202d1f7bb896bfff4bb19d44d",
+      "metrics": {
+        "testFiles": 61,
+        "tests": 531
+      },
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 45609,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 46,
+        "peakRssBytes": 951095296,
+        "peakProcesses": 8
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "evidence-contract",
+      "command": "pnpm verify:evidence-contract",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:09:11.619Z",
+      "finishedAt": "2026-09-07T06:09:13.257Z",
+      "timeoutMs": 600000,
+      "logPath": "reports/verification/raw/evidence-contract.log",
+      "outputSha256": "033e01bff17562106c488c2118ed95434204705c32ea5de67dc81eac9722cbb4",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1638,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 266563584,
+        "peakProcesses": 4
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "evidence-coverage",
+      "command": "pnpm verify:evidence-coverage",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:09:13.259Z",
+      "finishedAt": "2026-09-07T06:09:14.203Z",
+      "timeoutMs": 600000,
+      "logPath": "reports/verification/raw/evidence-coverage.log",
+      "outputSha256": "27d2d19da39a975aad08c9c8fbff6e43c7b1edf1a7889d27175d946b08163634",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 943,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 57663488,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "architecture",
+      "command": "pnpm verify:architecture",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:09:14.203Z",
+      "finishedAt": "2026-09-07T06:09:16.096Z",
+      "timeoutMs": 600000,
+      "logPath": "reports/verification/raw/architecture.log",
+      "outputSha256": "b6e4076542d4d6d47b08503ff403c36d2b4508c6c216825ac8662a7e369870bf",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1886,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 2,
+        "peakRssBytes": 195002368,
+        "peakProcesses": 3
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "a2a-baseline",
+      "command": "pnpm verify:a2a-baseline",
+      "status": "passed",
+      "startedAt": "2026-09-07T06:09:16.098Z",
+      "finishedAt": "2026-09-07T06:09:16.935Z",
+      "timeoutMs": 600000,
+      "logPath": "reports/verification/raw/a2a-baseline.log",
+      "outputSha256": "13523a659a4afec0736384a0de0216aed3ff191c1479d5767dc235c79f05901f",
+      "metrics": {},
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 837,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 86794240,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "management-openapi",
+      "command": "pnpm verify:management-openapi",
+      "status": "failed",
+      "startedAt": "2026-09-07T06:09:16.936Z",
+      "finishedAt": "2026-09-07T06:09:17.789Z",
+      "timeoutMs": 600000,
+      "logPath": "reports/verification/raw/management-openapi.log",
+      "outputSha256": "97fcc1c20505d48ad328973d1db45c59d0410992c5522478dcb479c5a4f4ec2c",
+      "metrics": {},
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 853,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 36020224,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    }
+  ],
+  "pendingSteps": [
+    "node-control-contract",
+    "node-control-implementation-conformance",
+    "smpp-registry-projection",
+    "acceptance",
+    "sources",
+    "protocol",
+    "infra",
+    "project-license",
+    "licenses",
+    "build",
+    "cognitive-replay-no-physical-provider",
+    "clean-baseline-reset-seed",
+    "postgres-redis-integration",
+    "postgres-redis-model-mcp-e2e",
+    "official-a2a-tck",
+    "canonical-evidence-demo",
+    "infrastructure-smoke",
+    "server-console-smoke",
+    "node-control-api-worker-smoke"
+  ]
+}

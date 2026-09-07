@@ -1,0 +1,21 @@
+{
+  "name": "sources",
+  "command": "pnpm verify:sources",
+  "status": "passed",
+  "startedAt": "2026-09-07T07:12:32.996Z",
+  "finishedAt": "2026-09-07T07:12:33.717Z",
+  "timeoutMs": 600000,
+  "logPath": "reports/verification/raw/sources.log",
+  "outputSha256": "f8fdf53028ddcaa6e8a30c42e4b90bbef8b3544654cef7d4e8e2d5142264b8ee",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 721,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 1,
+    "peakRssBytes": 35893248,
+    "peakProcesses": 1
+  },
+  "cleanupErrors": []
+}

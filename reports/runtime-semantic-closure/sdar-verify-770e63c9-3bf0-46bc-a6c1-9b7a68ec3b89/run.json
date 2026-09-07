@@ -1,0 +1,11 @@
+{
+  "runId": "sdar-verify-770e63c9-3bf0-46bc-a6c1-9b7a68ec3b89",
+  "dependencyMode": "reuse",
+  "inputSha256": "a5657726813e3144d83cfc33718ce8240cfde4351de91fb608aac8ff420eae48",
+  "baselineSha256": "7517f4cf583577cfafa251d19ed9789e934e5e57debe8b6056ae7cb21fc97ac2",
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "snapshot": "/tmp/sdar-verify-770e63c9-3bf0-46bc-a6c1-9b7a68ec3b89-5nPlTD/source",
+  "exitCode": 1,
+  "cleanupExitCode": 0
+}

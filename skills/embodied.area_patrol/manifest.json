@@ -15,15 +15,24 @@
       "additionalProperties": false,
       "required": ["resourceId", "target", "area", "timeWindow"],
       "properties": {
-        "resourceId": { "type": "string", "minLength": 1 },
+        "resourceId": {
+          "type": "string",
+          "minLength": 1
+        },
         "target": {
           "type": "object",
           "additionalProperties": false,
           "required": ["x", "y"],
           "properties": {
-            "x": { "type": "number" },
-            "y": { "type": "number" },
-            "frame": { "type": "string" }
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "frame": {
+              "type": "string"
+            }
           }
         },
         "area": {
@@ -39,12 +48,21 @@
                 "additionalProperties": false,
                 "required": ["x", "y"],
                 "properties": {
-                  "x": { "type": "number" },
-                  "y": { "type": "number" }
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  }
                 }
               }
             },
-            "excludedZones": { "type": "array", "items": { "type": "string" } }
+            "excludedZones": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "timeWindow": {
@@ -52,8 +70,12 @@
           "additionalProperties": false,
           "required": ["earliestStart", "deadline"],
           "properties": {
-            "earliestStart": { "type": "string" },
-            "deadline": { "type": "string" }
+            "earliestStart": {
+              "type": "string"
+            },
+            "deadline": {
+              "type": "string"
+            }
           }
         }
       }
@@ -63,16 +85,78 @@
       "additionalProperties": false,
       "required": ["status", "coveredSubregions", "missingSubregions", "trajectory", "anomalies"],
       "properties": {
-        "status": { "enum": ["completed", "degraded", "failed", "cancelled"] },
-        "coveredSubregions": { "type": "array", "items": { "type": "string" } },
-        "missingSubregions": { "type": "array", "items": { "type": "string" } },
-        "trajectory": { "type": "array", "items": { "type": "object" } },
-        "anomalies": { "type": "array", "items": { "type": "object" } },
-        "missingEffects": { "type": "array", "items": { "type": "string" } },
-        "missingEvidence": { "type": "array", "items": { "type": "string" } }
+        "status": {
+          "enum": ["completed", "degraded", "failed", "cancelled"]
+        },
+        "coveredSubregions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missingSubregions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trajectory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["resourceId", "position"],
+            "properties": {
+              "resourceId": {
+                "type": "string"
+              },
+              "position": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["x", "y"],
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "frame": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["string", "number", "boolean", "null"]
+            }
+          }
+        },
+        "missingEffects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missingEvidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
-    "toolPolicy": { "required": [], "optional": [], "forbidden": [] },
+    "toolPolicy": {
+      "required": [],
+      "optional": [],
+      "forbidden": []
+    },
     "runtimePolicy": {
       "autoConfirmPlan": false,
       "maxReplans": 2,

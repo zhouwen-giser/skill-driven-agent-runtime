@@ -150,6 +150,20 @@ export class RemoteTaskContinuationService {
       });
       return { disposition: 'stale' };
     }
+    const currentInstance = await this.#execution.get(snapshot.workflowInstanceId);
+    if (currentInstance?.status === 'paused') {
+      await this.#continuations.deferControl({
+        eventId: event.eventId,
+        claimToken,
+        errorCode: 'WORKFLOW_CONFIRMATION_PENDING',
+      });
+      return {
+        disposition: 'callback_deferred',
+        workflowControlId: snapshot.workflowControlId,
+        instance: currentInstance,
+        errorCode: 'WORKFLOW_CONFIRMATION_PENDING',
+      };
+    }
     let attempt = createWorkflowContinuationAttempt({
       attemptId: this.#ids.nextAttemptId(),
       eventId: event.eventId,
@@ -272,6 +286,19 @@ export class RemoteTaskContinuationService {
       return {
         disposition: 'uncertain',
         errorCode,
+      };
+    }
+    if (attempt.status === 'claimed' && instance.status === 'paused') {
+      await this.#continuations.deferControl({
+        eventId: control.eventId,
+        claimToken,
+        errorCode: 'WORKFLOW_CONFIRMATION_PENDING',
+      });
+      return {
+        disposition: 'callback_deferred',
+        workflowControlId: snapshot.workflowControlId,
+        instance,
+        errorCode: 'WORKFLOW_CONFIRMATION_PENDING',
       };
     }
     if (attempt.status === 'claimed') {
@@ -508,13 +535,15 @@ function terminalAttemptForInstance(
   instance: WorkflowInstance,
   completedAt: string,
 ): WorkflowContinuationAttempt {
-  if (instance.status === 'failed' || instance.status === 'running' || instance.status === 'paused')
+  if (instance.status === 'failed' || instance.status === 'running')
     return transitionWorkflowContinuationAttempt(
       attempt,
       'failed',
       completedAt,
       firstErrorCode(instance) ?? 'WORKFLOW_EXTERNAL_CONTINUATION_FAILED',
     );
+  if (instance.status === 'paused')
+    return transitionWorkflowContinuationAttempt(attempt, 'paused', completedAt);
   if (instance.status === 'canceled')
     return transitionWorkflowContinuationAttempt(attempt, 'canceled', completedAt);
   if (instance.status === 'waiting_external')

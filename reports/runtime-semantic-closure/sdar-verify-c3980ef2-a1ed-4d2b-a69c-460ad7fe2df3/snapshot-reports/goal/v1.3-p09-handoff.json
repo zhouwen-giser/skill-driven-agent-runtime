@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P09",
+  "packageVersion": "1.1",
+  "sequence": 9,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "830f77590d584e3c6e40a0d506a5f8a5cabc5a8c",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "decisionRuleRuntime": "3244647"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/13",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {"name":"RuntimeExecutionDecision","version":"1.1","schemaHash":"4ad37edc562bf39d27982f23f70d27ee8af1a3dfe3486dfc34725eec62b5b4de"},
+    {"name":"DecisionRuleArtifactDefinition","version":"1.1","schemaHash":"5710c7a6e2aa4b76f19449776af894cf039140f3f35a88fc14525ecbef920e85"},
+    {"name":"FormalPlanHandoffPort","version":"1.1","schemaHash":"84f9be4c6bcd7ed775c1f56779f671709efe541edc498b6bb71047a1e55d9336"}
+  ],
+  "producedContracts": [
+    {"name":"RuleDecisionContext","version":"1.1","schemaHash":"151c3f7fafb1c7a8d3d6361feabdf924c5e96b8988ebfff887c8660b7efee77e"},
+    {"name":"RuleConditionResult","version":"1.1","schemaHash":"627bf8a47de6632abcfa0fe5abd5f197d1c37826636bf878f2b22da454442d82"},
+    {"name":"RuleDecisionResult","version":"1.1","schemaHash":"44c06ea58232e4713b695dc3d7082cd189a5e7b00fe94374c76c0af09e7a4f47"},
+    {"name":"RuleConflictResolution","version":"1.1","schemaHash":"03f47932366feffc992f3ffc991a51db71a71db5ea6eb3aeb79de9a13b223358"},
+    {"name":"RulePlanPatchCandidate","version":"1.1","schemaHash":"a406785ef94494b4aabaead4556d0652e8929f3c5b8d44923cb45e49d74d3163"},
+    {"name":"RuleRuntime","version":"1.1","schemaHash":"77b30dc4384fbf082345b90280d01f15609b5aa1a166ab827825d5dee14efaca"}
+  ],
+  "migrations": [],
+  "repositoryPorts": [
+    "ArtifactExecutionRepository",
+    "RuleUsageRepository",
+    "PostgresRuleUsageRepository"
+  ],
+  "applicationPorts": [
+    "DecisionRuleRuntimeService",
+    "RuleRuntimeStateReader",
+    "RulePolicyAuthorityPort",
+    "RuleAuthorizationPort",
+    "RulePlanValidatorPort",
+    "RulePlanningAuthorityPort",
+    "RuleRevalidationSignalPort"
+  ],
+  "runtimePorts": [
+    "RuleRuntime.evaluate",
+    "DecisionRuleRuntimeService.evaluateDecisionRules",
+    "DecisionRuleRuntimeService.resolveRuleConflicts",
+    "DecisionRuleRuntimeService.submitRulePlanPatchToFormalAuthority"
+  ],
+  "events": [
+    "artifact.execution_started",
+    "artifact.execution_completed",
+    "artifact.execution_failed",
+    "artifact.feedback_recorded"
+  ],
+  "queues": [],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "decision-rule-runtime/1.1",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p09-completion.md",
+    "reports/goal/v1.3-p09-review.md",
+    "reports/goal/v1.3-p09-acceptance.json",
+    "reports/goal/v1.3-p09-rule-dsl-schema.json",
+    "reports/goal/v1.3-p09-operator-catalog.json",
+    "reports/goal/v1.3-p09-evaluation-report.json",
+    "reports/goal/v1.3-p09-conflict-resolution-report.json",
+    "reports/goal/v1.3-p09-policy-authority-report.json",
+    "reports/goal/v1.3-p09-plan-patch-report.json",
+    "reports/goal/v1.3-p09-usage-drift-report.json",
+    "reports/goal/v1.3-p09-security-report.json",
+    "reports/goal/v1.3-p09-performance-report.json",
+    "reports/goal/v1.3-p09-full-verify-report.json",
+    "reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P09.md"
+  ],
+  "acceptanceSummary": {"passed":50,"failed":0,"blocked":0},
+  "knownLimitations": [
+    "P09 publishes internal post-selection ports only; no public Request, A2A, Console or Fast Gateway route exists.",
+    "P09 cannot execute Skills, MCP, Providers or Workflows and cannot write formal Outcomes or active pointers.",
+    "Performance numbers are local acceptance measurements, not production SLOs.",
+    "P10 implementation has not started; this Handoff publishes P09 contracts and evidence only."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P10",
+  "packageOutputs": {
+    "RuleDecisionContext":{"contractVersion":"1.1","schemaHash":"151c3f7fafb1c7a8d3d6361feabdf924c5e96b8988ebfff887c8660b7efee77e","refs":["packages/domain/src/compiler/decision-rule-runtime.ts"]},
+    "RuleConditionResult":{"contractVersion":"1.1","schemaHash":"627bf8a47de6632abcfa0fe5abd5f197d1c37826636bf878f2b22da454442d82","refs":["packages/domain/src/compiler/decision-rule-runtime.ts"]},
+    "RuleDecisionResult":{"contractVersion":"1.1","schemaHash":"44c06ea58232e4713b695dc3d7082cd189a5e7b00fe94374c76c0af09e7a4f47","refs":["packages/domain/src/compiler/decision-rule-runtime.ts","packages/application/src/compiler/decision-rule-runtime.ts"]},
+    "RuleConflictResolution":{"contractVersion":"1.1","schemaHash":"03f47932366feffc992f3ffc991a51db71a71db5ea6eb3aeb79de9a13b223358","refs":["packages/domain/src/compiler/decision-rule-runtime.ts"]},
+    "RulePlanPatchCandidate":{"contractVersion":"1.1","schemaHash":"a406785ef94494b4aabaead4556d0652e8929f3c5b8d44923cb45e49d74d3163","refs":["packages/domain/src/compiler/decision-rule-runtime.ts","packages/application/src/compiler/decision-rule-runtime.ts"]},
+    "RuleRuntime":{"contractVersion":"1.1","schemaHash":"77b30dc4384fbf082345b90280d01f15609b5aa1a166ab827825d5dee14efaca","refs":["packages/domain/src/compiler/decision-rule-runtime.ts","packages/application/src/compiler/decision-rule-runtime.ts"]}
+  }
+}

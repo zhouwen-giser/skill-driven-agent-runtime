@@ -5,6 +5,7 @@ import { URL } from 'node:url';
 import pg from 'pg';
 
 import { startInfrastructure, stopInfrastructure } from './lib/infrastructure.mjs';
+import { recordVerificationCleanupFailure } from './lib/verification-cleanup.mjs';
 
 const { Pool } = pg;
 const databaseName = 'sdar_v122_integration_gate';
@@ -57,7 +58,9 @@ try {
     }
   }
 } finally {
-  await dropDatabases().catch(() => undefined);
+  await dropDatabases().catch((error) =>
+    recordVerificationCleanupFailure('integration-databases', error),
+  );
   stopInfrastructure();
 }
 

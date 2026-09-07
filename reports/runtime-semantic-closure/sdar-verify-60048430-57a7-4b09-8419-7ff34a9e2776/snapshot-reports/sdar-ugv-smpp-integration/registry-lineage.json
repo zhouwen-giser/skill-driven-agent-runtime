@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-registry-lineage/v1",
+  "status": "passed",
+  "evidenceClass": "derived_from_real_external_projection_and_persisted_sdar_authority",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/external-preflight.json",
+    "reports/sdar-ugv-smpp-integration/provider-materialization.redacted.json"
+  ],
+  "observedAt": "2026-08-12T06:08:24.590Z",
+  "source": {
+    "smppSourceId": "ugv-smpp",
+    "revision": 1,
+    "status": "active",
+    "authenticationMode": "none_explicit"
+  },
+  "activeLineage": {
+    "registryRevision": 1,
+    "registryChecksum": "5efefbcdbf4f4d44bc9e8fb89dca1b10f9a3b150f9bae28a22ffafbb0f1fb6c1",
+    "nativeRevision": 1,
+    "nativeChecksum": "72a880d6415d318919f821379007af9f59b5f611ac8560a5833b3b134603c218",
+    "projectionContract": "sdar-registry-v1",
+    "candidateCount": 1,
+    "conditionalRevalidationStatus": 304
+  },
+  "candidateAuthority": {
+    "externalProviderId": "isr.vehicle.ugv.ugv1",
+    "externalServerId": "production-ugv-direct-1",
+    "catalogRevision": "1",
+    "protocolMode": "frozen_v1"
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "credentialReferencesIncluded": false
+  }
+}

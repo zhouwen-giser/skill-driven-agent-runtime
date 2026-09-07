@@ -1,0 +1,62 @@
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/console/vite.config.ts
+  11:24  error  ["SDAR_CONSOLE_DEV_PORT"] is better written in dot notation       @typescript-eslint/dot-notation
+  13:21  error  ["SDAR_CONSOLE_DEV_PROXY_URL"] is better written in dot notation  @typescript-eslint/dot-notation
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/src/ugv-agent-profile.ts
+  305:5  error  Prefer using an optional chain expression instead, as it's more concise and easier to read  @typescript-eslint/prefer-optional-chain
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/test/deterministic-capability-recovery.unit.test.ts
+  24:7  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  30:7  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+  31:7  error  `toThrowError` is deprecated. Use `toThrow` instead                                                                 @typescript-eslint/no-deprecated
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/apps/server/test/development-deployment.unit.test.ts
+  47:34  error  Unsafe member access .services on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/development/bootstrap.mjs
+  84:1  error  'console' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/development/cli.mjs
+   13:39  error  'process' is not defined  no-undef
+   37:5   error  'console' is not defined  no-undef
+   50:7   error  'console' is not defined  no-undef
+  115:9   error  'console' is not defined  no-undef
+  134:3   error  'console' is not defined  no-undef
+  140:3   error  'process' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/development/config.mjs
+   73:72  error  'process' is not defined  no-undef
+  137:7   error  'Buffer' is not defined   no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/development/entrypoint.mjs
+  3:15  error  'process' is not defined  no-undef
+  5:8   error  'process' is not defined  no-undef
+  7:3   error  'process' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/development/package.mjs
+  71:1  error  'console' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/development/upgrade-preflight.mjs
+  41:3  error  'console' is not defined  no-undef
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/packages/application/test/isolated-demo.unit.test.ts
+   9:9  error  Async method 'list' has no 'await' expression    @typescript-eslint/require-await
+  10:9  error  Async method 'append' has no 'await' expression  @typescript-eslint/require-await
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/packages/management-api/test/http-endpoint.contract.test.ts
+  58:9  error  Async method 'list' has no 'await' expression    @typescript-eslint/require-await
+  59:9  error  Async method 'append' has no 'await' expression  @typescript-eslint/require-await
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/packages/runtime-environment/test/environment-file.unit.test.ts
+  21:20  error  Returning a void expression from an arrow function shorthand is forbidden. Please add braces to the arrow function  @typescript-eslint/no-confusing-void-expression
+
+/home/zhouwen/web-download/skill-driven-agent-runtime/scripts/environment-inventory.mjs
+  58:5   error  'process' is not defined  no-undef
+  58:32  error  'process' is not defined  no-undef
+  60:3   error  'console' is not defined  no-undef
+  61:3   error  'process' is not defined  no-undef
+
+✖ 30 problems (30 errors, 0 warnings)
+  5 errors and 0 warnings potentially fixable with the `--fix` option.
+

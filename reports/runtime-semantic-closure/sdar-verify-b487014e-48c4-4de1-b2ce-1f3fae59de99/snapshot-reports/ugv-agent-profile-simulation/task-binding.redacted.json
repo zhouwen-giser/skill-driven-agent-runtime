@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "ugv-agent-profile.task-binding/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:47:14.224Z",
+  "status": "PASS_LOCAL_CONTRACT_WITH_POSTGRES_INTEGRATION_ENVIRONMENT_BLOCKED",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_contract",
+  "observationClass": "deterministic_and_postgresql_contract",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "repository": {
+    "name": "skill-driven-agent-runtime",
+    "baselineCommit": "2a5aa2288295a987e8f1df949c125d657eac0258",
+    "branch": "codex/sdar-ugv-smpp-integration",
+    "dirty": true
+  },
+  "profileBinding": {
+    "profileId": "ugv-agent-profile",
+    "semanticTaskType": "embodied.move",
+    "semanticAlias": "vehicle_navigate",
+    "aliasRevision": "ugv-agent-profile/embodied.move/v1",
+    "selectionCardinality": "exactly_one",
+    "genericCatalogFirstMatchChanged": false,
+    "resource": {
+      "resourceId": "vehicle:ugv1",
+      "resourceType": "vehicle"
+    },
+    "requiredProviderIdentity": {
+      "providerId": "isr.vehicle.ugv.ugv1",
+      "providerType": "isr.vehicle.ugv",
+      "providerVersion": "1.0.0",
+      "manifestHash": "validated_lowercase_sha256_from_persisted_runtime_discovery"
+    },
+    "navigateLifecycle": {
+      "taskBehavior": "task_required",
+      "availability": "dynamic",
+      "supportsScheduling": true,
+      "supportsMaxElapsed": true,
+      "supportsCancellation": true,
+      "supportsPauseResume": true,
+      "supportsObservations": true,
+      "supportsInputRequired": false,
+      "idempotency": "server_managed"
+    },
+    "finalStateLifecycle": {
+      "operationName": "vehicle_get_state",
+      "taskBehavior": "synchronous_only",
+      "availability": "dynamic",
+      "supportsScheduling": false,
+      "supportsMaxElapsed": false,
+      "supportsCancellation": false,
+      "supportsPauseResume": false,
+      "supportsObservations": false,
+      "supportsInputRequired": false,
+      "idempotency": "server_managed"
+    }
+  },
+  "authorityChain": [
+    {
+      "authority": "current PostgreSQL SkillVersion",
+      "requirement": "enabled and validation-passed embodied.move_to@1 with exact dynamic Provider policy, required contexts, move-resource binding and final-position hard gate",
+      "runtimeRead": "SkillRepository.findCurrentVersion"
+    },
+    {
+      "authority": "PostgreSQL skill_package_import_audit",
+      "requirement": "exact embodied.move_to@1 package checksum",
+      "runtimeRead": "ExactSkillPackageAuthorityReader.loadExactSkillPackageAuthority"
+    },
+    {
+      "authority": "current Node Control Provider Binding",
+      "requirement": "current binding revision and exact external Provider identity",
+      "runtimeRead": "CurrentMcpProviderBindingAuthorityReader.loadCurrentMcpProviderBinding"
+    },
+    {
+      "authority": "persisted Runtime MCP discovery and Tool catalog",
+      "requirement": "frozen_v1 server, providerCatalog identity, catalog revision/checksum, schemas and lifecycle",
+      "runtimeRead": "McpRuntimeBindingAuthorityVerifier.loadRuntimeAuthority/assertCurrent"
+    },
+    {
+      "authority": "Provider Task availability",
+      "requirement": "one correlated ready result whose validUntil and current Node Binding availabilityValidUntil both remain future after the read completes",
+      "runtimeRead": "FrozenSkillTaskReadinessAdapter"
+    }
+  ],
+  "selectedTaskOperation": {
+    "materializedSnapshotId": null,
+    "materializedSnapshotHash": null,
+    "missingReason": "UAP-P2-B02 did not start a Runtime, call MCP, or dispatch navigation; deterministic tests construct the immutable snapshot from injected authority contracts only.",
+    "selfHashAlgorithm": "sha256 canonical evidence JSON",
+    "lifecycleFieldsIncludedInSelfHash": true,
+    "factoryRecomputesSchemaAndArgumentHashes": true,
+    "factoryRejectsBindingIdentityAndLifecycleTampering": true,
+    "factoryRejectsReservationInvariantViolations": true,
+    "factoryRecursivelyFreezesCanonicalSnapshot": true,
+    "frozenFieldGroups": [
+      "skill identity and package checksum",
+      "semantic alias and binding revisions",
+      "Provider identity and manifest hash",
+      "Server snapshot, Tool revision, Catalog revision and checksum",
+      "resource identity",
+      "navigate input/output schemas, hashes, execution semantics and lifecycle",
+      "final vehicle_get_state schemas, hashes, semantics, lifecycle and exact arguments",
+      "resolved navigation arguments and hash",
+      "availability protocol/schema revisions, check/expiry, risk, reservation and effects",
+      "simulation identity and outer-plan confirmation policy"
+    ]
+  },
+  "inputAdapter": {
+    "acceptedFrames": ["EPSG:4326", "WGS84"],
+    "canonicalFrame": "WGS84",
+    "coordinateOrder": "longitude_latitude",
+    "mapping": {
+      "target.x": "mission.target.longitude",
+      "target.y": "mission.target.latitude"
+    },
+    "stopOnObstacle": true,
+    "generatedSpeedRouteOrAltitude": false
+  },
+  "outcomeGate": {
+    "providerCompletedSufficient": false,
+    "finalReadOperation": "vehicle_get_state",
+    "providerTerminalPositionAuthority": {
+      "chassis.position.geodetic": "/ugv/gnss",
+      "chassis.position.local": "/ugv/nav_state"
+    },
+    "finalStatePositionAuthority": "vehicle_get_state chassis.position interpreted as WGS84 longitude/latitude",
+    "statePositionFreshnessAuthority": "freshness.chassisObservedAt",
+    "maximumChassisAgeMs": 3000,
+    "providerObservationAuthority": "post_dispatch",
+    "cursorOrder": "initial mqttIngressSequence < Provider oc1 ingestSequence <= final mqttIngressSequence",
+    "cursorContract": "SMPP oc1 v1 field cursor with exact outer/inner field, topic, observedAt and timeAuthority equality",
+    "distance": "Haversine <= configured tolerance <= 2m",
+    "discernibleDisplacement": "explicit positive configuration required"
+  },
+  "postgresRetention": {
+    "implementation": "providerCatalog is parsed from persisted capabilities_json and lifecycle booleans are retained in persisted Tool profiles and Runtime authority hashes",
+    "integrationAssertionPresent": true,
+    "integrationTestPath": "packages/persistence-postgres/test/repositories.integration.test.ts",
+    "integrationExecutionStatus": "BLOCKED_ENV",
+    "blocker": "PostgreSQL XX000: template1 collation version has no determinable actual version; repository tests did not start",
+    "externalProviderMaterializationObserved": false
+  },
+  "lineage": {
+    "a2aRequestId": null,
+    "sdarTaskId": null,
+    "goalId": null,
+    "skillId": "embodied.move_to",
+    "skillVersion": 1,
+    "workflowDefinitionId": null,
+    "workflowInstanceId": null,
+    "mcpInvocationId": null,
+    "remoteTaskBindingId": null,
+    "remoteTaskId": null,
+    "providerExecutionLedgerId": null,
+    "deviceMcpCallId": null,
+    "deviceMissionId": null,
+    "finalEvidenceId": null,
+    "missingReason": "Runtime/external execution and B03 workflow integration were outside this task; no identifiers were invented."
+  },
+  "verification": {
+    "focused": {
+      "commandReference": "uap-p2-b02-verification.json#/commands/1",
+      "exitCode": 0,
+      "testFiles": 9,
+      "tests": 117
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    "contract": {
+      "mandatoryCommand": "pnpm test:contract",
+      "mandatoryExitCode": 1,
+      "mandatoryResult": "50 files and 316 tests passed; unrelated Node Control operation-conformance test exceeded its fixed 5000ms timeout under default concurrency",
+      "isolatedFailingFileReplay": "6/6 passed",
+      "serializedFullReplayCommand": "pnpm exec vitest run --project contract --maxWorkers=1",
+      "serializedFullReplayExitCode": 0,
+      "serializedFullReplay": "51 files and 317 tests passed"
+    },
+    "lint": {
+      "repositoryCommand": "pnpm lint",
+      "repositoryExitCode": 1,
+      "repositoryBaselineErrors": 22,
+      "scopedB02ExitCode": 0
+    },
+    "build": {
+      "command": "pnpm build",
+      "exitCode": 0
+    },
+    "architecture": {
+      "command": "pnpm verify:architecture",
+      "exitCode": 0,
+      "typescriptFiles": 812
+    },
+    "format": {
+      "repositoryCommand": "pnpm format:check",
+      "repositoryExitCode": 1,
+      "unchangedBaselineFiles": 3,
+      "scopedB02ExitCode": 0
+    },
+    "diffCheckExitCode": 0
+  },
+  "safety": {
+    "authorizationGrantedByThisArtifact": false,
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

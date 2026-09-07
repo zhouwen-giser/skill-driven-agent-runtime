@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P14-OPTIONAL",
+  "status": "feedback_blocked",
+  "classification": "plan-only; no production feedback or outcome access",
+  "productionRecordsInspected": 0,
+  "attributionContract": [
+    "fast_selected is not fast_committed",
+    "fallback outcome is not attributed to an Artifact",
+    "formal outcome reference is mandatory for outcome feedback",
+    "model self-evaluation is not a formal outcome",
+    "tenant and exact artifact version must agree",
+    "correction and recovery remain separate linked facts"
+  ],
+  "checks": [
+    { "id": "fallback-misattribution", "result": "not_evaluated", "requiredSource": "gateway decision + formal outcome + artifact feedback" },
+    { "id": "duplicate-outcome", "result": "not_evaluated", "requiredSource": "formal outcome identity + feedback idempotency" },
+    { "id": "missing-formal-ref", "result": "not_evaluated", "requiredSource": "artifact feedback" },
+    { "id": "stale-artifact-usage", "result": "not_evaluated", "requiredSource": "artifact execution + active pointer history" },
+    { "id": "cross-tenant-link", "result": "not_evaluated", "requiredSource": "authorized tenant scopes" },
+    { "id": "missing-correction", "result": "not_evaluated", "requiredSource": "formal correction + linked execution" },
+    { "id": "model-self-evaluation-as-outcome", "result": "not_evaluated", "requiredSource": "model evidence + formal outcome" },
+    { "id": "feedback-lag", "result": "not_evaluated", "requiredSource": "outcome and feedback timestamps" },
+    { "id": "deletion-propagation", "result": "not_evaluated", "requiredSource": "retention/deletion audit" }
+  ],
+  "plannedDecisionRules": {
+    "feedback_complete": "all required links present and attribution valid",
+    "feedback_partial": "links are valid but incomplete",
+    "feedback_incorrect": "one or more attribution rules violated; open data repair and revalidation risk",
+    "feedback_blocked": "authoritative data or access unavailable"
+  },
+  "blockers": ["P14-BLK-003", "P14-BLK-004", "P14-BLK-007"],
+  "productionActionsPerformed": []
+}

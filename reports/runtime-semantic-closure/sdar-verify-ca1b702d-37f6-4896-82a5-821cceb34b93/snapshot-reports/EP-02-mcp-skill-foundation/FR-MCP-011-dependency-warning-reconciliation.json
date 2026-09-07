@@ -1,0 +1,24 @@
+{
+  "requirement": "FR-MCP-011",
+  "status": "verified",
+  "currentRegression": {
+    "files": 3,
+    "testsPassed": 57,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 241
+  },
+  "historicalRealEvidence": {
+    "postgresIntegration": true,
+    "integrationTestsPassed": 9,
+    "e2eTestsPassed": 6,
+    "productionSmoke": true
+  },
+  "acceptance": {
+    "removedToolWarningPersisted": true,
+    "schemaChangeWarningProduced": true,
+    "onlyCurrentEnabledSkillVersionsAffected": true,
+    "skillStatusMutationAvailableToWarningPath": false,
+    "managementWarningVisible": true
+  },
+  "unverified": ["current Docker-backed repetition of the historical PostgreSQL scenario"]
+}

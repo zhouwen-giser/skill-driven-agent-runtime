@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "samples": {
+    "runtimeBaseline": 20,
+    "runtimeEvidenceEnabled": 20,
+    "evidenceAppend": 100
+  },
+  "baselineP95Ms": 502.49,
+  "evidenceEnabledP95Ms": 564.572,
+  "regressionPercent": 12.355,
+  "appendP95Ms": 31.812,
+  "receivedRecords": 843,
+  "failedThresholds": [
+    "Runtime E2E P95 regression exceeded 10 percent",
+    "Evidence append P95 exceeded 20 milliseconds"
+  ],
+  "rootCause": "The benchmark enabled export while 110 append records and 23 baseline Tasks were still pending, so catch-up projection/export contention overlapped the enabled and append samples.",
+  "repair": "Measure append before enabling export, ACK the accumulated baseline backlog to zero, warm the enabled path, measure steady-state enabled Tasks, and drain again before teardown. Thresholds remain unchanged."
+}

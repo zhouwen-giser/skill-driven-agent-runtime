@@ -1,0 +1,18 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "contractVersion": "1.1",
+  "contracts": {
+    "RuntimeRequestContext": "6ada60cdd637cd3a2467347c8ef858ce2932c5e56d891c7aaaf1dfaabc41595e",
+    "FastGateway": "be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe",
+    "GatewayDecisionRecord": "1beecf8ae5527d5b8db7bcf89c36b4e73d35e083d6818f9ad18874f13e31d3ab",
+    "GatewayFeedbackEnvelope": "22faac79bc9ea9d8bcac5bc42e626bba79b5ed04579e371ba5dfadbc611aaf6b"
+  },
+  "reasonCodeCatalogVersion": "fast-gateway/1.1",
+  "evidence": [
+    "packages/domain/src/compiler/fast-gateway.ts",
+    "schemas/v1.3/fast-gateway.schema.json",
+    "packages/domain/test/fast-gateway-p10.unit.test.ts",
+    "packages/application/test/fast-gateway-p10.contract.test.ts"
+  ]
+}

@@ -1,11 +1,17 @@
 import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
 import process from 'node:process';
+import { verificationProjects } from './lib/verification-projects.mjs';
+import { recordVerificationCleanupFailure } from './lib/verification-cleanup.mjs';
 
 const root = process.cwd();
 const runId = `${String(process.pid)}-${Date.now().toString(36)}`;
-const composeProject = `sdar-node-control-smoke-${runId}`;
-const runtimeComposeProject = `sdar-runtime-after-control-${runId}`;
+const ownedProjects =
+  process.env.SDAR_VERIFY_ISOLATED === 'true'
+    ? verificationProjects(process.env.SDAR_VERIFY_COMPOSE_PROJECT)
+    : undefined;
+const composeProject = ownedProjects?.[1].name ?? `sdar-node-control-smoke-${runId}`;
+const runtimeComposeProject = ownedProjects?.[2].name ?? `sdar-runtime-after-control-${runId}`;
 const [postgresPort, apiPort, runtimePostgresPort, runtimeRedisPort] = await reservePorts(4);
 const token = `p01-smoke-${'a'.repeat(48)}`;
 const rotatedToken = `p13-smoke-rotated-${'b'.repeat(48)}`;
@@ -189,11 +195,29 @@ try {
 
   const npmExecPath = process.env['npm_execpath'];
   if (npmExecPath === undefined) throw new Error('NPM_EXECPATH_REQUIRED');
+  // All Control restore/restart assertions have finished. Remove its owned infrastructure
+  // before checking Runtime independence; retaining its network needlessly consumes a subnet.
+  runDocker(
+    [
+      'compose',
+      '-p',
+      composeProject,
+      '-f',
+      'compose.node-control.yaml',
+      'down',
+      '--volumes',
+      '--remove-orphans',
+    ],
+    60_000,
+    composeEnvironment,
+  );
+  process.stdout.write('Control infrastructure stopped before independent Runtime smoke.\n');
   const runtimeDatabaseUrl = `postgresql://sdar:sdar_local_only@127.0.0.1:${String(runtimePostgresPort)}/sdar`;
   const runtimeEnvironment = {
     ...process.env,
     SDAR_REUSE_EXISTING_INFRA: 'false',
     COMPOSE_PROJECT_NAME: runtimeComposeProject,
+    SDAR_VERIFY_COMPOSE_PROJECT: runtimeComposeProject,
     SDAR_POSTGRES_PORT: String(runtimePostgresPort),
     SDAR_POSTGRES_URL: runtimeDatabaseUrl,
     SDAR_TEST_POSTGRES_URL: runtimeDatabaseUrl,
@@ -214,7 +238,10 @@ try {
     'Node Control smoke passed: independent PostgreSQL, role RBAC, credential rotation/revocation, dump/restore reconciliation, API restart reconstruction, shutdown, and Runtime-after-Control-stop.\n',
   );
 } finally {
-  if (api !== undefined) await terminate(api).catch(() => undefined);
+  if (api !== undefined)
+    await terminate(api).catch((error) =>
+      recordVerificationCleanupFailure('node-control-api', error),
+    );
   runDocker(
     [
       'compose',
@@ -261,6 +288,11 @@ function runDocker(args, timeout, environment, ignoreFailure = false) {
   if (result.error !== undefined && !ignoreFailure) throw result.error;
   if (result.status !== 0 && !ignoreFailure)
     throw new Error(`NODE_CONTROL_DOCKER_FAILED: docker ${args.join(' ')}`);
+  if (ignoreFailure && (result.error !== undefined || result.status !== 0))
+    recordVerificationCleanupFailure(
+      `docker ${args.join(' ')}`,
+      result.error ?? new Error(`exit=${result.status}; signal=${result.signal}`),
+    );
 }
 
 function runDockerCapture(args, timeout, environment) {

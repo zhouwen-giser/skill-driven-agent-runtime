@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P03",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "21c7a376b0f6d6a6b5181d2da84b75973fbbedb7",
+  "evidenceSha": "598024359da8509143cae26e2e46ce8f56091b6f",
+  "remoteSha": "598024359da8509143cae26e2e46ce8f56091b6f",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-02T08:43:00+08:00",
+  "nextPhase": "P04",
+  "prerequisites": [
+    "fetch and compare origin/main before P04",
+    "preserve Control-owned Provider and Route definitions and Runtime-owned clients and selection",
+    "implement only P04 SMPP Registry federation next"
+  ],
+  "authorityBoundary": "P03 owns Control Provider, Model Catalog and desired Route definitions. Runtime remains authoritative for encrypted credentials, clients, live health, selection, fallback, invocation evidence and immutable Task route bindings. Telemetry remains historical only."
+}

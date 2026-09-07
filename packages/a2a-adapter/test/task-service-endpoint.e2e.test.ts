@@ -93,15 +93,7 @@ beforeAll(async () => {
         providerFailureBackoffMaximumMs: 50,
       },
     },
-    skillSelection: {
-      embeddings: {
-        embed: (text) =>
-          Promise.resolve({
-            providerId: 'embedding.e2e.v1',
-            vector: text.toLowerCase().includes('zebra') ? [1, 0, 0] : [0, 1, 0],
-          }),
-      },
-    },
+    cognitiveInjectionMode: 'off',
     taskUnderstanding: {
       taskTypes: [
         {
@@ -1518,7 +1510,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     expect(selection.decisionSummary).toContain('metric snapshot');
     const audits = z
       .object({
-        items: z.array(z.object({ request: z.object({ instruction: z.string() }).loose() })),
+        items: z.array(
+          z.object({ request: z.object({ instruction: z.string().optional() }).loose() }),
+        ),
       })
       .parse(
         await (
@@ -1527,8 +1521,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           )
         ).json(),
       );
-    const audited = audits.items.find((item) =>
-      item.request.instruction.includes(selectionGoalContract.goalId),
+    const audited = audits.items.find(
+      (item) => item.request.instruction?.includes(selectionGoalContract.goalId) === true,
     );
     expect(audited?.request.instruction).toContain(JSON.stringify(selectionGoalContract));
 
@@ -1581,7 +1575,9 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     });
     expect(workflowPlanningCalls).toBe(planningCallsBeforeTerminalRejection);
     const auditAfterRejection = z
-      .object({ items: z.array(z.object({ request: z.object({ instruction: z.string() }) })) })
+      .object({
+        items: z.array(z.object({ request: z.object({ instruction: z.string().optional() }) })),
+      })
       .parse(
         await (
           await fetch(
@@ -1590,8 +1586,8 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         ).json(),
       );
     expect(
-      auditAfterRejection.items.filter((item) =>
-        item.request.instruction.includes(selectionGoalContract.goalId),
+      auditAfterRejection.items.filter(
+        (item) => item.request.instruction?.includes(selectionGoalContract.goalId) === true,
       ),
     ).toHaveLength(1);
   });
@@ -2498,6 +2494,252 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     }
   });
 
+  it.each([
+    {
+      toolName: 'document_normalize',
+      input: { text: '  Alpha   beta\n gamma  ' },
+      expected: { normalizedText: 'Alpha beta gamma', wordCount: 3 },
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['text'],
+        properties: { text: { type: 'string', minLength: 1 } },
+      },
+      outputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['normalizedText', 'wordCount'],
+        properties: { normalizedText: { type: 'string' }, wordCount: { type: 'integer' } },
+      },
+    },
+    {
+      toolName: 'data_aggregate',
+      input: { values: [4, -2, 8.5] },
+      expected: { total: 10.5, count: 3 },
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['values'],
+        properties: { values: { type: 'array', minItems: 1, items: { type: 'number' } } },
+      },
+      outputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['total', 'count'],
+        properties: { total: { type: 'number' }, count: { type: 'integer' } },
+      },
+    },
+  ])(
+    'executes a simulated $toolName business through default Skill selection and A2A artifacts',
+    async (scenario) => {
+      const provider = await startMcpLoopbackServer({ softwareBusinessFixtures: true });
+      const serverId = `mcp.software.${randomUUID()}`;
+      const skillId = `skill.${scenario.toolName}.${randomUUID()}`;
+      let withdrawExposure: (() => Promise<void>) | undefined;
+      try {
+        const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            serverId,
+            name: 'Isolated software business',
+            endpoint: provider.endpoint.toString(),
+            credentialHeaders: {},
+          }),
+        });
+        expect(registration.status, await registration.clone().text()).toBe(201);
+        const skill = await fetch(`${runtime.management.baseUrl}/api/v1/skills`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            ...skillInput(skillId, scenario.toolName),
+            inputSchema: scenario.inputSchema,
+            outputSchema: scenario.outputSchema,
+            toolPolicy: {
+              required: [{ serverId, toolName: scenario.toolName }],
+              optional: [],
+              forbidden: [],
+            },
+          }),
+        });
+        expect(skill.status, await skill.clone().text()).toBe(201);
+        const typeId = `business.${scenario.toolName}`;
+        const configuredType = await fetch(
+          `${runtime.management.baseUrl}/api/v1/task-types/configured`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              actorId: 'software.operator',
+              idempotencyKey: randomUUID(),
+              reason: 'Reviewed isolated software fixture.',
+              humanApproved: true,
+              policyAllowed: true,
+              definition: {
+                taskTypeId: typeId,
+                version: 1,
+                title: scenario.toolName,
+                recognitionHints: [scenario.toolName],
+                requiredDimensions: ['criteria'],
+                capabilityRequirements: [],
+                risks: [],
+              },
+            }),
+          },
+        );
+        expect(configuredType.status, await configuredType.clone().text()).toBe(201);
+        expect(await configuredType.json()).toMatchObject({
+          status: 'active',
+          origin: 'configured',
+          sourceHash: expect.stringMatching(/^sha256:/),
+          exemplars: [],
+        });
+        if (scenario.toolName === 'document_normalize')
+          withdrawExposure = await installSoftwareExposureFixture({
+            skillId,
+            inputSchema: scenario.inputSchema,
+            outputSchema: scenario.outputSchema,
+            expected: scenario.expected,
+          });
+        let initial = await runtime.a2a.client.sendMessage(
+          SendMessageRequest.fromJSON({
+            message: {
+              messageId: randomUUID(),
+              role: 'ROLE_USER',
+              parts: [
+                {
+                  text: `${scenario.toolName === 'document_normalize' ? '把这段材料里的多余空白整理一下' : 'Combine these observations into a total'} GLOBAL_SHARED_SKILL:${skillId}`,
+                },
+              ],
+              ...(scenario.toolName === 'document_normalize'
+                ? {}
+                : { metadata: { structured_input: scenario.input } }),
+            },
+            configuration: { returnImmediately: false },
+          }),
+        );
+        if (!('id' in initial)) throw new Error('TASK_REQUIRED');
+        if (scenario.toolName === 'document_normalize') {
+          const waitingId = initial.id;
+          const interaction = z
+            .object({
+              'io.sdar/interaction': z.object({
+                inputRequestId: z.string(),
+                kind: z.literal('capability_clarification'),
+              }),
+            })
+            .parse(initial.metadata)['io.sdar/interaction'];
+          expect(await runtime.listMcpInvocations(serverId)).toEqual([]);
+          initial = await runtime.a2a.client.sendMessage(
+            SendMessageRequest.fromJSON({
+              message: {
+                messageId: randomUUID(),
+                taskId: waitingId,
+                contextId: initial.contextId,
+                role: 'ROLE_USER',
+                parts: [{ text: 'Use this document.' }, { data: scenario.input }],
+                metadata: {
+                  sdar_action: 'provide_input',
+                  input_request_id: interaction.inputRequestId,
+                },
+              },
+              configuration: { returnImmediately: false },
+            }),
+          );
+          if (!('id' in initial)) throw new Error('TASK_REQUIRED');
+          expect(initial.id).toBe(waitingId);
+        }
+        expect(initial.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+        expect(
+          await fetch(
+            `${runtime.management.baseUrl}/api/v1/tasks/${initial.id}/understanding`,
+          ).then((response) => response.json()),
+        ).toMatchObject({
+          taskTypeCandidates: [{ taskTypeId: typeId, version: 1 }],
+          sourceRefs: expect.arrayContaining([
+            expect.objectContaining({
+              sourceKind: 'task_type_definition',
+              sourceId: typeId,
+              authority: 'promoted_knowledge',
+              contentHash: expect.stringMatching(/^sha256:/),
+            }),
+          ]),
+        });
+        expect(await runtime.listMcpInvocations(serverId)).toEqual([]);
+        const initialPlan = z
+          .object({ planId: z.string() })
+          .parse(
+            await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${initial.id}`).then(
+              (response) => response.json(),
+            ),
+          );
+        const events = [];
+        for await (const event of runtime.a2a.client.sendMessageStream(
+          SendMessageRequest.fromJSON({
+            message: {
+              messageId: randomUUID(),
+              taskId: initial.id,
+              contextId: initial.contextId,
+              role: 'ROLE_USER',
+              parts: [{ text: 'Confirm this plan.' }],
+              metadata: { sdar_action: 'confirm_plan' },
+            },
+            configuration: { returnImmediately: false },
+          }),
+        ))
+          events.push(event);
+        expect(events.filter((event) => event.payload?.$case === 'task')).toHaveLength(1);
+        const artifactIndex = events.findIndex(
+          (event) => event.payload?.$case === 'artifactUpdate',
+        );
+        const finalIndex = events.findIndex(
+          (event) =>
+            event.payload?.$case === 'statusUpdate' &&
+            event.payload.value.status?.state === TaskState.TASK_STATE_COMPLETED,
+        );
+        if (artifactIndex < 0)
+          throw new Error(
+            JSON.stringify({
+              events,
+              invocations: await runtime.listMcpInvocations(serverId),
+              task: await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${initial.id}`).then(
+                (response) => response.json(),
+              ),
+              trace: await fetch(
+                `${runtime.management.baseUrl}/api/v1/workflows/plans/${initialPlan.planId}/trace`,
+              ).then((response) => response.json()),
+              taskEvents: await fetch(
+                `${runtime.management.baseUrl}/api/v1/tasks/${initial.id}/events`,
+              ).then((response) => response.json()),
+            }),
+          );
+        expect(artifactIndex).toBeGreaterThan(0);
+        expect(finalIndex).toBeGreaterThan(artifactIndex);
+        const artifact = events[artifactIndex]?.payload;
+        expect(
+          artifact?.$case === 'artifactUpdate'
+            ? artifact.value.artifact?.parts.find((part) => part.content?.$case === 'data')?.content
+            : undefined,
+        ).toEqual({ $case: 'data', value: scenario.expected });
+        expect(
+          events[finalIndex]?.payload?.$case === 'statusUpdate'
+            ? events[finalIndex].payload.value.status?.state
+            : undefined,
+        ).toBe(TaskState.TASK_STATE_COMPLETED);
+        expect(await runtime.listMcpInvocations(serverId)).toEqual([
+          expect.objectContaining({
+            taskId: initial.id,
+            toolName: scenario.toolName,
+            arguments: scenario.input,
+          }),
+        ]);
+      } finally {
+        await withdrawExposure?.();
+        await provider.close();
+      }
+    },
+  );
+
   it('binds prioritized A2A structured Skill input into real MCP arguments', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.top-level-input.${randomUUID()}`;
@@ -3320,7 +3562,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       ).toBe(true);
 
       const prepared = z
-        .object({ planId: z.string(), selectedSkillId: z.string() })
+        .object({ planId: z.string(), selectedSkillId: z.string(), skillSelectionId: z.string() })
         .parse(
           await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${submitted.id}`).then(
             (response) => response.json(),
@@ -3471,6 +3713,24 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         });
         expect(registered.status, await registered.text()).toBe(201);
 
+        const currentSkills = z
+          .object({ items: z.array(z.object({ skillId: z.string() })) })
+          .parse(
+            await fetch(`${runtime.management.baseUrl}/api/v1/skills`).then((response) =>
+              response.json(),
+            ),
+          );
+        if (!currentSkills.items.some((skill) => skill.skillId === 'embodied.move_to')) {
+          const imported = await fetch(
+            `${runtime.management.baseUrl}/api/v1/skill-packages/import`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ packageRoot: 'skills/embodied.move_to' }),
+            },
+          );
+          expect(imported.status, await imported.clone().text()).toBe(201);
+        }
         const submitted = await runtime.a2a.client.sendMessage(
           SendMessageRequest.fromJSON({
             message: {
@@ -3564,7 +3824,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           ),
         ).resolves.toMatchObject({
           phase: 'failed',
-          errorCode: 'WORKFLOW_CONTROL_ACHIEVEMENT_INSTANCE_INVALID',
+          errorCode: 'MCP_CONTROL_AUTHORITY_REQUIRED',
         });
 
         await expect(
@@ -3650,7 +3910,12 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             type: 'object',
             additionalProperties: false,
             required: ['anomalies'],
-            properties: { anomalies: { type: 'array', items: { type: 'object' } } },
+            properties: {
+              anomalies: {
+                type: 'array',
+                items: { type: 'object', additionalProperties: { type: 'string' } },
+              },
+            },
           },
           toolPolicy: {
             required: [{ serverId, toolName: 'embodied.inspect_area' }],
@@ -3888,7 +4153,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           ),
         ).resolves.toMatchObject({
           phase: 'failed',
-          errorCode: 'RESULT_SCHEMA_MISMATCH',
+          errorCode: 'MCP_CONTROL_AUTHORITY_REQUIRED',
         });
 
         await expect(
@@ -3897,6 +4162,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
           ).then((response) => response.json()),
         ).resolves.toMatchObject({
           instance: {
+            status: 'failed',
             budgetUsage: { mcpCalls: 0 },
             errors: {
               usage_child_0: {
@@ -5196,48 +5462,41 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     ).resolves.toMatchObject({ memoryId, status: 'active', content: { retained: true } });
   });
 
-  it('expires task-scoped Temporary Skills and gates repeated success behind simulation', async () => {
+  it('retains repeated Temporary Skill experience while both evolution publication entries remain deferred', async () => {
     const mockMcp = await startMcpLoopbackServer();
     const serverId = `mcp.temporary.${randomUUID()}`;
     try {
-      const registration = await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
-        method: 'POST',
+      expect(
+        (
+          await fetch(`${runtime.management.baseUrl}/api/v1/mcp/servers`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              serverId,
+              name: 'Temporary lifecycle fixture',
+              endpoint: mockMcp.endpoint.toString(),
+              credentialHeaders: {},
+            }),
+          })
+        ).status,
+      ).toBe(201);
+      await fetch(`${runtime.management.baseUrl}/api/v1/system/evolution-policy`, {
+        method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          serverId,
-          name: 'Temporary Skill MCP',
-          endpoint: mockMcp.endpoint.toString(),
-          credentialHeaders: {},
-        }),
+        body: JSON.stringify({ successThreshold: 3 }),
       });
-      expect(registration.status).toBe(201);
-      const policyUpdate = await fetch(
-        `${runtime.management.baseUrl}/api/v1/system/evolution-policy`,
-        {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ successThreshold: 3 }),
-        },
-      );
-      expect(policyUpdate.status).toBe(200);
-      const existingSkillId = `skill.existing.${serverId}`;
-      await runtime.registerSkill({
-        ...skillInput(existingSkillId, 'Existing device status capability'),
-        toolPolicy: {
-          required: [{ serverId, toolName: 'device_status' }],
-          optional: [],
-          forbidden: [],
-        },
-      });
-      const executeHistory = async (marker: string, expectedState: TaskState) => {
-        const submitted = await runtime.a2a.client.sendMessage(
+      const formalBefore = await readFormalSkillIds();
+      let candidateId = '';
+      const taskIds: string[] = [];
+      for (let index = 0; index < 3; index++) {
+        const task = await runtime.a2a.client.sendMessage(
           SendMessageRequest.fromJSON({
             message: {
-              messageId: `message-${randomUUID()}`,
+              messageId: randomUUID(),
               role: 'ROLE_USER',
               parts: [
                 {
-                  text: `${marker} GLOBAL_SHARED_SKILL:${existingSkillId}`,
+                  text: `Read the device with TEMPORARY_TOOL:${serverId}/device_status`,
                   mediaType: 'text/plain',
                 },
               ],
@@ -5245,333 +5504,91 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
             configuration: { returnImmediately: false },
           }),
         );
-        if (!('id' in submitted)) throw new Error('A2A_EXPECTED_TASK_RESULT');
-        expect(submitted.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
-        await sendFollowUp(submitted.id, submitted.contextId, 'confirm_plan', 'Confirm history.');
-        if (marker === 'HISTORICAL_REPLAY_FAILURE') {
-          await waitForInternalTaskPhase(submitted.id, 'awaiting_plan_confirmation');
-          await sendFollowUp(
-            submitted.id,
-            submitted.contextId,
-            'confirm_plan',
-            'Confirm the safe replacement plan.',
-          );
-        }
-        await waitForTaskState(submitted.id, expectedState);
-        const storedTask = z
-          .object({ goalId: z.string() })
+        if (!('id' in task)) throw new Error('TASK_REQUIRED');
+        taskIds.push(task.id);
+        expect(task.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+        const persisted = z
+          .object({ temporarySkillId: z.string() })
           .parse(
-            await fetch(
-              `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(submitted.id)}`,
-            ).then((response) => response.json()),
+            await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${task.id}`).then((response) =>
+              response.json(),
+            ),
           );
-        return { taskId: submitted.id, goalId: storedTask.goalId };
-      };
-      await executeHistory('HISTORICAL_REPLAY_SUCCESS', TaskState.TASK_STATE_COMPLETED);
-      const failedHistory = await executeHistory(
-        'HISTORICAL_REPLAY_FAILURE',
-        TaskState.TASK_STATE_FAILED,
-      );
-      const failedEvolutionEvidence = await waitForEvolutionExperience(
-        failedHistory.goalId,
-        failedHistory.taskId,
-      );
-      expect(failedEvolutionEvidence.items).toContainEqual(
-        expect.objectContaining({
-          taskId: failedHistory.taskId,
-          goal: expect.objectContaining({ goalId: failedHistory.goalId }),
-          evaluation: expect.objectContaining({ decision: 'adjust_plan' }),
-          successful: false,
-        }),
-      );
-      const formalSkillsBefore = await readFormalSkillIds();
-      const createAndComplete = async (taskId: string, forceSimulationFailure = false) => {
-        const createdResponse = await fetch(
-          `${runtime.management.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/temporary-skills`,
+        const premature = await fetch(
+          `${runtime.management.baseUrl}/api/v1/temporary-skills/${persisted.temporarySkillId}/complete`,
           {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              contextId: `context-${taskId}`,
-              name: 'Inspect device temporarily',
-              description: 'Read current device state for this task.',
-              tools: [{ serverId, toolName: 'device_status' }],
-              inputSchema: {
-                type: 'object',
-                properties: {
-                  deviceId: { type: 'string' },
-                  ...(forceSimulationFailure
-                    ? { forceSimulationFailure: { type: 'boolean' } }
-                    : {}),
-                },
-                required: ['deviceId'],
-              },
-              outputSchema: { type: 'object', properties: { status: { type: 'string' } } },
-            }),
+            body: JSON.stringify({ successful: true, outcomeSummary: 'Uncommitted.' }),
           },
         );
-        expect(createdResponse.status).toBe(201);
-        const created = z
-          .object({ temporarySkillId: z.string(), status: z.literal('active') })
-          .parse(await createdResponse.json());
-        const completedResponse = await fetch(
-          `${runtime.management.baseUrl}/api/v1/temporary-skills/${encodeURIComponent(created.temporarySkillId)}/complete`,
+        expect(premature.ok).toBe(false);
+        await sendFollowUp(task.id, task.contextId, 'confirm_plan', 'Confirm the read.');
+        await waitForTaskState(task.id, TaskState.TASK_STATE_COMPLETED);
+        const completed = await fetch(
+          `${runtime.management.baseUrl}/api/v1/temporary-skills/${persisted.temporarySkillId}/complete`,
           {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ successful: true, outcomeSummary: 'Device state read.' }),
+            body: JSON.stringify({ successful: true, outcomeSummary: 'Read committed.' }),
           },
         );
-        expect(completedResponse.status).toBe(200);
-        return z
+        expect(completed.status, await completed.clone().text()).toBe(200);
+        const record = z
           .object({
-            skill: z.object({
-              status: z.literal('expired'),
-              capabilityFingerprint: z.string(),
-            }),
+            skill: z.object({ status: z.literal('expired') }),
             experience: z.object({ successful: z.literal(true) }),
             formalizationCandidate: z
               .object({
                 candidateId: z.string(),
-                status: z.enum(['awaiting_simulation', 'validation_failed', 'published']),
+                status: z.literal('awaiting_simulation'),
                 successfulExperienceCount: z.number(),
-                publishedSkillId: z.string().optional(),
-                inductionReport: z
-                  .object({
-                    consistent: z.boolean(),
-                    stable: z.boolean(),
-                    generalizable: z.boolean(),
-                    duplicateScore: z.number(),
-                    evolutionKind: z.enum(['new_skill', 'new_version']),
-                    targetSkillId: z.string(),
-                    boundaryDecisionSummary: z.string(),
-                    decisionSummary: z.string(),
-                  })
-                  .optional(),
-                validationReport: z
-                  .object({
-                    allPassed: z.boolean(),
-                    cases: z.array(z.object({ kind: z.string(), passed: z.boolean() })),
-                  })
-                  .optional(),
-                proposedSkill: z
-                  .object({
-                    skillId: z.string(),
-                    name: z.string(),
-                    summary: z.string(),
-                    description: z.string(),
-                    capabilities: z.array(z.string()),
-                    workflowGuidance: z.string(),
-                    outputInstruction: z.string(),
-                    inputSchema: z.unknown(),
-                    outputSchema: z.unknown(),
-                    tools: z.array(z.object({ serverId: z.string(), toolName: z.string() })),
-                    usageSpecification: z.unknown(),
-                    outcomeSpecification: z.unknown(),
-                  })
-                  .optional(),
               })
               .optional(),
           })
-          .parse(await completedResponse.json());
-      };
-
-      const first = await createAndComplete(`task-temp-${randomUUID()}`);
-      expect(first.formalizationCandidate).toBeUndefined();
-      expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
-      const second = await createAndComplete(`task-temp-${randomUUID()}`);
-      expect(second.formalizationCandidate).toBeUndefined();
-      expect(await readFormalSkillIds()).toEqual(formalSkillsBefore);
-      const third = await createAndComplete(`task-temp-${randomUUID()}`);
-      expect(third.formalizationCandidate).toMatchObject({
-        status: 'published',
-        successfulExperienceCount: 3,
-        publishedSkillId: existingSkillId,
-        inductionReport: {
-          consistent: true,
-          stable: true,
-          generalizable: true,
-          duplicateScore: 0.95,
-          evolutionKind: 'new_version',
-          targetSkillId: existingSkillId,
-        },
-        validationReport: { allPassed: true },
-      });
-      expect(
-        third.formalizationCandidate?.validationReport?.cases.map((item) => item.kind),
-      ).toEqual([
-        'static_validation',
-        'source_experience',
-        'source_experience',
-        'source_experience',
-        'historical_replay',
-        'historical_replay',
-        'normal',
-        'boundary',
-        'exception',
-      ]);
-      const candidateId = third.formalizationCandidate?.candidateId;
-      if (candidateId === undefined) throw new Error('FORMALIZATION_CANDIDATE_ID_MISSING');
-      const invocationModes = await runtime.listMcpInvocations(serverId);
-      expect(invocationModes).toContainEqual(expect.objectContaining({ executionMode: 'live' }));
-      expect(invocationModes).toContainEqual(
-        expect.objectContaining({
-          executionMode: 'simulation',
-          simulationId: `skill-evolution:${candidateId}:simulation:normal-device`,
-        }),
-      );
-      expect(invocationModes).toContainEqual(
-        expect.objectContaining({
-          executionMode: 'historical-replay',
-          simulationId: expect.stringContaining(`skill-evolution:${candidateId}:historical:`),
-        }),
-      );
-      expect(
-        mockMcp.receivedHeaders.some((headers) => headers['x-sdar-execution-mode'] === undefined),
-      ).toBe(true);
-      for (const invocation of invocationModes.filter((item) => item.executionMode !== 'live'))
-        expect(mockMcp.receivedHeaders).toContainEqual(
-          expect.objectContaining({
-            'x-sdar-execution-mode': invocation.executionMode,
-            'x-sdar-simulation-id': invocation.simulationId,
-          }),
-        );
-      const triggers = z
-        .object({
-          items: z.array(
-            z.object({
-              successfulExperienceCount: z.number(),
-              configuredThreshold: z.number(),
-              decision: z.string(),
-            }),
-          ),
-        })
-        .parse(
-          await fetch(
-            `${runtime.management.baseUrl}/api/v1/evolution-triggers?capabilityFingerprint=${encodeURIComponent(third.skill.capabilityFingerprint)}`,
-          ).then((response) => response.json()),
-        );
-      expect(triggers.items).toMatchObject([
-        { successfulExperienceCount: 1, configuredThreshold: 3, decision: 'below_threshold' },
-        { successfulExperienceCount: 2, configuredThreshold: 3, decision: 'below_threshold' },
-        { successfulExperienceCount: 3, configuredThreshold: 3, decision: 'candidate_created' },
-      ]);
-      const formalSkillsAfter = await readFormalSkillIds();
-      expect(formalSkillsAfter).toEqual(formalSkillsBefore);
-      const versions = z
-        .object({ items: z.array(z.object({ skillId: z.string(), version: z.number() })) })
-        .parse(
-          await fetch(
-            `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/versions`,
-          ).then((response) => response.json()),
-        );
-      expect(versions.items.map((item) => item.version).sort()).toEqual([1, 2]);
-      expect((await readAgentCard()).skills.map((skill) => skill.id)).toContain(existingSkillId);
-      const failedFirst = await createAndComplete(`task-temp-failed-${randomUUID()}`, true);
-      expect(failedFirst.formalizationCandidate).toBeUndefined();
-      const failedSecond = await createAndComplete(`task-temp-failed-${randomUUID()}`, true);
-      expect(failedSecond.formalizationCandidate).toBeUndefined();
-      const failedThird = await createAndComplete(`task-temp-failed-${randomUUID()}`, true);
-      expect(failedThird.formalizationCandidate).toMatchObject({
-        status: 'validation_failed',
-        successfulExperienceCount: 3,
-        validationReport: { allPassed: false },
-      });
-      expect(failedThird.formalizationCandidate?.publishedSkillId).toBeUndefined();
-      expect(failedThird.formalizationCandidate?.validationReport?.cases).toContainEqual(
-        expect.objectContaining({ kind: 'normal', passed: false }),
-      );
-      const versionsAfterFailure = z
-        .object({ items: z.array(z.object({ skillId: z.string(), version: z.number() })) })
-        .parse(
-          await fetch(
-            `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/versions`,
-          ).then((response) => response.json()),
-        );
-      expect(versionsAfterFailure.items.map((item) => item.version).sort()).toEqual([1, 2]);
-      const failedProposedSkill = failedThird.formalizationCandidate?.proposedSkill;
-      if (failedProposedSkill === undefined) throw new Error('FAILED_DRAFT_SKILL_MISSING');
-      const correctedSkill = {
-        ...failedProposedSkill,
-        inputSchema: {
-          type: 'object',
-          properties: {
-            deviceId: { type: 'string' },
-            forceSimulationFailure: { type: 'boolean' },
-          },
-          required: ['deviceId', 'forceSimulationFailure'],
-        },
-      };
-      const correctedResponse = await fetch(
-        `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${encodeURIComponent(failedThird.formalizationCandidate?.candidateId ?? '')}/corrections`,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
+          .parse(await completed.json());
+        if (index === 2) {
+          expect(record.formalizationCandidate?.successfulExperienceCount).toBe(3);
+          candidateId = record.formalizationCandidate?.candidateId ?? '';
+        }
+      }
+      expect(candidateId).not.toBe('');
+      const invocations = await runtime.listMcpInvocations(serverId);
+      expect(invocations).toHaveLength(3);
+      expect(invocations.every((invocation) => invocation.executionMode === 'live')).toBe(true);
+      for (const [action, body] of [
+        ['simulate', undefined],
+        [
+          'corrections',
+          {
             actor: 'operator@example.test',
-            summary: 'Require the boundary discriminator before calling the Tool.',
-            proposedSkill: correctedSkill,
-          }),
-        },
-      );
-      expect(correctedResponse.status, await correctedResponse.clone().text()).toBe(200);
-      const corrected = z
-        .object({
-          candidate: z.object({
-            status: z.literal('published'),
-            publishedSkillId: z.literal(existingSkillId),
-            publishedSkillVersion: z.literal(3),
-            validationReport: z.object({ allPassed: z.literal(true) }),
-          }),
-          correction: z.object({
-            correctionId: z.string(),
-            actor: z.literal('operator@example.test'),
-            summary: z.string(),
-            diff: z.array(z.object({ path: z.string(), before: z.unknown(), after: z.unknown() })),
-            outcome: z.literal('published'),
-            validationReport: z.object({ allPassed: z.literal(true) }),
-          }),
-        })
-        .parse(await correctedResponse.json());
-      expect(corrected.correction.diff).toContainEqual(
-        expect.objectContaining({ path: '/inputSchema/required' }),
-      );
-      const correctionHistory = z
-        .object({
-          items: z.array(
-            z.object({
-              correctionId: z.string(),
-              actor: z.string(),
-              outcome: z.string(),
-              diff: z.array(z.object({ path: z.string() })),
-            }),
-          ),
-        })
-        .parse(
-          await fetch(
-            `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${encodeURIComponent(failedThird.formalizationCandidate?.candidateId ?? '')}/corrections`,
-          ).then((response) => response.json()),
+            summary: 'Review retained candidate.',
+            proposedSkill: {
+              ...skillInput('retained.candidate', 'Retained candidate'),
+              tools: [{ serverId, toolName: 'device_status' }],
+            },
+          },
+        ],
+      ] as const) {
+        const response = await fetch(
+          `${runtime.management.baseUrl}/api/v1/skill-formalization-candidates/${candidateId}/${action}`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          },
         );
-      expect(correctionHistory.items).toMatchObject([
-        {
-          correctionId: corrected.correction.correctionId,
-          actor: 'operator@example.test',
-          outcome: 'published',
-        },
-      ]);
-      const versionsAfterCorrection = z
-        .object({ items: z.array(z.object({ version: z.number() })) })
-        .parse(
-          await fetch(
-            `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/versions`,
-          ).then((response) => response.json()),
+        expect(response.status, await response.clone().text()).toBe(409);
+        expect(await response.json()).toMatchObject({
+          error: { code: 'SKILL_EVOLUTION_PUBLICATION_DEFERRED' },
+        });
+      }
+      expect(await runtime.listMcpInvocations(serverId)).toHaveLength(3);
+      expect(await readFormalSkillIds()).toEqual(formalBefore);
+      for (const id of taskIds)
+        expect((await runtime.a2a.client.getTask({ id, tenant: '' })).status?.state).toBe(
+          TaskState.TASK_STATE_COMPLETED,
         );
-      expect(versionsAfterCorrection.items.map((item) => item.version).sort()).toEqual([1, 2, 3]);
-      const disabled = await fetch(
-        `${runtime.management.baseUrl}/api/v1/skills/${encodeURIComponent(existingSkillId)}/disable`,
-        { method: 'POST' },
-      );
-      expect(disabled.status).toBe(200);
     } finally {
       await fetch(`${runtime.management.baseUrl}/api/v1/system/evolution-policy`, {
         method: 'PUT',
@@ -6433,6 +6450,11 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
   });
 
   it('auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results', async () => {
+    const firstSkillId = `skill.auto-task-first.${randomUUID()}`;
+    await runtime.registerSkill({
+      ...skillInput(firstSkillId, 'Zebra Auto Task Earlier Compatible'),
+      runtimePolicy: { autoConfirmPlan: true },
+    });
     const skillId = `skill.auto-task.${randomUUID()}`;
     await runtime.registerSkill({
       ...skillInput(skillId, 'Zebra Auto Task'),
@@ -6448,6 +6470,27 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
         configuration: { returnImmediately },
       });
 
+    const streamEvents = [];
+    for await (const event of runtime.a2a.client.sendMessageStream(request(false)))
+      streamEvents.push(event);
+    expect(streamEvents.filter((event) => event.payload?.$case === 'task')).toHaveLength(1);
+    const artifactIndex = streamEvents.findIndex(
+      (event) => event.payload?.$case === 'artifactUpdate',
+    );
+    const terminalIndex = streamEvents.findIndex(
+      (event) =>
+        event.payload?.$case === 'statusUpdate' &&
+        event.payload.value.status?.state === TaskState.TASK_STATE_COMPLETED,
+    );
+
+    expect(artifactIndex).toBeGreaterThan(0);
+    expect(terminalIndex).toBeGreaterThan(artifactIndex);
+    const streamedArtifact = streamEvents[artifactIndex]?.payload;
+    expect(
+      streamedArtifact?.$case === 'artifactUpdate'
+        ? streamedArtifact.value.artifact?.parts[1]?.content
+        : undefined,
+    ).toEqual({ $case: 'data', value: { status: 'online' } });
     const synchronous = await runtime.a2a.client.sendMessage(request(false));
     if (!('id' in synchronous)) throw new Error('A2A_EXPECTED_TASK_RESULT');
     expect(synchronous.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
@@ -6462,13 +6505,24 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
 
     for (const taskId of [synchronous.id, asynchronous.id]) {
       const task = z
-        .object({ planId: z.string(), selectedSkillId: z.string() })
+        .object({ planId: z.string(), selectedSkillId: z.string(), skillSelectionId: z.string() })
         .parse(
           await fetch(`${runtime.management.baseUrl}/api/v1/tasks/${taskId}`).then((response) =>
             response.json(),
           ),
         );
       expect(task.selectedSkillId).toBe(skillId);
+      const evidencePool = createTestPostgresPool(postgresUrl);
+      try {
+        const row = await evidencePool.query(
+          'SELECT * FROM skill_selection_record WHERE selection_id=$1',
+          [task.skillSelectionId],
+        );
+        expect(row.rows[0]).toMatchObject({ selected_skill_id: skillId });
+        expect(JSON.stringify(row.rows[0])).toContain(firstSkillId);
+      } finally {
+        await evidencePool.end();
+      }
       await expect(
         fetch(
           `${runtime.management.baseUrl}/api/v1/workflows/plans/${encodeURIComponent(task.planId)}`,
@@ -6858,7 +6912,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
     },
   );
 
-  it('retrieves Skill/Prompt corrections, failure reasons, and evaluation conclusions as evolution memory', async () => {
+  it('retains Prompt corrections, failure reasons and evaluations without deferred Skill correction publication', async () => {
     const promptId = promptIdFor('intent');
     const prompt = await fetch(`${runtime.management.baseUrl}/api/v1/prompts`, {
       method: 'POST',
@@ -6930,7 +6984,7 @@ describe('A2A TaskService endpoint with real PostgreSQL and Redis', () => {
       items.some((item) =>
         item.sourceRefs.some((ref) => ref.startsWith('skill-evolution-correction:')),
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       items.some(
         (item) =>
@@ -7046,6 +7100,118 @@ async function waitForAgentCardCatalogHash(previousHash: string) {
   );
 }
 
+/** Public catalog authority is a local fixture; request, binding, Skill and workflow execution use real Runtime services. */
+async function installSoftwareExposureFixture(
+  input: Readonly<{
+    skillId: string;
+    inputSchema: unknown;
+    outputSchema: unknown;
+    expected: Readonly<Record<string, unknown>>;
+  }>,
+): Promise<() => Promise<void>> {
+  const database = createTestPostgresPool(postgresUrl);
+  const now = new Date().toISOString();
+  const id = `software-document:${randomUUID()}`;
+  const previous = await database.query<{ revision: string }>(
+    "SELECT revision FROM runtime_agent_card_revision WHERE status='active'",
+  );
+  const revision = Number(
+    requiredFixture(
+      (
+        await database.query<{ revision: string }>(
+          'SELECT COALESCE(MAX(revision),0)+1 AS revision FROM runtime_agent_card_revision',
+        )
+      ).rows[0],
+    ).revision,
+  );
+  const client = await database.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      "UPDATE runtime_agent_card_revision SET status='superseded' WHERE status='active'",
+    );
+    await client.query(
+      `INSERT INTO runtime_agent_card_revision(revision,node_id,exposure_refs,content_hash,capability_catalog_hash,status,card,generated_at,activated_at) VALUES($1,'isolated-software-fixture',$2::jsonb,$3,$4,'active','{}'::jsonb,$5,$5)`,
+      [
+        revision,
+        JSON.stringify([`${id}:1`]),
+        randomBytes(32).toString('hex'),
+        randomBytes(32).toString('hex'),
+        now,
+      ],
+    );
+    await client.query(
+      `INSERT INTO runtime_agent_card_exposure_snapshot(revision,exposure_id,exposure_version,capability_id,capability_version,agent_skill_id,request_schema,result_schema,requester_policy,exposure_hash) VALUES($1,$2,1,$2,1,$3,$4::jsonb,$5::jsonb,'{"allowAnonymous":true,"allowedRequesterIds":[]}'::jsonb,$6)`,
+      [
+        revision,
+        id,
+        input.skillId,
+        JSON.stringify(input.inputSchema),
+        JSON.stringify(input.outputSchema),
+        randomBytes(32).toString('hex'),
+      ],
+    );
+    await client.query(
+      `INSERT INTO capability_readiness_snapshot(capability_id,capability_version,snapshot_version,status,raw_status,evaluated_at,valid_until,catalog_hash,policy_hash,snapshot_hash,reasons,available_implementations,unavailable_implementations,evaluation_input,trigger_reason) VALUES($1,1,1,'available','available',$2,$3,$4,$5,$6,'[]'::jsonb,$7::jsonb,'[]'::jsonb,$8::jsonb,'isolated-software')`,
+      [
+        id,
+        now,
+        new Date(Date.now() + 60000).toISOString(),
+        `sha256:${randomBytes(32).toString('hex')}`,
+        `sha256:${randomBytes(32).toString('hex')}`,
+        `sha256:${randomBytes(32).toString('hex')}`,
+        JSON.stringify([id]),
+        JSON.stringify({
+          definition: {
+            status: 'published',
+            successCriteria: Object.entries(input.expected).map(([field, value]) => ({
+              type: 'field_equals',
+              field,
+              value,
+            })),
+            requiredEvidence: [],
+            constraints: [],
+          },
+          maintenanceMode: false,
+          killSwitch: false,
+          implementations: [
+            {
+              bindingId: id,
+              implementationType: 'skill',
+              implementationId: input.skillId,
+              implementationVersion: '1',
+              role: 'primary',
+              status: 'active',
+            },
+          ],
+        }),
+      ],
+    );
+    await client.query('COMMIT');
+  } catch (error: unknown) {
+    await client.query('ROLLBACK');
+    client.release();
+    await database.end();
+    throw error;
+  }
+  client.release();
+  return async () => {
+    try {
+      await database.query(
+        "UPDATE runtime_agent_card_revision SET status='superseded' WHERE revision=$1",
+        [revision],
+      );
+      if (previous.rows[0] !== undefined)
+        await database.query(
+          "UPDATE runtime_agent_card_revision SET status='active' WHERE revision=$1",
+          [previous.rows[0].revision],
+        );
+    } finally {
+      await database.end();
+    }
+  };
+}
+
 function skillInput(skillId: string, name: string): RegisterSkillVersionInput {
   return {
     skillId,
@@ -7055,7 +7221,7 @@ function skillInput(skillId: string, name: string): RegisterSkillVersionInput {
     capabilities: ['inspection'],
     workflowGuidance: 'Use the registered tool policy.',
     outputInstruction: 'Return device status.',
-    inputSchema: { type: 'object' },
+    inputSchema: { type: 'object', additionalProperties: false },
     outputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -7218,6 +7384,7 @@ async function startModelLoopback(): Promise<Server> {
     request.on('end', () => {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
         model?: string;
+        input?: string;
         messages?: { content?: string }[];
       };
       response.setHeader('content-type', 'application/json');
@@ -7564,24 +7731,86 @@ async function startModelLoopback(): Promise<Server> {
           });
           return;
         }
+        if (
+          body.messages?.some(
+            (message) => message.content?.includes('resolve_public_capability_admission') === true,
+          ) === true
+        ) {
+          const admission = z
+            .object({
+              untrustedRequest: z.string(),
+              userAnswer: z.unknown(),
+              exposures: z.array(z.object({ exposureId: z.string(), exposureVersion: z.number() })),
+            })
+            .parse(embeddedOperation(body.messages, 'resolve_public_capability_admission'));
+          const softwareExposure = admission.exposures.find((item) =>
+            item.exposureId.startsWith('software-document:'),
+          );
+          if (
+            softwareExposure !== undefined &&
+            admission.untrustedRequest.includes('GLOBAL_SHARED_SKILL:skill.document_normalize.')
+          ) {
+            const answered = admission.userAnswer !== null;
+            respondStructured(response, {
+              status: answered ? 'resolved' : 'clarification',
+              exposures: [softwareExposure],
+              input: answered ? admission.userAnswer : {},
+              question: 'Provide the document text.',
+              reason: 'Local schema-only simulation.',
+              missingFields: answered ? [] : ['text'],
+            });
+            return;
+          }
+          respondStructured(response, {
+            status: 'not_applicable',
+            exposures: [],
+            input: {},
+            question: '',
+            reason: 'Unrelated to the fixture public capability.',
+            missingFields: [],
+          });
+          return;
+        }
         if (taskUnderstandingRequest === true) {
+          const instruction = body.messages
+            ?.map((message) => message.content)
+            .find((content) => content?.includes('"untrustedUserRequest"'));
+          const softwareType = ['document_normalize', 'data_aggregate'].find(
+            (name) =>
+              instruction?.includes(`GLOBAL_SHARED_SKILL:skill.${name}.`) === true &&
+              instruction.includes(`"taskTypeId":"business.${name}"`),
+          );
           const ambiguous = body.messages?.some(
             (message) => message.content?.includes('HELP_AMBIGUOUS') === true,
           );
           respondStructured(response, {
             interpretedObjective: ambiguous
               ? 'Help with an unspecified target.'
-              : 'Complete the concrete task request.',
-            taskTypeCandidates: ambiguous
-              ? [
-                  {
-                    taskTypeId: 'task-type.generic-assistance',
-                    version: 1,
-                    confidence: 0.9,
-                    rationale: 'The user requested generic help.',
-                  },
-                ]
-              : [],
+              : z
+                  .object({ untrustedUserRequest: z.string() })
+                  .parse(
+                    JSON.parse((instruction ?? '{}').slice((instruction ?? '{}').indexOf('{'))),
+                  ).untrustedUserRequest,
+            taskTypeCandidates:
+              softwareType !== undefined
+                ? [
+                    {
+                      taskTypeId: `business.${softwareType}`,
+                      version: 1,
+                      confidence: 0.95,
+                      rationale: 'Isolated model selects the exact supplied software candidate.',
+                    },
+                  ]
+                : ambiguous
+                  ? [
+                      {
+                        taskTypeId: 'task-type.generic-assistance',
+                        version: 1,
+                        confidence: 0.9,
+                        rationale: 'The user requested generic help.',
+                      },
+                    ]
+                  : [],
             capabilityRequirements: [],
             knownConstraints: [],
             knownDimensions: ambiguous
@@ -7615,6 +7844,11 @@ async function startModelLoopback(): Promise<Server> {
           const required = z
             .looseObject({ required: z.array(z.string()).optional() })
             .safeParse(requestData.skill.outputSchema);
+          const softwareOutput =
+            required.success &&
+            required.data.required?.some(
+              (field) => field === 'normalizedText' || field === 'total',
+            );
           const requiresDeviceId = required.success && required.data.required?.includes('deviceId');
           const requiresMoveResult =
             required.success &&
@@ -7634,7 +7868,7 @@ async function startModelLoopback(): Promise<Server> {
                 ? 'Resource reached the permitted target.'
                 : 'Device is online.',
             structured:
-              requiresPatrolResult || requiresMoveResult
+              softwareOutput || requiresPatrolResult || requiresMoveResult
                 ? normalizedData
                 : {
                     status: 'online',
@@ -8279,9 +8513,17 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (exceptionDecisionRequest === true) {
+          const requestData = z
+            .object({ allowedStrategies: z.array(z.enum(['terminate', 'continue', 'goto'])) })
+            .parse(embeddedOperation(body.messages, 'decide_execution_exception'));
+          const strategy = requestData.allowedStrategies.includes('continue')
+            ? 'continue'
+            : 'terminate';
+          if (!requestData.allowedStrategies.includes(strategy))
+            throw new Error('NO_LEGAL_EXCEPTION_FIXTURE_STRATEGY');
           respondStructured(response, {
-            strategy: 'continue',
-            summary: 'Continue through the validated error-handler path.',
+            strategy,
+            summary: 'Follow the immutable handler policy and its constrained choices.',
           });
           return;
         }
@@ -8502,6 +8744,34 @@ async function startModelLoopback(): Promise<Server> {
           const failPrimary = requestData.goalDescription.includes('REPLACE_SKILL_GOAL');
           const temporaryTool = requestData.selectedTemporarySkill?.tools[0];
           const historicalTool = requestData.selectedSkill?.toolPolicy.required[0];
+          if (
+            historicalTool !== undefined &&
+            ['document_normalize', 'data_aggregate'].includes(historicalTool.toolName)
+          ) {
+            respondStructured(response, {
+              ...requestData.workflowIdentity,
+              executionSemanticsVersion: '2.0',
+              entryNodeId: 'software',
+              exitNodeIds: ['result'],
+              nodes: [
+                {
+                  nodeId: 'software',
+                  name: 'Process supplied software data',
+                  type: 'mcp_tool',
+                  tool: historicalTool,
+                  arguments: { op: 'ref', path: ['input'] },
+                },
+                {
+                  nodeId: 'result',
+                  name: 'Return computed data',
+                  type: 'result',
+                  value: { op: 'ref', path: ['nodes', 'software', 'data', 'structuredContent'] },
+                },
+              ],
+              edges: [{ sourceNodeId: 'software', targetNodeId: 'result' }],
+            });
+            return;
+          }
           const topLevelInputMcp = requestData.goalDescription.includes('TOP_LEVEL_INPUT_MCP:');
           const historicalSuccess = requestData.goalDescription.includes(
             'HISTORICAL_REPLAY_SUCCESS',
@@ -8829,9 +9099,21 @@ async function startModelLoopback(): Promise<Server> {
           return;
         }
         if (genericTaskEvaluationRequest) {
+          const content = body.messages?.find((message) =>
+            message.content?.includes('"workflow":{"instanceId'),
+          )?.content;
+          const start = content?.indexOf('{"goal":') ?? -1;
+          if (content === undefined || start < 0)
+            throw new Error('GOAL_EVALUATION_FIXTURE_MISSING');
+          const evaluationInput = z
+            .object({ workflow: z.object({ status: z.string() }) })
+            .parse(JSON.parse(content.slice(start)));
+          const succeeded = evaluationInput.workflow.status === 'succeeded';
           respondStructured(response, {
-            decision: 'achieved',
-            summary: 'The Task Workflow result satisfies the Goal.',
+            decision: succeeded ? 'achieved' : 'unachievable',
+            summary: succeeded
+              ? 'The Task Workflow result satisfies the Goal.'
+              : 'The failed Task Workflow cannot satisfy the Goal under its current authority.',
           });
           return;
         }
@@ -9008,7 +9290,12 @@ async function startModelLoopback(): Promise<Server> {
         response.end(
           JSON.stringify({
             model: 'model-e2e',
-            data: [{ embedding: [1, 0, 0] }],
+            data: [
+              {
+                embedding:
+                  body.input?.toLowerCase().includes('zebra') === true ? [1, 0, 0] : [0, 1, 0],
+              },
+            ],
             usage: { prompt_tokens: 2 },
           }),
         );
@@ -9031,7 +9318,11 @@ async function sendFollowUp(taskId: string, contextId: string, action: string, t
         parts: [{ text, mediaType: 'text/plain' }],
         metadata: { sdar_action: action },
       },
-      configuration: { returnImmediately: false },
+      configuration: {
+        returnImmediately: ['confirm_plan', 'resume', 'provide_input', 'patch_goal'].includes(
+          action,
+        ),
+      },
     }),
   );
 }
@@ -9756,4 +10047,9 @@ function writePhase13Report(report: unknown): void {
   } finally {
     rmSync(temporaryUrl, { force: true });
   }
+}
+
+function requiredFixture<T>(value: T | undefined | null): T {
+  if (value === undefined || value === null) throw new Error('REQUIRED_TEST_FIXTURE_MISSING');
+  return value;
 }

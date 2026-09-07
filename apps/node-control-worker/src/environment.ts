@@ -1,6 +1,7 @@
 import process from 'node:process';
 
 import { z } from 'zod';
+import { loadEnvironmentFile } from '../../../packages/runtime-environment/src/index.js';
 
 const EnvironmentSchema = z
   .object({
@@ -31,13 +32,9 @@ const EnvironmentSchema = z
 export type NodeControlWorkerEnvironment = z.infer<typeof EnvironmentSchema>;
 
 export function loadNodeControlWorkerEnvironment(
-  envFilePath = '.env',
+  envFilePath?: string,
 ): NodeControlWorkerEnvironment {
-  try {
-    process.loadEnvFile(envFilePath);
-  } catch (error) {
-    if (!isNodeError(error) || error.code !== 'ENOENT') throw error;
-  }
+  loadEnvironmentFile(envFilePath);
   return EnvironmentSchema.parse(process.env);
 }
 
@@ -45,8 +42,4 @@ export function parseNodeControlWorkerEnvironment(
   environment: NodeJS.ProcessEnv,
 ): NodeControlWorkerEnvironment {
   return EnvironmentSchema.parse(environment);
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error;
 }

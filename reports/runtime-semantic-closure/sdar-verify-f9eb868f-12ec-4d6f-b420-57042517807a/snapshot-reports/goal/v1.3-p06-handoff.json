@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P06",
+  "packageVersion": "1.1",
+  "sequence": 6,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "aa060f318b77a375f20f32fbdea1629ac5511b55",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "shadowPromotionGovernance": "70647a08b4c20bab50f9c2d93827cd0b26077ad7"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "consumedContracts": [
+    { "name": "ArtifactValidationResult", "version": "1.1", "schemaHash": "0a9b4fe3b71242744760ecf7bfcd14cf4272b32ac130e111878f67f3514fd64b" },
+    { "name": "ArtifactCounterexample", "version": "1.1", "schemaHash": "ef317932640d095863d9bb13c96e2f738989bc7858aec9a613f76c4438ad46f3" },
+    { "name": "ArtifactGovernancePort", "version": "1.1", "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf" }
+  ],
+  "producedContracts": [
+    { "name": "ArtifactShadowRun", "version": "1.1", "schemaHash": "57b1f4a99385c94d967ac2eb84ed90dc74ab196c25e42fc67de488d963ec369d" },
+    { "name": "ArtifactShadowResult", "version": "1.1", "schemaHash": "69f51efc62cb86f2b0df4e5a95cf3bce00580869a0b6fb891498cdc260c1ec69" },
+    { "name": "ArtifactPromotionPackage", "version": "1.1", "schemaHash": "4889edac5db4fe3251d9b29c4aaddb05341bb1d9adb257398a556859a517bf52" },
+    { "name": "ArtifactApprovalRecord", "version": "1.1", "schemaHash": "a041ba372f0e123ba7ba4d5fb451ba889e0f46ae727a4714aabb5c70c119394d" },
+    { "name": "ArtifactActivationRecord", "version": "1.1", "schemaHash": "d45959a850c3433df4be744f77e758209e317ceb88c5dc816d448878b2e3a7ef" },
+    { "name": "ArtifactRevalidationTrigger", "version": "1.1", "schemaHash": "cd9b13e443b5fa7aa80a004bbb99b3e988a44247eed92997efa8682ea774745a" }
+  ],
+  "migrations": ["0130_v13_artifact_shadow_governance"],
+  "repositoryPorts": ["ArtifactShadowRepository", "ArtifactPromotionEvidenceSource", "ArtifactPromotionGovernanceStore"],
+  "applicationPorts": ["ArtifactShadowApplicationService", "ArtifactPromotionApplicationService", "ArtifactRevalidationApplicationService"],
+  "runtimePorts": ["BullMqArtifactShadowWorker", "BullMqArtifactRevalidationWorker"],
+  "events": ["artifact.shadow_started", "artifact.shadow_completed", "artifact.promotion_ready", "artifact.approval_recorded", "artifact.activated", "artifact.revalidating", "artifact.deprecated"],
+  "queues": ["sdar-artifact-shadow", "sdar-artifact-revalidation"],
+  "featureFlags": ["artifactMode"],
+  "reasonCodeCatalogVersion": "artifact-shadow-governance/1.1",
+  "evidenceRefs": ["reports/goal/v1.3-p06-completion.md", "reports/goal/v1.3-p06-review.md", "reports/verification/summary.json", "execplans/EP-SDAR-V1.3-P06.md", "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql"],
+  "acceptanceSummary": { "passed": 13, "failed": 0, "blocked": 0 },
+  "knownLimitations": ["P06 is non-blocking and never performs a physical Provider, MCP, Skill or formal-runtime action.", "Redis is wake-only; PostgreSQL and P02 records remain authoritative.", "P07 retrieval and online artifact execution are explicitly not implemented."],
+  "openBlockers": [],
+  "nextPackage": "P07",
+  "packageOutputs": {
+    "ArtifactShadowRun": { "contractVersion": "1.1", "schemaHash": "57b1f4a99385c94d967ac2eb84ed90dc74ab196c25e42fc67de488d963ec369d", "refs": ["packages/domain/src/compiler/artifact-shadow-governance.ts", "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts"] },
+    "ArtifactShadowResult": { "contractVersion": "1.1", "schemaHash": "69f51efc62cb86f2b0df4e5a95cf3bce00580869a0b6fb891498cdc260c1ec69", "refs": ["packages/application/src/compiler/artifact-shadow-runtime.ts", "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts"] },
+    "ArtifactPromotionPackage": { "contractVersion": "1.1", "schemaHash": "4889edac5db4fe3251d9b29c4aaddb05341bb1d9adb257398a556859a517bf52", "refs": ["packages/application/src/compiler/artifact-shadow-runtime.ts", "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts"] },
+    "ArtifactApprovalRecord": { "contractVersion": "1.1", "schemaHash": "a041ba372f0e123ba7ba4d5fb451ba889e0f46ae727a4714aabb5c70c119394d", "refs": ["packages/application/src/compiler/artifact-promotion-governance.ts", "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts"] },
+    "ArtifactActivationRecord": { "contractVersion": "1.1", "schemaHash": "d45959a850c3433df4be744f77e758209e317ceb88c5dc816d448878b2e3a7ef", "refs": ["packages/application/src/compiler/artifact-promotion-governance.ts", "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts"] },
+    "ArtifactRevalidationTrigger": { "contractVersion": "1.1", "schemaHash": "cd9b13e443b5fa7aa80a004bbb99b3e988a44247eed92997efa8682ea774745a", "refs": ["packages/application/src/compiler/artifact-promotion-governance.ts", "packages/runtime-redis/src/compiler/artifact-shadow-workers.ts"] }
+  }
+}

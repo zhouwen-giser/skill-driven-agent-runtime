@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "static_contract_and_executed_tests",
+  "contractVersion": "1.2",
+  "contracts": {
+    "ExperienceActivityRef": {
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0",
+      "requiredIdentity": [
+        "activityKey",
+        "activityKind",
+        "objectiveSummary",
+        "capabilityRefs",
+        "effectRefs"
+      ],
+      "formalTraceability": [
+        "sourcePlanNodeRef",
+        "sourceSkillGoalRef",
+        "sourceAttemptRef",
+        "operationRef",
+        "capabilityRefs",
+        "effectRefs"
+      ]
+    },
+    "ExperienceTraceEvent": {
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425",
+      "lifecycleFactField": "eventType",
+      "businessActivityField": "activity.activityKey",
+      "activityMayBeAbsentForPureLifecycleFacts": true
+    }
+  },
+  "rules": {
+    "eventTypeIsActivityIdentity": false,
+    "activityKeyIsMiningIdentity": true,
+    "unknownActivityIsGeneralizable": false,
+    "strictExactKeys": true
+  },
+  "implementationRefs": [
+    "packages/domain/src/compiler/experience-compilation.ts",
+    "packages/application/src/compiler/experience-normalizer.ts",
+    "packages/application/src/compiler/process-miner.ts"
+  ],
+  "testRefs": [
+    "packages/domain/test/experience-compilation.unit.test.ts",
+    "packages/application/test/experience-normalizer.unit.test.ts",
+    "packages/application/test/process-miner.unit.test.ts",
+    "packages/persistence-postgres/test/candidate-generation.integration.test.ts"
+  ],
+  "acceptanceRefs": [
+    "AC-P04R-004",
+    "AC-P04R-005",
+    "AC-P04R-006",
+    "AC-P04R-007",
+    "AC-P04R-008",
+    "AC-P04R-009"
+  ]
+}

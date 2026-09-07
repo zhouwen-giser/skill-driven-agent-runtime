@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P07",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "be9d01d7f6773f4d07fa26a7ab0de54c9fd7a0c2",
+  "evidenceSha": "0097883bb8e0d8052df82cd7d093391802db636d",
+  "remoteSha": "0097883bb8e0d8052df82cd7d093391802db636d",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-02T22:41:12+08:00",
+  "nextPhase": "P08",
+  "prerequisites": ["fetch and compare origin/main before P08", "consume only Runtime-authored current readiness snapshots for published Capability versions", "implement only P08 A2A exposure and Agent Card revision next"],
+  "authorityBoundary": "Runtime is the sole Capability Readiness writer. Control owns Definition and Binding requests and read projections only. P08 may expose a filtered A2A projection but cannot recompute, persist or override readiness."
+}

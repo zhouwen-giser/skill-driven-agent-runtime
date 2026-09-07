@@ -1,0 +1,18 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "verified",
+  "contracts": [
+    {"name":"CaseRetrievalInput","version":"1.1","schemaHash":"161342c806b7f58254efac7d076d3193da80982d9c0bea22998c91e71cd3b1de"},
+    {"name":"CaseMatch","version":"1.1","schemaHash":"135dbfad26d68afa26201c43cf69816a80be23d4a550c28062a755ff6cfb084f"},
+    {"name":"CaseAdaptationInput","version":"1.1","schemaHash":"0c81b6bcabb43c588175a33d2621c431463a2547a6040efdfe39883e3a427929"},
+    {"name":"CaseAdaptationResult","version":"1.1","schemaHash":"b2cd17de0f8a9bd09948981f29c368a1bc0ae18fedf4c9caf4d422e26ed2a72d"},
+    {"name":"CaseRuntime","version":"1.1","schemaHash":"a2cb1f3f4c0a18abf03d3fb1a552b1f480e11e8a2ac5d3f1aa98c849dd96a387"}
+  ],
+  "authority": "P02 active Artifact projection plus P11 immutable child evidence",
+  "implementation": [
+    "packages/domain/src/compiler/case-model-runtime.ts",
+    "packages/application/src/compiler/case-model-runtime.ts",
+    "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts"
+  ],
+  "verification": "exact frozen field sets and hashes pass Domain and Contract tests"
+}

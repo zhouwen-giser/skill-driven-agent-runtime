@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.p9a-stop-outside-attempt/v1",
+  "status": "failed",
+  "classification": "safe_zero_dispatch",
+  "observedAt": "2026-09-01T02:49:09.105Z",
+  "implementationCommit": "ab29d7187bd92b85a89572d0e6bcd1a01fb12112",
+  "authorizationRef": "P9A-REFEREE-20260901-USER-AUTH-R14",
+  "request": {
+    "taskCountMaximum": 1,
+    "executionMode": "live",
+    "resourceId": "vehicle:ugv1",
+    "target": {
+      "longitude": 106.81389697,
+      "latitude": 29.72041184,
+      "frame": "WGS84"
+    },
+    "directProviderCallsPermitted": false,
+    "redispatchPermitted": false,
+    "stopResetCancelPermitted": false
+  },
+  "task": {
+    "a2aTaskId": "fde42846-4fcf-4038-8c65-e3c622ad910d",
+    "contextId": "a0af8785-c690-43e2-a3c3-bbdfbd4272ec",
+    "phase": "failed",
+    "reasonCode": "UGV_PROFILE_READINESS_NOT_ADMITTED",
+    "reason": "Exact UGV navigation readiness is unavailable, stale, or uncorrelated.",
+    "goalId": "goal-ugv-agent-profile-ac5f1895f4e582c4f6a56589181b70f9",
+    "goalVersion": 1,
+    "capabilityBindingId": "binding-fde42846-4fcf-4038-8c65-e3c622ad910d",
+    "capabilityBindingHash": "1355414a320ffa351d21f653639f1b6ec3f83f645af3fdb89de9f4c6b3d1c0c1",
+    "capabilityAttemptId": "capability-attempt-fde42846-4fcf-4038-8c65-e3c622ad910d-1",
+    "capabilityAttemptStatus": "failed",
+    "exposureRef": "a2a.embodied.move@3",
+    "capabilityRef": "embodied.move@4",
+    "planId": null,
+    "selectedSkillId": null,
+    "selectedSkillVersion": null
+  },
+  "readiness": {
+    "providerBindingId": "ugv-smpp-real-integration-r2-binding",
+    "providerBindingRevision": 1,
+    "runtimeServerId": "ugv-smpp-real-integration-r2",
+    "runtimeToolRevision": 1,
+    "operationName": "vehicle_navigate",
+    "executionMode": "live",
+    "availability": "unknown",
+    "disposition": "unknown",
+    "reasonCodes": [
+      "SKILL_TASK_PROVIDER_CANDIDATE_UNAVAILABLE"
+    ],
+    "failedChecks": [
+      "selectedProviderMismatch",
+      "selectedOperationMismatch",
+      "dispositionNotReady",
+      "operationNotAvailable"
+    ]
+  },
+  "authorityAndSideEffects": {
+    "workflowPlanCreated": false,
+    "planConfirmationCount": 0,
+    "physicalConfirmationCount": 0,
+    "mcpInvocationCount": 0,
+    "mcpTaskId": null,
+    "remoteTaskBindingCount": 0,
+    "remoteAdmissionIntentCount": 0,
+    "providerDispatchCount": 0,
+    "redispatchCount": 0,
+    "externalExecutionId": null,
+    "deviceMissionId": null,
+    "physicalSideEffectObserved": false
+  },
+  "terminalObservation": {
+    "providerTerminal": "not_applicable",
+    "sdarGoalTerminal": "failed_before_plan",
+    "finalPosition": null,
+    "finalPositionDisposition": "not_observed",
+    "reason": "No Provider dispatch occurred and the zero-dispatch closure did not perform a direct Provider read."
+  },
+  "redaction": {
+    "secretsIncluded": false,
+    "tokensIncluded": false,
+    "credentialReferencesIncluded": false,
+    "providerEndpointIncluded": false,
+    "rawProviderPayloadIncluded": false
+  }
+}

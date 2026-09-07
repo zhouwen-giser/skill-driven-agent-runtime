@@ -59,3 +59,5 @@ export * from './planning-experience-context-builder.js';
 export * from './experience-enriched-planner.js';
 export * from './planning-replay.js';
 export * from './runtime-hardening.js';
+
+export * from './online-task-type-index.js';

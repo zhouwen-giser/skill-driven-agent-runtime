@@ -13,7 +13,7 @@ import type { MissingDimensionKind } from './task-understanding.js';
 import type { KnowledgeStatus } from './knowledge.js';
 
 export type TaskTypeInductionMode = 'offline_batch' | 'online_candidate';
-export type TaskTypeDefinitionOrigin = 'fixture' | 'induced';
+export type TaskTypeDefinitionOrigin = 'fixture' | 'induced' | 'configured';
 
 export interface TaskTypeFingerprintDimensions {
   readonly semanticObjective: readonly string[];
@@ -55,6 +55,7 @@ export interface TaskTypeDefinitionSnapshot {
   readonly revision: number;
   readonly status: KnowledgeStatus;
   readonly origin: TaskTypeDefinitionOrigin;
+  readonly sourceHash?: string;
   readonly inductionMode: TaskTypeInductionMode;
   readonly fingerprint: string;
   readonly title: string;
@@ -104,7 +105,7 @@ export function createTaskTypeDefinitionSnapshot(
   if (!['candidate', 'validating', 'active', 'deprecated', 'rejected'].includes(input.status)) {
     throw new CognitiveDomainError('TASK_TYPE_INVALID', 'Task Type status is invalid.');
   }
-  if (!['fixture', 'induced'].includes(input.origin)) {
+  if (!['fixture', 'induced', 'configured'].includes(input.origin)) {
     throw new CognitiveDomainError('TASK_TYPE_INVALID', 'Task Type origin is invalid.');
   }
   if (!['offline_batch', 'online_candidate'].includes(input.inductionMode)) {
@@ -119,7 +120,15 @@ export function createTaskTypeDefinitionSnapshot(
   if (input.modelInvocationId !== undefined) {
     assertIdentifier(input.modelInvocationId, 'modelInvocationId');
   }
-  if (input.exemplars.length < 1 || input.exemplars.length > 3) {
+  if (input.origin === 'configured') {
+    if (input.sourceHash === undefined)
+      throw new CognitiveDomainError(
+        'TASK_TYPE_INVALID',
+        'Configured Task Types require their actual source hash.',
+      );
+    assertSha256(input.sourceHash, 'sourceHash');
+  }
+  if ((input.origin !== 'configured' && input.exemplars.length < 1) || input.exemplars.length > 3) {
     throw new CognitiveDomainError(
       'TASK_TYPE_INVALID',
       'A Task Type Candidate requires between one and three exemplars.',
@@ -145,16 +154,23 @@ export function createTaskTypeDefinitionSnapshot(
     title: singleText(input.title, 'title'),
     summary: singleText(input.summary, 'summary'),
     recognition: Object.freeze({
-      hints: uniqueStrings(input.recognition.hints, 'recognition.hints', 32),
+      hints: uniqueStrings(
+        input.recognition.hints,
+        'recognition.hints',
+        32,
+        input.origin === 'configured',
+      ),
       positiveExamples: uniqueStrings(
         input.recognition.positiveExamples,
         'recognition.positiveExamples',
         16,
+        input.origin === 'configured',
       ),
       negativeExamples: uniqueStrings(
         input.recognition.negativeExamples,
         'recognition.negativeExamples',
         16,
+        input.origin === 'configured',
       ),
     }),
     requiredDimensions,
@@ -164,9 +180,15 @@ export function createTaskTypeDefinitionSnapshot(
       input.capabilityRequirements,
       'capabilityRequirements',
       32,
+      input.origin === 'configured',
     ),
     goalPattern: singleText(input.goalPattern, 'goalPattern'),
-    dependencyPattern: uniqueStrings(input.dependencyPattern, 'dependencyPattern', 64),
+    dependencyPattern: uniqueStrings(
+      input.dependencyPattern,
+      'dependencyPattern',
+      64,
+      input.origin === 'configured',
+    ),
     incompatibleConstraints: uniqueStrings(
       input.incompatibleConstraints,
       'incompatibleConstraints',

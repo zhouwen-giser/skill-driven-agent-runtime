@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:02:05.000Z",
+  "status": "ENVIRONMENT_BLOCKED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "local_postgresql_environment",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "node scripts/test-integration.mjs packages/persistence-postgres/test/repositories.integration.test.ts",
+  "executionContext": "approved_host",
+  "exitCode": 1,
+  "failure": {
+    "code": "XX000_TEMPLATE1_COLLATION_VERSION_UNAVAILABLE",
+    "summary": "PostgreSQL accepted the connection but rejected the runner's isolated CREATE DATABASE because template1 has a collation version with no determinable actual version. Tests did not start."
+  },
+  "minimumUnblockCondition": "Repair the operator-managed template1 collation metadata, or separately approve a repository-wide integration-runner change that selects the narrow template0 literal. No cluster-level repair was attempted by this task.",
+  "stateMutation": "no repository data or shared cluster configuration changed",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

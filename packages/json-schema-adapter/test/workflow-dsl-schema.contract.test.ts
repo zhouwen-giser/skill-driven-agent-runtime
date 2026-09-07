@@ -3,6 +3,41 @@ import { describe, expect, it } from 'vitest';
 import { AjvJsonSchemaValidator } from '../src/index.js';
 
 describe('Workflow DSL JSON Schema contract', () => {
+  it('requires an explicit join and conflict policy only for scoped parallel definitions', async () => {
+    const schema = JSON.parse(
+      await readFile(new URL('../../../schemas/workflow-dsl.schema.json', import.meta.url), 'utf8'),
+    ) as unknown;
+    const validator = new AjvJsonSchemaValidator();
+    const parallel = {
+      nodeId: 'fork',
+      name: 'Fork',
+      type: 'parallel',
+      branchEntryNodeIds: ['left', 'right'],
+    };
+    const legacy = {
+      workflowDefinitionId: 'parallel.schema',
+      version: 1,
+      goalId: 'goal.schema',
+      goalVersion: 1,
+      entryNodeId: 'fork',
+      exitNodeIds: ['join'],
+      nodes: [parallel],
+      edges: [],
+    };
+    expect(validator.validate(schema, legacy).valid).toBe(true);
+    const scoped = { ...legacy, executionSemanticsVersion: '2.0' };
+    expect(validator.validate(schema, scoped).valid).toBe(false);
+    const joined = { ...parallel, joinNodeId: 'join', mergeStrategy: 'reject_conflicts' };
+    expect(validator.validate(schema, { ...scoped, nodes: [joined] }).valid).toBe(true);
+    for (const invalid of [
+      { ...parallel, joinNodeId: 'join' },
+      { ...parallel, mergeStrategy: 'reject_conflicts' },
+      { ...joined, mergeStrategy: 'last_writer_wins' },
+    ]) {
+      expect(validator.validate(schema, { ...scoped, nodes: [invalid] }).valid).toBe(false);
+    }
+  });
+
   it('is valid draft 2020-12 and rejects executable or unbounded nodes', async () => {
     const schema = JSON.parse(
       await readFile(new URL('../../../schemas/workflow-dsl.schema.json', import.meta.url), 'utf8'),

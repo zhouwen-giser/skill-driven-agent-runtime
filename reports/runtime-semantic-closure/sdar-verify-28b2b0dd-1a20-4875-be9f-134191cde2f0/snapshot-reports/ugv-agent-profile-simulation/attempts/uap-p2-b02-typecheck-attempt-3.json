@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:39:48.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm typecheck",
+  "exitCode": 2,
+  "failure": {
+    "code": "STRICT_NARROWING_AND_TEST_FIXTURE_TYPES",
+    "summary": "Strict TypeScript reported optional Skill policy access, an unknown Provider observedAt value, and two parameterized Skill mutation fixtures whose array element was not narrowed."
+  },
+  "fix": {
+    "summary": "Made missing policy fail closed through optional narrowing, captured the validated observedAt string explicitly, and required exact Skill binding fixtures. The final typecheck passed.",
+    "stateMutation": "source_and_tests_only"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "bulkheads": ["retrieval", "rule", "template", "cognitive_fallback"],
+  "circuitDimensions": ["tenant", "adapter", "failureType", "timeWindow"],
+  "loadSheddingAfterAuthorityPrecheck": true,
+  "formalRuntimePriorityPreserved": true,
+  "redisAuthority": false,
+  "postgresqlAuthority": true,
+  "tests": {
+    "concurrentIdempotency": "passed",
+    "circuitOpen": "passed",
+    "adapterIsolation": "passed",
+    "fallbackDeadline": "passed",
+    "deletionOutboxPropagation": "passed"
+  },
+  "evidence": ["packages/application/test/fast-gateway-p10.unit.test.ts", "packages/persistence-postgres/test/fast-gateway-p10.integration.test.ts"]
+}

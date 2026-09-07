@@ -10,6 +10,10 @@ import { URL } from 'node:url';
 import pg from 'pg';
 
 import { buildInfrastructureImages } from './lib/infrastructure.mjs';
+import {
+  migrationVerificationResources,
+  recordVerificationCleanupFailure,
+} from './lib/verification-cleanup.mjs';
 
 const { Pool } = pg;
 const root = process.cwd();
@@ -291,6 +295,7 @@ try {
   }
 
   await dropDatabases();
+  adminUrl = undefined;
   await stopIsolatedMigrationInfrastructure(isolatedInfrastructure);
   isolatedInfrastructure = undefined;
   migrationInfrastructureEvidence.isolation.cleanupCompleted = true;
@@ -313,9 +318,13 @@ try {
     });
   throw error;
 } finally {
-  await dropDatabases().catch(() => undefined);
+  await dropDatabases().catch((error) =>
+    recordVerificationCleanupFailure('migration-databases', error),
+  );
   if (isolatedInfrastructure !== undefined)
-    await stopIsolatedMigrationInfrastructure(isolatedInfrastructure).catch(() => undefined);
+    await stopIsolatedMigrationInfrastructure(isolatedInfrastructure).catch((error) =>
+      recordVerificationCleanupFailure('migration-infrastructure', error),
+    );
 }
 
 async function writeMigrationReport({ status, startedAt, finishedAt, failure }) {
@@ -763,13 +772,11 @@ function controlMigrationErrorCode(error) {
 }
 
 async function startIsolatedMigrationInfrastructure() {
-  const runId = `${String(process.pid)}-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
-  const resources = {
-    sourceContainer: `sdar-p13-migration-source-${runId}`,
-    sourceVolume: `sdar-p13-migration-source-data-${runId}`,
-    targetContainer: `sdar-p13-migration-target-${runId}`,
-    targetVolume: `sdar-p13-migration-target-data-${runId}`,
-  };
+  const runId =
+    process.env.SDAR_VERIFY_ISOLATED === 'true'
+      ? process.env.SDAR_VERIFY_COMPOSE_PROJECT
+      : `${String(process.pid)}-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  const resources = migrationVerificationResources(runId);
   try {
     buildInfrastructureImages(root);
     ensureDockerImage(v123FrozenComposeImage, true);
@@ -863,7 +870,9 @@ async function startIsolatedMigrationInfrastructure() {
       },
     };
   } catch (error) {
-    await stopIsolatedMigrationInfrastructure(resources).catch(() => undefined);
+    await stopIsolatedMigrationInfrastructure(resources).catch((cleanupError) =>
+      recordVerificationCleanupFailure('migration-startup', cleanupError),
+    );
     throw error;
   }
 }

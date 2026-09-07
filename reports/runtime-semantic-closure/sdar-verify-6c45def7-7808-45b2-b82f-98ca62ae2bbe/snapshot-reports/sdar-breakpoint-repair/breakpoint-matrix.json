@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "1.0",
+  "sourceSha": "b7f02dcedc9680758e7e5f779a939a738d8de770",
+  "observedAt": "2026-08-13T10:49:39.3017334+08:00",
+  "physicalDeviceWrites": 0,
+  "results": [
+    {
+      "id": "BP-SDAR-001",
+      "status": "FIXED",
+      "rootCause": "Frozen Task control operations had no production Node Control to Runtime command boundary or durable replay identity.",
+      "implementation": [
+        "Registered all four public and internal Task command routes with public RBAC and Runtime service authentication.",
+        "Delegated authoritative phase and Plan validation to Runtime TaskService through durable Node Control and Runtime Management Operation gates.",
+        "Persisted replay/conflict/recovery identity and failed closed before duplicate Task mutation."
+      ],
+      "tests": [
+        "Current P01-P03 focused Vitest selection: 9 files, 108 tests passed.",
+        "P01 isolated PostgreSQL repository integration: 76/76 tests passed.",
+        "Combined P01/P02 Node Control foundation PostgreSQL integration: 14/14 tests passed.",
+        "Full repository TypeScript check passed."
+      ],
+      "evidence": [
+        "Pause, resume, cancel, and Goal Patch are registered on both production HTTP boundaries.",
+        "Same-key replay is exact, changed input conflicts before TaskService, and uncertain restart never duplicates Goal Patch.",
+        "Runtime PostgreSQL remains Task phase and Plan authority; physicalDeviceWrites=0."
+      ]
+    },
+    {
+      "id": "BP-SDAR-002",
+      "status": "FIXED",
+      "rootCause": "The prior contract gate validated frozen artifacts but did not compare them with production routes, RBAC decisions, or executed contract coverage.",
+      "implementation": [
+        "Added a production-composition conformance verifier for inventory, OpenAPI, actual routes, authentication, RBAC, and coverage.",
+        "Added deliberate negative tests and wired the verifier into v1.4 security and bootstrap verification."
+      ],
+      "tests": [
+        "Contract suite: 41 files, 281 tests passed.",
+        "Production conformance: 131 operations, 455 RBAC decisions, and 131 covered operation IDs passed.",
+        "Combined P01/P02 Node Control foundation PostgreSQL integration: 14/14 tests passed.",
+        "Missing handler, route drift, RBAC gap, and coverage gap negative cases passed."
+      ],
+      "evidence": [
+        "The permanent gate compares 94 public and 37 internal operations with real Express composition and HTTP auth behavior.",
+        "Capability Catalog stage/activate are route/auth conformant but fail closed with 503 because no Runtime catalog mutation authority is composed; no functional Catalog mutation is claimed.",
+        "physicalDeviceWrites=0."
+      ]
+    },
+    {
+      "id": "BP-SDAR-003",
+      "status": "FIXED",
+      "rootCause": "A2A load overlay was request-local, projection upserts were unconditional, and no startup or periodic reconciler repaired notification loss.",
+      "implementation": [
+        "Canonicalized A2A saves from Runtime Task authority and made PostgreSQL terminal projection updates monotonic.",
+        "Added startup and bounded single-flight periodic reconciliation for existing A2A projections."
+      ],
+      "tests": [
+        "Current P01-P03 focused Vitest selection: 9 files, 108 tests passed.",
+        "P03 PostgreSQL repository integration: 75/75 tests passed.",
+        "The P03-stage fresh Node Control foundation PostgreSQL regression passed 11/11 before later P01/P02 cancel-authority additions."
+      ],
+      "evidence": [
+        "Completed, failed, canceled, invalidated, and capability-gap Runtime Tasks converge to durable A2A terminal projections without another client request.",
+        "Late older WORKING and conflicting terminal writes cannot overwrite an existing terminal projection.",
+        "Reconciliation is idempotent and does not create projections for unadmitted Tasks; physicalDeviceWrites=0."
+      ]
+    },
+    {
+      "id": "BP-SDAR-004",
+      "status": "FIXED",
+      "evidence": [
+        "Production Management API issue/revoke commands derive a trusted human principal and server-derived Task, Capability attempt, Provider, Tool, Plan, Skill, and arguments scope; request bodies cannot choose actor or scope.",
+        "Confirmation consumption is durably bound to one invocation and dispatch hash; reuse fails before transport with GOVERNED_CONTROL_CONFIRMATION_ALREADY_CONSUMED.",
+        "The real PostgreSQL plus loopback Frozen Provider positive chain passed 2/2, issued authority through the production service, performed exactly one Provider tools/call, reconciled terminal position.observation evidence, and preserved physicalDeviceWrites=0.",
+        "Ungoverned A2A move and patrol regressions passed 8/8 and reached no Provider transport; vehicle_fire_weapon remains hard denied and this Goal creates no fire authority.",
+        "Exit criterion GOVERNED_CONTROL_AUTHORITY_PASSED is asserted."
+      ]
+    },
+    {
+      "id": "BP-SDAR-005",
+      "status": "FIXED",
+      "evidence": [
+        "A pre-dispatch PostgreSQL admission journal atomically records the MCP invocation, remote receipt, and recoverable Workflow continuation; recovery never replays an uncertain external creation.",
+        "Nested continuation re-entry, explicit uncertainty, failed Redis wake reconstruction, TTL, cancellation uncertainty, and achieved/failed/canceled CapabilityAttempt closure are fail-closed and idempotent.",
+        "Remote tasks/get freezes and revalidates Runtime catalog, Provider Binding origin, external Server, SMPP source lineage, endpoint, checksum, operation count, and current availability before zero-or-one Provider transport.",
+        "Current focused gates passed 123/123 and 69/69; real PostgreSQL recovery passed 2/2, repository terminal lineage passed 78/78 at its phase gate, isolated Redis recovery passed 7/7, and migrations passed through 0160.",
+        "Two independent final code audits found no remaining P05 P0/P1; PostgreSQL remains authoritative, Redis remains wake-only, and physicalDeviceWrites=0.",
+        "Exit criterion REMOTE_IN_FLIGHT_RECOVERY_PASSED is asserted; a monolithic Runtime A-to-B drill is transparently recorded as NOT RUN rather than treated as production evidence."
+      ]
+    },
+    {
+      "id": "BP-SDAR-006",
+      "status": "FIXED",
+      "rootCause": "The current aggregate gate initially exposed a mix of narrow implementation/test-fixture defects and local infrastructure readiness failures. The first failures were preserved and repaired without changing the protected percentile, sample, baseline-drift, or Runtime-regression thresholds.",
+      "implementation": [
+        "Removed the bootstrap lint defect and made the Windows shell fixture select the repository-supported Bash launcher without skipping its assertion.",
+        "Repaired exact-optional PostgreSQL and migrated Prompt-owner/model-route E2E fixtures while preserving production authority constraints.",
+        "Restored authoritative Workflow replan confirmation and deterministic read-only Provider semantics required by the aggregate E2E path.",
+        "Ran the official full gate with isolated operator-managed PostgreSQL and Redis after preserving all earlier environment failures."
+      ],
+      "tests": [
+        "Official pnpm verify passed all 10 stages at aa4231d2fb98050eaf1fbc5f9c77ef76ca7bf7bd in 918423 ms.",
+        "Bootstrap passed 268 files / 1928 tests and reported 169 Management OpenAPI operations; 53 migrations passed.",
+        "PostgreSQL/Redis integration passed 35 files / 201 tests; model/MCP E2E passed 7 files / 73 tests; A2A TCK, canonical Evidence demo, and all three smoke stages passed.",
+        "Phase 13 passed with baseline P95 490.639 ms, Evidence-enabled P95 438.650 ms, -10.596 percent regression, 6.833 percent baseline-median drift, and 4.402 ms Evidence append P95."
+      ],
+      "evidence": [
+        "The final performance run retained the unchanged maximums: Runtime P95 regression 10 percent, baseline median drift 15 percent, and Evidence append P95 20 ms; 1549 records were received.",
+        "The performance boundary used real local A2A -> Runtime -> PostgreSQL/Redis and HTTP Evidence delivery/ACK with deterministic model/Skill fixtures; it is not a production SLO or HA qualification.",
+        "reports/verification/summary.json records dirty=true because verify-full.mjs writes tracked raw logs before sampling git status. The run began after a clean-worktree check; generated evidence was committed in 9ab42ac6e076d007115d640ed4e3a84b0349b8b4.",
+        "All physical side-effect gates remained closed and physicalDeviceWrites=0.",
+        "Exit criterion FULL_VERIFY_PERFORMANCE_PASSED is asserted."
+      ]
+    },
+    {
+      "id": "BP-SDAR-007",
+      "status": "FIXED",
+      "evidence": [
+        "PR 20 is merged into the locked baseline; explicit unauthenticated SMPP credentials and exact allowlisted private HTTP remain implemented and tested.",
+        "Exact read-only locks: SMPP HEAD 7e8b1193d020e9973805aa8cb19d3d4c3dbc1afb and origin/main 340abeeff75cd811b40e1bfd9d5a26f5a62f2c45 both resolve to tree f611988bf9d6aa8e5cebfacf53cfb235ff2a6ec4; Console HEAD 1a5ea3c279331a8fd83dd117d73d5a7166c668b7 and origin/main e7fa2348f7d574a0e9363bdf33598f33144a909c both resolve to tree c0694842247c48813fff9127fda4744bbd02516c.",
+        "The isolated PostgreSQL-backed controlled SMPP consumer passed 1/1 with Registry import/discovery, tools/list, synchronous result, Task create/cancel/get, and notification; it used the committed local mock adapter and is not external certification.",
+        "The fresh candidate-built production Runtime, Node Control, Console BFF, A2A, and read-only MCP journey passed 98/98 assertions with SDAR HEAD 9ab42ac6e076d007115d640ed4e3a84b0349b8b4, tree 4597d7bd75580ecc6f97e5da2439638c455ce425, and tracked-diff SHA-256 152f2de21e2f53c776b46371457af9491a390e8147dde86b00d5b7bfb1c00dec.",
+        "Pause/resume Task 6c616066-4d41-4243-a4f3-2c79a284a98a proved revisions 10/12/15, successful ManagementOperations, exactly two read-only MCP invocations, and A2A/BFF/Console completed convergence.",
+        "Goal Patch/cancel Task 840e92b6-a3c1-40a4-bc8f-f199fb72d317 proved goalVersion=2 and GOAL_PATCH_INVALIDATED at revision 11, stale expectedRevision=9 rejection with HTTP 412 REVISION_CONFLICT, valid cancellation at revision 13, byte-exact same-key replay, and A2A/BFF/Console canceled convergence.",
+        "Fresh Runtime PostgreSQL inspection found both terminal Tasks with selected Skills and NULL skill_selection_id, zero selection records, zero failed-FK Tasks, and no agent_task_skill_selection_fk or SKILL_USAGE_SELECTION_ID_REQUIRED failure.",
+        "Canonical temporary evidence D:/Code/test/.codex-console-live/logs/p07-candidate-nonterminal.json has SHA-256 7b4f64b3ea46c91b8f759c2d111f58d04cf8355a0e8a83a944a3a14f04ec296c; all Goal-owned services, containers, and ports were cleaned; physicalDeviceWrites=0 and fireCalls=0."
+      ]
+    }
+  ]
+}

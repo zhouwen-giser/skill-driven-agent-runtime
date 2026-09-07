@@ -1,0 +1,4 @@
+Checking formatting...
+[warn] apps/server/test/ugv-move-terminal-outcome.unit.test.ts
+[warn] packages/langgraph-runtime/test/expression-interpreter.unit.test.ts
+[warn] Code style issues found in 2 files. Run Prettier with --write to fix.

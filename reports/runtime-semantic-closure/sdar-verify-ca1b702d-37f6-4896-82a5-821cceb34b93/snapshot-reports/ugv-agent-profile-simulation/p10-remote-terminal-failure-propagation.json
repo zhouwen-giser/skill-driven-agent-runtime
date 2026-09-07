@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.p10-remote-terminal-failure-propagation/v1",
+  "generatedAt": "2026-09-02T06:15:24.607Z",
+  "status": "qualified_read_only",
+  "classification": "product_bug_fixed",
+  "incident": {
+    "taskId": "dbb015de-1781-4a03-8ef0-e1bb5a7e5d23",
+    "contextId": "0664b699-9440-463a-b0f9-32e2000824bc",
+    "invocationId": "mcp-invocation-8d4b539a-3513-441f-a94b-11c7bff06b4a",
+    "remoteTaskId": "0ba82895-6a55-46f8-ac4d-0bcb3547e50f",
+    "providerTerminalStatus": "failed",
+    "providerReasonCode": "UGV_START_OBSERVATION_TIMEOUT",
+    "providerTerminalAuthoritative": true,
+    "historicalSdarErrorCode": "TASK_CAPABILITY_TERMINAL_GUARD_FAILED",
+    "historicalTaskRewritten": false
+  },
+  "diagnosis": {
+    "remoteFailureMappingCorrect": true,
+    "langGraphFailurePersistenceCorrect": true,
+    "successOnlyTerminalAuthorityWasAppliedToFailedWorkflow": true,
+    "historicalClassificationWasCorrect": false,
+    "rootCause": "The UGV deterministic Goal evaluator invoked the physical-success terminal authority for both succeeded and failed Workflow instances. A legitimate Provider failure was therefore replaced by a success-proof rejection.",
+    "providerReasonWasPreviouslyLost": true
+  },
+  "implementedBehavior": {
+    "failedWorkflowDecision": "unachievable",
+    "failedWorkflowInvokesPhysicalSuccessProof": false,
+    "providerReasonPreserved": true,
+    "succeededWorkflowStillRequiresPhysicalSuccessProof": true,
+    "providerCompletedAloneImpliesGoalSuccess": false,
+    "redispatchAdded": false
+  },
+  "zeroReplayEvidence": {
+    "historicalTaskInvocationCount": 2,
+    "readOnlyStateInvocationCount": 1,
+    "navigateAdmissionInvocationCount": 1,
+    "navigateRedispatchCount": 0,
+    "remoteBindingCount": 1,
+    "remoteControlType": "task.failed",
+    "remoteControlDisposition": "pending_after_failed_historical_callback"
+  },
+  "verification": {
+    "focused": {
+      "files": 4,
+      "tests": 67,
+      "passed": true
+    },
+    "typecheck": "passed",
+    "eslint": "passed",
+    "prettier": "passed",
+    "diffCheck": "passed",
+    "architecture": {
+      "sources": 870,
+      "passed": true
+    },
+    "productionBuild": "passed",
+    "liveTaskCreatedDuringQualification": false,
+    "providerToolCalledDuringQualification": false,
+    "deviceOrSimulatorMutationDuringQualification": false
+  },
+  "deployment": {
+    "implementationCommit": "8ff8e0a6cd91d9c737eeddbfd109f440a1c2a961",
+    "runtimePid": 1410562,
+    "startedAt": "2026-09-02T06:13:16.223Z",
+    "distSha256": "7784704199fd65e838eab190dd0f7cf747f25c419b4acb718398f7b851253c4a",
+    "management": {
+      "url": "http://127.0.0.1:10998/api/v1/health",
+      "httpStatus": 200,
+      "status": "ok"
+    },
+    "a2a": {
+      "url": "http://127.0.0.1:10999/.well-known/agent-card.json",
+      "httpStatus": 200,
+      "skillCount": 13
+    },
+    "nodeControl": {
+      "url": "http://127.0.0.1:10091/health/ready",
+      "httpStatus": 200,
+      "status": "ready"
+    }
+  },
+  "currentAuthority": {
+    "bindingId": "ugv-smpp-real-integration-r2-binding",
+    "bindingRevision": 2,
+    "serverId": "ugv-smpp-real-integration-r2",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a",
+    "operationCount": 10,
+    "availability": "available",
+    "availabilityValidUntil": "2026-09-02T06:36:36.587Z",
+    "pointNavigationSkillId": "embodied.move_to"
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "providerResponseBodyIncluded": false
+  }
+}

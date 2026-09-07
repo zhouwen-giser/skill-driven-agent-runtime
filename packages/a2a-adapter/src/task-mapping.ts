@@ -315,20 +315,28 @@ export function toA2ATask(task: AgentTask, interaction?: Readonly<Record<string,
   });
 }
 
+const phaseStates: Readonly<Record<TaskPhase, TaskState>> = {
+  queued: TaskState.TASK_STATE_SUBMITTED,
+  context_loading: TaskState.TASK_STATE_WORKING,
+  goal_deliberation: TaskState.TASK_STATE_WORKING,
+  skill_resolution: TaskState.TASK_STATE_WORKING,
+  planning: TaskState.TASK_STATE_WORKING,
+  executing: TaskState.TASK_STATE_WORKING,
+  evaluating: TaskState.TASK_STATE_WORKING,
+  awaiting_plan_confirmation: TaskState.TASK_STATE_INPUT_REQUIRED,
+  awaiting_user_input: TaskState.TASK_STATE_INPUT_REQUIRED,
+  paused: TaskState.TASK_STATE_INPUT_REQUIRED,
+  completed: TaskState.TASK_STATE_COMPLETED,
+  canceled: TaskState.TASK_STATE_CANCELED,
+  capability_gap: TaskState.TASK_STATE_FAILED,
+  failed: TaskState.TASK_STATE_FAILED,
+  invalidated: TaskState.TASK_STATE_FAILED,
+};
 export function taskPhaseToA2AState(phase: TaskPhase): TaskState {
-  if (phase === 'queued') return TaskState.TASK_STATE_SUBMITTED;
-  if (phase === 'completed') return TaskState.TASK_STATE_COMPLETED;
-  if (phase === 'canceled') return TaskState.TASK_STATE_CANCELED;
-  if (phase === 'capability_gap' || phase === 'failed' || phase === 'invalidated')
-    return TaskState.TASK_STATE_FAILED;
-  if (
-    phase === 'awaiting_plan_confirmation' ||
-    phase === 'awaiting_user_input' ||
-    phase === 'paused'
-  ) {
-    return TaskState.TASK_STATE_INPUT_REQUIRED;
-  }
-  return TaskState.TASK_STATE_WORKING;
+  return phaseStates[phase];
+}
+export function a2aStateTaskPhases(state: TaskState): readonly TaskPhase[] {
+  return (Object.keys(phaseStates) as TaskPhase[]).filter((phase) => phaseStates[phase] === state);
 }
 
 function toResultArtifact(taskId: string, output: TaskOutput): Artifact {

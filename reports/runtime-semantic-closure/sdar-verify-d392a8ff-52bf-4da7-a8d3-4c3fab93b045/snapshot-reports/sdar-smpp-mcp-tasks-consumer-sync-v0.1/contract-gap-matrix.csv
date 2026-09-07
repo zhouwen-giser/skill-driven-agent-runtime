@@ -1,0 +1,9 @@
+item,observed_before,required,current,status
+logical invocation identity,random persisted invocation only,restart-stable content identity,sdar.mcp-logical-invocation/v1 persisted before transport,resolved
+uncertain admission recovery,uncertain excluded from startup recovery,exact reconciliation only,found_exact/not_found/conflict/unavailable/deferred durable attempts,resolved
+blind redispatch,normal call API existed,no normal dispatch after uncertainty,reconciliation-only adapter port and tests prove one Provider start,resolved
+remote Task identity,RemoteTaskBinding lifecycle authority,materialize original Task at most once,existing Binding CAS plus logical identity uniqueness,resolved
+provider execution identity,no companion relation,separate immutable public-provenance relation,sdar.remote-task-provider-execution-link/v1,resolved
+device Mission identity,not exposed on observed public response,never fabricate,missionStatus=unresolved and deviceMissionId absent,supported_unresolved
+Canonical Evidence,100 total / 11 MCP Task,formal additive contract,105 total / 16 MCP Task / 100 Required / 5 Diagnostic,resolved
+Provider terminal semantics,receipt distinct from verification,must remain distinct,unchanged and covered by regression,resolved

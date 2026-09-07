@@ -9,11 +9,14 @@ import {
   createRemoteTaskBinding,
   createRemoteTaskCancellationRequest,
   createWorkflowContinuationAttempt,
+  emptyWorkflowScopes,
   createWorkflowContinuationSnapshot,
   transitionWorkflowContinuationAttempt,
   type WorkflowContinuationSnapshot,
 } from '../../domain/src/index.js';
 import {
+  PostgresWorkflowChildCallRepository,
+  PostgresSkillCallWorkflowRepository,
   PostgresRemoteTaskCancellationRepository,
   PostgresRemoteTaskRepository,
   PostgresWorkflowContinuationRepository,
@@ -53,6 +56,7 @@ beforeAll(async () => {
   }
   pool = new Pool({ connectionString: databaseConnection, max: 4 });
   await applyRuntimeMigrations(pool);
+  await applyRuntimeMigrations(pool);
   await seedAuthority();
 }, 60_000);
 
@@ -71,6 +75,68 @@ afterAll(async () => {
 });
 
 describe('PostgreSQL remote Task continuation authority', () => {
+  it('persists node-run child identities atomically and refuses referenced downgrade', async () => {
+    const calls = new PostgresWorkflowChildCallRepository(pool);
+    const skills = new PostgresSkillCallWorkflowRepository(pool);
+    const link = {
+      callId: 'generic-test-call',
+      kind: 'subworkflow' as const,
+      parentInstanceId: 'continuation-instance',
+      parentNodeRunId: 'ordinary:1',
+      parentNodeId: 'ordinary',
+      childPlanId: 'continuation-child-plan',
+      childInstanceId: 'continuation-child-instance',
+      createdAt: '2026-07-16T08:00:00.000Z',
+    };
+    await Promise.all([calls.save(link), calls.save(link)]);
+    expect(await calls.find(link.parentInstanceId, link.parentNodeRunId)).toEqual(link);
+    await expect(calls.save({ ...link, callId: 'competing-call' })).rejects.toThrow(
+      'WORKFLOW_CHILD_CALL_IDENTITY_CONFLICT',
+    );
+    const { childInstanceId: _childId, ...next } = link;
+    void _childId;
+    await calls.save({ ...next, callId: 'generic-test-call-2', parentNodeRunId: 'ordinary:2' });
+    expect(await calls.listByParent(link.parentInstanceId)).toHaveLength(2);
+    const skillRecord = {
+      callId: 'skill-atomic-call',
+      parentPlanId: 'continuation-plan',
+      parentInstanceId: link.parentInstanceId,
+      parentNodeId: 'skill',
+      parentNodeRunId: 'skill:1',
+      childPlanId: link.childPlanId,
+      skillId: 'continuation-child-skill',
+      skillVersion: 1,
+      confirmationStatus: 'confirmed' as const,
+      status: 'running' as const,
+      evaluationSummary: 'Atomic Skill link',
+      createdAt: link.createdAt,
+    };
+    await expect(skills.save({ ...skillRecord, skillId: 'missing-skill' })).rejects.toMatchObject({
+      code: '23503',
+    });
+    expect(await calls.find(link.parentInstanceId, 'skill:1')).toBeUndefined();
+    await skills.save(skillRecord);
+    await skills.save(skillRecord);
+    expect(await skills.find(link.parentInstanceId, 'skill:1')).toEqual(skillRecord);
+    expect(await calls.find(link.parentInstanceId, 'skill:1')).toMatchObject({
+      kind: 'skill_call',
+      callId: skillRecord.callId,
+    });
+    const down = await readFile(
+      'infra/postgres/migrations/0180_v14_workflow_child_call.down.sql',
+      'utf8',
+    );
+    await expect(executeMigrationSql(down)).rejects.toThrow(
+      'WORKFLOW_CHILD_CALL_DOWNGRADE_REFERENCES_EXIST',
+    );
+    await pool.query("DELETE FROM skill_call_workflow WHERE call_id='skill-atomic-call'");
+    await pool.query('DELETE FROM workflow_child_call');
+    await executeMigrationSql(down);
+    await pool.query(
+      await readFile('infra/postgres/migrations/0180_v14_workflow_child_call.up.sql', 'utf8'),
+    );
+  });
+
   it('round-trips versioned snapshots, leases controls, records attempts and fails closed on rollback', async () => {
     const remoteTasks = new PostgresRemoteTaskRepository(pool);
     const continuations = new PostgresWorkflowContinuationRepository(pool);
@@ -422,6 +488,59 @@ describe('PostgreSQL remote Task continuation authority', () => {
          '2026-07-16T08:01:15.000Z')`,
     );
 
+    const beforeLegacy = await pool.query<{ state: string }>(
+      'SELECT state_json::text AS state FROM workflow_continuation_snapshot WHERE snapshot_id=$1',
+      [initial.snapshotId],
+    );
+    const scoped = createWorkflowContinuationSnapshot({
+      ...successor,
+      snapshotId: 'continuation-snapshot-3',
+      stateVersion: 3,
+      predecessorSnapshotId: successor.snapshotId,
+      schemaVersion: '2.0',
+      scopes: emptyWorkflowScopes(),
+    });
+    await continuations.saveSnapshot(scoped);
+    await expect(continuations.findCurrent('continuation-instance')).resolves.toEqual(scoped);
+    expect(
+      (
+        await pool.query<{ state: string }>(
+          'SELECT state_json::text AS state FROM workflow_continuation_snapshot WHERE snapshot_id=$1',
+          [initial.snapshotId],
+        )
+      ).rows,
+    ).toEqual(beforeLegacy.rows);
+    const pausedClaim = createWorkflowContinuationAttempt({
+      ...claimedAttempt,
+      attemptId: 'continuation-attempt-paused',
+      claimToken: 'continuation-claim-paused',
+    });
+    await continuations.saveAttempt(pausedClaim);
+    const pausedRunning = transitionWorkflowContinuationAttempt(
+      pausedClaim,
+      'running',
+      '2026-07-16T08:01:13.000Z',
+    );
+    await continuations.updateAttempt(pausedRunning, 'claimed');
+    const paused = transitionWorkflowContinuationAttempt(
+      pausedRunning,
+      'paused',
+      '2026-07-16T08:01:14.000Z',
+    );
+    await continuations.updateAttempt(paused, 'running');
+    expect(await continuations.listAttempts(initial.workflowInstanceId)).toContainEqual(paused);
+    await expect(
+      pool.query(
+        "UPDATE workflow_continuation_attempt SET completed_at=NULL WHERE attempt_id='continuation-attempt-paused'",
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    const scopedDown = await readFile(
+      'infra/postgres/migrations/0179_v14_workflow_scoped_continuation.down.sql',
+      'utf8',
+    );
+    await expect(executeMigrationSql(scopedDown)).rejects.toThrow(
+      'WORKFLOW_SCOPED_CONTINUATION_DOWNGRADE_REFERENCES_EXIST',
+    );
     await pool.query('DELETE FROM workflow_continuation_attempt');
     await pool.query('DELETE FROM workflow_continuation_wait_binding');
     await pool.query('DELETE FROM workflow_continuation_snapshot');
@@ -430,6 +549,13 @@ describe('PostgreSQL remote Task continuation authority', () => {
       "UPDATE workflow_instance SET status='running' WHERE instance_id='continuation-instance'",
     );
     await pool.query("DELETE FROM skill_call_workflow WHERE call_id='continuation-child-call'");
+    await executeMigrationSql(scopedDown);
+    await pool.query(
+      await readFile(
+        'infra/postgres/migrations/0179_v14_workflow_scoped_continuation.up.sql',
+        'utf8',
+      ),
+    );
   });
 
   it('migrates a legacy binding to unknown authority without stranding polling or cancellation', async () => {
@@ -704,4 +830,16 @@ async function seedAuthority(): Promise<void> {
             'succeeded','2026-07-16T08:00:00.000Z','2026-07-16T08:00:00.001Z',1,
             'live',NULL)`,
   );
+}
+
+async function executeMigrationSql(sql: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(sql);
+  } catch (error: unknown) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "executed_unit_and_real_postgresql_integration",
+  "metrics": {
+    "supportCount": "traces containing at least one mineable Activity",
+    "totalTraceCount": "complete cohort denominator",
+    "supportRate": "supportCount / totalTraceCount",
+    "successRate": "successful traces / totalTraceCount",
+    "traceCoverage": "traces with mineable Activity / totalTraceCount",
+    "fitness": "mean mandatory-Activity coverage per trace",
+    "precisionProxy": "supported ordering constraints / all ordering constraints",
+    "environmentCoverage": "min(1, distinct environment count / totalTraceCount)",
+    "contradictionRate": "contradiction refs / totalTraceCount",
+    "generalization": "bounded cohort-size signal multiplied by contradiction penalty"
+  },
+  "constantPlaceholderMetrics": false,
+  "regressionEvidence": {
+    "scenario": "one supported trace plus one pure-lifecycle trace",
+    "expected": {
+      "supportCount": 1,
+      "totalTraceCount": 2,
+      "supportRate": 0.5,
+      "traceCoverage": 0.5
+    },
+    "testRef": "packages/application/test/process-miner.unit.test.ts"
+  },
+  "performanceEvidence": {
+    "classification": "real_local_postgresql_measurement",
+    "traceCount": 10000,
+    "queryMs": 515.6,
+    "persistenceMs": 392.32,
+    "source": "execplans/EP-SDAR-V1.3-P04R.md"
+  },
+  "implementationRef": "packages/application/src/compiler/process-miner.ts",
+  "acceptanceRefs": [
+    "AC-P04R-014"
+  ]
+}

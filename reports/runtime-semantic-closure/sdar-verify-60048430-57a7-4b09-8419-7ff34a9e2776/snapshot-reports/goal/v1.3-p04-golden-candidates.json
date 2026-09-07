@@ -1,0 +1,49 @@
+{
+  "packageId": "SDAR-V1.3-P04",
+  "schemaVersion": "1.1",
+  "generatedAt": "2026-07-28T00:00:00Z",
+  "goldenCandidate": {
+    "taskTypeId": "task-type-sdar-unit-test",
+    "domain": "sdar-test-domain",
+    "inputWorkflowPatternId": "wp-test-001",
+    "inputDiscoveredPatternId": "dp-test-001",
+    "activities": ["observe_input", "verify_constraint", "execute_action", "recover_failure"],
+    "expectedNodeTypeMapping": {
+      "observe_input": "observation",
+      "verify_constraint": "verification",
+      "execute_action": "action",
+      "recover_failure": "recovery"
+    },
+    "expectedArtifact": {
+      "artifactType": "plan_template",
+      "status": "candidate",
+      "riskLevel": "medium",
+      "executable": false
+    },
+    "expectedValidation": {
+      "result": "passed_static",
+      "schemaValid": true,
+      "dagValid": true,
+      "requiredCriteriaCovered": true,
+      "capabilityShapeValid": true,
+      "parameterPolicyValid": true,
+      "sideEffectReplaySafe": true,
+      "boundsValid": true,
+      "duplicateFingerprint": null
+    },
+    "expectedLineage": {
+      "sourcePatternRefs": ["wp-test-001", "dp-test-001", "fused-pattern-*", "generalized-pattern-*"],
+      "generationMethods": ["process_mining", "model_assisted_generalization"]
+    },
+    "expectedRecoveryBranches": {
+      "count": 1,
+      "sideEffectReplayPolicy": "forbidden"
+    },
+    "noOpModelAudit": {
+      "modelId": "sdar-no-op-semantic-model/1.1",
+      "promptHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "explanation": "no-op semantic model: no LLM invoked",
+      "structuralFactsPreserved": true
+    }
+  }
+}

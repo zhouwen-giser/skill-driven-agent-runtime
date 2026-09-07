@@ -22,6 +22,7 @@ import type { WorkflowExecutionService } from './workflow-execution.js';
 import type { WorkflowPlannerService } from './workflow-planner.js';
 import type { WorkflowValidator } from './workflow-validator.js';
 import type { PreparedSkillUsagePlan } from './skill-usage-planning.js';
+import { canonicalHash } from './mcp-task-readiness.js';
 
 export interface PreparedChildSkillUsage {
   readonly prepared: PreparedSkillUsagePlan;
@@ -33,6 +34,25 @@ export type ChildSkillExecutionStatus =
 
 export const MAX_SKILL_CALL_DEPTH = 8;
 export const MAX_SKILL_CHILD_RESULT_CHARACTERS = 64_000;
+
+export type SkillCallWorkflowInput = Readonly<{
+  skillId: string;
+  value: unknown;
+  parentPlanId: string;
+  parentInstanceId: string;
+  parentNodeId: string;
+  parentNodeRunId: string;
+  parentGoalId: string;
+  parentGoalVersion: number;
+  signal?: AbortSignal;
+  resumeChild?: boolean;
+  executionContext?: RuntimeExecutionContext;
+  continuationAuthority?: Readonly<{
+    agentTaskId: string;
+    contextId: string;
+    workflowControlId: string;
+  }>;
+}>;
 
 export class SkillCallWorkflowService {
   readonly #skills: SkillRepository;
@@ -146,25 +166,18 @@ export class SkillCallWorkflowService {
     this.#nextId = dependencies.nextId;
   }
 
-  async execute(
-    input: Readonly<{
-      skillId: string;
-      value: unknown;
-      parentPlanId: string;
-      parentInstanceId: string;
-      parentNodeId: string;
-      parentNodeRunId: string;
-      parentGoalId: string;
-      parentGoalVersion: number;
-      signal?: AbortSignal;
-      executionContext?: RuntimeExecutionContext;
-      continuationAuthority?: Readonly<{
-        agentTaskId: string;
-        contextId: string;
-        workflowControlId: string;
-      }>;
-    }>,
-  ): Promise<SkillCallExecutionResult> {
+  readonly #inFlight = new Map<string, Promise<SkillCallExecutionResult>>();
+
+  execute(input: SkillCallWorkflowInput): Promise<SkillCallExecutionResult> {
+    const key = JSON.stringify([input.parentInstanceId, input.parentNodeRunId]);
+    const existing = this.#inFlight.get(key);
+    if (existing !== undefined) return existing;
+    const pending = this.#execute(input).finally(() => this.#inFlight.delete(key));
+    this.#inFlight.set(key, pending);
+    return pending;
+  }
+
+  async #execute(input: SkillCallWorkflowInput): Promise<SkillCallExecutionResult> {
     const expectedVersion = await this.#assertParentCompositionAuthority(
       input.parentPlanId,
       input.skillId,
@@ -191,7 +204,7 @@ export class SkillCallWorkflowService {
         `Resolved input does not satisfy ${skill.skillId}@${String(skill.version)}: ${inputValidation.errors.join('; ')}`,
       );
 
-    const existing = await this.#records.find(input.parentInstanceId, input.parentNodeId);
+    const existing = await this.#records.find(input.parentInstanceId, input.parentNodeRunId);
     if (existing !== undefined) {
       if (existing.parentPlanId !== input.parentPlanId || existing.skillId !== input.skillId)
         throw new SkillCallWorkflowError(
@@ -206,6 +219,10 @@ export class SkillCallWorkflowService {
           evaluationSummary: `Skill version changed from ${String(existing.skillVersion)} to ${String(skill.version)}; fresh confirmation is required.`,
           completedAt: this.#clock.now(),
         });
+        throw new SkillCallWorkflowError(
+          'WORKFLOW_SKILL_VERSION_STALE',
+          'The frozen child version changed; replan the parent outside this node run.',
+        );
       } else if (existing.confirmationStatus === 'awaiting_confirmation') {
         return confirmationRequest(existing);
       } else if (existing.confirmationStatus === 'rejected') {
@@ -237,7 +254,9 @@ export class SkillCallWorkflowService {
       pending.childPlanId === undefined
     )
       return false;
-    const record = await this.#records.find(parent.instanceId, pending.nodeId);
+    const record = (await this.#records.listByParent(parent.instanceId)).find(
+      (call) => call.childPlanId === pending.childPlanId && call.parentNodeId === pending.nodeId,
+    );
     if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CONFIRMATION_STALE',
@@ -288,7 +307,9 @@ export class SkillCallWorkflowService {
     const parent = await this.#execution.findActiveByPlanId(parentPlanId);
     const pending = parent?.pendingConfirmation;
     if (parent?.status !== 'paused' || pending?.kind !== 'skill_confirmation') return false;
-    const record = await this.#records.find(parent.instanceId, pending.nodeId);
+    const record = (await this.#records.listByParent(parent.instanceId)).find(
+      (call) => call.childPlanId === pending.childPlanId && call.parentNodeId === pending.nodeId,
+    );
     if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CONFIRMATION_STALE',
@@ -337,7 +358,9 @@ export class SkillCallWorkflowService {
     const parent = await this.#execution.findActiveByPlanId(parentPlanId);
     const pending = parent?.pendingConfirmation;
     if (parent?.status !== 'paused' || pending?.kind !== 'skill_confirmation') return false;
-    const record = await this.#records.find(parent.instanceId, pending.nodeId);
+    const record = (await this.#records.listByParent(parent.instanceId)).find(
+      (call) => call.childPlanId === pending.childPlanId && call.parentNodeId === pending.nodeId,
+    );
     if (!matchesPendingCheckpoint(record, parent.instanceId, pending, parentPlanId))
       throw new SkillCallWorkflowError(
         'WORKFLOW_SKILL_CONFIRMATION_STALE',
@@ -376,6 +399,7 @@ export class SkillCallWorkflowService {
       parentInstanceId: string;
       parentNodeId: string;
       parentNodeRunId: string;
+      resumeChild?: boolean;
       parentGoalId: string;
       parentGoalVersion: number;
       signal?: AbortSignal;
@@ -459,6 +483,7 @@ export class SkillCallWorkflowService {
       parentPlanId: input.parentPlanId,
       parentInstanceId: input.parentInstanceId,
       parentNodeId: input.parentNodeId,
+      parentNodeRunId: input.parentNodeRunId,
       childPlanId,
       skillId: skill.skillId,
       skillVersion: skill.version,
@@ -493,6 +518,7 @@ export class SkillCallWorkflowService {
     input: Readonly<{
       value: unknown;
       parentNodeRunId: string;
+      resumeChild?: boolean;
       signal?: AbortSignal;
       executionContext?: RuntimeExecutionContext;
       continuationAuthority?: Readonly<{
@@ -503,37 +529,73 @@ export class SkillCallWorkflowService {
     }>,
   ): Promise<SkillCallExecutionResult> {
     const definition = await this.#requireValidatedDefinition(plan);
-    if (record.status === 'succeeded' && record.childInstanceId !== undefined) {
-      const completed = await this.#execution.get(record.childInstanceId);
-      if (completed?.status === 'succeeded')
-        return { status: 'completed', output: completed.result };
-    }
     const childInstanceId = record.childInstanceId ?? `instance-skill-call-${record.callId}`;
-    const child = await this.#execution.execute({
-      instanceId: childInstanceId,
-      planId: record.childPlanId,
-      input: input.value,
-      skillIds: [skill.skillId],
-      ...(input.executionContext === undefined ? {} : { executionContext: input.executionContext }),
-      ...(input.continuationAuthority === undefined
-        ? {}
-        : { continuationAuthority: input.continuationAuthority }),
-      onStarted: async () => {
-        await this.#records.save({
-          ...record,
-          childInstanceId,
-          status: 'running',
-          evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is executing.`,
-        });
-        await this.#onExecutionStatus?.({
-          childPlanId: record.childPlanId,
-          childInstanceId,
-          status: 'executing',
-          summary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} started.`,
-        });
-      },
-      ...(input.signal === undefined ? {} : { signal: input.signal }),
-    });
+    const persistedChild = await this.#execution.get(childInstanceId);
+    if (record.childInstanceId !== undefined && persistedChild === undefined)
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_CHILD_FAILED',
+        'The persisted child instance is missing and cannot be replayed.',
+      );
+    if (
+      persistedChild !== undefined &&
+      canonicalHash(persistedChild.input) !== canonicalHash(input.value)
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_INPUT_INVALID',
+        'Child call input differs from its frozen node-run input.',
+      );
+    let child =
+      persistedChild ??
+      (await this.#execution.execute({
+        instanceId: childInstanceId,
+        planId: record.childPlanId,
+        input: input.value,
+        skillIds: [skill.skillId],
+        ...(input.executionContext === undefined
+          ? {}
+          : { executionContext: input.executionContext }),
+        ...(input.continuationAuthority === undefined
+          ? {}
+          : { continuationAuthority: input.continuationAuthority }),
+        onStarted: async () => {
+          await this.#records.save({
+            ...record,
+            childInstanceId,
+            status: 'running',
+            evaluationSummary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} is executing.`,
+          });
+          await this.#onExecutionStatus?.({
+            childPlanId: record.childPlanId,
+            childInstanceId,
+            status: 'executing',
+            summary: `Skill child Workflow ${definition.workflowDefinitionId}@${String(definition.version)} started.`,
+          });
+        },
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
+      }));
+    if (child.status === 'paused' && input.resumeChild !== undefined) {
+      child = await this.#execution.resumeHumanConfirmation({
+        instanceId: childInstanceId,
+        confirmed: input.resumeChild,
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
+        ...(input.continuationAuthority === undefined
+          ? {}
+          : { continuationAuthority: input.continuationAuthority }),
+      });
+    }
+    if (child.status === 'paused') {
+      await this.#records.save({
+        ...record,
+        childInstanceId,
+        status: 'running',
+        evaluationSummary: 'The child instance is paused at its persisted confirmation checkpoint.',
+      });
+      return {
+        status: 'paused',
+        childInstanceId,
+        prompt: child.pendingConfirmation?.prompt ?? 'Confirm child Skill continuation.',
+      };
+    }
     if (child.status === 'waiting_external') {
       await this.#records.save({
         ...record,

@@ -1,3 +1,4 @@
+import { skillSchemaContractErrors } from '../../domain/src/index.js';
 import { z } from 'zod';
 
 import type {
@@ -211,13 +212,7 @@ function schemaErrors(
   ] as const) {
     const result = validator.checkSchema(schema);
     if (!result.valid) errors.push(...result.errors.map((error) => `${label}: ${error}`));
-    if (
-      schema['type'] !== 'object' ||
-      typeof schema['properties'] !== 'object' ||
-      schema['properties'] === null
-    ) {
-      errors.push(`${label}: top-level type object with explicit properties is required`);
-    }
+    errors.push(...skillSchemaContractErrors(schema, label));
   }
   return errors;
 }

@@ -302,8 +302,7 @@ export function verifiedUgvAgentProfileOutcomeRefs(
     skill.status !== 'enabled' ||
     proof.requestedCapabilityId !== declaration.capabilityId ||
     !skill.capabilities.includes(declaration.capabilityId) ||
-    outcome === undefined ||
-    outcome.skillId !== skill.skillId ||
+    outcome?.skillId !== skill.skillId ||
     outcome.skillVersion !== skill.version ||
     outcome.taskGoalPolicy['requestedCapabilityId'] !== declaration.capabilityId ||
     requiredEvidence === undefined ||

@@ -8,9 +8,37 @@ import type {
   TemporarySkillExperience,
 } from '../../domain/src/index.js';
 import { AjvJsonSchemaValidator } from '../../json-schema-adapter/src/index.js';
-import { SkillEvolutionService } from '../src/index.js';
+import { DeferredSkillEvolutionService, SkillEvolutionService } from '../src/index.js';
 
 describe('SkillEvolutionService', () => {
+  it.each(['awaiting_simulation', 'validation_failed', 'published'] as const)(
+    'retains %s candidates and blocks deployed evolution before any execution or publication',
+    async (status) => {
+      const fixture = setup(true);
+      fixture.repository.candidate = { ...fixture.repository.candidate, status };
+      const before = structuredClone(fixture.repository.candidate);
+      const service = new DeferredSkillEvolutionService(fixture.repository);
+      await expect(service.evaluateAndPublish('candidate-1')).rejects.toMatchObject({
+        code: 'SKILL_EVOLUTION_PUBLICATION_DEFERRED',
+      });
+      await expect(
+        service.correctAndRevalidate('candidate-1', {
+          actor: 'operator',
+          summary: 'Change candidate',
+          proposedSkill: decision().proposedSkill,
+        }),
+      ).rejects.toMatchObject({ code: 'SKILL_EVOLUTION_PUBLICATION_DEFERRED' });
+      await expect(service.get('candidate-1')).resolves.toEqual(before);
+      await expect(service.listCorrections('candidate-1')).resolves.toEqual([]);
+      expect(fixture.repository.candidate).toEqual(before);
+      expect(fixture.modelInstruction).toBeUndefined();
+      expect(fixture.runContexts).toEqual([]);
+      expect(fixture.replayContexts).toEqual([]);
+      expect(fixture.published).toBeUndefined();
+      expect(fixture.currentSkillVersion).toBe(1);
+    },
+  );
+
   it('publishes an experience-evolution Skill only after every required gate passes', async () => {
     const fixture = setup(true);
     const result = await fixture.service.evaluateAndPublish('candidate-1');
@@ -442,6 +470,11 @@ class MemoryRepository {
   }
   save() {
     return Promise.resolve();
+  }
+  findExperience(temporarySkillId: string) {
+    return Promise.resolve(
+      this.experiences.find((item) => item.temporarySkillId === temporarySkillId),
+    );
   }
   expireAndSaveExperience() {
     return Promise.resolve();

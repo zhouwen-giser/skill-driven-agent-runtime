@@ -281,6 +281,11 @@ describe('InteractivePlanningSessionService', () => {
     });
 
     const restarted = planningSessions(repository, committed, 'manual_all');
+    committed.clear();
+    await expect(restarted.readByTask('task.interactive-plan')).resolves.toMatchObject({
+      session: { state: 'confirmed' },
+    });
+    expect(committed.size).toBe(0);
     await expect(restarted.getByTask('task.interactive-plan')).resolves.toMatchObject({
       session: { state: 'confirmed' },
       candidate: { status: 'confirmed' },

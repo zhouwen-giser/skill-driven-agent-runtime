@@ -47,8 +47,21 @@ const nodeControlAuthorityReader =
       });
 const runtime = await startServerRuntime({
   postgresUrl: environment.SDAR_POSTGRES_URL,
-  redis: { host: environment.SDAR_REDIS_HOST, port: environment.SDAR_REDIS_PORT },
+  redis: {
+    host: environment.SDAR_REDIS_HOST,
+    port: environment.SDAR_REDIS_PORT,
+    db: environment.SDAR_REDIS_DB,
+    ...(environment.SDAR_REDIS_PASSWORD === undefined
+      ? {}
+      : { password: environment.SDAR_REDIS_PASSWORD }),
+  },
   masterKeyBase64: environment.SDAR_MASTER_KEY_BASE64,
+  disableDeviceWeapons: isDevelopmentDeploymentEnvironment(environment),
+  ...(isDevelopmentDeploymentEnvironment(environment) &&
+  environment.SDAR_DEVELOPMENT_CONFIRMATION_POLICY === 'auto_non_weapon' &&
+  environment.SDAR_GOVERNED_CONTROL_ACTOR_ID !== undefined
+    ? { developmentPreauthorizationActorId: environment.SDAR_GOVERNED_CONTROL_ACTOR_ID }
+    : {}),
   evidenceEnvironment: environment.SDAR_CONTROL_ENVIRONMENT,
   ugvAgentProfileSkillScope: isDevelopmentDeploymentEnvironment(environment)
     ? 'all_enabled'

@@ -85,7 +85,7 @@ export class PostgresKnowledgeSearchRepository implements KnowledgeSearchReposit
             concat(a.kind,':',a.knowledge_id,':',a.revision::text)
           AND m.embedding_provider_id=$2
           AND m.embedding_dimensions=$3
-         WHERE ${filterClause(4)}
+         WHERE ${filterClause(4)} AND ($11::text IS NULL OR a.kind=$11)
        ) ranked
        WHERE ranked.confidence>=$9
        ORDER BY ranked.confidence DESC,ranked.kind,ranked.knowledge_id,ranked.revision
@@ -97,6 +97,7 @@ export class PostgresKnowledgeSearchRepository implements KnowledgeSearchReposit
         ...parameters,
         input.filters.minConfidence,
         input.filters.limit,
+        input.filters.kind ?? null,
       ],
     );
     return Object.freeze(
@@ -129,12 +130,12 @@ export class PostgresKnowledgeSearchRepository implements KnowledgeSearchReposit
              ) * 4
            )::double precision AS confidence
          FROM active_knowledge a
-         WHERE ${filterClause(2)}
+         WHERE ${filterClause(2)} AND ($9::text IS NULL OR a.kind=$9)
        ) ranked
        WHERE ranked.confidence>=$7
        ORDER BY ranked.confidence DESC,ranked.kind,ranked.knowledge_id,ranked.revision
        LIMIT $8`,
-      [query, ...parameters, filters.minConfidence, filters.limit],
+      [query, ...parameters, filters.minConfidence, filters.limit, filters.kind ?? null],
     );
     return Object.freeze(
       result.rows.map((row) =>
@@ -152,9 +153,9 @@ export class PostgresKnowledgeSearchRepository implements KnowledgeSearchReposit
       `${activeKnowledgeCte}
        SELECT a.* FROM active_knowledge a
        WHERE concat(a.kind,':',a.knowledge_id,':',a.revision::text)=ANY($1::text[])
-         AND ${filterClause(2)}
+         AND ${filterClause(2)} AND ($7::text IS NULL OR a.kind=$7)
        ORDER BY a.kind,a.knowledge_id,a.revision`,
-      [authoritativeRefs, ...filterParameters(filters)],
+      [authoritativeRefs, ...filterParameters(filters), filters.kind ?? null],
     );
     return Object.freeze(result.rows.map(mapDefinition));
   }

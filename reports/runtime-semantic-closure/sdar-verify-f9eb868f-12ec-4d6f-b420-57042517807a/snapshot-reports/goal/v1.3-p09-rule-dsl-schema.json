@@ -1,0 +1,39 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "contractVersion": "1.1",
+  "portableSchema": "schemas/v1.3/decision-rule-runtime.schema.json",
+  "schemaHashes": {
+    "RuleDecisionContext": "151c3f7fafb1c7a8d3d6361feabdf924c5e96b8988ebfff887c8660b7efee77e",
+    "RuleConditionResult": "627bf8a47de6632abcfa0fe5abd5f197d1c37826636bf878f2b22da454442d82",
+    "RuleDecisionResult": "44c06ea58232e4713b695dc3d7082cd189a5e7b00fe94374c76c0af09e7a4f47",
+    "RuleConflictResolution": "03f47932366feffc992f3ffc991a51db71a71db5ea6eb3aeb79de9a13b223358",
+    "RulePlanPatchCandidate": "a406785ef94494b4aabaead4556d0652e8929f3c5b8d44923cb45e49d74d3163",
+    "RuleRuntime": "77b30dc4384fbf082345b90280d01f15609b5aa1a166ab827825d5dee14efaca"
+  },
+  "limits": {
+    "maxDepth": 8,
+    "maxConditions": 128,
+    "maxStringLength": 1024,
+    "maxCollectionLength": 256,
+    "maxSafePatternLength": 128,
+    "maxPatchOperations": 16
+  },
+  "logic": ["all", "any", "not"],
+  "truthValues": ["true", "false", "unknown"],
+  "unknownPolicies": ["no_match", "fallback", "require_confirmation"],
+  "actions": [
+    "advise",
+    "require_confirmation",
+    "deny",
+    "fallback",
+    "suggest_parameter",
+    "propose_plan_patch",
+    "no_match"
+  ],
+  "dynamicCode": false,
+  "validationEvidence": [
+    "packages/domain/test/decision-rule-runtime-p09.unit.test.ts",
+    "packages/application/test/decision-rule-runtime-p09.contract.test.ts"
+  ]
+}

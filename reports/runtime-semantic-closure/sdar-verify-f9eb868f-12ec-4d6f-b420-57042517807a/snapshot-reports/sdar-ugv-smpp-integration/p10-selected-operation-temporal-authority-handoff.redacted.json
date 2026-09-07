@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "sdar.ugv-p10-selected-operation-temporal-authority-handoff/v1",
+  "generatedAt": "2026-09-02T05:37:00.000Z",
+  "implementationCommit": "baeb32579c15b09ae88c3d09c15a07157b772f94",
+  "incident": {
+    "taskId": "eaddba90-61f1-4646-8e39-59e41f356aaa",
+    "failedAt": "2026-09-02T05:29:02.746Z",
+    "errorCode": "UGV_MOVE_WORKFLOW_AUTHORITY_SELECTION_STALE",
+    "mcpInvocationCount": 0,
+    "providerDispatchOccurred": false,
+    "cause": "The one-second dynamic availability observation was incorrectly required to remain unexpired after model planning, although it was already valid at selection time."
+  },
+  "repair": {
+    "selectionAuthority": "The immutable selected operation retains its observed availability and hash after selection; only a future selectedAt is rejected during planning/reference persistence.",
+    "preInvocationAuthority": "Current Binding, Catalog, resource, arguments, confirmation and freshly loaded dynamic availability remain mandatory before transport.",
+    "explicitUnavailableDecision": "deny",
+    "expiredCurrentReadinessDecision": "deny",
+    "redispatchPolicy": "unchanged_exactly_once_and_reconciliation_only"
+  },
+  "runtime": {
+    "pid": 1090891,
+    "startedAt": "2026-09-02T05:35:28.000Z",
+    "distSha256": "2a20752a4f2504cfb5906ed25b8d54c607bd618117666685b2139281e8332d00",
+    "management": {
+      "url": "http://127.0.0.1:10998",
+      "healthStatus": 200
+    },
+    "a2a": {
+      "url": "http://127.0.0.1:10999",
+      "agentCardStatus": 200
+    },
+    "nodeControl": {
+      "apiPid": 952399,
+      "workerPid": 943355,
+      "url": "http://127.0.0.1:10091",
+      "livenessStatus": 200,
+      "readinessStatus": 200
+    }
+  },
+  "currentAuthority": {
+    "refreshOperationId": "a8ee72dd-8526-4ec3-ac2a-38aa23829668",
+    "refreshResult": "refreshed_unchanged_contract",
+    "bindingId": "ugv-smpp-real-integration-r2-binding",
+    "bindingRevision": 2,
+    "bindingStatus": "active",
+    "availabilityStatus": "available",
+    "catalogObservedAt": "2026-09-02T05:36:36.587Z",
+    "availabilityValidUntil": "2026-09-02T06:36:36.587Z",
+    "registryRevision": 2,
+    "registryChecksum": "165a5a0bfc2a93a2915d40c38fe1ec99af11bd0d1640565e34118e9301c44bdc",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a",
+    "operationCount": 10,
+    "activeAgentCardRevision": 14014,
+    "activeAgentCardContentHash": "6b660fdbccd5df27661794180074f0765ba7bff39c263a86ed28966eb29bdaff",
+    "pointExposureId": "a2a.embodied.move",
+    "pointExposureVersion": 5,
+    "pointExposureHash": "b55f0a0af1f3cccc3ac78ebdf9fc185d500dcfff77296d0b814d8cdc12456855"
+  },
+  "verification": {
+    "focused": {
+      "status": "passed",
+      "testFiles": 4,
+      "tests": 43,
+      "cases": [
+        "expired selection observation remains immutable planning history",
+        "future selectedAt remains rejected",
+        "fresh pre-invocation readiness supersedes expired selection availability",
+        "expired or non-exact current readiness remains denied"
+      ]
+    },
+    "typecheck": "passed",
+    "eslint": "passed",
+    "prettier": "passed",
+    "architecture": "passed_870_typescript_source_files",
+    "productionBuild": "passed",
+    "parentCleanFullVerify": {
+      "commit": "0ee57562eaf1a95408f061966a54199d3eb7bc7a",
+      "status": "passed",
+      "finishedAt": "2026-09-02T05:15:21.121Z"
+    }
+  },
+  "execution": {
+    "qualificationTasksCreated": 0,
+    "qualificationMcpInvocations": 0,
+    "providerToolsCall": 0,
+    "providerOrDeviceMutation": false,
+    "navigationOrSimulatorMutation": false
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "secretPathsIncluded": false,
+    "providerResponsesIncluded": false
+  }
+}

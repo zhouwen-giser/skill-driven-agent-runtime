@@ -1,0 +1,36 @@
+{
+  "packageId": "SDAR-V1.3-P04",
+  "schemaVersion": "1.1",
+  "generatedAt": "2026-07-28T00:00:00Z",
+  "candidateArtifact": {
+    "artifactType": "plan_template",
+    "status": "candidate",
+    "riskLevel": "medium",
+    "executable": false,
+    "note": "executable=false is a domain invariant enforced by status=candidate; no runtime field is added",
+    "requiredFields": [
+      "artifactId", "artifactKey", "version", "artifactType", "name",
+      "description", "scope", "definition", "applicability",
+      "requiredCapabilities", "requiredPolicies", "dependencySnapshot",
+      "riskLevel", "status", "lineageRef", "contentHash", "createdAt"
+    ],
+    "fingerprint": {
+      "inputs": [
+        "artifactType", "domain", "taskTypeId",
+        "generalizedDefinitionHash", "applicabilityHash",
+        "requiredCapabilityShapeHash", "generatorVersion"
+      ],
+      "algorithm": "sha256",
+      "purpose": "duplicate detection"
+    },
+    "lineage": {
+      "sourcePatternRefs": [
+        "WorkflowPattern.workflowPatternId",
+        "DiscoveredProcessPattern.patternId",
+        "FusedPattern.fusedPatternId",
+        "GeneralizedPattern.generalizedPatternId"
+      ],
+      "generationMethods": ["process_mining", "model_assisted_generalization"]
+    }
+  }
+}

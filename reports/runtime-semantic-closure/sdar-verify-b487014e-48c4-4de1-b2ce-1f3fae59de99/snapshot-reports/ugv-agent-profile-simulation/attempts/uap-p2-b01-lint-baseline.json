@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T03:09:29.131Z",
+  "observedAt": "2026-08-21T03:09:00.000Z",
+  "status": "BASELINE_FAILURE",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm lint",
+  "exitCode": 1,
+  "failure": {
+    "summary": "The repository-wide ESLint gate reports 22 errors in seven untouched Home-Lab/Node-Control files after all UAP-P2-B01 files were made lint-clean.",
+    "errorCount": 22,
+    "files": [
+      "apps/node-control-acceptance/src/home-lab-a2a-model-contract.ts",
+      "apps/node-control-acceptance/src/home-lab-g09-governed-light-driver.ts",
+      "apps/node-control-acceptance/test/home-lab-a2a-model-bootstrap.unit.test.ts",
+      "apps/node-control-acceptance/test/home-lab-g09-governed-light-driver.unit.test.ts",
+      "apps/server/src/home-lab-governed-light-workflow-contract.ts",
+      "apps/server/src/home-lab-task-understanding.ts",
+      "apps/server/test/home-lab-governed-light-profile.unit.test.ts"
+    ],
+    "ownershipCheck": "git status --short returned no changes for all seven files",
+    "reasonNotModified": "They are outside UAP-P2-B01; editing concurrent or unrelated Home-Lab/Node-Control work would violate the task boundary."
+  },
+  "scopedVerification": {
+    "command": "pnpm exec eslint apps/server/src/environment.ts apps/server/src/main.ts apps/server/src/runtime.ts apps/server/src/ugv-agent-profile.ts apps/server/test-support/postgres.ts apps/server/test/ugv-agent-profile.unit.test.ts apps/server/test/ugv-agent-profile-card.unit.test.ts apps/server/test/ugv-agent-profile-runtime.integration.test.ts apps/server/test/ugv-agent-profile-test-fixture.ts packages/application/src/cognitive/capability-card-publisher.ts packages/application/test/capability-card-publisher.unit.test.ts packages/a2a-adapter/src/capability-card-projection.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+    "exitCode": 0,
+    "status": "PASS"
+  },
+  "minimumUnblockCondition": "The owners of the seven listed baseline files resolve their ESLint findings or provide an accepted baseline waiver.",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

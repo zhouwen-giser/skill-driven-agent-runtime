@@ -473,6 +473,7 @@ function compileDeterministicDefinition(
       edges.push({ sourceNodeId: handlerNodeId, targetNodeId: next.nodeId });
   });
   return Object.freeze({
+    executionSemanticsVersion: '2.0',
     workflowDefinitionId: input.workflowDefinitionId,
     version: input.workflowVersion,
     goalId: input.goalContract.goalId,

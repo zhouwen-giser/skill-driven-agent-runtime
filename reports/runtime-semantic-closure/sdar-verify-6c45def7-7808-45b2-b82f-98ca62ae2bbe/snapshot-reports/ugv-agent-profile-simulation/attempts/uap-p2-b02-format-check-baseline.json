@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:09:12.000Z",
+  "status": "BASELINE_GAP",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm format:check",
+  "exitCode": 1,
+  "failure": {
+    "code": "UNCHANGED_PRETTIER_BASELINE",
+    "summary": "Prettier reported two unchanged files: packages/application/src/skill-usage-planning.ts and packages/application/test/plan-preparation-processor.unit.test.ts."
+  },
+  "minimumUnblockCondition": "The owners of the two pre-existing files run the repository formatter or accept a separate baseline-format change.",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

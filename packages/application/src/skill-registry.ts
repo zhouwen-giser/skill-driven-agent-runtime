@@ -1,3 +1,4 @@
+import { skillSchemaContractErrors } from '../../domain/src/index.js';
 import { createHash } from 'node:crypto';
 
 import {
@@ -233,13 +234,14 @@ export class SkillRegistryService {
     return createSkillVersion(current);
   }
 
-  #assertSchema(schema: unknown, label: string): void {
+  #assertSchema(schema: unknown, label: 'input' | 'output'): void {
     const result = this.#validator.checkSchema(schema);
-    if (!result.valid) {
+    const errors = [...result.errors, ...skillSchemaContractErrors(schema, label)];
+    if (!result.valid || errors.length > 0) {
       throw new ResultProcessingError(
         'RESULT_SCHEMA_INVALID',
         `Skill ${label} schema is invalid.`,
-        result.errors,
+        errors,
       );
     }
   }

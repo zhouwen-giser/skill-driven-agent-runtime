@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P12",
+  "packageVersion": "1.1",
+  "sequence": 12,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "0db8796f468f5ad954c67f79cbf9991924dd07b1",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "implementation": "9a10b31f8c5bd2ec6aad6b87f4a6f3880c8d6834",
+    "outboxRegressionFix": "c434e4b43bfd2e892e6c831108456056a00c8e76",
+    "exactVerificationBaseline": "5cef3a04b7237ac126f7e9d0548347b0d5c25baa"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/13",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {
+      "name": "ArtifactGovernancePort",
+      "version": "1.1",
+      "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf"
+    },
+    {
+      "name": "FastGateway",
+      "version": "1.1",
+      "schemaHash": "be8f17ffcf597a021a8758844521cf4ba43dd1537e0d74dc7be2116c91cc16fe"
+    },
+    {
+      "name": "CaseRuntime",
+      "version": "1.1",
+      "schemaHash": "a2cb1f3f4c0a18abf03d3fb1a552b1f480e11e8a2ac5d3f1aa98c849dd96a387"
+    },
+    {
+      "name": "ModelRouteRuntime",
+      "version": "1.1",
+      "schemaHash": "386a10226570efe3572177718a9bca0f826cf6abc95ac91b63279a5993ae3dae"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "ManagementApiContract",
+      "version": "1.1",
+      "schemaHash": "842c040064b7171337082d865d4b46cbc27c8063ab3b0a3f881f4458247e8cbe"
+    },
+    {
+      "name": "A2AArtifactProjection",
+      "version": "1.1",
+      "schemaHash": "bdf152659c84b4fbbcb7d1d9dd47b97aedf73f5e82c55265a796ec4fd406d0ff"
+    },
+    {
+      "name": "SseArtifactEventProjection",
+      "version": "1.1",
+      "schemaHash": "c9c2b763d109005241827ddb1cb957e28fcf7003a759d387f0888a85700f7380"
+    }
+  ],
+  "migrations": [
+    "0134_v13_artifact_management_projection"
+  ],
+  "repositoryPorts": [
+    "ArtifactManagementQueryRepository"
+  ],
+  "applicationPorts": [
+    "ManagementPrincipalResolver",
+    "ArtifactManagementQueryService",
+    "ArtifactManagementCommandService"
+  ],
+  "runtimePorts": [
+    "ArtifactGovernancePort",
+    "FastGateway",
+    "CaseRuntime",
+    "ModelRouteRuntime"
+  ],
+  "events": [
+    "artifact.candidate_created",
+    "artifact.validation_completed",
+    "artifact.shadow_completed",
+    "artifact.promotion_ready",
+    "artifact.approval_recorded",
+    "artifact.activated",
+    "artifact.revalidation_requested",
+    "artifact.deprecated",
+    "artifact.rollback_completed",
+    "artifact.kill_switch_changed",
+    "gateway.route_selected",
+    "gateway.confirmation_required",
+    "gateway.fallback_started",
+    "gateway.formal_handoff",
+    "rule.evaluated",
+    "template.instantiated",
+    "case.adapted",
+    "model_route.selected",
+    "model_cascade.escalated",
+    "artifact.outcome_linked",
+    "artifact.correction_observed",
+    "artifact.drift_detected",
+    "artifact.revalidation_signalled"
+  ],
+  "queues": [],
+  "featureFlags": [
+    "P12 composition via artifactManagementPrincipalResolver"
+  ],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [
+    "execplans/EP-SDAR-V1.3-P12.md",
+    "adr/ADR-122-optional-artifact-management-exposure-and-read-audit.md",
+    "reports/goal/v1.3-p12-acceptance.json",
+    "reports/goal/v1.3-p12-completion.md",
+    "reports/goal/v1.3-p12-review.md",
+    "reports/goal/v1.3-p12-full-verify-report.json",
+    "reports/goal/v1.3-p12-openapi-report.json",
+    "reports/goal/v1.3-p12-rbac-matrix.json",
+    "reports/goal/v1.3-p12-console-e2e-report.json",
+    "reports/goal/v1.3-p12-a2a-tck-report.json",
+    "reports/goal/v1.3-p12-sse-report.json",
+    "reports/goal/v1.3-p12-security-report.json",
+    "reports/goal/v1.3-p12-performance-report.json"
+  ],
+  "acceptanceSummary": {
+    "passed": 54,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [
+    "SSE is bounded replay with explicit resume/overflow, not a perpetual connection.",
+    "Local performance measurements are acceptance baselines, not production SLOs.",
+    "Accessibility evidence is component-level semantic verification; no screenshot claim is made."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P13",
+  "packageOutputs": {
+    "ManagementApiContract": {
+      "contractVersion": "1.1",
+      "schemaHash": "842c040064b7171337082d865d4b46cbc27c8063ab3b0a3f881f4458247e8cbe",
+      "refs": [
+        "packages/application/src/compiler/artifact-management.ts",
+        "packages/management-api/src/http-endpoint.ts",
+        "schemas/management-api.openapi.yaml"
+      ]
+    },
+    "A2AArtifactProjection": {
+      "contractVersion": "1.1",
+      "schemaHash": "bdf152659c84b4fbbcb7d1d9dd47b97aedf73f5e82c55265a796ec4fd406d0ff",
+      "refs": [
+        "packages/a2a-adapter/src/capability-card-projection.ts",
+        "apps/server/src/runtime.ts"
+      ]
+    },
+    "SseArtifactEventProjection": {
+      "contractVersion": "1.1",
+      "schemaHash": "c9c2b763d109005241827ddb1cb957e28fcf7003a759d387f0888a85700f7380",
+      "refs": [
+        "packages/application/src/compiler/artifact-management.ts",
+        "packages/persistence-postgres/src/compiler/artifact-management-query-repository.ts",
+        "packages/management-api/src/http-endpoint.ts"
+      ]
+    }
+  }
+}

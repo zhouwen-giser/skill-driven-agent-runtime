@@ -1,0 +1,294 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-capability-governance/v1",
+  "status": "passed",
+  "observedAt": "2026-08-17T01:28:46.609Z",
+  "binding": {
+    "bindingId": "mcp-binding-ugv-smpp-r4",
+    "localServerId": "ugv-smpp-runtime-r4",
+    "revision": 1,
+    "registryRevision": 1,
+    "registryChecksum": "77293e5baef28ff4cfecf7d378279435a3ab030eefbec6ef6c603c97cd251b07",
+    "catalogRevision": "2.0.0-rc.1:1",
+    "catalogChecksum": "1170522d7013a43af33d9bedfb5b823be00e458d46e0a77f72d7ee023c359a62",
+    "operationCount": 11,
+    "availabilityValidUntil": "2026-08-17T02:23:46.936Z"
+  },
+  "resourcePolicy": {
+    "identifierAuthority": "public_smpp_tool_schema",
+    "resourceId": "vehicle:ugv1",
+    "selection": "explicit_configured_value"
+  },
+  "catalog": {
+    "discoveredToolCount": 11,
+    "governedToolCount": 6,
+    "stagedControlToolCount": 4,
+    "unmappedToolNames": []
+  },
+  "firePolicy": {
+    "toolName": "vehicle_fire_weapon",
+    "discovered": true,
+    "forbidden": true,
+    "capabilityCreated": false,
+    "skillCreated": false
+  },
+  "navigateControl": {
+    "activated": true,
+    "mode": "coordinate_point",
+    "dispatchMaximum": 1,
+    "stopOnObstacleRequired": true
+  },
+  "skills": [
+    {
+      "skillId": "ugv.get-state",
+      "skillVersion": 8,
+      "capabilityId": "vehicle.ugv.read-state",
+      "toolName": "vehicle_get_state",
+      "packageChecksum": "1bfcd2e1b398aa17c7a34dbd1b3fede6161fa007f71a14a493da37bb7ddca3c8",
+      "inputSchemaSha256": "fa04af3d483adbb10b242ba4593cd86eb44bddcb51246968291bc9194c084c65",
+      "outputSchemaSha256": "34069b152b11edf82b0c3301a41db6e764ba90790b9fe4e8f08604a29caf97ea",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "ugv.get-capabilities",
+      "skillVersion": 8,
+      "capabilityId": "vehicle.ugv.read-capabilities",
+      "toolName": "vehicle_get_capabilities",
+      "packageChecksum": "1859b67ef623995bdce7370f140117826963d51eb556b5923b3c4307baf3b3d8",
+      "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+      "outputSchemaSha256": "34069b152b11edf82b0c3301a41db6e764ba90790b9fe4e8f08604a29caf97ea",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "ugv.get-payload-status",
+      "skillVersion": 8,
+      "capabilityId": "vehicle.ugv.read-payload",
+      "toolName": "vehicle_get_payload_status",
+      "packageChecksum": "0154fdc7cd4d9622027a89df8c4a06d1b761161dbfebacd6d9de738378a3f171",
+      "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+      "outputSchemaSha256": "34069b152b11edf82b0c3301a41db6e764ba90790b9fe4e8f08604a29caf97ea",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "ugv.get-targets",
+      "skillVersion": 8,
+      "capabilityId": "vehicle.ugv.read-targets",
+      "toolName": "vehicle_get_targets",
+      "packageChecksum": "60b1182763b19b469f64951c3f358d46c6c990e7aedf393a57d976e148cb6afc",
+      "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+      "outputSchemaSha256": "bcb3a439212cc2c6b074f207e1ebbba466a1b772effb6eff23ef91c58732172f",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "ugv.laser-range",
+      "skillVersion": 8,
+      "capabilityId": "vehicle.ugv.laser-range",
+      "toolName": "vehicle_laser_range",
+      "packageChecksum": "83c809ded1a7c8f908aa307a06feda200524265fe9e22b981a68b33ecfc3af5b",
+      "inputSchemaSha256": "6f356d22586932cd7a438b84719d63b26be1428b98cdea1395a1a60699e722ff",
+      "outputSchemaSha256": "85e2d9f658d9c6e0275af35240527d72c5522b64e9c3ac3d88ea63af4a8ee7be",
+      "action": "reconciled",
+      "status": "published"
+    },
+    {
+      "skillId": "ugv.navigate",
+      "skillVersion": 8,
+      "capabilityId": "vehicle.ugv.navigate",
+      "toolName": "vehicle_navigate",
+      "packageChecksum": "e783ecc20bf75a2b044ced3600e03fb92777ebf3c3198af5b52ab8ad5bcd1629",
+      "inputSchemaSha256": "ae33c7317c8689ad174ba7d685df4ebed531e1cdf76c5a63ca68d7d04b30fa32",
+      "outputSchemaSha256": "20c3a17c515fc25702fd1382385c441ef5cff87b5e570acb530ad384c3c36210",
+      "action": "reconciled",
+      "status": "published"
+    }
+  ],
+  "capabilities": [
+    {
+      "capabilityId": "vehicle.ugv.read-state",
+      "capabilityVersion": 8,
+      "definitionHash": "ac6ba12e1a90a62b619fff75f25db468fde2770c1958e9e8020084c6ef938877",
+      "implementationBindingId": "capability-binding-vehicle.ugv.read-state-v8",
+      "skillId": "ugv.get-state",
+      "skillVersion": 8,
+      "toolName": "vehicle_get_state",
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "remoteTerminalEvidenceRequired": false,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-17T01:29:46.503Z"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-capabilities",
+      "capabilityVersion": 8,
+      "definitionHash": "39de2e47a430e85fc43d99a4f543eec703e2d99f1405305e58774e2d6067656e",
+      "implementationBindingId": "capability-binding-vehicle.ugv.read-capabilities-v8",
+      "skillId": "ugv.get-capabilities",
+      "skillVersion": 8,
+      "toolName": "vehicle_get_capabilities",
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "remoteTerminalEvidenceRequired": false,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-17T01:29:46.523Z"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-payload",
+      "capabilityVersion": 8,
+      "definitionHash": "3e5b10ce6555cf91e6d0be504685a39997ffa91a38db32c12ae93c3de83df4fd",
+      "implementationBindingId": "capability-binding-vehicle.ugv.read-payload-v8",
+      "skillId": "ugv.get-payload-status",
+      "skillVersion": 8,
+      "toolName": "vehicle_get_payload_status",
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "remoteTerminalEvidenceRequired": false,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-17T01:29:46.541Z"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-targets",
+      "capabilityVersion": 8,
+      "definitionHash": "230f2f8e9308dd6e3bc854bdb57be595a1762fde358d01e0396eddc22da73314",
+      "implementationBindingId": "capability-binding-vehicle.ugv.read-targets-v8",
+      "skillId": "ugv.get-targets",
+      "skillVersion": 8,
+      "toolName": "vehicle_get_targets",
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "remoteTerminalEvidenceRequired": false,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-17T01:29:46.559Z"
+    },
+    {
+      "capabilityId": "vehicle.ugv.laser-range",
+      "capabilityVersion": 8,
+      "definitionHash": "14b1f3ce008705fe73bdbefdf519a9ab6936756cfeb4e7a496b2cba005bdf719",
+      "implementationBindingId": "capability-binding-vehicle.ugv.laser-range-v8",
+      "skillId": "ugv.laser-range",
+      "skillVersion": 8,
+      "toolName": "vehicle_laser_range",
+      "riskLevel": "low",
+      "confirmation": "not_required",
+      "remoteTerminalEvidenceRequired": false,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-17T01:29:46.575Z"
+    },
+    {
+      "capabilityId": "vehicle.ugv.navigate",
+      "capabilityVersion": 8,
+      "definitionHash": "1b51df92fedd340161ae052693004a47531480e46cdcaad75432f164768b9017",
+      "implementationBindingId": "capability-binding-vehicle.ugv.navigate-v8",
+      "skillId": "ugv.navigate",
+      "skillVersion": 8,
+      "toolName": "vehicle_navigate",
+      "riskLevel": "medium",
+      "confirmation": "required",
+      "remoteTerminalEvidenceRequired": true,
+      "readiness": "available",
+      "readinessValidUntil": "2026-08-17T01:29:46.595Z"
+    }
+  ],
+  "stagedControls": [
+    {
+      "capabilityId": "vehicle.ugv.recon",
+      "skillId": "ugv.area-recon",
+      "toolName": "vehicle_area_recon",
+      "packageChecksum": "f247945d7a1bd938c1045bc02df8092bd0ea5e28969027105b7d9d7c30e720fa",
+      "definitionHash": "3e590c7ba39e05ad50208f64d921f6c3a275deca8644726899d5345ff2a2c757",
+      "proposedImplementationBindingId": "capability-binding-vehicle.ugv.recon-v8",
+      "implementationPersisted": false,
+      "riskLevel": "medium",
+      "confirmation": "required",
+      "runtimeSkillStatus": "draft",
+      "governedSkillStatus": "validated",
+      "capabilityStatus": "draft",
+      "readiness": "unavailable",
+      "lifecycle": "staged_non_executable",
+      "persisted": true,
+      "selectable": false,
+      "executionAuthorized": false,
+      "blockingReasonCodes": [
+        "CONTROL_TRANSPORT_GATE_NOT_IMPLEMENTED",
+        "PHYSICAL_WRITE_ACCEPTANCE_NOT_RUN"
+      ]
+    },
+    {
+      "capabilityId": "vehicle.ugv.track-target",
+      "skillId": "ugv.track-target",
+      "toolName": "vehicle_track_target",
+      "packageChecksum": "8927de6f4c43537202aeae09602476cb126838071bf582eb049e829c0be78b55",
+      "definitionHash": "9966f049c44135012ab26febd1e30f5e3db02309ffa16c12fb962ba36160d4bc",
+      "proposedImplementationBindingId": "capability-binding-vehicle.ugv.track-target-v8",
+      "implementationPersisted": false,
+      "riskLevel": "medium",
+      "confirmation": "required",
+      "runtimeSkillStatus": "draft",
+      "governedSkillStatus": "validated",
+      "capabilityStatus": "draft",
+      "readiness": "unavailable",
+      "lifecycle": "staged_non_executable",
+      "persisted": true,
+      "selectable": false,
+      "executionAuthorized": false,
+      "blockingReasonCodes": [
+        "CONTROL_TRANSPORT_GATE_NOT_IMPLEMENTED",
+        "PHYSICAL_WRITE_ACCEPTANCE_NOT_RUN"
+      ]
+    },
+    {
+      "capabilityId": "vehicle.ugv.control-gimbal",
+      "skillId": "ugv.control-gimbal",
+      "toolName": "vehicle_control_gimbal",
+      "packageChecksum": "399237502e4d3e48ebae630b9f8d969d6abe3825ee9d995a068b886671bb3f29",
+      "definitionHash": "f3af1eb435672e822a8bc57df89cea50f33d5471300cfacf5864b4e1c3830509",
+      "proposedImplementationBindingId": "capability-binding-vehicle.ugv.control-gimbal-v8",
+      "implementationPersisted": false,
+      "riskLevel": "medium",
+      "confirmation": "required",
+      "runtimeSkillStatus": "draft",
+      "governedSkillStatus": "validated",
+      "capabilityStatus": "draft",
+      "readiness": "unavailable",
+      "lifecycle": "staged_non_executable",
+      "persisted": true,
+      "selectable": false,
+      "executionAuthorized": false,
+      "blockingReasonCodes": [
+        "CONTROL_TRANSPORT_GATE_NOT_IMPLEMENTED",
+        "PHYSICAL_WRITE_ACCEPTANCE_NOT_RUN"
+      ]
+    },
+    {
+      "capabilityId": "vehicle.ugv.emergency-stop",
+      "skillId": "ugv.emergency-stop",
+      "toolName": "vehicle_emergency_stop",
+      "packageChecksum": "e9a11bc0be67fc2ed0fb429ecbfb80c5a86908a551c0c4724ffda118321a9a9d",
+      "definitionHash": "6375bda96f6bda928712d8e6e804af918e6d1b69c8d8f03fbf7264416c7f7a18",
+      "proposedImplementationBindingId": "capability-binding-vehicle.ugv.emergency-stop-v8",
+      "implementationPersisted": false,
+      "riskLevel": "high",
+      "confirmation": "required",
+      "runtimeSkillStatus": "draft",
+      "governedSkillStatus": "validated",
+      "capabilityStatus": "draft",
+      "readiness": "unavailable",
+      "lifecycle": "staged_non_executable",
+      "persisted": true,
+      "selectable": false,
+      "executionAuthorized": false,
+      "blockingReasonCodes": [
+        "CONTROL_TRANSPORT_GATE_NOT_IMPLEMENTED",
+        "PHYSICAL_WRITE_ACCEPTANCE_NOT_RUN"
+      ]
+    }
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "downstreamDeviceIdsIncluded": false,
+    "mqttTopicsIncluded": false
+  }
+}

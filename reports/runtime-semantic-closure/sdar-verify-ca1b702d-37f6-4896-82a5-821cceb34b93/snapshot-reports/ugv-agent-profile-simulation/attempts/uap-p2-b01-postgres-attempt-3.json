@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "observedAt": "2026-08-21T02:54:01.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm exec vitest run apps/server/test/ugv-agent-profile-runtime.integration.test.ts",
+  "exitCode": 1,
+  "failure": {
+    "code": "ASSERTION_MISMATCH",
+    "summary": "The integration expected the submitted relative packageRoot, while formal import correctly persisted its normalized absolute path.",
+    "expected": "skills/embodied.move_to",
+    "actualSuffix": "/skills/embodied.move_to"
+  },
+  "fix": {
+    "summary": "Assert the deterministic normalized absolute packageRoot with path.resolve. The following run passed 1/1.",
+    "isolatedDatabaseLifecycle": "created_and_dropped",
+    "externalAction": false
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

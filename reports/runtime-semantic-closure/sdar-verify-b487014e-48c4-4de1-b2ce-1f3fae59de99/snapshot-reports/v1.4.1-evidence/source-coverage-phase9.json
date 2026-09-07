@@ -1,0 +1,43 @@
+{
+  "contract": "sdar.evidence/v1",
+  "phase": 9,
+  "catalogTotal": 100,
+  "requiredTotal": 95,
+  "diagnosticTotal": 5,
+  "sourceInventory": {
+    "sourceConfirmed": 100,
+    "sourceMissingBlocker": 0,
+    "conditionalNotApplicable": 0,
+    "classified": 100,
+    "classifiedPercent": 100
+  },
+  "implementationCoverage": {
+    "implemented": 95,
+    "verified": 95,
+    "verifiedPercentOfCatalog": 95,
+    "requiredImplementedAndVerified": 94,
+    "verifiedPercentOfRequired": 98.95,
+    "diagnosticImplementedAndVerified": 1,
+    "families": ["node_control"],
+    "familyImplemented": 21,
+    "familyVerified": 21,
+    "familyTotal": 21,
+    "remainingFamily": "evidence",
+    "remainingSourceConfirmed": 5,
+    "note": "All 21 Node Control records passed the real PostgreSQL/Redis/HTTP vertical and the independent Review. The five Evidence-family records remain source_confirmed for Phase 10."
+  },
+  "review": {
+    "blocking": 0,
+    "major": 0,
+    "minor": 0,
+    "accepted": true
+  },
+  "validation": {
+    "focusedE2E": "1/1 passed",
+    "directEvidenceSchemaContract": "10/10 passed",
+    "fullVerify": "not passed; first attempt failed lint and was repaired; second passed 1058 Unit/performance assertions then failed one stale Contract fixture; next complete run deferred to Phase 14 by explicit user direction"
+  },
+  "phase1Baseline": "reports/v1.4.1-evidence/source-coverage-baseline.json",
+  "generatedFrom": "reports/v1.4.1-evidence/source-to-evidence-matrix.json",
+  "phaseReport": "reports/v1.4.1-evidence/node-control-evidence-report.md"
+}

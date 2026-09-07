@@ -271,7 +271,7 @@ export class RuntimeTaskCapabilityService {
         'The requested Exposure is not active or its registered contract is unavailable.',
       );
     const currentProviderBindings = await this.#requireCurrentProviderBindings(resolution);
-    assertRequester(resolution.requesterPolicy, input.task.userId);
+    assertCapabilityRequester(resolution.requesterPolicy, input.task.userId);
     const validation = this.#schemas.validate(resolution.requestSchema, input.capabilityInput);
     if (!validation.valid)
       throw new TaskCapabilityError(
@@ -754,7 +754,10 @@ function requestedCapability(metadata: Readonly<Record<string, unknown>>) {
   };
 }
 
-function assertRequester(policy: Readonly<Record<string, unknown>> | undefined, userId: string) {
+export function assertCapabilityRequester(
+  policy: Readonly<Record<string, unknown>> | undefined,
+  userId: string,
+) {
   if (policy === undefined) return;
   if (userId === ANONYMOUS_USER_ID && policy['allowAnonymous'] === false)
     throw new TaskCapabilityError(
@@ -1708,6 +1711,7 @@ function terminal(message: string): never {
 export class TaskCapabilityError extends Error {
   constructor(
     readonly code:
+      | 'TASK_CAPABILITY_SKILL_NOT_ADMITTED'
       | 'TASK_CAPABILITY_REQUEST_INVALID'
       | 'TASK_CAPABILITY_ADMISSION_REJECTED'
       | 'TASK_CAPABILITY_REQUESTER_FORBIDDEN'

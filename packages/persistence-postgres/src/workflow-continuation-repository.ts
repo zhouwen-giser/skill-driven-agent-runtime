@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { WorkflowContinuationRepository } from '../../application/src/index.js';
 import {
   assertWorkflowContinuationSuccessor,
+  snapshotWorkflowScopes,
   createWorkflowContinuationAttempt,
   createWorkflowContinuationSnapshot,
   transitionWorkflowContinuationLifecycle,
@@ -42,6 +43,7 @@ const WorkflowBudgetUsageSchema = z
   .strict();
 const ContinuationStateSchema = z
   .object({
+    scopes: z.unknown().transform(snapshotWorkflowScopes).optional(),
     input: z.unknown(),
     waitingNodeRuns: z.array(
       z
@@ -90,7 +92,7 @@ interface WorkflowContinuationSnapshotRow extends QueryResultRow {
   continuation_id: string;
   state_version: string | number;
   predecessor_snapshot_id: string | null;
-  schema_version: '1.0';
+  schema_version: '1.0' | '2.0';
   lifecycle: WorkflowContinuationLifecycle;
   agent_task_id: string;
   context_id: string;
@@ -655,6 +657,7 @@ async function assertWaitBindingsAvailable(
 
 function snapshotState(snapshot: WorkflowContinuationSnapshot) {
   return {
+    ...(snapshot.scopes === undefined ? {} : { scopes: snapshot.scopes }),
     input: snapshot.input,
     waitingNodeRuns: snapshot.waitingNodeRuns,
     runnableFrontier: snapshot.runnableFrontier,
@@ -676,7 +679,7 @@ function snapshotState(snapshot: WorkflowContinuationSnapshot) {
 
 function mapSnapshot(row: WorkflowContinuationSnapshotRow): WorkflowContinuationSnapshot {
   const state = ContinuationStateSchema.parse(row.state_json);
-  const { executionContext, ...persistedState } = state;
+  const { executionContext, scopes, ...persistedState } = state;
   return createWorkflowContinuationSnapshot({
     schemaVersion: row.schema_version,
     snapshotId: row.snapshot_id,
@@ -698,6 +701,7 @@ function mapSnapshot(row: WorkflowContinuationSnapshotRow): WorkflowContinuation
     inputHash: row.input_hash,
     workflowInstanceId: row.workflow_instance_id,
     ...persistedState,
+    ...(scopes === undefined ? {} : { scopes }),
     executionContext:
       executionContext.simulationId === undefined
         ? { mode: executionContext.mode }

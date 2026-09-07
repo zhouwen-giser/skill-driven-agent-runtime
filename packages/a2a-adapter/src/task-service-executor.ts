@@ -19,6 +19,7 @@ import {
 } from './task-mapping.js';
 
 export interface TaskServiceAgentExecutorOptions {
+  readonly observationOwnedByHandler?: boolean;
   readonly tasks: Pick<TaskService, 'submit' | 'get' | 'followUp' | 'cancel'>;
   readonly notifier: TaskStateNotifier;
   readonly safetyPollIntervalMs?: number;
@@ -36,9 +37,11 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
   readonly #interaction:
     ((taskId: string) => Promise<Readonly<Record<string, unknown>> | undefined>) | undefined;
   #closed = false;
+  readonly #observationOwnedByHandler: boolean;
 
   constructor(options: TaskServiceAgentExecutorOptions) {
     this.#tasks = options.tasks;
+    this.#observationOwnedByHandler = options.observationOwnedByHandler ?? false;
     this.#notifier = options.notifier;
     this.#safetyPollIntervalMs = options.safetyPollIntervalMs ?? 1_000;
     this.#waitTimeoutMs = options.waitTimeoutMs ?? 30_000;
@@ -81,7 +84,8 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
           withUserHistory(await this.#project(updated), request.userMessage, request.task),
         ),
       );
-      eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(updated)));
+      if (!this.#observationOwnedByHandler)
+        eventBus.publish(AgentEvent.statusUpdate(toStatusUpdate(updated)));
       eventBus.finished();
       return;
     }
@@ -116,6 +120,10 @@ export class TaskServiceAgentExecutor implements AgentExecutor {
     }
     const initial = withUserHistory(await this.#project(submitted.task), request.userMessage);
     eventBus.publish(AgentEvent.task(initial));
+    if (this.#observationOwnedByHandler) {
+      eventBus.finished();
+      return;
+    }
 
     let current = submitted.task;
     const deadline = Date.now() + this.#waitTimeoutMs;

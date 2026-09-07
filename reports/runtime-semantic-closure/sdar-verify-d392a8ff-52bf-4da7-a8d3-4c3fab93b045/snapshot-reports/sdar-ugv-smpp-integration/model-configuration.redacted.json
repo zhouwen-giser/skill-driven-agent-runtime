@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-model-configuration/v1",
+  "status": "passed",
+  "evidenceClass": "real_postgresql_and_provider_observation",
+  "derivedFrom": [
+    "reports/sdar-ugv-smpp-integration/model-stage-conformance.json"
+  ],
+  "observedAt": "2026-08-12T09:59:21.618Z",
+  "realModelEnabled": true,
+  "providerConfigured": true,
+  "providers": {
+    "structured": {
+      "providerId": "ugv-real-model",
+      "model": "qwen3.7-max",
+      "apiStyle": "openai_chat_completions"
+    },
+    "embedding": {
+      "providerId": "ugv-real-model-embedding",
+      "model": "text-embedding-v4",
+      "apiStyle": "openai_chat_completions"
+    }
+  },
+  "stageRoutesConfigured": true,
+  "structuredRouteCount": 21,
+  "embeddingRouteCount": 21,
+  "currentPromptCount": 21,
+  "connectivityVerified": true,
+  "modelStageConformanceExecuted": true,
+  "a2aReadOnlyExecuted": true,
+  "a2aReadOnlyPassed": false,
+  "latestA2ATaskId": "7dcb57de-a1f1-4df1-b19e-7227e3a253d0",
+  "remainingA2ABlocker": "REAL_A2A_RUN_FAILED_AFTER_LIVE_MCP_REJECTION_AND_GOAL_REPLAN_BUDGET_EXHAUSTION",
+  "redaction": {
+    "secretsIncluded": false,
+    "providerEndpointIncluded": false,
+    "modelIdentifierIncluded": true
+  }
+}

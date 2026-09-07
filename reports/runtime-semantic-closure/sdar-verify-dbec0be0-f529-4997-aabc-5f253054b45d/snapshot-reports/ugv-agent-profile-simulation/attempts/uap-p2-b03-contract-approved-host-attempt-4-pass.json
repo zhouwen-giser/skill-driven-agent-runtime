@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:08:24.425Z",
+  "recordedAt": "2026-08-21T09:08:24.425Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command result included a duration but not a wall-clock execution timestamp; the evidence recording time is not substituted.",
+  "status": "PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "deterministic_contract_approved_host",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": "pnpm test:contract",
+  "executionContext": "approved host replay of the identical sandbox-blocked command",
+  "exitCode": 0,
+  "result": {
+    "testFilesPassed": 51,
+    "testsPassed": 318,
+    "durationSeconds": 17.78
+  },
+  "corroboratesAttempt": "attempts/uap-p2-b03-contract-sandbox-attempt-3-final-gate.json",
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

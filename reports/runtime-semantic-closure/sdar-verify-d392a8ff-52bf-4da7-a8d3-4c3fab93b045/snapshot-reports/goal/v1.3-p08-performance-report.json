@@ -1,0 +1,12 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "scope": "local acceptance evidence, not a production SLO",
+  "observations": {
+    "focusedRuntimeAndPlanningTests": "10 tests passed in 3.99 s including TypeScript transform/import overhead",
+    "fullVerifyDurationMs": 254312,
+    "fullVerifyUnitContractTests": 958,
+    "fullVerifyIntegration": "passed",
+    "fullVerifyE2E": "passed"
+  },
+  "safetyRule": "No performance path bypasses active/hash/goal/policy/catalog/readiness/kill-switch checks, validator or confirmation."
+}

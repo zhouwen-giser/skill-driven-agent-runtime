@@ -1,0 +1,200 @@
+{
+  "schemaVersion": "1.0",
+  "registryVersion": "1.1",
+  "registrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "packageDirectoryCount": 15,
+  "formalPackageCount": 14,
+  "optionalPackage": "SDAR-V1.3-P14-OPTIONAL",
+  "extensionGoal": "X01",
+  "startupValidation": {
+    "validateAll": "passed",
+    "packageSelfChecksPassed": 15,
+    "errors": []
+  },
+  "packages": {
+    "P00": {
+      "status": "passed",
+      "decision": "READY_FULL",
+      "contractLock": "SDAR-V1.3-P00/1.1",
+      "producedContracts": {
+        "BaselineGateResult": {
+          "version": "1.1",
+          "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135",
+          "fields": "exact"
+        },
+        "V123PrerequisiteMatrix": {
+          "version": "1.1",
+          "schemaHash": "04281d02bccf1e1ce84f80091d3c4a1d2e75d1bb59705d8b8af7634b2d4de95c",
+          "fields": "exact"
+        }
+      },
+      "handoffEnvelope": {
+        "version": "1.1",
+        "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5",
+        "topLevelFields": 28,
+        "fields": "exact"
+      },
+      "validationCommand": "node scripts/validate-v13-p00-evidence.mjs",
+      "errors": []
+    },
+    "P01": {
+      "status": "passed",
+      "decision": "READY_FULL",
+      "contractLock": "SDAR-V1.3-P01/1.1",
+      "consumedContracts": {
+        "BaselineGateResult": {
+          "version": "1.1",
+          "schemaHash": "5aacbf026e86abc963544573d7cd45db971ecb160b9f310e063f8b73961e4135",
+          "fields": "exact"
+        }
+      },
+      "producedContracts": {
+        "CompiledArtifactType": {
+          "version": "1.1",
+          "schemaHash": "2dc5bd1322559c8ae0f5dabe945e69c01b6cb69ad379ceaa0f633f2e88072cea",
+          "fields": "exact"
+        },
+        "CompiledArtifactStatus": {
+          "version": "1.1",
+          "schemaHash": "266a7448640bf17113b431919c1fb6113b022e1b9d8a932b9443404f620c8ba5",
+          "fields": "exact"
+        },
+        "CompiledArtifact": {
+          "version": "1.1",
+          "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf",
+          "fields": "exact"
+        },
+        "ArtifactApplicability": {
+          "version": "1.1",
+          "schemaHash": "4af9af86a57212d4120637a0c97484890eb6c34e729fd7d90d6d893c32bf47c8",
+          "fields": "exact"
+        },
+        "ArtifactDependencySnapshot": {
+          "version": "1.1",
+          "schemaHash": "ab5eb452c0299802016cf8771536a2796cf656c8117a67d0a8c6158aca2e127a",
+          "fields": "exact"
+        },
+        "ConditionExpression": {
+          "version": "1.1",
+          "schemaHash": "db033c6d65b1123fefd8185a8424eb6e227d8fea5978c599c48a7c835db5607e",
+          "fields": "exact"
+        },
+        "IntentRouteArtifactDefinition": {
+          "version": "1.1",
+          "schemaHash": "7a95d4c0620a5623725cb5672d22433a47981f8b239997a3e872a597378b8f7a",
+          "fields": "exact"
+        },
+        "PlanTemplateArtifactDefinition": {
+          "version": "1.1",
+          "schemaHash": "b089d44944f3db3c5fcfff016a5b56f5d3482d89088448697b5cd4f20d425d04",
+          "fields": "exact"
+        },
+        "SkillGoalNodeTemplate": {
+          "version": "1.1",
+          "schemaHash": "f8deaf1d8882195927d9c5070262fd14c8e894e084eaafc29e193dff8f3cb0a7",
+          "fields": "exact"
+        },
+        "DecisionRuleArtifactDefinition": {
+          "version": "1.1",
+          "schemaHash": "5710c7a6e2aa4b76f19449776af894cf039140f3f35a88fc14525ecbef920e85",
+          "fields": "exact"
+        },
+        "DecisionOutput": {
+          "version": "1.1",
+          "schemaHash": "e1b890a30d853179f36092c01e1404c5b811f1cc54a63b98bf3eef9045877dc9",
+          "fields": "exact"
+        },
+        "CaseArtifactDefinition": {
+          "version": "1.1",
+          "schemaHash": "c1b03024222e19ed2834e25accdb8e4d841ae3e2d35ea28ecba056a79d585ea5",
+          "fields": "exact"
+        },
+        "ModelRouteArtifactDefinition": {
+          "version": "1.1",
+          "schemaHash": "2f271f5b96f9d83675b2176ea8f7a8eea76a86f1e3cc5e52c255a42cb6016678",
+          "fields": "exact"
+        },
+        "ArtifactLineage": {
+          "version": "1.1",
+          "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57",
+          "fields": "exact"
+        },
+        "ArtifactRuntimeBinding": {
+          "version": "1.1",
+          "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337",
+          "fields": "exact"
+        }
+      },
+      "handoffEnvelope": {
+        "version": "1.1",
+        "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5",
+        "topLevelFields": 28,
+        "fields": "exact"
+      },
+      "validationCommand": "node scripts/validate-v13-p01-evidence.mjs",
+      "errors": []
+    },
+    "P02": {
+      "status": "passed",
+      "decision": "COMPLETED",
+      "contractLock": "SDAR-V1.3-P02/1.1",
+      "consumedContracts": {
+        "CompiledArtifact": {
+          "version": "1.1",
+          "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf",
+          "fields": "exact"
+        },
+        "ArtifactLineage": {
+          "version": "1.1",
+          "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57",
+          "fields": "exact"
+        },
+        "ArtifactRuntimeBinding": {
+          "version": "1.1",
+          "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337",
+          "fields": "exact"
+        }
+      },
+      "producedContracts": {
+        "ArtifactRepository": {
+          "version": "1.1",
+          "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53",
+          "fields": "exact"
+        },
+        "ArtifactValidationRepository": {
+          "version": "1.1",
+          "schemaHash": "0c94dc844ed8cf5f4e9e4ca678e208172cd3a394affbf93ce910765899f86ab9",
+          "fields": "exact"
+        },
+        "ArtifactExecutionRepository": {
+          "version": "1.1",
+          "schemaHash": "c32e0994dd2d25cbe5df2116e98b0c93252d5a75bb5e83867c25038fcec12650",
+          "fields": "exact"
+        },
+        "ArtifactRegistryService": {
+          "version": "1.1",
+          "schemaHash": "011be4e2c1686e0f68256aa9c4cf9f98dff2d92fcb4cf043b2d09b06a0c7cab5",
+          "fields": "exact"
+        },
+        "OperatorIdentityPort": {
+          "version": "1.1",
+          "schemaHash": "1ec57c600b439bcd1efe67c67ee319b04f38681e2ab3da6fad71dbae734dfe75",
+          "fields": "exact"
+        },
+        "ArtifactGovernancePort": {
+          "version": "1.1",
+          "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf",
+          "fields": "exact"
+        }
+      },
+      "handoffEnvelope": {
+        "version": "1.1",
+        "schemaHash": "d8b539823cd27e96ba4a1c15925818267a8fc4af9aa4699cad597e009a1580b5",
+        "topLevelFields": 28,
+        "fields": "exact"
+      },
+      "validationCommand": "node scripts/validate-v13-p02-evidence.mjs",
+      "errors": []
+    }
+  }
+}

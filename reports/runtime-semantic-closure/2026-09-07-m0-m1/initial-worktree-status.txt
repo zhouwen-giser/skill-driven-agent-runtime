@@ -1,0 +1,135 @@
+ M .env.example
+ M .gitignore
+ M CHANGELOG.md
+ M PROJECT_STATUS.md
+ M apps/console/src/App.tsx
+ M apps/console/vite.config.ts
+ M apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts
+ M apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts
+ M apps/node-control-api/src/environment.ts
+ M apps/node-control-worker/src/environment.ts
+ M apps/server/src/environment.ts
+ M apps/server/src/main.ts
+ M apps/server/src/runtime.ts
+ M apps/server/src/ugv-agent-profile-admission.ts
+ M apps/server/src/ugv-move-skill-usage.ts
+ M apps/server/src/ugv-move-terminal-outcome.ts
+ M apps/server/test-support/ugv-frozen-mcp-provider.ts
+ M apps/server/test/ugv-agent-profile-execution.integration.test.ts
+ M docs/17_TRACEABILITY_MATRIX.md
+ M docs/18_KNOWN_ASSUMPTIONS_AND_GAPS.md
+ M packages/application/src/plan-preparation-processor.ts
+ M packages/management-api/src/http-endpoint.ts
+ M packages/management-api/test/http-endpoint.contract.test.ts
+ M reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/compatibility.html
+ M reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/compatibility.json
+ M reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/junitreport.xml
+ M reports/EP-01-protocol-domain-skeleton/a2a-tck-http-json-must-protocol-harness/tck_report.html
+ M reports/v1.4.1-evidence/phase-12-e2e.json
+ M reports/v1.4.1-evidence/phase-13-performance.json
+ M reports/verification/summary.json
+ M reports/verification/summary.md
+?? .dockerignore
+?? adr/ADR-149-development-compose-and-deployment-preauthorization.md
+?? adr/ADR-150-workflow-composition-and-continuation-repair.md
+?? adr/ADR-151-skill-selection-and-candidate-validation-repair.md
+?? adr/ADR-152-a2a-stream-and-online-task-type-projection.md
+?? apps/console/src/IsolatedDemoPanel.tsx
+?? apps/server/src/development-plan-confirmation.ts
+?? apps/server/test/development-deployment.unit.test.ts
+?? apps/server/test/development-plan-confirmation.unit.test.ts
+?? deploy/development/
+?? execplans/EP-DEVELOPMENT-DEPLOYMENT.md
+?? execplans/EP-RUNTIME-SEMANTIC-CLOSURE.md
+?? infra/postgres/migrations/0178_v14_development_isolated_demo.down.sql
+?? infra/postgres/migrations/0178_v14_development_isolated_demo.up.sql
+?? packages/application/src/isolated-demo-service.ts
+?? packages/application/test/isolated-demo.unit.test.ts
+?? packages/persistence-postgres/src/isolated-demo-audit.ts
+?? packages/runtime-environment/
+?? reports/code-audit-2026-09-07/
+?? reports/runtime-semantic-closure/
+?? reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824125048916-fad5fc75b845250d.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012510094-ce31ee1a31f9757f.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825014127037-00ad7351baaa764d.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825020111879-efd188a9fd306713.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033939010-39578cb957d2eb90.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824125126164-ebcbca38c8f12f9d.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012530689-adb5a448bae91e77.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825014144233-b73ac58866b1b923.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825020435346-1ed4c7bf7ca2a459.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/authority-readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033956511-ceb4c43020dc83b4.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824125053485-7b25edac3f3fa4a4.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012515349-76f9defb34d50550.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012515405-c8add52a89e11b2e.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825014132127-5831ab27b7084bbe.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015621776-4c077817500bebc7.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015621824-46d6ed0b4e6ddc2e.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825020117590-47a14fba1120d510.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825020117638-d80d4172733d8b7b.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825032345477-d67f94ce592adfdb.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033214523-26b66504d38d4a9d.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033339999-1a061f854a31acdf.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/bootstrap-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033945485-10762cc4466dea6c.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/clean-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124533075-25386bba4e8c20b5.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/clean-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012147504-22812cd0bdfef7f1.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/clean-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015443949-719df8c382bccf20.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/clean-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033539074-8abc3308ee9c20ee.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/down-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124531959-eb9a6ddf61e435db.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/down-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012146318-13e30541a117312f.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/down-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015443134-a1d94feca1a732d0.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/down-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033538168-215ae672ad86ef8d.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/model-invocation-baseline-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824125022980-90ebbb8320ae36ac.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/model-invocation-baseline-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012458648-1d5e149d541159fe.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/model-invocation-baseline-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015607596-40d782e1a87eb0c5.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/model-invocation-baseline-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033925809-be36ec607f8fef2a.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/pms-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124625161-53240073e4179d74.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/pms-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124925139-8dee4b3acd0c42df.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/pms-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012431752-6d860c2e8ee7927f.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/pms-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015538857-ef41744308ac5b46.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/pms-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033858219-832a9f6cc254868c.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/preflight-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124552212-33f40ca8f7eeb1bb.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/preflight-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124853449-f8a0e4188bd12911.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/preflight-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012329111-3b5a5665f1afb3e8.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/preflight-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012356642-bbc5a2797bd59c50.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/preflight-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015504898-976bbf542d4be52e.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/preflight-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033600306-621c48e62b5dd3c0.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824125130748-69d0d9cc53bcbbb1.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825011954528-b763b16ee4eb1e96.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012535993-0d99843757a7b544.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825014149447-c7453fa840810f1d.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825020441518-9701ceae8bf2921e.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/readiness-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825034003017-e0b1264b41ebcb3c.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/sdar-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124631876-7cbb207cf69f3ef9.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/sdar-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824125023039-846c3cf078ab1887.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/sdar-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012458703-31b9c1a31bf0b798.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/sdar-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015607651-a59021a576d3fc25.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/sdar-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033925860-02b6885a2580a8e1.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124626154-418e56fae4734aab.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124926130-2d6d29ed97c1261c.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012432823-4ce3ed9d822f4fad.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015539896-816a0826b8364643.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033859331-6bbd62b6c7abe982.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-readonly-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124626043-f0ed0eb7ec42f70f.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-readonly-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124926019-1103724cb087c78e.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-readonly-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012432682-62ea8d9cbe0fb1a0.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-readonly-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015539781-fa9e936cf43b8663.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-readonly-qualification-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033859209-19b088fd9f54f7ac.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124625282-387a58a0de43cecd.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124925260-f0257d67f9513c4a.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012431862-b4a103844b31f703.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015538993-7b25e571ec4600a3.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-seed-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033858352-263299c544a3c964.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124626570-a156ba2714bf00fb.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124926544-53bbcce8c7dc49c8.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012329165-24b4253cf8f08f36.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012433317-6e4824443dbd5ee4.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015540350-cf54687cea48fffc.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/smpp-up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033859804-47c66a265b2ae96a.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260824124643761-a6f2272b681b305e.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012329212-0ea178bf46352b67.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825012458749-0e9a1d5aabe7fb63.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825015607712-99c4c2134a141738.redacted.json
+?? reports/ugv-agent-profile-simulation/attempts/up-uap-p3-b01-mt2y4vh5-627d50e9fb-20260825033925910-829c14b034037431.redacted.json
+?? scripts/environment-inventory.d.mts
+?? scripts/environment-inventory.mjs

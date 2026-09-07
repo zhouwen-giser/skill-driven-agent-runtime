@@ -79,10 +79,11 @@ describe('UGV SMPP package-driver orchestration', () => {
     expect(result.stdout).toBe('');
   });
 
-  it('pins the current unauthenticated PMS proxy, Runtime and dual unsafe test gate inventory', async () => {
+  it('pins the documented development environment, unauthenticated endpoints and dual unsafe gate inventory', async () => {
     const environmentTemplate = await readFile(resolve(DEPLOY_DIRECTORY, '.env.example'), 'utf8');
-    expect(environmentTemplate).toContain('NODE_ENV=test');
-    expect(environmentTemplate).toContain('SDAR_CONTROL_ENVIRONMENT=integration');
+    expect(environmentTemplate).toMatch(/^NODE_ENV=development$/mu);
+    expect(environmentTemplate).toMatch(/^SDAR_CONTROL_ENVIRONMENT=development$/mu);
+    expect(environmentTemplate).toMatch(/^ALLOW_REAL_UGV_SIDE_EFFECTS=NO$/mu);
     expect(environmentTemplate).toContain('SDAR_CONTROL_OUTBOUND_ENDPOINT_POLICY=unsafe_test_open');
     expect(environmentTemplate).toContain('SDAR_NODE_CONTROL_BASE_URL=http://127.0.0.1:10081');
     expect(environmentTemplate).toContain('SDAR_CONTROL_API_PORT=10081');

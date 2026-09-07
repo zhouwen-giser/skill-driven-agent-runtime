@@ -1,3 +1,5 @@
+import process from 'node:process';
+
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -6,6 +8,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
+          ...(process.env['SDAR_VERIFY_ISOLATED'] === 'true' ? { maxWorkers: 2 } : {}),
           include: [
             'packages/**/*.unit.test.ts',
             'apps/**/*.unit.test.ts',
@@ -16,6 +19,7 @@ export default defineConfig({
       {
         test: {
           name: 'contract',
+          ...(process.env['SDAR_VERIFY_ISOLATED'] === 'true' ? { maxWorkers: 2 } : {}),
           include: ['packages/**/*.contract.test.ts', 'apps/**/*.contract.test.ts'],
         },
       },

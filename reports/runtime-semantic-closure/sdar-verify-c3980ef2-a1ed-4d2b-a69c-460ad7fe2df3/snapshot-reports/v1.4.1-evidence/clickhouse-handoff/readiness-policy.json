@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "sdar.evidence/v1",
+  "registryHash": "sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197",
+  "requiredSourceCoverage": {
+    "verified": 100,
+    "total": 100,
+    "ready": true
+  },
+  "catalogCoverage": {
+    "verified": 105,
+    "total": 105,
+    "ready": true
+  },
+  "phase12Scenarios": {
+    "passed": 44,
+    "total": 44,
+    "ready": true
+  },
+  "requiredDeferredItems": 0,
+  "fullVerify": "passed",
+  "clickHouseImplementationAuthorized": false,
+  "readyForAdapterIntake": true
+}

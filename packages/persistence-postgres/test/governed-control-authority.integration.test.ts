@@ -517,7 +517,9 @@ describe('PostgreSQL governed physical-control authority', () => {
         evidence: [expect.objectContaining({ evidenceType: 'position.observation' })],
       },
     });
-    expect(scheduledPolls).toEqual([{ bindingId: remoteBindingId, expectedVersion: 1 }]);
+    // The persisted receipt already reconciled a terminal result. Its durable control event,
+    // rather than a new Provider poll, is the recovery obligation.
+    expect(scheduledPolls).toEqual([]);
     await expect(
       pool.query(
         `SELECT status FROM workflow_instance
@@ -571,6 +573,14 @@ describe('PostgreSQL governed physical-control authority', () => {
       ]),
     ).resolves.toMatchObject({ rows: [{ count: 1 }] });
     await expect(remoteTasks.listObservations(remoteBindingId)).resolves.toHaveLength(2);
+    expect(scheduledPolls).toEqual([]);
+    await expect(remoteTasks.listControlEvents(remoteBindingId)).resolves.toEqual([
+      expect.objectContaining({
+        eventId: 'control-event-governed-recovery-1',
+        type: 'task.completed',
+        status: 'pending',
+      }),
+    ]);
     await expect(
       pool.query(
         `SELECT status,materialized_binding_id,materialized_snapshot_id

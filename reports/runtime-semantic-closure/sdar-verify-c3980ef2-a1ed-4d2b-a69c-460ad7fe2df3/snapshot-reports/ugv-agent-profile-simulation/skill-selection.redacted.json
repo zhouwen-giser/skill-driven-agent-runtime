@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "ugv-agent-profile.skill-selection-evidence/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:19:45.542Z",
+  "status": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "finalResult": "PASS_LOCAL_INTEGRATION",
+  "selectionContract": {
+    "profileId": "ugv-agent-profile",
+    "skillId": "embodied.move_to",
+    "skillVersion": 1,
+    "skillReference": "skill:embodied.move_to:1",
+    "taskType": "embodied.move",
+    "bindingCardinality": "exactly_one",
+    "providerOperation": "vehicle_navigate",
+    "finalReadOperation": "vehicle_get_state",
+    "resourceId": "vehicle:ugv1",
+    "executionMode": "simulation",
+    "profileReplayConstraint": "profile.ugv-agent-profile.side_effect_replay=forbidden",
+    "genericReplayConstraintAccepted": false,
+    "genericSelectionChanged": false
+  },
+  "frozenSkillPackage": {
+    "packageChecksum": "6d5fc9c8e093de18a8b11c8377b96788336606b25d0df0f27efef7b4d9f6a48c",
+    "manifestSha256": "9da5a4fe6d0a97df71ea8cd7cb809e9c8fe9128fb16d9d6cac0267755817c0ce",
+    "modifiedForP2B03": false,
+    "profileConstraintIsPackageAuthority": false
+  },
+  "contextAuthority": {
+    "source": "TaskCapabilityBinding plus persisted taskless MCP qualification receipt",
+    "requiredContextIds": [
+      "current-position",
+      "resource-state",
+      "permission-context"
+    ],
+    "qualificationRead": {
+      "operation": "vehicle_get_state",
+      "arguments": {
+        "resourceId": "vehicle:ugv1",
+        "include": [
+          "chassis",
+          "health"
+        ]
+      },
+      "requiredReceiptCardinality": 1,
+      "maximumAdmissionAgeMs": 3000,
+      "freshnessBoundaries": [
+        "receipt.completedAt -> binding.boundAt",
+        "receipt.completedAt -> planning clock.now"
+      ],
+      "exactBoundaryAcceptedMs": 3000,
+      "staleFromAgeMs": 3001,
+      "taskless": true,
+      "localRuntimeObserved": true,
+      "localRuntimeCallCount": 1
+    },
+    "requestMetadataIsAuthority": false,
+    "modelTextIsAuthority": false,
+    "modelInvocationCount": 0
+  },
+  "targetAuthority": {
+    "policyType": "ugv_simulation_target_policy",
+    "frame": "WGS84",
+    "derivation": "deterministic_short_distance",
+    "bearingDegrees": 90,
+    "distanceM": 1,
+    "maximumDistanceM": 2,
+    "forbiddenRegions": [],
+    "bindingTargetMustEqualDerivedTarget": true,
+    "selectedArgumentsMustEqualBindingTarget": true,
+    "localRuntimeEqualityObserved": true
+  },
+  "selectedOperationPersistence": {
+    "referenceType": "ugv.selected_task_operation/v1",
+    "repository": "existing SkillExecutionRepository reference lineage",
+    "appendOnly": true,
+    "selfHashRevalidatedOnLoad": true,
+    "secondAuthorityAdded": false,
+    "localPostgresqlMaterializationObserved": true,
+    "materializedReferenceId": null,
+    "materializedSnapshotHash": null,
+    "missingReason": "The local E2E asserted exact persisted selection cardinality, lineage and self-hash but did not export its random identifiers before dropping the isolated database."
+  },
+  "frozenDimensions": [
+    "Task, Goal, Plan, Workflow and exact Skill identity",
+    "Provider identity and current Provider Binding revision",
+    "Server, discovery snapshot, Catalog revision and checksum",
+    "navigate and final-state operation schemas and lifecycle",
+    "resource, point mission and exact argument hashes",
+    "simulation identity, readiness, risk and confirmation policy"
+  ],
+  "counts": {
+    "localFixture": {
+      "tasklessQualificationReadCount": 1,
+      "taskScopedToolCallCount": 3,
+      "navigationDispatchCount": 1,
+      "forbiddenOperationCallCount": 0
+    },
+    "externalSmpp": {
+      "toolCallCount": 0,
+      "navigationDispatchCount": 0,
+      "mqttPublishCount": 0,
+      "forbiddenOperationCallCount": 0
+    }
+  },
+  "verification": {
+    "status": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+    "localRuntimeResult": "PASS",
+    "finalGateResult": "PASS_WITH_DISCLOSED_BASELINE_GAPS",
+    "report": "uap-p2-b03-verification.json"
+  }
+}

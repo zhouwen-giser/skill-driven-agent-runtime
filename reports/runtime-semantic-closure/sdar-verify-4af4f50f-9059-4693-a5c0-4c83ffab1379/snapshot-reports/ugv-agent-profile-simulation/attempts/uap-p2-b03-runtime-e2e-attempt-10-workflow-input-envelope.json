@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 10,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The original execution timestamp was not retained in the supplied run summary.",
+  "status": "FAILED_FIXED_TERMINAL_INPUT_AUTHORITY",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": null,
+  "commandMissingReason": "The exact original argv was not retained.",
+  "exitCode": null,
+  "exitCodeMissingReason": "The summary records the failed E2E but not its original process exit code.",
+  "failureClass": "TASK_CAPABILITY_TERMINAL_GUARD_FAILED",
+  "stableGuardMessage": "The frozen UGV Capability, Provider, simulation, and selected-operation authority drifted.",
+  "observedFailure": "After Provider identity was correctly bound into dispatch evidence, terminal authority compared the complete Workflow input envelope directly with the Task Capability input snapshot instead of comparing its exact skillInput member.",
+  "resolution": "Terminal authority now validates the exact skillInput/context/evidence Workflow envelope and compares only its skillInput member with the immutable Task Capability input snapshot.",
+  "observedState": {
+    "taskScopedInvocationSequence": [
+      "vehicle_get_state",
+      "vehicle_navigate",
+      "vehicle_get_state"
+    ],
+    "taskScopedSucceededInvocationCount": 3,
+    "providerGetStateCallCount": 3,
+    "providerNavigateCallCount": 1,
+    "navigateReplayCount": 0,
+    "workflowStatus": "succeeded",
+    "continuationLifecycle": "terminal",
+    "continuationAttemptStatus": "succeeded",
+    "remoteProtocolStatus": "completed",
+    "remoteLocalState": "terminal_event_claimed",
+    "capabilityAttemptStatus": "failed",
+    "terminalOutcomePresent": false
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P05",
+  "benchmark": "SDAR-P05-artifact-replay",
+  "environment": {
+    "nodeVersion": "v22.14.0",
+    "classification": "local acceptance measurement",
+    "productionSloClaim": false
+  },
+  "datasetBuild": {
+    "cases1k": {
+      "iterations": 5,
+      "p50Ms": 42.359,
+      "p95Ms": 71.759,
+      "casesPerSecondAtP50": 23607.734
+    },
+    "cases10k": {
+      "iterations": 3,
+      "p50Ms": 390.805,
+      "p95Ms": 434.458,
+      "casesPerSecondAtP50": 25588.209
+    }
+  },
+  "replayCase": {
+    "iterations": 2000,
+    "p50Ms": 0.068,
+    "p95Ms": 0.092,
+    "casesPerSecondAtP50": 14705.882
+  },
+  "heapDeltaBytesFor10k": 122005352,
+  "postgresClaim": {
+    "runs": 100,
+    "parallelWorkers": 4,
+    "maximumClaimPerWorker": 25,
+    "elapsedMs": 43.385,
+    "runsPerSecond": 2304.923,
+    "backpressureExtraClaims": 0,
+    "canceledAfterMeasurement": 100
+  },
+  "actualBullMqWorkers": {
+    "workers": 4,
+    "completedPostgreSQLRuns": 12,
+    "perWorkerConcurrency": 1,
+    "redisAuthority": false
+  },
+  "redisWake": {
+    "queueLagMs": 18.272,
+    "payloadFields": [
+      "validationRunId"
+    ],
+    "redisAuthority": false
+  },
+  "capacityControls": {
+    "perWorkerConcurrency": 1,
+    "horizontalParallelism": "PostgreSQL SKIP LOCKED with lease fencing",
+    "backpressure": "bounded claim limit and durable available_at",
+    "queueLagEvidence": "18.272 ms measured from enqueue through BullMQ worker completion",
+    "databaseThroughputEvidence": "100 real PostgreSQL claims across four workers in 43.385 ms",
+    "cancellation": "one leased cancellation and 100 post-measurement cancellations reached terminal canceled state; Redis integration forwards the PostgreSQL cancellation flag",
+    "cost": "no physical Provider or model call is made by the benchmark"
+  },
+  "command": ".\\node_modules\\.bin\\tsx.CMD packages/application/test/p05-performance.benchmark.ts"
+}

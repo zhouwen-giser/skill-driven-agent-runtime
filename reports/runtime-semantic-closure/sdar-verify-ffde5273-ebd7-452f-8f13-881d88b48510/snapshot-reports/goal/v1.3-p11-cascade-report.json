@@ -1,0 +1,19 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "contract": {
+    "name": "ModelCascadeRun",
+    "version": "1.1",
+    "schemaHash": "160a4e179dc1911f4b56557361bb0c688ea79d6c7f0964646fe70309959591df"
+  },
+  "mode": "serial bounded cascade",
+  "verifiedBehaviors": [
+    "one attempt per selected profile and bounded selected-profile count",
+    "escalation only after provider failure or validator rejection",
+    "schema/safety validator owns acceptance",
+    "upstream cancellation and per-step timeout actively abort provider transport",
+    "deadline, cancellation and stale late results are discarded",
+    "no model self-rating grants success or authorization"
+  ],
+  "durableTables": ["model_route_decision", "model_cascade_run", "model_cascade_step"]
+}

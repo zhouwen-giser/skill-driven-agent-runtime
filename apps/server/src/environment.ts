@@ -2,6 +2,7 @@ import process from 'node:process';
 import { isIP } from 'node:net';
 
 import { z } from 'zod';
+import { loadEnvironmentFile } from '../../../packages/runtime-environment/src/index.js';
 
 const ManagementRoleSchema = z.enum([
   'viewer',
@@ -71,6 +72,12 @@ const EnvironmentSchema = z
       .default('postgresql://sdar:sdar_local_only@127.0.0.1:55432/sdar'),
     SDAR_REDIS_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_REDIS_PORT: z.coerce.number().int().positive().default(56379),
+    SDAR_REDIS_PASSWORD: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(1).optional(),
+    ),
+    SDAR_REDIS_DB: z.coerce.number().int().min(0).max(15).default(0),
+    SDAR_DEVELOPMENT_CONFIRMATION_POLICY: z.enum(['manual', 'auto_non_weapon']).default('manual'),
     SDAR_A2A_HOST: z.string().min(1).default('127.0.0.1'),
     SDAR_A2A_PUBLIC_BASE_URL: z.url().optional(),
     SDAR_DEVELOPMENT_PUBLIC_ACCESS: z.enum(['open', 'off']).default('off'),
@@ -169,6 +176,18 @@ const EnvironmentSchema = z
       .default('off'),
   })
   .superRefine((environment, context) => {
+    if (
+      environment.SDAR_DEVELOPMENT_CONFIRMATION_POLICY === 'auto_non_weapon' &&
+      (!isDevelopmentDeploymentEnvironment(environment) ||
+        !environment.SDAR_GOVERNED_CONTROL_ACTOR_ID)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SDAR_DEVELOPMENT_CONFIRMATION_POLICY'],
+        message:
+          'Automatic development preauthorization requires development/development and a configured deployment owner.',
+      });
+    }
     if (
       environment.SDAR_DEVELOPMENT_PUBLIC_ACCESS === 'open' &&
       (!['development', 'test'].includes(environment.NODE_ENV) ||
@@ -439,8 +458,8 @@ const EnvironmentSchema = z
 
 export type ServerEnvironment = z.infer<typeof EnvironmentSchema>;
 
-export function loadServerEnvironment(envFilePath = '.env'): ServerEnvironment {
-  loadEnvironmentFileIfPresent(envFilePath);
+export function loadServerEnvironment(envFilePath?: string): ServerEnvironment {
+  loadEnvironmentFile(envFilePath);
   return parseServerEnvironment(process.env);
 }
 
@@ -479,18 +498,6 @@ export function isDevelopmentDeploymentEnvironment(
       ? 'development'
       : rawControlEnvironment;
   return nodeEnvironment === 'development' && controlEnvironment === 'development';
-}
-
-function loadEnvironmentFileIfPresent(envFilePath: string): void {
-  try {
-    process.loadEnvFile(envFilePath);
-  } catch (error: unknown) {
-    if (!isNodeError(error) || error.code !== 'ENOENT') throw error;
-  }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error;
 }
 
 function isLoopbackHost(host: string): boolean {

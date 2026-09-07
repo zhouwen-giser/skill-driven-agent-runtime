@@ -1,4 +1,10 @@
 import {
+  enterWorkflowScope,
+  branchArrival,
+  workflowOutputSources,
+  scopedWorkflowStepLimit,
+} from './workflow-scopes.js';
+import {
   Annotation,
   Command,
   END,
@@ -13,6 +19,9 @@ import {
   classifyProviderBusinessOutcome,
   createProviderBusinessNodeError,
   normalizeResultEnvelope,
+  analyzeWorkflowControlFlow,
+  emptyWorkflowScopes,
+  mergeWorkflowScopes,
 } from '../../domain/src/index.js';
 import type {
   InternalToolResult,
@@ -24,6 +33,9 @@ import type {
   WorkflowBudgetTerminationReason,
   WorkflowBudgetUsage,
   WorkflowDefinition,
+  WorkflowScopeState,
+  WorkflowControlFlowIssue,
+  WorkflowChildExecutionResult,
   WorkflowEdge,
   WorkflowNode,
   WorkflowRecoveryOption,
@@ -84,6 +96,7 @@ export interface WorkflowRuntimePorts {
       parentExecutionId: string;
       parentNodeId: string;
       parentNodeRunId: string;
+      resumeChild?: boolean;
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
     }>,
@@ -93,10 +106,14 @@ export interface WorkflowRuntimePorts {
       workflowDefinitionId: string;
       workflowVersion: number;
       input: unknown;
+      parentExecutionId: string;
+      parentNodeId: string;
+      parentNodeRunId: string;
+      resumeChild?: boolean;
       signal?: AbortSignal;
       executionContext: RuntimeExecutionContext;
     }>,
-  ) => Promise<unknown>;
+  ) => Promise<WorkflowChildExecutionResult>;
   readonly requestHumanConfirmation: (
     input: Readonly<{
       prompt: string;
@@ -160,6 +177,8 @@ export interface WorkflowExecutionResult {
 }
 
 interface WorkflowExecutionState {
+  readonly scopes: WorkflowScopeState;
+  readonly executionSemanticsVersion: '1.0' | '2.0';
   readonly executionId: string;
   readonly input: unknown;
   readonly outputs: Readonly<Record<string, unknown>>;
@@ -177,6 +196,11 @@ interface WorkflowExecutionState {
 }
 
 const ExecutionState = Annotation.Root({
+  executionSemanticsVersion: Annotation<'1.0' | '2.0'>,
+  scopes: Annotation<WorkflowScopeState>({
+    reducer: mergeWorkflowScopes,
+    default: emptyWorkflowScopes,
+  }),
   executionId: Annotation<string>,
   input: Annotation<unknown>,
   outputs: Annotation<Readonly<Record<string, unknown>>>({
@@ -263,10 +287,15 @@ interface ExecutionControl {
   readonly pendingSkillReservations: Set<string>;
 }
 
+function cancellationRequested(control: ExecutionControl): boolean {
+  return control.cancelRequested;
+}
+
 export function compileWorkflow(
   definition: WorkflowDefinition,
   confirmationStatus: 'awaiting_confirmation' | 'confirmed',
   ports: WorkflowRuntimePorts,
+  options: Readonly<{ maxSupersteps?: number }> = {},
 ): CompiledWorkflow {
   if (confirmationStatus !== 'confirmed')
     throw new WorkflowCompilerError(
@@ -274,6 +303,10 @@ export function compileWorkflow(
       'Only a confirmed Workflow plan may be compiled.',
     );
   assertCompilable(definition);
+  const controlFlow = analyzeWorkflowControlFlow(definition);
+  const routeIssue = controlFlow.issues[0];
+  if (routeIssue !== undefined)
+    throw new WorkflowCompilerError(routeIssue.code, routeIssue.message);
   const immutableDefinition = deepFreeze(structuredClone(definition));
   const runtimeContexts = new Map<
     string,
@@ -291,7 +324,11 @@ export function compileWorkflow(
       .filter((node) => node.type === 'error_handler')
       .map((node) => [node.handledNodeId, node]),
   );
-  const parallelJoins = detectParallelJoins(immutableDefinition);
+  const scoped = immutableDefinition.executionSemanticsVersion === '2.0';
+  const parallelJoins = scoped ? [] : detectParallelJoins(immutableDefinition);
+  const recursionLimit = scoped
+    ? scopedWorkflowStepLimit(immutableDefinition, controlFlow, options.maxSupersteps)
+    : workflowSuperstepLimit(immutableDefinition, parallelJoins, options.maxSupersteps);
   const joinedEdges = new Set(
     parallelJoins.flatMap((join) =>
       join.predecessorNodeIds.map(
@@ -311,7 +348,82 @@ export function compileWorkflow(
         parallelJoins,
         ports,
         (executionId) => requiredRuntimeContext(runtimeContexts, executionId),
+        scoped ? controlFlow : undefined,
       );
+    if (scoped) {
+      const gateKey = (fork: string, branch: string) =>
+        `scope_arrival__${encodeURIComponent(fork)}__${encodeURIComponent(branch)}`;
+      const targetKey = (source: string, target: string) => {
+        if (target === END) return END;
+        for (const region of controlFlow.parallels)
+          if (region.joinNodeId === target) {
+            const branch = region.branches.find((item) => item.nodeIds.includes(source));
+            if (branch !== undefined) return gateKey(region.forkNodeId, branch.branchId);
+          }
+        return graphNodeKey(target);
+      };
+      for (const region of controlFlow.parallels)
+        for (const branch of region.branches) {
+          actions[gateKey(region.forkNodeId, branch.branchId)] = (state) =>
+            Promise.resolve({
+              scopes: branchArrival(region, branch.branchId, state.scopes, state.nodeRunCounts),
+            });
+        }
+      const checkKey = (fork: string) => `scope_join_check__${encodeURIComponent(fork)}`;
+      for (const region of controlFlow.parallels)
+        actions[checkKey(region.forkNodeId)] = () => Promise.resolve({});
+      const graph = new StateGraph(ExecutionState).addNode(actions);
+      graph.addEdge(START, graphNodeKey(immutableDefinition.entryNodeId));
+      for (const node of immutableDefinition.nodes) {
+        const source = graphNodeKey(node.nodeId);
+        if (node.type === 'parallel') {
+          for (const branch of node.branchEntryNodeIds) graph.addEdge(source, graphNodeKey(branch));
+          continue;
+        }
+        const terminal =
+          immutableDefinition.exitNodeIds.includes(node.nodeId) || node.type === 'result';
+        const possible = controlFlow.routes
+          .filter((route) => route.sourceNodeId === node.nodeId)
+          .map((route) => targetKey(node.nodeId, route.targetNodeId));
+        graph.addConditionalEdges(
+          source,
+          (state) => {
+            if (
+              state.failed ||
+              Object.values(state.waitingNodeRuns).some((wait) => wait.nodeId === node.nodeId)
+            )
+              return END;
+            const selected = state.routes[node.nodeId];
+            if (selected !== undefined) return targetKey(node.nodeId, selected);
+            if (terminal) return END;
+            return targetKey(node.nodeId, defaultTarget(immutableDefinition, node.nodeId) ?? END);
+          },
+          [...new Set([...possible, END])],
+        );
+      }
+      for (const region of controlFlow.parallels) {
+        const check = checkKey(region.forkNodeId);
+        for (const branch of region.branches)
+          graph.addEdge(gateKey(region.forkNodeId, branch.branchId), check);
+        graph.addConditionalEdges(
+          check,
+          (state) => {
+            const fork = state.scopes.forks[region.forkNodeId];
+            return !state.failed &&
+              fork !== undefined &&
+              !fork.closed &&
+              fork.branchIds.every((id) => fork.arrivals[id] !== undefined)
+              ? graphNodeKey(region.joinNodeId)
+              : END;
+          },
+          [graphNodeKey(region.joinNodeId), END],
+        );
+      }
+      return graph.compile({
+        name: immutableDefinition.workflowDefinitionId,
+        checkpointer: new MemorySaver(),
+      });
+    }
     for (const join of parallelJoins)
       for (const predecessorNodeId of join.predecessorNodeIds) {
         const predecessor = immutableDefinition.nodes.find(
@@ -413,6 +525,7 @@ export function compileWorkflow(
     });
   };
   const executable = buildExecutable();
+  const sessions = new Map<string, { executable: typeof executable; threadId: string }>();
   const resultFromState = (
     state: WorkflowExecutionState & Readonly<Record<string, unknown>>,
     budgetLimits: WorkflowBudgetLimits,
@@ -420,8 +533,9 @@ export function compileWorkflow(
   ): WorkflowExecutionResult => {
     const pending = pendingConfirmation(state);
     const runtimeContext = requiredRuntimeContext(runtimeContexts, state.executionId);
-    const budgetUsage = runtimeContext.budgetMeter.snapshot();
     const hasExternalWait = Object.keys(state.waitingNodeRuns).length > 0;
+    if (pending !== undefined || hasExternalWait) runtimeContext.budgetMeter.pause();
+    const budgetUsage = runtimeContext.budgetMeter.snapshot();
     const continuation =
       !state.failed && hasExternalWait
         ? runtimeContinuationState(
@@ -431,18 +545,41 @@ export function compileWorkflow(
             runtimeContext.executionContext,
           )
         : undefined;
+    const incomplete =
+      scoped &&
+      pending === undefined &&
+      !state.failed &&
+      !hasExternalWait &&
+      (Object.values(state.scopes.forks).some((fork) => !fork.closed) ||
+        Object.values(state.scopes.loops).some((loop) => loop.active) ||
+        !state.events.some(
+          (event) =>
+            event.type === 'node_succeeded' &&
+            (immutableDefinition.exitNodeIds.includes(event.nodeId) ||
+              immutableDefinition.nodes.some(
+                (node) => node.nodeId === event.nodeId && node.type === 'result',
+              )),
+        ));
     return {
       status:
         pending !== undefined
           ? 'paused'
-          : state.failed
+          : state.failed || incomplete
             ? 'failed'
             : hasExternalWait
               ? 'waiting_external'
               : 'succeeded',
       ...(state.result === undefined ? {} : { result: state.result }),
       outputs: state.outputs,
-      errors: state.errors,
+      errors: incomplete
+        ? {
+            ...state.errors,
+            completion: {
+              code: 'WORKFLOW_COMPLETION_INCOMPLETE',
+              message: 'Workflow stopped with unfulfilled execution obligations.',
+            },
+          }
+        : state.errors,
       loopCounts: state.loopCounts,
       recoveryCounts: state.recoveryCounts,
       events: state.events.slice(previousEventCount),
@@ -477,10 +614,13 @@ export function compileWorkflow(
         ...(prepareExternalWait === undefined ? {} : { prepareExternalWait }),
         preparedExternalWaits: [],
       });
+      sessions.set(runId, { executable, threadId: runId });
       try {
         const state = await executable.invoke(
           {
             executionId: runId,
+            scopes: emptyWorkflowScopes(),
+            executionSemanticsVersion: scoped ? '2.0' : '1.0',
             input,
             outputs: {},
             errors: {},
@@ -496,6 +636,7 @@ export function compileWorkflow(
           },
           {
             configurable: { thread_id: runId },
+            recursionLimit,
             ...(signal === undefined ? {} : { signal }),
           },
         );
@@ -504,10 +645,23 @@ export function compileWorkflow(
           budgetLimits,
           requiredRuntimeContext(runtimeContexts, runId),
         );
-        return resultFromState(state, budgetLimits);
+        const result = resultFromState(state, budgetLimits);
+        if (result.status !== 'paused' && result.status !== 'waiting_external') {
+          runtimeContexts.get(runId)?.budgetMeter.dispose();
+          runtimeContexts.delete(runId);
+          sessions.delete(runId);
+        }
+        return result;
       } catch (error: unknown) {
+        if (error instanceof WorkflowBudgetExceededError) {
+          budgetMeter.dispose();
+          runtimeContexts.delete(runId);
+          sessions.delete(runId);
+          return budgetFailureResult(error, budgetMeter);
+        }
         if (
           error instanceof WorkflowCanceledError ||
+          signal?.aborted === true ||
           runtimeContexts.get(runId)?.control.cancelRequested === true
         ) {
           const state = await executable.getState({ configurable: { thread_id: runId } });
@@ -515,7 +669,9 @@ export function compileWorkflow(
             state.values as WorkflowExecutionState & Readonly<Record<string, unknown>>,
             budgetLimits,
           );
+          runtimeContexts.get(runId)?.budgetMeter.dispose();
           runtimeContexts.delete(runId);
+          sessions.delete(runId);
           return {
             ...result,
             status: 'canceled',
@@ -529,49 +685,70 @@ export function compileWorkflow(
             },
           };
         }
-        if (!(error instanceof WorkflowBudgetExceededError)) throw error;
-        return {
-          status: 'failed',
-          outputs: {},
-          errors: { budget: { code: error.code, message: error.message } },
-          loopCounts: {},
-          recoveryCounts: {},
-          events: [],
-          budgetUsage: budgetMeter.snapshot(),
-          terminationReason: error.reason,
-        };
+        runtimeContexts.get(runId)?.budgetMeter.dispose();
+        runtimeContexts.delete(runId);
+        sessions.delete(runId);
+        throw error;
       }
     },
     async resume(executionId, confirmed, signal, prepareExternalWait) {
       const existingContext = runtimeContexts.get(executionId);
-      if (existingContext === undefined)
+      const session = sessions.get(executionId);
+      if (existingContext === undefined || session === undefined)
         throw new WorkflowCompilerError(
           'WORKFLOW_CHECKPOINT_NOT_AVAILABLE',
           'Workflow checkpoint is unavailable and cannot be recovered or retried.',
         );
+      const resumedSignal =
+        signal === undefined
+          ? existingContext.signal
+          : existingContext.signal === undefined
+            ? signal
+            : AbortSignal.any([signal, existingContext.signal]);
       const config = {
-        configurable: { thread_id: executionId },
-        ...(signal === undefined ? {} : { signal }),
+        configurable: { thread_id: session.threadId },
+        recursionLimit,
+        ...(resumedSignal === undefined ? {} : { signal: resumedSignal }),
       };
       runtimeContexts.set(executionId, {
         budgetMeter: existingContext.budgetMeter,
         control: existingContext.control,
-        ...(signal === undefined ? {} : { signal }),
+        ...(resumedSignal === undefined ? {} : { signal: resumedSignal }),
         executionContext: existingContext.executionContext,
         ...(prepareExternalWait === undefined ? {} : { prepareExternalWait }),
         preparedExternalWaits: [],
       });
       existingContext.budgetMeter.resume();
-      const before = await executable.getState(config);
+      const before = await session.executable.getState(config);
       const previousEventCount = workflowEventCount(before.values);
-      const state = await executable.invoke(new Command({ resume: confirmed }), config);
+      let state;
+      try {
+        state = await session.executable.invoke(new Command({ resume: confirmed }), config);
+      } catch (error: unknown) {
+        runtimeContexts.get(executionId)?.budgetMeter.dispose();
+        runtimeContexts.delete(executionId);
+        sessions.delete(executionId);
+        if (error instanceof WorkflowBudgetExceededError)
+          return budgetFailureResult(error, existingContext.budgetMeter);
+        if (
+          error instanceof WorkflowCanceledError ||
+          existingContext.control.cancelRequested ||
+          resumedSignal?.aborted === true
+        )
+          return cancellationFailureResult(existingContext.budgetMeter);
+        throw error;
+      }
       await prepareFinalExternalWaitIfRequired(
         state,
         existingContext.budgetMeter.limits,
         requiredRuntimeContext(runtimeContexts, executionId),
       );
       const result = resultFromState(state, existingContext.budgetMeter.limits, previousEventCount);
-      if (result.status !== 'paused') runtimeContexts.delete(executionId);
+      if (result.status !== 'paused' && result.status !== 'waiting_external') {
+        runtimeContexts.get(executionId)?.budgetMeter.dispose();
+        runtimeContexts.delete(executionId);
+        sessions.delete(executionId);
+      }
       return result;
     },
     async continueExternal(
@@ -604,7 +781,11 @@ export function compileWorkflow(
           pauseRequested: false,
           cancelRequested: false,
           activeCallAbort: new AbortController(),
-          pendingSkillReservations: new Set(),
+          pendingSkillReservations: new Set(
+            resolution.kind === 'child_paused'
+              ? restored.frontier.map((entry) => entry.nodeId)
+              : [],
+          ),
         },
         ...(signal === undefined ? {} : { signal }),
         executionContext: continuation.executionContext,
@@ -617,11 +798,15 @@ export function compileWorkflow(
           restored.state as WorkflowExecutionState & Readonly<Record<string, unknown>>,
           continuation.budgetLimits,
         );
+        runtimeContexts.get(executionId)?.budgetMeter.dispose();
         runtimeContexts.delete(executionId);
+        sessions.delete(executionId);
         return result;
       }
       const threadId =
         continuationAttemptId ?? `${executionId}~external~${encodeURIComponent(resolution.waitId)}`;
+      sessions.set(executionId, { executable: continuationExecutable, threadId });
+      let retainSession = false;
       try {
         const state = await continuationExecutable.invoke(
           new Command({
@@ -630,6 +815,7 @@ export function compileWorkflow(
           }),
           {
             configurable: { thread_id: threadId },
+            recursionLimit,
             ...(signal === undefined ? {} : { signal }),
           },
         );
@@ -638,9 +824,25 @@ export function compileWorkflow(
           continuation.budgetLimits,
           requiredRuntimeContext(runtimeContexts, executionId),
         );
-        return resultFromState(state, continuation.budgetLimits);
+        const result = resultFromState(state, continuation.budgetLimits);
+        retainSession = result.status === 'paused' || result.status === 'waiting_external';
+        return result;
+      } catch (error: unknown) {
+        if (error instanceof WorkflowBudgetExceededError)
+          return budgetFailureResult(error, budgetMeter);
+        if (
+          error instanceof WorkflowCanceledError ||
+          runtimeContexts.get(executionId)?.control.cancelRequested === true ||
+          signal?.aborted === true
+        )
+          return cancellationFailureResult(budgetMeter);
+        throw error;
       } finally {
-        runtimeContexts.delete(executionId);
+        if (!retainSession) {
+          runtimeContexts.get(executionId)?.budgetMeter.dispose();
+          runtimeContexts.delete(executionId);
+          sessions.delete(executionId);
+        }
       }
     },
     requestPause(executionId) {
@@ -656,6 +858,39 @@ export function compileWorkflow(
       if (interruptCurrent) context.control.activeCallAbort.abort(new Error('WORKFLOW_CANCELED'));
       return true;
     },
+  };
+}
+
+function cancellationFailureResult(meter: WorkflowBudgetMeter): WorkflowExecutionResult {
+  return {
+    status: 'canceled',
+    outputs: {},
+    errors: {
+      cancellation: {
+        code: 'WORKFLOW_CANCELED',
+        message: 'Workflow canceled before further execution.',
+      },
+    },
+    loopCounts: {},
+    recoveryCounts: {},
+    events: [],
+    budgetUsage: meter.snapshot(),
+  };
+}
+
+function budgetFailureResult(
+  error: WorkflowBudgetExceededError,
+  meter: WorkflowBudgetMeter,
+): WorkflowExecutionResult {
+  return {
+    status: 'failed',
+    outputs: {},
+    errors: { budget: { code: error.code, message: error.message } },
+    loopCounts: {},
+    recoveryCounts: {},
+    events: [],
+    budgetUsage: meter.snapshot(),
+    terminationReason: error.reason,
   };
 }
 
@@ -722,6 +957,41 @@ function optionalPositiveIntegerProperty(
 function workflowEventCount(value: unknown): number {
   if (typeof value !== 'object' || value === null || !('events' in value)) return 0;
   return Array.isArray(value.events) ? value.events.length : 0;
+}
+
+function workflowSuperstepLimit(
+  definition: WorkflowDefinition,
+  joins: readonly Readonly<{ predecessorNodeIds: readonly string[] }>[],
+  ceiling = 100_000,
+): number {
+  if (!Number.isSafeInteger(ceiling) || ceiling < 1)
+    throw new WorkflowCompilerError(
+      'WORKFLOW_COMPLEXITY_LIMIT_INVALID',
+      'Superstep ceiling must be a positive safe integer.',
+    );
+  // Loop/recovery counters belong to the execution and never reset on nested entry or resume.
+  // Every bounded cycle consumes one counter. Between cycles, at most every graph node and
+  // compiler gate can run once. Count START/END and fresh continuation frontier overhead too.
+  const gates = joins.reduce((total, join) => total + join.predecessorNodeIds.length, 0);
+  const pathLength = definition.nodes.length + gates + 2;
+  let traversals = 1;
+  for (const node of definition.nodes) {
+    if (node.type === 'loop') traversals += node.maxIterations;
+    if (node.type === 'error_handler')
+      for (const option of node.recoveryOptions ?? []) traversals += option.maxAttempts;
+    if (!Number.isSafeInteger(traversals) || traversals > Math.floor(ceiling / pathLength))
+      throw new WorkflowCompilerError(
+        'WORKFLOW_COMPLEXITY_LIMIT_EXCEEDED',
+        'Workflow loop/recovery bound exceeds the configured superstep ceiling.',
+      );
+  }
+  const limit = pathLength * traversals;
+  if (!Number.isSafeInteger(limit) || limit > ceiling)
+    throw new WorkflowCompilerError(
+      'WORKFLOW_COMPLEXITY_LIMIT_EXCEEDED',
+      'Workflow exceeds the configured superstep ceiling.',
+    );
+  return limit;
 }
 
 function detectParallelJoins(
@@ -817,12 +1087,13 @@ function createNodeAction(
     prepareExternalWait?: WorkflowExternalWaitSnapshotPreparer;
     preparedExternalWaits: WorkflowExternalWaitPreparedSnapshot[];
   }>,
+  regions?: ReturnType<typeof analyzeWorkflowControlFlow>,
 ): NodeAction {
   return async (state) => {
     const context = runtimeContext(state.executionId);
-    if (context.control.cancelRequested) throw new WorkflowCanceledError();
+    context.signal?.throwIfAborted();
+    if (cancellationRequested(context.control)) throw new WorkflowCanceledError();
     if (context.control.pauseRequested) {
-      context.budgetMeter.pause();
       interrupt<
         Readonly<{
           nodeId: string;
@@ -850,6 +1121,10 @@ function createNodeAction(
     };
     try {
       const nodeRunId = workflowNodeRunId(state, node.nodeId);
+      const scopes =
+        regions === undefined
+          ? undefined
+          : enterWorkflowScope(node, nodeRunId, state.scopes, regions);
       const update = await executeNode(
         node,
         state,
@@ -883,6 +1158,22 @@ function createNodeAction(
       return {
         ...update,
         ...successRoute,
+        ...(scopes === undefined
+          ? {}
+          : {
+              scopes: mergeWorkflowScopes(scopes, {
+                ...(update.scopes ?? emptyWorkflowScopes()),
+                outputSources:
+                  update.outputs?.[node.nodeId] === undefined
+                    ? {}
+                    : workflowOutputSources(
+                        node.nodeId,
+                        nodeRunId,
+                        state.scopes,
+                        regions ?? { loops: [], parallels: [] },
+                      ),
+              }),
+            }),
         completedNodeRunIds: [nodeRunId],
         nodeRunCounts: { [node.nodeId]: (state.nodeRunCounts[node.nodeId] ?? 0) + 1 },
         parallelJoinState: parallelJoinArrivals(parallelJoins, node.nodeId, nodeRunId),
@@ -898,7 +1189,27 @@ function createNodeAction(
         ],
       };
     } catch (error: unknown) {
-      if (error instanceof WorkflowBudgetExceededError || isGraphInterrupt(error)) throw error;
+      const code = errorCode(error);
+      if (code === 'WORKFLOW_SKILL_CHILD_CANCELED' || code === 'WORKFLOW_CANCELED')
+        throw new WorkflowCanceledError();
+      const exhausted = {
+        WORKFLOW_DURATION_BUDGET_EXHAUSTED: 'duration_exhausted',
+        WORKFLOW_LLM_CALL_BUDGET_EXHAUSTED: 'llm_calls_exhausted',
+        WORKFLOW_MCP_CALL_BUDGET_EXHAUSTED: 'mcp_calls_exhausted',
+        WORKFLOW_COST_BUDGET_EXHAUSTED: 'cost_exhausted',
+      } as const;
+      if (Object.hasOwn(exhausted, code)) {
+        const budgetCode = code as keyof typeof exhausted;
+        throw new WorkflowBudgetExceededError(budgetCode, exhausted[budgetCode]);
+      }
+      if (
+        error instanceof WorkflowBudgetExceededError ||
+        error instanceof WorkflowCanceledError ||
+        context.signal?.aborted === true ||
+        context.control.cancelRequested ||
+        isGraphInterrupt(error)
+      )
+        throw error;
       const handler = handlers.get(node.nodeId);
       if (handler === undefined) throw error;
       return {
@@ -1051,7 +1362,6 @@ async function executeNode(
       });
       while (result.status === 'awaiting_confirmation') {
         runtimeContext.control.pendingSkillReservations.add(node.nodeId);
-        budgetMeter.pause();
         const decision = interrupt<
           Readonly<{
             nodeId: string;
@@ -1097,8 +1407,41 @@ async function executeNode(
           executionContext: runtimeContext.executionContext,
         });
       }
+      while (result.status === 'paused') {
+        runtimeContext.control.pendingSkillReservations.add(node.nodeId);
+        const confirmed = interrupt<
+          Readonly<{
+            nodeId: string;
+            prompt: string;
+            kind: 'human_confirmation';
+            pausedAt: string;
+          }>,
+          boolean
+        >({
+          nodeId: node.nodeId,
+          prompt: result.prompt,
+          kind: 'human_confirmation',
+          pausedAt: ports.now(),
+        });
+        budgetMeter.resume();
+        result = await ports.executeSkill({
+          skillId: node.skillId,
+          input: inputSnapshot,
+          parentExecutionId: state.executionId,
+          parentNodeId: node.nodeId,
+          parentNodeRunId: workflowNodeRunId,
+          signal: callSignal,
+          executionContext: runtimeContext.executionContext,
+          resumeChild: confirmed,
+        });
+      }
       runtimeContext.control.pendingSkillReservations.delete(node.nodeId);
       budgetMeter.assertDuration();
+      if (result.status === 'awaiting_confirmation')
+        throw new WorkflowCompilerError(
+          'WORKFLOW_SKILL_CONFIRMATION_STALE',
+          'A resumed child cannot replace its frozen plan.',
+        );
       if (result.status === 'waiting_external') {
         if (
           result.wait.kind !== 'child_workflow' ||
@@ -1117,22 +1460,67 @@ async function executeNode(
       return output(node.nodeId, applySkillOutputMappings(result.output, node.outputMappings));
     }
     case 'subworkflow': {
-      budgetMeter.reserve('subworkflow');
+      if (!runtimeContext.control.pendingSkillReservations.has(node.nodeId)) {
+        budgetMeter.reserve('subworkflow');
+        runtimeContext.control.pendingSkillReservations.add(node.nodeId);
+      }
       const callSignal = budgetMeter.signal(signal);
       const inputSnapshot = resolveWorkflowBoundValue(node.input, state);
-      const value = await ports.executeSubworkflow({
-        workflowDefinitionId: node.workflowDefinitionId,
-        workflowVersion: node.workflowVersion,
-        input: inputSnapshot,
-        signal: callSignal,
-        executionContext: runtimeContext.executionContext,
-      });
+      const execute = (resumeChild?: boolean) =>
+        ports.executeSubworkflow({
+          workflowDefinitionId: node.workflowDefinitionId,
+          workflowVersion: node.workflowVersion,
+          parentExecutionId: state.executionId,
+          parentNodeId: node.nodeId,
+          parentNodeRunId: workflowNodeRunId,
+          input: inputSnapshot,
+          signal: callSignal,
+          executionContext: runtimeContext.executionContext,
+          ...(resumeChild === undefined ? {} : { resumeChild }),
+        });
+      let child = await execute();
+      while (child.status === 'paused') {
+        const confirmed = interrupt<
+          Readonly<{
+            nodeId: string;
+            prompt: string;
+            kind: 'human_confirmation';
+            pausedAt: string;
+          }>,
+          boolean
+        >({
+          nodeId: node.nodeId,
+          prompt: child.prompt,
+          kind: 'human_confirmation',
+          pausedAt: ports.now(),
+        });
+        budgetMeter.resume();
+        child = await execute(confirmed);
+      }
       budgetMeter.assertDuration();
-      return output(node.nodeId, value);
+      runtimeContext.control.pendingSkillReservations.delete(node.nodeId);
+      if (child.status === 'waiting_external') {
+        if (
+          child.wait.nodeId !== node.nodeId ||
+          child.wait.nodeRunId !== workflowNodeRunId ||
+          child.wait.kind !== 'child_workflow'
+        )
+          throw new WorkflowCompilerError(
+            'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID',
+            'Subworkflow wait identity does not match the parent node run.',
+          );
+        return {
+          waitingNodeRuns: { [workflowNodeRunId]: child.wait },
+          routes: { [node.nodeId]: END },
+        };
+      }
+      if (child.status === 'canceled') throw new WorkflowCanceledError();
+      if (child.status === 'failed')
+        throw Object.assign(new Error(child.message), { code: child.code });
+      return output(node.nodeId, child.output);
     }
     case 'human_confirmation': {
       budgetMeter.assertDuration();
-      budgetMeter.pause();
       const confirmed = interrupt<
         Readonly<{
           nodeId: string;
@@ -1179,15 +1567,39 @@ async function executeNode(
       };
     }
     case 'loop': {
-      const value = evaluateWorkflowExpression(node.condition, state);
+      const scoped = definition.executionSemanticsVersion === '2.0';
+      const previous = state.scopes.loops[node.nodeId];
+      const count = scoped
+        ? previous?.active === true
+          ? previous.iteration
+          : 0
+        : (state.loopCounts[node.nodeId] ?? 0);
+      const value = evaluateWorkflowExpression(node.condition, {
+        ...state,
+        loopCounts: { ...state.loopCounts, [node.nodeId]: count },
+      });
       if (typeof value !== 'boolean')
         throw new WorkflowCompilerError(
           'WORKFLOW_CONDITION_NOT_BOOLEAN',
           'Loop condition must evaluate to a boolean.',
         );
-      const count = state.loopCounts[node.nodeId] ?? 0;
       const iterate = value && count < node.maxIterations;
       return {
+        ...(scoped
+          ? {
+              scopes: {
+                ...emptyWorkflowScopes(),
+                loops: {
+                  [node.nodeId]: {
+                    invocationId:
+                      previous?.active === true ? previous.invocationId : workflowNodeRunId,
+                    iteration: iterate ? count + 1 : count,
+                    active: iterate,
+                  },
+                },
+              },
+            }
+          : {}),
         loopCounts: { [node.nodeId]: iterate ? count + 1 : count },
         routes: {
           [node.nodeId]: iterate
@@ -1210,7 +1622,7 @@ async function executeNode(
         (option) =>
           (state.recoveryCounts[recoveryKey(node.nodeId, option)] ?? 0) < option.maxAttempts,
       );
-      const allowedStrategies: readonly ('terminate' | 'continue' | 'goto')[] =
+      const structuralStrategies: readonly ('terminate' | 'continue' | 'goto')[] =
         configuredRecoveryOptions.length > 0
           ? availableRecoveryOptions.length > 0
             ? ['terminate', 'goto']
@@ -1218,6 +1630,13 @@ async function executeNode(
           : node.gotoNodeId === undefined
             ? ['terminate', 'continue']
             : ['terminate', 'continue', 'goto'];
+      const allowedStrategies = structuralStrategies.filter((strategy) => {
+        if (strategy === 'terminate' || node.skillFailurePolicy === undefined) return true;
+        if (node.skillFailurePolicy === 'fail_fast') return false;
+        return node.skillFailurePolicy === 'recoverable'
+          ? strategy === 'goto'
+          : strategy === 'continue';
+      });
       const decision = await ports.decideExecutionError({
         handledNodeId: node.handledNodeId,
         error: handledError,
@@ -1398,6 +1817,7 @@ function runtimeContinuationState(
   executionContext: RuntimeExecutionContext,
 ): WorkflowRuntimeContinuationState {
   return {
+    ...(state.executionSemanticsVersion === '2.0' ? { scopes: state.scopes } : {}),
     input: state.input,
     waitingNodeRuns: Object.values(state.waitingNodeRuns),
     runnableFrontier: [],
@@ -1465,6 +1885,13 @@ function restoreExternalResolution(
   state: WorkflowExecutionState;
   frontier: WorkflowRuntimeContinuationState['runnableFrontier'];
 }> {
+  const scoped = definition.executionSemanticsVersion === '2.0';
+  if (scoped && continuation.scopes === undefined)
+    throw new WorkflowCompilerError(
+      'WORKFLOW_EXTERNAL_CONTINUATION_INVALID',
+      'Scoped execution cannot resume a legacy snapshot without proven equivalent scope identities.',
+    );
+  let scopes = continuation.scopes ?? emptyWorkflowScopes();
   const waiting = continuation.waitingNodeRuns.find(
     (candidate) =>
       candidate.waitId === resolution.waitId && candidate.nodeRunId === resolution.nodeRunId,
@@ -1479,6 +1906,40 @@ function restoreExternalResolution(
       .filter((candidate) => candidate.nodeRunId !== waiting.nodeRunId)
       .map((candidate) => [candidate.nodeRunId, candidate] as const),
   );
+  if (resolution.kind === 'child_paused') {
+    const node = definition.nodes.find((candidate) => candidate.nodeId === waiting.nodeId);
+    const ordinal = continuation.nodeRunCounts[waiting.nodeId] ?? 0;
+    if (
+      waiting.kind !== 'child_workflow' ||
+      (node?.type !== 'skill_call' && node?.type !== 'subworkflow') ||
+      ordinal < 1
+    )
+      throw new WorkflowCompilerError(
+        'WORKFLOW_EXTERNAL_WAIT_IDENTITY_INVALID',
+        'Only the same persisted child call may transfer its confirmation to the parent.',
+      );
+    return {
+      state: {
+        executionId,
+        scopes,
+        executionSemanticsVersion: definition.executionSemanticsVersion ?? '1.0',
+        input: continuation.input,
+        outputs: continuation.outputs,
+        errors: workflowErrorRecord(continuation.errors),
+        routes: { ...workflowRouteRecord(continuation.routes), [waiting.nodeId]: END },
+        loopCounts: continuation.loopCounts,
+        recoveryCounts: continuation.recoveryCounts,
+        waitingNodeRuns,
+        completedNodeRunIds: continuation.completedNodeRunIds,
+        nodeRunCounts: { ...continuation.nodeRunCounts, [waiting.nodeId]: ordinal - 1 },
+        parallelJoinState: continuation.parallelJoinState,
+        events: [],
+        failed: continuation.failed,
+        ...(continuation.result === undefined ? {} : { result: continuation.result }),
+      },
+      frontier: [{ nodeId: waiting.nodeId, nextRunOrdinal: ordinal }],
+    };
+  }
   const completedNodeRunIds = [
     ...new Set([...continuation.completedNodeRunIds, waiting.nodeRunId]),
   ];
@@ -1537,6 +1998,29 @@ function restoreExternalResolution(
     };
   }
   routes[waiting.nodeId] = target ?? END;
+  if (scoped && completedSuccessfully) {
+    const regions = analyzeWorkflowControlFlow(definition);
+    scopes = mergeWorkflowScopes(scopes, {
+      ...emptyWorkflowScopes(),
+      outputSources: workflowOutputSources(waiting.nodeId, waiting.nodeRunId, scopes, regions),
+    });
+    for (const region of regions.parallels)
+      if (target === region.joinNodeId) {
+        const branch = region.branches.find((item) => item.nodeIds.includes(waiting.nodeId));
+        if (branch !== undefined) {
+          scopes = mergeWorkflowScopes(
+            scopes,
+            branchArrival(region, branch.branchId, scopes, continuation.nodeRunCounts),
+          );
+          const active = scopes.forks[region.forkNodeId];
+          if (
+            active === undefined ||
+            active.branchIds.some((id) => active.arrivals[id] === undefined)
+          )
+            target = undefined;
+        }
+      }
+  }
   const candidateFrontier = [
     ...continuation.runnableFrontier,
     ...(target === undefined
@@ -1547,6 +2031,8 @@ function restoreExternalResolution(
   return {
     state: {
       executionId,
+      scopes,
+      executionSemanticsVersion: definition.executionSemanticsVersion ?? '1.0',
       input: continuation.input,
       outputs,
       errors,
@@ -1670,10 +2156,11 @@ function skillCallOutputMappings(
   nodeId: string,
 ): readonly SkillValueMapping[] | undefined {
   const node = definition.nodes.find((candidate) => candidate.nodeId === nodeId);
+  if (node?.type === 'subworkflow') return undefined;
   if (node?.type !== 'skill_call')
     throw new WorkflowCompilerError(
       'WORKFLOW_DEFINITION_INVALID',
-      'A child Workflow continuation must reference an existing skill_call node.',
+      'A child Workflow continuation must reference an existing child call node.',
     );
   return node.outputMappings;
 }
@@ -1817,7 +2304,7 @@ function recoveryKey(nodeId: string, option: WorkflowRecoveryOption): string {
 }
 
 function isExternallyWaitCapable(node: WorkflowNode): boolean {
-  return node.type === 'mcp_tool' || node.type === 'skill_call';
+  return node.type === 'mcp_tool' || node.type === 'skill_call' || node.type === 'subworkflow';
 }
 
 function requiresConditionalRouting(
@@ -1910,6 +2397,11 @@ function requiredRuntimeContext<T>(contexts: ReadonlyMap<string, T>, executionId
 }
 
 export type WorkflowCompilerErrorCode =
+  | WorkflowControlFlowIssue['code']
+  | 'WORKFLOW_CONDITION_EDGES_INVALID'
+  | 'WORKFLOW_LOOP_EDGES_INVALID'
+  | 'WORKFLOW_COMPLEXITY_LIMIT_INVALID'
+  | 'WORKFLOW_COMPLEXITY_LIMIT_EXCEEDED'
   | 'WORKFLOW_CONDITION_NOT_BOOLEAN'
   | 'WORKFLOW_DEFINITION_INVALID'
   | 'WORKFLOW_ERROR_DECISION_INVALID'
@@ -1955,6 +2447,9 @@ class WorkflowBudgetMeter {
   #llmCalls = 0;
   #mcpCalls = 0;
   #cost = 0;
+  readonly #deadline = new AbortController();
+  #deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+  #deadlineRequested = false;
 
   constructor(
     limits: WorkflowBudgetLimits,
@@ -2011,9 +2506,11 @@ class WorkflowBudgetMeter {
 
   signal(parent: AbortSignal | undefined): AbortSignal {
     this.assertDuration();
-    const remaining = Math.max(1, this.#limits.maxDurationSeconds * 1000 - this.#durationMs());
-    const deadline = AbortSignal.timeout(remaining);
-    return parent === undefined ? deadline : AbortSignal.any([parent, deadline]);
+    this.#deadlineRequested = true;
+    this.#scheduleDeadline();
+    return parent === undefined
+      ? this.#deadline.signal
+      : AbortSignal.any([parent, this.#deadline.signal]);
   }
 
   snapshot(): WorkflowBudgetUsage {
@@ -2030,11 +2527,35 @@ class WorkflowBudgetMeter {
     if (this.#activeStartedAt === undefined) return;
     this.#elapsedMs += Math.max(0, this.#now() - this.#activeStartedAt);
     this.#activeStartedAt = undefined;
+    this.dispose();
   }
 
   resume(): void {
     if (this.#activeStartedAt !== undefined) return;
     this.#activeStartedAt = this.#now();
+    this.#scheduleDeadline();
+  }
+
+  dispose(): void {
+    if (this.#deadlineTimer !== undefined) clearTimeout(this.#deadlineTimer);
+    this.#deadlineTimer = undefined;
+  }
+
+  #scheduleDeadline(): void {
+    this.dispose();
+    if (
+      !this.#deadlineRequested ||
+      this.#activeStartedAt === undefined ||
+      this.#deadline.signal.aborted
+    )
+      return;
+    const remaining = Math.max(1, this.#limits.maxDurationSeconds * 1000 - this.#durationMs());
+    this.#deadlineTimer = setTimeout(() => {
+      this.#deadline.abort(
+        new WorkflowBudgetExceededError('WORKFLOW_DURATION_BUDGET_EXHAUSTED', 'duration_exhausted'),
+      );
+    }, remaining);
+    this.#deadlineTimer.unref();
   }
 
   #durationMs(): number {

@@ -25,7 +25,14 @@ export class TaskTypePromotionTarget implements PromotionTarget {
     if (!nonEmptyStrings(definition['criteriaTemplate'])) {
       failures.push('task_type_criteria_structure_unstable');
     }
-    if (!nonEmptyStrings(definition['capabilityRequirements'])) {
+    if (
+      !nonEmptyStrings(definition['capabilityRequirements']) &&
+      !(
+        definition['origin'] === 'configured' &&
+        Array.isArray(definition['capabilityRequirements']) &&
+        definition['capabilityRequirements'].length === 0
+      )
+    ) {
       failures.push('task_type_capability_structure_unstable');
     }
     return Object.freeze(failures);

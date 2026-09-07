@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "commit": "unavailable",
+  "dirty": true,
+  "environment": {
+    "node": "v22.23.1",
+    "platform": "linux",
+    "architecture": "x64",
+    "infrastructureMode": "self-managed-compose"
+  },
+  "startedAt": "2026-09-07T03:11:14.106Z",
+  "finishedAt": "2026-09-07T03:12:22.480Z",
+  "durationMs": 68374,
+  "steps": [
+    {
+      "name": "static-unit-contract-build",
+      "command": "pnpm verify:bootstrap",
+      "status": "failed",
+      "startedAt": "2026-09-07T03:11:14.109Z",
+      "finishedAt": "2026-09-07T03:12:22.478Z",
+      "durationMs": 68369,
+      "logPath": "reports/verification/raw/static-unit-contract-build.log",
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "metrics": {},
+      "exitCode": 1,
+      "error": "spawnSync /home/zhouwen/.local/share/nodejs/node-v22.23.1-linux-x64/bin/node EPERM"
+    }
+  ]
+}

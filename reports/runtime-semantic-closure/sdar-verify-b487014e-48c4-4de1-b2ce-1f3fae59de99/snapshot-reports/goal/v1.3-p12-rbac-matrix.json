@@ -1,0 +1,8 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","roles":{
+"viewer":["list","detail","non-audit evidence","runtime","events"],
+"operator":["viewer","validate","shadow","revalidate","build-promotion-package"],
+"reviewer":["viewer","audit","build-promotion-package"],
+"approver":["viewer","audit","approve","reject"],
+"administrator":["all reads","validate","shadow","revalidate","activate","deprecate","rollback","build-promotion-package"],
+"security_operator":["all reads","audit","kill-switch-enable","kill-switch-disable"]},
+"servicePrincipalDenied":["approve","reject","activate","kill-switch-disable"],"identitySource":"ManagementPrincipalResolver only","tenantSource":"principal only"}

@@ -49,13 +49,30 @@ describe('Skill Usage Workflow planning', () => {
         compliant: true,
         errors: [],
       });
-      await expect(
-        validator().validate(definition, {
-          enforceSkillComposition: true,
-          allowedChildSkillIds: ['skill.move'],
-          skillUsagePolicy: prepared.policy,
-        }),
-      ).resolves.toMatchObject({ valid: true });
+      const validation = await validator().validate(definition, {
+        enforceSkillComposition: true,
+        allowedChildSkillIds: ['skill.move'],
+        skillUsagePolicy: prepared.policy,
+      });
+      expect(validation, JSON.stringify(validation)).toMatchObject({ valid: true });
+      expect(definition.executionSemanticsVersion).toBe('2.0');
+      const cyclic = {
+        ...definition,
+        nodes: definition.nodes.map((node) =>
+          node.type === 'error_handler' ? { ...node, gotoNodeId: node.handledNodeId } : node,
+        ),
+      };
+      const invalid = await validator().validate(cyclic, {
+        enforceSkillComposition: true,
+        allowedChildSkillIds: ['skill.move'],
+        skillUsagePolicy: prepared.policy,
+      });
+      expect(invalid).toMatchObject({
+        valid: false,
+        errors: expect.arrayContaining([
+          expect.objectContaining({ code: 'WORKFLOW_UNBOUNDED_CYCLE' }),
+        ]),
+      });
       expect(definition.nodes.map((node) => node.type)).toEqual(
         expect.arrayContaining(['skill_call', 'error_handler', 'mcp_tool', 'condition', 'result']),
       );

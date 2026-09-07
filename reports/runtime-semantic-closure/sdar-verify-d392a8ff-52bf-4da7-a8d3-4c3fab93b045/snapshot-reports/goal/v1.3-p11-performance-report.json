@@ -1,0 +1,14 @@
+{
+  "packageId": "SDAR-V1.3-P11",
+  "status": "passed",
+  "classification": "local acceptance baseline, not a production capacity SLO",
+  "gatewayRegression": {"samples":250,"p95Ms":2.331,"budgetMs":25},
+  "gatewayConcurrency": [1,10,100,1000],
+  "fullVerifyDurationMs": 275223,
+  "boundedWork": [
+    "finite active Case set and deterministic ordering",
+    "finite selected Profile list",
+    "serial cascade",
+    "bounded JSON size/depth and single-pass privacy scan"
+  ]
+}

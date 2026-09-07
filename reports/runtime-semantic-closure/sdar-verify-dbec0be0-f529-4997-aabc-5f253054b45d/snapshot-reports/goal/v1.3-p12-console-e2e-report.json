@@ -1,0 +1,4 @@
+{"packageId":"SDAR-V1.3-P12","status":"passed","evidence":[
+{"layer":"Console component contract","command":"vitest apps/console/src/console.unit.test.tsx","result":"passed","scope":"real API client bindings and rendered states"},
+{"layer":"Server vertical slice","command":"vitest apps/server/test/artifact-management-p12.e2e.test.ts","result":"3/3 passed","scope":"tenant list, governance write, IDOR, runtime, SSE, A2A"}],
+"limitation":"No screenshot claim; interactive browser pixels are not used as acceptance evidence."}

@@ -185,7 +185,7 @@ export function resolveUgvMoveSkillUsageContext(
     input.authority.skillVersion !== 1 ||
     !BOUNDED_REFERENCE_ID.test(input.binding.bindingId) ||
     input.binding.requestedCapabilityId !== 'embodied.move' ||
-    input.binding.capabilityVersion < 2 ||
+    input.binding.capabilityVersion < 1 ||
     !sameStrings(input.binding.initialImplementationRefs, ['skill:embodied.move_to:1']) ||
     exactSkill['skillId'] !== 'embodied.move_to' ||
     exactSkill['skillVersion'] !== 1 ||

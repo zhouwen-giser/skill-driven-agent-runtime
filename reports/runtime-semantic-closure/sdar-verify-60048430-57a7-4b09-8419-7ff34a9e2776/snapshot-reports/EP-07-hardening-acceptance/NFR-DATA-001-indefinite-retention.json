@@ -1,0 +1,28 @@
+{
+  "requirement": "NFR-DATA-001",
+  "status": "verified",
+  "acceptance": {
+    "automaticDeletionTaskAbsent": true,
+    "retentionPolicyFieldsReserved": true,
+    "automaticArchiveForbidden": true,
+    "automaticDeleteForbidden": true,
+    "operatorWarningVisible": true
+  },
+  "historicalRealGate": {
+    "integrationPassed": 30,
+    "e2ePassed": 39,
+    "migration": "0045_memory_retention_policy",
+    "build": "passed",
+    "smoke": "passed"
+  },
+  "currentRegression": {
+    "files": 3,
+    "testsPassed": 49,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 240
+  },
+  "unverified": [
+    "current Docker-backed integration/E2E rerun",
+    "long-running no-deletion soak, which is not an SRS acceptance criterion"
+  ]
+}

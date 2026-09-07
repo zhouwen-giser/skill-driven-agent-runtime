@@ -1,0 +1,55 @@
+{
+  "runId": "sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510",
+  "dependencyMode": "frozen",
+  "inputSha256": "8d69816b62b7981d2d4235d54a44773d204e0b752b5cffea05eead035386bae4",
+  "baselineSha256": "a312f8f11a87769b38fc985ab2a53956c1fcf983edb16a7d9931ec0f13d370d8",
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "snapshot": "/tmp/sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510-4JLMmd/source",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "cleanupResults": [
+    {
+      "name": "sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510",
+      "file": "compose.yaml",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 78,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 29171712,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510-control-smoke",
+      "file": "compose.node-control.yaml",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 85,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 29171712,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "sdar-verify-ffde5273-ebd7-452f-8f13-881d88b48510-runtime-smoke",
+      "file": "compose.yaml",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 79,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 29351936,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    }
+  ]
+}

@@ -1,0 +1,606 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P13",
+  "reportId": "v1.3-final-slo-report",
+  "status": "passed",
+  "classification": "local acceptance release-candidate evidence",
+  "productionSloClaim": false,
+  "policy": {
+    "approvedTargetSources": [
+      "NFR-PERF-001",
+      "checked-in frozen test assertions"
+    ],
+    "absentPercentagePolicy": "approvedTarget is null",
+    "absentProductionRtoPolicy": "approvedTarget is null",
+    "prohibition": "Local measurements, full-verify durations and inferred lower-load subsets are not production SLOs."
+  },
+  "approvedTargets": [
+    {
+      "id": "active_task_concurrency",
+      "authority": "product-requirement",
+      "requirement": "NFR-PERF-001",
+      "target": {
+        "minimumApproximate": 1,
+        "maximumApproximate": 10
+      },
+      "observed": {
+        "maximumSupportedActiveTasks": 10,
+        "sameContextStrictlySerial": true,
+        "stateCrossover": false
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "docs/01_REQUIREMENTS_BASELINE.md",
+        "reports/EP-07-hardening-acceptance/NFR-PERF-001-context-concurrency.json"
+      ]
+    },
+    {
+      "id": "retrieval_p95",
+      "authority": "frozen-local-test-budget",
+      "target": {
+        "percentile": "p95",
+        "lessThanMs": 100
+      },
+      "observed": {
+        "samples": 25,
+        "p95Ms": 10.600000000000364
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p07-performance-report.json",
+        "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts"
+      ],
+      "passed": true,
+      "productionSlo": false
+    },
+    {
+      "id": "gateway_no_match_p95",
+      "authority": "frozen-local-test-budget",
+      "target": {
+        "percentile": "p95",
+        "lessThanMs": 25
+      },
+      "observed": {
+        "samples": 250,
+        "p95Ms": 1.072,
+        "maximumMs": 24.589,
+        "budgetMs": 25
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-performance-report.json",
+        "packages/application/test/fast-gateway-p10.unit.test.ts"
+      ],
+      "passed": true,
+      "productionSlo": false
+    },
+    {
+      "id": "gateway_1000_request_p99",
+      "authority": "frozen-local-test-budget",
+      "target": {
+        "requests": 1000,
+        "percentile": "p99",
+        "lessThanMs": 750
+      },
+      "observed": {
+        "requests": 1000,
+        "p50Ms": 459.634,
+        "p95Ms": 518.873,
+        "p99Ms": 522.928,
+        "elapsedMs": 525.395,
+        "errorRate": 0
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-performance-report.json",
+        "packages/application/test/fast-gateway-p10.unit.test.ts"
+      ],
+      "passed": true,
+      "productionSlo": false
+    },
+    {
+      "id": "rule_1000_resolution",
+      "authority": "frozen-local-test-budget",
+      "target": {
+        "ruleCount": 1000,
+        "lessThanMs": 2000
+      },
+      "observed": {
+        "ruleCount": 1000,
+        "p50Ms": 1.2358,
+        "p95Ms": 1.3456,
+        "maxMs": 1.846
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p09-performance-report.json",
+        "packages/domain/test/decision-rule-runtime-p09.unit.test.ts"
+      ],
+      "passed": true,
+      "productionSlo": false
+    },
+    {
+      "id": "management_artifact_query",
+      "authority": "frozen-local-test-budget",
+      "target": {
+        "maximumAcrossRows": [
+          1000,
+          10000,
+          100000
+        ],
+        "lessThanMs": 1000
+      },
+      "observed": {
+        "1000": 2.81,
+        "10000": 1.176,
+        "100000": 1.081
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "passed": true,
+      "productionSlo": false
+    },
+    {
+      "id": "management_32_operators",
+      "authority": "frozen-local-test-budget",
+      "target": {
+        "operators": 32,
+        "lessThanMs": 2000
+      },
+      "observed": {
+        "elapsedMs": 46.191
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "passed": true,
+      "productionSlo": false
+    },
+    {
+      "id": "a2a_projection_10000",
+      "authority": "frozen-local-test-budget",
+      "target": {
+        "iterations": 10000,
+        "lessThanMs": 2000
+      },
+      "observed": {
+        "elapsedMs": 37.328
+      },
+      "classification": "real-local",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json",
+        "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts"
+      ],
+      "passed": true,
+      "productionSlo": false
+    }
+  ],
+  "metrics": [
+    {
+      "id": "availability",
+      "classification": "static",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": "functional recovery and full-gate pass/fail only",
+      "evidenceRefs": [
+        "docs/17_TRACEABILITY_MATRIX.md",
+        "reports/goal/v1.3-p10-resilience-report.json"
+      ],
+      "limitation": "No approved availability percentage or production observation window."
+    },
+    {
+      "id": "error_rate",
+      "classification": "simulated",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": [
+        {
+          "requests": 1,
+          "errorRate": 0
+        },
+        {
+          "requests": 10,
+          "errorRate": 0
+        },
+        {
+          "requests": 100,
+          "errorRate": 0
+        },
+        {
+          "requests": 1000,
+          "errorRate": 0
+        }
+      ],
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-performance-report.json"
+      ],
+      "limitation": "Harness-only sample; no approved production error-rate objective."
+    },
+    {
+      "id": "latency_percentiles",
+      "classification": "real-local",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "retrieval": {
+          "environment": "local isolated PostgreSQL, 2026-07-29",
+          "samples": 25,
+          "p50Ms": 9.048499999999876,
+          "p95Ms": 10.600000000000364,
+          "authority": "postgresql_active_pointer_and_artifact_match_log"
+        },
+        "gateway": [
+          {
+            "requests": 1,
+            "p50Ms": 0.721,
+            "p95Ms": 0.721,
+            "p99Ms": 0.721,
+            "elapsedMs": 1.091,
+            "errorRate": 0
+          },
+          {
+            "requests": 10,
+            "p50Ms": 4.291,
+            "p95Ms": 4.929,
+            "p99Ms": 4.929,
+            "elapsedMs": 5.075,
+            "errorRate": 0
+          },
+          {
+            "requests": 100,
+            "p50Ms": 51.055,
+            "p95Ms": 57.191,
+            "p99Ms": 57.648,
+            "elapsedMs": 57.798,
+            "errorRate": 0
+          },
+          {
+            "requests": 1000,
+            "p50Ms": 459.634,
+            "p95Ms": 518.873,
+            "p99Ms": 522.928,
+            "elapsedMs": 525.395,
+            "errorRate": 0
+          }
+        ]
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p07-performance-report.json",
+        "reports/goal/v1.3-p10-performance-report.json"
+      ],
+      "limitation": "Per-workload local measurements; no global production percentile."
+    },
+    {
+      "id": "deadline_miss",
+      "classification": "simulated",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "packageId": "SDAR-V1.3-P10",
+        "status": "passed",
+        "absoluteDeadline": true,
+        "fallbackReserveMs": 250,
+        "defaultStageTimeoutMs": {
+          "retrieval": 500,
+          "rule": 300,
+          "template": 800
+        },
+        "defaultFallbackStartTimeoutMs": 1000,
+        "cancellationPropagated": true,
+        "lateResultsDiscarded": true,
+        "formalCommitGuarded": true,
+        "firstFailures": [
+          {
+            "command": "pnpm test:e2e",
+            "cause": "Gateway denial errorCode was not projected through the existing Task failure operation",
+            "fix": "PlanPreparationProcessor now uses the authoritative failTask path for TaskApplicationError",
+            "rerun": "63/63 passed"
+          }
+        ],
+        "evidence": [
+          "packages/application/test/fast-gateway-p10.unit.test.ts",
+          "packages/application/test/fast-gateway-adapters-p10.unit.test.ts"
+        ]
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-deadline-report.json"
+      ],
+      "limitation": "Behavioral deadline/late-result tests; no deadline-miss rate."
+    },
+    {
+      "id": "fast_path_added_latency",
+      "classification": "simulated",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "samples": 250,
+        "p95Ms": 1.072,
+        "maximumMs": 24.589,
+        "budgetMs": 25
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-performance-report.json"
+      ],
+      "limitation": "No-match orchestration proxy, not production end-to-end added latency."
+    },
+    {
+      "id": "formal_handoff",
+      "classification": "static",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "packageId": "SDAR-V1.3-P08",
+        "formalPlanAuthority": "existing ConfirmedPlanHandoff and UserGoalPlanningService",
+        "p08Writes": "P02 ArtifactExecutionRepository parent records and feedback only",
+        "idempotency": {
+          "key": "TemplateInstantiationInput.idempotencyKey",
+          "stableInstantiationId": true,
+          "stableArtifactExecutionId": true,
+          "candidateContentHash": true,
+          "existingSessionContentHashConflict": "INTERACTIVE_PLANNING_IDEMPOTENCY_CONFLICT"
+        },
+        "staleBehavior": "second current-state snapshot mismatch returns discarded_stale before formal session admission",
+        "partialFormalPlan": false,
+        "evidence": "template-runtime-p08.unit.test.ts stale before formal handoff"
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p08-handoff-transaction-report.json"
+      ],
+      "limitation": "Atomicity/idempotency evidence only; no handoff latency target."
+    },
+    {
+      "id": "fallback",
+      "classification": "simulated",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "packageId": "SDAR-V1.3-P10",
+        "status": "passed",
+        "noMatch": "cognitive_runtime",
+        "featureOff": "existing cognitive runtime",
+        "adapterFailure": "bounded cognitive fallback",
+        "denyFallsBack": false,
+        "confirmationFallsBack": false,
+        "fallbackSuccessCountsAsFastSuccess": false,
+        "fallbackBulkheadIndependent": true,
+        "evidence": [
+          "packages/application/src/compiler/fast-gateway.ts",
+          "packages/application/test/fast-gateway-p10.unit.test.ts"
+        ]
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-fallback-report.json"
+      ],
+      "limitation": "Fallback correctness/bulkhead evidence; no production fallback latency target."
+    },
+    {
+      "id": "feedback_lag",
+      "classification": "unverified",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": "synchronous durable persistence and Outbox correctness",
+      "evidenceRefs": [
+        "reports/goal/v1.3-p10-attribution-report.json",
+        "packages/persistence-postgres/test/fast-gateway-p10.integration.test.ts"
+      ],
+      "limitation": "No feedback-lag distribution."
+    },
+    {
+      "id": "revalidation_lag",
+      "classification": "real-local",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "compilerWakeMs": 17.084,
+        "replayWakeMs": 18.272
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "limitation": "Queue-wake proxies, not full revalidation completion latency."
+    },
+    {
+      "id": "console_load",
+      "classification": "static",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "packageId": "SDAR-V1.3-P12",
+        "status": "passed",
+        "evidence": [
+          {
+            "layer": "Console component contract",
+            "command": "vitest apps/console/src/console.unit.test.tsx",
+            "result": "passed",
+            "scope": "real API client bindings and rendered states"
+          },
+          {
+            "layer": "Server vertical slice",
+            "command": "vitest apps/server/test/artifact-management-p12.e2e.test.ts",
+            "result": "3/3 passed",
+            "scope": "tenant list, governance write, IDOR, runtime, SSE, A2A"
+          }
+        ],
+        "limitation": "No screenshot claim; interactive browser pixels are not used as acceptance evidence."
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-console-e2e-report.json"
+      ],
+      "limitation": "Functional rendered-state evidence; no browser load percentile."
+    },
+    {
+      "id": "management_query",
+      "classification": "real-local",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "1000": 2.81,
+        "10000": 1.176,
+        "100000": 1.081
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-performance-report.json"
+      ],
+      "limitation": "Local temporary indexed projection, not production data distribution."
+    },
+    {
+      "id": "sse_delivery",
+      "classification": "static",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "packageId": "SDAR-V1.3-P12",
+        "status": "passed",
+        "authority": "cognitive_runtime_outbox",
+        "transport": "bounded replay response",
+        "resume": "Last-Event-ID or after sequence",
+        "ordering": "transaction-ordered outbox_sequence",
+        "dedup": "event ID and monotonically increasing sequence",
+        "backpressure": "limit max 500 plus explicit resumable overflow",
+        "tenant": "principal plus authoritative P02/P10/P11 source joins",
+        "redaction": "shared recursive policy",
+        "redisAuthority": false,
+        "formalStateMutation": false
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p12-sse-report.json"
+      ],
+      "limitation": "Ordering/resume/backpressure behavior; no delivery-latency percentile."
+    },
+    {
+      "id": "queue_recovery",
+      "classification": "real-local",
+      "applicability": "required",
+      "approvedTarget": null,
+      "observed": {
+        "compilerQueueLagMs": 17.084,
+        "replayQueueLagMs": 18.272,
+        "recoveryEvidence": "real Redis job obliteration followed by PostgreSQL-authoritative reconciler rebuild and duplicate-wake deduplication"
+      },
+      "evidenceRefs": [
+        "reports/goal/v1.3-p03-mining-report.json",
+        "reports/goal/v1.3-p05-performance-report.json"
+      ],
+      "limitation": "No approved production RTO."
+    }
+  ],
+  "releaseCandidateAssessment": {
+    "capacityContractCoverage": true,
+    "approvedLocalTargetsPassed": true,
+    "productionAvailabilityObjectiveDefined": false,
+    "productionRtoDefined": false,
+    "productionSloApproved": false
+  },
+  "sources": [
+    {
+      "path": "docs/01_REQUIREMENTS_BASELINE.md",
+      "sha256": "86042a5dfe276089c088c5d952bde8628141185facdd0bdc60c038e0bdbb7919"
+    },
+    {
+      "path": "docs/16_DEFINITION_OF_DONE.md",
+      "sha256": "a758b96983f7b0f16c9f5dab3e410c02002a2ef7af978c5eea999ed0201473fd"
+    },
+    {
+      "path": "docs/17_TRACEABILITY_MATRIX.md",
+      "sha256": "641c8d542f0e629df198cdd7f0a947a6c8ef64af1bb8d1d8836a86ab6f677fda"
+    },
+    {
+      "path": "docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/packages/SDAR_v1.3_P13_Codex_Goal_Package_V1.1/CAPACITY-SLO-CONTRACT.md",
+      "sha256": "6893e1a1e590f3000fe2b5aa8a0a4ed79778f9a47daa9fef367178a9e15f8c4d"
+    },
+    {
+      "path": "packages/application/test/fast-gateway-p10.unit.test.ts",
+      "sha256": "14e89267a335f9ce3bc4edaabe56b25c25803299890465a36a94fe13e3a91695"
+    },
+    {
+      "path": "packages/domain/test/decision-rule-runtime-p09.unit.test.ts",
+      "sha256": "b66e94644ddf3b5185c331f3a88dbe565ca15a3d7236f2c4d7157728cc6e1394"
+    },
+    {
+      "path": "packages/persistence-postgres/test/artifact-management-p12-performance.integration.test.ts",
+      "sha256": "714169064bc3c150a1624119224683d325c7ad87ec332b31b53ac50f56d5cb0a"
+    },
+    {
+      "path": "packages/persistence-postgres/test/artifact-retrieval-p07.integration.test.ts",
+      "sha256": "3655708cc129ca9c531f6b27a086a80b89af92d8e85fad2a888dfb400c846a29"
+    },
+    {
+      "path": "reports/EP-07-hardening-acceptance/NFR-PERF-001-context-concurrency.json",
+      "sha256": "66b97be33d9ed439bedf2bcb5298f7c0128cc222050032337503adda341dcba6"
+    },
+    {
+      "path": "reports/goal/v1.3-p03-mining-report.json",
+      "sha256": "ec79aa6f96ac218a1056706548994affa8cbb92f0bf6d842e667d85ee25f2eb0"
+    },
+    {
+      "path": "reports/goal/v1.3-p05-performance-report.json",
+      "sha256": "e37f068737c2f8d689fa14bb13c16f2615e0e1884dc309ed977e9bd1a6a27dd6"
+    },
+    {
+      "path": "reports/goal/v1.3-p06-shadow-capacity-report.json",
+      "sha256": "a59ece7c23ed0b59abba4724f3db1fd76112f038115af1c69865a0e73a5437d7"
+    },
+    {
+      "path": "reports/goal/v1.3-p07-performance-report.json",
+      "sha256": "d4abad01f349cf3c688adf343a167ba5d0fee19edb7db245cef6aaaa46d9818f"
+    },
+    {
+      "path": "reports/goal/v1.3-p08-handoff-transaction-report.json",
+      "sha256": "80255a65e53d7ba7a0c9686f07674a399458cfab87fa11363c0a6b780979485d"
+    },
+    {
+      "path": "reports/goal/v1.3-p08-performance-report.json",
+      "sha256": "f626903ef850cc556623e106b3cae6b3ba76b8d2d64ae156d58448dba2595005"
+    },
+    {
+      "path": "reports/goal/v1.3-p09-performance-report.json",
+      "sha256": "8acdf3a7e75d9fdb6c3449ae53562b843019065144aa5b8dfb32c4293ba686e6"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-attribution-report.json",
+      "sha256": "ebfd2d1b5c72f7dc4080b8149c02c6be05e2260147f1dd5e3b3df0c5e5fcf036"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-deadline-report.json",
+      "sha256": "bfa32340ca7c51cbf1b28d5b3215d7ffa8c8b93d623c56fbca89816ce17a3a24"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-fallback-report.json",
+      "sha256": "6b443060e18fcb70868b7c6afcf001c6915baf961aa379bbf1b2b750a487944d"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-performance-report.json",
+      "sha256": "7007615c149575447147992ea53e775b3cc8ceec189e5f724f66b11f9ea41713"
+    },
+    {
+      "path": "reports/goal/v1.3-p10-resilience-report.json",
+      "sha256": "0cfbcbd1ba03a48661ec229fec7ff7c0107d971f6160e6e6d816c897aeb1b3e7"
+    },
+    {
+      "path": "reports/goal/v1.3-p11-budget-cost-report.json",
+      "sha256": "ddae150572a4ae4972da71b692b26c3714e43c27ca869112c090a2d386c563ea"
+    },
+    {
+      "path": "reports/goal/v1.3-p11-performance-report.json",
+      "sha256": "0f206dfd0abc07711e73026486dd33db57d8a04020db36418a051c6ecff2f4b7"
+    },
+    {
+      "path": "reports/goal/v1.3-p12-console-e2e-report.json",
+      "sha256": "4fa88a19ba481832c0fa15838df1a571eb59b132ee7d7d616baba9392b2b0d88"
+    },
+    {
+      "path": "reports/goal/v1.3-p12-performance-report.json",
+      "sha256": "da12a5a46d8412f0553e55720d8f28a880c3a47b72037cc9e085f60e92bbbd13"
+    },
+    {
+      "path": "reports/goal/v1.3-p12-sse-report.json",
+      "sha256": "2e9a066dbece81ad87f11f29629bd6779c7b4cfaa2354813ef99ad4a340c6f21"
+    }
+  ]
+}

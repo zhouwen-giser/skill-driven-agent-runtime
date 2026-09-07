@@ -1,0 +1,28 @@
+{
+  "packageId":"SDAR-V1.3-P12","status":"passed",
+  "summary":{"passed":54,"failed":0,"blocked":0},
+  "criteria":{
+    "AC-P12-001":"passed","AC-P12-002":"passed","AC-P12-003":"passed",
+    "AC-P12-004":"passed","AC-P12-005":"passed","AC-P12-006":"passed",
+    "AC-P12-007":"passed","AC-P12-008":"passed","AC-P12-009":"passed",
+    "AC-P12-010":"passed","AC-P12-011":"passed","AC-P12-012":"passed",
+    "AC-P12-013":"passed","AC-P12-014":"passed","AC-P12-015":"passed",
+    "AC-P12-016":"passed","AC-P12-017":"passed","AC-P12-018":"passed",
+    "AC-P12-019":"passed","AC-P12-020":"passed","AC-P12-021":"passed",
+    "AC-P12-022":"passed","AC-P12-023":"passed","AC-P12-024":"passed",
+    "AC-P12-025":"passed","AC-P12-026":"passed","AC-P12-027":"passed",
+    "AC-P12-028":"passed","AC-P12-029":"passed","AC-P12-030":"passed",
+    "AC-P12-031":"passed","AC-P12-032":"passed","AC-P12-033":"passed",
+    "AC-P12-034":"passed","AC-P12-035":"passed","AC-P12-036":"passed",
+    "AC-P12-037":"passed","AC-P12-038":"passed","AC-P12-039":"passed",
+    "AC-P12-040":"passed","AC-P12-041":"passed","AC-P12-042":"passed",
+    "AC-P12-043":"passed","AC-P12-044":"passed","AC-P12-045":"passed",
+    "AC-P12-046":"passed","AC-P12-047":"passed","AC-P12-048":"passed",
+    "AC-P12-049":"passed","AC-P12-050":"passed","AC-P12-051":"passed",
+    "AC-P12-052":"passed","AC-P12-053":"passed","AC-P12-054":"passed"
+  },
+  "evidence":["reports/goal/v1.3-p12-completion.md","reports/goal/v1.3-p12-review.md",
+    "reports/goal/v1.3-p12-full-verify-report.json","reports/goal/v1.3-p12-security-report.json",
+    "reports/goal/v1.3-p12-console-e2e-report.json","reports/goal/v1.3-p12-a2a-tck-report.json",
+    "reports/goal/v1.3-p12-sse-report.json","reports/goal/v1.3-p12-performance-report.json"]
+}

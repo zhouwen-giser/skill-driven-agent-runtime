@@ -97,6 +97,7 @@ describe('UGV move Workflow Profile adapter', () => {
     expect(repository.attempts[0]).toMatchObject({ valid: true, validationErrors: [] });
     expect(plan.confirmationStatus).toBe('awaiting_confirmation');
     expect(plan.definition).toEqual(prepared.deterministicDefinition);
+    expect(prepared.deterministicDefinition.executionSemanticsVersion).toBe('2.0');
     expect(prepared.policy.allowedTools).toEqual([
       { serverId: fixture.selected.server.serverId, toolName: 'vehicle_navigate' },
       { serverId: fixture.selected.finalStateRead.serverId, toolName: 'vehicle_get_state' },
@@ -392,7 +393,7 @@ describe('UGV move Workflow Profile adapter', () => {
     }
   });
 
-  it('keeps the generated DSL evidence fixture identical to the deterministic component output', async () => {
+  it('preserves the legacy evidence graph when generating the new scoped definition', async () => {
     const fixture = await ugvWorkflowPlanningFixture();
     const prepared = prepareUgvMoveWorkflowPlan({
       ...fixture,
@@ -407,8 +408,11 @@ describe('UGV move Workflow Profile adapter', () => {
         'utf8',
       ),
     ) as Readonly<Record<string, unknown>>;
-    const { skillUsagePolicy, ...workflowDefinition } = prepared.deterministicDefinition;
+    const { skillUsagePolicy, executionSemanticsVersion, ...workflowDefinition } =
+      prepared.deterministicDefinition;
     expect(skillUsagePolicy).toEqual(prepared.policy);
+    expect(executionSemanticsVersion).toBe('2.0');
+    expect(evidence['workflowDefinition']).not.toHaveProperty('executionSemanticsVersion');
 
     expect(evidence).toMatchObject({
       schemaVersion: 'ugv-agent-profile.generated-workflow/v1',

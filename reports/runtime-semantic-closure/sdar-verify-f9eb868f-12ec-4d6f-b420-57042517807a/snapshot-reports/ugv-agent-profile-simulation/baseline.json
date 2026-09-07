@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "ugv-agent-profile.baseline/v1",
+  "generatedAt": "2026-08-21T01:23:24.088Z",
+  "status": "captured",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "goalPackage": "/tmp/ugv-agent-profile-goal.NisdIO/ugv-agent-profile-sdar-smpp-simulation-goal-v1",
+  "repository": {
+    "name": "skill-driven-agent-runtime",
+    "path": "/home/zhouwen/web-download/skill-driven-agent-runtime",
+    "branch": "codex/sdar-ugv-smpp-integration",
+    "head": "928c645702f9e05e32cc001335898b79444ef9f6",
+    "remote": "https://github.com/zhouwen-giser/skill-driven-agent-runtime.git",
+    "remoteBranchVerifiedHead": "928c645702f9e05e32cc001335898b79444ef9f6",
+    "initialWorktreeClean": true,
+    "initialDirtyPaths": []
+  },
+  "reference": {
+    "taskPackageCommit": "2275bc52759914bc80113358a9083e6f00d59e6d",
+    "mergeBase": "0da6075f2581279909efb69fc8e48cb01d95552c",
+    "referenceOnlyCommits": 1,
+    "currentOnlyCommits": 1,
+    "forcedCheckout": false
+  },
+  "runtime": {
+    "node": "v22.23.1",
+    "pnpm": "11.7.0",
+    "dockerClient": "29.6.1",
+    "dockerServer": "29.6.1",
+    "dockerApi": "1.55"
+  },
+  "externalSimulation": {
+    "mqtt": "mqtt://192.168.2.63:1883",
+    "deviceMcp": "http://192.168.2.63:19000/mcp",
+    "southboundOwner": "sdar-mcp-provider-platform UGV Adapter",
+    "sdarDirectAccessAllowed": false
+  }
+}

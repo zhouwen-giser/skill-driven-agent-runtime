@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:08:24.425Z",
+  "recordedAt": "2026-08-21T09:08:24.425Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command results did not include wall-clock execution timestamps; the evidence recording time is not substituted.",
+  "status": "BASELINE_FAILURE_WITH_CHANGED_FILE_PASS",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "static_verification",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "fullCommand": "pnpm lint",
+  "fullExitCode": 1,
+  "failure": {
+    "errorCount": 22,
+    "files": [
+      "apps/node-control-acceptance/src/home-lab-a2a-model-contract.ts",
+      "apps/node-control-acceptance/src/home-lab-g09-governed-light-driver.ts",
+      "apps/node-control-acceptance/test/home-lab-a2a-model-bootstrap.unit.test.ts",
+      "apps/node-control-acceptance/test/home-lab-g09-governed-light-driver.unit.test.ts",
+      "apps/server/src/home-lab-governed-light-workflow-contract.ts",
+      "apps/server/src/home-lab-task-understanding.ts",
+      "apps/server/test/home-lab-governed-light-profile.unit.test.ts"
+    ],
+    "unchangedByTask": true,
+    "summary": "The repository-wide lint gate retains 22 pre-existing errors in seven unchanged Home-Lab files."
+  },
+  "scopedReplay": {
+    "command": "git status --porcelain=v1 | cut -c4- | rg '\\.(ts|tsx|mts|cts)$' | xargs pnpm exec eslint",
+    "resolvedPathCount": 46,
+    "exitCode": 0,
+    "result": "All 46 P2-B03 changed TypeScript files passed ESLint."
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

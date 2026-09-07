@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-BREAKPOINT-REPAIR",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baseBranch": "main",
+  "mainSha": "b7f02dcedc9680758e7e5f779a939a738d8de770",
+  "mainCommitMessage": "Merge pull request #20 from zhouwen-giser/codex/sdar-ugv-smpp-integration",
+  "mainCommittedAt": "2026-08-13T08:54:19+08:00",
+  "observedAt": "2026-08-13T09:22:22.0818780+08:00",
+  "targetBranch": "fix/sdar-breakpoint-repair",
+  "nodeVersion": "v22.14.0",
+  "pnpmVersion": "11.7.0",
+  "packageVersion": "1.4.1",
+  "workingTreeCleanBeforeBranchCreation": true,
+  "branchCreatedFromOriginMain": true,
+  "remoteBranchCreated": true
+}

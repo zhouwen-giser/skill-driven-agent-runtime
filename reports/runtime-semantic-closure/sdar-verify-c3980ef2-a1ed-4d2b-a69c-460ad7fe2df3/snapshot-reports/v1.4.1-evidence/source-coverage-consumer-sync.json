@@ -1,0 +1,21 @@
+{
+  "contract": "sdar.evidence/v1",
+  "extension": "sdar-smpp-mcp-tasks-consumer-sync-v0.1",
+  "catalogTotal": 105,
+  "requiredTotal": 100,
+  "diagnosticTotal": 5,
+  "mcpTaskTotal": 16,
+  "implementedAndVerified": 105,
+  "durableProjectionTotal": 105,
+  "registryHash": "sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197",
+  "formalGates": {
+    "evidenceContract": "passed",
+    "evidenceCoverage": "passed"
+  },
+  "generatedFrom": [
+    "schemas/evidence/v1/registry.json",
+    "reports/v1.4.1-evidence/source-to-evidence-matrix.json",
+    "reports/v1.4.1-evidence/verification-proof-manifest.json"
+  ],
+  "historicalPhase14SnapshotPreserved": true
+}

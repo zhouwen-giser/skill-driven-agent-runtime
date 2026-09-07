@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:02:00.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm typecheck",
+  "exitCode": 2,
+  "failure": {
+    "code": "TYPESCRIPT_COMPILE_ERROR",
+    "summary": "The first SelectedTaskOperation/resolver draft did not narrow a possibly undefined current Skill, had not yet registered SELECTED_TASK_OPERATION_INVALID, and represented optional lifecycle fields incompatibly with exactOptionalPropertyTypes."
+  },
+  "fix": {
+    "summary": "Narrowed the exact current Skill before use, registered the stable Domain error, and retained additive lifecycle fields using exact optional-property semantics. The subsequent typecheck exposed only the separate literal binding-ID issue recorded in attempt 2.",
+    "stateMutation": "source_and_tests_only"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

@@ -21,9 +21,11 @@ import type { A2AArtifactProjection } from '../../domain/src/index.js';
 import { createGovernedControlA2AAuthentication } from './authenticated-confirm-user.js';
 import { A2AAgentCardBuilder } from './capability-card-projection.js';
 import { buildAgentCard } from './compatibility.js';
+import { ObservedRequestHandler, type TaskObservationOptions } from './observed-request-handler.js';
 import { ReplaySafeExecutionEventBusManager } from './replay-safe-event-bus-manager.js';
 
 export interface A2AHttpEndpointOptions {
+  readonly observation?: TaskObservationOptions;
   readonly executor: AgentExecutor;
   readonly taskStore: TaskStore;
   readonly eventBusManager?: ExecutionEventBusManager;
@@ -151,12 +153,16 @@ export async function startA2AHttpEndpoint(
     });
   };
   const card = await loadCard();
-  const handler = new DefaultRequestHandler(
+  const handlerArguments: ConstructorParameters<typeof DefaultRequestHandler> = [
     card,
     options.taskStore,
     options.executor,
     options.eventBusManager ?? new ReplaySafeExecutionEventBusManager(),
-  );
+  ];
+  const handler =
+    options.observation === undefined
+      ? new DefaultRequestHandler(...handlerArguments)
+      : new ObservedRequestHandler(handlerArguments, options.observation);
   const confirmationAuthentication =
     options.confirmationPrincipalResolver === undefined
       ? undefined
@@ -215,7 +221,14 @@ export async function startA2AHttpEndpoint(
     }),
   );
   const client = await new ClientFactory().createFromUrl(baseUrl);
-  return { baseUrl, client, close: () => closeServer(server) };
+  return {
+    baseUrl,
+    client,
+    close: () => {
+      if (handler instanceof ObservedRequestHandler) handler.closeObservation();
+      return closeServer(server);
+    },
+  };
 }
 
 async function closeServer(server: HttpServer): Promise<void> {

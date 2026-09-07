@@ -1,0 +1,2216 @@
+{
+  "schemaVersion": "1.0",
+  "reportId": "SDAR-V1.3-P13-HANDOFF-INTEGRITY",
+  "mode": "preflight",
+  "generatedAt": "2026-07-30T12:20:16+08:00",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "branch": "feature/v1.3-sequential-implementation",
+  "candidateSha": "e3d7c8662de78d6a99289183d5345d89adad96cb",
+  "expectedTopLevelFieldCount": 28,
+  "packages": [
+    {
+      "package": "P00",
+      "packageId": "SDAR-V1.3-P00",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "READY_FULL",
+      "evidenceRefs": [
+        {
+          "ref": "reports/goal/v1.3-p00-actual-contract.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-baseline-report.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-prerequisite-matrix.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-baseline-report.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-architecture-dependency-map.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-prerequisite-matrix.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-actual-contract.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p00-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.2.3-external-merge-deviation-owner-acceptance.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/v1.3-orchestration/p00-owner-acceptance-verification-summary.json",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477"
+        },
+        {
+          "name": "commits.orchestrationBaseline",
+          "ref": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "1bcee05792c918a1273b06ee7d58f7adb40bb572"
+        },
+        {
+          "name": "commits.completion",
+          "ref": "09205a15b5c6df7be28c7eca7c1e418474b6a033",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "09205a15b5c6df7be28c7eca7c1e418474b6a033"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P01",
+      "packageId": "SDAR-V1.3-P01",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/lifecycle.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/factory.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/artifact-domain.schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/schemas/src/artifact.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/schemas/src/artifact.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/validation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fixtures/artifact-domain.golden.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fixtures/artifact-domain.golden.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fixtures/artifact-domain.golden.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fixtures/artifact-domain.golden.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/schemas/src/artifact.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fixtures/artifact-domain.golden.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fixtures/artifact-domain.golden.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/factory.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/contracts.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/factory.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p01-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p01-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/v1.3-orchestration/p01-verification-summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P01.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "adr/ADR-116-runtime-artifact-domain-authority.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/artifact-domain.schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fixtures/artifact-domain.golden.json",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477"
+        },
+        {
+          "name": "commits.preImplementationHead",
+          "ref": "a8d53ff2a6d1de2e72d508ab35c40cd90f006618",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "a8d53ff2a6d1de2e72d508ab35c40cd90f006618"
+        },
+        {
+          "name": "commits.completion",
+          "ref": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "8ac5f5e35982d6406290302c1a095a79d1031aa1"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P02",
+      "packageId": "SDAR-V1.3-P02",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/application/src/compiler/artifact-persistence.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-persistence.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-persistence.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-registry.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-outbox-consumer.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-outbox-consumer-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-governance.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-governance.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p02-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p02-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p02-review-1.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p02-review-2.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p02-review-3.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/v1.3-orchestration/p02-verification-summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P02.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "adr/ADR-117-artifact-persistence-registry-governance-authority.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "infra/postgres/migrations/0125_v13_artifact_authority.up.sql",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477"
+        },
+        {
+          "name": "commits.preImplementationHead",
+          "ref": "659a5f1e42033fa9d550f00889bf058d499f8ab1",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "659a5f1e42033fa9d550f00889bf058d499f8ab1"
+        },
+        {
+          "name": "commits.completion",
+          "ref": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P03",
+      "packageId": "SDAR-V1.3-P03",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/experience-compilation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/experience-normalizer.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/experience-normalizer.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/process-miner.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/process-miner.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p03-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p03-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p03-golden-dataset.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p03-mining-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P04R.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "adr/ADR-120-p04r-workflow-pattern-conditional-dependencies.md",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "6996cffac87e3a3bfdae2006c90006c0cce35a98",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "6996cffac87e3a3bfdae2006c90006c0cce35a98"
+        },
+        {
+          "name": "commits.v11Completion",
+          "ref": "e926445b645b6425d246eb019e05f06a7c7c5f8e",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "e926445b645b6425d246eb019e05f06a7c7c5f8e"
+        },
+        {
+          "name": "commits.p04rActivityIdentityAndMining",
+          "ref": "6996cffac87e3a3bfdae2006c90006c0cce35a98",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "6996cffac87e3a3bfdae2006c90006c0cce35a98"
+        },
+        {
+          "name": "commits.p04rVerifiedHead",
+          "ref": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P04",
+      "packageId": "SDAR-V1.3-P04",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/artifact-candidate-generation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/pattern-generalization.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-candidate-generation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/pattern-generalization.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-candidate-generation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/candidate-generator.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/candidate-generation-repositories.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p04-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p04-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p04-golden-candidates.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p04-static-validation-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P04R.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "infra/postgres/migrations/0128_v13_candidate_generation_runtime.up.sql",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "9689a6642c0406d122da0308088fbbd32deea324",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "9689a6642c0406d122da0308088fbbd32deea324"
+        },
+        {
+          "name": "commits.v11Completion",
+          "ref": "e4e2992667b2731c2366420d8ea2ee70bb01524c",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "e4e2992667b2731c2366420d8ea2ee70bb01524c"
+        },
+        {
+          "name": "commits.p04rCompilerSemantics",
+          "ref": "9af979c020bca0766867876ee2a1e31e918f020a",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "9af979c020bca0766867876ee2a1e31e918f020a"
+        },
+        {
+          "name": "commits.p04rCandidateRuntime",
+          "ref": "9689a6642c0406d122da0308088fbbd32deea324",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "9689a6642c0406d122da0308088fbbd32deea324"
+        },
+        {
+          "name": "commits.p04rVerifiedHead",
+          "ref": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P05",
+      "packageId": "SDAR-V1.3-P05",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/artifact-replay-validation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/replay-dataset.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-replay-validation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/replay-dataset.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-replay-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/runtime-redis/src/compiler/artifact-replay-validation-workers.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-replay-validation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-replay-validator.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-replay-validation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-replay-validator.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-replay-validation.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-replay-validator.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-acceptance.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-replay-case-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-dataset-manifest.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-leakage-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-metric-catalog.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-validation-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-counterexamples.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-safety-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p05-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P05.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "infra/postgres/migrations/0129_v13_artifact_replay_validation.up.sql",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "adr/ADR-121-artifact-replay-validation-authority.md",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "14eb9785399ba632351b1c2bd7446dfee956c07d",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "14eb9785399ba632351b1c2bd7446dfee956c07d"
+        },
+        {
+          "name": "commits.g09ReplayDataset",
+          "ref": "849019b93782b8f1c9957673450e442cbe535e36",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "849019b93782b8f1c9957673450e442cbe535e36"
+        },
+        {
+          "name": "commits.g10ReplayValidation",
+          "ref": "22b9c8d57e962bf803af93f343f52803c675560a",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "22b9c8d57e962bf803af93f343f52803c675560a"
+        },
+        {
+          "name": "commits.replaySemanticsClosure",
+          "ref": "0ffe2da90d99e90d2aa8f05b1aa4bf2558847205",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "0ffe2da90d99e90d2aa8f05b1aa4bf2558847205"
+        },
+        {
+          "name": "commits.contractDependencyAlignment",
+          "ref": "dec89da95542b1f8ef4e50d9ff4fbd794078c241",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "dec89da95542b1f8ef4e50d9ff4fbd794078c241"
+        },
+        {
+          "name": "commits.independentReviewClosure",
+          "ref": "87e0db01b45ef64f9ac5d4c7619f5e614b23be2d",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "87e0db01b45ef64f9ac5d4c7619f5e614b23be2d"
+        },
+        {
+          "name": "commits.productionReplayAuthority",
+          "ref": "5aa6bc155511c840ae4352d8dd599f085339af6b",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "5aa6bc155511c840ae4352d8dd599f085339af6b"
+        },
+        {
+          "name": "commits.historicalCapabilityAuthority",
+          "ref": "14eb9785399ba632351b1c2bd7446dfee956c07d",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "14eb9785399ba632351b1c2bd7446dfee956c07d"
+        },
+        {
+          "name": "commits.fullVerification",
+          "ref": "55a338204a6e2b2dabbd9cf9bc5e3cf9ca74de57",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "55a338204a6e2b2dabbd9cf9bc5e3cf9ca74de57"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P06",
+      "packageId": "SDAR-V1.3-P06",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/artifact-shadow-governance.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-shadow-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-shadow-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-promotion-governance.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-promotion-governance.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-shadow-governance-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-promotion-governance.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/runtime-redis/src/compiler/artifact-shadow-workers.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p06-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p06-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P06.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "infra/postgres/migrations/0130_v13_artifact_shadow_governance.up.sql",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "aa060f318b77a375f20f32fbdea1629ac5511b55",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "aa060f318b77a375f20f32fbdea1629ac5511b55"
+        },
+        {
+          "name": "commits.shadowPromotionGovernance",
+          "ref": "70647a08b4c20bab50f9c2d93827cd0b26077ad7",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "70647a08b4c20bab50f9c2d93827cd0b26077ad7"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P07",
+      "packageId": "SDAR-V1.3-P07",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-persistence.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-repositories.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-retrieval-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-retrieval-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-retrieval-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-retrieval.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p07-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p07-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p07-acceptance.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p07-performance-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p07-security-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P07.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "infra/postgres/migrations/0131_v13_artifact_retrieval_audit.up.sql",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "9b2e07d140fd101e9ea89967c2e8b8d3f54a3070",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "9b2e07d140fd101e9ea89967c2e8b8d3f54a3070"
+        },
+        {
+          "name": "commits.activeArtifactRetrieval",
+          "ref": "a53798b3b591194f99abc0a4b0c4329aaf764f4d",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "a53798b3b591194f99abc0a4b0c4329aaf764f4d"
+        },
+        {
+          "name": "commits.globalRevalidationEvidence",
+          "ref": "d2a37fd",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "d2a37fdfbe07f55184464ee1a8af76317e5b5f26"
+        },
+        {
+          "name": "commits.p06NeutralAdapter",
+          "ref": "26b60c2",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "26b60c2129f9fbfd30e363e113991962bd91e9b4"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P08",
+      "packageId": "SDAR-V1.3-P08",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/cognitive/confirmed-plan-handoff.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "apps/server/src/runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/template-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/cognitive/interactive-planning-session-service.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/cognitive/confirmed-plan-handoff.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p08-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p08-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p08-acceptance.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p08-runtime-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p08-goal-context-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p08-materialized-plan-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p08-handoff-transaction-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P08.md",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "fe41d60c3c6acc6557ba5a0d702dcb82f767a599",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "fe41d60c3c6acc6557ba5a0d702dcb82f767a599"
+        },
+        {
+          "name": "commits.templateRuntime",
+          "ref": "3883786",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "3883786a33070ebf902f3fbbe59a4678c8a04153"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P09",
+      "packageId": "SDAR-V1.3-P09",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/decision-rule-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-acceptance.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-rule-dsl-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-operator-catalog.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-evaluation-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-conflict-resolution-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-policy-authority-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-plan-patch-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-usage-drift-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-security-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-performance-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p09-full-verify-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P09.md",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "830f77590d584e3c6e40a0d506a5f8a5cabc5a8c",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "830f77590d584e3c6e40a0d506a5f8a5cabc5a8c"
+        },
+        {
+          "name": "commits.decisionRuleRuntime",
+          "ref": "3244647",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "3244647856df98411c5e3de7435ec382d2ca333f"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P10",
+      "packageId": "SDAR-V1.3-P10",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/fast-gateway.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/v1.3/fast-gateway.schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/fast-gateway.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/fast-gateway.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/fast-gateway.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/gateway-feedback-analysis.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-acceptance.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-gateway-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-orchestration-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-deadline-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-fallback-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-resilience-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-feedback-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-attribution-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-drift-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-protocol-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-security-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-performance-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p10-full-verify-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P10.md",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "a8a0d2865b0ee5ee6a10fa6d6204ebdafc4b426c",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "a8a0d2865b0ee5ee6a10fa6d6204ebdafc4b426c"
+        },
+        {
+          "name": "commits.gatewayOrchestration",
+          "ref": "a27e49c",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "a27e49c6093a3a763bc3ca8204cc77af7d0f5cff"
+        },
+        {
+          "name": "commits.artifactFeedback",
+          "ref": "211b88b",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "211b88bba8188955c31fe38b62b599e89f9d0685"
+        },
+        {
+          "name": "commits.reviewOrderingAndIdempotency",
+          "ref": "3d7c722",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "3d7c722e742e246272efec6053ec251cc18b231e"
+        },
+        {
+          "name": "commits.resilienceAndEvidence",
+          "ref": "13d4b54",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "13d4b54416bc468c33e56f86b8e62dae89e2ae60"
+        },
+        {
+          "name": "commits.protocolAlignment",
+          "ref": "3361ff8",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "3361ff84de6310a48543a0b72475e64fc547f668"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P11",
+      "packageId": "SDAR-V1.3-P11",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/domain/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/case-model-runtime-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/case-model-runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-acceptance.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-case-runtime-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-case-adaptation-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-case-handoff-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-model-profile-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-model-route-schema.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-cascade-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-budget-cost-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-provider-readiness-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-usage-drift-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-security-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-performance-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p11-full-verify-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/verification/summary.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P11.md",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "2cb2dce",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "2cb2dce829b0aeb0daa602fd07c8e9bea3c1d281"
+        },
+        {
+          "name": "commits.implementation",
+          "ref": "b116a6c",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "b116a6c6d8cc63df50672e87f6b7aa8bccde8fa9"
+        },
+        {
+          "name": "commits.privacyAndTimeoutReview",
+          "ref": "c62334a",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "c62334a25d7fb01f46c417f1767d4cc30a4e98c3"
+        },
+        {
+          "name": "commits.privacyBypassReview",
+          "ref": "dc636e6",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "dc636e66b5b5dbbadd99bfaebe2f5cc183d394be"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P12",
+      "packageId": "SDAR-V1.3-P12",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "handoffSchemaVersion": "1.1",
+      "topLevelFieldCount": 28,
+      "status": "COMPLETED",
+      "evidenceRefs": [
+        {
+          "ref": "packages/application/src/compiler/artifact-management.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/management-api/src/http-endpoint.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "schemas/management-api.openapi.yaml",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/a2a-adapter/src/capability-card-projection.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "apps/server/src/runtime.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/application/src/compiler/artifact-management.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/persistence-postgres/src/compiler/artifact-management-query-repository.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "packages/management-api/src/http-endpoint.ts",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "execplans/EP-SDAR-V1.3-P12.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "adr/ADR-122-optional-artifact-management-exposure-and-read-audit.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-acceptance.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-completion.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-review.md",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-full-verify-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-openapi-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-rbac-matrix.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-console-e2e-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-a2a-tck-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-sse-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-security-report.json",
+          "exists": true,
+          "reason": "file"
+        },
+        {
+          "ref": "reports/goal/v1.3-p12-performance-report.json",
+          "exists": true,
+          "reason": "file"
+        }
+      ],
+      "commitRefs": [
+        {
+          "name": "baselineSha",
+          "ref": "0db8796f468f5ad954c67f79cbf9991924dd07b1",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "0db8796f468f5ad954c67f79cbf9991924dd07b1"
+        },
+        {
+          "name": "commits.implementation",
+          "ref": "9a10b31f8c5bd2ec6aad6b87f4a6f3880c8d6834",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "9a10b31f8c5bd2ec6aad6b87f4a6f3880c8d6834"
+        },
+        {
+          "name": "commits.outboxRegressionFix",
+          "ref": "c434e4b43bfd2e892e6c831108456056a00c8e76",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "c434e4b43bfd2e892e6c831108456056a00c8e76"
+        },
+        {
+          "name": "commits.exactVerificationBaseline",
+          "ref": "5cef3a04b7237ac126f7e9d0548347b0d5c25baa",
+          "resolves": true,
+          "ancestor": true,
+          "resolvedSha": "5cef3a04b7237ac126f7e9d0548347b0d5c25baa"
+        }
+      ],
+      "contractHashes": "aligned",
+      "findings": []
+    },
+    {
+      "package": "P13",
+      "packageId": "SDAR-V1.3-P13",
+      "manifestSchemaVersion": "1.1",
+      "lockSchemaVersion": "1.1",
+      "status": "pending_preflight",
+      "evidenceRefs": [],
+      "commitRefs": [],
+      "contractHashes": "pending",
+      "findings": []
+    }
+  ],
+  "remediationPackage": {
+    "package": "P04R",
+    "packageId": "SDAR-V1.3-P04R",
+    "schemaVersion": "1.0",
+    "status": "COMPLETED",
+    "evidenceRefs": [
+      {
+        "ref": "reports/goal/v1.3-p04r-acceptance.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-activity-identity-schema.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-process-mining-semantics.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-quality-metric-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-p03-real-golden-output.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-generalization-safety-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-capability-fingerprint-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-dag-parameter-applicability-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-lineage-recovery-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-runtime-path-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-p03-p04-integration-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-registry-migration-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-full-verify-report.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-p03-review.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-p04-review.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-cross-package-review.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-completion.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04r-review.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p03-completion.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p03-review.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04-completion.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/goal/v1.3-p04-review.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "reports/verification/summary.json",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "execplans/EP-SDAR-V1.3-P04R.md",
+        "exists": true,
+        "reason": "file"
+      },
+      {
+        "ref": "docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/audit/cross-package-validation.json",
+        "exists": true,
+        "reason": "file"
+      }
+    ],
+    "commitRefs": [
+      {
+        "name": "baselineSha",
+        "ref": "5b8e4c781a56882fb73553836116354dee80e616",
+        "resolves": true,
+        "ancestor": true,
+        "resolvedSha": "5b8e4c781a56882fb73553836116354dee80e616"
+      },
+      {
+        "name": "completionSha",
+        "ref": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+        "resolves": true,
+        "ancestor": true,
+        "resolvedSha": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187"
+      }
+    ]
+  },
+  "findings": [],
+  "status": "aligned_with_p13_pending"
+}

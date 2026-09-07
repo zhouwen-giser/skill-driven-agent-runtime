@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-16T00:00:00+08:00",
+  "searchCounts": {
+    "workflowNodePatternFiles": 26,
+    "langGraphFiles": 8,
+    "mcpFiles": 36,
+    "queueFiles": 11,
+    "continuationFiles": 13,
+    "eventNotifierFiles": 10
+  },
+  "symbols": [
+    { "symbol": "WorkflowBoundValue", "file": "packages/domain/src/workflow.ts", "line": 22, "phase": "3-4" },
+    { "symbol": "WorkflowNode", "file": "packages/domain/src/workflow.ts", "line": 46, "phase": "3-4" },
+    { "symbol": "WorkflowInstance", "file": "packages/domain/src/workflow.ts", "line": 129, "phase": "4" },
+    { "symbol": "WorkflowNodeEvent", "file": "packages/domain/src/workflow.ts", "line": 154, "phase": "4" },
+    { "symbol": "McpServer", "file": "packages/domain/src/mcp.ts", "line": 8, "phase": "1-3" },
+    { "symbol": "McpTool", "file": "packages/domain/src/mcp.ts", "line": 28, "phase": "1-3" },
+    { "symbol": "McpInvocation", "file": "packages/domain/src/mcp.ts", "line": 56, "phase": "1-2" },
+    { "symbol": "TaskInputRequest", "file": "packages/domain/src/task-input.ts", "line": 7, "phase": "5" },
+    { "symbol": "McpTransportAdapter", "file": "packages/application/src/ports.ts", "line": 439, "phase": "1" },
+    { "symbol": "WorkflowExecutor", "file": "packages/application/src/ports.ts", "line": 572, "phase": "4" },
+    { "symbol": "RuntimeEventPublisher", "file": "packages/application/src/ports.ts", "line": 677, "phase": "2-5" },
+    { "symbol": "McpRegistryService", "file": "packages/application/src/mcp-registry.ts", "line": 61, "phase": "1-3" },
+    { "symbol": "McpRegistryService.call", "file": "packages/application/src/mcp-registry.ts", "line": 143, "phase": "1" },
+    { "symbol": "WorkflowControllerService.continueAfterInput", "file": "packages/application/src/workflow-controller.ts", "line": 217, "phase": "5" },
+    { "symbol": "WorkflowExecutionResult", "file": "packages/langgraph-runtime/src/workflow-compiler.ts", "line": 106, "phase": "4" },
+    { "symbol": "StateGraph", "file": "packages/langgraph-runtime/src/workflow-compiler.ts", "line": 232, "phase": "4" },
+    { "symbol": "compileWorkflow", "file": "packages/langgraph-runtime/src/workflow-compiler.ts", "line": 278, "phase": "4" },
+    { "symbol": "mcp_tool execution", "file": "packages/langgraph-runtime/src/workflow-compiler.ts", "line": 648, "phase": "1,4" },
+    { "symbol": "BullMqContextTaskQueue", "file": "packages/runtime-redis/src/bullmq-context-queue.ts", "line": 28, "phase": "2" },
+    { "symbol": "PostgresTaskRepository.failInterrupted", "file": "packages/persistence-postgres/src/repositories.ts", "line": 593, "phase": "2,4" },
+    { "symbol": "startup failInterruptedExecutions", "file": "apps/server/src/runtime.ts", "line": 240, "phase": "2,4" },
+    { "symbol": "migration loader", "file": "apps/server/src/runtime.ts", "line": 1246, "phase": "2" }
+  ],
+  "confirmedMissing": [
+    "McpTasksClientPort",
+    "RemoteTaskBinding",
+    "RemoteTaskObservation",
+    "RemoteTaskControlEvent",
+    "TaskAvailabilitySnapshot",
+    "RemoteTaskPollScheduler",
+    "RemoteTaskPoller",
+    "RemoteTaskReconciler",
+    "WorkflowContinuationSnapshot",
+    "waiting_external",
+    "MCP Tasks management API and Console view"
+  ]
+}

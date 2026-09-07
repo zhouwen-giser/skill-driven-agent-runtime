@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sdar:v1.3:p03:experience-trace:1.1",
+  "title": "ExperienceTrace",
+  "contractVersion": "1.1",
+  "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "traceId",
+    "sourceEpisodeId",
+    "taskTypeRefs",
+    "goalFingerprint",
+    "capabilityFingerprint",
+    "environmentFingerprint",
+    "trace",
+    "completeness",
+    "dataClassification",
+    "normalizerVersion",
+    "sourceHash",
+    "createdAt"
+  ],
+  "properties": {
+    "traceId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "sourceEpisodeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "taskTypeRefs": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+    },
+    "goalFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "capabilityFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "environmentFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "trace": {
+      "$ref": "#/$defs/ExperienceTraceBody"
+    },
+    "completeness": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "dataClassification": {
+      "enum": ["public", "internal", "user_scoped", "restricted"]
+    },
+    "normalizerVersion": {
+      "const": "sdar-experience-normalizer/1.1"
+    },
+    "sourceHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "ExperienceTraceBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "tenantId",
+        "events",
+        "correctionRefs",
+        "outcomeStatus",
+        "missingFactCodes",
+        "environmentClass"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.1" },
+        "tenantId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "events": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/ExperienceTraceEvent" }
+        },
+        "correctionRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "outcomeRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "outcomeStatus": {
+          "enum": ["succeeded", "failed", "partial", "unknown"]
+        },
+        "missingFactCodes": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "environmentClass": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "deviceClass": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "ExperienceTraceEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "sequence",
+        "occurredAt",
+        "eventType",
+        "actorType",
+        "capabilityRefs",
+        "authorityRefs",
+        "parentEventRefs",
+        "payloadSummary"
+      ],
+      "properties": {
+        "eventId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "eventType": {
+          "enum": [
+            "goal_created",
+            "goal_contract_confirmed",
+            "plan_created",
+            "plan_confirmed",
+            "skill_goal_ready",
+            "skill_attempt_started",
+            "skill_attempt_completed",
+            "workflow_waiting",
+            "workflow_failed",
+            "recovery_started",
+            "human_intervention",
+            "plan_revised",
+            "business_event_observed",
+            "goal_completed",
+            "goal_failed"
+          ]
+        },
+        "actorType": { "enum": ["user", "agent", "runtime", "provider"] },
+        "capabilityRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "authorityRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "parentEventRefs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "concurrencyGroup": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "branchRef": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "payloadSummary": {
+          "type": ["object", "array", "string", "number", "boolean", "null"]
+        }
+      }
+    }
+  },
+  "runtimeValidation": "packages/domain/src/compiler/experience-compilation.ts",
+  "databaseProjection": "experience_trace + experience_trace_source",
+  "evidenceClassification": "reproducible contract evidence"
+}

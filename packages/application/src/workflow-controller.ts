@@ -520,6 +520,16 @@ export class WorkflowControllerService {
         instance = await this.#execution.waitForPauseResolution(instance.instanceId, pending);
       }
       if (instance.status === 'waiting_external') return control;
+      // An absent governed authority is not a business failure the model can repair. Let the
+      // owning failure path persist the original denial instead of creating another plan.
+      const authorityDenied = Object.values(instance.errors).find(
+        (error) => error.code === 'MCP_CONTROL_AUTHORITY_REQUIRED',
+      );
+      if (instance.status === 'failed' && authorityDenied !== undefined)
+        throw new WorkflowControllerError(
+          'MCP_CONTROL_AUTHORITY_REQUIRED',
+          authorityDenied.message,
+        );
       if (hasWorkflowError(instance, 'WORKFLOW_SKILL_VERSION_STALE'))
         return this.#recoverStaleSkillVersion({ control, plan, goal, instance, instanceId });
       const evaluation = await this.#evaluator.evaluate({
@@ -1207,6 +1217,7 @@ function mergeSupplementaryInput(
 }
 
 export type WorkflowControllerErrorCode =
+  | 'MCP_CONTROL_AUTHORITY_REQUIRED'
   | 'WORKFLOW_CONTROL_ALREADY_EXISTS'
   | 'WORKFLOW_CONTROL_GOAL_INVALID'
   | 'WORKFLOW_CONTROL_GOAL_CONTRACT_MISMATCH'

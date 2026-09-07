@@ -78,7 +78,7 @@ describe('TemporarySkillService', () => {
     const skill = await service.create(input('task-1'));
     await service.complete(skill.temporarySkillId, false, 'Failed safely.');
     await expect(service.complete(skill.temporarySkillId, true, 'Retry.')).rejects.toMatchObject({
-      code: 'TEMPORARY_SKILL_ALREADY_EXPIRED',
+      code: 'TEMPORARY_SKILL_COMPLETION_CONFLICT',
     });
   });
 
@@ -167,6 +167,11 @@ class MemoryTemporarySkillRepository implements TemporarySkillRepository {
   save(skill: TemporarySkill) {
     this.skills.set(skill.temporarySkillId, skill);
     return Promise.resolve();
+  }
+  findExperience(temporarySkillId: string) {
+    return Promise.resolve(
+      this.experiences.find((item) => item.temporarySkillId === temporarySkillId),
+    );
   }
   expireAndSaveExperience(skill: TemporarySkill, experience: TemporarySkillExperience) {
     this.skills.set(skill.temporarySkillId, skill);

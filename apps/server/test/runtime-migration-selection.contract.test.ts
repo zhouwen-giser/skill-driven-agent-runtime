@@ -11,13 +11,19 @@ describe('post-v1.2.2 Runtime migration selection', () => {
   it('selects additive control-authority migrations after MCP Task consumer sync', async () => {
     const plan = planPostV122MigrationFiles(await readdir(migrationDirectory), [baselineVersion]);
 
-    expect(plan.slice(-6)).toEqual([
+    expect(plan.slice(-12)).toEqual([
       '0172_v14_initial_task_admission.up.sql',
       '0173_remote_task_accepted_substate.up.sql',
       '0174_v14_evidence_delivery_origin.up.sql',
       '0175_v14_mcp_task_consumer_sync.up.sql',
       '0176_v14_control_authority_kind.up.sql',
       '0177_v14_control_authority_kind_default.up.sql',
+      '0178_v14_development_isolated_demo.up.sql',
+      '0179_v14_workflow_scoped_continuation.up.sql',
+      '0180_v14_workflow_child_call.up.sql',
+      '0181_v14_temporary_skill_terminal.up.sql',
+      '0182_v14_configured_task_type.up.sql',
+      '0183_v14_capability_admission_receipt.up.sql',
     ]);
   });
 

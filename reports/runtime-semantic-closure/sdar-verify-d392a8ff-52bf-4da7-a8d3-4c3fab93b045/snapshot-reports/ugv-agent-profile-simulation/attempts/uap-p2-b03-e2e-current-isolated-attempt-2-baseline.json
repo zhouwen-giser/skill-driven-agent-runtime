@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:19:45.542Z",
+  "recordedAt": "2026-08-21T09:19:45.542Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied command result included a duration but not a wall-clock execution timestamp; the evidence recording time is not substituted.",
+  "status": "BASELINE_FAILURE_ISOLATED",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_e2e_regression_diagnostic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=<redacted-loopback-55444> SDAR_REDIS_PORT=56379 node scripts/test-e2e.mjs -- packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts --testNamePattern 'rejects ungoverned embodied.move_to|blocks embodied.move_to for forbidden area permission|persists a LangGraph human interrupt' --reporter=dot --silent",
+  "executionContext": "current P2-B03 worktree on the approved host",
+  "exitCode": 1,
+  "result": {
+    "testsFailed": 7,
+    "testsSkipped": 55,
+    "durationSeconds": 23.05
+  },
+  "diagnosis": {
+    "baselineSnapshotReplay": "attempts/uap-p2-b03-e2e-clean-head-attempt-3-baseline-reproduced.json",
+    "identicalFailureCount": true,
+    "p2Regression": false
+  },
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

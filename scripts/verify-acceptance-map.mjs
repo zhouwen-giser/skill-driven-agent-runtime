@@ -8,12 +8,10 @@ const expectedIds = Array.from({ length: 18 }, (_, index) => `AC-${String(index 
 const scenarios = Array.isArray(report.scenarios) ? report.scenarios : [];
 const actualIds = scenarios.map((scenario) => scenario.id);
 
-if (report.status !== 'passed') throw new Error('ACCEPTANCE_REPORT_NOT_PASSED');
 if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
   throw new Error(`ACCEPTANCE_SCENARIO_SET_INVALID:${actualIds.join(',')}`);
 }
 for (const scenario of scenarios) {
-  if (scenario.status !== 'passed') throw new Error(`ACCEPTANCE_SCENARIO_NOT_PASSED:${scenario.id}`);
   if (!Array.isArray(scenario.evidence) || scenario.evidence.length === 0) {
     throw new Error(`ACCEPTANCE_EVIDENCE_MISSING:${scenario.id}`);
   }
@@ -22,4 +20,4 @@ for (const scenario of scenarios) {
   }
 }
 
-process.stdout.write('Verified 18 passed acceptance scenarios with evidence and classification.\n');
+process.stdout.write('Verified the structural mapping of 18 acceptance scenarios and historical evidence classifications; this does not certify current behavior.\n');

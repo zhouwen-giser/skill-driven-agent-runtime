@@ -13,6 +13,21 @@ import { SkillRegistryService, type RegisterSkillVersionInput } from '../src/ind
 import type { SkillRepository } from '../src/ports.js';
 
 describe('SkillRegistryService', () => {
+  it('rejects open empty contracts before publishing and accepts a declared no-parameter input', async () => {
+    const repository = new MemorySkillRepository();
+    const registry = createRegistry(repository);
+    await expect(
+      registry.register({
+        ...skillInput('skill.open'),
+        inputSchema: { type: 'object', properties: {} },
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_SCHEMA_INVALID' });
+    expect(await repository.findCurrentVersion('skill.open')).toBeUndefined();
+    await expect(registry.register(skillInput('skill.closed'))).resolves.toMatchObject({
+      skillId: 'skill.closed',
+    });
+  });
+
   it('waits for the injected catalog projection after committed mutations', async () => {
     const projected: string[] = [];
     const registry = new SkillRegistryService({
@@ -206,7 +221,7 @@ function skillInput(skillId: string): RegisterSkillVersionInput {
     capabilities: ['inspection'],
     workflowGuidance: 'Inspect safely.',
     outputInstruction: 'Return status.',
-    inputSchema: { type: 'object' },
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     outputSchema: {
       type: 'object',
       required: ['status'],

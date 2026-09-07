@@ -1,0 +1,272 @@
+{
+  "schemaVersion": "sdar.ugv-smpp-regression/v1",
+  "generatedAt": "2026-08-14T14:17:20.861Z",
+  "status": "failed",
+  "evidenceClass": "repository_gate_and_subsequent_individual_gate_observations",
+  "regressionPassed": false,
+  "fullVerifyPassed": false,
+  "thresholdsWeakened": false,
+  "assertionsNotWeakened": true,
+  "assertionsSkippedOrRelaxed": false,
+  "environment": {
+    "node": "v22.23.1",
+    "pnpm": "11.7.0",
+    "infrastructureMode": "operator_managed_postgres_and_redis",
+    "temporaryPostgresCleanedUp": false,
+    "operatorDatabaseMutationPerformed": false
+  },
+  "commandMatrix": [
+    {
+      "name": "authoritative_repository_wide_verification",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
+      "startedAt": "2026-08-14T14:13:11.839Z",
+      "completedAt": "2026-08-14T14:17:20.861Z",
+      "exitCode": 1,
+      "status": "failed",
+      "classification": "authoritative_full_gate",
+      "failure": {
+        "stage": "postgres_redis_integration_setup",
+        "suite": "integration_database_recreation",
+        "code": "POSTGRES_TEMPLATE1_COLLATION_METADATA_INVALID",
+        "sqlState": "XX000"
+      }
+    },
+    {
+      "name": "historical_authoritative_repository_wide_verification",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
+      "startedAt": "2026-08-14T11:00:24.203Z",
+      "completedAt": "2026-08-14T11:12:19.944Z",
+      "exitCode": 1,
+      "status": "failed",
+      "classification": "historical_full_gate",
+      "failure": {
+        "stage": "phase13_performance",
+        "suite": "task_service_endpoint_phase13",
+        "code": "PHASE13_BASELINE_STABILITY_FAILED"
+      }
+    },
+    {
+      "name": "phase13_immutable_diagnostic_rerun_after_allocator_fix",
+      "command": "SDAR_REUSE_EXISTING_INFRA=true node scripts/test-e2e.mjs packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "exitCode": null,
+      "status": "failed",
+      "classification": "focused_diagnostic_rerun",
+      "failure": {
+        "stage": "phase13_performance",
+        "code": "PHASE13_BASELINE_STABILITY_FAILED",
+        "underlyingGate": "baseline_stability"
+      }
+    },
+    {
+      "name": "official_a2a_tck",
+      "command": "pnpm test:a2a-tck",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": null,
+      "status": "not_reached_in_current_full_verify",
+      "classification": "not_executed_after_prior_gate_failure"
+    },
+    {
+      "name": "evidence_e2e_demo",
+      "command": "pnpm demo:evidence-e2e",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed_44_of_44",
+      "classification": "subsequent_individual_gate"
+    },
+    {
+      "name": "infrastructure_smoke",
+      "command": "pnpm smoke:infra",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed",
+      "classification": "subsequent_individual_gate"
+    },
+    {
+      "name": "server_smoke",
+      "command": "pnpm smoke:server",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed",
+      "classification": "subsequent_individual_gate"
+    },
+    {
+      "name": "node_control_smoke",
+      "command": "pnpm smoke:node-control",
+      "startedAt": null,
+      "completedAt": null,
+      "exitCode": 0,
+      "status": "passed",
+      "classification": "subsequent_individual_gate"
+    }
+  ],
+  "repositoryWideVerification": {
+    "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
+    "status": "failed",
+    "startedAt": "2026-08-14T14:13:11.839Z",
+    "finishedAt": "2026-08-14T14:17:20.861Z",
+    "steps": {
+      "staticUnitContractBuild": {
+        "status": "passed",
+        "testFiles": 275,
+        "tests": 2005,
+        "openapiOperations": 169,
+        "includes": [
+          "format_check",
+          "lint",
+          "typescript_typecheck",
+          "unit_tests",
+          "contract_tests",
+          "architecture_gate",
+          "production_build"
+        ]
+      },
+      "cognitiveReplayNoPhysicalProvider": {
+        "status": "passed"
+      },
+      "migrations": {
+        "status": "passed",
+        "runtimeMigrationCount": 56,
+        "controlMigrationCount": 11
+      },
+      "postgresRedisIntegration": {
+        "status": "failed_before_test_execution",
+        "failure": {
+          "code": "POSTGRES_TEMPLATE1_COLLATION_METADATA_INVALID",
+          "sqlState": "XX000",
+          "operatorDatabaseMutationPerformed": false
+        }
+      }
+    },
+    "authoritativeSummary": "reports/verification/summary.json"
+  },
+  "focusedFollowUp": {
+    "finalGoalRegression": {
+      "status": "passed",
+      "testFiles": 15,
+      "tests": 183,
+      "physicalProviderCalls": 0
+    },
+    "phase13DiagnosticAllocatorRerun": {
+      "status": "failed_baseline_stability_with_diagnostic_written",
+      "diagnosticAttempt": 9,
+      "immutableDiagnosticWritten": true,
+      "thresholdOrAssertionChanged": false
+    },
+    "nodeCapabilityCleanupRegression": {
+      "status": "passed",
+      "testFiles": 1,
+      "tests": 2
+    },
+    "homeLabMaterializerRegression": {
+      "status": "passed",
+      "testFiles": 1,
+      "tests": 20
+    }
+  },
+  "endToEnd": {
+    "command": "SDAR_REUSE_EXISTING_INFRA=true pnpm verify",
+    "status": "historical_failed_not_reached_in_current_run",
+    "mainE2eSuite": {
+      "status": "historical_passed",
+      "testFiles": 6,
+      "passedTests": 72,
+      "skippedTests": 1
+    },
+    "phase13Performance": {
+      "status": "historical_failed_baseline_stability",
+      "runtimeP95BaselineMs": 560.8833,
+      "runtimeP95EvidenceEnabledMs": 600.86215,
+      "runtimeP95RegressionPercent": 7.12784,
+      "runtimeP95MaximumPercent": 10,
+      "runtimeP95RegressionGatePassed": true,
+      "evidenceAppendP95Ms": 4.218869,
+      "evidenceAppendMaximumMs": 20,
+      "evidenceAppendGatePassed": true,
+      "baselineWindowMediansMs": [
+        376.5141,
+        441.2313,
+        428.7697
+      ],
+      "baselineMedianDriftPercent": 15.828196,
+      "baselineMedianDriftMaximumPercent": 15,
+      "baselineStabilityGatePassed": false,
+      "diagnosticAttempt": 9,
+      "newImmutableDiagnosticWritten": true,
+      "diagnosticAllocationDefectFixed": true,
+      "classification": "nonfunctional_measurement_stability_blocker",
+      "ugvChangeCausalityProven": false
+    },
+    "historicalBaselineEvidence": {
+      "runtimeP95RegressionPercent": 39.981096754646735,
+      "maximumPercent": 10,
+      "sameRunAsCurrentMetrics": false,
+      "note": "This is the reviewed baseline failure recorded before this Goal and is not the current Phase 13 sample."
+    }
+  },
+  "additionalGates": {
+    "officialA2aTck": {
+      "command": "pnpm test:a2a-tck",
+      "status": "not_reached_in_current_full_verify",
+      "reason": "the authoritative command stopped during Integration database creation before E2E",
+      "systemPackageInstalledOrModified": false
+    },
+    "evidenceE2eDemo": {
+      "command": "pnpm demo:evidence-e2e",
+      "status": "passed",
+      "scenarios": 44,
+      "sharedSuites": 25
+    },
+    "infrastructureSmoke": {
+      "command": "pnpm smoke:infra",
+      "status": "passed",
+      "pgvectorVersion": "0.8.5",
+      "redis": "PONG"
+    },
+    "serverSmoke": {
+      "command": "pnpm smoke:server",
+      "status": "passed"
+    },
+    "nodeControlSmoke": {
+      "command": "pnpm smoke:node-control",
+      "status": "passed",
+      "note": "The command exited zero after its explicit pass result; PostgreSQL connection termination output occurred only while its self-created Runtime containers were being stopped."
+    }
+  },
+  "preExistingOperatorDatabaseIssue": {
+    "status": "blocks_current_integration_database_creation",
+    "reason": "the operator PostgreSQL template1 collation metadata referenced a libc version unavailable on the host",
+    "safeRefreshAttempt": "rejected_by_postgresql_invalid_collation_version_change",
+    "historicalResolution": "an earlier repository verification used a temporary PostgreSQL 17 plus pgvector 0.8.5 container on tmpfs",
+    "currentResolution": "not_applied; the operator PostgreSQL system template was left unchanged",
+    "operatorDatabaseChanged": false
+  },
+  "productionEligible": false,
+  "result": {
+    "fullVerifyPassed": false,
+    "productionGatePassed": false,
+    "focusedRerunRetroactivelyChangesFullGate": false,
+    "currentFailureClass": "test_infrastructure_setup",
+    "codeAssertionsFailedInCurrentRun": false
+  },
+  "cleanup": {
+    "temporaryPostgresContainerStoppedAndRemoved": false,
+    "temporaryPostgresStorage": "not_created_in_current_run",
+    "operatorManagedRedisLifecycleChanged": false
+  },
+  "blockingReasons": [
+    "POSTGRES_TEMPLATE1_COLLATION_METADATA_INVALID",
+    "INTEGRATION_AND_E2E_NOT_REACHED_AFTER_TEST_DATABASE_SETUP_FAILURE"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "databaseUrlsIncluded": false,
+    "authorizationValuesIncluded": false
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "scope": "targeted-post-bootstrap-diagnostics-not-full-gate",
+  "runId": "sdar-verify-5aa9d06e-2c8a-4533-8bb8-1263660e54c2",
+  "cwd": "/tmp/sdar-verify-96bacfad-aa5e-4057-ba8f-575752df1eb8-diagnostic/source",
+  "changed": [
+    "scripts/lib/child-readiness.mjs",
+    "scripts/smoke-server.mjs",
+    "scripts/lib/verification-cleanup.mjs",
+    "scripts/lib/infrastructure.mjs",
+    "scripts/test-integration.mjs",
+    "scripts/test-e2e.mjs",
+    "scripts/smoke-node-control.mjs",
+    "scripts/verify-migration-path.mjs",
+    "scripts/verify-isolated.mjs",
+    "scripts/test-verification-isolation.mjs",
+    "scripts/test-verification-runner.mjs",
+    "packages/persistence-postgres/test/governed-control-authority.integration.test.ts",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+  ],
+  "results": [
+    {
+      "name": "postgres-redis-model-mcp-e2e",
+      "args": [
+        "test:e2e"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 80750,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 81,
+        "peakRssBytes": 1015685120,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "canonical-evidence-demo",
+      "args": [
+        "demo:evidence-e2e"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 33664,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 34,
+        "peakRssBytes": 943276032,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "node-control-api-worker-smoke",
+      "args": [
+        "smoke:node-control"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 49581,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 50,
+        "peakRssBytes": 1789956096,
+        "peakProcesses": 11
+      },
+      "cleanupErrors": []
+    }
+  ]
+}

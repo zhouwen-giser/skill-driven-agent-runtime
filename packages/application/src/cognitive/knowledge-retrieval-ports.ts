@@ -4,9 +4,11 @@ import type {
   ExperienceUsageRecord,
   KnowledgeRelation,
   KnowledgeUsageScope,
+  KnowledgeKind,
 } from '../../../domain/src/index.js';
 
 export interface KnowledgeSearchFilters {
+  readonly kind?: KnowledgeKind;
   readonly scope: KnowledgeUsageScope;
   readonly catalogHash: string;
   readonly promotionPolicyVersion: string;

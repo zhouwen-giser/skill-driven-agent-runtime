@@ -1,0 +1,32 @@
+{
+  "packageId": "SDAR-V1.3-P09",
+  "status": "passed",
+  "classification": "local acceptance measurement; not a production SLO",
+  "environment": {
+    "node": "v22.14.0",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "conflictResolution30Samples": [
+    {"ruleCount": 1, "p50Ms": 0.118, "p95Ms": 0.2631, "maxMs": 11.4185},
+    {"ruleCount": 10, "p50Ms": 0.1862, "p95Ms": 0.4305, "maxMs": 0.9449},
+    {"ruleCount": 100, "p50Ms": 0.1989, "p95Ms": 0.893, "maxMs": 0.9219},
+    {"ruleCount": 1000, "p50Ms": 1.2358, "p95Ms": 1.3456, "maxMs": 1.846}
+  ],
+  "verboseRegression": {
+    "oneRuleEvaluationMs": 13,
+    "oneThousandRuleResolutionMs": 72,
+    "note": "Vitest per-test wall time includes fixture and assertion overhead."
+  },
+  "fullVerify": {
+    "durationMs": 272326,
+    "staticUnitContractBuildMs": 105034,
+    "integrationMs": 67694,
+    "e2eMs": 48366
+  },
+  "safetyChecksRemovedForPerformance": false,
+  "evidence": [
+    "packages/domain/test/decision-rule-runtime-p09.unit.test.ts",
+    "reports/verification/summary.json"
+  ]
+}

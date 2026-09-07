@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "capturedAt": "2026-08-12T09:26:00+08:00",
+  "required": false,
+  "reviewedBaseSha": "b8fc6c20b95114007eab86305aa4e34863f1334d",
+  "originMainSha": "b8fc6c20b95114007eab86305aa4e34863f1334d",
+  "changedFiles": [],
+  "status": "not_applicable_no_drift"
+}

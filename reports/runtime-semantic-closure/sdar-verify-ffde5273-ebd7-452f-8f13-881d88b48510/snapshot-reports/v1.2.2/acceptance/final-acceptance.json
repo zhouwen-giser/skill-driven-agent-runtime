@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "goalId": "SDAR-V1.2.2-MASTER",
+  "status": "pass",
+  "version": "1.2.2",
+  "verificationCandidate": "2db399693b2754f17a2ecc78356f3aab19f1297b",
+  "realInteropCandidate": "325b8d0d9efeb1b02f758399c44eafd3a4351a40",
+  "providerCandidate": "8a81b1b02971fb124ed96372c440c449f9087c99",
+  "providerRequirementsAncestor": "ee14d2fa2b5130d3c7c016c71737175a124d5134",
+  "goals": {
+    "G00": "pass",
+    "G01": "pass",
+    "G02": "pass",
+    "G03": "pass",
+    "G04": "pass",
+    "G05": "pass",
+    "G06": "pass",
+    "G07": "pass",
+    "G08": "pass",
+    "G09": "pass",
+    "G10": "pass"
+  },
+  "acceptance": {
+    "verified": 49,
+    "blocked": 0,
+    "unverified": 0,
+    "range": "AC-001..AC-078 (defined rows)"
+  },
+  "unifiedVerification": {
+    "durationMs": 109118,
+    "unitAndContract": 629,
+    "integration": 68,
+    "e2e": 59,
+    "architectureSources": 296,
+    "a2aMustPassed": 74,
+    "a2aMustFailed": 0,
+    "openApiOperations": 124,
+    "ossPins": 21,
+    "npmSbomPackages": 286,
+    "externalServices": 2,
+    "migrations": "pass",
+    "productionBuild": "pass",
+    "infrastructureSmoke": "pass",
+    "serverConsoleSmoke": "pass"
+  },
+  "realProviderInterop": {
+    "status": "pass",
+    "transport": "real_streamable_http_post_sse",
+    "tasksCreated": 260,
+    "relationPageSizes": [128, 128, 4],
+    "taskAndResourceEvents": "pass",
+    "durableAdmission": "pass",
+    "drain": "pass",
+    "reset": "pass",
+    "continuity": "pass",
+    "providerUnavailable": "pass",
+    "restart": "pass",
+    "reconnects": 8
+  },
+  "hardening": {
+    "databaseRestart": "real_pass",
+    "redisAndQueueRestart": "real_and_failure_injection_pass",
+    "concurrency": "pass",
+    "noReplay": "pass",
+    "singleTerminal": "pass",
+    "security": "pass",
+    "capacity": "pass",
+    "sbom": "pass",
+    "composeContainerPolicy": "pass"
+  },
+  "classification": {
+    "real": [
+      "PostgreSQL/pgvector",
+      "Redis/BullMQ",
+      "HTTP/A2A/LangGraph",
+      "Management API",
+      "production bundle and smoke",
+      "database restart",
+      "exact external Provider interop"
+    ],
+    "simulated": ["loopback model decisions", "Frozen Mock Provider scenario semantics"],
+    "unverifiedAcceptance": []
+  },
+  "claimBoundary": {
+    "providerRequirementsContractFrozen": true,
+    "providerRuntimeCandidate": "8a81b1b02971fb124ed96372c440c449f9087c99",
+    "sdarClientContractPassed": true,
+    "realInteropPassed": true,
+    "arbitraryFutureProfileRuntimeFrozen": false
+  },
+  "release": {
+    "draftPr": {
+      "number": 7,
+      "url": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/7",
+      "state": "open",
+      "draft": true,
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "configuredChecks": 0,
+      "publishedHead": "3ba0d59a76f6291de31c5a4aa63dee3171ae6733"
+    },
+    "merged": false,
+    "tagCreated": false
+  }
+}

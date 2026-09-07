@@ -1,3 +1,4 @@
+import { snapshotWorkflowScopes, type WorkflowScopeState } from './workflow-scope-state.js';
 import { DomainError } from './errors.js';
 import {
   createRuntimeExecutionContext,
@@ -10,7 +11,7 @@ import {
 } from './workflow-budget.js';
 import type { InternalToolResult } from './mcp-task.js';
 
-export const WORKFLOW_CONTINUATION_SCHEMA_VERSION = '1.0' as const;
+export const WORKFLOW_CONTINUATION_SCHEMA_VERSION = '2.0' as const;
 export const MAX_WORKFLOW_CONTINUATION_JSON_BYTES = 1_048_576;
 export const MAX_WORKFLOW_CONTINUATION_JSON_DEPTH = 64;
 export const MAX_WORKFLOW_CONTINUATION_JSON_VALUES = 50_000;
@@ -52,7 +53,8 @@ export type WorkflowContinuationLifecycle =
   'building' | 'active' | 'superseded' | 'invalidated' | 'terminal';
 
 export interface WorkflowContinuationSnapshot {
-  readonly schemaVersion: typeof WORKFLOW_CONTINUATION_SCHEMA_VERSION;
+  readonly schemaVersion: '1.0' | typeof WORKFLOW_CONTINUATION_SCHEMA_VERSION;
+  readonly scopes?: WorkflowScopeState;
   readonly snapshotId: string;
   readonly continuationId: string;
   readonly stateVersion: number;
@@ -97,6 +99,7 @@ export type WorkflowContinuationSnapshotInput = Omit<
 
 export type WorkflowRuntimeContinuationState = Pick<
   WorkflowContinuationSnapshot,
+  | 'scopes'
   | 'waitingNodeRuns'
   | 'input'
   | 'runnableFrontier'
@@ -116,6 +119,7 @@ export type WorkflowRuntimeContinuationState = Pick<
 >;
 
 export type WorkflowExternalWaitResolution =
+  | Readonly<{ kind: 'child_paused'; waitId: string; nodeRunId: string }>
   | Readonly<{
       kind: 'completed';
       waitId: string;
@@ -135,7 +139,14 @@ export type WorkflowExternalWaitResolution =
     }>;
 
 export type WorkflowContinuationAttemptStatus =
-  'claimed' | 'running' | 'waiting_external' | 'succeeded' | 'failed' | 'canceled' | 'stale';
+  | 'claimed'
+  | 'running'
+  | 'paused'
+  | 'waiting_external'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled'
+  | 'stale';
 
 export interface WorkflowContinuationAttempt {
   readonly attemptId: string;
@@ -162,6 +173,7 @@ const snapshotLifecycles = new Set<WorkflowContinuationLifecycle>([
 const waitKinds = new Set<WorkflowExternalWaitKind>(['remote_task', 'child_workflow']);
 const waitStates = new Set<WorkflowExternalWaitState>(['waiting', 'awaiting_input']);
 const attemptStatuses = new Set<WorkflowContinuationAttemptStatus>([
+  'paused',
   'claimed',
   'running',
   'waiting_external',
@@ -171,6 +183,7 @@ const attemptStatuses = new Set<WorkflowContinuationAttemptStatus>([
   'stale',
 ]);
 const terminalAttemptStatuses = new Set<WorkflowContinuationAttemptStatus>([
+  'paused',
   'waiting_external',
   'succeeded',
   'failed',
@@ -181,11 +194,17 @@ const terminalAttemptStatuses = new Set<WorkflowContinuationAttemptStatus>([
 export function createWorkflowContinuationSnapshot(
   input: WorkflowContinuationSnapshotInput,
 ): WorkflowContinuationSnapshot {
-  if (input.schemaVersion !== WORKFLOW_CONTINUATION_SCHEMA_VERSION)
+  if (input.schemaVersion !== '1.0' && input.schemaVersion !== WORKFLOW_CONTINUATION_SCHEMA_VERSION)
     throw continuationError(
       'WORKFLOW_CONTINUATION_VERSION_INVALID',
       'Workflow continuation schema version is unsupported.',
     );
+  if (input.schemaVersion === '1.0' && input.scopes !== undefined)
+    throw continuationError(
+      'WORKFLOW_CONTINUATION_VERSION_INVALID',
+      'Legacy snapshots cannot contain version 2 scopes.',
+    );
+  const scopes = input.schemaVersion === '2.0' ? snapshotWorkflowScopes(input.scopes) : undefined;
   validateSnapshotIdentity(input);
   validateSnapshotVersion(input);
   if (!snapshotLifecycles.has(input.lifecycle))
@@ -238,7 +257,8 @@ export function createWorkflowContinuationSnapshot(
 
   const snapshot: WorkflowContinuationSnapshot = {
     ...input,
-    schemaVersion: WORKFLOW_CONTINUATION_SCHEMA_VERSION,
+    schemaVersion: input.schemaVersion,
+    ...(scopes === undefined ? {} : { scopes }),
     input: persistedInput,
     waitingNodeRuns,
     runnableFrontier,
@@ -355,7 +375,8 @@ export function transitionWorkflowContinuationAttempt(
     Record<WorkflowContinuationAttemptStatus, readonly WorkflowContinuationAttemptStatus[]>
   > = {
     claimed: ['running', 'stale'],
-    running: ['waiting_external', 'succeeded', 'failed', 'canceled'],
+    running: ['paused', 'waiting_external', 'succeeded', 'failed', 'canceled'],
+    paused: [],
     waiting_external: [],
     succeeded: [],
     failed: [],

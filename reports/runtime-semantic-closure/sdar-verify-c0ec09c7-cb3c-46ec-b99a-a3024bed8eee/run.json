@@ -1,0 +1,8 @@
+{
+  "runId": "sdar-verify-c0ec09c7-cb3c-46ec-b99a-a3024bed8eee",
+  "inputSha256": "1628073fec135dcf29ddccf11bd60747413efba8b273bc5aaf3290eeab4c81f0",
+  "snapshot": "/tmp/sdar-verify-c0ec09c7-cb3c-46ec-b99a-a3024bed8eee-FKFVMk/source",
+  "phase": "port-allocation",
+  "exitCode": 1,
+  "error": "listen EPERM: operation not permitted 127.0.0.1"
+}

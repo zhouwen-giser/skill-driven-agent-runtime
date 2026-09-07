@@ -9,6 +9,7 @@ import {
   RemoteTaskContinuationService,
   RemoteTaskPollingService,
   SkillCallWorkflowService,
+  SubworkflowExecutionService,
   WorkflowExecutionService,
   WorkflowValidator,
   type RemoteTaskPollJob,
@@ -36,6 +37,7 @@ import {
   PostgresMcpRegistryRepository,
   PostgresRemoteTaskRepository,
   PostgresSkillCallWorkflowRepository,
+  PostgresWorkflowChildCallRepository,
   PostgresSkillRepository,
   PostgresWorkflowContinuationRepository,
   PostgresWorkflowExecutionRepository,
@@ -109,6 +111,215 @@ afterAll(async () => {
 });
 
 describe('remote MCP Task composition acceptance', () => {
+  it('persists an ordinary child through remote wait, parent confirmation and same-checkpoint resume', async () => {
+    const authority = await seedAuthority('child');
+    const plans = new PostgresWorkflowPlanRepository(pool);
+    const originalChild = childDefinitionFor(authority.goalId);
+    const childDefinition: WorkflowDefinition = {
+      ...originalChild,
+      executionSemanticsVersion: '2.0',
+      nodes: [
+        ...originalChild.nodes,
+        {
+          nodeId: 'confirm',
+          name: 'Review',
+          type: 'human_confirmation',
+          prompt: 'Review remote document',
+        },
+      ],
+      edges: [
+        { sourceNodeId: 'child-remote', targetNodeId: 'confirm' },
+        { sourceNodeId: 'confirm', targetNodeId: 'child-result', outcome: 'success' },
+        { sourceNodeId: 'confirm', targetNodeId: 'child-result', outcome: 'failure' },
+      ],
+    };
+    const parentDefinition: WorkflowDefinition = {
+      ...parentDefinitionFor(authority.goalId, 'unused'),
+      executionSemanticsVersion: '2.0',
+      nodes: [
+        {
+          nodeId: 'child-skill',
+          name: 'Ordinary child',
+          type: 'subworkflow',
+          workflowDefinitionId: childDefinition.workflowDefinitionId,
+          workflowVersion: 1,
+          input: {},
+        },
+        {
+          nodeId: 'parent-result',
+          name: 'Result',
+          type: 'result',
+          value: { op: 'ref', path: ['outputs', 'child-skill'] },
+        },
+      ],
+    };
+    await saveConfirmedPlan(plans, authority, 'child-plan', childDefinition);
+    await saveConfirmedPlan(plans, authority, 'parent-plan', parentDefinition);
+    await seedWorkflowControl(authority, 'parent-plan');
+    const calls = new PostgresWorkflowChildCallRepository(pool);
+    const continuations = new PostgresWorkflowContinuationRepository(pool);
+    const instances = new PostgresWorkflowExecutionRepository(pool);
+    const remoteTasks = new PostgresRemoteTaskRepository(pool);
+    const skills = new PostgresSkillRepository(pool);
+    const dispatch = vi.fn(async (input: Parameters<WorkflowRuntimePorts['callMcpTool']>[0]) => {
+      await seedInvocation(
+        authority,
+        'ordinary-child-invocation',
+        input.executionId,
+        input.executionContext,
+      );
+      const binding = createRemoteTaskBinding({
+        ...remoteAdmission(authority, {
+          bindingId: 'ordinary-child-binding',
+          workflowPlanId: 'child-plan',
+          workflowDefinitionId: childDefinition.workflowDefinitionId,
+          workflowInstanceId: input.executionId,
+          workflowNodeId: input.workflowNodeId,
+          workflowNodeRunId: input.workflowNodeRunId,
+          mcpInvocationId: 'ordinary-child-invocation',
+        }),
+        parentWorkflowInstanceId: 'ordinary-parent',
+      });
+      await remoteTasks.admit(binding, 'ordinary-child-admission');
+      return externalWait(binding);
+    });
+    const ports: WorkflowRuntimePorts = {
+      ...runtimePorts(dispatch),
+      executeSubworkflow: (request) =>
+        subworkflows.execute({
+          workflowDefinitionId: request.workflowDefinitionId,
+          workflowVersion: request.workflowVersion,
+          input: request.input,
+          parentInstanceId: request.parentExecutionId,
+          parentNodeId: request.parentNodeId,
+          parentNodeRunId: request.parentNodeRunId,
+          executionContext: request.executionContext,
+          continuationAuthority: authority,
+          ...(request.signal === undefined ? {} : { signal: request.signal }),
+          ...(request.resumeChild === undefined ? {} : { resumeChild: request.resumeChild }),
+        }),
+    };
+    const execution = new WorkflowExecutionService({
+      plans,
+      instances,
+      continuations,
+      childCalls: calls,
+      skills,
+      validator: new WorkflowValidator({
+        tools: new PostgresMcpRegistryRepository(pool),
+        skills,
+        schemas: new AjvJsonSchemaValidator(),
+      }),
+      executor: new LangGraphWorkflowExecutor(ports, callCosts),
+      clock: advancingClock(),
+      ids: { nextEventId: sequentialId('ordinary-event') },
+      continuationIds: {
+        nextSnapshotId: sequentialId('ordinary-snapshot'),
+        nextContinuationId: sequentialId('ordinary-continuation'),
+      },
+      systemBudgetDefaults: budget,
+    });
+    const subworkflows = new SubworkflowExecutionService({
+      calls,
+      plans,
+      execution,
+      clock: { now: () => timestamp },
+    });
+    const parent = await execution.execute({
+      instanceId: 'ordinary-parent',
+      planId: 'parent-plan',
+      input: {},
+      continuationAuthority: authority,
+    });
+    expect(parent.status).toBe('waiting_external');
+    const link = await calls.find('ordinary-parent', 'ordinary-parent~child-skill~1');
+    if (link?.childInstanceId === undefined) throw new Error('Expected persistent ordinary child');
+    const childInstanceId = link.childInstanceId;
+    expect(await execution.get(childInstanceId)).toMatchObject({
+      status: 'waiting_external',
+      budgetUsage: { mcpCalls: 1, cost: 1 },
+    });
+    const parentSnapshot = await continuations.findCurrent(parent.instanceId);
+    expect(parentSnapshot).toMatchObject({
+      schemaVersion: '2.0',
+      waitingNodeRuns: [{ kind: 'child_workflow', sourceId: childInstanceId }],
+    });
+    const projected: WorkflowControlRecord[] = [];
+    const control: WorkflowControlRecord = {
+      controlId: authority.workflowControlId,
+      contextId: authority.contextId,
+      goalId: authority.goalId,
+      goalVersion: 1,
+      status: 'running',
+      currentPlanId: 'parent-plan',
+      input: {},
+      skillIds: [],
+      planningInstruction: 'Read document',
+      roundCount: 0,
+      replanCount: 0,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const service = continuationService(continuations, remoteTasks, execution, (request) =>
+      continueRemoteTaskWorkflowHierarchy(
+        {
+          childCalls: calls,
+          skillCallWorkflows: new PostgresSkillCallWorkflowRepository(pool),
+          skillCallWorkflow: {
+            completeExternalChild: () => Promise.reject(new Error('ORDINARY_CHILD_IS_NOT_A_SKILL')),
+          },
+          continuations,
+          execution,
+          controller: {
+            get: () => Promise.resolve(control),
+            listRounds: () => Promise.resolve([]),
+            continueAfterExternal: async (_controlId, instanceId) => {
+              expect(await execution.get(instanceId)).toMatchObject({
+                status: 'paused',
+                pendingConfirmation: { nodeId: 'child-skill' },
+              });
+              return { ...control, status: 'awaiting_confirmation' };
+            },
+          },
+          recordRootResume: () => Promise.resolve(),
+          projectControl: (_snapshot, next) => {
+            projected.push(next);
+            return Promise.resolve();
+          },
+        },
+        request,
+      ),
+    );
+    const event = await completeRemoteTask(remoteTasks, 'ordinary-child-binding', 'child');
+    expect(await service.process(event)).toMatchObject({
+      disposition: 'continued',
+      instance: { status: 'paused' },
+    });
+    expect(projected.map((item) => item.status)).toEqual(['awaiting_confirmation']);
+    expect(await continuations.listAttempts(childInstanceId)).toEqual([
+      expect.objectContaining({ status: 'paused' }),
+    ]);
+    expect(await service.process(event)).toMatchObject({ disposition: 'not_claimed' });
+    const completed = await execution.resumeHumanConfirmation({
+      instanceId: parent.instanceId,
+      confirmed: true,
+      continuationAuthority: authority,
+    });
+    expect(completed).toMatchObject({
+      status: 'succeeded',
+      result: { child: 'done' },
+      budgetUsage: { cost: 1 },
+    });
+    expect(await execution.get(childInstanceId)).toMatchObject({
+      status: 'succeeded',
+      result: { child: 'done' },
+      budgetUsage: { mcpCalls: 1, cost: 1 },
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(await calls.listByParent(parent.instanceId)).toEqual([link]);
+    expect((await pool.query('SELECT instance_id FROM workflow_instance')).rowCount).toBe(2);
+  });
+
   it('keeps two bindings independent and invokes their parallel join once after both complete', async () => {
     const authority = await seedAuthority('parallel');
     const definition = parallelDefinition(authority.goalId);

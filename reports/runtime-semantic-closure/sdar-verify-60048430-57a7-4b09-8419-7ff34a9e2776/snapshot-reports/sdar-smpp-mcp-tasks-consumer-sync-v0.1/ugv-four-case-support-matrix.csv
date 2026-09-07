@@ -1,0 +1,5 @@
+case_id,sdar_behavior,evidence,reality,status
+UGV-NODE-001,stale/unready authority blocks before MCP dispatch,existing task readiness/admission regressions,implementation_and_simulated_tests,SUPPORTED
+UGV-CORE-001,normal remote Task retains one invocation/Binding/continuation and requires Runtime verification,existing lifecycle plus Consumer Sync regressions,implementation_and_simulated_tests,SUPPORTED
+UGV-MCP-003,response loss reconciles original Task with one Provider start and no blind redispatch,Frozen HTTP response-loss contract and PostgreSQL integration,protocol_faithful_simulated_provider,SUPPORTED
+UGV-XCHAIN-003,Provider terminal remains receipt and cannot bypass verification,MCP Evidence projector and existing outcome regressions,implementation_and_simulated_tests,SUPPORTED

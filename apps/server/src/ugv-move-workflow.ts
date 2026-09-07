@@ -419,6 +419,7 @@ function buildUgvMoveWorkflowDefinition(
   ]);
   return Object.freeze({
     workflowDefinitionId: input.workflowDefinitionId,
+    executionSemanticsVersion: '2.0',
     version: input.workflowVersion,
     goalId: input.goalContract.goalId,
     goalVersion: input.goalContract.version,

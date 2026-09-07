@@ -1,3 +1,4 @@
+import { saveWorkflowChildCall } from './workflow-child-call-repository.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type {
@@ -271,7 +272,7 @@ function currentAgentTaskCommand(
   return command;
 }
 
-async function setAgentTaskCommandIdentity(
+export async function setAgentTaskCommandIdentity(
   client: PoolClient,
   command: Readonly<{
     taskId: string;
@@ -3885,6 +3886,17 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     return result.rows.map(mapTaskRow);
   }
 
+  async findWithRevision(
+    taskId: string,
+  ): Promise<Readonly<{ task: AgentTask; revision: string }> | undefined> {
+    const result = await this.#pool.query<TaskRow & { revision: string }>(
+      'SELECT * FROM agent_task WHERE task_id=$1',
+      [taskId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? undefined : { task: mapTaskRow(row), revision: row.revision };
+  }
+
   async save(task: AgentTask): Promise<void> {
     const command = this.#commandContext?.current();
     if (command !== undefined && command.taskId !== task.taskId)
@@ -4586,18 +4598,21 @@ export class PostgresExternalTaskProjectionRepository implements ExternalTaskPro
     query: ExternalTaskProjectionQuery,
   ): Promise<Readonly<{ items: readonly ExternalTaskProjection[]; total: number }>> {
     const result = await this.#pool.query<ProjectionRow>(
-      `SELECT protocol, task_id, context_id, state, status_timestamp, document_json,
+      `SELECT p.protocol, p.task_id, p.context_id, p.state, p.status_timestamp, p.document_json,
               count(*) OVER()::text AS total_count
-       FROM external_task_projection
-       WHERE protocol = $1
-         AND ($2::text IS NULL OR context_id = $2)
-         AND ($3::text IS NULL OR state = $3)
-         AND ($4::timestamptz IS NULL OR status_timestamp >= $4)
-         AND ($5::text IS NULL OR task_id > $5)
+       FROM external_task_projection p
+       LEFT JOIN agent_task a ON a.task_id=p.task_id
+       WHERE p.protocol = $1
+         AND ($2::text IS NULL OR p.context_id = $2)
+         AND ($3::text IS NULL OR p.state = $3)
+         AND ($4::timestamptz IS NULL OR (CASE WHEN $8::boolean THEN a.updated_at ELSE p.status_timestamp END) >= $4)
+         AND ($5::text IS NULL OR p.task_id > $5)
+         AND (NOT $8::boolean OR a.task_id IS NOT NULL)
+         AND ($9::text[] IS NULL OR a.phase=ANY($9::text[]))
        ORDER BY
-         CASE WHEN $5::text IS NOT NULL THEN task_id END ASC,
-         CASE WHEN $5::text IS NULL THEN status_timestamp END DESC NULLS LAST,
-         task_id
+         CASE WHEN $5::text IS NOT NULL THEN p.task_id END ASC,
+         CASE WHEN $5::text IS NULL THEN CASE WHEN $8::boolean THEN a.updated_at ELSE p.status_timestamp END END DESC NULLS LAST,
+         p.task_id
        OFFSET $6 LIMIT $7`,
       [
         query.protocol,
@@ -4607,6 +4622,8 @@ export class PostgresExternalTaskProjectionRepository implements ExternalTaskPro
         query.taskIdAfter ?? null,
         query.offset,
         query.limit,
+        query.currentTask !== undefined,
+        query.currentTask?.phases ?? null,
       ],
     );
     return {
@@ -5459,6 +5476,7 @@ interface WorkflowPlanRow extends QueryResultRow {
 
 const StoredWorkflowDefinitionSchema = z
   .object({
+    executionSemanticsVersion: z.enum(['1.0', '2.0']).optional(),
     workflowDefinitionId: z.string(),
     version: z.number().int().positive(),
     goalId: z.string(),
@@ -5902,6 +5920,7 @@ const PendingConfirmationSchema = z
   .strict();
 
 interface SkillCallWorkflowRow extends QueryResultRow {
+  parent_node_run_id: string | null;
   call_id: string;
   parent_plan_id: string;
   parent_instance_id: string;
@@ -5924,41 +5943,65 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
   }
 
   async save(record: SkillCallWorkflowRecord): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO skill_call_workflow(
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (record.parentNodeRunId !== undefined)
+        await saveWorkflowChildCall(client, {
+          callId: record.callId,
+          kind: 'skill_call',
+          parentInstanceId: record.parentInstanceId,
+          parentNodeRunId: record.parentNodeRunId,
+          parentNodeId: record.parentNodeId,
+          childPlanId: record.childPlanId,
+          ...(record.childInstanceId === undefined
+            ? {}
+            : { childInstanceId: record.childInstanceId }),
+          createdAt: record.createdAt,
+        });
+      await client.query(
+        `INSERT INTO skill_call_workflow(
          call_id,parent_plan_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,
-         skill_id,skill_version,confirmation_status,status,evaluation_summary,created_at,completed_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         skill_id,skill_version,confirmation_status,status,evaluation_summary,created_at,completed_at,parent_node_run_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        ON CONFLICT(call_id) DO UPDATE SET
          child_instance_id=COALESCE(skill_call_workflow.child_instance_id,EXCLUDED.child_instance_id),
          confirmation_status=EXCLUDED.confirmation_status,
          status=EXCLUDED.status,
          evaluation_summary=EXCLUDED.evaluation_summary,
          completed_at=EXCLUDED.completed_at`,
-      [
-        record.callId,
-        record.parentPlanId,
-        record.parentInstanceId,
-        record.parentNodeId,
-        record.childInstanceId ?? null,
-        record.childPlanId,
-        record.skillId,
-        record.skillVersion,
-        record.confirmationStatus,
-        record.status,
-        record.evaluationSummary,
-        record.createdAt,
-        record.completedAt ?? null,
-      ],
-    );
+        [
+          record.callId,
+          record.parentPlanId,
+          record.parentInstanceId,
+          record.parentNodeId,
+          record.childInstanceId ?? null,
+          record.childPlanId,
+          record.skillId,
+          record.skillVersion,
+          record.confirmationStatus,
+          record.status,
+          record.evaluationSummary,
+          record.createdAt,
+          record.completedAt ?? null,
+          record.parentNodeRunId ?? null,
+        ],
+      );
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
-  async find(parentInstanceId: string, parentNodeId: string) {
+  async find(parentInstanceId: string, parentNodeRunId: string) {
     const result = await this.#pool.query<SkillCallWorkflowRow>(
       `SELECT * FROM skill_call_workflow
-       WHERE parent_instance_id=$1 AND parent_node_id=$2
+       WHERE parent_instance_id=$1 AND parent_node_run_id=$2
        ORDER BY created_at DESC,completed_at DESC,call_id DESC LIMIT 1`,
-      [parentInstanceId, parentNodeId],
+      [parentInstanceId, parentNodeRunId],
     );
     return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
   }
@@ -5986,6 +6029,7 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
 function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecord {
   return {
     callId: row.call_id,
+    ...(row.parent_node_run_id === null ? {} : { parentNodeRunId: row.parent_node_run_id }),
     parentPlanId: row.parent_plan_id,
     parentInstanceId: row.parent_instance_id,
     parentNodeId: row.parent_node_id,
@@ -6670,6 +6714,14 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
     );
   }
 
+  async findExperience(temporarySkillId: string): Promise<TemporarySkillExperience | undefined> {
+    const result = await this.#pool.query<TemporaryExperienceRow>(
+      'SELECT * FROM temporary_skill_experience WHERE temporary_skill_id=$1 ORDER BY created_at,experience_id LIMIT 1',
+      [temporarySkillId],
+    );
+    return result.rows[0] === undefined ? undefined : mapTemporaryExperienceRow(result.rows[0]);
+  }
+
   async expireAndSaveExperience(
     skill: TemporarySkill,
     experience: TemporarySkillExperience,
@@ -6677,6 +6729,42 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const task = await client.query<{ phase: string; temporary_skill_id: string | null }>(
+        'SELECT phase,temporary_skill_id FROM agent_task WHERE task_id=$1 FOR UPDATE',
+        [skill.taskId],
+      );
+      const owner = task.rows[0];
+      if (
+        owner === undefined ||
+        !['completed', 'failed', 'canceled', 'invalidated', 'capability_gap'].includes(owner.phase)
+      )
+        throw Object.assign(
+          new Error('Temporary Skill completion requires its owning Task terminal transaction.'),
+          { code: 'TEMPORARY_SKILL_TASK_NOT_TERMINAL' },
+        );
+      if (
+        experience.successful &&
+        (owner.phase !== 'completed' || owner.temporary_skill_id !== skill.temporarySkillId)
+      )
+        throw Object.assign(
+          new Error('A failed or unselected temporary Skill cannot create successful experience.'),
+          { code: 'TEMPORARY_SKILL_COMPLETION_CONFLICT' },
+        );
+      const prior = await client.query<TemporaryExperienceRow>(
+        'SELECT * FROM temporary_skill_experience WHERE temporary_skill_id=$1',
+        [skill.temporarySkillId],
+      );
+      if (prior.rows[0] !== undefined) {
+        if (
+          prior.rows[0].successful !== experience.successful ||
+          prior.rows[0].task_id !== experience.taskId
+        )
+          throw Object.assign(new Error('Committed temporary Skill outcome cannot be replaced.'), {
+            code: 'TEMPORARY_SKILL_COMPLETION_CONFLICT',
+          });
+        await client.query('COMMIT');
+        return;
+      }
       const updated = await client.query(
         `UPDATE temporary_skill SET status = $2, expired_at = $3
          WHERE temporary_skill_id = $1 AND status = 'active'`,

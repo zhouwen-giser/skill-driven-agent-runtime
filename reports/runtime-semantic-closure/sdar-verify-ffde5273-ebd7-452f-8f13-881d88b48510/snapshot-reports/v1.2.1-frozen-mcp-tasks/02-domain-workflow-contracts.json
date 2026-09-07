@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "phase": 2,
+  "status": "passed_with_host_limitation",
+  "contracts": {
+    "domainFrozenProtocol": true,
+    "legacyWorkflowReadable": true,
+    "frozenWorkflowForbidsLegacyMode": true,
+    "legacyAdapterRejectsFrozenExecution": true,
+    "runtimeRevisionDedupe": "taskId+runtimeRevision",
+    "providerRequirementIdForbidden": true
+  },
+  "verification": {
+    "unit": { "status": "passed", "files": 75, "tests": 471 },
+    "focusedWorkflowUnit": { "status": "passed", "files": 2, "tests": 17 },
+    "focusedWorkflowContract": { "status": "passed", "files": 1, "tests": 3 },
+    "contract": {
+      "status": "host_limited",
+      "passed": 112,
+      "total": 113,
+      "limitation": "Windows symlink fixture setup EPERM"
+    },
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "architecture": { "status": "passed", "typescriptSources": 260 }
+  },
+  "claims": {
+    "phase2Complete": true,
+    "frozenRuntimeComplete": false,
+    "interopCertified": false
+  }
+}

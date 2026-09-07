@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile.attempt/v1",
+  "task": "UAP-P3-B01",
+  "bootstrapRunId": "uap-p3-b01-mt2y4vh5-627d50e9fb",
+  "kind": "preflight",
+  "command": "preflight",
+  "stage": "complete",
+  "status": "passed",
+  "exitCode": 0,
+  "observedAt": "2026-08-24T01:44:22.910Z",
+  "evidenceClass": "external_simulation",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalPhysicalMutationAuthorized": false,
+  "activityAssessment": "not_assessed",
+  "controlPlaneMutationAttempted": false,
+  "localMutationAttempted": true,
+  "localMutationScope": "private_run_identity_credentials_and_evidence",
+  "simulationSideEffectsEnabled": false,
+  "secretsIncluded": false,
+  "endpointsIncluded": false,
+  "modelConfigurationIncluded": false
+}

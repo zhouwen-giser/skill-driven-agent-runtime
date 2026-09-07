@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "phase": 11,
+  "status": "passed",
+  "goal": "Persist minimal exact-version Skill execution evidence without introducing a second Task, Workflow, Provider, or terminal lifecycle authority.",
+  "dependencyClass": "V11-MAIN-BASELINE-DEPENDENT",
+  "phaseInputSha": "0ca3de21912959aca3999936b9b7e2b70ad4a1f9",
+  "resultingSha": "dc55f471a691dde3a613d5528e7bf2e106b150bd",
+  "authority": {
+    "task": "existing AgentTask",
+    "workflow": "existing WorkflowPlan, WorkflowInstance, WorkflowController and RuntimeTerminalOutcome",
+    "provider": "existing MCP registry, RemoteTaskBinding and Provider observations",
+    "skillExecution": "append-only evidence projection only",
+    "migration": "single released 0064 then 0100 through 0106 chain"
+  },
+  "contract": {
+    "statuses": 8,
+    "eventTypes": 20,
+    "thinReferenceKinds": 7,
+    "parentChildQueryable": true,
+    "terminalTransitionsRejected": true,
+    "credentialsRejected": true,
+    "privateReasoningRejected": true,
+    "generalTelemetryPlatformAdded": false
+  },
+  "managementApi": {
+    "operationsAdded": [
+      "GET /api/v1/tasks/{taskId}/skill-executions",
+      "GET /api/v1/skill-executions/{executionId}"
+    ],
+    "projectionIncludes": [
+      "execution",
+      "parentChildTree",
+      "taskProviderResourceRemoteBindingRefs",
+      "evidenceRefs",
+      "hardGates",
+      "degradedReason"
+    ]
+  },
+  "testsActuallyRun": [
+    {
+      "command": "pnpm format:check; pnpm lint; pnpm typecheck; pnpm test; pnpm verify:architecture; pnpm verify:management-openapi; pnpm build",
+      "status": "passed",
+      "commit": "dc55f471a691dde3a613d5528e7bf2e106b150bd",
+      "dirty": false,
+      "unitContractFiles": 84,
+      "unitContractTests": 562,
+      "architectureSourceFiles": 256,
+      "managementApiOperations": 116,
+      "build": "passed"
+    },
+    {
+      "command": "SDAR_TEST_POSTGRES_URL=<disposable> pnpm exec vitest run packages/persistence-postgres/test/repositories.integration.test.ts",
+      "status": "passed",
+      "tests": 57,
+      "infrastructure": "real local PostgreSQL/pgvector disposable database"
+    },
+    {
+      "command": "pnpm exec vitest run apps/server/test/remote-task-runtime.integration.test.ts apps/server/test/remote-task-composition.integration.test.ts",
+      "status": "passed",
+      "tests": 10,
+      "infrastructure": "real local PostgreSQL/Redis/BullMQ/LangGraph and loopback deterministic MCP Provider"
+    },
+    {
+      "command": "SDAR_REUSE_EXISTING_INFRA=true node scripts/verify-v11-migration-path.mjs",
+      "status": "passed",
+      "latestMigration": "0106_skill_execution_record"
+    }
+  ],
+  "environment": {
+    "verificationDatabase": "sdar_phase11_verify; disposable and removed",
+    "operatorDatabase": "unchanged; historical 0064,0105 gap not repaired",
+    "repositoryContainersAfterVerification": "stopped with volumes preserved"
+  },
+  "knownLimitations": [
+    "Move-to vertical hard-gate acceptance remains Phase 12.",
+    "Recursive area-patrol child execution and degradation acceptance remains Phase 13.",
+    "Full pnpm verify is scheduled for Phase 14 and Phase 15.",
+    "External production MCP Tasks Provider interoperability remains unverified."
+  ],
+  "push": {
+    "featureCommit": "dc55f471a691dde3a613d5528e7bf2e106b150bd",
+    "status": "passed",
+    "remote": "origin"
+  }
+}

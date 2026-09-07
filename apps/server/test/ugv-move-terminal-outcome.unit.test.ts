@@ -422,8 +422,7 @@ describe('UGV Profile Goal evaluator routing', () => {
       }),
     ).resolves.toEqual({
       decision: 'unachievable',
-      summary:
-        'UGV Skill workflow failed at usage_task_0 with HOME_ASSISTANT_ENTITY_ID_FORBIDDEN.',
+      summary: 'UGV Skill workflow failed at usage_task_0 with HOME_ASSISTANT_ENTITY_ID_FORBIDDEN.',
     });
     expect(fallback.evaluate).not.toHaveBeenCalled();
     expect(point.evaluate).not.toHaveBeenCalled();

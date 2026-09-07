@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "goalRunId": "019fca75-f48a-7780-ac5e-942503c6690e",
+  "phase": "G06",
+  "status": "passed",
+  "evidenceClass": "real_live_public_api",
+  "observedAt": "2026-08-11T05:08:38.981Z",
+  "idempotentReplayObservedAt": "2026-08-11T05:09:02.858Z",
+  "runtimeCapabilityReadinessAtObservation": "available",
+  "readinessEvidenceScope": "available at observation and admission; not asserted as current liveness",
+  "skills": [
+    {
+      "skillId": "home.light.get-state",
+      "skillVersion": 1,
+      "status": "published",
+      "mode": "procedure",
+      "taskType": "light_get_state",
+      "mcpToolName": "light_get_state",
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "localServerId": "home-lab-light-mcp",
+      "requiredEvidenceType": "light.state.observation",
+      "sideEffecting": false,
+      "packageChecksum": "723de394aa6fc43abae9858d688f5658807591b7db096257d93c22d8bf247b31"
+    },
+    {
+      "skillId": "home.light.set-power",
+      "skillVersion": 1,
+      "status": "published",
+      "mode": "procedure",
+      "taskType": "light_set_power",
+      "mcpToolName": "light_set_power",
+      "mcpProviderBindingId": "mcp-binding-ha-light-lab",
+      "localServerId": "home-lab-light-mcp",
+      "requiredEvidenceType": "light.state.observation",
+      "sideEffecting": true,
+      "packageChecksum": "51443408f506bb6c9f5b022854679aaa2840e134d63e448797ba7470c807960f"
+    },
+    {
+      "skillId": "home.climate.get-state",
+      "skillVersion": 1,
+      "status": "published",
+      "mode": "procedure",
+      "taskType": "climate_get_state",
+      "mcpToolName": "climate_get_state",
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "localServerId": "home-lab-climate-mcp",
+      "requiredEvidenceType": "climate.state.observation",
+      "sideEffecting": false,
+      "packageChecksum": "5db93c5e9b226ddc42c6acd9d39ad12e36fcd5b1a0b4578cc7ee3942e425ed92"
+    },
+    {
+      "skillId": "home.climate.set-hvac-mode",
+      "skillVersion": 1,
+      "status": "published",
+      "mode": "procedure",
+      "taskType": "climate_set_hvac_mode",
+      "mcpToolName": "climate_set_hvac_mode",
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "localServerId": "home-lab-climate-mcp",
+      "requiredEvidenceType": "climate.hvac_mode.observation",
+      "sideEffecting": true,
+      "packageChecksum": "8e48555b569607f21c969e0565e4d5bd89a35e973227e3c1a67bd1c403d4c154"
+    },
+    {
+      "skillId": "home.climate.set-temperature",
+      "skillVersion": 1,
+      "status": "published",
+      "mode": "procedure",
+      "taskType": "climate_set_temperature",
+      "mcpToolName": "climate_set_temperature",
+      "mcpProviderBindingId": "mcp-binding-ha-climate-lab",
+      "localServerId": "home-lab-climate-mcp",
+      "requiredEvidenceType": "climate.target_temperature.observation",
+      "sideEffecting": true,
+      "packageChecksum": "1749b3f8fcee28647a1c5820b95bd0714ab62fd02309ec43eda529a5331f167c"
+    }
+  ],
+  "checks": {
+    "exactVersionCount": 5,
+    "taskTypeEqualsMcpToolName": true,
+    "deterministicProcedureMode": true,
+    "zeroLlmBudgetDoesNotRequireModelRoute": true,
+    "idempotentReplay": "passed"
+  },
+  "evidenceReferences": [
+    "reports/sdar-smpp-integration/raw/g06-post-restart-03.redacted.json",
+    "reports/sdar-smpp-integration/raw/g06-post-restart-03-replay.redacted.json"
+  ],
+  "redaction": {
+    "secretsIncluded": false,
+    "endpointsIncluded": false,
+    "entityIdsIncluded": false
+  }
+}

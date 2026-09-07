@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T07:33:35.251Z",
+  "status": "FAILED_FIXED_TEST_FIXTURE",
+  "evidenceClass": "external_simulation",
+  "observationClass": "local_isolated_postgresql_integration",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=<redacted-loopback-55444> SDAR_REDIS_PORT=56379 pnpm test:integration",
+  "executionContext": "approved host using a dedicated no-volume PostgreSQL container and the existing loopback Redis",
+  "exitCode": 1,
+  "result": {
+    "testFilesPassed": 35,
+    "testFilesFailed": 2,
+    "testsPassed": 215,
+    "testsFailed": 3,
+    "durationSeconds": 315.27
+  },
+  "failure": {
+    "code": "STALE_INTEGRATION_FIXTURE_EXPECTATIONS",
+    "summary": "One test incorrectly expected readinessArgumentsHash inside a human confirmation and exited before consuming its confirmation, which cascaded into a duplicate invocation identifier in the next test. A continuation fixture also expected authority version 3 although six persisted transitions correctly produced version 7.",
+    "productionDefectFound": false
+  },
+  "correction": {
+    "summary": "The confirmation test now explicitly proves readinessArgumentsHash is not confirmation authority while retaining the exact readiness snapshot assertion. The continuation test now asserts the exact persisted version 7 transition count.",
+    "assertionWeakened": false,
+    "productionCodeChanged": false,
+    "targetedReplay": "3 files and 6 tests passed; duplicate-consumption replay passed 1 of 1."
+  },
+  "stateMutation": "Integration databases and schemas created by the tests were cleaned by their existing teardown. The dedicated no-volume PostgreSQL container remained running for the final replay.",
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

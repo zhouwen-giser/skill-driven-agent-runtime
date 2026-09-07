@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": {
+    "postgresql": "real",
+    "redis": "real",
+    "model": "simulated",
+    "mcp": "simulated",
+    "staticAndBuild": "real_local"
+  },
+  "verifiedCommit": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+  "dirty": false,
+  "durationMs": 220389,
+  "commands": {
+    "formatCheck": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "unit": "112 files / 670 tests passed",
+    "contract": "22 files / 178 tests passed",
+    "integration": "12 files / 104 tests passed",
+    "e2e": "2 files / 62 tests passed",
+    "migrations": "21 migrations through 0128 passed",
+    "architecture": "468 TypeScript files passed",
+    "build": "passed",
+    "verify": "7/7 aggregate stages passed"
+  },
+  "protocolAndSmoke": {
+    "a2aMust": "74/74",
+    "openApiOperations": 152,
+    "cognitiveReplayPhysicalCalls": 0,
+    "pgvector": "0.8.5",
+    "redis": "PONG",
+    "serverConsoleSmoke": "passed"
+  },
+  "sourceRefs": [
+    "reports/verification/summary.json",
+    "reports/verification/summary.md",
+    "execplans/EP-SDAR-V1.3-P04R.md"
+  ],
+  "acceptanceRefs": [
+    "AC-P04R-039"
+  ]
+}

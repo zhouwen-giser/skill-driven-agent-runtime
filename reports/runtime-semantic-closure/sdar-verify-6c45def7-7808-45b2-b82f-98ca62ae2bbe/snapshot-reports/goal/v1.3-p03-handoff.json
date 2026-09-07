@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P03",
+  "packageVersion": "1.1",
+  "sequence": 3,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "6996cffac87e3a3bfdae2006c90006c0cce35a98",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "v11Completion": "e926445b645b6425d246eb019e05f06a7c7c5f8e",
+    "p04rActivityIdentityAndMining": "6996cffac87e3a3bfdae2006c90006c0cce35a98",
+    "p04rVerifiedHead": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+  "contractRegistryVersion": "1.2",
+  "contractRegistrySha256": "8aa828faf544b2cad3d3eb72bfc0935b02ba324a517de1563308862fc7d60dee",
+  "consumedContracts": [
+    {
+      "name": "ArtifactRepository",
+      "version": "1.1",
+      "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "ExperienceTrace",
+      "version": "1.1",
+      "schemaHash": "d929a15aa9fc268bd713ddf9d44d8b1a856d8edc8acf8650ddc1b8511945c4f9"
+    },
+    {
+      "name": "ExperienceActivityRef",
+      "version": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0"
+    },
+    {
+      "name": "ExperienceTraceEvent",
+      "version": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425"
+    },
+    {
+      "name": "CohortDefinition",
+      "version": "1.1",
+      "schemaHash": "864abd2238982993ced478f96be4a65eb53b6813f8a984b2b1c05175a44a4f90"
+    },
+    {
+      "name": "ProcessVariant",
+      "version": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17"
+    },
+    {
+      "name": "DiscoveredProcessPattern",
+      "version": "1.1",
+      "schemaHash": "de261049c901dc1e19fcce26adc665149f1cfab9c7b83a2f25e2a6b5fbd70eac"
+    },
+    {
+      "name": "WorkflowPattern",
+      "version": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11"
+    }
+  ],
+  "migrations": [
+    "0126_v13_experience_compilation"
+  ],
+  "repositoryPorts": [
+    "ExperienceCompilationRepository",
+    "CompilationRunRepository",
+    "WorkflowPatternReadRepository"
+  ],
+  "applicationPorts": [
+    "ExperienceTraceNormalizer",
+    "DeterministicProcessMiner",
+    "ExperienceCompilationService"
+  ],
+  "runtimePorts": [
+    "BullMqCompilationWorker"
+  ],
+  "events": [
+    "experience.trace_created",
+    "compiler.pattern_discovered"
+  ],
+  "queues": [
+    "sdar-compiler-normalization",
+    "sdar-compiler-process-mining"
+  ],
+  "featureFlags": [],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p03-completion.md",
+    "reports/goal/v1.3-p03-review.md",
+    "reports/goal/v1.3-p03-golden-dataset.json",
+    "reports/goal/v1.3-p03-mining-report.json",
+    "reports/verification/summary.json",
+    "execplans/EP-SDAR-V1.3-P04R.md",
+    "adr/ADR-120-p04r-workflow-pattern-conditional-dependencies.md"
+  ],
+  "acceptanceSummary": {
+    "passed": 32,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [
+    "Review A retained three non-blocking Minor findings in reports/goal/v1.3-p03-review.md.",
+    "Local performance measurements are acceptance evidence, not a production SLO.",
+    "P03 produces evidence-only WorkflowPattern and does not create or execute an Artifact."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P04",
+  "packageOutputs": {
+    "ExperienceActivityRef": {
+      "contractVersion": "1.2",
+      "schemaHash": "c8fcce49423d402c5cc202b588cbf8687c0c2cf4c8cd2f3ee15b723512e287e0",
+      "refs": [
+        "packages/domain/src/compiler/experience-compilation.ts",
+        "packages/application/src/compiler/experience-normalizer.ts"
+      ]
+    },
+    "ExperienceTraceEvent": {
+      "contractVersion": "1.2",
+      "schemaHash": "4bd9445b70c69e82956eb3edd8dbad570bc0e4333ab5cb1908a816ad4a8e6425",
+      "refs": [
+        "packages/application/src/compiler/experience-normalizer.ts"
+      ]
+    },
+    "ProcessVariant": {
+      "contractVersion": "1.2",
+      "schemaHash": "eabdc0a2265c302b5da9cd456fed06e8396c933ce7fd5ae6a25b75fa73c0bd17",
+      "refs": [
+        "packages/application/src/compiler/process-miner.ts"
+      ]
+    },
+    "WorkflowPattern": {
+      "contractVersion": "1.2",
+      "schemaHash": "a81cd287ea6d035e1d668d4ea17d4987a9789a10a6ec0744f64d8065951d2e11",
+      "refs": [
+        "packages/application/src/compiler/process-miner.ts",
+        "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts"
+      ]
+    }
+  }
+}

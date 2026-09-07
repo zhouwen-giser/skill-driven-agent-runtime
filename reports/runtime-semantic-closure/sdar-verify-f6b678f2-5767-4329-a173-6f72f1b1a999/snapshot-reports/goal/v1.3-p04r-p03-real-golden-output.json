@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "SDAR-V1.3-P04R",
+  "status": "passed",
+  "evidenceClassification": "real_postgresql_integration",
+  "source": {
+    "factContract": "Formal v1.2.3 GoalExperienceEpisode facts",
+    "episodeCount": 3,
+    "users": [
+      "user-a",
+      "user-b"
+    ],
+    "outcomes": [
+      "succeeded",
+      "succeeded",
+      "failed"
+    ],
+    "taskTypeId": "workflow.policy-remediation"
+  },
+  "workflowPattern": {
+    "contractVersion": "1.2",
+    "activityKeys": [
+      "skill-goal:collect-workflow-state",
+      "skill-goal:verify-policy",
+      "skill-goal:apply-safe-remediation"
+    ],
+    "usesLifecycleEventNamesAsSteps": false,
+    "retainsFailureAndRecoveryEvidence": true,
+    "deterministic": true
+  },
+  "downstreamProof": {
+    "fusedPatterns": 1,
+    "generalizedPatterns": 1,
+    "candidates": 1,
+    "lineageRows": 1,
+    "validationRows": 1,
+    "outboxEvents": 1,
+    "completedRuns": 1,
+    "validationResult": "passed_static"
+  },
+  "reproduction": {
+    "testRef": "packages/persistence-postgres/test/candidate-generation.integration.test.ts",
+    "command": "pnpm test:integration",
+    "fullGateCommit": "de25f4c9eb4d9cf96ab75bdaf0d1552a738c3187",
+    "result": "104/104 integration tests passed"
+  },
+  "acceptanceRefs": [
+    "AC-P04R-015",
+    "AC-P04R-018",
+    "AC-P04R-037"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "phase": 8,
+  "status": "passed_with_host_limitation",
+  "implementation": {
+    "providerEvidenceProfile": "1.0",
+    "outputSchemaValidation": true,
+    "localMatchKey": "evidenceType",
+    "workflowEvidenceRoot": "validatedEvidence",
+    "hardGateUriSha256": true,
+    "arbitraryProviderMetadataMerged": false,
+    "childOutputMappingsChanged": false
+  },
+  "verification": {
+    "focusedUnit": { "status": "passed", "tests": 11 },
+    "focusedContract": { "status": "passed", "tests": 18 },
+    "unit": { "status": "passed", "files": 76, "tests": 475 },
+    "contract": { "status": "host_limited", "passed": 153, "total": 154 },
+    "repositoryIntegration": { "status": "passed", "tests": 58, "postgresPort": 55442 },
+    "architecture": { "status": "passed", "typescriptSources": 273 },
+    "build": "passed",
+    "format": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "commits": ["c4ecdac", "7720cb4", "267df14", "1768990"],
+  "evidenceBoundary": {
+    "localComponent": true,
+    "fullE2e": "phase_10_required",
+    "realProviderInterop": false
+  }
+}

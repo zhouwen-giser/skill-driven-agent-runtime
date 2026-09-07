@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "goalId": "SDAR-V1.4-NODE-CONTROL-BACKEND",
+  "phase": "P10",
+  "status": "COMPLETED",
+  "baselineMainSha": "a7a7c62cd39fb7d4ee7c67b18929c557593b08b8",
+  "implementationSha": "9e53ebb0e604558195b51a9cdd5e34d122c89848",
+  "evidenceSha": "b75d1b19799d7de56101f2d2b90ebae992f4027b",
+  "remoteSha": "b75d1b19799d7de56101f2d2b90ebae992f4027b",
+  "branch": "feature/v1.4-node-control-backend",
+  "completedAt": "2026-08-03T06:23:07+08:00",
+  "nextPhase": "P11",
+  "prerequisites": [
+    "fetch and compare origin/main before P11",
+    "consume SkillVersion and P02/P06 Artifact as immutable Runtime authorities",
+    "implement telemetry export only in P11"
+  ],
+  "authorityBoundary": "Runtime PostgreSQL owns SkillVersion, exact lifecycle receipts, compiled Artifact, validation, active pointer and Outbox. Control owns only its proxy ManagementOperation and audit. P11 may export telemetry but cannot create a second telemetry query authority or move durable facts into Redis."
+}

@@ -94,7 +94,13 @@ export type WorkflowNode =
       }>)
   | (WorkflowNodeBase & Readonly<{ type: 'result'; value: WorkflowExpression }>)
   | (WorkflowNodeBase & Readonly<{ type: 'condition'; expression: WorkflowExpression }>)
-  | (WorkflowNodeBase & Readonly<{ type: 'parallel'; branchEntryNodeIds: readonly string[] }>)
+  | (WorkflowNodeBase &
+      Readonly<{
+        type: 'parallel';
+        branchEntryNodeIds: readonly string[];
+        joinNodeId?: string | undefined;
+        mergeStrategy?: 'reject_conflicts' | undefined;
+      }>)
   | (WorkflowNodeBase &
       Readonly<{
         type: 'loop';
@@ -135,6 +141,7 @@ export interface WorkflowEdge {
 }
 
 export interface WorkflowDefinition {
+  readonly executionSemanticsVersion?: '1.0' | '2.0' | undefined;
   readonly workflowDefinitionId: string;
   readonly version: number;
   readonly goalId: string;

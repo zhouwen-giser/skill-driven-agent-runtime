@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "ugv-agent-profile.runtime-e2e-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "attempt": 6,
+  "generatedAt": "2026-08-21T08:46:44.031Z",
+  "recordedAt": "2026-08-21T08:46:44.031Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The original execution timestamp was not retained in the supplied run summary.",
+  "status": "FAILED_FIXED_TEST_ASSERTION",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_runtime_and_postgresql",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": null,
+  "commandMissingReason": "The exact original argv was not retained.",
+  "exitCode": null,
+  "exitCodeMissingReason": "The summary records the failed test but not its original process exit code.",
+  "failureClass": "TASK_CAPABILITY_SOURCE_REF_INPUT_SNAPSHOT_SUFFIX_EXPECTATION",
+  "observedFailure": "The E2E assertion did not include the authoritative :input-snapshot suffix on the Task Capability source reference.",
+  "resolution": "The assertion now requires the exact persisted sourceRef shape rather than weakening production lineage.",
+  "productionCodeChangedForThisFailure": false,
+  "localFixtureCounts": null,
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0
+  }
+}

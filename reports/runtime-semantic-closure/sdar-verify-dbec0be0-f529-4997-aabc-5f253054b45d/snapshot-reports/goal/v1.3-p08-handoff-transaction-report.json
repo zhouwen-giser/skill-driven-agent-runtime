@@ -1,0 +1,15 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "formalPlanAuthority": "existing ConfirmedPlanHandoff and UserGoalPlanningService",
+  "p08Writes": "P02 ArtifactExecutionRepository parent records and feedback only",
+  "idempotency": {
+    "key": "TemplateInstantiationInput.idempotencyKey",
+    "stableInstantiationId": true,
+    "stableArtifactExecutionId": true,
+    "candidateContentHash": true,
+    "existingSessionContentHashConflict": "INTERACTIVE_PLANNING_IDEMPOTENCY_CONFLICT"
+  },
+  "staleBehavior": "second current-state snapshot mismatch returns discarded_stale before formal session admission",
+  "partialFormalPlan": false,
+  "evidence": "template-runtime-p08.unit.test.ts stale before formal handoff"
+}

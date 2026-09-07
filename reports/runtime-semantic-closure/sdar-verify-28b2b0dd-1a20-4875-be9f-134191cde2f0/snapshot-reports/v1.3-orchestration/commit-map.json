@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "baseMainSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "integrationBranch": "feature/v1.3-sequential-implementation",
+  "packages": {
+    "P00": {
+      "orchestrationBaseline": "1bcee05792c918a1273b06ee7d58f7adb40bb572",
+      "completion": "09205a15b5c6df7be28c7eca7c1e418474b6a033"
+    },
+    "P01": {
+      "implementationCompletion": "8ac5f5e35982d6406290302c1a095a79d1031aa1",
+      "evidenceCompletion": "eff64e7b1149b296439132322d7f75cbb90c7f91"
+    },
+    "P02": {
+      "implementationCompletion": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45",
+      "evidenceCompletion": "699f57f849c102ffe7d83c8941c5126e8442a326"
+    },
+    "P03": {
+      "g05Implementation": "22cf9a37d5049e590d60ad194a8146b056312a6e",
+      "g06Implementation": "119fe43c230225b8c9caaec95fc50a41b91d0afa",
+      "initialEvidence": "5802c3e7321b59823d09a8596f6276b0ed18983e",
+      "formalSourceCompatibility": "8adececbe7bf3bd599b942d547e80b1744b3bc79",
+      "reviewRemediation": "1f7e043674081c2c8795e7ba6d142808abc6ff01",
+      "evidenceCompletion": null
+    }
+  }
+}

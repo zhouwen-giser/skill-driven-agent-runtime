@@ -1,0 +1,20 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "entry": "PlanPreparationProcessor optional fastGateway port",
+  "orderedPrecheck": ["authentication", "tenant", "authorization", "runtime policy state"],
+  "delegates": {
+    "retrieval": "P07GatewayRetrievalAdapter",
+    "rule": "P09GatewayRuleAdapter",
+    "template": "P08GatewayTemplateAdapter",
+    "fallback": "existing cognitive runtime"
+  },
+  "authorityExclusions": ["Goal", "Plan", "Workflow", "Outcome", "Skill Attempt", "Skill", "MCP"],
+  "featureOffPreservesExistingPath": true,
+  "evidence": [
+    "packages/application/src/compiler/fast-gateway.ts",
+    "packages/application/src/compiler/fast-gateway-adapters.ts",
+    "packages/application/src/plan-preparation-processor.ts",
+    "apps/server/src/runtime.ts"
+  ]
+}

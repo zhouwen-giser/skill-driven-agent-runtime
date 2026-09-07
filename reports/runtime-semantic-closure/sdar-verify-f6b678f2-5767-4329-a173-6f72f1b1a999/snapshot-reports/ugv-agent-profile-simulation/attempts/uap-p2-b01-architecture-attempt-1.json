@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "observedAt": "2026-08-21T02:23:00.000Z",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm verify:architecture && git diff --check",
+  "exitCode": 1,
+  "status": "FAILED_FIXED",
+  "failure": {
+    "code": "ARCH_A2A_BOUNDARY_VIOLATION",
+    "file": "apps/server/test/ugv-agent-profile-card.unit.test.ts",
+    "rootCause": "The Server integration test directly imported the A2A adapter to repeat a projection assertion, crossing the repository's enforced adapter boundary."
+  },
+  "fix": {
+    "summary": "Removed the cross-boundary import and kept the Card lifecycle integration test at the Application/Server boundary. The A2A agent-name projection remains covered inside the existing A2A adapter contract suite with a non-default snapshot identity.",
+    "testRefs": [
+      "apps/server/test/ugv-agent-profile-card.unit.test.ts",
+      "packages/a2a-adapter/test/a2a-compatibility.contract.test.ts"
+    ]
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

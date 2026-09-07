@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "date": "2026-07-13",
+  "gate": {
+    "command": "pnpm verify",
+    "unitContract": "54 files / 242 tests passed",
+    "integration": "2 files / 36 tests passed",
+    "e2e": "1 file / 41 tests passed",
+    "smoke": "infrastructure and Server/Console bundle passed",
+    "report": "reports/verification/summary.json"
+  },
+  "scenarios": [
+    {
+      "id": "AC-01",
+      "status": "passed",
+      "evidence": ["blocks an unconfirmed plan then executes its compiled LangGraph against a real MCP server", "returns schema-validated natural-language and structured final output"],
+      "classification": ["real PostgreSQL/Redis/A2A/LangGraph/Mock MCP", "simulated deterministic model semantics"]
+    },
+    {
+      "id": "AC-02",
+      "status": "passed",
+      "evidence": ["auto-confirms an opted-in Skill and returns equivalent synchronous and asynchronous results", "invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation"],
+      "classification": ["real runtime and persistence", "simulated deterministic model semantics"]
+    },
+    {
+      "id": "AC-03",
+      "status": "passed",
+      "evidence": ["submits, streams, persists, lists, and cancels at the plan-confirmation boundary", "validates an admin DAG edit, revokes the old confirmation, then confirms and executes the revision"],
+      "classification": ["real A2A/management/PostgreSQL/LangGraph"]
+    },
+    {
+      "id": "AC-04",
+      "status": "passed",
+      "evidence": ["reuses one active Goal across multiple A2A Tasks in the same context", "evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds", "atomically persists related and unrelated Goal history decisions"],
+      "classification": ["real A2A/PostgreSQL runtime", "simulated deterministic model semantics"]
+    },
+    {
+      "id": "AC-05",
+      "status": "passed",
+      "evidence": ["invalidates old execution evidence after a Goal Patch and forces fresh plan confirmation", "atomically versions a Goal and invalidates its old plans and instances", "goal-patch compensation regression in unit gate"],
+      "classification": ["real E2E and PostgreSQL", "compensation policy deterministic"]
+    },
+    {
+      "id": "AC-06",
+      "status": "passed",
+      "evidence": ["executes skill_call as an independent LangGraph child Workflow using the current Skill version", "persists an independently traceable Skill-call child Workflow and actual Skill version"],
+      "classification": ["real LangGraph/PostgreSQL E2E"]
+    },
+    {
+      "id": "AC-07",
+      "status": "passed",
+      "evidence": ["projects a Goal-evaluation capability gap onto the persisted A2A Task", "resolves a capability gap into a confirmed task-scoped Temporary Skill execution"],
+      "classification": ["real A2A/PostgreSQL/Mock MCP", "simulated deterministic model semantics"]
+    },
+    {
+      "id": "AC-08",
+      "status": "passed",
+      "evidence": ["evaluates, replans outside LangGraph, auto-confirms an opted-in Skill, and tracks rounds", "terminates and marks the Goal unachievable when maxReplans is exhausted", "MCP budget exhaustion in real E2E"],
+      "classification": ["real E2E replan and budget execution", "deterministic unit proof for maxReplans terminal branch"]
+    },
+    {
+      "id": "AC-09",
+      "status": "passed",
+      "evidence": ["uses the fixed LLM stage for the final execution-exception decision", "bounded recovery unit/schema contract tests for retry, changed arguments, alternate Tool, Skill, and termination"],
+      "classification": ["real PostgreSQL/Mock MCP execution", "simulated deterministic model choice"]
+    },
+    {
+      "id": "AC-10",
+      "status": "passed",
+      "evidence": ["pauses before the next real MCP node and resumes without replay", "persists a LangGraph human interrupt and resumes without replaying the preceding MCP call", "automatically cancels a confirmation wait using the managed unified timeout", "replans and requires fresh confirmation when the pause threshold was exceeded"],
+      "classification": ["real pause/resume/cancel E2E", "deterministic unit proof for long-pause threshold"]
+    },
+    {
+      "id": "AC-11",
+      "status": "passed",
+      "evidence": ["keeps one context strictly serial while different contexts overlap", "retains a queued job across queue-client restart before a worker starts", "atomically fails interrupted Tasks and Workflow instances without reconstructing execution", "retains a failed Worker job and never retries the whole Task"],
+      "classification": ["real Redis/BullMQ/PostgreSQL integration"]
+    },
+    {
+      "id": "AC-12",
+      "status": "passed",
+      "evidence": ["registers model-authored valid Schemas through the management boundary", "Skill authoring invalid-schema and correction unit tests"],
+      "classification": ["real management/PostgreSQL path", "simulated deterministic model output"]
+    },
+    {
+      "id": "AC-13",
+      "status": "passed",
+      "evidence": ["expires task-scoped Temporary Skills and gates repeated success behind simulation", "induces a frequent successful Workflow Template and tracks adjusted reuse effects", "EP-05 automatic evolution acceptance audit"],
+      "classification": ["real PostgreSQL/Redis/LangGraph/Mock MCP", "simulated deterministic evaluation and supplemental tests"]
+    },
+    {
+      "id": "AC-14",
+      "status": "passed",
+      "evidence": ["EP-05 failed-candidate correction E2E with actor/diff/history and all-pass publication", "retrieves Skill/Prompt corrections, failure reasons, and evaluation conclusions as evolution memory"],
+      "classification": ["real management/PostgreSQL E2E", "anonymous actor under accepted no-auth baseline"]
+    },
+    {
+      "id": "AC-15",
+      "status": "passed",
+      "evidence": ["keeps automatic Prompt candidates inactive until publish and links new calls to the published version", "keeps Prompt candidates inactive, publishes immutable versions, and aggregates invocation effects"],
+      "classification": ["real PostgreSQL/management/model-loopback"]
+    },
+    {
+      "id": "AC-16",
+      "status": "passed",
+      "evidence": ["stores source-linked memory and retrieves it globally across user identities", "persists source-linked global memory and ranks active pgvector matches", "EP-05 supersede/invalid lifecycle E2E"],
+      "classification": ["real PostgreSQL/pgvector/management", "simulated embedding/model semantics"]
+    },
+    {
+      "id": "AC-17",
+      "status": "passed",
+      "evidence": ["real production-Console browser navigation for Task/Goal/Workflow/Skill/MCP/model/Memory/Evaluation", "102 management OpenAPI operations", "40-test real composed E2E", "Server/Console bundle smoke"],
+      "classification": ["real React production bundle/management API/PostgreSQL", "browser interaction plus automated API contracts"]
+    },
+    {
+      "id": "AC-18",
+      "status": "passed",
+      "evidence": ["submits, streams, persists, lists, and cancels at the plan-confirmation boundary", "continues after stream disconnect and supports polling plus standard resubscribe", "official HTTP+JSON/MUST TCK 74 passed, 161 scoped skips, 0 failures/errors"],
+      "classification": ["real official A2A SDK/HTTP streaming/PostgreSQL"]
+    }
+  ],
+  "unverified": []
+}

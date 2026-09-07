@@ -1,0 +1,12 @@
+{
+  "packageId": "SDAR-V1.3-P10",
+  "status": "passed",
+  "contract": "GatewayFeedbackEnvelope@1.1",
+  "schemaHash": "22faac79bc9ea9d8bcac5bc42e626bba79b5ed04579e371ba5dfadbc611aaf6b",
+  "callerStableFeedbackId": true,
+  "formalOutcomeCopiedAsAuthority": false,
+  "selectedArtifactProjection": "P02 ArtifactRepository feedback authority",
+  "transactionalOutbox": "artifact.feedback_recorded",
+  "privateReasoningRejected": true,
+  "evidence": ["packages/domain/src/compiler/fast-gateway.ts", "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts", "packages/application/src/compiler/fast-gateway-adapters.ts"]
+}

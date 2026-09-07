@@ -1,0 +1,13 @@
+{
+  "packageId": "SDAR-V1.3-P08",
+  "contract": "UserGoalPlanCandidate",
+  "version": "1.1",
+  "schemaHash": "0703bdf935e746d6e3ec5b27a72d334baa39d50e8daa4ca144ef67a41f00d396",
+  "implementation": "materializeCandidate in packages/application/src/compiler/template-runtime.ts",
+  "preservedNodeFacts": [
+    "nodeType", "objective", "requiredCapabilities", "requiredEffectRefs",
+    "criterionCoverage", "evidenceRequirements", "artifactRequirements", "input", "constraints"
+  ],
+  "preservedGraphFacts": ["required_edges", "conditional_edges", "parallel_groups", "recovery_branches"],
+  "excludedExecutionAuthority": ["exact_skill", "provider", "mcp_operation", "workflow"]
+}

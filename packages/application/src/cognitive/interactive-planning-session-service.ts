@@ -313,6 +313,14 @@ export class InteractivePlanningSessionService {
     );
   }
 
+  /** Pure projection: command/recovery paths retain explicit handoff through getByTask. */
+  async readByTask(taskId: string): Promise<InteractivePlanningSessionView | undefined> {
+    const session = await this.#repository.findByTask(taskId);
+    return session === undefined
+      ? undefined
+      : this.#view('duplicate', session, await this.#currentCandidate(session));
+  }
+
   async getByTask(taskId: string): Promise<InteractivePlanningSessionView | undefined> {
     const session = await this.#repository.findByTask(taskId);
     return session === undefined ? undefined : this.#viewAndEnsureHandoff('duplicate', session);

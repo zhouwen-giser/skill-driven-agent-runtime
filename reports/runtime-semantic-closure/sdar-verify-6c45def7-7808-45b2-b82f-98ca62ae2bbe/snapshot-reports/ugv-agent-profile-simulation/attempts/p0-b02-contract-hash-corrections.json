@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "ugv-agent-profile.failed-attempt/v1",
+  "generatedAt": "2026-08-21T01:57:00.000Z",
+  "status": "RESOLVED",
+  "evidenceClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "taskId": "UAP-P0-B02",
+  "attempts": [
+    {
+      "command": "pnpm exec vitest run packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "exitCode": 1,
+      "reasonCode": "SDAR_CONTRACT_CANONICAL_HASH_STALE",
+      "detail": "Initial report hash was computed with jq ordering rather than the runtime localeCompare canonicalizer."
+    },
+    {
+      "command": "pnpm exec vitest run packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "exitCode": 1,
+      "reasonCode": "SDAR_SMPP_SOURCE_FILE_HASH_STALE",
+      "detail": "SMPP formatting changed both evidence file bytes after their canonical contract hashes were already frozen."
+    },
+    {
+      "command": "pnpm exec vitest run packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+      "exitCode": 0,
+      "reasonCode": null,
+      "detail": "The SDAR report now uses the runtime canonical hash and final SMPP file SHA-256 values."
+    }
+  ],
+  "safety": {
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

@@ -18,6 +18,7 @@ import type {
   WorkflowPlanRepository,
   SkillRepository,
   WorkflowContinuationRepository,
+  WorkflowChildCallRepository,
 } from '../src/ports.js';
 import { WorkflowExecutionService } from '../src/workflow-execution.js';
 import { WorkflowValidator } from '../src/workflow-validator.js';
@@ -58,6 +59,82 @@ const validPlan: WorkflowPlanRecord = {
 };
 
 describe('Workflow execution application service', () => {
+  it('cancels exact descendant instances even when multiple children share a plan', async () => {
+    const instances = new MemoryExecutions();
+    const seed = {
+      instanceId: 'parent-cancel',
+      planId: validPlan.planId,
+      workflowDefinitionId: 'workflow-1',
+      workflowVersion: 1,
+      goalId: validPlan.goalId,
+      goalVersion: 1,
+      skillVersions: [],
+      status: 'running' as const,
+      input: {},
+      errors: {},
+      startedAt: '2026-07-12T00:00:00.000Z',
+      budgetLimits: {
+        maxReplans: 1,
+        maxDurationSeconds: 60,
+        maxLlmCalls: 1,
+        maxMcpCalls: 1,
+        maxCost: 1,
+      },
+      budgetUsage: { replanCount: 0, durationMs: 5, llmCalls: 0, mcpCalls: 1, cost: 1 },
+    };
+    for (const instanceId of ['parent-cancel', 'child-1', 'child-2'])
+      await instances.saveInstance({ ...seed, instanceId });
+    const requestCancel = vi.fn((instanceId: string) => {
+      void instances.saveInstance({
+        ...seed,
+        instanceId,
+        status: 'canceled',
+        completedAt: '2026-07-12T00:00:01.000Z',
+      });
+      return true;
+    });
+    const service = createService(
+      new MemoryPlans([validPlan]),
+      instances,
+      { execute: vi.fn(), requestCancel },
+      disabledSkills,
+      undefined,
+      new MemoryContinuations(),
+      {
+        childCalls: {
+          listByParent: (id) =>
+            Promise.resolve(
+              id === 'parent-cancel'
+                ? ['child-1', 'child-2'].map((childInstanceId) => ({
+                    callId: childInstanceId,
+                    kind: 'subworkflow' as const,
+                    parentInstanceId: id,
+                    parentNodeId: 'same-static-node',
+                    parentNodeRunId: childInstanceId,
+                    childInstanceId,
+                    childPlanId: validPlan.planId,
+                    createdAt: seed.startedAt,
+                  }))
+                : [],
+            ),
+        },
+      },
+    );
+    expect(await service.cancelInstance('parent-cancel')).toMatchObject({ status: 'canceled' });
+    expect(requestCancel.mock.calls.map(([id]) => id)).toEqual([
+      'parent-cancel',
+      'child-1',
+      'child-2',
+    ]);
+    for (const instanceId of ['parent-cancel', 'child-1', 'child-2'])
+      expect(await instances.findInstance(instanceId)).toMatchObject({
+        status: 'canceled',
+        budgetUsage: seed.budgetUsage,
+      });
+    await service.cancelInstance('parent-cancel');
+    expect(requestCancel).toHaveBeenCalledTimes(3);
+  });
+
   it('rejects a plan whose Goal contract does not match its execution identity', async () => {
     const stale = {
       ...validPlan,
@@ -964,6 +1041,7 @@ function createService(
   clockOverride?: Readonly<{ now(): string }>,
   continuations: WorkflowContinuationRepository = new MemoryContinuations(),
   externalWaitHooks: Readonly<{
+    childCalls?: Pick<WorkflowChildCallRepository, 'listByParent'>;
     onExternalWaitPrepared?: (prepared: WorkflowExternalWaitPreparedSnapshot) => Promise<void>;
     onExternalWaitActivated?: (snapshot: WorkflowContinuationSnapshot) => Promise<void>;
   }> = {},

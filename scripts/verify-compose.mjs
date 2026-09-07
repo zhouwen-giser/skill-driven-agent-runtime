@@ -29,7 +29,7 @@ if ([...compose.matchAll(/^\s+pull_policy:\s+never\s*$/gmu)].length !== 1)
   throw new Error('COMPOSE_POSTGRES_PULL_POLICY_INVALID');
 
 for (const deterministicBuildControl of [
-  "'--project-name',\n      'sdar'",
+  "'--project-name',\n      composeProject",
   "'--provenance=false'",
   "'--sbom=false'",
 ]) {

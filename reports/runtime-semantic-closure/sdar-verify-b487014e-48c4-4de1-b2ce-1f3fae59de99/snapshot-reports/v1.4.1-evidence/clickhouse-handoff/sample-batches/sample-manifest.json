@@ -1,0 +1,10 @@
+{
+  "classification": "simulated deterministic protocol fixtures",
+  "realEvidenceBoundary": "Real PostgreSQL/Redis/HTTP execution evidence is retained in phase-12-e2e.json and phase reports; these files are adapter fixtures only.",
+  "files": [
+    "valid-batch.json",
+    "accepted-ack.json",
+    "partial-ack.json",
+    "duplicate-delivery.json"
+  ]
+}

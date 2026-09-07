@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B03",
+  "generatedAt": "2026-08-21T09:08:24.425Z",
+  "recordedAt": "2026-08-21T09:08:24.425Z",
+  "executionObservedAt": null,
+  "executionObservedAtMissingReason": "The supplied failed command result did not include a wall-clock execution timestamp; the evidence recording time is not substituted.",
+  "status": "FAILED_FIXED_TEST_FIXTURE",
+  "evidenceClass": "external_simulation",
+  "qualificationLayer": "P2_local_integration",
+  "observationClass": "local_isolated_postgresql_integration",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "externalExecution": false,
+  "command": "SDAR_REUSE_EXISTING_INFRA=true SDAR_TEST_POSTGRES_URL=<redacted-loopback-55444> SDAR_REDIS_PORT=56379 pnpm test:integration",
+  "executionContext": "approved host using the isolated loopback PostgreSQL/Redis gate",
+  "exitCode": 1,
+  "result": {
+    "testFilesTotal": 38,
+    "testsTotal": 219,
+    "testsPassed": 218,
+    "testsFailed": 1,
+    "durationSeconds": null,
+    "durationMissingReason": "No duration for this failed run was supplied to the evidence recorder."
+  },
+  "failure": {
+    "code": "STALE_CONCURRENCY_FIXTURE_EXPECTED_FIRST_CALLER",
+    "summary": "The fixture fixed the first caller's timestamp as the expected winner even though the second legal concurrent caller won and persisted its authority.",
+    "productionDefectFound": false
+  },
+  "correction": {
+    "summary": "The assertion now requires both callers to return the same persisted winner, without assuming which legal caller wins the race.",
+    "assertionWeakened": false,
+    "productionCodeChanged": false,
+    "targetedCommand": "SDAR_TEST_POSTGRES_URL=postgresql://sdar:<redacted>@127.0.0.1:55444/sdar SDAR_REDIS_PORT=56379 ./node_modules/.bin/vitest run packages/persistence-postgres/test/governed-control-authority.integration.test.ts --maxWorkers=1 --reporter=dot",
+    "targetedResult": "EXIT 0; 1 file and 3 tests passed in 10.04 seconds."
+  },
+  "finalReplayAttempt": "attempts/uap-p2-b03-integration-isolated-attempt-4-pass.json",
+  "externalSmppCounts": {
+    "toolCallCount": 0,
+    "navigationDispatchCount": 0,
+    "mqttPublishCount": 0,
+    "forbiddenOperationCallCount": 0,
+    "sdarDirectSouthboundAccessCount": 0
+  }
+}

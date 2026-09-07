@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "goal": "sdar.smpp-mcp-tasks-runtime-consumer-sync/v0.1",
+  "implementationCommit": "b9a75e3990163e959d91c76d402fe94c8366f5e8",
+  "baseCommit": "b0caf69e9f83bc6702e1c0a85e7ca158c3781d4b",
+  "sourceLockedSmppCommit": "1e67e6e421d70a3cbce2d41bf5007e99463712fe",
+  "evidenceContract": "sdar.evidence/v1",
+  "evidenceRecordCount": 105,
+  "evidenceRegistryHash": "sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197",
+  "fullVerifyPassed": true,
+  "deviceOperationPerformed": false
+}

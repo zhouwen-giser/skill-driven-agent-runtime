@@ -1,0 +1,61 @@
+[
+  {
+    "name": "loop maxIterations=30",
+    "validation": true,
+    "error": "GraphRecursionError",
+    "message": "Recursion limit of 25 reached without hitting a stop condition. You can increase the limit by setting the \"recursionLimit\" config key.\n\nTroubleshooting URL: https://docs.langchain.com/oss/javascript/langgraph/GRAPH_RECURSION_LIMIT/\n",
+    "calls": 12
+  },
+  {
+    "name": "parallel branch with condition",
+    "validation": true,
+    "status": "succeeded",
+    "events": [
+      "p",
+      "b",
+      "condition",
+      "a1"
+    ],
+    "calls": 2
+  },
+  {
+    "name": "missing loop done route",
+    "validation": true,
+    "error": "WORKFLOW_ROUTE_MISSING",
+    "message": "Node loop has no done route.",
+    "calls": 0
+  },
+  {
+    "name": "remote wait then human confirmation",
+    "initialStatus": "waiting_external",
+    "continuationStatus": "paused",
+    "pendingConfirmation": {
+      "nodeId": "confirm",
+      "prompt": "Proceed?",
+      "kind": "human_confirmation",
+      "pausedAt": "2026-09-07T03:15:37.745Z"
+    },
+    "resume": {
+      "error": "WORKFLOW_CHECKPOINT_NOT_AVAILABLE",
+      "message": "Workflow checkpoint is unavailable and cannot be recovered or retried."
+    }
+  }
+]
+{
+  "name": "skill fail_fast error handler",
+  "status": "succeeded",
+  "result": "done",
+  "decisionInput": [
+    {
+      "handledNodeId": "skill",
+      "error": {
+        "code": "CHILD_FAILED",
+        "message": "child failed"
+      },
+      "allowedStrategies": [
+        "terminate",
+        "continue"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "sdar.ugv-p10-public-initial-admission-handoff/v1",
+  "generatedAt": "2026-09-02T05:20:50.000Z",
+  "implementationCommit": "0ee57562eaf1a95408f061966a54199d3eb7bc7a",
+  "runtime": {
+    "distSha256": "78ff100f40743bb17cde1c3aa7305ba3bfbe354b04a6ba523e768ff9ed1c43d5",
+    "management": {
+      "pid": 946285,
+      "startedAt": "2026-09-02T05:18:10.000Z",
+      "url": "http://127.0.0.1:10998",
+      "healthStatus": 200
+    },
+    "a2a": {
+      "pid": 946285,
+      "startedAt": "2026-09-02T05:18:10.000Z",
+      "url": "http://127.0.0.1:10999",
+      "agentCardStatus": 200
+    },
+    "nodeControlApi": {
+      "pid": 952399,
+      "startedAt": "2026-09-02T05:18:54.000Z",
+      "url": "http://127.0.0.1:10091",
+      "livenessStatus": 200,
+      "readinessStatus": 200
+    },
+    "nodeControlWorker": {
+      "pid": 943355,
+      "startedAt": "2026-09-02T05:17:49.000Z",
+      "status": "running"
+    }
+  },
+  "binding": {
+    "bindingId": "ugv-smpp-real-integration-r2-binding",
+    "revision": 2,
+    "status": "active",
+    "availabilityStatus": "available",
+    "registryRevision": 2,
+    "registryChecksum": "165a5a0bfc2a93a2915d40c38fe1ec99af11bd0d1640565e34118e9301c44bdc",
+    "catalogRevision": "2.0.0-rc.1:2",
+    "catalogChecksum": "a8748237d2f70036a5abf320db0637cb34e2b018cb200292a4adf25c22d3014a",
+    "operationCount": 10
+  },
+  "governance": {
+    "report": "reports/sdar-ugv-smpp-integration/p10-public-initial-admission-governance.redacted.json",
+    "reportSha256": "19acbabc8df3efa280d9c86ec8b2ece1227990de0beb8034cbd7d0dee49cb124",
+    "observedAt": "2026-09-02T05:13:08.582Z",
+    "activeAgentCard": {
+      "revision": 14014,
+      "contentHash": "6b660fdbccd5df27661794180074f0765ba7bff39c263a86ed28966eb29bdaff",
+      "capabilityCatalogHash": "655a6f1e56ca729b0d4503228fb576102037eabd69f8b19414f37e157c99c39d",
+      "exposureCount": 13
+    },
+    "pointNavigation": {
+      "skillId": "embodied.move_to",
+      "skillVersion": 1,
+      "capabilityId": "embodied.move",
+      "capabilityVersion": 5,
+      "exposureId": "a2a.embodied.move",
+      "previousExposureVersion": 4,
+      "previousExposureStatus": "suspended",
+      "exposureVersion": 5,
+      "exposureStatus": "published",
+      "exposureHash": "b55f0a0af1f3cccc3ac78ebdf9fc185d500dcfff77296d0b814d8cdc12456855",
+      "requesterPolicy": {
+        "allowAnonymous": true,
+        "requiredAuthorities": [
+          "plan_confirmation",
+          "physical_control.confirm"
+        ]
+      }
+    }
+  },
+  "authorizationBoundary": {
+    "initialA2aAdmission": "anonymous_trusted_intranet_allowed_by_frozen_exposure",
+    "confirmPlanFollowup": "governed_bearer_required",
+    "physicalDispatch": "one_shot_physical_control_confirmation_required",
+    "anonymousExecutionConfirmationAllowed": false
+  },
+  "verification": {
+    "focused": {
+      "status": "passed",
+      "testFiles": 4,
+      "tests": 83,
+      "coverage": "governance policy, frozen Task Capability admission, A2A anonymous initial admission and governed confirm-plan bearer boundary"
+    },
+    "full": {
+      "status": "passed",
+      "commit": "0ee57562eaf1a95408f061966a54199d3eb7bc7a",
+      "startedAt": "2026-09-02T04:49:34.198Z",
+      "finishedAt": "2026-09-02T05:15:21.121Z",
+      "staticUnitContractFiles": 331,
+      "staticUnitContractTests": 2876,
+      "integrationFiles": 40,
+      "integrationTests": 228,
+      "e2eFiles": 7,
+      "e2eTests": 73,
+      "canonicalEvidenceScenarios": "44/44",
+      "officialA2aTck": "passed",
+      "migrationCount": 70,
+      "openapiOperations": 174,
+      "architectureSourceFiles": 870,
+      "productionBuild": "passed",
+      "smoke": "infrastructure, server, console, Node Control API and worker passed",
+      "phase13": {
+        "runtimeRegressionPercent": -6.667294932046214,
+        "baselineMedianDriftPercent": 13.300608845404103,
+        "evidenceAppendP95Ms": 9.678610999999364
+      }
+    },
+    "firstAttemptEnvironmentalNote": "The first clean verify attempt could not start its isolated PostgreSQL because host port 55432 belonged to another project; the passing rerun used 55434 and Redis 56380 without stopping that project."
+  },
+  "execution": {
+    "qualificationA2aTasksCreated": 0,
+    "qualificationMcpTasksCreated": 0,
+    "qualificationProviderToolsCall": 0,
+    "providerOrDeviceMutation": false,
+    "navigationOrSimulatorMutation": false
+  },
+  "redaction": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "secretPathsIncluded": false,
+    "providerResponsesIncluded": false
+  }
+}

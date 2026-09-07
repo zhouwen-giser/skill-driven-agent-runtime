@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "capturedAt": "2026-08-12T09:26:00+08:00",
+  "reviewedBaseSha": "b8fc6c20b95114007eab86305aa4e34863f1334d",
+  "originMainSha": "b8fc6c20b95114007eab86305aa4e34863f1334d",
+  "baseSha": "b8fc6c20b95114007eab86305aa4e34863f1334d",
+  "branch": "codex/sdar-ugv-smpp-integration",
+  "baselineDrift": false,
+  "initialWorktreeClean": true,
+  "preservedLocalMain": {
+    "sha": "d309e24f833cc638ce7424fc7af3a6b7de91ee47",
+    "summary": "feat: 添加本地忽略文件",
+    "includedInGoalBranch": false
+  },
+  "preservedUnrelatedWorkingTreeChange": ".gitignore",
+  "runtime": {
+    "node": "v22.23.1",
+    "pnpm": "11.7.0",
+    "docker": "Docker version 29.6.1, build 8900f1d"
+  },
+  "knownRepositoryGate": {
+    "status": "failed_in_last_recorded_full_verification",
+    "gate": "Phase 13 Runtime P95 regression",
+    "observedRegressionPercent": 39.981096754646735,
+    "maximumPercent": 10,
+    "policy": "preserve evidence and do not weaken threshold or measurement protocol"
+  }
+}

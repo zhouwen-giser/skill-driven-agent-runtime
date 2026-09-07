@@ -1,0 +1,21 @@
+{
+  "name": "lint",
+  "command": "pnpm lint",
+  "status": "passed",
+  "startedAt": "2026-09-07T11:11:29.471Z",
+  "finishedAt": "2026-09-07T11:12:55.889Z",
+  "timeoutMs": 1200000,
+  "logPath": "reports/verification/raw/lint.log",
+  "outputSha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1",
+  "metrics": {},
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 86417,
+  "resources": {
+    "source": "linux-proc-process-group-sampling",
+    "samples": 87,
+    "peakRssBytes": 3555131392,
+    "peakProcesses": 3
+  },
+  "cleanupErrors": []
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P07",
+  "evaluator": "restricted Condition AST interpreter in packages/domain/src/compiler/artifact-retrieval.ts",
+  "conditions": {
+    "required": "must be satisfied",
+    "forbidden": "matching value is a hard block",
+    "optional": "records context only and never grants eligibility"
+  },
+  "failureMode": "fail closed for unknown predicates, out-of-distribution context or critical uncertainty",
+  "contracts": ["ArtifactApplicabilityResult@1.1#0f87d569e3a38dc37526077d92040e1db7c745120c56ec7a79430d369265ec81"],
+  "noExecutableSource": true
+}

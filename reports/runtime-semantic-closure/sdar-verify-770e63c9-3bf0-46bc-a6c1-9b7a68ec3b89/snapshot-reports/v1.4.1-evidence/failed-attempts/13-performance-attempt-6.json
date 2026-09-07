@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "result": "FAILED_BASELINE_MEDIAN_DRIFT",
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "source": {
+    "verificationSummary": "reports/verification/summary.json",
+    "rawLog": "reports/verification/raw/postgres-redis-model-mcp-e2e.log",
+    "commit": "a9957c82c17ca01e77528f3817c03d86224aaf88",
+    "dirty": true,
+    "startedAt": "2026-08-11T03:33:42.870Z",
+    "finishedAt": "2026-08-11T03:50:54.253Z",
+    "e2eOutputSha256": "bb1501e66e78032d0c27209b4c15af6f3f20e113be6ff7b6ecce10851a03e98b"
+  },
+  "samples": {
+    "evidenceAppend": 100,
+    "measurementWindows": 3
+  },
+  "baselineP95RawMs": 872.633600000001,
+  "evidenceEnabledP95RawMs": 893.6184999999969,
+  "regressionRawPercent": 2.404777904494602,
+  "baselineWindowMediansRawMs": [579.462950000001, 699.8167499999981, 651.7563000000009],
+  "baselineMedianDriftRawPercent": 18.81586958661147,
+  "appendP95RawMs": 11.681099999997969,
+  "thresholds": {
+    "baselineMedianDriftPercentMaximum": 15,
+    "runtimeP95RegressionPercentMaximum": 10,
+    "evidenceAppendP95MsMaximum": 20,
+    "evaluatedBeforeDisplayRounding": true
+  },
+  "failedThresholds": ["Baseline median drift exceeded 15 percent"],
+  "assertion": {
+    "actual": 18.81586958661147,
+    "operator": "<=",
+    "expected": 15
+  },
+  "limitations": [
+    "The failed log did not emit raw baseline or enabled sample arrays or their counts; do not infer them from the later equal-sample ABBA/BAAB source."
+  ],
+  "rootCause": "The Runtime regression and Evidence append thresholds passed, but the three baseline window medians were not stable enough for an authoritative same-environment comparison, so the run was rejected.",
+  "repair": "Freeze a predeclared equal-sample ABBA/BAAB protocol with two fixed warm-up windows while retaining the unchanged Runtime regression, baseline drift, and Evidence append thresholds."
+}

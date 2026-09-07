@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "handoffTarget": "future ClickHouse adapter; no ClickHouse implementation in SDAR v1.4.1",
+  "contractVersion": "sdar.evidence/v1",
+  "requestHeader": {
+    "name": "x-sdar-evidence-contract",
+    "value": "sdar.evidence/v1"
+  },
+  "deliveryGuarantee": "at_least_once",
+  "acknowledgement": "contiguous_with_partial_ack",
+  "registryHash": "sha256:7d00320ed21eb89e98abce8ebbdaa7e4aa887e97ee97888ae8e4b62c69adf197",
+  "contractHash": "sha256:795352dc13cc98f153fb9c413e6830870570af75c92831e28102cabc76a6eefd",
+  "hashAlgorithm": "sha256 over canonical Evidence JSON UTF-8 bytes",
+  "limits": {
+    "recordTypes": 105,
+    "requiredRecords": 100,
+    "diagnosticRecords": 5,
+    "maximumBatchRecords": 1000,
+    "maximumCanonicalRecordBytes": 262144,
+    "maximumReferences": 256
+  },
+  "generatedBy": "scripts/generate-v141-clickhouse-handoff.mts"
+}

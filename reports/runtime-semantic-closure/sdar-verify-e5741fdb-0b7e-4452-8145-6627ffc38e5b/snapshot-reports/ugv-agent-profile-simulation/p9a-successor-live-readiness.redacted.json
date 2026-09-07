@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "sdar.ugv-agent-profile-successor-readiness/v1",
+  "status": "BLOCKED_EXTERNAL_SOUTHBOUND_READINESS",
+  "observedAt": "2026-09-01T01:56:39.104Z",
+  "deployment": {
+    "implementationCommit": "94f2c36b15804e35a0913781383ee003d1dca3b7",
+    "runtimeProcessStartedAt": "2026-08-31T18:16:51Z",
+    "nodeControlProcessStartedAt": "2026-08-31T18:16:51Z",
+    "runtimeEntrypointSha256": "28eea40f44400de0b04b431617b692cef0780a5def02be79f28f63b61d347f85",
+    "nodeControlEntrypointSha256": "cb51cbfe89df3f617f3b464984bf221846fd4928576a72c5fc9f73436add5fe9",
+    "endpoints": {
+      "a2aAgentCard": {
+        "url": "http://127.0.0.1:10999/.well-known/agent-card.json",
+        "httpStatus": 200
+      },
+      "nodeControlReadiness": {
+        "url": "http://127.0.0.1:10091/health/ready",
+        "httpStatus": 200
+      },
+      "providerReadiness": {
+        "url": "http://127.0.0.1:19100/health/ready",
+        "httpStatus": 200,
+        "status": "ready"
+      }
+    }
+  },
+  "authority": {
+    "source": {
+      "sourceId": "smpp.real-integration.ugv1",
+      "sourceRevision": 1,
+      "projectionRevision": 2,
+      "projectionChecksum": "165a5a0bfc2a93a2915d40c38fe1ec99af11bd0d1640565e34118e9301c44bdc",
+      "nativeRevision": 2,
+      "nativeChecksum": "0827e2d778d7842ebc3b090224ecd2d2a05d4f1b05bb19543d671d45ba4edb7c",
+      "projectionContract": "sdar-registry-v1"
+    },
+    "provider": {
+      "externalProviderId": "isr.vehicle.ugv.ugv1",
+      "externalServerId": "smpp-real-integration-1",
+      "manifestHash": "e2b0bd3e494b40f7c8e728ab6e4c9045d44a1bcb9b15820f1263d4f05ff10625",
+      "toolCount": 10,
+      "vehicleNavigatePresent": true
+    },
+    "binding": {
+      "bindingId": "ugv-smpp-real-integration-r2-binding",
+      "revision": 1,
+      "localServerId": "ugv-smpp-real-integration-r2",
+      "registryRevision": 2,
+      "registryChecksum": "165a5a0bfc2a93a2915d40c38fe1ec99af11bd0d1640565e34118e9301c44bdc",
+      "catalogRevision": "2.0.0-rc.1:1",
+      "catalogChecksum": "6767ff1f754baeb6091032a13fc4071c7127dfd3fdc4b782bcc3c723424d07de",
+      "availabilityStatus": "available",
+      "availabilityValidUntil": "2026-09-01T02:28:23.415Z"
+    },
+    "capability": {
+      "capabilityId": "embodied.move",
+      "version": 4,
+      "previousVersion": 3,
+      "status": "published",
+      "definitionHash": "88d701e1f40012cb6c66904d01f7739b23d5597c81f20c05f21364d5f575316e",
+      "implementationBindingId": "capability-binding-embodied.move-v4",
+      "implementationRevision": 1,
+      "implementationStatus": "active"
+    },
+    "exposure": {
+      "exposureId": "a2a.embodied.move",
+      "version": 3,
+      "capabilityId": "embodied.move",
+      "capabilityVersion": 4,
+      "status": "published",
+      "exposureHash": "7b93f621c97935657395d36625435d62c047918c9b3fee7b0518bf1b011121a5"
+    },
+    "activeAgentCard": {
+      "revision": 14011,
+      "exposureRefs": ["a2a.embodied.move:3"],
+      "contentHash": "c13cee04fa8ce7679288bcb81c6dbf4d614993e15af976a70f8a01e221e26e61",
+      "capabilityCatalogHash": "b00e340f838fd3797f5f1d87c7aeb2cfcf10577d999e405365c4a229c95178b6",
+      "status": "active",
+      "activatedAt": "2026-09-01T01:33:43.840Z",
+      "legacyVersion2Preserved": true
+    }
+  },
+  "readiness": {
+    "snapshotVersion": 22,
+    "reportedStatus": "available",
+    "evaluatedAt": "2026-09-01T01:55:28.920Z",
+    "validUntil": "2026-09-01T01:56:28.920Z",
+    "snapshotHash": "sha256:19dbe4bedd97670f76522403a831a6b8f01b7aef7cbb2d2a754b52d6334bbe87",
+    "availableImplementation": "capability-binding-embodied.move-v4",
+    "managedAdmissionAuthorityPointsToLocalhostRevision2": true,
+    "southboundQualificationSatisfied": false,
+    "reason": "The periodic readiness snapshot proves governed catalog and binding availability only; the exact live read-only southbound probe was rejected."
+  },
+  "readOnlyProviderEvidence": {
+    "serverDiscover": {
+      "httpStatus": 200,
+      "resultType": "complete",
+      "manifestHash": "e2b0bd3e494b40f7c8e728ab6e4c9045d44a1bcb9b15820f1263d4f05ff10625"
+    },
+    "toolsList": {
+      "httpStatus": 200,
+      "toolCount": 10,
+      "vehicleNavigatePresent": true
+    },
+    "vehicleGetState": {
+      "executionMode": "live",
+      "attempts": 2,
+      "latestObservedAt": "2026-09-01T01:55:03.051Z",
+      "httpStatus": 200,
+      "resultType": "complete",
+      "isError": true,
+      "outcome": "admission_rejected",
+      "reasonCode": "UGV_ADAPTER_INTERNAL_ERROR",
+      "retryable": false
+    }
+  },
+  "runtimePostState": {
+    "agentTaskCount": 5,
+    "mcpInvocationCount": 0,
+    "remoteTaskBindingCount": 0,
+    "governedControlConfirmationCount": 0
+  },
+  "safety": {
+    "a2aTaskCreatedByAudit": false,
+    "mcpTaskCreatedByAudit": false,
+    "mutatingToolCallPerformed": false,
+    "navigationPerformed": false,
+    "cancellationPerformed": false,
+    "deviceMutationPerformed": false,
+    "simulatorMutationPerformed": false,
+    "readOnlyVehicleStateProbeCount": 2,
+    "credentialsIncluded": false
+  },
+  "qualification": {
+    "governanceMetadataPublished": true,
+    "activeAgentCardSwitched": true,
+    "currentSouthboundReadiness": false,
+    "managedExecutionEligible": false,
+    "goalSuccessProven": false,
+    "physicalSuccessProven": false,
+    "blockingReasonCode": "UGV_ADAPTER_INTERNAL_ERROR"
+  }
+}

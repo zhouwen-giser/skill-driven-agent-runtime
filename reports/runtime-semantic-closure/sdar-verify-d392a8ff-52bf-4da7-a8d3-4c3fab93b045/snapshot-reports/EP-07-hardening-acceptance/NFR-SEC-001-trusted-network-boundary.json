@@ -1,0 +1,22 @@
+{
+  "requirement": "NFR-SEC-001",
+  "status": "verified",
+  "currentRegression": {
+    "files": 4,
+    "testsPassed": 56,
+    "unifiedFiles": 54,
+    "unifiedTestsPassed": 240
+  },
+  "acceptance": {
+    "noAuthenticationExplicit": true,
+    "loopbackDefault": true,
+    "nonLoopbackFailClosed": true,
+    "riskWarningVisible": true,
+    "networkIsolationChecklistPresent": true,
+    "publicDatabaseAndRedisRouteForbidden": true
+  },
+  "unverified": [
+    "current Docker-backed Server smoke",
+    "OS network-namespace inspection, which is not an SRS acceptance criterion"
+  ]
+}

@@ -1,6 +1,9 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
+import { z } from 'zod';
 
 import type {
+  CapabilityAdmissionReceipt,
+  CapabilityAdmissionReceiptStore,
   InitialTaskAdmissionRecord,
   InitialTaskAdmissionStore,
   RuntimeCapabilityExposure,
@@ -19,7 +22,10 @@ import {
   parseMcpProviderBindingPolicyOverride,
   type ExactMcpProviderBindingPolicy,
 } from '../../node-control-domain/src/index.js';
-import type { PostgresAgentTaskCommandContext } from './repositories.js';
+import {
+  setAgentTaskCommandIdentity,
+  type PostgresAgentTaskCommandContext,
+} from './repositories.js';
 
 interface ExposureRow extends QueryResultRow {
   exposure_id: string;
@@ -105,7 +111,10 @@ const initialTaskAdmissionSelect = `SELECT idempotency_key,request_hash,task_id,
                                        FROM initial_task_admission`;
 
 export class PostgresTaskCapabilityRepository
-  implements TaskCapabilityAcceptanceStore, InitialTaskAdmissionStore
+  implements
+    TaskCapabilityAcceptanceStore,
+    InitialTaskAdmissionStore,
+    CapabilityAdmissionReceiptStore
 {
   readonly #pool: Pool;
   readonly #onTaskStateCommitted:
@@ -122,6 +131,157 @@ export class PostgresTaskCapabilityRepository
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
     this.#commandContext = commandContext;
+  }
+
+  async listCurrentExposures(limit: number): Promise<readonly RuntimeCapabilityExposure[]> {
+    const result = await this.#pool.query<ExposureRow>(
+      `SELECT exposure.exposure_id,exposure.exposure_version,exposure.capability_id,exposure.capability_version,exposure.request_schema,exposure.requester_policy FROM runtime_agent_card_revision card JOIN runtime_agent_card_exposure_snapshot exposure ON exposure.revision=card.revision WHERE card.status='active' ORDER BY exposure.exposure_id,exposure.exposure_version DESC LIMIT $1`,
+      [Math.min(64, Math.max(1, limit))],
+    );
+    return result.rows.map(mapExposure);
+  }
+  async findAdmissionReceipt(taskId: string): Promise<CapabilityAdmissionReceipt | undefined> {
+    const result = await this.#pool.query<ReceiptRow>(
+      'SELECT * FROM capability_admission_receipt WHERE task_id=$1',
+      [taskId],
+    );
+    return result.rows[0] === undefined ? undefined : mapReceipt(result.rows[0]);
+  }
+  async findAdmissionReceiptByRequest(
+    requestId: string,
+  ): Promise<CapabilityAdmissionReceipt | undefined> {
+    const result = await this.#pool.query<ReceiptRow>(
+      'SELECT * FROM capability_admission_receipt WHERE request_id=$1',
+      [requestId],
+    );
+    return result.rows[0] === undefined ? undefined : mapReceipt(result.rows[0]);
+  }
+  async createAdmissionReceipt(
+    input: Parameters<CapabilityAdmissionReceiptStore['createAdmissionReceipt']>[0],
+  ): Promise<CapabilityAdmissionReceipt> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        input.receipt.requestId,
+      ]);
+      const prior = await client.query<ReceiptRow>(
+        'SELECT * FROM capability_admission_receipt WHERE request_id=$1',
+        [input.receipt.requestId],
+      );
+      if (prior.rows[0] !== undefined) {
+        if (prior.rows[0].request_hash !== input.receipt.requestHash)
+          throw new Error('TASK_INITIAL_ADMISSION_IDEMPOTENCY_CONFLICT');
+        await client.query('COMMIT');
+        return mapReceipt(prior.rows[0]);
+      }
+      await insertOrValidateInitialAdmissionContext(client, input.context);
+      await insertTask(client, input.task);
+      await client.query(
+        'INSERT INTO capability_admission_receipt(task_id,request_id,request_hash,version,clarification,created_at,updated_at) VALUES($1,$2,$3,$4,$5::jsonb,$6,$7)',
+        [
+          input.task.taskId,
+          input.receipt.requestId,
+          input.receipt.requestHash,
+          input.receipt.version,
+          JSON.stringify(input.receipt.clarification),
+          input.receipt.createdAt,
+          input.receipt.updatedAt,
+        ],
+      );
+      await client.query(
+        'INSERT INTO runtime_event(event_id,task_id,context_id,event_type,event_timestamp,summary) VALUES($1,$2,$3,$4,$5,$6)',
+        [
+          input.event.eventId,
+          input.task.taskId,
+          input.task.contextId,
+          input.event.eventType,
+          input.event.timestamp,
+          input.event.summary,
+        ],
+      );
+      await client.query('COMMIT');
+      this.#onTaskStateCommitted?.(input.task);
+      return input.receipt;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async updateAdmissionReceipt(
+    receipt: CapabilityAdmissionReceipt,
+    expectedVersion: number,
+    task: Parameters<CapabilityAdmissionReceiptStore['updateAdmissionReceipt']>[2],
+  ): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const command = this.#commandContext?.current();
+      if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
+      const taskRow = await client.query(
+        "SELECT 1 FROM agent_task WHERE task_id=$1 AND phase='awaiting_user_input' FOR UPDATE",
+        [task.taskId],
+      );
+      if (taskRow.rowCount !== 1) throw new Error('TASK_CAPABILITY_CLARIFICATION_STALE');
+      const updated = await client.query(
+        'UPDATE capability_admission_receipt SET version=$3,clarification=$4::jsonb,updated_at=$5 WHERE task_id=$1 AND version=$2 AND bound_at IS NULL',
+        [
+          receipt.taskId,
+          expectedVersion,
+          receipt.version,
+          JSON.stringify(receipt.clarification),
+          receipt.updatedAt,
+        ],
+      );
+      if (updated.rowCount !== 1) throw new Error('TASK_CAPABILITY_CLARIFICATION_STALE');
+      await client.query('UPDATE agent_task SET phase_message=$2,updated_at=$3 WHERE task_id=$1', [
+        task.taskId,
+        task.phaseMessage,
+        task.updatedAt,
+      ]);
+      await client.query('COMMIT');
+      this.#onTaskStateCommitted?.(task);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async acceptClarified(
+    input: TaskCapabilityAcceptance,
+    expectedReceiptVersion: number,
+  ): Promise<void> {
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const command = this.#commandContext?.current();
+      if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
+      const task = await client.query(
+        "SELECT 1 FROM agent_task WHERE task_id=$1 AND phase='awaiting_user_input' FOR UPDATE",
+        [input.task.taskId],
+      );
+      if (task.rowCount !== 1) throw new Error('TASK_CAPABILITY_CLARIFICATION_STALE');
+      const receipt = await client.query(
+        'UPDATE capability_admission_receipt SET bound_at=$3,updated_at=$3,version=version+1 WHERE task_id=$1 AND version=$2 AND bound_at IS NULL',
+        [input.task.taskId, expectedReceiptVersion, input.task.updatedAt],
+      );
+      if (receipt.rowCount !== 1) throw new Error('TASK_CAPABILITY_CLARIFICATION_STALE');
+      await client.query(
+        'UPDATE agent_task SET phase=$2,phase_message=$3,updated_at=$4 WHERE task_id=$1',
+        [input.task.taskId, input.task.phase, input.task.phaseMessage, input.task.updatedAt],
+      );
+      await insertCapabilityAcceptance(client, input, true);
+      await client.query('COMMIT');
+      this.#onTaskStateCommitted?.(input.task);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async findCurrentExposure(exposureId: string): Promise<RuntimeCapabilityExposure | undefined> {
@@ -502,8 +662,9 @@ function isoTimestamp(value: Date | string): string {
 async function insertCapabilityAcceptance(
   client: PoolClient,
   input: TaskCapabilityAcceptance,
+  existingTask = false,
 ): Promise<void> {
-  await insertTask(client, input.task);
+  if (!existingTask) await insertTask(client, input.task);
   await client.query(
     `INSERT INTO task_execution_attempt(
        attempt_id,task_id,context_id,reason,status,input_request_id,created_at,
@@ -932,4 +1093,42 @@ function text(value: unknown, field: string): string {
 
 function invalidRow(field: string): never {
   throw new Error(`TASK_CAPABILITY_ROW_INVALID:${field}`);
+}
+
+interface ReceiptRow extends QueryResultRow {
+  task_id: string;
+  request_id: string;
+  request_hash: string;
+  version: number;
+  clarification: unknown;
+  created_at: Date;
+  updated_at: Date;
+  bound_at: Date | null;
+}
+function mapReceipt(row: ReceiptRow): CapabilityAdmissionReceipt {
+  const parsed = z
+    .strictObject({
+      status: z.literal('clarification'),
+      question: z.string(),
+      partialInput: z.record(z.string(), z.unknown()),
+      missingFields: z.array(z.string()),
+      exposureId: z.string().optional(),
+      exposureVersion: z.number().int().positive().optional(),
+    })
+    .parse(row.clarification);
+  const { exposureId, exposureVersion, ...clarification } = parsed;
+  return {
+    taskId: row.task_id,
+    requestId: row.request_id,
+    requestHash: row.request_hash,
+    version: row.version,
+    clarification: {
+      ...clarification,
+      ...(exposureId === undefined ? {} : { exposureId }),
+      ...(exposureVersion === undefined ? {} : { exposureVersion }),
+    },
+    createdAt: isoTimestamp(row.created_at),
+    updatedAt: isoTimestamp(row.updated_at),
+    ...(row.bound_at === null ? {} : { boundAt: isoTimestamp(row.bound_at) }),
+  };
 }

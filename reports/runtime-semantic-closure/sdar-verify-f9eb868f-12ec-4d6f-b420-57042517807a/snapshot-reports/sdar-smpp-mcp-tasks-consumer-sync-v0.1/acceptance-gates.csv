@@ -1,0 +1,23 @@
+gate_id,name,criterion,class,status,evidence
+G01,Source lock,Current SDAR base and SMPP handoff commits exact,hard,PASS,source-lock-observed.json; smpp-producer-handoff-lock.json
+G02,No duplicate runtime,No second MCP Task/Workflow runtime,hard,PASS,ADR-145; verify:architecture
+G03,No private authority path,No SMPP/Provider private DB or telemetry authority read,hard,PASS,current-capability-audit.md; architecture gate
+G04,Stable logical identity,Logical invocation identity survives restart,hard,PASS,logical-invocation-identity.md; domain unit
+G05,No blind retry,Uncertain mutating tools/call never auto-replayed,hard,PASS,uncertain-admission-recovery.md; Frozen response-loss contract
+G06,Exact reconciliation,Frozen SMPP contract recovers original Task,hard,PASS,smpp-producer-handoff-lock.json; Frozen response-loss contract
+G07,Conflict fail closed,Multiple matches never auto-selected,hard,PASS,application reconciliation unit; real PostgreSQL integration
+G08,Binding exactly once,One logical invocation materializes <=1 binding,hard,PASS,real PostgreSQL integration; crash-recovery-matrix.csv
+G09,Continuation exactly once,No duplicate Workflow continuation,hard,PASS,application recovery unit; existing continuation regression
+G10,Provider completed != Goal achieved,Verification still required,hard,PASS,current-capability-audit.md; lifecycle/verification regressions
+G11,Cancel ACK != cancelled,Regression proves separation,hard,PASS,existing Frozen cancellation and remote Task lifecycle regressions
+G12,Execution identity provenance,External execution ID only from frozen upstream,hard,PASS,external-execution-identity.md; domain/repository tests
+G13,Mission no fabrication,Missing Mission remains unresolved,hard,PASS,external-execution-identity.md; domain unit
+G14,Evidence closure,Recovery/link/continuation/verification evidenced,hard,PASS,canonical-evidence-audit.md; 105/105 evidence contract and coverage
+G15,Evidence idempotency,Same ID/hash idempotent; mismatch conflicts,hard,PASS,Evidence projector unit; runtime-core Evidence integration
+G16,Lifecycle regression,Revision/content/terminal protections remain,hard,PASS,full unit/contract/integration/E2E gates
+G17,UGV-NODE-001,Pre-action stale readiness blocking supported,case,PASS,ugv-four-case-support-matrix.csv; existing readiness regressions
+G18,UGV-CORE-001,Normal Remote Task closure supported,case,PASS,ugv-four-case-support-matrix.csv; E2E remote Task vertical
+G19,UGV-MCP-003,Exact original Task recovery supported,case,PASS,ugv-four-case-support-matrix.csv; response-loss and PostgreSQL regressions
+G20,UGV-XCHAIN-003,Provider success cannot bypass verification,case,PASS,ugv-four-case-support-matrix.csv; outcome separation regressions
+G21,No fake formal qualification,Mocks not called live qualification,hard,PASS,test-report.md; final-report.md
+G22,Completion token discipline,Token only if all gates pass,hard,PASS,final-report.md

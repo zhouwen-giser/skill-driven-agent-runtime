@@ -1,0 +1,6 @@
+id,crash_point,recovery,proof,status
+CR01,before reconcile,reload same uncertain intent and use reconciliation-only port,remote-task-admission-recovery bounded recoverable batch,PASS
+CR02,after found before persist,repeat exact idempotency identity and recover same original Task,Frozen HTTP response-loss contract providerStartCount=1,PASS
+CR03,after persist before materialize,reuse durable receipt and existing Binding materializer,admission recovery materializes receipt after restart,PASS
+CR04,after materialize before continuation,reuse exact open Binding and stored continuation,CAS-stale same-binding/equal-or-newer revision regression,PASS
+CR05,after continuation graph commit,accept only existing durable continuation and never replay completed side effect,existing continuation and lifecycle regression suite,PASS

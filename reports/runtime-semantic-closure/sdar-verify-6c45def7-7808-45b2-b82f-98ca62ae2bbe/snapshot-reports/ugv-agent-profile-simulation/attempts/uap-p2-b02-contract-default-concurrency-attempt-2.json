@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B02",
+  "generatedAt": "2026-08-21T04:44:58.000Z",
+  "status": "ENVIRONMENT_TIMING_BLOCKED_WITH_SERIALIZED_PASS",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "pnpm test:contract",
+  "exitCode": 1,
+  "failure": {
+    "code": "UNRELATED_CONCURRENT_CONFORMANCE_TIMEOUT",
+    "summary": "Two approved-host full replays passed 50 files and 316 tests but the unrelated Node Control operation-conformance test exceeded its fixed 5000ms timeout under default concurrency."
+  },
+  "corroboration": {
+    "isolatedReplay": "1 file and 6 tests passed in 7.09s total with the assertion itself completing in 1.89s",
+    "serializedFullReplay": "51 files and 317 tests passed with --maxWorkers=1",
+    "assertionOrTimeoutChanged": false
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0,
+    "forbiddenOperationCallCount": 0
+  }
+}

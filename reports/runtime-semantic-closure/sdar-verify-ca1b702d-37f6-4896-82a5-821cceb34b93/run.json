@@ -1,0 +1,81 @@
+{
+  "runId": "sdar-verify-ca1b702d-37f6-4896-82a5-821cceb34b93",
+  "dependencyMode": "reuse",
+  "inputSha256": "c42e7a0f57910d6bc53ba7307637079185079acf38556d69e5abf7dc4e5c9bc9",
+  "baselineSha256": "e7e6af23e608bee330070aeefadb5aa017dc95497f11da437ef9ca39df7dc6b5",
+  "inputUnchanged": true,
+  "baselineUnchanged": true,
+  "snapshot": "/tmp/sdar-verify-ca1b702d-37f6-4896-82a5-821cceb34b93-3MbvMO/source",
+  "exitCode": 1,
+  "cleanupExitCode": 0,
+  "cleanupResults": [
+    {
+      "name": "sdar-verify-ca1b702d-37f6-4896-82a5-821cceb34b93",
+      "file": "compose.yaml",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 61,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 29327360,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "sdar-verify-ca1b702d-37f6-4896-82a5-821cceb34b93-control-smoke",
+      "file": "compose.node-control.yaml",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 61,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 29003776,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "sdar-verify-ca1b702d-37f6-4896-82a5-821cceb34b93-runtime-smoke",
+      "file": "compose.yaml",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 59,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 28635136,
+        "peakProcesses": 1
+      },
+      "cleanupErrors": []
+    },
+    {
+      "resource": "migration-container-inventory",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 15,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 0,
+        "peakProcesses": 0
+      },
+      "cleanupErrors": []
+    },
+    {
+      "resource": "migration-volume-inventory",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 15,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 1,
+        "peakRssBytes": 0,
+        "peakProcesses": 0
+      },
+      "cleanupErrors": []
+    }
+  ]
+}

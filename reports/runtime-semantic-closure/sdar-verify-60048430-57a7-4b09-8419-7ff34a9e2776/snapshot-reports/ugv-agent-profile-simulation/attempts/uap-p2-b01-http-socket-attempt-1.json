@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ugv-agent-profile.verification-attempt/v1",
+  "taskId": "UAP-P2-B01",
+  "generatedAt": "2026-08-21T02:55:40.182Z",
+  "observedAt": "2026-08-21T02:48:57.000Z",
+  "status": "FAILED_FIXED",
+  "evidenceClass": "external_simulation",
+  "observationClass": "deterministic",
+  "productionEligible": false,
+  "physicalVehicleQualified": false,
+  "command": "./node_modules/.bin/vitest run apps/server/test/ugv-agent-profile.unit.test.ts apps/server/test/ugv-agent-profile-card.unit.test.ts packages/application/test/capability-card-publisher.unit.test.ts packages/a2a-adapter/test/a2a-compatibility.contract.test.ts packages/a2a-adapter/test/http-endpoint.contract.test.ts packages/skill-package-adapter/test/ugv-agent-profile-contract.contract.test.ts",
+  "exitCode": 1,
+  "failure": {
+    "code": "EPERM",
+    "summary": "The restricted command sandbox denied loopback listen on 127.0.0.1, so all eight A2A HTTP cases failed during endpoint creation.",
+    "rootCause": "Execution-environment socket policy; no test assertion or product code ran for those eight cases."
+  },
+  "fix": {
+    "summary": "Reran the same focused command with the approved local-loopback permission. The suite reached its assertions; 34 of 35 tests passed, exposing the separate official-SDK response expectation recorded in attempt 2.",
+    "stateMutation": "none"
+  },
+  "safety": {
+    "externalNetworkCallCount": 0,
+    "toolsCallCount": 0,
+    "mqttPublishCount": 0,
+    "controlInvocationCount": 0,
+    "navigationDispatchCount": 0
+  }
+}

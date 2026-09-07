@@ -1,0 +1,56 @@
+{
+  "scope": "targeted-post-bootstrap-diagnostics-not-full-gate",
+  "runId": "sdar-verify-e170ef62-fa5d-45a9-91d0-0a300346e831",
+  "cwd": "/tmp/sdar-verify-96bacfad-aa5e-4057-ba8f-575752df1eb8-diagnostic/source",
+  "changed": [
+    "packages/runtime-control-persistence-postgres/test/evidence-export.integration.test.ts",
+    "packages/application/src/workflow-controller.ts",
+    "scripts/lib/child-readiness.mjs",
+    "scripts/smoke-server.mjs",
+    "scripts/lib/verification-cleanup.mjs",
+    "scripts/lib/infrastructure.mjs",
+    "scripts/test-integration.mjs",
+    "scripts/test-e2e.mjs",
+    "scripts/smoke-node-control.mjs",
+    "scripts/verify-migration-path.mjs",
+    "scripts/verify-isolated.mjs",
+    "scripts/test-verification-isolation.mjs",
+    "scripts/test-verification-runner.mjs",
+    "packages/persistence-postgres/test/governed-control-authority.integration.test.ts",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts"
+  ],
+  "results": [
+    {
+      "name": "postgres-redis-integration",
+      "args": [
+        "test:integration"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 273340,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 274,
+        "peakRssBytes": 1195491328,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    },
+    {
+      "name": "postgres-redis-model-mcp-e2e",
+      "args": [
+        "test:e2e"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 204287,
+      "resources": {
+        "source": "linux-proc-process-group-sampling",
+        "samples": 205,
+        "peakRssBytes": 1110323200,
+        "peakProcesses": 6
+      },
+      "cleanupErrors": []
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+{
+  "schemaVersion": "1.1",
+  "packageId": "SDAR-V1.3-P02",
+  "packageVersion": "1.1",
+  "sequence": 2,
+  "status": "COMPLETED",
+  "repository": "zhouwen-giser/skill-driven-agent-runtime",
+  "baselineSha": "856f909d22c33e6e20d7e0a1cffc2f54c03b4477",
+  "branch": "feature/v1.3-sequential-implementation",
+  "commits": {
+    "preImplementationHead": "659a5f1e42033fa9d550f00889bf058d499f8ab1",
+    "completion": "14abffe75ed1e7108bfe59f7ceeeafed43a0ac45"
+  },
+  "draftPrUrl": "https://github.com/zhouwen-giser/skill-driven-agent-runtime/pull/12",
+  "contractRegistryVersion": "1.1",
+  "contractRegistrySha256": "d7b1d971615d6e0f93583e22051a066690300c0ca9d6940f3066f7b5a7ff4cbb",
+  "consumedContracts": [
+    {
+      "name": "CompiledArtifact",
+      "version": "1.1",
+      "schemaHash": "8afcafacad1085eb35d7b3fb0dd7715b05e7ff279f0d78b529a4b64fbe39bdcf"
+    },
+    {
+      "name": "ArtifactLineage",
+      "version": "1.1",
+      "schemaHash": "aa6629a29c59194e6584813656dd3a0b930da324f2a8e9e3002d9580310b6f57"
+    },
+    {
+      "name": "ArtifactRuntimeBinding",
+      "version": "1.1",
+      "schemaHash": "52a678f6ef4de068f780d94aad27bcb4ae080f1ab3351b64c0f608719ba3a337"
+    }
+  ],
+  "producedContracts": [
+    {
+      "name": "ArtifactRepository",
+      "version": "1.1",
+      "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53"
+    },
+    {
+      "name": "ArtifactValidationRepository",
+      "version": "1.1",
+      "schemaHash": "0c94dc844ed8cf5f4e9e4ca678e208172cd3a394affbf93ce910765899f86ab9"
+    },
+    {
+      "name": "ArtifactExecutionRepository",
+      "version": "1.1",
+      "schemaHash": "c32e0994dd2d25cbe5df2116e98b0c93252d5a75bb5e83867c25038fcec12650"
+    },
+    {
+      "name": "ArtifactRegistryService",
+      "version": "1.1",
+      "schemaHash": "011be4e2c1686e0f68256aa9c4cf9f98dff2d92fcb4cf043b2d09b06a0c7cab5"
+    },
+    {
+      "name": "OperatorIdentityPort",
+      "version": "1.1",
+      "schemaHash": "1ec57c600b439bcd1efe67c67ee319b04f38681e2ab3da6fad71dbae734dfe75"
+    },
+    {
+      "name": "ArtifactGovernancePort",
+      "version": "1.1",
+      "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf"
+    }
+  ],
+  "migrations": ["0125_v13_artifact_authority"],
+  "repositoryPorts": [
+    "ArtifactRepository",
+    "ArtifactValidationRepository",
+    "ArtifactExecutionRepository"
+  ],
+  "applicationPorts": [
+    "ArtifactRegistryService",
+    "OperatorIdentityPort",
+    "ArtifactGovernancePort"
+  ],
+  "runtimePorts": [],
+  "events": [
+    "experience.trace_created",
+    "compiler.pattern_discovered",
+    "compiler.artifact_candidate_created",
+    "artifact.validation_started",
+    "artifact.validation_completed",
+    "artifact.shadow_started",
+    "artifact.shadow_completed",
+    "artifact.promotion_ready",
+    "artifact.approval_recorded",
+    "artifact.activated",
+    "artifact.revalidating",
+    "artifact.deprecated",
+    "artifact.match_evaluated",
+    "artifact.execution_started",
+    "artifact.execution_completed",
+    "artifact.execution_failed",
+    "artifact.feedback_recorded",
+    "gateway.route_selected",
+    "gateway.confirmation_required",
+    "gateway.fallback_started",
+    "gateway.formal_handoff",
+    "model_route.selected",
+    "model_cascade.escalated"
+  ],
+  "queues": [
+    "sdar-compiler-normalization",
+    "sdar-compiler-process-mining",
+    "sdar-compiler-pattern-generalization",
+    "sdar-compiler-artifact-generation",
+    "sdar-artifact-replay",
+    "sdar-artifact-simulation",
+    "sdar-artifact-shadow",
+    "sdar-artifact-revalidation"
+  ],
+  "featureFlags": [
+    "SDAR_V13_ARTIFACT_MODE",
+    "SDAR_V13_TEMPLATE_ENABLED",
+    "SDAR_V13_RULE_ENABLED",
+    "SDAR_V13_FAST_GATEWAY_ENABLED",
+    "SDAR_V13_CASE_ENABLED",
+    "SDAR_V13_MODEL_CASCADE_ENABLED",
+    "SDAR_V13_TENANT_ALLOWLIST"
+  ],
+  "reasonCodeCatalogVersion": "",
+  "evidenceRefs": [
+    "reports/goal/v1.3-p02-completion.md",
+    "reports/goal/v1.3-p02-review.md",
+    "reports/goal/v1.3-p02-review-1.md",
+    "reports/goal/v1.3-p02-review-2.md",
+    "reports/goal/v1.3-p02-review-3.md",
+    "reports/v1.3-orchestration/p02-verification-summary.json",
+    "execplans/EP-SDAR-V1.3-P02.md",
+    "adr/ADR-117-artifact-persistence-registry-governance-authority.md",
+    "infra/postgres/migrations/0125_v13_artifact_authority.up.sql"
+  ],
+  "acceptanceSummary": {
+    "passed": 7,
+    "failed": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [
+    "P02 declares frozen event, queue and feature-flag vocabularies but does not implement downstream P03-P13 producers, workers or online request routing.",
+    "The Registry projection is in-process and rebuildable; PostgreSQL remains Artifact and Active Pointer authority.",
+    "Production governance requires an external OperatorIdentityPort and fails closed without one; P02 adds no public authentication endpoint."
+  ],
+  "openBlockers": [],
+  "nextPackage": "P03",
+  "packageOutputs": {
+    "ArtifactRepository": {
+      "contractVersion": "1.1",
+      "schemaHash": "617560087d746b79cd5fa38f82bf8c7a90448f56e5b54c1117f0b186bae54c53",
+      "refs": [
+        "packages/application/src/compiler/artifact-persistence.ts",
+        "packages/persistence-postgres/src/compiler/artifact-repositories.ts"
+      ]
+    },
+    "ArtifactValidationRepository": {
+      "contractVersion": "1.1",
+      "schemaHash": "0c94dc844ed8cf5f4e9e4ca678e208172cd3a394affbf93ce910765899f86ab9",
+      "refs": [
+        "packages/application/src/compiler/artifact-persistence.ts",
+        "packages/persistence-postgres/src/compiler/artifact-repositories.ts"
+      ]
+    },
+    "ArtifactExecutionRepository": {
+      "contractVersion": "1.1",
+      "schemaHash": "c32e0994dd2d25cbe5df2116e98b0c93252d5a75bb5e83867c25038fcec12650",
+      "refs": [
+        "packages/application/src/compiler/artifact-persistence.ts",
+        "packages/persistence-postgres/src/compiler/artifact-repositories.ts"
+      ]
+    },
+    "ArtifactRegistryService": {
+      "contractVersion": "1.1",
+      "schemaHash": "011be4e2c1686e0f68256aa9c4cf9f98dff2d92fcb4cf043b2d09b06a0c7cab5",
+      "refs": [
+        "packages/application/src/compiler/artifact-registry.ts",
+        "packages/application/src/compiler/artifact-outbox-consumer.ts",
+        "packages/persistence-postgres/src/compiler/artifact-outbox-consumer-repository.ts"
+      ]
+    },
+    "OperatorIdentityPort": {
+      "contractVersion": "1.1",
+      "schemaHash": "1ec57c600b439bcd1efe67c67ee319b04f38681e2ab3da6fad71dbae734dfe75",
+      "refs": ["packages/application/src/compiler/artifact-governance.ts"]
+    },
+    "ArtifactGovernancePort": {
+      "contractVersion": "1.1",
+      "schemaHash": "991d8aeb156f03d07b6181ac2d1d097f78633cf7988a93336b61815e8c3b74cf",
+      "refs": [
+        "packages/application/src/compiler/artifact-governance.ts",
+        "packages/persistence-postgres/src/compiler/artifact-governance-store.ts",
+        "packages/persistence-postgres/src/compiler/artifact-repositories.ts"
+      ]
+    }
+  }
+}

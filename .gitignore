@@ -4,6 +4,8 @@ dist/
 *.tsbuildinfo
 coverage/
 .env
+.state/
+artifacts/development/
 *.log
 reports/**/raw/
 .codex/

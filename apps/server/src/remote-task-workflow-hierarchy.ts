@@ -1,5 +1,6 @@
 import type {
   SkillCallWorkflowRepository,
+  WorkflowChildCallRepository,
   WorkflowContinuationRepository,
 } from '../../../packages/application/src/ports.js';
 import type { SkillCallWorkflowService } from '../../../packages/application/src/skill-call-workflow.js';
@@ -14,6 +15,7 @@ import {
 export async function continueRemoteTaskWorkflowHierarchy(
   dependencies: Readonly<{
     skillCallWorkflows: Pick<SkillCallWorkflowRepository, 'findByChildInstanceId'>;
+    childCalls?: Pick<WorkflowChildCallRepository, 'findByChildInstanceId'>;
     skillCallWorkflow: Pick<SkillCallWorkflowService, 'completeExternalChild'>;
     continuations: Pick<WorkflowContinuationRepository, 'findCurrent' | 'findLatestForWait'>;
     execution: Pick<WorkflowExecutionService, 'get' | 'continueExternal'>;
@@ -34,9 +36,12 @@ export async function continueRemoteTaskWorkflowHierarchy(
   let currentInstance = input.instance;
   let depth = 0;
   for (;;) {
-    const childLink = await dependencies.skillCallWorkflows.findByChildInstanceId(
+    const commonLink = await dependencies.childCalls?.findByChildInstanceId(
       currentInstance.instanceId,
     );
+    const childLink =
+      commonLink ??
+      (await dependencies.skillCallWorkflows.findByChildInstanceId(currentInstance.instanceId));
     if (childLink === undefined) {
       if (currentInstance.status === 'waiting_external') return;
       const [control, rounds] = await Promise.all([
@@ -46,6 +51,9 @@ export async function continueRemoteTaskWorkflowHierarchy(
       const matchingRound = rounds.find((round) => round.instanceId === currentInstance.instanceId);
       const alreadyConsumed =
         control.finalInstanceId === currentInstance.instanceId ||
+        (currentInstance.status === 'paused' &&
+          control.status === 'awaiting_confirmation' &&
+          control.currentPlanId === currentInstance.planId) ||
         (matchingRound !== undefined && control.roundCount > matchingRound.roundIndex);
       if (alreadyConsumed) {
         await dependencies.projectControl(currentSnapshot, control);
@@ -61,13 +69,80 @@ export async function continueRemoteTaskWorkflowHierarchy(
       await dependencies.projectControl(currentSnapshot, continued);
       return;
     }
-    if (
-      currentInstance.status === 'running' ||
-      currentInstance.status === 'paused' ||
-      currentInstance.status === 'waiting_external'
-    )
+    if (currentInstance.status === 'running' || currentInstance.status === 'waiting_external')
       throw new Error('WORKFLOW_SKILL_CHILD_CONTINUATION_INCOMPLETE');
-    const child = await dependencies.skillCallWorkflow.completeExternalChild(currentInstance);
+    if (currentInstance.status === 'paused') {
+      const parentSnapshot = await dependencies.continuations.findCurrent(
+        childLink.parentInstanceId,
+      );
+      const parentWait = parentSnapshot?.waitingNodeRuns.find(
+        (wait) =>
+          wait.kind === 'child_workflow' &&
+          wait.sourceId === currentInstance.instanceId &&
+          wait.nodeId === childLink.parentNodeId,
+      );
+      if (parentSnapshot === undefined) {
+        const parent = await dependencies.execution.get(childLink.parentInstanceId);
+        const history = await dependencies.continuations.findLatestForWait(
+          childLink.parentInstanceId,
+          {
+            kind: 'child_workflow',
+            sourceId: currentInstance.instanceId,
+            nodeId: childLink.parentNodeId,
+          },
+        );
+        if (
+          parent?.status === 'paused' &&
+          parent.pendingConfirmation?.nodeId === childLink.parentNodeId &&
+          history !== undefined
+        ) {
+          currentInstance = parent;
+          currentSnapshot = history;
+          depth += 1;
+          continue;
+        }
+      }
+      if (parentSnapshot === undefined || parentWait === undefined)
+        throw new Error('WORKFLOW_CHILD_PARENT_CONTINUATION_NOT_FOUND');
+      currentInstance = await dependencies.execution.continueExternal({
+        instanceId: childLink.parentInstanceId,
+        continuationAttemptId: `${input.continuationAttemptId}-parent-confirmation-${String(depth)}`,
+        resolution: {
+          kind: 'child_paused',
+          waitId: parentWait.waitId,
+          nodeRunId: parentWait.nodeRunId,
+        },
+      });
+      currentSnapshot = parentSnapshot;
+      depth += 1;
+      continue;
+    }
+    const child =
+      commonLink?.kind === 'subworkflow'
+        ? {
+            parentInstanceId: commonLink.parentInstanceId,
+            parentNodeId: commonLink.parentNodeId,
+            childInstanceId: currentInstance.instanceId,
+            outcome:
+              currentInstance.status === 'succeeded'
+                ? { kind: 'completed' as const, result: currentInstance.result }
+                : {
+                    kind: 'failed' as const,
+                    error: {
+                      code:
+                        Object.values(currentInstance.errors)[0]?.code ??
+                        'WORKFLOW_SUBWORKFLOW_FAILED',
+                      message:
+                        Object.values(currentInstance.errors)[0]?.message ??
+                        `Child Workflow ended with ${currentInstance.status}.`,
+                      category:
+                        currentInstance.status === 'canceled'
+                          ? ('child_cancelled' as const)
+                          : ('child_failed' as const),
+                    },
+                  },
+          }
+        : await dependencies.skillCallWorkflow.completeExternalChild(currentInstance);
     const [parentInstance, activeSnapshot, historicalSnapshot] = await Promise.all([
       dependencies.execution.get(child.parentInstanceId),
       dependencies.continuations.findCurrent(child.parentInstanceId),

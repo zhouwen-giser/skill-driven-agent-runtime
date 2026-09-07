@@ -1,0 +1,27 @@
+{
+  "contract": "sdar.evidence/v1",
+  "phase": 8,
+  "catalogTotal": 100,
+  "requiredTotal": 95,
+  "diagnosticTotal": 5,
+  "sourceInventory": {
+    "sourceConfirmed": 100,
+    "sourceMissingBlocker": 0,
+    "conditionalNotApplicable": 0,
+    "classified": 100,
+    "classifiedPercent": 100
+  },
+  "implementationCoverage": {
+    "implemented": 74,
+    "verified": 74,
+    "verifiedPercentOfRequired": 77.89,
+    "families": ["experience", "replay", "artifact"],
+    "familyImplemented": 22,
+    "familyVerified": 22,
+    "familyTotal": 22,
+    "note": "All 22 Phase 8 projectors passed focused and real PostgreSQL regressions and the fresh independent Review (CLEAN_FOR_PHASE8_CLOSURE). Phase 8 is complete; the task package schedules the next mandatory full pnpm verify at Phase 9."
+  },
+  "phase1Baseline": "reports/v1.4.1-evidence/source-coverage-baseline.json",
+  "generatedFrom": "reports/v1.4.1-evidence/source-to-evidence-matrix.json",
+  "failureAndRerunEvidence": "reports/v1.4.1-evidence/failed-attempts/08-postgres-environment.md"
+}
