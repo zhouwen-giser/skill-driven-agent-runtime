@@ -493,7 +493,7 @@
       "title": "只生成单仓提交和Draft PR交付，不自动发布",
       "required": true,
       "status": "INCOMPLETE",
-      "conclusion": "工作树尚未提交、push 或创建 Draft PR。",
+      "conclusion": "实现提交 83286afe607a59d9d05e06cd589d549d6549a122 已推送指定功能分支；Draft PR 因自动审批拒绝正文公开披露而未创建。待用户明确授权，不以推送代替 PR 交付。",
       "evidenceIndex": [
         "docs/17_TRACEABILITY_MATRIX.md",
         "execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md"

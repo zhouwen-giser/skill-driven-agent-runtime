@@ -250,9 +250,11 @@
     "F06/F07, full Console editor and release qualification remain deferred."
   ],
   "delivery": {
-    "commit": "PENDING",
-    "push": "PENDING",
-    "draftPr": "PENDING"
+    "commit": "83286afe",
+    "push": "SUCCEEDED",
+    "branch": "codex/sdar-gowm-shared-storage-integration-v0.1",
+    "draftPr": "BLOCKED_BY_AUTOMATIC_APPROVAL",
+    "reason": "Explicit user approval requested for publishing the prepared PR body to the public repository after two automatic-review rejections."
   },
   "evidenceBoundary": "Real isolated PostgreSQL and normal SDAR with local Model/MCP fixtures; no real SMPP or model generalization claim."
 }
