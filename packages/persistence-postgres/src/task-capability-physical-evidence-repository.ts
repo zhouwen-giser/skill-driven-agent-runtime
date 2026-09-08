@@ -1,3 +1,4 @@
+import { decodeGowmWorkflowDefinition } from './gowm-workflow-definition.js';
 import type { Pool, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
@@ -377,7 +378,9 @@ function mapRemoteTask(
 }
 
 function mapPhysicalPlan(planId: string, row: PhysicalPlanRow): TaskCapabilityPhysicalPlanEvidence {
-  const definition = PhysicalPlanDefinitionSchema.parse(row.definition_json);
+  const definition = PhysicalPlanDefinitionSchema.parse(
+    decodeGowmWorkflowDefinition(row.definition_json),
+  );
   return Object.freeze({
     planId,
     confirmationStatus: row.confirmation_status,

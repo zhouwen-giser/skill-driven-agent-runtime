@@ -1,0 +1,19 @@
+{
+  "status": "NOT_RUN",
+  "workers": [
+    {
+      "workerName": null,
+      "claimPath": null,
+      "sourceTable": null,
+      "parentTaskJoin": null,
+      "allowedDeviceIdsInput": null,
+      "nonDeviceBranch": null,
+      "serviceScope": null,
+      "claimTokenOrVersion": null,
+      "retryOrRecovery": null,
+      "cleanupEffect": null,
+      "scenarioIds": [],
+      "status": "NOT_RUN"
+    }
+  ]
+}

@@ -21,6 +21,29 @@ import {
 } from '../src/index.js';
 
 describe('WorkflowPlannerService', () => {
+  it('carries the execution Task through every attempt and the final plan', async () => {
+    const repository = new MemoryPlanRepository();
+    const result = await planner(repository, new SequenceModel([validDefinition()])).plan({
+      ...input(),
+      taskId: 'device-task-a',
+    });
+    expect(result.executionTaskId).toBe('device-task-a');
+    expect(
+      repository.attempts.every((attempt) => attempt.executionTaskId === 'device-task-a'),
+    ).toBe(true);
+    const failed = new MemoryPlanRepository();
+    await expect(
+      planner(failed, new SequenceModel([])).plan({
+        ...input(),
+        taskId: 'device-task-b',
+        deterministicDefinition: { invalid: true } as unknown as WorkflowDefinition,
+        deterministicOnly: true,
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_PLANNING_FAILED' });
+    expect(failed.plans.get('plan-1')?.executionTaskId).toBe('device-task-b');
+    expect(failed.attempts[0]?.executionTaskId).toBe('device-task-b');
+  });
+
   it('validates deterministic Skill template/procedure candidates before any model repair', async () => {
     const directRepository = new MemoryPlanRepository();
     const directModel = new SequenceModel([]);

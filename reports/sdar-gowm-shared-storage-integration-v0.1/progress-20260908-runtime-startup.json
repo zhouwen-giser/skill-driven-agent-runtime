@@ -1,0 +1,43 @@
+{
+  "scope": "normal Server composition root startup and shutdown only",
+  "status": "PASS",
+  "goalAcceptance": "INCOMPLETE",
+  "run": "sdar-runtime-e6d3242e-3aeb-44ea-a3b7-a8ceede77d63",
+  "database": "sdar_gowm_runtime_test",
+  "configuration": ".state/gowm-storage/runtime-test.env (ignored)",
+  "contractCommit": "a1a86186ea866911124de72374e17fe19897fa9e",
+  "commands": [
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-runtime-test-database.mts",
+      "result": "PASS: new database, pinned official bootstrap/install, existing restricted consumer/peer grants"
+    },
+    {
+      "command": "timeout --signal=TERM --kill-after=5s 90s node --env-file=.state/gowm-storage/runtime-test.env --import tsx scripts/gowm-runtime-startup.mts",
+      "result": "PASS: health and Agent Card 200, handle closed, zero remaining consumer connections"
+    },
+    {
+      "command": "pnpm typecheck",
+      "result": "PASS before final connection-count assertion; no production code changes in this increment"
+    },
+    {
+      "command": "pnpm exec prettier --check apps/server/test/gowm-runtime-startup.ts scripts/gowm-runtime-test-database.mts",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm exec eslint apps/server/test/gowm-runtime-startup.ts",
+      "result": "PASS; .mts scripts are excluded by existing lint configuration"
+    }
+  ],
+  "historicalFailure": {
+    "run": "sdar-runtime-166d33ad-ecc3-4803-b5b0-0d5e7c7dedf0",
+    "reason": "Repository-only spatial enabled Skill fixture omitted required SkillOutcomeSpecification",
+    "resolution": "Fresh official-contract test DB; old immutable rows and failed evidence retained",
+    "remainingGap": "early startup failure has no closeable handle; isolated process exit released sockets, not proof of production failure cleanup"
+  },
+  "limits": [
+    "No Task, LangGraph node or MCP execution in startup test",
+    "No full device scope or acceptance closure",
+    "Auxiliary Provider-link global unique-key contract gap remains",
+    "Runtime and Redis fixture resources retained for subsequent normal Task tests"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "run": "gowm-runtime-b7e3d636-929e-4fd2-ab95-82fec9db8430",
+  "status": "FAIL",
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "error": "REST error: INTERNAL (500) - TASK_PROVENANCE_DEVICE_MISMATCH",
+  "taskIds": [],
+  "modelStages": [
+    "embedding",
+    "task_understanding"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 0
+}

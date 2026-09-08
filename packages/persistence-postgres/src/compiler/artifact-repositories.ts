@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../../domain/src/device-task-context.js';
+import { taskDeviceScopeSql, taskChildScopeSql } from '../gowm-work-scope.js';
 import { createHash } from 'node:crypto';
 
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
@@ -617,17 +619,34 @@ export class PostgresArtifactValidationRepository implements ArtifactValidationR
 export class PostgresArtifactExecutionRepository implements ArtifactExecutionRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
   async start(input: ArtifactExecutionStart): Promise<ArtifactExecutionRecord> {
     return inTransaction(this.#pool, async (client) => {
+      let deviceId: string | null | undefined;
+      if (this.deviceScope !== undefined) {
+        const scope = taskDeviceScopeSql(this.deviceScope, 2);
+        const owner = await client.query<{ device_id: string | null }>(
+          `SELECT device_id FROM agent_task WHERE task_id=$1 AND ${scope.predicate} FOR KEY SHARE`,
+          [input.taskId, ...scope.values],
+        );
+        if (owner.rows[0] === undefined)
+          throw persistenceError(
+            'ARTIFACT_EXECUTION_DEVICE_SCOPE_DENIED',
+            'Execution requires an owned Task.',
+          );
+        deviceId = owner.rows[0].device_id;
+      }
       const result = await client.query<ExecutionRow>(
         `INSERT INTO artifact_execution(
            artifact_execution_id,artifact_id,artifact_version,task_id,goal_id,goal_version,mode,
-           decision_snapshot,generated_plan_id,status,fallback_reason_code,started_at,completed_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,'started',NULL,$10,NULL)
+           decision_snapshot,generated_plan_id,status,fallback_reason_code,started_at,completed_at${this.deviceScope === undefined ? '' : ',device_id'})
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,'started',NULL,$10,NULL${this.deviceScope === undefined ? '' : ',$11'})
          RETURNING *`,
         [
           input.artifactExecutionId,
@@ -640,6 +659,7 @@ export class PostgresArtifactExecutionRepository implements ArtifactExecutionRep
           JSON.stringify(input.decisionSnapshot),
           input.generatedPlanId ?? null,
           input.startedAt,
+          ...(this.deviceScope === undefined ? [] : [deviceId]),
         ],
       );
       const row = result.rows[0];
@@ -664,6 +684,7 @@ export class PostgresArtifactExecutionRepository implements ArtifactExecutionRep
 
   async complete(input: ArtifactExecutionCompletion): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
+      const scope = taskChildScopeSql(this.deviceScope, 5, 'artifact_execution');
       const updated = await client.query<{
         artifact_id: string;
         artifact_version: number;
@@ -671,13 +692,14 @@ export class PostgresArtifactExecutionRepository implements ArtifactExecutionRep
       }>(
         `UPDATE artifact_execution
          SET status=$2,fallback_reason_code=$3,completed_at=$4
-         WHERE artifact_execution_id=$1 AND status='started'
+         WHERE artifact_execution_id=$1 AND status='started' AND ${scope.predicate}
          RETURNING artifact_id,artifact_version,task_id`,
         [
           input.artifactExecutionId,
           input.status,
           input.fallbackReasonCode ?? null,
           input.completedAt,
+          ...scope.values,
         ],
       );
       const execution = updated.rows[0];
@@ -713,10 +735,11 @@ export class PostgresArtifactExecutionRepository implements ArtifactExecutionRep
 
   async appendFeedback(input: ArtifactFeedbackInput): Promise<void> {
     await inTransaction(this.#pool, async (client) => {
+      const scope = taskChildScopeSql(this.deviceScope, 3, 'artifact_execution');
       const execution = await client.query<{ artifact_version: number }>(
         `SELECT artifact_version FROM artifact_execution
-         WHERE artifact_execution_id=$1 AND artifact_id=$2`,
-        [input.artifactExecutionId, input.artifactId],
+         WHERE artifact_execution_id=$1 AND artifact_id=$2 AND ${scope.predicate}`,
+        [input.artifactExecutionId, input.artifactId, ...scope.values],
       );
       const version = execution.rows[0]?.artifact_version;
       if (version === undefined) {

@@ -91,7 +91,13 @@
     "verify:bootstrap": "node scripts/verify-full.mjs --bootstrap",
     "verify": "node scripts/verify-full.mjs",
     "verify:isolated": "node scripts/verify-isolated.mjs",
-    "test:verification": "node scripts/test-verification-isolation.mjs && node scripts/test-verification-runner.mjs"
+    "test:verification": "node scripts/test-verification-isolation.mjs && node scripts/test-verification-runner.mjs",
+    "gowm-storage:check": "node --import tsx scripts/gowm-storage.mts check",
+    "gowm-storage:verify": "node --import tsx scripts/gowm-storage.mts verify",
+    "gowm-storage:smoke": "node --import tsx scripts/gowm-storage.mts",
+    "test:gowm-storage:unit": "vitest run --project unit apps/server/test/gowm-*.unit.test.ts packages/persistence-postgres/test/gowm-*.unit.test.ts",
+    "test:gowm-storage:postgres": "node --import tsx scripts/gowm-storage-postgres.mts",
+    "test:gowm-storage:runtime": "node --import tsx scripts/gowm-runtime-execution.mts"
   },
   "dependencies": {
     "@a2a-js/sdk": "1.0.0-beta.0",

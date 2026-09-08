@@ -425,14 +425,22 @@ export class SkillCallWorkflowService {
         'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE',
         'Child Skill planning requires the immutable parent plan Goal contract.',
       );
+    const executionTaskId = parentPlan.executionTaskId ?? input.continuationAuthority?.agentTaskId;
+    if (
+      parentPlan.executionTaskId !== undefined &&
+      input.continuationAuthority !== undefined &&
+      parentPlan.executionTaskId !== input.continuationAuthority.agentTaskId
+    )
+      throw new SkillCallWorkflowError(
+        'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE',
+        'Child Task authority differs from its parent plan.',
+      );
     const preparedUsage = await this.#prepareUsage?.({
       skill,
       value: input.value,
       goalContract: parentPlan.goalContract,
       workflowDefinitionId: childWorkflowDefinitionId,
-      ...(input.continuationAuthority === undefined
-        ? {}
-        : { taskId: input.continuationAuthority.agentTaskId }),
+      ...(executionTaskId === undefined ? {} : { taskId: executionTaskId }),
     });
     const toolPlanningMetadata = await this.#toolPlanningMetadata(
       skill,
@@ -445,9 +453,7 @@ export class SkillCallWorkflowService {
       goalId: input.parentGoalId,
       goalVersion: input.parentGoalVersion,
       goalContract: parentPlan.goalContract,
-      ...(input.continuationAuthority === undefined
-        ? {}
-        : { taskId: input.continuationAuthority.agentTaskId }),
+      ...(executionTaskId === undefined ? {} : { taskId: executionTaskId }),
       toolExecutionSemantics: snapshotMcpToolPlanningExecutionSemantics(toolPlanningMetadata),
       compositionRoot: { skillId: skill.skillId, skillVersion: skill.version },
       ...(preparedUsage === undefined
@@ -500,7 +506,8 @@ export class SkillCallWorkflowService {
           plan.executionReadiness.confirmationRequired))
     )
       return confirmationRequest(record);
-    await this.#execution.confirm(childPlanId);
+    if (executionTaskId === undefined) await this.#execution.confirm(childPlanId);
+    else await this.#execution.confirm(childPlanId, executionTaskId);
     record = {
       ...record,
       confirmationStatus: 'confirmed',

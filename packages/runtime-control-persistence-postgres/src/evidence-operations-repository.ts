@@ -1,3 +1,10 @@
+import {
+  evidenceOutboxScope,
+  evidenceTaskDevice,
+  evidenceIssueScope,
+  evidenceCheckpointScope,
+} from './gowm-evidence-scope.js';
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
 import { randomUUID } from 'node:crypto';
 
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
@@ -301,6 +308,7 @@ const coverageTargetClaimSql = `WITH selected AS (
       AND configuration.is_active
   JOIN runtime_terminal_outcome outcome ON outcome.task_id=target.episode_id
   WHERE target.recovery_run_id=$1 AND target.completed_at IS NULL
+    AND ($4::text IS NULL OR recovery.target->>'deviceScopeHash'=$4)
     AND (target.claim_token IS NULL OR target.claim_expires_at <= $2::timestamptz)
   ORDER BY target.requested_at,target.episode_id
   FOR UPDATE OF target SKIP LOCKED LIMIT 1
@@ -322,7 +330,10 @@ FROM claimed JOIN selected USING (recovery_run_id,episode_id)`;
 export class PostgresEvidenceOperationsRepository implements EvidenceOperationsRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -495,6 +506,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   async listOutbox(
     query: EvidenceOperationsPageQuery,
   ): Promise<EvidenceMetadataPage<EvidenceOutboxRecordMetadata>> {
+    const scope = evidenceOutboxScope(this.deviceScope, 5);
     const limit = pageLimit(query.limit);
     const after = query.cursor === undefined ? null : decimalCursor(query.cursor);
     const result = await this.#pool.query<OutboxMetadataRow>(
@@ -505,9 +517,9 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
        FROM evidence_outbox
        WHERE ($2::bigint IS NULL OR sequence>$2)
          AND ($3::text IS NULL OR episode_id=$3)
-         AND ($4::text IS NULL OR source_partition=$4)
+         AND ($4::text IS NULL OR source_partition=$4) AND ${scope.predicate}
        ORDER BY sequence LIMIT $1`,
-      [limit + 1, after, query.episodeId ?? null, query.sourcePartition ?? null],
+      [limit + 1, after, query.episodeId ?? null, query.sourcePartition ?? null, ...scope.values],
     );
     return metadataPage(result.rows, limit, (row) => row.sequence, toOutboxMetadata);
   }
@@ -515,6 +527,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   async listCheckpoints(
     query: EvidenceOperationsPageQuery,
   ): Promise<EvidenceMetadataPage<EvidenceProjectionCheckpointMetadata>> {
+    const scope = evidenceCheckpointScope(this.deviceScope, 5);
     const limit = pageLimit(query.limit);
     const after = query.cursor === undefined ? [null, null] : decodeCursor(query.cursor, 2);
     const result = await this.#pool.query<CheckpointMetadataRow>(
@@ -522,9 +535,9 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
          last_source_revision,last_payload_hash::text,last_projected_at,projector_version
        FROM evidence_source_checkpoint
        WHERE ($2::text IS NULL OR (source_family,source_partition)>($2,$3))
-         AND ($4::text IS NULL OR source_partition=$4)
+         AND ($4::text IS NULL OR source_partition=$4) AND ${scope.predicate}
        ORDER BY source_family,source_partition LIMIT $1`,
-      [limit + 1, after[0], after[1], query.sourcePartition ?? null],
+      [limit + 1, after[0], after[1], query.sourcePartition ?? null, ...scope.values],
     );
     return metadataPage(
       result.rows,
@@ -537,6 +550,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   async listProjectionIssues(
     query: EvidenceOperationsPageQuery,
   ): Promise<EvidenceMetadataPage<EvidenceProjectionIssueMetadata>> {
+    const scope = evidenceIssueScope(this.deviceScope, 7, 'evidence_projection_issue');
     const limit = pageLimit(query.limit);
     const after = query.cursor === undefined ? [null, null] : decodeCursor(query.cursor, 2);
     const result = await this.#pool.query<ProjectionIssueMetadataRow>(
@@ -549,6 +563,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
          AND ($4::text IS NULL OR episode_id=$4)
          AND ($5::text IS NULL OR source_partition=$5)
          AND (NOT $6::boolean OR resolved_at IS NULL)
+         AND ${scope.predicate}
        ORDER BY last_observed_at,issue_id LIMIT $1`,
       [
         limit + 1,
@@ -557,6 +572,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
         query.episodeId ?? null,
         query.sourcePartition ?? null,
         query.openOnly ?? false,
+        ...scope.values,
       ],
     );
     return metadataPage(
@@ -570,6 +586,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   async listQualityIssues(
     query: EvidenceOperationsPageQuery,
   ): Promise<EvidenceMetadataPage<EvidenceQualityIssueMetadata>> {
+    const scope = evidenceIssueScope(this.deviceScope, 6, 'evidence_quality_issue');
     const limit = pageLimit(query.limit);
     const after = query.cursor === undefined ? [null, null] : decodeCursor(query.cursor, 2);
     const result = await this.#pool.query<QualityIssueMetadataRow>(
@@ -580,8 +597,16 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
        WHERE ($2::timestamptz IS NULL OR (last_observed_at,issue_id)>($2,$3))
          AND ($4::text IS NULL OR episode_id=$4)
          AND (NOT $5::boolean OR resolved_at IS NULL)
+         AND ${scope.predicate}
        ORDER BY last_observed_at,issue_id LIMIT $1`,
-      [limit + 1, after[0], after[1], query.episodeId ?? null, query.openOnly ?? false],
+      [
+        limit + 1,
+        after[0],
+        after[1],
+        query.episodeId ?? null,
+        query.openOnly ?? false,
+        ...scope.values,
+      ],
     );
     return metadataPage(
       result.rows,
@@ -592,14 +617,15 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   }
 
   async getManifest(episodeId: string): Promise<EvidenceManifestMetadata | undefined> {
+    const scope = evidenceOutboxScope(this.deviceScope, 2, 'episode_evidence_manifest');
     const result = await this.#pool.query<ManifestMetadataRow>(
       `SELECT manifest_id,revision::integer,policy_version,episode_id,task_id,
          terminal_outcome_id,expected_required_records,projected_required_records,
          pending_required_records,failed_required_records,expected_families,
          completed_families,missing_families,source_coverage,last_evidence_sequence::text,
          status,quality_issue_ids,source_snapshot_hash,created_at,recomputed_at,sealed_at
-       FROM episode_evidence_manifest WHERE episode_id=$1`,
-      [bounded(episodeId, 'episodeId', 2_048)],
+       FROM episode_evidence_manifest WHERE episode_id=$1 AND ${scope.predicate}`,
+      [bounded(episodeId, 'episodeId', 2_048), ...scope.values],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : toManifestMetadata(row);
@@ -608,6 +634,11 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   async listDeadLetters(
     query: EvidenceOperationsPageQuery,
   ): Promise<EvidenceMetadataPage<EvidenceDeadLetterMetadata>> {
+    const scope = evidenceOutboxScope(this.deviceScope, 5, 'dead_evidence');
+    const predicate =
+      this.deviceScope === undefined
+        ? 'TRUE'
+        : `EXISTS(SELECT 1 FROM evidence_outbox dead_evidence WHERE dead_evidence.sequence=evidence_dead_letter.sequence AND ${scope.predicate})`;
     const limit = pageLimit(query.limit);
     const after = query.cursor === undefined ? [null, null] : decodeCursor(query.cursor, 2);
     const result = await this.#pool.query<DeadLetterMetadataRow>(
@@ -615,9 +646,9 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
          failed_at,requeued_at,requeue_count::integer,requeued_by,requeue_reason
        FROM evidence_dead_letter
        WHERE ($2::timestamptz IS NULL OR (failed_at,dead_letter_id)>($2,$3))
-         AND (NOT $4::boolean OR requeued_at IS NULL)
+         AND (NOT $4::boolean OR requeued_at IS NULL) AND ${predicate}
        ORDER BY failed_at,dead_letter_id LIMIT $1`,
-      [limit + 1, after[0], after[1], query.openOnly ?? false],
+      [limit + 1, after[0], after[1], query.openOnly ?? false, ...scope.values],
     );
     return metadataPage(
       result.rows,
@@ -637,6 +668,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
       ]);
       await client.query(`SELECT pg_advisory_xact_lock(hashtext('runtime.evidence-export'))`);
       await assertActiveRecoveryConfiguration(client, command);
+      await assertRecoveryTargetScope(client, this.deviceScope, command);
       const existing = await client.query<RecoveryRunRow>(
         `SELECT *,revision::text FROM evidence_recovery_run
          WHERE idempotency_key_hash=$1 OR operation_id=$2
@@ -651,6 +683,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
       }
       const replay = existing.rows[0];
       if (replay !== undefined) {
+        assertStoredRecoveryScope(this.deviceScope, replay);
         if (
           replay.idempotency_key_hash !== command.idempotencyKeyHash ||
           replay.operation_id !== command.operationId ||
@@ -668,7 +701,12 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
         operationId: command.operationId,
         idempotencyKeyHash: command.idempotencyKeyHash,
       }).slice('sha256:'.length)}`;
-      const target = recoveryTarget(command);
+      const target = {
+        ...recoveryTarget(command),
+        ...(this.deviceScope === undefined
+          ? {}
+          : { deviceScopeHash: recoveryScopeHash(this.deviceScope) }),
+      };
       const inserted = await client.query<RecoveryRunRow>(
         `INSERT INTO evidence_recovery_run(
            recovery_run_id,operation_id,idempotency_key_hash,request_hash,
@@ -699,8 +737,8 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
 
   async getRecoveryRun(recoveryRunId: string): Promise<PostgresEvidenceRecoveryRun | undefined> {
     const result = await this.#pool.query<RecoveryRunRow>(
-      `SELECT *,revision::text FROM evidence_recovery_run WHERE recovery_run_id=$1`,
-      [bounded(recoveryRunId, 'recoveryRunId', 256)],
+      `SELECT *,revision::text FROM evidence_recovery_run WHERE recovery_run_id=$1 AND ($2::text IS NULL OR target->>'deviceScopeHash'=$2)`,
+      [bounded(recoveryRunId, 'recoveryRunId', 256), recoveryScopeHash(this.deviceScope)],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : toRecoveryRun(row);
@@ -712,9 +750,9 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
     }
     const result = await this.#pool.query<RecoveryRunRow>(
       `SELECT *,revision::text FROM evidence_recovery_run
-       WHERE status IN ('requested','running')
+       WHERE status IN ('requested','running') AND ($2::text IS NULL OR target->>'deviceScopeHash'=$2)
        ORDER BY requested_at,recovery_run_id LIMIT $1`,
-      [limit],
+      [limit, recoveryScopeHash(this.deviceScope)],
     );
     return Object.freeze(result.rows.map(toRecoveryRun));
   }
@@ -732,6 +770,8 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
       );
       const current = locked.rows[0];
       if (current === undefined) throw new Error('EVIDENCE_RECOVERY_RUN_MISSING');
+      assertStoredRecoveryScope(this.deviceScope, current);
+      await assertRecoveryTargetScope(client, this.deviceScope, recoveryCommandFromRow(current));
       if (current.status === 'succeeded' || current.status === 'failed') return current;
       const updated = await client.query<RecoveryAuthorityRow>(
         `UPDATE evidence_recovery_run SET status='running',
@@ -760,6 +800,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
       );
       const current = locked.rows[0];
       if (current === undefined) throw new Error('EVIDENCE_RECOVERY_RUN_MISSING');
+      assertStoredRecoveryScope(this.deviceScope, current);
       if (current.status === 'succeeded' || current.status === 'failed') {
         return toRecoveryRun(current);
       }
@@ -768,7 +809,7 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
       await client.query('SAVEPOINT evidence_recovery_action');
       try {
         await assertActiveRecoveryConfiguration(client, command);
-        const result = await executeRecoveryAction(client, cleanRunId, command);
+        const result = await executeRecoveryAction(client, cleanRunId, command, this.deviceScope);
         if (result.deferred === true) {
           if (command.operation === 'apply_retention') {
             const runningRetention = await client.query<RecoveryRunRow>(
@@ -855,7 +896,12 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
           terminal_outcome_id: string;
           seal_requested: boolean;
         }
-      >(coverageTargetClaimSql, [cleanRunId, cleanClaimedAt, claimToken]);
+      >(coverageTargetClaimSql, [
+        cleanRunId,
+        cleanClaimedAt,
+        claimToken,
+        recoveryScopeHash(this.deviceScope),
+      ]);
       const row = result.rows[0];
       if (row === undefined) return undefined;
       return Object.freeze({
@@ -883,6 +929,10 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
       );
       const currentAuthority = authority.rows[0];
       if (currentAuthority === undefined) throw new Error('EVIDENCE_RECOVERY_RUN_MISSING');
+      assertStoredRecoveryScope(this.deviceScope, currentAuthority);
+      if (this.deviceScope !== undefined && target.episodeId !== target.taskId)
+        throw new Error('EVIDENCE_COVERAGE_TASK_IDENTITY_CONFLICT');
+      await evidenceTaskDevice(client, this.deviceScope, target.taskId, undefined);
       if (currentAuthority.status === 'succeeded' || currentAuthority.status === 'failed') {
         return toRecoveryRun(currentAuthority);
       }
@@ -956,6 +1006,12 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   ): Promise<PostgresEvidenceRecoveryRun> {
     const cleanCode = boundedErrorCode(errorCode);
     return withTransaction(this.#pool, async (client) => {
+      const locked = await client.query<RecoveryRunRow>(
+        'SELECT *,revision::text FROM evidence_recovery_run WHERE recovery_run_id=$1 FOR UPDATE',
+        [bounded(recoveryRunId, 'recoveryRunId', 256)],
+      );
+      if (locked.rows[0] === undefined) throw new Error('EVIDENCE_RECOVERY_RUN_MISSING');
+      assertStoredRecoveryScope(this.deviceScope, locked.rows[0]);
       const failed = await client.query<RecoveryRunRow>(
         `UPDATE evidence_recovery_run SET status='failed',last_error_code=$2,
            started_at=COALESCE(started_at,GREATEST(requested_at,$3::timestamptz)),
@@ -980,11 +1036,66 @@ export class PostgresEvidenceOperationsRepository implements EvidenceOperationsR
   }
 }
 
+function recoveryScopeHash(scope: DeviceWorkScope | undefined): string | null {
+  return scope === undefined
+    ? null
+    : hashCanonicalEvidenceJson({
+        allowedDeviceIds: [...new Set(scope.allowedDeviceIds)].sort(),
+        sdarServiceKey: scope.sdarServiceKey,
+        includeNonDevice: scope.includeNonDevice,
+      });
+}
+
+function assertStoredRecoveryScope(scope: DeviceWorkScope | undefined, row: RecoveryRunRow): void {
+  if (scope !== undefined && row.target['deviceScopeHash'] !== recoveryScopeHash(scope))
+    throw new EvidenceRecoveryActionError(
+      'EVIDENCE_RECOVERY_SCOPE_UNPROVEN',
+      'The persisted recovery run does not belong to this device scope.',
+    );
+}
+
+async function assertRecoveryTargetScope(
+  client: PoolClient,
+  scope: DeviceWorkScope | undefined,
+  command: PostgresEvidenceRecoveryCommand,
+): Promise<void> {
+  if (scope === undefined || command.operation === 'apply_retention') return;
+  if (command.operation === 'reconcile_coverage') {
+    if (command.episodeId !== undefined)
+      await evidenceTaskDevice(client, scope, command.episodeId, undefined);
+    return;
+  }
+  const filter = evidenceOutboxScope(scope, 2, 'evidence');
+  const target =
+    command.operation === 'replay_record'
+      ? { predicate: 'evidence.record_id=$1', value: command.recordId }
+      : command.operation === 'replay_episode'
+        ? { predicate: 'evidence.episode_id=$1', value: command.episodeId }
+        : command.operation === 'replay_source_partition'
+          ? { predicate: 'evidence.source_partition=$1', value: command.sourcePartition }
+          : {
+              predicate:
+                'EXISTS(SELECT 1 FROM evidence_dead_letter dead WHERE dead.sequence=evidence.sequence AND dead.dead_letter_id=$1)',
+              value: command.deadLetterId,
+            };
+  const denied = await client.query(
+    `SELECT 1 FROM evidence_outbox evidence WHERE ${target.predicate} AND NOT ${filter.predicate} LIMIT 1`,
+    [target.value, ...filter.values],
+  );
+  if (denied.rowCount !== 0)
+    throw new EvidenceRecoveryActionError(
+      'EVIDENCE_RECOVERY_DEVICE_SCOPE_DENIED',
+      'Recovery target contains Evidence outside the current device scope.',
+    );
+}
+
 async function executeRecoveryAction(
   client: PoolClient,
   recoveryRunId: string,
   command: PostgresEvidenceRecoveryCommand,
+  scope?: DeviceWorkScope,
 ): Promise<RecoveryActionResult> {
+  await assertRecoveryTargetScope(client, scope, command);
   switch (command.operation) {
     case 'replay_record':
       return replayRecords(
@@ -1041,6 +1152,7 @@ async function executeRecoveryAction(
     case 'retry_dead_letter':
       return retryDeadLetter(client, command);
     case 'reconcile_coverage': {
+      const filter = evidenceOutboxScope(scope, 4, 'outcome');
       const terminal = await client.query(
         `SELECT 1 FROM runtime_terminal_outcome outcome
          WHERE outcome.task_id IS NOT NULL
@@ -1057,11 +1169,11 @@ async function executeRecoveryAction(
         `INSERT INTO evidence_coverage_reconcile_target(
            recovery_run_id,episode_id,requested_at)
          SELECT $1,outcome.task_id,$3 FROM runtime_terminal_outcome outcome
-         WHERE outcome.task_id IS NOT NULL AND ($2::text IS NULL OR outcome.task_id=$2)
+         WHERE outcome.task_id IS NOT NULL AND ($2::text IS NULL OR outcome.task_id=$2) AND ${filter.predicate}
          ORDER BY outcome.task_id LIMIT ${String(maximumReplayRecords + 1)}
          ON CONFLICT (recovery_run_id,episode_id) DO NOTHING
          RETURNING episode_id`,
-        [recoveryRunId, command.episodeId ?? null, command.requestedAt],
+        [recoveryRunId, command.episodeId ?? null, command.requestedAt, ...filter.values],
       );
       const totals = await client.query<{ total: string; pending: string }>(
         `SELECT count(*)::text AS total,
@@ -1084,7 +1196,7 @@ async function executeRecoveryAction(
       });
     }
     case 'apply_retention':
-      return applyRetention(client, command);
+      return applyRetention(client, command, scope !== undefined);
   }
 }
 
@@ -1210,6 +1322,7 @@ async function retryDeadLetter(
 async function applyRetention(
   client: PoolClient,
   command: Extract<PostgresEvidenceRecoveryCommand, { operation: 'apply_retention' }>,
+  preserveSharedHistory: boolean,
 ): Promise<RecoveryActionResult> {
   const purged = await client.query<{ source_partition: string }>(
     `WITH policy AS (
@@ -1224,6 +1337,12 @@ async function applyRetention(
        SELECT evidence.sequence
        FROM evidence_outbox evidence JOIN policy ON true
        WHERE evidence.evaluation_role='diagnostic'
+         ${
+           preserveSharedHistory
+             ? `AND evidence.task_id IS NULL AND evidence.episode_id IS NULL AND evidence.device_id IS NULL
+         AND NOT EXISTS(SELECT 1 FROM evidence_outbox dependent WHERE dependent.evidence_refs ? evidence.record_id)`
+             : ''
+         }
          AND evidence.acknowledged_at IS NOT NULL
          AND evidence.captured_at < $3::timestamptz
            - make_interval(days => policy.retention_days)

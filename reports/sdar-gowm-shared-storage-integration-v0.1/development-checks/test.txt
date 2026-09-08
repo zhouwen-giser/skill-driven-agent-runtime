@@ -1,0 +1,17 @@
+$ vitest run --project unit --project contract
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"completed","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"awaiting_user_input","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"capability_gap","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.single-performance","environment":"vitest-node-local","waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":3,"elapsedMs":251}
+{"event":"a2a.wait.missed-notification-recovery","environment":"vitest-node-local","safetyPollIntervalMs":100,"databaseReads":1,"deterministicTimeoutRelease":true}
+{"event":"a2a.wait.performance","environment":"vitest-node-local","concurrentWaiters":20,"waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":63,"elapsedMs":256,"closeElapsedMs":0}
+{"event":"p10.fast_gateway.no_match_performance","samples":250,"p95Ms":0.343,"maximumMs":2.152,"budgetMs":25}
+{"event":"p10.fast_gateway.concurrency_performance","results":[{"concurrency":1,"p50Ms":0.279,"p95Ms":0.279,"p99Ms":0.279,"elapsedMs":0.39,"errorRate":0},{"concurrency":10,"p50Ms":1.738,"p95Ms":1.926,"p99Ms":1.926,"elapsedMs":1.979,"errorRate":0},{"concurrency":100,"p50Ms":16.513,"p95Ms":18.316,"p99Ms":18.502,"elapsedMs":18.57,"errorRate":0},{"concurrency":1000,"p50Ms":175.11,"p95Ms":195.023,"p99Ms":196.592,"elapsedMs":197.887,"errorRate":0}]}
+
+ Test Files  351 passed (351)
+      Tests  3064 passed (3064)
+   Start at  22:15:00
+   Duration  124.36s (transform 14.98s, setup 0ms, import 132.14s, tests 66.28s, environment 45ms)

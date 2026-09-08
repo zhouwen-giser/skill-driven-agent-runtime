@@ -1,3 +1,4 @@
+import type { DeviceTaskOwnership } from '../../domain/src/device-task-context.js';
 import { createHash } from 'node:crypto';
 
 import { snapshotRemoteTaskInputValue, type ConversationContext } from '../../domain/src/index.js';
@@ -15,6 +16,7 @@ export interface InitialTaskAdmissionCommand {
 }
 
 export interface InitialTaskAdmissionRecord {
+  readonly admissionId?: string;
   readonly idempotencyKey: string;
   readonly requestHash: `sha256:${string}`;
   readonly taskId: string;
@@ -41,7 +43,10 @@ export type InitialTaskAdmissionAcceptResult =
  * explicit Capability acceptance with the admission record.
  */
 export interface InitialTaskAdmissionStore {
-  findByIdempotencyKey(idempotencyKey: string): Promise<InitialTaskAdmissionRecord | undefined>;
+  findByIdempotencyKey(
+    idempotencyKey: string,
+    ownership?: DeviceTaskOwnership,
+  ): Promise<InitialTaskAdmissionRecord | undefined>;
   acceptInitial(
     input: Readonly<{
       idempotencyKey: string;

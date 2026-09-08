@@ -1,0 +1,385 @@
+{
+  "run": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b",
+  "mcpOutcome": "task_success",
+  "scenario": "success",
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote cancellation/process-loss/reconnection combinations",
+    "Normal Polygon/LineString and target revision/rollback combinations",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "retiredPriorFixtureTypes": 1,
+  "lineage:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "count": "5"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": {
+    "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-a2c6a42f-abd7-48dc-9abe-27a9b2328032",
+    "revision": 1
+  },
+  "outcomeProvenance:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": {
+    "decisions": 3,
+    "effects": 1
+  },
+  "runtimeEvidence:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": {
+    "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+    "record_type": "runtime.episode"
+  },
+  "targets:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": [
+    {
+      "usage_role": "DISPATCHED",
+      "owner_kind": "NODE_RUN",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "nodeId": "read",
+        "bindingId": "remote-task-binding-mcp-invocation-8fc1b1aa-d481-4dfe-a296-c1df3539cc85",
+        "nodeRunId": "instance-control-task-a2c6a42f-abd7-48dc-9abe-27a9b2328032-0-b0ffbf81-72da-4faa-87a1-fb0f876d2a0e~read~1",
+        "instanceId": "instance-control-task-a2c6a42f-abd7-48dc-9abe-27a9b2328032-0-b0ffbf81-72da-4faa-87a1-fb0f876d2a0e"
+      }
+    },
+    {
+      "usage_role": "PLANNED",
+      "owner_kind": "PLAN_NODE",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "nodeId": "read",
+        "planId": "plan-task-a2c6a42f-abd7-48dc-9abe-27a9b2328032-2088e0a4-3609-446d-a8e0-277462fe546d"
+      }
+    },
+    {
+      "usage_role": "REQUESTED",
+      "owner_kind": "TASK",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "taskId": "a2c6a42f-abd7-48dc-9abe-27a9b2328032"
+      }
+    }
+  ],
+  "frozenTool:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": {
+    "operation": "task_success",
+    "inputSchemaHash": "1bd2096ca1e60fd8930dc73f23fd4b5fe0348f0a2455da95c5228510a8549b10"
+  },
+  "canonical:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": {
+    "source": "independent_local_synthetic_peer",
+    "gowmReadModel": {
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "sdar_phase": "completed",
+      "mcp_task_id": "8c8f80fb-1d2a-40ba-9883-65e62b0e84c6",
+      "smpp_service_key": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b",
+      "provider_task_record_id": null,
+      "missing_stage": "PROVIDER_PENDING"
+    },
+    "deviceId": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+    "remoteTaskId": "8c8f80fb-1d2a-40ba-9883-65e62b0e84c6",
+    "canonicalMcpTaskId": "8c8f80fb-1d2a-40ba-9883-65e62b0e84c6",
+    "linkedAfterTerminal": true,
+    "unchangedVersion": "6",
+    "unchangedRuntimeRevision": "3",
+    "consumerSmppDml": false,
+    "additionalToolCalls": 0
+  },
+  "remote:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a": {
+    "binding": {
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-a",
+      "smpp_service_key": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b",
+      "protocol_status": "completed",
+      "local_state": "reentered",
+      "canonical_mcp_task_id": null
+    },
+    "snapshots": [
+      {
+        "schema_version": "2.0",
+        "lifecycle": "terminal",
+        "workflow_instance_id": "instance-control-task-a2c6a42f-abd7-48dc-9abe-27a9b2328032-0-b0ffbf81-72da-4faa-87a1-fb0f876d2a0e"
+      }
+    ],
+    "attempts": [
+      {
+        "status": "succeeded",
+        "error_code": null
+      }
+    ]
+  },
+  "lineage:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "count": "5"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": {
+    "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-7387967f-f83a-4e8d-bc46-c62073ac73f3",
+    "revision": 1
+  },
+  "outcomeProvenance:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": {
+    "decisions": 3,
+    "effects": 1
+  },
+  "runtimeEvidence:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": {
+    "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+    "record_type": "runtime.episode"
+  },
+  "targets:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": [
+    {
+      "usage_role": "DISPATCHED",
+      "owner_kind": "NODE_RUN",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "nodeId": "read",
+        "bindingId": "remote-task-binding-mcp-invocation-5dc9f7c9-7086-4abc-a283-4ddc240ffa4d",
+        "nodeRunId": "instance-control-task-7387967f-f83a-4e8d-bc46-c62073ac73f3-0-cc41e723-bbfd-4fdb-b4b1-b5bcd238e3af~read~1",
+        "instanceId": "instance-control-task-7387967f-f83a-4e8d-bc46-c62073ac73f3-0-cc41e723-bbfd-4fdb-b4b1-b5bcd238e3af"
+      }
+    },
+    {
+      "usage_role": "PLANNED",
+      "owner_kind": "PLAN_NODE",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "nodeId": "read",
+        "planId": "plan-task-7387967f-f83a-4e8d-bc46-c62073ac73f3-b5c6e551-6c3e-4e80-ba18-9152f3eaea12"
+      }
+    },
+    {
+      "usage_role": "REQUESTED",
+      "owner_kind": "TASK",
+      "native_geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          34
+        ]
+      },
+      "native_crs": "LOCAL:synthetic-grid",
+      "geometry_wgs84": null,
+      "owner_key": {
+        "taskId": "7387967f-f83a-4e8d-bc46-c62073ac73f3"
+      }
+    }
+  ],
+  "frozenTool:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": {
+    "operation": "task_success",
+    "inputSchemaHash": "1bd2096ca1e60fd8930dc73f23fd4b5fe0348f0a2455da95c5228510a8549b10"
+  },
+  "canonical:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": {
+    "source": "independent_local_synthetic_peer",
+    "gowmReadModel": {
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "sdar_phase": "completed",
+      "mcp_task_id": "1ba14ca7-d592-4c67-8f3f-b6f51417f50c",
+      "smpp_service_key": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b",
+      "provider_task_record_id": null,
+      "missing_stage": "PROVIDER_PENDING"
+    },
+    "deviceId": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+    "remoteTaskId": "1ba14ca7-d592-4c67-8f3f-b6f51417f50c",
+    "canonicalMcpTaskId": "1ba14ca7-d592-4c67-8f3f-b6f51417f50c",
+    "linkedAfterTerminal": true,
+    "unchangedVersion": "6",
+    "unchangedRuntimeRevision": "5",
+    "consumerSmppDml": false,
+    "additionalToolCalls": 0
+  },
+  "remote:gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b": {
+    "binding": {
+      "device_id": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b-b",
+      "smpp_service_key": "gowm-runtime-d6f0a68a-8fb3-40ac-9d4e-92d9e60f5b2b",
+      "protocol_status": "completed",
+      "local_state": "reentered",
+      "canonical_mcp_task_id": null
+    },
+    "snapshots": [
+      {
+        "schema_version": "2.0",
+        "lifecycle": "terminal",
+        "workflow_instance_id": "instance-control-task-7387967f-f83a-4e8d-bc46-c62073ac73f3-0-cc41e723-bbfd-4fdb-b4b1-b5bcd238e3af"
+      }
+    ],
+    "attempts": [
+      {
+        "status": "succeeded",
+        "error_code": null
+      }
+    ]
+  },
+  "taskIds": [
+    "a2c6a42f-abd7-48dc-9abe-27a9b2328032",
+    "7387967f-f83a-4e8d-bc46-c62073ac73f3"
+  ],
+  "modelStages": [
+    "embedding",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_reflection",
+    "embedding",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_reflection"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 2,
+  "cleanupErrors": []
+}

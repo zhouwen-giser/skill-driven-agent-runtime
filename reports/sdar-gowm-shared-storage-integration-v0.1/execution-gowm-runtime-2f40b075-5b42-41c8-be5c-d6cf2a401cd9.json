@@ -1,0 +1,17 @@
+{
+  "run": "gowm-runtime-2f40b075-5b42-41c8-be5c-d6cf2a401cd9",
+  "status": "FAIL",
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "error": "{\"deviceOwnership\":{\"deviceId\":\"gowm-runtime-2f40b075-5b42-41c8-be5c-d6cf2a401cd9-a\",\"bindingId\":\"10354d03-8267-4572-85e1-0091be20239d\",\"sdarServiceKey\":\"sdar-test\"},\"taskId\":\"9446e52d-a0f2-45ef-8e35-3d17fed5a15b\",\"contextId\":\"41bbc548-a864-46c7-af4c-cc264e899926\",\"userId\":\"anonymous\",\"requestText\":\"Read synthetic device gowm-runtime-2f40b075-5b42-41c8-be5c-d6cf2a401cd9-a state once\",\"requestMetadata\":{\"io.sdar/deviceId\":\"gowm-runtime-2f40b075-5b42-41c8-be5c-d6cf2a401cd9-a\",\"structured_input\":{\"resourceId\":\"gowm-runtime-2f40b075-5b42-41c8-be5c-d6cf2a401cd9-a\"}},\"phase\":\"failed\",\"phaseMessage\":\"Task preparation failed with TASK_PREPARATION_FAILED: TASK_UNDERSTANDING_REJECTED\",\"createdAt\":\"2026-09-08T09:33:53.849Z\",\"updatedAt\":\"2026-09-08T09:33:53.942Z\"}\n+ actual - expected\n\n+ 'failed'\n- 'awaiting_plan_confirmation'\n",
+  "taskIds": [
+    "9446e52d-a0f2-45ef-8e35-3d17fed5a15b"
+  ],
+  "modelStages": [
+    "embedding",
+    "embedding",
+    "task_understanding"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 0
+}

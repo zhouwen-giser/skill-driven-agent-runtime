@@ -155,6 +155,7 @@ export interface WorkflowDefinition {
 }
 
 export interface WorkflowPlanAttempt {
+  readonly executionTaskId?: string;
   readonly planId: string;
   readonly skillGoalId?: string;
   readonly skillAttemptId?: string;
@@ -171,6 +172,7 @@ export interface WorkflowPlanAttempt {
 }
 
 export interface WorkflowPlanRecord {
+  readonly executionTaskId?: string;
   readonly planId: string;
   readonly skillGoalId?: string;
   readonly skillAttemptId?: string;

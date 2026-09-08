@@ -1,3 +1,10 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import {
+  evidenceOutboxScope,
+  evidenceIssueScope,
+  evidenceCheckpointScope,
+  directEvidencePartitionTask,
+} from './gowm-evidence-scope.js';
 import type { Pool, PoolClient } from 'pg';
 
 import {
@@ -31,7 +38,10 @@ interface ReferenceRow {
 export class PostgresEvidenceInfrastructureSource implements EvidenceInfrastructureSource {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -41,9 +51,10 @@ export class PostgresEvidenceInfrastructureSource implements EvidenceInfrastruct
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
       throw new Error('Evidence infrastructure pending limit must be between 1 and 1000.');
     }
-    const result = await this.#pool.query<PartitionRow>(pendingPartitionsSql, [
+    const result = await this.#pool.query<PartitionRow>(pendingPartitionsSql(this.deviceScope), [
       EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION,
       limit,
+      ...evidenceOutboxScope(this.deviceScope, 3).values,
     ]);
     return Object.freeze(result.rows.map(toPartition));
   }
@@ -61,12 +72,34 @@ export class PostgresEvidenceInfrastructureSource implements EvidenceInfrastruct
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-      const row = await loadSourceRow(client, partition);
+      let row = await loadSourceRow(client, partition, this.deviceScope);
       if (row === undefined) {
         await client.query('COMMIT');
         return undefined;
       }
+      if (this.deviceScope !== undefined) {
+        const taskId =
+          partition.kind === 'source_checkpoint'
+            ? directEvidencePartitionTask(requiredText(row['source_partition'], 'source_partition'))
+            : (optionalText(row['task_id']) ?? optionalText(row['episode_id']));
+        if (taskId !== undefined) {
+          const owner = await client.query('SELECT task_id FROM agent_task WHERE task_id=$1', [
+            taskId,
+          ]);
+          if (owner.rowCount === 1) row = { ...row, task_id: taskId };
+        }
+      }
       const references = await loadReferences(client, partition.recordType, row);
+      if (this.deviceScope !== undefined && references.length > 0) {
+        const filter = evidenceOutboxScope(this.deviceScope, 2, 'reference');
+        const denied = await client.query(
+          `SELECT 1 FROM evidence_outbox reference
+           WHERE reference.record_id=ANY($1::text[]) AND NOT ${filter.predicate}
+           LIMIT 1`,
+          [references.map((reference) => reference.recordId), ...filter.values],
+        );
+        if (denied.rowCount !== 0) throw new Error('EVIDENCE_REFERENCE_DEVICE_SCOPE_DENIED');
+      }
       const checkpointRow = await oneRow(
         client,
         `SELECT to_jsonb(checkpoint_row) AS value
@@ -92,17 +125,18 @@ export class PostgresEvidenceInfrastructureSource implements EvidenceInfrastruct
   }
 }
 
-const pendingPartitionsSql = `WITH candidate AS (
+function pendingPartitionsSql(scope?: DeviceWorkScope): string {
+  return `WITH candidate AS (
   SELECT 'episode_manifest'::text AS kind,'evidence.episode_manifest'::text AS record_type,
          manifest.manifest_id AS source_record_id,0 AS priority,manifest.recomputed_at AS observed_at
-  FROM episode_evidence_manifest manifest
+  FROM episode_evidence_manifest manifest WHERE ${evidenceOutboxScope(scope, 3, 'manifest').predicate}
   UNION ALL
   SELECT 'source_checkpoint','evidence.source_checkpoint',
          length(checkpoint.source_family)::text || ':' || checkpoint.source_family || ':' ||
            length(checkpoint.source_partition)::text || ':' || checkpoint.source_partition,
          1,checkpoint.last_projected_at
   FROM evidence_source_checkpoint checkpoint
-  WHERE checkpoint.last_source_record_id IS NOT NULL
+  WHERE ${evidenceCheckpointScope(scope, 3, 'checkpoint').predicate} AND checkpoint.last_source_record_id IS NOT NULL
     AND (checkpoint.last_projected_at IS NOT NULL OR checkpoint.last_occurred_at IS NOT NULL)
     AND NOT (
       checkpoint.source_family='evidence'
@@ -114,18 +148,18 @@ const pendingPartitionsSql = `WITH candidate AS (
   UNION ALL
   SELECT 'quality_issue','evidence.quality_issue',issue.issue_id,2,
          issue.last_observed_at
-  FROM evidence_quality_issue issue
+  FROM evidence_quality_issue issue WHERE ${evidenceIssueScope(scope, 3, 'issue').predicate}
   UNION ALL
   SELECT 'projection_issue','evidence.projection_issue',issue.issue_id,3,
          issue.last_observed_at
   FROM evidence_projection_issue issue
-  WHERE issue.projector_version<>$1
+  WHERE issue.projector_version<>$1 AND issue.projector_version NOT LIKE 'evidence-infrastructure/%' AND ${evidenceIssueScope(scope, 3, 'issue').predicate}
   UNION ALL
   SELECT 'export_status','evidence.export_status',batch.batch_id,4,
          COALESCE(ack.acknowledged_at,batch.recorded_at)
   FROM evidence_export_batch batch
   LEFT JOIN evidence_export_ack ack ON ack.batch_id=batch.batch_id
-  WHERE batch.observation_generation=1
+  WHERE batch.observation_generation=1 AND NOT EXISTS(SELECT 1 FROM evidence_outbox scope_record WHERE scope_record.sequence BETWEEN batch.first_sequence AND batch.last_sequence AND NOT ${evidenceOutboxScope(scope, 3, 'scope_record').predicate})
     AND (ack.ack_id IS NULL OR ack.observation_generation=1)
     AND EXISTS (
       SELECT 1 FROM evidence_outbox source_record
@@ -171,10 +205,12 @@ ORDER BY
   projector_checkpoint.last_projected_at NULLS FIRST,
   normalized.priority,normalized.observed_at,normalized.source_record_id
 LIMIT $2`;
+}
 
 async function loadSourceRow(
   client: PoolClient,
   partition: EvidenceInfrastructureProjectionPartition,
+  scope?: DeviceWorkScope,
 ): Promise<EvidenceInfrastructureSourceRow | undefined> {
   switch (partition.kind) {
     case 'episode_manifest':
@@ -184,24 +220,28 @@ async function loadSourceRow(
            'last_evidence_sequence_text',manifest_row.last_evidence_sequence::text
          ) AS value
          FROM episode_evidence_manifest manifest_row
-         WHERE manifest_row.manifest_id=$1`,
-        [partition.sourceRecordId],
+         WHERE manifest_row.manifest_id=$1 AND ${evidenceOutboxScope(scope, 2, 'manifest_row').predicate}`,
+        [partition.sourceRecordId, ...evidenceOutboxScope(scope, 2).values],
       );
     case 'quality_issue':
       return oneRow(
         client,
         `SELECT to_jsonb(issue_row) AS value
          FROM evidence_quality_issue issue_row
-         WHERE issue_row.issue_id=$1`,
-        [partition.sourceRecordId],
+         WHERE issue_row.issue_id=$1 AND ${evidenceIssueScope(scope, 2, 'issue_row').predicate}`,
+        [partition.sourceRecordId, ...evidenceOutboxScope(scope, 2).values],
       );
     case 'projection_issue':
       return oneRow(
         client,
         `SELECT to_jsonb(issue_row) AS value
          FROM evidence_projection_issue issue_row
-         WHERE issue_row.issue_id=$1 AND issue_row.projector_version<>$2`,
-        [partition.sourceRecordId, EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION],
+         WHERE issue_row.issue_id=$1 AND issue_row.projector_version<>$2 AND issue_row.projector_version NOT LIKE 'evidence-infrastructure/%' AND ${evidenceIssueScope(scope, 3, 'issue_row').predicate}`,
+        [
+          partition.sourceRecordId,
+          EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION,
+          ...evidenceOutboxScope(scope, 3).values,
+        ],
       );
     case 'source_checkpoint': {
       const identity = parseCheckpointSourceRecordId(partition.sourceRecordId);
@@ -209,7 +249,7 @@ async function loadSourceRow(
         client,
         `SELECT to_jsonb(checkpoint_row) AS value
          FROM evidence_source_checkpoint checkpoint_row
-         WHERE checkpoint_row.source_family=$1 AND checkpoint_row.source_partition=$2
+         WHERE checkpoint_row.source_family=$1 AND checkpoint_row.source_partition=$2 AND ${evidenceCheckpointScope(scope, 4, 'checkpoint_row').predicate}
            AND (checkpoint_row.last_projected_at IS NOT NULL OR checkpoint_row.last_occurred_at IS NOT NULL)
            AND NOT (
              checkpoint_row.source_family='evidence'
@@ -222,6 +262,7 @@ async function loadSourceRow(
           identity.sourceFamily,
           identity.sourcePartition,
           EVIDENCE_INFRASTRUCTURE_PROJECTOR_VERSION,
+          ...evidenceOutboxScope(scope, 4).values,
         ],
       );
     }
@@ -241,7 +282,7 @@ async function loadSourceRow(
          ) AS value
          FROM evidence_export_batch batch_row
          LEFT JOIN evidence_export_ack ack_row ON ack_row.batch_id=batch_row.batch_id
-         WHERE batch_row.batch_id=$1
+         WHERE batch_row.batch_id=$1 AND NOT EXISTS(SELECT 1 FROM evidence_outbox scope_record WHERE scope_record.sequence BETWEEN batch_row.first_sequence AND batch_row.last_sequence AND NOT ${evidenceOutboxScope(scope, 2, 'scope_record').predicate})
            AND batch_row.observation_generation=1
            AND (ack_row.ack_id IS NULL OR ack_row.observation_generation=1)
            AND EXISTS (
@@ -249,7 +290,7 @@ async function loadSourceRow(
              WHERE source_record.sequence BETWEEN batch_row.first_sequence AND batch_row.last_sequence
                AND source_record.observation_generation=0
            )`,
-        [partition.sourceRecordId],
+        [partition.sourceRecordId, ...evidenceOutboxScope(scope, 2).values],
       );
   }
 }

@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "scope": "Application/Planner/LangGraph/PostgreSQL; local model fixture",
+  "run": "gowm-skill-child-d07acdc5-e576-4232-bf5e-71f04609ab02",
+  "results": [
+    {
+      "deviceId": "gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-b",
+      "parent": "gowm-skill-child-d07acdc5-e576-4232-bf5e-71f04609ab02-gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-b-instance",
+      "child": "instance-skill-call-258f1046-af4e-4930-b934-b9e3ea95e891",
+      "dispatches": 1,
+      "planningCalls": 1,
+      "parentCost": 1,
+      "status": "succeeded"
+    },
+    {
+      "deviceId": "gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-a",
+      "parent": "gowm-skill-child-d07acdc5-e576-4232-bf5e-71f04609ab02-gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-a-instance",
+      "child": "instance-skill-call-4e00bd60-aa0c-4638-88f1-001d69bbf32d",
+      "dispatches": 1,
+      "planningCalls": 1,
+      "parentCost": 1,
+      "status": "succeeded"
+    }
+  ]
+}

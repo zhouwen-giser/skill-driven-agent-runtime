@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { evidenceTaskScope } from './gowm-evidence-scope.js';
 import type { Pool, PoolClient } from 'pg';
 
 import type {
@@ -9,13 +11,17 @@ import type { RuntimeCoreSourceRow } from '../../runtime-control-application/src
 export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenceSource {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
   async pendingTaskIds(limit: number): Promise<readonly string[]> {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new Error('MCP/Capability Evidence pending limit must be between 1 and 1000.');
+    const filter = evidenceTaskScope(this.deviceScope, 2);
     const result = await this.#pool.query<{ task_id: string }>(
       `WITH candidate AS (
          SELECT task.task_id,task.created_at
@@ -60,6 +66,7 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
        )
        SELECT candidate.task_id
        FROM candidate
+       JOIN (SELECT task_id FROM agent_task task WHERE ${filter.predicate}) scoped_task ON scoped_task.task_id=candidate.task_id
        LEFT JOIN LATERAL (
          SELECT projection_issue.last_observed_at
          FROM evidence_projection_issue projection_issue
@@ -78,7 +85,7 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
          projection_issue.last_observed_at + interval '5 seconds',candidate.created_at
        ),candidate.task_id
        LIMIT $1`,
-      [limit],
+      [limit, ...filter.values],
     );
     return Object.freeze(result.rows.map((row) => row.task_id));
   }
@@ -87,11 +94,12 @@ export class PostgresMcpCapabilityEvidenceSource implements McpCapabilityEvidenc
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      const filter = evidenceTaskScope(this.deviceScope, 2);
       const task = (
         await rows(
           client,
-          `SELECT to_jsonb(task) AS value FROM agent_task task WHERE task.task_id=$1`,
-          [taskId],
+          `SELECT to_jsonb(task) AS value FROM agent_task task WHERE task.task_id=$1 AND ${filter.predicate}`,
+          [taskId, ...filter.values],
         )
       )[0];
       if (task === undefined) {

@@ -1,0 +1,17 @@
+{
+  "status": "INCOMPLETE",
+  "reproduced": true,
+  "contract": "a1a86186ea866911124de72374e17fe19897fa9e",
+  "table": "ugv_sdar.remote_task_provider_execution_link",
+  "constraint": "remote_task_provider_executio_runtime_server_id_remote_task_key",
+  "identity": [
+    "runtime_server_id",
+    "remote_task_id"
+  ],
+  "missingScope": [
+    "device_id",
+    "smpp_service_key"
+  ],
+  "observed": "Native Remote Bindings for two devices share one opaque handle, but only one auxiliary Provider execution link can persist. Second link rejects without modifying the first.",
+  "next": "Requires a contract-compatible resolution; not SOURCE_READY. Do not namespace opaque handles or alter GOWM DDL from SDAR."
+}

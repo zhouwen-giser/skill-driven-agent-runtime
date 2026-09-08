@@ -1,0 +1,21 @@
+{
+  "run": "gowm-child-b3757099-1913-48ae-8938-816113942fe3",
+  "results": [
+    {
+      "deviceId": "gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-b",
+      "parent": "gowm-child-b3757099-1913-48ae-8938-816113942fe3-gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-b-instance",
+      "child": "instance-workflow-child-call-5b6042abe9bbfc71cbfcb64be27753267f220bd841bd8d1de93f7626037e118d",
+      "dispatches": 3,
+      "parentCost": 1,
+      "status": "succeeded"
+    },
+    {
+      "deviceId": "gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-a",
+      "parent": "gowm-child-b3757099-1913-48ae-8938-816113942fe3-gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06-a-instance",
+      "child": "instance-workflow-child-call-176053fd155920cb44ee8c032783ad6039beeed1373c1136adcf5428da909947",
+      "dispatches": 3,
+      "parentCost": 1,
+      "status": "succeeded"
+    }
+  ]
+}

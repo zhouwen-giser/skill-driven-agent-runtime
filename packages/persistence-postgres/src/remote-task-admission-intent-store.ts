@@ -1,3 +1,7 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { taskDeviceScopeSql } from './gowm-work-scope.js';
+import { readGowmMcpOwner } from './gowm-mcp-ownership.js';
+import { insertMcpInvocation } from './mcp-invocation-writer.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import type {
@@ -108,11 +112,15 @@ interface RemoteTaskAdmissionObservationRow extends QueryResultRow {
 export class PostgresRemoteTaskAdmissionObservationQuery implements RemoteTaskAdmissionObservationQuery {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  readonly #deviceScope: DeviceWorkScope | undefined;
+
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async listByAgentTaskId(agentTaskId: string): Promise<readonly RemoteTaskAdmissionObservation[]> {
+    const scope = intentScopeSql(this.#deviceScope, 2, 'intent');
     const result = await this.#pool.query<RemoteTaskAdmissionObservationRow>(
       `SELECT intent.intent_id,intent.invocation_id,intent.binding_id,intent.task_id,
               intent.capability_attempt_id,intent.context_id,intent.server_id,
@@ -125,9 +133,9 @@ export class PostgresRemoteTaskAdmissionObservationQuery implements RemoteTaskAd
          FROM remote_task_admission_intent intent
          LEFT JOIN mcp_invocation invocation
            ON invocation.invocation_id=intent.recorded_invocation_id
-        WHERE intent.task_id=$1
+        WHERE intent.task_id=$1 AND ${scope.predicate}
         ORDER BY intent.created_at,intent.intent_id`,
-      [agentTaskId],
+      [agentTaskId, ...scope.values],
     );
     return result.rows.map(mapAdmissionObservationRow);
   }
@@ -136,15 +144,20 @@ export class PostgresRemoteTaskAdmissionObservationQuery implements RemoteTaskAd
 /** PostgreSQL journal for the Provider-return/admission crash boundary. */
 export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissionIntentStore {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async prepare(
     intent: RemoteTaskAdmissionIntent,
   ): Promise<Readonly<{ intent: RemoteTaskAdmissionIntent; created: boolean }>> {
     assertPreparedIntent(intent);
+    if (this.#deviceScope !== undefined)
+      await readGowmMcpOwner(this.#pool, this.#deviceScope, intent.taskId, intent.serverId);
+    const scope = intentScopeSql(this.#deviceScope, 16, 'existing');
     const result = await this.#pool.query<RemoteTaskAdmissionIntentRow & { inserted: boolean }>(
       `WITH inserted AS (
          INSERT INTO remote_task_admission_intent(
@@ -162,7 +175,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
        SELECT existing.*,false AS inserted
          FROM remote_task_admission_intent existing
         WHERE (existing.intent_id=$1 OR existing.invocation_id=$2 OR existing.binding_id=$3)
-          AND NOT EXISTS(SELECT 1 FROM inserted)
+          AND ${scope.predicate} AND NOT EXISTS(SELECT 1 FROM inserted)
         ORDER BY inserted DESC
         LIMIT 1`,
       [
@@ -181,6 +194,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
         intent.reconciliationSeed === undefined ? null : JSON.stringify(intent.reconciliationSeed),
         intent.createdAt,
         intent.updatedAt,
+        ...scope.values,
       ],
     );
     const row = result.rows[0];
@@ -200,6 +214,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
+    const scope = intentScopeSql(this.#deviceScope, 6);
     const result = await this.#pool.query<TransitionRow>(
       transitionQuery(
         `UPDATE remote_task_admission_intent
@@ -207,7 +222,9 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
                 reconciliation_contract_json=COALESCE($5::jsonb,reconciliation_contract_json),
                 updated_at=$4,version=version+1
           WHERE intent_id=$1 AND invocation_id=$2 AND status='prepared'
+          AND ${scope.predicate}
           RETURNING *`,
+        intentScopeSql(this.#deviceScope, 6, 'existing').predicate,
       ),
       [
         input.intentId,
@@ -217,6 +234,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
         input.reconciliationContract === undefined
           ? null
           : JSON.stringify(input.reconciliationContract),
+        ...scope.values,
       ],
     );
     return classifyTransition(
@@ -244,14 +262,21 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_AUTHORITY_REQUIRED');
     createRemoteTaskAuthoritySnapshot(receipt.authoritySnapshot);
     return withTransaction(this.#pool, async (client) => {
+      const scope = intentScopeSql(this.#deviceScope, 2);
       const locked = await client.query<RemoteTaskAdmissionIntentRow>(
-        `SELECT * FROM remote_task_admission_intent WHERE intent_id=$1 FOR UPDATE`,
-        [intentId],
+        `SELECT * FROM remote_task_admission_intent WHERE intent_id=$1 AND ${scope.predicate} FOR UPDATE`,
+        [intentId, ...scope.values],
       );
       const row = locked.rows[0];
       if (row === undefined) return { applied: false, reason: 'missing' };
       const current = mapIntentRow(row);
-      if (current.invocationId !== invocation.invocationId)
+      if (
+        current.invocationId !== invocation.invocationId ||
+        current.taskId !== invocation.taskId ||
+        current.serverId !== invocation.serverId ||
+        current.operationName !== invocation.toolName ||
+        current.contextId !== invocation.contextId
+      )
         return { applied: false, reason: 'conflict', intent: current };
       if (current.status === 'receipt_recorded' || current.status === 'materialized') {
         return sameReceipt(current.receipt, receipt) &&
@@ -264,7 +289,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       if (current.status !== 'dispatching')
         return { applied: false, reason: 'stale', intent: current };
 
-      await insertInvocation(client, invocation);
+      await insertMcpInvocation(client, invocation, this.#deviceScope);
       const updated = await client.query<RemoteTaskAdmissionIntentRow>(
         `UPDATE remote_task_admission_intent
             SET status='receipt_recorded',recorded_invocation_id=$2,
@@ -293,15 +318,20 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       throw new Error('REMOTE_TASK_ADMISSION_RECEIPT_AUTHORITY_REQUIRED');
     createRemoteTaskAuthoritySnapshot(input.receipt.authoritySnapshot);
     return withTransaction(this.#pool, async (client) => {
+      const scope = intentScopeSql(this.#deviceScope, 2);
       const locked = await client.query<RemoteTaskAdmissionIntentRow>(
-        `SELECT * FROM remote_task_admission_intent WHERE intent_id=$1 FOR UPDATE`,
-        [input.intentId],
+        `SELECT * FROM remote_task_admission_intent WHERE intent_id=$1 AND ${scope.predicate} FOR UPDATE`,
+        [input.intentId, ...scope.values],
       );
       const row = locked.rows[0];
       if (row === undefined) return { applied: false, reason: 'missing' };
       const current = mapIntentRow(row);
       if (
         current.invocationId !== input.invocation.invocationId ||
+        current.taskId !== input.invocation.taskId ||
+        current.serverId !== input.invocation.serverId ||
+        current.operationName !== input.invocation.toolName ||
+        current.contextId !== input.invocation.contextId ||
         current.logicalIdentity?.logicalInvocationId !== input.logicalInvocationId
       )
         return { applied: false, reason: 'conflict', intent: current };
@@ -330,7 +360,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       );
       if (exactAttempt.rowCount !== 1) return { applied: false, reason: 'stale', intent: current };
 
-      await insertInvocation(client, input.invocation);
+      await insertMcpInvocation(client, input.invocation, this.#deviceScope);
       const updated = await client.query<RemoteTaskAdmissionIntentRow>(
         `UPDATE remote_task_admission_intent
             SET status='receipt_recorded',recorded_invocation_id=$2,
@@ -355,6 +385,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
+    const scope = intentScopeSql(this.#deviceScope, 6);
     const result = await this.#pool.query<TransitionRow>(
       transitionQuery(
         `UPDATE remote_task_admission_intent
@@ -375,9 +406,18 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
                  AND instance.status='waiting_external'
                  AND wait.binding_id=$3
             )
+          AND ${scope.predicate}
           RETURNING *`,
+        intentScopeSql(this.#deviceScope, 6, 'existing').predicate,
       ),
-      [input.intentId, input.invocationId, input.bindingId, input.snapshotId, input.at],
+      [
+        input.intentId,
+        input.invocationId,
+        input.bindingId,
+        input.snapshotId,
+        input.at,
+        ...scope.values,
+      ],
     );
     return classifyTransition(
       result.rows[0],
@@ -395,9 +435,10 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
   }
 
   async findByBindingId(bindingId: string): Promise<RemoteTaskAdmissionIntent | undefined> {
+    const scope = intentScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<RemoteTaskAdmissionIntentRow>(
-      'SELECT * FROM remote_task_admission_intent WHERE binding_id=$1',
-      [bindingId],
+      `SELECT * FROM remote_task_admission_intent WHERE binding_id=$1 AND ${scope.predicate}`,
+      [bindingId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapIntentRow(result.rows[0]);
   }
@@ -410,15 +451,18 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
+    const scope = intentScopeSql(this.#deviceScope, 5);
     const result = await this.#pool.query<TransitionRow>(
       transitionQuery(
         `UPDATE remote_task_admission_intent
             SET status='uncertain',reason_code=$3,closed_at=$4,
                 updated_at=$4,version=version+1
           WHERE intent_id=$1 AND invocation_id=$2 AND status='dispatching'
+          AND ${scope.predicate}
           RETURNING *`,
+        intentScopeSql(this.#deviceScope, 5, 'existing').predicate,
       ),
-      [input.intentId, input.invocationId, input.reasonCode, input.at],
+      [input.intentId, input.invocationId, input.reasonCode, input.at, ...scope.values],
     );
     return classifyTransition(
       result.rows[0],
@@ -440,6 +484,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
+    const scope = intentScopeSql(this.#deviceScope, 5);
     const result = await this.#pool.query<TransitionRow>(
       transitionQuery(
         `UPDATE remote_task_admission_intent
@@ -447,9 +492,11 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
                 closed_at=$4,updated_at=$4,version=version+1
           WHERE intent_id=$1 AND invocation_id=$2
             AND status='receipt_recorded'
+          AND ${scope.predicate}
           RETURNING *`,
+        intentScopeSql(this.#deviceScope, 5, 'existing').predicate,
       ),
-      [input.intentId, input.invocationId, input.reasonCode, input.at],
+      [input.intentId, input.invocationId, input.reasonCode, input.at, ...scope.values],
     );
     return classifyTransition(
       result.rows[0],
@@ -473,6 +520,7 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
   ): Promise<RemoteTaskAdmissionIntentMutation> {
     if (input.continuation.completeness !== 'exact_final')
       throw new Error('REMOTE_TASK_ADMISSION_CONTINUATION_FINAL_REQUIRED');
+    const scope = intentScopeSql(this.#deviceScope, 5);
     const result = await this.#pool.query<TransitionRow>(
       transitionQuery(
         `UPDATE remote_task_admission_intent
@@ -481,9 +529,17 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
                 updated_at=$4,version=version+1
           WHERE intent_id=$1 AND invocation_id=$2 AND status='receipt_recorded'
             AND remote_receipt_json->'continuation'->>'completeness'='requires_graph_merge'
+          AND ${scope.predicate}
           RETURNING *`,
+        intentScopeSql(this.#deviceScope, 5, 'existing').predicate,
       ),
-      [input.intentId, input.invocationId, JSON.stringify(input.continuation), input.at],
+      [
+        input.intentId,
+        input.invocationId,
+        JSON.stringify(input.continuation),
+        input.at,
+        ...scope.values,
+      ],
     );
     return classifyTransition(
       result.rows[0],
@@ -507,15 +563,18 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
       at: string;
     }>,
   ): Promise<RemoteTaskAdmissionIntentMutation> {
+    const scope = intentScopeSql(this.#deviceScope, 5);
     const result = await this.#pool.query<TransitionRow>(
       transitionQuery(
         `UPDATE remote_task_admission_intent
             SET status='closed',reason_code=$3,closed_at=$4,
                 updated_at=$4,version=version+1
           WHERE intent_id=$1 AND invocation_id=$2 AND status IN ('prepared','dispatching')
+          AND ${scope.predicate}
           RETURNING *`,
+        intentScopeSql(this.#deviceScope, 5, 'existing').predicate,
       ),
-      [input.intentId, input.invocationId, input.reasonCode, input.at],
+      [input.intentId, input.invocationId, input.reasonCode, input.at, ...scope.values],
     );
     return classifyTransition(
       result.rows[0],
@@ -532,26 +591,28 @@ export class PostgresRemoteTaskAdmissionIntentStore implements RemoteTaskAdmissi
   async listRecoverable(limit: number): Promise<readonly RemoteTaskAdmissionIntent[]> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1_000)
       throw new Error('REMOTE_TASK_ADMISSION_RECOVERY_LIMIT_INVALID');
+    const scope = intentScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<RemoteTaskAdmissionIntentRow>(
       `SELECT * FROM remote_task_admission_intent
-        WHERE status IN ('prepared','dispatching','receipt_recorded')
-           OR (status='uncertain' AND logical_invocation_id IS NOT NULL)
+        WHERE (status IN ('prepared','dispatching','receipt_recorded')
+           OR (status='uncertain' AND logical_invocation_id IS NOT NULL))
+          AND ${scope.predicate}
         ORDER BY updated_at,intent_id
         LIMIT $1`,
-      [limit],
+      [limit, ...scope.values],
     );
     return result.rows.map(mapIntentRow);
   }
 }
 
-function transitionQuery(update: string): string {
+function transitionQuery(update: string, existingScope: string): string {
   return `WITH updated AS (${update}),
     selected AS (
       SELECT updated.*,true AS transition_applied FROM updated
       UNION ALL
       SELECT existing.*,false AS transition_applied
         FROM remote_task_admission_intent existing
-       WHERE existing.intent_id=$1 AND NOT EXISTS(SELECT 1 FROM updated)
+       WHERE existing.intent_id=$1 AND ${existingScope} AND NOT EXISTS(SELECT 1 FROM updated)
     )
     SELECT * FROM selected LIMIT 1`;
 }
@@ -572,42 +633,6 @@ function classifyTransition(
   )
     return { applied: false, reason: 'closed', intent };
   return { applied: false, reason: 'stale', intent };
-}
-
-async function insertInvocation(client: PoolClient, invocation: McpInvocation): Promise<void> {
-  await client.query(
-    `INSERT INTO mcp_invocation(
-       invocation_id,task_id,capability_attempt_id,control_confirmation_id,
-       control_provider_binding_id,control_arguments_hash,control_dispatch_hash,
-       context_id,execution_mode,simulation_id,server_id,tool_name,arguments_json,
-       execution_semantics_json,result_json,status,error_code,error_message,
-       started_at,completed_at,duration_ms)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15::jsonb,
-            $16,$17,$18,$19,$20,$21)`,
-    [
-      invocation.invocationId,
-      invocation.taskId ?? null,
-      invocation.capabilityAttemptId ?? null,
-      invocation.controlConfirmationId ?? null,
-      invocation.controlProviderBindingId ?? null,
-      invocation.controlArgumentsHash ?? null,
-      invocation.controlDispatchHash ?? null,
-      invocation.contextId ?? null,
-      invocation.executionMode,
-      invocation.simulationId ?? null,
-      invocation.serverId,
-      invocation.toolName,
-      JSON.stringify(invocation.arguments),
-      JSON.stringify(invocation.executionSemantics),
-      invocation.result === undefined ? null : JSON.stringify(invocation.result),
-      invocation.status,
-      invocation.errorCode ?? null,
-      invocation.errorMessage ?? null,
-      invocation.startedAt,
-      invocation.completedAt,
-      invocation.durationMs,
-    ],
-  );
 }
 
 async function invocationMatches(client: PoolClient, expected: McpInvocation): Promise<boolean> {
@@ -909,4 +934,20 @@ async function withTransaction<T>(
   } finally {
     client.release();
   }
+}
+
+/** Intents have no device column in the pinned contract; their Task owns scope. */
+function intentScopeSql(
+  scope: DeviceWorkScope | undefined,
+  firstParameter: number,
+  alias = 'remote_task_admission_intent',
+) {
+  if (!/^[a-z_][a-z0-9_]*$/u.test(alias)) throw new Error('SQL_IDENTIFIER_INVALID');
+  const task = taskDeviceScopeSql(scope, firstParameter, 'intent_owner');
+  if (scope === undefined) return task;
+  return {
+    predicate: `EXISTS(SELECT 1 FROM agent_task intent_owner
+      WHERE intent_owner.task_id=${alias}.task_id AND ${task.predicate})`,
+    values: task.values,
+  };
 }

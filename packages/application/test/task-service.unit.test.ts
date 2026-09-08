@@ -36,6 +36,29 @@ import {
 const timestamp = '2026-07-11T10:00:00.000Z';
 
 describe('TaskService', () => {
+  it('resolves device ownership before any task creation and preserves it in persistence', async () => {
+    const owner = { deviceId: 'device-a', bindingId: 'binding-a', sdarServiceKey: 'service' };
+    const resolveDeviceOwnership = vi.fn().mockResolvedValue(owner);
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      resolveDeviceOwnership,
+    });
+    const accepted = await harness.service.submit({ messageText: 'Read state', metadata: {} });
+    expect(accepted.task.deviceOwnership).toEqual(owner);
+    expect(harness.tasks.get(accepted.task.taskId)?.deviceOwnership).toEqual(owner);
+    expect(Object.isFrozen(accepted.task.deviceOwnership)).toBe(true);
+  });
+
+  it('does not create a Task when device admission is denied', async () => {
+    const resolveDeviceOwnership = vi.fn().mockRejectedValue(new Error('DEVICE_SCOPE_DENIED'));
+    const harness = createHarness('resumed', false, undefined, undefined, {
+      resolveDeviceOwnership,
+    });
+    await expect(
+      harness.service.submit({ messageText: 'Read state', metadata: {} }),
+    ).rejects.toThrow('DEVICE_SCOPE_DENIED');
+    expect(harness.tasks.size).toBe(0);
+  });
+
   it('requires Goal-evaluation input requests to identify both control and round', () => {
     expect(() =>
       createTaskInputRequest({
@@ -1541,6 +1564,7 @@ function createHarness(
   remotePrepare?: (inputRequestId: string, inputContent: unknown) => Promise<unknown>,
   taskCapabilities?: RuntimeTaskCapabilityService,
   options: Readonly<{
+    resolveDeviceOwnership?: NonNullable<TaskServiceDependencies['resolveDeviceOwnership']>;
     beforePlanExecution?: NonNullable<TaskServiceDependencies['beforePlanExecution']>;
     confirm?: NonNullable<TaskServiceDependencies['planActions']>['confirm'];
     executeConfirmed?: NonNullable<TaskServiceDependencies['planActions']>['executeConfirmed'];
@@ -1731,6 +1755,9 @@ function createHarness(
     : undefined;
   return {
     service: new TaskService({
+      ...(options.resolveDeviceOwnership === undefined
+        ? {}
+        : { resolveDeviceOwnership: options.resolveDeviceOwnership }),
       contexts: contextRepository,
       tasks: taskRepository,
       queue,

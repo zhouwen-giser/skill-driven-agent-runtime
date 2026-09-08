@@ -1,3 +1,4 @@
+import { decodeGowmWorkflowDefinition } from './gowm-workflow-definition.js';
 import type { Pool } from 'pg';
 
 import {
@@ -189,7 +190,11 @@ function deriveAuthority(
         ? 'emergency_stop'
         : 'physical_control';
   if (authorityKind !== 'physical_control')
-    assertSingleHighRiskControlPlan(row.plan_definition, serverId, toolName);
+    assertSingleHighRiskControlPlan(
+      decodeGowmWorkflowDefinition(row.plan_definition),
+      serverId,
+      toolName,
+    );
   assertBoundedMovementAuthority(
     constraints,
     argumentsRecord,
@@ -244,7 +249,7 @@ function deriveAuthority(
     capabilityVersion: row.capability_version,
     capabilityAttemptId: row.attempt_id,
     planId: row.plan_id,
-    planHash: canonicalHash(row.plan_definition),
+    planHash: canonicalHash(decodeGowmWorkflowDefinition(row.plan_definition)),
     skillId: row.skill_id,
     skillVersion: row.skill_version,
     providerBindingId,

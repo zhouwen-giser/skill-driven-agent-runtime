@@ -1,3 +1,28 @@
+import { requireOutcomeTask, requireLayeredOutcomeSource } from './gowm-outcome-scope.js';
+import { McpRegistryError } from '../../application/src/mcp-registry.js';
+import { taskChildScopeSql, taskInputSourceProjection } from './gowm-work-scope.js';
+import { insertMcpInvocation } from './mcp-invocation-writer.js';
+import { readGowmMcpOwner } from './gowm-mcp-ownership.js';
+import { hashCanonicalEvidenceJson } from '../../domain/src/evidence/canonical-evidence.js';
+import { extractStructuredTargets } from '../../domain/src/structured-target.js';
+import { writeGowmTargets } from './gowm-targets.js';
+import {
+  decodeGowmWorkflowDefinition,
+  encodeGowmWorkflowDefinition,
+} from './gowm-workflow-definition.js';
+import {
+  readGowmPlanOwner,
+  readGowmWorkflowDevice,
+  workflowPlanScopeSql,
+  ensureGowmPlanningRoot,
+  GOWM_FINALIZE_PLANNING_ROOT_SQL,
+} from './gowm-workflow-ownership.js';
+import {
+  assertDeviceWorkScope,
+  DeviceScopeError,
+  type DeviceWorkScope,
+} from '../../domain/src/device-task-context.js';
+import { taskDeviceScopeSql } from './gowm-work-scope.js';
 import { saveWorkflowChildCall } from './workflow-child-call-repository.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
@@ -771,6 +796,9 @@ interface GoalRow extends QueryResultRow {
 }
 
 interface TaskRow extends QueryResultRow {
+  device_id?: string | null;
+  gowm_binding_id?: string | null;
+  sdar_service_key?: string | null;
   task_id: string;
   context_id: string;
   user_id: string;
@@ -1085,6 +1113,7 @@ interface McpWarningRow extends QueryResultRow {
 }
 
 interface McpInvocationRow extends QueryResultRow {
+  device_id?: string | null;
   invocation_id: string;
   task_id: string | null;
   capability_attempt_id: string | null;
@@ -1157,18 +1186,32 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
   readonly #pool: Pool;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
   readonly #preserveRemoteWaits: boolean;
+  readonly #deviceScope: DeviceWorkScope | undefined;
 
   constructor(
     pool: Pool,
     onTaskStateCommitted?: TaskStateCommitted,
-    options: Readonly<{ preserveRemoteWaits?: boolean }> = {},
+    options: Readonly<{ preserveRemoteWaits?: boolean; deviceScope?: DeviceWorkScope }> = {},
   ) {
     this.#pool = pool;
     this.#onTaskStateCommitted = onTaskStateCommitted;
     this.#preserveRemoteWaits = options.preserveRemoteWaits ?? false;
+    this.#deviceScope = options.deviceScope;
   }
 
   async failInterrupted(timestamp: string) {
+    const taskScope = taskDeviceScopeSql(this.#deviceScope, 2, 'task');
+    const planScope = workflowPlanScopeSql(this.#deviceScope, 2);
+    const instanceScope =
+      this.#deviceScope === undefined
+        ? 'TRUE'
+        : `EXISTS(SELECT 1 FROM workflow_plan WHERE workflow_plan.plan_id=instance.plan_id
+        AND workflow_plan.device_id IS NOT DISTINCT FROM instance.device_id AND ${planScope.predicate})`;
+    const attemptScope =
+      this.#deviceScope === undefined
+        ? 'TRUE'
+        : `EXISTS(SELECT 1 FROM agent_task task WHERE task.task_id=task_execution_attempt.task_id
+        AND ${taskScope.predicate})`;
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
@@ -1178,6 +1221,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
              error_code='PROCESS_EXECUTION_LOST', updated_at=$1
          WHERE active_command_token IS NULL
            AND phase IN ('executing','paused','evaluating')
+           AND ${taskScope.predicate}
          ${
            this.#preserveRemoteWaits
              ? `AND NOT EXISTS (
@@ -1207,7 +1251,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
              : ''
          }
          RETURNING *`,
-        [timestamp],
+        [timestamp, ...taskScope.values],
       );
       const instances = await client.query(
         `UPDATE workflow_instance instance
@@ -1216,6 +1260,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
                '{"code":"PROCESS_EXECUTION_LOST","message":"Process stopped during execution; V1 does not recover or retry."}'::jsonb,true),
              pending_confirmation_json=NULL, completed_at=$1
          WHERE status IN ('running','paused')
+           AND ${instanceScope}
            AND NOT EXISTS (
              SELECT 1
              FROM workflow_plan plan
@@ -1233,12 +1278,13 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
          )`
              : ''
          }`,
-        [timestamp],
+        [timestamp, ...planScope.values],
       );
       const attempts = await client.query(
         `UPDATE task_execution_attempt
          SET status='failed', completed_at=$1, error_code='PROCESS_EXECUTION_LOST'
          WHERE status='running'
+           AND ${attemptScope}
            AND NOT EXISTS (
              SELECT 1 FROM agent_task task
              WHERE task.task_id=task_execution_attempt.task_id
@@ -1274,7 +1320,7 @@ export class PostgresRuntimeRecoveryRepository implements RuntimeRecoveryReposit
          )`
              : ''
          }`,
-        [timestamp],
+        [timestamp, ...taskScope.values],
       );
       await client.query('COMMIT');
       for (const task of tasks.rows) this.#onTaskStateCommitted?.(mapTaskRow(task));
@@ -1959,39 +2005,88 @@ interface SkillInputResolutionRow extends QueryResultRow {
 
 export class PostgresSkillInputResolutionRepository implements SkillInputResolutionRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async save(record: SkillInputResolutionRecord): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO skill_input_resolution(
+    const client = this.#deviceScope === undefined ? undefined : await this.#pool.connect();
+    try {
+      if (client !== undefined) await client.query('BEGIN');
+      let deviceId: string | null = null;
+      if (client !== undefined) {
+        const filter = taskDeviceScopeSql(this.#deviceScope, 2);
+        const parent = await client.query<{ device_id: string | null }>(
+          `SELECT device_id FROM agent_task WHERE task_id=$1 AND ${filter.predicate} FOR KEY SHARE`,
+          [record.taskId, ...filter.values],
+        );
+        if (parent.rows[0] === undefined) throw new Error('SKILL_INPUT_DEVICE_SCOPE_DENIED');
+        deviceId = parent.rows[0].device_id;
+      }
+      await (client ?? this.#pool).query(
+        `INSERT INTO skill_input_resolution(
          resolution_id,task_id,goal_id,goal_version,skill_id,skill_version,
          structured_input_json,unresolved_fields_json,source_refs_json,
          decision_summary,status,created_at)
        VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12)`,
-      [
-        record.resolutionId,
-        record.taskId,
-        record.goalId,
-        record.goalVersion,
-        record.skillId,
-        record.skillVersion,
-        record.structuredInput === undefined ? null : JSON.stringify(record.structuredInput),
-        JSON.stringify(record.unresolvedFields),
-        JSON.stringify(record.sourceRefs),
-        record.decisionSummary,
-        record.status,
-        record.createdAt,
-      ],
-    );
+        [
+          record.resolutionId,
+          record.taskId,
+          record.goalId,
+          record.goalVersion,
+          record.skillId,
+          record.skillVersion,
+          record.structuredInput === undefined ? null : JSON.stringify(record.structuredInput),
+          JSON.stringify(record.unresolvedFields),
+          JSON.stringify(record.sourceRefs),
+          record.decisionSummary,
+          record.status,
+          record.createdAt,
+        ],
+      );
+      if (
+        client !== undefined &&
+        this.#deviceScope !== undefined &&
+        record.status === 'resolved' &&
+        deviceId !== null
+      ) {
+        const schema = await client.query<{ input_schema_json: unknown }>(
+          'SELECT input_schema_json FROM skill_version WHERE skill_id=$1 AND version=$2',
+          [record.skillId, record.skillVersion],
+        );
+        if (schema.rows[0] === undefined) throw new Error('SKILL_INPUT_SCHEMA_NOT_FOUND');
+        await writeGowmTargets(
+          client,
+          this.#deviceScope,
+          record.taskId,
+          { kind: 'TASK', key: { taskId: record.taskId }, role: 'REQUESTED' },
+          extractStructuredTargets(schema.rows[0].input_schema_json, record.structuredInput),
+          {
+            resolutionId: record.resolutionId,
+            skillId: record.skillId,
+            skillVersion: record.skillVersion,
+            sourceRefs: record.sourceRefs,
+            inputSchemaHash: hashCanonicalEvidenceJson(schema.rows[0].input_schema_json),
+          },
+        );
+      }
+      if (client !== undefined) await client.query('COMMIT');
+    } catch (error: unknown) {
+      if (client !== undefined) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client?.release();
+    }
   }
 
   async find(resolutionId: string): Promise<SkillInputResolutionRecord | undefined> {
+    const filter = this.#scope(2);
     const result = await this.#pool.query<SkillInputResolutionRow>(
-      'SELECT * FROM skill_input_resolution WHERE resolution_id=$1',
-      [resolutionId],
+      `SELECT * FROM skill_input_resolution WHERE resolution_id=$1 AND ${filter.predicate}`,
+      [resolutionId, ...filter.values],
     );
     return result.rows[0] === undefined ? undefined : mapSkillInputResolutionRow(result.rows[0]);
   }
@@ -2002,20 +2097,22 @@ export class PostgresSkillInputResolutionRepository implements SkillInputResolut
     skillVersion: number,
     goalVersion: number,
   ): Promise<SkillInputResolutionRecord | undefined> {
+    const filter = this.#scope(5);
     const result = await this.#pool.query<SkillInputResolutionRow>(
       `SELECT * FROM skill_input_resolution
-       WHERE task_id=$1 AND skill_id=$2 AND skill_version=$3 AND goal_version=$4
+       WHERE task_id=$1 AND skill_id=$2 AND skill_version=$3 AND goal_version=$4 AND ${filter.predicate}
        ORDER BY created_at DESC,resolution_id DESC LIMIT 1`,
-      [taskId, skillId, skillVersion, goalVersion],
+      [taskId, skillId, skillVersion, goalVersion, ...filter.values],
     );
     return result.rows[0] === undefined ? undefined : mapSkillInputResolutionRow(result.rows[0]);
   }
 
   async listByTask(taskId: string): Promise<readonly SkillInputResolutionRecord[]> {
+    const filter = this.#scope(2);
     const result = await this.#pool.query<SkillInputResolutionRow>(
       `SELECT * FROM skill_input_resolution
-       WHERE task_id=$1 ORDER BY created_at,resolution_id`,
-      [taskId],
+       WHERE task_id=$1 AND ${filter.predicate} ORDER BY created_at,resolution_id`,
+      [taskId, ...filter.values],
     );
     return result.rows.map(mapSkillInputResolutionRow);
   }
@@ -2042,6 +2139,15 @@ export class PostgresSkillInputResolutionRepository implements SkillInputResolut
       sourceRef: `processed-result:${row.result_id}`,
       value: row.context_value,
     }));
+  }
+  #scope(firstParameter: number) {
+    const filter = taskDeviceScopeSql(this.#deviceScope, firstParameter, 'owner_task');
+    return this.#deviceScope === undefined
+      ? filter
+      : {
+          predicate: `EXISTS(SELECT 1 FROM agent_task owner_task WHERE owner_task.task_id=skill_input_resolution.task_id AND ${filter.predicate})`,
+          values: filter.values,
+        };
   }
 }
 
@@ -2103,6 +2209,7 @@ type RuntimeTerminalCommitInput =
 
 export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminalOutcomeRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
   readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
@@ -2110,8 +2217,10 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
     pool: Pool,
     onTaskStateCommitted?: TaskStateCommitted,
     commandContext?: PostgresAgentTaskCommandContext,
+    deviceScope?: DeviceWorkScope,
   ) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
     this.#onTaskStateCommitted = onTaskStateCommitted;
     this.#commandContext = commandContext;
   }
@@ -2135,28 +2244,31 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
     warning: RuntimeEnhancementWarning,
   ): Promise<void> {
     const warningJson = JSON.stringify([warning]);
+    const scope = taskChildScopeSql(this.#deviceScope, 3, 'runtime_terminal_outcome');
     const result = await this.#pool.query(
       `UPDATE runtime_terminal_outcome
        SET enhancement_warnings_json=enhancement_warnings_json || $2::jsonb
-       WHERE outcome_id=$1 AND NOT enhancement_warnings_json @> $2::jsonb`,
-      [outcomeId, warningJson],
+       WHERE outcome_id=$1 AND NOT enhancement_warnings_json @> $2::jsonb AND ${scope.predicate}`,
+      [outcomeId, warningJson, ...scope.values],
     );
     if (result.rowCount === 0 && (await this.find(outcomeId)) === undefined)
       throw new Error('RUNTIME_TERMINAL_OUTCOME_NOT_FOUND');
   }
 
   async find(outcomeId: string): Promise<RuntimeTerminalOutcomeRecord | undefined> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'runtime_terminal_outcome');
     const result = await this.#pool.query<RuntimeTerminalOutcomeRow>(
-      'SELECT * FROM runtime_terminal_outcome WHERE outcome_id=$1',
-      [outcomeId],
+      `SELECT * FROM runtime_terminal_outcome WHERE outcome_id=$1 AND ${scope.predicate}`,
+      [outcomeId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapRuntimeTerminalOutcome(result.rows[0]);
   }
 
   async findByControl(controlId: string): Promise<RuntimeTerminalOutcomeRecord | undefined> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'runtime_terminal_outcome');
     const result = await this.#pool.query<RuntimeTerminalOutcomeRow>(
-      'SELECT * FROM runtime_terminal_outcome WHERE control_id=$1',
-      [controlId],
+      `SELECT * FROM runtime_terminal_outcome WHERE control_id=$1 AND ${scope.predicate}`,
+      [controlId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapRuntimeTerminalOutcome(result.rows[0]);
   }
@@ -2169,6 +2281,14 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      if (this.#deviceScope !== undefined) {
+        const scope = taskDeviceScopeSql(this.#deviceScope, 2, 'task');
+        const owner = await client.query(
+          `SELECT task_id FROM agent_task task WHERE task_id=$1 AND ${scope.predicate} FOR KEY SHARE`,
+          [input.taskId ?? null, ...scope.values],
+        );
+        if (owner.rowCount !== 1) throw new Error('TERMINAL_TASK_DEVICE_SCOPE_DENIED');
+      }
       const command = this.#commandContext?.current();
       if (command !== undefined) {
         if (input.taskId !== command.taskId) throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
@@ -2485,6 +2605,14 @@ export class PostgresRuntimeTerminalOutcomeRepository implements RuntimeTerminal
         if (input.taskId === undefined) throw new Error('RUNTIME_TERMINAL_TASK_ID_REQUIRED');
         if (layeredOutcome === undefined)
           throw new Error('RUNTIME_TERMINAL_LAYERED_OUTCOME_REQUIRED');
+        requireLayeredOutcomeSource(this.#deviceScope, layeredOutcome, input.taskId);
+        await requireOutcomeTask(
+          client,
+          this.#deviceScope,
+          input.taskId,
+          userGoalPlan.plan_id,
+          input.goalId,
+        );
         await insertLayeredOutcome(client, {
           taskId: input.taskId,
           planId: userGoalPlan.plan_id,
@@ -3814,6 +3942,8 @@ function exactGoalSnapshot(value: unknown): Goal {
 
 export class PostgresAgentTaskRepository implements AgentTaskRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
+  readonly #ownershipColumns: string;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
   readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
@@ -3821,32 +3951,38 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
     pool: Pool,
     onTaskStateCommitted?: TaskStateCommitted,
     commandContext?: PostgresAgentTaskCommandContext,
+    deviceScope?: DeviceWorkScope,
   ) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
+    this.#ownershipColumns =
+      deviceScope === undefined ? '' : ',device_id,gowm_binding_id,sdar_service_key';
     this.#onTaskStateCommitted = onTaskStateCommitted;
     this.#commandContext = commandContext;
   }
 
   async findById(taskId: string): Promise<AgentTask | undefined> {
+    const scope = taskDeviceScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
               phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
-              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
+              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at${this.#ownershipColumns}
        FROM agent_task
-       WHERE task_id = $1`,
-      [taskId],
+       WHERE task_id = $1 AND ${scope.predicate}`,
+      [taskId, ...scope.values],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapTaskRow(row);
   }
 
   async findByPlanId(planId: string): Promise<AgentTask | undefined> {
+    const scope = taskDeviceScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
               phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
-              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
-       FROM agent_task WHERE plan_id=$1 ORDER BY updated_at DESC, task_id DESC LIMIT 1`,
-      [planId],
+              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at${this.#ownershipColumns}
+       FROM agent_task WHERE plan_id=$1 AND ${scope.predicate} ORDER BY updated_at DESC, task_id DESC LIMIT 1`,
+      [planId, ...scope.values],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapTaskRow(row);
@@ -3862,16 +3998,18 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
       limit: number;
     }>,
   ): Promise<readonly AgentTask[]> {
+    const scope = taskDeviceScopeSql(this.#deviceScope, 7);
     const result = await this.#pool.query<TaskRow>(
       `SELECT task_id, context_id, user_id, request_text, request_metadata,
               phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
-              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
+              output_text, output_structured, capability_gap_json, error_code, created_at, updated_at${this.#ownershipColumns}
        FROM agent_task
        WHERE ($1::text IS NULL OR context_id=$1)
          AND ($2::text IS NULL OR phase=$2)
          AND ($4::text IS NULL OR plan_id=$4)
          AND ($5::text IS NULL OR goal_id=$5)
          AND ($6::text IS NULL OR selected_skill_id=$6)
+         AND ${scope.predicate}
        ORDER BY updated_at DESC,task_id DESC
        LIMIT $3`,
       [
@@ -3881,6 +4019,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         query.planId ?? null,
         query.goalId ?? null,
         query.skillId ?? null,
+        ...scope.values,
       ],
     );
     return result.rows.map(mapTaskRow);
@@ -3889,15 +4028,19 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
   async findWithRevision(
     taskId: string,
   ): Promise<Readonly<{ task: AgentTask; revision: string }> | undefined> {
+    const scope = taskDeviceScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<TaskRow & { revision: string }>(
-      'SELECT * FROM agent_task WHERE task_id=$1',
-      [taskId],
+      `SELECT * FROM agent_task WHERE task_id=$1 AND ${scope.predicate}`,
+      [taskId, ...scope.values],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : { task: mapTaskRow(row), revision: row.revision };
   }
 
   async save(task: AgentTask): Promise<void> {
+    if (this.#deviceScope !== undefined)
+      assertDeviceWorkScope(this.#deviceScope, task.deviceOwnership);
+    else if (task.deviceOwnership !== undefined) throw new Error('DEVICE_STORAGE_NOT_CONFIGURED');
     const command = this.#commandContext?.current();
     if (command !== undefined && command.taskId !== task.taskId)
       throw new Error('AGENT_TASK_COMMAND_SCOPE_VIOLATION');
@@ -3912,9 +4055,10 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
         `INSERT INTO agent_task (
          task_id, context_id, user_id, request_text, request_metadata,
          phase, phase_message, goal_id, goal_version, plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,skill_goal_id,skill_attempt_id,skill_execution_contract_id,
-         output_text, output_structured, capability_gap_json, error_code, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+         output_text, output_structured, capability_gap_json, error_code, created_at, updated_at${this.#ownershipColumns}
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25${this.#deviceScope === undefined ? '' : ', $26, $27, $28'})
        ON CONFLICT (task_id) DO UPDATE SET
+         ${this.#deviceScope === undefined ? '' : 'device_id=EXCLUDED.device_id,gowm_binding_id=EXCLUDED.gowm_binding_id,sdar_service_key=EXCLUDED.sdar_service_key,'}
          request_text = EXCLUDED.request_text,
          request_metadata = EXCLUDED.request_metadata,
          phase = EXCLUDED.phase,
@@ -3963,6 +4107,13 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
           task.errorCode ?? null,
           task.createdAt,
           task.updatedAt,
+          ...(this.#deviceScope === undefined
+            ? []
+            : [
+                task.deviceOwnership?.deviceId ?? null,
+                task.deviceOwnership?.bindingId ?? null,
+                task.deviceOwnership?.sdarServiceKey ?? null,
+              ]),
         ],
       );
       if (result.rowCount === 0) throw new Error('TASK_TERMINAL_MUTATION_FORBIDDEN');
@@ -3979,6 +4130,7 @@ export class PostgresAgentTaskRepository implements AgentTaskRepository {
 
 export class PostgresTaskInputRepository implements TaskInputRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
   readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
 
@@ -3986,18 +4138,24 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
     pool: Pool,
     onTaskStateCommitted?: TaskStateCommitted,
     commandContext?: PostgresAgentTaskCommandContext,
+    deviceScope?: DeviceWorkScope,
   ) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
     this.#onTaskStateCommitted = onTaskStateCommitted;
     this.#commandContext = commandContext;
   }
 
   async createRequest(request: TaskInputRequest): Promise<void> {
-    await this.#pool.query(
+    if (this.#deviceScope !== undefined && request.source === 'remote_task')
+      throw new Error('REMOTE_TASK_INPUT_REQUIRES_ATOMIC_LINK');
+    const scope = taskDeviceScopeSql(this.#deviceScope, 11, 'scope_task');
+    const result = await this.#pool.query(
       `INSERT INTO task_input_request(
          input_request_id,task_id,context_id,source,question,status,control_id,
          control_round_index,created_at,answered_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
+       WHERE EXISTS(SELECT 1 FROM agent_task scope_task WHERE scope_task.task_id=$2 AND ${scope.predicate})`,
       [
         request.inputRequestId,
         request.taskId,
@@ -4009,28 +4167,33 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
         request.controlRoundIndex ?? null,
         request.createdAt,
         request.answeredAt ?? null,
+        ...scope.values,
       ],
     );
+    if (result.rowCount === 0) throw new Error('TASK_INPUT_DEVICE_SCOPE_DENIED');
   }
 
   async findRequest(inputRequestId: string): Promise<TaskInputRequest | undefined> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'task_input_request');
     const result = await this.#pool.query<TaskInputRequestRow>(
-      'SELECT * FROM task_input_request WHERE input_request_id=$1',
-      [inputRequestId],
+      `SELECT task_input_request.*${taskInputSourceProjection(this.#deviceScope, 'task_input_request')} FROM task_input_request WHERE input_request_id=$1 AND ${scope.predicate}`,
+      [inputRequestId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapTaskInputRequestRow(result.rows[0]);
   }
 
   async findPendingByTask(taskId: string): Promise<TaskInputRequest | undefined> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'task_input_request');
     const result = await this.#pool.query<TaskInputRequestRow>(
-      `SELECT * FROM task_input_request
-       WHERE task_id=$1 AND status='waiting' ORDER BY created_at DESC,input_request_id DESC LIMIT 1`,
-      [taskId],
+      `SELECT task_input_request.*${taskInputSourceProjection(this.#deviceScope, 'task_input_request')} FROM task_input_request
+       WHERE task_id=$1 AND status='waiting' AND ${scope.predicate} ORDER BY created_at DESC,input_request_id DESC LIMIT 1`,
+      [taskId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapTaskInputRequestRow(result.rows[0]);
   }
 
   async cancelPending(taskId: string, status: 'expired' | 'canceled'): Promise<void> {
+    const scope = taskChildScopeSql(this.#deviceScope, 3, 'task_input_request');
     const command = currentAgentTaskCommand(this.#commandContext, taskId);
     const client = command === undefined ? undefined : await this.#pool.connect();
     try {
@@ -4041,8 +4204,8 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
       }
       await (client ?? this.#pool).query(
         `UPDATE task_input_request SET status=$2
-         WHERE task_id=$1 AND status='waiting'`,
-        [taskId, status],
+         WHERE task_id=$1 AND status='waiting' AND ${scope.predicate}`,
+        [taskId, status, ...scope.values],
       );
       if (client !== undefined) await client.query('COMMIT');
     } catch (error: unknown) {
@@ -4054,9 +4217,10 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
   }
 
   async listResponses(taskId: string): Promise<readonly TaskInputResponse[]> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'task_input_response');
     const result = await this.#pool.query<TaskInputResponseRow>(
-      'SELECT * FROM task_input_response WHERE task_id=$1 ORDER BY created_at,input_response_id',
-      [taskId],
+      `SELECT * FROM task_input_response WHERE task_id=$1 AND ${scope.predicate} ORDER BY created_at,input_response_id`,
+      [taskId, ...scope.values],
     );
     return result.rows.map(mapTaskInputResponseRow);
   }
@@ -4079,9 +4243,10 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const scope = taskChildScopeSql(this.#deviceScope, 2, 'task_input_request');
       const selected = await client.query<TaskInputRequestRow>(
-        'SELECT * FROM task_input_request WHERE input_request_id=$1 FOR UPDATE',
-        [input.inputRequestId],
+        `SELECT task_input_request.*${taskInputSourceProjection(this.#deviceScope, 'task_input_request')} FROM task_input_request WHERE input_request_id=$1 AND ${scope.predicate} FOR UPDATE`,
+        [input.inputRequestId, ...scope.values],
       );
       const request = selected.rows[0];
       if (request === undefined)
@@ -4094,6 +4259,14 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
           'TASK_INPUT_REQUEST_TASK_MISMATCH',
           'The supplementary input request belongs to another Task.',
         );
+      if (
+        input.response.taskId !== request.task_id ||
+        input.response.inputRequestId !== request.input_request_id ||
+        input.attempt.taskId !== request.task_id ||
+        input.attempt.inputRequestId !== request.input_request_id ||
+        input.attempt.contextId !== request.context_id
+      )
+        throw new Error('TASK_INPUT_RESPONSE_IDENTITY_MISMATCH');
       if (request.status !== 'waiting')
         throw new DomainError(
           'TASK_INPUT_REQUEST_NOT_WAITING',
@@ -4155,32 +4328,35 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
   }
 
   async listQueuedAttempts(limit: number): Promise<readonly TaskExecutionAttempt[]> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'task_execution_attempt');
     const result = await this.#pool.query<TaskExecutionAttemptRow>(
       `SELECT * FROM task_execution_attempt
-       WHERE status='queued'
+       WHERE status='queued' AND ${scope.predicate}
        ORDER BY created_at,attempt_id
        LIMIT $1`,
-      [limit],
+      [limit, ...scope.values],
     );
     return result.rows.map(mapTaskExecutionAttemptRow);
   }
 
   async findAttempt(attemptId: string): Promise<TaskExecutionAttempt | undefined> {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'task_execution_attempt');
     const result = await this.#pool.query<TaskExecutionAttemptRow>(
-      'SELECT * FROM task_execution_attempt WHERE attempt_id=$1',
-      [attemptId],
+      `SELECT * FROM task_execution_attempt WHERE attempt_id=$1 AND ${scope.predicate}`,
+      [attemptId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapTaskExecutionAttemptRow(result.rows[0]);
   }
 
   async findResponseForAttempt(attemptId: string) {
+    const scope = taskChildScopeSql(this.#deviceScope, 2, 'request');
     const result = await this.#pool.query<TaskInputRequestRow & TaskInputResponseRow>(
-      `SELECT request.*,response.input_response_id,response.content_json,response.created_at AS response_created_at
+      `SELECT request.*${taskInputSourceProjection(this.#deviceScope, 'request')},response.input_response_id,response.content_json,response.created_at AS response_created_at
        FROM task_execution_attempt AS attempt
        JOIN task_input_request AS request ON request.input_request_id=attempt.input_request_id
        JOIN task_input_response AS response ON response.input_request_id=request.input_request_id
-       WHERE attempt.attempt_id=$1`,
-      [attemptId],
+       WHERE attempt.attempt_id=$1 AND ${scope.predicate}`,
+      [attemptId, ...scope.values],
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
@@ -4204,18 +4380,19 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
     timestamp: string,
     errorCode?: string,
   ): Promise<void> {
+    const scope = taskChildScopeSql(this.#deviceScope, 5, 'task_execution_attempt');
     const result = await this.#pool.query(
       `UPDATE task_execution_attempt SET
          status=$2,
          started_at=CASE WHEN $2='running' THEN $3 ELSE COALESCE(started_at,$3) END,
          completed_at=CASE WHEN $2 IN ('completed','failed') THEN $3 ELSE NULL END,
          error_code=$4
-       WHERE attempt_id=$1 AND (
+       WHERE attempt_id=$1 AND ${scope.predicate} AND (
          (status='queued' AND $2 IN ('running','failed')) OR
          (status='running' AND $2 IN ('completed','failed')) OR
          status=$2
        )`,
-      [attemptId, status, timestamp, errorCode ?? null],
+      [attemptId, status, timestamp, errorCode ?? null, ...scope.values],
     );
     if (result.rowCount === 0) throw new Error('TASK_ATTEMPT_TRANSITION_INVALID');
   }
@@ -4224,11 +4401,13 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
     client: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
     attempt: TaskExecutionAttempt,
   ) {
-    await client.query(
+    const scope = taskDeviceScopeSql(this.#deviceScope, 11, 'scope_task');
+    const result = await client.query(
       `INSERT INTO task_execution_attempt(
          attempt_id,task_id,context_id,reason,status,input_request_id,created_at,
          started_at,completed_at,error_code)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
+       WHERE EXISTS(SELECT 1 FROM agent_task scope_task WHERE scope_task.task_id=$2 AND ${scope.predicate})`,
       [
         attempt.attemptId,
         attempt.taskId,
@@ -4240,8 +4419,10 @@ export class PostgresTaskInputRepository implements TaskInputRepository {
         attempt.startedAt ?? null,
         attempt.completedAt ?? null,
         attempt.errorCode ?? null,
+        ...scope.values,
       ],
     );
+    if (result.rowCount === 0) throw new Error('TASK_ATTEMPT_DEVICE_SCOPE_DENIED');
   }
 }
 
@@ -4349,10 +4530,16 @@ export class PostgresImplicitFeedbackRepository implements ImplicitFeedbackRepos
 
 export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
   readonly #onTaskStateCommitted: TaskStateCommitted | undefined;
 
-  constructor(pool: Pool, onTaskStateCommitted?: TaskStateCommitted) {
+  constructor(
+    pool: Pool,
+    onTaskStateCommitted?: TaskStateCommitted,
+    deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
     this.#onTaskStateCommitted = onTaskStateCommitted;
   }
 
@@ -4374,11 +4561,13 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
   }
 
   async expireWaiting(cutoff: string, timestamp: string): Promise<readonly AgentTask[]> {
+    const scope = taskDeviceScopeSql(this.#deviceScope, 3);
     const result = await this.#pool.query<TaskRow>(
       `WITH expired AS (
          UPDATE agent_task SET phase='canceled',phase_message='Task canceled after the unified wait timeout.',
            error_code='TASK_WAIT_TIMEOUT',updated_at=$2
        WHERE phase IN ('awaiting_plan_confirmation','awaiting_user_input') AND updated_at <= $1
+         AND ${scope.predicate}
          RETURNING *
        ), capability_attempts AS (
          UPDATE task_capability_execution_attempt AS attempt
@@ -4397,10 +4586,8 @@ export class PostgresTaskWaitPolicyRepository implements TaskWaitPolicyRepositor
            task_id,context_id,'task.phase_changed',$2,'Task canceled after the unified wait timeout.'
          FROM expired ON CONFLICT(event_id) DO NOTHING
        )
-       SELECT task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
-         goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,skill_selection_id,skill_input_resolution_id,temporary_skill_id,output_text,output_structured,capability_gap_json,error_code,created_at,updated_at
-       FROM expired ORDER BY task_id`,
-      [cutoff, timestamp],
+       SELECT * FROM expired ORDER BY task_id`,
+      [cutoff, timestamp, ...scope.values],
     );
     const expired = result.rows.map(mapTaskRow);
     for (const task of expired) this.#onTaskStateCommitted?.(task);
@@ -4540,29 +4727,35 @@ export class PostgresRuntimeEventPublisher implements RuntimeEventPublisher {
 
 export class PostgresExternalTaskProjectionRepository implements ExternalTaskProjectionRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   async find(
     protocol: ExternalTaskProjection['protocol'],
     taskId: string,
   ): Promise<ExternalTaskProjection | undefined> {
+    const scope = taskChildScopeSql(this.#deviceScope, 3, 'external_task_projection');
     const result = await this.#pool.query<ProjectionRow>(
       `SELECT protocol, task_id, context_id, state, status_timestamp, document_json
-       FROM external_task_projection WHERE protocol = $1 AND task_id = $2`,
-      [protocol, taskId],
+       FROM external_task_projection WHERE protocol = $1 AND task_id = $2 AND ${scope.predicate}`,
+      [protocol, taskId, ...scope.values],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapProjectionRow(row);
   }
 
   async save(projection: ExternalTaskProjection): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO external_task_projection
-         (protocol, task_id, context_id, state, status_timestamp, document_json)
-       VALUES ($1, $2, $3, $4, $5, $6)
+    const shared = this.#deviceScope !== undefined;
+    const scope = taskDeviceScopeSql(this.#deviceScope, 7, 'owner_task');
+    const result = await this.#pool.query<{ owned: boolean }>(
+      `${shared ? `WITH owned AS (SELECT owner_task.device_id FROM agent_task owner_task WHERE owner_task.task_id=$2 AND owner_task.context_id=$3 AND ${scope.predicate}), saved AS (` : ''}
+       INSERT INTO external_task_projection
+         (protocol, task_id, context_id, state, status_timestamp, document_json${shared ? ',device_id' : ''})
+       ${shared ? 'SELECT $1,$2,$3,$4,$5,$6,owned.device_id FROM owned WHERE TRUE' : 'VALUES ($1, $2, $3, $4, $5, $6)'}
        ON CONFLICT (protocol, task_id) DO UPDATE SET
          context_id = EXCLUDED.context_id, state = EXCLUDED.state,
          status_timestamp = EXCLUDED.status_timestamp,
@@ -4582,7 +4775,7 @@ export class PostgresExternalTaskProjectionRepository implements ExternalTaskPro
          OR external_task_projection.status_timestamp IS NULL
          OR EXCLUDED.status_timestamp IS NULL
          OR external_task_projection.status_timestamp <= EXCLUDED.status_timestamp
-       )`,
+       )${shared ? ' RETURNING 1) SELECT EXISTS(SELECT 1 FROM owned) AS owned' : ''}`,
       [
         projection.protocol,
         projection.taskId,
@@ -4590,19 +4783,23 @@ export class PostgresExternalTaskProjectionRepository implements ExternalTaskPro
         projection.state,
         projection.statusTimestamp ?? null,
         projection.document,
+        ...scope.values,
       ],
     );
+    if (shared && result.rows[0]?.owned !== true) throw new DeviceScopeError('DEVICE_SCOPE_DENIED');
   }
 
   async list(
     query: ExternalTaskProjectionQuery,
   ): Promise<Readonly<{ items: readonly ExternalTaskProjection[]; total: number }>> {
+    const scope = taskDeviceScopeSql(this.#deviceScope, 10, 'a');
     const result = await this.#pool.query<ProjectionRow>(
       `SELECT p.protocol, p.task_id, p.context_id, p.state, p.status_timestamp, p.document_json,
               count(*) OVER()::text AS total_count
        FROM external_task_projection p
        LEFT JOIN agent_task a ON a.task_id=p.task_id
        WHERE p.protocol = $1
+         AND ${scope.predicate}
          AND ($2::text IS NULL OR p.context_id = $2)
          AND ($3::text IS NULL OR p.state = $3)
          AND ($4::timestamptz IS NULL OR (CASE WHEN $8::boolean THEN a.updated_at ELSE p.status_timestamp END) >= $4)
@@ -4624,6 +4821,7 @@ export class PostgresExternalTaskProjectionRepository implements ExternalTaskPro
         query.limit,
         query.currentTask !== undefined,
         query.currentTask?.phases ?? null,
+        ...scope.values,
       ],
     );
     return {
@@ -5453,6 +5651,8 @@ interface WorkflowTemplateUseRow extends QueryResultRow {
 }
 
 interface WorkflowPlanRow extends QueryResultRow {
+  device_id?: string | null;
+  gowm_task_id?: string | null;
   plan_id: string;
   skill_goal_id: string | null;
   skill_attempt_id: string | null;
@@ -5490,7 +5690,7 @@ const StoredWorkflowDefinitionSchema = z
   .strict();
 
 function mapStoredWorkflowDefinition(value: unknown): WorkflowDefinition {
-  const parsed = StoredWorkflowDefinitionSchema.parse(value);
+  const parsed = StoredWorkflowDefinitionSchema.parse(decodeGowmWorkflowDefinition(value));
   return {
     ...parsed,
     ...(parsed.skillUsagePolicy === undefined
@@ -5647,20 +5847,28 @@ export class PostgresWorkflowTemplateRepository implements WorkflowTemplateRepos
 
 export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
   readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
-  constructor(pool: Pool, commandContext?: PostgresAgentTaskCommandContext) {
+  constructor(
+    pool: Pool,
+    commandContext?: PostgresAgentTaskCommandContext,
+    deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
     this.#commandContext = commandContext;
   }
   async findPlan(planId: string): Promise<WorkflowPlanRecord | undefined> {
+    const filter = workflowPlanScopeSql(this.#deviceScope, 2);
     const result = await this.#pool.query<WorkflowPlanRow>(
-      'SELECT * FROM workflow_plan WHERE plan_id=$1',
-      [planId],
+      `SELECT * FROM workflow_plan WHERE plan_id=$1 AND ${filter.predicate}`,
+      [planId, ...filter.values],
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
     return {
       planId: row.plan_id,
+      ...(row.gowm_task_id == null ? {} : { executionTaskId: row.gowm_task_id }),
       ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
       ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
       goalId: row.goal_id,
@@ -5691,13 +5899,14 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     workflowDefinitionId: string,
     workflowVersion: number,
   ): Promise<WorkflowPlanRecord | undefined> {
+    const filter = workflowPlanScopeSql(this.#deviceScope, 3);
     const result = await this.#pool.query<WorkflowPlanRow>(
       `SELECT * FROM workflow_plan
        WHERE confirmation_status='confirmed'
          AND definition_json->>'workflowDefinitionId'=$1
-         AND (definition_json->>'version')::integer=$2
+         AND (definition_json->>'version')::integer=$2 AND (${filter.predicate}${this.#deviceScope === undefined ? '' : ' OR (workflow_plan.device_id IS NULL AND workflow_plan.gowm_task_id IS NULL)'})
        ORDER BY created_at DESC LIMIT 1`,
-      [workflowDefinitionId, workflowVersion],
+      [workflowDefinitionId, workflowVersion, ...filter.values],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapWorkflowPlanRow(row);
@@ -5706,54 +5915,80 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     planId: string,
     correlation: Readonly<{ taskId?: string; confirmedAt: string }>,
   ): Promise<void> {
+    const filter = workflowPlanScopeSql(this.#deviceScope, 4);
     const result = await this.#pool.query(
       `UPDATE workflow_plan SET confirmation_status='confirmed',confirmation_task_id=$2,confirmed_at=$3
-       WHERE plan_id=$1 AND definition_json IS NOT NULL AND confirmation_status='awaiting_confirmation'`,
-      [planId, correlation.taskId ?? null, correlation.confirmedAt],
+       WHERE plan_id=$1 AND definition_json IS NOT NULL AND confirmation_status='awaiting_confirmation' AND ${filter.predicate}
+       ${this.#deviceScope === undefined ? '' : 'AND (gowm_task_id IS NULL OR gowm_task_id=$2)'}`,
+      [planId, correlation.taskId ?? null, correlation.confirmedAt, ...filter.values],
     );
     if (result.rowCount !== 1) throw new Error('WORKFLOW_PLAN_CONFIRMATION_FAILED');
   }
   async saveAttempt(attempt: WorkflowPlanAttempt): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO workflow_plan_attempt
+    const client = this.#deviceScope === undefined ? undefined : await this.#pool.connect();
+    try {
+      if (client !== undefined) await client.query('BEGIN');
+      const owner =
+        client === undefined || this.#deviceScope === undefined
+          ? undefined
+          : await readGowmPlanOwner(client, this.#deviceScope, attempt.executionTaskId);
+      if (client !== undefined && owner !== undefined)
+        await ensureGowmPlanningRoot(client, attempt, owner);
+      await (client ?? this.#pool).query(
+        `INSERT INTO workflow_plan_attempt
          (plan_id,skill_goal_id,skill_attempt_id,goal_contract_json,composition_context_json,capability_gap_skill_ids_json,
           tool_execution_semantics_json,mcp_protocol_contract_json,attempt,candidate_json,
-          validation_errors_json,valid,created_at)
-       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb,$12,$13)`,
-      [
-        attempt.planId,
-        attempt.skillGoalId ?? null,
-        attempt.skillAttemptId ?? null,
-        JSON.stringify(attempt.goalContract),
-        attempt.compositionContext === undefined
-          ? null
-          : JSON.stringify(attempt.compositionContext),
-        JSON.stringify(attempt.capabilityGapSkillIds ?? []),
-        JSON.stringify(attempt.toolExecutionSemantics ?? []),
-        JSON.stringify(attempt.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
-        attempt.attempt,
-        JSON.stringify(attempt.candidate),
-        JSON.stringify(attempt.validationErrors),
-        attempt.valid,
-        attempt.createdAt,
-      ],
-    );
+          validation_errors_json,valid,created_at${owner === undefined ? '' : ',device_id'})
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb,$12,$13${owner === undefined ? '' : ',$14'})`,
+        [
+          attempt.planId,
+          attempt.skillGoalId ?? null,
+          attempt.skillAttemptId ?? null,
+          JSON.stringify(attempt.goalContract),
+          attempt.compositionContext === undefined
+            ? null
+            : JSON.stringify(attempt.compositionContext),
+          JSON.stringify(attempt.capabilityGapSkillIds ?? []),
+          JSON.stringify(attempt.toolExecutionSemantics ?? []),
+          JSON.stringify(attempt.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
+          attempt.attempt,
+          JSON.stringify(attempt.candidate),
+          JSON.stringify(attempt.validationErrors),
+          attempt.valid,
+          attempt.createdAt,
+          ...(owner === undefined ? [] : [owner.deviceId]),
+        ],
+      );
+      if (client !== undefined) await client.query('COMMIT');
+    } catch (error: unknown) {
+      if (client !== undefined) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client?.release();
+    }
   }
   async savePlan(plan: WorkflowPlanRecord): Promise<void> {
     const command = this.#commandContext?.current();
-    const client = command === undefined ? undefined : await this.#pool.connect();
+    const client =
+      command === undefined && this.#deviceScope === undefined
+        ? undefined
+        : await this.#pool.connect();
     try {
       if (client !== undefined) {
         await client.query('BEGIN');
-        if (command === undefined) throw new Error('AGENT_TASK_COMMAND_TOKEN_MISSING');
-        await setAgentTaskCommandIdentity(client, command);
+        if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
       }
-      await (client ?? this.#pool).query(
+      const owner =
+        client === undefined || this.#deviceScope === undefined
+          ? undefined
+          : await readGowmPlanOwner(client, this.#deviceScope, plan.executionTaskId);
+      const written = await (client ?? this.#pool).query(
         `INSERT INTO workflow_plan
          (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
           capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
-          mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at)
-       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17)`,
+          mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at${owner === undefined ? '' : ',device_id,gowm_task_id'})
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17${owner === undefined ? '' : ',$18,$19'})
+       ${owner === undefined ? '' : GOWM_FINALIZE_PLANNING_ROOT_SQL}`,
         [
           plan.planId,
           plan.skillGoalId ?? null,
@@ -5764,7 +5999,13 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
           JSON.stringify(plan.capabilityGapSkillIds ?? []),
           JSON.stringify(plan.toolExecutionSemantics ?? []),
-          plan.definition === undefined ? null : JSON.stringify(plan.definition),
+          plan.definition === undefined
+            ? null
+            : JSON.stringify(
+                this.#deviceScope === undefined
+                  ? plan.definition
+                  : encodeGowmWorkflowDefinition(plan.definition),
+              ),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
           JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
@@ -5772,8 +6013,13 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           plan.confirmationStatus,
           plan.attemptCount,
           plan.createdAt,
+          ...(owner === undefined ? [] : [owner.deviceId, owner.taskId]),
         ],
       );
+      if (owner !== undefined && written.rowCount !== 1)
+        throw new Error('WORKFLOW_PLANNING_ROOT_CONFLICT');
+      if (client !== undefined && this.#deviceScope !== undefined && owner?.taskId != null)
+        await this.#saveTargets(client, plan, owner.taskId);
       if (client !== undefined && command !== undefined)
         await recordAgentTaskCommandEffect(client, command, 'workflow_plan_saved', plan.planId, {
           planId: plan.planId,
@@ -5797,18 +6043,24 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
     try {
       await client.query('BEGIN');
       if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
+      const sourceFilter = workflowPlanScopeSql(this.#deviceScope, 2);
       const source = await client.query(
         `UPDATE workflow_plan SET confirmation_status='superseded'
-         WHERE plan_id=$1 AND confirmation_status IN ('awaiting_confirmation','confirmed')`,
-        [sourcePlanId],
+         WHERE plan_id=$1 AND confirmation_status IN ('awaiting_confirmation','confirmed') AND ${sourceFilter.predicate}`,
+        [sourcePlanId, ...sourceFilter.values],
       );
       if (source.rowCount !== 1) throw new Error('WORKFLOW_REVISION_SOURCE_NOT_ACTIVE');
-      await client.query(
+      const owner =
+        this.#deviceScope === undefined
+          ? undefined
+          : await readGowmPlanOwner(client, this.#deviceScope, plan.executionTaskId);
+      const written = await client.query(
         `INSERT INTO workflow_plan
            (plan_id,skill_goal_id,skill_attempt_id,goal_id,goal_version,goal_contract_json,composition_context_json,
             capability_gap_skill_ids_json,tool_execution_semantics_json,definition_json,source_confirmed_plan_id,source_plan_id,
-            mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at)
-         VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17)`,
+            mcp_protocol_contract_json,revision_kind,confirmation_status,attempt_count,created_at${owner === undefined ? '' : ',device_id,gowm_task_id'})
+         VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14,$15,$16,$17${owner === undefined ? '' : ',$18,$19'})
+       ${owner === undefined ? '' : GOWM_FINALIZE_PLANNING_ROOT_SQL}`,
         [
           plan.planId,
           plan.skillGoalId ?? null,
@@ -5819,7 +6071,13 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           plan.compositionContext === undefined ? null : JSON.stringify(plan.compositionContext),
           JSON.stringify(plan.capabilityGapSkillIds ?? []),
           JSON.stringify(plan.toolExecutionSemantics ?? []),
-          plan.definition === undefined ? null : JSON.stringify(plan.definition),
+          plan.definition === undefined
+            ? null
+            : JSON.stringify(
+                this.#deviceScope === undefined
+                  ? plan.definition
+                  : encodeGowmWorkflowDefinition(plan.definition),
+              ),
           plan.sourceConfirmedPlanId ?? null,
           plan.sourcePlanId ?? null,
           JSON.stringify(plan.mcpProtocolContract ?? FROZEN_MCP_PROTOCOL_CONTRACT),
@@ -5827,8 +6085,13 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
           plan.confirmationStatus,
           plan.attemptCount,
           plan.createdAt,
+          ...(owner === undefined ? [] : [owner.deviceId, owner.taskId]),
         ],
       );
+      if (owner !== undefined && written.rowCount !== 1)
+        throw new Error('WORKFLOW_PLANNING_ROOT_CONFLICT');
+      if (this.#deviceScope !== undefined && owner?.taskId != null)
+        await this.#saveTargets(client, plan, owner.taskId);
       if (command !== undefined)
         await recordAgentTaskCommandEffect(client, command, 'workflow_plan_saved', plan.planId, {
           planId: plan.planId,
@@ -5844,6 +6107,33 @@ export class PostgresWorkflowPlanRepository implements WorkflowPlanRepository {
       throw error;
     } finally {
       client.release();
+    }
+  }
+  async #saveTargets(client: PoolClient, plan: WorkflowPlanRecord, taskId: string): Promise<void> {
+    if (this.#deviceScope === undefined) return;
+    for (const node of plan.definition?.nodes ?? []) {
+      if (node.type !== 'mcp_tool') continue;
+      const schema = await client.query<{ input_schema_json: unknown }>(
+        'SELECT input_schema_json FROM mcp_tool WHERE server_id=$1 AND tool_name=$2',
+        [node.tool.serverId, node.tool.toolName],
+      );
+      if (schema.rows[0] === undefined) continue;
+      await writeGowmTargets(
+        client,
+        this.#deviceScope,
+        taskId,
+        { kind: 'PLAN_NODE', key: { planId: plan.planId, nodeId: node.nodeId }, role: 'PLANNED' },
+        extractStructuredTargets(schema.rows[0].input_schema_json, node.arguments, {
+          deferWorkflowReferences: true,
+        }),
+        {
+          planId: plan.planId,
+          nodeId: node.nodeId,
+          serverId: node.tool.serverId,
+          toolName: node.tool.toolName,
+          inputSchemaHash: hashCanonicalEvidenceJson(schema.rows[0].input_schema_json),
+        },
+      );
     }
   }
 }
@@ -5938,7 +6228,10 @@ interface SkillCallWorkflowRow extends QueryResultRow {
 
 export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRepository {
   readonly #pool: Pool;
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -5946,6 +6239,28 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      if (this.deviceScope !== undefined) {
+        const scope = workflowPlanScopeSql(this.deviceScope, 5);
+        const owner = await client.query(
+          `SELECT workflow_plan.plan_id FROM workflow_instance parent
+             JOIN workflow_plan ON workflow_plan.plan_id=parent.plan_id
+             JOIN workflow_plan child ON child.plan_id=$3
+           WHERE parent.instance_id=$1 AND parent.plan_id=$2 AND ${scope.predicate}
+             AND child.device_id IS NOT DISTINCT FROM workflow_plan.device_id
+             AND child.gowm_task_id IS NOT DISTINCT FROM workflow_plan.gowm_task_id
+             AND ($4::text IS NULL OR EXISTS(SELECT 1 FROM workflow_instance ci
+               WHERE ci.instance_id=$4 AND ci.plan_id=child.plan_id))
+           FOR KEY SHARE OF workflow_plan,child`,
+          [
+            record.parentInstanceId,
+            record.parentPlanId,
+            record.childPlanId,
+            record.childInstanceId ?? null,
+            ...scope.values,
+          ],
+        );
+        if (owner.rowCount !== 1) throw new Error('SKILL_CALL_DEVICE_SCOPE_DENIED');
+      }
       if (record.parentNodeRunId !== undefined)
         await saveWorkflowChildCall(client, {
           callId: record.callId,
@@ -5959,7 +6274,7 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
             : { childInstanceId: record.childInstanceId }),
           createdAt: record.createdAt,
         });
-      await client.query(
+      const saved = await client.query(
         `INSERT INTO skill_call_workflow(
          call_id,parent_plan_id,parent_instance_id,parent_node_id,child_instance_id,child_plan_id,
          skill_id,skill_version,confirmation_status,status,evaluation_summary,created_at,completed_at,parent_node_run_id)
@@ -5969,7 +6284,15 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
          confirmation_status=EXCLUDED.confirmation_status,
          status=EXCLUDED.status,
          evaluation_summary=EXCLUDED.evaluation_summary,
-         completed_at=EXCLUDED.completed_at`,
+         completed_at=EXCLUDED.completed_at
+       WHERE skill_call_workflow.parent_plan_id=EXCLUDED.parent_plan_id
+         AND skill_call_workflow.parent_instance_id=EXCLUDED.parent_instance_id
+         AND skill_call_workflow.parent_node_id=EXCLUDED.parent_node_id
+         AND skill_call_workflow.parent_node_run_id IS NOT DISTINCT FROM EXCLUDED.parent_node_run_id
+         AND skill_call_workflow.child_plan_id=EXCLUDED.child_plan_id
+         AND skill_call_workflow.skill_id=EXCLUDED.skill_id AND skill_call_workflow.skill_version=EXCLUDED.skill_version
+         AND (skill_call_workflow.child_instance_id IS NULL OR EXCLUDED.child_instance_id IS NULL
+           OR skill_call_workflow.child_instance_id=EXCLUDED.child_instance_id)`,
         [
           record.callId,
           record.parentPlanId,
@@ -5987,6 +6310,7 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
           record.parentNodeRunId ?? null,
         ],
       );
+      if (saved.rowCount !== 1) throw new Error('SKILL_CALL_IDENTITY_CONFLICT');
       await client.query('COMMIT');
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -5997,30 +6321,51 @@ export class PostgresSkillCallWorkflowRepository implements SkillCallWorkflowRep
   }
 
   async find(parentInstanceId: string, parentNodeRunId: string) {
+    const scope = workflowPlanScopeSql(this.deviceScope, 3);
+    const predicate =
+      this.deviceScope === undefined
+        ? 'TRUE'
+        : `EXISTS(SELECT 1 FROM workflow_instance parent
+      JOIN workflow_plan ON workflow_plan.plan_id=parent.plan_id
+      WHERE parent.instance_id=skill_call_workflow.parent_instance_id AND ${scope.predicate})`;
     const result = await this.#pool.query<SkillCallWorkflowRow>(
       `SELECT * FROM skill_call_workflow
-       WHERE parent_instance_id=$1 AND parent_node_run_id=$2
+       WHERE parent_instance_id=$1 AND parent_node_run_id=$2 AND ${predicate}
        ORDER BY created_at DESC,completed_at DESC,call_id DESC LIMIT 1`,
-      [parentInstanceId, parentNodeRunId],
+      [parentInstanceId, parentNodeRunId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
   }
 
   async findByChildInstanceId(childInstanceId: string) {
+    const scope = workflowPlanScopeSql(this.deviceScope, 2);
+    const predicate =
+      this.deviceScope === undefined
+        ? 'TRUE'
+        : `EXISTS(SELECT 1 FROM workflow_instance parent
+      JOIN workflow_plan ON workflow_plan.plan_id=parent.plan_id
+      WHERE parent.instance_id=skill_call_workflow.parent_instance_id AND ${scope.predicate})`;
     const result = await this.#pool.query<SkillCallWorkflowRow>(
       `SELECT * FROM skill_call_workflow
-       WHERE child_instance_id=$1
+       WHERE child_instance_id=$1 AND ${predicate}
        ORDER BY created_at DESC,call_id DESC LIMIT 1`,
-      [childInstanceId],
+      [childInstanceId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapSkillCallWorkflow(result.rows[0]);
   }
 
   async listByParent(parentInstanceId: string) {
+    const scope = workflowPlanScopeSql(this.deviceScope, 2);
+    const predicate =
+      this.deviceScope === undefined
+        ? 'TRUE'
+        : `EXISTS(SELECT 1 FROM workflow_instance parent
+      JOIN workflow_plan ON workflow_plan.plan_id=parent.plan_id
+      WHERE parent.instance_id=skill_call_workflow.parent_instance_id AND ${scope.predicate})`;
     const result = await this.#pool.query<SkillCallWorkflowRow>(
       `SELECT * FROM skill_call_workflow
-       WHERE parent_instance_id=$1 ORDER BY created_at,parent_node_id,call_id`,
-      [parentInstanceId],
+       WHERE parent_instance_id=$1 AND ${predicate} ORDER BY created_at,parent_node_id,call_id`,
+      [parentInstanceId, ...scope.values],
     );
     return result.rows.map(mapSkillCallWorkflow);
   }
@@ -6047,24 +6392,42 @@ function mapSkillCallWorkflow(row: SkillCallWorkflowRow): SkillCallWorkflowRecor
 
 export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRepository {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
   readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
-  constructor(pool: Pool, commandContext?: PostgresAgentTaskCommandContext) {
+  constructor(
+    pool: Pool,
+    commandContext?: PostgresAgentTaskCommandContext,
+    deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
     this.#commandContext = commandContext;
   }
+  #scope(nodeEvent = false) {
+    const filter = workflowPlanScopeSql(this.#deviceScope, 2);
+    if (this.#deviceScope === undefined) return filter;
+    return {
+      predicate: nodeEvent
+        ? `EXISTS(SELECT 1 FROM workflow_instance wi JOIN workflow_plan ON workflow_plan.plan_id=wi.plan_id WHERE wi.instance_id=workflow_node_event.instance_id AND ${filter.predicate})`
+        : `EXISTS(SELECT 1 FROM workflow_plan WHERE workflow_plan.plan_id=workflow_instance.plan_id AND ${filter.predicate})`,
+      values: filter.values,
+    };
+  }
   async countNodeEvents(instanceId: string): Promise<number> {
+    const filter = this.#scope(true);
     const result = await this.#pool.query<{ count: number }>(
-      'SELECT COUNT(*)::int count FROM workflow_node_event WHERE instance_id=$1',
-      [instanceId],
+      `SELECT COUNT(*)::int count FROM workflow_node_event WHERE instance_id=$1 AND ${filter.predicate}`,
+      [instanceId, ...filter.values],
     );
     return result.rows[0]?.count ?? 0;
   }
 
   async listNodeEvents(instanceId: string): Promise<readonly WorkflowNodeEvent[]> {
+    const filter = this.#scope(true);
     const result = await this.#pool.query<WorkflowNodeEventRow>(
       `SELECT event_id, instance_id, sequence, node_id, event_type, event_timestamp, duration_ms, summary
-       FROM workflow_node_event WHERE instance_id=$1 ORDER BY sequence, event_id`,
-      [instanceId],
+       FROM workflow_node_event WHERE instance_id=$1 AND ${filter.predicate} ORDER BY sequence, event_id`,
+      [instanceId, ...filter.values],
     );
     return result.rows.map((row) => ({
       eventId: row.event_id,
@@ -6079,9 +6442,10 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   }
 
   async findInstance(instanceId: string): Promise<WorkflowInstance | undefined> {
+    const filter = this.#scope();
     const result = await this.#pool.query<WorkflowInstanceRow>(
-      'SELECT * FROM workflow_instance WHERE instance_id=$1',
-      [instanceId],
+      `SELECT * FROM workflow_instance WHERE instance_id=$1 AND ${filter.predicate}`,
+      [instanceId, ...filter.values],
     );
     const row = result.rows[0];
     if (row === undefined) return undefined;
@@ -6111,30 +6475,33 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
   }
 
   async findActiveByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
+    const filter = this.#scope();
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
-       WHERE plan_id=$1 AND status IN ('running','paused','waiting_external') ORDER BY started_at DESC LIMIT 1`,
-      [planId],
+       WHERE plan_id=$1 AND ${filter.predicate} AND status IN ('running','paused','waiting_external') ORDER BY started_at DESC LIMIT 1`,
+      [planId, ...filter.values],
     );
     const instanceId = result.rows[0]?.instance_id;
     return instanceId === undefined ? undefined : this.findInstance(instanceId);
   }
 
   async findLatestByPlanId(planId: string): Promise<WorkflowInstance | undefined> {
+    const filter = this.#scope();
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
-       WHERE plan_id=$1 ORDER BY started_at DESC, instance_id DESC LIMIT 1`,
-      [planId],
+       WHERE plan_id=$1 AND ${filter.predicate} ORDER BY started_at DESC, instance_id DESC LIMIT 1`,
+      [planId, ...filter.values],
     );
     const instanceId = result.rows[0]?.instance_id;
     return instanceId === undefined ? undefined : this.findInstance(instanceId);
   }
 
   async listActiveByGoalId(goalId: string): Promise<readonly WorkflowInstance[]> {
+    const filter = this.#scope();
     const result = await this.#pool.query<{ instance_id: string }>(
       `SELECT instance_id FROM workflow_instance
-       WHERE goal_id=$1 AND status IN ('running','paused','waiting_external') ORDER BY started_at,instance_id`,
-      [goalId],
+       WHERE goal_id=$1 AND ${filter.predicate} AND status IN ('running','paused','waiting_external') ORDER BY started_at,instance_id`,
+      [goalId, ...filter.values],
     );
     return Promise.all(result.rows.map((row) => this.findInstance(row.instance_id))).then(
       (instances) => instances.filter((value): value is WorkflowInstance => value !== undefined),
@@ -6143,20 +6510,27 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
 
   async saveInstance(instance: WorkflowInstance): Promise<void> {
     const command = this.#commandContext?.current();
-    const client = command === undefined ? undefined : await this.#pool.connect();
+    const client =
+      command === undefined && this.#deviceScope === undefined
+        ? undefined
+        : await this.#pool.connect();
     try {
       if (client !== undefined) {
         await client.query('BEGIN');
-        if (command === undefined) throw new Error('AGENT_TASK_COMMAND_TOKEN_MISSING');
-        await setAgentTaskCommandIdentity(client, command);
+        if (command !== undefined) await setAgentTaskCommandIdentity(client, command);
       }
+      const deviceId =
+        client === undefined || this.#deviceScope === undefined
+          ? undefined
+          : await readGowmWorkflowDevice(client, this.#deviceScope, { planId: instance.planId });
       await (client ?? this.#pool).query(
         `INSERT INTO workflow_instance(
          instance_id,plan_id,skill_goal_id,skill_attempt_id,workflow_definition_id,workflow_version,goal_id,goal_version,
          status,input_json,result_json,errors_json,started_at,completed_at,
-         skill_versions_json,budget_limits_json,budget_usage_json,termination_reason,pending_confirmation_json)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14,$15::jsonb,$16::jsonb,$17::jsonb,$18,$19::jsonb)
+         skill_versions_json,budget_limits_json,budget_usage_json,termination_reason,pending_confirmation_json${deviceId === undefined ? '' : ',device_id'})
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14,$15::jsonb,$16::jsonb,$17::jsonb,$18,$19::jsonb${deviceId === undefined ? '' : ',$20'})
        ON CONFLICT(instance_id) DO UPDATE SET
+         ${deviceId === undefined ? '' : 'device_id=EXCLUDED.device_id,'}
          status=EXCLUDED.status,
          result_json=EXCLUDED.result_json,
          errors_json=EXCLUDED.errors_json,
@@ -6186,6 +6560,7 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
           instance.pendingConfirmation === undefined
             ? null
             : JSON.stringify(instance.pendingConfirmation),
+          ...(deviceId === undefined ? [] : [deviceId]),
         ],
       );
       if (client !== undefined && command !== undefined)
@@ -6217,11 +6592,17 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
-      for (const event of events)
+      for (const event of events) {
+        const deviceId =
+          this.#deviceScope === undefined
+            ? undefined
+            : await readGowmWorkflowDevice(client, this.#deviceScope, {
+                instanceId: event.instanceId,
+              });
         await client.query(
           `INSERT INTO workflow_node_event(
-             event_id,instance_id,sequence,node_id,event_type,event_timestamp,duration_ms,summary)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+             event_id,instance_id,sequence,node_id,event_type,event_timestamp,duration_ms,summary${deviceId === undefined ? '' : ',device_id'})
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8${deviceId === undefined ? '' : ',$9'})`,
           [
             event.eventId,
             event.instanceId,
@@ -6231,8 +6612,10 @@ export class PostgresWorkflowExecutionRepository implements WorkflowExecutionRep
             event.timestamp,
             event.durationMs ?? null,
             event.summary,
+            ...(deviceId === undefined ? [] : [deviceId]),
           ],
         );
+      }
       await client.query('COMMIT');
     } catch (error: unknown) {
       await client.query('ROLLBACK');
@@ -6568,6 +6951,7 @@ function mapEvolutionExperienceRow(row: EvolutionExperienceRow): EvolutionExperi
 function mapWorkflowPlanRow(row: WorkflowPlanRow): WorkflowPlanRecord {
   return {
     planId: row.plan_id,
+    ...(row.gowm_task_id == null ? {} : { executionTaskId: row.gowm_task_id }),
     ...(row.skill_goal_id === null ? {} : { skillGoalId: row.skill_goal_id }),
     ...(row.skill_attempt_id === null ? {} : { skillAttemptId: row.skill_attempt_id }),
     goalId: row.goal_id,
@@ -6683,41 +7067,72 @@ export class PostgresSkillEmbeddingRepository implements SkillEmbeddingRepositor
 export class PostgresTemporarySkillRepository implements TemporarySkillRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
   async find(temporarySkillId: string): Promise<TemporarySkill | undefined> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'temporary_skill');
     const result = await this.#pool.query<TemporarySkillRow>(
-      `${temporarySkillSelect} WHERE temporary_skill_id = $1`,
-      [temporarySkillId],
+      `${temporarySkillSelect} WHERE temporary_skill_id = $1 AND ${scope.predicate}`,
+      [temporarySkillId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapTemporarySkillRow(result.rows[0]);
   }
 
   async listByTask(taskId: string): Promise<readonly TemporarySkill[]> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'temporary_skill');
     const result = await this.#pool.query<TemporarySkillRow>(
-      `${temporarySkillSelect} WHERE task_id = $1 ORDER BY created_at, temporary_skill_id`,
-      [taskId],
+      `${temporarySkillSelect} WHERE task_id = $1 AND ${scope.predicate} ORDER BY created_at, temporary_skill_id`,
+      [taskId, ...scope.values],
     );
     return result.rows.map(mapTemporarySkillRow);
   }
 
   async save(skill: TemporarySkill): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO temporary_skill
-         (temporary_skill_id, task_id, context_id, name, description, tools_json,
-          input_schema_json, output_schema_json, capability_fingerprint, status,
-          created_at, expired_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      temporarySkillParameters(skill),
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      const deviceId = await this.#requireTask(client, skill.taskId, skill.contextId);
+      await client.query(
+        `INSERT INTO temporary_skill
+         (temporary_skill_id,task_id,context_id,name,description,tools_json,input_schema_json,
+          output_schema_json,capability_fingerprint,status,created_at,expired_at${this.deviceScope === undefined ? '' : ',device_id'})
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12${this.deviceScope === undefined ? '' : ',$13'})`,
+        [...temporarySkillParameters(skill), ...(this.deviceScope === undefined ? [] : [deviceId])],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async #requireTask(
+    client: PoolClient,
+    taskId: string,
+    contextId: string,
+  ): Promise<string | null | undefined> {
+    if (this.deviceScope === undefined) return undefined;
+    const scope = taskDeviceScopeSql(this.deviceScope, 3);
+    const result = await client.query<{ device_id: string | null }>(
+      `SELECT device_id FROM agent_task WHERE task_id=$1 AND context_id=$2 AND ${scope.predicate} FOR UPDATE`,
+      [taskId, contextId, ...scope.values],
     );
+    if (result.rows[0] === undefined) throw new Error('TEMPORARY_SKILL_DEVICE_SCOPE_DENIED');
+    return result.rows[0].device_id;
   }
 
   async findExperience(temporarySkillId: string): Promise<TemporarySkillExperience | undefined> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'temporary_skill_experience');
     const result = await this.#pool.query<TemporaryExperienceRow>(
-      'SELECT * FROM temporary_skill_experience WHERE temporary_skill_id=$1 ORDER BY created_at,experience_id LIMIT 1',
-      [temporarySkillId],
+      `SELECT * FROM temporary_skill_experience WHERE temporary_skill_id=$1 AND ${scope.predicate} ORDER BY created_at,experience_id LIMIT 1`,
+      [temporarySkillId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapTemporaryExperienceRow(result.rows[0]);
   }
@@ -6729,6 +7144,19 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const deviceId = await this.#requireTask(client, skill.taskId, skill.contextId);
+      if (
+        experience.taskId !== skill.taskId ||
+        experience.contextId !== skill.contextId ||
+        experience.temporarySkillId !== skill.temporarySkillId
+      )
+        throw new Error('TEMPORARY_SKILL_COMPLETION_CONFLICT');
+      const stored = await client.query<{ task_id: string; context_id: string }>(
+        'SELECT task_id,context_id FROM temporary_skill WHERE temporary_skill_id=$1 FOR UPDATE',
+        [skill.temporarySkillId],
+      );
+      if (stored.rows[0]?.task_id !== skill.taskId || stored.rows[0].context_id !== skill.contextId)
+        throw new Error('TEMPORARY_SKILL_COMPLETION_CONFLICT');
       const task = await client.query<{ phase: string; temporary_skill_id: string | null }>(
         'SELECT phase,temporary_skill_id FROM agent_task WHERE task_id=$1 FOR UPDATE',
         [skill.taskId],
@@ -6774,8 +7202,8 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
       await client.query(
         `INSERT INTO temporary_skill_experience
            (experience_id, temporary_skill_id, task_id, context_id,
-            capability_fingerprint, successful, outcome_summary, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            capability_fingerprint, successful, outcome_summary, created_at${this.deviceScope === undefined ? '' : ',device_id'})
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8${this.deviceScope === undefined ? '' : ',$9'})`,
         [
           experience.experienceId,
           experience.temporarySkillId,
@@ -6785,6 +7213,7 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
           experience.successful,
           experience.outcomeSummary,
           experience.createdAt,
+          ...(this.deviceScope === undefined ? [] : [deviceId]),
         ],
       );
       await client.query('COMMIT');
@@ -6799,13 +7228,14 @@ export class PostgresTemporarySkillRepository implements TemporarySkillRepositor
   async listSuccessfulExperiences(
     capabilityFingerprint: string,
   ): Promise<readonly TemporarySkillExperience[]> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'temporary_skill_experience');
     const result = await this.#pool.query<TemporaryExperienceRow>(
       `SELECT experience_id, temporary_skill_id, task_id, context_id,
               capability_fingerprint, successful, outcome_summary, created_at
        FROM temporary_skill_experience
-       WHERE capability_fingerprint = $1 AND successful = true
+       WHERE capability_fingerprint = $1 AND successful = true AND ${scope.predicate}
        ORDER BY created_at, experience_id`,
-      [capabilityFingerprint],
+      [capabilityFingerprint, ...scope.values],
     );
     return result.rows.map(mapTemporaryExperienceRow);
   }
@@ -6926,9 +7356,20 @@ export class PostgresMcpRegistryRepository
     SkillTaskOperationCandidateCatalog
 {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
 
-  constructor(pool: Pool) {
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
+  }
+
+  async assertTaskBindingForInvocation(
+    taskId: string | undefined,
+    serverId: string,
+    arguments_: Readonly<Record<string, unknown>>,
+  ): Promise<void> {
+    if (this.#deviceScope !== undefined)
+      await readGowmMcpOwner(this.#pool, this.#deviceScope, taskId, serverId, arguments_);
   }
 
   async findServer(serverId: string): Promise<McpServerRecord | undefined> {
@@ -7361,6 +7802,23 @@ export class PostgresMcpRegistryRepository
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      if (this.#deviceScope !== undefined) {
+        await client.query('SELECT server_id FROM mcp_server WHERE server_id=$1 FOR UPDATE', [
+          serverId,
+        ]);
+        const history = await client.query<{ retained: boolean }>(
+          `SELECT EXISTS(SELECT 1 FROM mcp_invocation WHERE server_id=$1)
+             OR EXISTS(SELECT 1 FROM remote_task_binding WHERE server_id=$1)
+             OR EXISTS(SELECT 1 FROM remote_task_admission_intent WHERE server_id=$1)
+             OR EXISTS(SELECT 1 FROM gowm_device.device_service_binding WHERE sdar_mcp_server_id=$1) AS retained`,
+          [serverId],
+        );
+        if (history.rows[0]?.retained !== false)
+          throw new McpRegistryError(
+            'MCP_SHARED_HISTORY_RETENTION_REQUIRED',
+            'Shared MCP history requires this Server and its protocol snapshots to remain available.',
+          );
+      }
       await client.query(
         'UPDATE mcp_server SET current_protocol_snapshot_id = NULL WHERE server_id = $1',
         [serverId],
@@ -7377,62 +7835,55 @@ export class PostgresMcpRegistryRepository
   }
 
   async saveInvocation(invocation: McpInvocation): Promise<void> {
-    await this.#pool.query(
-      `INSERT INTO mcp_invocation
-         (invocation_id, task_id, capability_attempt_id, control_confirmation_id,
-          control_provider_binding_id, control_arguments_hash, control_dispatch_hash,
-          context_id, execution_mode, simulation_id, server_id, tool_name, arguments_json,
-          execution_semantics_json, result_json, status, error_code, error_message,
-          started_at, completed_at, duration_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
-      [
-        invocation.invocationId,
-        invocation.taskId ?? null,
-        invocation.capabilityAttemptId ?? null,
-        invocation.controlConfirmationId ?? null,
-        invocation.controlProviderBindingId ?? null,
-        invocation.controlArgumentsHash ?? null,
-        invocation.controlDispatchHash ?? null,
-        invocation.contextId ?? null,
-        invocation.executionMode,
-        invocation.simulationId ?? null,
-        invocation.serverId,
-        invocation.toolName,
-        JSON.stringify(invocation.arguments),
-        JSON.stringify(invocation.executionSemantics),
-        invocation.result === undefined ? null : JSON.stringify(invocation.result),
-        invocation.status,
-        invocation.errorCode ?? null,
-        invocation.errorMessage ?? null,
-        invocation.startedAt,
-        invocation.completedAt,
-        invocation.durationMs,
-      ],
-    );
+    if (this.#deviceScope === undefined) return insertMcpInvocation(this.#pool, invocation);
+    const client = await this.#pool.connect();
+    try {
+      await client.query('BEGIN');
+      await insertMcpInvocation(client, invocation, this.#deviceScope);
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async listInvocations(serverId: string): Promise<readonly McpInvocation[]> {
+    const filter = this.#invocationScope();
     const result = await this.#pool.query<McpInvocationRow>(
-      `SELECT invocation_id, task_id, capability_attempt_id, control_confirmation_id,
+      `SELECT ${this.#deviceScope === undefined ? '' : 'device_id,'} invocation_id, task_id, capability_attempt_id, control_confirmation_id,
               control_provider_binding_id, control_arguments_hash, control_dispatch_hash,
               context_id, server_id, tool_name, arguments_json,
               execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
-       FROM mcp_invocation WHERE server_id = $1 ORDER BY started_at, invocation_id`,
-      [serverId],
+       FROM mcp_invocation WHERE server_id = $1 AND ${filter.predicate} ORDER BY started_at, invocation_id`,
+      [serverId, ...filter.values],
     );
     return result.rows.map(mapMcpInvocationRow);
   }
 
   async listInvocationsByTask(taskId: string): Promise<readonly McpInvocation[]> {
+    const filter = this.#invocationScope();
     const result = await this.#pool.query<McpInvocationRow>(
-      `SELECT invocation_id, task_id, capability_attempt_id, control_confirmation_id,
+      `SELECT ${this.#deviceScope === undefined ? '' : 'device_id,'} invocation_id, task_id, capability_attempt_id, control_confirmation_id,
               control_provider_binding_id, control_arguments_hash, control_dispatch_hash,
               context_id, server_id, tool_name, arguments_json,
               execution_mode, simulation_id, execution_semantics_json, result_json, status, error_code, error_message, started_at, completed_at, duration_ms
-       FROM mcp_invocation WHERE task_id = $1 ORDER BY started_at, invocation_id`,
-      [taskId],
+       FROM mcp_invocation WHERE task_id = $1 AND ${filter.predicate} ORDER BY started_at, invocation_id`,
+      [taskId, ...filter.values],
     );
     return result.rows.map(mapMcpInvocationRow);
+  }
+
+  #invocationScope() {
+    const task = taskDeviceScopeSql(this.#deviceScope, 2, 'owner_task');
+    if (this.#deviceScope === undefined) return task;
+    return {
+      predicate: `((mcp_invocation.task_id IS NULL AND mcp_invocation.device_id IS NULL AND $4::boolean)
+      OR EXISTS(SELECT 1 FROM agent_task owner_task WHERE owner_task.task_id=mcp_invocation.task_id
+        AND owner_task.device_id IS NOT DISTINCT FROM mcp_invocation.device_id AND ${task.predicate}))`,
+      values: task.values,
+    };
   }
 
   async saveManagementOperation(operation: McpManagementOperation): Promise<void> {
@@ -8060,6 +8511,7 @@ function mapMcpWarningRow(row: McpWarningRow): McpDependencyWarning {
 
 function mapMcpInvocationRow(row: McpInvocationRow): McpInvocation {
   return {
+    ...(row.device_id == null ? {} : { deviceId: row.device_id }),
     invocationId: row.invocation_id,
     ...(row.task_id === null ? {} : { taskId: row.task_id }),
     ...(row.capability_attempt_id === null
@@ -8148,6 +8600,15 @@ function mapTaskRow(row: TaskRow): AgentTask {
   )
     throw new Error('TASK_CAPABILITY_GAP_TERMINAL_EVIDENCE_INVALID');
   return {
+    ...(row.device_id == null
+      ? {}
+      : {
+          deviceOwnership: {
+            deviceId: row.device_id,
+            bindingId: requireTaskDeviceField(row.gowm_binding_id),
+            sdarServiceKey: requireTaskDeviceField(row.sdar_service_key),
+          },
+        }),
     taskId: row.task_id,
     contextId: row.context_id,
     userId: row.user_id,
@@ -8223,4 +8684,9 @@ async function relationExists(client: PoolClient, relationName: string): Promise
     [relationName],
   );
   return result.rows[0]?.present === true;
+}
+
+function requireTaskDeviceField(value: string | null | undefined): string {
+  if (!value) throw new Error('TASK_DEVICE_OWNERSHIP_INVALID');
+  return value;
 }

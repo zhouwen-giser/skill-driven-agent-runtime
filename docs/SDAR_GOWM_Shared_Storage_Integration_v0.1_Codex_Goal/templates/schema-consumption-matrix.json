@@ -1,0 +1,21 @@
+{
+  "status": "NOT_RUN",
+  "actualGowmCommit": null,
+  "rows": [
+    {
+      "sourcePath": null,
+      "method": null,
+      "table": null,
+      "operation": null,
+      "oldConflictKey": null,
+      "finalConflictKey": null,
+      "deviceOwnership": "TO_CLASSIFY",
+      "requiredColumns": [],
+      "parentJoin": null,
+      "transactionOwner": null,
+      "implementationFiles": [],
+      "scenarioIds": [],
+      "status": "NOT_RUN"
+    }
+  ]
+}

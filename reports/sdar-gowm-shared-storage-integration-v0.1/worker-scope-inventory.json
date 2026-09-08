@@ -1,0 +1,149 @@
+{
+  "status": "PARTIAL_INVENTORY_NOT_COMPLETION_EVIDENCE",
+  "reviewedAt": "2026-09-08",
+  "compositionRoot": "apps/server/src/runtime.ts",
+  "method": "Read actual constructors and relevant repository entry points; statuses distinguish source inspection from prior behavior reports. Not an exhaustive or frozen-source pass.",
+  "items": [
+    {
+      "id": "task_admission_recovery",
+      "status": "PARTIAL_VERIFIED",
+      "scopeEntry": "Task ownership; intent -> Task",
+      "implementation": "packages/persistence-postgres/src/remote-task-admission-intent-store.ts",
+      "claimAndExpiry": "intent version + lease/claim CAS",
+      "recovery": "existing admission reconciliation",
+      "test": "packages/persistence-postgres/test/gowm-admission.postgres-cases.ts"
+    },
+    {
+      "id": "process_loss",
+      "status": "REPOSITORY_VERIFIED_NORMAL_RESTART_OPEN",
+      "scopeEntry": "Task/Plan -> deviceWorkScope",
+      "implementation": "packages/persistence-postgres/src/repositories.ts",
+      "claimAndExpiry": "failInterrupted; terminal transaction",
+      "recovery": "fail running owned work; preserve supported remote waits",
+      "test": "packages/persistence-postgres/test/gowm-recovery.postgres-cases.ts"
+    },
+    {
+      "id": "remote_poll_notification",
+      "status": "PARTIAL_VERIFIED",
+      "scopeEntry": "frozen Binding device/service/server/remote identity",
+      "implementation": "packages/persistence-postgres/src/remote-task-repository.ts",
+      "claimAndExpiry": "binding version, polling claim and expiry",
+      "recovery": "existing polling/reconciliation; no tool replay",
+      "test": "packages/persistence-postgres/test/gowm-remote.postgres-cases.ts"
+    },
+    {
+      "id": "remote_input_cancel",
+      "status": "REMOTE_AND_PARENT_CANCEL_NORMAL_VERIFIED_RESTART_COMBINATIONS_OPEN",
+      "scopeEntry": "Binding -> Task; deviceWorkScope",
+      "implementation": "packages/persistence-postgres/src/remote-task-cancellation-repository.ts",
+      "claimAndExpiry": "request version, claimToken, expiresAt; idempotencyKey",
+      "recovery": "durable delivery and provider terminal observation",
+      "test": "apps/server/test/gowm-runtime-execution.ts"
+    },
+    {
+      "id": "continuation_children",
+      "status": "PARTIAL_VERIFIED",
+      "scopeEntry": "instance/plan executionTaskId and node-run",
+      "implementation": "packages/persistence-postgres/src/workflow-continuation-repository.ts",
+      "claimAndExpiry": "snapshot hash; attempt claim; immutable fork/loop state",
+      "recovery": "same checkpoint; child call identity retained",
+      "test": "apps/server/test/gowm-child-execution.ts"
+    },
+    {
+      "id": "input_wait_timeout",
+      "status": "REPOSITORY_VERIFIED",
+      "scopeEntry": "actual Task device/service",
+      "implementation": "packages/persistence-postgres/src/repositories.ts",
+      "claimAndExpiry": "terminal Task transaction; existing wait deadline",
+      "recovery": "idempotent scoped expiry",
+      "test": "packages/persistence-postgres/test/gowm-wait-timeout.postgres-cases.ts"
+    },
+    {
+      "id": "business_events",
+      "status": "NORMAL_INGRESS_VERIFIED_REMOTE_IMPACT_OPEN",
+      "scopeEntry": "subscription device + smpp_service_key",
+      "implementation": "packages/persistence-postgres/src/user-goal-runtime-repository.ts",
+      "claimAndExpiry": "current/generation; admitted/processed cursor; inbox claim",
+      "recovery": "cursor reconnect + independent ingress worker",
+      "test": "apps/server/test/gowm-business-event-execution.ts"
+    },
+    {
+      "id": "evidence_sources",
+      "status": "PARTIAL_VERIFIED",
+      "scopeEntry": "actual Task for runtime/skill/MCP; shared definitions explicit",
+      "implementation": "packages/runtime-control-persistence-postgres/src/runtime-core-evidence-source.ts",
+      "claimAndExpiry": "source revision/hash + partition checkpoint",
+      "recovery": "append-only source projection",
+      "test": "packages/runtime-control-persistence-postgres/test/gowm-evidence.postgres-cases.ts"
+    },
+    {
+      "id": "evidence_infrastructure",
+      "status": "PARTIAL_VERIFIED",
+      "scopeEntry": "source Task/episode/partition + deviceWorkScope",
+      "implementation": "packages/runtime-control-persistence-postgres/src/evidence-infrastructure-source.ts",
+      "claimAndExpiry": "v2 source identity and checkpoint; reference scope",
+      "recovery": "new attribution as successor",
+      "test": "packages/runtime-control-persistence-postgres/test/gowm-infrastructure-scope.postgres-cases.ts"
+    },
+    {
+      "id": "evidence_export_retention",
+      "status": "PARTIAL_VERIFIED_FINAL_SERVER_CHECK_OPEN",
+      "scopeEntry": "actual Task; entire partition fence; daily scope identity",
+      "implementation": "packages/runtime-control-persistence-postgres/src/evidence-operations-repository.ts",
+      "claimAndExpiry": "partition lease; recovery scope hash; shared/exclusive export lock",
+      "recovery": "resume own recovery; standalone identity preserved",
+      "test": "apps/server/test/evidence-retention-identity.unit.test.ts"
+    },
+    {
+      "id": "evidence_quality",
+      "status": "PARTIAL_VERIFIED_SHARED_AGGREGATES_OPEN",
+      "scopeEntry": "normal Server deviceWorkScope; SQL finding provenance and whole export batch guard",
+      "implementation": "packages/runtime-control-persistence-postgres/src/evidence-quality-source.ts",
+      "claimAndExpiry": "source findings; downstream scoped issue writer",
+      "recovery": "service-level scan ownership not proven",
+      "test": "packages/runtime-control-persistence-postgres/test/gowm-quality-source.postgres-cases.ts"
+    },
+    {
+      "id": "temporary_skill",
+      "status": "UPSTREAM_CONTRACT_BLOCKED",
+      "scopeEntry": "actual Task/context; deviceWorkScope",
+      "implementation": "packages/persistence-postgres/src/repositories.ts",
+      "claimAndExpiry": "Task terminal lock; experience unique per Skill",
+      "recovery": "native terminal trigger currently conflicts with device provenance",
+      "test": "apps/server/test/gowm-temporary-skill-scope.ts"
+    },
+    {
+      "id": "fast_gateway_replay",
+      "status": "PARTIAL_VERIFIED",
+      "scopeEntry": "request Task device; shared Artifact definitions separate",
+      "implementation": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+      "claimAndExpiry": "request identity/locks; bounded expiry",
+      "recovery": "scoped invalidation preserving history",
+      "test": "packages/persistence-postgres/test/gowm-gateway.postgres-cases.ts"
+    },
+    {
+      "id": "artifact_workers",
+      "status": "EXECUTION_SCOPE_VERIFIED_OTHER_ARTIFACT_PATHS_OPEN",
+      "scopeEntry": "feature-gated runtime composition; shared catalog and Task artifacts mixed",
+      "implementation": "apps/server/src/runtime.ts",
+      "claimAndExpiry": "existing Artifact outbox/BullMQ jobs; Task source audit incomplete",
+      "recovery": "registry rebuild and replay/shadow/revalidation",
+      "test": "packages/persistence-postgres/test/gowm-artifact-execution.postgres-cases.ts"
+    },
+    {
+      "id": "configuration_bindings",
+      "status": "OPEN_NOT_COMPOSED_IN_NORMAL_SERVER",
+      "scopeEntry": "adapters present; no normal Server constructor found",
+      "implementation": "packages/runtime-control-persistence-postgres/src/runtime-configuration-store.ts",
+      "claimAndExpiry": "Task advisory lock; immutable pin",
+      "recovery": "node-control apply integration currently test-only construction",
+      "test": "packages/runtime-control-persistence-postgres/test/configuration-apply.integration.test.ts"
+    }
+  ],
+  "remaining": [
+    "Queue/cache and shared service coordinator audit not exhaustive",
+    "Task configuration/model-route and Artifact optional paths require explicit scope/composition decision",
+    "Existing source reports are not current frozen-tree acceptance"
+  ],
+  "upstreamGaps": "docs/gowm-shared-storage/UPSTREAM_STORAGE_GAP.md"
+}

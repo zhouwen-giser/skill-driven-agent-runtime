@@ -1464,3 +1464,91 @@ nor proves Goal or physical success.
 User-approved mapping: A = F01/F02/F03/F08/F09/F13/X01; B = F04/F12/X02; C = F05/F10/F11/X03. All remain implementation/reverification pending. F06/F07 (FR-EVO-004/005/006/007/008) are deferred with publication blocked pending full candidate validation; X04 Console editing and release-level X05 proof remain deferred. Only acceptance-map structural checking is retained now. Three batches receive focused regressions; one final full reuse gate proves this development scope, without claiming all18 AC or release readiness. The active ExecPlan current execution contract supersedes earlier per-M0–M7 gates.
 
 开发批次 A 本轮增量证据：`packages/langgraph-runtime/test/workflow-compiler.unit.test.ts` 覆盖 2.0 条件×循环、嵌套并行、30/100 次循环、长链、远程两种完成顺序、父子暂停与预算；`packages/application/test/subworkflow-execution.unit.test.ts` 覆盖 node-run 幂等/缺失状态拒绝重放；`packages/persistence-postgres/test/workflow-continuation.integration.test.ts` 覆盖 0179/0180 的 scopes、paused、关联事务和回滚；`apps/server/test/remote-task-composition.integration.test.ts` 的当前运行 d87b3c61 中 3 项通过（普通 child 全链、双远程、回调崩溃后幂等）。F01/F02/F08/F09/F13/X01 的实现证据增加，尚未据此关闭本轮开发验收或发布需求。
+
+## GOWM shared storage integration (2026-09-08, ongoing)
+
+Task package D00–D13 / 45 acceptance items / 48 required scenarios are tracked by `execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md`. P0 contract intake and P1 initial configuration/scope/read-only checks have 14 unit passes, typecheck, targeted lint and architecture evidence in `reports/sdar-gowm-shared-storage-integration-v0.1/progress-20260908.json`. Normal task persistence, targets, canonical association, worker scope and true PostgreSQL runtime validation remain **pending**; these passes do not close any full acceptance item.
+
+2026-09-08 GOWM D05 首批（**部分实现，未关闭**）：`packages/domain/src/structured-target.ts`、`packages/persistence-postgres/src/gowm-targets.ts` 与正式 Skill Input/Plan Repository 保存链实现显式映射、REQUESTED/PLANNED owner、同值重放、冲突回滚和 CRS 诊断；`gowm-workflow-definition.ts` 保持 GOWM 节点 owner 和原 DSL/hash 一致。当前证据见 `reports/sdar-gowm-shared-storage-integration-v0.1/progress-20260908-targets.json` 与 `postgres-task-workflow-results.json`。真 PostgreSQL 生产 Repository 测试覆盖 Polygon Task/Point Node 不同、LineString、局部坐标、Plan successor、并发重放、跨设备拒绝、缺 CRS、Input/Plan/supersede 原子回滚。接纳输入旁路、既有 UGV 映射、动态参数的实际派发与 NODE_RUN/Remote Binding 仍开放，不以这些子集结果替代 D05 完整验收或正常 Server 执行。
+
+2026-09-08 GOWM D05/Remote/恢复增量（**部分实现，未关闭**）：正式 Invocation writer/调用前 authority 从冻结 Task binding 推导设备；Remote Binding 按 device/service/server/handle 保存并创建真实 NODE_RUN DISPATCHED 目标。canonical 在受限角色纯读 SMPP 父行后补齐，终态不重发调用、不变 Runtime version。Admission journal、管理观察与启动恢复范围已有双设备真实 PostgreSQL 证明。证据：`progress-20260908-mcp-recovery.json`、`postgres-sdar-pg-d894ab8a-0bcd-462c-804c-bc99d33cea32.json`（同一报告目录）。13 组包含更早的 Task/Plan/目标场景，不加总成独立全部 AC。正常 Server 协议桩、其余 worker/retention、冻结 Schema provenance 和全部正式验收仍开放。
+
+2026-09-08 GOWM P5 第二批（**部分实现，未关闭**）：取消请求/扫描/claim/回执/终态、补参 link/回执/attempt、生命周期投影及 TaskInput 请求/响应/排队 attempt 按持久归属过滤。`gowm-work-scope.ts` 的 source 投影保持固定合同 workflow 存储和 Domain remote_task 的真实关系；`answerAndCreateAttempt` 拒绝混用父身份。`gowm-cancellation.postgres-cases.ts`、`gowm-input.postgres-cases.ts` 通过真实受限角色验证，包括只读零越界和事务无残留。当前运行 `sdar-pg-0a79a630-3525-406d-81e5-c28d2ac53927` / `progress-20260908-input-cancellation.json`，均在 Goal 报告目录。输入 activation/continuation/network 全链不由这些 fixture 证明；完整 AC 继续开放。
+
+2026-09-08 GOWM P5 continuation 增量（**部分实现，未关闭**）：`gowm-continuation-scope.ts`、`workflow-continuation-repository.ts` 覆盖快照、生命周期、inbox/claim/finish/defer/attempt 的范围及真实父关系；相同内容 canonical 比较修复幂等且保留冲突拒绝。`gowm-continuation.postgres-cases.ts` 在受限角色下验证多设备 allowlist 内的混用和单设备越界拒绝。证据 `progress-20260908-continuation.json` / run `sdar-pg-5ccc6343-6e43-478e-9b4b-2582af98032d`。这是合成 1.0 快照/控制事件的 Repository 验证，不是正常 Server 2.0 checkpoint 执行证明；完整场景和交付仍开放。
+
+2026-09-08 GOWM reconciliation /辅助 Provider link（**部分实现，存在合同缺口**）：`remote-task-consumer-sync-repository.ts` 的 append/read/nextAttempt/Provider link write/read/fallback 均接入范围；真库 `gowm-consumer-sync.postgres-cases.ts` 验证跨设备拒绝和幂等。固定辅助 link 表仍全局唯一 server/handle，不能同时保存两个设备的同 handle 关联；证据 `auxiliary-link-contract-gap.json` 明确 INCOMPLETE。run `sdar-pg-712bb588-087c-49c5-8243-5360efcaf329` / `progress-20260908-consumer-sync.json` 为 Repository 子集；不得用测试对缺口的预期拒绝断言关闭完整设备关联要求。
+
+2026-09-08 GOWM 等待超时清理（**增量验证，完整 retention 未关闭**）：`PostgresTaskWaitPolicyRepository.expireWaiting` 在原 CTE 根 Task 更新加入范围，保留完整 Task 回调投影。`gowm-wait-timeout.postgres-cases.ts` 证明另设备/另服务不取消、输入/事件仅跟随本设备、重复扫描无新增通知、空 allowlist 与显式非设备独立。证据 `progress-20260908-wait-timeout.json` / run `sdar-pg-0fbf52a9-2606-4c5e-8aec-40f182f97fb1`。Artifact/experience/gateway 等清理盘点和完整正常 Server 验证仍开放。
+
+2026-09-08 正常 Server 启动增量：新建独立 sdar_gowm_runtime_test，使用固定 GOWM 官方 bootstrap/install 和受限 consumer。正常 startServerRuntime 的管理健康、Agent Card 均 200，关闭后连接为 0（run sdar-runtime-e6d3242e-3aeb-44ea-a3b7-a8ceede77d63）。旧 Repository 库中的不完整启用 Skill 导致的失败保留，不改历史 Skill。证据 progress-20260908-runtime-startup.json；仅启动/正常关闭验证，Task/LangGraph/MCP、异常构造清理和完整 Goal 仍开放。
+
+2026-09-08 正常 Server 双设备增量：正式 A2A 暴露并修复 external_task_projection 缺 device_id 的原生触发器失败，find/list/save 均应用持久 Task 范围。19 组 Repository、22 项相关协议、5 项 A2A store unit、typecheck/lint 和 936 文件架构检查通过。正常 Server run gowm-runtime-5422cc6b-aa3b-414a-b762-d7bfd7ada3ad 经配置 Task Type、正式 Skill 选择/输入、2.0 DSL 确认及 LangGraph 完成两个 Task，各一次本地 Frozen MCP 调用；Task/Plan/Instance/Node Event/Invocation/A2A 投影 device_id 一致，预算每次 MCP=1。证据 progress-20260908-normal-execution.json。仅 immediate-result 合成场景通过；规划交互结果采集 P0001、后台范围/配置和证据投影仍有缺口，Remote/targets 全链及最终交付未完成。
+
+2026-09-08 规划交互/正常远程恢复增量：planning correction 与 episode 从同事务受范围约束的 Task 推导 device_id，覆盖 task/user/tenant 查询与幂等边界；20 组 PostgreSQL 场景、3 项相关 unit 通过。正常 Server Remote run gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f 完成双设备 Task，每设备一次 MCP 调用、2.0 terminal snapshot 和一次 succeeded continuation attempt，Binding completed/reentered；终态 episode 的设备和 outcome 引用已实际保存。证据 progress-20260908-planning-remote.json。canonical 仍缺桩父记录，其他远程组合、Schema/targets、后台及证据投影仍开放，完整 Goal 未完成。
+
+2026-09-08 冻结 Schema 增量：正式 MCP 派发将精确 operation/inputSchema 深拷贝到既有 authority snapshot，receipt/恢复沿用该快照；共享 DISPATCHED 目标不再查询可变 mcp_tool。缺快照或操作不匹配时显式拒绝新的共享 admission，旧行与 hash 不改写。41 项 unit、20 组真实 PostgreSQL 场景及正常双设备 Remote 链通过（sdar-pg-f899c0bf-1a98-40e5-941f-eb0ecacdf301；gowm-runtime-3772c61d-eaf1-4348-bbcd-c5fe273d244a），正常链每设备一次 MCP，快照持久化、continuation 成功且 cleanupErrors=[]。证据 progress-20260908-frozen-schema.json。仅增量已验证；正常 canonical/targets 组合、其余后台范围、辅助 link 合同缺口和最终交付仍开放。
+
+2026-09-08 正常延迟 canonical 增量：正常 Server 双设备 Remote Task 完成后，独立受限测试 peer 才发布合成 ugv_smpp 父行；现有后台自动补齐 canonical，未调用测试专用 reconcile，Binding version/Runtime revision 不变，MCP 总调用仍为 2。官方 gowm_business_v1.task_execution_lineage 回读设备及 MCP ID 正确，未伪造 Provider execution/Mission，missing_stage 仍 PROVIDER_PENDING。run gowm-runtime-d0036451-a307-4ac1-8088-36f8039ac18f，cleanupErrors=[]；22 项 Frozen HTTP/registry contract 通过。证据 progress-20260908-normal-canonical.json。完整 Goal 仍开放，targets、其他后台/恢复组合、辅助 link 合同缺口及最终交付未完成。
+
+2026-09-08 正常目标链增量：本地 Model/Frozen MCP 协议桩通过正式 A2A、Skill 输入、确认 DSL、LangGraph 和共享 PostgreSQL，双设备远程场景保存 REQUESTED/PLANNED/DISPATCHED；同步场景按 FULL_CN 合同只保存 REQUESTED/PLANNED，Invocation 原参完整且无 Remote Binding。两条路径每设备调用 1 次，局部 Point (12,34) 的 native_crs=LOCAL:synthetic-grid、WGS84 为空，官方目标视图回读通过。remote gowm-runtime-3645ddb4-02b8-4332-8330-18c6bad3c9ac；sync gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480；cleanupErrors=[]。22 项协议、typecheck/lint、938 文件架构检查通过。证据 progress-20260908-normal-targets.json。仅局部 Point 正常链已验证，几何/目标修订组合、后台范围、恢复组合与完整交付仍开放。
+
+2026-09-08 Business Event 身份读取/影响评估增量：订阅投影保留原生 device_id/smpp_service_key，Domain 区分未配置与显式非设备；Remote 查找传入持久订阅身份，跨 server/handle/device/service 结果在影响写入和恢复动作前拒绝。12 项 Application 事件测试与 1 项仓储投影 unit 通过；后者使用模拟 SQL 行，不能作为真库订阅集成证明。初次 5 项监听测试受沙箱 EPERM 阻止，同套在允许回环监听后通过。证据 progress-20260908-event-identity.json。订阅 writer、current/generation、连接与 worker 范围仍未完成；本增量不关闭业务事件完整要求。
+
+GOWM Shared Storage P5 增量：Evidence Task 原生归属及 Runtime/Skill/MCP 根 scope → runtime-control-persistence-postgres/{evidence-store,*-evidence-source,gowm-evidence-scope}.ts；回归 gowm-evidence.postgres-cases.ts、mcp-capability-evidence-projector.unit.test.ts；本次 22 组 PG 与双设备正常 episode 证据见 EP-GOWM-SHARED-STORAGE-INTEGRATION（2026-09-08 Evidence 条目）。仅模块已验证，全部消费者/最终验收未关闭。
+
+GOWM Goal 复用执行归属增量：user-goal-runtime Domain.executionTaskId → UserGoalPlanController / PostgresUserGoalRuntimeRepository → RuntimeCoreEvidenceSource；验证 user-goal-plan-controller.unit.test.ts、gowm-goal-outcome.postgres-cases.ts、正常双设备 run 167a1865。局部实现已验证；完整恢复与验收开放，见 ADR-153 / 当前 ExecPlan。
+
+
+GOWM D03/D08 恢复来源增量：`progress-recovery.ts` 与 `user-goal-runtime-repository.ts` 保留 Task 来源、限定设备进度读取并拒绝不明确旧状态。回归位于 `progress-recovery.unit.test.ts`、`gowm-goal-outcome.postgres-cases.ts`；本次定向 PG 结果见 EP-GOWM-SHARED-STORAGE-INTEGRATION.md 的 d0a4a7ee 记录，仅覆盖恢复来源，不代表完整任务包验收。
+
+GOWM D03/D08 结果写入/终态增量：gowm-outcome-scope.ts、user-goal-runtime-repository.ts 与 repositories.ts 对应 gowm-outcome-write-scope.postgres-cases.ts；正常 Server ce11aff1 双设备终态及后续投影范围回归 PASS，详见现有 ExecPlan。局部证据不关闭全部消费者或任务包。
+
+GOWM D03/D08 Skill 子调用增量：skill-call-workflow.ts / PostgresSkillCallWorkflowRepository，对应 skill-call-workflow.unit.test.ts 与 gowm-skill-child-scope.postgres-cases.ts；28 项单测及 ce11aff1 既有父记录上的仓储回归 PASS，普通子工作流与完整子调用链仍未验证。
+
+GOWM D03/D08 普通子调用：subworkflow-execution.ts、workflow-child-call-repository.ts、共享定义检索对应 subworkflow-execution.unit.test.ts 与 gowm-subworkflow-scope.postgres-cases.ts；9 项单测及 ce11aff1 既有父记录真库计划/关联回归 PASS，完整运行时子调用仍开放。
+
+GOWM D03/D08 普通子调用行为证据：apps/server/test/gowm-child-execution.ts + reports/sdar-gowm-shared-storage-integration-v0.1/gowm-child-b3757099-1913-48ae-8938-816113942fe3.json，双设备 LangGraph 暂停/恢复、唯一子实例、节点事件及预算通过。非 Server/API 或 Remote 全链证明。
+
+GOWM D08/D09：EvidenceStore refreshEpisodeExpectations/saveManifest 原生归属对应 gowm-expectation-scope.postgres-cases.ts；既有 ce11aff1 Task 上实际 CoverageService 重建/manifest 与越界零写入 PASS，尚非封存或全部后台验收。
+
+GOWM D08 Evidence 读取：evidence-store.ts / evidence-operations-repository.ts 的期望、manifest、outbox 入口对应 verifyGowmEvidenceReadScope；ce11aff1 既有数据双设备只读回归 PASS，不代表所有 Evidence 管理接口已完成。
+
+GOWM D08 recovery 增量：evidence-operations-repository.ts 对应 gowm-recovery-scope.postgres-cases.ts，隔离 16b4638e 验证 request/claim 越界零写入 PASS；覆盖恢复 target 与队列管理尚未关闭。
+
+GOWM D08 recovery 持久范围：evidence-operations-repository.ts + gowm-recovery-scope.postgres-cases.ts，隔离 16b4638e 范围读取/队列/claim/完成/失败和旧请求拒绝 PASS；尚非正向 coverage 全链验收。
+
+GOWM D08 coverage recovery：gowm-coverage-recovery.postgres-cases.ts，复用 ce11aff1 双 Task 验证 scoped bulk request/claim/真实 manifest/幂等 complete PASS；不表示 manifest 已封存或所有后台已完成。
+
+GOWM D08 issue/死信读取：gowm-evidence-scope.ts、evidence-store.ts、evidence-operations-repository.ts 对应 gowm-issue-read-scope.postgres-cases.ts，隔离 16b4638e 双设备实际 issue/死信正反例 PASS；不覆盖 checkpoint 或 issue 修改入口。
+
+GOWM D08 issue 修改：evidence-store.ts 对应 gowm-issue-resolve-scope.postgres-cases.ts，隔离 16b4638e 两类创建/更新与五种 resolve 正反例 PASS；Checkpoint 和缺失显式关联来源分类仍未关闭。
+
+GOWM D08 checkpoint 增量：gowm-evidence-scope.ts / EvidenceStore / EvidenceOperationsRepository 对应 gowm-checkpoint-scope.postgres-cases.ts，四类直接 Task 分区真库正反例 PASS；派生 infrastructure 投影源仍开放。
+
+
+2026-09-08：GOWM D08 / Evidence infrastructure 增量：实现 evidence-infrastructure-source.ts / evidence-infrastructure-projector.ts；phase10-evidence-sealing.unit.test.ts 及 gowm-infrastructure-scope.postgres-cases.ts 提供本次归属 successor、幂等和双设备 direct/pending 来源回归。范围为局部行为，reference 异常与全部 global 分类尚未证明；完整要求保持 OPEN。
+
+
+2026-09-08：GOWM Task/Plan/Skill 子调用：skill-call-workflow.ts 自动确认继承 Task；skill-call-workflow.unit.test.ts 28 项、gowm-child-execution.ts skill 模式真库报告 d07acdc5 通过。证据覆盖实际 Planner/LangGraph/PG 与本地模型桩，不等同正式 Usage/Server/Remote 全链。
+
+
+2026-09-08：GOWM D08 / Business Event：gowm-business-event-execution.ts 经正常 Server 注册、协议适配与后台 worker，147d9fdf 报告验证双设备 inbox/assessment 幂等及独立游标。无真实 Remote Binding/模型/设备，不扩大到事件恢复决策。目标几何现有 gowm-targets.postgres-cases.ts 及报告已覆盖解析/事务子集，本轮复用。
+
+
+2026-09-08：GOWM Remote cancellation：execution-gowm-runtime-0b57b0fe-4626-4d3b-8fd3-6115e152b034.json，经正常 Server/API 验证双设备取消幂等、投递及恢复到新计划确认；不等同父 Task 取消或所有恢复组合。早期 48906c1a 的局部 PASS 不作闭环证据。
+
+
+2026-09-08：GOWM worker/retention scope：evidence-retention-identity.ts + runtime.ts 修复调度身份碰撞；evidence-retention-identity.unit.test.ts 及同配置/日期双设备隔离 PG 请求验证通过。未执行清理 action，不替代 retention 行为回归或正常 Server 最终验收。
+
+
+2026-09-08：GOWM D09 Temporary Skill：repositories.ts/runtime.ts 与 gowm-temporary-skill-scope.ts 证明双设备创建/读取范围；77a39e98 报告终态失败且原事务回滚。终态要求 BLOCKED_BY_UPSTREAM_CONTRACT，详见 UPSTREAM_STORAGE_GAP.md；不得标记完整已验证。
+
+
+2026-09-08：GOWM D07/D08 quality source：evidence-quality-source.ts/runtime.ts；gowm-quality-source.postgres-cases.ts 真库非空双设备冲突诊断正反例与十类 SQL 执行通过。仅候选范围子集，不替代所有聚合/共享服务语义验收。
+
+
+GOWM 设备派生执行范围增量（2026-09-08）：`packages/persistence-postgres/src/compiler/artifact-repositories.ts` 的 ArtifactExecution start/complete/feedback 已接入正常 runtime 的 DeviceWorkScope。`packages/persistence-postgres/test/gowm-artifact-execution.postgres-cases.ts::verifyGowmArtifactExecutionScope` 经 `node --env-file=.state/gowm-storage/runtime-test.env --import tsx --input-type=module` 调用，在已有隔离 PG 双设备 Task 上 PASS；初次错误夹具路径失败保留于 ExecPlan。共享制品完整生命周期及当前源码完整回归仍开放。
+
+
+2026-09-08 R2 父 Task 取消：复用现有 runtime driver 新增 --parent-cancel，经官方 A2A 客户端每设备重复取消两次。报告 execution-gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b.json 为 PASS：两个 Task 和对应 Workflow instance 均 canceled 且 device_id 正确，工具总调用 2，本地模型夹具失败 0，cleanupErrors=[]。此证据不宣称 Provider 已终止、物理进程重启或迟到回调全部完成；启动仍有已有模型路由 MODEL_INVOCATION_FAILED 告警。进程丢失现有 gowm-recovery.postgres-cases.ts 已证明持久恢复范围、重复调用无新增状态，真实进程重启组合仍开放。

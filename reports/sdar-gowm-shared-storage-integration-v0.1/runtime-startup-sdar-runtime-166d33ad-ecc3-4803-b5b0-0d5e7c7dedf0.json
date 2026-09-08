@@ -1,0 +1,10 @@
+{
+  "run": "sdar-runtime-166d33ad-ecc3-4803-b5b0-0d5e7c7dedf0",
+  "status": "FAIL",
+  "scope": "Normal Server startup only; no Task or MCP execution",
+  "redis": "owned local Redis on 127.0.0.1:56490",
+  "error": "Enabled Skill versions require an explicit SkillOutcomeSpecification.",
+  "cleanup": "startup_handle_not_created_process_exit_required",
+  "remainingConsumerConnections": 1,
+  "elapsedMs": 946
+}

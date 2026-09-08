@@ -601,6 +601,12 @@ export interface CurrentMcpProviderBindingAuthorityPort {
 }
 
 export interface McpRegistryRepository {
+  /** Shared device storage verifies the immutable Task/server binding before any transport. */
+  assertTaskBindingForInvocation?(
+    taskId: string | undefined,
+    serverId: string,
+    arguments_: Readonly<Record<string, unknown>>,
+  ): Promise<void>;
   findServer(serverId: string): Promise<McpServerRecord | undefined>;
   listServers(): Promise<readonly McpServer[]>;
   listTools(serverId: string): Promise<readonly McpTool[]>;
@@ -670,6 +676,8 @@ export type RemoteTaskPollClaimResult =
   | Readonly<{ claimed: true; binding: RemoteTaskBinding }>;
 
 export interface RemoteTaskRepository {
+  /** Database-only bounded association work, including terminal remote Tasks. */
+  reconcileCanonicalLinks?(limit: number): Promise<Readonly<{ examined: number; linked: number }>>;
   admit(
     binding: RemoteTaskBinding,
     acceptedObservationId: string,
@@ -678,6 +686,7 @@ export interface RemoteTaskRepository {
   findByRemoteIdentity(
     serverId: string,
     remoteTaskId: string,
+    deviceIdentity?: RemoteTaskBinding['deviceIdentity'],
   ): Promise<RemoteTaskBinding | undefined>;
   listRequiringPoll(
     now: string,
@@ -1345,7 +1354,12 @@ export interface RuntimeTaskEvent {
   readonly eventId: string;
   readonly taskId: string;
   readonly contextId: string;
-  readonly eventType: 'task.created' | 'task.phase_changed' | SkillExecutionEvent['eventType'];
+  readonly eventType:
+    | 'task.created'
+    | 'task.phase_changed'
+    | 'task.target_diagnostic'
+    | 'task.mcp_link_diagnostic'
+    | SkillExecutionEvent['eventType'];
   readonly timestamp: string;
   readonly summary: string;
 }

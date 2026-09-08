@@ -17,6 +17,40 @@ import { UserGoalPlanController } from '../src/index.js';
 const timestamp = '2026-07-22T08:00:00.000Z';
 
 describe('UserGoalPlanController terminal authority', () => {
+  it('keeps Task provenance and separates same-Goal effects by device without changing legacy records', async () => {
+    const fingerprints: string[] = [];
+    for (const device of ['device-a', 'device-b', 'device-a']) {
+      const terminal = terminalRepository();
+      const prior = vi.fn().mockResolvedValue([]);
+      const controller = new UserGoalPlanController({
+        terminal,
+        outcomes: {
+          findOutcomeContext: vi.fn().mockResolvedValue({
+            ...outcomeContext(['criterion.result']),
+            executionTaskId: 'task.1',
+            executionDeviceId: device,
+          }),
+          listSkillGoalOutcomeDecisions: prior,
+          commitWorkingOutcome: vi.fn(),
+        },
+      });
+      await controller.adjudicateAchieved(achievedCandidate());
+      const committed = terminal.commitAchieved.mock.calls[0]?.[0] as
+        RuntimeAchievedOutcomeInput | undefined;
+      const layered = committed?.layeredOutcome;
+      if (layered === undefined) throw new Error('Expected actual layered commit');
+      expect(prior).toHaveBeenCalledWith('user-goal-plan.1', 'task.1');
+      for (const decision of [layered.taskDecision, layered.skillDecision, layered.userDecision])
+        expect(decision.executionTaskId).toBe('task.1');
+      const effect = layered.completedEffects[0];
+      if (effect === undefined) throw new Error('Expected completed effect');
+      expect(effect.executionTaskId).toBe('task.1');
+      fingerprints.push(effect.effectFingerprint);
+    }
+    expect(fingerprints[0]).not.toBe(fingerprints[1]);
+    expect(fingerprints[0]).toBe(fingerprints[2]);
+  });
+
   it('stamps the sole authority and sends all three judgments to the atomic terminal commit', async () => {
     const terminal = terminalRepository();
     const controller = new UserGoalPlanController({

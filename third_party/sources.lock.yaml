@@ -240,6 +240,13 @@ sources:
     pin: 'npm:@types/react@19.2.17#sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw=='
     allowed: 'strict TypeScript checking for apps/console'
     forbidden: 'runtime use'
+  - name: GOWM Shared Device Business Storage
+    repository: https://github.com/zhouwen-giser/geospatial-operational-world-model
+    license: 'MIT'
+    use: contract_reference
+    pin: 'commit:a1a86186ea866911124de72374e17fe19897fa9e'
+    allowed: 'pinned shared-storage DDL reference and consumption metadata with original LICENSE'
+    forbidden: 'executing copied DDL in SDAR, sibling runtime imports, SMPP or Mission writes'
   - name: React DOM Type Definitions
     repository: https://github.com/DefinitelyTyped/DefinitelyTyped
     license: 'MIT'

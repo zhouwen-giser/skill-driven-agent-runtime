@@ -1,3 +1,4 @@
+import { evidenceRetentionIdentity } from './evidence-retention-identity.js';
 import {
   CapabilityBoundSkillInputResolver,
   admitCapabilitySkillVersions,
@@ -9,6 +10,13 @@ import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { Pool, type PoolClient } from 'pg';
+import {
+  gowmSharedPoolConfiguration,
+  verifyGowmStorageContract,
+} from '../../../packages/persistence-postgres/src/gowm-storage-contract.js';
+import type { GowmSharedStorageConfiguration } from './gowm-storage-configuration.js';
+import { PostgresGowmDeviceContextReader } from '../../../packages/persistence-postgres/src/gowm-device-context.js';
+import { createGowmTaskOwnershipResolver } from './gowm-task-ownership.js';
 import { z } from 'zod';
 import {
   developmentPreauthorizationPrincipal,
@@ -570,6 +578,7 @@ import {
 } from '../../../packages/runtime-redis/src/index.js';
 
 export interface ServerRuntimeOptions {
+  readonly gowmStorage?: GowmSharedStorageConfiguration;
   readonly disableDeviceWeapons?: boolean;
   readonly developmentPreauthorizationActorId?: string;
   readonly postgresUrl: string;
@@ -920,12 +929,28 @@ export async function startServerRuntime(
   // Deployment controls are parsed before opening infrastructure connections so
   // malformed values fail closed without partially starting the runtime.
   const artifactFlags = parseArtifactFeatureFlags(process.env);
-  const pool = new Pool({ connectionString: options.postgresUrl, max: 10 });
+  const pool = new Pool(
+    options.gowmStorage === undefined
+      ? { connectionString: options.postgresUrl, max: 10 }
+      : gowmSharedPoolConfiguration(options.gowmStorage.databaseUrl),
+  );
   const taskStateNotifier = new InMemoryTaskStateNotifier();
   const publishTaskState = (task: AgentTask) => {
     taskStateNotifier.publish(task);
   };
-  if (options.applyMigrations === true) {
+  if (options.gowmStorage !== undefined) {
+    try {
+      const client = await pool.connect();
+      try {
+        await verifyGowmStorageContract(client, options.gowmStorage.contractDirectory);
+      } finally {
+        client.release();
+      }
+    } catch (error: unknown) {
+      await pool.end();
+      throw error;
+    }
+  } else if (options.applyMigrations === true) {
     await applyRuntimeMigrations(pool);
   } else if (options.frozenMcpTasks !== undefined) {
     await assertV122RuntimeReady(pool);
@@ -998,8 +1023,33 @@ export async function startServerRuntime(
   const contexts = new PostgresConversationContextRepository(pool);
   const goals = new PostgresGoalRepository(pool);
   const taskCommands = new PostgresAgentTaskCommandContext().bindPool(pool);
-  const tasks = new PostgresAgentTaskRepository(pool, publishTaskState, taskCommands);
-  const taskInputs = new PostgresTaskInputRepository(pool, publishTaskState, taskCommands);
+  const deviceWorkScope =
+    options.gowmStorage === undefined
+      ? undefined
+      : {
+          allowedDeviceIds: options.gowmStorage.allowedDeviceIds,
+          sdarServiceKey: options.gowmStorage.serviceKey,
+          includeNonDevice: options.gowmStorage.includeNonDevice,
+        };
+  const tasks = new PostgresAgentTaskRepository(
+    pool,
+    publishTaskState,
+    taskCommands,
+    deviceWorkScope,
+  );
+  const resolveDeviceOwnership =
+    options.gowmStorage === undefined || deviceWorkScope === undefined
+      ? undefined
+      : createGowmTaskOwnershipResolver(
+          options.gowmStorage,
+          new PostgresGowmDeviceContextReader(pool, deviceWorkScope),
+        );
+  const taskInputs = new PostgresTaskInputRepository(
+    pool,
+    publishTaskState,
+    taskCommands,
+    deviceWorkScope,
+  );
   const events = new PostgresRuntimeEventPublisher(pool, taskCommands);
   const skillDrafts = new PostgresSkillDraftRepository(pool);
   const skills = new PostgresSkillRepository(pool);
@@ -1036,8 +1086,8 @@ export async function startServerRuntime(
         ...(task === undefined ? {} : { task }),
       }) ?? [],
     );
-  const mcpRepository = new PostgresMcpRegistryRepository(pool);
-  const temporarySkillRepository = new PostgresTemporarySkillRepository(pool);
+  const mcpRepository = new PostgresMcpRegistryRepository(pool, deviceWorkScope);
+  const temporarySkillRepository = new PostgresTemporarySkillRepository(pool, deviceWorkScope);
   const evolutionPolicyRepository = new PostgresEvolutionPolicyRepository(pool);
   const evolutionExperienceRepository = new PostgresEvolutionExperienceRepository(pool);
   const queueName = options.queueName ?? 'sdar-context-tasks';
@@ -1054,7 +1104,7 @@ export async function startServerRuntime(
     clock,
     actorId: 'sdar-runtime',
   });
-  const evidenceStore = new PostgresEvidenceStore(pool);
+  const evidenceStore = new PostgresEvidenceStore(pool, deviceWorkScope);
   const catalogValidatingEvidenceWriter = new CatalogValidatingEvidenceWriter({
     delegate: evidenceStore,
     validator: new AjvJsonSchemaValidator({ strict: false }),
@@ -1069,21 +1119,24 @@ export async function startServerRuntime(
     resolveSourceQualityIssues: evidenceStore.resolveSourceQualityIssues.bind(evidenceStore),
     saveCheckpoint: evidenceStore.saveCheckpoint.bind(evidenceStore),
   });
-  const runtimeCoreEvidenceSource = new PostgresRuntimeCoreEvidenceSource(pool);
+  const runtimeCoreEvidenceSource = new PostgresRuntimeCoreEvidenceSource(pool, deviceWorkScope);
   const runtimeCoreEvidenceProjector = new RuntimeCoreEvidenceProjector({
     source: runtimeCoreEvidenceSource,
     writer: evidenceProjectorWriter,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
   });
-  const skillEvidenceSource = new PostgresSkillEvidenceSource(pool);
+  const skillEvidenceSource = new PostgresSkillEvidenceSource(pool, deviceWorkScope);
   const skillEvidenceProjector = new SkillEvidenceProjector({
     source: skillEvidenceSource,
     writer: evidenceProjectorWriter,
     environment: options.evidenceEnvironment ?? 'runtime',
     clock,
   });
-  const runtimeMcpCapabilityEvidenceSource = new PostgresMcpCapabilityEvidenceSource(pool);
+  const runtimeMcpCapabilityEvidenceSource = new PostgresMcpCapabilityEvidenceSource(
+    pool,
+    deviceWorkScope,
+  );
   const mcpCapabilityEvidenceSource =
     options.capabilityAuthorityReader === undefined
       ? runtimeMcpCapabilityEvidenceSource
@@ -1099,6 +1152,7 @@ export async function startServerRuntime(
   });
   const experienceReplayArtifactEvidenceSource = new PostgresExperienceReplayArtifactEvidenceSource(
     pool,
+    deviceWorkScope,
   );
   const experienceReplayArtifactEvidenceProjector = new ExperienceReplayArtifactEvidenceProjector({
     source: experienceReplayArtifactEvidenceSource,
@@ -1124,7 +1178,7 @@ export async function startServerRuntime(
     clock,
   });
   const evidenceQualityEvaluator = new EvidenceQualityEvaluator({
-    source: new PostgresEvidenceQualityAuthoritySource(pool),
+    source: new PostgresEvidenceQualityAuthoritySource(pool, deviceWorkScope),
     writer: evidenceStore,
     clock,
   });
@@ -1133,7 +1187,7 @@ export async function startServerRuntime(
     clock,
   });
   const evidenceOperations = new EvidenceOperationsService({
-    repository: new PostgresEvidenceOperationsRepository(pool),
+    repository: new PostgresEvidenceOperationsRepository(pool, deviceWorkScope),
     coverageRecovery: {
       async reconcileEpisode(target) {
         await episodeEvidenceCoverageService.reconcile({
@@ -1152,7 +1206,10 @@ export async function startServerRuntime(
     reconciler: episodeEvidenceCoverageService,
     clock,
   });
-  const evidenceInfrastructureSource = new PostgresEvidenceInfrastructureSource(pool);
+  const evidenceInfrastructureSource = new PostgresEvidenceInfrastructureSource(
+    pool,
+    deviceWorkScope,
+  );
   const evidenceInfrastructureProjector = new EvidenceInfrastructureProjector({
     source: evidenceInfrastructureSource,
     writer: evidenceProjectorWriter,
@@ -1351,12 +1408,13 @@ export async function startServerRuntime(
     clock,
   });
   const taskWaitTimeouts = new TaskWaitTimeoutService({
-    repository: new PostgresTaskWaitPolicyRepository(pool, publishTaskState),
+    repository: new PostgresTaskWaitPolicyRepository(pool, publishTaskState, deviceWorkScope),
     clock,
   });
   await new RuntimeRecoveryService({
     repository: new PostgresRuntimeRecoveryRepository(pool, publishTaskState, {
       preserveRemoteWaits: options.frozenMcpTasks !== undefined,
+      ...(deviceWorkScope === undefined ? {} : { deviceScope: deviceWorkScope }),
     }),
     clock,
   }).failInterruptedExecutions();
@@ -1384,6 +1442,7 @@ export async function startServerRuntime(
     pool,
     publishTaskState,
     taskCommands,
+    deviceWorkScope,
   );
   const taskCapabilities = new RuntimeTaskCapabilityService({
     store: taskCapabilityRepository,
@@ -1511,7 +1570,10 @@ export async function startServerRuntime(
   const taskUnderstandings = new PostgresTaskUnderstandingRepository(pool);
   const interactiveGoalRepository = new PostgresInteractiveGoalRepository(pool);
   const interactivePlanningRepository = new PostgresInteractivePlanningRepository(pool);
-  const planningCorrectionRepository = new PostgresPlanningCorrectionRepository(pool);
+  const planningCorrectionRepository = new PostgresPlanningCorrectionRepository(
+    pool,
+    deviceWorkScope,
+  );
   const planningCorrectionRef: { current?: PlanningCorrectionService } = {};
   const planningCorrectionObserver: PlanningCorrectionObserver = {
     async record(input) {
@@ -1755,7 +1817,10 @@ export async function startServerRuntime(
           const replayValidationRuntime =
             artifactReplayValidationReady.rows[0]?.installed === true
               ? (() => {
-                  const replayRepository = new PostgresArtifactReplayValidationRepository(pool);
+                  const replayRepository = new PostgresArtifactReplayValidationRepository(
+                    pool,
+                    deviceWorkScope,
+                  );
                   const replayQueue = new BullMqReplayValidationQueue(options.redis);
                   const replayService = new ArtifactReplayValidationApplicationService(
                     replayRepository,
@@ -2202,7 +2267,7 @@ export async function startServerRuntime(
     nextCorrectionId: () => `planning-correction-${randomUUID()}`,
   });
   planningCorrectionRef.current = planningCorrections;
-  const fastGatewayRepository = new PostgresFastGatewayRepository(pool);
+  const fastGatewayRepository = new PostgresFastGatewayRepository(pool, deviceWorkScope);
   const caseModelRuntimeRepository = new PostgresCaseModelRuntimeRepository(pool);
   const deletionPropagation = new DeletionPropagationService({
     targets: [
@@ -2241,6 +2306,7 @@ export async function startServerRuntime(
     pool,
     publishTaskState,
     taskCommands,
+    deviceWorkScope,
   );
   const goalInputInference = new GoalInputInferenceService({
     repository: new PostgresGoalInputInferenceRepository(pool),
@@ -2304,7 +2370,10 @@ export async function startServerRuntime(
     clock,
     ids: { nextRelationId: () => `skill-relation-${randomUUID()}` },
   });
-  const skillInputResolutionRepository = new PostgresSkillInputResolutionRepository(pool);
+  const skillInputResolutionRepository = new PostgresSkillInputResolutionRepository(
+    pool,
+    deviceWorkScope,
+  );
   const skillInputResolution = new SkillInputResolutionService({
     model: modelRuntime,
     schemas: schemaValidator,
@@ -2668,7 +2737,7 @@ export async function startServerRuntime(
   const workflowPlanner = new WorkflowPlannerService({
     model: modelRuntime,
     validator: workflowValidator,
-    repository: new PostgresWorkflowPlanRepository(pool, taskCommands),
+    repository: new PostgresWorkflowPlanRepository(pool, taskCommands, deviceWorkScope),
     workflowSchema,
     clock,
     maxAttempts: 3,
@@ -2685,19 +2754,21 @@ export async function startServerRuntime(
     ...(taskReadiness === undefined ? {} : { readiness: taskReadiness }),
   });
   const remoteTaskRepository =
-    options.frozenMcpTasks === undefined ? undefined : new PostgresRemoteTaskRepository(pool);
+    options.frozenMcpTasks === undefined
+      ? undefined
+      : new PostgresRemoteTaskRepository(pool, deviceWorkScope);
   const remoteTaskAdmissionIntents =
     options.frozenMcpTasks === undefined
       ? undefined
-      : new PostgresRemoteTaskAdmissionIntentStore(pool);
+      : new PostgresRemoteTaskAdmissionIntentStore(pool, deviceWorkScope);
   const remoteTaskReconciliationAttempts =
     options.frozenMcpTasks === undefined
       ? undefined
-      : new PostgresRemoteTaskReconciliationAttemptStore(pool);
+      : new PostgresRemoteTaskReconciliationAttemptStore(pool, deviceWorkScope);
   const remoteTaskProviderExecutionLinks =
     options.frozenMcpTasks === undefined
       ? undefined
-      : new PostgresRemoteTaskProviderExecutionLinkStore(pool);
+      : new PostgresRemoteTaskProviderExecutionLinkStore(pool, deviceWorkScope);
   const frozenTaskNotifications =
     remoteTaskRepository === undefined
       ? undefined
@@ -2795,7 +2866,7 @@ export async function startServerRuntime(
   const remoteTaskCancellations =
     remoteTaskRepository === undefined || remoteTaskCancellationQueue === undefined
       ? undefined
-      : new PostgresRemoteTaskCancellationRepository(pool);
+      : new PostgresRemoteTaskCancellationRepository(pool, deviceWorkScope);
   const remoteTaskCancellation =
     remoteTaskRepository === undefined ||
     remoteTaskCancellations === undefined ||
@@ -2834,8 +2905,8 @@ export async function startServerRuntime(
           queue: remoteTaskCancellationQueue,
           clock,
         });
-  const workflowPlans = new PostgresWorkflowPlanRepository(pool, taskCommands);
-  const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool);
+  const workflowPlans = new PostgresWorkflowPlanRepository(pool, taskCommands, deviceWorkScope);
+  const skillCallWorkflows = new PostgresSkillCallWorkflowRepository(pool, deviceWorkScope);
   const executionExceptionDecider = new StructuredExecutionExceptionDecider(modelRuntime, memories);
   const workflowAncestry = new AsyncLocalStorage<readonly string[]>();
   const skillCallAncestry = new AsyncLocalStorage<readonly string[]>();
@@ -2847,7 +2918,7 @@ export async function startServerRuntime(
     }>
   >();
   const ugvRemoteTaskLifecycle = ugvAgentProfile
-    ? new PostgresRemoteTaskLifecycleQuery(pool)
+    ? new PostgresRemoteTaskLifecycleQuery(pool, deviceWorkScope)
     : undefined;
   const workflowPorts: WorkflowRuntimePorts = {
     async executeLlm({ executionId, instruction, context, responseSchema, signal }) {
@@ -3676,9 +3747,13 @@ export async function startServerRuntime(
     nowMilliseconds: () => Date.now(),
   };
   const langGraphExecutor = new LangGraphWorkflowExecutor(workflowPorts, workflowCallCosts);
-  const workflowInstances = new PostgresWorkflowExecutionRepository(pool, taskCommands);
-  const workflowContinuations = new PostgresWorkflowContinuationRepository(pool);
-  const workflowChildCalls = new PostgresWorkflowChildCallRepository(pool);
+  const workflowInstances = new PostgresWorkflowExecutionRepository(
+    pool,
+    taskCommands,
+    deviceWorkScope,
+  );
+  const workflowContinuations = new PostgresWorkflowContinuationRepository(pool, deviceWorkScope);
+  const workflowChildCalls = new PostgresWorkflowChildCallRepository(pool, deviceWorkScope);
   const workflowExecution = new WorkflowExecutionService({
     childCalls: workflowChildCalls,
     plans: workflowPlans,
@@ -4024,7 +4099,7 @@ export async function startServerRuntime(
     clock,
   });
   const goalService = new GoalService({ goals, contexts, clock });
-  const userGoalRuntimeRepository = new PostgresUserGoalRuntimeRepository(pool);
+  const userGoalRuntimeRepository = new PostgresUserGoalRuntimeRepository(pool, deviceWorkScope);
   const ugvUserGoalPlanAuthority = ugvAgentProfile
     ? new UgvAgentProfileTaskCapabilityUserGoalPlanAuthorityResolver({
         bindings: taskCapabilities,
@@ -4167,7 +4242,7 @@ export async function startServerRuntime(
     options.templateRuntimeStateReader !== undefined
       ? new TemplateRuntimeService({
           artifacts: new PostgresArtifactRepository(pool),
-          executions: new PostgresArtifactExecutionRepository(pool),
+          executions: new PostgresArtifactExecutionRepository(pool, deviceWorkScope),
           states: options.templateRuntimeStateReader,
           planning: interactivePlanningSessions,
           clock,
@@ -4296,6 +4371,7 @@ export async function startServerRuntime(
     );
   };
   const service = new TaskService({
+    ...(resolveDeviceOwnership === undefined ? {} : { resolveDeviceOwnership }),
     contexts,
     tasks,
     events,
@@ -5154,7 +5230,7 @@ export async function startServerRuntime(
           remoteTaskInput = new RemoteTaskInputService({
             continuations: workflowContinuations,
             remoteTasks: remoteTaskRepository,
-            inputs: new PostgresRemoteTaskInputRepository(pool),
+            inputs: new PostgresRemoteTaskInputRepository(pool, deviceWorkScope),
             tasks,
             events,
             sender: mcpRegistry,
@@ -5919,6 +5995,11 @@ export async function startServerRuntime(
                 messageText: input.summary,
                 metadata: {
                   source: 'business_event_incident',
+                  ...(input.deviceIdentity === undefined
+                    ? {}
+                    : input.deviceIdentity === null
+                      ? { 'io.sdar/nonDevice': true }
+                      : { 'io.sdar/deviceId': input.deviceIdentity.deviceId }),
                   dedupeKey: input.dedupeKey,
                   relatedGoalIds: input.relatedGoalIds,
                   requiresPlanConfirmation: true,
@@ -6005,17 +6086,27 @@ export async function startServerRuntime(
     if (provider === undefined) throw new Error('BUSINESS_EVENT_PROVIDER_NOT_REGISTERED');
     if (provider.server.protocolMode !== 'frozen_v1')
       throw new Error('BUSINESS_EVENT_PROVIDER_FROZEN_MODE_REQUIRED');
+    const channels = await userGoalRuntimeRepository.listBusinessEventDeviceChannels(serverId);
+    if (channels.length === 0) return 'disabled';
+    const keys = channels.map((identity) => JSON.stringify([serverId, identity ?? null]));
     if (
-      !businessEventStartedProviders.has(serverId) &&
-      businessEventStartedProviders.size >= (options.businessEvents?.maxSubscriptions ?? 256)
+      businessEventStartedProviders.size +
+        keys.filter((key) => !businessEventStartedProviders.has(key)).length >
+      (options.businessEvents?.maxSubscriptions ?? 256)
     )
       throw new Error('BUSINESS_EVENTS_MAX_SUBSCRIPTIONS_EXCEEDED');
-    const disposition = businessEventCoordinator.start({
-      providerId: serverId,
-      endpoint: provider.server.endpoint,
-      headers: secretCipher.decrypt(provider.encryptedCredential),
-    });
-    businessEventStartedProviders.add(serverId);
+    let disposition: 'started' | 'already_running' = 'already_running';
+    for (const [index, deviceIdentity] of channels.entries()) {
+      const current = businessEventCoordinator.start({
+        providerId: serverId,
+        endpoint: provider.server.endpoint,
+        headers: secretCipher.decrypt(provider.encryptedCredential),
+        ...(deviceIdentity === undefined ? {} : { deviceIdentity }),
+      });
+      if (current === 'started') disposition = 'started';
+      const key = keys[index];
+      if (key !== undefined) businessEventStartedProviders.add(key);
+    }
     return disposition;
   };
   let businessEventIngressRunning = false;
@@ -6043,7 +6134,12 @@ export async function startServerRuntime(
     );
     if (options.businessEvents?.requiredForRuntimeReady === true && providers.length === 0)
       throw new Error('BUSINESS_EVENTS_REQUIRED_PROVIDER_UNAVAILABLE');
-    for (const provider of providers) await startBusinessEventsProvider(provider.serverId);
+    let started = 0;
+    for (const provider of providers) {
+      if ((await startBusinessEventsProvider(provider.serverId)) !== 'disabled') started++;
+    }
+    if (options.businessEvents?.requiredForRuntimeReady === true && started === 0)
+      throw new Error('BUSINESS_EVENTS_REQUIRED_PROVIDER_UNAVAILABLE');
   }
   const waitSweepTimer = setInterval(() => {
     void (async () => {
@@ -6245,7 +6341,12 @@ export async function startServerRuntime(
       const retentionBucket = requestedAt.slice(0, 10);
       const retentionScope = `${configuration.exportId}:${String(configuration.revision)}:${retentionBucket}`;
       if (retentionScope === lastEvidenceRetentionBucket) return;
-      const retentionIdentity = createHash('sha256').update(retentionScope).digest('hex');
+      const retentionIdentity = evidenceRetentionIdentity(
+        configuration.exportId,
+        configuration.revision,
+        retentionBucket,
+        deviceWorkScope,
+      );
       const result = await evidenceOperations.applyRetention({
         operationId: `evidence-retention:${retentionIdentity}`,
         idempotencyKeyHash: `sha256:${retentionIdentity}`,
@@ -7267,9 +7368,10 @@ export async function startServerRuntime(
         ...(options.frozenMcpTasks === undefined
           ? {}
           : {
-              remoteTaskLifecycle: new PostgresRemoteTaskLifecycleQuery(pool),
+              remoteTaskLifecycle: new PostgresRemoteTaskLifecycleQuery(pool, deviceWorkScope),
               remoteTaskAdmissionObservations: new PostgresRemoteTaskAdmissionObservationQuery(
                 pool,
+                deviceWorkScope,
               ),
               ...(remoteTaskPolling === undefined ? {} : { remoteTaskPolling }),
               ...(remoteTaskCancellation === undefined ? {} : { remoteTaskCancellation }),
@@ -7400,7 +7502,7 @@ export async function startServerRuntime(
         foregroundActivity.run(() => service.followUp(command)),
       cancel: (taskId: string) => foregroundActivity.run(() => service.cancel(taskId)),
     };
-    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool);
+    const a2aProjections = new PostgresExternalTaskProjectionRepository(pool, deviceWorkScope);
     const taskProjectionReader = new ReadOnlyTaskProjectionService({
       readState: (taskId) => tasks.findWithRevision(taskId),
       readInteraction: interactiveGoalMetadata,

@@ -1,0 +1,96 @@
+{
+  "run": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b",
+  "mcpOutcome": "task_success",
+  "status": "FAIL",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote waiting/canonical/recovery",
+    "targets in normal execution",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "lineage:gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a",
+      "count": "5"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a": {
+    "device_id": "gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-7f70666b-351d-45ff-a484-51b28ed7ce8e",
+    "revision": 1
+  },
+  "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    {\n      canonical_mcp_task_id: null,\n      device_id: 'gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b-a',\n+     local_state: 'terminal_event_claimed',\n-     local_state: 'reentered',\n      protocol_status: 'completed',\n      smpp_service_key: 'gowm-runtime-6aacb0e3-ec88-473e-9323-95b0de38058b'\n    }\n  ]\n",
+  "taskIds": [
+    "7f70666b-351d-45ff-a484-51b28ed7ce8e"
+  ],
+  "modelStages": [
+    "embedding",
+    "task_understanding",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "embedding",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "experience_reflection",
+    "embedding",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 1,
+  "cleanupErrors": []
+}

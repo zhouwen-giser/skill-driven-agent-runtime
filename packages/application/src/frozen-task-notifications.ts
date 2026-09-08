@@ -1,4 +1,4 @@
-import type { RemoteTaskSnapshot } from '../../domain/src/index.js';
+import type { RemoteTaskBinding, RemoteTaskSnapshot } from '../../domain/src/index.js';
 
 import type {
   Clock,
@@ -94,6 +94,11 @@ export class FrozenRemoteTaskNotificationService {
     const bindings = await this.#remoteTasks.listActiveByServer(serverId, 256);
     const tools = await this.#registry.listTools(serverId);
     const taskIds = Object.freeze(bindings.map((binding) => binding.remoteTaskId));
+    if (new Set(taskIds).size !== taskIds.length)
+      throw notificationError(
+        'FROZEN_MCP_NOTIFICATION_IDENTITY_AMBIGUOUS',
+        'One subscription cannot distinguish repeated remote handles across device identities.',
+      );
     if (taskIds.length === 0) return { serverId, disposition: 'no_active_tasks', taskIds };
 
     const controller = new AbortController();
@@ -118,7 +123,7 @@ export class FrozenRemoteTaskNotificationService {
         outputValidator: this.#schemas,
         signal: controller.signal,
         onObservation: (snapshot, source, subscriptionId) =>
-          this.#admitObservation(serverId, snapshot, source, subscriptionId),
+          this.#admitObservation(serverId, snapshot, source, subscriptionId, bindings),
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) this.#onError(serverId, error);
@@ -139,9 +144,21 @@ export class FrozenRemoteTaskNotificationService {
     snapshot: RemoteTaskSnapshot,
     source: 'notification' | 'reconciliation',
     subscriptionId: string,
+    subscribedBindings: readonly RemoteTaskBinding[],
   ): Promise<void> {
-    const initial = await this.#remoteTasks.findByRemoteIdentity(serverId, snapshot.remoteTaskId);
-    if (initial === undefined) return;
+    const subscribed = subscribedBindings.find(
+      (binding) => binding.remoteTaskId === snapshot.remoteTaskId,
+    );
+    if (subscribed === undefined) return;
+    const initial =
+      subscribed.deviceIdentity === undefined
+        ? await this.#remoteTasks.findByRemoteIdentity(serverId, snapshot.remoteTaskId)
+        : await this.#remoteTasks.findByRemoteIdentity(
+            serverId,
+            snapshot.remoteTaskId,
+            subscribed.deviceIdentity,
+          );
+    if (initial?.bindingId !== subscribed.bindingId) return;
     await this.#serial.run(initial.contextId, async () => {
       const binding = await this.#remoteTasks.findById(initial.bindingId);
       if (binding === undefined) return;
@@ -163,7 +180,9 @@ export class FrozenRemoteTaskNotificationService {
 }
 
 export type FrozenTaskNotificationErrorCode =
-  'FROZEN_MCP_SERVER_NOT_FOUND' | 'FROZEN_MCP_SERVER_MODE_REQUIRED';
+  | 'FROZEN_MCP_NOTIFICATION_IDENTITY_AMBIGUOUS'
+  | 'FROZEN_MCP_SERVER_NOT_FOUND'
+  | 'FROZEN_MCP_SERVER_MODE_REQUIRED';
 
 export class FrozenTaskNotificationError extends Error {
   readonly code: FrozenTaskNotificationErrorCode;

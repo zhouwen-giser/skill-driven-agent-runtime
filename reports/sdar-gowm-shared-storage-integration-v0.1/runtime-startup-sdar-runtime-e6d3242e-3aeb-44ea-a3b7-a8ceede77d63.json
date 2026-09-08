@@ -1,0 +1,11 @@
+{
+  "run": "sdar-runtime-e6d3242e-3aeb-44ea-a3b7-a8ceede77d63",
+  "status": "PASS",
+  "scope": "Normal Server startup only; no Task or MCP execution",
+  "redis": "owned local Redis on 127.0.0.1:56490",
+  "healthStatus": 200,
+  "agentCardStatus": 200,
+  "cleanup": "runtime_handle_closed",
+  "remainingConsumerConnections": 0,
+  "elapsedMs": 1588
+}

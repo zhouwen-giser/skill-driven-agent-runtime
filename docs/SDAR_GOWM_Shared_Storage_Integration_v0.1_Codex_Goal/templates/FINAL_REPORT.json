@@ -1,0 +1,56 @@
+{
+  "reportVersion": "1.0",
+  "status": "NOT_RUN",
+  "finalMarker": null,
+  "source": {
+    "sdarBaseCommit": null,
+    "implementationCommit": null,
+    "implementationTree": null,
+    "gowmContractCommit": null
+  },
+  "implementation": {
+    "storageMode": "gowm-shared",
+    "schema": "ugv_sdar",
+    "modifiedRepositories": [],
+    "productionWritesToSmpp": false,
+    "missionWrites": false,
+    "oldDataMigrated": false,
+    "runtimeTestUsesNormalComposition": null
+  },
+  "validation": {
+    "static": {
+      "status": "NOT_RUN",
+      "commands": []
+    },
+    "postgres": {
+      "status": "NOT_RUN",
+      "reason": null
+    },
+    "runtime": {
+      "status": "NOT_RUN",
+      "peerKind": null,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    "realSmppInterop": {
+      "status": "NOT_RUN",
+      "reason": "Optional, pending both consumers"
+    }
+  },
+  "acceptance": [],
+  "upstreamGaps": [],
+  "knownLimitations": [],
+  "delivery": {
+    "branch": "codex/sdar-gowm-shared-storage-integration-v0.1",
+    "localCommit": null,
+    "draftPrUrl": null,
+    "status": "NOT_RUN"
+  },
+  "claimsNotMade": [
+    "REAL_DEVICE_OUTCOME",
+    "PRODUCTION_SWITCH",
+    "OLD_DATA_MIGRATION",
+    "FULL_SACS_WSGS_E2E"
+  ]
+}

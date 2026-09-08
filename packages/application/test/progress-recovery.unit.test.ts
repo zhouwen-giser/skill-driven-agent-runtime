@@ -53,7 +53,7 @@ describe('ProgressDetector and RecoveryCoordinator', () => {
     const decide = (overrides: Partial<typeof base>) =>
       coordinator.coordinate(
         { planId: 'plan.1', skillGoalId: 'skill-goal.1', attemptId: 'attempt.1' },
-        vector(),
+        vector({ executionTaskId: 'task.device-a' }),
         { ...base, ...overrides },
         vector(),
       );
@@ -61,7 +61,12 @@ describe('ProgressDetector and RecoveryCoordinator', () => {
     await expect(
       decide({ userGoalAchieved: true, uncertainRemoteTask: true }),
     ).resolves.toMatchObject({
-      decision: { action: 'no_action', reasonCode: 'USER_GOAL_ALREADY_ACHIEVED' },
+      observation: { vector: { executionTaskId: 'task.device-a' } },
+      decision: {
+        executionTaskId: 'task.device-a',
+        action: 'no_action',
+        reasonCode: 'USER_GOAL_ALREADY_ACHIEVED',
+      },
     });
     await expect(decide({ skillGoalAchieved: true })).resolves.toMatchObject({
       decision: { action: 'no_action', reasonCode: 'SKILL_GOAL_ALREADY_ACHIEVED' },

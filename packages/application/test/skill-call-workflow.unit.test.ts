@@ -249,6 +249,33 @@ describe('SkillCallWorkflowService', () => {
     expect(harness.plan).toHaveBeenCalledOnce();
   });
 
+  it('inherits the parent Task for child planning without continuation authority', async () => {
+    const harness = serviceHarness({
+      parentPlan: { ...nativeParentPlan([3]), executionTaskId: 'task.device-a' },
+    });
+    await harness.service.execute(executionInput(harness.skill.skillId));
+    expect(harness.plan).toHaveBeenCalledWith(expect.objectContaining({ taskId: 'task.device-a' }));
+    expect(harness.confirm).toHaveBeenCalledWith('plan-skill-call-id-1', 'task.device-a');
+  });
+
+  it('rejects child authority for another Task before planning', async () => {
+    const harness = serviceHarness({
+      parentPlan: { ...nativeParentPlan([3]), executionTaskId: 'task.device-a' },
+    });
+    await expect(
+      harness.service.execute({
+        ...executionInput(harness.skill.skillId),
+        continuationAuthority: {
+          agentTaskId: 'task.device-b',
+          contextId: 'context',
+          workflowControlId: 'control',
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'WORKFLOW_SKILL_PARENT_GOAL_CONTRACT_STALE' });
+    expect(harness.plan).not.toHaveBeenCalled();
+    expect(harness.execute).not.toHaveBeenCalled();
+  });
+
   it('rejects an undeclared child when only native parent Usage authority is present', async () => {
     const harness = serviceHarness({ parentPlan: nativeParentPlan([], 'skill.other') });
 

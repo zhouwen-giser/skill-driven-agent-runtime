@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { evidenceIssueScope, evidenceOutboxScope } from './gowm-evidence-scope.js';
 import type { Pool } from 'pg';
 
 import {
@@ -20,13 +22,30 @@ interface FindingRow {
 export class PostgresEvidenceQualityAuthoritySource implements EvidenceQualityAuthoritySource {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
   async findings(ruleId: EvidenceQualityRule): Promise<readonly EvidenceQualityFinding[]> {
     const sql = qualityQueries[ruleId];
-    const result = await this.#pool.query<FindingRow>(sql);
+    const scope = evidenceIssueScope(this.deviceScope, 1, 'finding');
+    const records = evidenceOutboxScope(this.deviceScope, 1, 'scope_record');
+    const scopedSql =
+      this.deviceScope === undefined
+        ? sql
+        : `
+      SELECT finding.* FROM (${sql}) finding
+      WHERE ${scope.predicate}
+        AND NOT EXISTS (
+          SELECT 1 FROM evidence_export_batch batch JOIN evidence_outbox scope_record
+            ON scope_record.source_partition=batch.source_partition
+           AND scope_record.sequence BETWEEN batch.first_sequence AND batch.last_sequence
+          WHERE batch.batch_id=finding.detail->>'batchId' AND NOT ${records.predicate}
+        ) ORDER BY finding.identity`;
+    const result = await this.#pool.query<FindingRow>(scopedSql, [...scope.values]);
     return Object.freeze(
       result.rows.map((row) =>
         Object.freeze({
@@ -93,7 +112,7 @@ const qualityQueries: Readonly<Record<EvidenceQualityRule, string>> = Object.fre
       ) AS detail
     FROM evidence_projection_issue issue
     WHERE issue.issue_code='payload_hash_conflict' AND issue.resolved_at IS NULL
-      AND issue.projector_version<>'evidence-infrastructure/v1'
+      AND issue.projector_version NOT LIKE 'evidence-infrastructure/%'
       AND (issue.record_type IS NULL OR issue.record_type NOT LIKE 'evidence.%')
     ORDER BY issue.issue_id`,
 

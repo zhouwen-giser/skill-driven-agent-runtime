@@ -1,5 +1,21 @@
 # Project Status
 
+2026-09-08 最新收敛：当前 GOWM 增量尚未提交、未通过当前源码完整开发回归。已有 Skill 子执行、Business Event、binding 取消记录不再列为待开发；剩余锁定为 R1 在途 Artifact/静态收尾、R2 父取消与持久恢复必要差异、R3 一次开发检查与 Draft PR/清理。临时 Skill 原生终态和辅助 Provider link 唯一键为 U1/U2 上游阻塞；外围全面证明及发布事项延期且保持开放。详见现有 GOWM ExecPlan 顶部。本次仅调整计划，无新增业务验证结论。
+
+## GOWM shared storage integration (2026-09-08, in progress)
+
+The active [GOWM ExecPlan](execplans/EP-GOWM-SHARED-STORAGE-INTEGRATION.md) implements the single-repository task package. Contract intake and initial configuration/device-scope/read-only verification code are present; 14 focused unit checks passed. Normal Task ownership resolution and root persistence plus initial admission device/service identity are now implemented in an initial increment; 67 related unit regressions pass. Plan/Attempt ownership and parent creation order, instance/event attribution and scoped reads are now implemented with 25 focused planning tests. A real PostgreSQL 18.6 / pgvector 0.8.6 isolated database passes read-only contract verification and a production-Repository dual-device subset (shared Goal, Task/Plan/Attempt/Instance/events and GOWM readback). Explicit Schema target mappings now persist REQUESTED Skill inputs and PLANNED node targets in native transactions, with CRS diagnostics, source Schema hashes, lossless GOWM node aliases and confirmation hash compatibility. Focused target/authority/DSL regressions pass (39); GOWM unit suites pass (34); seven real PostgreSQL Repository scenario groups pass, including target conflicts, concurrent reuse and Input/Plan/supersession rollback. Other admission writers, existing UGV mappings, DISPATCHED targets, canonical resolution, full worker scope and normal Server/MCP smoke remain pending. No GOWM/SMPP source or running deployment is changed. This work is not SOURCE_READY or INTEGRATION_DEV_READY yet.
+
+2026-09-08 当前增量：P4 Invocation/Remote identity/延迟 canonical 与 P5 Admission/启动恢复范围已实现子集。125 项相关 unit、typecheck、定向 lint、架构检查及 13 组受限角色真 PostgreSQL Repository 场景通过。当前证据：`reports/sdar-gowm-shared-storage-integration-v0.1/progress-20260908-mcp-recovery.json`。正常 Server/MCP 全链、剩余后台 scope/retention、Schema 来源冻结、全部交付仍未完成，SOURCE_READY / INTEGRATION_DEV_READY 均不声明。前段 P3 记录为更早增量。
+
+2026-09-08 P5 第二批：取消、补参、生命周期和 Task Input/attempt 队列已接入设备范围。固定 GOWM source 枚举通过原生 workflow + remote input link 无损适配；真库证明回答/恢复仍为 remote_task，普通 workflow 不误判。67 项相关 unit、15 组 Repository 真库场景通过，见 `progress-20260908-input-cancellation.json`。完整 continuation activation、正常 Server 网络链及剩余 worker/retention 仍开放。
+
+2026-09-08 P5 第三批：continuation 快照、inbox/control、attempt 的设备与父级范围接入正常装配，并修复 JSON 键顺序导致的幂等误判。20 项相关 unit、16 组真 PostgreSQL Repository 场景、typecheck/lint/架构通过，见 `progress-20260908-continuation.json`。正常 Server 2.0 checkpoint 恢复和剩余后台范围未完成，本 Goal 继续进行。
+
+2026-09-08 P5 第四批：reconciliation/Provider link 范围和父级校验已接入，34 项相关 unit、17 组 Repository 真库验证及静态检查通过。但固定 GOWM 辅助 link 的全局 server/handle 唯一键阻止双设备相同 handle 的两条辅助关联，已复现并记录 `auxiliary-link-contract-gap.json`。本 Goal 明确 INCOMPLETE；仍可继续其他实现，不因该局部缺口停止全部工作。
+
+2026-09-08 等待超时清理增量：expired 根 Task 已限定设备/服务，输入和事件沿同一事务集合处理，回调保留完整归属。真库 18 组场景（非 18 AC）通过，含非设备/空 allowlist 隔离；其他 retention 和正常 Server 全链仍未完成。证据 `progress-20260908-wait-timeout.json`。
+
 当前 Runtime 开发修复：**A/B/C 开发范围完成**。同一冻结源码完整 reuse 门禁 `sdar-verify-b487014e-48c4-4de1-b2ce-1f3fae59de99` 的 30 阶段及资源清理全部通过；unit 2477、contract 534、integration 242、E2E 75。文档处理、数据聚合和既有设备只读为本地模拟证据。F06/F07、X04、发布级 X05/18 AC、独立安装与真实模型/设备证据继续延期。下文旧状态为历史记录。
 
 ## Current development repair scope (2026-09-07, completed)
@@ -1542,3 +1558,119 @@ promotion audit and redaction were repaired and regression tested.
 handoff/持久化验证或真实启动；外部 ClickHouse 专用用户及精确授权需单独确认。
 未执行新 live 迁移、服务重启、Run/Task 或设备调用。见
 `execplans/EP-UGV-BENCHMARK-DEBUG.md`；现有项目完成状态不因此上调。
+
+2026-09-08 正常 Server 启动增量：新建独立 sdar_gowm_runtime_test，使用固定 GOWM 官方 bootstrap/install 和受限 consumer。正常 startServerRuntime 的管理健康、Agent Card 均 200，关闭后连接为 0（run sdar-runtime-e6d3242e-3aeb-44ea-a3b7-a8ceede77d63）。旧 Repository 库中的不完整启用 Skill 导致的失败保留，不改历史 Skill。证据 progress-20260908-runtime-startup.json；仅启动/正常关闭验证，Task/LangGraph/MCP、异常构造清理和完整 Goal 仍开放。
+
+2026-09-08 正常 Server 双设备增量：正式 A2A 暴露并修复 external_task_projection 缺 device_id 的原生触发器失败，find/list/save 均应用持久 Task 范围。19 组 Repository、22 项相关协议、5 项 A2A store unit、typecheck/lint 和 936 文件架构检查通过。正常 Server run gowm-runtime-5422cc6b-aa3b-414a-b762-d7bfd7ada3ad 经配置 Task Type、正式 Skill 选择/输入、2.0 DSL 确认及 LangGraph 完成两个 Task，各一次本地 Frozen MCP 调用；Task/Plan/Instance/Node Event/Invocation/A2A 投影 device_id 一致，预算每次 MCP=1。证据 progress-20260908-normal-execution.json。仅 immediate-result 合成场景通过；规划交互结果采集 P0001、后台范围/配置和证据投影仍有缺口，Remote/targets 全链及最终交付未完成。
+
+2026-09-08 规划交互/正常远程恢复增量：planning correction 与 episode 从同事务受范围约束的 Task 推导 device_id，覆盖 task/user/tenant 查询与幂等边界；20 组 PostgreSQL 场景、3 项相关 unit 通过。正常 Server Remote run gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f 完成双设备 Task，每设备一次 MCP 调用、2.0 terminal snapshot 和一次 succeeded continuation attempt，Binding completed/reentered；终态 episode 的设备和 outcome 引用已实际保存。证据 progress-20260908-planning-remote.json。canonical 仍缺桩父记录，其他远程组合、Schema/targets、后台及证据投影仍开放，完整 Goal 未完成。
+
+2026-09-08 冻结 Schema 增量：正式 MCP 派发将精确 operation/inputSchema 深拷贝到既有 authority snapshot，receipt/恢复沿用该快照；共享 DISPATCHED 目标不再查询可变 mcp_tool。缺快照或操作不匹配时显式拒绝新的共享 admission，旧行与 hash 不改写。41 项 unit、20 组真实 PostgreSQL 场景及正常双设备 Remote 链通过（sdar-pg-f899c0bf-1a98-40e5-941f-eb0ecacdf301；gowm-runtime-3772c61d-eaf1-4348-bbcd-c5fe273d244a），正常链每设备一次 MCP，快照持久化、continuation 成功且 cleanupErrors=[]。证据 progress-20260908-frozen-schema.json。仅增量已验证；正常 canonical/targets 组合、其余后台范围、辅助 link 合同缺口和最终交付仍开放。
+
+2026-09-08 正常延迟 canonical 增量：正常 Server 双设备 Remote Task 完成后，独立受限测试 peer 才发布合成 ugv_smpp 父行；现有后台自动补齐 canonical，未调用测试专用 reconcile，Binding version/Runtime revision 不变，MCP 总调用仍为 2。官方 gowm_business_v1.task_execution_lineage 回读设备及 MCP ID 正确，未伪造 Provider execution/Mission，missing_stage 仍 PROVIDER_PENDING。run gowm-runtime-d0036451-a307-4ac1-8088-36f8039ac18f，cleanupErrors=[]；22 项 Frozen HTTP/registry contract 通过。证据 progress-20260908-normal-canonical.json。完整 Goal 仍开放，targets、其他后台/恢复组合、辅助 link 合同缺口及最终交付未完成。
+
+2026-09-08 正常目标链增量：本地 Model/Frozen MCP 协议桩通过正式 A2A、Skill 输入、确认 DSL、LangGraph 和共享 PostgreSQL，双设备远程场景保存 REQUESTED/PLANNED/DISPATCHED；同步场景按 FULL_CN 合同只保存 REQUESTED/PLANNED，Invocation 原参完整且无 Remote Binding。两条路径每设备调用 1 次，局部 Point (12,34) 的 native_crs=LOCAL:synthetic-grid、WGS84 为空，官方目标视图回读通过。remote gowm-runtime-3645ddb4-02b8-4332-8330-18c6bad3c9ac；sync gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480；cleanupErrors=[]。22 项协议、typecheck/lint、938 文件架构检查通过。证据 progress-20260908-normal-targets.json。仅局部 Point 正常链已验证，几何/目标修订组合、后台范围、恢复组合与完整交付仍开放。
+
+2026-09-08 Business Event 身份读取/影响评估增量：订阅投影保留原生 device_id/smpp_service_key，Domain 区分未配置与显式非设备；Remote 查找传入持久订阅身份，跨 server/handle/device/service 结果在影响写入和恢复动作前拒绝。12 项 Application 事件测试与 1 项仓储投影 unit 通过；后者使用模拟 SQL 行，不能作为真库订阅集成证明。初次 5 项监听测试受沙箱 EPERM 阻止，同套在允许回环监听后通过。证据 progress-20260908-event-identity.json。订阅 writer、current/generation、连接与 worker 范围仍未完成；本增量不关闭业务事件完整要求。
+
+2026-09-08 执行方式按用户反馈收敛：按模块完成实现与相关回归，取消逐小步重复全链及多份报告扩张，任务包最终验收要求不变。订阅 writer/代际与 inbox 范围批次已实现，21 组隔离 PG（run sdar-pg-2b0e89cd-f758-4c5a-b7c6-163623a1e750）和 13 项相关测试通过；正常事件端到端及其他后台消费者仍开放。详见现有 ExecPlan。
+
+2026-09-08 事件派生记录批次：relation/assessment/incident 的源订阅范围、incident Task 同设备关联和 continuity 去重已实现；21 组 PG（sdar-pg-d71c8166-4a94-4735-af69-786b9d057e14）、9 项定向测试通过。完整正常事件链和其他后台/最终交付仍开放，详见现有 ExecPlan。
+
+2026-09-08 Evidence 模块：原生 Task device 归属、Runtime/Skill/MCP 根证据源 scope 与 arguments hash 表示修复；22 组真库、正常双设备 episode 自动投影、4 项 unit 和已有 Task Catalog 写入验证通过。剩余 Experience/导出/清理范围及完整交付开放，详见当前 ExecPlan；不宣称 Goal 完成。
+
+2026-09-08 Evidence 后续：Experience Task 来源读取/候选范围和终态 coverage 扫描已接入同一设备范围；2 项 source unit、22 组 PG 回归通过（run 0fd03299）。无单一 Task 的共享制品范围、导出/清理和最终交付仍开放。
+
+2026-09-08 Evidence 导出边界：范围过滤、整分区租约/发送/ACK 拒绝、deadLetter 保护及追加/确认事务锁已实现；PG run 16b4638e 的相关场景通过。清理/管理 recovery 等仍开放，整体 Goal 未完成。
+
+2026-09-08 Evidence retention：共享模式不物理删除有 Task/episode/device 归属或被引用的诊断；定向真库验证保留双设备历史与恢复幂等通过。其他删除链及完整交付仍开放。
+
+2026-09-08 Evidence retention 并发保护已实证：追加共享事务锁与清理排他锁协调，双事务验证互斥及释放通过；未重跑全量业务链。整体 Goal 继续进行。
+
+2026-09-08 Replay expiry 已改为共享模式范围内失效数据集并保留源案例；复用正常 Task episode 的定向真库验证通过，重复扫描无重复 successor。显式用户/tenant 删除、其余消费者和最终交付继续开放。
+
+2026-09-08 MCP 历史保留：共享模式有调用/绑定/设备目录引用时拒绝删除 Server 和协议快照，拒绝不先断连接；76 项单测与定向真库通过。保护延迟 canonical 读取，整体交付仍未完成。
+
+2026-09-08 Fast Gateway 原生 device 写入、读取/反馈范围及锁定集合删除已修复，定向真库通过；同 actor 的另一设备与核心 Task 保留。整体 Goal 继续进行。
+
+2026-09-08 共享 Goal 回归纠偏：根夹具改为两个 Task 实际绑定同一 Goal；节点事件/执行 gate/confirmation 按 Task 原生 Plan 归属过滤。当前 PG run 6de69d56 的 24 组通过，旧仅 Plan 共用 Goal 的报告不代表该场景通过。其他 Goal 级效果来源及最终交付仍开放。
+
+2026-09-08 Goal 效果/判定来源已进入正式终态事务，设备效果指纹分离；11 项单测、共享 Goal 真库和正常双设备链 167a1865 通过。恢复进度向量来源及最终验收仍开放，Goal 未完成。
+
+
+2026-09-08 恢复进度来源隔离（模块回归）：ProgressVector / RecoveryDecision 以可选 executionTaskId 保存来源；共享正常恢复从实际 Task context 传递，写入前在同一事务核对 Plan/Goal、Task 及设备服务范围。读取前次进度按当前设备/服务过滤；存在不早于当前可验证进度、且无来源的旧记录时，以 RECOVERY_PROGRESS_SOURCE_UNPROVEN 明确失败，不改历史或从 START 重放。
+
+验证：相关 Application 两文件 7 项通过；既有隔离 PG Plan 的定向运行 d0a4a7ee-446e-47e9-a08a-4942690c4675 通过双设备进度隔离、幂等、越界写拒绝、缺来源写拒绝和旧状态明确拒绝。最初重跑整个 Goal fixture 因已有 revision=1 唯一键失败，随后直接复用已有 Plan，只执行恢复断言；未重建数据库、未调用模型/MCP、未重跑全量门禁。新 PG driver 的 Goal fixture 已包含这些断言，但本轮没有重跑整个 driver。整体 Goal 仍 INCOMPLETE，剩余后台范围、组合链路及最终单仓交付开放。
+
+
+2026-09-08 Goal 结果写入与终态范围收敛：共享判定、完成效果在原事务写入前核对 executionTaskId、Plan/Goal 与设备服务范围；working/terminal 三层判定及效果必须与承载 Task 同源。效果失效要求前驱属于同设备/服务，避免伪造来源撤销另一设备效果。正常 Server 将 DeviceWorkScope 传入终态仓储，commit 在任何业务写入前拒绝越界 Task；find/findByControl/warning 也按实际 Task 限定。无 Scope 的 standalone 路径保持兼容。
+
+验证：verifyGowmOutcomeWriteScope 复用隔离 PG 6de69d56 的 Plan，通过同批混入外设备判定时整批回滚、合法幂等、越界效果写拒绝、跨设备前驱失效拒绝及终态提前拒绝。已接入现有 PG driver，没有重跑整个 driver。首次定向 lint 指出已缩窄行的多余 optional chain，修正后定向 lint、pnpm typecheck 通过。
+
+因正常终态装配变化，运行一次正常双设备链：gowm-runtime-ce11aff1-9f1d-47a6-abc5-7fbd44199a06，PASS、工具 2 次、modelFixtureFailures=[]、cleanupErrors=[]；canonical_backlog_not_quiescent 仍存在，不宣称封存完成。随后仅对该运行的已有 Task 调用 verifyGowmTerminalProjectionScope：本设备终态可读、另一设备 find/findByControl 不可见，外设备 warning 拒绝且原 JSON 不变，PASS。测试使用隔离 PostgreSQL 与本地协议桩，非真实设备。
+
+剩余组合链、后台消费者盘点及单仓最终交付仍开放，整体 INCOMPLETE；未运行全量门禁。
+
+2026-09-08：Skill call 继承父 Task，关联仓储加入设备范围和幂等身份保护；28 项单测及既有隔离 PG 定向验证通过。普通 subworkflow 和子调用全链仍开放，详见现有 GOWM ExecPlan。本批不重跑无关完整链。
+
+2026-09-08：普通 subworkflow 已按父 Task 创建独立执行计划，通用父子关联已加入事务设备检查；9 项单测及双设备计划/关联真库回归通过。LangGraph 子调用全链及剩余交付仍开放，详见现有 GOWM ExecPlan。
+
+2026-09-08：双设备实际 LangGraph 普通子调用确认暂停/恢复通过（b3757099）；一个子实例、结果节点各执行一次、父成本 1。证据覆盖 Application/PG，不代表 Server/API Remote 或 Skill 子调用全链，整体仍 INCOMPLETE。
+
+2026-09-08：Evidence expectation/manifest 补齐原生 device_id 及重建写入范围，真实 CoverageService + 既有 PG Task 定向回归通过；MCP 刷新历史保留完成代码检查。其他管理恢复范围及整体交付仍开放。
+
+2026-09-08：Evidence 期望/manifest/outbox 四个读取入口已加入 Task 范围，既有真库数据只读回归通过。其余管理恢复入口仍开放。
+
+2026-09-08：Evidence recovery 在请求、claim、action 前校验实际目标设备，真库证明越界请求与 claim 不改变恢复记录/Evidence。其余 coverage target 与队列范围仍开放。
+
+2026-09-08：Evidence recovery 请求保存设备范围摘要，读取/队列/claim/完成/失败统一检查；真库范围与旧记录拒绝回归通过，本次夹具已关闭。正向 coverage 全链及剩余管理入口仍开放。
+
+2026-09-08：coverage recovery 正向 request→scoped target→claim→实际 manifest→complete 回归通过，重复 claim/complete 幂等；没有执行导出或业务链。其他管理接口与整体交付仍开放。
+
+2026-09-08：Evidence quality/projection 和死信读取补齐范围，实际双设备非空正反例通过；checkpoint 与 issue 写入/resolve 仍开放。
+
+2026-09-08：Evidence issue 两类创建/幂等更新、五种 resolve 已加入范围检查，集中真库回归通过。Checkpoint 与无显式关联来源仍开放。
+
+2026-09-08：四类直接 Task checkpoint 读写范围与共享定义兼容已验证。Evidence infrastructure 投影源仍未装配设备范围，整体任务继续开放。
+
+
+2026-09-08 执行计划再次收敛：当前 GOWM 任务改为“在途修改收尾与有限缺陷清单 → 关键行为补缺 → 一次开发收口/Draft PR”。正常链已有证据，不再逐补丁重跑；Evidence infrastructure 改动仍待验证。全量外围盘点与组合证明保留开放，上游辅助 link 缺口仍 INCOMPLETE；本次仅更新计划，无新增测试结论。详见现有 EP-GOWM-SHARED-STORAGE-INTEGRATION.md 顶部。
+
+
+2026-09-08：Evidence infrastructure 已完成本批来源过滤、Task 归属 successor 与 v2 装配修改；3 项相关单测、复用既有双设备 checkpoint 的只读 PG 回归通过。共享/全局来源全面分类与最终门禁仍开放。
+
+
+2026-09-08：真实 Skill 子执行发现并修复自动确认遗漏 Task ID；双设备 Planner/LangGraph/PG 链 d07acdc5 及 28 项单测通过。每设备一次规划、唯一子实例、父成本 1，重入不重复执行。正式 Usage/Server/Remote 子链和最终交付仍开放。
+
+
+2026-09-08：Business Event 正常 Server 双设备重复事件链 147d9fdf 通过，分别一个 inbox/assessment、两个游标均为 1、cleanupErrors=[]。Polygon/LineString 与修订回滚已有明确回归，本轮不再重复；Remote 关联影响及最终交付仍开放。
+
+
+2026-09-08：Remote binding 管理取消正常双设备链 0b57b0fe 通过：重复键一次投递、Provider cancelled、binding reentered、successor 待确认且无重复工具；本地模型零失败、清理成功。父 Task 取消和后台 retention/启动告警仍开放。
+
+
+2026-09-08：修复 Evidence 每日 retention 调度 key 未包含设备范围导致的恢复身份碰撞；1 项单测及隔离 PG 独立记录/幂等/跨范围拒绝通过，无数据清理。正常周期告警消失待最终 Server 回归确认。
+
+
+2026-09-08：临时 Skill 创建/读取/显式经验写入已接入设备范围；真库双设备创建读取通过，但原生 Task 终态触发器经验 INSERT 缺 device_id，导致整个终态回滚。已记录新的上游合同缺口，整体 INCOMPLETE。
+
+
+2026-09-08：补齐规定的后台范围清单（15 组，明确 partial/open）及 test:gowm-storage:runtime/--help；help 实测无环境退出 0。后台 quality/Artifact/共享服务协调仍有开放项，配置绑定适配器尚未正常装配，最终回归和交付未完成。
+
+
+2026-09-08：正常 Evidence quality source 已加入 SQL 返回范围及混合 export batch 排除；双设备真实诊断正反例、十类查询通过。共享聚合专门场景/服务协调及整体交付仍开放。
+
+
+2026-09-08 R1 Artifact：上次会话句柄均已失效，隔离库无执行记录，未据此推断通过。重新执行暴露夹具 ENOENT（错误 packages/schemas 路径）；改为相对 import.meta.url 的现有 golden fixture 后，verifyGowmArtifactExecutionScope 在既有 ce11 双设备 Task 上通过 start 原生 device_id、越界 start/complete/feedback 拒绝及所属完成/反馈写入。仅证明仓储和事务入口，不证明 Artifact 全生命周期。
+
+
+2026-09-08 R2 父 Task 取消：复用现有 runtime driver 新增 --parent-cancel，经官方 A2A 客户端每设备重复取消两次。报告 execution-gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b.json 为 PASS：两个 Task 和对应 Workflow instance 均 canceled 且 device_id 正确，工具总调用 2，本地模型夹具失败 0，cleanupErrors=[]。此证据不宣称 Provider 已终止、物理进程重启或迟到回调全部完成；启动仍有已有模型路由 MODEL_INVOCATION_FAILED 告警。进程丢失现有 gowm-recovery.postgres-cases.ts 已证明持久恢复范围、重复调用无新增状态，真实进程重启组合仍开放。
+
+
+2026-09-08 集中开发检查：全仓 pnpm lint 退出 0；pnpm verify:architecture 首次拒绝两处测试内部 compiler 引用，改用模块既有公开导出（无规则放宽）后退出 0；pnpm verify:protocol、pnpm build、pnpm gowm-storage:check 均退出 0（离线 87 文件）。pnpm verify:migrations 退出 1：脚本默认 docker pull 遭 spawnSync docker EPERM，清理尝试也失败，未创建已确认的迁移容器；本轮不追加默认 Docker 环境，不计为通过。完整 pnpm test 已以 SDAR_VERIFY_ISOLATED=true 启动，尚待结果；不要重复启动。
+
+
+2026-09-08 集中回归结束：SDAR_VERIFY_ISOLATED=true pnpm test 退出 0，351 文件/3064 项全通过，124.36 秒；本批 136 个修改代码文件 prettier --check 通过。完整日志保存 development-checks/，不重复启动已通过集合。迁移检查仍失败；验收索引保留全部 45 项及开放状态，最终交付尚未完成。
+
+
+2026-09-08 开发交付整理：最终 PG driver 26 组通过（616862f8）；正常 Remote 代表链 d6f0a68a 通过，两次工具、2.0 continuation 完成、canonical 延迟补齐无重发，cleanupErrors=[]。FINAL_REPORT.md/json、postgres-results、runtime-smoke-results、optional-smpp-interop 和 45 项 acceptance-results 已保存，整体 INCOMPLETE。两个本任务隔离容器及匿名 PG 卷已清理并回查为空；用户实例未动。准备单仓提交与 Draft PR；原 Goal 的未完成范围保持开放。

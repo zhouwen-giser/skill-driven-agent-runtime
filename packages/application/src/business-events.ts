@@ -77,9 +77,11 @@ export interface BusinessEventRuntimeRepository {
   saveBusinessEventSubscription(subscription: BusinessEventSubscription): Promise<void>;
   findCurrentBusinessEventSubscription(
     providerId: string,
+    deviceIdentity?: BusinessEventSubscription['deviceIdentity'],
   ): Promise<BusinessEventSubscription | undefined>;
   findLatestBusinessEventSubscription(
     providerId: string,
+    deviceIdentity?: BusinessEventSubscription['deviceIdentity'],
   ): Promise<BusinessEventSubscription | undefined>;
   transitionBusinessEventSubscription(
     subscriptionId: string,
@@ -145,11 +147,15 @@ export class BusinessEventSubscriptionService {
     input: BusinessEventsConnection &
       Readonly<{
         providerId: string;
+        deviceIdentity?: BusinessEventSubscription['deviceIdentity'];
         onConnected?(): void;
       }>,
   ): Promise<BusinessEventSubscriptionRunResult> {
     await this.#runtime.discover(input);
-    const latest = await this.#repository.findLatestBusinessEventSubscription(input.providerId);
+    const latest = await this.#repository.findLatestBusinessEventSubscription(
+      input.providerId,
+      input.deviceIdentity,
+    );
     let active: BusinessEventSubscription | undefined;
     let admitted = 0;
     let duplicates = 0;
@@ -176,6 +182,7 @@ export class BusinessEventSubscriptionService {
           subscriptionId:
             latest?.streamId === ack.streamId ? latest.subscriptionId : this.#nextSubscriptionId(),
           providerId: input.providerId,
+          ...(input.deviceIdentity === undefined ? {} : { deviceIdentity: input.deviceIdentity }),
           streamId: ack.streamId,
           generation:
             latest?.streamId === ack.streamId ? latest.generation : (latest?.generation ?? 0) + 1,
@@ -297,12 +304,17 @@ export class ProviderSubscriptionCoordinator {
   }
 
   start(
-    input: Omit<BusinessEventsConnection, 'signal'> & Readonly<{ providerId: string }>,
+    input: Omit<BusinessEventsConnection, 'signal'> &
+      Readonly<{
+        providerId: string;
+        deviceIdentity?: BusinessEventSubscription['deviceIdentity'];
+      }>,
   ): 'started' | 'already_running' {
-    if (this.#active.has(input.providerId)) return 'already_running';
+    const key = businessEventChannelKey(input.providerId, input.deviceIdentity);
+    if (this.#active.has(key)) return 'already_running';
     const controller = new AbortController();
-    this.#active.set(input.providerId, controller);
-    this.#health.set(input.providerId, {
+    this.#active.set(key, controller);
+    this.#health.set(key, {
       providerId: input.providerId,
       state: 'connecting',
       reconnects: 0,
@@ -315,14 +327,37 @@ export class ProviderSubscriptionCoordinator {
   }
 
   health(providerId: string): ProviderSubscriptionHealth | undefined {
-    return this.#health.get(providerId);
+    const channels = [...this.#health.values()].filter(
+      (channel) => channel.providerId === providerId,
+    );
+    if (channels.length < 2) return channels[0];
+    return {
+      providerId,
+      state: channels.some((channel) => channel.state === 'degraded')
+        ? 'degraded'
+        : channels.some((channel) => channel.state === 'connecting')
+          ? 'connecting'
+          : channels.every((channel) => channel.state === 'stopped')
+            ? 'stopped'
+            : 'healthy',
+      reconnects: channels.reduce((sum, channel) => sum + channel.reconnects, 0),
+      admitted: channels.reduce((sum, channel) => sum + channel.admitted, 0),
+      duplicates: channels.reduce((sum, channel) => sum + channel.duplicates, 0),
+      updatedAt:
+        channels
+          .map((channel) => channel.updatedAt)
+          .sort()
+          .at(-1) ?? this.#clock.now(),
+    };
   }
 
   close(providerId?: string): void {
     const targets =
       providerId === undefined
         ? [...this.#active.entries()]
-        : [...this.#active.entries()].filter(([id]) => id === providerId);
+        : [...this.#active.entries()].filter(
+            ([id]) => this.#health.get(id)?.providerId === providerId,
+          );
     for (const [id, controller] of targets) {
       controller.abort();
       this.#active.delete(id);
@@ -333,18 +368,23 @@ export class ProviderSubscriptionCoordinator {
   }
 
   async #loop(
-    input: Omit<BusinessEventsConnection, 'signal'> & Readonly<{ providerId: string }>,
+    input: Omit<BusinessEventsConnection, 'signal'> &
+      Readonly<{
+        providerId: string;
+        deviceIdentity?: BusinessEventSubscription['deviceIdentity'];
+      }>,
     controller: AbortController,
   ): Promise<void> {
+    const key = businessEventChannelKey(input.providerId, input.deviceIdentity);
     while (!controller.signal.aborted) {
-      const previous = this.#health.get(input.providerId);
+      const previous = this.#health.get(key);
       try {
         const result = await this.#subscriptions.run({
           ...input,
           signal: controller.signal,
           onConnected: () => {
-            const connected = this.#health.get(input.providerId);
-            this.#health.set(input.providerId, {
+            const connected = this.#health.get(key);
+            this.#health.set(key, {
               providerId: input.providerId,
               state: 'healthy',
               reconnects: connected?.reconnects ?? 0,
@@ -354,7 +394,7 @@ export class ProviderSubscriptionCoordinator {
             });
           },
         });
-        this.#health.set(input.providerId, {
+        this.#health.set(key, {
           providerId: input.providerId,
           state: 'healthy',
           reconnects: previous?.reconnects ?? 0,
@@ -364,7 +404,7 @@ export class ProviderSubscriptionCoordinator {
         });
       } catch (error: unknown) {
         if (error instanceof Error && error.name === 'AbortError') break;
-        this.#health.set(input.providerId, {
+        this.#health.set(key, {
           providerId: input.providerId,
           state: 'degraded',
           reconnects: (previous?.reconnects ?? 0) + 1,
@@ -608,4 +648,18 @@ async function abortableDelay(milliseconds: number, signal: AbortSignal): Promis
       { once: true },
     );
   });
+}
+
+function businessEventChannelKey(
+  providerId: string,
+  identity: BusinessEventSubscription['deviceIdentity'],
+): string {
+  return JSON.stringify([
+    providerId,
+    identity === undefined
+      ? 'standalone'
+      : identity === null
+        ? null
+        : [identity.deviceId, identity.smppServiceKey],
+  ]);
 }

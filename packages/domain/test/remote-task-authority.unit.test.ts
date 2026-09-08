@@ -20,6 +20,33 @@ describe('Remote Task frozen authority', () => {
     expect(Object.isFrozen(snapshot.providerBinding)).toBe(true);
   });
 
+  it('captures an immutable Tool Schema without retaining the mutable catalog object', () => {
+    const input = authoritySnapshot();
+    const schema = { type: 'object', properties: { target: { type: 'number' } } };
+    const snapshot = createRemoteTaskAuthoritySnapshot({
+      ...input,
+      runtime: {
+        ...input.runtime,
+        toolInput: { operationName: 'long_operation', inputSchema: schema },
+      },
+    });
+    schema.properties.target.type = 'string';
+    expect(snapshot.runtime.toolInput?.inputSchema).toEqual({
+      type: 'object',
+      properties: { target: { type: 'number' } },
+    });
+    expect(Object.isFrozen(snapshot.runtime.toolInput?.inputSchema)).toBe(true);
+    expect(() =>
+      createRemoteTaskAuthoritySnapshot({
+        ...input,
+        runtime: {
+          ...input.runtime,
+          toolInput: { operationName: 'long_operation', inputSchema: [] },
+        },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID' }));
+  });
+
   it('rejects a Provider Binding whose Catalog differs from the Runtime snapshot', () => {
     const input = authoritySnapshot();
 
@@ -48,6 +75,18 @@ describe('Remote Task frozen authority', () => {
   it('rejects admission when the snapshot is not tied to its credential and discovery revision', () => {
     const input = admission();
 
+    expect(() =>
+      createRemoteTaskBinding({
+        ...input,
+        authoritySnapshot: {
+          ...input.authoritySnapshot,
+          runtime: {
+            ...input.authoritySnapshot.runtime,
+            toolInput: { operationName: 'another_operation', inputSchema: {} },
+          },
+        },
+      }),
+    ).toThrow(expect.objectContaining({ code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_MISMATCH' }));
     expect(() =>
       createRemoteTaskBinding({ ...input, credentialRevision: 'different-credential' }),
     ).toThrow(expect.objectContaining({ code: 'REMOTE_TASK_AUTHORITY_SNAPSHOT_MISMATCH' }));

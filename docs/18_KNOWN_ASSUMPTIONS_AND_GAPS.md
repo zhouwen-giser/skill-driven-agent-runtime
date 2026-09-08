@@ -660,3 +660,12 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 
 
 - 2026-09-07 Runtime semantic closure：原始 SRS 要求并行分支显式汇聚与冲突合并策略；ADR-150 修订为新版 parallel 必须声明 joinNodeId / reject_conflicts。用户确认嵌套循环按调用重新计数（外层3×内层2=6），旧快照/hash 不静默重解释。上述新语义尚待 M1 实现验证。
+
+## 2026-09-08 GOWM 辅助 Provider execution link 范围缺口（开放）
+
+合同 commit `a1a86186ea866911124de72374e17fe19897fa9e` 的 `ugv_sdar.remote_task_provider_execution_link` 仍有全局 `(runtime_server_id,remote_task_id)` 唯一键，无 device/service 列。其父 Remote Binding 已支持两设备同 opaque handle，真库证明第二条辅助 link 不能同时保存。消费者现已按父 Task/Binding 过滤全部直接读写，拒绝冲突而不串写，但这不等于完整双设备辅助关联可用。
+
+证据：`reports/sdar-gowm-shared-storage-integration-v0.1/auxiliary-link-contract-gap.json`。后续需确认是否有最终合同认可的原生表示/索引可承载完整身份；在解决前该项为 INCOMPLETE，不能 SOURCE_READY。不允许 SDAR 改 GOWM DDL、伪造服务或 handle，也不创建影子映射。其他实施和正常 Server 验证可继续，不以局部合同缺口宣布整个工作无法推进。
+
+
+2026-09-08：GOWM 实际 finalize_task_temporary_skills() 未向 temporary_skill_experience 写 device_id，与 validate_optional_task_provenance 冲突，设备 Task 终态被回滚。双设备真库已复现；参见 docs/gowm-shared-storage/UPSTREAM_STORAGE_GAP.md，未执行 DDL 或规避约束。

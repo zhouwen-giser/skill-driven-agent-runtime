@@ -1,0 +1,70 @@
+{
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "scope": "A2A projection ownership fix and normal Server immediate-result dual-device subset",
+  "runtimeRun": "gowm-runtime-5422cc6b-aa3b-414a-b762-d7bfd7ada3ad",
+  "repositoryRun": "sdar-pg-ebae7df8-37c5-4be2-be4c-ad242b267aca",
+  "commands": [
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "result": "PASS: 19 Repository scenario groups including native A2A projection ownership, scope and terminal monotonicity"
+    },
+    {
+      "command": "timeout --signal=TERM --kill-after=5s 120s node --env-file=.state/gowm-storage/runtime-test.env --import tsx scripts/gowm-runtime-execution.mts",
+      "result": "PASS: official A2A client, normal Server, configured Task Type, formal Skill selection/input/DSL confirmation, LangGraph and local Frozen MCP; two completed Tasks, two tool calls, per-device persisted lineage and MCP budget=1; cleanupErrors=[]"
+    },
+    {
+      "command": "pnpm exec vitest run --project contract packages/mcp-adapter/test/frozen-v1-http.contract.test.ts packages/mcp-adapter/test/frozen-v1-registry.contract.test.ts --maxWorkers=2",
+      "result": "PASS: 22"
+    },
+    {
+      "command": "pnpm exec vitest run --project unit packages/a2a-adapter/test/postgres-task-store.unit.test.ts --maxWorkers=2",
+      "result": "PASS: 5"
+    },
+    {
+      "command": "pnpm typecheck",
+      "result": "PASS after final SDK adapter helper move"
+    },
+    {
+      "command": "node scripts/check-architecture.mjs",
+      "result": "PASS: 936 TS source files"
+    },
+    {
+      "command": "targeted ESLint and Prettier for changed source/helpers",
+      "result": "PASS after reported optional-chain, narrowing and SDK-boundary fixes"
+    }
+  ],
+  "preservedFailures": [
+    {
+      "run": "gowm-runtime-b7e3d636-929e-4fd2-ab95-82fec9db8430",
+      "reason": "TASK_PROVENANCE_DEVICE_MISMATCH from missing native device_id in external_task_projection; fixed source, not database trigger"
+    },
+    {
+      "run": "gowm-runtime-2f40b075-5b42-41c8-be5c-d6cf2a401cd9",
+      "reason": "Fixture Skill omitted explicit Usage visibility; Task understanding correctly rejected absent public capability"
+    },
+    {
+      "run": "gowm-runtime-9bffdd2b-4cc9-46c8-adf2-12b9e54b6682",
+      "reason": "Fixture lacked actual decide_task_intent stage; added explicit stage implementation"
+    },
+    {
+      "taskId": "e9d29bc6-ec2a-4172-a862-b89ed869c9ac",
+      "reason": "Fixture incorrectly assumed nested input.skillInput; actual TaskService.executionInput supplies resolved Skill input directly. Corrected to input.resourceId. Failed shutdown previously interrupted report writing; driver now attempts every close and persists cleanup errors."
+    },
+    {
+      "run": "gowm-runtime-4b8d9d4d-cab7-426f-a92f-6eb297e321cd",
+      "reason": "Generic MCP fixture omitted required outcome effect refs. Extended synthetic read fixture to return requested resource and explicit effects; retained Goal effect requirements."
+    }
+  ],
+  "openFindings": [
+    "PlanningInteractionEpisode/Correction native tables include device_id but writers still omit it; terminal capture logs P0001. Full cognitive scope remains open.",
+    "Dedicated runtime fixture lacks Task wait policy configuration; previous model ports persist across runs and may emit startup reconciliation warnings. Must stabilize final fixture/runtime bootstrap.",
+    "Evidence projection failure warning observed; complete projection/retention audit still pending.",
+    "Evaluation-memory volatile refusal is preserved; synthetic device state is not durable world truth.",
+    "Remote waiting/canonical/recovery, targets through normal flow, auxiliary Provider link contract gap, all prescribed checks/cleanup and Draft PR remain incomplete."
+  ],
+  "externalDebug": {
+    "authorization": "User explicitly authorized service/device and subsequently capability/Task Type/runtime-context diagnostic payload",
+    "diagnosticResult": "Same audited task_understanding request timed out after 65001ms; minimal structured request earlier HTTP 200 in 2462ms; no tool dispatch and root cause unproven"
+  }
+}

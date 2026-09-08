@@ -1,0 +1,63 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "recordedAt": "2026-09-08T08:18:40.868615+00:00",
+  "implemented": [
+    "Invocation ownership and frozen Task/server/resource validation before MCP transport; synchronous and journal receipts use one native writer",
+    "Full device/service/server/opaque-handle Remote identity; real Binding transaction derives DISPATCHED targets from actual Invocation arguments",
+    "Nullable canonical association uses actual persisted receipt and discovery evidence; bounded reconciliation links terminal bindings without remote resend or lifecycle/version change",
+    "Admission prepare, receipt locks, CAS/fallback, recovery scan and observation use immutable Task scope; normal composition passes the configured scope",
+    "Process-loss recovery filters native Tasks, Instances and Attempts by configured scope; only committed owned Task states are published"
+  ],
+  "commands": [
+    {
+      "command": "pnpm exec vitest run --project unit packages/persistence-postgres/test/remote-task-admission-intent-store.unit.test.ts packages/persistence-postgres/test/runtime-recovery-admission-intent.unit.test.ts packages/persistence-postgres/test/gowm-mcp-ownership.unit.test.ts packages/application/test/mcp-registry.unit.test.ts packages/application/test/frozen-mcp-registry.unit.test.ts packages/application/test/remote-task-polling.unit.test.ts",
+      "exitCode": 0,
+      "tests": 125
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint packages/persistence-postgres/src/gowm-mcp-ownership.ts packages/persistence-postgres/src/gowm-canonical-mcp-link.ts packages/persistence-postgres/src/mcp-invocation-writer.ts packages/persistence-postgres/src/remote-task-admission-intent-store.ts packages/persistence-postgres/src/remote-task-repository.ts packages/persistence-postgres/src/repositories.ts packages/persistence-postgres/test/gowm-*.ts packages/application/src/mcp-registry.ts packages/application/src/frozen-task-notifications.ts packages/application/src/remote-task-polling.ts packages/application/src/ports.ts packages/domain/src/mcp.ts packages/domain/src/remote-task.ts apps/server/src/runtime.ts",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/check-architecture.mjs",
+      "exitCode": 0,
+      "sourceFiles": 926
+    },
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "exitCode": 0,
+      "run": "sdar-pg-d894ab8a-0bcd-462c-804c-bc99d33cea32",
+      "scenarioGroups": 13,
+      "report": "postgres-sdar-pg-d894ab8a-0bcd-462c-804c-bc99d33cea32.json"
+    }
+  ],
+  "preservedPriorFailures": [
+    {
+      "failure": "mcp_tool_execution_semantics_authority_check",
+      "cause": "Synthetic fixture omitted declaredExecutionSemantics required by mcp_declared authority",
+      "resolution": "Corrected the fixture; unchanged native constraint"
+    },
+    {
+      "failure": "permission denied for table provider_task",
+      "cause": "SELECT FOR KEY SHARE needs UPDATE privilege on the SMPP parent",
+      "resolution": "Keep consumer without SMPP DML; pure SELECT and full parent identity EXISTS recheck in own canonical UPDATE"
+    },
+    {
+      "failure": "TypeScript notification error union and targeted lint diagnostics",
+      "resolution": "Declared stable ambiguity error, nullable SQL evidence type and strict typed test rows; current typecheck/lint pass"
+    }
+  ],
+  "limits": [
+    "All current PostgreSQL evidence is production Repository subset, not normal Server/LangGraph/Frozen MCP network execution",
+    "Consumer role has no SMPP INSERT/UPDATE/DELETE; synthetic native parents are published by a separate peer role only in the owned local test database",
+    "Pinned canonical association is trigger constrained; do not claim a physical FK absent from the contract",
+    "Actual MCP Schema/mapping provenance still needs freezing against mutable catalog changes",
+    "Admission/UGV mappings, all cancellation/input/continuation/reconciliation/subscription/event/retention scopes, full normal Server composition and required final regressions remain open",
+    "Owned database container retained for the next required tests; connection pools close, but final container/resource cleanup is not yet claimed",
+    "No GOWM/SMPP source changes, no shared deployment, no model/device validation, no commit/push/Draft PR delivery yet"
+  ]
+}

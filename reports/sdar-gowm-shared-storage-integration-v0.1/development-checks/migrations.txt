@@ -1,0 +1,26 @@
+$ node scripts/verify-migration-path.mjs
+{"event":"verification.cleanup_failed","resource":"migration-startup","error":"V13_ISOLATED_DOCKER_CLEANUP_FAILED:container:sdar-p13-migration-source-64-be1bec02c432,container:sdar-p13-migration-target-64-be1bec02c432,volume:sdar-p13-migration-source-data-64-be1bec02c432,volume:sdar-p13-migration-target-data-64-be1bec02c432"}
+node:internal/child_process:1120
+    result.error = new ErrnoException(result.error, 'spawnSync ' + options.file);
+                   ^
+
+Error: spawnSync docker EPERM
+    at Object.spawnSync (node:internal/child_process:1120:20)
+    at spawnSync (node:child_process:902:24)
+    at tryDocker (file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/verify-migration-path.mjs:1061:10)
+    at runDocker (file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/verify-migration-path.mjs:1050:18)
+    at ensureDockerImage (file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/verify-migration-path.mjs:970:5)
+    at startIsolatedMigrationInfrastructure (file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/verify-migration-path.mjs:782:5)
+    at file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/verify-migration-path.mjs:134:34 {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'spawnSync docker',
+  path: 'docker',
+  spawnargs: [
+    'pull',
+    'pgvector/pgvector@sha256:69573b32242ca232f65871d4cb916ba7210a372b9bd74068204c1a9a57bada4f'
+  ]
+}
+
+Node.js v22.23.1
+[ELIFECYCLE] Command failed with exit code 1.

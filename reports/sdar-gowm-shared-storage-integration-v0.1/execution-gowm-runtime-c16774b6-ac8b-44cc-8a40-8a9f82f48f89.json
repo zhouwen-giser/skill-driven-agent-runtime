@@ -1,0 +1,130 @@
+{
+  "run": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89",
+  "status": "PASS",
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "lineage:gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-a": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-a",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-a",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-a",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-a",
+      "count": "4"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-a",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-a",
+      "count": "1"
+    }
+  ],
+  "lineage:gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-b": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-b",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-b",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-b",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-b",
+      "count": "4"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-b",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-c16774b6-ac8b-44cc-8a40-8a9f82f48f89-b",
+      "count": "1"
+    }
+  ],
+  "taskIds": [
+    "f9097e1e-8502-4f8f-811e-7e9728516c28",
+    "a3d21c3c-c602-479b-999f-226ca31916d3"
+  ],
+  "modelStages": [
+    "embedding",
+    "experience_reflection",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 2,
+  "cleanupErrors": [],
+  "acceptanceStatus": "INCOMPLETE",
+  "coverageLimit": "Immediate-result synthetic MCP only; no remote waiting/canonical/recovery/targets. Background warnings remain open."
+}

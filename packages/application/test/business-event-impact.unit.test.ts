@@ -8,12 +8,14 @@ import {
   createRemoteTaskBinding,
   createUserGoalPlan,
   type BusinessEventRelationProjection,
+  type BusinessEventSubscription,
   type EventImpactAssessment,
   type EventIncident,
   type UserGoalPlan,
 } from '../../domain/src/index.js';
 import {
   EmergencySkillIsolationService,
+  ContinuityImpactService,
   EventImpactRecoveryService,
   TaskImpactAssessmentService,
   type BusinessEventImpactRepository,
@@ -47,6 +49,79 @@ describe('Business Event impact and recovery', () => {
       action: 'reconcile_remote_task',
     });
     expect(recovery.apply).toHaveBeenCalledOnce();
+  });
+
+  it('resolves equal remote handles by the persisted subscription device and rejects cross-device results', async () => {
+    const events = new ImpactRepository();
+    const identity = { deviceId: 'device-a', smppServiceKey: 'service-a' };
+    vi.spyOn(events, 'findBusinessEventSubscription').mockResolvedValue({
+      ...events.subscription,
+      deviceIdentity: identity,
+    });
+    const find = vi.fn(() => Promise.resolve({ ...binding(), deviceIdentity: identity }));
+    const recovery = { apply: vi.fn(() => Promise.resolve()) };
+    const service = new TaskImpactAssessmentService({
+      events,
+      bindings: { findByRemoteIdentity: find },
+      plans: new PlanRepository(plan('executing')),
+      relations: { resolve: () => Promise.resolve(completeRelation(['remote-1'])) },
+      recovery,
+      clock,
+      nextAssessmentId: () => 'assessment-device',
+    });
+    await service.process(taskInbox('vehicle.connectivity.lost'));
+    expect(find).toHaveBeenCalledWith('server-1', 'remote-1', identity);
+    expect(recovery.apply).toHaveBeenCalledOnce();
+    find.mockResolvedValue({ ...binding(), deviceIdentity: { ...identity, deviceId: 'device-b' } });
+    await expect(service.process(taskInbox('vehicle.connectivity.lost'))).rejects.toMatchObject({
+      code: 'BUSINESS_EVENT_REMOTE_DEVICE_IDENTITY_MISMATCH',
+    });
+    expect(recovery.apply).toHaveBeenCalledOnce();
+    expect(events.assessments).toHaveLength(1);
+  });
+
+  it('separates continuity incidents by the durable subscription and rejects mismatched streams', async () => {
+    const events = new ImpactRepository();
+    const source = vi.spyOn(events, 'findBusinessEventSubscription');
+    const service = new ContinuityImpactService({
+      events,
+      clock,
+      hash,
+      nextIncidentId: () => `incident-${String(events.incidents.length)}`,
+    });
+    for (const deviceId of ['device-a', 'device-b']) {
+      const subscription = {
+        ...events.subscription,
+        subscriptionId: deviceId,
+        deviceIdentity: { deviceId, smppServiceKey: 'service' },
+      };
+      source.mockResolvedValue(subscription);
+      const continuity = {
+        continuityId: deviceId,
+        subscriptionId: deviceId,
+        previousStreamId: subscription.streamId,
+        newStreamId: 'next-stream',
+        reasonCode: 'SOURCE_STREAM_RESET' as const,
+        affectedSourceIds: [],
+        gapDetectedAt: clock.now(),
+        lastReplayableSequence: '1',
+        createdAt: clock.now(),
+      };
+      await service.handle(continuity, subscription.providerId);
+      await service.handle(continuity, subscription.providerId);
+      await expect(
+        service.handle(
+          { ...continuity, previousStreamId: 'foreign-stream' },
+          subscription.providerId,
+        ),
+      ).rejects.toMatchObject({ code: 'BUSINESS_EVENT_CONTINUITY_SUBSCRIPTION_MISMATCH' });
+    }
+    expect(events.incidents).toHaveLength(2);
+    expect(events.incidents.map((incident) => incident.subscriptionId)).toEqual([
+      'device-a',
+      'device-b',
+    ]);
+    expect(events.incidents[0]?.dedupeKey).not.toBe(events.incidents[1]?.dedupeKey);
   });
 
   it('never authorizes no impact from an incomplete Provider relation', async () => {
@@ -197,7 +272,7 @@ describe('Business Event impact and recovery', () => {
 class ImpactRepository implements BusinessEventImpactRepository {
   readonly assessments: EventImpactAssessment[] = [];
   readonly incidents: EventIncident[] = [];
-  readonly subscription = {
+  readonly subscription: BusinessEventSubscription = {
     subscriptionId: 'subscription-1',
     providerId: 'server-1',
     streamId: '018f0d4e-7b3a-7cc1-8d57-2f4d9e2a0001',

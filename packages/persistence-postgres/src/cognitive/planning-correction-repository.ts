@@ -1,3 +1,5 @@
+import { taskChildScopeSql, taskDeviceScopeSql } from '../gowm-work-scope.js';
+import { DeviceScopeError, type DeviceWorkScope } from '../../../domain/src/device-task-context.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
@@ -112,7 +114,10 @@ interface EpisodeRow extends QueryResultRow {
 export class PostgresPlanningCorrectionRepository implements PlanningCorrectionRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  constructor(
+    pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {
     this.#pool = pool;
   }
 
@@ -120,9 +125,10 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
     taskId: string,
     idempotencyKey: string,
   ): Promise<PlanningCorrectionFact | undefined> {
+    const scope = taskChildScopeSql(this.deviceScope, 3, 'planning_correction_fact');
     const result = await this.#pool.query<CorrectionRow>(
-      `${correctionSelect()} WHERE task_id=$1 AND idempotency_key=$2`,
-      [taskId, idempotencyKey],
+      `${correctionSelect()} WHERE task_id=$1 AND idempotency_key=$2 AND ${scope.predicate}`,
+      [taskId, idempotencyKey, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapCorrection(result.rows[0]);
   }
@@ -131,6 +137,7 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const deviceId = await this.taskDevice(client, fact.taskId);
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtext('sdar:v123:planning-correction:' || $1))",
         [fact.taskId],
@@ -145,10 +152,10 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
            correction_id,task_id,goal_id,goal_version,session_id,turn_id,idempotency_key,actor_id,
            target_scope,correction_type,scope,tenant_id,user_id,before_snapshot,user_instruction,
            structured_patch,after_snapshot,validation,accepted,preference_category,final_outcome_ref,
-           counterexample_refs,correction_hash,source_refs,created_at
+           counterexample_refs,correction_hash,source_refs,created_at${this.deviceScope === undefined ? '' : ',device_id'}
          ) VALUES (
            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15,$16::jsonb,$17::jsonb,
-           $18::jsonb,$19,$20,$21,$22::jsonb,$23,$24::jsonb,$25
+           $18::jsonb,$19,$20,$21,$22::jsonb,$23,$24::jsonb,$25${this.deviceScope === undefined ? '' : ',$26'}
          )`,
         [
           fact.correctionId,
@@ -176,6 +183,7 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
           fact.correctionHash,
           JSON.stringify(fact.sourceRefs),
           fact.createdAt,
+          ...(this.deviceScope === undefined ? [] : [deviceId]),
         ],
       );
       const eventId = `planning.correction_recorded:${fact.correctionId}`;
@@ -215,25 +223,28 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
   }
 
   async listByTask(taskId: string): Promise<readonly PlanningCorrectionFact[]> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'planning_correction_fact');
     const result = await this.#pool.query<CorrectionRow>(
-      `${correctionSelect()} WHERE task_id=$1 ORDER BY created_at,correction_id`,
-      [taskId],
+      `${correctionSelect()} WHERE task_id=$1 AND ${scope.predicate} ORDER BY created_at,correction_id`,
+      [taskId, ...scope.values],
     );
     return result.rows.map(mapCorrection);
   }
 
   async listUserScoped(userId: string): Promise<readonly PlanningCorrectionFact[]> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'planning_correction_fact');
     const result = await this.#pool.query<CorrectionRow>(
-      `${correctionSelect()} WHERE scope='user' AND user_id=$1 ORDER BY created_at,correction_id`,
-      [userId],
+      `${correctionSelect()} WHERE scope='user' AND user_id=$1 AND ${scope.predicate} ORDER BY created_at,correction_id`,
+      [userId, ...scope.values],
     );
     return result.rows.map(mapCorrection);
   }
 
   async listTenantScoped(tenantId: string): Promise<readonly PlanningCorrectionFact[]> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'planning_correction_fact');
     const result = await this.#pool.query<CorrectionRow>(
-      `${correctionSelect()} WHERE scope='tenant' AND tenant_id=$1 ORDER BY created_at,correction_id`,
-      [tenantId],
+      `${correctionSelect()} WHERE scope='tenant' AND tenant_id=$1 AND ${scope.predicate} ORDER BY created_at,correction_id`,
+      [tenantId, ...scope.values],
     );
     return result.rows.map(mapCorrection);
   }
@@ -242,6 +253,7 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
     const client = await this.#pool.connect();
     try {
       await client.query('BEGIN');
+      const deviceId = await this.taskDevice(client, input.taskId);
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtext('sdar:v123:planning-interaction:' || $1))",
         [input.taskId],
@@ -264,8 +276,8 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
         `INSERT INTO planning_interaction_episode(
            episode_id,task_id,goal_id,goal_version,tenant_id,user_id,revision,original_request,
            outcome_ref,counterexample_refs,induction_fingerprint,episode_hash,completeness,
-           snapshot,source_refs,created_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14::jsonb,$15::jsonb,$16)`,
+           snapshot,source_refs,created_at${this.deviceScope === undefined ? '' : ',device_id'}
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14::jsonb,$15::jsonb,$16${this.deviceScope === undefined ? '' : ',$17'})`,
         [
           episode.episodeId,
           episode.taskId,
@@ -283,6 +295,7 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
           JSON.stringify(episodeSnapshot(episode)),
           JSON.stringify(episode.sourceRefs),
           episode.createdAt,
+          ...(this.deviceScope === undefined ? [] : [deviceId]),
         ],
       );
       await client.query('COMMIT');
@@ -296,11 +309,22 @@ export class PostgresPlanningCorrectionRepository implements PlanningCorrectionR
   }
 
   async listEpisodes(taskId: string): Promise<readonly PlanningInteractionEpisode[]> {
+    const scope = taskChildScopeSql(this.deviceScope, 2, 'planning_interaction_episode');
     const result = await this.#pool.query<EpisodeRow>(
-      `${episodeSelect()} WHERE task_id=$1 ORDER BY revision`,
-      [taskId],
+      `${episodeSelect()} WHERE task_id=$1 AND ${scope.predicate} ORDER BY revision`,
+      [taskId, ...scope.values],
     );
     return result.rows.map(mapEpisode);
+  }
+  private async taskDevice(client: PoolClient, taskId: string): Promise<string | null | undefined> {
+    if (this.deviceScope === undefined) return undefined;
+    const scope = taskDeviceScopeSql(this.deviceScope, 2, 'owner_task');
+    const result = await client.query<{ device_id: string | null }>(
+      `SELECT owner_task.device_id FROM agent_task owner_task WHERE owner_task.task_id=$1 AND ${scope.predicate} FOR KEY SHARE`,
+      [taskId, ...scope.values],
+    );
+    if (result.rows[0] === undefined) throw new DeviceScopeError('DEVICE_SCOPE_DENIED');
+    return result.rows[0].device_id;
   }
 }
 

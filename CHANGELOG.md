@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-08 — GOWM shared storage integration started
+
+- Preserve the complete task package and pin the GOWM shared storage contract; inventory native SQL consumers.
+- Add explicit device scope, deployment configuration and read-only storage verification; wire shared Pool selection and migration suppression into the normal Server entry point.
+- Add normal TaskService directory resolution, immutable Task ownership, scoped root Task SQL and initial admission device/service keys with internal admission UUID. Related unit regressions pass; Workflow and other writers remain in progress.
+- Persist planning roots before device attempts within the same transaction; finalize only unexecuted plans. Add scoped instance/event persistence and real PostgreSQL dual-device Repository verification.
+- Add schema-declared spatial targets in native Skill input and Plan transactions, persistent CRS diagnostics, exact owner idempotency, and guarded GOWM node aliases that preserve DSL/confirmation hashes. Verify Point/Polygon/LineString, local frames, concurrent reuse and rollback in the isolated PostgreSQL database.
+- Derive MCP Invocation ownership before transport and in journal transactions; scope Remote identity, create DISPATCHED targets on real Binding admission, and reconcile verified canonical parents without remote resend. Preserve consumer SELECT-only access to SMPP.
+- Scope Admission journal reads/CAS/recovery/observations and process-loss Task/Instance/Attempt recovery. Verify cross-device denial and repeated recovery with 13 real PostgreSQL scenario groups; 125 related unit regressions, typecheck, targeted lint and architecture pass.
+- Scope cancellation/input/lifecycle and normal Task Input/attempt dispatch repositories. Reject cross-parent audit/response injection and adapt pinned GOWM workflow input storage to the remote_task Domain source using its exact native link; 15 PostgreSQL scenario groups and 67 related unit regressions pass.
+- Scope continuation snapshots/control inbox/claims/attempts through native ownership and exact waits; repair property-order-sensitive idempotency with canonical content comparison. Repeated content succeeds and altered content conflicts in the real PostgreSQL regression.
+- Scope reconciliation and Provider execution-link stores in normal composition; preserve idempotency and reject foreign writes. Record the pinned auxiliary global server/handle unique-key gap as INCOMPLETE; no GOWM constraint or opaque identity is altered.
+- Restrict wait-timeout cancellation to the configured device/service and preserve ownership in committed Task callbacks; verify atomic input/event effects, repeated sweep and explicit non-device isolation in PostgreSQL.
+- Admission/UGV mappings, frozen target Schema provenance, remaining workers/retention and normal Server/MCP end-to-end validation remain in progress. No running deployment is switched.
+
 ## 2026-09-07 — Runtime development repair completed
 
 - Complete approved A/B/C development scope; the frozen-source reuse gate passed all 30 stages, with 2477 unit, 534 contract, 242 integration and 75 E2E tests, all three smokes and successful cleanup.
@@ -2346,3 +2361,99 @@ All notable changes to this project are documented here. The format follows Keep
 - PostgreSQL-authoritative configurable Evolution success threshold with management GET/PUT and immutable per-Experience trigger audit records.
 - Reproducible Skill induction reports covering consistency, stability, generalizability and duplication against the current formal Skill registry.
 - Fail-closed capability-boundary evolution that creates either an immutable existing-Skill version or a distinct new Skill with a persisted decision reason.
+
+### GOWM normal composition smoke (2026-09-08)
+
+- Add an isolated pinned-contract runtime fixture and normal Server startup/shutdown smoke. Preserve the earlier malformed-fixture failure; require zero consumer connections after close. Full Task/protocol execution remains pending.
+
+### GOWM normal A2A execution (2026-09-08)
+
+- Derive external A2A projection device ownership from its native Task and restrict save/find/list to Server scope. Preserve context identity and monotonic terminal updates.
+- Verify normal dual-device Task, formal Skill selection, DSL confirmation and LangGraph execution using local Model/Frozen MCP fixtures; inspect persisted lineage and one-call budgets. Full Remote/target/background coverage remains open.
+
+### GOWM planning interaction and remote continuation (2026-09-08)
+
+- Scope planning correction/episode writers and readers to their native Task and persist device ownership without changing GOWM DDL.
+- Verify actual terminal interaction capture and two normal Server Remote Task continuations with exact persisted 2.0 snapshots, successful acknowledgement and one-call budgets; delayed canonical and full acceptance remain open.
+
+2026-09-08 冻结 Schema 增量：正式 MCP 派发将精确 operation/inputSchema 深拷贝到既有 authority snapshot，receipt/恢复沿用该快照；共享 DISPATCHED 目标不再查询可变 mcp_tool。缺快照或操作不匹配时显式拒绝新的共享 admission，旧行与 hash 不改写。41 项 unit、20 组真实 PostgreSQL 场景及正常双设备 Remote 链通过（sdar-pg-f899c0bf-1a98-40e5-941f-eb0ecacdf301；gowm-runtime-3772c61d-eaf1-4348-bbcd-c5fe273d244a），正常链每设备一次 MCP，快照持久化、continuation 成功且 cleanupErrors=[]。证据 progress-20260908-frozen-schema.json。仅增量已验证；正常 canonical/targets 组合、其余后台范围、辅助 link 合同缺口和最终交付仍开放。
+
+2026-09-08 正常延迟 canonical 增量：正常 Server 双设备 Remote Task 完成后，独立受限测试 peer 才发布合成 ugv_smpp 父行；现有后台自动补齐 canonical，未调用测试专用 reconcile，Binding version/Runtime revision 不变，MCP 总调用仍为 2。官方 gowm_business_v1.task_execution_lineage 回读设备及 MCP ID 正确，未伪造 Provider execution/Mission，missing_stage 仍 PROVIDER_PENDING。run gowm-runtime-d0036451-a307-4ac1-8088-36f8039ac18f，cleanupErrors=[]；22 项 Frozen HTTP/registry contract 通过。证据 progress-20260908-normal-canonical.json。完整 Goal 仍开放，targets、其他后台/恢复组合、辅助 link 合同缺口及最终交付未完成。
+
+2026-09-08 正常目标链增量：本地 Model/Frozen MCP 协议桩通过正式 A2A、Skill 输入、确认 DSL、LangGraph 和共享 PostgreSQL，双设备远程场景保存 REQUESTED/PLANNED/DISPATCHED；同步场景按 FULL_CN 合同只保存 REQUESTED/PLANNED，Invocation 原参完整且无 Remote Binding。两条路径每设备调用 1 次，局部 Point (12,34) 的 native_crs=LOCAL:synthetic-grid、WGS84 为空，官方目标视图回读通过。remote gowm-runtime-3645ddb4-02b8-4332-8330-18c6bad3c9ac；sync gowm-runtime-1c02d1e8-3ae3-4a0a-b8ac-219fb92ca480；cleanupErrors=[]。22 项协议、typecheck/lint、938 文件架构检查通过。证据 progress-20260908-normal-targets.json。仅局部 Point 正常链已验证，几何/目标修订组合、后台范围、恢复组合与完整交付仍开放。
+
+2026-09-08 Business Event 身份读取/影响评估增量：订阅投影保留原生 device_id/smpp_service_key，Domain 区分未配置与显式非设备；Remote 查找传入持久订阅身份，跨 server/handle/device/service 结果在影响写入和恢复动作前拒绝。12 项 Application 事件测试与 1 项仓储投影 unit 通过；后者使用模拟 SQL 行，不能作为真库订阅集成证明。初次 5 项监听测试受沙箱 EPERM 阻止，同套在允许回环监听后通过。证据 progress-20260908-event-identity.json。订阅 writer、current/generation、连接与 worker 范围仍未完成；本增量不关闭业务事件完整要求。
+
+- GOWM shared storage（开发中）：证据 outbox 从 Task 推导设备归属，限定 Runtime/Skill/MCP 证据源范围；MCP arguments hash 在 Evidence 边界规范为 sha256: 表示。当前模块验证见 EP-GOWM-SHARED-STORAGE-INTEGRATION，整体交付未完成。
+
+- GOWM 开发增量：Goal 判定/效果保存来源 Task，设备效果指纹分离；共享 Gateway、Evidence/Replay 保留与 MCP 协议快照删除保护已接入。当前回归与剩余范围见 EP-GOWM-SHARED-STORAGE-INTEGRATION，非发布完成声明。
+
+- GOWM 共享恢复进度及决策记录 Task 来源，事务写入核对设备归属；旧无来源进度无法安全归属时显式拒绝恢复。
+
+- GOWM 结果写入核对来源 Task 与 Plan/设备；终态提交、读取和 warning 更新限定设备范围，跨设备效果失效被拒绝。
+
+- GOWM Skill 子调用保留父 Task 归属，关联仓储限制设备并拒绝 callId 身份改写。
+
+- GOWM 普通子工作流从共享确认定义创建 Task 执行计划，通用父子关联核对设备及 Task，保留源定义。
+
+- 增加共享 GOWM 上双设备 LangGraph 普通子流程确认恢复回归，验证子实例唯一性、Task 归属及预算。
+
+- 修复 GOWM Evidence 期望及 manifest 缺少 device_id 的写入，重建前验证 Task 与已有 episode 归属。
+
+- GOWM Evidence 期望、manifest、管理 outbox 查询按实际 Task 限定设备范围。
+
+- GOWM Evidence replay/retry 在请求、claim 和执行前校验目标设备，coverage 目标生成限定 Task 范围。
+
+- Evidence recovery 在 target JSON 冻结设备范围摘要，队列与恢复操作限制同范围，旧无来源请求显式拒绝接管。
+
+- 增加共享 GOWM coverage recovery 正向持久闭环回归，验证批量目标设备范围及 claim/完成幂等。
+
+- Evidence issue 读取支持从真实 Task episode 证明归属，死信按原 Evidence Task 限定设备。
+
+- Evidence issue 创建/更新与批量 resolve 复用实际来源范围，拒绝跨设备身份改写并保留外设备修订。
+
+- GOWM 直接 Task checkpoint 校验分区编码、实际 Task 归属和已有分区 Evidence 范围。
+
+
+2026-09-08：按耗时反馈整理 GOWM 剩余实施方案，区分在途缺陷、必要集成补缺、延期和上游阻塞；取消重复正常链、重复 unit/contract 集合和逐小步报告扩张。未修改业务代码或提升验收状态。
+
+
+2026-09-08：Evidence infrastructure 投影加入设备来源/reference 范围；新增归属使用独立修订，保留旧证据身份，避免 v2 诊断递归。
+
+
+2026-09-08：修复共享存储 Skill 子计划自动确认未传父 Task ID 导致的确认失败；扩展已有子执行夹具，验证双设备真实执行和重入幂等。
+
+
+2026-09-08：增加正常 Server 的双设备 Business Event 接收/重复投递/影响持久化验证；复用现有目标几何与回滚回归，避免同类测试扩张。
+
+
+2026-09-08：复用原 GOWM driver 增加 --cancel，验证真实远程取消和待确认 successor；模型 fixture 区分成功/取消失败，PASS 必须模型桩零失败。
+
+
+2026-09-08：共享模式 Evidence retention 每日调度身份包含规范化设备范围；保持 standalone 和旧记录不变，避免不同 worker 命中同一恢复记录。
+
+
+2026-09-08：临时 Skill Repository 增加原生设备写入、Task/Context 范围和完成身份检查；记录原生终态触发器设备归属冲突，未修改上游结构。
+
+
+2026-09-08：增加 GOWM runtime 测试脚本入口和无副作用 --help，补 worker-scope-inventory 与交接文档当前状态，不提升验收结论。
+
+
+2026-09-08：为 Evidence quality authority source 装配设备范围，过滤 Task 来源及范围外导出批次，避免先全局返回再由写入端拒绝。
+
+### 2026-09-08 开发执行范围收敛
+
+- 更新现有 GOWM ExecPlan：移除已经有分项证据的重复开发项，锁定在途收尾、关键恢复差异与一次开发交付。
+- 单列两个上游合同阻塞；外围审计和发布级证明继续开放，停止重复夹具、逐补丁全链和逐小步报告。此次仅调整计划，无新增实现或测试通过声明。
+
+
+2026-09-08 R1 Artifact：上次会话句柄均已失效，隔离库无执行记录，未据此推断通过。重新执行暴露夹具 ENOENT（错误 packages/schemas 路径）；改为相对 import.meta.url 的现有 golden fixture 后，verifyGowmArtifactExecutionScope 在既有 ce11 双设备 Task 上通过 start 原生 device_id、越界 start/complete/feedback 拒绝及所属完成/反馈写入。仅证明仓储和事务入口，不证明 Artifact 全生命周期。
+
+
+2026-09-08 R2 父 Task 取消：复用现有 runtime driver 新增 --parent-cancel，经官方 A2A 客户端每设备重复取消两次。报告 execution-gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b.json 为 PASS：两个 Task 和对应 Workflow instance 均 canceled 且 device_id 正确，工具总调用 2，本地模型夹具失败 0，cleanupErrors=[]。此证据不宣称 Provider 已终止、物理进程重启或迟到回调全部完成；启动仍有已有模型路由 MODEL_INVOCATION_FAILED 告警。进程丢失现有 gowm-recovery.postgres-cases.ts 已证明持久恢复范围、重复调用无新增状态，真实进程重启组合仍开放。
+
+
+2026-09-08 集中回归结束：SDAR_VERIFY_ISOLATED=true pnpm test 退出 0，351 文件/3064 项全通过，124.36 秒；本批 136 个修改代码文件 prettier --check 通过。完整日志保存 development-checks/，不重复启动已通过集合。迁移检查仍失败；验收索引保留全部 45 项及开放状态，最终交付尚未完成。
+
+
+2026-09-08 开发交付整理：最终 PG driver 26 组通过（616862f8）；正常 Remote 代表链 d6f0a68a 通过，两次工具、2.0 continuation 完成、canonical 延迟补齐无重发，cleanupErrors=[]。FINAL_REPORT.md/json、postgres-results、runtime-smoke-results、optional-smpp-interop 和 45 项 acceptance-results 已保存，整体 INCOMPLETE。两个本任务隔离容器及匿名 PG 卷已清理并回查为空；用户实例未动。准备单仓提交与 Draft PR；原 Goal 的未完成范围保持开放。

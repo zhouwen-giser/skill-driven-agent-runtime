@@ -1,0 +1,59 @@
+{
+  "status": "SDAR_GOWM_SHARED_STORAGE_INCOMPLETE",
+  "recordedAt": "2026-09-08T08:55:47.289601+00:00",
+  "implemented": [
+    "Reconciliation append/read/next-attempt allocation resolve immutable admission Task scope and logical identity",
+    "Provider execution link shared writes verify native binding/server/operation/handle; reads and conflict fallback use Binding/Task scope",
+    "Normal Server supplies deviceWorkScope to both stores; standalone Provider link insertion behavior retained"
+  ],
+  "verification": [
+    {
+      "command": "pnpm exec vitest run --project unit packages/domain/test/mcp-task-consumer-sync.unit.test.ts packages/application/test/remote-task-admission-recovery.unit.test.ts packages/persistence-postgres/test/remote-task-admission-intent-store.unit.test.ts",
+      "exitCode": 0,
+      "tests": 34
+    },
+    {
+      "command": "node --env-file=.state/gowm-storage/test.env --import tsx scripts/gowm-storage-postgres.mts",
+      "exitCode": 0,
+      "scenarioGroups": 17,
+      "run": "sdar-pg-712bb588-087c-49c5-8243-5360efcaf329",
+      "acceptanceStatus": "INCOMPLETE",
+      "knownContractGaps": [
+        "auxiliary-link-contract-gap.json"
+      ]
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec eslint packages/persistence-postgres/src/remote-task-consumer-sync-repository.ts packages/persistence-postgres/test/gowm-{admission,consumer-sync,remote}.postgres-cases.ts apps/server/src/runtime.ts",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/check-architecture.mjs",
+      "exitCode": 0,
+      "sourceFiles": 931
+    }
+  ],
+  "preservedFailures": [
+    {
+      "constraint": "remote_task_reconciliation_attempt_check1",
+      "classification": "fixture",
+      "resolution": "not_found fixture now supplies its required safe error code; native check unchanged"
+    }
+  ],
+  "knownContractGap": {
+    "report": "auxiliary-link-contract-gap.json",
+    "table": "ugv_sdar.remote_task_provider_execution_link",
+    "constraint": "remote_task_provider_executio_runtime_server_id_remote_task_key",
+    "observed": "Two correctly scoped native Remote Bindings can share one handle, but their auxiliary Provider execution links cannot coexist under the pinned global server/handle key. Reproduced rejection without cross-device overwrite.",
+    "disposition": "INCOMPLETE; no handle namespacing, shadow table, GOWM DDL change or weakened uniqueness. Must resolve before declaring full required integration complete."
+  },
+  "limits": [
+    "Repository evidence only; auxiliary conflict refusal is not successful dual-device link functionality",
+    "No external MCP/model or checkpoint execution; normal Server/LangGraph/Frozen stub full flow remains pending",
+    "Other event/subscription/retention scopes, input mappings, invocation target Schema freezing, final checks/cleanup/commit/push/Draft PR still open",
+    "Owned local test DB retained and pools closed; no GOWM/SMPP or deployment changes"
+  ]
+}

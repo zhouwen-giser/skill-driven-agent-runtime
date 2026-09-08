@@ -1,3 +1,4 @@
+import { snapshotRemoteTaskInputValue } from './remote-task-input.js';
 import { DomainError } from './errors.js';
 import type {
   InternalToolResult,
@@ -37,6 +38,8 @@ export interface RemoteTaskAuthoritySnapshot {
     catalogRevision: string;
     catalogChecksum: string;
     operationCount: number;
+    /** Exact admitted operation contract; absent only in historical snapshots. */
+    toolInput?: Readonly<{ operationName: string; inputSchema: unknown }>;
   }>;
   readonly providerBinding?: Readonly<{
     bindingId: string;
@@ -120,7 +123,15 @@ export type RemoteTaskControlEventType =
 
 export type RemoteTaskControlEventStatus = 'pending' | 'claimed' | 'processed' | 'failed';
 
+export interface RemoteTaskDeviceIdentity {
+  readonly deviceId: string;
+  readonly smppServiceKey: string;
+}
+
 export interface RemoteTaskBinding {
+  /** Present in shared storage; null is the explicit non-device channel. */
+  readonly deviceIdentity?: RemoteTaskDeviceIdentity | null;
+  readonly canonicalMcpTaskId?: string;
   readonly bindingId: string;
   readonly serverId: string;
   readonly operationName: string;
@@ -346,7 +357,9 @@ export function createRemoteTaskBinding(input: RemoteTaskAdmission): RemoteTaskB
   if (
     authoritySnapshot.runtime.serverId !== input.serverId ||
     authoritySnapshot.runtime.serverUpdatedAt !== input.credentialRevision ||
-    authoritySnapshot.runtime.protocolSnapshotId !== protocolContract.serverDiscoverySnapshotId
+    authoritySnapshot.runtime.protocolSnapshotId !== protocolContract.serverDiscoverySnapshotId ||
+    (authoritySnapshot.runtime.toolInput !== undefined &&
+      authoritySnapshot.runtime.toolInput.operationName !== input.operationName)
   )
     throw new DomainError(
       'REMOTE_TASK_AUTHORITY_SNAPSHOT_MISMATCH',
@@ -399,6 +412,21 @@ export function createRemoteTaskAuthoritySnapshot(
       'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID',
       'Remote Task Runtime authority snapshot is invalid.',
     );
+  const toolInput = runtime.toolInput;
+  if (
+    toolInput !== undefined &&
+    (typeof toolInput.operationName !== 'string' ||
+      toolInput.operationName.trim() === '' ||
+      !Object.hasOwn(toolInput, 'inputSchema') ||
+      (typeof toolInput.inputSchema !== 'boolean' &&
+        (toolInput.inputSchema === null ||
+          typeof toolInput.inputSchema !== 'object' ||
+          Array.isArray(toolInput.inputSchema))))
+  )
+    throw new DomainError(
+      'REMOTE_TASK_AUTHORITY_SNAPSHOT_INVALID',
+      'Admitted Tool input Schema is invalid.',
+    );
   const provider = input.providerBinding;
   const rawProviderOriginType: unknown = (
     provider as unknown as Record<string, unknown> | undefined
@@ -439,7 +467,17 @@ export function createRemoteTaskAuthoritySnapshot(
   return Object.freeze({
     schemaVersion: '1.0' as const,
     capturedAt: input.capturedAt,
-    runtime: Object.freeze({ ...runtime }),
+    runtime: Object.freeze({
+      ...runtime,
+      ...(toolInput === undefined
+        ? {}
+        : {
+            toolInput: Object.freeze({
+              operationName: toolInput.operationName,
+              inputSchema: snapshotRemoteTaskInputValue(toolInput.inputSchema),
+            }),
+          }),
+    }),
     ...(provider === undefined ? {} : { providerBinding: Object.freeze({ ...provider }) }),
   });
 }

@@ -38,6 +38,7 @@ export class WorkflowRevisionService {
     if (definition === undefined) throw new Error('WORKFLOW_REVISION_DEFINITION_MISSING');
     return this.#planner.plan({
       planId: input.newPlanId,
+      ...(source.executionTaskId === undefined ? {} : { executionTaskId: source.executionTaskId }),
       workflowDefinitionId: definition.workflowDefinitionId,
       workflowVersion: definition.version + 1,
       goalId: source.goalId,
@@ -94,6 +95,7 @@ export class WorkflowRevisionService {
     const goalContract = snapshotGoalExecutionContract(source.goalContract);
     const plan: WorkflowPlanRecord = {
       planId: input.newPlanId,
+      ...(source.executionTaskId === undefined ? {} : { executionTaskId: source.executionTaskId }),
       goalId: source.goalId,
       goalVersion: source.goalVersion,
       goalContract,
@@ -112,6 +114,7 @@ export class WorkflowRevisionService {
     };
     await this.#plans.saveAttempt({
       planId: plan.planId,
+      ...(plan.executionTaskId === undefined ? {} : { executionTaskId: plan.executionTaskId }),
       goalContract,
       ...(source.compositionContext === undefined
         ? {}

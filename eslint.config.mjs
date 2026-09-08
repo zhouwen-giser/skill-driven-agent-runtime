@@ -8,6 +8,7 @@ export default tseslint.config(
       '**/dist/**',
       'node_modules/**',
       'coverage/**',
+      '.state/**',
       'source/**',
       'docs/SDAR_v1.3_Codex_Goal_Packages_Aligned_V1.1/**',
     ],

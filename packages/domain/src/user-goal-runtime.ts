@@ -1,3 +1,4 @@
+import type { RemoteTaskDeviceIdentity } from './remote-task.js';
 import { DomainError } from './errors.js';
 
 export const USER_GOAL_RUNTIME_LIMITS = Object.freeze({
@@ -183,6 +184,7 @@ export interface SkillAttempt {
 }
 
 export interface OutcomeDecision {
+  readonly executionTaskId?: string;
   readonly outcomeDecisionId: string;
   readonly level: OutcomeLevel;
   readonly subjectId: string;
@@ -205,6 +207,7 @@ export interface RecoveryBudgetSnapshot {
 }
 
 export interface ProgressVector {
+  readonly executionTaskId?: string;
   readonly requiredCriterionCount: number;
   readonly satisfiedCriterionRefs: readonly string[];
   readonly effectRefs: readonly string[];
@@ -227,6 +230,7 @@ export interface ProgressObservation {
 }
 
 export interface CompletedEffect {
+  readonly executionTaskId?: string;
   readonly completedEffectId: string;
   readonly goalId: string;
   readonly planId: string;
@@ -239,6 +243,7 @@ export interface CompletedEffect {
 }
 
 export interface RecoveryDecision {
+  readonly executionTaskId?: string;
   readonly recoveryDecisionId: string;
   readonly planId: string;
   readonly skillGoalId?: string;
@@ -259,6 +264,8 @@ export function createProgressObservation(input: ProgressObservation): ProgressO
   assertId(input.progressObservationId, 'USER_GOAL_PLAN_INVALID');
   assertId(input.planId, 'USER_GOAL_PLAN_INVALID');
   const vector = input.vector;
+  if (vector.executionTaskId !== undefined)
+    assertId(vector.executionTaskId, 'USER_GOAL_PLAN_INVALID');
   const integers = [
     vector.requiredCriterionCount,
     vector.attemptOrdinal,
@@ -291,6 +298,8 @@ export function createProgressObservation(input: ProgressObservation): ProgressO
 }
 
 export function createCompletedEffect(input: CompletedEffect): CompletedEffect {
+  if (input.executionTaskId !== undefined)
+    assertId(input.executionTaskId, 'USER_GOAL_PLAN_INVALID');
   assertId(input.completedEffectId, 'USER_GOAL_PLAN_INVALID');
   assertId(input.goalId, 'USER_GOAL_PLAN_INVALID');
   assertId(input.planId, 'USER_GOAL_PLAN_INVALID');
@@ -305,6 +314,8 @@ export function createCompletedEffect(input: CompletedEffect): CompletedEffect {
 }
 
 export function createRecoveryDecision(input: RecoveryDecision): RecoveryDecision {
+  if (input.executionTaskId !== undefined)
+    assertId(input.executionTaskId, 'USER_GOAL_PLAN_INVALID');
   assertId(input.recoveryDecisionId, 'USER_GOAL_PLAN_INVALID');
   assertId(input.planId, 'USER_GOAL_PLAN_INVALID');
   if (input.skillGoalId !== undefined) assertId(input.skillGoalId, 'USER_GOAL_PLAN_INVALID');
@@ -317,6 +328,8 @@ export function createRecoveryDecision(input: RecoveryDecision): RecoveryDecisio
 }
 
 export interface BusinessEventSubscription {
+  /** Persisted shared-storage channel; null explicitly denotes non-device. */
+  readonly deviceIdentity?: RemoteTaskDeviceIdentity | null;
   readonly subscriptionId: string;
   readonly providerId: string;
   readonly streamId: string;
@@ -442,6 +455,7 @@ export interface EventImpactAssessment {
 }
 
 export interface EventIncident {
+  readonly subscriptionId?: string;
   readonly incidentId: string;
   readonly providerId: string;
   readonly streamId: string;
@@ -609,6 +623,8 @@ export function transitionSkillAttempt(
 }
 
 export function createOutcomeDecision(input: OutcomeDecision): OutcomeDecision {
+  if (input.executionTaskId !== undefined)
+    assertId(input.executionTaskId, 'USER_GOAL_PLAN_INVALID');
   assertId(input.outcomeDecisionId, 'OUTCOME_DECISION_INVALID');
   assertId(input.subjectId, 'OUTCOME_DECISION_INVALID');
   if (input.confidence === 'low' && input.status === 'achieved')
@@ -635,6 +651,10 @@ export function createBusinessEventSubscription(
 ): BusinessEventSubscription {
   for (const id of [input.subscriptionId, input.providerId, input.streamId])
     assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
+  if (input.deviceIdentity != null) {
+    assertId(input.deviceIdentity.deviceId, 'BUSINESS_EVENT_RECORD_INVALID');
+    assertId(input.deviceIdentity.smppServiceKey, 'BUSINESS_EVENT_RECORD_INVALID');
+  }
   if (!Number.isInteger(input.generation) || input.generation < 1)
     invalid('BUSINESS_EVENT_RECORD_INVALID', 'Business Event generation must be positive.');
   assertDecimalSequence(input.lastDurablyAdmittedSequence, true);
@@ -647,7 +667,12 @@ export function createBusinessEventSubscription(
       'Processed cursor cannot exceed the durably admitted cursor.',
     );
   assertBoundedJson(input, 'BUSINESS_EVENT_RECORD_INVALID');
-  return Object.freeze(input);
+  return Object.freeze({
+    ...input,
+    ...(input.deviceIdentity == null
+      ? {}
+      : { deviceIdentity: Object.freeze({ ...input.deviceIdentity }) }),
+  });
 }
 
 export function createBusinessEventEnvelope(input: BusinessEventEnvelope): BusinessEventEnvelope {
@@ -738,6 +763,8 @@ export function createEventImpactAssessment(input: EventImpactAssessment): Event
 }
 
 export function createEventIncident(input: EventIncident): EventIncident {
+  if (input.subscriptionId !== undefined)
+    assertId(input.subscriptionId, 'BUSINESS_EVENT_RECORD_INVALID');
   for (const id of [input.incidentId, input.providerId, input.streamId, input.dedupeKey])
     assertId(id, 'BUSINESS_EVENT_RECORD_INVALID');
   if (input.summary.trim() === '')

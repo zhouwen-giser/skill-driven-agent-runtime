@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../domain/src/device-task-context.js';
+import { remoteTaskScopeSql, remoteTaskChildScopeSql } from './gowm-mcp-ownership.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import type {
@@ -52,8 +54,11 @@ interface CancellationAttemptRow extends QueryResultRow {
 export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCancellationRepository {
   readonly #pool: Pool;
 
-  constructor(pool: Pool) {
+  readonly #deviceScope: DeviceWorkScope | undefined;
+
+  constructor(pool: Pool, deviceScope?: DeviceWorkScope) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
   }
 
   requestCancellation(
@@ -61,6 +66,7 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
     expectedBindingVersion: number,
   ): Promise<RemoteTaskCancellationRequestResult> {
     return withTransaction(this.#pool, async (client) => {
+      const scope = remoteTaskScopeSql(this.#deviceScope, 2);
       const binding = (
         await client.query<{
           binding_id: string;
@@ -68,7 +74,10 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
           local_state: string;
           terminal_at: Date | string | null;
           version: string | number;
-        }>('SELECT * FROM remote_task_binding WHERE binding_id=$1 FOR UPDATE', [request.bindingId])
+        }>(
+          `SELECT * FROM remote_task_binding WHERE binding_id=$1 AND ${scope.predicate} FOR UPDATE`,
+          [request.bindingId, ...scope.values],
+        )
       ).rows[0];
       if (binding === undefined) return { requested: false, reason: 'missing' };
       const existing = (
@@ -125,9 +134,10 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
   }
 
   async findCancellation(requestId: string): Promise<RemoteTaskCancellationRequest | undefined> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 2, 'remote_task_cancel_request');
     const result = await this.#pool.query<CancellationRequestRow>(
-      'SELECT * FROM remote_task_cancel_request WHERE cancel_request_id=$1',
-      [requestId],
+      `SELECT * FROM remote_task_cancel_request WHERE cancel_request_id=$1 AND ${scope.predicate}`,
+      [requestId, ...scope.values],
     );
     return result.rows[0] === undefined ? undefined : mapCancellationRequest(result.rows[0]);
   }
@@ -136,12 +146,14 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
     now: string,
     limit: number,
   ): Promise<readonly RemoteTaskCancellationRequest[]> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 3, 'remote_task_cancel_request');
     const result = await this.#pool.query<CancellationRequestRow>(
       `SELECT * FROM remote_task_cancel_request
        WHERE delivery_status='requested' AND provider_terminal_status IS NULL
          AND (claim_expires_at IS NULL OR claim_expires_at <= $1)
+         AND ${scope.predicate}
        ORDER BY updated_at,cancel_request_id LIMIT $2`,
-      [now, Math.max(1, Math.min(1_000, Math.trunc(limit)))],
+      [now, Math.max(1, Math.min(1_000, Math.trunc(limit))), ...scope.values],
     );
     return result.rows.map(mapCancellationRequest);
   }
@@ -155,6 +167,7 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
       expiresAt: string;
     }>,
   ): Promise<RemoteTaskCancellationClaimResult> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 6, 'remote_task_cancel_request');
     const result = await this.#pool.query<CancellationRequestRow>(
       `UPDATE remote_task_cancel_request
        SET delivery_status='uncertain',claim_token=$3,claimed_at=$4,claim_expires_at=$5,
@@ -165,8 +178,16 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
          AND delivery_status='requested'
          AND provider_terminal_status IS NULL
          AND (claim_expires_at IS NULL OR claim_expires_at <= $4)
+         AND ${scope.predicate}
        RETURNING *`,
-      [input.requestId, input.expectedVersion, input.claimToken, input.claimedAt, input.expiresAt],
+      [
+        input.requestId,
+        input.expectedVersion,
+        input.claimToken,
+        input.claimedAt,
+        input.expiresAt,
+        ...scope.values,
+      ],
     );
     const row = result.rows[0];
     if (row !== undefined) return { claimed: true, request: mapCancellationRequest(row) };
@@ -247,14 +268,16 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
     status: RemoteTaskCancellationProviderTerminalStatus,
     resolvedAt: string,
   ): Promise<readonly RemoteTaskCancellationRequest[]> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 4, 'remote_task_cancel_request');
     const result = await this.#pool.query<CancellationRequestRow>(
       `UPDATE remote_task_cancel_request
        SET provider_terminal_status=$2,resolved_at=$3,
            claim_token=NULL,claimed_at=NULL,claim_expires_at=NULL,
            updated_at=$3,version=version+1
        WHERE binding_id=$1 AND provider_terminal_status IS NULL
+         AND ${scope.predicate}
        RETURNING *`,
-      [bindingId, status, resolvedAt],
+      [bindingId, status, resolvedAt, ...scope.values],
     );
     return result.rows.map(mapCancellationRequest);
   }
@@ -262,10 +285,11 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
   async listCancellationAttempts(
     requestId: string,
   ): Promise<readonly RemoteTaskCancellationAttempt[]> {
+    const scope = remoteTaskChildScopeSql(this.#deviceScope, 2, 'remote_task_cancel_attempt');
     const result = await this.#pool.query<CancellationAttemptRow>(
       `SELECT * FROM remote_task_cancel_attempt
-       WHERE cancel_request_id=$1 ORDER BY started_at,attempt_id`,
-      [requestId],
+       WHERE cancel_request_id=$1 AND ${scope.predicate} ORDER BY started_at,attempt_id`,
+      [requestId, ...scope.values],
     );
     return result.rows.map(mapCancellationAttempt);
   }
@@ -280,13 +304,19 @@ export class PostgresRemoteTaskCancellationRepository implements RemoteTaskCance
     update: (client: PoolClient) => Promise<CancellationRequestRow | undefined>,
   ): Promise<RemoteTaskCancellationMutationResult> {
     return withTransaction(this.#pool, async (client) => {
+      const scope = remoteTaskChildScopeSql(this.#deviceScope, 2, 'remote_task_cancel_request');
       const current = (
         await client.query<CancellationRequestRow>(
-          'SELECT * FROM remote_task_cancel_request WHERE cancel_request_id=$1 FOR UPDATE',
-          [input.requestId],
+          `SELECT * FROM remote_task_cancel_request WHERE cancel_request_id=$1 AND ${scope.predicate} FOR UPDATE`,
+          [input.requestId, ...scope.values],
         )
       ).rows[0];
       if (current === undefined) return { applied: false, reason: 'missing' };
+      if (
+        input.attempt.requestId !== input.requestId ||
+        input.attempt.bindingId !== current.binding_id
+      )
+        throw new Error('REMOTE_TASK_CANCELLATION_ATTEMPT_IDENTITY_MISMATCH');
       if (current.provider_terminal_status !== null) {
         await insertAttempt(client, {
           ...input.attempt,

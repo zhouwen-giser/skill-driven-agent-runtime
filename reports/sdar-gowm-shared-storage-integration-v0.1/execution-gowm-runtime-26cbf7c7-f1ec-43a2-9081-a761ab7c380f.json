@@ -1,0 +1,212 @@
+{
+  "run": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f",
+  "mcpOutcome": "task_success",
+  "status": "PASS",
+  "acceptanceStatus": "INCOMPLETE",
+  "remainingCoverage": [
+    "Remote waiting/canonical/recovery",
+    "targets in normal execution",
+    "all background consumers and retention",
+    "final prescribed checks and single-repository delivery"
+  ],
+  "scope": "Normal Server dual-device Task/Skill/Workflow via local Model and Frozen MCP fixtures",
+  "modelBoundary": "simulated_local_protocol_fixture",
+  "lineage:gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+      "count": "5"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a": {
+    "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-f5f97f3a-f1a5-4749-9abe-e9e1a026d0f9",
+    "revision": 1
+  },
+  "remote:gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a": {
+    "binding": {
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-a",
+      "smpp_service_key": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f",
+      "protocol_status": "completed",
+      "local_state": "reentered",
+      "canonical_mcp_task_id": null
+    },
+    "snapshots": [
+      {
+        "schema_version": "2.0",
+        "lifecycle": "terminal",
+        "workflow_instance_id": "instance-control-task-f5f97f3a-f1a5-4749-9abe-e9e1a026d0f9-0-3f3c37c0-601c-4707-baff-01ec84e3720d"
+      }
+    ],
+    "attempts": [
+      {
+        "status": "succeeded",
+        "error_code": null
+      }
+    ]
+  },
+  "lineage:gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b": [
+    {
+      "layer": "task",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+      "count": "1"
+    },
+    {
+      "layer": "plan",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+      "count": "1"
+    },
+    {
+      "layer": "instance",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+      "count": "1"
+    },
+    {
+      "layer": "node_event",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+      "count": "5"
+    },
+    {
+      "layer": "invocation",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+      "count": "1"
+    },
+    {
+      "layer": "a2a_projection",
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+      "count": "1"
+    }
+  ],
+  "planningInteraction:gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b": {
+    "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+    "outcome_ref": "runtime-outcome:terminal-outcome-task-b9ea3610-d45b-4ef2-ac52-65963f32edfd",
+    "revision": 1
+  },
+  "remote:gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b": {
+    "binding": {
+      "device_id": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f-b",
+      "smpp_service_key": "gowm-runtime-26cbf7c7-f1ec-43a2-9081-a761ab7c380f",
+      "protocol_status": "completed",
+      "local_state": "reentered",
+      "canonical_mcp_task_id": null
+    },
+    "snapshots": [
+      {
+        "schema_version": "2.0",
+        "lifecycle": "terminal",
+        "workflow_instance_id": "instance-control-task-b9ea3610-d45b-4ef2-ac52-65963f32edfd-0-abee7eb0-40ca-4355-9503-b1585731f4a0"
+      }
+    ],
+    "attempts": [
+      {
+        "status": "succeeded",
+        "error_code": null
+      }
+    ]
+  },
+  "taskIds": [
+    "f5f97f3a-f1a5-4749-9abe-e9e1a026d0f9",
+    "b9ea3610-d45b-4ef2-ac52-65963f32edfd"
+  ],
+  "modelStages": [
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "experience_reflection",
+    "embedding",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "embedding",
+    "task_understanding",
+    "embedding",
+    "intent",
+    "goal",
+    "goal_planning",
+    "embedding",
+    "embedding",
+    "embedding",
+    "skill_selection",
+    "embedding",
+    "skill_input_resolution",
+    "embedding",
+    "workflow_planning",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_observation",
+    "experience_reflection",
+    "embedding",
+    "goal_evaluation",
+    "result_processing",
+    "result_processing",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation",
+    "evaluation"
+  ],
+  "modelFixtureFailures": [],
+  "toolCalls": 2,
+  "cleanupErrors": []
+}

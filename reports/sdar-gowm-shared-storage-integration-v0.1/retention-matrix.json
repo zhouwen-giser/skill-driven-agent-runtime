@@ -1,0 +1,70 @@
+{
+  "status": "INCOMPLETE",
+  "requirement": "FULL_CN.md: historical retention / D09",
+  "entries": [
+    {
+      "entry": "PostgresEvidenceOperationsRepository.apply_retention",
+      "path": "packages/runtime-control-persistence-postgres/src/evidence-operations-repository.ts",
+      "status": "IMPLEMENTED_AND_FOCUSED_VERIFIED",
+      "sharedBehavior": "Preserve Task/episode/device-owned records and referenced Evidence; only unbound, unreferenced expired diagnostics remain eligible. Shared append transactions exclude retention through the existing export advisory lock.",
+      "test": "packages/runtime-control-persistence-postgres/test/gowm-evidence-retention.postgres-cases.ts",
+      "databaseFixtureRun": "sdar-pg-16b4638e-bb67-4e0d-83aa-a526ff5c4a8f",
+      "evidenceScope": "Direct invocation against existing isolated PostgreSQL; no full acceptance claim"
+    },
+    {
+      "entry": "PostgresArtifactReplayValidationRepository.purgeExpired",
+      "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+      "status": "IMPLEMENTED_AND_FOCUSED_VERIFIED",
+      "sharedBehavior": "Derive eligible cases from actual episode Task ownership; invalidate promotion-eligible datasets using existing successor semantics; preserve source cases. Exclude already-invalidated datasets from subsequent bounded scans.",
+      "test": "packages/persistence-postgres/test/gowm-replay-retention.postgres-cases.ts",
+      "evidenceScope": "Direct isolated PostgreSQL test using saved normal Task episodes; no candidate execution claim."
+    },
+    {
+      "entry": "Experience compilation scope deletion",
+      "path": "packages/persistence-postgres/src/compiler/experience-compilation-repositories.ts",
+      "status": "PENDING",
+      "remaining": "Review compilation_run, pattern_candidate and experience_trace physical deletion and source lineage.",
+      "callSiteReview": "Only integration tests currently call the concrete method; no normal Server deletion target assembles it. Keep method semantics under review, do not mistake it for automatic retention."
+    },
+    {
+      "entry": "Fast Gateway explicit actor projection deletion",
+      "path": "packages/persistence-postgres/src/compiler/fast-gateway-repository.ts",
+      "status": "IMPLEMENTED_AND_FOCUSED_VERIFIED",
+      "sharedBehavior": "Derive request.device_id from native Task/context before save; scope reads, idempotency and feedback by Task. Explicit actor deletion locks the scoped request set, removes only its derived decision/feedback/outbox, preserves other devices and core Tasks.",
+      "test": "packages/persistence-postgres/test/gowm-gateway.postgres-cases.ts",
+      "evidenceScope": "Direct invocation on existing isolated PostgreSQL run sdar-pg-16b4638e-bb67-4e0d-83aa-a526ff5c4a8f; no full acceptance claim."
+    },
+    {
+      "entry": "MCP catalog replacement / server removal",
+      "path": "packages/persistence-postgres/src/repositories.ts",
+      "status": "PARTIAL",
+      "remaining": "Full management contract coverage remains open.",
+      "sharedBehavior": "deleteServer rejects any historical invocation/admission/binding or GOWM directory reference with MCP_SHARED_HISTORY_RETENTION_REQUIRED; rejection happens before transport disconnect. Protocol snapshots remain available to delayed canonical linkage.",
+      "tests": [
+        "packages/application/test/mcp-registry.unit.test.ts",
+        "packages/persistence-postgres/test/gowm-remote.postgres-cases.ts"
+      ],
+      "catalogReview": "Code review: saveServerAndTools/registerFrozenProvider replace only current mcp_tool rows; historical mcp_protocol_snapshot rows are preserved. This is a code inspection, not another execution result."
+    },
+    {
+      "entry": "Evidence expectation replacement",
+      "path": "packages/runtime-control-persistence-postgres/src/evidence-store.ts",
+      "status": "IMPLEMENTED_AND_FOCUSED_VERIFIED",
+      "remaining": "Other Evidence management/recovery/read APIs and concurrent cross-source ownership still need review.",
+      "sharedBehavior": "Task scope checked before refresh. Existing episode Task ownership conflicts rejected; native device_id derived for expectation and manifest writes. Replacement removes only obsolete derived expectations of the same episode/policy, not Evidence outbox history.",
+      "test": "packages/runtime-control-persistence-postgres/test/gowm-expectation-scope.postgres-cases.ts",
+      "evidenceScope": "Existing isolated ce11aff1 Task fixtures; real CoverageService manifest persistence, idempotency and foreign rejection passed. No complete background coverage claim."
+    },
+    {
+      "entry": "PostgresArtifactReplayValidationRepository.purgeTenant",
+      "path": "packages/persistence-postgres/src/compiler/artifact-replay-validation-repository.ts",
+      "status": "PENDING",
+      "remaining": "Explicit tenant deletion requires separate shared history / governance review; not covered by expiry fix.",
+      "callSiteReview": "Only integration tests call purgeTenant; normal Server schedules purgeExpired, not purgeTenant."
+    }
+  ],
+  "limits": [
+    "Inventory remains incomplete; other cleanup/recovery writers still require review.",
+    "No GOWM/SMPP migrations or triggers changed."
+  ]
+}

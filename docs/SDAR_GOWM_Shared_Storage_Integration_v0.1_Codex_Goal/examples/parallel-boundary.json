@@ -1,0 +1,33 @@
+{
+  "status": "DESIGN",
+  "database": "EXPLICIT_GOWM_DATABASE",
+  "sdarSchema": "ugv_sdar",
+  "smppSchema": "ugv_smpp",
+  "sdarRuntime": {
+    "write": [
+      "ugv_sdar.*",
+      "gowm_task.target_geometry",
+      "gowm_task.target_binding[owner_domain=SDAR]"
+    ],
+    "read": [
+      "gowm_device.*",
+      "ugv_smpp.provider_task[canonical validation]",
+      "gowm_business_v1.*"
+    ],
+    "forbidWrite": [
+      "ugv_smpp.*",
+      "gowm_execution.*"
+    ]
+  },
+  "testPeer": {
+    "scope": "ISOLATED_TEST_DATABASE_ONLY",
+    "actor": "SYNTHETIC_MCP_PEER",
+    "physicalEffects": 0
+  },
+  "canonicalResolution": {
+    "missingParent": "PENDING",
+    "opaqueIdWithoutMapping": "PENDING",
+    "differentDeviceOrService": "CONFLICT",
+    "matchingVerifiedParent": "RESOLVED"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "scope": "Repository subset only; normal Server/MCP smoke remains pending",
+  "run": "sdar-pg-d894ab8a-0bcd-462c-804c-bc99d33cea32",
+  "results": [
+    {
+      "scenario": "Read-only contract verification restores the business search_path",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Two devices share a Goal and persist Task/Plan/Attempt/Instance/Native Event through production repositories",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Scoped reads exclude the other device; GOWM read model sees both native Tasks",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Native input/Plan transactions bind distinct Polygon REQUESTED and Point/LineString PLANNED owners; DSL aliases round-trip",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Concurrent identical targets reuse geometry; conflicting inputs roll back; other-device input reads/writes are denied",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Missing CRS records a persistent diagnostic without geometry; successor Plan preserves local coordinates and prior targets",
+      "status": "PASS"
+    },
+    {
+      "scenario": "PostGIS rejects self-intersecting geometry and rolls back native Input/Plan writes and supersession with no orphan target",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Device-scoped admission preparation, recovery scan, observation and CAS fallback exclude foreign Tasks and preserve their intent version",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Restricted consumer cannot write SMPP; independent synthetic peer publishes only its native parent records",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Two devices admit the same opaque handle under exact source keys; scoped lookups, claims and Invocation reads exclude the other device",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Real Remote Binding creates exact DISPATCHED owner from actual Invocation arguments; repeated admission adds no observation or target",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Terminal remote binding links a delayed verified parent without MCP resend or lifecycle/version changes; other-device and unproven UUIDs stay unlinked",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Scoped process-loss recovery fails only the owned Task, attempts and instances; foreign device remains running and repeat recovery publishes no duplicate state",
+      "status": "PASS"
+    }
+  ]
+}

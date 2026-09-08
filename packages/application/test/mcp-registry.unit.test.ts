@@ -20,6 +20,7 @@ import {
 import {
   createMcpProviderDispatchHash,
   McpRegistryService,
+  McpRegistryError,
   type FrozenTaskAvailabilityRuntimePort,
   type FrozenTaskLifecycleRuntimePort,
 } from '../src/mcp-registry.js';
@@ -33,6 +34,36 @@ import { McpRuntimeBindingAuthorityVerifier } from '../src/mcp-runtime-binding-a
 const timestamp = '2026-08-11T01:00:00.000Z';
 
 describe('MCP Registry invocation boundary', () => {
+  it('keeps the transport connected when shared history rejects Server deletion', async () => {
+    const fixture = createFixture();
+    Object.assign(fixture.repository, {
+      deleteServer: vi
+        .fn()
+        .mockRejectedValue(
+          new McpRegistryError('MCP_SHARED_HISTORY_RETENTION_REQUIRED', 'Shared history retained'),
+        ),
+    });
+    await expect(fixture.service.delete('provider-1')).rejects.toMatchObject({
+      code: 'MCP_SHARED_HISTORY_RETENTION_REQUIRED',
+    });
+    expect(fixture.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('rejects a Task/device/server mismatch before Provider transport or invocation allocation', async () => {
+    const fixture = createFixture();
+    Object.assign(fixture.repository, {
+      assertTaskBindingForInvocation: vi
+        .fn()
+        .mockRejectedValue(new Error('MCP_TASK_SERVER_BINDING_MISMATCH')),
+    });
+    await expect(
+      fixture.service.callDetailed('provider-1', 'light_get_state', {}, undefined, {
+        taskId: 'device-task',
+      }),
+    ).rejects.toThrow('MCP_TASK_SERVER_BINDING_MISMATCH');
+    expect(fixture.call).not.toHaveBeenCalled();
+    expect(fixture.repository.invocations).toHaveLength(0);
+  });
   it.each([
     {
       availabilityStatus: 'unavailable' as const,
@@ -1386,6 +1417,7 @@ function createFixture(
       ? Promise.reject(new Error('unused'))
       : Promise.resolve(options.reconciliationResult),
   );
+  const disconnect = vi.fn();
   const decrypt = vi.fn(() => ({ authorization: 'Bearer provider-secret' }));
   const controlAuthority = vi.fn((input: GovernedControlInvocation) => {
     order.push('control-authority');
@@ -1410,6 +1442,7 @@ function createFixture(
       validate: () => ({ valid: true, errors: [] }),
     },
     frozenLifecycle: {
+      disconnect,
       call,
       reconcile,
       get,
@@ -1478,6 +1511,7 @@ function createFixture(
     },
   });
   return {
+    disconnect,
     call,
     reconcile,
     get,

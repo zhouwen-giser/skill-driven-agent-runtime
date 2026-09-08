@@ -1,3 +1,9 @@
+import { randomUUID } from 'node:crypto';
+import {
+  assertDeviceWorkScope,
+  type DeviceWorkScope,
+  type DeviceTaskOwnership,
+} from '../../domain/src/device-task-context.js';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { z } from 'zod';
 
@@ -85,6 +91,7 @@ interface ArtifactPolicyRow extends QueryResultRow {
 }
 
 interface InitialTaskAdmissionRow extends QueryResultRow {
+  admission_id?: string;
   idempotency_key: string;
   request_hash: string;
   task_id: string;
@@ -117,6 +124,8 @@ export class PostgresTaskCapabilityRepository
     CapabilityAdmissionReceiptStore
 {
   readonly #pool: Pool;
+  readonly #deviceScope: DeviceWorkScope | undefined;
+  readonly #initialSelect: string;
   readonly #onTaskStateCommitted:
     ((task: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]['task']) => void) | undefined;
   readonly #commandContext: PostgresAgentTaskCommandContext | undefined;
@@ -127,8 +136,14 @@ export class PostgresTaskCapabilityRepository
       task: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]['task'],
     ) => void,
     commandContext?: PostgresAgentTaskCommandContext,
+    deviceScope?: DeviceWorkScope,
   ) {
     this.#pool = pool;
+    this.#deviceScope = deviceScope;
+    this.#initialSelect =
+      deviceScope === undefined
+        ? initialTaskAdmissionSelect
+        : initialTaskAdmissionSelect.replace('SELECT ', 'SELECT admission_id,');
     this.#onTaskStateCommitted = onTaskStateCommitted;
     this.#commandContext = commandContext;
   }
@@ -176,7 +191,7 @@ export class PostgresTaskCapabilityRepository
         return mapReceipt(prior.rows[0]);
       }
       await insertOrValidateInitialAdmissionContext(client, input.context);
-      await insertTask(client, input.task);
+      await insertTask(client, input.task, this.#deviceScope);
       await client.query(
         'INSERT INTO capability_admission_receipt(task_id,request_id,request_hash,version,clarification,created_at,updated_at) VALUES($1,$2,$3,$4,$5::jsonb,$6,$7)',
         [
@@ -273,7 +288,7 @@ export class PostgresTaskCapabilityRepository
         'UPDATE agent_task SET phase=$2,phase_message=$3,updated_at=$4 WHERE task_id=$1',
         [input.task.taskId, input.task.phase, input.task.phaseMessage, input.task.updatedAt],
       );
-      await insertCapabilityAcceptance(client, input, true);
+      await insertCapabilityAcceptance(client, input, true, this.#deviceScope);
       await client.query('COMMIT');
       this.#onTaskStateCommitted?.(input.task);
     } catch (error) {
@@ -355,7 +370,7 @@ export class PostgresTaskCapabilityRepository
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `task-capability-accept:${input.task.taskId}`,
       ]);
-      await insertCapabilityAcceptance(client, input);
+      await insertCapabilityAcceptance(client, input, false, this.#deviceScope);
       await client.query('COMMIT');
       this.#onTaskStateCommitted?.(input.task);
     } catch (error) {
@@ -368,19 +383,37 @@ export class PostgresTaskCapabilityRepository
 
   async findByIdempotencyKey(
     idempotencyKey: string,
+    ownership?: DeviceTaskOwnership,
   ): Promise<InitialTaskAdmissionRecord | undefined> {
+    const scope = this.#initialScope(ownership);
     const result = await this.#pool.query<InitialTaskAdmissionRow>(
-      `${initialTaskAdmissionSelect}
-       WHERE idempotency_key=$1`,
-      [idempotencyKey],
+      `${this.#initialSelect}
+       WHERE idempotency_key=$1 ${scope.predicate}`,
+      [idempotencyKey, ...scope.values],
     );
     const row = result.rows[0];
     return row === undefined ? undefined : mapInitialTaskAdmission(row);
   }
 
+  #initialScope(ownership: DeviceTaskOwnership | undefined) {
+    if (this.#deviceScope === undefined) {
+      if (ownership !== undefined) throw new Error('DEVICE_STORAGE_NOT_CONFIGURED');
+      return { predicate: '', values: [] as readonly unknown[] };
+    }
+    assertDeviceWorkScope(this.#deviceScope, ownership);
+    return {
+      predicate:
+        'AND device_id IS NOT DISTINCT FROM $2::text AND sdar_service_key IS NOT DISTINCT FROM $3::text',
+      values: [ownership?.deviceId ?? null, ownership?.sdarServiceKey ?? null],
+    };
+  }
+
   async acceptInitial(
     input: Parameters<InitialTaskAdmissionStore['acceptInitial']>[0],
   ): ReturnType<InitialTaskAdmissionStore['acceptInitial']> {
+    const owner = input.capabilityAcceptance.task.deviceOwnership;
+    const scope = this.#initialScope(owner);
+    const admissionId = this.#deviceScope === undefined ? undefined : randomUUID();
     if (
       input.capabilityAcceptance.task.contextId !== input.context.contextId ||
       input.capabilityAcceptance.task.userId !== input.context.userId
@@ -397,13 +430,19 @@ export class PostgresTaskCapabilityRepository
       // reversing that order and introducing a deadlock cycle.
       await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))', [
         INITIAL_TASK_ADMISSION_KEY_LOCK_NAMESPACE,
-        input.idempotencyKey,
+        this.#deviceScope === undefined
+          ? input.idempotencyKey
+          : JSON.stringify([
+              owner?.deviceId ?? null,
+              owner?.sdarServiceKey ?? null,
+              input.idempotencyKey,
+            ]),
       ]);
       const existingResult = await client.query<InitialTaskAdmissionRow>(
-        `${initialTaskAdmissionSelect}
-         WHERE idempotency_key=$1
+        `${this.#initialSelect}
+         WHERE idempotency_key=$1 ${scope.predicate}
          FOR SHARE`,
-        [input.idempotencyKey],
+        [input.idempotencyKey, ...scope.values],
       );
       const existingRow = existingResult.rows[0];
       if (existingRow !== undefined) {
@@ -419,12 +458,17 @@ export class PostgresTaskCapabilityRepository
         input.context.contextId,
       ]);
       const contextAuthority = await insertOrValidateInitialAdmissionContext(client, input.context);
-      await insertCapabilityAcceptance(client, input.capabilityAcceptance);
+      await insertCapabilityAcceptance(
+        client,
+        input.capabilityAcceptance,
+        false,
+        this.#deviceScope,
+      );
       await client.query(
         `INSERT INTO initial_task_admission(
            idempotency_key,request_hash,task_id,context_id,capability_binding_id,
-           capability_attempt_id,created_context,accepted_at)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+           capability_attempt_id,created_context,accepted_at${admissionId === undefined ? '' : ',admission_id,device_id,sdar_service_key'})
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8${admissionId === undefined ? '' : ',$9,$10,$11'})`,
         [
           input.idempotencyKey,
           input.requestHash,
@@ -434,10 +478,14 @@ export class PostgresTaskCapabilityRepository
           input.capabilityAcceptance.capabilityAttempt.attemptId,
           contextAuthority.createdContext,
           input.acceptedAt,
+          ...(admissionId === undefined
+            ? []
+            : [admissionId, owner?.deviceId ?? null, owner?.sdarServiceKey ?? null]),
         ],
       );
       await client.query('COMMIT');
       const record = Object.freeze({
+        ...(admissionId === undefined ? {} : { admissionId }),
         idempotencyKey: input.idempotencyKey,
         requestHash: input.requestHash,
         taskId: input.capabilityAcceptance.task.taskId,
@@ -663,8 +711,12 @@ async function insertCapabilityAcceptance(
   client: PoolClient,
   input: TaskCapabilityAcceptance,
   existingTask = false,
+  deviceScope?: DeviceWorkScope,
 ): Promise<void> {
-  if (!existingTask) await insertTask(client, input.task);
+  if (deviceScope !== undefined) assertDeviceWorkScope(deviceScope, input.task.deviceOwnership);
+  else if (input.task.deviceOwnership !== undefined)
+    throw new Error('DEVICE_STORAGE_NOT_CONFIGURED');
+  if (!existingTask) await insertTask(client, input.task, deviceScope);
   await client.query(
     `INSERT INTO task_execution_attempt(
        attempt_id,task_id,context_id,reason,status,input_request_id,created_at,
@@ -723,15 +775,19 @@ async function insertCapabilityAcceptance(
 async function insertTask(
   client: PoolClient,
   task: Parameters<TaskCapabilityAcceptanceStore['accept']>[0]['task'],
+  deviceScope: DeviceWorkScope | undefined,
 ) {
+  const shared = deviceScope !== undefined;
+  if (deviceScope !== undefined) assertDeviceWorkScope(deviceScope, task.deviceOwnership);
+  else if (task.deviceOwnership !== undefined) throw new Error('DEVICE_STORAGE_NOT_CONFIGURED');
   await client.query(
     `INSERT INTO agent_task(
        task_id,context_id,user_id,request_text,request_metadata,phase,phase_message,
        goal_id,goal_version,plan_id,selected_skill_id,selected_skill_version,
        skill_selection_id,skill_input_resolution_id,temporary_skill_id,user_goal_plan_id,
        skill_goal_id,skill_attempt_id,skill_execution_contract_id,output_text,output_structured,
-       capability_gap_json,error_code,created_at,updated_at)
-     VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22::jsonb,$23,$24,$25)`,
+       capability_gap_json,error_code,created_at,updated_at${shared ? ',device_id,gowm_binding_id,sdar_service_key' : ''})
+     VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22::jsonb,$23,$24,$25${shared ? ',$26,$27,$28' : ''})`,
     [
       task.taskId,
       task.contextId,
@@ -758,6 +814,13 @@ async function insertTask(
       task.errorCode ?? null,
       task.createdAt,
       task.updatedAt,
+      ...(shared
+        ? [
+            task.deviceOwnership?.deviceId ?? null,
+            task.deviceOwnership?.bindingId ?? null,
+            task.deviceOwnership?.sdarServiceKey ?? null,
+          ]
+        : []),
     ],
   );
 }
@@ -766,6 +829,7 @@ function mapInitialTaskAdmission(row: InitialTaskAdmissionRow): InitialTaskAdmis
   if (!/^sha256:[0-9a-f]{64}$/u.test(row.request_hash))
     throw new Error('INITIAL_TASK_ADMISSION_REQUEST_HASH_INVALID');
   return Object.freeze({
+    ...(row.admission_id === undefined ? {} : { admissionId: row.admission_id }),
     idempotencyKey: row.idempotency_key,
     requestHash: row.request_hash as `sha256:${string}`,
     taskId: row.task_id,

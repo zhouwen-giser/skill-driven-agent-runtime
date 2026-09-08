@@ -1,3 +1,5 @@
+import type { DeviceWorkScope } from '../../../domain/src/device-task-context.js';
+import { taskDeviceScopeSql } from '../gowm-work-scope.js';
 import { createHash, randomUUID } from 'node:crypto';
 
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
@@ -225,7 +227,10 @@ interface StaticValidationRow extends QueryResultRow {
 }
 
 export class PostgresArtifactReplayValidationRepository implements ReplayValidationRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(
+    private readonly pool: Pool,
+    private readonly deviceScope?: DeviceWorkScope,
+  ) {}
 
   async listPendingTriggers(limit = 100): Promise<readonly ReplayValidationTrigger[]> {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
@@ -832,19 +837,31 @@ export class PostgresArtifactReplayValidationRepository implements ReplayValidat
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10_000) {
       throw new Error('ARTIFACT_REPLAY_RETENTION_LIMIT_INVALID');
     }
+    const owner = taskDeviceScopeSql(this.deviceScope, 3, 'task');
+    const sharedEligibility =
+      this.deviceScope === undefined
+        ? ''
+        : `
+      AND EXISTS(SELECT 1 FROM goal_experience_episode episode
+        LEFT JOIN agent_task task ON task.task_id=episode.task_id
+        WHERE episode.episode_id=artifact_replay_case.primary_source_episode_id
+          AND (episode.task_id IS NULL OR ${owner.predicate}))
+      AND EXISTS(SELECT 1 FROM replay_dataset_case member
+        JOIN replay_dataset_manifest manifest USING(dataset_id,dataset_version)
+        WHERE member.replay_case_id=artifact_replay_case.replay_case_id AND manifest.promotion_eligible=true)`;
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       const selected = await client.query<{ replay_case_id: string }>(
         `SELECT replay_case_id FROM artifact_replay_case
-         WHERE retention_until IS NOT NULL AND retention_until <= $1
+         WHERE retention_until IS NOT NULL AND retention_until <= $1 ${sharedEligibility}
          ORDER BY retention_until,replay_case_id LIMIT $2 FOR UPDATE SKIP LOCKED`,
-        [now, limit],
+        [now, limit, ...owner.values],
       );
       const replayCaseIds = selected.rows.map((row) => row.replay_case_id);
       await invalidateDatasetsForCases(client, replayCaseIds, now, 'retention_expired');
       const result =
-        replayCaseIds.length === 0
+        this.deviceScope !== undefined || replayCaseIds.length === 0
           ? { rowCount: 0 }
           : await client.query(
               'DELETE FROM artifact_replay_case WHERE replay_case_id=ANY($1::text[])',

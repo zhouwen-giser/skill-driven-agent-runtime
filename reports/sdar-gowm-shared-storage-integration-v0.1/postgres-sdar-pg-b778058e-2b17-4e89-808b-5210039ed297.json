@@ -1,0 +1,91 @@
+{
+  "status": "PASS",
+  "scope": "Repository subset only; normal Server/MCP smoke remains pending",
+  "acceptanceStatus": "INCOMPLETE",
+  "knownContractGaps": [
+    "auxiliary-link-contract-gap.json"
+  ],
+  "run": "sdar-pg-b778058e-2b17-4e89-808b-5210039ed297",
+  "results": [
+    {
+      "scenario": "Read-only contract verification restores the business search_path",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Two devices share a Goal and persist Task/Plan/Attempt/Instance/Native Event through production repositories",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Scoped reads exclude the other device; GOWM read model sees both native Tasks",
+      "status": "PASS"
+    },
+    {
+      "scenario": "A2A projection derives device from native Task; scoped reads/writes/counts reject foreign ownership and context while retaining terminal monotonicity",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Planning correction/episode native device lineage, task/user/tenant scope, duplicate denial, append-only revisions and one outbox event per accepted correction",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Native input/Plan transactions bind distinct Polygon REQUESTED and Point/LineString PLANNED owners; DSL aliases round-trip",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Concurrent identical targets reuse geometry; conflicting inputs roll back; other-device input reads/writes are denied",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Missing CRS records a persistent diagnostic without geometry; successor Plan preserves local coordinates and prior targets",
+      "status": "PASS"
+    },
+    {
+      "scenario": "PostGIS rejects self-intersecting geometry and rolls back native Input/Plan writes and supersession with no orphan target",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Reconciliation attempts and Provider links enforce Task/Binding scope and idempotency; no foreign row is exposed or overwritten",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Device-scoped admission preparation, recovery scan, observation and CAS fallback exclude foreign Tasks and preserve their intent version",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Cancellation request/delivery/claim/outcome/terminal reconciliation and lifecycle projection are device-scoped; cross-binding attempt injection rolls back without an audit row",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Continuation snapshots enforce exact Task/Plan/Instance ownership; foreign inbox, claims, lifecycle and attempt mutations are denied without checkpoint execution",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Answered-input recovery queries and writes are device-scoped; foreign and mismatched-parent attempts add no row, while the owned outcome advances its binding exactly once",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Restricted consumer cannot write SMPP; independent synthetic peer publishes only its native parent records",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Two devices admit the same opaque handle under exact source keys; scoped lookups, claims and Invocation reads exclude the other device",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Real Remote Binding creates exact DISPATCHED owner from actual Invocation arguments; repeated admission adds no observation or target",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Terminal remote binding links a delayed verified parent without MCP resend or lifecycle/version changes; other-device and unproven UUIDs stay unlinked",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Scoped process-loss recovery fails only the owned Task, attempts and instances; foreign device remains running and repeat recovery publishes no duplicate state",
+      "status": "PASS"
+    },
+    {
+      "scenario": "Wait timeout sweep cancels only the allowed device/service, expires only its input, preserves ownership in callbacks and emits one native event on repeat; explicit non-device cleanup never widens an empty device allowlist",
+      "status": "PASS"
+    }
+  ]
+}
