@@ -2,13 +2,29 @@ import { describe, expect, it } from 'vitest';
 
 import { hashCanonicalEvidenceJson } from '../../../packages/domain/src/index.js';
 import {
-  UGV_MOVE_RESOURCE_ID,
   UgvMoveInputAdapterError,
-  adaptUgvMoveInput,
+  adaptUgvMoveInput as adaptInput,
   type UgvMoveInputAdapterErrorCode,
 } from '../src/ugv-move-input-adapter.js';
 
+const UGV_MOVE_RESOURCE_ID = 'vehicle:ugv1';
+
+function adaptUgvMoveInput(value: unknown) {
+  return adaptInput(value, UGV_MOVE_RESOURCE_ID);
+}
+
 describe('UGV move profile input adapter', () => {
+  it('adapts the site contract exactly and refuses a different resource', () => {
+    const input = { resourceId: 'vehicle:ugv', target: { x: 106.8, y: 29.7, frame: 'WGS84' } };
+    expect(adaptInput(input, 'vehicle:ugv').providerArguments.resourceId).toBe('vehicle:ugv');
+    expect(() => adaptInput(input, 'vehicle:ugv1')).toThrow(
+      expect.objectContaining({ code: 'UGV_PROFILE_RESOURCE_NOT_ALLOWED' }),
+    );
+    expect(() => adaptInput({ ...input, resourceId: 'vehicle:ugv1' }, 'vehicle:ugv')).toThrow(
+      expect.objectContaining({ code: 'UGV_PROFILE_RESOURCE_NOT_ALLOWED' }),
+    );
+  });
+
   it('maps x to longitude and y to latitude without leaking or guessing provider fields', () => {
     const adapted = adaptUgvMoveInput({
       resourceId: UGV_MOVE_RESOURCE_ID,

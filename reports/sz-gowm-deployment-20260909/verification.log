@@ -1,0 +1,9 @@
+{"contract":"PASS","database":"gowm","role":"ugv_sdar_app","search_path":"ugv_sdar,public,pg_catalog","mcp_servers":1,"model_providers":1,"wait_policies":1,"tasks":0}
+{"url":"http://127.0.0.1:10998/api/v1/health","status":200}
+{"url":"http://127.0.0.1:10998/console/","status":200}
+{"url":"http://127.0.0.1:10999/.well-known/agent-card.json","status":200}
+{"url":"http://control-api:10091/health/ready","status":200}
+{"url":"http://smpp-gowm-runtime-1:8080/health/ready","status":200}
+{"url":"http://world-api:3000/health","status":200}
+{"url":"http://world-mcp-server:3001/health","status":200}
+{"model":"qwen3.8-max-0902","status":200,"scope":"synthetic-connectivity-only"}

@@ -1,0 +1,28 @@
+$ vitest run --project unit --exclude packages/application/test/fast-gateway-p10.unit.test.ts && pnpm test:unit:performance
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"completed","databaseReads":1,"wakeLatencyMs":1}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"awaiting_user_input","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"capability_gap","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.single-performance","environment":"vitest-node-local","waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":3,"elapsedMs":253}
+{"event":"a2a.wait.missed-notification-recovery","environment":"vitest-node-local","safetyPollIntervalMs":100,"databaseReads":1,"deterministicTimeoutRelease":true}
+{"event":"a2a.wait.performance","environment":"vitest-node-local","concurrentWaiters":20,"waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":61,"elapsedMs":270,"closeElapsedMs":0}
+
+ Test Files  289 passed (289)
+      Tests  2509 passed (2509)
+   Start at  10:18:45
+   Duration  57.88s (transform 56.65s, setup 0ms, import 419.37s, tests 102.05s, environment 77ms)
+
+$ vitest run --project unit packages/application/test/fast-gateway-p10.unit.test.ts
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"p10.fast_gateway.no_match_performance","samples":250,"p95Ms":0.597,"maximumMs":4.572,"budgetMs":25}
+{"event":"p10.fast_gateway.concurrency_performance","results":[{"concurrency":1,"p50Ms":0.568,"p95Ms":0.568,"p99Ms":0.568,"elapsedMs":0.757,"errorRate":0},{"concurrency":10,"p50Ms":3.775,"p95Ms":4.138,"p99Ms":4.138,"elapsedMs":4.338,"errorRate":0},{"concurrency":100,"p50Ms":39.775,"p95Ms":43.82,"p99Ms":44.22,"elapsedMs":44.378,"errorRate":0},{"concurrency":1000,"p50Ms":271.34,"p95Ms":310.675,"p99Ms":314.17,"elapsedMs":316.216,"errorRate":0}]}
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  10:19:45
+   Duration  3.56s (transform 2.04s, setup 0ms, import 2.63s, tests 707ms, environment 0ms)
+

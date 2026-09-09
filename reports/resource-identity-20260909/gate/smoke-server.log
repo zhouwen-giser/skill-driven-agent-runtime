@@ -1,0 +1,16 @@
+$ node scripts/smoke-server.mjs
+$ tsc -p tsconfig.build.json && pnpm --dir apps/console build
+$ tsc -b && vite build
+vite v8.1.4 building client environment for production...
+[2Ktransforming...✓ 32 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.47 kB │ gzip:  0.30 kB
+dist/assets/index-BroyGNYG.css   14.19 kB │ gzip:  3.88 kB
+dist/assets/index-DwqO-FGV.js   311.50 kB │ gzip: 88.23 kB │ map: 1,201.63 kB
+
+✓ built in 261ms
+Reusing operator-managed PostgreSQL and Redis; Docker lifecycle commands are disabled.
+{"event":"model_runtime.bootstrap_reconciled","providerId":"ugv-real-model","providerRegistered":true,"routeCountCreated":42}
+{"event":"server.ready","a2aUrl":"http://127.0.0.1:9999","managementUrl":"http://127.0.0.1:9998","admissionObservationProfile":"development"}
+Server build smoke passed: Agent Card, Console bundle, trusted-intranet management API, and configured Artifact bearer identity are reachable.

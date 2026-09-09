@@ -1,0 +1,41 @@
+$ vitest run --project unit --exclude packages/application/test/fast-gateway-p10.unit.test.ts && pnpm test:unit:performance
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts (15 tests | 1 failed) 8343ms
+     × is idempotent for the same exact versions and fails closed on later exact-version drift 1462ms
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"completed","databaseReads":1,"wakeLatencyMs":1}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"awaiting_user_input","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"capability_gap","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.single-performance","environment":"vitest-node-local","waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":3,"elapsedMs":254}
+{"event":"a2a.wait.missed-notification-recovery","environment":"vitest-node-local","safetyPollIntervalMs":100,"databaseReads":1,"deterministicTimeoutRelease":true}
+{"event":"a2a.wait.performance","environment":"vitest-node-local","concurrentWaiters":20,"waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":62,"elapsedMs":300,"closeElapsedMs":0}
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts > UGV SMPP Capability and Skill governance driver > is idempotent for the same exact versions and fails closed on later exact-version drift
+AssertionError: expected 269 to be 268 // Object.is equality
+
+- Expected
++ Received
+
+- 268
++ 269
+
+ ❯ apps/node-control-acceptance/test/ugv-smpp-capability-governance-driver.unit.test.ts:530:35
+    528|         ?.capabilityVersion,
+    529|     ).toBe(2);
+    530|     expect(api.mutationCallCount).toBe(callsAfterUpgrade + 13);
+       |                                   ^
+    531|   });
+    532|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 291 passed (292)
+      Tests  1 failed | 2526 passed (2527)
+   Start at  15:33:15
+   Duration  78.36s (transform 80.09s, setup 0ms, import 578.37s, tests 128.65s, environment 88ms)
+
+[ELIFECYCLE] Command failed with exit code 1.

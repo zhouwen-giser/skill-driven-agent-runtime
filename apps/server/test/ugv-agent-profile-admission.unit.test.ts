@@ -52,6 +52,18 @@ beforeAll(async () => {
 });
 
 describe('UGV Agent Profile deterministic admission', () => {
+  it('admits and revalidates the public site resource without model or device calls', async () => {
+    const { bindingHash: _hash, ...draft } = JSON.parse(
+      JSON.stringify(capabilityBinding()).replaceAll('vehicle:ugv1', 'vehicle:ugv'),
+    ) as TaskCapabilityBinding;
+    void _hash;
+    const binding = createTaskCapabilityBinding(draft);
+    const harness = createAdmissionHarness(binding, exactSkill);
+    const admitted = await harness.admission.admit(contextLoadingTask());
+    expect(admitted).toBeDefined();
+    expect(harness.plans.plan).toBeDefined();
+  });
+
   it('creates and then idempotently revalidates one formal Goal and exact User Goal Plan without a model', async () => {
     const harness = createAdmissionHarness(capabilityBinding(), exactSkill);
     const task = contextLoadingTask();
@@ -475,6 +487,12 @@ function capabilityBinding(
       }),
     ]),
     constraintSnapshot: Object.freeze([
+      {
+        type: 'resource_policy',
+        selection: 'exact_value',
+        allowedResourceIds: ['vehicle:ugv1'],
+        downstreamResourceBinding: 'forbidden',
+      },
       Object.freeze({
         type: 'exact_skill_version',
         skillId: 'embodied.move_to',

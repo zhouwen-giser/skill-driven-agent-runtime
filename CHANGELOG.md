@@ -1,5 +1,19 @@
 # Changelog
 
+- 2026-09-09：修复公开 vehicle:ugv 与内部 ugv1 冲突；自然语言、移动绑定、Skill Usage、终态及仿真资格使用治理资源身份，跨设备漂移仍拒绝。ADR-155 / EP-UGV-RESOURCE-IDENTITY。已部署 sz-gowm 并验证，联合包与现场源码摘要一致；性能首次失败及独立环境通过证据均保留。
+
+## 2026-09-09 — default capability governance
+
+- Default fail-closed governance with an explicit manifest and official Source/Provider/Skill/Capability/Exposure/Card lifecycle; preserve explicit operator settings.
+- Support the fixed upstream ten-tool profile, Compose management transport, freshness renewal/retry, actual point-navigation resource identity, and explicit JSON dictionary schemas with equivalent validation.
+- Deploy official PMS with independent management storage and publish 12 supported Skills on sz-gowm without device actions. Patrol remains blocked pending GOWM inspection authority; full manifest acceptance is not claimed.
+- Evidence and recovery: `reports/default-capabilities-20260909`, `execplans/EP-DEFAULT-CAPABILITIES.md`, ADR-154.
+
+## 2026-09-09 — sz-gowm deployment
+
+- Add explicit external GOWM deployment mode, source packaging and dotenv regressions, and reproducible site preparation/bootstrap/binding tools.
+- Deploy SDAR with existing GOWM/SMPP, preserve shared credentials/data, add pinned pgvector, and verify device binding, 10-tool discovery, model connectivity and service readiness. Evidence: `reports/sz-gowm-deployment-20260909/README.md`.
+
 ## 2026-09-08 — GOWM shared storage integration started
 
 - Preserve the complete task package and pin the GOWM shared storage contract; inventory native SQL consumers.
@@ -2460,3 +2474,6 @@ All notable changes to this project are documented here. The format follows Keep
 
 
 2026-09-08 交付状态：实现提交 83286afe607a59d9d05e06cd589d549d6549a122 已推送指定分支，HEAD 与本地 origin 跟踪引用一致。Draft PR 创建被自动审批两次拒绝；核实目标仓库与任务包一致、当前账号 ADMIN 后仍被拒绝，要求用户明确授权公开正文。已询问用户，等待答复；未改写正文绕过拒绝。此次仅归并本地交付状态，不新增测试、部署或外部发布。
+
+## SDAR 联合源码交付（2026-09-09）
+新增 package:joint，原样保留上游 Authority 联合包，加入 SDAR 源码、部署历史、嵌套完整性验证和冲突保护；源码 tar 规范化元数据。

@@ -1,0 +1,8 @@
+{
+  "inspection": "read_only_source",
+  "file": "/home/zhouwen/web-download/sdar-benchmark-server/packages/runtime-support/src/native-site-config.ts",
+  "sha256": "3e6e9948d3906bed41b9e6b57d69f3ec2cae52ed421690ecaae7e76e81a25bf8",
+  "defaultResourceId": "vehicle:ugv",
+  "benchmarkExecuted": false,
+  "benchmarkSourceChanged": false
+}

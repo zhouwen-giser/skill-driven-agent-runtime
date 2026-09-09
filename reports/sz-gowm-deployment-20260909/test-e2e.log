@@ -1,0 +1,21 @@
+$ node scripts/test-e2e.mjs
+Reusing operator-managed PostgreSQL and Redis; Docker lifecycle commands are disabled.
+{"event":"verification.cleanup_failed","resource":"e2e-database","error":"connect EPERM 127.0.0.1:55432 - Local (undefined:undefined)"}
+/home/zhouwen/web-download/skill-driven-agent-runtime/node_modules/.pnpm/pg-pool@3.14.0_pg@8.22.0/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+Error: connect EPERM 127.0.0.1:55432 - Local (undefined:undefined)
+    at /home/zhouwen/web-download/skill-driven-agent-runtime/node_modules/.pnpm/pg-pool@3.14.0_pg@8.22.0/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async recreateDatabase (file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/test-e2e.mjs:93:5)
+    at async file:///home/zhouwen/web-download/skill-driven-agent-runtime/scripts/test-e2e.mjs:21:3 {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 55432
+}
+
+Node.js v22.23.1
+[ELIFECYCLE] Command failed with exit code 1.

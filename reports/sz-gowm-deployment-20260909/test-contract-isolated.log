@@ -1,0 +1,10 @@
+$ vitest run --project contract
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+
+ Test Files  61 passed (61)
+      Tests  534 passed (534)
+   Start at  10:28:25
+   Duration  23.12s (transform 42.33s, setup 0ms, import 98.96s, tests 71.89s, environment 17ms)
+

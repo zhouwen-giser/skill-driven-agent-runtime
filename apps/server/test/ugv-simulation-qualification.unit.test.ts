@@ -11,6 +11,40 @@ const NOW = '2026-08-21T12:00:02.000Z';
 const INITIAL_POSITION = Object.freeze({ longitude: 106.813_980_425_914_1, latitude: 29.720_4 });
 
 describe('UGV simulation qualification service', () => {
+  it('reuses a site-resource qualification receipt and rejects cross-device receipt substitution', async () => {
+    const map = (receipt: McpInvocation): McpInvocation =>
+      JSON.parse(
+        JSON.stringify(receipt)
+          .replaceAll('vehicle:ugv1', 'vehicle:ugv')
+          .replaceAll('isr.vehicle.ugv.ugv1', 'isr.vehicle.ugv.ugv'),
+      ) as McpInvocation;
+    const callDetailed = vi.fn();
+    const listInvocations = vi.fn(() => Promise.resolve([map(qualificationReceipt())]));
+    const resolveQualificationAuthority = vi.fn(() =>
+      Promise.resolve({
+        serverId: SERVER_ID,
+        providerBindingId: PROVIDER_BINDING_ID,
+        providerId: 'isr.vehicle.ugv.ugv',
+        resourceId: 'vehicle:ugv',
+      }),
+    );
+    const service = qualificationService({
+      callDetailed,
+      listInvocations,
+      resolveQualificationAuthority,
+    });
+    await expect(service.capture({ simulationId: SIMULATION_ID })).resolves.toMatchObject({
+      resourceId: 'vehicle:ugv',
+      providerId: 'isr.vehicle.ugv.ugv',
+    });
+    expect(callDetailed).not.toHaveBeenCalled();
+    listInvocations.mockResolvedValueOnce([qualificationReceipt()]);
+    await expect(service.capture({ simulationId: SIMULATION_ID })).rejects.toMatchObject({
+      code: 'UGV_SIMULATION_QUALIFICATION_RECEIPT_INVALID',
+    });
+    expect(callDetailed).not.toHaveBeenCalled();
+  });
+
   it('serializes concurrent capture, makes one fixed taskless state read, and returns its PG receipt', async () => {
     const invocations: McpInvocation[] = [];
     const callDetailed = vi.fn(
@@ -188,6 +222,7 @@ describe('UGV simulation qualification service', () => {
           serverId: SERVER_ID,
           providerBindingId: 'wrong-provider-binding',
           providerId: PROVIDER_ID,
+          resourceId: 'vehicle:ugv1',
         }),
       ),
     });
@@ -238,6 +273,7 @@ function qualificationService(
             serverId: SERVER_ID,
             providerBindingId: PROVIDER_BINDING_ID,
             providerId: PROVIDER_ID,
+            resourceId: 'vehicle:ugv1',
           }),
         )) as never,
     },

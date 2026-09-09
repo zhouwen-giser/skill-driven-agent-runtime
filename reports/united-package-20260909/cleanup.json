@@ -1,0 +1,8 @@
+{
+  "testContainersRemoved": [
+    "sdar-union-gate-postgres",
+    "sdar-union-gate-redis"
+  ],
+  "temporaryBuildDirectoriesRemoved": 3,
+  "remoteConnections": 0
+}

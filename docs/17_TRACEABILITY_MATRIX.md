@@ -1552,3 +1552,21 @@ GOWM 设备派生执行范围增量（2026-09-08）：`packages/persistence-post
 
 
 2026-09-08 R2 父 Task 取消：复用现有 runtime driver 新增 --parent-cancel，经官方 A2A 客户端每设备重复取消两次。报告 execution-gowm-runtime-cf538662-4ffe-4cd5-828f-3c49d587046b.json 为 PASS：两个 Task 和对应 Workflow instance 均 canceled 且 device_id 正确，工具总调用 2，本地模型夹具失败 0，cleanupErrors=[]。此证据不宣称 Provider 已终止、物理进程重启或迟到回调全部完成；启动仍有已有模型路由 MODEL_INVOCATION_FAILED 告警。进程丢失现有 gowm-recovery.postgres-cases.ts 已证明持久恢复范围、重复调用无新增状态，真实进程重启组合仍开放。
+
+
+2026-09-09 sz-gowm deployment (ADR-153 / Development deployment): implementation `deploy/development/{config,package,upgrade-preflight}.mjs`, `deploy/sz-gowm/`; regression `apps/server/test/development-deployment.unit.test.ts` (5 PASS); full gate and real deployment evidence `reports/sz-gowm-deployment-20260909/README.md`. Real GOWM ugv_sdar contract PASS, fixed scoped Pool, existing managed role, official device successor binding, SMPP tools/list 10, external Console/A2A/Control 200 and synthetic model connectivity 200. This is deployment verification, not closure of all shared-runtime business acceptance gaps.
+
+### 联合源码交付补充证据（2026-09-09）
+DEV-DEPLOY / NFR-SEC-001 / NFR-SEC-002（交付凭据排除子集，运行时加密不变）/ ADR-153：`deploy/united/package.mjs`、`bundle.py`、`DEPLOYMENT_HISTORY.md`；计划 `EP-UNITED-SOURCE-PACKAGE`；回归与完整 gate 结果记录于 `reports/united-package-20260909`。不新增业务需求或声明完整项目验收。
+
+联合包验证完成：`pnpm package:joint -- --upstream PATH`，`python3 bundle.py verify ARCHIVE`；部署回归 6 PASS（内含 Python 4 组）、全量 unit 2534 / integration 242 / contract 534 / E2E 75 PASS，format/lint/typecheck/build/smoke PASS。归档重复生成及干净解包构建结果见 `reports/united-package-20260909/validation-summary.json`、`package-final.json`。
+
+### 默认治理初始化与非空 Agent Card（2026-09-09，ADR-154）
+DEV-DEPLOY / FR-SKL 生命周期 / Agent Card 发布 / NFR-SEC-001/002：实现 `deploy/development/bootstrap*.mjs`、`capability-manifest.json`、`apps/node-control-acceptance/src/{smpp-provider-materializer,ugv-smpp-source-bootstrap-driver,ugv-smpp-capability-governance-driver,provider-json-schema}.ts`、`packages/runtime-control-application/src/skill-provider-dependency-policy.ts`、`deploy/sz-gowm/pms-*`。
+回归：`default-capability-bootstrap.unit.test.ts`、对应治理/Source/Provider/schema/readiness unit；完整 gate、正式 PMS、只读现场逐项验收、重复初始化与交付源码证据在 `reports/default-capabilities-20260909`。实际 12 个 Skills/公开能力已验证；巡逻等待 GOWM inspection 合同，未标为完整清单通过。未调用现场设备动作。
+
+### UGV 执行资源身份一致性（2026-09-09，ADR-155）
+Agent Card / Task Capability / MCP Binding / DEV-DEPLOY：`apps/server/src/ugv-{move-input-adapter,move-binding,agent-profile-admission,natural-language-capability-admission,move-skill-usage,move-terminal-outcome,simulation-qualification}.ts`、`packages/domain/src/selected-task-operation.ts`、内部治理输入适配端口与 PostgreSQL Authority Reader。
+测试：对应 UGV unit、`fixtures/sz-gowm-ugv-resource-contracts.json`（只读现场合同）、已有治理控制 integration / contract / E2E；证据：`reports/resource-identity-20260909`。范围为身份贯通修复，不代替真实设备移动 benchmark 验收，巡逻 Provider 缺失仍保留。
+
+本次身份修复验收：unit 2561、integration 242、contract 534、E2E 74+1、format/lint/typecheck/build/smoke 全部有通过证据；性能独立复核保持原阈值。现场 `site-resource-identity-final.json` PASS；三个 SDAR 容器各 2780 源文件无差异，与联合包 sourceHash 81e64ef90f96e97424c6f7ddf711dd5e9db1907fe20a16b74b00ba6b693d0446 一致。`validation-summary.json` 保留失败尝试、环境及验证边界；真实移动 benchmark 未执行。

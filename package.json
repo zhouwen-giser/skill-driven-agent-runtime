@@ -97,7 +97,8 @@
     "gowm-storage:smoke": "node --import tsx scripts/gowm-storage.mts",
     "test:gowm-storage:unit": "vitest run --project unit apps/server/test/gowm-*.unit.test.ts packages/persistence-postgres/test/gowm-*.unit.test.ts",
     "test:gowm-storage:postgres": "node --import tsx scripts/gowm-storage-postgres.mts",
-    "test:gowm-storage:runtime": "node --import tsx scripts/gowm-runtime-execution.mts"
+    "test:gowm-storage:runtime": "node --import tsx scripts/gowm-runtime-execution.mts",
+    "package:joint": "node deploy/united/package.mjs"
   },
   "dependencies": {
     "@a2a-js/sdk": "1.0.0-beta.0",

@@ -1,0 +1,359 @@
+{
+  "status": "SUPPORTED_INVENTORY_VERIFIED_WITH_DEPENDENCY_BLOCK",
+  "observedAt": "2026-09-09T10:27:39.559Z",
+  "deviceCalls": 0,
+  "fullManifestAccepted": false,
+  "blocked": [
+    {
+      "skillId": "embodied.area_patrol",
+      "dependency": "embodied.inspect_area",
+      "owner": "future GOWM",
+      "reasonCode": "BUILTIN_CAPABILITY_DEPENDENCY_MISSING"
+    }
+  ],
+  "supported": {
+    "blocked": [],
+    "expectedSkills": [
+      "ugv.get-state",
+      "ugv.get-capabilities",
+      "ugv.get-payload-status",
+      "ugv.get-targets",
+      "ugv.navigate-route",
+      "ugv.navigate-distance",
+      "ugv.return-home",
+      "ugv.area-recon",
+      "ugv.track-target",
+      "ugv.control-gimbal",
+      "ugv.emergency-stop",
+      "embodied.move_to"
+    ],
+    "publicSkillIds": [
+      "embodied.move_to",
+      "ugv.area-recon",
+      "ugv.control-gimbal",
+      "ugv.emergency-stop",
+      "ugv.get-capabilities",
+      "ugv.get-payload-status",
+      "ugv.get-state",
+      "ugv.get-targets",
+      "ugv.navigate-distance",
+      "ugv.navigate-route",
+      "ugv.return-home",
+      "ugv.track-target"
+    ],
+    "publicCapabilityIds": [
+      "embodied.move",
+      "vehicle.ugv.recon",
+      "vehicle.ugv.control-gimbal",
+      "vehicle.ugv.emergency-stop",
+      "vehicle.ugv.read-capabilities",
+      "vehicle.ugv.read-payload",
+      "vehicle.ugv.read-state",
+      "vehicle.ugv.read-targets",
+      "vehicle.ugv.navigate-distance",
+      "vehicle.ugv.navigate-route",
+      "vehicle.ugv.return-home",
+      "vehicle.ugv.track-target"
+    ],
+    "catalogVersion": "1.0"
+  },
+  "skills": [
+    {
+      "skillId": "embodied.move_to",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.area-recon",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.control-gimbal",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.emergency-stop",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.get-capabilities",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.get-payload-status",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.get-state",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.get-targets",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.navigate-distance",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.navigate-route",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.return-home",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    },
+    {
+      "skillId": "ugv.track-target",
+      "version": 1,
+      "status": "enabled",
+      "validationPassed": true
+    }
+  ],
+  "capabilities": [
+    {
+      "capabilityId": "embodied.move",
+      "version": 2,
+      "previousVersion": 1,
+      "status": "published",
+      "definitionHash": "af7b360c9cfcd45ab9a334c9f4662af14b42d62b8b03dca082fb3cac8c16dc65"
+    },
+    {
+      "capabilityId": "embodied.move",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "0600860f452ab76d76e5c6fe817cafdf536b682b68906e8905a7463c719002cf"
+    },
+    {
+      "capabilityId": "vehicle.ugv.control-gimbal",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "5c72a5fe7a196ce4cdd6a41b0f48a16b8b526f7b29574138ed268b54ce183fbd"
+    },
+    {
+      "capabilityId": "vehicle.ugv.emergency-stop",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "1144980e4197321098168b1775a1128a5070ccef6e8e89423e812b48e41c02c6"
+    },
+    {
+      "capabilityId": "vehicle.ugv.navigate-distance",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "e7a116fe775a071044f013b38ebfabfad4718350a7cd37cf36bf943607d9cc54"
+    },
+    {
+      "capabilityId": "vehicle.ugv.navigate-route",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "72e67fe774ad2a12cf7026f4eef38771a10ad61cdb17a90ee8211f5f6ecb26e8"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-capabilities",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "b26940d1c3b8ec5c977f89c8734e3958eeb4855e791d696be372147ea2e88812"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-payload",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "bb7757226d803faf9c9ce3550b04dafcacba286d289293bd5c2e3db9ebc6eeec"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-state",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "a5ac44e4a630e0984b8e0cd5ff04b81d4ff8c5701b2c1fd43e30b4fcd19f7910"
+    },
+    {
+      "capabilityId": "vehicle.ugv.read-targets",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "2324b8f8967a65a45dc605c42ac98fec176cb3bea684b6f6bf9fd116fe557159"
+    },
+    {
+      "capabilityId": "vehicle.ugv.recon",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "77a769248bf0bea29d8858f7d9c588280c9c6ba96b700e6f3d6c59e5545ccf2e"
+    },
+    {
+      "capabilityId": "vehicle.ugv.return-home",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "f56f8a52dbf07963c5fb9eb42fd397c475d99a527585540e88f96217ad380546"
+    },
+    {
+      "capabilityId": "vehicle.ugv.track-target",
+      "version": 1,
+      "status": "published",
+      "definitionHash": "1378fcd0aff44be41a9b4ca309671161ec454025f2e4022bb80f0acd8956b1c1"
+    }
+  ],
+  "exposures": [
+    {
+      "exposureId": "a2a.embodied.move",
+      "version": 1,
+      "capabilityId": "embodied.move",
+      "capabilityVersion": 2,
+      "agentSkillId": "embodied.move_to",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "a5cf9d648661c607cb5a666a029118fc09acf33407e5753ee6c1597e5d9e00dc"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.control-gimbal",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.control-gimbal",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.control-gimbal",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "4d642d2611804fb2c6db4bdbc785688de29c1bcbe35b5638ae3dbf2399f43f7b"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.emergency-stop",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.emergency-stop",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.emergency-stop",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "61bd82a9bb7fb44a91f04425afe218c3badc01fdf4c735039e5972f66fb8ad24"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.navigate-distance",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.navigate-distance",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.navigate-distance",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "3f413a119183da0804b73d47873b329ac49f1e4129bf6e8663f250bea78db00e"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.navigate-route",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.navigate-route",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.navigate-route",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "1ca54b10d6d244e3ea91e112fc14ccb45392b2400368ad06e693cb6e89c0b910"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-capabilities",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.read-capabilities",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.get-capabilities",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "4776c8a136d9d38662e7939092515b177efd12ceb8254f2aa4797f94d5a3cefd"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-payload",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.read-payload",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.get-payload-status",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "093507f8e58d42c90f5da097f01e9288d690017bcc81d71355c10d4f9e7e05d1"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-state",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.read-state",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.get-state",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "3820cace6de67094c0123a3ca25ede8479c48e370344668b89c4d37f81fb2698"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.read-targets",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.read-targets",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.get-targets",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "e4d24b20f0b456e34aa2a53226f022feb1b8f86a4850bbbe6ff4186443509275"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.recon",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.recon",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.area-recon",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "9d3cc9842e9064a6a0f8942aea0bd72fc602f28d079da75564c2a7dba1bf6938"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.return-home",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.return-home",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.return-home",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "de5f80b1ab2fe11eba0939a9d35a0293f04a0e0c39fa837ff445c81bece9b5c5"
+    },
+    {
+      "exposureId": "a2a.vehicle.ugv.track-target",
+      "version": 1,
+      "capabilityId": "vehicle.ugv.track-target",
+      "capabilityVersion": 1,
+      "agentSkillId": "ugv.track-target",
+      "status": "published",
+      "visibility": "public",
+      "exposureHash": "dae0a73d0f0551849070d2cd71f555be0799a6e66292bdbe98f8be9a51291333"
+    }
+  ],
+  "activeCard": {
+    "revision": 2,
+    "nodeId": "development-sdar-node",
+    "contentHash": "d5fa12e45dbdc599a86a1abe420a53e60bafe0009929f758cfaf801892f2fc1a",
+    "capabilityCatalogHash": "e70f9d420cb03ffbc3affe82c2da9b0f43da9c68aab41958fb00f0073a3a48d0",
+    "exposureRefs": [
+      "a2a.embodied.move:1",
+      "a2a.vehicle.ugv.recon:1",
+      "a2a.vehicle.ugv.control-gimbal:1",
+      "a2a.vehicle.ugv.emergency-stop:1",
+      "a2a.vehicle.ugv.read-capabilities:1",
+      "a2a.vehicle.ugv.read-payload:1",
+      "a2a.vehicle.ugv.read-state:1",
+      "a2a.vehicle.ugv.read-targets:1",
+      "a2a.vehicle.ugv.navigate-distance:1",
+      "a2a.vehicle.ugv.navigate-route:1",
+      "a2a.vehicle.ugv.return-home:1",
+      "a2a.vehicle.ugv.track-target:1"
+    ],
+    "status": "active",
+    "activatedAt": "2026-09-09T07:26:44.897Z"
+  }
+}

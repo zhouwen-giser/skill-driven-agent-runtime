@@ -1,0 +1,1 @@
+{"status":"SUPPORTED_INVENTORY_VERIFIED_WITH_DEPENDENCY_BLOCK","skillCount":12,"publicCapabilityCount":12,"cardRevision":2,"blocked":[{"skillId":"embodied.area_patrol","dependency":"embodied.inspect_area","owner":"future GOWM","reasonCode":"BUILTIN_CAPABILITY_DEPENDENCY_MISSING"}],"deviceCalls":0}

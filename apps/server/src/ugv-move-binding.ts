@@ -32,20 +32,19 @@ import type {
 
 import {
   adaptUgvMoveInput,
-  UGV_MOVE_RESOURCE_ID,
+  requireUgvResourceId,
+  ugvResourceIdFromSchema,
   type AdaptedUgvMoveInput,
 } from './ugv-move-input-adapter.js';
 import { UGV_UNKNOWN_AVAILABILITY_POLICY } from './ugv-unknown-availability-policy.js';
 
-const UGV_PROVIDER_ID = 'isr.vehicle.ugv.ugv1';
 const UGV_PROVIDER_TYPE = 'isr.vehicle.ugv';
 const UGV_PROVIDER_VERSION = '1.0.0';
 const NAVIGATE_OPERATION = 'vehicle_navigate';
 const FINAL_STATE_OPERATION = 'vehicle_get_state';
-const STATE_READ_ARGUMENTS = Object.freeze({
-  resourceId: UGV_MOVE_RESOURCE_ID,
-  include: Object.freeze(['chassis', 'health']),
-});
+function stateReadArguments(resourceId: string) {
+  return Object.freeze({ resourceId, include: Object.freeze(['chassis', 'health']) });
+}
 
 export interface UgvMoveBindingResolution {
   readonly selected: SelectedTaskOperation;
@@ -56,6 +55,7 @@ export interface UgvMoveQualificationAuthority {
   readonly serverId: string;
   readonly providerBindingId: string;
   readonly providerId: string;
+  readonly resourceId: string;
 }
 
 export type UgvMoveReadinessRejectionDiagnostic = ReturnType<typeof readinessRejectionDiagnostic>;
@@ -119,7 +119,10 @@ export class UgvMoveTaskBindingResolver {
         'UGV_PROFILE_EXECUTION_CONTEXT_REQUIRED',
         'UGV simulation Task binding requires a stable simulation identity.',
       );
-    const adaptedInput = adaptUgvMoveInput(input.skillInput);
+    const adaptedInput = adaptUgvMoveInput(
+      input.skillInput,
+      requireUgvResourceId(record(input.skillInput)?.['resourceId']),
+    );
     const exactSkill = await this.#requireExactSkillAuthority();
     const currentSkill = exactSkill.skill;
     const taskBinding = exactSkill.binding;
@@ -236,7 +239,7 @@ export class UgvMoveTaskBindingResolver {
         catalogChecksum: exact.runtime.catalogAuthority.catalogChecksum,
       }),
       resource: Object.freeze({
-        resourceId: UGV_MOVE_RESOURCE_ID,
+        resourceId: adaptedInput.resourceId,
         resourceType: 'vehicle',
       }),
       operation: Object.freeze({
@@ -253,7 +256,7 @@ export class UgvMoveTaskBindingResolver {
         operationName: FINAL_STATE_OPERATION,
         serverId: exact.runtime.record.server.serverId,
         providerId: provider.providerId,
-        resourceId: UGV_MOVE_RESOURCE_ID,
+        resourceId: adaptedInput.resourceId,
         catalogChecksum: exact.runtime.catalogAuthority.catalogChecksum,
         inputSchema: exact.getState.inputSchema,
         inputSchemaHash: hashCanonicalEvidenceJson(exact.getState.inputSchema),
@@ -261,8 +264,8 @@ export class UgvMoveTaskBindingResolver {
         outputSchemaHash: hashCanonicalEvidenceJson(exact.getState.outputSchema),
         executionSemantics: exact.getState.executionSemantics,
         taskExecutionProfile: exact.getState.taskExecutionProfile,
-        resolvedArguments: STATE_READ_ARGUMENTS,
-        argumentsHash: hashCanonicalEvidenceJson(STATE_READ_ARGUMENTS),
+        resolvedArguments: stateReadArguments(adaptedInput.resourceId),
+        argumentsHash: hashCanonicalEvidenceJson(stateReadArguments(adaptedInput.resourceId)),
       }),
       resolvedArguments: adaptedInput.providerArguments,
       argumentsHash: adaptedInput.argumentsHash,
@@ -311,16 +314,43 @@ export class UgvMoveTaskBindingResolver {
    */
   async resolveQualificationAuthority(): Promise<UgvMoveQualificationAuthority> {
     await this.#requireExactSkillAuthority();
-    const exact = await this.#requireCompatibleCandidate(
-      adaptUgvMoveInput({
-        resourceId: UGV_MOVE_RESOURCE_ID,
-        target: { x: 0, y: 0, frame: 'WGS84' },
+    const registered = await this.#operations.listTaskOperationCandidates(NAVIGATE_OPERATION);
+    const inspected = await Promise.all(
+      registered.map(async (candidate): Promise<CandidateInspection> => {
+        try {
+          const runtime = await this.#runtimeBindings.loadRuntimeAuthority(candidate.providerId);
+          const resourceId = ugvResourceIdFromSchema(
+            exactTool(runtime, NAVIGATE_OPERATION).inputSchema,
+          );
+          return await this.#inspectCandidate(
+            candidate,
+            adaptUgvMoveInput(
+              {
+                resourceId,
+                target: { x: 0, y: 0, frame: 'WGS84' },
+              },
+              resourceId,
+            ),
+          );
+        } catch (error: unknown) {
+          return { kind: 'rejected', code: candidateFailureCode(error) };
+        }
       }),
     );
+    const compatible = inspected.filter(
+      (item): item is CompatibleCandidate => item.kind === 'compatible',
+    );
+    if (compatible.length === 0) failForRejectedCandidates(inspected);
+    if (compatible.length !== 1)
+      fail('UGV_PROFILE_BINDING_AMBIGUOUS', 'Qualification requires one exact governed vehicle.');
+    const exact = compatible[0];
+    if (exact === undefined)
+      fail('UGV_PROFILE_BINDING_NOT_FOUND', 'No qualification authority exists.');
     return Object.freeze({
       serverId: exact.runtime.record.server.serverId,
       providerBindingId: exact.binding.binding.bindingId,
       providerId: exact.binding.binding.providerId,
+      resourceId: ugvResourceIdFromSchema(exact.navigate.inputSchema),
     });
   }
 
@@ -381,7 +411,7 @@ export class UgvMoveTaskBindingResolver {
         authority: binding,
         bindingId: binding.binding.bindingId,
         localServerId: candidate.providerId,
-        providerId: UGV_PROVIDER_ID,
+        providerId: binding.binding.providerId,
         runtimeAuthority: runtime,
       });
       const navigate = exactTool(runtime, NAVIGATE_OPERATION);
@@ -527,7 +557,8 @@ function assertProviderIdentity(
   const provider = runtime.snapshot.providerCatalog;
   const binding = authority.binding;
   if (
-    provider?.providerId !== UGV_PROVIDER_ID ||
+    provider === undefined ||
+    !/^isr\.vehicle\.ugv\.[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(provider.providerId) ||
     provider.providerType !== UGV_PROVIDER_TYPE ||
     provider.providerVersion !== UGV_PROVIDER_VERSION ||
     binding.originType !== 'smpp_registry' ||
@@ -571,9 +602,9 @@ function assertNavigateContract(
     tool.executionSemantics.cancellation !== 'task_cancel' ||
     tool.executionSemantics.idempotency !== 'server_managed' ||
     !['forbidden', 'simulation_only'].includes(tool.executionSemantics.replay) ||
-    !navigateSchemaDeclaresExactPointResource(tool.inputSchema) ||
+    !navigateSchemaDeclaresExactPointResource(tool.inputSchema, input.resourceId) ||
     successOutputSchema === undefined ||
-    !navigateOutputDeclaresOutcomeAuthority(successOutputSchema) ||
+    !navigateOutputDeclaresOutcomeAuthority(successOutputSchema, input.resourceId) ||
     !schemas.checkSchema(tool.inputSchema).valid ||
     !schemas.checkSchema(tool.outputSchema).valid ||
     !schemas.validate(tool.inputSchema, input.providerArguments).valid
@@ -607,11 +638,10 @@ function assertGetStateContract(
     tool.executionSemantics.idempotency !== 'server_managed' ||
     tool.executionSemantics.replay !== 'allowed' ||
     successOutputSchema === undefined ||
-    !stateOutputDeclaresPositionAuthority(successOutputSchema) ||
+    !stateOutputDeclaresPositionAuthority(successOutputSchema, resourceId) ||
     !schemas.checkSchema(tool.inputSchema).valid ||
     !schemas.checkSchema(tool.outputSchema).valid ||
-    resourceId !== UGV_MOVE_RESOURCE_ID ||
-    !schemas.validate(tool.inputSchema, STATE_READ_ARGUMENTS).valid
+    !schemas.validate(tool.inputSchema, stateReadArguments(resourceId)).valid
   )
     throw new UgvMoveBindingError(
       'UGV_PROFILE_SCHEMA_DRIFT',
@@ -619,7 +649,7 @@ function assertGetStateContract(
     );
 }
 
-function navigateSchemaDeclaresExactPointResource(value: unknown): boolean {
+function navigateSchemaDeclaresExactPointResource(value: unknown, resourceId: string): boolean {
   const schema = record(value);
   const properties = record(schema?.['properties']);
   const resource = record(properties?.['resourceId']);
@@ -628,7 +658,7 @@ function navigateSchemaDeclaresExactPointResource(value: unknown): boolean {
   const branches = Array.isArray(mission?.['oneOf']) ? mission['oneOf'] : [];
   return (
     schema?.['additionalProperties'] === false &&
-    resource?.['const'] === UGV_MOVE_RESOURCE_ID &&
+    resource?.['const'] === resourceId &&
     stop?.['type'] === 'boolean' &&
     branches.some((branch) => {
       const branchProperties = record(record(branch)?.['properties']);
@@ -648,7 +678,7 @@ function navigateSchemaDeclaresExactPointResource(value: unknown): boolean {
   );
 }
 
-function navigateOutputDeclaresOutcomeAuthority(value: unknown): boolean {
+function navigateOutputDeclaresOutcomeAuthority(value: unknown, resourceId: string): boolean {
   const schema = record(value);
   const properties = record(schema?.['properties']);
   const resource = record(properties?.['resourceId']);
@@ -664,7 +694,7 @@ function navigateOutputDeclaresOutcomeAuthority(value: unknown): boolean {
     schema?.['type'] === 'object' &&
     schema['additionalProperties'] === false &&
     requiredFields(schema, ['resourceId', 'status', 'observedAt']) &&
-    resource?.['const'] === UGV_MOVE_RESOURCE_ID &&
+    resource?.['const'] === resourceId &&
     arrayIncludes(record(status)?.['enum'], 'completed') &&
     observedAt?.['format'] === 'date-time' &&
     snapshotRevision?.['type'] === 'string' &&
@@ -689,7 +719,7 @@ function navigateOutputDeclaresOutcomeAuthority(value: unknown): boolean {
   );
 }
 
-function stateOutputDeclaresPositionAuthority(value: unknown): boolean {
+function stateOutputDeclaresPositionAuthority(value: unknown, resourceId: string): boolean {
   const schema = record(value);
   const properties = record(schema?.['properties']);
   const identity = record(properties?.['identity']);
@@ -716,7 +746,7 @@ function stateOutputDeclaresPositionAuthority(value: unknown): boolean {
     identity['additionalProperties'] === false &&
     requiredFields(identity, ['providerId', 'resourceId', 'vehicleType', 'executionMode']) &&
     record(identityProperties?.['providerId'])?.['type'] === 'string' &&
-    record(identityProperties?.['resourceId'])?.['const'] === UGV_MOVE_RESOURCE_ID &&
+    record(identityProperties?.['resourceId'])?.['const'] === resourceId &&
     record(identityProperties?.['vehicleType'])?.['type'] === 'string' &&
     arrayIncludes(record(identityProperties?.['executionMode'])?.['enum'], 'simulation') &&
     connectivity?.['type'] === 'object' &&

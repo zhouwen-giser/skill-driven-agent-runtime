@@ -1,0 +1,295 @@
+$ vitest run --project contract
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |contract| apps/node-control-api/test/http-endpoint.contract.test.ts (8 tests | 8 failed) 120ms
+     × opens developer public management without opening internal service credentials 44ms
+     × exposes exact Capability authority only through the runtime-service channel 10ms
+     × exposes public liveness/discovery and authenticated Node/Audit projections 6ms
+     × exposes only secret-free current MCP Binding authority to the Runtime service identity 6ms
+     × proxies frozen Skill and Plan Template governance without copying content authority 5ms
+     × exposes only the frozen output-side Evidence Export routes 10ms
+     × enforces the organization read profile and streams resumable hint-only Node Events 23ms
+     × authenticates and delegates all four public Task commands through durable Node Control 11ms
+ ❯ |contract| apps/node-control-api/test/operation-conformance.contract.test.ts (6 tests | 1 failed) 237ms
+     × matches the complete frozen inventory to production routes, RBAC, and executed coverage 223ms
+ ❯ |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts (12 tests | 12 failed) 68ms
+     × announces the LAN address independently of its local listener without dispatching a Task 38ms
+     × discovers the Agent Card and completes a task through the official REST client 4ms
+     × projects only the frozen safe P12 Artifact extension without changing formal Task states 2ms
+     × publishes a safe server-resolved natural-language admission contract 2ms
+     × uses a Runtime-active Capability Agent Card instead of directly exposing internal Skills 4ms
+     × preserves the A2A 1.0.1 media type when the client requests it 1ms
+     × retains application/json compatibility for the pinned HTTP+JSON TCK 2ms
+     × returns the original Task and normalized history when the SDK retries one durable admission with new generated ids 2ms
+     × authenticates a bearer exactly once before dispatching a Task follow-up 5ms
+     × accepts an anonymous initial A2A request in explicit trusted-intranet mode 2ms
+     × streams the standard task lifecycle without custom states 2ms
+     × continues task execution after the streaming client disconnects 1ms
+ ❯ |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts (7 tests | 7 failed) 66ms
+     × certifies discovery, Tool profile/output schema, Availability, Task, revisions and Evidence A 42ms
+     × discovers the complete Frozen area-patrol catalog 9ms
+     × handles MRTR input, cooperative cancel and Notification reconciliation without duplicate Tool calls 1ms
+     × returns a policy-complete restricted Availability result 2ms
+     × re-authorizes subscription interests at Notification send time 1ms
+     × keeps restart acceptance poll-driven after an Ack-only subscription 5ms
+     × fails closed when the local Provider notification producer queue overflows 1ms
+ ❯ |contract| packages/management-api/test/http-endpoint.contract.test.ts (82 tests | 82 failed) 893ms
+     × isolated software demo requires a separate manual acknowledgement and has no Device contract 115ms
+     × serves the unauthenticated console from the management process with the risk header 54ms
+     × keeps governed-control management unavailable unless a trusted identity is composed 19ms
+     × authenticates governed-control issue/revoke and rejects body authority overrides 28ms
+     × maps emergency-stop and weapon authorization routes to their dedicated authorities 19ms
+     × exposes workflow-template inventory and usage evidence 45ms
+     × exposes the composed deterministic Capability execution with bounded idempotency 30ms
+     × does not compose the deterministic execution route without its dedicated authority bundle 26ms
+     × serializes fresh, jsonb replay, and recovered deterministic responses to identical bytes 32ms
+     × returns a conflict and preserves durable pending state after an uncertain Provider dispatch 21ms
+     × exposes authenticated Runtime Control Skill and Plan Template governance adapters 6ms
+     × delegates every authenticated Runtime Task command to the Task authority 5ms
+     × rejects stale revisions before all four Runtime Task mutations and preserves exact replay 17ms
+     × exposes authenticated Runtime identity routes and fails closed without catalog authority 5ms
+     × keeps UGV qualification bearer-protected and unavailable outside the composed Profile 10ms
+     × admits only the exact B02 run shape into the composed UGV qualification operation 7ms
+     × delegates catalog stage and activate only to an explicitly composed Runtime authority 5ms
+     × fails closed on invalid Runtime Task commands and replays one exact command once 14ms
+     × replays one completed Runtime Task command across endpoint restart without duplicate mutation 3ms
+     × fails closed when a Runtime Task command lease is recovered after an uncertain restart 12ms
+     × projects bounded P10 Gateway evidence without changing Task protocol semantics 5ms
+     × exposes P12 tenant-scoped queries and rejects actor spoofing in command JSON 6ms
+     × projects secret-free P11 Case and Model Route runtime evidence 4ms
+     × projects Business Event health, cursors, Inbox, impact and incidents without credentials 5ms
+     × reads and rebuilds the hash-matched Capability Summary with a bounded Level-0 index 6ms
+     × reads and rebuilds the activated Public Capability Card snapshot 4ms
+     × reads the current Task Understanding and its immutable revision history 11ms
+     × reads an interactive Goal session and applies a CAS/idempotent action 5ms
+     × optionally bearer-authenticates cognitive writes before any application mutation 5ms
+     × reads an interactive planning session and applies a CAS/idempotent plan patch 7ms
+     × reads immutable planning interactions and propagates user-scoped preference deletion 5ms
+     × lists immutable Goal Episodes and manually replays inspectable Experience dead letters 5ms
+     × projects Task readiness windows without exposing full argument snapshots 5ms
+     × projects the complete remote Task lifecycle without credentials or raw availability arguments 6ms
+     × routes version-constrained refresh, cooperative cancellation, and structured input 18ms
+     × exposes credential-safe MCP management operation evidence 4ms
+     × exposes Tool semantics and validates credential-free administrator overrides 5ms
+     × exposes persisted MCP dependency warnings for management display 4ms
+     × reads and updates the unified Task wait timeout 4ms
+     × lists Tasks with bounded PostgreSQL query filters 4ms
+     × lists credential-safe model Providers and fixed stage routes 4ms
+     × returns only credential-safe current Prompt authority for one exact stage 15ms
+     × accepts cognitive reflection and Task Type induction model stages at the management boundary 4ms
+     × accepts an explicit embedding route operation at the management boundary 5ms
+     × imports configured Task Types through the existing audited authority and validates the public contract 4ms
+     × lists versioned Candidate Task Types without exposing them as active knowledge 4ms
+     × lists Capability Patterns and non-executable Gap Candidates 5ms
+     × exposes CAS-guarded Knowledge promotion lifecycle actions 4ms
+     × exposes durable cognitive write audit details without private reasoning 13ms
+     × reads and updates disabled-by-default Memory retention controls 3ms
+     × reads and updates the authoritative Evolution threshold and exposes trigger logs 5ms
+     × exposes persisted processed-result evidence by Task 4ms
+     × exposes queryable post-terminal enhancement failures without changing authority 5ms
+     × exposes the five-component Task quality report 4ms
+     × lists low-confidence implicit feedback linked to a Task 4ms
+     × exposes the report-linked Evaluation influence record 17ms
+     × filters operational Evaluation analytics by Skill, version, model, and Tool 5ms
+     × advertises the trusted-intranet no-auth risk and returns credential-free MCP data 4ms
+     × exposes frozen Provider protocol evidence, baseline audit and immutable mode guard 4ms
+     × rejects invalid external input with a stable error envelope before application calls 4ms
+     × does not expose unexpected infrastructure error details 4ms
+     × fails explicitly instead of using a fallback when no authoring model is configured 4ms
+     × validates/imports Skill Packages and exposes exact usage catalog/version contracts 9ms
+     × publishes a persisted A2A Skill draft only through the management draft route 17ms
+     × records and lists Skill quality warnings without a status mutation operation 4ms
+     × fails explicitly when semantic and final selection providers are not configured 6ms
+     × exposes auditable Skill induction and simulation reports 6ms
+     × lists replayable Evolution Experiences by Goal 4ms
+     × exposes the same confirmed-plan state through confirmation and execution endpoints 5ms
+     × requires and forwards one complete Goal contract for standalone Workflow planning 4ms
+     × exposes persisted human-confirmation resume for a paused Workflow instance 17ms
+     × returns an ordered Workflow instance trace for replay 4ms
+     × filters Task-linked runtime, model, MCP, and plan trace evidence 4ms
+     × exposes plan-scoped pause, resume, and cancel execution controls 5ms
+     × exposes Goal creation and the persisted outer-control entry point 7ms
+     × exposes Goal Patch apply and history contracts 5ms
+     × exposes ordered Goal and relationship history for a context 6ms
+     × exposes Goal cancellation and immutable cancellation history 30ms
+     × exposes task-plan binding and validated admin plan revision contracts 7ms
+     × retains the frozen 400 response for a stale Task plan decision 8ms
+     × creates and semantically searches source-traceable global memories 7ms
+     × queries Skill execution evidence, tree, hard gates and degraded reasons 10ms
+ ❯ |contract| packages/mcp-adapter/test/frozen-protocol-package.contract.test.ts (1 test | 1 failed) 579ms
+     × verifies the pinned source, derived schema lock, valid fixtures and legacy rejection fixtures 575ms
+ ❯ |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts (5 tests | 5 failed) 32ms
+     × aborts an in-flight HTTP request when the caller cancels 22ms
+     × requests strict structured JSON and returns only displayable audited fields 4ms
+     × calls the embeddings endpoint and rejects invalid response shapes 1ms
+     × does not forward chat credentials across an upstream redirect 1ms
+     × does not forward embedding credentials across an upstream redirect 1ms
+ ❯ |contract| packages/model-provider-adapter/test/anthropic-messages-adapter.contract.test.ts (2 tests | 1 failed) 23ms
+     × uses the Messages wire format and normalizes structured output and token usage 16ms
+ ❯ |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts (5 tests | 5 failed) 58ms
+     × discovers the exact Profile and admits a Task Event after the first Ack 41ms
+     × drains a replayable closed generation and validates its continuity control 3ms
+     × resolves stable relation pages with the exact event routing header 5ms
+     × fails closed on a malformed first message and preserves Provider error codes 1ms
+     × preserves frozen relation expiration as a fail-closed typed error 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 122 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > opens developer public management without opening internal service credentials
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > exposes exact Capability authority only through the runtime-service channel
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > exposes public liveness/discovery and authenticated Node/Audit projections
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > exposes only secret-free current MCP Binding authority to the Runtime service identity
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > proxies frozen Skill and Plan Template governance without copying content authority
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > exposes only the frozen output-side Evidence Export routes
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > enforces the organization read profile and streams resumable hint-only Node Events
+ FAIL  |contract| apps/node-control-api/test/http-endpoint.contract.test.ts > Node Control HTTP frozen contract > authenticates and delegates all four public Task commands through durable Node Control
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > announces the LAN address independently of its local listener without dispatching a Task
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > discovers the Agent Card and completes a task through the official REST client
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > projects only the frozen safe P12 Artifact extension without changing formal Task states
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > publishes a safe server-resolved natural-language admission contract
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > uses a Runtime-active Capability Agent Card instead of directly exposing internal Skills
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > preserves the A2A 1.0.1 media type when the client requests it
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > retains application/json compatibility for the pinned HTTP+JSON TCK
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > returns the original Task and normalized history when the SDK retries one durable admission with new generated ids
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > authenticates a bearer exactly once before dispatching a Task follow-up
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > accepts an anonymous initial A2A request in explicit trusted-intranet mode
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > streams the standard task lifecycle without custom states
+ FAIL  |contract| packages/a2a-adapter/test/http-endpoint.contract.test.ts > A2A 1.0 HTTP endpoint compatibility > continues task execution after the streaming client disconnects
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > isolated software demo requires a separate manual acknowledgement and has no Device contract
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > serves the unauthenticated console from the management process with the risk header
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > keeps governed-control management unavailable unless a trusted identity is composed
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > authenticates governed-control issue/revoke and rejects body authority overrides
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > maps emergency-stop and weapon authorization routes to their dedicated authorities
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes workflow-template inventory and usage evidence
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes the composed deterministic Capability execution with bounded idempotency
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > does not compose the deterministic execution route without its dedicated authority bundle
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > serializes fresh, jsonb replay, and recovered deterministic responses to identical bytes
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > returns a conflict and preserves durable pending state after an uncertain Provider dispatch
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes authenticated Runtime Control Skill and Plan Template governance adapters
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > delegates every authenticated Runtime Task command to the Task authority
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > rejects stale revisions before all four Runtime Task mutations and preserves exact replay
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes authenticated Runtime identity routes and fails closed without catalog authority
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > keeps UGV qualification bearer-protected and unavailable outside the composed Profile
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > admits only the exact B02 run shape into the composed UGV qualification operation
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > delegates catalog stage and activate only to an explicitly composed Runtime authority
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > fails closed on invalid Runtime Task commands and replays one exact command once
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > replays one completed Runtime Task command across endpoint restart without duplicate mutation
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > fails closed when a Runtime Task command lease is recovered after an uncertain restart
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > projects bounded P10 Gateway evidence without changing Task protocol semantics
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes P12 tenant-scoped queries and rejects actor spoofing in command JSON
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > projects secret-free P11 Case and Model Route runtime evidence
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > projects Business Event health, cursors, Inbox, impact and incidents without credentials
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads and rebuilds the hash-matched Capability Summary with a bounded Level-0 index
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads and rebuilds the activated Public Capability Card snapshot
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads the current Task Understanding and its immutable revision history
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads an interactive Goal session and applies a CAS/idempotent action
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > optionally bearer-authenticates cognitive writes before any application mutation
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads an interactive planning session and applies a CAS/idempotent plan patch
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads immutable planning interactions and propagates user-scoped preference deletion
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > lists immutable Goal Episodes and manually replays inspectable Experience dead letters
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > projects Task readiness windows without exposing full argument snapshots
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > projects the complete remote Task lifecycle without credentials or raw availability arguments
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > routes version-constrained refresh, cooperative cancellation, and structured input
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes credential-safe MCP management operation evidence
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes Tool semantics and validates credential-free administrator overrides
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes persisted MCP dependency warnings for management display
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads and updates the unified Task wait timeout
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > lists Tasks with bounded PostgreSQL query filters
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > lists credential-safe model Providers and fixed stage routes
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > returns only credential-safe current Prompt authority for one exact stage
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > accepts cognitive reflection and Task Type induction model stages at the management boundary
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > accepts an explicit embedding route operation at the management boundary
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > imports configured Task Types through the existing audited authority and validates the public contract
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > lists versioned Candidate Task Types without exposing them as active knowledge
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > lists Capability Patterns and non-executable Gap Candidates
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes CAS-guarded Knowledge promotion lifecycle actions
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes durable cognitive write audit details without private reasoning
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads and updates disabled-by-default Memory retention controls
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > reads and updates the authoritative Evolution threshold and exposes trigger logs
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes persisted processed-result evidence by Task
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes queryable post-terminal enhancement failures without changing authority
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes the five-component Task quality report
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > lists low-confidence implicit feedback linked to a Task
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes the report-linked Evaluation influence record
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > filters operational Evaluation analytics by Skill, version, model, and Tool
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > advertises the trusted-intranet no-auth risk and returns credential-free MCP data
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes frozen Provider protocol evidence, baseline audit and immutable mode guard
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > rejects invalid external input with a stable error envelope before application calls
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > does not expose unexpected infrastructure error details
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > fails explicitly instead of using a fallback when no authoring model is configured
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > validates/imports Skill Packages and exposes exact usage catalog/version contracts
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > publishes a persisted A2A Skill draft only through the management draft route
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > records and lists Skill quality warnings without a status mutation operation
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > fails explicitly when semantic and final selection providers are not configured
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes auditable Skill induction and simulation reports
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > lists replayable Evolution Experiences by Goal
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes the same confirmed-plan state through confirmation and execution endpoints
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > requires and forwards one complete Goal contract for standalone Workflow planning
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes persisted human-confirmation resume for a paused Workflow instance
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > returns an ordered Workflow instance trace for replay
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > filters Task-linked runtime, model, MCP, and plan trace evidence
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes plan-scoped pause, resume, and cancel execution controls
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes Goal creation and the persisted outer-control entry point
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes Goal Patch apply and history contracts
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes ordered Goal and relationship history for a context
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes Goal cancellation and immutable cancellation history
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > exposes task-plan binding and validated admin plan revision contracts
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > retains the frozen 400 response for a stale Task plan decision
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > creates and semantically searches source-traceable global memories
+ FAIL  |contract| packages/management-api/test/http-endpoint.contract.test.ts > management HTTP API contract > queries Skill execution evidence, tree, hard gates and degraded reasons
+ FAIL  |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts > Frozen Business Events client > discovers the exact Profile and admits a Task Event after the first Ack
+ FAIL  |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts > Frozen Business Events client > drains a replayable closed generation and validates its continuity control
+ FAIL  |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts > Frozen Business Events client > resolves stable relation pages with the exact event routing header
+ FAIL  |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts > Frozen Business Events client > fails closed on a malformed first message and preserves Provider error codes
+ FAIL  |contract| packages/mcp-adapter/test/business-events-client.contract.test.ts > Frozen Business Events client > preserves frozen relation expiration as a fail-closed typed error
+ FAIL  |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts > Frozen MCP local component conformance > certifies discovery, Tool profile/output schema, Availability, Task, revisions and Evidence A
+ FAIL  |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts > Frozen MCP local component conformance > discovers the complete Frozen area-patrol catalog
+ FAIL  |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts > Frozen MCP local component conformance > handles MRTR input, cooperative cancel and Notification reconciliation without duplicate Tool calls
+ FAIL  |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts > Frozen MCP local component conformance > returns a policy-complete restricted Availability result
+ FAIL  |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts > Frozen MCP local component conformance > re-authorizes subscription interests at Notification send time
+ FAIL  |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts > Frozen MCP local component conformance > keeps restart acceptance poll-driven after an Ack-only subscription
+ FAIL  |contract| packages/mcp-adapter/test/frozen-v1-component.contract.test.ts > Frozen MCP local component conformance > fails closed when the local Provider notification producer queue overflows
+ FAIL  |contract| packages/model-provider-adapter/test/anthropic-messages-adapter.contract.test.ts > non-OpenAI Messages model adapter contract > uses the Messages wire format and normalizes structured output and token usage
+ FAIL  |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts > OpenAI-compatible Model adapter > aborts an in-flight HTTP request when the caller cancels
+ FAIL  |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts > OpenAI-compatible Model adapter > requests strict structured JSON and returns only displayable audited fields
+ FAIL  |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts > OpenAI-compatible Model adapter > calls the embeddings endpoint and rejects invalid response shapes
+ FAIL  |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts > OpenAI-compatible Model adapter > does not forward chat credentials across an upstream redirect
+ FAIL  |contract| packages/model-provider-adapter/test/openai-compatible-adapter.contract.test.ts > OpenAI-compatible Model adapter > does not forward embedding credentials across an upstream redirect
+Error: listen EPERM: operation not permitted 127.0.0.1
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/122]⎯
+
+ FAIL  |contract| apps/node-control-api/test/operation-conformance.contract.test.ts > Node Control operation conformance gate > matches the complete frozen inventory to production routes, RBAC, and executed coverage
+AssertionError: promise rejected "Error: listen EPERM: operation not permit… { …(4) }" instead of resolving
+ ❯ apps/node-control-api/test/operation-conformance.contract.test.ts:21:58
+     19| describe('Node Control operation conformance gate', () => {
+     20|   it('matches the complete frozen inventory to production routes, RBAC…
+     21|     await expect(verifyNodeControlOperationConformance()).resolves.toM…
+       |                                                          ^
+     22|       operationCount: 131,
+     23|       publicOperationCount: 94,
+
+Caused by: Error: listen EPERM: operation not permitted 127.0.0.1
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'EPERM', errno: -1, syscall: 'listen', address: '127.0.0.1' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/122]⎯
+
+ FAIL  |contract| packages/mcp-adapter/test/frozen-protocol-package.contract.test.ts > Frozen MCP Tasks shared protocol package > verifies the pinned source, derived schema lock, valid fixtures and legacy rejection fixtures
+Error: spawnSync /home/zhouwen/.local/share/nodejs/node-v22.23.1-linux-x64/bin/node EPERM
+ ❯ packages/mcp-adapter/test/frozen-protocol-package.contract.test.ts:9:20
+      7|   it('verifies the pinned source, derived schema lock, valid fixtures …
+      8|     const root = resolve(import.meta.dirname, '../../..');
+      9|     const output = execFileSync(
+       |                    ^
+     10|       process.execPath,
+     11|       [resolve(root, 'protocol/scripts/verify-protocol-package.mjs')],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/122]⎯
+
+
+ Test Files  9 failed | 52 passed (61)
+      Tests  122 failed | 412 passed (534)
+   Start at  10:16:38
+   Duration  21.58s (transform 47.19s, setup 0ms, import 111.68s, tests 55.46s, environment 19ms)
+
+[ELIFECYCLE] Command failed with exit code 1.

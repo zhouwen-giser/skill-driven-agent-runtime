@@ -1,0 +1,14 @@
+{
+  "source": "verified extracted archive",
+  "dependencies": "local copies; source not linked",
+  "results": [
+    {
+      "name": "clean-build",
+      "exitCode": 0
+    },
+    {
+      "name": "clean-config",
+      "exitCode": 0
+    }
+  ]
+}

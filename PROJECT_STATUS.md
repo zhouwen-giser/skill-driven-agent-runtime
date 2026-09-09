@@ -1,5 +1,11 @@
 # Project Status
 
+2026-09-09：EP-UGV-RESOURCE-IDENTITY 已完成。已更新 sz-gowm，公开 Card、SMPP 与 Runtime 统一使用 GOWM 绑定的 vehicle:ugv；2780 文件/容器与联合包一致，Card revision 2、12 Skills/能力保留。全仓 gate、独立性能复核、干净解包构建和现场只读验收通过，见 ADR-155 / reports/resource-identity-20260909。未执行真实移动 benchmark，巡逻依赖阻塞不变。
+
+2026-09-09：默认治理初始化的受支持项修复已验证（EP-DEFAULT-CAPABILITIES / ADR-154）。正式 PMS 已补部署，sz-gowm 已公开 12 个 Skills 及对应能力；embodied.area_patrol 等待后续 GOWM 的 embodied.inspect_area，完整清单仍阻塞。最终检查与干净解包构建通过；联合包和现场源码身份见 reports/default-capabilities-20260909。
+
+2026-09-09：sz-gowm 现场部署完成，见 `execplans/EP-SZ-GOWM-DEPLOYMENT.md` 和 `reports/sz-gowm-deployment-20260909/README.md`。复用 GOWM 数据库和 SMPP，完成 pgvector/正式 schema 安装、设备继任绑定、模型配置及真实就绪验证；不等同整个项目验收完成。
+
 2026-09-08 最新收敛：当前 GOWM 增量尚未提交、未通过当前源码完整开发回归。已有 Skill 子执行、Business Event、binding 取消记录不再列为待开发；剩余锁定为 R1 在途 Artifact/静态收尾、R2 父取消与持久恢复必要差异、R3 一次开发检查与 Draft PR/清理。临时 Skill 原生终态和辅助 Provider link 唯一键为 U1/U2 上游阻塞；外围全面证明及发布事项延期且保持开放。详见现有 GOWM ExecPlan 顶部。本次仅调整计划，无新增业务验证结论。
 
 ## GOWM shared storage integration (2026-09-08, in progress)
@@ -1677,3 +1683,6 @@ handoff/持久化验证或真实启动；外部 ClickHouse 专用用户及精确
 
 
 2026-09-08：实现提交 83286afe 已推送到任务分支。Draft PR 被自动审批两次拒绝，理由为公开仓库正文包含内部架构/验证细节，要求用户明确授权；正文已准备在 /tmp/gowm-pr-body.md。状态更新仅本地，等待授权后完成交付记录；整体 Goal 仍 INCOMPLETE。
+
+## 2026-09-09 联合源码包
+EP-UNITED-SOURCE-PACKAGE：实现与完整 gate 通过，联合源码包生成及校验完成；交付身份见 reports/united-package-20260909/package-final.json，仅生成交付物，不更新现场。

@@ -115,6 +115,54 @@ describe('UGV SMPP Provider materialization wrapper', () => {
     expect(api.toolCallCount).toBe(0);
   });
 
+  it('allows only explicit Compose management hosts under the deployment option', async () => {
+    const api = new FakeApis();
+    const configured = {
+      ...configuration(),
+      nodeControlBaseUrl: 'http://control-api:10091',
+      runtimeManagementBaseUrl: 'http://runtime:10998',
+    };
+    await expect(
+      materializeUgvSmppProvider(configured, { fetch: api.fetch }),
+    ).rejects.toMatchObject({ code: 'DRIVER_CONFIGURATION_INVALID' });
+    await expect(
+      materializeUgvSmppProvider(
+        { ...configured, developmentComposeNetwork: true },
+        { fetch: api.fetch, now: () => NOW },
+      ),
+    ).resolves.toMatchObject({ status: 'passed' });
+    await expect(
+      materializeUgvSmppProvider(
+        {
+          ...configured,
+          developmentComposeNetwork: true,
+          runtimeManagementBaseUrl: 'http://unrelated-host:10998',
+        },
+        { fetch: api.fetch },
+      ),
+    ).rejects.toMatchObject({ code: 'DRIVER_CONFIGURATION_INVALID' });
+    expect(api.toolCallCount).toBe(0);
+  });
+
+  it('accepts the explicitly selected upstream ten-tool profile and rejects drift', async () => {
+    const names = TOOL_NAMES.filter((name) => name !== 'vehicle_laser_range');
+    const api = new FakeApis({ toolNames: names });
+    const report = await materializeUgvSmppProvider(
+      { ...configuration(), catalogProfile: 'ugv-v1-10' },
+      { fetch: api.fetch, now: () => NOW },
+    );
+    expect(report.catalog).toMatchObject({ expectedToolCount: 10, materializedToolCount: 10 });
+    expect(api.toolCallCount).toBe(0);
+    const extra = new FakeApis();
+    await expect(
+      materializeUgvSmppProvider(
+        { ...configuration(), catalogProfile: 'ugv-v1-10' },
+        { fetch: extra.fetch, now: () => NOW },
+      ),
+    ).rejects.toMatchObject({ code: 'CATALOG_TOOL_SET_MISMATCH' });
+    expect(extra.toolCallCount).toBe(0);
+  });
+
   it('fails closed when the live Catalog omits fire or has an unreviewed extra Tool', async () => {
     for (const names of [
       TOOL_NAMES.filter((name) => name !== 'vehicle_fire_weapon'),
@@ -257,7 +305,10 @@ class FakeApis {
     if (url.pathname.endsWith('/execution-semantics') && init?.method === 'PUT') {
       const toolName = decodeURIComponent(url.pathname.split('/').at(-2) ?? '');
       this.commands.push(`runtime:semantics:${toolName}`);
-      if (this.commands.filter((command) => command.startsWith('runtime:semantics:')).length === 11)
+      if (
+        this.commands.filter((command) => command.startsWith('runtime:semantics:')).length ===
+        this.#toolNames.length
+      )
         this.#governed = true;
       return new Response(null, { status: 204 });
     }
@@ -313,7 +364,7 @@ class FakeApis {
       revision,
       availabilityValidUntil: VALID_UNTIL,
       catalogObservedAt: NOW,
-      operationCount: 11,
+      operationCount: this.#toolNames.length,
     };
   }
 }

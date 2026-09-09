@@ -669,3 +669,10 @@ Codex 发现新的缺口时在此追加，并通过 ADR 或阻塞报告处理。
 
 
 2026-09-08：GOWM 实际 finalize_task_temporary_skills() 未向 temporary_skill_experience 写 device_id，与 validate_optional_task_provenance 冲突，设备 Task 终态被回滚。双设备真库已复现；参见 docs/gowm-shared-storage/UPSTREAM_STORAGE_GAP.md，未执行 DDL 或规避约束。
+
+## 2026-09-09 default governance deployment
+
+- `embodied.area_patrol` requires `embodied.inspect_area`; the deployed UGV reconnaissance tool
+  has a different polygon input and no required anomalies output. The user confirmed no matching
+  Provider exists and GOWM will supply it later. Keep this dependency blocked and do not claim
+  complete manifest publication (ADR-154 / EP-DEFAULT-CAPABILITIES).

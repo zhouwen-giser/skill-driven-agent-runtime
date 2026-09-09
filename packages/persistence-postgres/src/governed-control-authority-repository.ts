@@ -852,7 +852,7 @@ function assertExactUgvBindingInput(
   selected: SelectedTaskOperation,
 ): void {
   try {
-    const adapted = adapter.adapt(inputSnapshot);
+    const adapted = adapter.adapt(inputSnapshot, selected.resource.resourceId);
     const adaptedArgumentsHash = hashCanonicalEvidenceJson(adapted.providerArguments);
     if (
       adapted.argumentsHash !== selected.argumentsHash ||

@@ -1,0 +1,28 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/server/test/ugv-move-binding.unit.test.ts (28 tests | 1 failed) 2556ms
+     × resolves the GOWM/SMPP site resource through the full binding and domain validation chain 479ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/server/test/ugv-move-binding.unit.test.ts > UGV move governed Task binding > resolves the GOWM/SMPP site resource through the full binding and domain validation chain
+DomainError: Selected Task operation contains an unexpected top-level field.
+ ❯ invalid packages/domain/src/selected-task-operation.ts:388:9
+    386|
+    387| function invalid(message: string): never {
+    388|   throw new DomainError('SELECTED_TASK_OPERATION_INVALID', message);
+       |         ^
+    389| }
+    390|
+ ❯ createSelectedTaskOperation packages/domain/src/selected-task-operation.ts:132:5
+ ❯ apps/server/test/ugv-move-binding.unit.test.ts:50:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 13 passed (14)
+      Tests  1 failed | 215 passed (216)
+   Start at  17:44:35
+   Duration  5.91s (transform 19.01s, setup 0ms, import 30.54s, tests 6.67s, environment 2ms)
+

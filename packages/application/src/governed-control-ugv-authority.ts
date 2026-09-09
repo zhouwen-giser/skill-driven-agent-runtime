@@ -195,7 +195,10 @@ export interface UgvGovernedControlCatalogOperation {
 
 /** Profile implementation supplied by the Server composition root; persistence never imports it. */
 export interface UgvGovernedControlInputAdapterPort {
-  adapt(inputSnapshot: unknown): Readonly<{
+  adapt(
+    inputSnapshot: unknown,
+    expectedResourceId: string,
+  ): Readonly<{
     providerArguments: Readonly<Record<string, unknown>>;
     argumentsHash: `sha256:${string}`;
   }>;

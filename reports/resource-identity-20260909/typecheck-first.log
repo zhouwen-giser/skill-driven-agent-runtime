@@ -1,0 +1,6 @@
+$ tsc -p tsconfig.json --noEmit
+apps/server/src/runtime.ts(1516,27): error TS2322: Type '(value: unknown, expectedResourceId: string) => AdaptedUgvMoveInput' is not assignable to type '(inputSnapshot: unknown) => Readonly<{ providerArguments: Readonly<Record<string, unknown>>; argumentsHash: `sha256:${string}`; }>'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+apps/server/test/ugv-agent-profile-execution.integration.test.ts(1071,21): error TS2322: Type '(value: unknown, expectedResourceId: string) => AdaptedUgvMoveInput' is not assignable to type '(inputSnapshot: unknown) => Readonly<{ providerArguments: Readonly<Record<string, unknown>>; argumentsHash: `sha256:${string}`; }>'.
+  Target signature provides too few arguments. Expected 2 or more, but got 1.
+[ELIFECYCLE] Command failed with exit code 2.

@@ -1,0 +1,9 @@
+apps/server/test/default-capability-bootstrap.unit.test.ts 117ms (unchanged)
+apps/node-control-acceptance/src/ugv-smpp-capability-governance-driver.ts 708ms (unchanged)
+deploy/development/bootstrap-runner.mjs 31ms (unchanged)
+deploy/development/bootstrap-verification.mjs 14ms (unchanged)
+deploy/development/bootstrap.mjs 16ms (unchanged)
+deploy/development/bootstrap-runner.d.mts 3ms (unchanged)
+deploy/development/bootstrap-verification.d.mts 4ms (unchanged)
+deploy/development/capability-manifest.json 4ms
+deploy/sz-gowm/pms-register.mjs 19ms (unchanged)

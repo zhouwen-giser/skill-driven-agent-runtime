@@ -46,6 +46,7 @@ export interface SmppProviderConfiguration {
 }
 
 export interface SmppProviderMaterializationConfiguration {
+  readonly developmentComposeNetwork?: boolean;
   readonly nodeControlBaseUrl: string;
   readonly nodeControlBearerToken: string;
   readonly runtimeManagementBaseUrl: string;
@@ -337,6 +338,16 @@ export async function materializeSmppProviders(
       runtimeAction = 'reused';
       runtime = await runtimeReadCurrent(configuration, existingRuntime, request);
     }
+    if (Date.parse(runtime.snapshot.validUntil) <= Date.parse(observedAt)) {
+      runtimeAction = 'refreshed';
+      runtime = await runtimeCommand(
+        configuration,
+        `/api/v1/mcp/servers/${encodeURIComponent(provider.localServerId)}/refresh`,
+        undefined,
+        200,
+        request,
+      );
+    }
     if (safeEndpoint(runtime.server.endpoint, 'RUNTIME_ENDPOINT_INVALID') !== endpoint)
       fail(
         'RUNTIME_ENDPOINT_DRIFT_REQUIRES_GOVERNED_REBIND',
@@ -429,7 +440,21 @@ export async function materializeSmppProviders(
         );
     }
 
-    const binding = await controlGetBinding(configuration, provider.bindingId, request);
+    let binding = await controlGetBinding(configuration, provider.bindingId, request);
+    if (
+      binding !== undefined &&
+      runtime.server.toolRevision === binding.revision + 1 &&
+      currentBinding === undefined
+    ) {
+      await controlCommand(
+        configuration,
+        `/api/v1/mcp-provider-bindings/${encodeURIComponent(provider.bindingId)}/refresh`,
+        `${configuration.runId}-${provider.providerKey}-align-import`,
+        { reason: 'Align imported Binding with the freshly discovered Runtime catalog.' },
+        request,
+      );
+      binding = await controlGetBinding(configuration, provider.bindingId, request);
+    }
     if (binding === undefined)
       fail('BINDING_MISSING_AFTER_COMMAND', 'Binding command did not persist.');
     assertSameLineage(binding, candidate, provider.localServerId, endpoint);
@@ -540,8 +565,14 @@ export async function materializeSmppProviders(
 function validateConfiguration(
   input: SmppProviderMaterializationConfiguration,
 ): SmppProviderMaterializationConfiguration {
-  const nodeControlBaseUrl = safeManagementBaseUrl(input.nodeControlBaseUrl);
-  const runtimeManagementBaseUrl = safeManagementBaseUrl(input.runtimeManagementBaseUrl);
+  const nodeControlBaseUrl = safeManagementBaseUrl(
+    input.nodeControlBaseUrl,
+    input.developmentComposeNetwork,
+  );
+  const runtimeManagementBaseUrl = safeManagementBaseUrl(
+    input.runtimeManagementBaseUrl,
+    input.developmentComposeNetwork,
+  );
   if (input.nodeControlBearerToken.trim() === '')
     fail('DRIVER_CONFIGURATION_INVALID', 'Node Control bearer token is required.');
   if (input.runId.trim().length < 8)
@@ -961,11 +992,15 @@ function runtimeCatalogChecksum(runtime: RuntimeRefresh): string {
   ).catalogChecksum;
 }
 
-function safeManagementBaseUrl(value: string): string {
+function safeManagementBaseUrl(value: string, composeNetwork = false): string {
   const url = safeUrl(value, 'DRIVER_CONFIGURATION_INVALID');
   if (url.pathname !== '/' || url.search !== '')
     fail('DRIVER_CONFIGURATION_INVALID', 'Management base URLs cannot include a path or query.');
-  if (url.protocol === 'http:' && !isLoopback(url.hostname))
+  if (
+    url.protocol === 'http:' &&
+    !isLoopback(url.hostname) &&
+    !(composeNetwork && ['runtime', 'control-api'].includes(url.hostname))
+  )
     fail('DRIVER_CONFIGURATION_INVALID', 'Non-loopback management URLs require HTTPS.');
   return url.origin;
 }

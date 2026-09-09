@@ -1,16 +1,56 @@
 import { hashCanonicalEvidenceJson } from '../../../packages/domain/src/index.js';
 
-export const UGV_MOVE_RESOURCE_ID = 'vehicle:ugv1' as const;
+/** Resource identity comes from governance, never a deployment-specific code constant. */
+export function requireUgvResourceId(value: unknown): string {
+  if (typeof value !== 'string' || !/^vehicle:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value))
+    fail(
+      'UGV_PROFILE_RESOURCE_NOT_ALLOWED',
+      'UGV move requires a bounded vehicle resource identity.',
+    );
+  return value;
+}
+
+export function ugvResourceIdFromSchema(value: unknown): string {
+  return requireUgvResourceId(
+    record(record(record(value)?.['properties'])?.['resourceId'])?.['const'],
+  );
+}
+
+/** Called only on the durable, hash-validated Task Capability authority. */
+export function ugvResourceIdFromBinding(
+  binding: Readonly<{
+    inputSnapshot: unknown;
+    constraintSnapshot: readonly Readonly<Record<string, unknown>>[];
+  }>,
+): string {
+  const resourceId = requireUgvResourceId(record(binding.inputSnapshot)?.['resourceId']);
+  const policies = binding.constraintSnapshot.filter((item) => item['type'] === 'resource_policy');
+  const policy = policies[0];
+  const allowed = policy?.['allowedResourceIds'];
+  if (
+    policies.length !== 1 ||
+    policy?.['selection'] !== 'exact_value' ||
+    policy['downstreamResourceBinding'] !== 'forbidden' ||
+    !Array.isArray(allowed) ||
+    allowed.length !== 1 ||
+    allowed[0] !== resourceId
+  )
+    fail(
+      'UGV_PROFILE_RESOURCE_NOT_ALLOWED',
+      'UGV input does not match the frozen resource authority.',
+    );
+  return resourceId;
+}
 
 export interface AdaptedUgvMoveInput {
-  readonly resourceId: typeof UGV_MOVE_RESOURCE_ID;
+  readonly resourceId: string;
   readonly target: Readonly<{
     longitude: number;
     latitude: number;
     frame: 'EPSG:4326' | 'WGS84';
   }>;
   readonly providerArguments: Readonly<{
-    resourceId: typeof UGV_MOVE_RESOURCE_ID;
+    resourceId: string;
     mission: Readonly<{
       type: 'point';
       target: Readonly<{ longitude: number; latitude: number }>;
@@ -21,14 +61,15 @@ export interface AdaptedUgvMoveInput {
 }
 
 /** Deterministic pre-dispatch adaptation. It never swaps axes or invents route/speed parameters. */
-export function adaptUgvMoveInput(value: unknown): AdaptedUgvMoveInput {
+export function adaptUgvMoveInput(value: unknown, expectedResourceId: string): AdaptedUgvMoveInput {
+  const resourceId = requireUgvResourceId(expectedResourceId);
   const input = record(value);
   if (
     input === undefined ||
     Object.keys(input).some((key) => key !== 'resourceId' && key !== 'target')
   )
     fail('UGV_PROFILE_RESOURCE_NOT_ALLOWED', 'UGV move input violates the exact profile shape.');
-  if (input['resourceId'] !== UGV_MOVE_RESOURCE_ID)
+  if (input['resourceId'] !== resourceId)
     fail('UGV_PROFILE_RESOURCE_NOT_ALLOWED', 'UGV move requires the exact profile resource.');
   const target = record(input['target']);
   if (
@@ -42,7 +83,7 @@ export function adaptUgvMoveInput(value: unknown): AdaptedUgvMoveInput {
   const longitude = coordinate(target['x'], -180, 180, 'UGV_PROFILE_LONGITUDE_INVALID');
   const latitude = coordinate(target['y'], -90, 90, 'UGV_PROFILE_LATITUDE_INVALID');
   const providerArguments = Object.freeze({
-    resourceId: UGV_MOVE_RESOURCE_ID,
+    resourceId: resourceId,
     mission: Object.freeze({
       type: 'point' as const,
       target: Object.freeze({ longitude, latitude }),
@@ -50,7 +91,7 @@ export function adaptUgvMoveInput(value: unknown): AdaptedUgvMoveInput {
     stopOnObstacle: true as const,
   });
   return Object.freeze({
-    resourceId: UGV_MOVE_RESOURCE_ID,
+    resourceId: resourceId,
     target: Object.freeze({ longitude, latitude, frame }),
     providerArguments,
     argumentsHash: hashCanonicalEvidenceJson(providerArguments),

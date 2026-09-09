@@ -1,0 +1,43 @@
+$ vitest run --project unit --exclude packages/application/test/fast-gateway-p10.unit.test.ts && pnpm test:unit:performance
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"completed","databaseReads":1,"wakeLatencyMs":1}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"awaiting_user_input","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.notification-latency","environment":"vitest-node-local","phase":"capability_gap","databaseReads":1,"wakeLatencyMs":0}
+{"event":"a2a.wait.single-performance","environment":"vitest-node-local","waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":3,"elapsedMs":253}
+{"event":"a2a.wait.missed-notification-recovery","environment":"vitest-node-local","safetyPollIntervalMs":100,"databaseReads":1,"deterministicTimeoutRelease":true}
+{"event":"a2a.wait.performance","environment":"vitest-node-local","concurrentWaiters":20,"waitWindowMs":250,"safetyPollIntervalMs":100,"databaseReads":60,"elapsedMs":283,"closeElapsedMs":0}
+ ❯ |unit| apps/server/test/development-deployment.unit.test.ts (5 tests | 1 failed) 387ms
+     × covers runtime environment reads in the canonical template 43ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/server/test/development-deployment.unit.test.ts > development deployment configuration > covers runtime environment reads in the canonical template
+AssertionError: expected [ 'SDAR_UGV_CATALOG_PROFILE' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "SDAR_UGV_CATALOG_PROFILE",
++ ]
+
+ ❯ apps/server/test/development-deployment.unit.test.ts:21:54
+     19| describe('development deployment configuration', () => {
+     20|   it('covers runtime environment reads in the canonical template', () …
+     21|     expect(missingEnvironmentExamples(resolve('.'))).toEqual([]);
+       |                                                      ^
+     22|   });
+     23|   it('round-trips JSON device scopes and literal dollars through priva…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 290 passed (291)
+      Tests  1 failed | 2520 passed (2521)
+   Start at  15:10:27
+   Duration  69.63s (transform 68.71s, setup 0ms, import 514.58s, tests 125.55s, environment 91ms)
+
+[ELIFECYCLE] Command failed with exit code 1.

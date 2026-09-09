@@ -1,0 +1,69 @@
+{
+  "containers": [
+    {
+      "name": "sdar-sz-gowm-runtime-1",
+      "status": "running",
+      "health": "healthy",
+      "image": "sdar-sz-gowm:9e515734315c",
+      "imageId": "sha256:08eccaf8bafe70aad2292ea9c61278fa37ca09bbfbc8f90d0e5530897ac1c96a"
+    },
+    {
+      "name": "sdar-sz-gowm-control-api-1",
+      "status": "running",
+      "health": "healthy",
+      "image": "sdar-sz-gowm:9e515734315c",
+      "imageId": "sha256:08eccaf8bafe70aad2292ea9c61278fa37ca09bbfbc8f90d0e5530897ac1c96a"
+    },
+    {
+      "name": "sdar-sz-gowm-control-worker-1",
+      "status": "running",
+      "health": null,
+      "image": "sdar-sz-gowm:9e515734315c",
+      "imageId": "sha256:08eccaf8bafe70aad2292ea9c61278fa37ca09bbfbc8f90d0e5530897ac1c96a"
+    },
+    {
+      "name": "sdar-sz-gowm-redis-1",
+      "status": "running",
+      "health": null,
+      "image": "redis@sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb",
+      "imageId": "sha256:8096655e437712b07503796fb64d81359256cfcff0ab29d95a7da72863786efb"
+    },
+    {
+      "name": "smpp-gowm-runtime-1",
+      "status": "running",
+      "health": null,
+      "image": "smpp-gowm/runtime:c3599914785913ea107ac5394676537f7542a635-worktree-17d17b081c11",
+      "imageId": "sha256:a294cf965e08cee7d2a6ad3e5d89839bfe0deb0083946a47dba43e79d9fcbfa7"
+    },
+    {
+      "name": "smpp-gowm-adapter-1",
+      "status": "running",
+      "health": null,
+      "image": "smpp-gowm/adapter:c3599914785913ea107ac5394676537f7542a635-worktree-17d17b081c11",
+      "imageId": "sha256:2547a21d6fcf9ee518a53f8cff3142778a45ea11a8abeb01a86d8eb6bce6bab4"
+    },
+    {
+      "name": "gowm-analysis-dev-d2bf0ea98e-postgres-1",
+      "status": "running",
+      "health": "healthy",
+      "image": "gowm-plus-db:sdar-pgvector-runtime-0.8.5",
+      "imageId": "sha256:06403c00ab776fa8a341ccba41bbd7579b218596adbc6131a64da48265987ba1"
+    },
+    {
+      "name": "gowm-analysis-dev-d2bf0ea98e-world-api-1",
+      "status": "running",
+      "health": "healthy",
+      "image": "gowm-analysis-dev-d2bf0ea98e-world-api",
+      "imageId": "sha256:cf5811426d5e5d1123413d8612085c34bbd2c33f0dad04c63216a1f971f2eb96"
+    }
+  ],
+  "source": {
+    "sourceRevision": "a4fb05e16b1928a9f39bed2a141165ec8ab290ed",
+    "sourceHash": "9e515734315c82d0d966fe8ad80bb685efa71a4fec337d7ffba104664b13775e"
+  },
+  "deviceBinding": {
+    "status": "ATTACHED",
+    "bindingId": "0012817d-b50c-4777-a37a-f020a3343fab",
+    "previous": "6a71f236-6f82-417c-9851-830ebffd350c"
+  }
+}

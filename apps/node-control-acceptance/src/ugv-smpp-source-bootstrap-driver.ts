@@ -690,7 +690,17 @@ function assertConditionalAuthorityUnchanged(
 }
 
 function sourceAuthoritiesEqual(left: Source, right: Source): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  const { activeSnapshotValidUntil: leftUntil, lastSyncAt: leftSync, ...leftAuthority } = left;
+  const { activeSnapshotValidUntil: rightUntil, lastSyncAt: rightSync, ...rightAuthority } = right;
+  const advanced = (before: string | undefined, after: string | undefined) =>
+    before === undefined
+      ? after === undefined
+      : after !== undefined && Date.parse(after) >= Date.parse(before);
+  return (
+    JSON.stringify(leftAuthority) === JSON.stringify(rightAuthority) &&
+    advanced(leftUntil, rightUntil) &&
+    advanced(leftSync, rightSync)
+  );
 }
 
 function requiredActiveRevision(source: Source): number {

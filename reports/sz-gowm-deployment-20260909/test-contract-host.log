@@ -1,0 +1,32 @@
+$ vitest run --project contract
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |contract| apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts (13 tests | 1 failed) 9335ms
+     × crosses the real offline supervisor spawn, manifest, status, restart, and B02 capture boundary 5989ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |contract| apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts > UGV Agent Profile simulation deployment contract > crosses the real offline supervisor spawn, manifest, status, restart, and B02 capture boundary
+Error: ESRCH: no such process, read
+ ❯ inspectEmergencyProcessGroupMembership apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts:487:18
+    485| ): Promise<{ readonly pid: number; readonly uid: number; readonly sess…
+    486|   try {
+    487|     const stat = await readFile(`/proc/${String(pid)}/stat`, 'utf8');
+       |                  ^
+    488|     const close = stat.lastIndexOf(') ');
+    489|     const fields =
+ ❯ validateEmergencyProcessGroupClosure apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts:516:5
+ ❯ validateEmergencyProcessAnchors apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts:576:5
+ ❯ emergencyStopOfflineFixture apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts:601:20
+ ❯ apps/node-control-acceptance/test/ugv-agent-profile-simulation-deployment.contract.test.ts:1783:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 60 passed (61)
+      Tests  1 failed | 533 passed (534)
+   Start at  10:19:50
+   Duration  18.81s (transform 36.63s, setup 0ms, import 89.11s, tests 61.04s, environment 18ms)
+
+[ELIFECYCLE] Command failed with exit code 1.

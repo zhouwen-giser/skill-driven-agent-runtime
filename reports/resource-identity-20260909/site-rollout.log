@@ -1,0 +1,25 @@
+{"tasks":0,"remote_tasks":0,"pending_dispatch":0,"activeQueue":0,"leases":0,"aof":"enabled/writable","status":"idle"}
+{"status":"FINAL_IMAGE_CONFIGURED","image":"sdar-sz-gowm:governance-81e64ef90f96","explicitPolicyPreserved":true}
+ Container sdar-sz-gowm-control-api-1 Recreate 
+ Container sdar-sz-gowm-control-api-1 Recreated 
+ Container sdar-sz-gowm-runtime-1 Recreate 
+ Container sdar-sz-gowm-control-worker-1 Recreate 
+ Container sdar-sz-gowm-control-worker-1 Recreated 
+ Container sdar-sz-gowm-runtime-1 Recreated 
+ Container sdar-sz-gowm-control-api-1 Starting 
+ Container sdar-sz-gowm-control-api-1 Started 
+ Container sdar-sz-gowm-control-api-1 Waiting 
+ Container sdar-sz-gowm-control-api-1 Waiting 
+ Container sdar-sz-gowm-control-api-1 Healthy 
+ Container sdar-sz-gowm-control-api-1 Healthy 
+ Container sdar-sz-gowm-runtime-1 Starting 
+ Container sdar-sz-gowm-control-worker-1 Starting 
+ Container sdar-sz-gowm-runtime-1 Started 
+ Container sdar-sz-gowm-control-worker-1 Started 
+ Container sdar-sz-gowm-control-worker-1 Waiting 
+ Container sdar-sz-gowm-runtime-1 Waiting 
+ Container sdar-sz-gowm-control-api-1 Waiting 
+ Container sdar-sz-gowm-control-worker-1 Healthy 
+ Container sdar-sz-gowm-control-api-1 Healthy 
+ Container sdar-sz-gowm-runtime-1 Healthy 
+{"status": "SUPPORTED_DEPLOYMENT_VERIFIED_WITH_DEPENDENCY_BLOCK", "sourceHash": "81e64ef90f96e97424c6f7ddf711dd5e9db1907fe20a16b74b00ba6b693d0446", "image": "sdar-sz-gowm:governance-81e64ef90f96", "fullManifestAccepted": false, "blocked": [{"skillId": "embodied.area_patrol", "dependency": "embodied.inspect_area", "reasonCode": "BUILTIN_CAPABILITY_DEPENDENCY_MISSING"}], "deviceCalls": 0}

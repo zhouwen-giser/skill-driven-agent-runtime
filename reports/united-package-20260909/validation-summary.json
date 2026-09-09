@@ -1,0 +1,56 @@
+{
+  "status": "PASS",
+  "scope": "local source union delivery; no server changes",
+  "gate": [
+    {
+      "command": "pnpm format:check",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "log": "lint-final.log",
+      "initialExitCode": 1
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm test:unit",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm test:integration",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm test:contract",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm test:e2e",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm smoke:server",
+      "exitCode": 0
+    }
+  ],
+  "unitTests": 2534,
+  "integrationTests": 242,
+  "contractTests": 534,
+  "e2eTests": 75,
+  "deploymentRegressionTests": 6,
+  "pythonRegressionGroups": 4,
+  "testSelection": "E2E driver partitions performance test; every case executed across both passes",
+  "cleanBuild": "PASS",
+  "sourcePackaging": "standard library only; upstream unchanged; no offline images",
+  "finalArchiveSha256": "01483f39eac04a555d4868c44cc6b94b269a9266bb3db83206698f6534b5f408",
+  "repeatGeneration": "IDENTICAL",
+  "privateValueScan": "PASS"
+}

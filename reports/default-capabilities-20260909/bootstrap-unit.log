@@ -1,0 +1,26 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/server/test/development-deployment.unit.test.ts (5 tests | 1 failed) 159ms
+     × packages source without enumerating an oversized historical report inventory 111ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/server/test/development-deployment.unit.test.ts > development deployment configuration > packages source without enumerating an oversized historical report inventory
+Error: spawnSync /home/zhouwen/.local/share/nodejs/node-v22.23.1-linux-x64/bin/node EPERM
+ ❯ apps/server/test/development-deployment.unit.test.ts:59:9
+     57|       );
+     58|       const output: unknown = JSON.parse(
+     59|         execFileSync(process.execPath, [join(directory, 'deploy/develo…
+       |         ^
+     60|           cwd: directory,
+     61|           encoding: 'utf8',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 11 passed (12)
+   Start at  14:43:15
+   Duration  571ms (transform 139ms, setup 0ms, import 310ms, tests 173ms, environment 0ms)
+

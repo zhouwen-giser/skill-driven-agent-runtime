@@ -1,0 +1,18 @@
+{
+  "command": [
+    "node",
+    "scripts/test-e2e.mjs",
+    "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "--testNamePattern",
+    "keeps critical Runtime P95 within ten percent and Evidence append P95 below twenty milliseconds"
+  ],
+  "exitCode": 0,
+  "postgres": "sdar-development-postgres:17; tmpfs PGDATA 2 GiB; real PostgreSQL",
+  "redis": "redis:7-alpine; independent",
+  "ports": [
+    55433,
+    56380
+  ],
+  "testLogicChanged": false,
+  "thresholdsChanged": false
+}

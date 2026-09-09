@@ -23,3 +23,8 @@ export function render(
   envPath: string,
   revision?: string,
 ): { state: string; composePath: string; services: string[] };
+
+export function writeConfiguration(
+  envPath: string,
+  configuration: Readonly<Record<string, string>>,
+): void;

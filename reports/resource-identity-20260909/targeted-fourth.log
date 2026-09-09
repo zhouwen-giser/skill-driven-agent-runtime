@@ -1,0 +1,28 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/server/test/ugv-move-terminal-outcome.unit.test.ts (22 tests | 1 failed) 688ms
+     × verifies the site resource through terminal binding and result projection 180ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/server/test/ugv-move-terminal-outcome.unit.test.ts > UGV deterministic terminal outcome authority > verifies the site resource through terminal binding and result projection
+TaskCapabilityError: The deterministic UGV terminal result does not satisfy the exact Skill schema.
+ ❯ guard apps/server/src/ugv-move-terminal-outcome.ts:713:9
+    711|
+    712| function guard(message: string): never {
+    713|   throw new TaskCapabilityError('TASK_CAPABILITY_TERMINAL_GUARD_FAILED…
+       |         ^
+    714| }
+    715|
+ ❯ UgvMoveTerminalOutcomeAuthority.prepare apps/server/src/ugv-move-terminal-outcome.ts:173:9
+ ❯ apps/server/test/ugv-move-terminal-outcome.unit.test.ts:49:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 13 passed (14)
+      Tests  1 failed | 220 passed (221)
+   Start at  17:47:24
+   Duration  10.06s (transform 34.06s, setup 0ms, import 53.04s, tests 10.89s, environment 3ms)
+

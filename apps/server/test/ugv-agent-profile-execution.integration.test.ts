@@ -668,6 +668,7 @@ function fullCapabilityConstraints(
   executionSemantics: McpToolExecutionSemantics,
 ): readonly EvidenceRecord[] {
   const targetPolicy = createUgvSimulationTargetPolicy({
+    resourceId: 'vehicle:ugv1',
     policyId: 'ugv-agent-profile/explicit-wgs84-target',
     revision: 2,
   });

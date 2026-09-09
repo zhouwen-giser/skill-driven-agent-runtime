@@ -1,0 +1,257 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/server/test/ugv-simulation-qualification.unit.test.ts (7 tests | 1 failed) 26ms
+     × serializes concurrent capture, makes one fixed taskless state read, and returns its PG receipt 14ms
+ ❯ |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts (13 tests | 11 failed) 360ms
+     × creates and then idempotently revalidates one formal Goal and exact User Goal Plan without a model 22ms
+     × admits an append-only live Capability successor without rewriting the exact Skill version 6ms
+     × rejects a missing Profile-owned navigate replay constraint 1ms
+     × rejects a falsified Profile-owned navigate replay constraint 2ms
+     × rejects a duplicated Profile-owned navigate replay constraint 2ms
+     × rejects a supplemented with generic policy.replay Profile-owned navigate replay constraint 1ms
+     × fails closed instead of reusing or superseding another active Goal in the same context 16ms
+     × neutralizes a metadata structured_input spoof by resolving only the Capability input snapshot 2ms
+     × rejects a persisted Skill input that diverges from the Capability snapshot 2ms
+     × rejects a reloaded persisted Skill input with a forged source reference before Planner 11ms
+     × blocks a mismatched Selected navigation target before Planner is invoked 5ms
+ ❯ |unit| apps/server/test/ugv-move-binding.unit.test.ts (26 tests | 2 failed) 2481ms
+     × resolves qualification authority through the production binding chain without Provider availability 168ms
+     × rejects drifted Provider Binding authority on the qualification-only path 59ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > creates and then idempotently revalidates one formal Goal and exact User Goal Plan without a model
+UgvMoveInputAdapterError: UGV input does not match the frozen resource authority.
+ ❯ fail apps/server/src/ugv-move-input-adapter.ts:135:9
+    133|
+    134| function fail(code: UgvMoveInputAdapterErrorCode, message: string): ne…
+    135|   throw new UgvMoveInputAdapterError(code, message);
+       |         ^
+    136| }
+    137|
+ ❯ ugvResourceIdFromBinding apps/server/src/ugv-move-input-adapter.ts:38:5
+ ❯ snapshotInputAuthority apps/server/src/ugv-agent-profile-admission.ts:415:60
+ ❯ UgvAgentProfileInitialAdmission.admit apps/server/src/ugv-agent-profile-admission.ts:100:28
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:59:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > admits an append-only live Capability successor without rewriting the exact Skill version
+UgvMoveInputAdapterError: UGV input does not match the frozen resource authority.
+ ❯ fail apps/server/src/ugv-move-input-adapter.ts:135:9
+    133|
+    134| function fail(code: UgvMoveInputAdapterErrorCode, message: string): ne…
+    135|   throw new UgvMoveInputAdapterError(code, message);
+       |         ^
+    136| }
+    137|
+ ❯ ugvResourceIdFromBinding apps/server/src/ugv-move-input-adapter.ts:38:5
+ ❯ snapshotInputAuthority apps/server/src/ugv-agent-profile-admission.ts:415:60
+ ❯ UgvAgentProfileInitialAdmission.admit apps/server/src/ugv-agent-profile-admission.ts:100:28
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:97:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > rejects a missing Profile-owned navigate replay constraint
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > rejects a falsified Profile-owned navigate replay constraint
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > rejects a duplicated Profile-owned navigate replay constraint
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > rejects a supplemented with generic policy.replay Profile-owned navigate replay constraint
+UgvMoveInputAdapterError: UGV input does not match the frozen resource authority.
+ ❯ fail apps/server/src/ugv-move-input-adapter.ts:135:9
+    133|
+    134| function fail(code: UgvMoveInputAdapterErrorCode, message: string): ne…
+    135|   throw new UgvMoveInputAdapterError(code, message);
+       |         ^
+    136| }
+    137|
+ ❯ ugvResourceIdFromBinding apps/server/src/ugv-move-input-adapter.ts:38:5
+ ❯ snapshotInputAuthority apps/server/src/ugv-agent-profile-admission.ts:415:60
+ ❯ UgvAgentProfileInitialAdmission.admit apps/server/src/ugv-agent-profile-admission.ts:100:28
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:153:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > fails closed instead of reusing or superseding another active Goal in the same context
+AssertionError: expected UgvMoveInputAdapterError: UGV input does … { code: '…' } to match object { Object (code) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": "UGV_AGENT_PROFILE_ACTIVE_GOAL_CONFLICT",
++ UgvMoveInputAdapterError {
++   "code": "UGV_PROFILE_RESOURCE_NOT_ALLOWED",
+  }
+
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:183:64
+    181|     });
+    182|
+    183|     await expect(harness.admission.admit(contextLoadingTask())).reject…
+       |                                                                ^
+    184|       code: 'UGV_AGENT_PROFILE_ACTIVE_GOAL_CONFLICT',
+    185|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > neutralizes a metadata structured_input spoof by resolving only the Capability input snapshot
+UgvMoveInputAdapterError: UGV input does not match the frozen resource authority.
+ ❯ fail apps/server/src/ugv-move-input-adapter.ts:135:9
+    133|
+    134| function fail(code: UgvMoveInputAdapterErrorCode, message: string): ne…
+    135|   throw new UgvMoveInputAdapterError(code, message);
+       |         ^
+    136| }
+    137|
+ ❯ ugvResourceIdFromBinding apps/server/src/ugv-move-input-adapter.ts:38:5
+ ❯ snapshotInputAuthority apps/server/src/ugv-agent-profile-admission.ts:415:60
+ ❯ UgvAgentProfileInitialAdmission.admit apps/server/src/ugv-agent-profile-admission.ts:100:28
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:206:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > rejects a persisted Skill input that diverges from the Capability snapshot
+UgvMoveInputAdapterError: UGV input does not match the frozen resource authority.
+ ❯ fail apps/server/src/ugv-move-input-adapter.ts:135:9
+    133|
+    134| function fail(code: UgvMoveInputAdapterErrorCode, message: string): ne…
+    135|   throw new UgvMoveInputAdapterError(code, message);
+       |         ^
+    136| }
+    137|
+ ❯ ugvResourceIdFromBinding apps/server/src/ugv-move-input-adapter.ts:38:5
+ ❯ snapshotInputAuthority apps/server/src/ugv-agent-profile-admission.ts:415:60
+ ❯ UgvAgentProfileInitialAdmission.admit apps/server/src/ugv-agent-profile-admission.ts:100:28
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:261:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > rejects a reloaded persisted Skill input with a forged source reference before Planner
+AssertionError: expected UgvMoveInputAdapterError: UGV input does … { code: '…' } to match object { Object (code) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": "UGV_AGENT_PROFILE_SKILL_INPUT_AUTHORITY_MISMATCH",
++ UgvMoveInputAdapterError {
++   "code": "UGV_PROFILE_RESOURCE_NOT_ALLOWED",
+  }
+
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:303:25
+    301|       });
+    302|
+    303|     await expect(plan()).rejects.toMatchObject({
+       |                         ^
+    304|       code: 'UGV_AGENT_PROFILE_SKILL_INPUT_AUTHORITY_MISMATCH',
+    305|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-agent-profile-admission.unit.test.ts > UGV Agent Profile deterministic admission > blocks a mismatched Selected navigation target before Planner is invoked
+AssertionError: expected UgvMoveInputAdapterError: UGV input does … { code: '…' } to match object { Object (code) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": "UGV_AGENT_PROFILE_SELECTED_TARGET_AUTHORITY_MISMATCH",
++ UgvMoveInputAdapterError {
++   "code": "UGV_PROFILE_RESOURCE_NOT_ALLOWED",
+  }
+
+ ❯ apps/server/test/ugv-agent-profile-admission.unit.test.ts:330:25
+    328|       });
+    329|
+    330|     await expect(plan()).rejects.toMatchObject({
+       |                         ^
+    331|       code: 'UGV_AGENT_PROFILE_SELECTED_TARGET_AUTHORITY_MISMATCH',
+    332|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-move-binding.unit.test.ts > UGV move governed Task binding > resolves qualification authority through the production binding chain without Provider availability
+AssertionError: expected { serverId: 'ugv-runtime-1', …(3) } to deeply equal { serverId: 'ugv-runtime-1', …(2) }
+
+- Expected
++ Received
+
+  {
+    "providerBindingId": "binding-ugv-runtime-1",
+    "providerId": "isr.vehicle.ugv.ugv1",
++   "resourceId": "vehicle:ugv1",
+    "serverId": "ugv-runtime-1",
+  }
+
+ ❯ apps/server/test/ugv-move-binding.unit.test.ts:237:74
+    235|     const runtimeFixture = await fixture();
+    236|
+    237|     await expect(runtimeFixture.resolver.resolveQualificationAuthority…
+       |                                                                          ^
+    238|       serverId: 'ugv-runtime-1',
+    239|       providerBindingId: 'binding-ugv-runtime-1',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-move-binding.unit.test.ts > UGV move governed Task binding > rejects drifted Provider Binding authority on the qualification-only path
+AssertionError: expected UgvMoveBindingError: Every UGV navigation… { code: '…' } to match object { Object (code) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+- {
+-   "code": "UGV_PROFILE_BINDING_NOT_FOUND",
++ UgvMoveBindingError {
++   "code": "UGV_PROFILE_PROVIDER_IDENTITY_INVALID",
+  }
+
+ ❯ apps/server/test/ugv-move-binding.unit.test.ts:329:74
+    327|     });
+    328|
+    329|     await expect(runtimeFixture.resolver.resolveQualificationAuthority…
+       |                                                                          ^
+    330|       code: 'UGV_PROFILE_BINDING_NOT_FOUND',
+    331|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/14]⎯
+
+ FAIL  |unit| apps/server/test/ugv-simulation-qualification.unit.test.ts > UGV simulation qualification service > serializes concurrent capture, makes one fixed taskless state read, and returns its PG receipt
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'ugv-runtime-1', …(4) ]
+
+Received:
+
+  1st vi.fn() call:
+
+@@ -14,8 +14,7 @@
+        "mode": "simulation",
+        "simulationId": "uap-p3-b02-run-00000001",
+      },
+      "providerBindingId": "binding-ugv-runtime-1",
+      "providerId": "isr.vehicle.ugv.ugv1",
+-     "resourceId": "vehicle:ugv1",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ apps/server/test/ugv-simulation-qualification.unit.test.ts:59:26
+     57|     });
+     58|     expect(callDetailed).toHaveBeenCalledOnce();
+     59|     expect(callDetailed).toHaveBeenCalledWith(
+       |                          ^
+     60|       SERVER_ID,
+     61|       'vehicle_get_state',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/14]⎯
+
+
+ Test Files  3 failed | 11 passed (14)
+      Tests  14 failed | 198 passed (212)
+   Start at  17:43:01
+   Duration  6.29s (transform 21.42s, setup 0ms, import 34.32s, tests 6.32s, environment 3ms)
+

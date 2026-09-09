@@ -81,6 +81,7 @@ export const UGV_REVIEWED_TOOL_POLICY: Readonly<Record<UgvToolName, SmppExpected
   });
 
 export interface UgvSmppProviderMaterializationConfiguration {
+  readonly developmentComposeNetwork?: boolean;
   readonly nodeControlBaseUrl: string;
   readonly nodeControlBearerToken: string;
   readonly runtimeManagementBaseUrl: string;
@@ -92,6 +93,7 @@ export interface UgvSmppProviderMaterializationConfiguration {
   readonly providerDisplayName: string;
   readonly runtimeCredentialRef: string;
   readonly runId: string;
+  readonly catalogProfile?: 'ugv-v1-10' | 'ugv-v1-11';
 }
 
 export interface UgvSmppProviderMaterializationReport {
@@ -100,8 +102,8 @@ export interface UgvSmppProviderMaterializationReport {
   readonly observedAt: string;
   readonly provider: SmppProviderMaterializationReport['providers'][number];
   readonly catalog: Readonly<{
-    expectedToolCount: 11;
-    materializedToolCount: 11;
+    expectedToolCount: number;
+    materializedToolCount: number;
     reviewedToolPolicy: true;
     allExecutionSemanticsExplicit: true;
     physicalToolInvocationCount: 0;
@@ -139,12 +141,21 @@ export async function materializeUgvSmppProvider(
   dependencies: Readonly<{ fetch?: typeof fetch; now?: () => string }> = {},
 ): Promise<UgvSmppProviderMaterializationReport> {
   const configuration = validateConfiguration(input);
+  const expectedNames = UGV_TOOL_NAMES.filter(
+    (name) => configuration.catalogProfile !== 'ugv-v1-10' || name !== 'vehicle_laser_range',
+  );
+  const reviewedTools = Object.fromEntries(
+    expectedNames.map((name) => [name, UGV_REVIEWED_TOOL_POLICY[name]]),
+  );
   const generic: SmppProviderMaterializationConfiguration = Object.freeze({
     nodeControlBaseUrl: configuration.nodeControlBaseUrl,
     nodeControlBearerToken: configuration.nodeControlBearerToken,
     runtimeManagementBaseUrl: configuration.runtimeManagementBaseUrl,
     smppSourceId: configuration.smppSourceId,
     runId: configuration.runId,
+    ...(configuration.developmentComposeNetwork === undefined
+      ? {}
+      : { developmentComposeNetwork: configuration.developmentComposeNetwork }),
     providers: Object.freeze([
       Object.freeze({
         providerKey: 'ugv',
@@ -155,7 +166,7 @@ export async function materializeUgvSmppProvider(
         localServerId: configuration.localServerId,
         credentialRef: configuration.runtimeCredentialRef,
         credential: Object.freeze({ mode: 'none' as const }),
-        tools: UGV_REVIEWED_TOOL_POLICY,
+        tools: reviewedTools,
       }),
     ]),
   });
@@ -172,10 +183,13 @@ export async function materializeUgvSmppProvider(
     return fail('UGV_PROVIDER_RESULT_NOT_EXACT', 'Expected exactly one materialized UGV Provider.');
   const materializedToolNames = provider.tools.map(({ toolName }) => toolName);
   if (
-    provider.tools.length !== UGV_TOOL_NAMES.length ||
-    UGV_TOOL_NAMES.some((toolName) => !materializedToolNames.includes(toolName))
+    provider.tools.length !== expectedNames.length ||
+    expectedNames.some((toolName) => !materializedToolNames.includes(toolName))
   )
-    fail('UGV_CATALOG_TOOL_SET_MISMATCH', 'Materialized UGV Catalog is not the reviewed 11 tools.');
+    fail(
+      'UGV_CATALOG_TOOL_SET_MISMATCH',
+      'Materialized UGV Catalog does not match the selected reviewed profile.',
+    );
   const fire = provider.tools.find(({ toolName }) => toolName === 'vehicle_fire_weapon');
   if (fire?.effect !== 'side_effecting')
     fail('UGV_FIRE_CLASSIFICATION_MISMATCH', 'Fire must be classified as side-effecting.');
@@ -186,8 +200,8 @@ export async function materializeUgvSmppProvider(
     observedAt: materialized.observedAt,
     provider,
     catalog: Object.freeze({
-      expectedToolCount: 11,
-      materializedToolCount: 11,
+      expectedToolCount: expectedNames.length,
+      materializedToolCount: provider.tools.length,
       reviewedToolPolicy: true,
       allExecutionSemanticsExplicit: true,
       physicalToolInvocationCount: 0,

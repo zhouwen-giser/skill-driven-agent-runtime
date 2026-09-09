@@ -1,0 +1,6458 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "result": "FAILED_PHASE13_PERFORMANCE_DIAGNOSTIC",
+  "environment": "local Windows Node.js, isolated PostgreSQL and Redis, deterministic model and Skill fixtures; not a production SLO",
+  "source": {
+    "testFile": "packages/a2a-adapter/test/task-service-endpoint.e2e.test.ts",
+    "diagnosticAttempt": 10
+  },
+  "measurementDesign": {
+    "discardedWarmupWindows": 2,
+    "warmupBlocksPerWindow": 9,
+    "roundsPerWindow": 12,
+    "measurementWindowCount": 3,
+    "order": "strict alternating ABBA/BAAB blocks with equal baseline and enabled samples",
+    "runtimePercentileMethod": "pooled_raw_nearest_rank",
+    "baselineDriftMethod": "maximum_pairwise_symmetric_window_median",
+    "diagnosticCollection": "in-memory sample boundaries only during measurement; outbox lifecycle and phase13 export ledger are read once after measurement",
+    "observationGenerationSemantics": "generation 0 is primary canonical evidence; generation 1 is derived export observation evidence"
+  },
+  "rawSamples": {
+    "baselineMs": [
+      428.33279399999446,
+      495.9841449999949,
+      476.7661549999975,
+      441.71009400000185,
+      320.2960069999972,
+      477.4549360000092,
+      380.70755599999393,
+      417.72160299999814,
+      538.7053589999996,
+      404.96596399998816,
+      298.1754590000055,
+      499.60974300000817,
+      605.7070810000005,
+      620.2710309999966,
+      432.0846639999945,
+      322.8652359999978,
+      314.55498299999454,
+      569.7523629999923,
+      440.6593009999924,
+      514.5322529999976,
+      303.74325600000157,
+      826.6171570000006,
+      366.0647259999969,
+      517.7263370000001,
+      428.74352299999737,
+      469.20365100000345,
+      406.62599699999555,
+      318.97838000000047,
+      446.1713860000018,
+      627.3157939999946,
+      436.44052499999816,
+      451.305091000002,
+      377.7637229999964,
+      515.4748689999979,
+      503.8120639999979,
+      346.907984999998,
+      392.4389289999963,
+      515.4808320000011,
+      871.5382899999968,
+      375.1867530000018,
+      410.1872149999981,
+      806.1934090000141,
+      452.27905199999805,
+      455.8940709999879,
+      509.8966899999941,
+      585.7599869999976,
+      576.9441510000033,
+      565.6821429999982,
+      616.8611740000051,
+      724.8635869999998,
+      608.5943320000079,
+      729.6134440000023,
+      608.9529210000037,
+      697.5967810000002,
+      646.1146020000015,
+      1326.9255219999905,
+      3951.8522349999985,
+      2069.126768000002,
+      1871.212330999988,
+      1360.001185000001,
+      815.9274039999873,
+      2098.3563319999957,
+      2763.32886899999,
+      2529.375433999987,
+      1206.0466190000006,
+      669.6841039999854,
+      766.9597540000104,
+      783.6726879999915,
+      773.2781599999871,
+      1154.9075409999932,
+      990.5703649999923,
+      960.7509180000052
+    ],
+    "evidenceEnabledMs": [
+      545.8808229999995,
+      508.5434810000006,
+      474.43749100000423,
+      448.30141000000003,
+      512.2650110000031,
+      762.6553339999955,
+      289.633726,
+      603.3516420000087,
+      559.0853059999936,
+      337.6933790000039,
+      333.8072300000058,
+      610.5733330000076,
+      315.9830990000046,
+      319.54607899999246,
+      663.6781579999952,
+      309.0941380000004,
+      735.8466660000122,
+      696.6273860000074,
+      346.4451410000038,
+      431.4992970000021,
+      386.3749349999998,
+      616.1331849999988,
+      636.5367330000008,
+      460.5562490000011,
+      496.2158849999978,
+      603.0674209999997,
+      437.1341519999987,
+      432.63295199999993,
+      399.66907699999865,
+      593.7431129999895,
+      474.06424100000004,
+      376.1731290000025,
+      308.2915629999916,
+      404.1082330000063,
+      708.654389999996,
+      322.1371170000057,
+      341.7049920000136,
+      508.0293240000028,
+      731.6674399999902,
+      452.3489249999984,
+      492.9226259999996,
+      613.0515040000028,
+      609.7505519999977,
+      545.3338979999971,
+      503.6796079999913,
+      823.5834840000025,
+      494.98671399999876,
+      709.257626000006,
+      603.6828620000015,
+      683.4021249999932,
+      570.204184000002,
+      801.7239469999913,
+      628.2227089999942,
+      680.5163170000014,
+      607.2006059999985,
+      2414.6743229999993,
+      2956.6581520000036,
+      2135.1292320000066,
+      1816.3968129999994,
+      1229.1851120000065,
+      827.458872999996,
+      2228.8825450000004,
+      2154.433230000024,
+      2195.553725000005,
+      796.1885509999993,
+      865.7196060000279,
+      939.4756259999995,
+      618.7477240000153,
+      2472.188107999973,
+      2079.90797,
+      1398.9368289999838,
+      687.8891010000079
+    ],
+    "evidenceAppendMs": [
+      4.234633000000031,
+      5.171056999999564,
+      4.6865060000000085,
+      4.272372999999789,
+      5.327236000000994,
+      4.317379000000074,
+      6.563281000000643,
+      8.42612200000076,
+      4.5182089999998425,
+      3.9685580000004848,
+      7.027903000000151,
+      3.7599200000004203,
+      4.004243999999744,
+      6.051472000001013,
+      4.124472999999853,
+      4.223486000000776,
+      5.544456999999966,
+      5.097361000000092,
+      4.60086500000034,
+      3.9626160000007076,
+      4.0918430000001536,
+      4.131996000000072,
+      4.281870999999228,
+      4.0803259999993315,
+      3.967393999999331,
+      3.82698899999923,
+      5.464355000000069,
+      3.969121999998606,
+      3.9335510000000795,
+      4.335530999998809,
+      4.039228000001458,
+      3.5303810000004887,
+      3.8135719999991124,
+      4.437931999998909,
+      4.204221999998481,
+      3.7099550000002637,
+      4.0498960000004445,
+      4.07731799999965,
+      3.1557709999997314,
+      3.7637370000011288,
+      3.711742999999842,
+      4.759571999999025,
+      4.329815000000963,
+      3.662249000000884,
+      4.44694200000049,
+      4.575549999999566,
+      3.5056560000011814,
+      3.728021999999328,
+      3.806910000001153,
+      3.826850999999806,
+      5.421268999998574,
+      5.2313409999987925,
+      4.352453999999852,
+      3.985184000001027,
+      3.5413340000013704,
+      3.9134269999995013,
+      3.4492540000010194,
+      4.021730000000389,
+      3.7337950000001,
+      4.784504999999626,
+      3.8873469999998633,
+      3.8036100000008446,
+      4.4811150000005,
+      3.6024639999995998,
+      4.004264000001058,
+      4.041886999999406,
+      3.8943730000009964,
+      3.3764700000010635,
+      3.4049379999996745,
+      3.703899000000092,
+      4.027627000001303,
+      4.427364000001035,
+      3.387577000001329,
+      3.5965000000014697,
+      4.993725000000268,
+      4.072259999999005,
+      3.8793879999993806,
+      4.145741000000271,
+      5.017036000001099,
+      3.944366000001537,
+      3.70487299999877,
+      3.5795280000002094,
+      4.525773999999728,
+      3.9005969999998342,
+      3.189306000000215,
+      3.714173000000301,
+      4.191774999999325,
+      3.4781270000003133,
+      3.4911540000011883,
+      3.1893459999992047,
+      4.138633999999001,
+      3.8037030000014056,
+      4.066404000001057,
+      4.634632000001147,
+      3.461610999998811,
+      3.791465000000244,
+      3.8582839999999123,
+      3.8593130000008387,
+      3.741790999998557,
+      3.9187499999989086
+    ]
+  },
+  "metrics": {
+    "baselineP95RawMs": 2098.3563319999957,
+    "evidenceEnabledP95RawMs": 2228.8825450000004,
+    "regressionRawPercent": 6.220402655615544,
+    "baselineWindowMediansRawMs": [
+      441.1846974999971,
+      454.08656149999297,
+      888.3391609999962
+    ],
+    "baselineMedianDriftRawPercent": 67.26535377928329,
+    "appendP95RawMs": 5.464355000000069,
+    "receivedRecords": 1292
+  },
+  "thresholds": {
+    "baselineMedianDriftPercentMaximum": 15,
+    "runtimeP95RegressionPercentMaximum": 10,
+    "evidenceAppendP95MsMaximum": 20,
+    "evaluatedBeforeDisplayRounding": true
+  },
+  "failedThresholds": [
+    "Baseline median drift exceeded 15 percent"
+  ],
+  "sampleDiagnostics": [
+    {
+      "sample": 1,
+      "window": 1,
+      "block": 1,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 428.33279399999446,
+      "startedAt": "2026-09-09T10:01:50.761Z",
+      "finishedAt": "2026-09-09T10:01:51.189Z",
+      "startedAtMs": 1788948110761,
+      "finishedAtMs": 1788948111189,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 0,
+        "primaryBacklogAtStartCount": 0,
+        "primaryCarryoverAtFinishCount": 0,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 2,
+      "window": 1,
+      "block": 1,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 545.8808229999995,
+      "startedAt": "2026-09-09T10:01:51.191Z",
+      "finishedAt": "2026-09-09T10:01:51.737Z",
+      "startedAtMs": 1788948111191,
+      "finishedAtMs": 1788948111737,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 0,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 10,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 3,
+      "window": 1,
+      "block": 1,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 508.5434810000006,
+      "startedAt": "2026-09-09T10:01:51.740Z",
+      "finishedAt": "2026-09-09T10:01:52.248Z",
+      "startedAtMs": 1788948111740,
+      "finishedAtMs": 1788948112248,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 4,
+      "window": 1,
+      "block": 1,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 495.9841449999949,
+      "startedAt": "2026-09-09T10:01:52.251Z",
+      "finishedAt": "2026-09-09T10:01:52.747Z",
+      "startedAtMs": 1788948112251,
+      "finishedAtMs": 1788948112747,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 5,
+      "window": 1,
+      "block": 2,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 474.43749100000423,
+      "startedAt": "2026-09-09T10:01:52.749Z",
+      "finishedAt": "2026-09-09T10:01:53.223Z",
+      "startedAtMs": 1788948112749,
+      "finishedAtMs": 1788948113223,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 6,
+      "window": 1,
+      "block": 2,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 476.7661549999975,
+      "startedAt": "2026-09-09T10:01:53.225Z",
+      "finishedAt": "2026-09-09T10:01:53.702Z",
+      "startedAtMs": 1788948113225,
+      "finishedAtMs": 1788948113702,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 7,
+      "window": 1,
+      "block": 2,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 441.71009400000185,
+      "startedAt": "2026-09-09T10:01:53.704Z",
+      "finishedAt": "2026-09-09T10:01:54.146Z",
+      "startedAtMs": 1788948113704,
+      "finishedAtMs": 1788948114146,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 8,
+      "window": 1,
+      "block": 2,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 448.30141000000003,
+      "startedAt": "2026-09-09T10:01:54.148Z",
+      "finishedAt": "2026-09-09T10:01:54.596Z",
+      "startedAtMs": 1788948114148,
+      "finishedAtMs": 1788948114596,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 9,
+      "window": 1,
+      "block": 3,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 320.2960069999972,
+      "startedAt": "2026-09-09T10:01:54.607Z",
+      "finishedAt": "2026-09-09T10:01:54.928Z",
+      "startedAtMs": 1788948114607,
+      "finishedAtMs": 1788948114928,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 10,
+      "window": 1,
+      "block": 3,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 512.2650110000031,
+      "startedAt": "2026-09-09T10:01:54.929Z",
+      "finishedAt": "2026-09-09T10:01:55.441Z",
+      "startedAtMs": 1788948114929,
+      "finishedAtMs": 1788948115441,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 11,
+      "window": 1,
+      "block": 3,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 762.6553339999955,
+      "startedAt": "2026-09-09T10:01:55.444Z",
+      "finishedAt": "2026-09-09T10:01:56.207Z",
+      "startedAtMs": 1788948115444,
+      "finishedAtMs": 1788948116207,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 12,
+      "window": 1,
+      "block": 3,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 477.4549360000092,
+      "startedAt": "2026-09-09T10:01:56.208Z",
+      "finishedAt": "2026-09-09T10:01:56.686Z",
+      "startedAtMs": 1788948116208,
+      "finishedAtMs": 1788948116686,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 13,
+      "window": 1,
+      "block": 4,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 289.633726,
+      "startedAt": "2026-09-09T10:01:56.688Z",
+      "finishedAt": "2026-09-09T10:01:56.978Z",
+      "startedAtMs": 1788948116688,
+      "finishedAtMs": 1788948116978,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 14,
+      "window": 1,
+      "block": 4,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 380.70755599999393,
+      "startedAt": "2026-09-09T10:01:56.983Z",
+      "finishedAt": "2026-09-09T10:01:57.364Z",
+      "startedAtMs": 1788948116983,
+      "finishedAtMs": 1788948117364,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 10,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 10,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 15,
+      "window": 1,
+      "block": 4,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 417.72160299999814,
+      "startedAt": "2026-09-09T10:01:57.367Z",
+      "finishedAt": "2026-09-09T10:01:57.784Z",
+      "startedAtMs": 1788948117367,
+      "finishedAtMs": 1788948117784,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 10,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 16,
+      "window": 1,
+      "block": 4,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 603.3516420000087,
+      "startedAt": "2026-09-09T10:01:57.786Z",
+      "finishedAt": "2026-09-09T10:01:58.389Z",
+      "startedAtMs": 1788948117786,
+      "finishedAtMs": 1788948118389,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 17,
+      "window": 1,
+      "block": 5,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 538.7053589999996,
+      "startedAt": "2026-09-09T10:01:58.393Z",
+      "finishedAt": "2026-09-09T10:01:58.932Z",
+      "startedAtMs": 1788948118393,
+      "finishedAtMs": 1788948118932,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 18,
+      "window": 1,
+      "block": 5,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 559.0853059999936,
+      "startedAt": "2026-09-09T10:01:58.934Z",
+      "finishedAt": "2026-09-09T10:01:59.493Z",
+      "startedAtMs": 1788948118934,
+      "finishedAtMs": 1788948119493,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 19,
+      "window": 1,
+      "block": 5,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 337.6933790000039,
+      "startedAt": "2026-09-09T10:01:59.497Z",
+      "finishedAt": "2026-09-09T10:01:59.835Z",
+      "startedAtMs": 1788948119497,
+      "finishedAtMs": 1788948119835,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 20,
+      "window": 1,
+      "block": 5,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 404.96596399998816,
+      "startedAt": "2026-09-09T10:01:59.837Z",
+      "finishedAt": "2026-09-09T10:02:00.241Z",
+      "startedAtMs": 1788948119837,
+      "finishedAtMs": 1788948120241,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 21,
+      "window": 1,
+      "block": 6,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 333.8072300000058,
+      "startedAt": "2026-09-09T10:02:00.243Z",
+      "finishedAt": "2026-09-09T10:02:00.577Z",
+      "startedAtMs": 1788948120243,
+      "finishedAtMs": 1788948120577,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 22,
+      "window": 1,
+      "block": 6,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 298.1754590000055,
+      "startedAt": "2026-09-09T10:02:00.578Z",
+      "finishedAt": "2026-09-09T10:02:00.877Z",
+      "startedAtMs": 1788948120578,
+      "finishedAtMs": 1788948120877,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 23,
+      "window": 1,
+      "block": 6,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 499.60974300000817,
+      "startedAt": "2026-09-09T10:02:00.878Z",
+      "finishedAt": "2026-09-09T10:02:01.378Z",
+      "startedAtMs": 1788948120878,
+      "finishedAtMs": 1788948121378,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 27,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 24,
+      "window": 1,
+      "block": 6,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 610.5733330000076,
+      "startedAt": "2026-09-09T10:02:01.379Z",
+      "finishedAt": "2026-09-09T10:02:01.990Z",
+      "startedAtMs": 1788948121379,
+      "finishedAtMs": 1788948121990,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 27,
+        "primaryBacklogAtStartCount": 27,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 1,
+        "primaryAcknowledgedCount": 1,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 1,
+        "exportBatchRecordCount": 1,
+        "exportAckCount": 1,
+        "acceptedAckCount": 1,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 25,
+      "window": 1,
+      "block": 7,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 605.7070810000005,
+      "startedAt": "2026-09-09T10:02:01.992Z",
+      "finishedAt": "2026-09-09T10:02:02.598Z",
+      "startedAtMs": 1788948121992,
+      "finishedAtMs": 1788948122598,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 26,
+      "window": 1,
+      "block": 7,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 315.9830990000046,
+      "startedAt": "2026-09-09T10:02:02.600Z",
+      "finishedAt": "2026-09-09T10:02:02.916Z",
+      "startedAtMs": 1788948122600,
+      "finishedAtMs": 1788948122916,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 27,
+      "window": 1,
+      "block": 7,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 319.54607899999246,
+      "startedAt": "2026-09-09T10:02:02.917Z",
+      "finishedAt": "2026-09-09T10:02:03.236Z",
+      "startedAtMs": 1788948122917,
+      "finishedAtMs": 1788948123236,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 28,
+      "window": 1,
+      "block": 7,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 620.2710309999966,
+      "startedAt": "2026-09-09T10:02:03.239Z",
+      "finishedAt": "2026-09-09T10:02:03.859Z",
+      "startedAtMs": 1788948123239,
+      "finishedAtMs": 1788948123859,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 29,
+      "window": 1,
+      "block": 8,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 663.6781579999952,
+      "startedAt": "2026-09-09T10:02:03.861Z",
+      "finishedAt": "2026-09-09T10:02:04.525Z",
+      "startedAtMs": 1788948123861,
+      "finishedAtMs": 1788948124525,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 30,
+      "window": 1,
+      "block": 8,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 432.0846639999945,
+      "startedAt": "2026-09-09T10:02:04.528Z",
+      "finishedAt": "2026-09-09T10:02:04.960Z",
+      "startedAtMs": 1788948124528,
+      "finishedAtMs": 1788948124960,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 31,
+      "window": 1,
+      "block": 8,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 322.8652359999978,
+      "startedAt": "2026-09-09T10:02:04.961Z",
+      "finishedAt": "2026-09-09T10:02:05.284Z",
+      "startedAtMs": 1788948124961,
+      "finishedAtMs": 1788948125284,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 32,
+      "window": 1,
+      "block": 8,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 309.0941380000004,
+      "startedAt": "2026-09-09T10:02:05.286Z",
+      "finishedAt": "2026-09-09T10:02:05.595Z",
+      "startedAtMs": 1788948125286,
+      "finishedAtMs": 1788948125595,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 33,
+      "window": 1,
+      "block": 9,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 314.55498299999454,
+      "startedAt": "2026-09-09T10:02:05.596Z",
+      "finishedAt": "2026-09-09T10:02:05.911Z",
+      "startedAtMs": 1788948125596,
+      "finishedAtMs": 1788948125911,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 34,
+      "window": 1,
+      "block": 9,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 735.8466660000122,
+      "startedAt": "2026-09-09T10:02:05.912Z",
+      "finishedAt": "2026-09-09T10:02:06.648Z",
+      "startedAtMs": 1788948125912,
+      "finishedAtMs": 1788948126648,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 35,
+      "window": 1,
+      "block": 9,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 696.6273860000074,
+      "startedAt": "2026-09-09T10:02:06.650Z",
+      "finishedAt": "2026-09-09T10:02:07.347Z",
+      "startedAtMs": 1788948126650,
+      "finishedAtMs": 1788948127347,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 26,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 26,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 36,
+      "window": 1,
+      "block": 9,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 569.7523629999923,
+      "startedAt": "2026-09-09T10:02:07.350Z",
+      "finishedAt": "2026-09-09T10:02:07.919Z",
+      "startedAtMs": 1788948127350,
+      "finishedAtMs": 1788948127919,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 26,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 37,
+      "window": 1,
+      "block": 10,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 346.4451410000038,
+      "startedAt": "2026-09-09T10:02:07.921Z",
+      "finishedAt": "2026-09-09T10:02:08.268Z",
+      "startedAtMs": 1788948127921,
+      "finishedAtMs": 1788948128268,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 38,
+      "window": 1,
+      "block": 10,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 440.6593009999924,
+      "startedAt": "2026-09-09T10:02:08.269Z",
+      "finishedAt": "2026-09-09T10:02:08.710Z",
+      "startedAtMs": 1788948128269,
+      "finishedAtMs": 1788948128710,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 39,
+      "window": 1,
+      "block": 10,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 514.5322529999976,
+      "startedAt": "2026-09-09T10:02:08.712Z",
+      "finishedAt": "2026-09-09T10:02:09.226Z",
+      "startedAtMs": 1788948128712,
+      "finishedAtMs": 1788948129226,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 40,
+      "window": 1,
+      "block": 10,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 431.4992970000021,
+      "startedAt": "2026-09-09T10:02:09.228Z",
+      "finishedAt": "2026-09-09T10:02:09.660Z",
+      "startedAtMs": 1788948129228,
+      "finishedAtMs": 1788948129660,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 41,
+      "window": 1,
+      "block": 11,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 303.74325600000157,
+      "startedAt": "2026-09-09T10:02:09.661Z",
+      "finishedAt": "2026-09-09T10:02:09.965Z",
+      "startedAtMs": 1788948129661,
+      "finishedAtMs": 1788948129965,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 42,
+      "window": 1,
+      "block": 11,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 386.3749349999998,
+      "startedAt": "2026-09-09T10:02:09.966Z",
+      "finishedAt": "2026-09-09T10:02:10.353Z",
+      "startedAtMs": 1788948129966,
+      "finishedAtMs": 1788948130353,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 43,
+      "window": 1,
+      "block": 11,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 616.1331849999988,
+      "startedAt": "2026-09-09T10:02:10.354Z",
+      "finishedAt": "2026-09-09T10:02:10.970Z",
+      "startedAtMs": 1788948130354,
+      "finishedAtMs": 1788948130970,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 44,
+      "window": 1,
+      "block": 11,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 826.6171570000006,
+      "startedAt": "2026-09-09T10:02:10.972Z",
+      "finishedAt": "2026-09-09T10:02:11.798Z",
+      "startedAtMs": 1788948130972,
+      "finishedAtMs": 1788948131798,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 45,
+      "window": 1,
+      "block": 12,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 636.5367330000008,
+      "startedAt": "2026-09-09T10:02:11.801Z",
+      "finishedAt": "2026-09-09T10:02:12.438Z",
+      "startedAtMs": 1788948131801,
+      "finishedAtMs": 1788948132438,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 46,
+      "window": 1,
+      "block": 12,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 366.0647259999969,
+      "startedAt": "2026-09-09T10:02:12.442Z",
+      "finishedAt": "2026-09-09T10:02:12.808Z",
+      "startedAtMs": 1788948132442,
+      "finishedAtMs": 1788948132808,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 47,
+      "window": 1,
+      "block": 12,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 517.7263370000001,
+      "startedAt": "2026-09-09T10:02:12.811Z",
+      "finishedAt": "2026-09-09T10:02:13.328Z",
+      "startedAtMs": 1788948132811,
+      "finishedAtMs": 1788948133328,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 48,
+      "window": 1,
+      "block": 12,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 460.5562490000011,
+      "startedAt": "2026-09-09T10:02:13.331Z",
+      "finishedAt": "2026-09-09T10:02:13.791Z",
+      "startedAtMs": 1788948133331,
+      "finishedAtMs": 1788948133791,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 49,
+      "window": 2,
+      "block": 1,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 428.74352299999737,
+      "startedAt": "2026-09-09T10:02:13.793Z",
+      "finishedAt": "2026-09-09T10:02:14.222Z",
+      "startedAtMs": 1788948133793,
+      "finishedAtMs": 1788948134222,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 50,
+      "window": 2,
+      "block": 1,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 496.2158849999978,
+      "startedAt": "2026-09-09T10:02:14.226Z",
+      "finishedAt": "2026-09-09T10:02:14.722Z",
+      "startedAtMs": 1788948134226,
+      "finishedAtMs": 1788948134722,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 51,
+      "window": 2,
+      "block": 1,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 603.0674209999997,
+      "startedAt": "2026-09-09T10:02:14.725Z",
+      "finishedAt": "2026-09-09T10:02:15.328Z",
+      "startedAtMs": 1788948134725,
+      "finishedAtMs": 1788948135328,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 52,
+      "window": 2,
+      "block": 1,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 469.20365100000345,
+      "startedAt": "2026-09-09T10:02:15.330Z",
+      "finishedAt": "2026-09-09T10:02:15.799Z",
+      "startedAtMs": 1788948135330,
+      "finishedAtMs": 1788948135799,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 53,
+      "window": 2,
+      "block": 2,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 437.1341519999987,
+      "startedAt": "2026-09-09T10:02:15.800Z",
+      "finishedAt": "2026-09-09T10:02:16.237Z",
+      "startedAtMs": 1788948135800,
+      "finishedAtMs": 1788948136237,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 54,
+      "window": 2,
+      "block": 2,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 406.62599699999555,
+      "startedAt": "2026-09-09T10:02:16.239Z",
+      "finishedAt": "2026-09-09T10:02:16.646Z",
+      "startedAtMs": 1788948136239,
+      "finishedAtMs": 1788948136646,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 55,
+      "window": 2,
+      "block": 2,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 318.97838000000047,
+      "startedAt": "2026-09-09T10:02:16.647Z",
+      "finishedAt": "2026-09-09T10:02:16.966Z",
+      "startedAtMs": 1788948136647,
+      "finishedAtMs": 1788948136966,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 56,
+      "window": 2,
+      "block": 2,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 432.63295199999993,
+      "startedAt": "2026-09-09T10:02:16.968Z",
+      "finishedAt": "2026-09-09T10:02:17.401Z",
+      "startedAtMs": 1788948136968,
+      "finishedAtMs": 1788948137401,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 43,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 43,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 57,
+      "window": 2,
+      "block": 3,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 446.1713860000018,
+      "startedAt": "2026-09-09T10:02:17.402Z",
+      "finishedAt": "2026-09-09T10:02:17.848Z",
+      "startedAtMs": 1788948137402,
+      "finishedAtMs": 1788948137848,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 43,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 58,
+      "window": 2,
+      "block": 3,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 399.66907699999865,
+      "startedAt": "2026-09-09T10:02:17.850Z",
+      "finishedAt": "2026-09-09T10:02:18.249Z",
+      "startedAtMs": 1788948137850,
+      "finishedAtMs": 1788948138249,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 59,
+      "window": 2,
+      "block": 3,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 593.7431129999895,
+      "startedAt": "2026-09-09T10:02:18.251Z",
+      "finishedAt": "2026-09-09T10:02:18.845Z",
+      "startedAtMs": 1788948138251,
+      "finishedAtMs": 1788948138845,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 60,
+      "window": 2,
+      "block": 3,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 627.3157939999946,
+      "startedAt": "2026-09-09T10:02:18.847Z",
+      "finishedAt": "2026-09-09T10:02:19.475Z",
+      "startedAtMs": 1788948138847,
+      "finishedAtMs": 1788948139475,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 61,
+      "window": 2,
+      "block": 4,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 474.06424100000004,
+      "startedAt": "2026-09-09T10:02:19.478Z",
+      "finishedAt": "2026-09-09T10:02:19.952Z",
+      "startedAtMs": 1788948139478,
+      "finishedAtMs": 1788948139952,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 62,
+      "window": 2,
+      "block": 4,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 436.44052499999816,
+      "startedAt": "2026-09-09T10:02:19.953Z",
+      "finishedAt": "2026-09-09T10:02:20.390Z",
+      "startedAtMs": 1788948139953,
+      "finishedAtMs": 1788948140390,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 63,
+      "window": 2,
+      "block": 4,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 451.305091000002,
+      "startedAt": "2026-09-09T10:02:20.391Z",
+      "finishedAt": "2026-09-09T10:02:20.842Z",
+      "startedAtMs": 1788948140391,
+      "finishedAtMs": 1788948140842,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 64,
+      "window": 2,
+      "block": 4,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 376.1731290000025,
+      "startedAt": "2026-09-09T10:02:20.844Z",
+      "finishedAt": "2026-09-09T10:02:21.220Z",
+      "startedAtMs": 1788948140844,
+      "finishedAtMs": 1788948141220,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 65,
+      "window": 2,
+      "block": 5,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 377.7637229999964,
+      "startedAt": "2026-09-09T10:02:21.222Z",
+      "finishedAt": "2026-09-09T10:02:21.599Z",
+      "startedAtMs": 1788948141222,
+      "finishedAtMs": 1788948141599,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 66,
+      "window": 2,
+      "block": 5,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 308.2915629999916,
+      "startedAt": "2026-09-09T10:02:21.601Z",
+      "finishedAt": "2026-09-09T10:02:21.909Z",
+      "startedAtMs": 1788948141601,
+      "finishedAtMs": 1788948141909,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 67,
+      "window": 2,
+      "block": 5,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 404.1082330000063,
+      "startedAt": "2026-09-09T10:02:21.911Z",
+      "finishedAt": "2026-09-09T10:02:22.315Z",
+      "startedAtMs": 1788948141911,
+      "finishedAtMs": 1788948142315,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 68,
+      "window": 2,
+      "block": 5,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 515.4748689999979,
+      "startedAt": "2026-09-09T10:02:22.316Z",
+      "finishedAt": "2026-09-09T10:02:22.832Z",
+      "startedAtMs": 1788948142316,
+      "finishedAtMs": 1788948142832,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 69,
+      "window": 2,
+      "block": 6,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 708.654389999996,
+      "startedAt": "2026-09-09T10:02:22.834Z",
+      "finishedAt": "2026-09-09T10:02:23.542Z",
+      "startedAtMs": 1788948142834,
+      "finishedAtMs": 1788948143542,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 70,
+      "window": 2,
+      "block": 6,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 503.8120639999979,
+      "startedAt": "2026-09-09T10:02:23.545Z",
+      "finishedAt": "2026-09-09T10:02:24.049Z",
+      "startedAtMs": 1788948143545,
+      "finishedAtMs": 1788948144049,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 71,
+      "window": 2,
+      "block": 6,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 346.907984999998,
+      "startedAt": "2026-09-09T10:02:24.051Z",
+      "finishedAt": "2026-09-09T10:02:24.397Z",
+      "startedAtMs": 1788948144051,
+      "finishedAtMs": 1788948144397,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 72,
+      "window": 2,
+      "block": 6,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 322.1371170000057,
+      "startedAt": "2026-09-09T10:02:24.399Z",
+      "finishedAt": "2026-09-09T10:02:24.721Z",
+      "startedAtMs": 1788948144399,
+      "finishedAtMs": 1788948144721,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 73,
+      "window": 2,
+      "block": 7,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 392.4389289999963,
+      "startedAt": "2026-09-09T10:02:24.723Z",
+      "finishedAt": "2026-09-09T10:02:25.115Z",
+      "startedAtMs": 1788948144723,
+      "finishedAtMs": 1788948145115,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 74,
+      "window": 2,
+      "block": 7,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 341.7049920000136,
+      "startedAt": "2026-09-09T10:02:25.117Z",
+      "finishedAt": "2026-09-09T10:02:25.459Z",
+      "startedAtMs": 1788948145117,
+      "finishedAtMs": 1788948145459,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 75,
+      "window": 2,
+      "block": 7,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 508.0293240000028,
+      "startedAt": "2026-09-09T10:02:25.461Z",
+      "finishedAt": "2026-09-09T10:02:25.969Z",
+      "startedAtMs": 1788948145461,
+      "finishedAtMs": 1788948145969,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 76,
+      "window": 2,
+      "block": 7,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 515.4808320000011,
+      "startedAt": "2026-09-09T10:02:25.971Z",
+      "finishedAt": "2026-09-09T10:02:26.486Z",
+      "startedAtMs": 1788948145971,
+      "finishedAtMs": 1788948146486,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 77,
+      "window": 2,
+      "block": 8,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 731.6674399999902,
+      "startedAt": "2026-09-09T10:02:26.488Z",
+      "finishedAt": "2026-09-09T10:02:27.220Z",
+      "startedAtMs": 1788948146488,
+      "finishedAtMs": 1788948147220,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 60,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 60,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 78,
+      "window": 2,
+      "block": 8,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 871.5382899999968,
+      "startedAt": "2026-09-09T10:02:27.222Z",
+      "finishedAt": "2026-09-09T10:02:28.094Z",
+      "startedAtMs": 1788948147222,
+      "finishedAtMs": 1788948148094,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 60,
+        "primaryCarryoverAtFinishCount": 77,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 79,
+      "window": 2,
+      "block": 8,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 375.1867530000018,
+      "startedAt": "2026-09-09T10:02:28.097Z",
+      "finishedAt": "2026-09-09T10:02:28.473Z",
+      "startedAtMs": 1788948148097,
+      "finishedAtMs": 1788948148473,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 77,
+        "primaryCarryoverAtFinishCount": 77,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 80,
+      "window": 2,
+      "block": 8,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 452.3489249999984,
+      "startedAt": "2026-09-09T10:02:28.474Z",
+      "finishedAt": "2026-09-09T10:02:28.926Z",
+      "startedAtMs": 1788948148474,
+      "finishedAtMs": 1788948148926,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 77,
+        "primaryCarryoverAtFinishCount": 77,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 81,
+      "window": 2,
+      "block": 9,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 410.1872149999981,
+      "startedAt": "2026-09-09T10:02:28.928Z",
+      "finishedAt": "2026-09-09T10:02:29.338Z",
+      "startedAtMs": 1788948148928,
+      "finishedAtMs": 1788948149338,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 77,
+        "primaryCarryoverAtFinishCount": 77,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 82,
+      "window": 2,
+      "block": 9,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 492.9226259999996,
+      "startedAt": "2026-09-09T10:02:29.340Z",
+      "finishedAt": "2026-09-09T10:02:29.833Z",
+      "startedAtMs": 1788948149340,
+      "finishedAtMs": 1788948149833,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 77,
+        "primaryCarryoverAtFinishCount": 77,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 83,
+      "window": 2,
+      "block": 9,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 613.0515040000028,
+      "startedAt": "2026-09-09T10:02:29.835Z",
+      "finishedAt": "2026-09-09T10:02:30.448Z",
+      "startedAtMs": 1788948149835,
+      "finishedAtMs": 1788948150448,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 77,
+        "primaryCarryoverAtFinishCount": 77,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 84,
+      "window": 2,
+      "block": 9,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 806.1934090000141,
+      "startedAt": "2026-09-09T10:02:30.450Z",
+      "finishedAt": "2026-09-09T10:02:31.257Z",
+      "startedAtMs": 1788948150450,
+      "finishedAtMs": 1788948151257,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 77,
+        "primaryCarryoverAtFinishCount": 77,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 85,
+      "window": 2,
+      "block": 10,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 609.7505519999977,
+      "startedAt": "2026-09-09T10:02:31.259Z",
+      "finishedAt": "2026-09-09T10:02:31.869Z",
+      "startedAtMs": 1788948151259,
+      "finishedAtMs": 1788948151869,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 77,
+        "primaryBacklogAtStartCount": 77,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 1,
+        "primaryAcknowledgedCount": 1,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 1,
+        "exportBatchRecordCount": 1,
+        "exportAckCount": 1,
+        "acceptedAckCount": 1,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 86,
+      "window": 2,
+      "block": 10,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 452.27905199999805,
+      "startedAt": "2026-09-09T10:02:31.875Z",
+      "finishedAt": "2026-09-09T10:02:32.327Z",
+      "startedAtMs": 1788948151875,
+      "finishedAtMs": 1788948152327,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 87,
+      "window": 2,
+      "block": 10,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 455.8940709999879,
+      "startedAt": "2026-09-09T10:02:32.332Z",
+      "finishedAt": "2026-09-09T10:02:32.788Z",
+      "startedAtMs": 1788948152332,
+      "finishedAtMs": 1788948152788,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 88,
+      "window": 2,
+      "block": 10,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 545.3338979999971,
+      "startedAt": "2026-09-09T10:02:32.790Z",
+      "finishedAt": "2026-09-09T10:02:33.335Z",
+      "startedAtMs": 1788948152790,
+      "finishedAtMs": 1788948153335,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 89,
+      "window": 2,
+      "block": 11,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 509.8966899999941,
+      "startedAt": "2026-09-09T10:02:33.339Z",
+      "finishedAt": "2026-09-09T10:02:33.849Z",
+      "startedAtMs": 1788948153339,
+      "finishedAtMs": 1788948153849,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 90,
+      "window": 2,
+      "block": 11,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 503.6796079999913,
+      "startedAt": "2026-09-09T10:02:33.851Z",
+      "finishedAt": "2026-09-09T10:02:34.354Z",
+      "startedAtMs": 1788948153851,
+      "finishedAtMs": 1788948154354,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 91,
+      "window": 2,
+      "block": 11,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 823.5834840000025,
+      "startedAt": "2026-09-09T10:02:34.358Z",
+      "finishedAt": "2026-09-09T10:02:35.181Z",
+      "startedAtMs": 1788948154358,
+      "finishedAtMs": 1788948155181,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 92,
+      "window": 2,
+      "block": 11,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 585.7599869999976,
+      "startedAt": "2026-09-09T10:02:35.183Z",
+      "finishedAt": "2026-09-09T10:02:35.769Z",
+      "startedAtMs": 1788948155183,
+      "finishedAtMs": 1788948155769,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 93,
+      "window": 2,
+      "block": 12,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 494.98671399999876,
+      "startedAt": "2026-09-09T10:02:35.770Z",
+      "finishedAt": "2026-09-09T10:02:36.265Z",
+      "startedAtMs": 1788948155770,
+      "finishedAtMs": 1788948156265,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 94,
+      "window": 2,
+      "block": 12,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 576.9441510000033,
+      "startedAt": "2026-09-09T10:02:36.267Z",
+      "finishedAt": "2026-09-09T10:02:36.844Z",
+      "startedAtMs": 1788948156267,
+      "finishedAtMs": 1788948156844,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 95,
+      "window": 2,
+      "block": 12,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 565.6821429999982,
+      "startedAt": "2026-09-09T10:02:36.852Z",
+      "finishedAt": "2026-09-09T10:02:37.418Z",
+      "startedAtMs": 1788948156852,
+      "finishedAtMs": 1788948157418,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 76,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 76,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 96,
+      "window": 2,
+      "block": 12,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 709.257626000006,
+      "startedAt": "2026-09-09T10:02:37.419Z",
+      "finishedAt": "2026-09-09T10:02:38.129Z",
+      "startedAtMs": 1788948157419,
+      "finishedAtMs": 1788948158129,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 76,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 97,
+      "window": 3,
+      "block": 1,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 616.8611740000051,
+      "startedAt": "2026-09-09T10:02:38.135Z",
+      "finishedAt": "2026-09-09T10:02:38.752Z",
+      "startedAtMs": 1788948158135,
+      "finishedAtMs": 1788948158752,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 98,
+      "window": 3,
+      "block": 1,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 603.6828620000015,
+      "startedAt": "2026-09-09T10:02:38.761Z",
+      "finishedAt": "2026-09-09T10:02:39.365Z",
+      "startedAtMs": 1788948158761,
+      "finishedAtMs": 1788948159365,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 99,
+      "window": 3,
+      "block": 1,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 683.4021249999932,
+      "startedAt": "2026-09-09T10:02:39.370Z",
+      "finishedAt": "2026-09-09T10:02:40.054Z",
+      "startedAtMs": 1788948159370,
+      "finishedAtMs": 1788948160054,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 100,
+      "window": 3,
+      "block": 1,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 724.8635869999998,
+      "startedAt": "2026-09-09T10:02:40.065Z",
+      "finishedAt": "2026-09-09T10:02:40.790Z",
+      "startedAtMs": 1788948160065,
+      "finishedAtMs": 1788948160790,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 101,
+      "window": 3,
+      "block": 2,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 570.204184000002,
+      "startedAt": "2026-09-09T10:02:40.795Z",
+      "finishedAt": "2026-09-09T10:02:41.365Z",
+      "startedAtMs": 1788948160795,
+      "finishedAtMs": 1788948161365,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 102,
+      "window": 3,
+      "block": 2,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 608.5943320000079,
+      "startedAt": "2026-09-09T10:02:41.370Z",
+      "finishedAt": "2026-09-09T10:02:41.978Z",
+      "startedAtMs": 1788948161370,
+      "finishedAtMs": 1788948161978,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 103,
+      "window": 3,
+      "block": 2,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 729.6134440000023,
+      "startedAt": "2026-09-09T10:02:41.982Z",
+      "finishedAt": "2026-09-09T10:02:42.712Z",
+      "startedAtMs": 1788948161982,
+      "finishedAtMs": 1788948162712,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 104,
+      "window": 3,
+      "block": 2,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 801.7239469999913,
+      "startedAt": "2026-09-09T10:02:42.717Z",
+      "finishedAt": "2026-09-09T10:02:43.519Z",
+      "startedAtMs": 1788948162717,
+      "finishedAtMs": 1788948163519,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 105,
+      "window": 3,
+      "block": 3,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 608.9529210000037,
+      "startedAt": "2026-09-09T10:02:43.535Z",
+      "finishedAt": "2026-09-09T10:02:44.144Z",
+      "startedAtMs": 1788948163535,
+      "finishedAtMs": 1788948164144,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 106,
+      "window": 3,
+      "block": 3,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 628.2227089999942,
+      "startedAt": "2026-09-09T10:02:44.150Z",
+      "finishedAt": "2026-09-09T10:02:44.778Z",
+      "startedAtMs": 1788948164150,
+      "finishedAtMs": 1788948164778,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 107,
+      "window": 3,
+      "block": 3,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 680.5163170000014,
+      "startedAt": "2026-09-09T10:02:44.796Z",
+      "finishedAt": "2026-09-09T10:02:45.476Z",
+      "startedAtMs": 1788948164796,
+      "finishedAtMs": 1788948165476,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 108,
+      "window": 3,
+      "block": 3,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 697.5967810000002,
+      "startedAt": "2026-09-09T10:02:45.480Z",
+      "finishedAt": "2026-09-09T10:02:46.177Z",
+      "startedAtMs": 1788948165480,
+      "finishedAtMs": 1788948166177,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 109,
+      "window": 3,
+      "block": 4,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 607.2006059999985,
+      "startedAt": "2026-09-09T10:02:46.181Z",
+      "finishedAt": "2026-09-09T10:02:46.788Z",
+      "startedAtMs": 1788948166181,
+      "finishedAtMs": 1788948166788,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 110,
+      "window": 3,
+      "block": 4,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 646.1146020000015,
+      "startedAt": "2026-09-09T10:02:46.794Z",
+      "finishedAt": "2026-09-09T10:02:47.440Z",
+      "startedAtMs": 1788948166794,
+      "finishedAtMs": 1788948167440,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 93,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 93,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 111,
+      "window": 3,
+      "block": 4,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 1326.9255219999905,
+      "startedAt": "2026-09-09T10:02:47.446Z",
+      "finishedAt": "2026-09-09T10:02:48.773Z",
+      "startedAtMs": 1788948167446,
+      "finishedAtMs": 1788948168773,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 110,
+        "primaryBacklogAtStartCount": 93,
+        "primaryCarryoverAtFinishCount": 110,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 112,
+      "window": 3,
+      "block": 4,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2414.6743229999993,
+      "startedAt": "2026-09-09T10:02:48.808Z",
+      "finishedAt": "2026-09-09T10:02:51.223Z",
+      "startedAtMs": 1788948168808,
+      "finishedAtMs": 1788948171223,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 110,
+        "primaryBacklogAtStartCount": 110,
+        "primaryCarryoverAtFinishCount": 110,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 113,
+      "window": 3,
+      "block": 5,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 3951.8522349999985,
+      "startedAt": "2026-09-09T10:02:51.248Z",
+      "finishedAt": "2026-09-09T10:02:55.200Z",
+      "startedAtMs": 1788948171248,
+      "finishedAtMs": 1788948175200,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 110,
+        "primaryBacklogAtStartCount": 110,
+        "primaryCarryoverAtFinishCount": 110,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 114,
+      "window": 3,
+      "block": 5,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2956.6581520000036,
+      "startedAt": "2026-09-09T10:02:55.276Z",
+      "finishedAt": "2026-09-09T10:02:58.233Z",
+      "startedAtMs": 1788948175276,
+      "finishedAtMs": 1788948178233,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 127,
+        "primaryBacklogAtStartCount": 110,
+        "primaryCarryoverAtFinishCount": 127,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 115,
+      "window": 3,
+      "block": 5,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2135.1292320000066,
+      "startedAt": "2026-09-09T10:02:58.268Z",
+      "finishedAt": "2026-09-09T10:03:00.403Z",
+      "startedAtMs": 1788948178268,
+      "finishedAtMs": 1788948180403,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 127,
+        "primaryBacklogAtStartCount": 127,
+        "primaryCarryoverAtFinishCount": 127,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 116,
+      "window": 3,
+      "block": 5,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 2069.126768000002,
+      "startedAt": "2026-09-09T10:03:00.416Z",
+      "finishedAt": "2026-09-09T10:03:02.485Z",
+      "startedAtMs": 1788948180416,
+      "finishedAtMs": 1788948182485,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 127,
+        "primaryBacklogAtStartCount": 127,
+        "primaryCarryoverAtFinishCount": 127,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 117,
+      "window": 3,
+      "block": 6,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 1816.3968129999994,
+      "startedAt": "2026-09-09T10:03:02.506Z",
+      "finishedAt": "2026-09-09T10:03:04.322Z",
+      "startedAtMs": 1788948182506,
+      "finishedAtMs": 1788948184322,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 127,
+        "primaryBacklogAtStartCount": 127,
+        "primaryCarryoverAtFinishCount": 127,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 118,
+      "window": 3,
+      "block": 6,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 1871.212330999988,
+      "startedAt": "2026-09-09T10:03:04.389Z",
+      "finishedAt": "2026-09-09T10:03:06.260Z",
+      "startedAtMs": 1788948184389,
+      "finishedAtMs": 1788948186260,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 127,
+        "primaryBacklogAtStartCount": 127,
+        "primaryCarryoverAtFinishCount": 127,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 119,
+      "window": 3,
+      "block": 6,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 1360.001185000001,
+      "startedAt": "2026-09-09T10:03:06.280Z",
+      "finishedAt": "2026-09-09T10:03:07.640Z",
+      "startedAtMs": 1788948186280,
+      "finishedAtMs": 1788948187640,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 144,
+        "primaryBacklogAtStartCount": 127,
+        "primaryCarryoverAtFinishCount": 144,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 120,
+      "window": 3,
+      "block": 6,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 1229.1851120000065,
+      "startedAt": "2026-09-09T10:03:07.664Z",
+      "finishedAt": "2026-09-09T10:03:08.893Z",
+      "startedAtMs": 1788948187664,
+      "finishedAtMs": 1788948188893,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 144,
+        "primaryBacklogAtStartCount": 144,
+        "primaryCarryoverAtFinishCount": 144,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 121,
+      "window": 3,
+      "block": 7,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 815.9274039999873,
+      "startedAt": "2026-09-09T10:03:08.898Z",
+      "finishedAt": "2026-09-09T10:03:09.714Z",
+      "startedAtMs": 1788948188898,
+      "finishedAtMs": 1788948189714,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 144,
+        "primaryBacklogAtStartCount": 144,
+        "primaryCarryoverAtFinishCount": 144,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 122,
+      "window": 3,
+      "block": 7,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 827.458872999996,
+      "startedAt": "2026-09-09T10:03:09.721Z",
+      "finishedAt": "2026-09-09T10:03:10.548Z",
+      "startedAtMs": 1788948189721,
+      "finishedAtMs": 1788948190548,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 144,
+        "primaryBacklogAtStartCount": 144,
+        "primaryCarryoverAtFinishCount": 144,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 123,
+      "window": 3,
+      "block": 7,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2228.8825450000004,
+      "startedAt": "2026-09-09T10:03:10.594Z",
+      "finishedAt": "2026-09-09T10:03:12.823Z",
+      "startedAtMs": 1788948190594,
+      "finishedAtMs": 1788948192823,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 144,
+        "primaryBacklogAtStartCount": 144,
+        "primaryCarryoverAtFinishCount": 143,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 1,
+        "primaryAcknowledgedCount": 1,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 1,
+        "exportBatchRecordCount": 1,
+        "exportAckCount": 1,
+        "acceptedAckCount": 1,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 124,
+      "window": 3,
+      "block": 7,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 2098.3563319999957,
+      "startedAt": "2026-09-09T10:03:12.875Z",
+      "finishedAt": "2026-09-09T10:03:14.973Z",
+      "startedAtMs": 1788948192875,
+      "finishedAtMs": 1788948194973,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 143,
+        "primaryBacklogAtStartCount": 143,
+        "primaryCarryoverAtFinishCount": 143,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 125,
+      "window": 3,
+      "block": 8,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2154.433230000024,
+      "startedAt": "2026-09-09T10:03:15.032Z",
+      "finishedAt": "2026-09-09T10:03:17.187Z",
+      "startedAtMs": 1788948195032,
+      "finishedAtMs": 1788948197187,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 143,
+        "primaryBacklogAtStartCount": 143,
+        "primaryCarryoverAtFinishCount": 143,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 126,
+      "window": 3,
+      "block": 8,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 2763.32886899999,
+      "startedAt": "2026-09-09T10:03:17.222Z",
+      "finishedAt": "2026-09-09T10:03:19.986Z",
+      "startedAtMs": 1788948197222,
+      "finishedAtMs": 1788948199986,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 160,
+        "primaryBacklogAtStartCount": 143,
+        "primaryCarryoverAtFinishCount": 160,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 127,
+      "window": 3,
+      "block": 8,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 2529.375433999987,
+      "startedAt": "2026-09-09T10:03:20.059Z",
+      "finishedAt": "2026-09-09T10:03:22.589Z",
+      "startedAtMs": 1788948200059,
+      "finishedAtMs": 1788948202589,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 160,
+        "primaryBacklogAtStartCount": 160,
+        "primaryCarryoverAtFinishCount": 160,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 128,
+      "window": 3,
+      "block": 8,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2195.553725000005,
+      "startedAt": "2026-09-09T10:03:22.615Z",
+      "finishedAt": "2026-09-09T10:03:24.811Z",
+      "startedAtMs": 1788948202615,
+      "finishedAtMs": 1788948204811,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 160,
+        "primaryBacklogAtStartCount": 160,
+        "primaryCarryoverAtFinishCount": 160,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 129,
+      "window": 3,
+      "block": 9,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 1206.0466190000006,
+      "startedAt": "2026-09-09T10:03:24.876Z",
+      "finishedAt": "2026-09-09T10:03:26.082Z",
+      "startedAtMs": 1788948204876,
+      "finishedAtMs": 1788948206082,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 160,
+        "primaryBacklogAtStartCount": 160,
+        "primaryCarryoverAtFinishCount": 160,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 130,
+      "window": 3,
+      "block": 9,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 796.1885509999993,
+      "startedAt": "2026-09-09T10:03:26.091Z",
+      "finishedAt": "2026-09-09T10:03:26.887Z",
+      "startedAtMs": 1788948206091,
+      "finishedAtMs": 1788948206887,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 160,
+        "primaryBacklogAtStartCount": 160,
+        "primaryCarryoverAtFinishCount": 160,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 131,
+      "window": 3,
+      "block": 9,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 865.7196060000279,
+      "startedAt": "2026-09-09T10:03:26.890Z",
+      "finishedAt": "2026-09-09T10:03:27.756Z",
+      "startedAtMs": 1788948206890,
+      "finishedAtMs": 1788948207756,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 160,
+        "primaryCarryoverAtFinishCount": 177,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 132,
+      "window": 3,
+      "block": 9,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 669.6841039999854,
+      "startedAt": "2026-09-09T10:03:27.765Z",
+      "finishedAt": "2026-09-09T10:03:28.435Z",
+      "startedAtMs": 1788948207765,
+      "finishedAtMs": 1788948208435,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 177,
+        "primaryCarryoverAtFinishCount": 177,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 133,
+      "window": 3,
+      "block": 10,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 939.4756259999995,
+      "startedAt": "2026-09-09T10:03:28.449Z",
+      "finishedAt": "2026-09-09T10:03:29.388Z",
+      "startedAtMs": 1788948208449,
+      "finishedAtMs": 1788948209388,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 177,
+        "primaryCarryoverAtFinishCount": 177,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 134,
+      "window": 3,
+      "block": 10,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 766.9597540000104,
+      "startedAt": "2026-09-09T10:03:29.393Z",
+      "finishedAt": "2026-09-09T10:03:30.160Z",
+      "startedAtMs": 1788948209393,
+      "finishedAtMs": 1788948210160,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 177,
+        "primaryCarryoverAtFinishCount": 177,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 135,
+      "window": 3,
+      "block": 10,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 783.6726879999915,
+      "startedAt": "2026-09-09T10:03:30.165Z",
+      "finishedAt": "2026-09-09T10:03:30.949Z",
+      "startedAtMs": 1788948210165,
+      "finishedAtMs": 1788948210949,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 177,
+        "primaryCarryoverAtFinishCount": 177,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 136,
+      "window": 3,
+      "block": 10,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 618.7477240000153,
+      "startedAt": "2026-09-09T10:03:30.970Z",
+      "finishedAt": "2026-09-09T10:03:31.589Z",
+      "startedAtMs": 1788948210970,
+      "finishedAtMs": 1788948211589,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 177,
+        "primaryCarryoverAtFinishCount": 177,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 137,
+      "window": 3,
+      "block": 11,
+      "position": 1,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 773.2781599999871,
+      "startedAt": "2026-09-09T10:03:31.595Z",
+      "finishedAt": "2026-09-09T10:03:32.369Z",
+      "startedAtMs": 1788948211595,
+      "finishedAtMs": 1788948212369,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 177,
+        "primaryCarryoverAtFinishCount": 177,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 138,
+      "window": 3,
+      "block": 11,
+      "position": 2,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2472.188107999973,
+      "startedAt": "2026-09-09T10:03:32.386Z",
+      "finishedAt": "2026-09-09T10:03:34.859Z",
+      "startedAtMs": 1788948212386,
+      "finishedAtMs": 1788948214859,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 177,
+        "primaryBacklogAtStartCount": 177,
+        "primaryCarryoverAtFinishCount": 176,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 1,
+        "primaryAcknowledgedCount": 1,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 1,
+        "exportBatchRecordCount": 1,
+        "exportAckCount": 1,
+        "acceptedAckCount": 1,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 139,
+      "window": 3,
+      "block": 11,
+      "position": 3,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "enabled",
+      "latencyMs": 2079.90797,
+      "startedAt": "2026-09-09T10:03:34.887Z",
+      "finishedAt": "2026-09-09T10:03:36.967Z",
+      "startedAtMs": 1788948214887,
+      "finishedAtMs": 1788948216967,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 176,
+        "primaryBacklogAtStartCount": 176,
+        "primaryCarryoverAtFinishCount": 176,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 140,
+      "window": 3,
+      "block": 11,
+      "position": 4,
+      "order": [
+        "baseline",
+        "enabled",
+        "enabled",
+        "baseline"
+      ],
+      "mode": "baseline",
+      "latencyMs": 1154.9075409999932,
+      "startedAt": "2026-09-09T10:03:36.974Z",
+      "finishedAt": "2026-09-09T10:03:38.129Z",
+      "startedAtMs": 1788948216974,
+      "finishedAtMs": 1788948218129,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 193,
+        "primaryBacklogAtStartCount": 176,
+        "primaryCarryoverAtFinishCount": 193,
+        "primaryCapturedCount": 17,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 141,
+      "window": 3,
+      "block": 12,
+      "position": 1,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 1398.9368289999838,
+      "startedAt": "2026-09-09T10:03:38.182Z",
+      "finishedAt": "2026-09-09T10:03:39.581Z",
+      "startedAtMs": 1788948218182,
+      "finishedAtMs": 1788948219581,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 193,
+        "primaryBacklogAtStartCount": 193,
+        "primaryCarryoverAtFinishCount": 193,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 142,
+      "window": 3,
+      "block": 12,
+      "position": 2,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 990.5703649999923,
+      "startedAt": "2026-09-09T10:03:39.605Z",
+      "finishedAt": "2026-09-09T10:03:40.596Z",
+      "startedAtMs": 1788948219605,
+      "finishedAtMs": 1788948220596,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 193,
+        "primaryBacklogAtStartCount": 193,
+        "primaryCarryoverAtFinishCount": 193,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 143,
+      "window": 3,
+      "block": 12,
+      "position": 3,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "baseline",
+      "latencyMs": 960.7509180000052,
+      "startedAt": "2026-09-09T10:03:40.602Z",
+      "finishedAt": "2026-09-09T10:03:41.563Z",
+      "startedAtMs": 1788948220602,
+      "finishedAtMs": 1788948221563,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 193,
+        "primaryBacklogAtStartCount": 193,
+        "primaryCarryoverAtFinishCount": 193,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    },
+    {
+      "sample": 144,
+      "window": 3,
+      "block": 12,
+      "position": 4,
+      "order": [
+        "enabled",
+        "baseline",
+        "baseline",
+        "enabled"
+      ],
+      "mode": "enabled",
+      "latencyMs": 687.8891010000079,
+      "startedAt": "2026-09-09T10:03:41.572Z",
+      "finishedAt": "2026-09-09T10:03:42.260Z",
+      "startedAtMs": 1788948221572,
+      "finishedAtMs": 1788948222260,
+      "backgroundOverlap": {
+        "primaryLifecycleOverlapCount": 193,
+        "primaryBacklogAtStartCount": 193,
+        "primaryCarryoverAtFinishCount": 193,
+        "primaryCapturedCount": 0,
+        "primarySentCount": 0,
+        "primaryAcknowledgedCount": 0,
+        "observationCapturedCount": 0,
+        "exportBatchCount": 0,
+        "exportBatchRecordCount": 0,
+        "exportAckCount": 0,
+        "acceptedAckCount": 0,
+        "exportCarryoverAtStartCount": 0,
+        "exportCarryoverAtFinishCount": 0
+      }
+    }
+  ],
+  "backgroundEvents": {
+    "exportBatches": [
+      {
+        "recordedAt": "2026-09-09T10:02:01.433Z",
+        "recordCount": 1,
+        "acknowledgedAt": "2026-09-09T10:02:01.457Z",
+        "ackDisposition": "accepted"
+      },
+      {
+        "recordedAt": "2026-09-09T10:02:31.460Z",
+        "recordCount": 1,
+        "acknowledgedAt": "2026-09-09T10:02:31.485Z",
+        "ackDisposition": "accepted"
+      },
+      {
+        "recordedAt": "2026-09-09T10:03:12.480Z",
+        "recordCount": 1,
+        "acknowledgedAt": "2026-09-09T10:03:12.509Z",
+        "ackDisposition": "accepted"
+      },
+      {
+        "recordedAt": "2026-09-09T10:03:32.476Z",
+        "recordCount": 1,
+        "acknowledgedAt": "2026-09-09T10:03:32.625Z",
+        "ackDisposition": "accepted"
+      }
+    ],
+    "outboxLifecycles": [
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.369Z",
+        "sentAt": "2026-09-09T10:02:01.448Z",
+        "acknowledgedAt": "2026-09-09T10:02:01.457Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.369Z",
+        "sentAt": "2026-09-09T10:02:31.479Z",
+        "acknowledgedAt": "2026-09-09T10:02:31.485Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.456Z",
+        "sentAt": "2026-09-09T10:03:12.496Z",
+        "acknowledgedAt": "2026-09-09T10:03:12.509Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.456Z",
+        "sentAt": "2026-09-09T10:03:32.608Z",
+        "acknowledgedAt": "2026-09-09T10:03:32.625Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.520Z",
+        "sentAt": "2026-09-09T10:03:42.491Z",
+        "acknowledgedAt": "2026-09-09T10:03:42.500Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.520Z",
+        "sentAt": "2026-09-09T10:03:43.487Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.499Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.564Z",
+        "sentAt": "2026-09-09T10:03:43.563Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.570Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.564Z",
+        "sentAt": "2026-09-09T10:03:43.563Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.570Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.633Z",
+        "sentAt": "2026-09-09T10:03:43.620Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.631Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:51.633Z",
+        "sentAt": "2026-09-09T10:03:43.620Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.631Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.698Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.732Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:01:57.444Z",
+        "sentAt": "2026-09-09T10:03:43.834Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.845Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:43.931Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:07.487Z",
+        "sentAt": "2026-09-09T10:03:43.992Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.018Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.105Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.122Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:17.458Z",
+        "sentAt": "2026-09-09T10:03:44.493Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.501Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.543Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.553Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:27.508Z",
+        "sentAt": "2026-09-09T10:03:44.611Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.644Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.687Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.697Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:37.461Z",
+        "sentAt": "2026-09-09T10:03:44.738Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.745Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.808Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.817Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:47.491Z",
+        "sentAt": "2026-09-09T10:03:44.853Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.861Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:44.912Z",
+        "acknowledgedAt": "2026-09-09T10:03:44.919Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:02:57.461Z",
+        "sentAt": "2026-09-09T10:03:45.490Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.498Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.554Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.562Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:07.463Z",
+        "sentAt": "2026-09-09T10:03:45.603Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.609Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.678Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.693Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:17.472Z",
+        "sentAt": "2026-09-09T10:03:45.734Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.742Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.797Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.808Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:27.471Z",
+        "sentAt": "2026-09-09T10:03:45.858Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.866Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:45.916Z",
+        "acknowledgedAt": "2026-09-09T10:03:45.925Z",
+        "sentByPhase13": true
+      },
+      {
+        "observationGeneration": 0,
+        "capturedAt": "2026-09-09T10:03:37.484Z",
+        "sentAt": "2026-09-09T10:03:46.485Z",
+        "acknowledgedAt": "2026-09-09T10:03:46.515Z",
+        "sentByPhase13": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+
+ RUN  v4.1.10 /home/zhouwen/web-download/skill-driven-agent-runtime
+
+ ❯ |unit| apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts (6 tests | 1 failed) 100ms
+     × accepts the explicitly selected upstream ten-tool profile and rejects drift 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |unit| apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts > UGV SMPP Provider materialization wrapper > accepts the explicitly selected upstream ten-tool profile and rejects drift
+UgvSmppProviderMaterializationError: Runtime Tool execution semantics mismatch for vehicle_area_recon.
+ ❯ materializeUgvSmppProvider apps/node-control-acceptance/src/ugv-smpp-provider-materialization-driver.ts:174:13
+    172|   } catch (error) {
+    173|     if (error instanceof SmppProviderMaterializationError)
+    174|       throw new UgvSmppProviderMaterializationError(error.code, error.…
+       |             ^
+    175|     throw error;
+    176|   }
+ ❯ apps/node-control-acceptance/test/ugv-smpp-provider-materialization-driver.unit.test.ts:121:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 20 passed (21)
+   Start at  15:03:23
+   Duration  5.17s (transform 3.56s, setup 0ms, import 4.69s, tests 1.81s, environment 0ms)
+

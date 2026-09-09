@@ -18,7 +18,6 @@ import type { ServerRuntimeOptions } from './runtime.js';
 import {
   UGV_AGENT_CAPABILITY_CATALOG,
   UGV_PUBLIC_SKILL_IDS,
-  UGV_RESOURCE_ID,
   isHistoricalUgvPointSkill,
   ugvCapabilityForSkill,
 } from './ugv-agent-profile-catalog.js';
@@ -72,7 +71,7 @@ function requiredDimensionsFor(
  */
 export const UGV_AGENT_PROFILE_OPERATION_POLICY = Object.freeze({
   profileId: UGV_AGENT_PROFILE_ID,
-  resourceId: UGV_RESOURCE_ID,
+  resourceAuthority: 'published_capability_and_current_provider_binding' as const,
   publicSkillAllowlist: UGV_PUBLIC_SKILL_IDS,
   reviewedCapabilities: UGV_AGENT_CAPABILITY_CATALOG,
   emergencyStopAuthority: 'explicit_human_instruction_or_physical_confirmation' as const,

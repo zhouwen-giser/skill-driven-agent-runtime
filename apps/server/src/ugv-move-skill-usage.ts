@@ -1,3 +1,4 @@
+import { requireUgvResourceId, ugvResourceIdFromBinding } from './ugv-move-input-adapter.js';
 import type {
   SkillTaskReadinessPort,
   TaskCapabilitySkillUsageAuthority,
@@ -97,8 +98,6 @@ export class UgvMoveSkillTaskReadinessAdapter implements SkillTaskReadinessPort 
   }
 }
 
-const UGV_RESOURCE_ID = 'vehicle:ugv1';
-const UGV_PROVIDER_ID = 'isr.vehicle.ugv.ugv1';
 const STATE_OPERATION = 'vehicle_get_state';
 const NAVIGATE_OPERATION = 'vehicle_navigate';
 export const UGV_SIMULATION_QUALIFICATION_MAX_ADMISSION_AGE_MS = 3_000;
@@ -117,6 +116,7 @@ export interface UgvSimulationTarget {
 }
 
 export interface UgvSimulationTargetPolicyInput {
+  readonly resourceId: string;
   readonly policyId: string;
   readonly revision: number;
 }
@@ -140,7 +140,7 @@ export function createUgvSimulationTargetPolicy(
     policyId: input.policyId,
     revision: input.revision,
     executionMode: 'simulation',
-    resourceId: UGV_RESOURCE_ID,
+    resourceId: requireUgvResourceId(input.resourceId),
     frame: 'WGS84',
     targetAuthority: 'task_capability_input_snapshot',
     targetDerivation: 'forbidden',
@@ -163,6 +163,7 @@ export function resolveUgvMoveSkillUsageContext(
   }>,
 ): SkillUsageSelectionContext {
   assertBinding(input.binding);
+  const resourceId = ugvResourceIdFromBinding(input.binding);
   const context = input.authority.context;
   const execution = context.runtimeExecutionContext;
   const arguments_ = context.taskAvailabilityArguments;
@@ -190,7 +191,7 @@ export function resolveUgvMoveSkillUsageContext(
     exactSkill['skillId'] !== 'embodied.move_to' ||
     exactSkill['skillVersion'] !== 1 ||
     exactSkill['taskType'] !== 'embodied.move' ||
-    bindingInput?.['resourceId'] !== UGV_RESOURCE_ID ||
+    bindingInput?.['resourceId'] !== resourceId ||
     !exactInputKeys(bindingInput, target) ||
     !validTarget(target) ||
     arguments_?.unresolved !== false ||
@@ -200,7 +201,7 @@ export function resolveUgvMoveSkillUsageContext(
     !exactExecutionAuthority(execution, executionPolicy) ||
     !exactSystemPolicy(context) ||
     resourcePolicy['selection'] !== 'exact_value' ||
-    !sameJson(resourcePolicy['allowedResourceIds'], [UGV_RESOURCE_ID]) ||
+    !sameJson(resourcePolicy['allowedResourceIds'], [resourceId]) ||
     resourcePolicy['downstreamResourceBinding'] !== 'forbidden' ||
     !BOUNDED_REFERENCE_ID.test(typeof serverId === 'string' ? serverId : '') ||
     !BOUNDED_REFERENCE_ID.test(typeof providerBindingId === 'string' ? providerBindingId : '') ||
@@ -212,7 +213,7 @@ export function resolveUgvMoveSkillUsageContext(
     confirmation['required'] !== true ||
     confirmation['stage'] !== 'before_execution' ||
     sideEffect['sideEffecting'] !== true ||
-    !exactTargetAuthority(execution, targetPolicies) ||
+    !exactTargetAuthority(execution, targetPolicies, resourceId) ||
     !exactCapabilityObservations(context, input.binding, providerBindingId as string)
   )
     invalid('The formal UGV Task Capability context is not exact.');
@@ -321,7 +322,7 @@ function exactlyOneConstraint(binding: TaskCapabilityBinding, type: string) {
   return match;
 }
 
-function exactTargetPolicy(value: Readonly<Record<string, unknown>>) {
+function exactTargetPolicy(value: Readonly<Record<string, unknown>>, resourceId: string) {
   const policyId = value['policyId'];
   const revision = value['revision'];
   if (
@@ -332,7 +333,7 @@ function exactTargetPolicy(value: Readonly<Record<string, unknown>>) {
     revision < 1
   )
     invalid('The frozen UGV simulation target policy identity is invalid.');
-  const expected = createUgvSimulationTargetPolicy({ policyId, revision });
+  const expected = createUgvSimulationTargetPolicy({ policyId, revision, resourceId });
   if (!sameJson(value, expected)) invalid('The frozen UGV simulation target policy is not exact.');
   return Object.freeze({ policyId, revision });
 }
@@ -358,11 +359,12 @@ function exactExecutionAuthority(
 function exactTargetAuthority(
   execution: TaskCapabilitySkillUsageAuthority['context']['runtimeExecutionContext'],
   policies: readonly Readonly<Record<string, unknown>>[],
+  resourceId: string,
 ): boolean {
   if (execution?.mode === 'live') return policies.length === 0;
   if (execution?.mode !== 'simulation' || policies.length !== 1 || policies[0] === undefined)
     return false;
-  exactTargetPolicy(policies[0]);
+  exactTargetPolicy(policies[0], resourceId);
   return true;
 }
 
@@ -377,6 +379,7 @@ export function validateUgvSimulationQualificationReceipt(
   simulationId: string,
   nowText: string,
   boundAtText: string,
+  authority: Readonly<{ resourceId: string; providerId: string }>,
 ) {
   const startedAt = timestamp(receipt.startedAt);
   const completedAt = timestamp(receipt.completedAt);
@@ -413,7 +416,10 @@ export function validateUgvSimulationQualificationReceipt(
         source: 'admin_override',
       },
     ].some((expected) => sameJson(receipt.executionSemantics, expected)) ||
-    !sameJson(receipt.arguments, ugvSimulationQualificationStateReadArguments()) ||
+    !sameJson(
+      receipt.arguments,
+      ugvSimulationQualificationStateReadArguments(authority.resourceId),
+    ) ||
     receipt.status !== 'succeeded' ||
     receipt.errorCode !== undefined ||
     receipt.errorMessage !== undefined ||
@@ -453,8 +459,8 @@ export function validateUgvSimulationQualificationReceipt(
     !Array.isArray(result?.['content']) ||
     result['isError'] !== false ||
     state === undefined ||
-    identity?.['providerId'] !== UGV_PROVIDER_ID ||
-    identity['resourceId'] !== UGV_RESOURCE_ID ||
+    identity?.['providerId'] !== authority.providerId ||
+    identity['resourceId'] !== authority.resourceId ||
     identity['vehicleType'] !== 'ugv' ||
     identity['executionMode'] !== 'simulation' ||
     connectivity?.['mqttConnected'] !== true ||
@@ -635,9 +641,11 @@ function parsePermissionEvidence(evidenceRef: string | undefined): boolean {
 }
 
 /** The qualification entry point cannot accept caller-selected Tool arguments. */
-export function ugvSimulationQualificationStateReadArguments(): Readonly<Record<string, unknown>> {
+export function ugvSimulationQualificationStateReadArguments(
+  resourceId: string,
+): Readonly<Record<string, unknown>> {
   return Object.freeze({
-    resourceId: UGV_RESOURCE_ID,
+    resourceId: requireUgvResourceId(resourceId),
     include: Object.freeze(['chassis', 'health']),
   });
 }

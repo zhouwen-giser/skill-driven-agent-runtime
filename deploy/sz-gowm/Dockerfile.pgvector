@@ -1,0 +1,19 @@
+# Build against the exact PostgreSQL image already deployed on sz-gowm.
+ARG GOWM_POSTGRES_IMAGE
+FROM ${GOWM_POSTGRES_IMAGE} AS build
+USER root
+ADD https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.5.tar.gz /tmp/pgvector.tar.gz
+RUN echo '6f88a5cbdde31666f4b6c1a6b75c51dcbeffe58f9a7d2b26e502d5a6e5e14d44  /tmp/pgvector.tar.gz' | sha256sum -c - \
+ && apt-get update && apt-get install -y --no-install-recommends build-essential postgresql-server-dev-18 \
+ && tar -xzf /tmp/pgvector.tar.gz -C /tmp \
+ && make -C /tmp/pgvector-0.8.5 OPTFLAGS='' with_llvm=no \
+ && make -C /tmp/pgvector-0.8.5 install with_llvm=no \
+ && mkdir -p /usr/share/doc/pgvector \
+ && cp /tmp/pgvector-0.8.5/LICENSE /usr/share/doc/pgvector/LICENSE \
+ && rm -rf /tmp/pgvector* /var/lib/apt/lists/*
+
+# Preserve the deployed PostgreSQL and OS; copy only the extension and its license.
+FROM ${GOWM_POSTGRES_IMAGE}
+COPY --from=build /usr/lib/postgresql/18/lib/vector.so /usr/lib/postgresql/18/lib/vector.so
+COPY --from=build /usr/share/postgresql/18/extension/vector* /usr/share/postgresql/18/extension/
+COPY --from=build /usr/share/doc/pgvector/LICENSE /usr/share/doc/pgvector/LICENSE

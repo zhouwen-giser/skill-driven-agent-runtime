@@ -1,0 +1,3 @@
+{"waitPolicy":{"status":500,"data":{"error":{"code":"MANAGEMENT_INTERNAL_ERROR","message":"Management operation failed."}}},"memoryPolicy":{"status":500,"data":{"error":{"code":"MANAGEMENT_INTERNAL_ERROR","message":"Management operation failed."}}},"evolutionPolicy":{"status":500,"data":{"error":{"code":"MANAGEMENT_INTERNAL_ERROR","message":"Management operation failed."}}}}
+{"registration":"created","serverId":"smpp-sz-gowm","toolCount":10}
+{"serverId":"smpp-sz-gowm","status":200,"toolCount":10,"tools":["vehicle_area_recon","vehicle_control_gimbal","vehicle_emergency_stop","vehicle_fire_weapon","vehicle_get_capabilities","vehicle_get_payload_status","vehicle_get_state","vehicle_get_targets","vehicle_navigate","vehicle_track_target"]}

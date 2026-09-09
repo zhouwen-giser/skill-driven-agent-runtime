@@ -1,0 +1,18 @@
+import fs from 'node:fs/promises';
+import { verifyPublishedInventory } from '/home/zhouwen/web-download/skill-driven-agent-runtime/deploy/development/bootstrap-verification.mjs';
+const root='/home/zhouwen/web-download/skill-driven-agent-runtime';
+const manifest=JSON.parse(await fs.readFile(root+'/deploy/development/capability-manifest.json','utf8'));
+async function get(port,path){const r=await fetch('http://17.26.1.20:'+port+path,{signal:AbortSignal.timeout(30000)});if(!r.ok)throw Error('SITE_READ_'+r.status);return r.json()}
+const [skills,capabilities,exposures,card,revisions]=await Promise.all([get(10998,'/api/v1/skills'),get(10091,'/api/v1/node-capabilities?pageSize=200'),get(10091,'/api/v1/a2a-exposures?pageSize=200'),get(10999,'/.well-known/agent-card.json'),get(10091,'/api/v1/a2a-agent-card-revisions?pageSize=200')]);
+const inventory={skills:skills.items,capabilities:capabilities.items,exposures:exposures.items,card};
+const supported=verifyPublishedInventory({...manifest,skills:manifest.skills.filter(x=>x.skillId!=='embodied.area_patrol')},inventory);
+if(supported.blocked.length)throw Error('SUPPORTED_PUBLIC_INVENTORY_MISMATCH');
+const full=verifyPublishedInventory(manifest,inventory);
+const expectedReasons=['SKILL_NOT_ENABLED','CAPABILITY_NOT_PUBLISHED'];
+if(full.blocked.length!==2 || full.blocked.some(x=>!expectedReasons.includes(x.reasonCode)||(x.skillId??x.capabilityId)!=='embodied.area_patrol'))throw Error('UNEXPECTED_DEPENDENCY_BLOCK');
+const active=revisions.items.filter(x=>x.status==='active');if(active.length!==1)throw Error('CARD_ACTIVE_IDENTITY_AMBIGUOUS');
+const select=(item,keys)=>Object.fromEntries(keys.filter(k=>item[k]!==undefined).map(k=>[k,item[k]]));
+const report={status:'SUPPORTED_INVENTORY_VERIFIED_WITH_DEPENDENCY_BLOCK',observedAt:new Date().toISOString(),deviceCalls:0,fullManifestAccepted:false,blocked:[{skillId:'embodied.area_patrol',dependency:'embodied.inspect_area',owner:'future GOWM',reasonCode:'BUILTIN_CAPABILITY_DEPENDENCY_MISSING'}],supported,
+ skills:skills.items.map(x=>select(x,['skillId','version','status','validationPassed'])),capabilities:capabilities.items.map(x=>select(x,['capabilityId','version','previousVersion','status','definitionHash'])),exposures:exposures.items.map(x=>select(x,['exposureId','version','capabilityId','capabilityVersion','agentSkillId','status','visibility','exposureHash'])),activeCard:select(active[0],['revision','nodeId','contentHash','capabilityCatalogHash','exposureRefs','status','activatedAt'])};
+await fs.writeFile(root+'/reports/default-capabilities-20260909/site-inventory.json',JSON.stringify(report,null,2)+'\n');
+console.log(JSON.stringify({status:report.status,skillCount:report.skills.length,publicCapabilityCount:supported.publicCapabilityIds.length,cardRevision:report.activeCard.revision,blocked:report.blocked,deviceCalls:0}));

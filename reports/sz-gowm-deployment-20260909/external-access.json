@@ -1,0 +1,14 @@
+[
+  {
+    "url": "http://17.26.1.20:10998/console/",
+    "status": 200
+  },
+  {
+    "url": "http://17.26.1.20:10999/.well-known/agent-card.json",
+    "status": 200
+  },
+  {
+    "url": "http://17.26.1.20:10091/health/ready",
+    "status": 200
+  }
+]

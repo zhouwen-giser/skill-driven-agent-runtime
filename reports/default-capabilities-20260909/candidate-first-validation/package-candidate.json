@@ -1,0 +1,10 @@
+{
+  "archive": "/home/zhouwen/web-download/skill-driven-agent-runtime/artifacts/united/sdar-united-861338a72837f45cf71a/sdar-united-861338a72837f45cf71a.tar.gz",
+  "sha256": "fc4d110aa6b729a60512d8caa9ac07fa8296fc8578eace873c65110ddf44fe23",
+  "status": "PACKAGE_VERIFIED",
+  "upstreamSha256": "071abb75bf8d231b4d794e5681611ab0f00e26076a73efb3ebe82beccc3ba0d5",
+  "sourceHash": "0bd28a3029fb63a57f6b8060148ff407c057e8d48c67e6664a92ce189163c08d",
+  "sourceFiles": 2776,
+  "serverChanged": false,
+  "directory": "/home/zhouwen/web-download/skill-driven-agent-runtime/artifacts/united/sdar-united-861338a72837f45cf71a"
+}

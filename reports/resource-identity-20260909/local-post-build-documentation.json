@@ -1,0 +1,11 @@
+{
+  "sourceHash": "81e64ef90f96e97424c6f7ddf711dd5e9db1907fe20a16b74b00ba6b693d0446",
+  "postBuildChanges": [
+    "CHANGELOG.md",
+    "PROJECT_STATUS.md",
+    "docs/17_TRACEABILITY_MATRIX.md",
+    "execplans/EP-UGV-RESOURCE-IDENTITY.md"
+  ],
+  "runtimeAndDeploymentSourcesUnchanged": true,
+  "reason": "deployment results recorded after immutable package/image build"
+}

@@ -482,7 +482,8 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       first.skills.map(({ packageChecksum }) => packageChecksum),
     );
     expect(api.uniqueMutationCount).toBe(uniqueAfterFirst);
-    expect(api.mutationCallCount).toBe(callsAfterFirst + 12);
+    // Readiness is evaluated again for point navigation as well as the eleven generic capabilities.
+    expect(api.mutationCallCount).toBe(callsAfterFirst + 13);
     const callsBeforeDrift = api.mutationCallCount;
     api.replaceOutputSchema('vehicle_get_state', {
       type: 'object',
@@ -526,7 +527,7 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       replay.capabilities.find(({ capabilityId }) => capabilityId === 'vehicle.ugv.read-state')
         ?.capabilityVersion,
     ).toBe(2);
-    expect(api.mutationCallCount).toBe(callsAfterUpgrade + 12);
+    expect(api.mutationCallCount).toBe(callsAfterUpgrade + 13);
   });
 
   it('requires explicit configuration for multi-resource schemas instead of choosing the first enum', async () => {
@@ -550,6 +551,9 @@ describe('UGV SMPP Capability and Skill governance driver', () => {
       { ...configuration(explicitRoot), resourceId: 'vehicle:ugv2' },
       { fetch: explicit.fetch, now: () => NOW },
     );
+    expect(explicit.implementation('embodied.move')).toMatchObject({
+      providerPolicyOverride: { allowedResourceIds: ['vehicle:ugv2'] },
+    });
     expect(report.resourcePolicy).toEqual(
       expect.objectContaining({
         resourceId: 'vehicle:ugv2',

@@ -1,0 +1,2 @@
+{"status":"PASS","context":{"deviceId":"ugv:ugv","dataScopeKey":"default","bindingId":"0012817d-b50c-4777-a37a-f020a3343fab","sdarServiceKey":"sdar-sz-gowm","smppServiceKey":"smpp.sz-gowm.ugv","providerId":"isr.vehicle.ugv.ugv","resourceId":"vehicle:ugv","sdarMcpServerId":"smpp-sz-gowm"}}
+{"refresh":200,"toolCount":10,"deviceCalls":0}

@@ -16,6 +16,32 @@ const REGISTRY_ENDPOINT =
   'http://192.168.1.7:18088/api/v1/registry/production/consumers/sdar/v1/sources/ugv-smpp/latest';
 
 describe('UGV SMPP Source bootstrap driver', () => {
+  it('accepts forward freshness renewal between list and direct reads without accepting identity drift', async () => {
+    for (const drift of [false, true]) {
+      const api = new FakeNodeControl({ existing: true });
+      let firstDirect = true;
+      const request: typeof fetch = async (url, init) => {
+        if (
+          (url instanceof Request ? url.url : url.toString()).endsWith('/smpp-sources/ugv-smpp') &&
+          firstDirect
+        ) {
+          firstDirect = false;
+          api.source = {
+            ...api.source,
+            activeSnapshotValidUntil: CONDITIONAL_VALID_UNTIL,
+            ...(drift ? { revision: 2 } : {}),
+          };
+        }
+        return api.fetch(url, init);
+      };
+      const pending = bootstrapUgvSmppSource(configuration(), { fetch: request, now: () => NOW });
+      if (drift)
+        await expect(pending).rejects.toMatchObject({ code: 'SOURCE_AUTHORITY_INCONSISTENT' });
+      else
+        await expect(pending).resolves.toMatchObject({ status: 'passed', sourceAction: 'reused' });
+    }
+  });
+
   it('creates and synchronizes an explicit unauthenticated Source, then proves conditional 304', async () => {
     const api = new FakeNodeControl();
 

@@ -1,0 +1,22 @@
+[
+  {
+    "command": "pnpm test:unit",
+    "exitCode": 0
+  },
+  {
+    "command": "pnpm test:integration",
+    "exitCode": 1
+  },
+  {
+    "command": "pnpm test:contract",
+    "exitCode": 1
+  },
+  {
+    "command": "pnpm test:e2e",
+    "exitCode": 1
+  },
+  {
+    "command": "pnpm smoke:server",
+    "exitCode": 1
+  }
+]
